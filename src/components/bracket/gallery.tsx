@@ -19,9 +19,10 @@
 // per round + region (d-lb-<week>-<region> for leaderboard games), fetched
 // when its cards come on screen.
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
+import { inActionToday } from './inAction';
 import { TOURNAMENT_2027, tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { ScoringRulesPanel } from './BracketRules';
 
@@ -923,6 +924,32 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs, gran
   grand?: ReactNode[]; // a Team total row under the subtotal (the last table)
 }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
+  // In a stat drawer every name stays whole on one line: one wider than its
+  // column is drawn tighter - letter spacing first, then a smaller font.
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  useLayoutEffect(() => {
+    const table = tableRef.current;
+    if (!table?.closest('.yfp-drawer')) return;
+    const fitNames = () => {
+      for (const a of table.querySelectorAll<HTMLElement>('tbody td.nm .bl-plink')) {
+        a.style.letterSpacing = ''; a.style.fontSize = '';
+        const td = a.parentElement!;
+        const cs = getComputedStyle(td);
+        const logo = td.querySelector<HTMLElement>('.bl-tlogo');
+        const room = td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+          - (logo ? logo.offsetWidth + parseFloat(getComputedStyle(logo).marginRight) : 0) - 1;
+        if (a.scrollWidth <= room) continue;
+        a.style.letterSpacing = '-0.03em';
+        if (a.scrollWidth <= room) continue;
+        const size = parseFloat(getComputedStyle(a).fontSize);
+        a.style.fontSize = `${Math.max(6, Math.floor(size * room / a.scrollWidth * 10) / 10)}px`;
+      }
+    };
+    fitNames();
+    const ro = new ResizeObserver(fitNames);
+    ro.observe(table);
+    return () => ro.disconnect();
+  }, [rows, sort, labels]);
   const sorted = useMemo(() => {
     if (!sort) return rows;
     const col = cols.find((c) => c.key === sort.key);
@@ -945,15 +972,15 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs, gran
   return (
     <div className={`bl-stat-block ${blockClass}`}>
       <div className="bl-scroll">
-      <table className="bl-box">
+      <table className="bl-box" ref={tableRef}>
         <colgroup>
           <col style={{ width: 136 }} />
-          {cols.map((c) => <col key={c.key} style={{ width: c.cls === 'plus' ? 58 : c.cls === 'wl' ? 56 : 44 }} />)}
+          {cols.map((c) => <col key={c.key} className={c.cls} style={{ width: c.cls === 'plus' ? 58 : c.cls === 'wl' ? 56 : 44 }} />)}
         </colgroup>
         <thead>
           <tr>
             <th className="nm"><button type="button" className="bl-sort" onClick={click('name')}>{title}{arrow('name')}</button></th>
-            {cols.map((c) => <th key={c.key} className={c.cls}><button type="button" className="bl-sort" onClick={click(c.key)}>{c.label}{arrow(c.key)}</button></th>)}
+            {cols.map((c) => <th key={c.key} className={c.cls}><button type="button" className="bl-sort" onClick={click(c.key)}>{c.label}{arrow(c.key) ? <span className="bl-arrow">{arrow(c.key)}</span> : null}</button></th>)}
           </tr>
         </thead>
         <tbody>
@@ -1189,6 +1216,26 @@ export function correctedRosterGame(
   return { innings: corrected, score, homeWl, awayWl, homePlayers, awayPlayers };
 }
 
+// The strip under a drawer's scoreboards, like a Wrigley side panel: the
+// school's alumni in action today and when their games start.
+function InActionStrip({ hsid }: { hsid: number }) {
+  const x = inActionToday(hsid);
+  const at = (ms?: number) => (ms ? new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '');
+  let parts: ReactNode[];
+  if (!x || !x.players) parts = ['No alumni in action today'];
+  else {
+    const who = <><b>{x.players}</b> {x.players === 1 ? 'alumnus' : 'alumni'} {x.done === x.games ? 'played today' : 'in action'}</>;
+    if (x.games && x.done === x.games) parts = [who, 'All games final'];
+    else if (x.next) parts = [who, <>{x.started ? 'Next first pitch' : 'First pitch'} <b>{at(x.next)}</b></>, <>Last game <b>{at(x.last)}</b></>];
+    else parts = [who, 'All games under way'];
+  }
+  return (
+    <div className="bl-inaction" aria-label="In action today">
+      {parts.map((p, i) => <span key={i}>{i ? <i aria-hidden="true">·</i> : null}{p}</span>)}
+    </div>
+  );
+}
+
 export function Face({ side, label, week, dates, home, away, names, locations = ['', ''], score, innings, winner, decidedBy, box, loading, onFlip, flipTo, homeRoster, awayRoster, drawerMode = false, played = true, onSwitchSide, openDay = 'week' }: {
   side: 'h' | 'a'; label: string; week: number; dates: string; home: number; away: number; names: [string, string]; locations?: [string, string];
   score: [number, number]; innings: number[]; winner: number | null; decidedBy: string; box?: GameBox; loading: boolean; onFlip?: () => void;
@@ -1235,6 +1282,16 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     ro.observe(el);
     return () => ro.disconnect();
   }, [drawerMode]);
+  // ... and the stat header rows (then SCORING) pin right under the day tabs.
+  // (The tabs mount after the rosters load, so this follows the element.)
+  const [tabsEl, setTabsEl] = useState<HTMLDivElement | null>(null);
+  const [tabsH, setTabsH] = useState(0);
+  useEffect(() => {
+    if (!drawerMode || !tabsEl || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setTabsH(tabsEl.offsetHeight));
+    ro.observe(tabsEl);
+    return () => ro.disconnect();
+  }, [drawerMode, tabsEl]);
   const [favs, setFavs] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     if (!drawerMode) return;
@@ -1279,9 +1336,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'ops+', label: 'OPS+', cls: 'plus', val: (p) => p[6] ?? null, show: (p) => p[6] ?? '—' },
     { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
     ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF'].map((label, i): SortCol => ({ key: label, label, val: (p) => bat(p)[i + 1], show: (p) => bat(p)[i + 1] })),
-    { key: 'obp', label: 'OBP', val: (p) => obp(bat(p)), show: (p) => rate(obp(bat(p))) },
-    { key: 'slg', label: 'SLG', val: (p) => slg(bat(p)), show: (p) => rate(slg(bat(p))) },
-    { key: 'ops', label: 'OPS', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
+    { key: 'obp', label: 'OBP', cls: 'rate', val: (p) => obp(bat(p)), show: (p) => rate(obp(bat(p))) },
+    { key: 'slg', label: 'SLG', cls: 'rate', val: (p) => slg(bat(p)), show: (p) => rate(slg(bat(p))) },
+    { key: 'ops', label: 'OPS', cls: 'rate', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
   ];
   const pit = (p: PlayerRow) => p[5] as number[];
   const whip = (p: PlayerRow) => {
@@ -1304,9 +1361,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'bb', label: 'BB', val: (p) => pit(p)[2] || 0, show: (p) => pit(p)[2] || 0 },
     { key: 'hbp', label: 'HBP', val: (p) => pit(p)[3] || 0, show: (p) => pit(p)[3] || 0 },
     { key: 'k', label: 'K', val: (p) => pit(p)[4] || 0, show: (p) => pit(p)[4] || 0 },
-    { key: 'whip', label: 'WHIP', val: whip, show: (p) => rate(whip(p)) },
-    { key: 'kbb', label: 'K/BB', val: kbb, show: (p) => kbb(p).toFixed(2) },
-    { key: 'fip', label: 'FIP', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
+    { key: 'whip', label: 'WHIP', cls: 'rate', val: whip, show: (p) => rate(whip(p)) },
+    { key: 'kbb', label: 'K/BB', cls: 'rate', val: kbb, show: (p) => kbb(p).toFixed(2) },
+    { key: 'fip', label: 'FIP', cls: 'rate', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
   ];
   const wlText = (x: [number, number]) => `${x[0]}-${x[1]}`;
   const teamWl = wlText(wl);
@@ -1387,8 +1444,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     <div className={`bl-f${onFlip ? '' : ' still'}`} role={onFlip ? 'button' : undefined} tabIndex={onFlip ? 0 : undefined}
       aria-label={onFlip ? `${myName} box score · tap to flip to ${flipTo || names[them]}` : undefined} onClick={onFlip}
       onKeyDown={onFlip ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(); } } : undefined}
-      style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px` } as React.CSSProperties) : undefined}>
+      style={drawerMode ? ({ '--bl-boards-h': `${boardsH}px`, '--bl-tabs-h': `${tabsH}px` } as React.CSSProperties) : undefined}>
       {drawerMode ? (
+        <>
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
             {teamBoard(me)}
             {teamBoard(me === 0 ? 1 : 0)}
@@ -1412,6 +1470,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               </div>
             ) : null}
           </div>
+          {/* Not pinned: it scrolls away with the players under it. */}
+          <InActionStrip hsid={side === 'h' ? home : away} />
+        </>
       ) : (
         <>
           <div className="bl-top">
@@ -1465,10 +1526,13 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <>
           {drawerMode ? (
             // Each day's tab sits under its inning on the scoreboards above
-            // (Monday = inning 1 ... Sunday = 7); the week spans 8, 9 and the total.
-            <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history">
+            // (Monday = inning 1 ... Sunday = 7); Weekly Totals spans 8, 9 and the total.
+            <div className="bl-history-tabs bl-inning-tabs" role="tablist" aria-label="Player stat history" ref={setTabsEl}>
+              {/* Under the school-name column: yellow while a day is open,
+                  white on Weekly Totals. */}
+              <span className={`bl-tabs-label${statDay === 'week' ? '' : ' on'}`} style={{ gridColumn: 1 }}>Daily Stats</span>
               {[
-                [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Week']
+                [0,'M'],[1,'Tu'],[2,'W'],[3,'Th'],[4,'F'],[5,'Sa'],[6,'Su'],['week','Weekly Totals']
               ].map(([key,label]) => (
                 <button key={String(key)} type="button" role="tab" style={{ gridColumn: key === 'week' ? '9 / 12' : Number(key) + 2 }}
                   className={statDay===key ? 'on' : ''}
@@ -1779,16 +1843,72 @@ export function Styles() {
       .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9.5px; letter-spacing:0; }
       .bl.bl-embed.yfp-drawer .bl-box .nm { width:auto; min-width:74px; max-width:118px; padding-left:6px; padding-right:8px; overflow:hidden; text-overflow:ellipsis;
         position:sticky; left:0; z-index:1; background:var(--bg,#0c0c0c); }
-      .bl.bl-embed.yfp-drawer .bl-stat-block.offense .bl-box thead th.nm { background:#6c5317; }
-      .bl.bl-embed.yfp-drawer .bl-stat-block.defense .bl-box thead th.nm { background:#174c35; }
+      /* The drawers' stat header rows: the Wrigley board's light green with
+         yellow labels, rounded like every header row, pinned under the day
+         tabs as the drawer scrolls - Batting until the Pitching row meets
+         it, Pitching until SCORING does (each sticks within its own table). */
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th,
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th.nm { background:#2e8b5f; color:#ffd34f; border-bottom-color:#2e8b5f;
+        position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:first-child { border-radius:5px 0 0 5px; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:last-child { border-radius:0 5px 5px 0; }
+      .bl.bl-embed.yfp-drawer .bl-scroll { overflow:visible; }
+      .bl.bl-embed.yfp-drawer .bl-stat-block { padding-left:8px; }
+      .bl.bl-embed.yfp-drawer .bl-scoring-title { position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3;
+        margin:0 0 7px; padding:5px 8px 4px; border-radius:5px; background:#2e8b5f; color:#ffd34f; }
+      .bl.bl-embed.yfp-drawer .bl-history-tabs button.on { color:#ffd34f; }
+      .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label { align-self:end; padding:0 0 5px 2px; color:#fff; white-space:nowrap;
+        font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+      .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label.on { color:#ffd34f; }
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label { color:#121212; }
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs .bl-tabs-label.on { color:#1f6b45; }
+      /* BATTERS / PITCHERS in caps, in the header rows and their totals. */
+      .bl.bl-embed.yfp-drawer .bl-box thead th .bl-sort,
+      .bl.bl-embed.yfp-drawer .bl-box tr.tot td.nm { text-transform:uppercase; }
+      body.light-theme .bl.bl-embed.yfp-drawer .bl-history-tabs button.on { color:#1f6b45; }
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:4px; padding-right:4px; }
       .bl.bl-embed.yfp-drawer .bl-box th:last-child,
       .bl.bl-embed.yfp-drawer .bl-box td:last-child { padding-right:8px; }
+      /* The drawer's tables fit with no inner scrollbar: the name, then 13
+         stat columns of one width, each label centered over its numbers.
+         The header row is the gold line's type ("HAMILTON | CHANDLER, AZ"). */
+      .bl.bl-embed.yfp-drawer .bl-box { width:100%; table-layout:fixed; }
+      /* Every counting stat (AB ... SF, IP ... K) is one width, every rate
+         (.000) another; OPS+/FIP- and W-L a little wider; the name the rest. */
+      .bl.bl-embed.yfp-drawer .bl-box col { width:17px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.rate { width:28px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col.plus,
+      .bl.bl-embed.yfp-drawer .bl-box col.wl { width:25px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:auto !important; }
+      .bl.bl-embed.yfp-drawer .bl-box th,
+      .bl.bl-embed.yfp-drawer .bl-box td,
+      .bl.bl-embed.yfp-drawer .bl-box th:last-child,
+      .bl.bl-embed.yfp-drawer .bl-box td:last-child,
+      .bl.bl-embed.yfp-drawer .bl-box .plus,
+      .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:0; padding-right:0; text-align:center; }
+      .bl.bl-embed.yfp-drawer .bl-box .nm { max-width:none; padding-left:2px; padding-right:3px; text-align:left; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th .bl-sort { font-size:10px; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th.nm .bl-sort { padding-left:4px; font-size:11px; }
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-tlogo { margin-right:3px; }
+      .bl.bl-embed.yfp-drawer img.bl-tlogo { background:transparent; }
+      /* In action today (InActionStrip): a dark-green panel under the boards. */
+      .bl.bl-embed.yfp-drawer .bl-inaction { display:flex; flex-wrap:wrap; justify-content:center; gap:2px 6px; margin:6px 8px 0; padding:6px 10px 5px; border-radius:5px;
+        background:#174c35; color:#fff; font:700 11px/1.15 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+      .bl.bl-embed.yfp-drawer .bl-inaction b { color:#ffd34f; font-weight:700; }
+      .bl.bl-embed.yfp-drawer .bl-inaction i { margin-right:6px; font-style:normal; opacity:.5; }
+      /* A player's name is never cut off and never wraps: one too long for
+         its column is drawn a little tighter (fitNames in SortTable). */
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm { text-overflow:clip; }
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-plink { display:inline-block; white-space:nowrap; vertical-align:middle; }
+      .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-tlogo { vertical-align:middle; }
+      .bl.bl-embed.yfp-drawer .bl-box thead th { font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+      .bl.bl-embed.yfp-drawer .bl-box .bl-sort { width:100%; text-align:inherit; }
+      .bl.bl-embed.yfp-drawer .bl-box .bl-arrow { position:absolute; top:1px; right:0; font-size:6px; }
       .bl.bl-embed.yfp-drawer .bl-sort { width:auto; overflow:visible; }
 
       .bl-metric-scoreboards { margin:6px 8px 4px; display:grid; gap:4px; }
-      .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:#173b2c; box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
+      .bl-metric-board { width:100%; box-sizing:border-box; margin:0; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:7px; background:linear-gradient(180deg,#1f6546,#174c35); box-shadow:inset 0 1px 8px rgba(0,0,0,.28); overflow:hidden; }
       /* One board per school: a single grid - the name cell spans the OPS+
          and FIP- rows; columns match the day tabs below (name, 1-9, label). */
       .bl-team-board { display:grid; grid-template-columns:minmax(68px,1.25fr) repeat(10,minmax(0,1fr)); gap:2px; align-items:stretch; }
@@ -1807,9 +1927,9 @@ export function Styles() {
       body.light-theme table.bl-box tr.fav td { color:#000; }
       @media (max-width:600px) {
         .bl.bl-embed.yfp-drawer .bl-box { font-size:10.5px; }
-        .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:9px; }
+        .bl.bl-embed.yfp-drawer .bl-box thead th { font-size:11px; }
         .bl.bl-embed.yfp-drawer .bl-box th,
-        .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 3px; }
+        .bl.bl-embed.yfp-drawer .bl-box td { padding:4px 0; }
         .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-tb-head { font-size:6.8px; }

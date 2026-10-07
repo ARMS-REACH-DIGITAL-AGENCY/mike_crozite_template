@@ -31,6 +31,7 @@ import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } fro
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
 import FantasyGameSocial from './FantasyGameSocial';
+import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { Roboto_Condensed } from 'next/font/google';
 
 // The scoreboard type (the game cards), condensed like the MLB and ESPN apps.
@@ -140,10 +141,11 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
             <span className="run">R</span>
-            <span className="stats">STATS</span>
+            <span className="stats">DAILY<br />STATS</span>
           </div>
           {tbdRow('a')}
           {tbdRow('h')}
+          <BoardCrest id={me} side="r" />
         </div>
       </>
     );
@@ -203,10 +205,12 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
           <span className="run">R</span>
-          <span className="stats">STATS</span>
+          <span className="stats">DAILY<br />STATS</span>
         </div>
         {row('a')}
         {row('h')}
+        <BoardCrest id={g[3]} side="l" />
+        <BoardCrest id={g[2]} side="r" />
       </div>
     </>
   );
@@ -232,6 +236,16 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       ) : scoreboard}
     </article>
   );
+}
+
+// A school's crest beside the main scoreboard, screened back (visitors left,
+// home right). Only on a card wide enough to have room for it; a school
+// without a crest image shows nothing.
+function BoardCrest({ id, side }: { id: number; side: 'l' | 'r' }) {
+  const [gone, setGone] = useState(false);
+  if (!id || gone) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className={`yfp-board-crest ${side}`} src={getSchoolCrestUrl(id)} alt="" aria-hidden="true" onError={() => setGone(true)} />;
 }
 
 // Where a drawer opens: on desktop only over row 5 (the timeline and the
@@ -261,13 +275,50 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
     window.addEventListener('scroll', place, { passive: true });
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place); };
   }, []);
+  // Docked: drop each drawer's day tabs (M ... Weekly Totals) onto the line
+  // of the Season Runs Leaderboard's region tabs (1-8, A-Z) beside them. The drawer
+  // starts where the game card starts, so the drop is the leaderboard tabs'
+  // depth below the card less the day tabs' own depth in the drawer.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const docked = Boolean(box && !box.mobile);
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!docked || !wrap) return;
+    let raf = 0;
+    const align = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const card = document.querySelector('.yfz-cards .yfp-card');
+        const lb = document.querySelector('.yfz-panel .yfp-lb-regions button');
+        const cards = document.querySelector('.yfz-cards');
+        let drop = 0;
+        for (const drawer of wrap.querySelectorAll<HTMLElement>('.yfp-drawer')) {
+          const tabs = drawer.querySelector<HTMLElement>('.bl-inning-tabs button');
+          // Measure only at rest (nothing scrolled), where the line is defined.
+          if (!card || !lb || !tabs || drawer.scrollTop || cards?.scrollTop) return;
+          const cur = parseFloat(getComputedStyle(wrap).getPropertyValue('--yfp-tabs-drop')) || 0;
+          // Tab centers on one line (the two rows of tabs differ by a pixel or two).
+          const mid = (r: DOMRect) => r.top + r.height / 2;
+          const want = (mid(lb.getBoundingClientRect()) - card.getBoundingClientRect().top)
+            - (mid(tabs.getBoundingClientRect()) - drawer.getBoundingClientRect().top - cur);
+          drop = Math.max(drop, Math.round(want));
+        }
+        wrap.style.setProperty('--yfp-tabs-drop', `${Math.max(0, drop)}px`);
+      });
+    };
+    align();
+    const mo = new MutationObserver(align);
+    mo.observe(wrap, { childList: true, subtree: true });
+    window.addEventListener('resize', align);
+    return () => { cancelAnimationFrame(raf); mo.disconnect(); window.removeEventListener('resize', align); };
+  }, [docked]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return createPortal(
-    <div className={`yfp-drawer-wrap${box && !box.mobile ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box && !box.mobile ? undefined : onClose}>
+    <div ref={wrapRef} className={`yfp-drawer-wrap${box && !box.mobile ? ' row5' : ''}${dual ? ' dual' : ''}`} style={box ? { top: box.top } : undefined} role="presentation" onClick={box && !box.mobile ? undefined : onClose}>
       {children}
     </div>,
     document.body,
@@ -435,11 +486,28 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const longest = Math.max(...[...probe.querySelectorAll<HTMLElement>('a')].map(textW));
       probe.remove();
       const cs = getComputedStyle(li);
-      const cols = cs.gridTemplateColumns.split(' ');
-      // Room as laid out in a region list (24px rank column), so A-Z, whose
-      // wider label column takes its 20px back from the names, lines up too.
-      const room = li.clientWidth - 24 - parseFloat(cols[2]) - 2 * parseFloat(cs.columnGap || '0');
-      list.style.setProperty('--lb-name-w', `${Math.ceil(Math.min(longest + 2, room))}px`);
+      const gap = parseFloat(cs.columnGap || '0');
+      const lcs = getComputedStyle(list);
+      // The rank (A-Z: region-seed) column fits its header label too.
+      const rkHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rk');
+      const rankW = Math.ceil(Math.max(view === 'az' ? 44 : 24, rkHead ? textW(rkHead) + 8 : 0));
+      list.style.setProperty('--lb-rank-w', `${rankW}px`);
+      // ... and the runs column fits TOTAL RUNS.
+      const rfHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rf');
+      const runsW = Math.ceil(Math.max(22, rfHead ? textW(rfHead) + 8 : 0));
+      list.style.setProperty('--lb-runs-w', `${runsW}px`);
+      // The name column is the longest name in every region, so the runs sit
+      // in the same place in each.
+      const avail = list.clientWidth - parseFloat(lcs.paddingLeft) - parseFloat(lcs.paddingRight);
+      const nameW = Math.ceil(Math.min(longest + 2, avail - rankW - runsW - 2 * gap));
+      list.style.setProperty('--lb-name-w', `${nameW}px`);
+      // A school and its runs are one group: the list takes as many columns
+      // of those groups as fit (one when two won't), up to 3, each with its
+      // own header.
+      const colW = rankW + nameW + runsW + 2 * gap;
+      const cols = window.matchMedia('(max-width: 599px)').matches ? 1 : Math.max(1, Math.min(3, Math.floor((avail + 22) / (colW + 22))));
+      list.style.setProperty('--lb-cols', String(cols));
+      list.dataset.cols = String(cols);
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -465,6 +533,16 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
           title="The whole field, A-Z" onClick={() => setView('az')}><span>A–Z</span></button>
       </div>
       <div className={`yfp-lb-list${view === 'az' ? ' az' : ''}`} ref={listRef}>
+        {/* The gold header row, one over each column the list shows. */}
+        <div className="yfp-lb-head" aria-hidden="true">
+          {[0, 1, 2].map((c) => (
+            <div key={c} className="yfp-lb-hcol">
+              <span className="rk">{view === 'az' ? 'Region # - Seed #' : 'Rank'}</span>
+              <span className="nm">School</span>
+              <span className="rf">Total Runs</span>
+            </div>
+          ))}
+        </div>
         <ol>{rows.map(({ s, place: rank, region }) => (
           <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${rank} in the region · ${s.rf} runs (${diff(s)})`}>
             <span className="rk">{view === 'az' ? `R${region}-S${index.schools[s.h]?.[2] ?? '—'}` : rank}</span>
@@ -713,12 +791,37 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bothDrawers, shownWeek, !!open]);
 
+  // Desktop: the bracket fills the screen from where it starts down to the
+  // ticker - measured, since the rows above it (the hero is 200px on a
+  // desktop, not the --row3-h guess) vary with the page.
+  const yfzRef = useRef<HTMLDivElement | null>(null);
+  const hasYfz = Boolean(index && lb && cal);
+  useLayoutEffect(() => {
+    const el = yfzRef.current;
+    if (!el) return;
+    const fit = () => {
+      if (!window.matchMedia('(min-width: 600px)').matches) { el.style.removeProperty('height'); return; }
+      const foot = document.querySelector('.yat-footer');
+      const bottom = foot ? foot.getBoundingClientRect().top + window.scrollY : window.innerHeight + window.scrollY;
+      el.style.height = `${Math.max(318, Math.floor(bottom - (el.getBoundingClientRect().top + window.scrollY)))}px`;
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    for (const q of ['.yat-row1-shell', '.yat-row2-shell', '.yat-row3-shell', '.yat-footer']) {
+      const x = document.querySelector(q);
+      if (x) ro.observe(x);
+    }
+    window.addEventListener('resize', fit);
+    const later = [300, 1500].map((ms) => window.setTimeout(fit, ms));
+    return () => { ro.disconnect(); window.removeEventListener('resize', fit); later.forEach((t) => window.clearTimeout(t)); };
+  }, [hasYfz]);
+
   return (
     <div className={`yfp ${scoreboardFont.variable}`}>
       <div ref={sentinel} className="yfp-top" />
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {index && lb && cal && (
-        <div className="yfz">
+        <div className="yfz" ref={yfzRef}>
           <div className="yfz-panel">
             <div className="yfz-round">
               {tab === 'c1' || tab === 'c2' || tab === 'cg' || tab === 'yws' ? (
@@ -778,7 +881,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* A week as the green manual ballpark scoreboard from the approved mockup.
            School logos are intentionally omitted until all 1,024 schools have real crests. */
         .yfp-card.yfp-scorecard { padding:0; overflow:hidden; border-radius:7px; background:rgba(255,255,255,.035); }
-        .yfp-score-head { display:flex; justify-content:space-between; gap:6px; padding:3px 6px 2px; background:#9c7f22; color:#fff5cf; font:700 7px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
+        .yfp-score-head { display:flex; justify-content:space-between; gap:6px; padding:3px 6px 2px; border-radius:5px; background:#2e8b5f; color:#fff; font:700 7px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-green-board { margin:0; padding:5px 6px 5px; background:linear-gradient(180deg,#1f6546,#174c35); border-top:1px solid rgba(255,255,255,.14); border-bottom:1px solid #0d3022; box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -2px 5px rgba(0,0,0,.24); }
         .yfp-green-row { display:grid; grid-template-columns:minmax(62px,1.1fr) repeat(var(--inning-count,9),minmax(18px,1fr)) minmax(24px,0.7fr); gap:2px; align-items:center; margin-top:2px; }
         .yfp-green-row.head { margin-top:0; color:#eef7ef; font:700 8px/1 Oswald,sans-serif; text-align:center; }
@@ -795,6 +898,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-row.me .yfp-green-team { color:#ffd34f; }
         .yfp-green-slot { height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; box-shadow:inset 0 1px 3px rgba(0,0,0,.75); color:#edf4ee; font:800 11px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
         .yfp-green-slot.scored { color:#fff; }
+        /* Board crests show only on a wide card (see the container query). */
+        .yfp-board-crest { display:none; }
         .yfp-green-run { position:relative; height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 13px/1 Oswald,sans-serif; }
         .yfp-green-row.won .yfp-green-run { background:#f3c735; color:#15251d; }
         .yfp-green-run i { position:absolute; right:-7px; color:#fff; font-style:normal; font-size:8px; }
@@ -807,7 +912,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            grid column, so every board's template gets it). */
         .yfp-green-row { grid-auto-columns:24px; }
         .yfp-green-row>.yfp-green-stats, .yfp-green-row>.yfp-green-stats-cell, .yfp-green-row.head>.stats { grid-column:-1 / span 1; grid-row:1; }
-        .yfp-green-row.head .stats { color:#ffd34f; font-size:.72em; letter-spacing:.02em; }
+        /* "DAILY / STATS", stacked and centered over the stats button (which
+           sits at the right of its column, clear of the winner arrow). */
+        .yfp-green-row.head .stats { color:#ffd34f; font-size:.72em; letter-spacing:.02em; line-height:1.1; justify-self:end; width:15px; }
         .yfp-green-stats { justify-self:end; width:15px; height:15px; display:grid; place-items:center; padding:0; border:1px solid rgba(255,211,79,.8); border-radius:50%;
           background:#0d2d20; color:#ffd34f; font-size:9px; line-height:1; cursor:pointer; transition:background .15s, color .15s, transform .15s; }
         .yfp-green-stats svg { width:62%; height:62%; fill:currentColor; }
@@ -953,8 +1060,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @media (min-width:600px) {
           .yfz-cards { gap:12px; align-items:center; }
           .yfp-game-split { display:block; min-height:0; }
-          .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:1px solid var(--yfp-card-border); }
-          .yfp-game-socialpane { padding:4px 12px 8px; overflow:visible; }
+          .yfp-game-scorepane { overflow:visible; border-right:0; border-bottom:0; }
+          .yfp-game-socialpane { padding:0 12px 2px; overflow:visible; }
+          .yfp-game-socialpane .fgs-inline .ysv-actions button { min-height:28px; font-size:13px; }
+          /* No stroke around the game card. */
+          .yfz-cards .yfp-card.yfp-scorecard { border-color:transparent; }
           .yfp-game-socialpane .fgs-inline.ysv-post { height:auto; }
           .yfp-game-socialpane .fgs-inline .ysv-comments { max-height:180px; }
           .yfp-score-head { padding:5px 12px 4px; font-size:11px; }
@@ -962,7 +1072,23 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* One grid for the whole board (rows are subgrids), so the name
              column is exactly as wide as the longest school name - each name
              sits right beside inning 1 - and the board is centered. */
+          /* Inset under the gold row with rounded corners, and as tall as a
+             drawer's two boards (6px below the gold row to 138px below it),
+             so all three boards start and end on the same lines. */
+          /* Every header row is an inset, rounded bar over its board. */
+          .yfz-cards .yfp-scorecard .yfp-score-head { margin:0 8px; }
+          /* School crests either side of the board, screened back, once the
+             card is wide enough to hold them beside it (hidden otherwise). */
+          .yfp-game-scorepane { container-type:inline-size; }
+          .yfp-game-scorepane .yfp-green-board { position:relative; }
+          @container (min-width: 900px) {
+            .yfp-game-scorepane .yfp-board-crest { display:block; position:absolute; top:50%; transform:translateY(-50%); height:84%; max-width:15%; object-fit:contain; opacity:.16; pointer-events:none; }
+            .yfp-game-scorepane .yfp-board-crest.l { left:16px; }
+            .yfp-game-scorepane .yfp-board-crest.r { right:16px; }
+          }
           .yfp-game-scorepane .yfp-green-board {
+            box-sizing:border-box; height:132px; margin:6px 8px 0; padding-top:0; padding-bottom:0; align-content:center;
+            border:1px solid rgba(255,255,255,.12); border-radius:7px; box-shadow:inset 0 1px 8px rgba(0,0,0,.28);
             display:grid;
             grid-template-columns:max-content repeat(var(--inning-count,9),minmax(14px,36px)) minmax(34px,52px) 44px;
             column-gap:3px;
@@ -988,7 +1114,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
           .yfp-game-scorepane .yfp-green-stats { width:26px; height:26px; font-size:15px; border-width:1.5px; }
-          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; }
+          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; width:26px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
 
@@ -1017,6 +1143,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* Docked drawers start where the game card starts, so the three
              gold headers sit on one line. */
           .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer { top:9px; }
+          .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer .bl-history-tabs.bl-inning-tabs { margin-top:calc(4px + var(--yfp-tabs-drop, 0px)); }
         }
         /* Wide screens: a docked Search (left) or Favorites (right) drawer
            sits at the edge and the Stat Ledger on that side moves in beside it. */
@@ -1041,7 +1168,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-score-games button { padding:2px 6px 1px; border:0; border-radius:3px; background:transparent; color:inherit; opacity:.65;
           font:inherit; letter-spacing:inherit; text-transform:inherit; cursor:pointer; }
         .yfp-score-games button:hover:not(:disabled) { opacity:1; }
-        .yfp-score-games button.on { opacity:1; background:#fff5cf; color:#3a2d06; }
+        .yfp-score-games button.on { opacity:1; background:#ffd34f; color:#123d29; }
         .yfp-score-games button:disabled { cursor:default; }
         .yfp-score-dates { margin-left:auto; white-space:nowrap; }
         .yfp-score-dates i { margin:0 4px; }
@@ -1064,8 +1191,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.yfp-dock-l .yfz-panel > .yfp-lb,
         body.yfp-dock-r .yfz-panel > .yfp-lb {
           grid-row:2; display:flex; flex-direction:column; min-height:0; height:auto; max-height:none; position:static; overflow:hidden;
-          padding:8px 10px; border:1px solid var(--yfp-card-border); border-radius:8px;
-          background:var(--yfp-card-bg); font:400 13px/1.4 system-ui,sans-serif;
+          padding:8px 10px; border:0; border-radius:0;
+          background:transparent; font:400 13px/1.4 system-ui,sans-serif;
         }
         .yfz-panel .yfp-lb-title { align-self:auto; margin-right:4px; padding-bottom:0; font-size:11px; line-height:1; white-space:nowrap; }
         .yfz-panel .yfp-lb-title i { margin:0 4px; font-style:normal; color:var(--yfp-faint,rgba(255,255,255,.3)); font-weight:400; }
@@ -1086,13 +1213,34 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body.light-theme .yfp-lb-regions { border-bottom-color:rgba(0,0,0,.2); }
         body.light-theme .yfp-lb-regions button { border-color:rgba(0,0,0,.2); border-bottom-color:transparent; background:rgba(0,0,0,.04); color:rgba(0,0,0,.55); }
         body.light-theme .yfp-lb-regions button.on { background:var(--yfp-card-bg); border-bottom-color:var(--yfp-card-bg); color:#8a6a10; }
-        .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
-        .yfz-panel .yfp-lb-list ol { column-count:2; column-gap:22px; }
-        .yfz-panel .yfp-lb li { grid-template-columns:24px var(--lb-name-w, minmax(0,1fr)) 22px; gap:5px; padding:2px 0; break-inside:avoid; }
-        /* A-Z's label column (R3-S15) is 20px wider than the rank column,
-           so its name column gives those 20px back: the runs stay put. */
-        .yfz-panel .yfp-lb-list.az li { grid-template-columns:44px calc(var(--lb-name-w, 220px) - 20px) 22px; }
+        /* The leaderboard has no box now: the open tab joins the page itself. */
+        .yfz-panel .yfp-lb-regions button.on,
+        body.light-theme .yfz-panel .yfp-lb-regions button.on { background:var(--bg,#0c0c0c); border-bottom-color:var(--bg,#0c0c0c); }
+        .yfz-panel .yfp-lb-regions button.on { color:#ffd34f; }
+        body.light-theme .yfz-panel .yfp-lb-regions button.on { color:#1f6b45; }
+        .yfz-panel .yfp-lb-list { position:relative; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding-right:10px; }
+        /* As many columns as fit, up to 3 (a region will have 128 schools): the
+           count (--lb-cols) is set where the names are measured. */
+        .yfz-panel .yfp-lb-list ol { column-count:var(--lb-cols, 1); column-gap:22px; }
+        /* The gold header row (the drawers' stat header gold and type), one
+           per column, pinned to the top of the list as it scrolls. */
+        .yfz-panel .yfp-lb-head { position:sticky; top:0; z-index:2; display:grid; grid-template-columns:repeat(var(--lb-cols, 1), minmax(0,1fr)); column-gap:22px; margin-bottom:3px; background:var(--bg,#0c0c0c); }
+        .yfz-panel .yfp-lb-hcol { display:grid; grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; align-items:center; height:20px; border-radius:5px; background:#2e8b5f; color:#ffd34f;
+          font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; white-space:nowrap; }
+        /* RANK and TOTAL RUNS centered over their columns; SCHOOL left. The
+           numbers under them sit in a centered 3-digit box, right-aligned, so
+           ones, tens and hundreds line up. */
+        .yfz-panel .yfp-lb-hcol .rk, .yfz-panel .yfp-lb-hcol .rf { justify-self:center; }
+        .yfz-panel .yfp-lb-list[data-cols="1"] .yfp-lb-hcol:nth-child(n+2),
+        .yfz-panel .yfp-lb-list[data-cols="2"] .yfp-lb-hcol:nth-child(n+3) { display:none; }
+        .yfz-panel .yfp-lb li { grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; padding:2px 0; break-inside:avoid; }
+        .yfz-panel .yfp-lb li .rk, .yfz-panel .yfp-lb li .rf { justify-self:center; width:3ch; text-align:right; font-variant-numeric:tabular-nums; }
+        /* A-Z: the region-seed (R3-S15) centered under its header label. */
+        .yfz-panel .yfp-lb-list.az li .rk { width:auto; text-align:center; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
+        /* School names in the drawers' player-name type (system-ui 11px). */
+        .yfz-panel .yfp-lb li { font-size:11px; }
+        .yfz-panel .yfp-lb li a small { font-size:.85em; }
         .yfz-panel .yfp-lb li .rk { font-size:.85em; }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
         .yfz-panel .yfp-lb-rules { flex:none; align-self:center; margin-top:8px; }
@@ -1219,13 +1367,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-head button { flex: none; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
         /* Stat Ledger header: one gold line like the game's header -
            "School | City, ST" left, "ROUND n - GAME n" right. */
-        .yfp-drawer-head.yfp-drawer-head-line { gap:8px; padding:0 4px 0 12px; height:var(--yfp-head-h,23px); background:#9c7f22; border-bottom:0; color:#fff5cf;
+        .yfp-drawer-head.yfp-drawer-head-line { gap:8px; margin:0 8px; padding:0 4px 0 10px; height:var(--yfp-head-h,23px); border-radius:5px; background:#2e8b5f; border-bottom:0; color:#fff;
           font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-drawer-head-line .yfp-drawer-who { flex:1; min-width:0; display:flex; align-items:baseline; gap:6px; overflow:hidden; white-space:nowrap; }
         .yfp-drawer-head-line .yfp-drawer-who i { font-style:normal; opacity:.45; }
-        .yfp-drawer-head-line .yfp-drawer-school { color:#fff; font:inherit; font-size:12px; letter-spacing:.04em; overflow:hidden; text-overflow:ellipsis; }
-        .yfp-drawer-head-line .yfp-drawer-location { color:#fff5cf; font:inherit; overflow:hidden; text-overflow:ellipsis; }
-        .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff5cf; font:inherit; }
+        .yfp-drawer-head-line .yfp-drawer-school { color:#ffd34f; font:inherit; font-size:12px; letter-spacing:.04em; overflow:hidden; text-overflow:ellipsis; }
+        .yfp-drawer-head-line .yfp-drawer-location { color:#fff; font:inherit; overflow:hidden; text-overflow:ellipsis; }
+        .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff; font:inherit; }
         .yfp-drawer-head-line button { width:24px; height:24px; border:0; color:#fff; font-size:13px; }
         .yfp-drawer .ybr-rules { padding: 14px; }
 
