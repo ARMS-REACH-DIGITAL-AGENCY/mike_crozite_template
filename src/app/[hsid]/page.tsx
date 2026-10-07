@@ -223,7 +223,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -245,25 +245,34 @@ export async function generateMetadata({
     try {
       const game = getSharedFantasyGame(fantasyGameId);
       if (game) {
+        let snap: Record<string, any> = {};
+        try {
+          const raw=String(qp.s||'').replace(/-/g,'+').replace(/_/g,'/');
+          if(raw) snap=JSON.parse(Buffer.from(raw,'base64').toString('utf8'));
+        } catch {}
         const visitor = cleanSchoolLabel(game.awayName);
         const home = cleanSchoolLabel(game.homeName);
-        const description = `Follow the YAT?STATS High School Alumni Fantasy Game between ${visitor} and ${home}.`;
+        const status = String(snap.s || 'LIVE').toUpperCase();
+        const awayRuns = Number(snap.a || 0);
+        const homeRuns = Number(snap.h || 0);
+        const headline = String(snap.t || `${visitor} vs ${home}`).trim();
+        const description = `${status}: ${visitor} ${awayRuns}, ${home} ${homeRuns}.`;
         const hostBase = host ? `https://${host}` : canonicalUrl;
-        const shareUrl = `${hostBase}/${schoolHsid}?fantasyGame=${game.id}#sec-fantasy`;
-        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}`;
+        const shareUrl = `${hostBase}/${schoolHsid}?fantasyGame=${game.id}&week=${encodeURIComponent(String(qp.week||game.week))}&s=${encodeURIComponent(String(qp.s||''))}#sec-fantasy`;
+        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}&week=${encodeURIComponent(String(qp.week||game.week))}&s=${encodeURIComponent(String(qp.s||''))}`;
         return {
-          title: `${visitor} vs ${home} | YAT?STATS Fantasy Game`,
+          title: `${headline} | YAT?STATS Fantasy Game`,
           description,
           alternates: { canonical: shareUrl },
           openGraph: {
-            title: `${visitor} vs ${home} | YAT?STATS`,
+            title: headline,
             description,
             url: shareUrl,
-            images: [{ url: ogImageUrl, width: 1200, height: 630 }],
+            images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `${visitor} vs ${home} fantasy scoreboard` }],
           },
           twitter: {
             card: "summary_large_image",
-            title: `${visitor} vs ${home} | YAT?STATS`,
+            title: headline,
             description,
             images: [ogImageUrl],
           },
