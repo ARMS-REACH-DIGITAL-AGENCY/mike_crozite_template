@@ -1,583 +1,319 @@
+#!/usr/bin/env python3
 """
 fetch_hs_logos.py
 -----------------
-Fetches high school logos in priority order:
-  1. hslogos.com        - curated static site, high quality logos
-  2. FieldLevel         - Playwright headless browser, best coverage
-  3. MaxPreps           - API fallback
-  4. SBLive             - last resort
+Finds a logo for every bracket high school that has none in S3 and saves it
+as a transparent PNG at schools/{hsid}.png.
 
-CSV expected columns: hsid, hsname.1, nickname, city
-  - city format: "CityName,ST"
-  - rows with blank hsid are skipped automatically
+How a school is matched (no guessing from search results):
+  MaxPreps publishes a sitemap of every school page, and each page's address
+  is built from the school's state, city, name and mascot:
+      https://www.maxpreps.com/ca/la-verne/damien-spartans/
+  Our CSV has all four (hsid, hsname.1, nickname, "City,ST"), so each school is
+  scored against the pages in its own state and city. The school's page then
+  names its own logo (image.maxpreps.io/school-mascot/.../{schoolId}.gif),
+  which is downloaded at 1024px.
 
-Usage:
-  python fetch_hs_logos.py --csv data/hsid_for_Claude.csv --bucket yatstats-assets \
-    --prefix schools/ --region us-west-2 [--limit 10] [--dry-run]
+Processing: logos without real transparency get the same border flood fill as
+scripts/process-team-logo-cutouts-s3.py (it never erases enclosed details
+like a mascot's teeth), then are trimmed, centered on a square transparent
+canvas and capped at 1024px.
 
-Dependencies:
-  pip install boto3 requests beautifulsoup4 playwright
-  python -m playwright install --with-deps chromium
+Modes (--mode):
+  dry_run  match and download, write nothing to S3 (default)
+  stage    every logo found -> schools-candidates/{hsid}.png
+  publish  confident matches -> schools/{hsid}.png, the rest -> schools-candidates/
+Never overwrites an existing schools/{hsid}.png.
+
+Outputs (also uploaded as a workflow artifact):
+  logo_report.csv    one row per school: status, score, matched page, logo url
+  logo_review.html   contact sheet of every logo found, to spot-check matches
+                     (uploaded to schools-candidates/index.html unless dry_run)
 """
 
 import argparse
+import base64
 import csv
+import html
+import importlib.util
+import io
 import logging
 import re
+import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
-from urllib.parse import quote
 
 import boto3
 import requests
-from bs4 import BeautifulSoup
-from botocore.exceptions import ClientError
-from playwright.sync_api import sync_playwright
+from PIL import Image
 
-LOG_FILE = "fetch_logos.log"
+log = logging.getLogger("logos")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s",
+                    handlers=[logging.FileHandler("fetch_logos.log"), logging.StreamHandler(sys.stdout)])
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler(),
-    ],
-)
-log = logging.getLogger(__name__)
-
-DELAY = 0.8
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "application/json, text/html, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Referer": "https://www.hslogos.com/",
-}
-
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 SESSION = requests.Session()
-SESSION.headers.update(HEADERS)
+SESSION.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
+DELAY = 1.0
+MP = "https://www.maxpreps.com"
+SITEMAPS = [f"{MP}/Schools-1-Sitemap.xml", f"{MP}/Schools-2-Sitemap.xml"]
+CONFIDENT = 85  # score at or above this, 15+ clear of the runner-up, publishes
 
-BROWSER_PAGE = None
 
+# ── Schools ──────────────────────────────────────────────────────────────────
 
-# ── CSV parsing ───────────────────────────────────────────────────────────────
-
-def load_schools(csv_path: Path) -> list:
-    schools = []
-    skipped = 0
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            hsid = row.get("hsid", "").strip()
-            if not hsid:
-                skipped += 1
+def load_schools(path: Path) -> list[dict]:
+    out = []
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            hsid = (row.get("hsid") or "").strip()
+            if not hsid.isdigit():
                 continue
-            city_field = row.get("city", "").strip()
-            if "," in city_field:
-                parts = city_field.rsplit(",", 1)
-                city  = parts[0].strip()
-                state = parts[1].strip()
-            else:
-                city  = city_field
-                state = ""
-            schools.append({
-                "hsid":     hsid,
-                "name":     row.get("hsname.1", "").strip(),
-                "nickname": row.get("nickname", "").strip(),
-                "city":     city,
-                "state":    state,
-            })
-    if skipped:
-        log.info(f"Skipped {skipped} row(s) with blank hsid")
-    return schools
+            city, _, state = (row.get("city") or "").strip().rpartition(",")
+            out.append({"hsid": hsid, "name": (row.get("hsname.1") or "").strip(),
+                        "nickname": (row.get("nickname") or "").strip(),
+                        "city": city.strip(), "state": state.strip().upper()})
+    return out
 
 
-# ── S3 helpers ────────────────────────────────────────────────────────────────
-
-def get_existing_hsids(s3_client, bucket: str, prefix: str) -> set:
-    existing = set()
-    paginator = s3_client.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+def existing_hsids(s3, bucket: str, prefix: str) -> set[str]:
+    have = set()
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
         for obj in page.get("Contents", []):
-            filename = obj["Key"].replace(prefix, "")
-            if filename.endswith(".png"):
-                existing.add(filename[:-4])
-    return existing
+            name = obj["Key"][len(prefix):]
+            if "/" not in name and name.endswith(".png"):
+                have.add(name[:-4])
+    return have
 
 
-def upload_to_s3(s3_client, image_bytes: bytes, hsid: str, bucket: str, prefix: str) -> bool:
-    key = f"{prefix}{hsid}.png"
-    try:
-        s3_client.put_object(
-            Bucket=bucket,
-            Key=key,
-            Body=image_bytes,
-            ContentType="image/png",
-        )
-        log.info(f"  ✓  Uploaded → s3://{bucket}/{key}")
-        return True
-    except ClientError as e:
-        log.error(f"  ✗  S3 upload failed for {hsid}: {e}")
-        return False
+# ── Matching against the MaxPreps sitemap ────────────────────────────────────
+
+def slug(s: str) -> str:
+    s = s.lower().replace("&", " and ").replace("'", "").replace(".", "")
+    return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
 
 
-# ── Image download ────────────────────────────────────────────────────────────
-
-def _absolute_url(url: str, base: str = "") -> str:
-    if not url:
-        return ""
-    if url.startswith("//"):
-        return "https:" + url
-    if url.startswith("/"):
-        return (base or "https://www.hslogos.com") + url
-    return url
+STOP = {"high", "school", "hs", "the", "senior", "of"}
 
 
-def _download_image(url: str, base: str = "") -> bytes | None:
-    try:
-        url = _absolute_url(url, base)
-        r = SESSION.get(url, timeout=12, stream=True)
+def tokens(s: str) -> set[str]:
+    return {t for t in slug(s).split("-") if t and t not in STOP}
+
+
+def load_sitemap() -> dict[str, list[tuple[str, str, str]]]:
+    """state -> [(city_slug, school_slug, url)]"""
+    by_state: dict[str, list] = {}
+    n = 0
+    for url in SITEMAPS:
+        r = SESSION.get(url, timeout=60)
         r.raise_for_status()
-        ctype = r.headers.get("Content-Type", "")
-        if "image" not in ctype and "octet-stream" not in ctype:
-            log.debug(f"    Not image: {ctype} @ {url}")
-            return None
-        data = r.content
-        return data if len(data) > 500 else None
-    except Exception as e:
-        log.debug(f"    Download error {url}: {e}")
+        root = ET.fromstring(r.content)
+        for loc in root.iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc"):
+            m = re.match(r"https://www\.maxpreps\.com/([a-z]{2})/([^/]+)/([^/]+)/?$", (loc.text or "").strip())
+            if not m:
+                continue
+            by_state.setdefault(m.group(1).upper(), []).append((m.group(2), m.group(3), loc.text.strip()))
+            n += 1
+        time.sleep(DELAY)
+    log.info(f"MaxPreps sitemap: {n} school pages in {len(by_state)} states")
+    return by_state
+
+
+def score(school: dict, city_slug: str, school_slug: str) -> int:
+    nt, kt = tokens(school["name"]), tokens(school["nickname"])
+    st = set(school_slug.split("-"))
+    if school_slug == f"{slug(school['name'])}-{slug(school['nickname'])}" and kt:
+        base = 100
+    else:
+        # Either name may be the longer one ("Archbishop Moeller" vs moeller-crusaders).
+        cover = len(nt & st) / min(len(nt), len(st - kt) or 1) if nt else 0
+        nick_ok = bool(kt) and kt <= st
+        extra = len(st - kt - nt)
+        base = round(60 * cover + (30 if nick_ok else 0) - 5 * extra)
+    return base + (0 if city_slug == slug(school["city"]) else -10)
+
+
+def match(school: dict, by_state: dict) -> tuple[int, int, str]:
+    """(best score, runner-up score, page url)"""
+    ranked = sorted(((score(school, c, s), u) for c, s, u in by_state.get(school["state"], [])), reverse=True)
+    if not ranked:
+        return 0, 0, ""
+    return ranked[0][0], ranked[1][0] if len(ranked) > 1 else 0, ranked[0][1]
+
+
+# ── The school's own logo from its page ──────────────────────────────────────
+
+def logo_url_from_page(page_url: str) -> tuple[str, str]:
+    """(logo url, the page's own "City / Mascot" for the report)"""
+    r = SESSION.get(page_url, timeout=30)
+    r.raise_for_status()
+    h = r.text
+    sid = re.search(r'"schoolContext":\{"schoolId":"([0-9a-f-]{36})"', h)
+    if not sid:
+        return "", ""
+    guid = sid.group(1)
+    m = re.search(r"https://image\.maxpreps\.io/school-mascot/[0-9a-f]/[0-9a-f]/[0-9a-f]/"
+                  + re.escape(guid) + r"\.(\w+)\?version=(\d+)", h)
+    info = re.search(r'"city":"([^"]*)","zip":"[^"]*","zipCode":"[^"]*","mascot":"([^"]*)"', h)
+    seen = f"{info.group(1)} / {info.group(2)}" if info else ""
+    if not m:
+        return "", seen
+    a, b, c = guid[0], guid[1], guid[2]
+    return (f"https://image.maxpreps.io/school-mascot/{a}/{b}/{c}/{guid}.{m.group(1)}"
+            f"?version={m.group(2)}&width=1024&height=1024"), seen
+
+
+# ── Image processing ─────────────────────────────────────────────────────────
+
+def _cutout_module():
+    spec = importlib.util.spec_from_file_location(
+        "cutouts", Path(__file__).with_name("process-team-logo-cutouts-s3.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+CUTOUT = None
+
+
+def make_png(raw: bytes) -> bytes | None:
+    global CUTOUT
+    im = Image.open(io.BytesIO(raw))
+    im.seek(0)
+    im = im.convert("RGBA")
+    if min(im.size) < 48:
         return None
-
-
-# ── Normalization helpers ─────────────────────────────────────────────────────
-
-def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
-
-
-def _normalize_school(name: str) -> str:
-    n = _norm(name)
-    for suffix in ["high school", "senior high", "high", "hs",
-                   "preparatory academy", "preparatory", "prep", "academy"]:
-        if n.endswith(suffix):
-            n = n[:-len(suffix)].strip()
-    return n
-
-
-# ── Source 1: hslogos.com ─────────────────────────────────────────────────────
-
-HSL_BASE = "https://www.hslogos.com"
-
-STATE_ABBR_TO_NAME = {
-    "AL": "Alabama",        "AK": "Alaska",         "AZ": "Arizona",
-    "AR": "Arkansas",       "CA": "California",     "CO": "Colorado",
-    "CT": "Connecticut",    "DE": "Delaware",       "FL": "Florida",
-    "GA": "Georgia",        "HI": "Hawaii",         "ID": "Idaho",
-    "IL": "Illinois",       "IN": "Indiana",        "IA": "Iowa",
-    "KS": "Kansas",         "KY": "Kentucky",       "LA": "Louisiana",
-    "ME": "Maine",          "MD": "Maryland",       "MA": "Massachusetts",
-    "MI": "Michigan",       "MN": "Minnesota",      "MS": "Mississippi",
-    "MO": "Missouri",       "MT": "Montana",        "NE": "Nebraska",
-    "NV": "Nevada",         "NH": "New_Hampshire",  "NJ": "New_Jersey",
-    "NM": "New_Mexico",     "NY": "New_York",       "NC": "North_Carolina",
-    "ND": "North_Dakota",   "OH": "Ohio",           "OK": "Oklahoma",
-    "OR": "Oregon",         "PA": "Pennsylvania",   "RI": "Rhode_Island",
-    "SC": "South_Carolina", "SD": "South_Dakota",   "TN": "Tennessee",
-    "TX": "Texas",          "UT": "Utah",           "VT": "Vermont",
-    "VA": "Virginia",       "WA": "Washington",     "WV": "West_Virginia",
-    "WI": "Wisconsin",      "WY": "Wyoming",
-}
-
-_HSL_STATE_CACHE: dict[str, dict[str, str]] = {}
-
-
-def _load_hsl_state(state_abbr: str) -> dict[str, str]:
-    if state_abbr in _HSL_STATE_CACHE:
-        return _HSL_STATE_CACHE[state_abbr]
-
-    state_name = STATE_ABBR_TO_NAME.get(state_abbr)
-    if not state_name:
-        _HSL_STATE_CACHE[state_abbr] = {}
-        return {}
-
-    index_url = f"{HSL_BASE}/States/{state_name}/search_{state_abbr.lower()}.html"
-    log.info(f"  Loading hslogos index: {index_url}")
-
-    try:
-        r = SESSION.get(index_url, timeout=15)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
-    except Exception as e:
-        log.debug(f"    hslogos state index error: {e}")
-        _HSL_STATE_CACHE[state_abbr] = {}
-        return {}
-
-    schools = {}
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        text = a.get_text(strip=True)
-        if "_Schools" in href and href.endswith(".html") and text:
-            full_url = href if href.startswith("http") else HSL_BASE + "/" + href.lstrip("/")
-            schools[_normalize_school(text)] = full_url
-
-    log.info(f"    hslogos: {len(schools)} schools indexed for {state_abbr}")
-    _HSL_STATE_CACHE[state_abbr] = schools
-    time.sleep(DELAY)
-    return schools
-
-
-def _find_hsl_match(name: str, state_schools: dict[str, str]) -> str | None:
-    norm = _normalize_school(name)
-
-    if norm in state_schools:
-        return state_schools[norm]
-
-    for sn, url in state_schools.items():
-        if norm in sn or sn in norm:
-            return url
-
-    norm_words = set(norm.split())
-    best, best_url = 0, None
-    for sn, url in state_schools.items():
-        overlap = len(norm_words & set(sn.split()))
-        if overlap > best and overlap >= 2:
-            best, best_url = overlap, url
-
-    return best_url
-
-
-def _get_hsl_logo(school_url: str) -> bytes | None:
-    try:
-        r = SESSION.get(school_url, timeout=15)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
-    except Exception as e:
-        log.debug(f"    hslogos school page error: {e}")
+    a = im.getchannel("A")
+    w, h = im.size
+    edge = [a.getpixel((x, 0)) for x in range(w)] + [a.getpixel((x, h - 1)) for x in range(w)]
+    if sum(v < 10 for v in edge) / len(edge) < 0.5:  # no real transparency: cut the background out
+        CUTOUT = CUTOUT or _cutout_module()
+        im = Image.open(io.BytesIO(CUTOUT.process_image_bytes(raw, 30.0))).convert("RGBA")
+    box = im.getchannel("A").point(lambda v: 255 if v > 8 else 0).getbbox()
+    if not box:
         return None
+    im = im.crop(box)
+    side = round(max(im.size) * 1.04)
+    canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    canvas.paste(im, ((side - im.width) // 2, (side - im.height) // 2), im)
+    if side > 1024:
+        canvas = canvas.resize((1024, 1024), Image.LANCZOS)
+    buf = io.BytesIO()
+    canvas.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
 
-    skip = ["hsl_official", "favicon", "banner", "nav", "header", "background"]
 
-    for img in soup.find_all("img"):
-        src = img.get("src") or img.get("data-src") or ""
-        if not src:
+def thumb(png: bytes) -> str:
+    im = Image.open(io.BytesIO(png))
+    im.thumbnail((140, 140))
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+# ── Report ───────────────────────────────────────────────────────────────────
+
+def write_review(rows: list[dict], thumbs: dict[str, str], path: Path):
+    cards = []
+    for r in rows:
+        if r["hsid"] not in thumbs:
             continue
-        if any(p in src.lower() for p in skip):
-            continue
-        url = src if src.startswith("http") else HSL_BASE + "/" + src.lstrip("/")
-        data = _download_image(url)
-        if data:
-            return data
-
-    return None
-
-
-def search_hslogos(name: str, state: str, city: str = "") -> bytes | None:
-    state_schools = _load_hsl_state(state)
-    if not state_schools:
-        return None
-    school_url = _find_hsl_match(name, state_schools)
-    if not school_url:
-        log.debug(f"    hslogos: no match for '{name}' ({state})")
-        return None
-    log.debug(f"    hslogos match: {school_url}")
-    time.sleep(DELAY)
-    return _get_hsl_logo(school_url)
+        cards.append(
+            f'<figure class="{r["status"]}"><img src="data:image/png;base64,{thumbs[r["hsid"]]}">'
+            f'<figcaption><b>{html.escape(r["name"])}</b> {html.escape(r["nickname"])}<br>'
+            f'{html.escape(r["city"])}, {r["state"]} · #{r["hsid"]}<br>'
+            f'<a href="{html.escape(r["page"])}">{html.escape(r["page_seen"] or "MaxPreps page")}</a><br>'
+            f'{r["status"]} · score {r["score"]}</figcaption></figure>')
+    path.write_text(
+        "<!doctype html><meta charset=utf-8><title>School logo review</title><style>"
+        "body{font:13px system-ui;background:#f4f4f4;margin:16px}"
+        "main{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}"
+        "figure{margin:0;background:#fff;border-radius:8px;padding:8px;border:2px solid #ddd}"
+        "figure.staged,figure.would_stage{border-color:#e0a400}"
+        "img{width:140px;height:140px;object-fit:contain;display:block;margin:auto;"
+        "background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 0 0/16px 16px}"
+        "figcaption{margin-top:6px;line-height:1.35}</style>"
+        f"<h1>School logos found: {len(cards)}</h1><p>Gold border = staged for review (less certain match).</p>"
+        f"<main>{''.join(cards)}</main>", encoding="utf-8")
 
 
-# ── Source 2: FieldLevel (Playwright) ────────────────────────────────────────
-
-def _school_matches(name: str, city: str, state: str, text: str) -> bool:
-    text_n = _norm(text)
-    name_n = _norm(name)
-    city_n = _norm(city)
-    state_n = _norm(state)
-
-    if not name_n or not text_n:
-        return False
-    if "baseball" not in text_n:
-        return False
-    if "high school" not in text_n:
-        return False
-
-    short_name = re.sub(r"\b(high school|school|hs)\b", "", name_n).strip()
-    if name_n not in text_n and not (short_name and short_name in text_n):
-        return False
-    if city_n and city_n not in text_n:
-        return False
-    if state_n and state_n not in text_n:
-        return False
-    return True
-
-
-def _candidate_queries(name: str, city: str, state: str) -> list:
-    queries = [name, f"{name} {state}", f"{name} High School {state}"]
-    if city:
-        queries.append(f"{name} {city} {state}")
-    seen, clean = set(), []
-    for q in queries:
-        q = q.strip()
-        if q and q not in seen:
-            clean.append(q)
-            seen.add(q)
-    return clean
-
-
-def search_fieldlevel(name: str, state: str, city: str = "") -> bytes | None:
-    global BROWSER_PAGE
-    if BROWSER_PAGE is None:
-        log.debug("    Browser not initialized")
-        return None
-
-    for q in _candidate_queries(name, city, state):
-        url = (
-            "https://www.fieldlevel.com/app/teams"
-            "?sportEnum=baseball&athleticAssociation=512"
-            f"&q={quote(q)}"
-        )
-        try:
-            log.info(f"    FieldLevel search: {q}")
-            BROWSER_PAGE.goto(url, wait_until="networkidle", timeout=30000)
-            BROWSER_PAGE.wait_for_timeout(2500)
-
-            results = BROWSER_PAGE.evaluate("""
-                () => {
-                    const anchors = Array.from(document.querySelectorAll(
-                        'a[href*="/app/organization/"][href*="/baseball"]'
-                    ));
-                    return anchors.map((a) => {
-                        let el = a;
-                        let bestText = '';
-                        for (let i = 0; i < 8 && el; i++) {
-                            const text = el.innerText || '';
-                            if (text.toLowerCase().includes('high school') ||
-                                text.toLowerCase().includes('baseball')) {
-                                bestText = text;
-                            }
-                            el = el.parentElement;
-                        }
-                        return {
-                            href: a.href || a.getAttribute('href') || '',
-                            text: bestText || a.innerText || ''
-                        };
-                    });
-                }
-            """)
-
-            seen, clean_results = set(), []
-            for result in results:
-                href = result.get("href") or ""
-                if href in seen:
-                    continue
-                seen.add(href)
-                clean_results.append(result)
-
-            log.info(f"    FieldLevel: {len(clean_results)} result(s)")
-
-            for result in clean_results:
-                href = result["href"]
-                text = result["text"]
-                if not href or not _school_matches(name, city, state, text):
-                    continue
-                match = re.search(r"/app/organization/([^/?#]+)/baseball", href)
-                if not match:
-                    continue
-                shortname = match.group(1)
-                logo_url = (
-                    f"https://www.fieldlevel.com/media/orglogo"
-                    f"?shortname={shortname}&width=200&height=200"
-                )
-                log.info(f"    FieldLevel match: {href}")
-                img = _download_image(logo_url, "https://www.fieldlevel.com")
-                if img:
-                    return img
-
-        except Exception as e:
-            log.debug(f"    FieldLevel browser error '{name}': {e}")
-
-        time.sleep(DELAY)
-
-    return None
-
-
-# ── Source 3: MaxPreps ────────────────────────────────────────────────────────
-
-MAXPREPS_SEARCH = "https://api.maxpreps.com/gatewayweb/search/v1/site-search"
-MAXPREPS_LOGO   = "https://d2ub8l8azeufoa.cloudfront.net/team/{guid}/school-logo.png"
-
-def search_maxpreps(name: str, state: str, city: str = "") -> bytes | None:
-    try:
-        resp = SESSION.get(MAXPREPS_SEARCH, params={"term": f"{name} {state}"}, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        log.debug(f"    MaxPreps error '{name}': {e}")
-        return None
-
-    schools = data.get("schools") or data.get("results") or []
-
-    def score(s):
-        loc = (s.get("location") or s.get("city") or "").upper()
-        return 1 if state.upper() in loc else 0
-
-    for school in sorted(schools, key=score, reverse=True)[:5]:
-        logo_url = school.get("logoUrl") or school.get("logo")
-        if not logo_url:
-            guid = school.get("id") or school.get("schoolId")
-            if guid:
-                logo_url = MAXPREPS_LOGO.format(guid=guid)
-        if logo_url:
-            img = _download_image(logo_url)
-            if img:
-                return img
-    return None
-
-
-# ── Source 4: SBLive ─────────────────────────────────────────────────────────
-
-def search_sblive(name: str, state: str, city: str = "") -> bytes | None:
-    try:
-        resp = SESSION.get(
-            "https://scorebook.com/api/v1/schools/search",
-            params={"q": name, "state": state},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        log.debug(f"    SBLive error '{name}': {e}")
-        return None
-
-    for school in (data.get("schools") or data.get("results") or [])[:5]:
-        logo_url = school.get("logo") or school.get("logoUrl") or school.get("image")
-        if logo_url:
-            img = _download_image(logo_url)
-            if img:
-                return img
-    return None
-
-
-# ── Orchestration ─────────────────────────────────────────────────────────────
-
-SOURCES = [
-    ("hslogos.com", search_hslogos),
-    ("FieldLevel",  search_fieldlevel),
-    ("MaxPreps",    search_maxpreps),
-    ("SBLive",      search_sblive),
-]
-
-def fetch_logo(name: str, state: str, city: str = "") -> tuple:
-    for label, fn in SOURCES:
-        try:
-            img = fn(name, state, city)
-        except Exception as e:
-            log.debug(f"    {label} exception: {e}")
-            img = None
-        if img:
-            return img, label
-        time.sleep(DELAY)
-    return None, ""
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
-def parse_args():
-    p = argparse.ArgumentParser(description="Fetch HS logos and upload to S3")
-    p.add_argument("--csv",     required=True)
-    p.add_argument("--bucket",  required=True)
-    p.add_argument("--prefix",  default="schools/")
-    p.add_argument("--region",  default="us-west-2")
-    p.add_argument("--limit",   type=int, default=0)
-    p.add_argument("--dry-run", action="store_true")
-    return p.parse_args()
-
-
-def run_job():
-    args = parse_args()
-
-    csv_path = Path(args.csv)
-    if not csv_path.exists():
-        log.error(f"CSV not found: {args.csv}")
-        return
-
-    schools = load_schools(csv_path)
-    log.info(f"Loaded {len(schools)} schools from CSV")
-
-    if args.dry_run:
-        log.info("DRY RUN MODE — no uploads will happen")
-
-    s3 = boto3.client("s3", region_name=args.region)
-
-    log.info("Checking existing S3 objects…")
-    existing = get_existing_hsids(s3, args.bucket, args.prefix)
-    log.info(f"  {len(existing)} logos already in S3 — skipping those")
-
-    todo = [s for s in schools if s["hsid"] not in existing]
-    if args.limit and args.limit > 0:
-        todo = todo[:args.limit]
-        log.info(f"  Limiting to first {args.limit} schools")
-
-    log.info(f"  {len(todo)} logos to fetch\n")
-
-    success, failed = [], []
-
-    for i, school in enumerate(todo, 1):
-        hsid  = school["hsid"]
-        name  = school["name"]
-        state = school["state"]
-        city  = school["city"]
-
-        log.info(f"[{i:>4}/{len(todo)}]  {name} ({city}, {state})  →  {hsid}.png")
-
-        img, source = fetch_logo(name, state, city)
-
-        if args.dry_run:
-            if img:
-                log.info(f"  [DRY RUN] Would upload {hsid}.png via {source} ({len(img):,} bytes)")
-                success.append({"hsid": hsid, "name": name, "state": state, "source": source})
-            else:
-                log.warning(f"  [DRY RUN] No logo found for {name} ({state})")
-                failed.append({"hsid": hsid, "name": name, "state": state, "source": "none"})
-        else:
-            if img:
-                ok = upload_to_s3(s3, img, hsid, args.bucket, args.prefix)
-                entry = {"hsid": hsid, "name": name, "state": state, "source": source}
-                (success if ok else failed).append(entry)
-            else:
-                log.warning(f"  ✗  No logo found for {name} ({state})")
-                failed.append({"hsid": hsid, "name": name, "state": state, "source": "none"})
-
-        time.sleep(DELAY)
-
-    log.info("\n" + "=" * 60)
-    log.info(f"Done.  ✓ {len(success)} uploaded  |  ✗ {len(failed)} failed")
-
-    if failed:
-        out = Path("failed_logos.csv")
-        with open(out, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["hsid", "name", "state", "source"])
-            writer.writeheader()
-            writer.writerows(failed)
-        log.info(f"Failed schools → {out}")
-
+# ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
-    global BROWSER_PAGE
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent=HEADERS["User-Agent"],
-            viewport={"width": 1440, "height": 1200},
-        )
-        BROWSER_PAGE = context.new_page()
+    p = argparse.ArgumentParser()
+    p.add_argument("--csv", default="data/hsid_for_Claude.csv")
+    p.add_argument("--bucket", default="yatstats-assets")
+    p.add_argument("--prefix", default="schools/")
+    p.add_argument("--stage-prefix", default="schools-candidates/")
+    p.add_argument("--region", default="us-west-2")
+    p.add_argument("--mode", choices=["dry_run", "stage", "publish"], default="dry_run")
+    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--hsids", default="", help="comma-separated hsids to run (default: all missing)")
+    args = p.parse_args()
+
+    s3 = boto3.client("s3", region_name=args.region)
+    schools = load_schools(Path(args.csv))
+    have = existing_hsids(s3, args.bucket, args.prefix)
+    todo = [s for s in schools if s["hsid"] not in have]
+    if args.hsids:
+        want = {h.strip() for h in args.hsids.split(",") if h.strip()}
+        todo = [s for s in todo if s["hsid"] in want]
+    if args.limit > 0:
+        todo = todo[: args.limit]
+    log.info(f"{len(schools)} schools, {len(have)} already have a logo, {len(todo)} to find · mode {args.mode}")
+
+    by_state = load_sitemap()
+    rows, thumbs = [], {}
+    for i, s in enumerate(todo, 1):
+        best, second, page = match(s, by_state)
+        row = {**s, "score": best, "runner_up": second, "page": page, "page_seen": "",
+               "logo_url": "", "status": "no_match", "key": ""}
         try:
-            run_job()
-        finally:
-            browser.close()
+            if page and best >= 50:
+                time.sleep(DELAY)
+                row["logo_url"], row["page_seen"] = logo_url_from_page(page)
+                if not row["logo_url"]:
+                    row["status"] = "no_logo_on_page"
+                else:
+                    time.sleep(DELAY / 2)
+                    img = SESSION.get(row["logo_url"], timeout=30)
+                    img.raise_for_status()
+                    png = make_png(img.content)
+                    if not png:
+                        row["status"] = "bad_image"
+                    else:
+                        thumbs[s["hsid"]] = thumb(png)
+                        sure = best >= CONFIDENT and best - second >= 15
+                        dest = args.prefix if (args.mode == "publish" and sure) else args.stage_prefix
+                        row["key"] = f"{dest}{s['hsid']}.png"
+                        if args.mode == "dry_run":
+                            row["status"] = "would_publish" if sure else "would_stage"
+                        else:
+                            s3.put_object(Bucket=args.bucket, Key=row["key"], Body=png,
+                                          ContentType="image/png", CacheControl="public, max-age=86400")
+                            row["status"] = "published" if dest == args.prefix else "staged"
+        except Exception as e:  # one school's failure never stops the run
+            row["status"] = f"error: {type(e).__name__}"
+        rows.append(row)
+        log.info(f"RESULT\t{s['hsid']}\t{row['status']}\t{best}/{second}\t{s['name']} {s['nickname']} "
+                 f"({s['city']}, {s['state']})\t{page}\t{row['page_seen']}")
+        if i % 50 == 0:
+            log.info(f"... {i}/{len(todo)}")
+
+    with open("logo_report.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()) if rows else ["hsid"])
+        w.writeheader()
+        w.writerows(rows)
+    write_review(rows, thumbs, Path("logo_review.html"))
+    if args.mode != "dry_run" and thumbs:
+        s3.upload_file("logo_review.html", args.bucket, f"{args.stage_prefix}index.html",
+                       ExtraArgs={"ContentType": "text/html"})
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[r["status"]] = counts.get(r["status"], 0) + 1
+    log.info("SUMMARY " + "  ".join(f"{k}={v}" for k, v in sorted(counts.items())))
 
 
 if __name__ == "__main__":

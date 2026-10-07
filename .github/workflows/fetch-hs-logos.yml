@@ -1,45 +1,43 @@
 name: Fetch HS Logos to S3
 
+# Finds a logo for each bracket school with no schools/{hsid}.png, matching it
+# through the MaxPreps school sitemap (state, city, name, mascot). See
+# scripts/fetch_hs_logos.py. Never overwrites an existing logo.
+
 on:
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: "Run without uploading to S3"
+      mode:
+        description: "dry_run = report only; stage = all to schools-candidates/; publish = confident matches to schools/, the rest staged"
         required: true
-        default: "true"
+        default: "dry_run"
         type: choice
         options:
-          - "true"
-          - "false"
+          - "dry_run"
+          - "stage"
+          - "publish"
       limit:
-        description: "Only process first N schools (0 = all)"
+        description: "Only process the first N missing schools (0 = all)"
         required: true
         default: "10"
+      hsids:
+        description: "Optional comma-separated hsids to run instead of all missing"
+        required: false
+        default: ""
       csv_path:
         description: "Path to schools CSV inside this repo"
         required: true
         default: "data/hsid_for_Claude.csv"
-      bucket:
-        description: "Target S3 bucket"
-        required: true
-        default: "yatstats-assets"
-      prefix:
-        description: "S3 prefix"
-        required: true
-        default: "schools/"
-      region:
-        description: "AWS region"
-        required: true
-        default: "us-west-2"
 
 jobs:
   fetch-logos:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ github.event.inputs.region }}
+      AWS_DEFAULT_REGION: us-west-2
 
     steps:
       - name: Checkout repo
@@ -53,42 +51,23 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install boto3 requests beautifulsoup4 playwright
-          python -m playwright install --with-deps chromium
+          pip install boto3 requests pillow numpy scipy
 
-      - name: Verify required files exist
-        run: |
-          test -f scripts/fetch_hs_logos.py
-          test -f "${{ github.event.inputs.csv_path }}"
-          echo "Script and CSV found."
-
-      - name: Dry run (no upload)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
+      - name: Find and save logos
         run: |
           python scripts/fetch_hs_logos.py \
             --csv "${{ github.event.inputs.csv_path }}" \
-            --bucket "${{ github.event.inputs.bucket }}" \
-            --prefix "${{ github.event.inputs.prefix }}" \
-            --region "${{ github.event.inputs.region }}" \
+            --mode "${{ github.event.inputs.mode }}" \
             --limit "${{ github.event.inputs.limit }}" \
-            --dry-run
+            --hsids "${{ github.event.inputs.hsids }}"
 
-      - name: Fetch and upload logos to S3
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: |
-          python scripts/fetch_hs_logos.py \
-            --csv "${{ github.event.inputs.csv_path }}" \
-            --bucket "${{ github.event.inputs.bucket }}" \
-            --prefix "${{ github.event.inputs.prefix }}" \
-            --region "${{ github.event.inputs.region }}" \
-            --limit "${{ github.event.inputs.limit }}"
-
-      - name: Upload logs as artifact
+      - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fetch-logos-report
           path: |
             fetch_logos.log
-            failed_logos.csv
+            logo_report.csv
+            logo_review.html
           if-no-files-found: ignore
