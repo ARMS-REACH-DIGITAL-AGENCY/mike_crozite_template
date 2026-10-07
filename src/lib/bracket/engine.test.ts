@@ -126,6 +126,17 @@ test('nine innings: 7 days, the week, then W-L%', () => {
   assert.equal(g.innings[8].kind, 'wl');
 });
 
+test('two-way players contribute batting and pitching, but their team W-L counts once', () => {
+  const twoWay = day('MLB', { pa: 5, ab: 4, h: 3, hr: 1, bb: 1 }, { outs: 18, so: 8 });
+  const idle = Array(7).fill(null).map(() => off());
+  const g = playGame(week([twoWay, ...idle.slice(1)], 1, 0), week(idle, 0, 1), baselines, HOLD);
+
+  assert.deepEqual([g.innings[0].home, g.innings[0].away], [2, 0]);
+  assert.deepEqual([g.innings[7].home, g.innings[7].away], [2, 0]);
+  assert.deepEqual([g.innings[8].home, g.innings[8].away], [1, 0]);
+  assert.equal(g.home, 5);
+});
+
 // Each alumnus's week for the player-vs-player tiebreak.
 const roster = (...weeks: LevelBuckets[]) => new Map(weeks.map((w, i) => [`p${i}`, w]));
 const hitter = (h: number, hr = 0) => day('MLB', { pa: 10, ab: 10, h, hr }); // more hits = higher OPS+
