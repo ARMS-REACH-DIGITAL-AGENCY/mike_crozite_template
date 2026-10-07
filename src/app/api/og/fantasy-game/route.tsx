@@ -27,12 +27,12 @@ export async function GET(req:NextRequest){
     size
   );
   const requestedDays=Number.parseInt(req.nextUrl.searchParams.get('days')||'9',10);
-  const state=(req.nextUrl.searchParams.get('state')||'final').toLowerCase();
-  const visibleInnings=state==='final'?Math.max(9,Math.ceil(g.innings.length/2)):Math.max(0,Math.min(9,Number.isFinite(requestedDays)?requestedDays:0));
+  const status=(req.nextUrl.searchParams.get('status')||'END 9').toUpperCase();
+  const complete=status==='END 9';
+  const visibleInnings=complete?Math.max(9,Math.ceil(g.innings.length/2)):Math.max(0,Math.min(9,Number.isFinite(requestedDays)?requestedDays:0));
   const score=fantasyGameScore(g,visibleInnings);
   const inning=(side:'h'|'a',i:number)=>i<visibleInnings?(g.innings[i*2+(side==='h'?0:1)]??0):'';
   const home=cleanSchoolLabel(g.homeName),away=cleanSchoolLabel(g.awayName);
-  const status=state==='final'?'FINAL':state==='live'?'LIVE':'IN PROGRESS';
   const homeCrest=getSchoolCrestUrl(g.home),awayCrest=getSchoolCrestUrl(g.away);
 
   const row=(side:'h'|'a',name:string,total:number)=>(
