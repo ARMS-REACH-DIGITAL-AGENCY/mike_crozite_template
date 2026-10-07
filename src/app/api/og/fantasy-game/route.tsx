@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 import type { NextRequest } from 'next/server';
 import { cleanSchoolLabel, fantasyGameScore, getSharedFantasyGame } from '@/lib/bracket/shareGame';
+import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 
 export const runtime='nodejs';
 export const size={width:1200,height:630};
@@ -25,9 +26,14 @@ export async function GET(req:NextRequest){
     <div style={{display:'flex',width:1200,height:630,background:'#0b0b0b',color:'#fff',alignItems:'center',justifyContent:'center',fontSize:48}}>YAT?STATS Fantasy Game</div>,
     size
   );
-  const score=fantasyGameScore(g);
-  const inning=(side:'h'|'a',i:number)=>g.innings[i*2+(side==='h'?0:1)]??0;
+  const requestedDays=Number.parseInt(req.nextUrl.searchParams.get('days')||'9',10);
+  const state=(req.nextUrl.searchParams.get('state')||'final').toLowerCase();
+  const visibleInnings=state==='final'?Math.max(9,Math.ceil(g.innings.length/2)):Math.max(0,Math.min(9,Number.isFinite(requestedDays)?requestedDays:0));
+  const score=fantasyGameScore(g,visibleInnings);
+  const inning=(side:'h'|'a',i:number)=>i<visibleInnings?(g.innings[i*2+(side==='h'?0:1)]??0):'';
   const home=cleanSchoolLabel(g.homeName),away=cleanSchoolLabel(g.awayName);
+  const status=state==='final'?'FINAL':state==='live'?'LIVE':'IN PROGRESS';
+  const homeCrest=getSchoolCrestUrl(g.home),awayCrest=getSchoolCrestUrl(g.away);
 
   const row=(side:'h'|'a',name:string,total:number)=>(
     <div style={{display:'flex',alignItems:'center',width:'100%',marginTop:side==='a'?0:12}}>
@@ -50,9 +56,20 @@ export async function GET(req:NextRequest){
         <div style={{display:'flex',fontSize:34,fontWeight:900}}>YAT?STATS</div>
       </div>
 
-      <div style={{display:'flex',flexDirection:'column',marginTop:48,border:'2px solid #2f7a5a',borderRadius:18,overflow:'hidden',width:'100%'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',marginTop:28,gap:28}}>
+        <img src={awayCrest} width="92" height="92" style={{objectFit:'contain'}} alt=""/>
+        <div style={{display:'flex',alignItems:'center',gap:22}}>
+          <div style={{display:'flex',fontSize:62,fontWeight:900}}>{score.away}</div>
+          <div style={{display:'flex',fontSize:24,fontWeight:800,color:'rgba(255,255,255,.55)'}}>—</div>
+          <div style={{display:'flex',fontSize:62,fontWeight:900}}>{score.home}</div>
+        </div>
+        <img src={homeCrest} width="92" height="92" style={{objectFit:'contain'}} alt=""/>
+      </div>
+      <div style={{display:'flex',justifyContent:'center',width:'100%',fontSize:20,fontWeight:800,marginTop:8,color:'#ffd64d'}}>{away} vs {home} · {status}</div>
+
+      <div style={{display:'flex',flexDirection:'column',marginTop:24,border:'2px solid #2f7a5a',borderRadius:18,overflow:'hidden',width:'100%'}}>
         <div style={{display:'flex',alignItems:'center',background:'#9d7e1e',padding:'14px 18px',fontSize:20,fontWeight:800,color:'#fff7d6'}}>
-          <div style={{display:'flex',width:220}}>FINAL</div>
+          <div style={{display:'flex',width:220}}>{status}</div>
           {[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',width:66,justifyContent:'center',marginLeft:7}}>{n}</div>)}
           <div style={{display:'flex',width:78,justifyContent:'center',marginLeft:7,color:'#ffd64d'}}>R</div>
         </div>
@@ -62,7 +79,7 @@ export async function GET(req:NextRequest){
         </div>
       </div>
 
-      <div style={{display:'flex',marginTop:34,fontSize:24,color:'rgba(255,255,255,.78)'}}>
+      <div style={{display:'flex',marginTop:22,fontSize:22,color:'rgba(255,255,255,.78)'}}>
         Follow the YAT?STATS High School Alumni Fantasy Game between {away} and {home}.
       </div>
     </div>,
