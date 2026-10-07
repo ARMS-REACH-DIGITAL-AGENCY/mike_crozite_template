@@ -98,8 +98,11 @@ def slug(s: str) -> str:
 STOP = {"high", "school", "hs", "the", "senior", "of"}
 
 
+SAME = {"st": "saint", "mt": "mount", "ft": "fort"}
+
+
 def tokens(s: str) -> set[str]:
-    return {t for t in slug(s).split("-") if t and t not in STOP}
+    return {SAME.get(t, t) for t in slug(s).split("-") if t and t not in STOP}
 
 
 def load_sitemap() -> dict[str, list[tuple[str, str, str]]]:
@@ -122,16 +125,21 @@ def load_sitemap() -> dict[str, list[tuple[str, str, str]]]:
 
 
 def score(school: dict, city_slug: str, school_slug: str) -> int:
-    nt, kt = tokens(school["name"]), tokens(school["nickname"])
-    st = set(school_slug.split("-"))
-    if school_slug == f"{slug(school['name'])}-{slug(school['nickname'])}" and kt:
+    name_s, nick_s = slug(school["name"]), slug(school["nickname"])
+    if nick_s and school_slug == f"{name_s}-{nick_s}":
         base = 100
     else:
+        # MaxPreps ends the address with the mascot; peel it off first, matching
+        # without hyphens so "Seahawks" finds sea-hawks.
+        parts, rest, nick_ok = school_slug.split("-"), school_slug, False
+        for k in range(1, min(4, len(parts) - 1) + 1):
+            if nick_s and "".join(parts[-k:]) == nick_s.replace("-", ""):
+                rest, nick_ok = "-".join(parts[:-k]), True
+                break
+        nt, rt = tokens(school["name"]), tokens(rest)
         # Either name may be the longer one ("Archbishop Moeller" vs moeller-crusaders).
-        cover = len(nt & st) / min(len(nt), len(st - kt) or 1) if nt else 0
-        nick_ok = bool(kt) and kt <= st
-        extra = len(st - kt - nt)
-        base = round(60 * cover + (30 if nick_ok else 0) - 5 * extra)
+        cover = len(nt & rt) / min(len(nt), len(rt) or 1) if nt else 0
+        base = round(60 * cover + (30 if nick_ok else 0) - 5 * len(rt - nt))
     return base + (0 if city_slug == slug(school["city"]) else -10)
 
 
