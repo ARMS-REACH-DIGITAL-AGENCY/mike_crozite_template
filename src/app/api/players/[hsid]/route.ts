@@ -28,6 +28,47 @@ function isPitcherPosition(value: unknown) {
   return /(^|[^A-Z])(P|RHP|LHP|PITCHER)([^A-Z]|$)/.test(position);
 }
 
+function num(value: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const parsed = Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function hasBuckets(value: unknown) {
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch { return false; }
+  }
+  return false;
+}
+
+function hasBattingEvidence(row: Row | undefined) {
+  if (!row) return false;
+  return hasBuckets(row.season_batting_buckets) ||
+    Boolean(row.stat_year) ||
+    ['ab', 'h', 'hr', 'bat_bb', 'ops'].some((key) => num(row[key]) > 0);
+}
+
+function hasPitchingEvidence(row: Row | undefined) {
+  if (!row) return false;
+  return hasBuckets(row.season_pitching_buckets) ||
+    Boolean(row.pitch_year) ||
+    ['ip', 'pg', 'gs', 'w', 'l', 'saves', 'er', 'ko', 'pit_bb'].some((key) => num(row[key]) > 0);
+}
+
+function isPitcherRole(stats: Row | undefined, position: unknown) {
+  const hasBatting = hasBattingEvidence(stats);
+  const hasPitching = hasPitchingEvidence(stats);
+
+  if (hasBatting && !hasPitching) return false;
+  if (hasPitching && !hasBatting) return true;
+  if (typeof stats?.is_pitcher === 'boolean') return stats.is_pitcher;
+  return isPitcherPosition(position);
+}
+
 /**
  * The Fantasy roster is exactly the Active Baseball Alumni flip-card
  * gallery: the school's flip_card_front_stage rows whose status is ACTIVE or
@@ -94,10 +135,7 @@ export async function GET(
           [firstName, lastName].filter(Boolean).join(' ') ||
           id;
         const position = stage.position ?? stats?.position ?? null;
-        const isPitcher =
-          typeof stats?.is_pitcher === 'boolean'
-            ? stats.is_pitcher
-            : isPitcherPosition(position);
+        const isPitcher = isPitcherRole(stats, position);
 
         return {
           playerid: id,
