@@ -223,7 +223,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string; fantasyDays?: string; fantasyState?: string }>;
+  searchParams: Promise<{ player?: string; fantasyGame?: string; fantasyDays?: string; fantasyStatus?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -251,8 +251,8 @@ export async function generateMetadata({
         const hostBase = host ? `https://${host}` : canonicalUrl;
         const shareUrl = `${hostBase}/${schoolHsid}?fantasyGame=${game.id}#sec-fantasy`;
         const fantasyDays = Math.max(0, Math.min(9, Number.parseInt(String(qp?.fantasyDays || '9'), 10) || 0));
-        const fantasyState = String(qp?.fantasyState || 'final').toLowerCase();
-        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}&days=${fantasyDays}&state=${encodeURIComponent(fantasyState)}`;
+        const fantasyStatus = String(qp?.fantasyStatus || 'END 9').toUpperCase();
+        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}&days=${fantasyDays}&status=${encodeURIComponent(fantasyStatus)}`;
         return {
           title: `${visitor} vs ${home} | YAT?STATS Fantasy Game`,
           description,
