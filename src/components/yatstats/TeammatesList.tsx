@@ -55,10 +55,12 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
 
   return (
     <aside className="ytm" aria-label="Teammates">
-      <div className="ytm-title">Teammates <span className="ytm-on">on</span> YAT?STATS <span className="ytm-count">*({total})</span></div>
-      <div className="ytm-sort" role="group" aria-label="Sort teammates">
-        <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => setOrder('az')}>A–Z</button>
-        <button type="button" className={order === 'year' ? 'on' : ''} aria-pressed={order === 'year'} onClick={() => setOrder('year')}>Year</button>
+      <div className="ytm-sticky">
+        <div className="ytm-title">Teammates <span className="ytm-on">on</span> YAT?STATS <span className="ytm-count">*({total})</span></div>
+        <div className="ytm-sort" role="group" aria-label="Sort teammates">
+          <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => setOrder('az')}>A–Z</button>
+          <button type="button" className={order === 'year' ? 'on' : ''} aria-pressed={order === 'year'} onClick={() => setOrder('year')}>Year</button>
+        </div>
       </div>
       {order === 'az' ? (
         <ul>
@@ -84,6 +86,7 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
       <p className="ytm-note">*Only Next-Level Alumni from the participating 1025 high school baseball programs are currently listed on the platform.</p>
       <style jsx>{`
         .ytm { min-width: 0; color: var(--ysf-text, rgba(255,255,255,.88)); font: 400 10px/1.35 system-ui, sans-serif; }
+        .ytm-sticky { position: sticky; top: 0; z-index: 6; margin: -10px 0 0; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); box-shadow: 0 8px 12px rgba(0,0,0,.18); }
         .ytm-note { margin: 10px 0 0; color: var(--ysf-muted, rgba(255,255,255,.55)); font: 400 7px/1.3 system-ui, sans-serif; }
         .ytm-title { margin: 0 0 6px; color: var(--ysf-when, #ffc107); font: 400 13px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
         .ytm-on { text-transform: none; }
