@@ -135,6 +135,8 @@ export async function GET(
           [firstName, lastName].filter(Boolean).join(' ') ||
           id;
         const position = stage.position ?? stats?.position ?? null;
+        const hasBatting = hasBattingEvidence(stats);
+        const hasPitching = hasPitchingEvidence(stats);
         const isPitcher = isPitcherRole(stats, position);
 
         return {
@@ -145,6 +147,9 @@ export async function GET(
           level,
           position,
           is_pitcher: isPitcher,
+          has_batting_2026: hasBatting,
+          has_pitching_2026: hasPitching,
+          is_two_way_2026: hasBatting && hasPitching,
           status_label: stage.status_label ?? stage.status ?? null,
           current_team_name: stage.current_team_name ?? null,
           // Our (Baseball Cube) team id: the team logo in the stat drawer.
