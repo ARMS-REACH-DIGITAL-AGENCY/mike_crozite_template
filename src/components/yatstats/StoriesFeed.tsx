@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 import SortToggle from '@/components/yatstats/SortToggle';
 import TeammatesList from '@/components/yatstats/TeammatesList';
-import StoryViewer, { StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
+import StoryViewer, { AlbumStrip, StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
 function useIsDesktop() {
@@ -264,6 +264,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                       </span>
                     </span>
                   </button>
+                  {/* Photos others added from the same moment. */}
+                  <AlbumStrip story={s} onOpen={(i) => show(s, i)} />
                   <div className="ysf-card-actions">
                     <button type="button" className={s.likedByMe ? 'ysf-liked' : ''} onClick={() => likeFromCard(s)} aria-pressed={Boolean(s.likedByMe)}>
                       <i className={s.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like{s.likeCount > 0 ? ` · ${s.likeCount}` : ''}

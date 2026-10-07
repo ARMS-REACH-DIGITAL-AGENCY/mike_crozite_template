@@ -47,7 +47,7 @@ type StoryRow = {
   posted_on_playerid: string;
   photos: { web: string; thumb: string; full: string; width: number | null; height: number | null }[] | null;
   players: { playerid: string; hsid: string | null; first_name: string | null; last_name: string | null; is_primary: boolean }[] | null;
-  comment_photos: { web: string; thumb: string; full: string; width: number | null; height: number | null }[] | null;
+  comment_photos: { web: string; thumb: string; full: string; width: number | null; height: number | null; by: string | null }[] | null;
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
@@ -78,9 +78,13 @@ export async function GET(req: NextRequest) {
                  LEFT JOIN flip_card_front_stage f ON f.playerid::text = mp.playerid
                 WHERE mp.moment_id = m.id) AS players,
               (SELECT json_agg(json_build_object('web', cp.web_s3_key, 'thumb', cp.thumb_s3_key, 'full', cp.s3_key,
-                                                 'width', cp.width, 'height', cp.height) ORDER BY c.created_at, c.id, cp.sort_order)
+                                                 'width', cp.width, 'height', cp.height,
+                                                 'by', NULLIF(TRIM(CONCAT_WS(' ', up.first_name, up.last_name)), ''))
+                                 ORDER BY c.created_at, c.id, cp.sort_order)
                  FROM player_moment_comments c
                  JOIN player_moment_comment_photos cp ON cp.comment_id = c.id
+                 LEFT JOIN LATERAL (SELECT first_name, last_name FROM user_profiles
+                                     WHERE firebase_uid = c.firebase_uid LIMIT 1) up ON true
                 WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_photos,
               (SELECT count(*)::int FROM player_moment_likes l WHERE l.moment_id = m.id) AS like_count,
               (SELECT count(*)::int FROM player_moment_comments c WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_count,
@@ -123,14 +127,16 @@ export async function GET(req: NextRequest) {
         postedAt: r.created_at,
         postedOnPlayerId: r.posted_on_playerid,
         photos,
-        // Photos fans added in the comments (the timeline shows a Draft Day
-        // thread's photos on that draft slide).
+        // Photos fans added in their replies: more of the same moment, from
+        // everyone who was there. Shown with the story's own photos (each
+        // credited) and on the timeline.
         commentPhotos: (r.comment_photos || []).map((p) => ({
           web: storyAssetUrl(p.web),
           thumb: storyAssetUrl(p.thumb),
           full: storyAssetUrl(p.full),
           width: p.width,
           height: p.height,
+          by: p.by || 'A YAT?STATS fan',
         })),
         players: (r.players || []).map((p) => ({
           playerId: p.playerid,

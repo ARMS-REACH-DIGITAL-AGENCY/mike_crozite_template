@@ -10,7 +10,7 @@
 //   StoryViewer - the big view (photo + thread), opened from a card on a
 //                 phone or from a photo on desktop.
 
-import { type ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { toPlayerSlug } from '@/lib/slug';
@@ -20,7 +20,8 @@ import { jpegName, shrinkPhoto } from '@/lib/shrinkPhoto';
 
 // logo: a Draft Day story's club logo (or the YAT?STATS crest) - shown
 // whole on a light panel, never cropped or cut out.
-export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null; logo?: boolean };
+// by: who added it, for photos fans added in their replies.
+export type StoryPhoto = { web: string | null; thumb: string | null; full: string | null; width: number | null; height: number | null; logo?: boolean; by?: string };
 export type StoryPlayer = { playerId: string; hsid: string | null; name: string; isPrimary: boolean };
 export type Story = {
   id: string;
@@ -105,6 +106,35 @@ export async function toggleStoryLike(storyId: string): Promise<{ liked: boolean
   }
 }
 
+// Everything from the moment, in order: the story's own photos, then the
+// ones fans added in their replies (same day, other cameras), each credited.
+export function momentAlbum(story: Story): StoryPhoto[] {
+  const own = story.photos.map((p) => (p.logo ? p : { ...p, by: p.by || story.author }));
+  return [...own, ...(story.commentPhotos || [])];
+}
+
+// One photo from a moment. On a phone the photo itself goes to the share
+// sheet (straight into Messages, Instagram...); otherwise the story's link.
+export async function sharePhoto(story: Story, photo: StoryPhoto): Promise<string | null> {
+  const src = photo.full || photo.web;
+  if (src && !photo.logo && typeof navigator.canShare === 'function') {
+    try {
+      const blob = await (await fetch(src, { mode: 'cors' })).blob();
+      const file = new File([blob], `yatstats-${story.id}.${blob.type.includes('png') ? 'png' : 'jpg'}`, { type: blob.type || 'image/jpeg' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: `${story.author}'s story`, text: `${story.story.slice(0, 120)} ${shareUrlFor(story.id)}` });
+        logShare(story.id, 'photo');
+        track('story_share', { moment_id: story.id, method: 'photo' });
+        return null;
+      }
+    } catch (error) {
+      if ((error as Error)?.name === 'AbortError') return null;
+      // No file sharing here (or the photo couldn't be fetched): share the link.
+    }
+  }
+  return shareStory(story);
+}
+
 // The phone's share sheet, else copy the link. Returns a message to show
 // (or null when the share sheet handled it / was cancelled).
 export async function shareStory(story: Story): Promise<string | null> {
@@ -130,13 +160,19 @@ export async function shareStory(story: Story): Promise<string | null> {
     }
   }
   track('story_share', { moment_id: story.id, method });
-  fetch(`/api/stories/${story.id}/share`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-    credentials: 'include',
-    body: JSON.stringify({ method }),
-  }).catch(() => {});
+  logShare(story.id, method);
   return message;
+}
+
+function logShare(storyId: string, method: string) {
+  authHeaders()
+    .then((headers) => fetch(`/api/stories/${storyId}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      credentials: 'include',
+      body: JSON.stringify({ method }),
+    }))
+    .catch(() => {});
 }
 
 export function shareUrlFor(storyId: string) {
@@ -336,7 +372,9 @@ export function StoryThread({
       setDraft('');
       photos.forEach((p) => URL.revokeObjectURL(p.preview));
       setPicked([]);
-      onChange({ ...story, commentCount: story.commentCount + 1 });
+      // Their photos join the moment's album, credited to them.
+      const added: StoryPhoto[] = ((data.comment?.photos || []) as StoryPhoto[]).map((p) => ({ ...p, by: data.comment?.author || myName || 'A YAT?STATS fan' }));
+      onChange({ ...story, commentCount: story.commentCount + 1, commentPhotos: [...(story.commentPhotos || []), ...added] });
       // The timeline shows photos from a story's thread on that year's slide.
       if (photos.length) window.dispatchEvent(new CustomEvent('yat:story-comment-photos', { detail: { id: story.id } }));
     } catch (error) {
@@ -352,7 +390,8 @@ export function StoryThread({
     if (res.status === 401) return needConfirm(() => removeComment(comment));
     if (!res.ok) return flash(data?.error || 'The comment could not be removed.');
     setComments((list) => (list || []).filter((c) => c.id !== comment.id));
-    onChange({ ...story, commentCount: Math.max(0, story.commentCount - 1) });
+    const gone = new Set((comment.photos || []).map((p) => p.full));
+    onChange({ ...story, commentCount: Math.max(0, story.commentCount - 1), commentPhotos: (story.commentPhotos || []).filter((p) => !gone.has(p.full)) });
   };
 
   const share = async () => {
@@ -567,7 +606,7 @@ export function StoryThread({
                 ref={composerRef}
                 rows={1}
                 value={draft}
-                placeholder={`Comment as ${myName || 'you'}`}
+                placeholder={`Were you there? Add your photos or a comment as ${myName || 'you'}`}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); } }}
               />
@@ -588,10 +627,10 @@ export function StoryThread({
             </button>
           </>
         ) : (
-          <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to comment</button>
+          <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to add your photos or a comment</button>
         )}
       </div>
-      {lightbox && <PhotoLightbox photos={lightbox.photos} start={lightbox.index} onClose={() => setLightbox(null)} />}
+      {lightbox && <PhotoLightbox photos={lightbox.photos} start={lightbox.index} story={story} onClose={() => setLightbox(null)} />}
     </>
   );
 
@@ -625,9 +664,57 @@ export function StoryThread({
   );
 }
 
+// The photos fans added in their replies, as a strip on a story card:
+// "3 photos from Pete DeLuca" with thumbnails. Tapping one opens the story
+// at that photo (index into momentAlbum).
+export function AlbumStrip({ story, onOpen }: { story: Story; onOpen: (albumIndex: number) => void }) {
+  const added = story.commentPhotos || [];
+  if (!added.length) return null;
+  const people = [...new Set(added.map((p) => p.by || 'A YAT?STATS fan'))];
+  const who = people.length === 1 ? people[0] : `${people[0]} and ${people.length - 1} other${people.length > 2 ? 's' : ''}`;
+  const shown = added.slice(0, 4);
+  const start = story.photos.length;
+  return (
+    <div className="ysv-strip">
+      <span className="ysv-strip-label"><i className="ri-camera-line" /> {added.length} photo{added.length === 1 ? '' : 's'} from {who}</span>
+      <span className="ysv-strip-row">
+        {shown.map((p, i) => (
+          <button type="button" key={i} onClick={() => onOpen(start + i)} aria-label={`Open photo from ${p.by || 'a fan'}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.thumb || p.web || ''} alt="" loading="lazy" decoding="async" />
+            {i === shown.length - 1 && added.length > shown.length ? <span className="ysv-strip-more">+{added.length - shown.length}</span> : null}
+          </button>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+// Who added a photo, and a Share button for that one photo. Sits on the
+// photo in the big view and the lightbox.
+function PhotoTools({ story, photo }: { story: Story; photo: StoryPhoto | undefined }) {
+  const [note, setNote] = useState('');
+  if (!photo) return null;
+  const share = async (event: ReactMouseEvent) => {
+    event.stopPropagation();
+    const message = await sharePhoto(story, photo);
+    if (message) {
+      setNote(message);
+      window.setTimeout(() => setNote(''), 2600);
+    }
+  };
+  return (
+    <>
+      {photo.by && !photo.logo && <span className="ysv-credit"><i className="ri-camera-line" /> {photo.by}</span>}
+      <button type="button" className="ysv-photo-share" onClick={share} aria-label="Share this photo"><i className="ri-share-forward-line" /> Share</button>
+      {note && <span className="ysv-photo-note" role="status">{note}</span>}
+    </>
+  );
+}
+
 // A comment photo opened large, over everything (the big view included).
 // Escape closes this, not the story underneath.
-function PhotoLightbox({ photos, start, onClose }: { photos: StoryPhoto[]; start: number; onClose: () => void }) {
+function PhotoLightbox({ photos, start, story, onClose }: { photos: StoryPhoto[]; start: number; story: Story; onClose: () => void }) {
   const [index, setIndex] = useState(start);
   const photo = photos[index];
 
@@ -650,6 +737,7 @@ function PhotoLightbox({ photos, start, onClose }: { photos: StoryPhoto[]; start
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photo.full || photo.web || photo.thumb || ''} alt="" onClick={(e) => e.stopPropagation()} />
       )}
+      <PhotoTools story={story} photo={photo} />
       {photos.length > 1 && (
         <div onClick={(e) => e.stopPropagation()}>
           <button type="button" className="ysv-nav ysv-nav-prev" disabled={index === 0} onClick={() => setIndex((i) => i - 1)} aria-label="Previous photo">‹</button>
@@ -679,19 +767,21 @@ export default function StoryViewer({
   onChange: (story: Story) => void;
   onDeleted: (id: string) => void;
 }) {
-  const [photoIndex, setPhotoIndex] = useState(initialPhoto);
-  const photo = story.photos[photoIndex];
+  // The story's photos and everyone's reply photos, one carousel.
+  const album = momentAlbum(story);
+  const [photoIndex, setPhotoIndex] = useState(Math.min(initialPhoto, Math.max(0, album.length - 1)));
+  const photo = album[photoIndex];
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement | null)?.closest?.('textarea, input, select')) return;
       if (event.key === 'Escape') onClose();
-      if (event.key === 'ArrowRight') setPhotoIndex((i) => Math.min(i + 1, story.photos.length - 1));
+      if (event.key === 'ArrowRight') setPhotoIndex((i) => Math.min(i + 1, album.length - 1));
       if (event.key === 'ArrowLeft') setPhotoIndex((i) => Math.max(i - 1, 0));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, story.photos.length]);
+  }, [onClose, album.length]);
 
   return createPortal(
     <div className="ysv" role="dialog" aria-modal="true" aria-label="Story" onClick={onClose}>
@@ -702,13 +792,14 @@ export default function StoryViewer({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photo.full} alt="" />
           ) : null}
-          {story.photos.length > 1 && (
+          {album.length > 1 && (
             <>
               <button type="button" className="ysv-nav ysv-nav-prev" disabled={photoIndex === 0} onClick={() => setPhotoIndex((i) => i - 1)} aria-label="Previous photo">‹</button>
-              <button type="button" className="ysv-nav ysv-nav-next" disabled={photoIndex === story.photos.length - 1} onClick={() => setPhotoIndex((i) => i + 1)} aria-label="Next photo">›</button>
-              <span className="ysv-count">{photoIndex + 1}/{story.photos.length}</span>
+              <button type="button" className="ysv-nav ysv-nav-next" disabled={photoIndex === album.length - 1} onClick={() => setPhotoIndex((i) => i + 1)} aria-label="Next photo">›</button>
+              <span className="ysv-count">{photoIndex + 1}/{album.length}</span>
             </>
           )}
+          <PhotoTools story={story} photo={photo} />
         </div>
         <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={focusComment} />
       </div>
@@ -748,6 +839,19 @@ export function StoryStyles() {
       .ysv-nav-prev { left: 8px; }
       .ysv-nav-next { right: 8px; }
       .ysv-count { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font: 700 11px/1.4 Oswald, sans-serif; }
+      .ysv-credit { position: absolute; left: 8px; bottom: 8px; z-index: 2; max-width: calc(100% - 140px); padding: 3px 9px; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font: 600 12px/1.4 system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .ysv-photo-share { position: absolute; right: 8px; bottom: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px; border: 0; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font: 600 13px/1 system-ui, sans-serif; cursor: pointer; }
+      .ysv-photo-share:hover { background: rgba(0,0,0,.8); }
+      .ysv-photo-note { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 3; padding: 6px 12px; border-radius: 8px; background: rgba(0,0,0,.8); color: #fff; font: 400 13px/1.3 system-ui, sans-serif; white-space: nowrap; }
+      .ysv-lightbox .ysv-credit, .ysv-lightbox .ysv-photo-share { position: fixed; bottom: 16px; }
+      .ysv-lightbox .ysv-credit { left: 16px; }
+      .ysv-lightbox .ysv-photo-share { right: 16px; }
+      .ysv-strip { display: flex; flex-direction: column; gap: 5px; padding: 0 8px 8px; }
+      .ysv-strip-label { color: var(--ysf-muted, var(--ysv-muted)); font: 600 11px/1.2 var(--yat-font-ui, Arial, sans-serif); }
+      .ysv-strip-row { display: flex; gap: 4px; }
+      .ysv-strip-row button { position: relative; flex: 0 0 auto; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 6px; overflow: hidden; background: rgba(0,0,0,.2); cursor: pointer; }
+      .ysv-strip-row img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .ysv-strip-more { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.55); color: #fff; font: 700 14px/1 system-ui, sans-serif; }
       .ysv-side { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--ysv-line); }
       .ysv-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 8px; }
       .ysv-card .ysv-head { padding-right: 36px; }
