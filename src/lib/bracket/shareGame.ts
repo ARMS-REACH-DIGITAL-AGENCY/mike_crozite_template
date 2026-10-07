@@ -56,9 +56,13 @@ export function getSharedFantasyGame(id:number):SharedFantasyGame|null{
     stage,
   };
 }
-export function fantasyGameScore(g:SharedFantasyGame){
+export function fantasyGameScore(g:SharedFantasyGame, visibleInnings?:number){
   let h=0,a=0;
-  g.innings.forEach((v,i)=>{if(i%2===0)h+=v;else a+=v;});
+  const totalInnings=Math.ceil(g.innings.length/2);
+  const limit=Number.isFinite(visibleInnings)
+    ?Math.max(0,Math.min(Math.floor(Number(visibleInnings)),totalInnings))
+    :totalInnings;
+  g.innings.slice(0,limit*2).forEach((v,i)=>{if(i%2===0)h+=v;else a+=v;});
   return {home:h,away:a};
 }
 export function cleanSchoolLabel(s:string){return s.replace(/,\s*/g,', ').trim();}
