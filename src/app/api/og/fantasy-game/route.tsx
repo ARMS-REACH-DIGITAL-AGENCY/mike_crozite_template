@@ -19,15 +19,21 @@ function CellBox({cell}:{cell:Cell}){return <div style={{display:'flex',width:66
 
 export async function GET(req:NextRequest){
   const u=req.nextUrl.searchParams;
-  const away=q(u,'fantasyAwayName','Visitor'),home=q(u,'fantasyHomeName','Home');
+  let snap:Record<string,any>={};
+  try{const raw=q(u,'s').replace(/-/g,'+').replace(/_/g,'/');if(raw)snap=JSON.parse(Buffer.from(raw,'base64').toString('utf8'));}catch{}
+  const gameId=Number(q(u,'gameId','0'));
+  let staticGame:any=null;
+  if(gameId){try{const mod=await import('@/lib/bracket/shareGame');staticGame=mod.getSharedFantasyGame(gameId);}catch{}}
+  const away=q(u,'fantasyAwayName',staticGame?.awayName||'Visitor').replace(/\s*\([^)]*\)\s*$/,'');
+  const home=q(u,'fantasyHomeName',staticGame?.homeName||'Home').replace(/\s*\([^)]*\)\s*$/,'');
   const awayPlace=place(q(u,'fantasyAwayPlace')),homePlace=place(q(u,'fantasyHomePlace'));
   const awayId=Number(q(u,'fantasyAwayId','0')),homeId=Number(q(u,'fantasyHomeId','0'));
-  const awayRuns=q(u,'fantasyAwayRuns','0'),homeRuns=q(u,'fantasyHomeRuns','0');
-  const awayCells=cells(q(u,'fantasyAwayCells')),homeCells=cells(q(u,'fantasyHomeCells'));
-  const status=q(u,'fantasyStatus','LIVE').toUpperCase(),week=q(u,'week','1'),round=q(u,'fantasyRound','1'),gameNo=q(u,'fantasyGameNo','1'),dates=q(u,'fantasyDates');
-  const headline=q(u,'fantasyHeadline',`${away.toUpperCase()} vs ${home.toUpperCase()}`);
-  const summary=q(u,'fantasySummary',`${status}: ${away} ${awayRuns}, ${home} ${homeRuns}.`);
-  const heroId=q(u,'fantasyHeroId');
+  const awayRuns=String(snap.a??q(u,'fantasyAwayRuns','0')),homeRuns=String(snap.h??q(u,'fantasyHomeRuns','0'));
+  const awayCells=cells(String(snap.ac??q(u,'fantasyAwayCells'))),homeCells=cells(String(snap.hc??q(u,'fantasyHomeCells')));
+  const status=String(snap.s??q(u,'fantasyStatus','LIVE')).toUpperCase(),week=q(u,'week','1'),round=String(snap.r??q(u,'fantasyRound','1')),gameNo=String(snap.g??q(u,'fantasyGameNo','1')),dates=String(snap.d??q(u,'fantasyDates'));
+  const headline=String(snap.t??q(u,'fantasyHeadline',`${away.toUpperCase()} vs ${home.toUpperCase()}`));
+  const summary=`${status}: ${away} ${awayRuns}, ${home} ${homeRuns}.`;
+  const heroId=String(snap.p??q(u,'fantasyHeroId'));
   let hero='';
   if(heroId){try{hero=(await getBatchDesignatedPlayerImages([heroId],'HEADSHOT')).get(heroId)?.image_url||'';}catch{}}
   const awayCrest=awayId?getSchoolCrestUrl(awayId):'',homeCrest=homeId?getSchoolCrestUrl(homeId):'';
