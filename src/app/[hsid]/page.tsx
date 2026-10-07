@@ -245,23 +245,21 @@ export async function generateMetadata({
     try {
       const game = getSharedFantasyGame(fantasyGameId);
       if (game) {
-        const visitor = cleanSchoolLabel(qp.fantasyAwayName || game.awayName);
-        const home = cleanSchoolLabel(qp.fantasyHomeName || game.homeName);
-        const status = String(qp.fantasyStatus || 'LIVE').toUpperCase();
-        const awayRuns = Number(qp.fantasyAwayRuns || 0);
-        const homeRuns = Number(qp.fantasyHomeRuns || 0);
-        const headline = String(qp.fantasyHeadline || `${visitor} vs ${home}`).trim();
-        const summary = String(qp.fantasySummary || `${status}: ${visitor} ${awayRuns}, ${home} ${homeRuns}.`).trim();
-        const description = `${status}: ${visitor} ${awayRuns}, ${home} ${homeRuns}. ${summary}`;
+        let snap: Record<string, any> = {};
+        try {
+          const raw=String(qp.s||'').replace(/-/g,'+').replace(/_/g,'/');
+          if(raw) snap=JSON.parse(Buffer.from(raw,'base64').toString('utf8'));
+        } catch {}
+        const visitor = cleanSchoolLabel(game.awayName);
+        const home = cleanSchoolLabel(game.homeName);
+        const status = String(snap.s || 'LIVE').toUpperCase();
+        const awayRuns = Number(snap.a || 0);
+        const homeRuns = Number(snap.h || 0);
+        const headline = String(snap.t || `${visitor} vs ${home}`).trim();
+        const description = `${status}: ${visitor} ${awayRuns}, ${home} ${homeRuns}.`;
         const hostBase = host ? `https://${host}` : canonicalUrl;
-        const shareQuery = new URLSearchParams();
-        for (const [key,value] of Object.entries(qp)) if (value) shareQuery.set(key,value);
-        const shareUrl = `${hostBase}/${schoolHsid}?${shareQuery.toString()}#sec-fantasy`;
-        const ogQuery = new URLSearchParams();
-        for (const key of ['fantasyGame','week','fantasyRound','fantasyGameNo','fantasyStatus','fantasyDates','fantasyAwayId','fantasyHomeId','fantasyAwayName','fantasyHomeName','fantasyAwayPlace','fantasyHomePlace','fantasyAwayRuns','fantasyHomeRuns','fantasyAwayCells','fantasyHomeCells','fantasyHeadline','fantasySummary','fantasyHeroId','shareV']) {
-          const value=qp[key]; if(value) ogQuery.set(key,value);
-        }
-        const ogImageUrl = `${hostBase}/api/og/fantasy-game?${ogQuery.toString()}`;
+        const shareUrl = `${hostBase}/${schoolHsid}?fantasyGame=${game.id}&week=${encodeURIComponent(String(qp.week||game.week))}&s=${encodeURIComponent(String(qp.s||''))}#sec-fantasy`;
+        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}&week=${encodeURIComponent(String(qp.week||game.week))}&s=${encodeURIComponent(String(qp.s||''))}`;
         return {
           title: `${headline} | YAT?STATS Fantasy Game`,
           description,
