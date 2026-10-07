@@ -24,6 +24,14 @@ on:
         description: "Optional comma-separated hsids to run instead of all missing"
         required: false
         default: ""
+      promote:
+        description: "Optional comma-separated hsids reviewed in schools-candidates/ to copy into schools/"
+        required: false
+        default: ""
+      pages:
+        description: "Optional hsid=MaxPreps page URL pairs, comma-separated, for schools the matcher missed"
+        required: false
+        default: ""
       csv_path:
         description: "Path to schools CSV inside this repo"
         required: true
@@ -59,7 +67,9 @@ jobs:
             --csv "${{ github.event.inputs.csv_path }}" \
             --mode "${{ github.event.inputs.mode }}" \
             --limit "${{ github.event.inputs.limit }}" \
-            --hsids "${{ github.event.inputs.hsids }}"
+            --hsids "${{ github.event.inputs.hsids }}" \
+            --promote "${{ github.event.inputs.promote }}" \
+            --pages "${{ github.event.inputs.pages }}"
 
       - name: Upload report
         if: always()

@@ -259,23 +259,43 @@ def main():
     p.add_argument("--mode", choices=["dry_run", "stage", "publish"], default="dry_run")
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--hsids", default="", help="comma-separated hsids to run (default: all missing)")
+    p.add_argument("--promote", default="", help="comma-separated hsids: copy reviewed schools-candidates/{hsid}.png to schools/")
+    p.add_argument("--pages", default="", help="hsid=MaxPreps page URL pairs, comma-separated: use this page, no matching")
     args = p.parse_args()
 
     s3 = boto3.client("s3", region_name=args.region)
     schools = load_schools(Path(args.csv))
     have = existing_hsids(s3, args.bucket, args.prefix)
+
+    # Reviewed by eye: move staged logos into place (never over an existing one).
+    for h in [h.strip() for h in args.promote.split(",") if h.strip()]:
+        if h in have:
+            log.info(f"PROMOTE\t{h}\tskipped, schools/{h}.png already exists")
+        elif args.mode == "dry_run":
+            log.info(f"PROMOTE\t{h}\twould copy")
+        else:
+            s3.copy_object(Bucket=args.bucket, Key=f"{args.prefix}{h}.png", ContentType="image/png",
+                           CopySource={"Bucket": args.bucket, "Key": f"{args.stage_prefix}{h}.png"},
+                           MetadataDirective="REPLACE", CacheControl="public, max-age=86400")
+            have.add(h)
+            log.info(f"PROMOTE\t{h}\tcopied to {args.prefix}{h}.png")
+
+    # Pages picked by hand for schools the matcher missed (spelling, renamed mascot).
+    forced = dict(pair.split("=", 1) for pair in args.pages.split(",") if "=" in pair)
+    forced = {h.strip(): u.strip() for h, u in forced.items()}
+
     todo = [s for s in schools if s["hsid"] not in have]
-    if args.hsids:
-        want = {h.strip() for h in args.hsids.split(",") if h.strip()}
+    if args.hsids or forced or args.promote:
+        want = {h.strip() for h in args.hsids.split(",") if h.strip()} | set(forced)
         todo = [s for s in todo if s["hsid"] in want]
     if args.limit > 0:
         todo = todo[: args.limit]
     log.info(f"{len(schools)} schools, {len(have)} already have a logo, {len(todo)} to find · mode {args.mode}")
 
-    by_state = load_sitemap()
+    by_state = load_sitemap() if any(s["hsid"] not in forced for s in todo) else {}
     rows, thumbs = [], {}
     for i, s in enumerate(todo, 1):
-        best, second, page = match(s, by_state)
+        best, second, page = (100, 0, forced[s["hsid"]]) if s["hsid"] in forced else match(s, by_state)
         row = {**s, "score": best, "runner_up": second, "page": page, "page_seen": "",
                "logo_url": "", "status": "no_match", "key": ""}
         try:
