@@ -14,6 +14,7 @@ type Props={
   subtitle:string;
   shareUrl:string;
   shareText?:string;
+  sharePayload?:Record<string,unknown>;
   preview?:React.ReactNode;
 };
 
@@ -29,7 +30,7 @@ function ago(iso:string){
   if(s<604800)return `${Math.floor(s/86400)}d`; return `${Math.floor(s/604800)}w`;
 }
 
-export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,shareText,preview}:Props){
+export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,shareText,sharePayload,preview}:Props){
   const me=useFanMe();
   const myName=me?[me.firstName,me.lastName].filter(Boolean).join(' '):'';
   const [liked,setLiked]=useState(false);
@@ -75,15 +76,23 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
   };
 
   const share=async()=>{
-    let method='link';
+    let method='link',url=shareUrl;
     try{
-      if(navigator.share){await navigator.share({title,text:shareText||subtitle,url:shareUrl});method='native';}
-      else{await navigator.clipboard.writeText(`${shareText||subtitle}\n${shareUrl}`);flash('Link copied.');}
+      if(sharePayload){
+        const res=await fetch(`/api/fantasy-games/${encodeURIComponent(gameKey)}/share`,{
+          method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({snapshot:sharePayload,path:window.location.pathname})
+        });
+        const data=await res.json();
+        if(res.ok&&data?.url)url=String(data.url);
+      }
+      if(navigator.share){await navigator.share({title,text:shareText||subtitle,url});method='native';}
+      else{await navigator.clipboard.writeText(`${shareText||subtitle}\n${url}`);flash('Link copied.');}
     }catch(e:any){
       if(e?.name==='AbortError')return;
-      try{await navigator.clipboard.writeText(`${shareText||subtitle}\n${shareUrl}`);flash('Link copied.');}catch{}
+      try{await navigator.clipboard.writeText(`${shareText||subtitle}\n${url}`);flash('Link copied.');}catch{}
     }
-    fetch(`/api/fantasy-games/${encodeURIComponent(gameKey)}/share`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({method})}).catch(()=>{});
+    if(!sharePayload) fetch(`/api/fantasy-games/${encodeURIComponent(gameKey)}/share`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({method})}).catch(()=>{});
   };
 
   const pick=(files:FileList|null)=>{
