@@ -55,11 +55,15 @@ export async function GET(
     const statsById = new Map(statsRows.map((row) => [text(row.playerid), row]));
 
     // Team logos are keyed by our (Baseball Cube) team id. A pro whose current
-    // team came from the MLB feed carries MLB's team id instead, so translate
-    // it through team_id_map; college and other ids pass through as they are.
+    // team came from the MLB feed has MLB's team id in
+    // current_team_source_team_id, which the roster refresh keeps current
+    // (current_teamid is not refreshed and goes stale after a trade or a
+    // promotion: Brent Suter, a Brave, still had the Angels' 108). Translate it
+    // through team_id_map; college and other ids pass through as they are.
+    const mlbTeamId = (r: Row) => text(r.current_team_source_team_id) || text(r.current_teamid);
     const mlbIds = [...new Set(stageRows
-      .filter((r) => text(r.current_team_source) === 'mlb_api' && /^\d+$/.test(text(r.current_teamid)))
-      .map((r) => text(r.current_teamid)))];
+      .filter((r) => text(r.current_team_source) === 'mlb_api' && /^\d+$/.test(mlbTeamId(r)))
+      .map(mlbTeamId))];
     const tbcOfMlb = new Map<string, string>();
     if (mlbIds.length) {
       try {
@@ -71,8 +75,8 @@ export async function GET(
       } catch { /* no logos is fine */ }
     }
     const logoTeamId = (r: Row) => {
-      const id = text(r.current_teamid);
-      return text(r.current_team_source) === 'mlb_api' ? tbcOfMlb.get(id) ?? null : id || null;
+      if (text(r.current_team_source) === 'mlb_api') return tbcOfMlb.get(mlbTeamId(r)) ?? null;
+      return text(r.current_teamid) || null;
     };
 
     const roster = stageRows
