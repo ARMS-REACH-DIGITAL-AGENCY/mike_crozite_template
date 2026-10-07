@@ -58,6 +58,17 @@ const isStarted = (status: unknown) => isDone(status) || (text(status) !== '' &&
 const isFinal = (status: unknown) => /^(final|game over|completed)/i.test(text(status));
 const isPitcher = (position: unknown) => /(^|[^A-Z])(P|RHP|LHP|PITCHER)([^A-Z]|$)/.test(text(position).toUpperCase());
 
+function rosterPitcherFlag(row: StageRow, usage: Record<string, { ab: number; pg: number }>): boolean {
+  const u = usage[row.playerid];
+  if (!u) return isPitcher(row.position);
+  const hasBatting = u.ab > 0;
+  const hasPitching = u.pg > 0;
+  if (hasPitching && !hasBatting) return true;
+  if (hasBatting && !hasPitching) return false;
+  if (hasPitching && hasBatting) return true;
+  return isPitcher(row.position);
+}
+
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const start = sp.get('start') || '';
@@ -76,19 +87,16 @@ export async function GET(req: NextRequest) {
       [hsids],
     );
     const active = stage.filter((r) => isActiveGalleryStatus(r.status_label) && !isHighSchool(r));
-    // Pitcher or batter by what he did this season: a listed pitcher, or
-    // anyone who pitched with under 20 at-bats (Shane Anderson is listed
-    // "UT" but only pitched). With no season stats, the listed position.
+    // Use season evidence before the stale display position. Braden Montgomery
+    // is still labeled "P" in the stage table, but his 2026 evidence is
+    // batting-only, so the live test bracket must not create zero pitching
+    // rows for his off days. Pitching-only "UT" players still stay pitchers.
     const usage = await getSeasonUsageByPlayerIds(active.map((r) => r.playerid)).catch(() => ({} as Record<string, { ab: number; pg: number }>));
-    const pitches = (r: StageRow) => {
-      const u = usage[r.playerid];
-      return isPitcher(r.position) || Boolean(u && u.pg > 0 && u.ab < 20);
-    };
     const roster: Record<string, [string, string, string, 0 | 1, string][]> = {};
     const schoolOf = new Map<string, string>();
     for (const r of active) {
       const name = text(r.display_name) || [text(r.first_name), text(r.last_name)].filter(Boolean).join(' ') || r.playerid;
-      (roster[r.hsid] ||= []).push([r.playerid, name, text(r.level_label ?? r.display_level_label), pitches(r) ? 1 : 0, text(r.current_team_name)]);
+      (roster[r.hsid] ||= []).push([r.playerid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0, text(r.current_team_name)]);
       schoolOf.set(r.playerid, r.hsid);
     }
 
