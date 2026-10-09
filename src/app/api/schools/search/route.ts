@@ -36,7 +36,16 @@ export async function GET(req: NextRequest) {
         regionid,
         yatstats_national_rank,
         yatstats_state_rank,
-        current_aa,
+        COALESCE((
+          SELECT COUNT(DISTINCT f.playerid)::int
+          FROM flip_card_front_stage f
+          WHERE f.hsid = school_success.hsid::text
+            AND UPPER(TRIM(COALESCE(f.status_label, ''))) IN (
+              'ACTIVE', 'INJURED 7-DAY', 'INJURED 10-DAY',
+              'INJURED 15-DAY', 'INJURED 30-DAY',
+              'INJURED 60-DAY', 'INJURED - FULL SEASON'
+            )
+        ), 0) AS current_aa,
         mlb,
         atnla,
         drafted_hs,
