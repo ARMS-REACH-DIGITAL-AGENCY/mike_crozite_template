@@ -417,26 +417,57 @@ export default function InteractionStrip({
       `}</style>
 
       <style jsx global>{`
-        .gallery-strip[data-react-mirrors-row5="true"] { isolation:isolate; background:repeating-linear-gradient(90deg,transparent 0,transparent 77px,rgba(255,255,255,.055) 78px,transparent 79px),linear-gradient(180deg,#184d39 0%,#0a2d22 100%); border-top:3px solid #327d5b; border-bottom:3px solid #071b15; min-height:132px; }
-        .gallery-strip[data-react-mirrors-row5="true"] .yat-row3-ballpark .ybp { position:absolute; inset:0; width:100%; height:100%; } .yat-row3-ballpark svg { display:block; width:100%; height:100%; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { position:relative; z-index:2; gap:9px; min-height:132px; align-items:center; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex:0 0 clamp(68px,20vw,86px); width:clamp(68px,20vw,86px); min-width:0; height:122px; overflow:hidden; background:#367b56; border:0; box-shadow:none; border-radius:2px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:0; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { width:100%; height:calc(100% - 22px); aspect-ratio:5 / 7; flex:1; min-height:0; border:0; border-radius:0; box-shadow:none; background:#367b56; overflow:hidden; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img { width:100%; height:100%; border-radius:0; object-fit:contain; object-position:center bottom; background:#367b56; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { position:absolute; top:0; left:0; right:0; bottom:auto; width:100%; height:22px; min-height:22px; padding:5px 2px 0; font-size:10px; line-height:12px; color:#ffd34f; background:#123d2d; text-shadow:0 1px 2px #071c14; z-index:3; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,.gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,.gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow { z-index:3; }
-        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:repeating-linear-gradient(90deg,transparent 0,transparent 77px,rgba(255,255,255,.08) 78px,transparent 79px),linear-gradient(180deg,#398765 0%,#17533c 100%); }
-        @media(max-width:600px) {
-          .gallery-strip[data-react-mirrors-row5="true"] { padding-left:12px; padding-right:0; }
-          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { width:100%; gap:8px; padding-right:0; }
-          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex-basis:calc((100vw - 36px)/4.45); width:calc((100vw - 36px)/4.45); }
+        /* Compact, theme-aware alumni portrait strip; gallery behavior is unchanged. */
+        .gallery-strip[data-react-mirrors-row5="true"] {
+          background:#0a0a0a; border:0; min-height:90px; padding:0 12px;
         }
-`}</style>
-      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner {
+          min-height:90px; gap:14px; align-items:center; padding:4px 0;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
+          flex:0 0 70px; width:70px; min-width:70px; height:82px;
+          display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+          gap:3px; border:0; border-radius:0; background:transparent;
+          overflow:visible; box-shadow:none; margin:0;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+          width:66px; height:66px; flex:0 0 66px; border:1.5px solid #fff;
+          border-radius:50%; overflow:hidden; background:transparent;
+          box-shadow:none; position:relative;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { border-color:#111; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
+          display:block; width:100%; height:100%; object-fit:contain;
+          object-position:center center; border-radius:50%; background:transparent; padding:0;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; padding:0; background:transparent; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay {
+          position:absolute; left:0; right:0; top:auto; bottom:0; width:100%;
+          height:13px; min-height:0; padding:0 1px; background:transparent;
+          color:#fff; font-size:10px; font-weight:700; line-height:13px;
+          text-align:center; text-shadow:none; z-index:2;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { color:#111; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow { z-index:3; }
+        @media(max-width:600px) {
+          .gallery-strip[data-react-mirrors-row5="true"] { padding-left:10px; padding-right:0; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:12px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
+            flex-basis:calc((100vw - 56px)/4.45); width:calc((100vw - 56px)/4.45);
+          }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+            width:min(66px,calc((100vw - 56px)/4.45 - 2px));
+            height:min(66px,calc((100vw - 56px)/4.45 - 2px));
+            flex-basis:auto; aspect-ratio:1;
+          }
+        }
+      `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
             type="button"
