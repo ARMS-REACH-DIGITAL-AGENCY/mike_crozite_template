@@ -20,7 +20,7 @@ function Cell({children,wide=false,win=false}:{children:React.ReactNode;wide?:bo
 
 export async function GET(req:NextRequest){
   const id=Number(req.nextUrl.searchParams.get('gameId')||0);
-  const g=getSharedFantasyGame(id);
+  const g=getSharedFantasyGame(id,Number(req.nextUrl.searchParams.get('week'))||undefined,Number(req.nextUrl.searchParams.get('homeId'))||undefined,Number(req.nextUrl.searchParams.get('awayId'))||undefined);
   if(!g)return new ImageResponse(
     <div style={{display:'flex',width:1200,height:630,background:'#0b0b0b',color:'#fff',alignItems:'center',justifyContent:'center',fontSize:48}}>YAT?STATS Fantasy Game</div>,
     size
