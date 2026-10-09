@@ -465,6 +465,27 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         .yat-news-filter-bar button{background:none;border:1px solid var(--line);color:var(--fg);font:600 12px var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:0;padding:6px 10px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
         .gallery-slot-link.active-news-player-filter{outline:3px solid var(--gold);outline-offset:-3px}
 
+        /* News uses horizontal story cards; preserve the existing flip-to-recap interaction. */
+        #news-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+        #news-grid .news-card{width:100%;max-width:none;aspect-ratio:16/9;height:auto;min-height:0}
+        #news-grid .news-card .yat-card-inner,
+        #news-grid .news-card .yat-flip,
+        #news-grid .news-card .yat-face{height:100%;min-height:0}
+        #news-grid .news-card .yat-news-front-content{padding:14px}
+        #news-grid .news-card .yat-news-headline-top{font-size:clamp(15px,1.9vw,23px);line-height:1.13}
+        #news-grid .news-card .yat-news-front-bottom-row{gap:8px}
+        #news-grid .news-card .yat-news-chip-stack{display:none}
+        #news-grid .news-card .yat-news-player-name{font-size:clamp(14px,1.6vw,20px)}
+        @media(max-width:700px){
+          #news-grid{grid-template-columns:1fr;gap:12px}
+          #news-grid .news-card{aspect-ratio:16/9}
+          #news-grid .news-card .yat-news-front-content{padding:11px}
+          #news-grid .news-card .yat-news-headline-top{font-size:clamp(16px,4vw,21px)}
+          #news-grid .news-card .yat-news-player-name{font-size:15px}
+          #news-grid .news-card .yat-front-team-name,
+          #news-grid .news-card .yat-front-org-name{font-size:11px}
+          #news-grid .news-card .yat-news-flip-button{font-size:9px}
+        }
         @media(max-width:520px){
           .yat-news-headline-top{font-size:20px}
           .news-card .yat-news-player-name{font-size:19px}
