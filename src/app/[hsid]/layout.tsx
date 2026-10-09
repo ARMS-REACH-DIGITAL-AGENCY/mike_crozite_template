@@ -314,7 +314,7 @@ export default async function HsidLayout({
             </a>
 
             <a className="yat-drawer-nav-item yat-drawer-visiting-school" href={`/${resolvedHsid}`}>
-              <span>WHERE THEY <strong>YAT?</strong></span>
+              <img src={crestUrl} alt="" className="yat-nav-page-crest" /><span>WHERE THEY <strong>YAT?</strong></span>
               {/* The school whose site this is - the visited one, which is the
                   home school only when they're the same. */}
               <img
@@ -323,17 +323,17 @@ export default async function HsidLayout({
                 className="yat-drawer-crest-thumb"
               />
             </a>
-            <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news">ACTIVE ALUMNI <strong>NEWS</strong></a>
-            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime">NEXT-LEVEL <strong>ALL-TIME LIST</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" />ACTIVE ALUMNI <strong>NEWS</strong></a>
+            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime"><i className="ri-list-check-2 yat-nav-page-icon" aria-hidden="true" />NEXT-LEVEL <strong>ALL-TIME LIST</strong></a>
             <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">
               {/* "2027 HIGH SCHOOL TEAM": the season year is the bold word. */}
-              <strong>{highSchoolTeamLabel().split(" ")[0]}</strong> {highSchoolTeamLabel().split(" ").slice(1).join(" ")}
+              <i className="ri-baseball-line yat-nav-page-icon" aria-hidden="true" /><strong>{highSchoolTeamLabel().split(" ")[0]}</strong> {highSchoolTeamLabel().split(" ").slice(1).join(" ")}
             </a>
-            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><strong>FANTASY</strong> BRACKET TOURNEY</a>
-            <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><strong>CONNECT</strong> &amp; <strong>CONTRIBUTE</strong> PORTAL</a>
-            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><strong>PARTNERSHIP</strong> PROGRAM</a>
-            <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about">ABOUT US</a>
-            <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq">FAQ&apos;S</a>
+            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><i className="ri-git-merge-line yat-nav-page-icon" aria-hidden="true" /><strong>FANTASY</strong> BRACKET TOURNEY</a>
+            <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><strong>CONNECT</strong> &amp; <strong>CONTRIBUTE</strong> PORTAL</a>
+            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><i className="ri-handshake-line yat-nav-page-icon" aria-hidden="true" /><strong>PARTNERSHIP</strong> PROGRAM</a>
+            <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about"><i className="ri-shield-star-line yat-nav-page-icon" aria-hidden="true" />ABOUT US</a>
+            <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq"><i className="ri-question-mark yat-nav-page-icon" aria-hidden="true" />FAQ&apos;S</a>
           </div>
         </div>
 
