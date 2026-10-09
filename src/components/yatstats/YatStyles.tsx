@@ -547,18 +547,16 @@ export default function YatStyles() {
       .yat-card-fav:disabled{opacity:.6;cursor:wait}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
-      /* Baseball-card watercolor proof: confined to each card face, never the gallery gutters.
-         Muted pigment blooms and paper grain sit above the photo but below all card UI. */
+      /* Soft watercolor washes, no repeating-line grain. Kept strictly inside card photos. */
       .yat-front .yat-bg{isolation:isolate;overflow:hidden}
       .yat-front .yat-bg::after{
         content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
         background:
-          radial-gradient(ellipse 54% 36% at 12% 14%,rgba(222,177,70,.26) 0%,rgba(222,177,70,.09) 56%,transparent 78%),
-          radial-gradient(ellipse 49% 48% at 89% 26%,rgba(93,151,182,.22) 0%,rgba(93,151,182,.08) 53%,transparent 78%),
-          radial-gradient(ellipse 60% 34% at 20% 83%,rgba(195,112,89,.18) 0%,rgba(195,112,89,.06) 55%,transparent 81%),
-          radial-gradient(ellipse 38% 29% at 81% 78%,rgba(217,194,142,.16) 0%,transparent 78%),
-          repeating-linear-gradient(103deg,rgba(255,255,255,.025) 0px,rgba(255,255,255,.025) 1px,transparent 1px,transparent 4px);
-        mix-blend-mode:screen;opacity:.85;
+          radial-gradient(ellipse 75% 45% at 8% 18%,rgba(238,194,98,.22),transparent 78%),
+          radial-gradient(ellipse 65% 55% at 93% 35%,rgba(117,169,194,.20),transparent 79%),
+          radial-gradient(ellipse 70% 40% at 12% 88%,rgba(199,127,105,.18),transparent 80%),
+          radial-gradient(ellipse 55% 45% at 86% 90%,rgba(218,185,131,.13),transparent 82%);
+        mix-blend-mode:screen;opacity:.72;
       }
 
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
