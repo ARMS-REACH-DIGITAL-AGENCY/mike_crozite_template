@@ -13,12 +13,11 @@
 // with the region. Same date as the tab (today, or ?asof=YYYY-MM-DD).
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Doto } from 'next/font/google';
 import { selectRegionSponsor } from '@/lib/sponsorCampaigns';
 import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName, weekOfDate } from './gallery';
 import { liveBoard } from './schoolSeason';
 
-const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
+// Use the ticker's CSS font stack; avoid the broken next/font Doto build dependency.
 // The crawl, in pixels per second.
 const CRAWL_PX_PER_SEC = 38;
 // How long each region's ticker shows before dissolving into the next.
@@ -162,7 +161,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
   );
 
   return (
-    <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores"
+    <div className="ybt" role="marquee" aria-label="Current round scores"
       onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       {spot}
       <div className="ybt-lane" ref={laneRef}>
