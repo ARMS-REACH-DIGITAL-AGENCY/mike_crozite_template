@@ -2,6 +2,7 @@
 
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
+import BallparkScene from '@/components/bracket/BallparkScene';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -416,7 +417,31 @@ export default function InteractionStrip({
         }
       `}</style>
 
+      <style jsx global>{`
+        .gallery-strip[data-react-mirrors-row5="true"] { isolation:isolate; background:#0b1a28; min-height:116px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .yat-row3-ballpark { position:absolute; inset:0; z-index:-1; pointer-events:none; overflow:hidden; }
+        .gallery-strip[data-react-mirrors-row5="true"] .yat-row3-ballpark svg { display:block; width:100%; height:100%; }
+        .gallery-strip[data-react-mirrors-row5="true"] .ybp-day { display:none; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .ybp-day { display:inline; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .ybp-night { display:none; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { position:relative; z-index:1; gap:9px; min-height:116px; align-items:center; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex:0 0 clamp(68px,20vw,86px); width:clamp(68px,20vw,86px); min-width:0; height:105px; overflow:visible; background:transparent; border:0; box-shadow:none; border-radius:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { width:min(100%,78px); height:auto; aspect-ratio:1; flex:none; border:3px solid #57bc60; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.35); background:#111; overflow:hidden; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img { width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:center top; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { position:static; width:100%; min-height:12px; padding:0 2px; font-size:10px; line-height:12px; text-shadow:0 1px 3px #000,0 1px 5px #000; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,.gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,.gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow { z-index:3; }
+        @media(max-width:600px) {
+          .gallery-strip[data-react-mirrors-row5="true"] { padding-left:12px; padding-right:0; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { width:100%; gap:8px; padding-right:0; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex-basis:calc((100vw - 36px)/4.45); width:calc((100vw - 36px)/4.45); }
+        }
+`}</style>
       <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
+        {showPlayerStrip && <div className="yat-row3-ballpark" aria-hidden="true"><BallparkScene /></div>}
         {showPlayerStrip && (
           <button
             type="button"
