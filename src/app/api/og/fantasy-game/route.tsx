@@ -52,6 +52,10 @@ export async function GET(req:NextRequest){
   const status=(req.nextUrl.searchParams.get('scoreStatus') || (snap?'LIVE':'FINAL')).slice(0,16);
   const round=Math.max(1,Math.min(10,Number(req.nextUrl.searchParams.get('round'))||Math.ceil(g.week/3)));
   const gameNo=Math.max(1,Math.min(3,Number(req.nextUrl.searchParams.get('gameNo'))||((g.week-1)%3+1)));
+  const weekStart=new Date(Date.UTC(2026,9,5)+(g.week-1)*7*86400000);
+  const weekEnd=new Date(weekStart.getTime()+6*86400000);
+  const fmt=(d:Date)=>d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase();
+  const weekDates=`${fmt(weekStart)} - ${fmt(weekEnd)}`;
   const activeMatch=/^(?:TOP|BOT)\s+(\d)$/i.exec(status);
   const activeInning=activeMatch?Number(activeMatch[1]):null;
   const visibleThrough=status==='FINAL'?9:activeInning??(status==='LIVE'?null:0);
@@ -62,7 +66,7 @@ export async function GET(req:NextRequest){
         <div style={{display:'flex',fontSize:14,color:'#c9dfd3'}}>{name.includes('(') ? name.split('(')[1]?.split(')')[0] : ''}</div>
       </div>
       {[0,1,2,3,4,5,6,7,8].map(i=>{const v=inning(side,i);const played=visibleThrough===null?true:i<visibleThrough;const current=activeInning===i+1;return <div key={i} style={{display:'flex',flex:1,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#103a2b',color:current?'#e6bb2f':'#fff',fontSize:32,fontWeight:900}}>{played?v:''}</div>})}
-      <div style={{display:'flex',width:76,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#e6bb2f',color:'#103a2b',fontSize:39,fontWeight:900}}>{total}</div>
+      <div style={{display:'flex',width:76,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#103a2b',color:'#e6bb2f',fontSize:39,fontWeight:900}}>{total}</div>
     </div>
   );
   return new ImageResponse(
@@ -72,9 +76,9 @@ export async function GET(req:NextRequest){
         <div style={{display:'flex',fontSize:38,fontWeight:900}}>YAT?STATS</div>
       </div>
       <div style={{display:'flex',flexDirection:'column',border:'7px solid #d2a929',borderRadius:20,overflow:'hidden',width:'100%',marginTop:18,background:'#155a3f'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:65,background:'#2d8b61',padding:'0 22px',fontWeight:900,fontSize:26}}><div style={{display:'flex'}}>ROUND {round}  |  GAME {gameNo}</div><div style={{display:'flex'}}>WEEK {g.week}  |  {status}</div></div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:65,background:'#2d8b61',padding:'0 22px',fontWeight:900,fontSize:26}}><div style={{display:'flex',alignItems:'center',gap:16}}><div style={{display:'flex'}}>ROUND {round}</div><div style={{display:'flex',color:'#d7eadc'}}>|</div><div style={{display:'flex',background:'#f2c632',color:'#173526',borderRadius:9,padding:'7px 14px'}}>GAME {gameNo}</div></div><div style={{display:'flex'}}>WEEK {g.week}  |  {weekDates}</div></div>
         <div style={{display:'flex',flexDirection:'column',padding:'14px 17px 20px',background:'#155a3f'}}>
-          <div style={{display:'flex',alignItems:'center',height:42,gap:8,color:'#f2d27a',fontSize:21,fontWeight:900}}><div style={{display:'flex',width:250,justifyContent:'flex-end',paddingRight:12}}>{status}</div>{[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',flex:1,justifyContent:'center'}}>{n}</div>)}<div style={{display:'flex',width:76,justifyContent:'center'}}>R</div></div>
+          <div style={{display:'flex',alignItems:'center',height:42,gap:8,color:'#fff',fontSize:21,fontWeight:900}}><div style={{display:'flex',width:250,justifyContent:'flex-start',paddingRight:12}}><div style={{display:'flex',background:'#bc3438',borderRadius:12,padding:'5px 12px',color:'#fff',fontWeight:900}}>{status}</div></div>{[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',flex:1,justifyContent:'center'}}>{n}</div>)}<div style={{display:'flex',width:76,justifyContent:'center'}}>R</div></div>
           {boardRow('a',away,score.away)}{boardRow('h',home,score.home)}
         </div>
       </div>
