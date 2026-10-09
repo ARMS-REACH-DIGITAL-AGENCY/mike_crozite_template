@@ -56,7 +56,7 @@ export async function GET(req:NextRequest){
     <div style={{display:'flex',alignItems:'center',width:'100%',height:105,gap:8}}>
       <div style={{display:'flex',flexDirection:'column',width:250,alignItems:'flex-end',justifyContent:'center',paddingRight:12}}>
         <div style={{display:'flex',fontSize:25,fontWeight:900,textAlign:'right',color:'#fff'}}>{name.replace(/\\s*\\([^)]*\\)/g,'').toUpperCase()}</div>
-        <div style={{display:'flex',fontSize:14,color:'#c9dfd3'}}>{(name.match(/\\(([^)]+)\\)/)?.[1]||''}</div>
+        <div style={{display:'flex',fontSize:14,color:'#c9dfd3'}}>{name.includes('(') ? name.split('(')[1]?.split(')')[0] : ''}</div>
       </div>
       {[0,1,2,3,4,5,6,7,8].map(i=>{const v=inning(side,i);return <div key={i} style={{display:'flex',flex:1,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:v?'#e6bb2f':'#103a2b',color:v?'#173526':'#fff',fontSize:32,fontWeight:900}}>{v}</div>})}
       <div style={{display:'flex',width:76,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#e6bb2f',color:'#103a2b',fontSize:39,fontWeight:900}}>{total}</div>
