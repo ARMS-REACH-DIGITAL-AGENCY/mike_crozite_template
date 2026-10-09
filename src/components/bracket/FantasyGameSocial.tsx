@@ -76,8 +76,9 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
 
   const share=async()=>{
     let method='link';
+    let shareLink=shareUrl;
     try{
-      const shareLink=shareUrl.includes('snapshot=1') ? await (async()=>{const r=await fetch('/api/fantasy-share',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:shareUrl})});if(!r.ok)throw new Error('Short link unavailable');return (await r.json()).url as string;})() : shareUrl;
+      shareLink=shareUrl.includes('snapshot=1') ? await (async()=>{const r=await fetch('/api/fantasy-share',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:shareUrl})});if(!r.ok)throw new Error('Short link unavailable');return (await r.json()).url as string;})() : shareUrl;
       if(navigator.share){await navigator.share({title,text:shareText||subtitle,url:shareLink});method='native';}
       else{await navigator.clipboard.writeText(`${shareText||subtitle}\n${shareLink}`);flash('Link copied.');}
     }catch(e:any){
