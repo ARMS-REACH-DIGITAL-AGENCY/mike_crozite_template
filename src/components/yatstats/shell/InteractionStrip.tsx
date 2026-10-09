@@ -452,6 +452,7 @@ export default function InteractionStrip({
           box-shadow:none; position:relative;
         }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { border-color:#d1d1d1; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { filter:invert(1); }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
           display:block; width:100%; height:100%; object-fit:contain;
           object-position:center center; border-radius:50%; background:transparent; padding:0;
@@ -532,9 +533,7 @@ export default function InteractionStrip({
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
-                : activeSection === 'alltime'
-                  ? thenSrc
-                  : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+                : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
@@ -576,6 +575,7 @@ export default function InteractionStrip({
 
                         if (image.dataset.fallbackApplied === 'true') return;
                         image.dataset.fallbackApplied = 'true';
+                         image.dataset.silhouetteFallback = 'true';
                         image.src = fallbackSrc;
                       }}
                     />
