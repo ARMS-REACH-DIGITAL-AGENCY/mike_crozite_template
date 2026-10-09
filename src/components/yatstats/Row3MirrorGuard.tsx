@@ -56,13 +56,6 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
     };
   }
 
-  if (sectionKey === 'alltime') {
-    return {
-      src: clean(card.dataset.thumbnailThen),
-      fallback: clean(card.dataset.thumbnailThenFallback) || HEADSHOT_FALLBACK_URL,
-    };
-  }
-
   return {
     src: `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(String(card.dataset.playerid || '').trim())}.png`,
     fallback: HEADSHOT_FALLBACK_URL,
