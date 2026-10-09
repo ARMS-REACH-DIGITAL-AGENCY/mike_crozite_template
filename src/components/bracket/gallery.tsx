@@ -1383,7 +1383,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
     const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
       const d = boxForView?.d?.[i];
-      return <span key={i} className={`bl-tb-cell ${cellClass(i, idx, d?.[idx], d?.[opp], higher)}`}>{fmtStat(d?.[idx])}</span>;
+      const complete = Boolean(d && settledAt(i, idx));
+      const placeholder = higher ? 'OPS+' : 'FIP-';
+      return <span key={i} className={`bl-tb-cell ${complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher) : 'placeholder'}`}>{complete ? fmtStat(d?.[idx]) : placeholder}</span>;
     });
     const nameCell = (
       <>
@@ -1404,10 +1406,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         )}
         {metricRow(side === 0 ? 0 : 1, side === 0 ? 1 : 0, true)}
         <span className="bl-tb-wlabel">W%</span>
-        <span className="bl-tb-label">OPS+</span>
+        <span className="bl-tb-label" aria-hidden="true" />
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
         <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? (settledAt(8, 0) ? ' won' : ' lead') : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
-        <span className="bl-tb-label">FIP-</span>
+        <span className="bl-tb-label" aria-hidden="true" />
       </div>
     );
   };
@@ -1895,7 +1897,7 @@ export function Styles() {
       .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
       .bl-tb-cell.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
-      .bl-tb-cell.na { color:#718379; }
+      .bl-tb-cell.na { color:#718379; }\n       .bl-tb-cell.placeholder { color:rgba(220,239,225,.28); font-size:8px; font-weight:600; letter-spacing:-.02em; }
       .bl-tb-wlabel { display:grid; place-items:center; color:#fff; font:700 11px/1 Oswald,sans-serif; letter-spacing:.02em; }
       .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }
