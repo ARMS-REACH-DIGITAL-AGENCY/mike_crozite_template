@@ -72,7 +72,7 @@ export async function GET(req:NextRequest){
   return new ImageResponse(
     <div style={{display:'flex',flexDirection:'column',width:1200,height:630,background:'#111',color:'#fff',padding:'35px',fontFamily:'Arial, sans-serif'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:75,padding:'0 12px'}}>
-        <div style={{display:'flex',flexDirection:'column'}}><div style={{display:'flex',fontSize:29,fontWeight:900}}>YAT?STATS HIGH SCHOOL ALUMNI</div><div style={{display:'flex',fontSize:19,fontWeight:800,color:'#e8c24a'}}>FANTASY BRACKET TOURNAMENT</div></div>
+        <div style={{display:'flex',fontSize:29,fontWeight:900,color:'#e8c24a'}}>FOLLOW THE GAME LIVE</div>
         <div style={{display:'flex',fontSize:38,fontWeight:900}}>YAT?STATS</div>
       </div>
       <div style={{display:'flex',flexDirection:'column',border:'7px solid #d2a929',borderRadius:20,overflow:'hidden',width:'100%',marginTop:18,background:'#155a3f'}}>
@@ -82,7 +82,7 @@ export async function GET(req:NextRequest){
           {boardRow('a',away,score.away)}{boardRow('h',home,score.home)}
         </div>
       </div>
-      <div style={{display:'flex',justifyContent:'center',marginTop:26,fontSize:23,fontWeight:800,color:'#e5d49a'}}>FOLLOW THE GAME  •  YAT?STATS</div>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',marginTop:19,fontWeight:900,color:'#e5d49a'}}><div style={{display:'flex',fontSize:23}}>YAT?STATS HIGH SCHOOL ALUMNI</div><div style={{display:'flex',fontSize:23}}>FANTASY BASEBALL TOURNAMENT</div></div>
     </div>,size
   );
 }
