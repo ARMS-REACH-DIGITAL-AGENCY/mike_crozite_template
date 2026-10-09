@@ -23,13 +23,13 @@ function files(){
   cache={index,lb:Array.isArray(lbRaw)?lbRaw:(lbRaw.games||[])};
   return cache;
 }
-export function getSharedFantasyGame(id:number):SharedFantasyGame|null{
+export function getSharedFantasyGame(id:number, week?:number, homeId?:number, awayId?:number):SharedFantasyGame|null{
   if(!Number.isFinite(id)||id<=0)return null;
   const {index,lb}=files();
   let row:any[]|undefined,stage='';
   for(const r of index.rounds||[]){
     for(const s of r.series||[]){
-      row=(s[7]||[]).find((g:any[])=>Number(g[0])===id);
+      row=(s[7]||[]).find((g:any[])=>Number(g[0])===id && (week===undefined || Number(g[1])===week) && (homeId===undefined || Number(g[2])===homeId) && (awayId===undefined || Number(g[3])===awayId));
       if(row){stage=`Round ${r.r} · Game ${((Number(row[1])-1)%3)+1}`;break;}
     }
     if(row)break;
