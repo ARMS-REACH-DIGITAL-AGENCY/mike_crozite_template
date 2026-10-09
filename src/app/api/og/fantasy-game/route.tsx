@@ -20,7 +20,12 @@ function Cell({children,wide=false,win=false}:{children:React.ReactNode;wide?:bo
 
 export async function GET(req:NextRequest){
   const id=Number(req.nextUrl.searchParams.get('gameId')||0);
-  const g=getSharedFantasyGame(id,Number(req.nextUrl.searchParams.get('week'))||undefined,Number(req.nextUrl.searchParams.get('homeId'))||undefined,Number(req.nextUrl.searchParams.get('awayId'))||undefined);
+  const snap=req.nextUrl.searchParams.get('snapshot')==='1';
+  const raw=req.nextUrl.searchParams.get('scoreInnings')||'';
+  const valid=/^(?:\\d{1,3},){17}\\d{1,3}$/.test(raw);
+  const snapHome=(req.nextUrl.searchParams.get('homeName')||'').slice(0,120);
+  const snapAway=(req.nextUrl.searchParams.get('awayName')||'').slice(0,120);
+  const g=snap && valid && snapHome && snapAway ? {id,week:Number(req.nextUrl.searchParams.get('week'))||1,home:1,away:2,winner:null,innings:raw.split(',').map(Number),homeName:snapHome,awayName:snapAway,stage:'Fantasy Game'} : getSharedFantasyGame(id,Number(req.nextUrl.searchParams.get('week'))||undefined,Number(req.nextUrl.searchParams.get('homeId'))||undefined,Number(req.nextUrl.searchParams.get('awayId'))||undefined);
   if(!g)return new ImageResponse(
     <div style={{display:'flex',width:1200,height:630,background:'#0b0b0b',color:'#fff',alignItems:'center',justifyContent:'center',fontSize:48}}>YAT?STATS Fantasy Game</div>,
     size
@@ -29,7 +34,7 @@ export async function GET(req:NextRequest){
   const parsed=/^(?:\d{1,3},){17,}\d{1,3}$/.test(supplied) ? supplied.split(',').map(Number) : [];
   const innings=parsed.length>=18 && parsed.length<=30 && parsed.length%2===0 ? parsed : g.innings;
   const score=fantasyGameScore({...g,innings});
-  const winner=score.home===score.away?g.winner:score.home>score.away?g.home:g.away;
+  const winner=score.home===score.away?null:score.home>score.away?g.home:g.away;
   const inning=(side:'h'|'a',i:number)=>innings[i*2+(side==='h'?0:1)]??0;
   const home=cleanSchoolLabel(g.homeName),away=cleanSchoolLabel(g.awayName);
 
@@ -56,7 +61,7 @@ export async function GET(req:NextRequest){
 
       <div style={{display:'flex',flexDirection:'column',marginTop:48,border:'2px solid #2f7a5a',borderRadius:18,overflow:'hidden',width:'100%'}}>
         <div style={{display:'flex',alignItems:'center',background:'#9d7e1e',padding:'14px 18px',fontSize:20,fontWeight:800,color:'#fff7d6'}}>
-          <div style={{display:'flex',width:220}}>FINAL</div>
+          <div style={{display:'flex',width:220}}>{snap ? (req.nextUrl.searchParams.get('scoreStatus') || 'LIVE').slice(0,16) : 'FINAL'}</div>
           {[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',width:66,justifyContent:'center',marginLeft:7}}>{n}</div>)}
           <div style={{display:'flex',width:78,justifyContent:'center',marginLeft:7,color:'#ffd64d'}}>R</div>
         </div>
