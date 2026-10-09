@@ -224,6 +224,7 @@ export default function InteractionStrip({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [activeSection, setActiveSection] = useState(getCurrentSection);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [sectionPlayers, setSectionPlayers] = useState<Player[]>(() =>
     fallbackPlayersForSection(getCurrentSection(), players)
   );
@@ -331,6 +332,7 @@ export default function InteractionStrip({
     const selected = event.currentTarget;
     const rail = selected.closest('.gallery-strip-inner');
     rail?.querySelectorAll('.gallery-slot.is-active').forEach((slot) => { slot.classList.remove('is-active'); slot.removeAttribute('aria-current'); });
+    setSelectedPlayerId(playerId);
     selected.classList.add('is-active');
     selected.setAttribute('aria-current', 'true');
 
@@ -492,7 +494,7 @@ export default function InteractionStrip({
         }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-media,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-media {
-          transform:translateY(-5px);
+          transform:translateY(-9px);
         }
 
 
@@ -530,7 +532,9 @@ export default function InteractionStrip({
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
-                : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+                : activeSection === 'alltime'
+                  ? thenSrc
+                  : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
@@ -541,7 +545,7 @@ export default function InteractionStrip({
                 <a
                   key={`${activeSection}-${player.id}`}
                   href={`#player-${encodeURIComponent(player.id)}`}
-                  className={linkClassName}
+                  className={`${linkClassName}${selectedPlayerId === player.id ? ' is-active' : ''}`}
                   data-playerid={player.id}
                   data-status={status}
                   data-default-hidden={status === 'RETIRED' ? 'retired' : undefined}
