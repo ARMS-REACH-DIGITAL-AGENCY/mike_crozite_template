@@ -84,8 +84,18 @@ function wireSyntheticSlot(slot: HTMLElement) {
 
     event.preventDefault();
     const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
-    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) + 12;
-    window.scrollTo({ top: Math.max(0, window.scrollY + card.getBoundingClientRect().top - offset), behavior: 'smooth' });
+    const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
+    const cardTop = wrapper.getBoundingClientRect().top;
+    const previousBottom = wrapper.previousElementSibling?.getBoundingClientRect().bottom ?? cardTop;
+    const gap = Math.max(0, Math.min(60, cardTop - previousBottom));
+    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) + Math.max(4, gap / 2);
+    slot.closest('.gallery-strip-inner')?.querySelectorAll('.gallery-slot.is-active').forEach((item) => {
+      item.classList.remove('is-active');
+      item.removeAttribute('aria-current');
+    });
+    slot.classList.add('is-active');
+    slot.setAttribute('aria-current', 'true');
+    window.scrollTo({ top: Math.max(0, window.scrollY + cardTop - offset), behavior: 'smooth' });
   });
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
