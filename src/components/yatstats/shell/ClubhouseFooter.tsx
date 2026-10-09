@@ -2,39 +2,48 @@
 
 import { useState } from 'react';
 
-/** Rows 5 + 6: unified sticky clubhouse footer. No voice AI is wired yet. */
+type Message = { text: string; kind: 'clubhouse' | 'player' | 'sponsor' | 'tournament'; image?: string };
+const messages: Message[] = [
+  { kind: 'clubhouse', text: "Explore the stories behind your school's active alumni." },
+  { kind: 'player', text: 'Follow your favorite alumni from high school to the big leagues.', image: '/img/player-silhouette.png' },
+  { kind: 'tournament', text: 'Follow your school in the YAT?STATS World Series.', image: '/img/world-series-trophy-cta.png' },
+  { kind: 'sponsor', text: 'Local partners help keep your baseball community connected.' },
+];
+function Icon({ kind }: { kind: 'fans' | 'players' | 'coaches' | 'partners' }) {
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  return <svg viewBox="0 0 32 32" width="25" height="25" aria-hidden="true" {...common}>
+    {kind === 'fans' && <><circle cx="16" cy="9" r="5"/><path d="M5 27v-4c0-6 5-10 11-10s11 4 11 10v4M9 27h14"/></>}
+    {kind === 'players' && <><circle cx="16" cy="8" r="4"/><path d="m11 15-4 8m14-8 4 8M11 15l5 4 5-4M16 19v9M8 28h16"/></>}
+    {kind === 'coaches' && <><path d="M7 25 25 7M5 21l6 6M21 5l6 6"/><circle cx="24" cy="23" r="5"/><path d="m21 20 6 6m0-6-6 6"/></>}
+    {kind === 'partners' && <><path d="m3 16 7-5 7 4 5-3 7 4-10 10-6-3-4 1zM10 11l5-4 7 5M13 23l4-4m-1 6 5-5"/></>}
+  </svg>;
+}
 export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number | null }) {
-  const [factIndex, setFactIndex] = useState(0);
-  const facts = [
-    'Every alumni flip card tells a story. Explore your school\'s next-level players.',
-    'Know an alumnus we missed? Connect & Contribute to help complete the story.',
-    'New to YAT?STATS? Take the guided tour and explore the platform.',
-  ];
+  const [index, setIndex] = useState(0);
+  const message = messages[index];
   const nav = [
-    { label: 'FANS', icon: '♟', href: '/#fans' },
-    { label: 'PLAYERS', icon: '♙', href: '/#players' },
-    { label: 'COACHES', icon: '⚾', href: '/#coaches' },
-    { label: 'PARTNERS', icon: '✦', href: '/#partners' },
-    { label: 'TOUR / FAQ', icon: '?', href: '/#tour' },
+    { label: 'FANS', kind: 'fans' as const, href: '/#fans' },
+    { label: 'PLAYERS', kind: 'players' as const, href: '/#players' },
+    { label: 'COACHES', kind: 'coaches' as const, href: '/#coaches' },
+    { label: 'PARTNERS', kind: 'partners' as const, href: '/#partners' },
   ];
-  return (
-    <div className="yat-clubhouse" aria-label="YaTi's Clubhouse and guided tour">
-      <img className="yat-clubhouse-yati" src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png" alt="YaTi, the YAT?STATS clubhouse manager" />
-      <div className="yat-clubhouse-facts">
-        <div className="yat-clubhouse-message">
-          <strong>YaTi's CLUBHOUSE</strong>
-          <span>{facts[factIndex]}</span>
-          <div className="yat-clubhouse-fact-controls">
-            <button type="button" onClick={() => setFactIndex((factIndex + facts.length - 1) % facts.length)} aria-label="Previous clubhouse fact">‹</button>
-            <span aria-live="polite">{factIndex + 1} / {facts.length}</span>
-            <button type="button" onClick={() => setFactIndex((factIndex + 1) % facts.length)} aria-label="Next clubhouse fact">›</button>
-          </div>
-        </div>
-        <div className="yat-clubhouse-count"><strong>{activeAlumni ?? 0}</strong><span>ACTIVE<br/>ALUMNI</span></div>
+  return <div className="yat-clubhouse" aria-label="YaTi's clubhouse">
+    <div className="yat-clubhouse-facts">
+      <div className="yat-clubhouse-hero">
+        <img src={message.image || 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png'} alt="" />
       </div>
-      <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS">
-        {nav.map((item) => <a key={item.label} href={item.href} aria-label={item.label}><span aria-hidden="true">{item.icon}</span><small>{item.label}</small></a>)}
-      </nav>
+      <div className="yat-clubhouse-message">
+        <span aria-live="polite">{message.text}</span>
+        <div className="yat-clubhouse-fact-controls">
+          <button type="button" onClick={() => setIndex((index + messages.length - 1) % messages.length)} aria-label="Previous message">‹</button>
+          <span>{index + 1}/{messages.length}</span>
+          <button type="button" onClick={() => setIndex((index + 1) % messages.length)} aria-label="Next message">›</button>
+        </div>
+      </div>
+      <div className="yat-clubhouse-count"><strong>{activeAlumni ?? '—'}</strong><span>ACTIVE<br/>ALUMNI</span></div>
     </div>
-  );
+    <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS">
+      {nav.map(item => <a key={item.label} href={item.href}><Icon kind={item.kind}/><small>{item.label}</small></a>)}
+    </nav>
+  </div>;
 }
