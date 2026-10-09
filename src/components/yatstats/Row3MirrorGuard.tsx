@@ -83,7 +83,9 @@ function wireSyntheticSlot(slot: HTMLElement) {
     if (!card) return;
 
     event.preventDefault();
-    card.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) + 12;
+    window.scrollTo({ top: Math.max(0, window.scrollY + card.getBoundingClientRect().top - offset), behavior: 'smooth' });
   });
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
@@ -432,7 +434,7 @@ export default function Row3MirrorGuard() {
       .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-name-overlay {
         position:static; display:block; flex:0 0 12px; width:100%; height:12px;
         padding:0; background:transparent; color:#e5e5e5;
-        font:300 11px/1 Oswald,sans-serif; letter-spacing:.12em;
+        font:300 9px/1 Oswald,sans-serif; letter-spacing:0;
         text-align:center; text-shadow:none; text-transform:uppercase;
         overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
       }
