@@ -72,7 +72,7 @@ export default function DrawerLayoutOverrides() {
 
 
       body:not(.yat-left-search-mode) #drawerLeft { width: min(76vw, 310px) !important; max-width: 310px !important; }
-      body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; }
+      @media (max-width: 779px) { body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item { display:flex; align-items:center; gap:10px; letter-spacing:-.045em !important; word-spacing:-.12em !important; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:-.045em; word-spacing:-.12em; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
