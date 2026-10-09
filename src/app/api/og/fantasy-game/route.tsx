@@ -49,32 +49,33 @@ export async function GET(req:NextRequest){
     </div>
   );
 
+  const status=(req.nextUrl.searchParams.get('scoreStatus') || (snap?'LIVE':'FINAL')).slice(0,16);
+  const round=Math.max(1,Math.min(10,Number(req.nextUrl.searchParams.get('round'))||Math.ceil(g.week/3)));
+  const gameNo=Math.max(1,Math.min(3,Number(req.nextUrl.searchParams.get('gameNo'))||((g.week-1)%3+1)));
+  const boardRow=(side:'h'|'a',name:string,total:number)=>(
+    <div style={{display:'flex',alignItems:'center',width:'100%',height:105,gap:8}}>
+      <div style={{display:'flex',flexDirection:'column',width:250,alignItems:'flex-end',justifyContent:'center',paddingRight:12}}>
+        <div style={{display:'flex',fontSize:25,fontWeight:900,textAlign:'right',color:'#fff'}}>{name.replace(/\\s*\\([^)]*\\)/g,'').toUpperCase()}</div>
+        <div style={{display:'flex',fontSize:14,color:'#c9dfd3'}}>{(name.match(/\\(([^)]+)\\)/)?.[1]||''}</div>
+      </div>
+      {[0,1,2,3,4,5,6,7,8].map(i=>{const v=inning(side,i);return <div key={i} style={{display:'flex',flex:1,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:v?'#e6bb2f':'#103a2b',color:v?'#173526':'#fff',fontSize:32,fontWeight:900}}>{v}</div>})}
+      <div style={{display:'flex',width:76,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#e6bb2f',color:'#103a2b',fontSize:39,fontWeight:900}}>{total}</div>
+    </div>
+  );
   return new ImageResponse(
-    <div style={{display:'flex',flexDirection:'column',width:1200,height:630,background:'#090909',color:'#fff',padding:'42px 52px',fontFamily:'Arial, sans-serif'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',width:'100%'}}>
-        <div style={{display:'flex',flexDirection:'column'}}>
-          <div style={{display:'flex',fontSize:28,fontWeight:800,letterSpacing:2,color:'#d5b44a'}}>YAT?STATS HIGH SCHOOL ALUMNI FANTASY GAME</div>
-          <div style={{display:'flex',fontSize:22,color:'rgba(255,255,255,.72)',marginTop:8}}>{g.stage} · Week {g.week}</div>
-        </div>
-        <div style={{display:'flex',fontSize:34,fontWeight:900}}>YAT?STATS</div>
+    <div style={{display:'flex',flexDirection:'column',width:1200,height:630,background:'#111',color:'#fff',padding:'35px',fontFamily:'Arial, sans-serif'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:75,padding:'0 12px'}}>
+        <div style={{display:'flex',flexDirection:'column'}}><div style={{display:'flex',fontSize:29,fontWeight:900}}>YAT?STATS HIGH SCHOOL ALUMNI</div><div style={{display:'flex',fontSize:19,fontWeight:800,color:'#e8c24a'}}>FANTASY BRACKET TOURNAMENT</div></div>
+        <div style={{display:'flex',fontSize:38,fontWeight:900}}>YAT?STATS</div>
       </div>
-
-      <div style={{display:'flex',flexDirection:'column',marginTop:48,border:'2px solid #2f7a5a',borderRadius:18,overflow:'hidden',width:'100%'}}>
-        <div style={{display:'flex',alignItems:'center',background:'#9d7e1e',padding:'14px 18px',fontSize:20,fontWeight:800,color:'#fff7d6'}}>
-          <div style={{display:'flex',width:220}}>{snap ? (req.nextUrl.searchParams.get('scoreStatus') || 'LIVE').slice(0,16) : 'FINAL'}</div>
-          {[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',width:66,justifyContent:'center',marginLeft:7}}>{n}</div>)}
-          <div style={{display:'flex',width:78,justifyContent:'center',marginLeft:7,color:'#ffd64d'}}>R</div>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',background:'#1b5d42',padding:'18px'}}>
-          {row('a',away,score.away)}
-          {row('h',home,score.home)}
+      <div style={{display:'flex',flexDirection:'column',border:'7px solid #d2a929',borderRadius:20,overflow:'hidden',width:'100%',marginTop:18,background:'#155a3f'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:65,background:'#2d8b61',padding:'0 22px',fontWeight:900,fontSize:26}}><div style={{display:'flex'}}>ROUND {round}  |  GAME {gameNo}</div><div style={{display:'flex'}}>WEEK {g.week}  |  {status}</div></div>
+        <div style={{display:'flex',flexDirection:'column',padding:'14px 17px 20px',background:'#155a3f'}}>
+          <div style={{display:'flex',alignItems:'center',height:42,gap:8,color:'#f2d27a',fontSize:21,fontWeight:900}}><div style={{display:'flex',width:250,justifyContent:'flex-end',paddingRight:12}}>{status}</div>{[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',flex:1,justifyContent:'center'}}>{n}</div>)}<div style={{display:'flex',width:76,justifyContent:'center'}}>R</div></div>
+          {boardRow('a',away,score.away)}{boardRow('h',home,score.home)}
         </div>
       </div>
-
-      <div style={{display:'flex',marginTop:34,fontSize:24,color:'rgba(255,255,255,.78)'}}>
-        Follow the YAT?STATS High School Alumni Fantasy Game between {away} and {home}.
-      </div>
-    </div>,
-    size
+      <div style={{display:'flex',justifyContent:'center',marginTop:26,fontSize:23,fontWeight:800,color:'#e5d49a'}}>FOLLOW THE GAME  •  YAT?STATS</div>
+    </div>,size
   );
 }
