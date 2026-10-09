@@ -59,7 +59,10 @@ export default function DrawerLayoutOverrides() {
 
       body:not(.yat-left-search-mode) #drawerLeft { width: min(76vw, 310px) !important; max-width: 310px !important; }
       body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; }
-      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item { display:flex; align-items:center; gap:12px; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item { display:flex; align-items:center; gap:10px; letter-spacing:-.045em !important; word-spacing:-.12em !important; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:-.045em; word-spacing:-.12em; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav { padding-right:12px; }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
       #drawerLeft .yat-nav-page-crest { width:25px; height:25px; object-fit:contain; flex:none; }
       #drawerLeft .yat-drawer-visiting-school > .yat-drawer-crest-thumb { display:none; }
@@ -76,13 +79,13 @@ export default function DrawerLayoutOverrides() {
       }
       /* Keep the left navigation translucent enough to retain page context. */
       #drawerLeft {
-        background: rgba(10, 10, 10, 0.76) !important;
-        backdrop-filter: blur(5px) !important;
-        -webkit-backdrop-filter: blur(5px) !important;
+        background: rgba(6, 6, 6, 0.57) !important;
+        backdrop-filter: blur(3px) !important;
+        -webkit-backdrop-filter: blur(3px) !important;
       }
 
       body.light-theme #drawerLeft {
-        background: rgba(255, 255, 255, 0.78) !important;
+        background: rgba(255, 255, 255, 0.68) !important;
       }
 
       /*
