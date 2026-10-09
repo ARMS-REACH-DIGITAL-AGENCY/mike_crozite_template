@@ -82,7 +82,7 @@ export async function GET(req:NextRequest){
           {boardRow('a',away,score.away)}{boardRow('h',home,score.home)}
         </div>
       </div>
-      <div style={{display:'flex',width:'100%',flex:1,alignItems:'flex-end',justifyContent:'center',paddingBottom:8,fontWeight:900,color:'#e5d49a',fontSize:25,whiteSpace:'nowrap',letterSpacing:0.3}}>YAT?STATS HIGH SCHOOL ALUMNI FANTASY BASEBALL TOURNAMENT</div>
+      <div style={{display:'flex',width:'100%',alignItems:'center',justifyContent:'center',marginTop:19,fontWeight:900,color:'#e5d49a',fontSize:25,whiteSpace:'nowrap',letterSpacing:0.3}}>YAT?STATS HIGH SCHOOL ALUMNI FANTASY BASEBALL TOURNAMENT</div>
     </div>,size
   );
 }
