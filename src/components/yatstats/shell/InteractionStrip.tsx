@@ -485,6 +485,16 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(-3px); }
+        /* Animate the portrait itself as well: older gallery-slot transforms can
+           be overridden by global styles, leaving no visible selected lift. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+          transform:translateY(0); transition:transform .18s ease;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-media,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-media {
+          transform:translateY(-5px);
+        }
+
 
         @media(max-width:600px) {
           .gallery-strip[data-react-mirrors-row5="true"] { padding-left:6px; padding-right:0; }
