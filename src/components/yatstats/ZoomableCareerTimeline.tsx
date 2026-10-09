@@ -231,9 +231,10 @@ function teamLogoCandidates(row: StatRow) {
   const teamId = String(row.teamid || row.team_id || '').trim();
   if (!teamId || !/^\d+$/.test(teamId)) return [];
   return [
-    // Prefer original PNG logos: converted WebP assets may flatten transparency.
-    `${S3_BASE}/teams/${teamId}.png`,
+    // Prefer background-removed team logos; preserve originals as fallback.
+    `${S3_BASE}/teams/cutouts/${teamId}.png`,
     `${S3_BASE}/teams-web/${teamId}.webp`,
+    `${S3_BASE}/teams/${teamId}.png`,
     `${S3_BASE}/teams/${teamId}.jpg`,
     `${S3_BASE}/teams/${teamId}.jpeg`,
     `${S3_BASE}/teams/${teamId}.webp`,

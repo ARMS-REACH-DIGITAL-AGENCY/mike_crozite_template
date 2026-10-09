@@ -120,7 +120,9 @@ def list_source_keys(bucket: str, prefix: str) -> list[str]:
             key = obj.get("Key", "")
             if not key or key.endswith("/"):
                 continue
-            if is_source_image(key):
+            # Never recurse into teams/cutouts/ or other nested folders.
+            relative = key[len(normalize_prefix(prefix)):]
+            if "/" not in relative and is_source_image(key):
                 keys.append(key)
 
     return sorted(keys)

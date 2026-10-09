@@ -1,6 +1,8 @@
 name: Process Team Logo Cutouts
 
 on:
+  schedule:
+    - cron: '15 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -64,7 +66,8 @@ jobs:
       YATSTATS_S3_SOURCE_KEY: ${{ github.event.inputs.source_key || '' }}
       YATSTATS_S3_OUTPUT_PREFIX: ${{ github.event.inputs.output_prefix || 'teams/cutouts/' }}
       IN_PLACE: ${{ github.event.inputs.in_place || 'false' }}
-      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      # Scheduled runs process new originals; manual runs remain safe by default.
+      DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || github.event.inputs.dry_run || 'true' }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
       MAX_FILES: ${{ github.event.inputs.max_files || '' }}
       BG_TOLERANCE: ${{ github.event.inputs.bg_tolerance || '30' }}
