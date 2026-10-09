@@ -6,6 +6,7 @@ import { getOriginalForCardCopy } from '@/lib/playerImage';
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
 const HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
+const PLAYER_NOW_CUTOUT_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts';
 
 function getVisibleSectionKey(): string {
   const visibleSection = Array.from(document.querySelectorAll<HTMLElement>('.yat-section.visible'))
@@ -63,8 +64,8 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
   }
 
   return {
-    src: clean(card.dataset.thumbnailNow),
-    fallback: clean(card.dataset.thumbnailNowFallback) || HEADSHOT_FALLBACK_URL,
+    src: `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(String(card.dataset.playerid || '').trim())}.png`,
+    fallback: HEADSHOT_FALLBACK_URL,
   };
 }
 
@@ -181,7 +182,7 @@ function configureSlot(
     image.onerror = () => {
       // A card-size copy that hasn't been made yet: try the original photo
       // before the generic fallback.
-      const original = getOriginalForCardCopy(image.getAttribute('src'));
+      const original = isCurrent ? getOriginalForCardCopy(image.getAttribute('src')) : '';
       if (original) {
         image.setAttribute('src', original);
         return;
