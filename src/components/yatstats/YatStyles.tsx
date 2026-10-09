@@ -811,20 +811,20 @@ export default function YatStyles() {
       .yat-empty-title{font:700 18px "Bebas Neue",Oswald,sans-serif;letter-spacing:.06em}
       .yat-empty-sub{font:300 12px/1.5 Oswald,sans-serif;margin-top:6px}
       .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:#020a13;border-top:1px solid rgba(255,255,255,.18);z-index:40;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
-      /* Compact scoreboard clubhouse: one-line white message over four green icon panels. */
+      /* Compact scoreboard clubhouse: theme-aware message above green icon navigation. */
       .yat-visual-row4-gallery{padding-top:0}
       .yat-footer.yat-clubhouse-footer{--footerH:76px;height:76px;overflow:visible;display:block;background:transparent;border:0;z-index:48}
-      .yat-clubhouse{position:relative;width:100%;height:100%;color:#102235;font-family:var(--yat-font-ui)}
-      .yat-clubhouse-facts{height:37px;background:#fff;display:flex;align-items:center;gap:6px;padding:2px 9px 2px clamp(60px,13vw,150px);border-top:2px solid #e8c257}
+      .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui)}
+      .yat-clubhouse-facts{height:37px;background:var(--bg);display:flex;align-items:center;gap:6px;padding:2px 9px 2px clamp(60px,13vw,150px);border:0
       .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(58px,13vw,145px);height:100%;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
       .yat-clubhouse-hero img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:bottom;filter:drop-shadow(0 2px 3px #00231855)}
       .yat-clubhouse-message{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
       .yat-clubhouse-message>span{font:600 clamp(9px,1.5vw,14px)/1.15 var(--yat-font-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .yat-clubhouse-fact-controls{display:flex;flex:none;align-items:center;gap:3px;color:#56716a;font:600 9px/1 var(--yat-font-ui)}
-      .yat-clubhouse-fact-controls button{background:none;border:0;padding:1px;color:#1b6644;font-size:17px;line-height:1;cursor:pointer}
+      .yat-clubhouse-fact-controls{display:flex;flex:none;align-items:center;gap:3px;color:var(--muted);font:600 9px/1 var(--yat-font-ui)}
+      .yat-clubhouse-fact-controls button{background:none;border:0;padding:1px;color:var(--fg);font-size:17px;line-height:1;cursor:pointer}
       .yat-clubhouse-count{display:flex;flex:none;align-items:center;gap:3px;color:#078755}
       .yat-clubhouse-count strong{font:800 clamp(19px,3vw,33px)/1 Oswald,sans-serif}
-      .yat-clubhouse-count span{font:700 8px/1 Oswald,sans-serif;color:#102235}
+      .yat-clubhouse-count span{font:700 8px/1 Oswald,sans-serif;color:var(--fg)}
       .yat-clubhouse-nav{height:39px;padding-left:clamp(55px,12vw,140px);display:flex;background:linear-gradient(#155d40 0%,#0b4d34 42%,#073c2b 100%);border-top:2px solid #2a7453}
       .yat-clubhouse-nav a{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;color:#fff;border-left:1px solid #ffffff2e;text-shadow:0 1px 2px #002819}
       .yat-clubhouse-nav svg{width:22px;height:22px;flex:none}
