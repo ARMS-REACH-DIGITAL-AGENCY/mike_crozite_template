@@ -109,7 +109,12 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   target.style.display = '';
   target.hidden = false;
   target.classList.remove('is-hidden');
-  target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+  // Position the selected card immediately below the sticky alumni strip, not below a prior card.
+  const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
+  const offset = Math.max(0, stripBottom) + 12;
+  const top = window.scrollY + target.getBoundingClientRect().top - offset;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
 }
 
 function fallbackPlayersForSection(section: string, players: Player[]): Player[] {
@@ -419,9 +424,9 @@ export default function InteractionStrip({
 
       <style jsx global>{`
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
-        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; min-height:86px; padding:0 6px; }
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; min-height:94px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { min-height:86px; gap:3px; align-items:center; padding:7px 0 2px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { min-height:94px; gap:3px; align-items:center; padding:14px 0 2px; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
           flex:0 0 64px; width:64px; min-width:64px; height:77px; display:flex;
           flex-direction:column; align-items:center; justify-content:center;
@@ -452,7 +457,25 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow { z-index:3; }
+        /* Fade the full portrait and label near either edge, like the ticker. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner {
+          -webkit-mask-image:linear-gradient(to right,transparent 0%,black 13%,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0%,black 13%,black 87%,transparent 100%);
+        }
+        /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          z-index:3; background:rgba(20,20,20,.25); color:#ddd; border:0;
+          width:22px; box-shadow:none; opacity:.7;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          background:rgba(255,255,255,.25); color:#555;
+        }
+        /* The selected portrait rises into the original baseline; resting portraits sit lower. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { transform:translateY(4px); transition:transform .18s ease; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(-3px); }
+
         @media(max-width:600px) {
           .gallery-strip[data-react-mirrors-row5="true"] { padding-left:6px; padding-right:0; }
           .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:3px; }
