@@ -181,12 +181,10 @@ export default function SharedShell({
         <div className="yat-row5-shell yat-visual-row4-gallery">{children}</div>
       </main>
 
-      <footer className={`yat-row6-shell yat-footer${activeSection === 'active' && !isPlayerProfile ? ' yat-clubhouse-footer' : ''}`}>
-        {activeSection === 'active' && !isPlayerProfile
-          ? <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />
-          : activeSection === 'fantasy' && !isPlayerProfile
-            ? <BracketTicker hsid={hsid} />
-            : <SponsorBanner hsid={hsid} />}
+      <footer className={`yat-row6-shell yat-footer${activeSection !== 'fantasy' ? ' yat-clubhouse-footer' : ''}`}>
+        {activeSection === 'fantasy' && !isPlayerProfile
+          ? <BracketTicker hsid={hsid} />
+          : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
       </footer>
     </>
   );
