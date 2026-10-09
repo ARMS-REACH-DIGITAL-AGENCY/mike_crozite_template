@@ -43,8 +43,22 @@ export default function DrawerLayoutOverrides() {
       persistClosedLeftDrawer();
     };
 
+    const closeOnDestination = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const link = target?.closest('#drawerLeft a[href]') as HTMLAnchorElement | null;
+      if (!link || link.style.display === 'none') return;
+      // Do not interrupt navigation; close synchronously in capture phase.
+      const body = document.body;
+      body.classList.remove('drawer-left-open', 'yat-left-search-mode');
+      if (!body.classList.contains('drawer-sort-open')
+        && !body.classList.contains('drawer-right-open')
+        && !body.classList.contains('drawer-account-open')
+        && !body.classList.contains('drawer-favorites-open')) body.classList.remove('drawer-open');
+      persistClosedLeftDrawer();
+    };
+    document.addEventListener('click', closeOnDestination, true);
     document.addEventListener('click', closeLeftDrawer, true);
-    return () => document.removeEventListener('click', closeLeftDrawer, true);
+    return () => { document.removeEventListener('click', closeLeftDrawer, true); document.removeEventListener('click', closeOnDestination, true); };
   }, []);
 
   return (
