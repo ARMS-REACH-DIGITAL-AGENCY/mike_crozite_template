@@ -1186,12 +1186,16 @@ function InActionStrip({ hsid }: { hsid: number }) {
   const x = inActionToday(hsid);
   const at = (ms?: number) => (ms ? new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '');
   let parts: ReactNode[];
-  if (!x || !x.players) parts = ['No alumni in action today'];
+  if (!x) parts = ['Alumni game status unavailable'];
+  else if (!x.players) parts = ['No alumni scheduled for this tournament day'];
   else {
-    const who = <><b>{x.players}</b> {x.players === 1 ? 'alumnus' : 'alumni'} {x.done === x.games ? 'played today' : 'in action'}</>;
-    if (x.games && x.done === x.games) parts = [who, 'All games final'];
+    const allFinal = x.games > 0 && x.done === x.games;
+    const who = <><b>{x.players}</b> {x.players === 1 ? 'alumnus' : 'alumni'} {allFinal ? 'played today' : x.started ? 'in action today' : 'scheduled today'}</>;
+    if (allFinal) parts = [who, 'All games final'];
     else if (x.next) parts = [who, <>{x.started ? 'Next first pitch' : 'First pitch'} <b>{at(x.next)}</b></>, <>Last game <b>{at(x.last)}</b></>];
-    else parts = [who, 'All games under way'];
+    else if (x.started > x.done) parts = [who, 'Games in progress'];
+    else if (x.done > 0) parts = [who, 'Some games final; remaining statuses pending'];
+    else parts = [who, 'Game status pending'];
   }
   return (
     <div className="bl-inaction" aria-label="In action today">
@@ -1424,8 +1428,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {drawerMode ? (
         <>
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
-            {teamBoard(me)}
-            {teamBoard(me === 0 ? 1 : 0)}
+            {teamBoard(1)}
+            {teamBoard(0)}
             {extraInnings.length ? (
               <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
                 <div className="bl-tiebreak-line head" style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
@@ -1897,7 +1901,7 @@ export function Styles() {
       .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
       .bl-tb-cell.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
-      .bl-tb-cell.na { color:#718379; }\n       .bl-tb-cell.placeholder { color:rgba(220,239,225,.28); font-size:8px; font-weight:600; letter-spacing:-.02em; }
+      .bl-tb-cell.na { color:#718379; }\n       .bl-tb-cell.placeholder { color:rgba(220,239,225,.10); opacity:.3; font-size:8px; font-weight:500; letter-spacing:-.02em; }
       .bl-tb-wlabel { display:grid; place-items:center; color:#fff; font:700 11px/1 Oswald,sans-serif; letter-spacing:.02em; }
       .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }
