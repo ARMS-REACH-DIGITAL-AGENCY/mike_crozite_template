@@ -223,7 +223,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string }>;
+  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -241,6 +241,15 @@ export async function generateMetadata({
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
   const fantasyGameId = Number(String(qp?.fantasyGame || "").trim() || 0);
+  if (fantasyGameId && qp.snapshot === '1' && qp.homeName && qp.awayName && qp.scoreInnings && /^(?:\\d{1,3},){17}\\d{1,3}$/.test(qp.scoreInnings)) {
+    const home = cleanSchoolLabel(qp.homeName.slice(0,120));
+    const visitor = cleanSchoolLabel(qp.awayName.slice(0,120));
+    const hostBase = host ? `https://${host}` : canonicalUrl;
+    const qs = new URLSearchParams({gameId:String(fantasyGameId),snapshot:'1',homeName:home,awayName:visitor,scoreInnings:qp.scoreInnings,scoreStatus:qp.scoreStatus || 'LIVE',week:qp.week || '1',sharedAt:qp.sharedAt || ''});
+    const ogImageUrl = `${hostBase}/api/og/fantasy-game?${qs.toString()}`;
+    const title = `${visitor} vs ${home} | YAT?STATS Fantasy Game`;
+    return {title,description:`Scoreboard snapshot: ${visitor} vs ${home}.`,openGraph:{title,images:[{url:ogImageUrl,width:1200,height:630}]},twitter:{card:'summary_large_image',title,images:[ogImageUrl]}};
+  }
   if (fantasyGameId) {
     try {
       const game = getSharedFantasyGame(fantasyGameId, Number(qp.week) || undefined, Number(qp.homeId) || undefined, Number(qp.awayId) || undefined);
