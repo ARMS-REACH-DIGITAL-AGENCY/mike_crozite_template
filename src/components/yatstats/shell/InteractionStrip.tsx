@@ -417,16 +417,16 @@ export default function InteractionStrip({
       `}</style>
 
       <style jsx global>{`
-        .gallery-strip[data-react-mirrors-row5="true"] { isolation:isolate; background:repeating-linear-gradient(90deg,transparent 0,transparent 77px,rgba(255,255,255,.055) 78px,transparent 79px),linear-gradient(180deg,#184d39 0%,#0a2d22 100%); border-top:3px solid #327d5b; border-bottom:3px solid #071b15; min-height:116px; }
+        .gallery-strip[data-react-mirrors-row5="true"] { isolation:isolate; background:repeating-linear-gradient(90deg,transparent 0,transparent 77px,rgba(255,255,255,.055) 78px,transparent 79px),linear-gradient(180deg,#184d39 0%,#0a2d22 100%); border-top:3px solid #327d5b; border-bottom:3px solid #071b15; min-height:132px; }
         .gallery-strip[data-react-mirrors-row5="true"] .yat-row3-ballpark .ybp { position:absolute; inset:0; width:100%; height:100%; } .yat-row3-ballpark svg { display:block; width:100%; height:100%; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { position:relative; z-index:2; gap:9px; min-height:116px; align-items:center; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex:0 0 clamp(68px,20vw,86px); width:clamp(68px,20vw,86px); min-width:0; height:105px; overflow:visible; background:transparent; border:0; box-shadow:none; border-radius:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { position:relative; z-index:2; gap:9px; min-height:132px; align-items:center; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex:0 0 clamp(68px,20vw,86px); width:clamp(68px,20vw,86px); min-width:0; height:122px; overflow:hidden; background:#367b56; border:0; box-shadow:none; border-radius:2px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:0; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { width:min(100%,72px); height:auto; aspect-ratio:1; flex:none; border:0; border-radius:50%; box-shadow:0 2px 7px rgba(0,0,0,.5); background:#101a16; overflow:hidden; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img { width:100%; height:100%; border-radius:50%; object-fit:contain; object-position:center center; background:#101a16; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { width:100%; height:calc(100% - 22px); aspect-ratio:5 / 7; flex:1; min-height:0; border:0; border-radius:0; box-shadow:none; background:#367b56; overflow:hidden; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img { width:100%; height:100%; border-radius:0; object-fit:contain; object-position:center bottom; background:#367b56; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { position:static; width:100%; min-height:12px; padding:0 2px; font-size:10px; line-height:12px; text-shadow:0 1px 3px #000,0 1px 5px #000; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { position:absolute; top:0; left:0; right:0; bottom:auto; width:100%; height:22px; min-height:22px; padding:5px 2px 0; font-size:10px; line-height:12px; color:#ffd34f; background:#123d2d; text-shadow:0 1px 2px #071c14; z-index:3; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,.gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,.gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow { z-index:3; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:repeating-linear-gradient(90deg,transparent 0,transparent 77px,rgba(255,255,255,.08) 78px,transparent 79px),linear-gradient(180deg,#398765 0%,#17533c 100%); }
