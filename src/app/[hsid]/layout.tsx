@@ -9,6 +9,7 @@ import Script from 'next/script';
 import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
   getSchoolByHsid,
+  getActiveAlumniCountByHsid,
   getSchoolByUrl,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
@@ -182,12 +183,7 @@ export default async function HsidLayout({
   ).length;
 
   const schoolMeta = {
-    activeAlumni:
-      typeof school.current_aa === 'number'
-        ? school.current_aa
-        : school.current_aa != null
-          ? Number(school.current_aa)
-          : null,
+    activeAlumni: await getActiveAlumniCountByHsid(resolvedHsid),
 
     mlb:
       typeof school.mlb === 'number'
