@@ -130,7 +130,7 @@ function fallbackPlayersForSection(section: string, players: Player[]): Player[]
   if (section === 'alltime') {
     return players.filter((player) => !isHighSchoolStatus(player.status)).map((player) => ({
       ...player,
-      image: cleanSrc(player.thenImage) || cleanSrc(player.image),
+      image: cleanSrc(player.nowImage) || cleanSrc(player.image),
       imageFit: 'cover',
     }));
   }
@@ -186,12 +186,10 @@ function readPlayersFromVisibleBlockFive(
 
     const isCurrent = section === 'current';
     const isAllTime = section === 'alltime';
-    const selectedImage = isCurrent ? currentImage : isAllTime ? thenImage : nowImage;
+    const selectedImage = isCurrent ? currentImage : nowImage;
     const fallbackImage = isCurrent
       ? cleanSrc(card.dataset.thumbnailCurrentFallback) || UNCOMMITTED_BADGE_SRC
-      : isAllTime
-        ? cleanSrc(card.dataset.thumbnailThenFallback) || HEADSHOT_FALLBACK_SRC
-        : cleanSrc(card.dataset.thumbnailNowFallback) || cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC;
+      : cleanSrc(card.dataset.thumbnailNowFallback) || cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC;
 
     result.push({
       id,
