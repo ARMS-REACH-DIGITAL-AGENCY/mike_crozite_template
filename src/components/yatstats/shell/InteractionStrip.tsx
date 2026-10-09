@@ -417,27 +417,23 @@ export default function InteractionStrip({
       `}</style>
 
       <style jsx global>{`
-        /* Compact, theme-aware alumni portrait strip; gallery behavior is unchanged. */
-        .gallery-strip[data-react-mirrors-row5="true"] {
-          background:#0a0a0a; border:0; min-height:90px; padding:0 12px;
-        }
+        /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; min-height:81px; padding:0 10px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner {
-          min-height:90px; gap:14px; align-items:center; padding:4px 0;
-        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { min-height:81px; gap:8px; align-items:center; padding:3px 0; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
-          flex:0 0 70px; width:70px; min-width:70px; height:82px;
-          display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-          gap:3px; border:0; border-radius:0; background:transparent;
-          overflow:visible; box-shadow:none; margin:0;
+          flex:0 0 64px; width:64px; min-width:64px; height:75px; display:flex;
+          flex-direction:column; align-items:center; justify-content:flex-start;
+          gap:1px; border:0; border-radius:0; background:transparent;
+          overflow:visible; box-shadow:none; margin:0; text-decoration:none;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
-          width:66px; height:66px; flex:0 0 66px; border:1.5px solid #fff;
+          width:60px; height:60px; flex:0 0 60px; border:1px solid #c7c7c7;
           border-radius:50%; overflow:hidden; background:transparent;
           box-shadow:none; position:relative;
         }
-        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { border-color:#111; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { border-color:#d1d1d1; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
           display:block; width:100%; height:100%; object-fit:contain;
           object-position:center center; border-radius:50%; background:transparent; padding:0;
@@ -445,25 +441,24 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; padding:0; background:transparent; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay {
-          position:absolute; left:0; right:0; top:auto; bottom:0; width:100%;
-          height:13px; min-height:0; padding:0 1px; background:transparent;
-          color:#fff; font-size:10px; font-weight:700; line-height:13px;
-          text-align:center; text-shadow:none; z-index:2;
+          position:static; display:block; flex:0 0 12px; width:100%; height:12px;
+          min-height:0; padding:0; background:transparent; color:#e5e5e5;
+          font-size:9px; font-weight:500; letter-spacing:0; line-height:12px;
+          text-align:center; text-shadow:none; white-space:nowrap;
+          overflow:hidden; text-overflow:ellipsis; pointer-events:none;
         }
-        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { color:#111; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { color:#555; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow { z-index:3; }
         @media(max-width:600px) {
           .gallery-strip[data-react-mirrors-row5="true"] { padding-left:10px; padding-right:0; }
-          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:12px; }
-          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
-            flex-basis:calc((100vw - 56px)/4.45); width:calc((100vw - 56px)/4.45);
-          }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:8px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex-basis:calc((100vw - 50px)/4.55); width:calc((100vw - 50px)/4.55); }
           .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
-            width:min(66px,calc((100vw - 56px)/4.45 - 2px));
-            height:min(66px,calc((100vw - 56px)/4.45 - 2px));
+            width:min(60px,calc((100vw - 50px)/4.55 - 2px));
+            height:min(60px,calc((100vw - 50px)/4.55 - 2px));
             flex-basis:auto; aspect-ratio:1;
           }
         }
@@ -536,8 +531,8 @@ export default function InteractionStrip({
                       }}
                     />
                     {!isCurrentTeamTab && <div className="gallery-slot-gradient" />}
-                    {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                   </div>
+                  {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                 </a>
               );
             })
