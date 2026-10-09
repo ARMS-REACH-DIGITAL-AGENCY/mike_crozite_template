@@ -6,8 +6,8 @@ import { tabName, track } from '@/lib/analytics';
 
 const TAB_IDS = ['ppTab-schedule', 'ppTab-stats', 'ppTab-news', 'ppTab-social', 'ppTab-connect', 'ppTab-upload'];
 
-// The Fun Zone icon row. Rendered straight into <body> and pinned just above
-// the fixed footer ad, so it's always on screen and page content can never
+// The Fun Zone icon row. Rendered straight into <body> and pinned at the bottom of the viewport instead of above
+// the former footer ad, so it's always on screen and page content can never
 // scroll under it (inside the profile page's containers a position:fixed
 // element is pinned to the page section instead of the screen).
 const DOCK_TABS = [
@@ -184,7 +184,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
        space free at its bottom (--profile-tabs-h), which the dock covers. */
     :root { --pp-dock-h:58px; }
     body #playerFunZone { --profile-tabs-h:var(--pp-dock-h) !important; }
-    body .pp-fz-dock { position:fixed; left:0; right:0; bottom:var(--footerH,66px); height:var(--pp-dock-h); z-index:60; background:rgba(7,7,7,.98); border-top:1px solid rgba(255,255,255,.12); box-shadow:0 -6px 16px rgba(0,0,0,.42); }
+    body .pp-fz-dock { position:fixed; left:0; right:0; bottom:0; height:var(--pp-dock-h); z-index:60; background:rgba(7,7,7,.98); border-top:1px solid rgba(255,255,255,.12); box-shadow:0 -6px 16px rgba(0,0,0,.42); }
     body .pp-fz-dock .pp-fz-dock-tabs { box-sizing:border-box; height:100%; width:100%; max-width:760px; margin:0 auto; padding:0 max(6px, env(safe-area-inset-left)); display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); }
     body .pp-fz-dock .pp-fz-tab { position:relative !important; box-sizing:border-box !important; width:auto !important; min-width:0 !important; max-width:none !important; height:100% !important; margin:0 !important; padding:6px 2px 5px !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:5px !important; color:rgba(255,255,255,.66) !important; text-decoration:none !important; border:0 !important; background:transparent !important; -webkit-tap-highlight-color:transparent; }
     body .pp-fz-dock .pp-fz-tab::before, body .pp-fz-dock .pp-fz-tab::after { content:none !important; display:none !important; }
