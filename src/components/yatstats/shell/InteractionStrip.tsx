@@ -443,7 +443,7 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay {
           position:static; display:block; flex:0 0 12px; width:100%; height:12px;
           min-height:0; padding:0; background:transparent; color:#e5e5e5;
-          font-size:9px; font-weight:500; letter-spacing:0; line-height:12px;
+          font:300 11px/1 Oswald, sans-serif; letter-spacing:.12em; line-height:12px; text-transform:uppercase;
           text-align:center; text-shadow:none; white-space:nowrap;
           overflow:hidden; text-overflow:ellipsis; pointer-events:none;
         }
