@@ -112,8 +112,13 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   // Position the selected card immediately below the sticky alumni strip, not below a prior card.
   const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
   const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
-  const offset = Math.max(0, stripBottom) + 12;
-  const top = window.scrollY + target.getBoundingClientRect().top - offset;
+  // Align the strip's lower edge halfway through the gap preceding the card.
+  const previousCard = (wrapper || target).previousElementSibling as HTMLElement | null;
+  const cardTop = (wrapper || target).getBoundingClientRect().top;
+  const previousBottom = previousCard?.getBoundingClientRect().bottom ?? cardTop;
+  const gap = Math.max(0, Math.min(60, cardTop - previousBottom));
+  const offset = Math.max(0, stripBottom) + Math.max(4, gap / 2);
+  const top = window.scrollY + cardTop - offset;
   window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
 }
 
@@ -323,6 +328,11 @@ export default function InteractionStrip({
 
   const handleSlotClick = (event: MouseEvent<HTMLAnchorElement>, playerId: string) => {
     event.preventDefault();
+    const selected = event.currentTarget;
+    const rail = selected.closest('.gallery-strip-inner');
+    rail?.querySelectorAll('.gallery-slot.is-active').forEach((slot) => { slot.classList.remove('is-active'); slot.removeAttribute('aria-current'); });
+    selected.classList.add('is-active');
+    selected.setAttribute('aria-current', 'true');
 
     // On the News tab a headshot filters the news cards to that player
     // (NewsGallery listens; clicking the same one again shows everyone).
