@@ -241,7 +241,7 @@ export async function generateMetadata({
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
   const fantasyGameId = Number(String(qp?.fantasyGame || "").trim() || 0);
-  if (fantasyGameId && qp.snapshot === '1' && qp.homeName && qp.awayName && qp.scoreInnings && /^(?:\\d{1,3},){17}\\d{1,3}$/.test(qp.scoreInnings)) {
+  if (fantasyGameId && qp.snapshot === '1' && qp.homeName && qp.awayName && qp.scoreInnings && /^(?:\d{1,3},){17}\d{1,3}$/.test(qp.scoreInnings)) {
     const home = cleanSchoolLabel(qp.homeName.slice(0,120));
     const visitor = cleanSchoolLabel(qp.awayName.slice(0,120));
     const hostBase = host ? `https://${host}` : canonicalUrl;
