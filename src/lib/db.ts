@@ -2525,3 +2525,19 @@ if (!global.__pgPoolShutdownRegistered) {
     process.exit(0);
   });
 }
+
+// Live Active Alumni count, sourced from the same staged statuses used by the gallery.
+// Missing or unmatched school IDs produce zero, never a legacy school_success count.
+export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
+  const { rows } = await query(`
+    SELECT COUNT(DISTINCT playerid)::int AS count
+    FROM flip_card_front_stage
+    WHERE hsid = $1
+      AND UPPER(TRIM(COALESCE(status_label, ''))) IN (
+        'ACTIVE', 'INJURED 7-DAY', 'INJURED 10-DAY',
+        'INJURED 15-DAY', 'INJURED 30-DAY',
+        'INJURED 60-DAY', 'INJURED - FULL SEASON'
+      )
+  `, [hsid]);
+  return Number(rows[0]?.count ?? 0);
+}
