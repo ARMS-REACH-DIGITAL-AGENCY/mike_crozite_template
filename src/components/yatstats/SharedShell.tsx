@@ -9,6 +9,7 @@ import GlobalTopbar from './shell/GlobalTopbar';
 import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
+import ClubhouseFooter from './shell/ClubhouseFooter';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
@@ -176,40 +177,16 @@ export default function SharedShell({
                 )}
         </div>
 
-        <div className={`yat-row4-shell${activeSection === 'fantasy' && !isPlayerProfile && !row4Content ? ' yat-row4-off' : ''}`}>
-          {row4Content
-            ? row4Content
-            : activeSection === 'fantasy' && !isPlayerProfile
-              // The Fantasy Bracket Tourney tab has no row 4: row 3's
-              // timeline picks the round, the scores ticker is in row 6,
-              // and row 5 gets the height.
-              ? null
-              : profilePlayerId
-              // The player profile's thin year-tick timeline (the old
-              // variant="line" row) is now folded into the taller
-              // variant="images" strip in row 3 above -- one row instead of
-              // two, per ZoomableCareerTimeline.tsx's own row3/row4 height
-              // override. Rendering nothing here (rather than a second,
-              // now-redundant ZoomableCareerTimeline instance) also drops a
-              // duplicate season-stats/uploads fetch this page no longer needs.
-              ? null
-              : (
-                  <MetadataRow
-                    isPlayerProfile={isPlayerProfile}
-                    isGallery={isGallery}
-                    schoolMeta={schoolMeta}
-                  />
-                )}
-        </div>
-
-        <div className="yat-row5-shell">{children}</div>
+        {/* The former Row 5 gallery is now visual Row 4. Keep legacy class for existing gallery styling. */}
+        <div className="yat-row5-shell yat-visual-row4-gallery">{children}</div>
       </main>
 
-      <footer className="yat-row6-shell yat-footer">
-        {activeSection === 'fantasy' && !isPlayerProfile
-          // The bracket tab: the scores ticker, with the sponsor ads in it.
-          ? <BracketTicker hsid={hsid} />
-          : <SponsorBanner hsid={hsid} />}
+      <footer className={`yat-row6-shell yat-footer${activeSection === 'active' && !isPlayerProfile ? ' yat-clubhouse-footer' : ''}`}>
+        {activeSection === 'active' && !isPlayerProfile
+          ? <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />
+          : activeSection === 'fantasy' && !isPlayerProfile
+            ? <BracketTicker hsid={hsid} />
+            : <SponsorBanner hsid={hsid} />}
       </footer>
     </>
   );
