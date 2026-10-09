@@ -181,13 +181,11 @@ export default function SharedShell({
         <div className="yat-row5-shell yat-visual-row4-gallery">{children}</div>
       </main>
 
-      <footer className={`yat-row6-shell yat-footer${!isPlayerProfile && activeSection !== 'fantasy' ? ' yat-clubhouse-footer' : ''}`}>
-        {isPlayerProfile
-          ? null /* Profile's existing six-tab Fun Zone is the sole sticky footer. */
-          : activeSection === 'fantasy'
-            ? <BracketTicker hsid={hsid} />
-            : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
-      </footer>
+      {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer${!isPlayerProfile && activeSection !== 'fantasy' ? ' yat-clubhouse-footer' : ''}`}>
+        {activeSection === 'fantasy'
+          ? <BracketTicker hsid={hsid} />
+          : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
+      </footer>}
     </>
   );
 }
