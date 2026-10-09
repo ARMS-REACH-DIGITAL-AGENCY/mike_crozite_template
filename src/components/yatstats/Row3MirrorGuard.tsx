@@ -6,6 +6,7 @@ import { getOriginalForCardCopy } from '@/lib/playerImage';
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
 const HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
+const PLAYER_NOW_CUTOUT_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts';
 
 function getVisibleSectionKey(): string {
   const visibleSection = Array.from(document.querySelectorAll<HTMLElement>('.yat-section.visible'))
@@ -55,16 +56,9 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
     };
   }
 
-  if (sectionKey === 'alltime') {
-    return {
-      src: clean(card.dataset.thumbnailThen),
-      fallback: clean(card.dataset.thumbnailThenFallback) || HEADSHOT_FALLBACK_URL,
-    };
-  }
-
   return {
-    src: clean(card.dataset.thumbnailNow),
-    fallback: clean(card.dataset.thumbnailNowFallback) || HEADSHOT_FALLBACK_URL,
+    src: `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(String(card.dataset.playerid || '').trim())}.png`,
+    fallback: HEADSHOT_FALLBACK_URL,
   };
 }
 
@@ -82,7 +76,19 @@ function wireSyntheticSlot(slot: HTMLElement) {
     if (!card) return;
 
     event.preventDefault();
-    card.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+    const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
+    const cardTop = wrapper.getBoundingClientRect().top;
+    const previousBottom = wrapper.previousElementSibling?.getBoundingClientRect().bottom ?? cardTop;
+    const gap = Math.max(0, Math.min(60, cardTop - previousBottom));
+    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) + Math.max(4, gap / 2);
+    slot.closest('.gallery-strip-inner')?.querySelectorAll('.gallery-slot.is-active').forEach((item) => {
+      item.classList.remove('is-active');
+      item.removeAttribute('aria-current');
+    });
+    slot.classList.add('is-active');
+    slot.setAttribute('aria-current', 'true');
+    window.scrollTo({ top: Math.max(0, window.scrollY + cardTop - offset), behavior: 'smooth' });
   });
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
@@ -129,8 +135,8 @@ function createSyntheticSlot(template: HTMLElement | null): HTMLElement {
   const label = document.createElement('div');
   label.className = 'gallery-slot-name-overlay';
 
-  media.append(image, gradient, label);
-  slot.append(media);
+  media.append(image, gradient);
+  slot.append(media, label);
   return slot;
 }
 
@@ -181,7 +187,7 @@ function configureSlot(
     image.onerror = () => {
       // A card-size copy that hasn't been made yet: try the original photo
       // before the generic fallback.
-      const original = getOriginalForCardCopy(image.getAttribute('src'));
+      const original = isCurrent ? getOriginalForCardCopy(image.getAttribute('src')) : '';
       if (original) {
         image.setAttribute('src', original);
         return;
@@ -418,55 +424,24 @@ export default function Row3MirrorGuard() {
         visibility: hidden;
       }
 
-      [data-row3-synthetic="true"] .gallery-slot-media {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: #000;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-media {
+        position:relative; width:60px; height:60px; flex:0 0 60px;
+        overflow:hidden; border-radius:50%; border:1px solid #c7c7c7;
+        background:transparent;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-img {
+        display:block; width:100%; height:100%; object-fit:contain; padding:0;
+        border-radius:50%; background:transparent;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-img--contain {
-        object-fit: contain;
-        object-position: center;
-        padding: 6px;
-        background: transparent;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-gradient { display:none; }
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-name-overlay {
+        position:static; display:block; flex:0 0 12px; width:100%; height:12px;
+        padding:0; background:transparent; color:#e5e5e5;
+        font:300 9px/1 Oswald,sans-serif; letter-spacing:0;
+        text-align:center; text-shadow:none; text-transform:uppercase;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-gradient {
-        position: absolute;
-        inset: auto 0 0;
-        height: 50%;
-        pointer-events: none;
-        background: linear-gradient(to top, rgba(0,0,0,.8), rgba(0,0,0,0));
-      }
-
-      [data-row3-synthetic="true"] .gallery-slot-name-overlay {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 4px;
-        z-index: 2;
-        overflow: hidden;
-        padding: 0 4px;
-        color: #fff;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1;
-        letter-spacing: .08em;
-        text-align: center;
-        text-overflow: ellipsis;
-        text-shadow: 0 1px 3px rgba(0,0,0,.95);
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
+      body.light-theme .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-name-overlay { color:#555; }
     `}</style>
   );
 }

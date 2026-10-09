@@ -6,6 +6,7 @@ import { getOriginalForCardCopy } from '@/lib/playerImage';
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
+const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
 const UNCOMMITTED_BADGE_SRC = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
@@ -108,7 +109,17 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   target.style.display = '';
   target.hidden = false;
   target.classList.remove('is-hidden');
-  target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+  // Position the selected card immediately below the sticky alumni strip, not below a prior card.
+  const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
+  // Align the strip's lower edge halfway through the gap preceding the card.
+  const previousCard = (wrapper || target).previousElementSibling as HTMLElement | null;
+  const cardTop = (wrapper || target).getBoundingClientRect().top;
+  const previousBottom = previousCard?.getBoundingClientRect().bottom ?? cardTop;
+  const gap = Math.max(0, Math.min(60, cardTop - previousBottom));
+  const offset = Math.max(0, stripBottom) + Math.max(4, gap / 2);
+  const top = window.scrollY + cardTop - offset;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
 }
 
 function fallbackPlayersForSection(section: string, players: Player[]): Player[] {
@@ -119,7 +130,7 @@ function fallbackPlayersForSection(section: string, players: Player[]): Player[]
   if (section === 'alltime') {
     return players.filter((player) => !isHighSchoolStatus(player.status)).map((player) => ({
       ...player,
-      image: cleanSrc(player.thenImage) || cleanSrc(player.image),
+      image: cleanSrc(player.nowImage) || cleanSrc(player.image),
       imageFit: 'cover',
     }));
   }
@@ -175,12 +186,10 @@ function readPlayersFromVisibleBlockFive(
 
     const isCurrent = section === 'current';
     const isAllTime = section === 'alltime';
-    const selectedImage = isCurrent ? currentImage : isAllTime ? thenImage : nowImage;
+    const selectedImage = isCurrent ? currentImage : nowImage;
     const fallbackImage = isCurrent
       ? cleanSrc(card.dataset.thumbnailCurrentFallback) || UNCOMMITTED_BADGE_SRC
-      : isAllTime
-        ? cleanSrc(card.dataset.thumbnailThenFallback) || HEADSHOT_FALLBACK_SRC
-        : cleanSrc(card.dataset.thumbnailNowFallback) || cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC;
+      : cleanSrc(card.dataset.thumbnailNowFallback) || cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC;
 
     result.push({
       id,
@@ -213,6 +222,7 @@ export default function InteractionStrip({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [activeSection, setActiveSection] = useState(getCurrentSection);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [sectionPlayers, setSectionPlayers] = useState<Player[]>(() =>
     fallbackPlayersForSection(getCurrentSection(), players)
   );
@@ -317,6 +327,12 @@ export default function InteractionStrip({
 
   const handleSlotClick = (event: MouseEvent<HTMLAnchorElement>, playerId: string) => {
     event.preventDefault();
+    const selected = event.currentTarget;
+    const rail = selected.closest('.gallery-strip-inner');
+    rail?.querySelectorAll('.gallery-slot.is-active').forEach((slot) => { slot.classList.remove('is-active'); slot.removeAttribute('aria-current'); });
+    setSelectedPlayerId(playerId);
+    selected.classList.add('is-active');
+    selected.setAttribute('aria-current', 'true');
 
     // On the News tab a headshot filters the news cards to that player
     // (NewsGallery listens; clicking the same one again shows everyone).
@@ -416,7 +432,82 @@ export default function InteractionStrip({
         }
       `}</style>
 
-      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
+      <style jsx global>{`
+        /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; min-height:94px; padding:0 6px; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { min-height:94px; gap:3px; align-items:center; padding:14px 0 2px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
+          flex:0 0 64px; width:64px; min-width:64px; height:77px; display:flex;
+          flex-direction:column; align-items:center; justify-content:center;
+          gap:2px; border:0; border-radius:0; background:transparent;
+          overflow:visible; box-shadow:none; margin:0; text-decoration:none;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+          width:60px; height:60px; flex:0 0 60px; border:1px solid #c7c7c7;
+          border-radius:50%; overflow:hidden; background:transparent;
+          box-shadow:none; position:relative;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { border-color:#d1d1d1; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { filter:invert(1); }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
+          display:block; width:100%; height:100%; object-fit:contain;
+          object-position:center center; border-radius:50%; background:transparent; padding:0;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; padding:0; background:transparent; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay {
+          position:static; display:block; flex:0 0 11px; width:100%; height:11px;
+          min-height:0; padding:0; background:transparent; color:#e5e5e5;
+          font:300 9px/1 Oswald, sans-serif; letter-spacing:0; line-height:11px; text-transform:uppercase;
+          text-align:center; text-shadow:none; white-space:nowrap;
+          overflow:hidden; text-overflow:ellipsis; pointer-events:none;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { color:#555; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
+        /* Fade the full portrait and label near either edge, like the ticker. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner {
+          -webkit-mask-image:linear-gradient(to right,transparent 0%,black 13%,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0%,black 13%,black 87%,transparent 100%);
+        }
+        /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          z-index:3; background:rgba(20,20,20,.25); color:#ddd; border:0;
+          width:22px; box-shadow:none; opacity:.7;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          background:rgba(255,255,255,.25); color:#555;
+        }
+        /* The selected portrait rises into the original baseline; resting portraits sit lower. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { transform:translateY(4px); transition:transform .18s ease; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(-3px); }
+        /* Animate the portrait itself as well: older gallery-slot transforms can
+           be overridden by global styles, leaving no visible selected lift. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+          transform:translateY(0); transition:transform .18s ease;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-media,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-media {
+          transform:translateY(-9px);
+        }
+
+
+        @media(max-width:600px) {
+          .gallery-strip[data-react-mirrors-row5="true"] { padding-left:6px; padding-right:0; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:3px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex-basis:64px; width:64px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+            width:60px;
+            height:60px;
+            flex-basis:auto; aspect-ratio:1;
+          }
+        }
+      `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
             type="button"
@@ -432,14 +523,15 @@ export default function InteractionStrip({
           {showPlayerStrip ? (
             sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
-              const fallbackSrc = cleanSrc(player.fallbackImage) || (isCurrentTeamTab ? UNCOMMITTED_BADGE_SRC : HEADSHOT_FALLBACK_SRC);
+              const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
               const nowSrc = cleanSrc(player.nowImage)
                 || `${PLAYER_NOW_BASE}/${encodeURIComponent(player.id)}.jpg`;
               const thenSrc = cleanSrc(player.thenImage)
                 || `${PLAYER_THEN_BASE}/${encodeURIComponent(player.id)}.jpg`;
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
-              const displaySrc = cleanSrc(player.image)
-                || (isCurrentTeamTab ? currentSrc : activeSection === 'alltime' ? thenSrc : nowSrc);
+              const displaySrc = isCurrentTeamTab
+                ? currentSrc
+                : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
@@ -450,7 +542,7 @@ export default function InteractionStrip({
                 <a
                   key={`${activeSection}-${player.id}`}
                   href={`#player-${encodeURIComponent(player.id)}`}
-                  className={linkClassName}
+                  className={`${linkClassName}${selectedPlayerId === player.id ? ' is-active' : ''}`}
                   data-playerid={player.id}
                   data-status={status}
                   data-default-hidden={status === 'RETIRED' ? 'retired' : undefined}
@@ -470,7 +562,7 @@ export default function InteractionStrip({
                       onError={(event) => {
                         const image = event.currentTarget;
 
-                        if (image.dataset.extensionFallbackApplied !== 'true') {
+                        if (isCurrentTeamTab && image.dataset.extensionFallbackApplied !== 'true') {
                           const alternateSrc = getExtensionFallbackSrc(image.getAttribute('src'));
                           if (alternateSrc && alternateSrc !== image.getAttribute('src')) {
                             image.dataset.extensionFallbackApplied = 'true';
@@ -481,12 +573,13 @@ export default function InteractionStrip({
 
                         if (image.dataset.fallbackApplied === 'true') return;
                         image.dataset.fallbackApplied = 'true';
+                         image.dataset.silhouetteFallback = 'true';
                         image.src = fallbackSrc;
                       }}
                     />
                     {!isCurrentTeamTab && <div className="gallery-slot-gradient" />}
-                    {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                   </div>
+                  {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                 </a>
               );
             })

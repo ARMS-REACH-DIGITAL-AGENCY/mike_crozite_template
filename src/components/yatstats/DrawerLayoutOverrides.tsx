@@ -43,8 +43,22 @@ export default function DrawerLayoutOverrides() {
       persistClosedLeftDrawer();
     };
 
+    const closeOnDestination = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const link = target?.closest('#drawerLeft a[href]') as HTMLAnchorElement | null;
+      if (!link || link.style.display === 'none') return;
+      // Do not interrupt navigation; close synchronously in capture phase.
+      const body = document.body;
+      body.classList.remove('drawer-left-open', 'yat-left-search-mode');
+      if (!body.classList.contains('drawer-sort-open')
+        && !body.classList.contains('drawer-right-open')
+        && !body.classList.contains('drawer-account-open')
+        && !body.classList.contains('drawer-favorites-open')) body.classList.remove('drawer-open');
+      persistClosedLeftDrawer();
+    };
+    document.addEventListener('click', closeOnDestination, true);
     document.addEventListener('click', closeLeftDrawer, true);
-    return () => document.removeEventListener('click', closeLeftDrawer, true);
+    return () => { document.removeEventListener('click', closeLeftDrawer, true); document.removeEventListener('click', closeOnDestination, true); };
   }, []);
 
   return (
@@ -56,15 +70,39 @@ export default function DrawerLayoutOverrides() {
         --yat-min-gallery-card-w: 260px;
       }
 
+
+      body:not(.yat-left-search-mode) #drawerLeft { width: min(76vw, 310px) !important; max-width: 310px !important; }
+      @media (max-width: 779px) { body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item { display:flex; align-items:center; gap:10px; letter-spacing:-.045em !important; word-spacing:-.12em !important; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:-.045em; word-spacing:-.12em; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav { padding-right:12px; }
+      #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
+      #drawerLeft .yat-nav-page-crest { width:25px; height:25px; object-fit:contain; flex:none; }
+      #drawerLeft .yat-nav-custom-icon { width:24px; height:24px; min-width:24px; display:block; object-fit:contain; flex:none; mix-blend-mode:multiply; }
+      body:not(.light-theme) #drawerLeft .yat-nav-custom-icon { filter:invert(1); mix-blend-mode:screen; }
+
+      #drawerLeft .yat-drawer-visiting-school > .yat-drawer-crest-thumb { display:none; }
+      #drawerLeft .yat-left-search-content { padding-left:20px; padding-right:20px; }
+      @media (min-width:780px) {
+        body.drawer-left-open:not(.yat-left-search-mode) .yat-row3-shell,
+        body.drawer-left-open:not(.yat-left-search-mode) .yat-row4-shell,
+        body.drawer-left-open:not(.yat-left-search-mode) .yat-row5-shell,
+        body.drawer-left-open:not(.yat-left-search-mode) .yat-row6-shell { margin-left:310px !important; }
+        body.drawer-left-open.yat-left-search-mode .yat-row3-shell,
+        body.drawer-left-open.yat-left-search-mode .yat-row4-shell,
+        body.drawer-left-open.yat-left-search-mode .yat-row5-shell,
+        body.drawer-left-open.yat-left-search-mode .yat-row6-shell { margin-left:0 !important; }
+      }
       /* Keep the left navigation translucent enough to retain page context. */
       #drawerLeft {
-        background: rgba(10, 10, 10, 0.90) !important;
-        backdrop-filter: blur(5px) !important;
-        -webkit-backdrop-filter: blur(5px) !important;
+        background: rgba(6, 6, 6, 0.57) !important;
+        backdrop-filter: blur(3px) !important;
+        -webkit-backdrop-filter: blur(3px) !important;
       }
 
       body.light-theme #drawerLeft {
-        background: rgba(255, 255, 255, 0.92) !important;
+        background: rgba(255, 255, 255, 0.68) !important;
       }
 
       /*
