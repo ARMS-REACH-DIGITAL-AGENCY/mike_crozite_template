@@ -22,7 +22,7 @@ export async function GET(req:NextRequest){
   const id=Number(req.nextUrl.searchParams.get('gameId')||0);
   const snap=req.nextUrl.searchParams.get('snapshot')==='1';
   const raw=req.nextUrl.searchParams.get('scoreInnings')||'';
-  const valid=/^(?:\\d{1,3},){17}\\d{1,3}$/.test(raw);
+  const valid=/^(?:\d{1,3},){17}\d{1,3}$/.test(raw);
   const snapHome=(req.nextUrl.searchParams.get('homeName')||'').slice(0,120);
   const snapAway=(req.nextUrl.searchParams.get('awayName')||'').slice(0,120);
   const g=snap && valid && snapHome && snapAway ? {id,week:Number(req.nextUrl.searchParams.get('week'))||1,home:1,away:2,winner:null,innings:raw.split(',').map(Number),homeName:snapHome,awayName:snapAway,stage:'Fantasy Game'} : getSharedFantasyGame(id,Number(req.nextUrl.searchParams.get('week'))||undefined,Number(req.nextUrl.searchParams.get('homeId'))||undefined,Number(req.nextUrl.searchParams.get('awayId'))||undefined);
