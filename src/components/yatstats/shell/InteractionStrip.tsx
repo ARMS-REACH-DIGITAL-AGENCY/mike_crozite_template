@@ -419,13 +419,13 @@ export default function InteractionStrip({
 
       <style jsx global>{`
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
-        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; min-height:81px; padding:0 10px; }
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; min-height:86px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { min-height:81px; gap:8px; align-items:center; padding:3px 0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { min-height:86px; gap:3px; align-items:center; padding:7px 0 2px; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
-          flex:0 0 64px; width:64px; min-width:64px; height:75px; display:flex;
-          flex-direction:column; align-items:center; justify-content:flex-start;
-          gap:1px; border:0; border-radius:0; background:transparent;
+          flex:0 0 64px; width:64px; min-width:64px; height:77px; display:flex;
+          flex-direction:column; align-items:center; justify-content:center;
+          gap:2px; border:0; border-radius:0; background:transparent;
           overflow:visible; box-shadow:none; margin:0; text-decoration:none;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
@@ -442,9 +442,9 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; padding:0; background:transparent; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay {
-          position:static; display:block; flex:0 0 12px; width:100%; height:12px;
+          position:static; display:block; flex:0 0 11px; width:100%; height:11px;
           min-height:0; padding:0; background:transparent; color:#e5e5e5;
-          font:300 11px/1 Oswald, sans-serif; letter-spacing:.12em; line-height:12px; text-transform:uppercase;
+          font:300 9px/1 Oswald, sans-serif; letter-spacing:0; line-height:11px; text-transform:uppercase;
           text-align:center; text-shadow:none; white-space:nowrap;
           overflow:hidden; text-overflow:ellipsis; pointer-events:none;
         }
@@ -454,12 +454,12 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow { z-index:3; }
         @media(max-width:600px) {
-          .gallery-strip[data-react-mirrors-row5="true"] { padding-left:10px; padding-right:0; }
-          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:8px; }
-          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex-basis:calc((100vw - 50px)/4.55); width:calc((100vw - 50px)/4.55); }
+          .gallery-strip[data-react-mirrors-row5="true"] { padding-left:6px; padding-right:0; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:3px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex-basis:64px; width:64px; }
           .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
-            width:min(60px,calc((100vw - 50px)/4.55 - 2px));
-            height:min(60px,calc((100vw - 50px)/4.55 - 2px));
+            width:60px;
+            height:60px;
             flex-basis:auto; aspect-ratio:1;
           }
         }
