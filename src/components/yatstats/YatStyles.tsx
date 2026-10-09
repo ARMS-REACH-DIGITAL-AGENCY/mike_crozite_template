@@ -815,7 +815,7 @@ export default function YatStyles() {
       .yat-visual-row4-gallery{padding-top:0}
       .yat-footer.yat-clubhouse-footer{--footerH:76px;height:76px;overflow:visible;display:block;background:transparent;border:0;z-index:48}
       .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui)}
-      .yat-clubhouse-facts{height:37px;background:var(--bg);display:flex;align-items:center;gap:6px;padding:2px 9px 2px clamp(60px,13vw,150px);border:0
+      .yat-clubhouse-facts{height:37px;background:var(--bg);display:flex;align-items:center;gap:6px;padding:2px 9px 2px clamp(60px,13vw,150px);border:0}
       .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(58px,13vw,145px);height:100%;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
       .yat-clubhouse-hero img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:bottom;filter:drop-shadow(0 2px 3px #00231855)}
       .yat-clubhouse-message{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
