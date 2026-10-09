@@ -52,7 +52,10 @@ export async function GET(req:NextRequest){
   const status=(req.nextUrl.searchParams.get('scoreStatus') || (snap?'LIVE':'FINAL')).slice(0,16);
   const round=Math.max(1,Math.min(10,Number(req.nextUrl.searchParams.get('round'))||Math.ceil(g.week/3)));
   const gameNo=Math.max(1,Math.min(3,Number(req.nextUrl.searchParams.get('gameNo'))||((g.week-1)%3+1)));
-  const activeMatch=/^(?:TOP|BOT)\s+(\d)$/i.exec(status);\n  const activeInning=activeMatch?Number(activeMatch[1]):null;\n  const visibleThrough=status==='FINAL'?9:activeInning??(status==='LIVE'?null:0);\n  const boardRow=(side:'h'|'a',name:string,total:number)=>
+  const activeMatch=/^(?:TOP|BOT)\s+(\d)$/i.exec(status);
+  const activeInning=activeMatch?Number(activeMatch[1]):null;
+  const visibleThrough=status==='FINAL'?9:activeInning??(status==='LIVE'?null:0);
+  const boardRow=(side:'h'|'a',name:string,total:number)=>
     <div style={{display:'flex',alignItems:'center',width:'100%',height:105,gap:8}}>
       <div style={{display:'flex',flexDirection:'column',width:250,alignItems:'flex-end',justifyContent:'center',paddingRight:12}}>
         <div style={{display:'flex',fontSize:25,fontWeight:900,textAlign:'right',color:'#fff'}}>{name.replace(/\\s*\\([^)]*\\)/g,'').toUpperCase()}</div>
