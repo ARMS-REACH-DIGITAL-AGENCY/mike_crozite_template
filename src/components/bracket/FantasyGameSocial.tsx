@@ -83,6 +83,7 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
       else{await navigator.clipboard.writeText(`${shareText||subtitle}\n${shareLink}`);flash('Link copied.');}
     }catch(e:any){
       if(e?.name==='AbortError')return;
+      if(shareUrl.includes('snapshot=1') && shareLink===shareUrl){flash('Short link could not be created. Please try again.');return;}
       try{await navigator.clipboard.writeText(`${shareText||subtitle}\n${shareLink}`);flash('Link copied.');}catch{}
     }
     fetch(`/api/fantasy-games/${encodeURIComponent(gameKey)}/share`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({method})}).catch(()=>{});
