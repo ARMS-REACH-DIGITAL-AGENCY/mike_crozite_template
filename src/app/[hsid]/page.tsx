@@ -223,7 +223,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string }>;
+  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -243,7 +243,7 @@ export async function generateMetadata({
   const fantasyGameId = Number(String(qp?.fantasyGame || "").trim() || 0);
   if (fantasyGameId) {
     try {
-      const game = getSharedFantasyGame(fantasyGameId);
+      const game = getSharedFantasyGame(fantasyGameId, Number(qp.week) || undefined, Number(qp.homeId) || undefined, Number(qp.awayId) || undefined);
       if (game) {
         const visitor = cleanSchoolLabel(game.awayName);
         const home = cleanSchoolLabel(game.homeName);
@@ -251,7 +251,7 @@ export async function generateMetadata({
         const hostBase = host ? `https://${host}` : canonicalUrl;
         const shareUrl = `${hostBase}/${schoolHsid}?fantasyGame=${game.id}#sec-fantasy`;
         const scoreInnings = typeof qp?.scoreInnings === 'string' && /^(?:\d{1,3},){17,}\d{1,3}$/.test(qp.scoreInnings) && qp.scoreInnings.split(',').length % 2 === 0 && qp.scoreInnings.split(',').length <= 30 ? qp.scoreInnings : '';
-        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}${scoreInnings ? `&scoreInnings=${encodeURIComponent(scoreInnings)}` : ''}`;
+        const ogImageUrl = `${hostBase}/api/og/fantasy-game?gameId=${game.id}&week=${game.week}&homeId=${game.home}&awayId=${game.away}${scoreInnings ? `&scoreInnings=${encodeURIComponent(scoreInnings)}` : ''}`;
         return {
           title: `${visitor} vs ${home} | YAT?STATS Fantasy Game`,
           description,
