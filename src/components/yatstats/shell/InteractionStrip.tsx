@@ -6,6 +6,7 @@ import { getOriginalForCardCopy } from '@/lib/playerImage';
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
+const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
 const UNCOMMITTED_BADGE_SRC = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
@@ -478,14 +479,15 @@ export default function InteractionStrip({
           {showPlayerStrip ? (
             sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
-              const fallbackSrc = cleanSrc(player.fallbackImage) || (isCurrentTeamTab ? UNCOMMITTED_BADGE_SRC : HEADSHOT_FALLBACK_SRC);
+              const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
               const nowSrc = cleanSrc(player.nowImage)
                 || `${PLAYER_NOW_BASE}/${encodeURIComponent(player.id)}.jpg`;
               const thenSrc = cleanSrc(player.thenImage)
                 || `${PLAYER_THEN_BASE}/${encodeURIComponent(player.id)}.jpg`;
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
-              const displaySrc = cleanSrc(player.image)
-                || (isCurrentTeamTab ? currentSrc : activeSection === 'alltime' ? thenSrc : nowSrc);
+              const displaySrc = isCurrentTeamTab
+                ? currentSrc
+                : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
@@ -516,7 +518,7 @@ export default function InteractionStrip({
                       onError={(event) => {
                         const image = event.currentTarget;
 
-                        if (image.dataset.extensionFallbackApplied !== 'true') {
+                        if (isCurrentTeamTab && image.dataset.extensionFallbackApplied !== 'true') {
                           const alternateSrc = getExtensionFallbackSrc(image.getAttribute('src'));
                           if (alternateSrc && alternateSrc !== image.getAttribute('src')) {
                             image.dataset.extensionFallbackApplied = 'true';
