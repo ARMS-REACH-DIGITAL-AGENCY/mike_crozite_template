@@ -327,11 +327,11 @@ export default async function HsidLayout({
             <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime"><i className="ri-list-check-2 yat-nav-page-icon" aria-hidden="true" /><span>NEXT-LEVEL<strong>ALL-TIME LIST</strong></span></a>
             <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">
               {/* "2027 HIGH SCHOOL TEAM": the season year is the bold word. */}
-              <i className="ri-shirt-line yat-nav-page-icon" aria-hidden="true" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
+              <img src="/img/nav/letterman-jacket.png" alt="" className="yat-nav-custom-icon" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
             </a>
-            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><i className="ri-git-branch-line yat-nav-page-icon" aria-hidden="true" /><span><strong>FANTASY</strong>BRACKET TOURNEY</span></a>
+            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" /><span><strong>FANTASY</strong>BRACKET TOURNEY</span></a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
-            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><i className="ri-handshake-line yat-nav-page-icon" aria-hidden="true" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
+            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
             <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about"><i className="ri-shield-star-line yat-nav-page-icon" aria-hidden="true" />ABOUT US</a>
             <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq"><i className="ri-question-mark yat-nav-page-icon" aria-hidden="true" />FAQ&apos;S</a>
           </div>
