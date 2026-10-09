@@ -158,7 +158,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
 
   return <>{dock}<style jsx global>{`
     .pp-funzone-outer, #playerFunZone { background:#070707 !important; }
-    #playerFunZone { --profile-tabs-h:54px; position:relative !important; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height:300px !important; overflow:hidden !important; display:block !important; padding-bottom:0 !important; }
+    #playerFunZone { --profile-tabs-h:54px; position:relative !important; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px)) !important; min-height:300px !important; overflow:hidden !important; display:block !important; padding-bottom:0 !important; }
     #playerFunZone > .pp-fz-panel { position:absolute !important; inset:0 0 var(--profile-tabs-h) 0 !important; display:none !important; visibility:hidden !important; overflow:auto !important; overscroll-behavior:contain !important; background:radial-gradient(circle at 50% 0%, rgba(255,255,255,.045), transparent 38%), #070707 !important; color:#f4f4f4 !important; padding:8px 8px 10px !important; }
     #playerFunZone > .pp-fz-panel.pp-fz-panel-active { display:block !important; visibility:visible !important; }
     #playerFunZone > .pp-fz-panel[hidden] { display:none !important; }
@@ -171,7 +171,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     #playerFunZone .pp-fz-tab i { font-size:20px !important; line-height:1 !important; }
     #playerFunZone .pp-fz-tab span { font:700 8px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif) !important; letter-spacing:.01em !important; text-transform:none !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; max-width:100% !important; }
     @media (max-width:760px) {
-      #playerFunZone { --profile-tabs-h:48px; height:calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height:300px !important; overflow:hidden !important; }
+      #playerFunZone { --profile-tabs-h:48px; height:calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px)) !important; min-height:300px !important; overflow:hidden !important; }
       #playerFunZone > .pp-fz-panel { position:absolute !important; inset:0 0 var(--profile-tabs-h) 0 !important; overflow:auto !important; padding:6px 6px 8px !important; }
       #playerFunZone .pp-fz-tabs-shell { position:absolute !important; bottom:0 !important; height:var(--profile-tabs-h) !important; z-index:10010 !important; overflow:hidden !important; }
       #playerFunZone .pp-fz-tabs { height:var(--profile-tabs-h) !important; padding:0 3px !important; }
@@ -182,7 +182,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
 
     /* The pinned icon row (see DOCK_TABS). The Fun Zone keeps the same
        space free at its bottom (--profile-tabs-h), which the dock covers. */
-    :root { --pp-dock-h:58px; }
+    :root { --pp-dock-h:76px; }
     body #playerFunZone { --profile-tabs-h:var(--pp-dock-h) !important; }
     body .pp-fz-dock { position:fixed; left:0; right:0; bottom:0; height:var(--pp-dock-h); z-index:60; background:rgba(7,7,7,.98); border-top:1px solid rgba(255,255,255,.12); box-shadow:0 -6px 16px rgba(0,0,0,.42); }
     body .pp-fz-dock .pp-fz-dock-tabs { box-sizing:border-box; height:100%; width:100%; max-width:760px; margin:0 auto; padding:0 max(6px, env(safe-area-inset-left)); display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); }
@@ -194,6 +194,6 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active { color:#fff !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; position:absolute !important; left:22% !important; right:22% !important; top:0 !important; height:3px !important; border-radius:0 0 2px 2px; background:#d2b45c !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i { color:#d2b45c !important; }
-    @media (max-width:760px) { :root { --pp-dock-h:56px; } }
+    @media (max-width:760px) { :root { --pp-dock-h:76px; } }
   `}</style></>;
 }
