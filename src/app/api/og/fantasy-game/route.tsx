@@ -25,8 +25,12 @@ export async function GET(req:NextRequest){
     <div style={{display:'flex',width:1200,height:630,background:'#0b0b0b',color:'#fff',alignItems:'center',justifyContent:'center',fontSize:48}}>YAT?STATS Fantasy Game</div>,
     size
   );
-  const score=fantasyGameScore(g);
-  const inning=(side:'h'|'a',i:number)=>g.innings[i*2+(side==='h'?0:1)]??0;
+  const supplied=req.nextUrl.searchParams.get('scoreInnings')||'';
+  const parsed=/^(?:\d{1,3},){17,}\d{1,3}$/.test(supplied) ? supplied.split(',').map(Number) : [];
+  const innings=parsed.length>=18 && parsed.length<=30 && parsed.length%2===0 ? parsed : g.innings;
+  const score=fantasyGameScore({...g,innings});
+  const winner=score.home===score.away?g.winner:score.home>score.away?g.home:g.away;
+  const inning=(side:'h'|'a',i:number)=>innings[i*2+(side==='h'?0:1)]??0;
   const home=cleanSchoolLabel(g.homeName),away=cleanSchoolLabel(g.awayName);
 
   const row=(side:'h'|'a',name:string,total:number)=>(
@@ -36,7 +40,7 @@ export async function GET(req:NextRequest){
         <div style={{display:'flex',fontSize:14,color:'rgba(255,255,255,.72)',marginTop:3}}>{name}</div>
       </div>
       {[0,1,2,3,4,5,6,7,8].map(i=><Cell key={i}>{inning(side,i)}</Cell>)}
-      <Cell wide win={g.winner===(side==='h'?g.home:g.away)}>{total}</Cell>
+      <Cell wide win={winner===(side==='h'?g.home:g.away)}>{total}</Cell>
     </div>
   );
 
