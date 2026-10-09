@@ -129,8 +129,8 @@ function createSyntheticSlot(template: HTMLElement | null): HTMLElement {
   const label = document.createElement('div');
   label.className = 'gallery-slot-name-overlay';
 
-  media.append(image, gradient, label);
-  slot.append(media);
+  media.append(image, gradient);
+  slot.append(media, label);
   return slot;
 }
 
@@ -418,55 +418,24 @@ export default function Row3MirrorGuard() {
         visibility: hidden;
       }
 
-      [data-row3-synthetic="true"] .gallery-slot-media {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: #000;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-media {
+        position:relative; width:60px; height:60px; flex:0 0 60px;
+        overflow:hidden; border-radius:50%; border:1px solid #c7c7c7;
+        background:transparent;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-img {
+        display:block; width:100%; height:100%; object-fit:contain; padding:0;
+        border-radius:50%; background:transparent;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-img--contain {
-        object-fit: contain;
-        object-position: center;
-        padding: 6px;
-        background: transparent;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-gradient { display:none; }
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-name-overlay {
+        position:static; display:block; flex:0 0 12px; width:100%; height:12px;
+        padding:0; background:transparent; color:#e5e5e5;
+        font:300 11px/1 Oswald,sans-serif; letter-spacing:.12em;
+        text-align:center; text-shadow:none; text-transform:uppercase;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-gradient {
-        position: absolute;
-        inset: auto 0 0;
-        height: 50%;
-        pointer-events: none;
-        background: linear-gradient(to top, rgba(0,0,0,.8), rgba(0,0,0,0));
-      }
-
-      [data-row3-synthetic="true"] .gallery-slot-name-overlay {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 4px;
-        z-index: 2;
-        overflow: hidden;
-        padding: 0 4px;
-        color: #fff;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1;
-        letter-spacing: .08em;
-        text-align: center;
-        text-overflow: ellipsis;
-        text-shadow: 0 1px 3px rgba(0,0,0,.95);
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
+      body.light-theme .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-name-overlay { color:#555; }
     `}</style>
   );
 }
