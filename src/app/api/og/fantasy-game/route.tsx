@@ -52,13 +52,13 @@ export async function GET(req:NextRequest){
   const status=(req.nextUrl.searchParams.get('scoreStatus') || (snap?'LIVE':'FINAL')).slice(0,16);
   const round=Math.max(1,Math.min(10,Number(req.nextUrl.searchParams.get('round'))||Math.ceil(g.week/3)));
   const gameNo=Math.max(1,Math.min(3,Number(req.nextUrl.searchParams.get('gameNo'))||((g.week-1)%3+1)));
-  const boardRow=(side:'h'|'a',name:string,total:number)=>(
+  const activeMatch=/^(?:TOP|BOT)\s+(\d)$/i.exec(status);\n  const activeInning=activeMatch?Number(activeMatch[1]):null;\n  const visibleThrough=status==='FINAL'?9:activeInning??(status==='LIVE'?null:0);\n  const boardRow=(side:'h'|'a',name:string,total:number)=>
     <div style={{display:'flex',alignItems:'center',width:'100%',height:105,gap:8}}>
       <div style={{display:'flex',flexDirection:'column',width:250,alignItems:'flex-end',justifyContent:'center',paddingRight:12}}>
         <div style={{display:'flex',fontSize:25,fontWeight:900,textAlign:'right',color:'#fff'}}>{name.replace(/\\s*\\([^)]*\\)/g,'').toUpperCase()}</div>
         <div style={{display:'flex',fontSize:14,color:'#c9dfd3'}}>{name.includes('(') ? name.split('(')[1]?.split(')')[0] : ''}</div>
       </div>
-      {[0,1,2,3,4,5,6,7,8].map(i=>{const v=inning(side,i);return <div key={i} style={{display:'flex',flex:1,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:v?'#e6bb2f':'#103a2b',color:v?'#173526':'#fff',fontSize:32,fontWeight:900}}>{v}</div>})}
+      {[0,1,2,3,4,5,6,7,8].map(i=>{const v=inning(side,i);const played=visibleThrough===null?true:i<visibleThrough;const current=activeInning===i+1;const lit=played&&(current||v>0);return <div key={i} style={{display:'flex',flex:1,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:lit?'#e6bb2f':'#103a2b',color:lit?'#173526':'#fff',fontSize:32,fontWeight:900}}>{played?v:''}</div>})}
       <div style={{display:'flex',width:76,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#e6bb2f',color:'#103a2b',fontSize:39,fontWeight:900}}>{total}</div>
     </div>
   );
