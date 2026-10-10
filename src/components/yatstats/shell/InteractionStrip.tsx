@@ -109,20 +109,14 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   target.style.display = '';
   target.hidden = false;
   target.classList.remove('is-hidden');
-  // The card's layout box can include a preceding card's margin/stack gap.
-  // Scroll directly to the selected card, then correct against the sticky rail.
-  const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
-  const align = () => {
-    const railBottom = rail?.getBoundingClientRect().bottom ?? 0;
-    const cardTop = target.getBoundingClientRect().top;
-    const delta = cardTop - railBottom - 3;
-    if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
-  };
-  // Avoid competing smooth-scroll animations that can reintroduce the gap.
-  align();
-  requestAnimationFrame(() => requestAnimationFrame(align));
-  window.setTimeout(align, 180);
-  window.setTimeout(align, 500);
+  // Position the selected card immediately below the sticky alumni strip, not below a prior card.
+  const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
+  // Place the selected card's top flush beneath the sticky headshot strip.
+  const cardTop = (wrapper || target).getBoundingClientRect().top;
+  const offset = Math.max(0, stripBottom) + 2;
+  const top = window.scrollY + cardTop - offset;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
 }
 
 function fallbackPlayersForSection(section: string, players: Player[]): Player[] {
