@@ -16,20 +16,27 @@ concurrency:
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Check representative production school sites
         id: check
         continue-on-error: true
         run: python3 scripts/check-site-health.py
+      - name: Upload complete health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: microsite-health-report
+          path: site-health-report.json
+          if-no-files-found: warn
       - name: Open or update health incident
         if: steps.check.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           issue=$(gh issue list --state open --search 'YATSTATS production health alert in:title' --json number --jq '.[0].number // empty')
-          body="Automated production smoke checks failed. Review this run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Checks cover Basha, Hamilton and Perry school pages. No data was modified."
+          body="Automated production smoke checks failed. Review this run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Checks cover the full 1,020-URL Neon-derived production microsite inventory. No data was modified."
           if [ -n "$issue" ]; then
             gh issue comment "$issue" --body "$body"
           else
