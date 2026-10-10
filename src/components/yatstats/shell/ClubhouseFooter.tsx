@@ -73,18 +73,19 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         font-family:inherit !important;
         font-size:11px !important;
         font-weight:700 !important;
+        font-style:normal !important;
         line-height:1 !important;
         letter-spacing:0 !important;
         text-transform:uppercase !important;
         background:none !important;
-        -webkit-text-fill-color:currentColor !important;
+        -webkit-text-fill-color:#ff7a1a !important;
         filter:none !important;
         text-shadow:0 0 3px rgba(255,110,20,.9) !important;
       }
     `}</style>
     <nav className={`yat-clubhouse-nav ${tickerDateFont.className}`} aria-label="Explore YAT?STATS" >
       <span aria-hidden="true" className="yat-clubhouse-nav-spacer" />
-      {nav.map(item => <a key={item.label} href={item.href}><Icon kind={item.kind}/><small>{item.label}</small></a>)}
+      {nav.map(item => <a key={item.label} href={item.href}><Icon kind={item.kind}/><small className={tickerDateFont.className}>{item.label}</small></a>)}
     </nav>
   </div>;
 }
