@@ -725,7 +725,9 @@ function syncStripToVisibleCards() {
       // images settle) lands on whatever card ends up at that pixel
       // position once the page finishes loading, not the requested one.
       if(!yatPlayerAnchorFoundAt) yatPlayerAnchorFoundAt=Date.now();
-      target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
+      var headshotBottom=getCssPx('--row1-h',36)+getCssPx('--row2-h',54)+getCssPx('--row3-h',100);
+      var cardTop=target.getBoundingClientRect().top+window.scrollY;
+      window.scrollTo({top:Math.max(0,cardTop-headshotBottom-2),behavior:'smooth'});
 
       if(!yatPlayerAnchorScrolled){
         target.classList.add('yat-card-anchor-highlight');
