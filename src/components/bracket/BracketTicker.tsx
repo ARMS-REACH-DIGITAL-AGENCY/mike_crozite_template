@@ -172,7 +172,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         <img src="/img/world-series-trophy-cta.jpg" alt="" />
         <span>Register<br/>To Win<br/>World<br/>Series<br/>Tickets!</span>
       </button>
-    <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores"
+      <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores"
       onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       <div className="ybt-lane" ref={laneRef}>
         {!index && <span className="ybt-msg">LOADING SCORES...</span>}
