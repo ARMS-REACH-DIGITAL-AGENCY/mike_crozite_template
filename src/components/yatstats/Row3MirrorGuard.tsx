@@ -62,6 +62,15 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
   };
 }
 
+function row3AnchorBottom(): number {
+  const row3 = document.querySelector<HTMLElement>('.yat-row3-shell');
+  if (!row3) return 0;
+  // During a click the sticky row may still be in its original flow position.
+  // Its eventual sticky bottom is its CSS top offset plus its own height.
+  const stickyTop = parseFloat(window.getComputedStyle(row3).top) || 0;
+  return stickyTop + row3.getBoundingClientRect().height;
+}
+
 function wireSyntheticSlot(slot: HTMLElement) {
   if (slot.dataset.row3SyntheticWired === 'true') return;
   slot.dataset.row3SyntheticWired = 'true';
@@ -76,12 +85,8 @@ function wireSyntheticSlot(slot: HTMLElement) {
     if (!card) return;
 
     event.preventDefault();
-    const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
-    // Anchor to the card itself; its wrapper can begin above the visible card.
     const cardTop = card.getBoundingClientRect().top;
-    // Do not add half the inter-card gap: that deliberately leaves the
-    // selected card below the headshot strip instead of aligning its top.
-    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) - 2;
+    const offset = row3AnchorBottom() + 8;
     slot.closest('.gallery-strip-inner')?.querySelectorAll('.gallery-slot.is-active').forEach((item) => {
       item.classList.remove('is-active');
       item.removeAttribute('aria-current');
