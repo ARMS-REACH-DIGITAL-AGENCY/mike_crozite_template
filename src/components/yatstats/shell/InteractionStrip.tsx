@@ -87,9 +87,11 @@ function isCardVisible(card: HTMLElement): boolean {
 }
 
 function alignPlayerBelowRow3(card: HTMLElement): void {
-  // Mobile rows 1-3 occupy 166px total (34 + 48 + 84); temporary diagnostic target is Y=300.
-  // Put the selected flip card's top edge at viewport Y=300.
-  const targetY = 300;
+  // Align to the actual bottom of the sticky headshot row, not a diagnostic Y coordinate.
+  // Read the rendered geometry so responsive row heights are respected.
+  const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const rowBottom = rail?.getBoundingClientRect().bottom;
+  const targetY = Math.max(0, rowBottom ?? 166) + 8;
   const position = () => {
     const delta = card.getBoundingClientRect().top - targetY;
     if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
