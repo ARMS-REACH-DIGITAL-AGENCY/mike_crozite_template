@@ -496,7 +496,7 @@ export default function SearchDrawerTabs() {
 
       try {
         if (mode === 'name') {
-          const data = await fetchJson(`/api/players/search?q=${encodeURIComponent(q)}&limit=30`);
+          const data = await fetchJson(`/api/players/search?q=${encodeURIComponent(q)}&limit=200`);
           if (thisRequest !== requestId) return;
           results.innerHTML = renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.');
           hydrateFavoriteButtons(results);
