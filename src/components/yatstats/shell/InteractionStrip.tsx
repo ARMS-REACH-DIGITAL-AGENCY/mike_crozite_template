@@ -86,25 +86,15 @@ function isCardVisible(card: HTMLElement): boolean {
     && (!wrapper || (!wrapper.hidden && wrapper.style.display !== 'none'));
 }
 
-function row3AnchorBottom(): number {
-  const row1 = document.querySelector<HTMLElement>('.yat-row1-shell');
-  const row2 = document.querySelector<HTMLElement>('.yat-row2-shell');
-  const row3 = document.querySelector<HTMLElement>('.yat-row3-shell');
-  if (!row3) return 0;
-  // Use measured header heights, not CSS variables or the row's transient
-  // pre-sticky viewport position. All coordinates are viewport Y pixels.
-  return (row1?.getBoundingClientRect().height ?? 0)
-    + (row2?.getBoundingClientRect().height ?? 0)
-    + row3.getBoundingClientRect().height;
-}
-
 function alignPlayerBelowRow3(card: HTMLElement): void {
+  // Mobile rows 1-3 occupy 166px total (34 + 48 + 84).
+  // Put the selected flip card's top edge at viewport Y=166.
+  const targetY = 166;
   const position = () => {
-    const delta = card.getBoundingClientRect().top - row3AnchorBottom() - 8;
+    const delta = card.getBoundingClientRect().top - targetY;
     if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
   };
   position();
-  // A single post-layout correction handles the sticky transition itself.
   requestAnimationFrame(position);
 }
 
