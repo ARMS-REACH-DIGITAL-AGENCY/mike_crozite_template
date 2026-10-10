@@ -727,7 +727,7 @@ function syncStripToVisibleCards() {
       if(!yatPlayerAnchorFoundAt) yatPlayerAnchorFoundAt=Date.now();
       var headshotBottom=getCssPx('--row1-h',36)+getCssPx('--row2-h',54)+getCssPx('--row3-h',100);
       var cardTop=target.getBoundingClientRect().top+window.scrollY;
-      window.scrollTo({top:Math.max(0,cardTop-headshotBottom-2),behavior:'smooth'});
+      window.scrollTo({top:Math.max(0,cardTop-headshotBottom+10),behavior:'smooth'});
 
       if(!yatPlayerAnchorScrolled){
         target.classList.add('yat-card-anchor-highlight');
