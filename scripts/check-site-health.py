@@ -1,46 +1,51 @@
 #!/usr/bin/env python3
-"""Read-only production smoke checks. No database credentials or writes."""
+"""Read-only, rate-limited health checks of the full YATSTATS microsite inventory."""
+import concurrent.futures
 import json
 import os
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
-SITES = {
-    "Basha": ("https://basha.az.yatstats.com", "BASHA"),
-    "Hamilton": ("https://hamilton.az.yatstats.com", "HAMILTON"),
-    "Perry": ("https://perry.az.yatstats.com", "PERRY"),
-}
-TIMEOUT = 25
-results = []
-for name, (url, marker) in SITES.items():
-    attempts = []
-    for attempt in range(2):
-        started = time.monotonic()
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "YATSTATS-health-monitor/1.0", "Cache-Control": "no-cache"})
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as response:
-                body = response.read(1500000).decode("utf-8", errors="replace")
-                status = response.status
-            elapsed = round((time.monotonic() - started) * 1000)
-            lower = body.lower()
-            error_page = "this school microsite doesn't exist yet" in lower or "no players found" in lower
-            ok = status == 200 and marker.lower() in lower and not error_page
-            attempts.append({"status": status, "duration_ms": elapsed, "ok": ok, "reason": "ok" if ok else "missing school marker, empty roster, or error page"})
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            attempts.append({"ok": False, "reason": type(exc).__name__ + ": " + str(exc)[:180]})
-        if attempts[-1]["ok"]:
-            break
-        if attempt == 0:
-            time.sleep(5)
-    results.append({"school": name, "url": url, "healthy": attempts[-1]["ok"], "attempts": attempts})
+inventory = json.loads(Path("monitoring/microsites.json").read_text())
+urls = inventory["urls"]
+if len(urls) < 1000 or len(set(urls)) != len(urls):
+    raise SystemExit("Invalid microsite inventory: expected >=1000 unique URLs")
+workers = max(1, min(int(os.getenv("HEALTH_WORKERS", "3")), 5))
+timeout = 18
 
-report = {"checked_at": datetime.now(timezone.utc).isoformat(), "healthy": all(r["healthy"] for r in results), "results": results}
+def check(url):
+    started = time.monotonic()
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "YATSTATS-health-monitor/1.0"})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = response.read(200000).decode("utf-8", errors="replace").lower()
+            status = response.status
+        invalid = ("this school microsite doesn't exist yet" in body or
+                   "no players found" in body or "application error" in body)
+        return {"url": url, "ok": status == 200 and not invalid, "status": status,
+                "ms": round((time.monotonic()-started)*1000), "reason": "error page" if invalid else ""}
+    except Exception as exc:
+        return {"url": url, "ok": False, "ms": round((time.monotonic()-started)*1000),
+                "reason": type(exc).__name__ + ": " + str(exc)[:130]}
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+    first = list(pool.map(check, urls))
+failed = [x["url"] for x in first if not x["ok"]]
+# Retry only failures; avoid amplifying transient errors.
+time.sleep(5) if failed else None
+with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+    retries = list(pool.map(check, failed))
+by_url = {r["url"]: r for r in first}
+by_url.update({r["url"]: r for r in retries})
+results = [by_url[url] for url in urls]
+bad = [r for r in results if not r["ok"]]
+report = {"checked_at": datetime.now(timezone.utc).isoformat(),
+          "inventory_count": len(urls), "healthy_count": len(urls)-len(bad),
+          "unhealthy_count": len(bad), "unhealthy": bad,
+          "p95_ms": sorted(x["ms"] for x in results)[int((len(results)-1)*0.95)]}
+Path("site-health-report.json").write_text(json.dumps(report, indent=2)+"\n")
 print(json.dumps(report, indent=2))
-output = os.environ.get("GITHUB_OUTPUT")
-if output:
-    with open(output, "a", encoding="utf-8") as fh:
-        fh.write("healthy=" + str(report["healthy"]).lower() + "\n")
-        fh.write("report=" + json.dumps(report, separators=(",", ":")) + "\n")
-raise SystemExit(0 if report["healthy"] else 1)
+raise SystemExit(1 if bad else 0)
