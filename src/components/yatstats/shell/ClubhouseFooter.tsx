@@ -83,7 +83,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         height:100%;
         width:max-content;
         min-width:max-content;
-        animation:yat-clubhouse-crawl 165s linear 6s infinite !important;
+        animation:yat-clubhouse-crawl 165s linear 0s infinite !important;
         will-change:transform;
       }
       .yat-clubhouse-marquee[data-welcome='true'] {animation-play-state:paused !important;opacity:0 !important;}
