@@ -158,7 +158,21 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
   );
 
   return (
-    <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores"
+    <div className="ybt-footer-stack">
+      <div className="ybt-facts">{spot}</div>
+      <button type="button" className="ybt-raffle" onClick={() => {
+        document.body.classList.add('drawer-account-open', 'drawer-open');
+        document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+        window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: 'register' }));
+        const drawer = document.getElementById('drawerAccount');
+        drawer?.classList.add('open', 'is-open', 'active');
+        drawer?.setAttribute('aria-hidden', 'false');
+        document.getElementById('drawerMask')?.classList.add('open', 'is-open', 'active');
+      }} aria-label="Register to win World Series tickets">
+        <img src="/img/world-series-trophy-cta.jpg" alt="" />
+        <span>Register<br/>To Win<br/>World<br/>Series<br/>Tickets!</span>
+      </button>
+    <div className={`ybt ${dots.className}` role="marquee" aria-label="Current round scores"
       onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       <div className="ybt-lane" ref={laneRef}>
         {!index && <span className="ybt-msg">LOADING SCORES...</span>}
@@ -189,7 +203,15 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
       {box}
       {/* Global: the items are built outside the render tree styled-jsx scopes; every class is ybt-prefixed. */}
       <style jsx global>{`
-        .ybt { position:relative; flex:1 1 auto; align-self:stretch; width:100%; height:100%; display:flex; overflow:hidden;
+        .ybt-footer-stack { --ybt-facts-h:calc(104px / 3); position:relative; height:100%; display:flex; flex-direction:column; }
+        .ybt-facts { flex:0 0 var(--ybt-facts-h); min-height:0; display:flex; align-items:center; padding:0 8px 0 clamp(116px, 15vw, 190px); background:var(--bg); color:var(--fg); }
+        .ybt-facts .ybt-spot { width:auto; flex:1; background:transparent; padding:0; color:var(--fg); }
+        .ybt-facts .ybt-spot-k,.ybt-facts .ybt-spot-name { color:var(--fg); font-size:clamp(10px,1.5vw,14px); }
+        .ybt-facts .ybt-spot-by { color:var(--muted); font-size:10px; }
+        .ybt-raffle { position:absolute; z-index:5; bottom:0; left:3px; height:calc(var(--ybt-facts-h) + var(--footerH,56px) - 2px); width:clamp(112px,14vw,180px); border:0; background:transparent; cursor:pointer; padding:0; text-align:left; }
+        .ybt-raffle img { position:absolute; bottom:0; left:0; height:100%; max-width:68%; object-fit:contain; object-position:bottom left; filter:drop-shadow(0 3px 4px #0009); }
+        .ybt-raffle span { position:absolute; bottom:15%; left:32%; color:white; font:900 clamp(9px,1.3vw,14px)/.94 Arial,sans-serif; -webkit-text-stroke:.6px #000; text-shadow:1px 2px 2px #000; }
+        .ybt { position:relative; flex:1 1 auto; min-height:0; align-self:stretch; width:100%; display:flex; overflow:hidden;
           background-color:#070503;
           background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px);
           background-size:4px 4px;
@@ -241,7 +263,9 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         .ybt-box-k { font-size:10px; font-weight:700; letter-spacing:.16em; line-height:1; color:rgba(255,255,255,.7); }
         .ybt-box-v { font-size:36px; font-weight:700; line-height:.9; color:#ffb238; text-shadow:0 0 3px rgba(255,170,40,.8), 0 0 12px rgba(255,120,0,.45); }
         @media (max-width:640px) {
+          .ybt-facts { padding-left:118px; }
           .ybt-spot { width:150px; padding:0 8px; column-gap:5px; }
+          .ybt-facts .ybt-spot { width:auto; padding:0; }
           .ybt-spot-line { gap:4px; }
           .ybt-spot-k { font-size:11px; }
           .ybt-spot-by { font-size:8.5px; }
@@ -259,6 +283,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
           .ybt-spot, .ybt-box { animation:none; }
         }
       `}</style>
+    </div>
     </div>
   );
 }
