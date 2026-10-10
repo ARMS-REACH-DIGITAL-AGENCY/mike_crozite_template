@@ -263,7 +263,7 @@ export default function InteractionStrip({
         // first so client-side navigation doesn't depend on a news-only list
         // that may not be populated until a full refresh.
         const nextPlayers = section === 'news'
-          ? readPlayersFromVisibleBlockFive('active', playersById)
+          ? fallbackPlayersForSection('active', players)
           : PLAYER_GALLERY_SECTIONS.has(section)
             ? readPlayersFromVisibleBlockFive(section, playersById)
             : fallbackPlayersForSection(section, players);
