@@ -80,9 +80,11 @@ export default function YatStyles() {
         z-index:40;
       }
 
-     [id^="player-"]{
-  scroll-margin-top: 190px;
-}
+     /* Player anchors are the card's actual top edge. The old 190px
+        scroll margin displaced them beneath the sticky portrait rail. */
+      [id^="player-"]{
+        scroll-margin-top: 0;
+      }
 
       /* ───────── ROW 1 / DESKTOP TOP NAV ───────── */
 
