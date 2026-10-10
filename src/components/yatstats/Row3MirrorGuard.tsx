@@ -64,7 +64,8 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
 
 function alignPlayerBelowRow3(card: HTMLElement): void {
   // Keep synthetic Row 3 slots on the same single navigation rule as InteractionStrip.
-  const targetY = 300;
+  const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const targetY = Math.max(0, rail?.getBoundingClientRect().bottom ?? 166) + 8;
   const position = () => {
     const delta = card.getBoundingClientRect().top - targetY;
     if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
