@@ -44,7 +44,8 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       </div>
       <div className="yat-clubhouse-count"><strong>{activeAlumni ?? '—'}</strong><span>ACTIVE<br/>ALUMNI</span></div>
     </div>
-    <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))", alignItems: "center" }}>
+    <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS" >
+      <span aria-hidden="true" className="yat-clubhouse-nav-spacer" />
       {nav.map(item => <a key={item.label} href={item.href}><Icon kind={item.kind}/><small>{item.label}</small></a>)}
     </nav>
   </div>;
