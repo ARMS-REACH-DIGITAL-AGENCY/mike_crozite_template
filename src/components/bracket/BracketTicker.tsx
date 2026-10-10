@@ -160,7 +160,6 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
   return (
     <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores"
       onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
-      {spot}
       <div className="ybt-lane" ref={laneRef}>
         {!index && <span className="ybt-msg">LOADING SCORES...</span>}
         {index && !groups.length && <span className="ybt-msg">THE {index.season} BRACKET STARTS {startsOn(index.weeks[0][0])}</span>}
