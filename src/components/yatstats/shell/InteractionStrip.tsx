@@ -431,11 +431,11 @@ export default function InteractionStrip({
 
       <style jsx global>{`
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
-        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:100px; min-height:100px; padding:0 6px; }
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:auto; min-height:0; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:100px; min-height:100px; gap:3px; align-items:center; padding:0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:auto; min-height:0; gap:3px; align-items:center; padding:3px 0; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
-          flex:0 0 64px; width:64px; min-width:64px; height:77px; display:flex;
+          flex:0 0 64px; width:64px; min-width:64px; height:73px; display:flex;
           flex-direction:column; align-items:center; justify-content:center;
           gap:2px; border:0; border-radius:0; background:transparent;
           overflow:visible; box-shadow:none; margin:0; text-decoration:none;
@@ -479,7 +479,7 @@ export default function InteractionStrip({
           background:rgba(255,255,255,.25); color:#555;
         }
         /* The selected portrait rises into the original baseline; resting portraits sit lower. */
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { transform:translateY(4px); transition:transform .18s ease; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { transform:translateY(0); transition:transform .18s ease; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(-3px); }
