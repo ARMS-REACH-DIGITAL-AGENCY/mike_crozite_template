@@ -810,6 +810,8 @@ export default function YatStyles() {
       .yat-empty-icon{font-size:32px;margin-bottom:12px}
       .yat-empty-title{font:700 18px "Bebas Neue",Oswald,sans-serif;letter-spacing:.06em}
       .yat-empty-sub{font:300 12px/1.5 Oswald,sans-serif;margin-top:6px}
+      body:has(.ybt-footer-stack){padding-bottom:calc(var(--footerH) + 104px / 3)}
+      .yat-footer:has(.ybt-footer-stack){height:calc(var(--footerH) + 104px / 3);overflow:visible}
       .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:#020a13;border-top:1px solid rgba(255,255,255,.18);z-index:40;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
       /* Shared six-slot dock: same height and icon proportions as player Fun Zone. */
       :root{--yat-dock-h:var(--footerH);--yat-facts-h:32px}
