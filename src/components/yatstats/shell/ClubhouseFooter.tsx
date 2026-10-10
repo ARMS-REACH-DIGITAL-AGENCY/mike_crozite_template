@@ -1,5 +1,9 @@
 'use client';
 
+import { Doto } from 'next/font/google';
+
+const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
+
 import { useState } from 'react';
 
 type Message = { text: string; kind: 'clubhouse' | 'player' | 'sponsor' | 'tournament'; image?: string };
@@ -63,23 +67,22 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         color:#ffb238 !important;
         filter:drop-shadow(0 0 2px rgba(255,170,40,.48));
       }
-      /* Static LED scoreboard lettering: amber pixels clipped to the label glyphs. */
+      /* Exact ticker date treatment: Doto 700, 11px, #ff7a1a. */
       .yat-clubhouse-nav a small {
-        color:#ffb238 !important;
-        font:900 clamp(11px,2.5vw,14px)/1 Oswald,sans-serif !important;
-        letter-spacing:.07em !important;
+        color:#ff7a1a !important;
+        font-family:inherit !important;
+        font-size:11px !important;
+        font-weight:700 !important;
+        line-height:1 !important;
+        letter-spacing:0 !important;
         text-transform:uppercase !important;
-        background-image:radial-gradient(circle, #ffb238 0 44%, rgba(255,178,56,.22) 56%, transparent 73%);
-        background-size:3px 3px;
-        background-repeat:repeat;
-        -webkit-background-clip:text;
-        background-clip:text;
-        -webkit-text-fill-color:transparent;
-        filter:drop-shadow(0 0 2px rgba(255,160,40,.55));
-        text-shadow:none !important;
+        background:none !important;
+        -webkit-text-fill-color:currentColor !important;
+        filter:none !important;
+        text-shadow:0 0 3px rgba(255,110,20,.9) !important;
       }
     `}</style>
-    <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS" >
+    <nav className={`yat-clubhouse-nav ${tickerDateFont.className}`} aria-label="Explore YAT?STATS" >
       <span aria-hidden="true" className="yat-clubhouse-nav-spacer" />
       {nav.map(item => <a key={item.label} href={item.href}><Icon kind={item.kind}/><small>{item.label}</small></a>)}
     </nav>
