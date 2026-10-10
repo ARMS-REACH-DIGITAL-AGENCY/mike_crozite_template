@@ -40,12 +40,6 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
     resumeTimer.current = setTimeout(() => { setTickerPaused(false); resumeTimer.current = null; }, 5000);
   };
   const message = messages[index];
-  const nav = [
-    { label: 'FANS', kind: 'fans' as const, href: '/#fans' },
-    { label: 'PLAYERS', kind: 'players' as const, href: '/#players' },
-    { label: 'SCHOOLS', kind: 'schools' as const, href: '/#schools' },
-    { label: 'PARTNERS', kind: 'partners' as const, href: '/#partners' },
-  ];
   return <div className="yat-clubhouse" aria-label="YaTi's clubhouse">
     <div className="yat-clubhouse-facts">
       <div className="yat-clubhouse-hero">
@@ -87,8 +81,10 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         will-change:transform;
       }
       .yat-clubhouse-marquee[data-welcome='true'] {animation-play-state:paused !important;opacity:0 !important;}
-      .yat-clubhouse-welcome {position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 16px 12px 85px;text-align:center;background:#070503;color:#ffb238;font-size:clamp(12px,3vw,20px);font-weight:900;line-height:1.2;transition:opacity .7s ease;pointer-events:none;}
+      .yat-clubhouse-welcome {position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px 14px 8px 82px;text-align:center;background:#070503;color:#ffb238;font-size:10px;font-weight:700;line-height:1.1;transition:opacity .7s ease;pointer-events:none;}
       .yat-clubhouse-welcome[data-visible='false'] {opacity:0;}
+      .yat-clubhouse-welcome > span {display:block;width:100%;white-space:nowrap;font:inherit;letter-spacing:-.035em;}
+      @media (max-width:600px) {.yat-clubhouse-welcome {font-size:clamp(5px,1.25vw,8px);padding-left:78px;}}
       .yat-clubhouse-inline-icon {display:inline-flex !important;align-items:center !important;vertical-align:middle;flex:none !important;gap:6px;margin:0 18px;color:#ffb238;text-decoration:none !important;white-space:nowrap !important;}
       .yat-clubhouse-inline-icon img {width:38px !important;height:38px !important;object-fit:contain !important;}
       .yat-clubhouse-inline-icon b {font-size:19px;font-weight:900;}
@@ -133,7 +129,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
     `}</style>
     <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS">
       <div className="yat-clubhouse-lane" onTouchStart={pauseTicker} onMouseDown={pauseTicker}>
-      <div className="yat-clubhouse-welcome" data-visible={showWelcome} aria-hidden={!showWelcome}>
+      <div className={`yat-clubhouse-welcome ${tickerDateFont.className}`} data-visible={showWelcome} aria-hidden={!showWelcome}>
         <span>WELCOME TO THE {schoolName.toUpperCase()} ALUMNI COMMUNITY HUB ON YAT?STATS...</span>
         <span>IT&apos;S FREE TO BROWSE AS A VISITOR... OR REGISTER FOR FREE TO BECOME A FAN OF THE PROGRAM.</span>
       </div>
@@ -141,8 +137,9 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         {[0,1].map(copy => <div className="yat-clubhouse-copy" key={copy} aria-hidden={copy === 1 ? true : undefined}>
           <span className="yat-clubhouse-intro">
             <span className="yat-clubhouse-single-line">FOR A GUIDED TOUR TO HELP YOU NAVIGATE ALL OF THE 1024 YAT?STATS BASEBALL COMMUNITY HUBS AND EXPERIENCE ACTIVE ALUMNI FROM OTHER TOP PROGRAMS IN THE COUNTRY AS WELL... CLICK THE TICKER ICON THAT YOU RELATE TO MOST....</span>
+            <span className="yat-clubhouse-single-line">YOU WILL THEN BE DIRECTED TO THE YAT?STATS HOME PAGE TO EXPERIENCE FIRST HAND WHAT OUR PLATFORM HAS TO OFFER THE </span>
             <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="fans"/><b>FANS</b></a>
-            <span className="yat-clubhouse-single-line">YOU WILL THEN BE DIRECTED TO THE YAT?STATS HOME PAGE TO EXPERIENCE FIRST HAND WHAT OUR PLATFORM HAS TO OFFER THE FANS OF {schoolName.toUpperCase()} AND THE COMMUNITY OF {schoolLocation.toUpperCase()}... IF YOU WANT TO KNOW &quot;WHERE THEY YAT? AND WHAT&apos;S THEIR STATS&quot;... YOU&apos;RE IN THE RIGHT PLACE! TO THE CURRENT COACHING STAFF OR THE PROGRAM&apos;S BOOSTER CLUB.... YOU WILL LEARN HOW YAT?STATS CAN HELP</span>
+            <span className="yat-clubhouse-single-line">OF {schoolName.toUpperCase()} AND THE COMMUNITY OF {schoolLocation.toUpperCase()}... IF YOU WANT TO KNOW &quot;WHERE THEY YAT? AND WHAT&apos;S THEIR STATS&quot;... YOU&apos;RE IN THE RIGHT PLACE! TO THE CURRENT COACHING STAFF OR THE PROGRAM&apos;S BOOSTER CLUB.... YOU WILL LEARN HOW YAT?STATS CAN HELP</span>
             <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="schools"/><b>SCHOOLS</b></a>
             <span className="yat-clubhouse-single-line">COMMUNICATE BETTER WITH THEIR ALUMNI AND LOCAL COMMUNITY... THERE IS ALSO A SPECIFIC TOUR FOR THE {schoolName.toUpperCase()} ACTIVE ALUMNI WHO ARE STILL PLAYING BASEBALL COLLEGIATELY OR PROFESSIONALLY.. WITHOUT THE</span>
             <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="players"/><b>PLAYERS</b></a>
@@ -151,9 +148,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
             <span className="yat-clubhouse-single-line">FOR MAKING THIS PLATFORM POSSIBLE FOR THE BASEBALL FANS AND ALUMNI OF {schoolName.toUpperCase()}...</span>
           </span>
 
-          <a className="yat-clubhouse-intro" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}>
-            <span className="yat-clubhouse-single-line">WELCOME TO YAT?STATS — NEW HERE? START HERE FOR A GUIDED TOUR. EXPLORE THE PLATFORM AS A FAN, PLAYER, COACH OR PARTNER.</span>
-          </a>
+
         </div>)}
       </div>
       </div>
