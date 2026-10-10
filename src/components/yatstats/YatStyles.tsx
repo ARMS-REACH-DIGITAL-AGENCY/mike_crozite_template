@@ -811,38 +811,37 @@ export default function YatStyles() {
       .yat-empty-title{font:700 18px "Bebas Neue",Oswald,sans-serif;letter-spacing:.06em}
       .yat-empty-sub{font:300 12px/1.5 Oswald,sans-serif;margin-top:6px}
       .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:#020a13;border-top:1px solid rgba(255,255,255,.18);z-index:40;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
-      /* Compact scoreboard clubhouse: theme-aware message above green icon navigation. */
+      /* Shared six-slot dock: same height and icon proportions as player Fun Zone. */
+      :root{--yat-dock-h:76px;--yat-facts-h:72px}
       .yat-visual-row4-gallery{padding-top:0}
-      .yat-footer.yat-clubhouse-footer{--footerH:76px;height:76px;overflow:visible;display:block;background:#070707;border:0;z-index:48}
-      .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui)}
-      .yat-clubhouse-facts{height:37px;background:var(--bg);display:flex;align-items:center;gap:6px;padding:2px 9px 2px clamp(60px,13vw,150px);border:0}
-      .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(58px,13vw,145px);height:100%;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
-      .yat-clubhouse-hero img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:bottom;filter:drop-shadow(0 2px 3px #00231855)}
+      .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
+      .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui);display:flex;flex-direction:column}
+      .yat-clubhouse-facts{box-sizing:border-box;flex:0 0 var(--yat-facts-h);min-height:0;background:var(--bg);display:flex;align-items:center;gap:10px;padding:7px 12px 7px clamp(74px,13vw,155px);border:0}
+      .yat-clubhouse-hero{position:absolute;left:3px;top:0;width:clamp(64px,12vw,145px);height:var(--yat-facts-h);display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
+      .yat-clubhouse-hero img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:bottom}
       .yat-clubhouse-message{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
-      .yat-clubhouse-message>span{font:600 clamp(9px,1.5vw,14px)/1.15 var(--yat-font-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .yat-clubhouse-fact-controls{display:flex;flex:none;align-items:center;gap:3px;color:var(--muted);font:600 9px/1 var(--yat-font-ui)}
-      .yat-clubhouse-fact-controls button{background:none;border:0;padding:1px;color:var(--fg);font-size:17px;line-height:1;cursor:pointer}
-      .yat-clubhouse-count{display:flex;flex:none;align-items:center;gap:3px;color:#078755}
-      .yat-clubhouse-count strong{font:800 clamp(19px,3vw,33px)/1 Oswald,sans-serif}
-      .yat-clubhouse-count span{font:700 8px/1 Oswald,sans-serif;color:var(--fg)}
-      .yat-clubhouse-nav{height:39px;padding-left:clamp(55px,12vw,140px);display:flex;background:#070707;border-top:0}
-      .yat-clubhouse-nav a{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;color:#fff;border-left:1px solid #ffffff2e;text-shadow:none}
-      .yat-clubhouse-nav svg{width:22px;height:22px;flex:none}
-      .yat-clubhouse-nav small{font:700 clamp(9px,1.1vw,12px)/1 Oswald,sans-serif;letter-spacing:.025em}
+      .yat-clubhouse-message>span{font:600 clamp(11px,1.5vw,15px)/1.25 var(--yat-font-ui);white-space:normal;overflow-wrap:anywhere}
+      .yat-clubhouse-fact-controls{display:flex;flex:none;align-items:center;gap:3px;color:var(--muted);font:600 10px/1 var(--yat-font-ui)}
+      .yat-clubhouse-fact-controls button{background:none;border:0;padding:2px;color:var(--fg);font-size:18px;line-height:1;cursor:pointer}
+      .yat-clubhouse-count{display:flex;flex:none;align-items:center;gap:4px;color:#078755}
+      .yat-clubhouse-count strong{font:800 clamp(23px,3vw,36px)/1 Oswald,sans-serif}
+      .yat-clubhouse-count span{font:700 9px/1 Oswald,sans-serif;color:var(--fg)}
+      .yat-clubhouse-nav{box-sizing:border-box;flex:0 0 var(--yat-dock-h);height:var(--yat-dock-h);padding:0 6px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:#070707;border:0}
+      .yat-clubhouse-nav a{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:6px 2px 5px;color:rgba(255,255,255,.72);border:0;text-decoration:none}
+      .yat-clubhouse-nav svg{width:22px;height:22px;flex:none;stroke-width:1.8}
+      .yat-clubhouse-nav small{font:700 clamp(9px,2.5vw,11px)/1 var(--yat-font-ui);letter-spacing:0}
       @media(max-width:640px){
-        .yat-footer.yat-clubhouse-footer{height:76px}
-        .yat-clubhouse-facts{height:35px;padding-left:65px;padding-right:5px;gap:4px}
-        .yat-clubhouse-hero{width:65px}
-        .yat-clubhouse-message{gap:3px}
-        .yat-clubhouse-message>span{font-size:9px}
-        .yat-clubhouse-fact-controls{gap:1px;font-size:8px}
-        .yat-clubhouse-fact-controls button{font-size:14px}
-        .yat-clubhouse-count strong{font-size:21px}
-        .yat-clubhouse-count span{font-size:7px}
-        .yat-clubhouse-nav{height:41px;padding-left:60px}
-        .yat-clubhouse-nav a{gap:3px;flex-direction:column}
-        .yat-clubhouse-nav svg{width:16px;height:16px}
-        .yat-clubhouse-nav small{font-size:8px}
+        :root{--yat-facts-h:76px}
+        .yat-clubhouse-facts{padding:6px 6px 6px 72px;gap:4px}
+        .yat-clubhouse-hero{width:68px}
+        .yat-clubhouse-message{gap:3px;align-items:center}
+        .yat-clubhouse-message>span{font-size:11px;line-height:1.2}
+        .yat-clubhouse-fact-controls{gap:1px;font-size:9px}
+        .yat-clubhouse-fact-controls button{font-size:16px}
+        .yat-clubhouse-count strong{font-size:26px}
+        .yat-clubhouse-count span{font-size:8px}
+        .yat-clubhouse-nav svg{width:20px;height:20px}
+        .yat-clubhouse-nav small{font-size:9px}
       }
       .yat-sponsor-slot{width:100%;max-width:1200px;height:100%;display:flex;align-items:center;justify-content:center;background:#020a13;overflow:hidden;transition:filter .2s ease}
       .yat-sponsor-picture{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
