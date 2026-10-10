@@ -63,12 +63,25 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
 }
 
 function row3AnchorBottom(): number {
+  const row1 = document.querySelector<HTMLElement>('.yat-row1-shell');
+  const row2 = document.querySelector<HTMLElement>('.yat-row2-shell');
   const row3 = document.querySelector<HTMLElement>('.yat-row3-shell');
   if (!row3) return 0;
-  // During a click the sticky row may still be in its original flow position.
-  // Its eventual sticky bottom is its CSS top offset plus its own height.
-  const stickyTop = parseFloat(window.getComputedStyle(row3).top) || 0;
-  return stickyTop + row3.getBoundingClientRect().height;
+  // Use measured header heights, not CSS variables or the row's transient
+  // pre-sticky viewport position. All coordinates are viewport Y pixels.
+  return (row1?.getBoundingClientRect().height ?? 0)
+    + (row2?.getBoundingClientRect().height ?? 0)
+    + row3.getBoundingClientRect().height;
+}
+
+function alignPlayerBelowRow3(card: HTMLElement): void {
+  const position = () => {
+    const delta = card.getBoundingClientRect().top - row3AnchorBottom() - 8;
+    if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
+  };
+  position();
+  // A single post-layout correction handles the sticky transition itself.
+  requestAnimationFrame(position);
 }
 
 function wireSyntheticSlot(slot: HTMLElement) {
@@ -85,15 +98,13 @@ function wireSyntheticSlot(slot: HTMLElement) {
     if (!card) return;
 
     event.preventDefault();
-    const cardTop = card.getBoundingClientRect().top;
-    const offset = row3AnchorBottom() + 8;
     slot.closest('.gallery-strip-inner')?.querySelectorAll('.gallery-slot.is-active').forEach((item) => {
       item.classList.remove('is-active');
       item.removeAttribute('aria-current');
     });
     slot.classList.add('is-active');
     slot.setAttribute('aria-current', 'true');
-    window.scrollTo({ top: Math.max(0, window.scrollY + cardTop - offset), behavior: 'instant' });
+    alignPlayerBelowRow3(card);
   });
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
