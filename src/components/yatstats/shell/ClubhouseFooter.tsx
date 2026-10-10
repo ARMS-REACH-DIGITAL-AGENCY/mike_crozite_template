@@ -68,8 +68,8 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       }
       .yat-clubhouse-lane {
         position:relative; width:100%; height:100%; overflow:hidden;
-        -webkit-mask-image:linear-gradient(to right, transparent 0, #000 135px, #000 calc(100% - 35px), transparent 100%);
-        mask-image:linear-gradient(to right, transparent 0, #000 135px, #000 calc(100% - 35px), transparent 100%);
+        -webkit-mask-image:linear-gradient(to right, transparent 0, #000 78px, #000 calc(100% - 35px), transparent 100%);
+        mask-image:linear-gradient(to right, transparent 0, #000 78px, #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
         display:flex !important;
@@ -81,20 +81,20 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         will-change:transform;
       }
       .yat-clubhouse-marquee[data-paused='true'] {animation-play-state:paused !important;}
-      .yat-clubhouse-copy {display:flex;align-items:center;flex:none;gap:6px;height:100%;padding:0 0 0 105px;}
+      .yat-clubhouse-copy {display:flex;align-items:center;flex:none;gap:2px;height:100%;padding:0 0 0 84px;}
       .yat-clubhouse-nav .yat-clubhouse-intro {
-        display:flex !important;align-items:center;flex:none !important;width:auto !important;
+        display:inline-flex !important;flex-direction:row !important;align-items:center !important;justify-content:flex-start !important;flex:none !important;width:max-content !important;min-width:max-content !important;
         height:100%;padding:0 12px !important;white-space:nowrap;
         color:#ffb238 !important;text-decoration:none !important;
-        font-size:17px !important;font-weight:900 !important;line-height:1.05 !important;
+        font-size:22px !important;font-weight:900 !important;line-height:1 !important;
         letter-spacing:.05em !important;
         text-shadow:0 0 3px rgba(255,170,40,.8) !important;
       }
-      .yat-clubhouse-intro strong {color:#ffb238 !important;font-weight:900;margin-right:12px;white-space:nowrap;}
+      .yat-clubhouse-intro .yat-clubhouse-single-line {display:block !important;white-space:nowrap !important;flex:none !important;font:inherit !important;line-height:1 !important;}
       .yat-clubhouse-nav .yat-clubhouse-copy > a:not(.yat-clubhouse-intro) {
         display:flex !important;flex:none !important;flex-direction:column !important;
         align-items:center !important;justify-content:center !important;gap:4px;
-        width:76px !important;min-width:76px !important;height:100% !important;
+        width:60px !important;min-width:60px !important;height:100% !important;
         background:transparent !important;text-decoration:none !important;
       }
       .yat-clubhouse-nav .yat-clubhouse-copy svg {
@@ -103,7 +103,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       }
       .yat-clubhouse-nav .yat-clubhouse-copy small {
         display:block !important;
-        font-family:inherit !important;font-size:11px !important;
+        font-family:inherit !important;font-size:10px !important;
         font-weight:700 !important;line-height:1 !important;
         letter-spacing:0 !important;color:#ff7a1a !important;
         -webkit-text-fill-color:#ff7a1a !important;
@@ -127,8 +127,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
             <Icon kind={item.kind}/><small>{item.label}</small>
           </a>)}
           <a className="yat-clubhouse-intro" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}>
-            <strong>WELCOME TO YAT?STATS</strong>
-            NEW HERE? START HERE FOR A GUIDED TOUR. EXPLORE THE PLATFORM AS A FAN, PLAYER, COACH OR PARTNER.
+            <span className="yat-clubhouse-single-line">WELCOME TO YAT?STATS — NEW HERE? START HERE FOR A GUIDED TOUR. EXPLORE THE PLATFORM AS A FAN, PLAYER, COACH OR PARTNER.</span>
           </a>
         </div>)}
       </div>
