@@ -77,8 +77,8 @@ function wireSyntheticSlot(slot: HTMLElement) {
 
     event.preventDefault();
     const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
-    const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
-    const cardTop = wrapper.getBoundingClientRect().top;
+    // Anchor to the card itself; its wrapper can begin above the visible card.
+    const cardTop = card.getBoundingClientRect().top;
     // Do not add half the inter-card gap: that deliberately leaves the
     // selected card below the headshot strip instead of aligning its top.
     const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) - 2;
@@ -88,7 +88,7 @@ function wireSyntheticSlot(slot: HTMLElement) {
     });
     slot.classList.add('is-active');
     slot.setAttribute('aria-current', 'true');
-    window.scrollTo({ top: Math.max(0, window.scrollY + cardTop - offset), behavior: 'smooth' });
+    window.scrollTo({ top: Math.max(0, window.scrollY + cardTop - offset), behavior: 'instant' });
   });
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
