@@ -39,15 +39,6 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
     'BROWSE AS A VISITOR OR REGISTER FOR FREE AND BECOME A FAN OF THE PROGRAM.',
   ];
   return <div className="yat-clubhouse" aria-label="YaTi's clubhouse">
-    <div className="yat-clubhouse-facts">
-      <div className="yat-clubhouse-hero">
-        <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png" alt="" />
-      </div>
-      <div className="yat-clubhouse-message yat-clubhouse-message-cycle" aria-live="polite">
-        {welcomeMessages.map((message, i) => <span key={i} className={`yat-clubhouse-message-frame ${index === i ? 'is-active' : ''}`} aria-hidden={index !== i}>{message}</span>)}
-      </div>
-      <div className="yat-clubhouse-count"><strong>{activeAlumni ?? '—'}</strong><span>ACTIVE<br/>ALUMNI</span></div>
-    </div>
     {/* Shared ticker design: identical Doto font and status styling as BracketTicker. */}
     <style jsx global>{`
       .yat-clubhouse-nav {
