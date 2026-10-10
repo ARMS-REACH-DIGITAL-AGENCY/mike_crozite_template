@@ -197,21 +197,22 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     /* Stationary Fantasy ticker-style dot matrix and illuminated amber Fun Zone controls. */
     body .pp-fz-dock {
       background-color:#070503 !important;
-      background-image:radial-gradient(rgba(255,160,40,.24) 1.2px, transparent 1.8px) !important;
+      background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px) !important;
       background-size:4px 4px !important;
-      border-top-color:#513016 !important;
+      border-top-color:#1d1408 !important;
     }
     body .pp-fz-dock .pp-fz-tab,
     body .pp-fz-dock .pp-fz-tab:hover,
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active {
-      color:#ffad46 !important;
-      text-shadow:0 0 4px rgba(255,142,35,.75),0 0 11px rgba(255,120,20,.4);
+      color:#ff7a1a !important;
+      text-shadow:0 0 3px rgba(255,110,20,.5);
     }
     body .pp-fz-dock .pp-fz-tab i,
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i {
-      color:#ffad46 !important;
-      filter:drop-shadow(0 0 3px rgba(255,157,46,.9)) drop-shadow(0 0 7px rgba(255,105,12,.5));
+      color:#ffb238 !important;
+      filter:drop-shadow(0 0 2px rgba(255,170,40,.48));
     }
+    body .pp-fz-dock .pp-fz-tab span { color:#ff7a1a !important; font:700 clamp(9px,2.5vw,11px)/1 Oswald,sans-serif !important; letter-spacing:.04em !important; text-transform:uppercase !important; }
     @media (max-width:760px) { :root { --pp-dock-h:var(--yat-dock-h,62px); } }
   `}</style></>;
 }
