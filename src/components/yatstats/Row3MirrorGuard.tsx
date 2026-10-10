@@ -79,9 +79,9 @@ function wireSyntheticSlot(slot: HTMLElement) {
     const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
     const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
     const cardTop = wrapper.getBoundingClientRect().top;
-    const previousBottom = wrapper.previousElementSibling?.getBoundingClientRect().bottom ?? cardTop;
-    const gap = Math.max(0, Math.min(60, cardTop - previousBottom));
-    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) + Math.max(4, gap / 2);
+    // Do not add half the inter-card gap: that deliberately leaves the
+    // selected card below the headshot strip instead of aligning its top.
+    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) - 2;
     slot.closest('.gallery-strip-inner')?.querySelectorAll('.gallery-slot.is-active').forEach((item) => {
       item.classList.remove('is-active');
       item.removeAttribute('aria-current');
