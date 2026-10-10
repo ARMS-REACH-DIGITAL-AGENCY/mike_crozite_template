@@ -1,0 +1,49 @@
+name: YATSTATS Production Health Monitor
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: yatstats-production-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check representative production school sites
+        id: check
+        continue-on-error: true
+        run: python3 scripts/check-site-health.py
+      - name: Open or update health incident
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          issue=$(gh issue list --state open --search 'YATSTATS production health alert in:title' --json number --jq '.[0].number // empty')
+          body="Automated production smoke checks failed. Review this run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Checks cover Basha, Hamilton and Perry school pages. No data was modified."
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "$body"
+          else
+            gh issue create --title "YATSTATS production health alert" --body "$body"
+          fi
+      - name: Resolve incident after recovery
+        if: steps.check.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          issue=$(gh issue list --state open --search 'YATSTATS production health alert in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$issue" ]; then
+            gh issue close "$issue" --comment "Representative production school checks recovered. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          fi
+      - name: Mark run failed on unhealthy result
+        if: steps.check.outcome == 'failure'
+        run: exit 1
