@@ -114,8 +114,7 @@ export default function GalleryUniverseController(){
       if(nav){const k=(nav.dataset.tab==='team'?'current':nav.dataset.tab) as Key;if(k){e.preventDefault();e.stopImmediatePropagation();showSection(k);}return;}
       const reset=target.closest('#filtersReset,#filtersReset2');
       if(reset&&galleries.has(currentKey())){e.preventDefault();e.stopImmediatePropagation();preset(currentKey());return;}
-      const thumb=target.closest<HTMLElement>('.gallery-slot-link[data-playerid],.gallery-current-slot-link[data-playerid]');
-      if(thumb&&galleries.has(currentKey())){e.preventDefault();e.stopImmediatePropagation();cards(currentKey()).find(c=>c.dataset.playerid===thumb.dataset.playerid)?.scrollIntoView({behavior:'smooth',block:'start'});}
+      // Row 3 headshot navigation is owned by InteractionStrip/Row3MirrorGuard.
     };
     const change=(e:Event)=>{
       const target=e.target instanceof HTMLInputElement?e.target:null;if(!target||!target.closest('#filters')||!galleries.has(currentKey()))return;
