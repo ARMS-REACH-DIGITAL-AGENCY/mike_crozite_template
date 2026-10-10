@@ -159,19 +159,6 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
 
   return (
     <div className="ybt-footer-stack">
-      <div className="ybt-facts">{spot}</div>
-      <button type="button" className="ybt-raffle" onClick={() => {
-        document.body.classList.add('drawer-account-open', 'drawer-open');
-        document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
-        window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: 'register' }));
-        const drawer = document.getElementById('drawerAccount');
-        drawer?.classList.add('open', 'is-open', 'active');
-        drawer?.setAttribute('aria-hidden', 'false');
-        document.getElementById('drawerMask')?.classList.add('open', 'is-open', 'active');
-      }} aria-label="Register to win World Series tickets">
-        <img src="/img/world-series-trophy-cta.jpg" alt="" />
-        <span>Register<br/>To Win<br/>World<br/>Series<br/>Tickets!</span>
-      </button>
       <div className={`ybt ${dots.className}`} role="marquee" aria-label="Current round scores"
       onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
       <div className="ybt-lane" ref={laneRef}>
