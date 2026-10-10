@@ -34,10 +34,6 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
     setTickerPaused(true);
     resumeTimer.current = setTimeout(() => { setTickerPaused(false); resumeTimer.current = null; }, 5000);
   };
-  const welcomeMessages = [
-    `WELCOME TO THE ${schoolName.toUpperCase()} ALUMNI COMMUNITY HUB ON YAT?STATS`,
-    'BROWSE AS A VISITOR OR REGISTER FOR FREE AND BECOME A FAN OF THE PROGRAM.',
-  ];
   return <div className="yat-clubhouse" aria-label="YaTi's clubhouse">
     {/* Shared ticker design: identical Doto font and status styling as BracketTicker. */}
     <style jsx global>{`
