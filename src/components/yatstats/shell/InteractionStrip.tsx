@@ -498,14 +498,14 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(3px); }
-        /* Animate the portrait itself as well: older gallery-slot transforms can
-           be overridden by global styles, leaving no visible selected movement. */
+        /* Move the portrait and surname together using only the parent slot transform. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
-          transform:translateY(0); transition:transform .18s ease;
+          transform:none !important;
         }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-media,
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-media {
-          transform:translateY(3px);
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-name-overlay,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-name-overlay {
+          color:#d2b45c !important;
+          text-shadow:0 0 5px rgba(210,180,92,.28);
         }
 
 
