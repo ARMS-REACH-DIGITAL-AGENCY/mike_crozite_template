@@ -10,6 +10,7 @@ import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
 import ClubhouseFooter from './shell/ClubhouseFooter';
+import PageMessageStrip from './shell/PageMessageStrip';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
@@ -181,10 +182,21 @@ export default function SharedShell({
         <div className="yat-row5-shell yat-visual-row4-gallery">{children}</div>
       </main>
 
-      {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer${!isPlayerProfile && activeSection !== 'fantasy' ? ' yat-clubhouse-footer' : ''}`}>
-        {activeSection === 'fantasy'
-          ? <BracketTicker hsid={hsid} />
-          : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
+      {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
+        <div className="yat-unified-footer">
+          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} />
+          <div className="yat-unified-footer-ticker">
+            {activeSection === 'fantasy'
+              ? <BracketTicker hsid={hsid} />
+              : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
+          </div>
+        </div>
+        <style jsx global>{`
+          .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0}
+          .yat-unified-footer-ticker{flex:1;min-height:0;width:100%;position:relative}
+          .yat-unified-footer-ticker .yat-clubhouse,.yat-unified-footer-ticker .ybt-footer-stack{height:100%;width:100%}
+          .yat-unified-footer-ticker .yat-clubhouse-nav{height:100%}
+        `}</style>
       </footer>}
     </>
   );
