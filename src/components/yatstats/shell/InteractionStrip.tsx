@@ -113,10 +113,17 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
   const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
   // Place the selected card's top flush beneath the sticky headshot strip.
-  const cardTop = (wrapper || target).getBoundingClientRect().top;
-  const offset = Math.max(0, stripBottom) + 2;
-  const top = window.scrollY + cardTop - offset;
-  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  // Align the actual card, not its outer wrapper (which may have spacing).
+  // Recheck after layout settles so sticky rows and lazy-loaded cards cannot
+  // leave the previous card peeking through above the selected one.
+  const alignCard = (behavior: ScrollBehavior) => {
+    const cardTop = target.getBoundingClientRect().top;
+    const bottom = strip?.getBoundingClientRect().bottom ?? stripBottom;
+    const delta = cardTop - Math.max(0, bottom) - 3;
+    if (Math.abs(delta) > 2) window.scrollBy({ top: delta, behavior });
+  };
+  alignCard('smooth');
+  window.setTimeout(() => alignCard('instant'), 450);
 }
 
 function fallbackPlayersForSection(section: string, players: Player[]): Player[] {
@@ -431,9 +438,9 @@ export default function InteractionStrip({
 
       <style jsx global>{`
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
-        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:auto; min-height:0; padding:0 6px; }
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:84px; min-height:84px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:auto; min-height:0; gap:3px; align-items:center; padding:3px 0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; gap:3px; align-items:center; padding:4px 0; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
           flex:0 0 64px; width:64px; min-width:64px; height:73px; display:flex;
           flex-direction:column; align-items:center; justify-content:center;
@@ -490,7 +497,7 @@ export default function InteractionStrip({
         }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-media,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-media {
-          transform:translateY(-9px);
+          transform:translateY(-5px);
         }
 
 
