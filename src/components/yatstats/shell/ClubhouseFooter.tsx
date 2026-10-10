@@ -48,13 +48,20 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
     <style jsx global>{`
       .yat-clubhouse-nav {
         background-color:#070503 !important;
-        background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px) !important;
+        background-image:radial-gradient(rgba(255,160,40,.24) 1.2px, transparent 1.8px) !important;
         background-size:4px 4px !important;
-        border-top:1px solid #1d1408;
+        border-top:1px solid #513016;
       }
       .yat-clubhouse-nav a {
         background:transparent !important;
+        color:#ffad46 !important;
+        text-shadow:0 0 4px rgba(255,142,35,.75),0 0 11px rgba(255,120,20,.4);
       }
+      .yat-clubhouse-nav a svg {
+        color:#ffad46 !important;
+        filter:drop-shadow(0 0 3px rgba(255,157,46,.9)) drop-shadow(0 0 7px rgba(255,105,12,.5));
+      }
+      .yat-clubhouse-nav a small { color:#ffad46 !important; }
     `}</style>
     <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS" >
       <span aria-hidden="true" className="yat-clubhouse-nav-spacer" />
