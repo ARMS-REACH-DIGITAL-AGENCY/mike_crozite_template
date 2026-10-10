@@ -448,7 +448,7 @@ export default function InteractionStrip({
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
         .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:84px; min-height:84px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; gap:3px; align-items:center; padding:4px 0 4px 54px; box-sizing:border-box; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; gap:3px; align-items:center; padding:4px 54px 4px 54px; box-sizing:border-box; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
           flex:0 0 64px; width:64px; min-width:64px; height:73px; display:flex;
           flex-direction:column; align-items:center; justify-content:center;
