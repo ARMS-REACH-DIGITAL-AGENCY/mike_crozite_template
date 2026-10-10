@@ -163,7 +163,8 @@ export function ScoringRules() {
         <h4>Whose stats count, and when</h4>
         <ul>
           <li>A school&apos;s team is its active alumni: everyone on its Active Baseball Alumni gallery, including players on the injured list. Current high school players don&apos;t play.</li>
-          <li>A player counts as a pitcher or a hitter by what he does: a listed pitcher, or anyone who pitches much more than he bats. Any line he puts up still counts for the side it belongs to.</li>
+          <li>A two-way player can count on both sides. His batting line feeds OPS+ and his pitching line feeds FIP- for the same day or week.</li>
+          <li>For W-L%, each alumnus&apos;s real team record counts once for the week, even if he appears in both the Batters and Pitchers sections.</li>
           <li>Days run on Arizona time, Monday through Sunday. Each day ends at 4 a.m. Arizona time the next morning, for every game at once.</li>
           <li>The scoreboard works like a ballpark&apos;s: at 4 a.m. the day&apos;s inning starts in the <b>TOP</b>, with a yellow 0 for the visitors. Once the last real game of the day for the two schools&apos; alumni has started (the whole bracket&apos;s last game, if neither school has anyone playing), it&apos;s the <b>BOTTOM</b>: a yellow 0 for both. A yellow number isn&apos;t final, so no run is announced early.</li>
           <li>When those games are over, the day&apos;s runs go up in yellow. At 4 a.m. the next morning they turn white (final) and the next inning starts. Until a day&apos;s runs are up, the stat drawers outline the school that would get each run if the day ended now.</li>
