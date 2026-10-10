@@ -41,7 +41,8 @@ export default function PageMessageStrip({
     const element = document.querySelector<HTMLElement>('.yat-unified-footer');
     if (!element) return;
     const image = active?.image_url || '';
-    element.style.setProperty('--yat-footer-campaign-image', image ? `url("${image.replaceAll('"', '%22')}")` : 'none');
+    if (image) element.style.setProperty('--yat-footer-campaign-image', `url("${image.replaceAll('"', '%22')}")`);
+    else element.style.removeProperty('--yat-footer-campaign-image');
     return () => element.style.removeProperty('--yat-footer-campaign-image');
   }, [active?.image_url]);
   return <div className="yat-page-message-strip" aria-label="Community messages">
