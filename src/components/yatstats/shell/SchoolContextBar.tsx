@@ -128,28 +128,8 @@ export default function SchoolContextBar({
     return () => button.removeEventListener('click', handleThemeClick);
   }, []);
 
-  useEffect(() => {
-    // News thumbnails are filters. Only player-gallery thumbnails act as anchors.
-    if (!isGallery || isNews) return;
-
-    const handleThumbnailClick = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-
-      const thumbnail = target.closest<HTMLElement>('.gallery-slot-link[data-playerid], .gallery-current-slot-link[data-playerid]');
-      if (!thumbnail) return;
-
-      const playerId = String(thumbnail.dataset.playerid || '').trim();
-      if (!playerId) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      scrollThumbnailToPlayer(playerId);
-    };
-
-    document.addEventListener('click', handleThumbnailClick, true);
-    return () => document.removeEventListener('click', handleThumbnailClick, true);
-  }, [isGallery, isNews]);
+  // Row 3 headshot clicks are intentionally not handled here.
+  // InteractionStrip owns React-rendered slots; Row3MirrorGuard owns synthetic slots.
 
   const getPageLabel = () => {
     if (isPlayerProfile) {
