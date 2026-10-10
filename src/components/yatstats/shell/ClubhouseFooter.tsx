@@ -13,14 +13,27 @@ const messages: Message[] = [
   { kind: 'tournament', text: 'Follow your school in the YAT?STATS World Series.', image: '/img/world-series-trophy-cta.png' },
   { kind: 'sponsor', text: 'Local partners help keep your baseball community connected.' },
 ];
-function Icon({ kind }: { kind: 'fans' | 'players' | 'coaches' | 'partners' | 'faq' }) {
-  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  return <svg viewBox="0 0 32 32" width="25" height="25" aria-hidden="true" {...common}>
-    {kind === 'fans' && <><circle cx="16" cy="9" r="5"/><path d="M5 27v-4c0-6 5-10 11-10s11 4 11 10v4M9 27h14"/></>}
-    {kind === 'players' && <><circle cx="16" cy="8" r="4"/><path d="m11 15-4 8m14-8 4 8M11 15l5 4 5-4M16 19v9M8 28h16"/></>}
-    {kind === 'coaches' && <><path d="M7 25 25 7M5 21l6 6M21 5l6 6"/><circle cx="24" cy="23" r="5"/><path d="m21 20 6 6m0-6-6 6"/></>}
-    {kind === 'faq' && <><circle cx="16" cy="16" r="12"/><path d="M12 12a4 4 0 1 1 6 3.5c-2 1-2 2-2 4"/><circle cx="16" cy="24" r="1" fill="currentColor" stroke="none"/></>}
-    {kind === 'partners' && <><path d="m3 16 7-5 7 4 5-3 7 4-10 10-6-3-4 1zM10 11l5-4 7 5M13 23l4-4m-1 6 5-5"/></>}
+function Icon({ kind }: { kind: 'fans' | 'players' | 'schools' | 'partners' }) {
+  // LED-matrix silhouettes: the shapes are revealed through illuminated circular bulbs,
+  // rather than outlined strokes floating above the scoreboard.
+  const id = `clubhouse-led-${kind}`;
+  const shapes: Record<typeof kind, React.ReactNode> = {
+    fans: <><path d="M3 10 L16 2 L29 10 L25 15 L20 18 L18 23 L21 28 L16 30 L11 28 L14 23 L12 18 L7 15 Z"/><path d="M11 15 Q16 9 21 15 L19 21 L13 21 Z" fill="black"/><circle cx="16" cy="23" r="2" fill="black"/></>,
+    players: <><rect x="5" y="2" width="2.5" height="28" rx="1"/><path d="M10 7 L13 8 L13 11 L18 12 L22 14 L29 16 L22 19 L18 21 L12 23 L10 23 Z"/></>,
+    schools: <><path d="M3 22 L23 2 L26 5 L11 20 L22 18 L27 20 L29 27 L20 29 L13 27 L8 24 L3 25 Z"/><path d="M19 10 L24 10 L28 14 L26 18 L20 18 L17 15 Z"/></>,
+    partners: <><path d="M2 9 L7 7 L12 10 L17 8 L22 10 L27 7 L30 10 L30 20 L25 20 L21 24 L17 27 L14 25 L11 27 L8 24 L4 22 L2 20 Z"/><path d="M9 15 L13 13 L17 16 L21 14 L24 17 L21 21 L17 20 L14 23 L11 20 Z" fill="black"/></>,
+  };
+  return <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id={id} width="2.6" height="2.6" patternUnits="userSpaceOnUse">
+        <circle cx="1.3" cy="1.3" r="1.02" fill="#ffb238"/>
+      </pattern>
+      <filter id={`${id}-glow`} x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation=".48"/>
+      </filter>
+    </defs>
+    <g fill={`url(#${id})`} opacity=".6" filter={`url(#${id}-glow)`}>{shapes[kind]}</g>
+    <g fill={`url(#${id})`}>{shapes[kind]}</g>
   </svg>;
 }
 export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number | null }) {
@@ -37,7 +50,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
   const nav = [
     { label: 'FANS', kind: 'fans' as const, href: '/#fans' },
     { label: 'PLAYERS', kind: 'players' as const, href: '/#players' },
-    { label: 'COACHES', kind: 'coaches' as const, href: '/#coaches' },
+    { label: 'SCHOOLS', kind: 'schools' as const, href: '/#schools' },
     { label: 'PARTNERS', kind: 'partners' as const, href: '/#partners' },
   ];
   return <div className="yat-clubhouse" aria-label="YaTi's clubhouse">
@@ -94,7 +107,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       .yat-clubhouse-nav .yat-clubhouse-copy > a:not(.yat-clubhouse-intro) {
         display:flex !important;flex:none !important;flex-direction:column !important;
         align-items:center !important;justify-content:center !important;gap:4px;
-        width:70px !important;min-width:70px !important;height:100% !important;
+        width:76px !important;min-width:76px !important;height:100% !important;
         background:transparent !important;text-decoration:none !important;
       }
       .yat-clubhouse-nav .yat-clubhouse-copy svg {
