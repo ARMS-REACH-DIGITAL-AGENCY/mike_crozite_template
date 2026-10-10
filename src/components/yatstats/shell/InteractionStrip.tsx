@@ -431,9 +431,9 @@ export default function InteractionStrip({
 
       <style jsx global>{`
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
-        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; min-height:94px; padding:0 6px; }
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:100px; min-height:100px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { min-height:94px; gap:3px; align-items:flex-start; padding:4px 0 12px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:100px; min-height:100px; gap:3px; align-items:center; padding:0; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
           flex:0 0 64px; width:64px; min-width:64px; height:77px; display:flex;
           flex-direction:column; align-items:center; justify-content:center;
