@@ -7,13 +7,6 @@ const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], displa
 import { useContext, useEffect, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 
-type Message = { text: string; kind: 'clubhouse' | 'player' | 'sponsor' | 'tournament'; image?: string };
-const messages: Message[] = [
-  { kind: 'clubhouse', text: "Explore the stories behind your school's active alumni." },
-  { kind: 'player', text: 'Follow your favorite alumni from high school to the big leagues.', image: '/img/player-silhouette.png' },
-  { kind: 'tournament', text: 'Follow your school in the YAT?STATS World Series.', image: '/img/world-series-trophy-cta.png' },
-  { kind: 'sponsor', text: 'Local partners help keep your baseball community connected.' },
-];
 // The images below are compressed copies of the four user-supplied LED artworks.
 const suppliedLedArt = {
   fans: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAwICQsJCAwLCgsODQwOEh4UEhEREiUbHBYeLCcuLisnKyoxN0Y7MTRCNCorPVM+QkhKTk9OLztWXFVMW0ZNTkv/2wBDAQ0ODhIQEiQUFCRLMisyS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0v/wAARCABAADgDASIAAhEBAxEB/8QAGwAAAgMBAQEAAAAAAAAAAAAAAAYBAgUEBwP/xAAwEAABAgUDAgMGBwAAAAAAAAABAAIDBBEhMQUSIjJBE1FhBhYjYnGRFCYzQlKBsf/EABcBAQEBAQAAAAAAAAAAAAAAAAMEAAL/xAAfEQACAgICAwEAAAAAAAAAAAAAAQIDERIhMQQycSL/2gAMAwEAAhEDEQA/APLRgcu6ttJDyCpZhuMp50eJo0LRIgibi07DG3MYXbuXTW9MILbNFnGR6q9xE/d1dlHZvJaep6dGk5ja5rCHMDwWkOFCKjHdZ200bhJGSkso4lBxeGUODy7qSbnl2UkGjsZQa1OMLo4IB6eSECvHCFjFmiw4901aWH+6OpAQXlpiw6uBbQfXv9kqilBnKatKdDHsnqYI5+LDpUD1/tT39L6imjtmvNzEaDIwGlsSLBdD5sNQCNrK32rJiSWmajCYIEuJOJ3e5z3A2cfL0C69UjQfwMvtY4fDIPwx/FnqsWXiQhs66jPG2Heqmrj+crgtnhvDLznstMw4ZfKkTQqf0mOtQD09VjTMnGlorocaA6G8WLXChCaYUwWMcYBcHVPl8nzLRl2smYxdOy0s8E3fE216n5q5dq+UfbkKXjRl6nn23p4oW5rUppECCwyU3Gix6jcwsAaBtvcHzshVxnsskM4avBiNNhyGU06U8+6ept8XMWHxqb57YSs2tBYZTXpbB7o6o/wwS2LDvtrTPetvsiv6X1C0ds15qBNTMrLta6LsEOhcTEoOLPRcTTJSJAjaize3LQX2s4eXnT7pf1HWZmbiNDfgsawN8Nj3bbACucmiy3Pe7aTc1yTlFCh45ZRPykvVDPM+1gENwk4T4MQk8jFLuzexHyrFn9YnJ+IXTMy59voMk/6VwEmjrDKDWpsMKiNMI9IlndOXbJ3ElvJCqK8bBCUHJLaUHE5TXpjfybqjvDsIsO+wGme9ahKQIoORyvoIzhDewRHbTkVsUdkN0JXPUHU39JwqWo2xUkjd1HCrUUbyKQNgaUNjlTQVPE4UVFDyOVNRU8jhYwCnHiUKARx5FCxj/9k=',
@@ -28,9 +21,11 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
   const school = useContext(SchoolContext);
   const schoolName = school?.hsName?.trim() || 'YOUR SCHOOL';
   const schoolLocation = school?.hsLocation?.trim() || 'YOUR COMMUNITY';
-  const [showWelcome, setShowWelcome] = useState(true);
-  useEffect(() => { const timer = setTimeout(() => setShowWelcome(false), 6000); return () => clearTimeout(timer); }, []);
   const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setIndex(current => (current + 1) % 2), 5000);
+    return () => clearInterval(interval);
+  }, []);
   const [tickerPaused, setTickerPaused] = useState(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
@@ -39,19 +34,17 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
     setTickerPaused(true);
     resumeTimer.current = setTimeout(() => { setTickerPaused(false); resumeTimer.current = null; }, 5000);
   };
-  const message = messages[index];
+  const welcomeMessages = [
+    `WELCOME TO THE ${schoolName.toUpperCase()} ALUMNI COMMUNITY HUB ON YAT?STATS`,
+    'BROWSE AS A VISITOR OR REGISTER FOR FREE AND BECOME A FAN OF THE PROGRAM.',
+  ];
   return <div className="yat-clubhouse" aria-label="YaTi's clubhouse">
     <div className="yat-clubhouse-facts">
       <div className="yat-clubhouse-hero">
-        <img src={message.image || 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png'} alt="" />
+        <img src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png" alt="" />
       </div>
-      <div className="yat-clubhouse-message">
-        <span aria-live="polite">{message.text}</span>
-        <div className="yat-clubhouse-fact-controls">
-          <button type="button" onClick={() => setIndex((index + messages.length - 1) % messages.length)} aria-label="Previous message">‹</button>
-          <span>{index + 1}/{messages.length}</span>
-          <button type="button" onClick={() => setIndex((index + 1) % messages.length)} aria-label="Next message">›</button>
-        </div>
+      <div className="yat-clubhouse-message yat-clubhouse-message-cycle" aria-live="polite">
+        {welcomeMessages.map((message, i) => <span key={i} className={`yat-clubhouse-message-frame ${index === i ? 'is-active' : ''}`} aria-hidden={index !== i}>{message}</span>)}
       </div>
       <div className="yat-clubhouse-count"><strong>{activeAlumni ?? '—'}</strong><span>ACTIVE<br/>ALUMNI</span></div>
     </div>
@@ -77,14 +70,12 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         height:100%;
         width:max-content;
         min-width:max-content;
-        animation:yat-clubhouse-crawl 165s linear 0s infinite !important;
+        animation:yat-clubhouse-crawl 240s linear 0s infinite !important;
         will-change:transform;
       }
-      .yat-clubhouse-marquee[data-welcome='true'] {animation-play-state:paused !important;opacity:0 !important;}
-      .yat-clubhouse-welcome {position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px 14px 8px 82px;text-align:center;background:#070503;color:#ffb238;font-size:10px;font-weight:700;line-height:1.1;transition:opacity .7s ease;pointer-events:none;}
-      .yat-clubhouse-welcome[data-visible='false'] {opacity:0;}
-      .yat-clubhouse-welcome > span {display:block;width:100%;white-space:nowrap;font:inherit;letter-spacing:-.035em;}
-      @media (max-width:600px) {.yat-clubhouse-welcome {font-size:clamp(5px,1.25vw,8px);padding-left:78px;}}
+      .yat-clubhouse-message-cycle {position:relative !important;display:flex !important;align-items:center !important;justify-content:center !important;min-width:0 !important;}
+      .yat-clubhouse-message-frame {position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-start;opacity:0;transition:opacity .8s ease;pointer-events:none;padding:0 8px;line-height:1.18;}
+      .yat-clubhouse-message-frame.is-active {opacity:1;}
       .yat-clubhouse-inline-icon {display:inline-flex !important;align-items:center !important;vertical-align:middle;flex:none !important;gap:6px;margin:0 18px;color:#ffb238;text-decoration:none !important;white-space:nowrap !important;}
       .yat-clubhouse-inline-icon img {width:38px !important;height:38px !important;object-fit:contain !important;}
       .yat-clubhouse-inline-icon b {font-size:19px;font-weight:900;}
@@ -119,8 +110,8 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         background:none !important;filter:none !important;
       }
       @keyframes yat-clubhouse-crawl {
-        from {transform:translate3d(0,0,0);}
-        to {transform:translate3d(-50%,0,0);}
+        from {transform:translate3d(calc(100vw - 84px),0,0);}
+        to {transform:translate3d(calc(-50% + 100vw - 84px),0,0);}
       }
       @media (prefers-reduced-motion:reduce) {
         .yat-clubhouse-marquee {animation:none !important;}
@@ -129,11 +120,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
     `}</style>
     <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS">
       <div className="yat-clubhouse-lane" onTouchStart={pauseTicker} onMouseDown={pauseTicker}>
-      <div className={`yat-clubhouse-welcome ${tickerDateFont.className}`} data-visible={showWelcome} aria-hidden={!showWelcome}>
-        <span>WELCOME TO THE {schoolName.toUpperCase()} ALUMNI COMMUNITY HUB ON YAT?STATS...</span>
-        <span>IT&apos;S FREE TO BROWSE AS A VISITOR... OR REGISTER FOR FREE TO BECOME A FAN OF THE PROGRAM.</span>
-      </div>
-      <div className={`yat-clubhouse-marquee ${tickerDateFont.className}`} data-paused={tickerPaused} data-welcome={showWelcome}>
+      <div className={`yat-clubhouse-marquee ${tickerDateFont.className}`} data-paused={tickerPaused}>
         {[0,1].map(copy => <div className="yat-clubhouse-copy" key={copy} aria-hidden={copy === 1 ? true : undefined}>
           <span className="yat-clubhouse-intro">
             <span className="yat-clubhouse-single-line">FOR A GUIDED TOUR TO HELP YOU NAVIGATE ALL OF THE 1024 YAT?STATS BASEBALL COMMUNITY HUBS AND EXPERIENCE ACTIVE ALUMNI FROM OTHER TOP PROGRAMS IN THE COUNTRY AS WELL... CLICK THE TICKER ICON THAT YOU RELATE TO MOST....</span>
