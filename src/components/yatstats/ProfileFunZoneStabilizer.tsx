@@ -212,7 +212,21 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       color:#ffb238 !important;
       filter:drop-shadow(0 0 2px rgba(255,170,40,.48));
     }
-    body .pp-fz-dock .pp-fz-tab span { color:#ff7a1a !important; font:700 clamp(9px,2.5vw,11px)/1 Oswald,sans-serif !important; letter-spacing:.04em !important; text-transform:uppercase !important; }
+    /* Match the Fantasy scoreboard's static amber LED dot lettering. */
+    body .pp-fz-dock .pp-fz-tab span {
+      color:#ffb238 !important;
+      font:900 clamp(11px,2.5vw,14px)/1 Oswald,sans-serif !important;
+      letter-spacing:.07em !important;
+      text-transform:uppercase !important;
+      background-image:radial-gradient(circle, #ffb238 0 44%, rgba(255,178,56,.22) 56%, transparent 73%);
+      background-size:3px 3px;
+      background-repeat:repeat;
+      -webkit-background-clip:text;
+      background-clip:text;
+      -webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 2px rgba(255,160,40,.55));
+      text-shadow:none !important;
+    }
     @media (max-width:760px) { :root { --pp-dock-h:var(--yat-dock-h,62px); } }
   `}</style></>;
 }
