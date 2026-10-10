@@ -494,7 +494,14 @@ if(closeBtn){
         : null;
     if(!visibleSection)return;
     var target=visibleSection.querySelector('#player-'+pid);
-    if(target)target.scrollIntoView({behavior:'smooth',block:'start'});
+    if(target){
+      // Align the selected card with the bottom of the sticky headshot strip.
+      // The clicked headshot uses this handler, not revealRequestedPlayerCard().
+      var strip=document.querySelector('.gallery-strip-inner')?.closest('.gallery-strip') || document.querySelector('.gallery-strip-inner');
+      var stripBottom=strip ? strip.getBoundingClientRect().bottom : getCssPx('--row1-h',36)+getCssPx('--row2-h',54)+getCssPx('--row3-h',100);
+      var cardTop=target.getBoundingClientRect().top+window.scrollY;
+      window.scrollTo({top:Math.max(0,cardTop-stripBottom+2),behavior:'smooth'});
+    }
   });
 
   function normalizeTab(tabId){
