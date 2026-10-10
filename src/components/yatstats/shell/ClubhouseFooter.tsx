@@ -13,28 +13,15 @@ const messages: Message[] = [
   { kind: 'tournament', text: 'Follow your school in the YAT?STATS World Series.', image: '/img/world-series-trophy-cta.png' },
   { kind: 'sponsor', text: 'Local partners help keep your baseball community connected.' },
 ];
-function Icon({ kind }: { kind: 'fans' | 'players' | 'schools' | 'partners' }) {
-  // LED-matrix silhouettes: the shapes are revealed through illuminated circular bulbs,
-  // rather than outlined strokes floating above the scoreboard.
-  const id = `clubhouse-led-${kind}`;
-  const shapes: Record<typeof kind, React.ReactNode> = {
-    fans: <><rect x="4" y="2" width="2.5" height="28" rx="1"/><path d="M8 5 L10 5 L10 8 L13 8 L13 10 L17 10 L17 12 L21 12 L21 14 L26 14 L29 16 L24 19 L19 21 L14 23 L9 24 L8 24 Z"/></>,
-    players: <><rect x="5" y="2" width="2.5" height="28" rx="1"/><path d="M10 7 L13 8 L13 11 L18 12 L22 14 L29 16 L22 19 L18 21 L12 23 L10 23 Z"/></>,
-    schools: <><path d="M16 2 L30 16 L16 30 L2 16 Z"/><path d="M16 8 L24 16 L16 24 L8 16 Z" fill="black"/><circle cx="16" cy="16" r="2"/><path d="M2 16 L16 30 L30 16" fill="none" stroke="url(#clubhouse-led-schools)" strokeWidth="2"/></>,
-    partners: <><path d="M2 9 L7 7 L12 10 L17 8 L22 10 L27 7 L30 10 L30 20 L25 20 L21 24 L17 27 L14 25 L11 27 L8 24 L4 22 L2 20 Z"/><path d="M9 15 L13 13 L17 16 L21 14 L24 17 L21 21 L17 20 L14 23 L11 20 Z" fill="black"/></>,
-  };
-  return <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true" focusable="false">
-    <defs>
-      <pattern id={id} width="2.6" height="2.6" patternUnits="userSpaceOnUse">
-        <circle cx="1.3" cy="1.3" r="1.02" fill="#ffb238"/>
-      </pattern>
-      <filter id={`${id}-glow`} x="-40%" y="-40%" width="180%" height="180%">
-        <feGaussianBlur stdDeviation=".48"/>
-      </filter>
-    </defs>
-    <g fill={`url(#${id})`} opacity=".6" filter={`url(#${id}-glow)`}>{shapes[kind]}</g>
-    <g fill={`url(#${id})`}>{shapes[kind]}</g>
-  </svg>;
+// The images below are compressed copies of the four user-supplied LED artworks.
+const suppliedLedArt = {
+  fans: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABUOEBIQDRUSERIYFhUZHzQiHx0dH0AuMCY0TENQT0tDSUhUXnlmVFlyWkhJaY9qcnyAh4iHUWWUn5ODnXmEh4L/2wBDARYYGB8cHz4iIj6CVklWgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoL/wAARCAAwACoDASIAAhEBAxEB/8QAGgAAAQUBAAAAAAAAAAAAAAAAAQADBAUGAv/EAC8QAAIBAgQEBAQHAAAAAAAAAAECAAMRBCExkQUSIkETUWHRFCNxgURiobHB4fD/xAAYAQADAQEAAAAAAAAAAAAAAAABAgMABP/EABsRAAMBAAMBAAAAAAAAAAAAAAABAjEDERIh/9oADAMBAAIRAxEAPwDIqpNgAY7iMLWw9vFRl5gCL94KFRqVVKiWDKbiX2KQYtmpV2FkpK6soHSSM+8lVuWViPSM6Rn31g3k+tw2ooZ6TJUS+Vm6tpDek6GzoV+uUdUngrlrTjfSHeC37Q7bwinSaj2miYoMRUz/AA6aD8v0mdTUazREkV6jMxQfDoCWJHaQ5S/CV61OWsxV+Xq7D+pLFYVAFqIta9xdluRr6RlsVhKDHqeq19V0karxbEMLU/lefJfODy6xFHczo/iOHYYUg/jCgbZhze+mlhKr7jaB3ZzdmYkjUxZ+stKa1nPVJv4hJqPeWXG2K4hQCQDRS4va+QlWDa2kexOJfEuHqFSQoXIWyEznukwKuk0NH+fOD/axbRbRhRe3nD9v1g20hy9JgH//2Q==',
+  players: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABUOEBIQDRUSERIYFhUZHzQiHx0dH0AuMCY0TENQT0tDSUhUXnlmVFlyWkhJaY9qcnyAh4iHUWWUn5ODnXmEh4L/2wBDARYYGB8cHz4iIj6CVklWgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoL/wAARCAAwACgDASIAAhEBAxEB/8QAGQABAQEBAQEAAAAAAAAAAAAAAAQBBQYD/8QAJhAAAQUAAQQBBAMAAAAAAAAAAQACAwQREgUTIUExFCJSYbHB4f/EABgBAQADAQAAAAAAAAAAAAAAAAMAAgQB/8QAHREBAQACAgMBAAAAAAAAAAAAAQACEQNBEiExMv/aAAwDAQACEQMRAD8A8giLQNXKQDVeenFlMzSuLZM5NZnr9r61a0dSIWbQHLCWMP8AJUtqea04u4u4k74BR+SvqYxA20iLc8okigGldOCs2k0WLIDjxBbH70/GqfpssUVkOm0fi78Srm5PZE0gbOw59vLEWa/JuPE1uhlsSXLLTKTxLvjf2ujam7MzYojxY3xjP7VQs1A3gGdnAfBHwkNCN57/AHGyNPxuonI7JTFO7hX+z9S4xaNPlpGYUW9RritYLGuJaRoRaMflmy/TSe/8WgkLEVqt3KlitPVaLbm826NJ8lVtuVIou3FM0NHrV5jU1E8Q9zHMnVX1GcT2nOGEDwCPaKREoaNRLt3f/9k=',
+  schools: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABUOEBIQDRUSERIYFhUZHzQiHx0dH0AuMCY0TENQT0tDSUhUXnlmVFlyWkhJaY9qcnyAh4iHUWWUn5ODnXmEh4L/2wBDARYYGB8cHz4iIj6CVklWgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoL/wAARCAApADADASIAAhEBAxEB/8QAGgAAAwEBAQEAAAAAAAAAAAAAAAEEBQIDBv/EACwQAAIBAwMCBQIHAAAAAAAAAAECAwAEERIhMUGRBSIyUWETcUJigaGx0fD/xAAXAQEBAQEAAAAAAAAAAAAAAAADAgAB/8QAHREAAgIDAQEBAAAAAAAAAAAAAAECERIhMWETQf/aAAwDAQACEQMRAD8A+QxVdtZNKNblUjyMknBx8e9KyhR9ckh8qDgDcnpVEsrO3AAB2UDYb9KOUnxDQgus6C2cICiITHPLHHt7GjFpKukwiL8ytk/uacNvrw8jLHHkAswPx8U5bcaS8DLJGDgsoJxz8Ud+i14SXNkY1+ohDx74IO4+46VIR/FaUUrRPwCOoI2O45qe9hRAskZ8rj0kbg0kZPjCnFdRza3DQOSN1IwykZBrXitIZnMsTuYsajgDbfj71g96ssL+S0cjdom2ZCdiK5OLe0aE60zuWSS/uUgiwqg4RcAd+1JGm8OuTE+GH4l5BH+NUNYyu63Hhut1Y58vqQ7ZB70hZTa2uPES6KvJflttgKi1VfhVO/Sue0gjRbl3IhYasYGehxWLdXBmbqqAeVRwK9b29e5YKMrEvoQHYCoz+vFXCLW2TOd6QU+1c0UoJs+DXUMY+lKQuZVbUSMYHI4o8Yu4pUSFCrFSW1LjGCBtxWQKDRfNZWLm8aDtxS/qlRShH//Z',
+  partners: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABUOEBIQDRUSERIYFhUZHzQiHx0dH0AuMCY0TENQT0tDSUhUXnlmVFlyWkhJaY9qcnyAh4iHUWWUn5ODnXmEh4L/2wBDARYYGB8cHz4iIj6CVklWgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoL/wAARCAAwAC0DASIAAhEBAxEB/8QAGQABAAMBAQAAAAAAAAAAAAAABAABBQIG/8QALxAAAQMDAwIEAwkAAAAAAAAAAQIDEQAEEiExQSKRBRNRYVJx8CMyNUNygbLB8f/EABUBAQEAAAAAAAAAAAAAAAAAAAMC/8QAGxEBAQEBAAMBAAAAAAAAAAAAAQARAgMSQSH/2gAMAwEAAhEDEQA/APId6netG1sbdy1S8/ceVkvEAJn096PcWi2AlSsSlc4woGoOxcr9HNjcc7VO9dYmNuKvAztzVbTlx3qd60G7BpCQq7eDQUOnHqJ+eulHvWE29ytpKsgmNfWpOxcKnhDWWqT4Kzr+cePYVoK+xcShuMbdshWSQdSJoFlfWzVs22+04stuZiCIO1LtrlTlvPldSlQVK1z30+fFB0M/CXTT2TQuLny0oBJQA2ATtr777Uth5q4QopwkGClTaQRtxR7a3YelRzJbJBbUqQk6cRVXBaQ8pbRKXUmFngfqEa0bi5IRfEm4aaWSSpCy0TG4H+0Xxj8Sdkztx7Up2+b899u6YXiTolJEpM7/ADrPvX03F0t1AUEqiMjrT8Dv7D2kbtTLC9VaucFtR6knkRH90Orn6ilQTGEcdttJaUhDzLwCW/vOmAqPhCZ1GtHf8RCW0pt+k/wHwj1HNZkmP2qTUHjPtb5H5QmTxVdqlT62pI7/2Q==',
+};
+function Icon({ kind }: { kind: keyof typeof suppliedLedArt }) {
+  return <img src={suppliedLedArt[kind]} width={34} height={34} alt="" aria-hidden="true" style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 0, flexShrink: 0 }} />;
 }
 export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number | null }) {
   const [index, setIndex] = useState(0);
