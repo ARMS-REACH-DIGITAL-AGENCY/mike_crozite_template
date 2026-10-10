@@ -44,3 +44,10 @@ This document is a handoff for any agent. Verify live code before edits, avoid s
 2. Make smallest changes in this preview branch, grouped into independently verifiable commits.
 3. Verify with preview/browser/screenshots when available; mark checklist done only with evidence.
 4. Never merge or deploy production without explicit Pete approval.
+
+## Branch incident and guardrails (2026-10-10)
+- **Incident:** The initial documentation branch `chore/oct10-punch-list-and-quick-fixes` was mistakenly created from `Easter-NEWS`, an older layout baseline. Quick-fix commits were then mistakenly made there. A preview from that branch showed regressed banner/footer elements. This was a branch-baseline error, not a deliberate revert.
+- **Recovery:** The quick fixes were **reapplied independently**, not merged or cherry-picked, on `fix/oct10-quick-fixes-from-gallery-led`, based on `feature/gallery-led-icons-oct10`. The correct branch retains `src/components/yatstats/shell/ClubhouseFooter.tsx` and the ticker.
+- **Verification:** GitHub compare `feature/gallery-led-icons-oct10...fix/oct10-quick-fixes-from-gallery-led` reports seven commits ahead, zero behind, modifying only this punch list and six intended code files. The wrong `chore` branch remains in GitHub; **DO NOT deploy or merge it**. It is obsolete and should be deleted when branch-deletion access is available.
+- **Mandatory preflight for every agent:** Confirm the agreed base branch, compare against it, check the footer ticker and ad layout exist, and verify Vercel preview branch/commit before presenting a preview. Never silently switch to `Easter-NEWS` or another branch. Never claim visual QA until verified.
+- **Current work branch:** `fix/oct10-quick-fixes-from-gallery-led`; **production branch:** `Easter-NEWS` (no merge authorized). No production deployment or merge was performed for these fixes.
