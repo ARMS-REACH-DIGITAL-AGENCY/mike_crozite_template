@@ -194,6 +194,24 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active { color:#fff !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; position:absolute !important; left:22% !important; right:22% !important; top:0 !important; height:3px !important; border-radius:0 0 2px 2px; background:#d2b45c !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i { color:#d2b45c !important; }
+    /* Stationary Fantasy ticker-style dot matrix and illuminated amber Fun Zone controls. */
+    body .pp-fz-dock {
+      background-color:#070503 !important;
+      background-image:radial-gradient(rgba(255,160,40,.24) 1.2px, transparent 1.8px) !important;
+      background-size:4px 4px !important;
+      border-top-color:#513016 !important;
+    }
+    body .pp-fz-dock .pp-fz-tab,
+    body .pp-fz-dock .pp-fz-tab:hover,
+    body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active {
+      color:#ffad46 !important;
+      text-shadow:0 0 4px rgba(255,142,35,.75),0 0 11px rgba(255,120,20,.4);
+    }
+    body .pp-fz-dock .pp-fz-tab i,
+    body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i {
+      color:#ffad46 !important;
+      filter:drop-shadow(0 0 3px rgba(255,157,46,.9)) drop-shadow(0 0 7px rgba(255,105,12,.5));
+    }
     @media (max-width:760px) { :root { --pp-dock-h:var(--yat-dock-h,62px); } }
   `}</style></>;
 }
