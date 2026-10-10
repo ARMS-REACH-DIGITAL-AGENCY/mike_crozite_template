@@ -82,7 +82,7 @@ function applyTheme(theme: 'light' | 'dark') {
 const SECTION_LABELS: Record<string, string> = {
   active: 'ACTIVE BASEBALL ALUMNI',
   news: 'ACTIVE ALUMNI NEWS',
-  alltime: 'NEXT-LEVEL ALL-TIME LIST',
+  alltime: 'ALL-TIME NEXT-LEVEL LIST',
   current: highSchoolTeamLabel(),
   fantasy: 'FANTASY BRACKET TOURNEY',
   mentor: 'CONNECT & CONTRIBUTE PORTAL',
