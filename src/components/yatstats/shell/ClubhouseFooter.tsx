@@ -21,11 +21,6 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
   const school = useContext(SchoolContext);
   const schoolName = school?.hsName?.trim() || 'YOUR SCHOOL';
   const schoolLocation = school?.hsLocation?.trim() || 'YOUR COMMUNITY';
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => setIndex(current => (current + 1) % 2), 5000);
-    return () => clearInterval(interval);
-  }, []);
   const [tickerPaused, setTickerPaused] = useState(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
