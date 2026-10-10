@@ -551,7 +551,6 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
           </li>
         ))}</ol>
       </div>
-      <button type="button" className="yfp-lb-rules" onClick={onRules}>Rules · how it&apos;s scored</button>
     </aside>
   );
 }
