@@ -443,10 +443,12 @@ export default function InteractionStrip({
       `}</style>
 
       <style jsx global>{`
+        /* Give the first active-alumni card the same top breathing room as subsequent cards. */
+        #sec-active { border-top:16px solid transparent; }
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
         .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:84px; min-height:84px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; gap:3px; align-items:center; padding:4px 0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; gap:3px; align-items:center; padding:4px 0 4px 54px; box-sizing:border-box; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
           flex:0 0 64px; width:64px; min-width:64px; height:73px; display:flex;
           flex-direction:column; align-items:center; justify-content:center;
@@ -480,8 +482,8 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
         /* Fade the full portrait and label near either edge, like the ticker. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner {
-          -webkit-mask-image:linear-gradient(to right,transparent 0%,black 13%,black 87%,transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0%,black 13%,black 87%,transparent 100%);
+          -webkit-mask-image:linear-gradient(to right,black 0%,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,black 0%,black 87%,transparent 100%);
         }
         /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
