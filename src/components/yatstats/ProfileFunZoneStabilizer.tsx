@@ -151,7 +151,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
             {DOCK_TABS.map((tab) => (
               <a key={tab.id} href={`#${tab.id}`} className="pp-fz-tab">
                 <i className={tab.icon} aria-hidden="true" />
-                <span>{tab.label}</span>
+                <span className={tickerDateFont.className}>{tab.label}</span>
               </a>
             ))}
           </nav>
@@ -229,6 +229,37 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       -webkit-text-fill-color:currentColor !important;
       filter:none !important;
       text-shadow:0 0 3px rgba(255,110,20,.9) !important;
+    }
+    /* LED icon artwork: render actual illuminated pixel dots INSIDE each
+       Remixicon glyph, instead of placing a solid icon above the ticker. */
+    body .pp-fz-dock .pp-fz-tab i {
+      color:transparent !important;
+      filter:none !important;
+      font-size:24px !important;
+    }
+    body .pp-fz-dock .pp-fz-tab i::before {
+      color:transparent !important;
+      background-image:radial-gradient(circle, #ffb238 0 45%, rgba(255,178,56,.28) 54%, transparent 73%) !important;
+      background-size:3px 3px !important;
+      background-repeat:repeat !important;
+      -webkit-background-clip:text !important;
+      background-clip:text !important;
+      -webkit-text-fill-color:transparent !important;
+      filter:drop-shadow(0 0 2px rgba(255,166,39,.55)) !important;
+    }
+    /* Apply the exact Doto font class directly, never inherit Archivo/Oswald.
+       Allow the complete label to show rather than truncating Game Log/Connect. */
+    body .pp-fz-dock .pp-fz-tab span {
+      font-family:inherit !important;
+      font-size:11px !important;
+      font-weight:700 !important;
+      letter-spacing:0 !important;
+      text-transform:uppercase !important;
+      overflow:visible !important;
+      text-overflow:clip !important;
+      white-space:nowrap !important;
+      max-width:none !important;
+      flex-shrink:0 !important;
     }
     @media (max-width:760px) { :root { --pp-dock-h:var(--yat-dock-h,62px); } }
   `}</style></>;
