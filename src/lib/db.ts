@@ -24,13 +24,15 @@ import 'server-only';
 
 const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
-  // 10 per server instance (was 5): with 5, a couple of slow queries held
-  // every connection and the rest of the page's queries timed out waiting
-  // ("timeout exceeded when trying to connect": 968 errors in one
-  // afternoon). The Neon pooler endpoint takes far more than this.
-  max: Number(process.env.PG_POOL_MAX || 10),
+  // Serverless functions can scale horizontally: a pool is created per
+  // instance, not per deployment. Keep each instance's connection footprint
+  // small to avoid exhausting the shared Neon compute under burst traffic.
+  // PG_POOL_MAX remains available for deliberate capacity tuning.
+  max: Number(process.env.PG_POOL_MAX || 3),
   idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 5000,
+  // Allow cold compute starts and short pool queues without turning
+  // transient contention into false "school not found" results.
+  connectionTimeoutMillis: 15000,
   ssl: { rejectUnauthorized: false },
 });
 
