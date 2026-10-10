@@ -134,20 +134,6 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
     return () => ro.disconnect();
   }, [groups, reps]);
 
-  const spot = group && (
-    sponsor ? (
-      <a key={`s${group.region}:${group.label}`} className="ybt-spot" href={sponsor.destinationUrl} target="_blank" rel="noopener noreferrer sponsored"
-        aria-label={`${group.label} brought to you by ${sponsor.sponsorName}`}
-        data-sponsor-id={sponsor.id} data-sponsor-name={sponsor.sponsorName}>
-        <span className="ybt-spot-line"><b className="ybt-spot-k">{group.label}</b> <span className="ybt-spot-by">brought to you by</span></span>
-        {' '}<b className="ybt-spot-name">{sponsor.sponsorName}</b>
-      </a>
-    ) : (
-      <div key={`s${group.region}:${group.label}`} className="ybt-spot">
-        <span className="ybt-spot-line"><b className="ybt-spot-k">{group.label}</b></span>
-      </div>
-    )
-  );
   // A tap on the region box moves straight on to the next region.
   const box = group && (
     <button key={`b${group.region}:${group.label}`} type="button" className="ybt-box" onClick={() => setTurn((t) => t + 1)}
@@ -191,19 +177,12 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
       {/* Global: the items are built outside the render tree styled-jsx scopes; every class is ybt-prefixed. */}
       <style jsx global>{`
         .ybt-footer-stack { position:relative; height:100%; min-height:0; display:flex; flex-direction:column; }
-        .ybt-facts { flex:0 0 var(--ybt-facts-h); min-height:0; display:flex; align-items:center; padding:0 8px 0 clamp(116px, 15vw, 190px); background:var(--bg); color:var(--fg); }
-        .ybt-facts .ybt-spot { width:auto; flex:1; background:transparent; padding:0; color:var(--fg); }
-        .ybt-facts .ybt-spot-k,.ybt-facts .ybt-spot-name { color:var(--fg); font-size:clamp(10px,1.5vw,14px); }
-        .ybt-facts .ybt-spot-by { color:var(--muted); font-size:10px; }
-        .ybt-raffle { position:absolute; z-index:5; bottom:0; left:3px; height:calc(var(--ybt-facts-h) + var(--footerH,56px) - 2px); width:clamp(112px,14vw,180px); border:0; background:transparent; cursor:pointer; padding:0; text-align:left; }
-        .ybt-raffle img { position:absolute; bottom:0; left:0; height:100%; max-width:68%; object-fit:contain; object-position:bottom left; filter:drop-shadow(0 3px 4px #0009); }
-        .ybt-raffle span { position:absolute; bottom:15%; left:32%; color:white; font:900 clamp(9px,1.3vw,14px)/.94 Arial,sans-serif; -webkit-text-stroke:.6px #000; text-shadow:1px 2px 2px #000; }
         .ybt { position:relative; flex:1 1 auto; min-height:0; align-self:stretch; width:100%; display:flex; overflow:hidden;
           background-color:#070503;
           background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px);
           background-size:4px 4px;
           border-top:1px solid #1d1408; }
-        /* No hard edges: the crawl fades out as it reaches the sponsor spot
+        /* No hard edges: the crawl fades at the edges
            and fades in from the region box. */
         .ybt-lane { position:relative; flex:1 1 auto; min-width:0; overflow:hidden; display:flex; align-items:center;
           -webkit-mask-image:linear-gradient(to right, transparent 0, #000 72px, #000 calc(100% - 40px), transparent 100%);
@@ -220,7 +199,6 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         .ybt-copy { display:flex; align-items:center; flex:none; }
         @keyframes ybt-crawl { from { transform:translateX(0); } to { transform:translateX(calc(-1 * var(--ybt-copy, 0px))); } }
         @keyframes ybt-in { from { opacity:0; } to { opacity:1; } }
-        .ybt-spot, .ybt-box { animation:ybt-in .9s ease both; }
         .ybt-item { display:inline-flex; align-items:center; gap:10px; padding:0 22px; color:#ffb238;
           text-shadow:0 0 3px rgba(255,170,40,.9), 0 0 10px rgba(255,120,0,.55); }
         .ybt-item { border-right:2px dotted rgba(255,160,40,.35); }
@@ -232,17 +210,9 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         .ybt-lead { color:#fff3c4; text-shadow:0 0 3px rgba(255,230,160,.95), 0 0 12px rgba(255,190,60,.7); }
         .ybt-msg { padding:0 16px; font-size:20px; font-weight:900; letter-spacing:.06em; color:#ffb238;
           text-shadow:0 0 3px rgba(255,170,40,.9), 0 0 10px rgba(255,120,0,.55); white-space:nowrap; }
-        /* The sponsor spot: pinned left, above the crawl, wider on wider
-           screens - one line when it fits, two when it doesn't. */
-        .ybt-spot { position:relative; z-index:2; flex:none; width:clamp(240px, 27vw, 560px); display:flex; flex-wrap:wrap; align-content:center; align-items:baseline; column-gap:8px; row-gap:1px;
+        
           padding:0 16px; background:#0b0805;
           color:#ffb238; text-decoration:none; font-family:Oswald,sans-serif; }
-        .ybt-spot-line { display:inline-flex; align-items:baseline; gap:7px; white-space:nowrap; }
-        .ybt-spot-k { font-size:16px; font-weight:700; letter-spacing:.06em; line-height:1.1; color:#ffb238; text-transform:uppercase; }
-        .ybt-spot-by { font-size:12px; font-weight:400; letter-spacing:.03em; line-height:1.1; color:rgba(255,255,255,.7); }
-        .ybt-spot-name { font-size:16px; font-weight:700; letter-spacing:.03em; line-height:1.1; color:#fff; text-transform:uppercase; }
-        a.ybt-spot:hover .ybt-spot-name, a.ybt-spot:focus-visible .ybt-spot-name { text-decoration:underline; }
-        a.ybt-spot:focus-visible { outline:2px solid #ffb238; outline-offset:-2px; }
         /* The region box: pinned right, a fixed size; the games come out
            from under it. */
         .ybt-box { position:relative; z-index:2; flex:none; width:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:0; border:0; cursor:pointer; color:inherit;
@@ -250,13 +220,6 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         .ybt-box-k { font-size:10px; font-weight:700; letter-spacing:.16em; line-height:1; color:rgba(255,255,255,.7); }
         .ybt-box-v { font-size:36px; font-weight:700; line-height:.9; color:#ffb238; text-shadow:0 0 3px rgba(255,170,40,.8), 0 0 12px rgba(255,120,0,.45); }
         @media (max-width:640px) {
-          .ybt-facts { padding-left:118px; }
-          .ybt-spot { width:150px; padding:0 8px; column-gap:5px; }
-          .ybt-facts .ybt-spot { width:auto; padding:0; }
-          .ybt-spot-line { gap:4px; }
-          .ybt-spot-k { font-size:11px; }
-          .ybt-spot-by { font-size:8.5px; }
-          .ybt-spot-name { font-size:11px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
           .ybt-box { width:58px; }
           .ybt-box-k { font-size:7.5px; letter-spacing:.1em; }
           .ybt-box-v { font-size:26px; }
@@ -267,7 +230,6 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
         }
         @media (prefers-reduced-motion: reduce) {
           .ybt-track { animation:none !important; transition:none !important; }
-          .ybt-spot, .ybt-box { animation:none; }
         }
       `}</style>
     </div>
