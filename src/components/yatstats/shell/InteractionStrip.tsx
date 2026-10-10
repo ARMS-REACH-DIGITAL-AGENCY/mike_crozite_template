@@ -112,12 +112,9 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   // Position the selected card immediately below the sticky alumni strip, not below a prior card.
   const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
   const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
-  // Align the strip's lower edge halfway through the gap preceding the card.
-  const previousCard = (wrapper || target).previousElementSibling as HTMLElement | null;
+  // Place the selected card's top flush beneath the sticky headshot strip.
   const cardTop = (wrapper || target).getBoundingClientRect().top;
-  const previousBottom = previousCard?.getBoundingClientRect().bottom ?? cardTop;
-  const gap = Math.max(0, Math.min(60, cardTop - previousBottom));
-  const offset = Math.max(0, stripBottom) + Math.max(4, gap / 2);
+  const offset = Math.max(0, stripBottom) + 2;
   const top = window.scrollY + cardTop - offset;
   window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
 }
