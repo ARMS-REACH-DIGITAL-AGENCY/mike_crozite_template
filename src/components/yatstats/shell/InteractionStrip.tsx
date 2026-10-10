@@ -443,8 +443,8 @@ export default function InteractionStrip({
       `}</style>
 
       <style jsx global>{`
-        /* Give the first active-alumni card the same top breathing room as subsequent cards. */
-        #sec-active { border-top:16px solid transparent; }
+        /* Give the first card in both alumni galleries a consistent 8px initial cushion. */
+        #sec-active, #sec-alltime { border-top:8px solid transparent; }
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
         .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:84px; min-height:84px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
@@ -493,19 +493,19 @@ export default function InteractionStrip({
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
           background:rgba(255,255,255,.25); color:#555;
         }
-        /* The selected portrait rises into the original baseline; resting portraits sit lower. */
+        /* The selected portrait drops slightly instead of rising into the top crop. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { transform:translateY(0); transition:transform .18s ease; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
-        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(-3px); }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(3px); }
         /* Animate the portrait itself as well: older gallery-slot transforms can
-           be overridden by global styles, leaving no visible selected lift. */
+           be overridden by global styles, leaving no visible selected movement. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
           transform:translateY(0); transition:transform .18s ease;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-media,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-media {
-          transform:translateY(-5px);
+          transform:translateY(3px);
         }
 
 
