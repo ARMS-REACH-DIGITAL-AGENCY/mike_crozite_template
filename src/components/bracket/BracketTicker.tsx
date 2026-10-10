@@ -203,7 +203,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
       {box}
       {/* Global: the items are built outside the render tree styled-jsx scopes; every class is ybt-prefixed. */}
       <style jsx global>{`
-        .ybt-footer-stack { --ybt-facts-h:calc(104px / 3); position:relative; height:100%; display:flex; flex-direction:column; }
+        .ybt-footer-stack { position:relative; height:100%; min-height:0; display:flex; flex-direction:column; }
         .ybt-facts { flex:0 0 var(--ybt-facts-h); min-height:0; display:flex; align-items:center; padding:0 8px 0 clamp(116px, 15vw, 190px); background:var(--bg); color:var(--fg); }
         .ybt-facts .ybt-spot { width:auto; flex:1; background:transparent; padding:0; color:var(--fg); }
         .ybt-facts .ybt-spot-k,.ybt-facts .ybt-spot-name { color:var(--fg); font-size:clamp(10px,1.5vw,14px); }
