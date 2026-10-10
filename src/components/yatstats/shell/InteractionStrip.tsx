@@ -251,9 +251,15 @@ export default function InteractionStrip({
         const section = getCurrentSection();
         setActiveSection(section);
 
-        const nextPlayers = PLAYER_GALLERY_SECTIONS.has(section)
-          ? readPlayersFromVisibleBlockFive(section, playersById)
-          : fallbackPlayersForSection(section, players);
+        // Alumni News uses the same active-alumni headshots as the flip-card
+        // gallery, but as filters. Resolve its roster from the active gallery
+        // first so client-side navigation doesn't depend on a news-only list
+        // that may not be populated until a full refresh.
+        const nextPlayers = section === 'news'
+          ? readPlayersFromVisibleBlockFive('active', playersById)
+          : PLAYER_GALLERY_SECTIONS.has(section)
+            ? readPlayersFromVisibleBlockFive(section, playersById)
+            : fallbackPlayersForSection(section, players);
 
         const resolvedPlayers = nextPlayers.length
           ? nextPlayers
