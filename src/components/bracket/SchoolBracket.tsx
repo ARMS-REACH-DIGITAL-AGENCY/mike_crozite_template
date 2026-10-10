@@ -221,7 +221,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       title={`Round ${round} · Game ${gameNo}`}
       subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}#sec-fantasy`}
+      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&fantasyDays=${card.days}&fantasyStatus=${encodeURIComponent(card.state === 'final' ? 'END 9' : `BOT ${Math.max(1, Math.min(9, card.days + 1))}`)}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />
   ) : null;
