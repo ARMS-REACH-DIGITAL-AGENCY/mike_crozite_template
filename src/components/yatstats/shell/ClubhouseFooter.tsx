@@ -4,7 +4,7 @@ import { Doto } from 'next/font/google';
 
 const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Message = { text: string; kind: 'clubhouse' | 'player' | 'sponsor' | 'tournament'; image?: string };
 const messages: Message[] = [
@@ -26,6 +26,13 @@ function Icon({ kind }: { kind: 'fans' | 'players' | 'coaches' | 'partners' | 'f
 export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number | null }) {
   const [index, setIndex] = useState(0);
   const [tickerPaused, setTickerPaused] = useState(false);
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
+  const pauseTicker = () => {
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    setTickerPaused(true);
+    resumeTimer.current = setTimeout(() => { setTickerPaused(false); resumeTimer.current = null; }, 5000);
+  };
   const message = messages[index];
   const nav = [
     { label: 'FANS', kind: 'fans' as const, href: '/#fans' },
@@ -61,7 +68,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       }
       .yat-clubhouse-lane {
         position:relative; width:100%; height:100%; overflow:hidden;
-        -webkit-mask-image:linear-gradient(to right, transparent 0, #000 100px, #000 calc(100% - 35px), transparent 100%);
+        -webkit-mask-image:linear-gradient(to right, transparent 0, #000 135px, #000 calc(100% - 35px), transparent 100%);
         mask-image:linear-gradient(to right, transparent 0, #000 100px, #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
@@ -74,14 +81,6 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         will-change:transform;
       }
       .yat-clubhouse-marquee[data-paused='true'] {animation-play-state:paused !important;}
-      .yat-clubhouse-toggle {
-        position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:3;
-        width:27px;height:32px;display:flex;align-items:center;justify-content:center;
-        border:1px solid rgba(255,178,56,.45);border-radius:6px;
-        background:#0b0805;color:#ffb238;cursor:pointer;
-        font:700 15px/1 Arial,sans-serif;
-      }
-      .yat-clubhouse-toggle:focus-visible {outline:2px solid #ffb238;outline-offset:2px;}
       .yat-clubhouse-copy {display:flex;align-items:center;flex:none;gap:24px;height:100%;padding:0 24px;}
       .yat-clubhouse-nav .yat-clubhouse-intro {
         display:flex !important;align-items:center;flex:none !important;width:auto !important;
@@ -120,7 +119,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       }
     `}</style>
     <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS">
-      <div className="yat-clubhouse-lane">
+      <div className="yat-clubhouse-lane" onTouchStart={pauseTicker} onMouseDown={pauseTicker}>
       <div className={`yat-clubhouse-marquee ${tickerDateFont.className}`} data-paused={tickerPaused}>
         {[0,1].map(copy => <div className="yat-clubhouse-copy" key={copy} aria-hidden={copy === 1 ? true : undefined}>
           <a className="yat-clubhouse-intro" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}>
@@ -133,7 +132,6 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         </div>)}
       </div>
       </div>
-      <button className="yat-clubhouse-toggle" type="button" aria-label={tickerPaused ? 'Resume ticker' : 'Pause ticker'} aria-pressed={tickerPaused} onClick={() => setTickerPaused(v => !v)}>{tickerPaused ? '▶' : 'Ⅱ'}</button>
     </nav>
   </div>;
 }
