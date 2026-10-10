@@ -63,7 +63,21 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         color:#ffb238 !important;
         filter:drop-shadow(0 0 2px rgba(255,170,40,.48));
       }
-      .yat-clubhouse-nav a small { color:#ff7a1a !important; font:700 11px/1 Oswald,sans-serif !important; letter-spacing:.04em; text-shadow:0 0 3px rgba(255,110,20,.5); }
+      /* Static LED scoreboard lettering: amber pixels clipped to the label glyphs. */
+      .yat-clubhouse-nav a small {
+        color:#ffb238 !important;
+        font:900 clamp(11px,2.5vw,14px)/1 Oswald,sans-serif !important;
+        letter-spacing:.07em !important;
+        text-transform:uppercase !important;
+        background-image:radial-gradient(circle, #ffb238 0 44%, rgba(255,178,56,.22) 56%, transparent 73%);
+        background-size:3px 3px;
+        background-repeat:repeat;
+        -webkit-background-clip:text;
+        background-clip:text;
+        -webkit-text-fill-color:transparent;
+        filter:drop-shadow(0 0 2px rgba(255,160,40,.55));
+        text-shadow:none !important;
+      }
     `}</style>
     <nav className="yat-clubhouse-nav" aria-label="Explore YAT?STATS" >
       <span aria-hidden="true" className="yat-clubhouse-nav-spacer" />
