@@ -86,6 +86,15 @@ function isCardVisible(card: HTMLElement): boolean {
     && (!wrapper || (!wrapper.hidden && wrapper.style.display !== 'none'));
 }
 
+function row3AnchorBottom(): number {
+  const row3 = document.querySelector<HTMLElement>('.yat-row3-shell');
+  if (!row3) return 0;
+  // During a click the sticky row may still be in its original flow position.
+  // Its eventual sticky bottom is its CSS top offset plus its own height.
+  const stickyTop = parseFloat(window.getComputedStyle(row3).top) || 0;
+  return stickyTop + row3.getBoundingClientRect().height;
+}
+
 function scrollToPlayerCard(playerId: string, sectionKey: string) {
   if (typeof document === 'undefined') return;
 
@@ -109,14 +118,10 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   target.style.display = '';
   target.hidden = false;
   target.classList.remove('is-hidden');
-  // Position the selected card immediately below the sticky alumni strip, not below a prior card.
-  const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
-  const stripBottom = strip?.getBoundingClientRect().bottom ?? 0;
-  // Place the selected card's top flush beneath the sticky headshot strip.
+  // Use the row's sticky destination, not its current screen position.
   const cardTop = target.getBoundingClientRect().top;
-  const offset = Math.max(0, stripBottom) - 3;
-  const top = window.scrollY + cardTop - offset;
-  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  const top = window.scrollY + cardTop - row3AnchorBottom() - 8;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
 }
 
 function fallbackPlayersForSection(section: string, players: Player[]): Player[] {
