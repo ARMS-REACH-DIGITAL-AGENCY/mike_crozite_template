@@ -184,6 +184,7 @@ export default function SharedShell({
 
       {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
         <div className="yat-unified-footer">
+          <div className="yat-unified-footer-art" aria-hidden="true" />
           <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} />
           <div className="yat-unified-footer-ticker">
             {activeSection === 'fantasy'
@@ -192,7 +193,9 @@ export default function SharedShell({
           </div>
         </div>
         <style jsx global>{`
-          .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0}
+          .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
+          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:clamp(64px,10vw,110px);height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
+          @media(max-width:640px){.yat-unified-footer-art{width:clamp(55px,12vw,76px);height:calc(100% + 12px)}}
           .yat-unified-footer-ticker{flex:1;min-height:0;width:100%;position:relative}
           .yat-unified-footer-ticker .yat-clubhouse,.yat-unified-footer-ticker .ybt-footer-stack{height:100%;width:100%}
           .yat-unified-footer-ticker .yat-clubhouse-nav{height:100%}
