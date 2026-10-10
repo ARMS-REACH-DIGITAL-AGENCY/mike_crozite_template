@@ -18,9 +18,9 @@ function Icon({ kind }: { kind: 'fans' | 'players' | 'schools' | 'partners' }) {
   // rather than outlined strokes floating above the scoreboard.
   const id = `clubhouse-led-${kind}`;
   const shapes: Record<typeof kind, React.ReactNode> = {
-    fans: <><path d="M3 10 L16 2 L29 10 L25 15 L20 18 L18 23 L21 28 L16 30 L11 28 L14 23 L12 18 L7 15 Z"/><path d="M11 15 Q16 9 21 15 L19 21 L13 21 Z" fill="black"/><circle cx="16" cy="23" r="2" fill="black"/></>,
+    fans: <><rect x="4" y="2" width="2.5" height="28" rx="1"/><path d="M8 5 L10 5 L10 8 L13 8 L13 10 L17 10 L17 12 L21 12 L21 14 L26 14 L29 16 L24 19 L19 21 L14 23 L9 24 L8 24 Z"/></>,
     players: <><rect x="5" y="2" width="2.5" height="28" rx="1"/><path d="M10 7 L13 8 L13 11 L18 12 L22 14 L29 16 L22 19 L18 21 L12 23 L10 23 Z"/></>,
-    schools: <><path d="M3 22 L23 2 L26 5 L11 20 L22 18 L27 20 L29 27 L20 29 L13 27 L8 24 L3 25 Z"/><path d="M19 10 L24 10 L28 14 L26 18 L20 18 L17 15 Z"/></>,
+    schools: <><path d="M16 2 L30 16 L16 30 L2 16 Z"/><path d="M16 8 L24 16 L16 24 L8 16 Z" fill="black"/><circle cx="16" cy="16" r="2"/><path d="M2 16 L16 30 L30 16" fill="none" stroke="url(#clubhouse-led-schools)" strokeWidth="2"/></>,
     partners: <><path d="M2 9 L7 7 L12 10 L17 8 L22 10 L27 7 L30 10 L30 20 L25 20 L21 24 L17 27 L14 25 L11 27 L8 24 L4 22 L2 20 Z"/><path d="M9 15 L13 13 L17 16 L21 14 L24 17 L21 21 L17 20 L14 23 L11 20 Z" fill="black"/></>,
   };
   return <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true" focusable="false">
