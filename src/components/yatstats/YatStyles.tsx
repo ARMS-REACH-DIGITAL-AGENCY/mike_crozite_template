@@ -812,12 +812,12 @@ export default function YatStyles() {
       .yat-empty-sub{font:300 12px/1.5 Oswald,sans-serif;margin-top:6px}
       .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:#020a13;border-top:1px solid rgba(255,255,255,.18);z-index:40;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
       /* Shared six-slot dock: same height and icon proportions as player Fun Zone. */
-      :root{--yat-dock-h:var(--footerH);--yat-facts-h:48px}
+      :root{--yat-dock-h:var(--footerH);--yat-facts-h:32px}
       .yat-visual-row4-gallery{padding-top:0}
       .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
       .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui);display:flex;flex-direction:column}
       .yat-clubhouse-facts{box-sizing:border-box;flex:0 0 var(--yat-facts-h);min-height:0;background:var(--bg);display:flex;align-items:flex-end;gap:10px;padding:3px 12px 4px clamp(74px,13vw,155px);border:0}
-      .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(64px,12vw,145px);height:calc(var(--yat-facts-h) + var(--yat-dock-h));display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
+      .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(64px,12vw,145px);height:calc(var(--yat-facts-h) + var(--yat-dock-h) - 2px);display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
       .yat-clubhouse-hero img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:bottom}
       .yat-clubhouse-message{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
       .yat-clubhouse-message>span{font:600 clamp(11px,1.5vw,15px)/1.25 var(--yat-font-ui);white-space:normal;overflow-wrap:anywhere}
@@ -831,7 +831,7 @@ export default function YatStyles() {
       .yat-clubhouse-nav svg{width:20px;height:20px;flex:none;stroke-width:1.8}
       .yat-clubhouse-nav small{font:700 clamp(9px,2.5vw,11px)/1 var(--yat-font-ui);letter-spacing:0}
       @media(max-width:640px){
-        :root{--yat-facts-h:52px}
+        :root{--yat-facts-h:calc(104px / 3)}
         .yat-clubhouse-facts{padding:2px 6px 4px 72px;gap:4px}
         .yat-clubhouse-hero{width:68px}
         .yat-clubhouse-message{gap:3px;align-items:center}
