@@ -87,9 +87,9 @@ function isCardVisible(card: HTMLElement): boolean {
 }
 
 function alignPlayerBelowRow3(card: HTMLElement): void {
-  // Mobile rows 1-3 occupy 166px total (34 + 48 + 84).
-  // Put the selected flip card's top edge at viewport Y=166.
-  const targetY = 166;
+  // Mobile rows 1-3 occupy 166px total (34 + 48 + 84); temporary diagnostic target is Y=300.
+  // Put the selected flip card's top edge at viewport Y=300.
+  const targetY = 300;
   const position = () => {
     const delta = card.getBoundingClientRect().top - targetY;
     if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
