@@ -465,27 +465,8 @@ if(closeBtn){
     card.classList.toggle('is-flipped');
   });
 
-  document.addEventListener('click',function(e){
-    var slot=e.target.closest('.gallery-slot-link[data-playerid]');
-    if(!slot)return;
-    var pid=slot.dataset.playerid;
-    if(!pid)return;
-    e.preventDefault();
-    
-    var secActive=document.getElementById('sec-active');
-    var secAlltime=document.getElementById('sec-alltime');
-    var secNews=document.getElementById('sec-news');
-    
-    if(secNews && secNews.classList.contains('visible')){
-      // NEWS PAGE BEHAVIOR: Filter block-five news cards by the clicked player.
-      activeNewsPlayerId = activeNewsPlayerId === pid ? '' : pid;
-      document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(otherSlot){
-        otherSlot.classList.toggle('active-news-player-filter', activeNewsPlayerId !== '' && otherSlot.getAttribute('data-playerid') === activeNewsPlayerId);
-      });
-      applyNewsFilters();
-      scrollToContentTop(newsContainer);
-      return;
-    }
+  // Row 3 headshot clicks are owned by InteractionStrip/Row3MirrorGuard.
+  // Do not add a second delegated scroll/filter handler here.
 
     var visibleSection=(secAlltime&&secAlltime.classList.contains('visible'))
       ? secAlltime
