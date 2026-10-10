@@ -1347,7 +1347,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
       cb.rbi,
       cb.sb,
       CASE
-        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::int >= lbl.stat_year::int)
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::numeric >= lbl.stat_year::numeric)
         THEN cp.bb
         ELSE cb.bb
       END AS bb,
@@ -1377,7 +1377,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
 
       CASE WHEN a26.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
       CASE
-        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::int >= lbl.stat_year::int)
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::numeric >= lbl.stat_year::numeric)
         THEN true
         ELSE false
       END AS is_pitcher
