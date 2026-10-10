@@ -43,7 +43,7 @@ export default function PageMessageStrip({
     const image = active?.image_url || '';
     if (image) element.style.setProperty('--yat-footer-campaign-image', `url("${image.replaceAll('"', '%22')}")`);
     else element.style.removeProperty('--yat-footer-campaign-image');
-    return () => element.style.removeProperty('--yat-footer-campaign-image');
+    return () => { element.style.removeProperty('--yat-footer-campaign-image'); };
   }, [active?.image_url]);
   return <div className="yat-page-message-strip" aria-label="Community messages">
     <div className="yat-page-message-hero-space" aria-hidden="true" />
