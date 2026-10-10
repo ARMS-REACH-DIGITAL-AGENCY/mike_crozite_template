@@ -71,8 +71,12 @@ export default function DrawerLayoutOverrides() {
       }
 
 
-      body:not(.yat-left-search-mode) #drawerLeft { width: min(76vw, 310px) !important; max-width: 310px !important; }
-      @media (max-width: 779px) { body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
+      body:not(.yat-left-search-mode) #drawerLeft { width: min(86vw, var(--yat-side-drawer-w)) !important; max-width: var(--yat-side-drawer-w) !important; }
+      /* Matching translucent surfaces for both themes and every drawer. */
+      #drawerSort, #drawerFilters, #drawerFavorites, #drawerAccount { background:rgba(6,6,6,.70)!important; backdrop-filter:blur(4px)!important; -webkit-backdrop-filter:blur(4px)!important; }
+      body.light-theme #drawerSort, body.light-theme #drawerFilters, body.light-theme #drawerFavorites, body.light-theme #drawerAccount { background:rgba(255,255,255,.76)!important; }
+      @media (max-width: 779px) {
+        body.drawer-sort-open #drawerSort { top:calc(var(--row1-h) + var(--row2-h))!important; bottom:var(--footerH)!important; height:auto!important; z-index:64!important; } body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item { display:flex; align-items:center; gap:10px; letter-spacing:-.045em !important; word-spacing:-.12em !important; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:-.045em; word-spacing:-.12em; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
@@ -84,16 +88,6 @@ export default function DrawerLayoutOverrides() {
 
       #drawerLeft .yat-drawer-visiting-school > .yat-drawer-crest-thumb { display:none; }
       #drawerLeft .yat-left-search-content { padding-left:20px; padding-right:20px; }
-      @media (min-width:780px) {
-        body.drawer-left-open:not(.yat-left-search-mode) .yat-row3-shell,
-        body.drawer-left-open:not(.yat-left-search-mode) .yat-row4-shell,
-        body.drawer-left-open:not(.yat-left-search-mode) .yat-row5-shell,
-        body.drawer-left-open:not(.yat-left-search-mode) .yat-row6-shell { margin-left:310px !important; }
-        body.drawer-left-open.yat-left-search-mode .yat-row3-shell,
-        body.drawer-left-open.yat-left-search-mode .yat-row4-shell,
-        body.drawer-left-open.yat-left-search-mode .yat-row5-shell,
-        body.drawer-left-open.yat-left-search-mode .yat-row6-shell { margin-left:0 !important; }
-      }
       /* Keep the left navigation translucent enough to retain page context. */
       #drawerLeft {
         background: rgba(6, 6, 6, 0.57) !important;
@@ -160,6 +154,7 @@ export default function DrawerLayoutOverrides() {
         }
 
         body.drawer-left-open #drawerLeft,
+        body.drawer-sort-open #drawerSort,
         body.drawer-right-open #drawerFilters,
         body.drawer-account-open #drawerAccount,
         body.drawer-favorites-open #drawerFavorites {
@@ -171,6 +166,8 @@ export default function DrawerLayoutOverrides() {
         }
 
         body.drawer-left-open .yat-drawer-mask,
+        body.drawer-sort-open .yat-drawer-mask,
+        body.drawer-sort-open .yat-drawer-mask,
         body.drawer-right-open .yat-drawer-mask,
         body.drawer-account-open .yat-drawer-mask,
         body.drawer-favorites-open .yat-drawer-mask {
@@ -190,6 +187,10 @@ export default function DrawerLayoutOverrides() {
           margin-left: var(--yat-side-drawer-w) !important;
         }
 
+        body.drawer-sort-open .yat-row3-shell,
+        body.drawer-sort-open .yat-row4-shell,
+        body.drawer-sort-open .yat-row5-shell,
+        body.drawer-sort-open .yat-row6-shell,
         body.drawer-right-open .yat-row3-shell,
         body.drawer-right-open .yat-row4-shell,
         body.drawer-right-open .yat-row5-shell,
@@ -222,6 +223,7 @@ export default function DrawerLayoutOverrides() {
         }
 
         body.drawer-left-open .yat-grid,
+        body.drawer-sort-open .yat-grid,
         body.drawer-right-open .yat-grid,
         body.drawer-account-open .yat-grid,
         body.drawer-favorites-open .yat-grid,
@@ -240,6 +242,12 @@ export default function DrawerLayoutOverrides() {
         body.drawer-left-open .yat-table-wrap,
         body.drawer-left-open .yat-sec-header,
         body.drawer-left-open .yat-placeholder,
+        body.drawer-sort-open .yat-schoolrow,
+        body.drawer-sort-open .gallery-strip,
+        body.drawer-sort-open .yat-grid,
+        body.drawer-sort-open .yat-table-wrap,
+        body.drawer-sort-open .yat-sec-header,
+        body.drawer-sort-open .yat-placeholder,
         body.drawer-right-open .yat-schoolrow,
         body.drawer-right-open .gallery-strip,
         body.drawer-right-open .yat-grid,
@@ -268,6 +276,11 @@ export default function DrawerLayoutOverrides() {
         body.drawer-left-open .yat-row4-shell,
         body.drawer-left-open .yat-row5-shell,
         body.drawer-left-open .yat-row6-shell,
+        body.drawer-sort-open .yat-row2-shell,
+        body.drawer-sort-open .yat-row3-shell,
+        body.drawer-sort-open .yat-row4-shell,
+        body.drawer-sort-open .yat-row5-shell,
+        body.drawer-sort-open .yat-row6-shell,
         body.drawer-right-open .yat-row2-shell,
         body.drawer-right-open .yat-row3-shell,
         body.drawer-right-open .yat-row4-shell,
