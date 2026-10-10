@@ -9,6 +9,7 @@ const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
 const UNCOMMITTED_BADGE_SRC = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
+const isUncommittedBadge = (src: string): boolean => /\/uncommitted\.(?:png|webp|jpe?g)(?:[?#]|$)/i.test(src);
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
 type Player = {
@@ -91,7 +92,7 @@ function alignPlayerBelowRow3(card: HTMLElement): void {
   // Read the rendered geometry so responsive row heights are respected.
   const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
   const rowBottom = rail?.getBoundingClientRect().bottom;
-  const targetY = Math.max(0, rowBottom ?? 166) + 8;
+  const targetY = Math.max(0, rowBottom ?? 166) + (getCurrentSection() === 'current' ? 16 : 8);
   const position = () => {
     const delta = card.getBoundingClientRect().top - targetY;
     if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
@@ -409,6 +410,14 @@ export default function InteractionStrip({
           background: transparent;
         }
 
+        .gallery-current-slot-link .gallery-slot-media--uncommitted {
+          border-radius: 50%;
+          background: transparent;
+        }
+        .gallery-current-slot-link .gallery-slot-media--uncommitted .gallery-slot-img--contain {
+          width: 100%; height: 100%; padding: 0; object-fit: cover; border-radius: 50%;
+        }
+
         .gallery-slot-gradient {
           position: absolute;
           left: 0;
@@ -544,6 +553,7 @@ export default function InteractionStrip({
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
                 : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+              const uncommittedBadge = isCurrentTeamTab && isUncommittedBadge(currentSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
@@ -561,7 +571,7 @@ export default function InteractionStrip({
                   title={player.name}
                   onClick={(event) => handleSlotClick(event, player.id)}
                 >
-                  <div className="gallery-slot-media">
+                  <div className={`gallery-slot-media${uncommittedBadge ? ' gallery-slot-media--uncommitted' : ''}`}>
                     <img
                       src={displaySrc}
                       alt={player.name}
