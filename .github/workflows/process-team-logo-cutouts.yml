@@ -1,8 +1,7 @@
 name: Process Team Logo Cutouts
 
 on:
-  schedule:
-    - cron: '15 * * * *'
+  # Run image cutouts only when explicitly requested.
   workflow_dispatch:
     inputs:
       dry_run:
