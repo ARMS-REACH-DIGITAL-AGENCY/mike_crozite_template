@@ -388,6 +388,7 @@ export default function InteractionStrip({
   };
 
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
+  const allTimeCount = selectedRosterYear ? players.filter((p) => (p as Player & { rosterYears?: string[] }).rosterYears?.includes(selectedRosterYear)).length : players.length;
   const teamSeasonResultsByYear = new Map(
     teamSeasonResults.map((result) => [String(result.seasonYear), result])
   );
@@ -533,6 +534,23 @@ export default function InteractionStrip({
           display:flex; flex:0 0 88px; width:88px; height:88px; box-sizing:border-box;
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
+          position:absolute; left:7px; top:50%; transform:translateY(-50%); z-index:7;
+          display:flex; flex-direction:column; justify-content:center; align-items:center;
+          width:74px; height:60px; border:1px solid #c8c5b9; border-radius:2px;
+          background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
+          font:800 10px/1.1 Oswald,sans-serif; letter-spacing:.02em; text-align:center;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-count {
+          font:900 30px/1 Oswald,sans-serif;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          padding-left:88px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,black 92px,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,black 92px,black 87%,transparent 100%);
+        }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
@@ -644,22 +662,17 @@ export default function InteractionStrip({
           </button>
         )}
 
+        {showPlayerStrip && activeSection === 'alltime' && (
+          <button type="button" className="alltime-distance-marker" onClick={handleAllTimeResetClick}
+            aria-label={`Show All-Time List, ${allTimeCount} alumni`} title="Show all-time alumni">
+            <span className="alltime-distance-title">ALL-TIME LIST</span>
+            <strong className="alltime-distance-count">{allTimeCount}</strong>
+          </button>
+        )}
         <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
           {showPlayerStrip ? (
             activeSection === 'alltime' ? (
               <>
-                <button
-                  key="alltime-list-a-to-z"
-                  type="button"
-                  className={`gallery-slot alltime-year-badge alltime-year-reset-badge${selectedRosterYear ? '' : ' is-active'}`}
-                  aria-label="All-Time List A to Z — show every player and reset filters"
-                  aria-pressed={!selectedRosterYear}
-                  title="All-Time List A to Z — show every player and reset filters"
-                  onClick={handleAllTimeResetClick}
-                >
-                  <div className="gallery-slot-media alltime-year-badge-media" />
-                  <span className="gallery-slot-name-overlay alltime-year-reset-label" aria-hidden="true">ALL-TIME LIST A TO Z</span>
-                </button>
                 {ALL_TIME_TEAM_YEARS.map((year) => {
                   const isSelected = selectedRosterYear === year;
                   const stats = teamSeasonResultsByYear.get(year);
