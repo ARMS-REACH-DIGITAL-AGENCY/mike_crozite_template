@@ -565,7 +565,7 @@ export default async function SchoolPage({
             })
           )}
         </div>
-        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'calc(100dvh - 160px)',minHeight: '640px',pointerEvents:'none'}} />
+        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
       <section id="sec-alltime" className="yat-section">
@@ -591,7 +591,7 @@ export default async function SchoolPage({
             })
           )}
         </div>
-        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'calc(100dvh - 160px)',minHeight: '640px',pointerEvents:'none'}} />
+        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
       <section id="sec-news" className="yat-section">
@@ -623,7 +623,7 @@ export default async function SchoolPage({
             })
           )}
         </div>
-        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'calc(100dvh - 160px)',minHeight: '640px',pointerEvents:'none'}} />
+        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
       <section id="sec-fantasy" className="yat-section">
