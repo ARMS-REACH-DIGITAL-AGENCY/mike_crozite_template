@@ -69,7 +69,7 @@ function filterUniverse(){
     const yes=(!name||(card.dataset.name||'').toLowerCase().includes(name))&&(!selected.status.length||selected.status.includes(status(card)))&&(!selected.level.length||selected.level.includes(level(card)))&&(!selected.org.length||selected.org.includes((card.dataset.org||'').toUpperCase()))&&(!selected.grad.length||selected.grad.includes((card.dataset.gradclass||'').toUpperCase()))&&(!selected.years.length||roster.some(y=>selected.years.includes(y)));
     setVisible(card,yes);
   });
-  sortVisible(k); mirrorRow3(k);
+  if(k!=='alltime') sortVisible(k); mirrorRow3(k);
 }
 function clearFilters(){
   document.querySelectorAll<HTMLInputElement>('#filters input').forEach(input=>{if(input.type==='checkbox')input.checked=false;else input.value='';});
@@ -88,7 +88,7 @@ function preset(k:Key){
   if(k==='current') document.querySelectorAll<HTMLInputElement>('#filterLevels input[type="checkbox"]:not([data-select-all])').forEach(x=>x.checked=x.value.toUpperCase()==='HIGH SCHOOL');
   syncSelectAll(); filterUniverse();
 }
-function sortVisible(k:Key){const g=grid(k);if(!g)return;cards(k).sort((a,b)=>compare(k,a,b)).forEach(card=>g.appendChild(wrapper(card)));}
+function sortVisible(k:Key){if(k==='alltime')return;const g=grid(k);if(!g)return;cards(k).sort((a,b)=>compare(k,a,b)).forEach(card=>g.appendChild(wrapper(card)));}
 function mirrorRow3(k:Key){
   if(!galleries.has(k))return;
   // The All-Time outfield season rail is owned by React InteractionStrip.
@@ -132,10 +132,8 @@ export default function GalleryUniverseController(){
       syncSelectAll();filterUniverse();
     };
     const input=(e:Event)=>{const t=e.target as HTMLElement;if(t?.id==='filterName'&&galleries.has(currentKey())){e.stopImmediatePropagation();filterUniverse();}};
-    const teamYearSort=(event:Event)=>{ const year=String((event as CustomEvent<{year?:string}>).detail?.year || ''); const section=document.getElementById('sec-alltime'); if(section) section.dataset.alltimeTeamYearFilter=year; if(currentKey()!=='alltime')return; const reorder=()=>sortVisible('alltime'); reorder(); requestAnimationFrame(reorder); window.setTimeout(reorder,80); };
-    window.addEventListener('yat:alltime-team-year-filter',teamYearSort);
     window.addEventListener('click',click,true);window.addEventListener('change',change,true);window.addEventListener('input',input,true);
-    return()=>{window.removeEventListener('yat:alltime-team-year-filter',teamYearSort);window.removeEventListener('click',click,true);window.removeEventListener('change',change,true);window.removeEventListener('input',input,true);};
+    return()=>{window.removeEventListener('click',click,true);window.removeEventListener('change',change,true);window.removeEventListener('input',input,true);};
   },[]);
   return null;
 }
