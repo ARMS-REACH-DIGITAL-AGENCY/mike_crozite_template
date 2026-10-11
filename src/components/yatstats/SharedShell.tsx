@@ -36,6 +36,8 @@ type TeamSeasonResult = {
   wins: number;
   losses: number;
   seasonNote: string | null;
+  displayLine1: string | null;
+  displayLine2: string | null;
 };
 
 type SchoolMeta = {
