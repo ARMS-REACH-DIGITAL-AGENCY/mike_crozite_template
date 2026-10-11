@@ -552,7 +552,7 @@ export default function InteractionStrip({
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
-                : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+                : activeSection === 'news' ? (cleanSrc(player.nowImage) || cleanSrc(player.image) || nowSrc) : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
               const uncommittedBadge = isCurrentTeamTab && isUncommittedBadge(currentSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
@@ -575,7 +575,7 @@ export default function InteractionStrip({
                     <img
                       src={displaySrc}
                       alt={player.name}
-                      loading="lazy"
+                      loading={activeSection === "news" ? "eager" : "lazy"}
                       decoding="async"
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
@@ -593,6 +593,11 @@ export default function InteractionStrip({
                           }
                         }
 
+                        if (activeSection === 'news' && image.dataset.nowFallbackApplied !== 'true' && nowSrc !== image.getAttribute('src')) {
+                          image.dataset.nowFallbackApplied = 'true';
+                          image.src = nowSrc;
+                          return;
+                        }
                         if (image.dataset.fallbackApplied === 'true') return;
                         image.dataset.fallbackApplied = 'true';
                          image.dataset.silhouetteFallback = 'true';
