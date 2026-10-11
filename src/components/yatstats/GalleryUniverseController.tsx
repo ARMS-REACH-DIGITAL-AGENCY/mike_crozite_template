@@ -20,7 +20,8 @@ function grid(k: Key){ return document.getElementById(`${k}-grid`); }
 // crash the whole page with a removeChild/insertBefore mismatch.
 function cards(k: Key){ return Array.from(grid(k)?.querySelectorAll<HTMLElement>('.yat-card[data-playerid]:not([data-superfan-synthetic="true"])') || []); }
 function wrapper(card: HTMLElement){ return card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card; }
-function level(card: HTMLElement){ return (card.dataset.level || '').toUpperCase(); }
+function level(card: HTMLElement){ return (card.dataset.level || '').trim().toUpperCase().replace(/\s+/g,'-'); }
+function levelRank(card: HTMLElement){ const raw=level(card); const normalized=raw.replace(/^NCAA-?D([123])$/,'NCAA-D$1').replace(/^AAA$/,'TRIPLE-A').replace(/^AA$/,'DOUBLE-A').replace(/^A\+$/,'HIGH-A').replace(/^A$/,'LOW-A').replace(/^HIGH-SCHOOL$/,'HIGH SCHOOL'); return rank[normalized] || 99; }
 function status(card: HTMLElement){ return (card.dataset.status || '').toUpperCase(); }
 function rosterCount(card: HTMLElement){ return (card.dataset.rosteryears || '').split(',').filter(Boolean).length; }
 function grad(card: HTMLElement){ const n=Number(card.dataset.gradclass); return Number.isFinite(n)&&n>0?n:9999; }
@@ -29,10 +30,10 @@ function last(card: HTMLElement){ return (card.dataset.name || '').trim().split(
 function compare(k: Key,a: HTMLElement,b: HTMLElement){
   if(k==='alltime') {
     const yearFiltered = !!document.getElementById('sec-alltime')?.dataset.alltimeTeamYearFilter;
-    if(yearFiltered) return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
+    if(yearFiltered) return levelRank(a)-levelRank(b)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
     return last(a).localeCompare(last(b))||(cardName(a)).localeCompare(cardName(b));
   }
-  return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
+  return levelRank(a)-levelRank(b)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
 }
 function cloneUniverse(){
   const source=new Map<string,HTMLElement>();
@@ -131,7 +132,7 @@ export default function GalleryUniverseController(){
       syncSelectAll();filterUniverse();
     };
     const input=(e:Event)=>{const t=e.target as HTMLElement;if(t?.id==='filterName'&&galleries.has(currentKey())){e.stopImmediatePropagation();filterUniverse();}};
-    const teamYearSort=(event:Event)=>{ const year=String((event as CustomEvent<{year?:string}>).detail?.year || ''); const section=document.getElementById('sec-alltime'); if(section) section.dataset.alltimeTeamYearFilter=year; requestAnimationFrame(()=>{ if(currentKey()==='alltime') sortVisible('alltime'); }); };
+    const teamYearSort=(event:Event)=>{ const year=String((event as CustomEvent<{year?:string}>).detail?.year || ''); const section=document.getElementById('sec-alltime'); if(section) section.dataset.alltimeTeamYearFilter=year; if(currentKey()!=='alltime')return; const reorder=()=>sortVisible('alltime'); reorder(); requestAnimationFrame(reorder); window.setTimeout(reorder,80); };
     window.addEventListener('yat:alltime-team-year-filter',teamYearSort);
     window.addEventListener('click',click,true);window.addEventListener('change',change,true);window.addEventListener('input',input,true);
     return()=>{window.removeEventListener('yat:alltime-team-year-filter',teamYearSort);window.removeEventListener('click',click,true);window.removeEventListener('change',change,true);window.removeEventListener('input',input,true);};
