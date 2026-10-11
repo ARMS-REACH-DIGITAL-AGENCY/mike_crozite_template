@@ -152,11 +152,12 @@ function sortFilteredAllTime(section: HTMLElement) {
   const years = (card: HTMLElement) => (card.dataset.rosteryears || '').split(',').filter(Boolean).length;
   const name = (card: HTMLElement) => (card.dataset.name || '').trim();
   const last = (card: HTMLElement) => name(card).split(/\s+/).pop() || '';
+  const coachPriority = (card: HTMLElement) => /(?:^|[ -])COACH(?:$|[ -])/.test(normalize(card.dataset.status));
   const teamSelected = Boolean(section.dataset.alltimeTeamYearFilter);
   cards.sort((a, b) => teamSelected
     ? rank(a) - rank(b) || grad(a) - grad(b) || years(b) - years(a)
       || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
-    : last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
+    : Number(coachPriority(b)) - Number(coachPriority(a)) || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
   );
   // Preserve the existing wrapper nodes and React card contents.
   cards.forEach(card => grid.appendChild(wrap(card)));
