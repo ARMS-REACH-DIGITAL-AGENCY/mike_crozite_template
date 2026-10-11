@@ -227,8 +227,8 @@ export default function SharedShell({
           .yat-section-anchor-strip button{flex:0 0 auto;min-width:68px;height:60px;padding:8px 12px;border:1px solid #777;border-radius:32px;background:transparent;color:var(--fg,#fff);font:700 12px Oswald,Arial,sans-serif;cursor:pointer}
           .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible{border-color:#e7b738;color:#e7b738}
           .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
-          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:clamp(64px,10vw,110px);height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
-          @media(max-width:640px){.yat-unified-footer-art{width:clamp(55px,12vw,76px);height:calc(100% + 12px)}}
+          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
+          @media(max-width:640px){.yat-unified-footer-art{width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px));height:calc(100% + 12px)}}
           .yat-unified-footer-ticker{flex:1;min-height:0;width:100%;position:relative}
           .yat-unified-footer-ticker .yat-clubhouse,.yat-unified-footer-ticker .ybt-footer-stack{height:100%;width:100%}
           .yat-unified-footer-ticker .yat-clubhouse-nav{height:100%}
