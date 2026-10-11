@@ -29,10 +29,10 @@ function last(card: HTMLElement){ return (card.dataset.name || '').trim().split(
 function compare(k: Key,a: HTMLElement,b: HTMLElement){
   if(k==='alltime') {
     const yearFiltered = !!document.getElementById('sec-alltime')?.dataset.alltimeTeamYearFilter;
-    if(yearFiltered) return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
+    if(yearFiltered) return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
     return last(a).localeCompare(last(b))||(cardName(a)).localeCompare(cardName(b));
   }
-  return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
+  return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
 }
 function cloneUniverse(){
   const source=new Map<string,HTMLElement>();
@@ -131,8 +131,10 @@ export default function GalleryUniverseController(){
       syncSelectAll();filterUniverse();
     };
     const input=(e:Event)=>{const t=e.target as HTMLElement;if(t?.id==='filterName'&&galleries.has(currentKey())){e.stopImmediatePropagation();filterUniverse();}};
+    const teamYearSort=()=>{ requestAnimationFrame(()=>{ if(currentKey()==='alltime') sortVisible('alltime'); }); };
+    window.addEventListener('yat:alltime-team-year-filter',teamYearSort);
     window.addEventListener('click',click,true);window.addEventListener('change',change,true);window.addEventListener('input',input,true);
-    return()=>{window.removeEventListener('click',click,true);window.removeEventListener('change',change,true);window.removeEventListener('input',input,true);};
+    return()=>{window.removeEventListener('yat:alltime-team-year-filter',teamYearSort);window.removeEventListener('click',click,true);window.removeEventListener('change',change,true);window.removeEventListener('input',input,true);};
   },[]);
   return null;
 }
