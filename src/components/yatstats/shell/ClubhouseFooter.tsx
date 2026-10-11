@@ -21,8 +21,16 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
   // Share the first flip-card's left edge with the Row 5 message and ticker fade.
   useEffect(() => {
     const syncAlignment = () => {
-      const card = document.querySelector<HTMLElement>('.yat-section.visible .yat-card[data-playerid], .yat-section.visible .yat-card, .yat-card[data-playerid]');
-      const left = card?.getBoundingClientRect().left;
+      // PlayerCard is nested INSIDE a data-player-card-wrap element. The
+      // previous .yat-card[data-playerid] selector did not match the gallery.
+      const cards = document.querySelectorAll<HTMLElement>(
+        '.yat-section.visible .yat-grid [data-player-card-wrap][data-playerid]'
+      );
+      const firstVisible = Array.from(cards).find((node) => {
+        const rect = node.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && getComputedStyle(node).display !== 'none';
+      });
+      const left = firstVisible?.getBoundingClientRect().left;
       if (left != null && Number.isFinite(left) && left >= 0) {
         document.documentElement.style.setProperty('--yat-card-left-edge', `${Math.round(left)}px`);
       }
