@@ -1940,7 +1940,13 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
 // same lookup resolves a schedule teamid or opponent logo correctly
 // whether the team is an MLB club or any of its minor-league affiliates.
 // ---------------------------------------------------------------------------
+// The whole table, on every player page: kept per server instance for 6
+// hours (it changes when the schedule sync adds teams, not by the minute).
+let teamIdMapCache: { at: number; map: Map<string, string> } | null = null;
+const TEAM_ID_MAP_TTL_MS = 6 * 60 * 60 * 1000;
+
 export async function getTeamIdMap(): Promise<Map<string, string>> {
+  if (teamIdMapCache && Date.now() - teamIdMapCache.at < TEAM_ID_MAP_TTL_MS) return teamIdMapCache.map;
   const map = new Map<string, string>();
   try {
     const { rows } = await query(
@@ -1951,6 +1957,7 @@ export async function getTeamIdMap(): Promise<Map<string, string>> {
     for (const row of rows as { mlb_stats_api_id: string; tbc_teamid: string }[]) {
       map.set(String(row.mlb_stats_api_id), String(row.tbc_teamid));
     }
+    if (map.size) teamIdMapCache = { at: Date.now(), map };
   } catch {
     // fall through with whatever was collected
   }
