@@ -454,8 +454,8 @@ export default function InteractionStrip({
       `}</style>
 
       <style jsx global>{`
-        /* Give the first card in both alumni galleries a consistent 8px initial cushion. */
-        #sec-active, #sec-alltime { border-top:8px solid transparent; }
+        /* Give every player-card gallery the same 8px cushion below the row-3 rail. */
+        #sec-active, #sec-alltime, #sec-current { border-top:8px solid transparent; }
         /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
         .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:84px; min-height:84px; padding:0 6px; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
