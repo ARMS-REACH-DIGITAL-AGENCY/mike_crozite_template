@@ -4,7 +4,7 @@ import { useLayoutEffect } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
-const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
+const UNCOMMITTED_BADGE_URL = '/img/uncommitted.jpg';
 const HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
 const PLAYER_NOW_CUTOUT_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts';
 
@@ -62,6 +62,18 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
   };
 }
 
+function alignPlayerBelowRow3(card: HTMLElement): void {
+  // Keep synthetic Row 3 slots on the same single navigation rule as InteractionStrip.
+  const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const targetY = Math.max(0, rail?.getBoundingClientRect().bottom ?? 166) + 8;
+  const position = () => {
+    const delta = card.getBoundingClientRect().top - targetY;
+    if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
+  };
+  position();
+  requestAnimationFrame(position);
+}
+
 function wireSyntheticSlot(slot: HTMLElement) {
   if (slot.dataset.row3SyntheticWired === 'true') return;
   slot.dataset.row3SyntheticWired = 'true';
@@ -76,19 +88,13 @@ function wireSyntheticSlot(slot: HTMLElement) {
     if (!card) return;
 
     event.preventDefault();
-    const strip = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
-    const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
-    const cardTop = wrapper.getBoundingClientRect().top;
-    const previousBottom = wrapper.previousElementSibling?.getBoundingClientRect().bottom ?? cardTop;
-    const gap = Math.max(0, Math.min(60, cardTop - previousBottom));
-    const offset = Math.max(0, strip?.getBoundingClientRect().bottom ?? 0) + Math.max(4, gap / 2);
     slot.closest('.gallery-strip-inner')?.querySelectorAll('.gallery-slot.is-active').forEach((item) => {
       item.classList.remove('is-active');
       item.removeAttribute('aria-current');
     });
     slot.classList.add('is-active');
     slot.setAttribute('aria-current', 'true');
-    window.scrollTo({ top: Math.max(0, window.scrollY + cardTop - offset), behavior: 'smooth' });
+    alignPlayerBelowRow3(card);
   });
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
@@ -256,18 +262,26 @@ function dedupeSlots(slots: HTMLElement[]): Map<string, HTMLElement> {
 function syncRow3VisualOrderAndImages(): void {
   const strip = getReactOwnedStrip();
   if (!strip) return;
-
   const sectionKey = getVisibleSectionKey();
-  const stripInner = strip.querySelector<HTMLElement>('.gallery-strip-inner');
-
-  strip.dataset.activeSection = sectionKey;
-
-  if (!stripInner || !PLAYER_GALLERY_SECTIONS.has(sectionKey)) {
+  // All-Time Row 3 is a year filter rail, not a mirror of the player cards.
+  if (sectionKey === 'alltime') {
+    // Remove only guard-created headshots left behind when switching from a player gallery.
+    // React owns the year plaques; never manipulate those nodes.
+    strip.querySelectorAll<HTMLElement>('.gallery-strip-inner [data-row3-synthetic="true"]').forEach(slot => slot.remove());
+    strip.dataset.activeSection = sectionKey;
     strip.dataset.row5Synced = 'true';
     return;
   }
-
-  const blockFiveSection = document.getElementById(`sec-${sectionKey}`);
+  // News uses row 3 as a filter for the active alumni gallery, not a separate
+  // player gallery. Mirror sec-active so fresh News slots receive the visible marker.
+  const rowFiveSectionKey = sectionKey === 'news' ? 'active' : sectionKey;
+  const stripInner = strip.querySelector<HTMLElement>('.gallery-strip-inner');
+  strip.dataset.activeSection = sectionKey;
+  if (!stripInner || !PLAYER_GALLERY_SECTIONS.has(rowFiveSectionKey)) {
+    strip.dataset.row5Synced = 'true';
+    return;
+  }
+  const blockFiveSection = document.getElementById(`sec-${rowFiveSectionKey}`);
   if (!blockFiveSection) {
     strip.dataset.row5Synced = 'true';
     return;
@@ -311,7 +325,7 @@ function syncRow3VisualOrderAndImages(): void {
       slotByPlayerId.set(playerId, slot);
     }
 
-    configureSlot(slot, card, sectionKey, index);
+    configureSlot(slot, card, rowFiveSectionKey, index);
   });
 
   Array.from(
@@ -359,6 +373,7 @@ export default function Row3MirrorGuard() {
 
     window.addEventListener('hashchange', scheduleSync);
     window.addEventListener('popstate', scheduleSync);
+    window.addEventListener('yat:section-changed', scheduleSync);
     window.addEventListener('yat:gallery-filtered', scheduleSync as EventListener);
 
     const sectionObserver = new MutationObserver(scheduleSync);
@@ -411,6 +426,7 @@ export default function Row3MirrorGuard() {
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', scheduleSync);
       window.removeEventListener('popstate', scheduleSync);
+      window.removeEventListener('yat:section-changed', scheduleSync);
       window.removeEventListener('yat:gallery-filtered', scheduleSync as EventListener);
       sectionObserver.disconnect();
       rowFiveObserver.disconnect();

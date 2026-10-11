@@ -9,6 +9,8 @@ import GlobalTopbar from './shell/GlobalTopbar';
 import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
 import MetadataRow from './shell/MetadataRow';
+import ClubhouseFooter from './shell/ClubhouseFooter';
+import PageMessageStrip from './shell/PageMessageStrip';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
 import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
@@ -26,6 +28,16 @@ type StripPlayer = {
   fallbackImage?: string;
   imageFit?: 'cover' | 'contain';
   status?: string;
+};
+
+type TeamSeasonResult = {
+  seasonYear: number;
+  achievement: string;
+  wins: number;
+  losses: number;
+  seasonNote: string | null;
+  displayLine1: string | null;
+  displayLine2: string | null;
 };
 
 type SchoolMeta = {
@@ -46,6 +58,11 @@ const VALID_SECTIONS = new Set([
 ]);
 
 const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
+const SECTION_ANCHORS: Record<string, string[]> = {
+  partner: ['WHO?', 'WHAT?', 'WHEN?', 'WHERE?', 'WHY?', 'HOW?'],
+  about: ['ABOUT', 'OUR MISSION', 'HOW IT WORKS', 'SCHOOLS', 'PLAYERS', 'FANS'],
+  faq: ['ABOUT', 'PLAYERS', 'STORIES', 'CONTRIBUTE', 'SUPER FANS', 'FANTASY', 'CONTACT'],
+};
 
 function normalizeSection(value: string): string {
   const section = String(value || '').replace(/^#?sec-/, '').trim().toLowerCase();
@@ -77,6 +94,7 @@ export default function SharedShell({
   children,
   hsid,
   players = [],
+  teamSeasonResults = [],
   schoolMeta,
   row3Content,
   row4Content,
@@ -84,6 +102,7 @@ export default function SharedShell({
   children: ReactNode;
   hsid: string;
   players?: StripPlayer[];
+  teamSeasonResults?: TeamSeasonResult[];
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
   row4Content?: ReactNode;
@@ -119,6 +138,7 @@ export default function SharedShell({
     syncSection();
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
+    window.addEventListener('yat:section-changed', syncSection);
 
     const observer = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -129,6 +149,7 @@ export default function SharedShell({
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
+      window.removeEventListener('yat:section-changed', syncSection);
       observer.disconnect();
     };
   }, [isPlayerProfile]);
@@ -160,6 +181,16 @@ export default function SharedShell({
               // The Fantasy Bracket Tourney tab: the school's season, a
               // slide per week, where a profile has its Career Path Timeline.
               ? <FantasyTimeline />
+              : SECTION_ANCHORS[activeSection] && !isPlayerProfile
+              ? <nav className="yat-section-anchor-strip" aria-label={activeSection === 'faq' ? 'FAQ topics' : activeSection === 'partner' ? 'Partnership questions' : 'About sections'}>
+                  {SECTION_ANCHORS[activeSection].map((label, i) => <button type="button" key={label} onClick={() => {
+                    const section = document.getElementById(`sec-${activeSection}`);
+                    const headings = Array.from(section?.querySelectorAll<HTMLElement>('h2,h3') || []);
+                    const normalized = label.replace(/[?]/g, '').toLowerCase();
+                    const match = headings.find(h => h.textContent?.toLowerCase().includes(normalized)) || headings[i];
+                    match?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}>{label}</button>)}
+                </nav>
               : profilePlayerId
               ? (
                   <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">
@@ -172,45 +203,37 @@ export default function SharedShell({
                     isGallery={isGallery}
                     isNews={isNews}
                     players={players}
+                    teamSeasonResults={teamSeasonResults}
                   />
                 )}
         </div>
 
-        <div className={`yat-row4-shell${activeSection === 'fantasy' && !isPlayerProfile && !row4Content ? ' yat-row4-off' : ''}`}>
-          {row4Content
-            ? row4Content
-            : activeSection === 'fantasy' && !isPlayerProfile
-              // The Fantasy Bracket Tourney tab has no row 4: row 3's
-              // timeline picks the round, the scores ticker is in row 6,
-              // and row 5 gets the height.
-              ? null
-              : profilePlayerId
-              // The player profile's thin year-tick timeline (the old
-              // variant="line" row) is now folded into the taller
-              // variant="images" strip in row 3 above -- one row instead of
-              // two, per ZoomableCareerTimeline.tsx's own row3/row4 height
-              // override. Rendering nothing here (rather than a second,
-              // now-redundant ZoomableCareerTimeline instance) also drops a
-              // duplicate season-stats/uploads fetch this page no longer needs.
-              ? null
-              : (
-                  <MetadataRow
-                    isPlayerProfile={isPlayerProfile}
-                    isGallery={isGallery}
-                    schoolMeta={schoolMeta}
-                  />
-                )}
-        </div>
-
-        <div className="yat-row5-shell">{children}</div>
+        {/* The former Row 5 gallery is now visual Row 4. Keep legacy class for existing gallery styling. */}
+        <div className="yat-row5-shell yat-visual-row4-gallery">{children}</div>
       </main>
 
-      <footer className="yat-row6-shell yat-footer">
-        {activeSection === 'fantasy' && !isPlayerProfile
-          // The bracket tab: the scores ticker, with the sponsor ads in it.
-          ? <BracketTicker hsid={hsid} />
-          : <SponsorBanner hsid={hsid} />}
-      </footer>
+      {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
+        <div className="yat-unified-footer">
+          <div className="yat-unified-footer-art" aria-hidden="true" />
+          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} />
+          <div className="yat-unified-footer-ticker">
+            {activeSection === 'fantasy'
+              ? <BracketTicker hsid={hsid} />
+              : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
+          </div>
+        </div>
+        <style jsx global>{`
+          .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:8px 24px;scrollbar-width:thin;background:var(--bg,#111)}
+          .yat-section-anchor-strip button{flex:0 0 auto;min-width:68px;height:60px;padding:8px 12px;border:1px solid #777;border-radius:32px;background:transparent;color:var(--fg,#fff);font:700 12px Oswald,Arial,sans-serif;cursor:pointer}
+          .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible{border-color:#e7b738;color:#e7b738}
+          .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
+          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
+          @media(max-width:640px){.yat-unified-footer-art{width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px));height:calc(100% + 12px)}}
+          .yat-unified-footer-ticker{flex:1;min-height:0;width:100%;position:relative}
+          .yat-unified-footer-ticker .yat-clubhouse,.yat-unified-footer-ticker .ybt-footer-stack{height:100%;width:100%}
+          .yat-unified-footer-ticker .yat-clubhouse-nav{height:100%}
+        `}</style>
+      </footer>}
     </>
   );
 }

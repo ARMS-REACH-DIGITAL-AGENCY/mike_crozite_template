@@ -235,6 +235,46 @@ function trim2(value: string): string {
 // ---------------------------------------------------------------------------
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
+export type SchoolTeamSeasonResult = {
+  seasonYear: number;
+  achievement: string;
+  wins: number;
+  losses: number;
+  seasonNote: string | null;
+  displayLine1: string | null;
+  displayLine2: string | null;
+};
+
+export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
+  if (!/^\d+$/.test(hsid)) return [];
+
+  const { rows } = await query<{
+    season_year: number;
+    achievement: string;
+    wins: number;
+    losses: number;
+    season_note: string | null;
+    display_line_1: string | null;
+    display_line_2: string | null;
+  }>(
+    `SELECT season_year, achievement, wins, losses, season_note, display_line_1, display_line_2
+       FROM public.school_team_season_results
+      WHERE hsid = $1 AND status = 'approved'
+      ORDER BY season_year DESC`,
+    [hsid]
+  );
+
+  return rows.map((row) => ({
+    seasonYear: Number(row.season_year),
+    achievement: row.achievement,
+    wins: Number(row.wins),
+    losses: Number(row.losses),
+    seasonNote: row.season_note,
+    displayLine1: row.display_line_1,
+    displayLine2: row.display_line_2,
+  }));
+}
+
 export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
@@ -778,9 +818,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       sp.firstname,
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      -- Years compare as numeric: TBC labels the Mexican League's 2018
+      -- spring and fall seasons "2018.1" and "2018.2".
       COALESCE(
         CASE
-          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
           THEN lp.pit_level
           ELSE lb.bat_level
         END,
@@ -796,7 +838,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
-          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+          lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric
         ) THEN lp.bb
         ELSE lb.bb
       END AS bb,
@@ -817,7 +859,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       COALESCE(spb.season_pitching_buckets, '[]'::jsonb) AS season_pitching_buckets,
       CASE
         WHEN lp.pitch_year IS NOT NULL AND (
-          lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int
+          lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric
         ) THEN true
         ELSE false
       END AS is_pitcher
@@ -830,7 +872,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
     ORDER BY
       CASE COALESCE(
         CASE
-          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::int >= lb.stat_year::int)
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
           THEN lp.pit_level ELSE lb.bat_level
         END, sp.career_highlevel)
         WHEN 'MLB'           THEN 1
@@ -1900,7 +1942,13 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
 // same lookup resolves a schedule teamid or opponent logo correctly
 // whether the team is an MLB club or any of its minor-league affiliates.
 // ---------------------------------------------------------------------------
+// The whole table, on every player page: kept per server instance for 6
+// hours (it changes when the schedule sync adds teams, not by the minute).
+let teamIdMapCache: { at: number; map: Map<string, string> } | null = null;
+const TEAM_ID_MAP_TTL_MS = 6 * 60 * 60 * 1000;
+
 export async function getTeamIdMap(): Promise<Map<string, string>> {
+  if (teamIdMapCache && Date.now() - teamIdMapCache.at < TEAM_ID_MAP_TTL_MS) return teamIdMapCache.map;
   const map = new Map<string, string>();
   try {
     const { rows } = await query(
@@ -1911,6 +1959,7 @@ export async function getTeamIdMap(): Promise<Map<string, string>> {
     for (const row of rows as { mlb_stats_api_id: string; tbc_teamid: string }[]) {
       map.set(String(row.mlb_stats_api_id), String(row.tbc_teamid));
     }
+    if (map.size) teamIdMapCache = { at: Date.now(), map };
   } catch {
     // fall through with whatever was collected
   }
@@ -2192,7 +2241,9 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // drifting into two resolvers for the same "truth" table.
 const FLIP_CARD_STAGE_SELECT = `
     SELECT *,
-      UPPER(status_label) AS status_label,
+      -- Every alumnus we know of gets a card: one with no status yet is
+      -- UNKNOWN (until someone tells us), never left off the page.
+      COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
       CASE level_label
         WHEN 'AAA'           THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A'      THEN 'TRIPLE-A'
@@ -2526,4 +2577,20 @@ if (!global.__pgPoolShutdownRegistered) {
     await shutdown();
     process.exit(0);
   });
+}
+
+// Live Active Alumni count, sourced from the same staged statuses used by the gallery.
+// Missing or unmatched school IDs produce zero, never a legacy school_success count.
+export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
+  const { rows } = await query(`
+    SELECT COUNT(DISTINCT playerid)::int AS count
+    FROM flip_card_front_stage
+    WHERE hsid = $1
+      AND UPPER(TRIM(COALESCE(status_label, ''))) IN (
+        'ACTIVE', 'INJURED 7-DAY', 'INJURED 10-DAY',
+        'INJURED 15-DAY', 'INJURED 30-DAY',
+        'INJURED 60-DAY', 'INJURED - FULL SEASON'
+      )
+  `, [hsid]);
+  return Number(rows[0]?.count ?? 0);
 }

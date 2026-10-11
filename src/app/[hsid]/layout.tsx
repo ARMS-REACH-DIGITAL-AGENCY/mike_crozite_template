@@ -9,7 +9,9 @@ import Script from 'next/script';
 import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
   getSchoolByHsid,
+  getActiveAlumniCountByHsid,
   getSchoolByUrl,
+  getSchoolTeamSeasonResults,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
@@ -160,13 +162,17 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  const [allStageRows, rawAllTimeRoster] = await Promise.all([
+  const [allStageRows, rawAllTimeRoster, teamSeasonResults] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
     }),
     getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
       console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
+      return [];
+    }),
+    getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
+      console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
       return [];
     }),
   ]);
@@ -182,12 +188,7 @@ export default async function HsidLayout({
   ).length;
 
   const schoolMeta = {
-    activeAlumni:
-      typeof school.current_aa === 'number'
-        ? school.current_aa
-        : school.current_aa != null
-          ? Number(school.current_aa)
-          : null,
+    activeAlumni: await getActiveAlumniCountByHsid(resolvedHsid),
 
     mlb:
       typeof school.mlb === 'number'
@@ -285,6 +286,7 @@ export default async function HsidLayout({
       <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
+        teamSeasonResults={teamSeasonResults}
         schoolMeta={schoolMeta}
       >
         {children}
@@ -324,7 +326,7 @@ export default async function HsidLayout({
               />
             </a>
             <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" /><span>ACTIVE ALUMNI<strong>NEWS</strong></span></a>
-            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime"><i className="ri-list-check-2 yat-nav-page-icon" aria-hidden="true" /><span>NEXT-LEVEL<strong>ALL-TIME LIST</strong></span></a>
+            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime"><i className="ri-list-check-2 yat-nav-page-icon" aria-hidden="true" /><span>ALL-TIME<strong>NEXT-LEVEL LIST</strong></span></a>
             <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">
               {/* "2027 HIGH SCHOOL TEAM": the season year is the bold word. */}
               <img src="/img/nav/letterman-jacket.png" alt="" className="yat-nav-custom-icon" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
@@ -438,7 +440,7 @@ export default async function HsidLayout({
             <summary>By Roster Year</summary>
             <div className="yat-filter-options" id="filterRosterYears">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
-              {Array.from({length: 27}, (_, i) => String(2025 - i)).map((yr) => (
+              {Array.from({length: 29}, (_, i) => String(2027 - i)).map((yr) => (
                 <label key={yr}>
                   <input type="checkbox" value={yr} /> {yr}
                 </label>

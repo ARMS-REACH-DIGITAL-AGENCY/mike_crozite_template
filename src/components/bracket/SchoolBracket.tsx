@@ -84,6 +84,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 }) {
   const g = card.game;
   const S = index.schools;
+  // When this card was opened: the share link's snapshot time (not read during render).
+  const [sharedAt] = useState(() => Date.now());
   const [previewData, setPreviewData] = useState<{ box?: GameBox; homeRoster: ActiveRosterPlayer[]; awayRoster: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -221,7 +223,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       title={`Round ${round} · Game ${gameNo}`}
       subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}#sec-fantasy`}
+      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]).flat().join(','))}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />
   ) : null;
@@ -496,18 +498,39 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const rfHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rf');
       const runsW = Math.ceil(Math.max(22, rfHead ? textW(rfHead) + 8 : 0));
       list.style.setProperty('--lb-runs-w', `${runsW}px`);
-      // The name column is the longest name in every region, so the runs sit
-      // in the same place in each.
+      // The name column is one width in every region, so the runs sit in the
+      // same place in each. A school and its runs are one group: the list
+      // takes as many columns of those groups as fit, up to 3.
+      // The few very long names (Santa Margarita Catholic, Rancho Santa
+      // Margarita) don't get to decide that: a name that doesn't fit is
+      // narrowed below, never cut or wrapped, down to MIN_SCALE of its size.
+      const MIN_SCALE = 0.6;
       const avail = list.clientWidth - parseFloat(lcs.paddingLeft) - parseFloat(lcs.paddingRight);
-      const nameW = Math.ceil(Math.min(longest + 2, avail - rankW - runsW - 2 * gap));
+      const nameFor = (c: number) => Math.floor((avail + 22) / c) - 22 - rankW - runsW - 2 * gap;
+      let cols = 1;
+      for (let c = 3; c > 1; c--) if (nameFor(c) >= longest * MIN_SCALE) { cols = c; break; }
+      const nameW = Math.ceil(Math.max(0, Math.min(longest + 2, nameFor(cols))));
       list.style.setProperty('--lb-name-w', `${nameW}px`);
-      // A school and its runs are one group: the list takes as many columns
-      // of those groups as fit (one when two won't), up to 3, each with its
-      // own header.
-      const colW = rankW + nameW + runsW + 2 * gap;
-      const cols = window.matchMedia('(max-width: 599px)').matches ? 1 : Math.max(1, Math.min(3, Math.floor((avail + 22) / (colW + 22))));
       list.style.setProperty('--lb-cols', String(cols));
       list.dataset.cols = String(cols);
+      // Each name that's wider than its column: tighter letters first, then a
+      // smaller font, until the whole name (and its city) fits on its line.
+      list.querySelectorAll<HTMLElement>('li a').forEach((a) => {
+        a.style.removeProperty('letter-spacing');
+        a.style.removeProperty('font-size');
+        let w = textW(a);
+        if (w <= nameW) return;
+        a.style.letterSpacing = '-0.02em';
+        w = textW(a);
+        if (w <= nameW) return;
+        const px = parseFloat(getComputedStyle(a).fontSize);
+        let size = px;
+        for (let i = 0; i < 4 && w > nameW && size > px * MIN_SCALE; i++) {
+          size = Math.max(px * MIN_SCALE, size * (nameW / w) * 0.99);
+          a.style.fontSize = `${size.toFixed(2)}px`;
+          w = textW(a);
+        }
+      });
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -551,7 +574,6 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
           </li>
         ))}</ol>
       </div>
-      <button type="button" className="yfp-lb-rules" onClick={onRules}>Rules · how it&apos;s scored</button>
     </aside>
   );
 }
@@ -1352,7 +1374,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* The drawers: home from the right, visitor from the left. */
         /* Above the site's floating buttons, so nothing covers the close button. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
-        .yfp-drawer-wrap.row5 { bottom: var(--footerH, 66px); background: transparent; } /* docked beside the game: never dim it */
+        .yfp-drawer-wrap.row5 { bottom: calc(var(--footerH, 66px) + var(--yat-message-h, 36px)); background: transparent; } /* docked beside the game: never dim it */
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
         .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }

@@ -20,13 +20,22 @@ function Cell({children,wide=false,win=false}:{children:React.ReactNode;wide?:bo
 
 export async function GET(req:NextRequest){
   const id=Number(req.nextUrl.searchParams.get('gameId')||0);
-  const g=getSharedFantasyGame(id);
+  const snap=req.nextUrl.searchParams.get('snapshot')==='1';
+  const raw=req.nextUrl.searchParams.get('scoreInnings')||'';
+  const valid=/^(?:\d{1,3},){17}\d{1,3}$/.test(raw);
+  const snapHome=(req.nextUrl.searchParams.get('homeName')||'').slice(0,120);
+  const snapAway=(req.nextUrl.searchParams.get('awayName')||'').slice(0,120);
+  const g=snap && valid && snapHome && snapAway ? {id,week:Number(req.nextUrl.searchParams.get('week'))||1,home:1,away:2,winner:null,innings:raw.split(',').map(Number),homeName:snapHome,awayName:snapAway,stage:'Fantasy Game'} : getSharedFantasyGame(id,Number(req.nextUrl.searchParams.get('week'))||undefined,Number(req.nextUrl.searchParams.get('homeId'))||undefined,Number(req.nextUrl.searchParams.get('awayId'))||undefined);
   if(!g)return new ImageResponse(
     <div style={{display:'flex',width:1200,height:630,background:'#0b0b0b',color:'#fff',alignItems:'center',justifyContent:'center',fontSize:48}}>YAT?STATS Fantasy Game</div>,
     size
   );
-  const score=fantasyGameScore(g);
-  const inning=(side:'h'|'a',i:number)=>g.innings[i*2+(side==='h'?0:1)]??0;
+  const supplied=req.nextUrl.searchParams.get('scoreInnings')||'';
+  const parsed=/^(?:\d{1,3},){17,}\d{1,3}$/.test(supplied) ? supplied.split(',').map(Number) : [];
+  const innings=parsed.length>=18 && parsed.length<=30 && parsed.length%2===0 ? parsed : g.innings;
+  const score=fantasyGameScore({...g,innings});
+  const winner=score.home===score.away?null:score.home>score.away?g.home:g.away;
+  const inning=(side:'h'|'a',i:number)=>innings[i*2+(side==='h'?0:1)]??0;
   const home=cleanSchoolLabel(g.homeName),away=cleanSchoolLabel(g.awayName);
 
   const row=(side:'h'|'a',name:string,total:number)=>(
@@ -36,36 +45,44 @@ export async function GET(req:NextRequest){
         <div style={{display:'flex',fontSize:14,color:'rgba(255,255,255,.72)',marginTop:3}}>{name}</div>
       </div>
       {[0,1,2,3,4,5,6,7,8].map(i=><Cell key={i}>{inning(side,i)}</Cell>)}
-      <Cell wide win={g.winner===(side==='h'?g.home:g.away)}>{total}</Cell>
+      <Cell wide win={winner===(side==='h'?g.home:g.away)}>{total}</Cell>
     </div>
   );
 
+  const status=(req.nextUrl.searchParams.get('scoreStatus') || (snap?'LIVE':'FINAL')).slice(0,16);
+  const round=Math.max(1,Math.min(10,Number(req.nextUrl.searchParams.get('round'))||Math.ceil(g.week/3)));
+  const gameNo=Math.max(1,Math.min(3,Number(req.nextUrl.searchParams.get('gameNo'))||((g.week-1)%3+1)));
+  const weekStart=new Date(Date.UTC(2026,9,5)+(g.week-1)*7*86400000);
+  const weekEnd=new Date(weekStart.getTime()+6*86400000);
+  const fmt=(d:Date)=>d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase();
+  const weekDates=`${fmt(weekStart)} - ${fmt(weekEnd)}`;
+  const activeMatch=/^(?:TOP|BOT)\s+(\d)$/i.exec(status);
+  const activeInning=activeMatch?Number(activeMatch[1]):null;
+  const visibleThrough=status==='FINAL'?9:activeInning??(status==='LIVE'?null:0);
+  const boardRow=(side:'h'|'a',name:string,total:number)=>(
+    <div style={{display:'flex',alignItems:'center',width:'100%',height:105,gap:8}}>
+      <div style={{display:'flex',flexDirection:'column',width:250,alignItems:'flex-end',justifyContent:'center',paddingRight:12}}>
+        <div style={{display:'flex',fontSize:25,fontWeight:900,textAlign:'right',color:'#fff'}}>{name.replace(/\\s*\\([^)]*\\)/g,'').toUpperCase()}</div>
+        <div style={{display:'flex',fontSize:14,color:'#c9dfd3'}}>{name.includes('(') ? name.split('(')[1]?.split(')')[0] : ''}</div>
+      </div>
+      {[0,1,2,3,4,5,6,7,8].map(i=>{const v=inning(side,i);const played=visibleThrough===null?true:i<visibleThrough;const current=activeInning===i+1;return <div key={i} style={{display:'flex',flex:1,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#103a2b',color:current?'#e6bb2f':'#fff',fontSize:32,fontWeight:900}}>{played?v:''}</div>})}
+      <div style={{display:'flex',width:76,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#103a2b',color:'#e6bb2f',fontSize:39,fontWeight:900}}>{total}</div>
+    </div>
+  );
   return new ImageResponse(
-    <div style={{display:'flex',flexDirection:'column',width:1200,height:630,background:'#090909',color:'#fff',padding:'42px 52px',fontFamily:'Arial, sans-serif'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',width:'100%'}}>
-        <div style={{display:'flex',flexDirection:'column'}}>
-          <div style={{display:'flex',fontSize:28,fontWeight:800,letterSpacing:2,color:'#d5b44a'}}>YAT?STATS HIGH SCHOOL ALUMNI FANTASY GAME</div>
-          <div style={{display:'flex',fontSize:22,color:'rgba(255,255,255,.72)',marginTop:8}}>{g.stage} · Week {g.week}</div>
-        </div>
-        <div style={{display:'flex',fontSize:34,fontWeight:900}}>YAT?STATS</div>
+    <div style={{display:'flex',flexDirection:'column',width:1200,height:630,background:'#111',color:'#fff',padding:'35px',fontFamily:'Arial, sans-serif'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:75,padding:'0 12px'}}>
+        <div style={{display:'flex',fontSize:29,fontWeight:900,color:'#e8c24a'}}>FOLLOW THE GAME LIVE</div>
+        <div style={{display:'flex',fontSize:38,fontWeight:900}}>YAT?STATS</div>
       </div>
-
-      <div style={{display:'flex',flexDirection:'column',marginTop:48,border:'2px solid #2f7a5a',borderRadius:18,overflow:'hidden',width:'100%'}}>
-        <div style={{display:'flex',alignItems:'center',background:'#9d7e1e',padding:'14px 18px',fontSize:20,fontWeight:800,color:'#fff7d6'}}>
-          <div style={{display:'flex',width:220}}>FINAL</div>
-          {[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',width:66,justifyContent:'center',marginLeft:7}}>{n}</div>)}
-          <div style={{display:'flex',width:78,justifyContent:'center',marginLeft:7,color:'#ffd64d'}}>R</div>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',background:'#1b5d42',padding:'18px'}}>
-          {row('a',away,score.away)}
-          {row('h',home,score.home)}
+      <div style={{display:'flex',flexDirection:'column',border:'7px solid #d2a929',borderRadius:20,overflow:'hidden',width:'100%',marginTop:18,background:'#155a3f'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',height:65,background:'#2d8b61',padding:'0 22px',fontWeight:900,fontSize:26}}><div style={{display:'flex',alignItems:'center',gap:16}}><div style={{display:'flex'}}>ROUND {round}</div><div style={{display:'flex',color:'#d7eadc'}}>|</div><div style={{display:'flex',background:'#f2c632',color:'#173526',borderRadius:9,padding:'7px 14px'}}>GAME {gameNo}</div></div><div style={{display:'flex'}}>WEEK {g.week}  |  {weekDates}</div></div>
+        <div style={{display:'flex',flexDirection:'column',padding:'14px 17px 20px',background:'#155a3f'}}>
+          <div style={{display:'flex',alignItems:'center',height:42,gap:8,color:'#fff',fontSize:21,fontWeight:900}}><div style={{display:'flex',width:250,justifyContent:'flex-start',paddingRight:12}}><div style={{display:'flex',background:'#bc3438',borderRadius:12,padding:'5px 12px',color:'#fff',fontWeight:900}}>{status}</div></div>{[1,2,3,4,5,6,7,8,9].map(n=><div key={n} style={{display:'flex',flex:1,justifyContent:'center'}}>{n}</div>)}<div style={{display:'flex',width:76,justifyContent:'center'}}>R</div></div>
+          {boardRow('a',away,score.away)}{boardRow('h',home,score.home)}
         </div>
       </div>
-
-      <div style={{display:'flex',marginTop:34,fontSize:24,color:'rgba(255,255,255,.78)'}}>
-        Follow the YAT?STATS High School Alumni Fantasy Game between {away} and {home}.
-      </div>
-    </div>,
-    size
+      <div style={{display:'flex',width:'100%',alignItems:'center',justifyContent:'center',marginTop:19,fontWeight:900,color:'#e5d49a',fontSize:25,whiteSpace:'nowrap',letterSpacing:0.3}}>YAT?STATS HIGH SCHOOL ALUMNI FANTASY BASEBALL TOURNAMENT</div>
+    </div>,size
   );
 }

@@ -61,6 +61,8 @@ export type ActiveRosterPlayer = {
   lastname?: string | null;
   level?: string | null;
   is_pitcher?: boolean | null;
+  // He both bats and pitches this season: he's listed in Batters and Pitchers.
+  is_two_way_2026?: boolean | null;
   current_teamid?: string | number | null; // the team logo (teams-web/<id>.webp)
 };
 
@@ -1041,15 +1043,17 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
         name: rosterName(r),
         level: String(r.level || ''),
         isPitcher: Boolean(r.is_pitcher),
+        twoWay: Boolean(r.is_two_way_2026),
       }))
     : existing.map((p) => ({
         id: String(p[0]),
         name: String(p[1]),
         level: String(p[2] || ''),
         isPitcher: Boolean(p[5]) && !Boolean(p[4]),
+        twoWay: Boolean(p[4]) && Boolean(p[5]),
       }));
 
-  return source.map(({ id, name, level, isPitcher }) => {
+  return source.map(({ id, name, level, isPitcher, twoWay }) => {
     const row = current.get(id);
     const simulated = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level) ? 1 : 0;
     const next = row
@@ -1070,16 +1074,21 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
       next[5] = [outs, hr, bb, hbp, k, h, r, er, +fip.toFixed(2)];
     }
 
-    // Every active alumnus always stays in one of the two roster groups.
-    // If he did not play this week, keep him in his normal Batters/Pitchers
-    // section with a true zero line rather than moving him to a third group.
-    if (!next[4] && !next[5]) {
-      if (isPitcher) {
-        next[5] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-        next[7] = 0;
-      } else {
+    // Every active alumnus always stays in his roster group(s). If he did
+    // not play this week he keeps a true zero line there, rather than moving
+    // to a third group: a two-way player in both Batters and Pitchers, anyone
+    // else on his one side. (His club's W-L still counts once in the school's
+    // total; only the Batters / Pitchers subtotals list him twice.)
+    if (!next[4] && (twoWay || !isPitcher)) {
+      if (!next[5] || twoWay) {
         next[4] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
         next[6] = 0;
+      }
+    }
+    if (!next[5] && (twoWay || isPitcher)) {
+      if (!next[4] || twoWay) {
+        next[5] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+        next[7] = 0;
       }
     }
 
@@ -1222,12 +1231,16 @@ function InActionStrip({ hsid }: { hsid: number }) {
   const x = inActionToday(hsid);
   const at = (ms?: number) => (ms ? new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '');
   let parts: ReactNode[];
-  if (!x || !x.players) parts = ['No alumni in action today'];
+  if (!x) parts = ['Alumni game status unavailable'];
+  else if (!x.players) parts = ['No alumni scheduled for this tournament day'];
   else {
-    const who = <><b>{x.players}</b> {x.players === 1 ? 'alumnus' : 'alumni'} {x.done === x.games ? 'played today' : 'in action'}</>;
-    if (x.games && x.done === x.games) parts = [who, 'All games final'];
+    const allFinal = x.games > 0 && x.done === x.games;
+    const who = <><b>{x.players}</b> {x.players === 1 ? 'alumnus' : 'alumni'} {allFinal ? 'played today' : x.started ? 'in action today' : 'scheduled today'}</>;
+    if (allFinal) parts = [who, 'All games final'];
     else if (x.next) parts = [who, <>{x.started ? 'Next first pitch' : 'First pitch'} <b>{at(x.next)}</b></>, <>Last game <b>{at(x.last)}</b></>];
-    else parts = [who, 'All games under way'];
+    else if (x.started > x.done) parts = [who, 'Games in progress'];
+    else if (x.done > 0) parts = [who, 'Some games final; remaining statuses pending'];
+    else parts = [who, 'Game status pending'];
   }
   return (
     <div className="bl-inaction" aria-label="In action today">
@@ -1409,7 +1422,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
     const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
       const d = boxForView?.d?.[i];
-      return <span key={i} className={`bl-tb-cell ${wonCell(d?.[idx], d?.[opp], higher)}`}>{fmtStat(d?.[idx])}</span>;
+      // An inning not yet in shows a faint OPS+ / FIP- until its number is.
+      const complete = d?.[idx] != null;
+      const placeholder = higher ? 'OPS+' : 'FIP-';
+      return <span key={i} className={`bl-tb-cell ${complete ? wonCell(d?.[idx], d?.[opp], higher) : 'placeholder'}`}>{complete ? fmtStat(d?.[idx]) : placeholder}</span>;
     });
     const nameCell = (
       <>
@@ -1430,10 +1446,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         )}
         {metricRow(side === 0 ? 0 : 1, side === 0 ? 1 : 0, true)}
         <span className="bl-tb-wlabel">W%</span>
-        <span className="bl-tb-label">OPS+</span>
+        <span className="bl-tb-label" aria-hidden="true" />
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
         <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? ' won' : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
-        <span className="bl-tb-label">FIP-</span>
+        <span className="bl-tb-label" aria-hidden="true" />
       </div>
     );
   };
@@ -1448,8 +1464,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       {drawerMode ? (
         <>
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
-            {teamBoard(me)}
-            {teamBoard(me === 0 ? 1 : 0)}
+            {teamBoard(1)}
+            {teamBoard(0)}
             {extraInnings.length ? (
               <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
                 <div className="bl-tiebreak-line head" style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
@@ -1921,6 +1937,7 @@ export function Styles() {
       .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
       .bl-tb-cell.na { color:#718379; }
+      .bl-tb-cell.placeholder { color:rgba(220,239,225,.10); opacity:.3; font-size:8px; font-weight:500; letter-spacing:-.02em; }
       .bl-tb-wlabel { display:grid; place-items:center; color:#fff; font:700 11px/1 Oswald,sans-serif; letter-spacing:.02em; }
       .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }
