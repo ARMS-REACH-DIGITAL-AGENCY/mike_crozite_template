@@ -527,11 +527,11 @@ export default function InteractionStrip({
           background:radial-gradient(circle at 38% 30%, #fff 0%, #fff 48%, #f5f5f5 76%, #e5e5e5 100%);
           box-shadow:inset 0 1px 9px rgba(0,0,0,.09), inset 0 -3px 7px rgba(0,0,0,.06);
         }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { height:116px; min-height:116px; }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { height:116px; min-height:116px; }
-        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex:0 0 96px; width:96px; min-width:96px; height:104px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { height:84px; min-height:84px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex:0 0 64px; width:64px; min-width:64px; height:73px; }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
-          display:flex; flex:0 0 88px; width:88px; height:88px; box-sizing:border-box;
+          display:flex; flex:0 0 60px; width:60px; height:60px; box-sizing:border-box;
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
@@ -554,14 +554,53 @@ export default function InteractionStrip({
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
-          background:transparent url('/img/roster_year.png') center / contain no-repeat;
+          background:transparent url('https://raw.githubusercontent.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/Easter-NEWS/public/img/roster_year_ball.png') center / contain no-repeat;
           border:0; border-radius:0; box-shadow:none; color:#532a39;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge.alltime-state-champion .alltime-year-badge-media {
-          background-image:url('/img/az_state_champs_roster.png'); color:#fff;
+          background-image:url('https://raw.githubusercontent.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/Easter-NEWS/public/img/az_state_champ_roster.png'); color:#fff;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-year-number {
           font:900 22px/1 Oswald,sans-serif; display:block; text-shadow:0 1px 2px #7776;
+        }
+        /* Outfield plaques: match Hamilton's raised condensed lettering and vertical hierarchy. */
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats { height:100%; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-layout,
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-layout {
+          display:flex; flex-direction:column; justify-content:center; width:100%; height:100%;
+          font-family:Impact,'Arial Narrow',sans-serif; font-stretch:condensed; font-weight:900;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-layout {
+          color:#f7f5ef; text-align:right; padding:7px 5px 5px 3px;
+          text-shadow:0 1px 1px #777,1px 2px 1px #333;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-heading {
+          display:flex; justify-content:flex-end; align-items:baseline; gap:2px; line-height:.88;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-record {
+          font:700 5px/1 Arial,sans-serif; white-space:nowrap;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-state {
+          font-size:16px; line-height:.91; letter-spacing:-.4px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-champions {
+          font-size:10px; line-height:.93; letter-spacing:-.35px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-year {
+          font-size:20px; line-height:1.08; letter-spacing:-.5px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-layout {
+          color:#65424b; text-align:center; padding:6px 2px 3px;
+          text-shadow:0 1px 1px #ffffffa8;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-record {
+          font-size:7px; line-height:1; min-height:9px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note {
+          font-size:8px; line-height:1.1; flex:1; display:flex; align-items:center; justify-content:center;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-year {
+          font-size:17px; line-height:1.05;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats {
           display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -645,9 +684,9 @@ export default function InteractionStrip({
             height:60px;
             flex-basis:auto; aspect-ratio:1;
           }
-          .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex-basis:96px; width:96px; min-width:96px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex-basis:64px; width:64px; min-width:64px; }
           .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
-            flex:0 0 88px; width:88px; height:88px; aspect-ratio:1;
+            flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
           }
         }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
@@ -694,14 +733,22 @@ export default function InteractionStrip({
                     >
                       <div className="gallery-slot-media alltime-year-badge-media">
                         <span className={`alltime-team-stats${stats ? '' : ' alltime-team-stats--missing'}`}>
-                          <span className="alltime-team-year-number">{year}</span>
-                          {stats ? (
-                            <>
-                              <span className="alltime-team-achievement">{isChampion ? "STATE CHAMPIONS" : isRunnerUp ? "RUNNER-UP" : stats.achievement}</span>
-                              {stats.seasonNote ? <span className="alltime-team-note">{stats.seasonNote}</span> : null}
-                              <span className="alltime-team-record">{stats.wins != null && stats.losses != null ? `${stats.wins}-${stats.losses}` : "RECORD TBD"}</span>
-                            </>
-                          ) : 'Stats not provided'}
+                          {isChampion ? (
+                            <span className="alltime-champ-layout">
+                              <span className="alltime-champ-heading">
+                                <span className="alltime-champ-record">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ''}</span>
+                                <span className="alltime-champ-state">STATE</span>
+                              </span>
+                              <span className="alltime-champ-champions">CHAMPIONS</span>
+                              <span className="alltime-champ-year">{year}</span>
+                            </span>
+                          ) : (
+                            <span className="alltime-ball-layout">
+                              <span className="alltime-ball-record">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ''}</span>
+                              <span className="alltime-ball-note">{isRunnerUp ? 'RUNNERS-UP' : stats?.achievement || stats?.seasonNote || ''}</span>
+                              <span className="alltime-ball-year">{year}</span>
+                            </span>
+                          )}
                         </span>
                       </div>
                       <span className="gallery-slot-name-overlay" aria-hidden="true">{year} TEAM</span>
