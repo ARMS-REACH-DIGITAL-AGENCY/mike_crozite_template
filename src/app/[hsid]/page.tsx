@@ -499,7 +499,11 @@ export default async function SchoolPage({
     }
   }
 
-  const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
+  // Coaches first, then A-Z - the same order the gallery's filter script
+  // keeps, so the first frame already shows it (no reshuffle on load).
+  const isCoachRow = (p: Record<string, unknown>) => /(?:^|[ -])COACH(?:$|[ -])/.test(String(p.status_label || '').trim().toUpperCase());
+  const allTimeSorted = sortAllTimePlayers(allTimeMerged);
+  const allTimeFrontRoster = [...allTimeSorted.filter(isCoachRow), ...allTimeSorted.filter((p) => !isCoachRow(p))];
   const activeStatsMap = new Map(
     [...activeMerged, ...tributeSourceRows]
       .filter(hasReal2026Stats)
@@ -547,7 +551,7 @@ export default async function SchoolPage({
           {activeSortedRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
           ) : (
-            activeSortedRoster.map((p) => {
+            activeSortedRoster.map((p, i) => {
               const status = String(p.status_label || p.status || '').toUpperCase().trim();
               const isRetired = status === 'RETIRED';
               const playerId = String(p.playerid);
@@ -569,6 +573,7 @@ export default async function SchoolPage({
                     shareBaseUrl={shareBaseUrl}
                     schoolName={shareSchoolName}
                     schoolLocation={shareSchoolLocation}
+                    eager={i < 4}
                   />
                 </div>
               );
@@ -583,7 +588,7 @@ export default async function SchoolPage({
           {allTimeFrontRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
-            allTimeFrontRoster.map((p) => {
+            allTimeFrontRoster.map((p, i) => {
               const playerId = String(p.playerid);
               return (
                 <PlayerCard
@@ -596,6 +601,7 @@ export default async function SchoolPage({
                   schoolName={shareSchoolName}
                   schoolLocation={shareSchoolLocation}
                   isAllTime
+                  eager={i < 4}
                 />
               );
             })

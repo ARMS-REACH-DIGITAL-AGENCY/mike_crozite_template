@@ -401,14 +401,6 @@ export default function FantasyTimeline() {
            dark theme, a day game in the light one. A scrim darkens just the
            band the words sit on, so the scene shows at both ends and the
            words still pop. */
-        .ybp { position:absolute; inset:0; z-index:0; pointer-events:none; }
-        .ybp svg { display:block; }
-        .ybp-day { display:none; }
-        body.light-theme .ybp-day { display:inline; }
-        body.light-theme .ybp-night { display:none; }
-        .ybp-clouds { animation:ybp-drift 80s linear infinite alternate; }
-        @keyframes ybp-drift { from { transform:translateX(-30px); } to { transform:translateX(40px); } }
-        @media (prefers-reduced-motion: reduce) { .ybp-clouds { animation:none; } }
         .yft-track { position:relative; z-index:1; }
         .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.25) 22%,rgba(4,5,12,.72) 38%,rgba(4,5,12,.72) 60%,rgba(0,0,0,.45) 78%,rgba(0,0,0,.4) 100%); }
         body.light-theme .yft-grad { background:linear-gradient(90deg,rgba(6,28,58,0) 0%,rgba(6,28,58,.25) 22%,rgba(6,28,58,.72) 38%,rgba(6,28,58,.72) 60%,rgba(6,28,58,.5) 78%,rgba(6,28,58,.45) 100%); }
