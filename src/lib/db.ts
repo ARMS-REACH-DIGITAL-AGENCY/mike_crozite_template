@@ -2239,7 +2239,9 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // drifting into two resolvers for the same "truth" table.
 const FLIP_CARD_STAGE_SELECT = `
     SELECT *,
-      UPPER(status_label) AS status_label,
+      -- Every alumnus we know of gets a card: one with no status yet is
+      -- UNKNOWN (until someone tells us), never left off the page.
+      COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
       CASE level_label
         WHEN 'AAA'           THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A'      THEN 'TRIPLE-A'

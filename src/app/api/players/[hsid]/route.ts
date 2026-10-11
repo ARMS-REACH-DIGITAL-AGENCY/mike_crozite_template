@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getActiveRosterByHsid, getFlipCardFrontStageByHsid, query } from '@/lib/db';
-import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
+import { isRosterStatus } from '@/lib/galleryStatuses';
 
 type Row = Record<string, unknown>;
 
@@ -117,7 +117,7 @@ export async function GET(
     };
 
     const roster = stageRows
-      .filter((stage) => isActiveGalleryStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage))
+      .filter((stage) => isRosterStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage))
       .map((stage) => {
         const id = text(stage.playerid);
         const stats = statsById.get(id);

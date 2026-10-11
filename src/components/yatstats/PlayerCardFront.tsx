@@ -458,6 +458,7 @@ export default function PlayerCardFront({
     normalizedStatus === "RETIRED" ||
     normalizedStatus === "NOT ACTIVE" ||
     normalizedStatus === "FREE AGENT" ||
+    normalizedStatus === "DFA" ||
     isSourcedDeparture;
 
   const nextGameStatusLabel = nextGameStatusLabelRaw || "NEXT GAME";
