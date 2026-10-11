@@ -20,6 +20,9 @@ export const INJURED_STATUSES = [
 export const GALLERY_STATUS_OPTIONS = [
   'ACTIVE',
   'COMMIT',
+  // Designated for assignment: off the 40-man, not released yet. Most get
+  // claimed or outrighted; some retire. Not active, not a free agent.
+  'DFA',
   'FREE AGENT',
   ...INJURED_STATUSES,
   'PARTNER/SPONSOR',
