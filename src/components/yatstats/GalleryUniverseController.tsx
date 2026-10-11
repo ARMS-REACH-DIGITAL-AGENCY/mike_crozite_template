@@ -131,7 +131,7 @@ export default function GalleryUniverseController(){
       syncSelectAll();filterUniverse();
     };
     const input=(e:Event)=>{const t=e.target as HTMLElement;if(t?.id==='filterName'&&galleries.has(currentKey())){e.stopImmediatePropagation();filterUniverse();}};
-    const teamYearSort=()=>{ requestAnimationFrame(()=>{ if(currentKey()==='alltime') sortVisible('alltime'); }); };
+    const teamYearSort=(event:Event)=>{ const year=String((event as CustomEvent<{year?:string}>).detail?.year || ''); const section=document.getElementById('sec-alltime'); if(section) section.dataset.alltimeTeamYearFilter=year; requestAnimationFrame(()=>{ if(currentKey()==='alltime') sortVisible('alltime'); }); };
     window.addEventListener('yat:alltime-team-year-filter',teamYearSort);
     window.addEventListener('click',click,true);window.addEventListener('change',change,true);window.addEventListener('input',input,true);
     return()=>{window.removeEventListener('yat:alltime-team-year-filter',teamYearSort);window.removeEventListener('click',click,true);window.removeEventListener('change',change,true);window.removeEventListener('input',input,true);};
