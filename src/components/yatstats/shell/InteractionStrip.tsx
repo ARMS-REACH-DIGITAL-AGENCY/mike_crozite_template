@@ -599,7 +599,7 @@ export default function InteractionStrip({
           display:none;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note {
-          font-size:7px; line-height:1.04; flex:1; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; width:100%;
+          font-size:7px; line-height:1.06; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; width:100%;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-year {
           font-size:17px; line-height:1.05;
@@ -747,8 +747,8 @@ export default function InteractionStrip({
                 {ALL_TIME_TEAM_YEARS.map((year) => {
                   const isSelected = selectedRosterYear === year;
                   const stats = teamSeasonResultsByYear.get(year);
-                  const isChampion = /\bstate champions?\b/i.test(stats?.achievement || '');
-                  const isRunnerUp = /\b(state\s+)?runner.up\b/i.test(stats?.achievement || '');
+                  const isChampion = /\bstate\s+champ(?:ion)?s?\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
+                  const isRunnerUp = /\b(state\s+)?runner.up\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
                   const statsLabel = stats
                     ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${stats.wins}-${stats.losses})`
                     : 'season stats not provided yet';
@@ -777,7 +777,7 @@ export default function InteractionStrip({
                           ) : (
                             <span className="alltime-ball-layout">
                               
-                              <span className="alltime-ball-note">{isRunnerUp ? 'RUNNERS-UP' : (stats?.achievement || stats?.seasonNote || '').slice(0, 65)}</span>
+                              <span className="alltime-ball-note">{stats ? <><span>{stats.achievement}</span>{stats.seasonNote && <span>{stats.seasonNote}</span>}</> : ''}</span>
                               <span className="alltime-ball-year">{year}</span>
                             </span>
                           )}
