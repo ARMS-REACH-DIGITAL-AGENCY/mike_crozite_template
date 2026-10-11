@@ -357,7 +357,6 @@ export default function FantasyTimeline() {
   return (
     <section className="yft-hero" aria-label="The season, round by round">
       <BallparkScene />
-      <RafflePolaroidCTA />
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {rounds.map((r)=>{
           const focus=r.cards.find(c=>c.week===cal?.week)||[...r.done].reverse()[0]||r.cards[0];
@@ -420,7 +419,7 @@ export default function FantasyTimeline() {
         .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
         .yft-left-meta.yft-post-corner b span:first-child { text-transform:none; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
-        .yft-story { position:absolute; z-index:2; left:27%; right:36%; top:8px; bottom:40px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
+        .yft-story { position:absolute; z-index:2; left:5%; right:36%; top:8px; bottom:40px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
@@ -469,7 +468,7 @@ export default function FantasyTimeline() {
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
           .yft-left-meta span { font-size:6px; }
-          .yft-story { left:27%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
+          .yft-story { left:5%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
           .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }

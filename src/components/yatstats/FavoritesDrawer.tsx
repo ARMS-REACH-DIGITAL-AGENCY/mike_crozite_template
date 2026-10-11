@@ -573,12 +573,12 @@ function FavoriteLinks({
           <div key={`${playerId}-${schoolId}`} className="yat-favorite-row">
             <button
               type="button"
-              className="yat-favorite-star-btn"
+              className="yat-favorite-heart-btn"
               aria-label={`Remove ${name} from favorites`}
               aria-disabled={removingId === playerId}
               onClick={() => onUnfavorite(player)}
             >
-              <i className="ri-star-fill" aria-hidden="true" />
+              <i className="ri-heart-fill" aria-hidden="true" />
             </button>
             <a href={profileHref} className="yat-favorite-headshot-link" title={`Open ${name} profile`}>
               <img
@@ -1101,7 +1101,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           background: transparent;
         }
 
-        #drawerFavorites .yat-favorite-star-btn {
+        #drawerFavorites .yat-favorite-heart-btn {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1122,11 +1122,11 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           opacity: .85;
         }
 
-        #drawerFavorites .yat-favorite-star-btn:hover {
+        #drawerFavorites .yat-favorite-heart-btn:hover {
           color: #e8c98a;
         }
 
-        #drawerFavorites .yat-favorite-star-btn[aria-disabled="true"] {
+        #drawerFavorites .yat-favorite-heart-btn[aria-disabled="true"] {
           opacity: .5;
           cursor: wait;
         }

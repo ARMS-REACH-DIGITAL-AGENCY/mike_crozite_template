@@ -1,5 +1,5 @@
 // src/components/yatstats/FavoriteButton.tsx
-// Client component — renders the ☆/★ FAVORITE control on the player profile page.
+// Client component — renders the ♡/♥ FAVORITE control on the player profile page.
 //
 // Access rules enforced here (client-side gate; server is canonical):
 //   Visitor (not logged in)  → store pending intent, open Account Drawer
@@ -234,7 +234,7 @@ export default function FavoriteButton({
   return (
     <>
       {variant === 'star' ? (
-        // The flip card's corner star (a button, so a tap doesn't flip the card).
+        // The flip card's corner heart (a button, so a tap doesn't flip the card).
         <button
           type="button"
           className={`yat-card-fav${isFavorited ? ' on' : ''}`}
@@ -244,7 +244,7 @@ export default function FavoriteButton({
           aria-pressed={isFavorited}
           title={isFavorited ? 'Favorited' : 'Favorite'}
         >
-          <i className={isFavorited ? 'ri-star-fill' : 'ri-star-line'} aria-hidden="true" />
+          <i className={isFavorited ? 'ri-heart-fill' : 'ri-heart-line'} aria-hidden="true" />
         </button>
       ) : (
       <button
@@ -273,7 +273,7 @@ export default function FavoriteButton({
         }}
       >
         <i
-          className={isFavorited ? 'ri-star-fill' : 'ri-star-line'}
+          className={isFavorited ? 'ri-heart-fill' : 'ri-heart-line'}
           style={{ fontSize: '14px' }}
         />
         {isFavorited ? 'FAVORITED' : 'FAVORITE'}

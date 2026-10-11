@@ -235,6 +235,46 @@ function trim2(value: string): string {
 // ---------------------------------------------------------------------------
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
+export type SchoolTeamSeasonResult = {
+  seasonYear: number;
+  achievement: string;
+  wins: number;
+  losses: number;
+  seasonNote: string | null;
+  displayLine1: string | null;
+  displayLine2: string | null;
+};
+
+export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
+  if (!/^\d+$/.test(hsid)) return [];
+
+  const { rows } = await query<{
+    season_year: number;
+    achievement: string;
+    wins: number;
+    losses: number;
+    season_note: string | null;
+    display_line_1: string | null;
+    display_line_2: string | null;
+  }>(
+    `SELECT season_year, achievement, wins, losses, season_note, display_line_1, display_line_2
+       FROM public.school_team_season_results
+      WHERE hsid = $1 AND status = 'approved'
+      ORDER BY season_year DESC`,
+    [hsid]
+  );
+
+  return rows.map((row) => ({
+    seasonYear: Number(row.season_year),
+    achievement: row.achievement,
+    wins: Number(row.wins),
+    losses: Number(row.losses),
+    seasonNote: row.season_note,
+    displayLine1: row.display_line_1,
+    displayLine2: row.display_line_2,
+  }));
+}
+
 export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
@@ -2526,4 +2566,20 @@ if (!global.__pgPoolShutdownRegistered) {
     await shutdown();
     process.exit(0);
   });
+}
+
+// Live Active Alumni count, sourced from the same staged statuses used by the gallery.
+// Missing or unmatched school IDs produce zero, never a legacy school_success count.
+export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
+  const { rows } = await query(`
+    SELECT COUNT(DISTINCT playerid)::int AS count
+    FROM flip_card_front_stage
+    WHERE hsid = $1
+      AND UPPER(TRIM(COALESCE(status_label, ''))) IN (
+        'ACTIVE', 'INJURED 7-DAY', 'INJURED 10-DAY',
+        'INJURED 15-DAY', 'INJURED 30-DAY',
+        'INJURED 60-DAY', 'INJURED - FULL SEASON'
+      )
+  `, [hsid]);
+  return Number(rows[0]?.count ?? 0);
 }
