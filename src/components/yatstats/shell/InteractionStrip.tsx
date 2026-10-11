@@ -533,6 +533,18 @@ export default function InteractionStrip({
           display:flex; flex:0 0 88px; width:88px; height:88px; box-sizing:border-box;
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
+          background:transparent url('/img/roster_year.png') center / contain no-repeat;
+          border:0; border-radius:0; box-shadow:none; color:#532a39;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge.alltime-state-champion .alltime-year-badge-media {
+          background-image:url('/img/az_state_champs_roster.png'); color:#fff;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-year-number {
+          font:900 22px/1 Oswald,sans-serif; display:block; text-shadow:0 1px 2px #7776;
+        }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats {
           display:flex; flex-direction:column; align-items:center; justify-content:center;
           width:100%; max-height:100%; overflow:hidden; text-align:center;
@@ -651,6 +663,8 @@ export default function InteractionStrip({
                 {ALL_TIME_TEAM_YEARS.map((year) => {
                   const isSelected = selectedRosterYear === year;
                   const stats = teamSeasonResultsByYear.get(year);
+                  const isChampion = /\bstate champions?\b/i.test(stats?.achievement || '');
+                  const isRunnerUp = /\b(state\s+)?runner.up\b/i.test(stats?.achievement || '');
                   const statsLabel = stats
                     ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${stats.wins}-${stats.losses})`
                     : 'season stats not provided yet';
@@ -658,7 +672,7 @@ export default function InteractionStrip({
                     <button
                       key={`alltime-year-${year}`}
                       type="button"
-                      className={`gallery-slot alltime-year-badge${isSelected ? ' is-active' : ''}`}
+                      className={`gallery-slot alltime-year-badge${isChampion ? ' alltime-state-champion' : ''}${isRunnerUp ? ' alltime-state-runnerup' : ''}${isSelected ? ' is-active' : ''}`}
                       data-team-year={year}
                       aria-label={`${year} team: ${statsLabel}. Filter All-Time alumni to team year ${year}`}
                       aria-pressed={isSelected}
@@ -667,11 +681,12 @@ export default function InteractionStrip({
                     >
                       <div className="gallery-slot-media alltime-year-badge-media">
                         <span className={`alltime-team-stats${stats ? '' : ' alltime-team-stats--missing'}`}>
+                          <span className="alltime-team-year-number">{year}</span>
                           {stats ? (
                             <>
-                              <span className="alltime-team-achievement">{stats.achievement}</span>
+                              <span className="alltime-team-achievement">{isChampion ? "STATE CHAMPIONS" : isRunnerUp ? "RUNNER-UP" : stats.achievement}</span>
                               {stats.seasonNote ? <span className="alltime-team-note">{stats.seasonNote}</span> : null}
-                              <span className="alltime-team-record">{stats.wins}-{stats.losses}</span>
+                              <span className="alltime-team-record">{stats.wins != null && stats.losses != null ? `${stats.wins}-${stats.losses}` : "RECORD TBD"}</span>
                             </>
                           ) : 'Stats not provided'}
                         </span>
