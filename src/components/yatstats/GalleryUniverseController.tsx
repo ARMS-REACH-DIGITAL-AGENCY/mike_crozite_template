@@ -25,9 +25,15 @@ function status(card: HTMLElement){ return (card.dataset.status || '').toUpperCa
 function rosterCount(card: HTMLElement){ return (card.dataset.rosteryears || '').split(',').filter(Boolean).length; }
 function grad(card: HTMLElement){ const n=Number(card.dataset.gradclass); return Number.isFinite(n)&&n>0?n:9999; }
 function last(card: HTMLElement){ return (card.dataset.name || '').trim().split(/\s+/).pop() || ''; }
-function compare(k: Key,a: HTMLElement,b: HTMLElement){
-  if(k==='alltime') return grad(a)-grad(b)||(rank[level(a)]||99)-(rank[level(b)]||99)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
-  return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
+function compare(_k: Key,a: HTMLElement,b: HTMLElement){
+  // Consistent alumni order, including after an All-Time varsity-year filter:
+  // highest playing level, oldest graduation class, most varsity seasons,
+  // then alphabetical. Do not prioritize graduation year over playing level.
+  return (rank[level(a)]||99)-(rank[level(b)]||99)
+    ||grad(a)-grad(b)
+    ||rosterCount(b)-rosterCount(a)
+    ||last(a).localeCompare(last(b))
+    ||(a.dataset.name||'').localeCompare(b.dataset.name||'');
 }
 function cloneUniverse(){
   const source=new Map<string,HTMLElement>();
