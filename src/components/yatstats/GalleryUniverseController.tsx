@@ -85,6 +85,9 @@ function preset(k:Key){
 function sortVisible(k:Key){const g=grid(k);if(!g)return;cards(k).sort((a,b)=>compare(k,a,b)).forEach(card=>g.appendChild(wrapper(card)));}
 function mirrorRow3(k:Key){
   if(!galleries.has(k))return;
+  // The All-Time outfield season rail is owned by React InteractionStrip.
+  // Never replace its year plaques with legacy player-headshot DOM nodes.
+  if(k==='alltime')return;
   const inner=document.querySelector<HTMLElement>('.gallery-strip-inner');if(!inner)return;
   inner.innerHTML='';
   cards(k).filter(card=>wrapper(card).style.display!=='none').forEach(card=>{
