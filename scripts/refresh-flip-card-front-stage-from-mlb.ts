@@ -229,14 +229,12 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
           WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%DEVELOPMENT%' THEN 'DEVELOPMENT LIST'
           WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%DESIGNATED%' THEN 'DFA'
           WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%REHAB%' THEN 'REHAB ASSIGNMENT'
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%INJURED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%IL%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%SUSPENDED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%RESTRICTED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%BEREAVEMENT%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%REASSIGNED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%OPTION%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%MINOR%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%OPTION%' THEN 'OPTIONED'
+          -- Every other status MLB gives a player in its organization is a
+          -- status of ours, under MLB's own name (Injured 15-Day, Paternity
+          -- List, Military Leave, Restricted List, Reassigned to Minors...).
+          -- "Forty Man" is a roster, not a status: ACTIVE.
+          WHEN UPPER(TRIM(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), ''))) NOT IN ('', 'ACTIVE', 'FORTY MAN') THEN UPPER(TRIM(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status)))
           ELSE 'ACTIVE'
         END AS normalized_status,
         raw.roster_type,

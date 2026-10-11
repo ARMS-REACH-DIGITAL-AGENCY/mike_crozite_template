@@ -16,15 +16,38 @@ export const INJURED_STATUSES = [
   'INJURED - FULL SEASON',
 ] as const;
 
+// Every other status MLB puts on a player in its organization (major and
+// minor league rosters). The roster sync writes MLB's own name, upper-cased
+// (scripts/refresh-flip-card-front-stage-from-mlb.ts); each one is a status
+// here, offered in the filter drawer. A player with any of these is still
+// with an organization.
+export const MLB_ORG_STATUSES = [
+  'ADMINISTRATIVE LEAVE',
+  'BEREAVEMENT LIST',
+  'DEVELOPMENT LIST',
+  'INELIGIBLE LIST',
+  'MILITARY LEAVE',
+  'NOT YET REPORTED',
+  'OPTIONED',
+  'PATERNITY LIST',
+  'REASSIGNED TO MINORS',
+  'REHAB ASSIGNMENT',
+  'RESERVE LIST (MINORS)',
+  'RESTRICTED LIST',
+  'SUSPENDED',
+  'TEMPORARILY INACTIVE LIST',
+] as const;
+
 // Every status the filter drawer offers, in this order on every school.
 export const GALLERY_STATUS_OPTIONS = [
   'ACTIVE',
+  ...INJURED_STATUSES,
+  ...MLB_ORG_STATUSES,
   'COMMIT',
   // Designated for assignment: off the 40-man, not released yet. Most get
   // claimed or outrighted; some retire. Not active, not a free agent.
   'DFA',
   'FREE AGENT',
-  ...INJURED_STATUSES,
   'PARTNER/SPONSOR',
   'RED SHIRT',
   'REDSHIRT-MEDICAL',
@@ -34,9 +57,10 @@ export const GALLERY_STATUS_OPTIONS = [
   'UNKNOWN',
 ] as const;
 
-// Who's on a school's active roster: ACTIVE plus every injured-list status
-// (the fantasy Stat Ledger's rosters).
-export const ROSTER_STATUSES: readonly string[] = ['ACTIVE', ...INJURED_STATUSES];
+// Who's on a school's active roster: everyone still with a team or an
+// organization - ACTIVE, every injured list, and every other MLB
+// organization status (the fantasy Stat Ledger's rosters).
+export const ROSTER_STATUSES: readonly string[] = ['ACTIVE', ...INJURED_STATUSES, ...MLB_ORG_STATUSES];
 
 // What the gallery shows on first load and after a reset: the roster, plus
 // every alumnus whose status we don't know yet (UNKNOWN). Nobody we know of
