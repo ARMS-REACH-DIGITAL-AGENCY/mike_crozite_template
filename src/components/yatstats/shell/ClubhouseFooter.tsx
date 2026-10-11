@@ -20,27 +20,45 @@ function Icon({ kind }: { kind: keyof typeof suppliedLedArt }) {
 export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number | null }) {
   // Share the first flip-card's left edge with the Row 5 message and ticker fade.
   useEffect(() => {
+    let frame = 0;
     const syncAlignment = () => {
-      // PlayerCard is nested INSIDE a data-player-card-wrap element. The
-      // previous .yat-card[data-playerid] selector did not match the gallery.
-      const cards = document.querySelectorAll<HTMLElement>(
-        '.yat-section.visible .yat-grid [data-player-card-wrap][data-playerid]'
-      );
-      const firstVisible = Array.from(cards).find((node) => {
-        const rect = node.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && getComputedStyle(node).display !== 'none';
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const grid = document.querySelector<HTMLElement>('.yat-section.visible .yat-grid');
+        const cards = grid?.querySelectorAll<HTMLElement>(
+          ':scope > [data-player-card-wrap][data-playerid], :scope > .yat-card[data-playerid]'
+        ) ?? [];
+        const firstVisible = Array.from(cards).find((node) => {
+          const rect = node.getBoundingClientRect();
+          const style = getComputedStyle(node);
+          return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+        });
+        const left = firstVisible?.getBoundingClientRect().left;
+        const root = document.documentElement;
+        if (left != null && Number.isFinite(left)) {
+          const edge = `${Math.max(0, Math.round(left))}px`;
+          if (root.style.getPropertyValue('--yat-card-left-edge') !== edge) {
+            root.style.setProperty('--yat-card-left-edge', edge);
+          }
+        } else {
+          root.style.removeProperty('--yat-card-left-edge');
+        }
       });
-      const left = firstVisible?.getBoundingClientRect().left;
-      if (left != null && Number.isFinite(left) && left >= 0) {
-        document.documentElement.style.setProperty('--yat-card-left-edge', `${Math.round(left)}px`);
-      }
     };
     syncAlignment();
     const observer = new MutationObserver(syncAlignment);
     observer.observe(document.body, { childList: true, subtree: true });
+    document.querySelectorAll<HTMLElement>('.yat-section').forEach((section) => {
+      observer.observe(section, { attributes: true, attributeFilter: ['class'] });
+    });
+    const resizeObserver = new ResizeObserver(syncAlignment);
+    document.querySelectorAll<HTMLElement>('.yat-section .yat-grid').forEach((grid) => resizeObserver.observe(grid));
     window.addEventListener('resize', syncAlignment);
     return () => {
+      if (frame) window.cancelAnimationFrame(frame);
       observer.disconnect();
+      resizeObserver.disconnect();
       window.removeEventListener('resize', syncAlignment);
       document.documentElement.style.removeProperty('--yat-card-left-edge');
     };
