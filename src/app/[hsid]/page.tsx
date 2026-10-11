@@ -445,7 +445,7 @@ export default async function SchoolPage({
   const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
-  const currentTeamRoster = sortActivePlayers(stageRows.filter(isHighSchoolPlayer).map((p) => ({ ...p })));
+  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isCoachCard(p)).map((p) => ({ ...p })));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
   const activeSeenIds = new Set<string>();
