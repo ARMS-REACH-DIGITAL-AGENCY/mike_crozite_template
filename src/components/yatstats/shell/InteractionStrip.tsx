@@ -537,18 +537,18 @@ export default function InteractionStrip({
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
           position:absolute; left:7px; top:8px; transform:none; z-index:7;
           display:flex; flex-direction:column; justify-content:center; align-items:center;
-          width:74px; height:49px; border:1px solid #c8c5b9; border-radius:2px;
+          width:65px; height:42px; border:1px solid #c8c5b9; border-radius:2px;
           background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          position:absolute; top:51px; left:0; width:100%; color:#e2c34b; font:800 10px/1.1 Oswald,sans-serif; letter-spacing:.02em; text-align:center; white-space:nowrap;
+          position:absolute; top:45px; left:0; width:100%; color:#e2c34b; display:flex; flex-direction:column; align-items:stretch; font:800 9px/1.05 Oswald,sans-serif; letter-spacing:0; text-align:center; white-space:nowrap;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-count {
-          font:900 30px/1 Oswald,sans-serif;
+          font:900 27px/1 Oswald,sans-serif;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
           padding-left:0 !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 54px,black 106px,black 87%,transparent 100%);
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
           mask-image:linear-gradient(to right,transparent 0px,transparent 54px,black 106px,black 87%,transparent 100%);
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
@@ -564,6 +564,7 @@ export default function InteractionStrip({
           font:900 22px/1 Oswald,sans-serif; display:block; text-shadow:0 1px 2px #7776;
         }
         /* Outfield plaques: match Hamilton's raised condensed lettering and vertical hierarchy. */
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-season-record { color:#e2c34b !important; font-weight:800 !important; font-size:10px !important; }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats { height:100%; }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-layout,
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-layout {
@@ -594,10 +595,10 @@ export default function InteractionStrip({
           text-shadow:0 1px 1px #ffffffa8;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-record {
-          font-size:7px; line-height:1; min-height:9px;
+          display:none;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note {
-          font-size:8px; line-height:1.1; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere;
+          font-size:7px; line-height:1.04; flex:1; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; width:100%;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-year {
           font-size:17px; line-height:1.05;
@@ -705,7 +706,7 @@ export default function InteractionStrip({
           <button type="button" className="alltime-distance-marker" onClick={handleAllTimeResetClick}
             aria-label={`Show All-Time List, ${allTimeCount} alumni`} title="Show all-time alumni">
             <strong className="alltime-distance-count">{allTimeCount}</strong>
-            <span className="alltime-distance-title">ALL-TIME LIST</span>
+            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT LEVEL LIST</span></span>
           </button>
         )}
         <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
@@ -736,7 +737,7 @@ export default function InteractionStrip({
                           {isChampion ? (
                             <span className="alltime-champ-layout">
                               <span className="alltime-champ-heading">
-                                <span className="alltime-champ-record">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ''}</span>
+                                
                                 <span className="alltime-champ-state">STATE</span>
                               </span>
                               <span className="alltime-champ-champions">CHAMPS</span>
@@ -744,14 +745,14 @@ export default function InteractionStrip({
                             </span>
                           ) : (
                             <span className="alltime-ball-layout">
-                              <span className="alltime-ball-record">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ''}</span>
-                              <span className="alltime-ball-note">{isRunnerUp ? 'RUNNERS-UP' : (stats?.achievement || stats?.seasonNote || '').slice(0, 35)}</span>
+                              
+                              <span className="alltime-ball-note">{isRunnerUp ? 'RUNNERS-UP' : (stats?.achievement || stats?.seasonNote || '').slice(0, 65)}</span>
                               <span className="alltime-ball-year">{year}</span>
                             </span>
                           )}
                         </span>
                       </div>
-                      <span className="gallery-slot-name-overlay" aria-hidden="true">{year} TEAM</span>
+                      <span className="gallery-slot-name-overlay alltime-season-record" aria-hidden="true">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ""}</span>
                     </button>
                   );
                 })}
