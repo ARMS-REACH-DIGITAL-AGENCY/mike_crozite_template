@@ -21,7 +21,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
   // Share the first flip-card's left edge with the Row 5 message and ticker fade.
   useEffect(() => {
     const syncAlignment = () => {
-      const card = document.querySelector<HTMLElement>('.yat-grid .yat-card, .yat-visual-row4-gallery .yat-card, .yat-card');
+      const card = document.querySelector<HTMLElement>('.yat-section.visible .yat-card[data-playerid], .yat-section.visible .yat-card, .yat-card[data-playerid]');
       const left = card?.getBoundingClientRect().left;
       if (left != null && Number.isFinite(left) && left >= 0) {
         document.documentElement.style.setProperty('--yat-card-left-edge', `${Math.round(left)}px`);
@@ -62,7 +62,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       }
       .yat-clubhouse-lane {
         position:relative; width:100%; height:100%; overflow:hidden;
-        -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--yat-card-left-edge, clamp(90px, 13vw, 155px)), #000 calc(100% - 35px), transparent 100%);
+        -webkit-mask-image:linear-gradient(to right, transparent 0, transparent max(0px, calc(var(--yat-card-left-edge, 94px) - 42px)), #000 var(--yat-card-left-edge, 94px), #000 calc(100% - 35px), transparent 100%);
         mask-image:linear-gradient(to right, transparent 0, #000 var(--yat-card-left-edge, clamp(90px, 13vw, 155px)), #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
@@ -71,7 +71,7 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         height:100%;
         width:max-content;
         min-width:max-content;
-        animation:yat-clubhouse-crawl 240s linear 0s infinite !important;
+        animation:yat-clubhouse-crawl 205s linear 0s infinite !important;
         will-change:transform;
       }
       .yat-clubhouse-message-cycle {position:relative !important;display:flex !important;align-items:center !important;justify-content:center !important;min-width:0 !important;align-self:stretch !important;overflow:hidden !important;}
