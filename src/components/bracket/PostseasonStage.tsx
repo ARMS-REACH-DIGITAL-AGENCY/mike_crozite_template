@@ -256,7 +256,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       title={label}
       subtitle={`${awayName} ${ar} · ${homeName} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${awayName} and ${homeName}.`}
-      shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}#sec-fantasy`}
+      shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}&fantasyDays=${card.days}&fantasyStatus=${encodeURIComponent(card.state === 'final' ? 'END 9' : `BOT ${Math.max(1, Math.min(9, card.days + 1))}`)}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />;
 
