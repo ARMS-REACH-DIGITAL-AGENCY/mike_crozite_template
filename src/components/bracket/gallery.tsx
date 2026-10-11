@@ -61,6 +61,8 @@ export type ActiveRosterPlayer = {
   lastname?: string | null;
   level?: string | null;
   is_pitcher?: boolean | null;
+  // He both bats and pitches this season: he's listed in Batters and Pitchers.
+  is_two_way_2026?: boolean | null;
   current_teamid?: string | number | null; // the team logo (teams-web/<id>.webp)
 };
 
@@ -1041,15 +1043,17 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
         name: rosterName(r),
         level: String(r.level || ''),
         isPitcher: Boolean(r.is_pitcher),
+        twoWay: Boolean(r.is_two_way_2026),
       }))
     : existing.map((p) => ({
         id: String(p[0]),
         name: String(p[1]),
         level: String(p[2] || ''),
         isPitcher: Boolean(p[5]) && !Boolean(p[4]),
+        twoWay: Boolean(p[4]) && Boolean(p[5]),
       }));
 
-  return source.map(({ id, name, level, isPitcher }) => {
+  return source.map(({ id, name, level, isPitcher, twoWay }) => {
     const row = current.get(id);
     const simulated = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level) ? 1 : 0;
     const next = row
@@ -1070,16 +1074,21 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
       next[5] = [outs, hr, bb, hbp, k, h, r, er, +fip.toFixed(2)];
     }
 
-    // Every active alumnus always stays in one of the two roster groups.
-    // If he did not play this week, keep him in his normal Batters/Pitchers
-    // section with a true zero line rather than moving him to a third group.
-    if (!next[4] && !next[5]) {
-      if (isPitcher) {
-        next[5] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-        next[7] = 0;
-      } else {
+    // Every active alumnus always stays in his roster group(s). If he did
+    // not play this week he keeps a true zero line there, rather than moving
+    // to a third group: a two-way player in both Batters and Pitchers, anyone
+    // else on his one side. (His club's W-L still counts once in the school's
+    // total; only the Batters / Pitchers subtotals list him twice.)
+    if (!next[4] && (twoWay || !isPitcher)) {
+      if (!next[5] || twoWay) {
         next[4] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
         next[6] = 0;
+      }
+    }
+    if (!next[5] && (twoWay || isPitcher)) {
+      if (!next[4] || twoWay) {
+        next[5] = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+        next[7] = 0;
       }
     }
 
