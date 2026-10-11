@@ -262,18 +262,17 @@ function dedupeSlots(slots: HTMLElement[]): Map<string, HTMLElement> {
 function syncRow3VisualOrderAndImages(): void {
   const strip = getReactOwnedStrip();
   if (!strip) return;
-
   const sectionKey = getVisibleSectionKey();
+  // News uses row 3 as a filter for the active alumni gallery, not a separate
+  // player gallery. Mirror sec-active so fresh News slots receive the visible marker.
+  const rowFiveSectionKey = sectionKey === 'news' ? 'active' : sectionKey;
   const stripInner = strip.querySelector<HTMLElement>('.gallery-strip-inner');
-
   strip.dataset.activeSection = sectionKey;
-
-  if (!stripInner || !PLAYER_GALLERY_SECTIONS.has(sectionKey)) {
+  if (!stripInner || !PLAYER_GALLERY_SECTIONS.has(rowFiveSectionKey)) {
     strip.dataset.row5Synced = 'true';
     return;
   }
-
-  const blockFiveSection = document.getElementById(`sec-${sectionKey}`);
+  const blockFiveSection = document.getElementById(`sec-${rowFiveSectionKey}`);
   if (!blockFiveSection) {
     strip.dataset.row5Synced = 'true';
     return;
@@ -317,7 +316,7 @@ function syncRow3VisualOrderAndImages(): void {
       slotByPlayerId.set(playerId, slot);
     }
 
-    configureSlot(slot, card, sectionKey, index);
+    configureSlot(slot, card, rowFiveSectionKey, index);
   });
 
   Array.from(
@@ -365,6 +364,7 @@ export default function Row3MirrorGuard() {
 
     window.addEventListener('hashchange', scheduleSync);
     window.addEventListener('popstate', scheduleSync);
+    window.addEventListener('yat:section-changed', scheduleSync);
     window.addEventListener('yat:gallery-filtered', scheduleSync as EventListener);
 
     const sectionObserver = new MutationObserver(scheduleSync);
@@ -417,6 +417,7 @@ export default function Row3MirrorGuard() {
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', scheduleSync);
       window.removeEventListener('popstate', scheduleSync);
+      window.removeEventListener('yat:section-changed', scheduleSync);
       window.removeEventListener('yat:gallery-filtered', scheduleSync as EventListener);
       sectionObserver.disconnect();
       rowFiveObserver.disconnect();
