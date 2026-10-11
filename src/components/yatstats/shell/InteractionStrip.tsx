@@ -8,7 +8,7 @@ const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
-const UNCOMMITTED_BADGE_SRC = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
+const UNCOMMITTED_BADGE_SRC = '/img/uncommitted.jpg';
 const isUncommittedBadge = (src: string): boolean => /\/uncommitted\.(?:png|webp|jpe?g)(?:[?#]|$)/i.test(src);
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
@@ -92,7 +92,7 @@ function alignPlayerBelowRow3(card: HTMLElement): void {
   // Read the rendered geometry so responsive row heights are respected.
   const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
   const rowBottom = rail?.getBoundingClientRect().bottom;
-  const targetY = Math.max(0, rowBottom ?? 166) + (getCurrentSection() === 'current' ? 16 : 8);
+  const targetY = Math.max(0, rowBottom ?? 166) + (getCurrentSection() === 'current' ? 28 : 8);
   const position = () => {
     const delta = card.getBoundingClientRect().top - targetY;
     if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
