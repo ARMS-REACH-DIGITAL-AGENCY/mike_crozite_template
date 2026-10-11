@@ -61,9 +61,17 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         border-top:1px solid #1d1408 !important;
       }
       .yat-clubhouse-lane {
-        position:relative; width:100%; height:100%; overflow:hidden;
-        -webkit-mask-image:linear-gradient(to right, transparent 0px, transparent max(0px, calc(var(--yat-card-left-edge, 94px) - 48px)), #000 var(--yat-card-left-edge, 94px), #000 calc(100% - 35px), transparent 100%);
-        mask-image:linear-gradient(to right, transparent 0px, transparent max(0px, calc(var(--yat-card-left-edge, 94px) - 48px)), #000 var(--yat-card-left-edge, 94px), #000 calc(100% - 35px), transparent 100%);
+        position:absolute;
+        top:0;
+        bottom:0;
+        left:var(--yat-card-left-edge, 94px);
+        right:0;
+        width:auto;
+        height:100%;
+        overflow:hidden;
+        /* Clip the moving text at the card edge, then soften the reveal. */
+        -webkit-mask-image:linear-gradient(to right, transparent 0px, #000 48px, #000 calc(100% - 35px), transparent 100%);
+        mask-image:linear-gradient(to right, transparent 0px, #000 48px, #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
         display:flex !important;
