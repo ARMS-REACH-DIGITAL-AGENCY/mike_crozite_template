@@ -265,6 +265,9 @@ function syncRow3VisualOrderAndImages(): void {
   const sectionKey = getVisibleSectionKey();
   // All-Time Row 3 is a year filter rail, not a mirror of the player cards.
   if (sectionKey === 'alltime') {
+    // Remove only guard-created headshots left behind when switching from a player gallery.
+    // React owns the year plaques; never manipulate those nodes.
+    strip.querySelectorAll<HTMLElement>('.gallery-strip-inner [data-row3-synthetic="true"]').forEach(slot => slot.remove());
     strip.dataset.activeSection = sectionKey;
     strip.dataset.row5Synced = 'true';
     return;
