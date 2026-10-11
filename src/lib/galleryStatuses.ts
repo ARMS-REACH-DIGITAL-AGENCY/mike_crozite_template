@@ -43,6 +43,9 @@ export const GALLERY_STATUS_OPTIONS = [
   'ACTIVE',
   ...INJURED_STATUSES,
   ...MLB_ORG_STATUSES,
+  // A coach of the school's team (any status with COACH in it shows as a
+  // coach card; RETIRED - COACH is a retired player who coaches).
+  'COACH',
   'COMMIT',
   // Designated for assignment: off the 40-man, not released yet. Most get
   // claimed or outrighted; some retire. Not active, not a free agent.
