@@ -641,6 +641,36 @@ export default function InteractionStrip({
           -webkit-mask-image:linear-gradient(to right,black 0%,black 87%,transparent 100%);
           mask-image:linear-gradient(to right,black 0%,black 87%,transparent 100%);
         }
+        /* All-Time wall: fade plaques into the wall's green, never the page's white.
+           Keep this after the shared portrait mask so it wins the cascade. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"],
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          background:#16472f !important;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          -webkit-mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
+        }
+        /* Right-justify all three lines within the plaque, with room for CHAMPS. */
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-layout {
+          padding:4px 1px 3px 0; align-items:flex-end; text-align:right;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-layout > span {
+          align-self:flex-end; text-align:right; max-width:100%; white-space:nowrap;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-champions {
+          font-size:10px; letter-spacing:-.55px;
+        }
+        /* The fixed sign's two-line descriptor ends at the same baseline as records. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
+          top:46px; line-height:1; gap:0;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child {
+          font-size:12px; transform:none; letter-spacing:.1px;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:last-child {
+          font-size:8px; letter-spacing:-.2px;
+        }
         /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
           z-index:3; background:rgba(20,20,20,.25); color:#ddd; border:0;
