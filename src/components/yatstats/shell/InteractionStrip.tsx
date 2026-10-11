@@ -601,9 +601,9 @@ export default function InteractionStrip({
           display:none;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note {
-          font-size:7px; line-height:1.06; flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; width:100%;
+          font-family:Oswald,'Arial Narrow',sans-serif; font-weight:400; font-size:7px; line-height:1; letter-spacing:-.15px; flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:2px; overflow:hidden; width:100%;
         }
-        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note > span { display:block; width:100%; white-space:nowrap; overflow:hidden; text-overflow:clip; text-align:center; flex:0 0 auto; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note > span { display:block; width:100%; white-space:nowrap; overflow:hidden; text-overflow:clip; text-align:center; flex:0 0 auto; line-height:1; }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-year {
           font-size:17px; line-height:1.05;
         }
