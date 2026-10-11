@@ -541,15 +541,16 @@ export default function InteractionStrip({
           background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          position:absolute; top:45px; left:0; width:100%; color:#e2c34b; display:flex; flex-direction:column; align-items:stretch; font:800 9px/1.05 Oswald,sans-serif; letter-spacing:0; text-align:center; white-space:nowrap;
+          position:absolute; top:49px; left:0; width:100%; color:#e2c34b; display:flex; flex-direction:column; align-items:stretch; font:800 8px/1 Oswald,sans-serif; letter-spacing:0; text-align:center; white-space:nowrap;
         }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child { font-size:15px; line-height:1; letter-spacing:.5px; transform:scaleX(1.1); transform-origin:center; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-count {
           font:900 27px/1 Oswald,sans-serif;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-left:0 !important;
+          padding-left:82px !important;
           -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 54px,black 106px,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -572,11 +573,11 @@ export default function InteractionStrip({
           font-family:Impact,'Arial Narrow',sans-serif; font-stretch:condensed; font-weight:900;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-layout {
-          color:#f7f5ef; text-align:right; padding:5px 7px 5px 0;
+          color:#f7f5ef; text-align:right; align-items:flex-end; padding:5px 4px 5px 0; box-sizing:border-box;
           text-shadow:0 1px 1px #777,1px 2px 1px #333;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-heading {
-          display:flex; justify-content:flex-end; align-items:baseline; gap:2px; line-height:.88;
+          display:flex; justify-content:flex-end; align-items:baseline; align-self:flex-end; gap:2px; line-height:.88;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-record {
           font:700 5px/1 Arial,sans-serif; white-space:nowrap;
