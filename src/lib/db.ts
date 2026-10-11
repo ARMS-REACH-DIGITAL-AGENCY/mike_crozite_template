@@ -239,6 +239,8 @@ export type SchoolTeamSeasonResult = {
   wins: number;
   losses: number;
   seasonNote: string | null;
+  displayLine1: string | null;
+  displayLine2: string | null;
 };
 
 export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
@@ -250,8 +252,10 @@ export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTe
     wins: number;
     losses: number;
     season_note: string | null;
+    display_line_1: string | null;
+    display_line_2: string | null;
   }>(
-    `SELECT season_year, achievement, wins, losses, season_note
+    `SELECT season_year, achievement, wins, losses, season_note, display_line_1, display_line_2
        FROM public.school_team_season_results
       WHERE hsid = $1 AND status = 'approved'
       ORDER BY season_year DESC`,
@@ -264,6 +268,8 @@ export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTe
     wins: Number(row.wins),
     losses: Number(row.losses),
     seasonNote: row.season_note,
+    displayLine1: row.display_line_1,
+    displayLine2: row.display_line_2,
   }));
 }
 
