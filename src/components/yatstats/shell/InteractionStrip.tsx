@@ -601,8 +601,9 @@ export default function InteractionStrip({
           display:none;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note {
-          font-size:7px; line-height:1.06; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; width:100%;
+          font-size:7px; line-height:1.06; flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; width:100%;
         }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note > span { display:block; width:100%; white-space:nowrap; overflow:hidden; text-overflow:clip; text-align:center; flex:0 0 auto; }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-year {
           font-size:17px; line-height:1.05;
         }
@@ -780,7 +781,7 @@ export default function InteractionStrip({
                           ) : (
                             <span className="alltime-ball-layout">
                               
-                              <span className="alltime-ball-note">{stats ? <><span>{displayLines[0]}</span><span>{displayLines[1]}</span></> : ''}</span>
+                              <span className="alltime-ball-note"><><span>{displayLines[0]}</span><span>{displayLines[1]}</span></></span>
                               <span className="alltime-ball-year">{year}</span>
                             </span>
                           )}
