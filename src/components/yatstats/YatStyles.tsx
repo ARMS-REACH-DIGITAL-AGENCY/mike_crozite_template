@@ -547,6 +547,18 @@ export default function YatStyles() {
       .yat-card-fav:disabled{opacity:.6;cursor:wait}
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+      /* Soft watercolor washes, no repeating-line grain. Kept strictly inside card photos. */
+      .yat-front .yat-bg{isolation:isolate;overflow:hidden}
+      .yat-front .yat-bg::after{
+        content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+        background:
+          radial-gradient(ellipse 75% 45% at 8% 18%,rgba(238,194,98,.22),transparent 78%),
+          radial-gradient(ellipse 65% 55% at 93% 35%,rgba(117,169,194,.20),transparent 79%),
+          radial-gradient(ellipse 70% 40% at 12% 88%,rgba(199,127,105,.18),transparent 80%),
+          radial-gradient(ellipse 55% 45% at 86% 90%,rgba(218,185,131,.13),transparent 82%);
+        mix-blend-mode:screen;opacity:.72;
+      }
+
       .yat-shade{position:absolute;left:0;right:0;bottom:0;height:70%;background:linear-gradient(transparent,rgba(0,0,0,.3) 30%,var(--shade-end))}
       .yat-front-content{
   position:absolute;

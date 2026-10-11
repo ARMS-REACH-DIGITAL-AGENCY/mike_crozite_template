@@ -205,22 +205,13 @@ function renderSchoolRows(programs: any[], emptyText: string) {
         return `
           <a class="yat-search-card yat-search-school-card" href="${esc(schoolUrl(s))}">
             <div class="yat-search-school-topline">
-              <span class="yat-search-school-crest-link" aria-hidden="true">
-                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-              </span>
               <span class="yat-search-row-text">
                 <strong>${esc(name)}</strong>
                 ${location ? `<small>${esc(location)}</small>` : ''}
               </span>
-              <span class="yat-search-school-badge ${live ? 'live' : badge === 'Candidate' ? 'candidate' : ''}">${esc(badge)}</span>
-            </div>
-            <div class="yat-search-school-stats">
-              <span><strong>${esc(s.current_aa ?? 0)}</strong><small>Active</small></span>
-              <span><strong>${esc(s.atnla ?? 0)}</strong><small>All-Time</small></span>
-              <span><strong>${esc(s.drafted_ratio || (s.drafted_hs && s.drafted ? `${s.drafted_hs}/${s.drafted}` : '--'))}</strong><small>Drafted</small></span>
-              <span><strong>${esc(s.mlb ?? 0)}</strong><small>MLB</small></span>
-              <span><strong>${s.yatstats_national_rank ? `#${esc(cleanRank(s.yatstats_national_rank))}` : '--'}</strong><small>Nat'l Rank</small></span>
-              <span><strong>${s.yatstats_state_rank ? `#${esc(cleanRank(s.yatstats_state_rank))}` : '--'}</strong><small>${esc(stateLabel)}</small></span>
+              <span class="yat-search-school-crest-link" aria-hidden="true">
+                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+              </span>
             </div>
           </a>
         `;
@@ -595,12 +586,12 @@ export default function SearchDrawerTabs() {
 
   return (
     <style jsx global>{`
-      #drawerLeft .yat-search-drawer-title { margin-bottom: 4px !important; font-size: 18px !important; }
-      #drawerLeft .yat-search-drawer-sub { max-width: 330px; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
+      #drawerLeft .yat-search-drawer-title { margin-bottom: 4px !important; font-size: clamp(16px, 3.8vw, 22px) !important; white-space: nowrap; }
+      #drawerLeft .yat-search-drawer-sub { max-width: none; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
       #drawerLeft .yat-search-mode-label { display: none !important; }
       #drawerLeft .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
-      #drawerLeft .yat-search-mode-btn { min-height: 34px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
-      #drawerLeft .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); }
+      #drawerLeft .yat-search-mode-btn { min-height: 29px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
+      #drawerLeft .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
       #drawerLeft .yat-search-empty { color: var(--muted); font: 400 13px/1.4 Oswald, sans-serif; padding: 8px 0; }
       #drawerLeft .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
       #drawerLeft .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
@@ -614,7 +605,7 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
       #drawerLeft .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
       #drawerLeft .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
-      #drawerLeft .yat-search-school-topline { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; }
+      #drawerLeft .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
       #drawerLeft .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
       #drawerLeft .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; border-radius: 0; background: transparent; }
       #drawerLeft .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }

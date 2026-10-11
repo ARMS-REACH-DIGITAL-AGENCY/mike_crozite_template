@@ -92,7 +92,7 @@ function mirrorRow3(k:Key){
     const a=document.createElement('a');
     a.href='#'; a.className='gallery-slot gallery-slot-link'; a.dataset.playerid=id; a.title=card.dataset.name||'';
     const safeId=encodeURIComponent(id);
-    a.innerHTML=`<div class="gallery-slot-media"><img class="gallery-slot-img" src="${NOW_BASE}/${safeId}.jpg" onerror="this.onerror=null;this.src='/img/headshot-silhouette.png'" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay">${last(card).toUpperCase()}</div></div>`;
+    a.innerHTML=`<div class="gallery-slot-media"><img class="gallery-slot-img" src="https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts/${safeId}.png" onerror="this.onerror=null;this.src='/img/headshot-silhouette.png'" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay">${last(card).toUpperCase()}</div></div>`;
     inner.appendChild(a);
   });
 }
