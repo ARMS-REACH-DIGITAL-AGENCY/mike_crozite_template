@@ -125,6 +125,43 @@ function matchesGraduatingClass(value: string, selected: string[]): boolean {
   });
 }
 
+// Sort the actual filtered grid here, not in a separate event listener.
+// The year badge sets data-alltime-team-year-filter before applyFilters runs.
+const LEVEL_ORDER: Record<string, number> = {
+  MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
+  ROOKIE: 6, INDY: 7, "INT'L": 8, 'NCAA-D1': 9, 'NCAA-D2': 10,
+  'NCAA-D3': 11, NAIA: 12, JUCO: 13, 'HIGH SCHOOL': 14,
+};
+function sortFilteredAllTime(section: HTMLElement) {
+  const grid = section.querySelector<HTMLElement>('#alltime-grid');
+  if (!grid) return;
+  const cards = Array.from(grid.querySelectorAll<HTMLElement>('.yat-card[data-playerid]:not([data-superfan-synthetic="true"])'));
+  const wrap = (card: HTMLElement) => card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
+  const rank = (card: HTMLElement) => {
+    const level = normalize(card.dataset.level).replace(/\s+/g, '-')
+      .replace(/^NCAA-?D([123])$/, 'NCAA-D$1')
+      .replace(/^AAA$/, 'TRIPLE-A').replace(/^AA$/, 'DOUBLE-A')
+      .replace(/^A\+$/, 'HIGH-A').replace(/^A$/, 'LOW-A')
+      .replace(/^HIGH-SCHOOL$/, 'HIGH SCHOOL');
+    return LEVEL_ORDER[level] ?? 99;
+  };
+  const grad = (card: HTMLElement) => {
+    const year = Number(card.dataset.gradclass);
+    return Number.isFinite(year) && year > 0 ? year : 9999;
+  };
+  const years = (card: HTMLElement) => (card.dataset.rosteryears || '').split(',').filter(Boolean).length;
+  const name = (card: HTMLElement) => (card.dataset.name || '').trim();
+  const last = (card: HTMLElement) => name(card).split(/\s+/).pop() || '';
+  const teamSelected = Boolean(section.dataset.alltimeTeamYearFilter);
+  cards.sort((a, b) => teamSelected
+    ? rank(a) - rank(b) || grad(a) - grad(b) || years(b) - years(a)
+      || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
+    : last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
+  );
+  // Preserve the existing wrapper nodes and React card contents.
+  cards.forEach(card => grid.appendChild(wrap(card)));
+}
+
 function applyFilters(section: string) {
   if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
 
@@ -170,6 +207,8 @@ function applyFilters(section: string) {
     const displayTarget = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
     displayTarget.style.display = show ? '' : 'none';
   });
+
+  if (section === 'alltime') sortFilteredAllTime(targetSection);
 
   window.dispatchEvent(new CustomEvent('yat:gallery-filtered', { detail: { section } }));
 }
