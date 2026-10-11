@@ -96,8 +96,8 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         height:100%;
         overflow:hidden;
         /* Clip the moving text at the card edge, then soften the reveal. */
-        -webkit-mask-image:linear-gradient(to right, transparent 0px, #000 48px, #000 calc(100% - 35px), transparent 100%);
-        mask-image:linear-gradient(to right, transparent 0px, #000 48px, #000 calc(100% - 35px), transparent 100%);
+        -webkit-mask-image:linear-gradient(to right, transparent 0px, #000 32px, #000 calc(100% - 35px), transparent 100%);
+        mask-image:linear-gradient(to right, transparent 0px, #000 32px, #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
         display:flex !important;
