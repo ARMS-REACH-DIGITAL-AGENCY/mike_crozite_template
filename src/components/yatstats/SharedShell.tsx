@@ -48,6 +48,11 @@ const VALID_SECTIONS = new Set([
 ]);
 
 const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
+const SECTION_ANCHORS: Record<string, string[]> = {
+  partner: ['WHO?', 'WHAT?', 'WHEN?', 'WHERE?', 'WHY?', 'HOW?'],
+  about: ['ABOUT', 'OUR MISSION', 'HOW IT WORKS', 'SCHOOLS', 'PLAYERS', 'FANS'],
+  faq: ['ABOUT', 'PLAYERS', 'STORIES', 'CONTRIBUTE', 'SUPER FANS', 'FANTASY', 'CONTACT'],
+};
 
 function normalizeSection(value: string): string {
   const section = String(value || '').replace(/^#?sec-/, '').trim().toLowerCase();
@@ -162,6 +167,16 @@ export default function SharedShell({
               // The Fantasy Bracket Tourney tab: the school's season, a
               // slide per week, where a profile has its Career Path Timeline.
               ? <FantasyTimeline />
+              : SECTION_ANCHORS[activeSection] && !isPlayerProfile
+              ? <nav className="yat-section-anchor-strip" aria-label={activeSection === 'faq' ? 'FAQ topics' : activeSection === 'partner' ? 'Partnership questions' : 'About sections'}>
+                  {SECTION_ANCHORS[activeSection].map((label, i) => <button type="button" key={label} onClick={() => {
+                    const section = document.getElementById(`sec-${activeSection}`);
+                    const headings = Array.from(section?.querySelectorAll<HTMLElement>('h2,h3') || []);
+                    const normalized = label.replace(/[?]/g, '').toLowerCase();
+                    const match = headings.find(h => h.textContent?.toLowerCase().includes(normalized)) || headings[i];
+                    match?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}>{label}</button>)}
+                </nav>
               : profilePlayerId
               ? (
                   <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">
@@ -193,6 +208,9 @@ export default function SharedShell({
           </div>
         </div>
         <style jsx global>{`
+          .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:8px 24px;scrollbar-width:thin;background:var(--bg,#111)}
+          .yat-section-anchor-strip button{flex:0 0 auto;min-width:68px;height:60px;padding:8px 12px;border:1px solid #777;border-radius:32px;background:transparent;color:var(--fg,#fff);font:700 12px Oswald,Arial,sans-serif;cursor:pointer}
+          .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible{border-color:#e7b738;color:#e7b738}
           .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
           .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:clamp(64px,10vw,110px);height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
           @media(max-width:640px){.yat-unified-footer-art{width:clamp(55px,12vw,76px);height:calc(100% + 12px)}}
