@@ -4,7 +4,7 @@ import { useLayoutEffect } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
-const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
+const UNCOMMITTED_BADGE_URL = '/img/uncommitted.jpg';
 const HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
 const PLAYER_NOW_CUTOUT_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts';
 

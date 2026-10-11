@@ -8,7 +8,7 @@ const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
-const UNCOMMITTED_BADGE_SRC = '/img/uncommitted.png';
+const UNCOMMITTED_BADGE_SRC = '/img/uncommitted.jpg';
 const isUncommittedBadge = (src: string): boolean => /\/uncommitted\.(?:png|webp|jpe?g)(?:[?#]|$)/i.test(src);
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 

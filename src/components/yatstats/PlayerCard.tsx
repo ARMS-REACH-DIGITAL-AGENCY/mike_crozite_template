@@ -9,7 +9,7 @@ import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
 import PlayerCardFlipBehavior from "@/components/yatstats/PlayerCardFlipBehavior";
 
 const HEADSHOT_FALLBACK_URL = "/img/headshot-silhouette.png";
-const UNCOMMITTED_BADGE_URL = "/img/uncommitted.png";
+const UNCOMMITTED_BADGE_URL = "/img/uncommitted.jpg";
 
 interface PlayerCardProps {
   player: Record<string, unknown>;
@@ -166,7 +166,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const committedTeamId = imageText(
     p.committed_teamid || p.committed_team_id || p.commit_teamid || p.commit_team_id
   );
-  // Small WebP copy; the strip falls back to the uploaded .png, then the
+  // Small WebP copy; the strip falls back to the uploaded .jpg, then the
   // uncommitted badge.
   const committedLogoUrl = committedTeamId ? getTeamLogoUrl(committedTeamId) : UNCOMMITTED_BADGE_URL;
 
