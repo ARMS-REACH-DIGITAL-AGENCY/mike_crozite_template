@@ -5,7 +5,6 @@ import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 29 }, (_, index) => String(1999 + index));
-const ALL_TIME_YEAR_BADGE_SRC = '/img/varsity_ball.png';
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
@@ -404,27 +403,6 @@ export default function InteractionStrip({
           border-radius: 50%;
         }
 
-        .alltime-year-badge-image {
-          object-fit: contain !important;
-        }
-
-        .alltime-year-badge-year {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          z-index: 2;
-          transform: translate(-50%, -50%);
-          padding: 3px 5px;
-          border: 1px solid #f5c542;
-          border-radius: 999px;
-          background: rgba(0, 0, 0, .78);
-          color: #fff;
-          font: 700 10px/1 Oswald, sans-serif;
-          letter-spacing: .02em;
-          text-shadow: 0 1px 2px #000;
-          pointer-events: none;
-        }
-
         .alltime-year-badge.is-active .alltime-year-badge-media {
           border-color: #f5c542;
           box-shadow: 0 0 0 2px rgba(245, 197, 66, .72);
@@ -531,6 +509,10 @@ export default function InteractionStrip({
           box-shadow:none; position:relative;
         }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { border-color:#d1d1d1; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge-media {
+          background:radial-gradient(circle at 38% 30%, #fff 0%, #fff 48%, #f5f5f5 76%, #e5e5e5 100%);
+          box-shadow:inset 0 1px 9px rgba(0,0,0,.09), inset 0 -3px 7px rgba(0,0,0,.06);
+        }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { filter:invert(1); }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
           display:block; width:100%; height:100%; object-fit:contain;
@@ -580,12 +562,12 @@ export default function InteractionStrip({
           flex:0 0 108px; width:108px; min-width:108px;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-reset-badge .alltime-year-badge-media {
-          width:48px; height:48px; flex:0 0 48px;
+          width:60px; height:60px; flex:0 0 60px;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-reset-label {
           display:block; width:108px; height:11px; flex:0 0 11px;
-          color:#e5e5e5; font:700 7px/11px Oswald, sans-serif;
-          letter-spacing:.02em; text-align:center; white-space:nowrap;
+          color:#e5e5e5; font:300 9px/11px Oswald, sans-serif;
+          letter-spacing:0; text-align:center; white-space:nowrap;
         }
 
 
@@ -624,18 +606,8 @@ export default function InteractionStrip({
                   title="All-Time List A to Z — show every player and reset filters"
                   onClick={handleAllTimeResetClick}
                 >
-                  <div className="gallery-slot-media alltime-year-badge-media">
-                    <img
-                      src={ALL_TIME_YEAR_BADGE_SRC}
-                      alt=""
-                      aria-hidden="true"
-                      className="gallery-slot-img alltime-year-badge-image"
-                      loading="eager"
-                      decoding="async"
-                    />
-                    <span className="alltime-year-badge-year" aria-hidden="true">A–Z</span>
-                  </div>
-                  <span className="alltime-year-reset-label" aria-hidden="true">ALL-TIME LIST A TO Z</span>
+                  <div className="gallery-slot-media alltime-year-badge-media" />
+                  <span className="gallery-slot-name-overlay alltime-year-reset-label" aria-hidden="true">ALL-TIME LIST A TO Z</span>
                 </button>
                 {ALL_TIME_TEAM_YEARS.map((year) => {
                   const isSelected = selectedRosterYear === year;
@@ -650,17 +622,8 @@ export default function InteractionStrip({
                       title={`Show alumni who played for the team in ${year}`}
                       onClick={() => handleAllTimeYearClick(year)}
                     >
-                      <div className="gallery-slot-media alltime-year-badge-media">
-                        <img
-                          src={ALL_TIME_YEAR_BADGE_SRC}
-                          alt=""
-                          aria-hidden="true"
-                          className="gallery-slot-img alltime-year-badge-image"
-                          loading="eager"
-                          decoding="async"
-                        />
-                        <span className="alltime-year-badge-year" aria-hidden="true">{year}</span>
-                      </div>
+                      <div className="gallery-slot-media alltime-year-badge-media" />
+                      <span className="gallery-slot-name-overlay" aria-hidden="true">{year} TEAM</span>
                     </button>
                   );
                 })}
