@@ -126,6 +126,7 @@ export default function SharedShell({
     syncSection();
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
+    window.addEventListener('yat:section-changed', syncSection);
 
     const observer = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -136,6 +137,7 @@ export default function SharedShell({
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
+      window.removeEventListener('yat:section-changed', syncSection);
       observer.disconnect();
     };
   }, [isPlayerProfile]);

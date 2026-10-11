@@ -654,6 +654,8 @@ function syncStripToVisibleCards() {
     syncStripToSection(key);
     syncFlipAllVisibleCards();
     revealRequestedPlayerCard(false);
+    // replaceState does not emit hashchange; notify React-backed rows directly.
+    window.dispatchEvent(new CustomEvent('yat:section-changed', { detail: { section: key } }));
   }
 
   var yatPlayerAnchorScrolled=false;
