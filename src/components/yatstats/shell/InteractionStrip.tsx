@@ -4,6 +4,8 @@ import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
+const ALL_TIME_TEAM_YEARS = Array.from({ length: 29 }, (_, index) => String(1999 + index));
+const ALL_TIME_YEAR_BADGE_SRC = '/img/varsity_ball.png';
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
@@ -228,6 +230,7 @@ export default function InteractionStrip({
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [activeSection, setActiveSection] = useState(getCurrentSection);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedRosterYear, setSelectedRosterYear] = useState<string | null>(null);
   const [sectionPlayers, setSectionPlayers] = useState<Player[]>(() =>
     fallbackPlayersForSection(getCurrentSection(), players)
   );
@@ -258,6 +261,10 @@ export default function InteractionStrip({
       frame = window.requestAnimationFrame(() => {
         const section = getCurrentSection();
         setActiveSection(section);
+        const allTimeSection = document.getElementById('sec-alltime');
+        setSelectedRosterYear(
+          section === 'alltime' ? allTimeSection?.dataset.alltimeTeamYearFilter || null : null
+        );
 
         // Alumni News uses the same active-alumni headshots as the flip-card
         // gallery, but as filters. Resolve its roster from the active gallery
@@ -360,6 +367,17 @@ export default function InteractionStrip({
     }
   };
 
+  const handleAllTimeYearClick = (year: string) => {
+    const nextYear = selectedRosterYear === year ? '' : year;
+    setSelectedRosterYear(nextYear || null);
+    window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: nextYear } }));
+  };
+
+  const handleAllTimeResetClick = () => {
+    setSelectedRosterYear(null);
+    window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: '', reset: true } }));
+  };
+
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
 
   return (
@@ -370,6 +388,46 @@ export default function InteractionStrip({
           display: block;
           text-decoration: none;
           color: inherit;
+        }
+
+        .alltime-year-badge {
+          appearance: none;
+          -webkit-appearance: none;
+          padding: 0;
+          color: inherit;
+          cursor: pointer;
+        }
+
+        .alltime-year-badge:focus-visible {
+          outline: 2px solid #f5c542;
+          outline-offset: -2px;
+          border-radius: 50%;
+        }
+
+        .alltime-year-badge-image {
+          object-fit: contain !important;
+        }
+
+        .alltime-year-badge-year {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          z-index: 2;
+          transform: translate(-50%, -50%);
+          padding: 3px 5px;
+          border: 1px solid #f5c542;
+          border-radius: 999px;
+          background: rgba(0, 0, 0, .78);
+          color: #fff;
+          font: 700 10px/1 Oswald, sans-serif;
+          letter-spacing: .02em;
+          text-shadow: 0 1px 2px #000;
+          pointer-events: none;
+        }
+
+        .alltime-year-badge.is-active .alltime-year-badge-media {
+          border-color: #f5c542;
+          box-shadow: 0 0 0 2px rgba(245, 197, 66, .72);
         }
 
         .gallery-slot-media {
@@ -518,6 +576,17 @@ export default function InteractionStrip({
           color:#d2b45c !important;
           text-shadow:0 0 5px rgba(210,180,92,.28);
         }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.alltime-year-reset-badge {
+          flex:0 0 108px; width:108px; min-width:108px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-reset-badge .alltime-year-badge-media {
+          width:48px; height:48px; flex:0 0 48px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-reset-label {
+          display:block; width:108px; height:11px; flex:0 0 11px;
+          color:#e5e5e5; font:700 7px/11px Oswald, sans-serif;
+          letter-spacing:.02em; text-align:center; white-space:nowrap;
+        }
 
 
         @media(max-width:600px) {
@@ -544,7 +613,59 @@ export default function InteractionStrip({
 
         <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
           {showPlayerStrip ? (
-            sectionPlayers.map((player) => {
+            activeSection === 'alltime' ? (
+              <>
+                <button
+                  key="alltime-list-a-to-z"
+                  type="button"
+                  className={`gallery-slot alltime-year-badge alltime-year-reset-badge${selectedRosterYear ? '' : ' is-active'}`}
+                  aria-label="All-Time List A to Z — show every player and reset filters"
+                  aria-pressed={!selectedRosterYear}
+                  title="All-Time List A to Z — show every player and reset filters"
+                  onClick={handleAllTimeResetClick}
+                >
+                  <div className="gallery-slot-media alltime-year-badge-media">
+                    <img
+                      src={ALL_TIME_YEAR_BADGE_SRC}
+                      alt=""
+                      aria-hidden="true"
+                      className="gallery-slot-img alltime-year-badge-image"
+                      loading="eager"
+                      decoding="async"
+                    />
+                    <span className="alltime-year-badge-year" aria-hidden="true">A–Z</span>
+                  </div>
+                  <span className="alltime-year-reset-label" aria-hidden="true">ALL-TIME LIST A TO Z</span>
+                </button>
+                {ALL_TIME_TEAM_YEARS.map((year) => {
+                  const isSelected = selectedRosterYear === year;
+                  return (
+                    <button
+                      key={`alltime-year-${year}`}
+                      type="button"
+                      className={`gallery-slot alltime-year-badge${isSelected ? ' is-active' : ''}`}
+                      data-team-year={year}
+                      aria-label={`Filter All-Time alumni to team year ${year}`}
+                      aria-pressed={isSelected}
+                      title={`Show alumni who played for the team in ${year}`}
+                      onClick={() => handleAllTimeYearClick(year)}
+                    >
+                      <div className="gallery-slot-media alltime-year-badge-media">
+                        <img
+                          src={ALL_TIME_YEAR_BADGE_SRC}
+                          alt=""
+                          aria-hidden="true"
+                          className="gallery-slot-img alltime-year-badge-image"
+                          loading="eager"
+                          decoding="async"
+                        />
+                        <span className="alltime-year-badge-year" aria-hidden="true">{year}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
+            ) : sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
               const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
               const nowSrc = cleanSrc(player.nowImage)

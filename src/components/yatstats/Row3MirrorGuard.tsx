@@ -263,6 +263,12 @@ function syncRow3VisualOrderAndImages(): void {
   const strip = getReactOwnedStrip();
   if (!strip) return;
   const sectionKey = getVisibleSectionKey();
+  // All-Time Row 3 is a year filter rail, not a mirror of the player cards.
+  if (sectionKey === 'alltime') {
+    strip.dataset.activeSection = sectionKey;
+    strip.dataset.row5Synced = 'true';
+    return;
+  }
   // News uses row 3 as a filter for the active alumni gallery, not a separate
   // player gallery. Mirror sec-active so fresh News slots receive the visible marker.
   const rowFiveSectionKey = sectionKey === 'news' ? 'active' : sectionKey;

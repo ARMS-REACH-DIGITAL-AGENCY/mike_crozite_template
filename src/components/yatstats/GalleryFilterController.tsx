@@ -140,6 +140,9 @@ function applyFilters(section: string) {
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
   const rosterYears = getSelectedValues('filterRosterYears');
+  const allTimeTeamYear = section === 'alltime'
+    ? normalize(targetSection.dataset.alltimeTeamYearFilter)
+    : '';
   const favoritesGallery = getFavoritesGalleryRestriction(targetSection);
 
   targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
@@ -161,7 +164,8 @@ function applyFilters(section: string) {
       && (!levels.length || levels.includes(level))
       && (!organizations.length || organizations.includes(organization))
       && matchesGraduatingClass(gradClass, gradClasses)
-      && (!rosterYears.length || cardRosterYears.some((year) => rosterYears.includes(year)));
+      && (!rosterYears.length || cardRosterYears.some((year) => rosterYears.includes(year)))
+      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear));
 
     const displayTarget = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
     displayTarget.style.display = show ? '' : 'none';
@@ -174,6 +178,10 @@ function applyPreset(section: string) {
   if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
 
   clearFilters();
+  if (section === 'alltime') {
+    const allTimeSection = document.getElementById('sec-alltime');
+    if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
+  }
 
   // Active: ACTIVE plus every injured-list status (src/lib/galleryStatuses.ts).
   if (section === 'active') {
@@ -301,6 +309,11 @@ export default function GalleryFilterController() {
       const section = getCurrentSection();
       if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
 
+      if (section === 'alltime' && target.closest('#filterRosterYears')) {
+        const allTimeSection = document.getElementById('sec-alltime');
+        if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
+      }
+
       event.stopPropagation();
       if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
 
@@ -316,6 +329,26 @@ export default function GalleryFilterController() {
       }
 
       applyFilters(section);
+    };
+
+    const onAllTimeTeamYearFilter = (event: Event) => {
+      const detail = (event as CustomEvent<{ year?: unknown; reset?: boolean }>).detail;
+      if (detail?.reset) {
+        applyPreset('alltime');
+        return;
+      }
+
+      const year = normalize(detail?.year);
+      if (year && (!/^\d{4}$/.test(year) || Number(year) < 1999 || Number(year) > 2027)) return;
+
+      const allTimeSection = document.getElementById('sec-alltime');
+      if (!allTimeSection) return;
+
+      if (year) allTimeSection.dataset.alltimeTeamYearFilter = year;
+      else delete allTimeSection.dataset.alltimeTeamYearFilter;
+
+      setValues('filterRosterYears', year ? [year] : []);
+      applyFilters('alltime');
     };
 
     const onInputCapture = (event: Event) => {
@@ -382,6 +415,7 @@ export default function GalleryFilterController() {
     document.addEventListener('input', onInputCapture, true);
     document.addEventListener('click', onClickCapture, true);
     window.addEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
+    window.addEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
 
     const sectionObserver = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -400,6 +434,7 @@ export default function GalleryFilterController() {
       document.removeEventListener('input', onInputCapture, true);
       document.removeEventListener('click', onClickCapture, true);
       window.removeEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
+      window.removeEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
       sectionObserver.disconnect();
     };
   }, []);

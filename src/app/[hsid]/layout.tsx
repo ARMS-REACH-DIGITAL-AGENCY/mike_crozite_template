@@ -434,7 +434,7 @@ export default async function HsidLayout({
             <summary>By Roster Year</summary>
             <div className="yat-filter-options" id="filterRosterYears">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
-              {Array.from({length: 27}, (_, i) => String(2025 - i)).map((yr) => (
+              {Array.from({length: 29}, (_, i) => String(2027 - i)).map((yr) => (
                 <label key={yr}>
                   <input type="checkbox" value={yr} /> {yr}
                 </label>
