@@ -111,6 +111,11 @@ function isCoachCard(p: Row | undefined): boolean {
   return String(p?.status_label ?? p?.status ?? "").trim().toUpperCase().includes("COACH");
 }
 
+function isRetiredCoachCard(p: Row | undefined): boolean {
+  const status = String(p?.status_label ?? p?.status ?? "").trim().toUpperCase();
+  return status.includes("RETIRED") && status.includes("COACH");
+}
+
 function isHighSchoolPlayer(p: Row | undefined): boolean {
   if (!p) return false;
 
@@ -445,7 +450,7 @@ export default async function SchoolPage({
   const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
-  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isCoachCard(p)).map((p) => ({ ...p })));
+  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
   const activeSeenIds = new Set<string>();
