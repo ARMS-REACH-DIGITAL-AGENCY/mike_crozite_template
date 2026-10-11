@@ -4,6 +4,7 @@ import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
+const HAMILTON_SEASON_LINES: Record<string, readonly [string,string]> = {"1999":["Baseball","Established"],"2000":["Regional","Loss"],"2001":["First Round","Loss"],"2002":["Semi-Finals","Region Champs"],"2003":["5A State","Champs"],"2004":["5A State","Champs"],"2005":["5A State","Runner-Up"],"2006":["Semi-Finals","Region Champs"],"2007":["3rd Round","Loss"],"2008":["5A State","Champs"],"2009":["5A State","Runner-Up"],"2010":["4th Round Loss","Region Champs"],"2011":["5A Runner-Up","Region Champs"],"2012":["5th Round Loss","Final 6"],"2013":["1st Round","Loss"],"2014":["D1 State","Champs"],"2015":["Semi-Finals","Section Champs"],"2016":["D1 State","Champs"],"2017":["6A State","Champions"],"2018":["State","Final 6"],"2019":["6A State","Champs"],"2020":["#1 AZ Rank*","#1 Nat'l Rank*"],"2021":["State","Semi Finals"],"2022":["6A State","Champs"],"2023":["6A State","Champs"],"2024":["3rd Round","Loss"],"2025":["Region","Runner-Up"],"2026":["6A State","Champs"]};
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
@@ -389,6 +390,7 @@ export default function InteractionStrip({
 
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
   const allTimeCount = players.length;
+  const seasonLines = HAMILTON_SEASON_LINES;
   const teamSeasonResultsByYear = new Map(
     teamSeasonResults.map((result) => [String(result.seasonYear), result])
   );
@@ -747,6 +749,7 @@ export default function InteractionStrip({
                 {ALL_TIME_TEAM_YEARS.map((year) => {
                   const isSelected = selectedRosterYear === year;
                   const stats = teamSeasonResultsByYear.get(year);
+                  const displayLines = seasonLines[year] || [stats?.achievement || '', stats?.seasonNote || ''];
                   const isChampion = /\bstate\s+champ(?:ion)?s?\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
                   const isRunnerUp = /\b(state\s+)?runner.up\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
                   const statsLabel = stats
@@ -777,7 +780,7 @@ export default function InteractionStrip({
                           ) : (
                             <span className="alltime-ball-layout">
                               
-                              <span className="alltime-ball-note">{stats ? <><span>{stats.achievement}</span>{stats.seasonNote && <span>{stats.seasonNote}</span>}</> : ''}</span>
+                              <span className="alltime-ball-note">{stats ? <><span>{displayLines[0]}</span><span>{displayLines[1]}</span></> : ''}</span>
                               <span className="alltime-ball-year">{year}</span>
                             </span>
                           )}
