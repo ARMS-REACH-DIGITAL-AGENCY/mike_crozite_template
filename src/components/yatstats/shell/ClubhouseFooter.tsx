@@ -18,6 +18,25 @@ function Icon({ kind }: { kind: keyof typeof suppliedLedArt }) {
   return <img src={suppliedLedArt[kind]} width={34} height={34} alt="" aria-hidden="true" style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 0, flexShrink: 0 }} />;
 }
 export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number | null }) {
+  // Share the first flip-card's left edge with the Row 5 message and ticker fade.
+  useEffect(() => {
+    const syncAlignment = () => {
+      const card = document.querySelector<HTMLElement>('.yat-grid .yat-card, .yat-visual-row4-gallery .yat-card, .yat-card');
+      const left = card?.getBoundingClientRect().left;
+      if (left != null && Number.isFinite(left) && left >= 0) {
+        document.documentElement.style.setProperty('--yat-card-left-edge', `${Math.round(left)}px`);
+      }
+    };
+    syncAlignment();
+    const observer = new MutationObserver(syncAlignment);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', syncAlignment);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', syncAlignment);
+      document.documentElement.style.removeProperty('--yat-card-left-edge');
+    };
+  }, []);
   const school = useContext(SchoolContext);
   const schoolName = school?.hsName?.trim() || 'YOUR SCHOOL';
   const schoolLocation = school?.hsLocation?.trim() || 'YOUR COMMUNITY';
@@ -43,8 +62,8 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       }
       .yat-clubhouse-lane {
         position:relative; width:100%; height:100%; overflow:hidden;
-        -webkit-mask-image:linear-gradient(to right, transparent 0, #000 78px, #000 calc(100% - 35px), transparent 100%);
-        mask-image:linear-gradient(to right, transparent 0, #000 78px, #000 calc(100% - 35px), transparent 100%);
+        -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--yat-card-left-edge, clamp(90px, 13vw, 155px)), #000 calc(100% - 35px), transparent 100%);
+        mask-image:linear-gradient(to right, transparent 0, #000 var(--yat-card-left-edge, clamp(90px, 13vw, 155px)), #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
         display:flex !important;
