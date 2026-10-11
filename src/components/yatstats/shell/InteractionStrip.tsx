@@ -26,11 +26,20 @@ type Player = {
   isPitcher?: boolean;
 };
 
+type TeamSeasonResult = {
+  seasonYear: number;
+  achievement: string;
+  wins: number;
+  losses: number;
+  seasonNote: string | null;
+};
+
 type InteractionStripProps = {
   isPlayerProfile?: boolean;
   isGallery?: boolean;
   isNews?: boolean;
   players?: Player[];
+  teamSeasonResults?: TeamSeasonResult[];
 };
 
 function getLastName(name: string): string {
@@ -223,6 +232,7 @@ export default function InteractionStrip({
   isGallery = false,
   isNews = false,
   players = [],
+  teamSeasonResults = [],
 }: InteractionStripProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -378,6 +388,9 @@ export default function InteractionStrip({
   };
 
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
+  const teamSeasonResultsByYear = new Map(
+    teamSeasonResults.map((result) => [String(result.seasonYear), result])
+  );
 
   return (
     <>
@@ -513,6 +526,27 @@ export default function InteractionStrip({
           background:radial-gradient(circle at 38% 30%, #fff 0%, #fff 48%, #f5f5f5 76%, #e5e5e5 100%);
           box-shadow:inset 0 1px 9px rgba(0,0,0,.09), inset 0 -3px 7px rgba(0,0,0,.06);
         }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { height:116px; min-height:116px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { height:116px; min-height:116px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex:0 0 96px; width:96px; min-width:96px; height:104px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
+          display:flex; flex:0 0 88px; width:88px; height:88px; box-sizing:border-box;
+          align-items:center; justify-content:center; padding:7px; color:#171717;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats {
+          display:flex; flex-direction:column; align-items:center; justify-content:center;
+          width:100%; max-height:100%; overflow:hidden; text-align:center;
+          font:600 6.7px/1.08 Oswald, sans-serif; letter-spacing:0; text-transform:none;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-achievement { display:block; width:100%; overflow-wrap:anywhere; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-note {
+          display:block; width:100%; margin-top:1px; font-size:5.8px; font-style:italic;
+          line-height:1.05; overflow-wrap:anywhere;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-record {
+          display:block; margin-top:2px; font:700 8px/1 Oswald, sans-serif; white-space:nowrap;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats--missing { font-size:7px; line-height:1.15; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { filter:invert(1); }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
           display:block; width:100%; height:100%; object-fit:contain;
@@ -560,6 +594,7 @@ export default function InteractionStrip({
         }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.alltime-year-reset-badge {
           flex:0 0 108px; width:108px; min-width:108px;
+          height:73px;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-reset-badge .alltime-year-badge-media {
           width:60px; height:60px; flex:0 0 60px;
@@ -579,6 +614,10 @@ export default function InteractionStrip({
             width:60px;
             height:60px;
             flex-basis:auto; aspect-ratio:1;
+          }
+          .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex-basis:96px; width:96px; min-width:96px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
+            flex:0 0 88px; width:88px; height:88px; aspect-ratio:1;
           }
         }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
@@ -611,18 +650,32 @@ export default function InteractionStrip({
                 </button>
                 {ALL_TIME_TEAM_YEARS.map((year) => {
                   const isSelected = selectedRosterYear === year;
+                  const stats = teamSeasonResultsByYear.get(year);
+                  const statsLabel = stats
+                    ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${stats.wins}-${stats.losses})`
+                    : 'season stats not provided yet';
                   return (
                     <button
                       key={`alltime-year-${year}`}
                       type="button"
                       className={`gallery-slot alltime-year-badge${isSelected ? ' is-active' : ''}`}
                       data-team-year={year}
-                      aria-label={`Filter All-Time alumni to team year ${year}`}
+                      aria-label={`${year} team: ${statsLabel}. Filter All-Time alumni to team year ${year}`}
                       aria-pressed={isSelected}
-                      title={`Show alumni who played for the team in ${year}`}
+                      title={`${year} Team — ${statsLabel}. Click to filter alumni.`}
                       onClick={() => handleAllTimeYearClick(year)}
                     >
-                      <div className="gallery-slot-media alltime-year-badge-media" />
+                      <div className="gallery-slot-media alltime-year-badge-media">
+                        <span className={`alltime-team-stats${stats ? '' : ' alltime-team-stats--missing'}`}>
+                          {stats ? (
+                            <>
+                              <span className="alltime-team-achievement">{stats.achievement}</span>
+                              {stats.seasonNote ? <span className="alltime-team-note">{stats.seasonNote}</span> : null}
+                              <span className="alltime-team-record">{stats.wins}-{stats.losses}</span>
+                            </>
+                          ) : 'Stats not provided'}
+                        </span>
+                      </div>
                       <span className="gallery-slot-name-overlay" aria-hidden="true">{year} TEAM</span>
                     </button>
                   );

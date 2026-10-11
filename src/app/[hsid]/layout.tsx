@@ -11,6 +11,7 @@ import {
   getSchoolByHsid,
   getActiveAlumniCountByHsid,
   getSchoolByUrl,
+  getSchoolTeamSeasonResults,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
@@ -161,13 +162,17 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  const [allStageRows, rawAllTimeRoster] = await Promise.all([
+  const [allStageRows, rawAllTimeRoster, teamSeasonResults] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
     }),
     getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
       console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
+      return [];
+    }),
+    getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
+      console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
       return [];
     }),
   ]);
@@ -281,6 +286,7 @@ export default async function HsidLayout({
       <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
+        teamSeasonResults={teamSeasonResults}
         schoolMeta={schoolMeta}
       >
         {children}
