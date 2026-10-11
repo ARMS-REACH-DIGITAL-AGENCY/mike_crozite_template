@@ -820,7 +820,7 @@ export default function YatStyles() {
       .yat-visual-row4-gallery{padding-top:0}
       .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
       .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui);display:flex;flex-direction:column}
-      .yat-clubhouse-facts{box-sizing:border-box;flex:0 0 var(--yat-facts-h);min-height:0;background:var(--bg);display:flex;align-items:flex-end;gap:10px;padding:3px 12px 4px clamp(74px,13vw,155px);border:0}
+      .yat-clubhouse-facts{box-sizing:border-box;flex:0 0 var(--yat-facts-h);min-height:0;background:var(--bg);display:flex;align-items:flex-end;gap:10px;padding:3px 12px 4px var(--yat-card-left-edge, clamp(74px,13vw,155px));border:0}
       .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(64px,12vw,145px);height:calc(var(--yat-facts-h) + var(--yat-dock-h) - 2px);display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
       .yat-clubhouse-hero img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;object-position:bottom}
       .yat-clubhouse-message{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
@@ -836,7 +836,7 @@ export default function YatStyles() {
       .yat-clubhouse-nav small{font:700 clamp(9px,2.5vw,11px)/1 var(--yat-font-ui);letter-spacing:0}
       @media(max-width:640px){
         :root{--yat-facts-h:calc(104px / 3)}
-        .yat-clubhouse-facts{padding:2px 6px 4px 72px;gap:4px}
+        .yat-clubhouse-facts{padding:2px 6px 4px var(--yat-card-left-edge, 72px);gap:4px}
         .yat-clubhouse-hero{width:68px}
         .yat-clubhouse-message{gap:3px;align-items:center}
         .yat-clubhouse-message>span{font-size:11px;line-height:1.2}
