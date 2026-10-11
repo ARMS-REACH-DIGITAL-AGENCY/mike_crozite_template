@@ -284,6 +284,7 @@ export default function InteractionStrip({
     syncFromPage();
     window.addEventListener('hashchange', syncFromPage);
     window.addEventListener('popstate', syncFromPage);
+    window.addEventListener('yat:section-changed', syncFromPage);
     window.addEventListener('yat:gallery-filtered', syncFromPage as EventListener);
     document.addEventListener('click', syncFromPage, true);
 
@@ -306,6 +307,7 @@ export default function InteractionStrip({
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', syncFromPage);
       window.removeEventListener('popstate', syncFromPage);
+      window.removeEventListener('yat:section-changed', syncFromPage);
       window.removeEventListener('yat:gallery-filtered', syncFromPage as EventListener);
       document.removeEventListener('click', syncFromPage, true);
       observer.disconnect();
