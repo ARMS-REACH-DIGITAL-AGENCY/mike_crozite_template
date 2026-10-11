@@ -855,6 +855,15 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   }, [displayedPlayers, showGalleryView, currentHsid]);
 
   const handleGalleryViewChange = (checked: boolean) => {
+    // A school tab without a flip card gallery (the Fantasy Bracket Tourney,
+    // News, FAQ ...): switch to the Active gallery, then show the favorites
+    // there. Without this they went into the hidden Active gallery unseen.
+    if (checked && !isPlayerProfilePage() && !document.querySelector('.yat-section.visible .yat-grid') && document.getElementById('sec-active')) {
+      window.addEventListener('hashchange', () => setShowGalleryView(true), { once: true });
+      if (window.location.hash === '#sec-active') history.replaceState(null, '', window.location.pathname + window.location.search);
+      window.location.hash = '#sec-active';
+      return;
+    }
     if (checked && (isPlayerProfilePage() || !currentGrid())) {
       const wantsGallery = window.confirm('Would you like to navigate away from this profile page to see your favorites in your flip card gallery?');
       if (wantsGallery) {
