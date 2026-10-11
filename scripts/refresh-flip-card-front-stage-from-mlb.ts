@@ -282,11 +282,19 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
       WHERE is_true_mlb_40man_row IS TRUE
       ORDER BY playerid, at_current_team DESC, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
+    -- A row whose only status is "Forty Man" is the 40-man TAG (usually a
+    -- Triple-A or Double-A player the club can call up), not where he plays
+    -- or how: it never sets his team, level or status. In season his
+    -- affiliate's full roster does ("Active", AAA); a 40-man player on the
+    -- IL stays on the 40-man with a real "Injured ..." status. In the
+    -- offseason the affiliate rosters are empty, so a tag-only player keeps
+    -- his last real team, level and status (not "MLB / ACTIVE").
     full_roster_truth AS (
       SELECT DISTINCT ON (playerid)
         *
       FROM matched_rows
       WHERE LOWER(COALESCE(roster_type, '')) = 'fullroster'
+        AND UPPER(TRIM(COALESCE(roster_status, ''))) <> 'FORTY MAN'
       ORDER BY
         playerid,
         -- The org MLB says he's with now beats a season-long listing at
@@ -310,6 +318,7 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
         *
       FROM matched_rows
       WHERE is_true_mlb_40man_row IS TRUE
+        AND UPPER(TRIM(COALESCE(roster_status, ''))) <> 'FORTY MAN'
       ORDER BY playerid, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
     player_universe AS (
@@ -318,8 +327,8 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
       SELECT playerid FROM full_roster_truth
       UNION
       SELECT playerid FROM forty_man_fallback_truth
-      UNION
-      SELECT playerid FROM forty_man_context
+      -- (forty_man_context alone - the tag with no real roster row - doesn't
+      -- put a player in this update: his card keeps its last real values.)
     ),
     chosen_truth AS (
       SELECT
