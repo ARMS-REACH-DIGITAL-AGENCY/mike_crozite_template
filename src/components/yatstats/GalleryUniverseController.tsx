@@ -24,9 +24,14 @@ function level(card: HTMLElement){ return (card.dataset.level || '').toUpperCase
 function status(card: HTMLElement){ return (card.dataset.status || '').toUpperCase(); }
 function rosterCount(card: HTMLElement){ return (card.dataset.rosteryears || '').split(',').filter(Boolean).length; }
 function grad(card: HTMLElement){ const n=Number(card.dataset.gradclass); return Number.isFinite(n)&&n>0?n:9999; }
+function cardName(card: HTMLElement){ return (card.dataset.name || '').trim(); }
 function last(card: HTMLElement){ return (card.dataset.name || '').trim().split(/\s+/).pop() || ''; }
 function compare(k: Key,a: HTMLElement,b: HTMLElement){
-  if(k==='alltime') return grad(a)-grad(b)||(rank[level(a)]||99)-(rank[level(b)]||99)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
+  if(k==='alltime') {
+    const yearFiltered = !!document.getElementById('sec-alltime')?.dataset.alltimeTeamYearFilter;
+    if(yearFiltered) return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
+    return last(a).localeCompare(last(b))||(cardName(a)).localeCompare(cardName(b));
+  }
   return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
 }
 function cloneUniverse(){
