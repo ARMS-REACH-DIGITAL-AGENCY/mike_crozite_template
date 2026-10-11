@@ -4,7 +4,7 @@ import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
-const ALL_TIME_TEAM_YEARS = Array.from({ length: 29 }, (_, index) => String(1999 + index));
+const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
@@ -388,7 +388,7 @@ export default function InteractionStrip({
   };
 
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
-  const allTimeCount = selectedRosterYear ? players.filter((p) => (p as Player & { rosterYears?: string[] }).rosterYears?.includes(selectedRosterYear)).length : players.length;
+  const allTimeCount = players.length;
   const teamSeasonResultsByYear = new Map(
     teamSeasonResults.map((result) => [String(result.seasonYear), result])
   );
@@ -535,21 +535,21 @@ export default function InteractionStrip({
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
-          position:absolute; left:7px; top:50%; transform:translateY(-50%); z-index:7;
+          position:absolute; left:7px; top:8px; transform:none; z-index:7;
           display:flex; flex-direction:column; justify-content:center; align-items:center;
-          width:74px; height:60px; border:1px solid #c8c5b9; border-radius:2px;
+          width:74px; height:49px; border:1px solid #c8c5b9; border-radius:2px;
           background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          font:800 10px/1.1 Oswald,sans-serif; letter-spacing:.02em; text-align:center;
+          position:absolute; top:51px; left:0; width:100%; color:#e2c34b; font:800 10px/1.1 Oswald,sans-serif; letter-spacing:.02em; text-align:center; white-space:nowrap;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-count {
           font:900 30px/1 Oswald,sans-serif;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-left:88px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,black 92px,black 87%,transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,black 92px,black 87%,transparent 100%);
+          padding-left:0 !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 54px,black 106px,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 54px,black 106px,black 87%,transparent 100%);
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -571,7 +571,7 @@ export default function InteractionStrip({
           font-family:Impact,'Arial Narrow',sans-serif; font-stretch:condensed; font-weight:900;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-layout {
-          color:#f7f5ef; text-align:right; padding:7px 5px 5px 3px;
+          color:#f7f5ef; text-align:right; padding:5px 7px 5px 0;
           text-shadow:0 1px 1px #777,1px 2px 1px #333;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-heading {
@@ -581,13 +581,13 @@ export default function InteractionStrip({
           font:700 5px/1 Arial,sans-serif; white-space:nowrap;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-state {
-          font-size:16px; line-height:.91; letter-spacing:-.4px;
+          font-size:14px; line-height:.91; letter-spacing:-.4px;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-champions {
-          font-size:10px; line-height:.93; letter-spacing:-.35px;
+          font-size:12px; line-height:.93; letter-spacing:-.35px;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-year {
-          font-size:20px; line-height:1.08; letter-spacing:-.5px;
+          font-size:18px; line-height:1.08; letter-spacing:-.5px;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-layout {
           color:#65424b; text-align:center; padding:6px 2px 3px;
@@ -597,7 +597,7 @@ export default function InteractionStrip({
           font-size:7px; line-height:1; min-height:9px;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note {
-          font-size:8px; line-height:1.1; flex:1; display:flex; align-items:center; justify-content:center;
+          font-size:8px; line-height:1.1; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-year {
           font-size:17px; line-height:1.05;
@@ -704,8 +704,8 @@ export default function InteractionStrip({
         {showPlayerStrip && activeSection === 'alltime' && (
           <button type="button" className="alltime-distance-marker" onClick={handleAllTimeResetClick}
             aria-label={`Show All-Time List, ${allTimeCount} alumni`} title="Show all-time alumni">
-            <span className="alltime-distance-title">ALL-TIME LIST</span>
             <strong className="alltime-distance-count">{allTimeCount}</strong>
+            <span className="alltime-distance-title">ALL-TIME LIST</span>
           </button>
         )}
         <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
@@ -739,13 +739,13 @@ export default function InteractionStrip({
                                 <span className="alltime-champ-record">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ''}</span>
                                 <span className="alltime-champ-state">STATE</span>
                               </span>
-                              <span className="alltime-champ-champions">CHAMPIONS</span>
+                              <span className="alltime-champ-champions">CHAMPS</span>
                               <span className="alltime-champ-year">{year}</span>
                             </span>
                           ) : (
                             <span className="alltime-ball-layout">
                               <span className="alltime-ball-record">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ''}</span>
-                              <span className="alltime-ball-note">{isRunnerUp ? 'RUNNERS-UP' : stats?.achievement || stats?.seasonNote || ''}</span>
+                              <span className="alltime-ball-note">{isRunnerUp ? 'RUNNERS-UP' : (stats?.achievement || stats?.seasonNote || '').slice(0, 35)}</span>
                               <span className="alltime-ball-year">{year}</span>
                             </span>
                           )}
