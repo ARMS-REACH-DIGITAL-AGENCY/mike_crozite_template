@@ -4,7 +4,7 @@ import { useLayoutEffect } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
-const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
+const UNCOMMITTED_BADGE_URL = '/img/uncommitted.jpg';
 const HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
 const PLAYER_NOW_CUTOUT_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts';
 
@@ -263,6 +263,12 @@ function syncRow3VisualOrderAndImages(): void {
   const strip = getReactOwnedStrip();
   if (!strip) return;
   const sectionKey = getVisibleSectionKey();
+  // All-Time Row 3 is a year filter rail, not a mirror of the player cards.
+  if (sectionKey === 'alltime') {
+    strip.dataset.activeSection = sectionKey;
+    strip.dataset.row5Synced = 'true';
+    return;
+  }
   // News uses row 3 as a filter for the active alumni gallery, not a separate
   // player gallery. Mirror sec-active so fresh News slots receive the visible marker.
   const rowFiveSectionKey = sectionKey === 'news' ? 'active' : sectionKey;

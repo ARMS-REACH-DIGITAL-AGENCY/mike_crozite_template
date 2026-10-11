@@ -173,7 +173,7 @@ function favoriteButtonHtml(player: any, name: string) {
       aria-label="Add ${esc(name)} to favorites"
       title="Favorite ${esc(name)}"
     >
-      <i class="ri-star-line" aria-hidden="true"></i>
+      <i class="ri-heart-line" aria-hidden="true"></i>
     </button>
   `;
 }
@@ -339,7 +339,7 @@ function setFavButtonState(button: HTMLElement, favorited: boolean) {
   button.setAttribute('aria-label', favorited ? `Remove ${name} from favorites` : `Add ${name} to favorites`);
   button.classList.toggle('is-favorited', favorited);
   const icon = button.querySelector('i');
-  if (icon) icon.className = favorited ? 'ri-star-fill' : 'ri-star-line';
+  if (icon) icon.className = favorited ? 'ri-heart-fill' : 'ri-heart-line';
 }
 
 async function hydrateFavoriteButtons(container: HTMLElement) {

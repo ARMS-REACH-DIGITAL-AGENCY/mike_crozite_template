@@ -233,6 +233,40 @@ function trim2(value: string): string {
 // ---------------------------------------------------------------------------
 // School lookups (from school_success table)
 // ---------------------------------------------------------------------------
+export type SchoolTeamSeasonResult = {
+  seasonYear: number;
+  achievement: string;
+  wins: number;
+  losses: number;
+  seasonNote: string | null;
+};
+
+export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
+  if (!/^\d+$/.test(hsid)) return [];
+
+  const { rows } = await query<{
+    season_year: number;
+    achievement: string;
+    wins: number;
+    losses: number;
+    season_note: string | null;
+  }>(
+    `SELECT season_year, achievement, wins, losses, season_note
+       FROM public.school_team_season_results
+      WHERE hsid = $1 AND status = 'approved'
+      ORDER BY season_year DESC`,
+    [hsid]
+  );
+
+  return rows.map((row) => ({
+    seasonYear: Number(row.season_year),
+    achievement: row.achievement,
+    wins: Number(row.wins),
+    losses: Number(row.losses),
+    seasonNote: row.season_note,
+  }));
+}
+
 export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(

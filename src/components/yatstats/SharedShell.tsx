@@ -30,6 +30,14 @@ type StripPlayer = {
   status?: string;
 };
 
+type TeamSeasonResult = {
+  seasonYear: number;
+  achievement: string;
+  wins: number;
+  losses: number;
+  seasonNote: string | null;
+};
+
 type SchoolMeta = {
   activeAlumni: number | null;
   mlb: number | null;
@@ -84,6 +92,7 @@ export default function SharedShell({
   children,
   hsid,
   players = [],
+  teamSeasonResults = [],
   schoolMeta,
   row3Content,
   row4Content,
@@ -91,6 +100,7 @@ export default function SharedShell({
   children: ReactNode;
   hsid: string;
   players?: StripPlayer[];
+  teamSeasonResults?: TeamSeasonResult[];
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
   row4Content?: ReactNode;
@@ -191,6 +201,7 @@ export default function SharedShell({
                     isGallery={isGallery}
                     isNews={isNews}
                     players={players}
+                    teamSeasonResults={teamSeasonResults}
                   />
                 )}
         </div>
