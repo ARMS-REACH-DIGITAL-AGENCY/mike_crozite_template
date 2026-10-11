@@ -84,6 +84,8 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
 }) {
   const g = card.game;
   const S = index.schools;
+  // When this card was opened: the share link's snapshot time (not read during render).
+  const [sharedAt] = useState(() => Date.now());
   const [previewData, setPreviewData] = useState<{ box?: GameBox; homeRoster: ActiveRosterPlayer[]; awayRoster: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -221,7 +223,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       title={`Round ${round} · Game ${gameNo}`}
       subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>[lv ? Number(lv.cells[1][i]?.v || 0) : Number(shownInnings[i*2] || 0),lv ? Number(lv.cells[0][i]?.v || 0) : Number(shownInnings[i*2+1] || 0)]).flat().join(','))}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${Date.now()}#sec-fantasy`}
+      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]).flat().join(','))}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />
   ) : null;
