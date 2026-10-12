@@ -181,8 +181,9 @@ export function ScoringRules() {
           <li>In extra innings nobody has to beat league average: the better number wins the run, even if both are below 100.</li>
           <li>If inning 10 is still tied, <b>inning 11</b> uses the #2 hitters and #2 pitchers, inning 12 the #3s, and so on, while either matchup can be made. Every extra inning is shown on the scoreboard.</li>
           <li>When those matchups run out with the game still tied, the next extra innings are <b>hitter vs pitcher</b>, using the players who couldn&apos;t be matched up head to head: each school&apos;s next hitter against the other school&apos;s next pitcher, inning by inning, until those run out. The run goes to whichever player is closer to, or further above, league average: OPS+ minus 100 for the hitter, 100 minus FIP- for the pitcher. A hitter at 70 OPS+ (30 below average) beats a pitcher at 140 FIP- (40 below). If every player was already matched head to head, hitter vs pitcher starts again from each school&apos;s best.</li>
-          <li>Still tied, or nobody left to compare (a school with no one in action that week): the school with the <b>bigger fan base</b> wins - the most registered YAT?STATS fans when the game went final (4 a.m. Monday). One run.</li>
-          <li>Fan bases even too: the <b>commissioner decides</b> the game. His decision is worth one run, so a decided game never ends tied.</li>
+          <li>Still tied, or nobody left to compare (a school with no one in action that week): the better <b>run differential</b> wins - the runs the alumni&apos;s real clubs scored minus the runs they allowed that week, counted for each alumnus the same way as the W-L inning. One run.</li>
+          <li>Run differentials even too: the school with the <b>bigger fan base</b> wins - the most registered YAT?STATS fans when the game went final (4 a.m. Monday). One run.</li>
+          <li>Fan bases even as well: the <b>commissioner decides</b> the game. His decision is worth one run, so a decided game never ends tied.</li>
         </ol>
       </section>
     </>

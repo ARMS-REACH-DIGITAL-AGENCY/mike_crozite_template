@@ -31,7 +31,7 @@ type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, clu
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
 type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
-  clubs: Record<string, [number, string, 0 | 1][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
+  clubs: Record<string, [number, string, 0 | 1, number?][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
   fans?: Record<string, number[]>; // registered fans as each week went final
 };
 
@@ -194,6 +194,9 @@ function score(idx: Index, live: Live, asof: string) {
     const w = games.filter((g) => g[2]).length;
     return [w, games.length - w];
   };
+  // A club's run differential over days [from, to] (games with a score).
+  const clubRunDiff = (club: string, from: number, to: number) =>
+    (live.clubs[club] || []).reduce((sum, [d, , , rd]) => (d >= from && d <= to ? sum + (rd ?? 0) : sum), 0);
 
   // In action today, for each school's drawer strip: its alumni with a game
   // today (the bracket's day) and those games' first pitches.
@@ -262,7 +265,7 @@ function score(idx: Index, live: Live, asof: string) {
       const days: PlayerLines[] = Array.from({ length: 7 }, () => new Map());
       const dayRows: PlayerRow[][] = Array.from({ length: 7 }, () => []);
       const weekRows: PlayerRow[] = [];
-      let wins = 0, losses = 0;
+      let wins = 0, losses = 0, runDiff = 0;
       for (const p of players) {
         const byDay = mine.get(p[0]);
         let wb: number[] | 0 = 0, wp: number[] | 0 = 0, club = p[4];
@@ -281,9 +284,10 @@ function score(idx: Index, live: Live, asof: string) {
         }
         const wl = clubWl(club, from, Math.min(from + 6, today));
         wins += wl[0]; losses += wl[1];
+        runDiff += clubRunDiff(club, from, Math.min(from + 6, today));
         weekRows.push(playerRow(p, wb, wp, wl, mergeBuckets(weekLv)));
       }
-      return { week: { days, wins, losses } as SideWeek, weekRows, dayRows };
+      return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows };
     };
     const home = side(g[2]), away = side(g[3]);
     const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? () => commissionerRuling(g[1], g[2], g[3]) : undefined,
@@ -305,8 +309,8 @@ function score(idx: Index, live: Live, asof: string) {
       d: result.innings.slice(0, 8).map((i) => [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
       // Posted [offense, pitching] per inning 1-8, then the W-L inning.
       f: [...f, weekDone, weekDone],
-      h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], days: home.dayRows },
-      a: { p: away.weekRows, wl: [away.week.wins, away.week.losses], days: away.dayRows },
+      h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], rd: home.week.runDiff, days: home.dayRows },
+      a: { p: away.weekRows, wl: [away.week.wins, away.week.losses], rd: away.week.runDiff, days: away.dayRows },
     };
   };
 

@@ -20,7 +20,9 @@ import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 //           ROK, IND, WIN), '' when the line's source doesn't say
 //           day: 0 = start; batting stats [PA AB H 2B 3B HR BB HBP SF],
 //           pitching [outs HR BB HBP K H R ER]
-//   clubs:  { [club]: [day, gameId, won (0|1)][] } - finished games only
+//   clubs:  { [club]: [day, gameId, won (0|1), runDiff][] } - finished games
+//           only; runDiff = runs scored - allowed (0 when only the result is
+//           known), for the run-differential tiebreak
 //   games:  { [club]: [day, gameId, done (0|1), started (0|1)][] } - every
 //           scheduled pro game (team_schedules, refreshed every 10 minutes):
 //           done = final, postponed or cancelled; started = under way or done;
@@ -141,12 +143,12 @@ export async function GET(req: NextRequest) {
         [clubNames, start, weeks * 7],
       )
       : { rows: [] as ClubRow[] };
-    const clubs: Record<string, [number, string, 0 | 1][]> = {};
+    const clubs: Record<string, [number, string, 0 | 1, number][]> = {};
     const seen = new Set<string>();
-    const result = (club: string, day: number, game: string, won: boolean) => {
+    const result = (club: string, day: number, game: string, won: boolean, runDiff = 0) => {
       if (seen.has(`${club}:${game}`)) return;
       seen.add(`${club}:${game}`);
-      (clubs[club] ||= []).push([day, game, won ? 1 : 0]);
+      (clubs[club] ||= []).push([day, game, won ? 1 : 0, runDiff]);
     };
 
     // The pro schedule: each club's games and their state; a final score
@@ -167,7 +169,7 @@ export async function GET(req: NextRequest) {
       for (const [club, mine, theirs] of [[r.home, r.home_runs, r.away_runs], [r.away, r.away_runs, r.home_runs]] as const) {
         if (!want.has(club)) continue;
         (games[club] ||= []).push([Number(r.day), r.game, isDone(r.status) ? 1 : 0, isStarted(r.status) ? 1 : 0, r.start ? Date.parse(String(r.start)) || 0 : 0]);
-        if (isFinal(r.status) && mine !== null && theirs !== null && mine !== theirs) result(club, Number(r.day), r.game, mine > theirs);
+        if (isFinal(r.status) && mine !== null && theirs !== null && mine !== theirs) result(club, Number(r.day), r.game, mine > theirs, Number(mine) - Number(theirs));
       }
     }
     // The schedule decides whether a pro game is over: the 4-hourly game-log
