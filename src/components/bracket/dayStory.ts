@@ -292,6 +292,14 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
     const arm = r.filter((p) => Array.isArray(p[5]) && p[5].slice(0, 5).some((v) => v > 0) && p[7] !== null).sort((x, y) => Number(x[7]) - Number(y[7]))[0];
     return { bat, arm };
   };
+  // Every hitter (best OPS+ first) and pitcher (best FIP- first) with a line.
+  const ranked = (rows: PlayerRow[] | undefined) => {
+    const r = rows || [];
+    return {
+      bats: r.filter((p) => Array.isArray(p[4]) && p[4][0] > 0 && p[6] !== null).sort((x, y) => Number(y[6]) - Number(x[6])),
+      arms: r.filter((p) => Array.isArray(p[5]) && p[5].slice(0, 5).some((v) => v > 0) && p[7] !== null).sort((x, y) => Number(x[7]) - Number(y[7])),
+    };
+  };
   // Who was behind a half inning's runs, in a clause.
   const credit = (e: Ev): string => {
     const side = e.home ? box.h : box.a;
@@ -322,21 +330,32 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
       const [w1, l1] = side.wl || [0, 0], [w2, l2] = other.wl || [0, 0];
       return `on the strength of its alumni's real clubs, which went ${w1}-${l1} this week to ${O}'s ${w2}-${l2}`;
     }
-    // Extra innings: the schools' top players head to head; only the
-    // matchups this side won.
-    if (g[4] === 'cross' && e.k === innings - 1) {
+    // Extra innings, ranked like the engine: Tiebreaker #1 matches hitters
+    // and pitchers by rank (10th = #1s, 11th = #2s ...); once those run out,
+    // Tiebreaker #2 plays hitter vs pitcher with the players left over (or
+    // from each school's best, if everyone was matched). Only the matchups
+    // this side won.
+    const i = e.k - 9;
+    const mineR = ranked(side.p), theirsR = ranked(other.p);
+    const uh = Math.min(mineR.bats.length, theirsR.bats.length), up = Math.min(mineR.arms.length, theirsR.arms.length);
+    const crossFrom = Math.max(uh, up);
+    if (g[4] === 'cross' && i >= crossFrom) {
       // Hitter vs pitcher: distance from league average.
-      const m = best(side.p), t = best(other.p);
+      let mb = mineR.bats.slice(uh), ma = mineR.arms.slice(up), tb = theirsR.bats.slice(uh), ta = theirsR.arms.slice(up);
+      if (!(mb.length && ta.length) && !(tb.length && ma.length)) { mb = mineR.bats; ma = mineR.arms; tb = theirsR.bats; ta = theirsR.arms; }
+      const c = i - crossFrom;
+      const m = { bat: mb[c], arm: ma[c] }, t = { bat: tb[c], arm: ta[c] };
       const bits = [
         m.bat && t.arm && Number(m.bat[6]) - 100 > 100 - Number(t.arm[7]) ? `its hitter ${m.bat[1]} (${m.bat[6]} OPS+) came out closer to league average than ${O}'s pitcher ${t.arm[1]} (${t.arm[7]} FIP-)` : '',
         m.arm && t.bat && 100 - Number(m.arm[7]) > Number(t.bat[6]) - 100 ? `its pitcher ${m.arm[1]} (${m.arm[7]} FIP-) came out closer to league average than ${O}'s hitter ${t.bat[1]} (${t.bat[6]} OPS+)` : '',
       ].filter(Boolean);
-      return bits.length ? `in the hitter-vs-pitcher inning, when ${joinAnd(bits)}` : 'in the hitter-vs-pitcher inning';
+      return bits.length ? `in the hitter-vs-pitcher matchups, when ${joinAnd(bits)}` : 'in the hitter-vs-pitcher matchups';
     }
-    const mine = best(side.p), theirs = best(other.p);
+    const mine = { bat: mineR.bats[i], arm: mineR.arms[i] }, theirs = { bat: theirsR.bats[i], arm: theirsR.arms[i] };
+    const rank = i === 0 ? 'top' : `No. ${i + 1}`;
     const vs = [
-      mine.bat && theirs.bat && Number(mine.bat[6]) > Number(theirs.bat[6]) ? `its top bat, ${mine.bat[1]} (${mine.bat[6]} OPS+), out-hit ${O}'s ${theirs.bat[1]} (${theirs.bat[6]})` : '',
-      mine.arm && theirs.arm && Number(mine.arm[7]) < Number(theirs.arm[7]) ? `its top arm, ${mine.arm[1]} (${mine.arm[7]} FIP-), outdueled ${O}'s ${theirs.arm[1]} (${theirs.arm[7]})` : '',
+      mine.bat && theirs.bat && Number(mine.bat[6]) > Number(theirs.bat[6]) ? `its ${rank} bat, ${mine.bat[1]} (${mine.bat[6]} OPS+), out-hit ${O}'s ${theirs.bat[1]} (${theirs.bat[6]})` : '',
+      mine.arm && theirs.arm && Number(mine.arm[7]) < Number(theirs.arm[7]) ? `its ${rank} arm, ${mine.arm[1]} (${mine.arm[7]} FIP-), outdueled ${O}'s ${theirs.arm[1]} (${theirs.arm[7]})` : '',
     ].filter(Boolean);
     return vs.length ? `when ${joinAnd(vs)}` : `in the tiebreaker, where each school's top hitter and pitcher go head to head`;
   };

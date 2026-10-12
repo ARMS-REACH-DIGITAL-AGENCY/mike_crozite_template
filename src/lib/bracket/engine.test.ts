@@ -236,6 +236,19 @@ test('extra innings: hitter vs pitcher when there is no same-type matchup (close
   assert.equal(h.decidedBy, 'cross');
 });
 
+test('extra innings: hitter vs pitcher continues inning by inning with the unmatched players', () => {
+  // No same-type matchups: home has two pitchers, away two hitters, so the
+  // 10th inning is already hitter vs pitcher and labeled 'cross'.
+  const hotBat = day('MLB', { pa: 10, ab: 10, h: 3, hr: 1 });
+  const coldBat = day('MLB', { pa: 10, ab: 10, h: 1 });
+  const shakyArm = day('MLB', {}, { outs: 18, hr: 1, bb: 2, so: 1 });
+  const goodArm = day('MLB', {}, { outs: 18, so: 8 });
+  const g = playGame(tied(roster(goodArm, shakyArm)), tied(roster(hotBat, coldBat)), baselines, HOLD, false, () => null);
+  assert.equal(g.innings[9].kind, 'cross');
+  assert.equal(g.decidedBy, 'cross');
+  assert.ok(g.winner === 'home' || g.winner === 'away');
+});
+
 test('extra innings: #1s split, nothing left at #2 - the hitter-vs-pitcher inning comes next', () => {
   // #1: home's hitter better (5 hits vs 4), away's pitcher better (12 K vs 10) -> 1-1.
   // Away has no #2s, so inning 11 is hitter vs pitcher.
