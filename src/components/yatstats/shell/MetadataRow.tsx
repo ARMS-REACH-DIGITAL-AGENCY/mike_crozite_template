@@ -106,18 +106,10 @@ export default function MetadataRow({
     }
 
     return (
-      <div className="yat-shell-meta-wrap">
-        <div
-          className="yat-gs-stats yat-shell-meta-stats"
-          role="group"
-          aria-label="School metadata"
-        >
-          <MetaChip value={schoolMeta.activeAlumni} label="ACTIVE" highlight />
-          <MetaChip value={schoolMeta.mlb} label="MLB" />
-          <MetaChip value={chipValue(schoolMeta.natRank, '#')} label="NAT'L" />
-          <MetaChip value={schoolMeta.stateRank ? `#${schoolMeta.stateRank}` : '—'} label="STATE" />
-          <MetaChip value={schoolMeta.allTime} label="ALL-TIME" />
-          <MetaChip value={schoolMeta.draftedRatio} label="DRAFTED" />
+      <div className="yat-shell-meta-wrap" style={{ display: 'flex', justifyContent: 'flex-start', paddingInline: 'max(12px, 2vw)' }}>
+        <div role="group" aria-label="Active Alumni count" style={{ display: 'flex', alignItems: 'baseline', gap: '9px', padding: '12px 0' }}>
+          <strong style={{ color: '#00e08a', fontFamily: 'Oswald, sans-serif', fontSize: '30px', lineHeight: 1 }}>{schoolMeta.activeAlumni ?? 0}</strong>
+          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '15px', fontWeight: 600, letterSpacing: '.08em' }}>ACTIVE ALUMNI</span>
         </div>
       </div>
     );

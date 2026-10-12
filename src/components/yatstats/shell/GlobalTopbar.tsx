@@ -204,7 +204,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         <nav className="yat-topnav" aria-label="Desktop navigation">
           <a className="yat-topnav-item" href={`/${hsid}`}><span>WHERE THEY</span><strong>YAT?</strong></a>
           <a className="yat-topnav-item" data-tab="news" href={schoolSectionHref(hsid, 'news')}><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
-          <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>NEXT-LEVEL</span><strong>ALL-TIME LIST</strong></a>
+          <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>ALL-TIME</span><strong>NEXT-LEVEL LIST</strong></a>
           <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>{teamSeason()}</span><strong>TEAM</strong></a>
           <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
           <a className="yat-topnav-item" data-cc-link href={connectContributeHref(hsid)}><strong>CONNECT</strong><span>&amp;</span><strong>CONTRIBUTE</strong><span>PORTAL</span></a>

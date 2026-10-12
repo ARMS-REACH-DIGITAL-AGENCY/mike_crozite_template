@@ -173,7 +173,7 @@ function favoriteButtonHtml(player: any, name: string) {
       aria-label="Add ${esc(name)} to favorites"
       title="Favorite ${esc(name)}"
     >
-      <i class="ri-star-line" aria-hidden="true"></i>
+      <i class="ri-heart-line" aria-hidden="true"></i>
     </button>
   `;
 }
@@ -197,30 +197,19 @@ function renderSchoolRows(programs: any[], emptyText: string) {
         const name = String(s.hsname || s.schoolName || 'School');
         const loc = splitSchoolLocation(s.hslocation || s.location);
         const location = cleanLocation(loc.city, loc.state, s.hslocation || s.location);
-        const stateCode = cleanStateCode(s.regionid || loc.state || s.state);
-        const stateLabel = stateCode || 'State';
-        const live = String(s.microsite_url || s.micrositeUrl || '').trim();
-        const badge = live ? 'Live' : (s.current_aa || s.mlb || s.atnla ? 'Candidate' : 'Not Active');
         const crest = schoolCrestUrl(hsid, s.crestUrl || s.crest_url || s.logoUrl || s.logo_url || s.schoolLogoUrl || s.school_logo_url);
+        const activeCount = Number(s.current_aa ?? 0);
         return `
           <a class="yat-search-card yat-search-school-card" href="${esc(schoolUrl(s))}">
             <div class="yat-search-school-topline">
-              <span class="yat-search-school-crest-link" aria-hidden="true">
-                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-              </span>
+              <span class="yat-search-school-active-count" aria-label="${esc(activeCount)} active alumni"><strong>${esc(activeCount)}</strong><small>ACTIVE</small></span>
               <span class="yat-search-row-text">
                 <strong>${esc(name)}</strong>
                 ${location ? `<small>${esc(location)}</small>` : ''}
               </span>
-              <span class="yat-search-school-badge ${live ? 'live' : badge === 'Candidate' ? 'candidate' : ''}">${esc(badge)}</span>
-            </div>
-            <div class="yat-search-school-stats">
-              <span><strong>${esc(s.current_aa ?? 0)}</strong><small>Active</small></span>
-              <span><strong>${esc(s.atnla ?? 0)}</strong><small>All-Time</small></span>
-              <span><strong>${esc(s.drafted_ratio || (s.drafted_hs && s.drafted ? `${s.drafted_hs}/${s.drafted}` : '--'))}</strong><small>Drafted</small></span>
-              <span><strong>${esc(s.mlb ?? 0)}</strong><small>MLB</small></span>
-              <span><strong>${s.yatstats_national_rank ? `#${esc(cleanRank(s.yatstats_national_rank))}` : '--'}</strong><small>Nat'l Rank</small></span>
-              <span><strong>${s.yatstats_state_rank ? `#${esc(cleanRank(s.yatstats_state_rank))}` : '--'}</strong><small>${esc(stateLabel)}</small></span>
+              <span class="yat-search-school-crest-link" aria-hidden="true">
+                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+              </span>
             </div>
           </a>
         `;
@@ -350,7 +339,7 @@ function setFavButtonState(button: HTMLElement, favorited: boolean) {
   button.setAttribute('aria-label', favorited ? `Remove ${name} from favorites` : `Add ${name} to favorites`);
   button.classList.toggle('is-favorited', favorited);
   const icon = button.querySelector('i');
-  if (icon) icon.className = favorited ? 'ri-star-fill' : 'ri-star-line';
+  if (icon) icon.className = favorited ? 'ri-heart-fill' : 'ri-heart-line';
 }
 
 async function hydrateFavoriteButtons(container: HTMLElement) {
@@ -507,7 +496,7 @@ export default function SearchDrawerTabs() {
 
       try {
         if (mode === 'name') {
-          const data = await fetchJson(`/api/players/search?q=${encodeURIComponent(q)}&limit=30`);
+          const data = await fetchJson(`/api/players/search?q=${encodeURIComponent(q)}&limit=200`);
           if (thisRequest !== requestId) return;
           results.innerHTML = renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.');
           hydrateFavoriteButtons(results);
@@ -595,12 +584,12 @@ export default function SearchDrawerTabs() {
 
   return (
     <style jsx global>{`
-      #drawerLeft .yat-search-drawer-title { margin-bottom: 4px !important; font-size: 18px !important; }
-      #drawerLeft .yat-search-drawer-sub { max-width: 330px; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
+      #drawerLeft .yat-search-drawer-title { margin-bottom: 4px !important; font-size: clamp(16px, 3.8vw, 22px) !important; white-space: nowrap; }
+      #drawerLeft .yat-search-drawer-sub { max-width: none; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
       #drawerLeft .yat-search-mode-label { display: none !important; }
       #drawerLeft .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
-      #drawerLeft .yat-search-mode-btn { min-height: 34px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
-      #drawerLeft .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); }
+      #drawerLeft .yat-search-mode-btn { min-height: 29px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
+      #drawerLeft .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
       #drawerLeft .yat-search-empty { color: var(--muted); font: 400 13px/1.4 Oswald, sans-serif; padding: 8px 0; }
       #drawerLeft .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
       #drawerLeft .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
@@ -614,7 +603,13 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
       #drawerLeft .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
       #drawerLeft .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
-      #drawerLeft .yat-search-school-topline { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; }
+      #drawerLeft .yat-search-school-card { padding: 8px 10px; }
+      #drawerLeft .yat-search-school-card .yat-search-school-topline { grid-template-columns: 38px minmax(0, 1fr) 54px; }
+      #drawerLeft .yat-search-school-active-count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; }
+      #drawerLeft .yat-search-school-active-count strong { font: 800 22px/1 Oswald, sans-serif; color: #00e08a; }
+      #drawerLeft .yat-search-school-active-count small { margin-top: 4px; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .05em; color: var(--muted); }
+
+      #drawerLeft .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
       #drawerLeft .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
       #drawerLeft .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; border-radius: 0; background: transparent; }
       #drawerLeft .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }

@@ -9,7 +9,7 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{id:string}>}
   const target=new URL(path,req.nextUrl.origin);
   const p=target.searchParams;
   const image=new URL('/api/og/fantasy-game',req.nextUrl.origin);
-  for(const [a,b] of [['fantasyGame','gameId'],['snapshot','snapshot'],['homeName','homeName'],['awayName','awayName'],['scoreInnings','scoreInnings'],['scoreStatus','scoreStatus'],['week','week'],['round','round'],['gameNo','gameNo'],['sharedAt','sharedAt']]){const v=p.get(a);if(v)image.searchParams.set(b,v);}
+  for(const [a,b] of [['fantasyGame','gameId'],['snapshot','snapshot'],['homeName','homeName'],['awayName','awayName'],['scoreInnings','scoreInnings'],['scoreStatus','scoreStatus'],['week','week'],['round','round'],['gameNo','gameNo'],['sharedAt','sharedAt'],['played','played'],['weekStart','weekStart']]){const v=p.get(a);if(v)image.searchParams.set(b,v);}
   const esc=(v:string)=>v.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   const title=`${p.get('awayName')||'Away'} vs ${p.get('homeName')||'Home'} | YAT?STATS`;
   const bot=/bot|crawler|spider|facebookexternalhit|twitterbot|slackbot|discord|whatsapp|telegram|linkedinbot|google-structured-data/i.test(req.headers.get('user-agent')||'');

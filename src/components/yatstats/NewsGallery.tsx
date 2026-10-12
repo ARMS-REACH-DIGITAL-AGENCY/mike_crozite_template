@@ -419,13 +419,13 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           justify-content:space-between;
           align-items:center;
           width:100%;
-          min-height:30px;
+          min-height:23px;
           background:var(--gold);
           border:1px solid rgba(255,255,255,.38);
           border-radius:6px;
           color:#000;
-          padding:6px 8px;
-          font:700 10px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          padding:4px 6px;
+          font:700 9px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           letter-spacing:.01em;
           text-transform:uppercase;
           box-shadow:0 2px 8px rgba(0,0,0,.3);
@@ -460,11 +460,33 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         .yat-news-back-share span{font:600 12px var(--yat-font-ui,"Archivo",Arial,sans-serif);color:rgba(255,255,255,.5)}
         .yat-news-back-share a{background:rgba(255,255,255,.1);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none}
         .yat-news-empty-sub{font-weight:300;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto}
-        .yat-news-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin:0 0 12px;border:1px solid var(--line);border-radius:6px;font:500 13px/1.3 var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:0;color:var(--fg)}
+        .yat-news-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;margin:0 0 8px;border:1px solid var(--line);border-radius:6px;font:500 11px/1.2 var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:0;color:var(--fg)}
+        .yat-news-filter-bar > span{min-width:0;white-space:nowrap;font-size:clamp(8px,1.7vw,11px)}
         .yat-news-filter-bar strong{color:var(--gold)}
-        .yat-news-filter-bar button{background:none;border:1px solid var(--line);color:var(--fg);font:600 12px var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:0;padding:6px 10px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
-        .gallery-slot-link.active-news-player-filter{outline:3px solid var(--gold);outline-offset:-3px}
+        .yat-news-filter-bar button{background:none;border:1px solid var(--line);color:var(--fg);font:600 10px var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:0;padding:4px 7px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
+        .gallery-slot-link.active-news-player-filter{outline:none!important;outline-offset:0}
 
+        /* News uses horizontal story cards; preserve the existing flip-to-recap interaction. */
+        #news-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+        #news-grid .news-card{width:100%;max-width:none;aspect-ratio:16/9;height:auto;min-height:0}
+        #news-grid .news-card .yat-card-inner,
+        #news-grid .news-card .yat-flip,
+        #news-grid .news-card .yat-face{height:100%;min-height:0}
+        #news-grid .news-card .yat-news-front-content{padding:14px}
+        #news-grid .news-card .yat-news-headline-top{font-size:clamp(15px,1.9vw,23px);line-height:1.13}
+        #news-grid .news-card .yat-news-front-bottom-row{gap:8px}
+        #news-grid .news-card .yat-news-chip-stack{display:none}
+        #news-grid .news-card .yat-news-player-name{font-size:clamp(14px,1.6vw,20px)}
+        @media(max-width:700px){
+          #news-grid{grid-template-columns:1fr;gap:12px}
+          #news-grid .news-card{aspect-ratio:16/9}
+          #news-grid .news-card .yat-news-front-content{padding:11px}
+          #news-grid .news-card .yat-news-headline-top{font-size:clamp(16px,4vw,21px)}
+          #news-grid .news-card .yat-news-player-name{font-size:15px}
+          #news-grid .news-card .yat-front-team-name,
+          #news-grid .news-card .yat-front-org-name{font-size:11px}
+          #news-grid .news-card .yat-news-flip-button{font-size:9px}
+        }
         @media(max-width:520px){
           .yat-news-headline-top{font-size:20px}
           .news-card .yat-news-player-name{font-size:19px}
