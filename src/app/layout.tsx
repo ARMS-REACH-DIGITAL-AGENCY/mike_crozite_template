@@ -20,25 +20,31 @@ export const metadata: Metadata = {
 
 const BOOTSTRAP_SECTIONS = ['news', 'alltime', 'current', 'fantasy', 'mentor', 'partner', 'about', 'faq'];
 
-// A shared team link (?team=2017) opens on the All-Time list, and the page
-// stays covered until that season is on screen (InteractionStrip lifts it) -
-// so the Active list, the whole All-Time list and the 1999 strip never flash
-// by on the way to the 2017 team. The cover is its own <style> in <head>, not
-// an attribute on <html>: React re-renders the document and strips <html>
-// attributes partway through loading, which lifted an attribute cover early.
-const TEAM_COVER_CSS =
-  ".yat-row2-shell,.yat-row3-shell,.yat-row5-shell,.yat-page-message-strip{visibility:hidden!important}" +
-  "body::after{content:'LOADING THE YEAR TEAM';position:fixed;left:0;right:0;top:42%;z-index:5;text-align:center;" +
-  "font:800 15px/1.2 Archivo,system-ui,sans-serif;letter-spacing:.14em;color:rgba(255,255,255,.72);pointer-events:none}";
-
 const SECTION_BOOTSTRAP =
-  "try{var d=document.documentElement,m=(location.hash||'').match(/^#sec-([a-z]+)/),t=/[?&]team=(\\d{4})(?:&|$)/.exec(location.search);" +
-  "if(t){m=[0,'alltime'];var c=document.createElement('style');c.id='yat-team-cover';" +
-  "c.textContent=" + JSON.stringify(TEAM_COVER_CSS).replace('YEAR', '"+t[1]+"') + ";" +
-  "document.head.appendChild(c);setTimeout(function(){c.remove();},20000);}" +
+  "try{var d=document.documentElement,m=(location.hash||'').match(/^#sec-([a-z]+)/);" +
+  "if(/[?&]team=\\d{4}(?:&|$)/.test(location.search))m=[0,'alltime'];" +
   "if(m&&" + JSON.stringify(BOOTSTRAP_SECTIONS) + ".indexOf(m[1])!==-1){" +
   "var x=function(){d.removeAttribute('data-yat-sec');};d.setAttribute('data-yat-sec',m[1]);" +
   "addEventListener('load',function(){setTimeout(x,4000);});setTimeout(x,20000);}}catch(e){}";
+
+// The splash (YAT?STATS logo, then the school crest - SchoolSplash in the
+// school layout) shows on the first page of a visit and on a shared team
+// link, while the page gets ready: at least 1.2s, then it fades the moment
+// the page says it is ready ('yat:page-ready', from the gallery strip) or,
+// on pages without a gallery, once loaded. Never longer than 8s. Shown or
+// not is decided here, before the first paint; it is hidden with <style>
+// in <head> (React leaves those alone) rather than by touching the element.
+const SPLASH_BOOTSTRAP =
+  "try{var S='yat-splash-off',T=/[?&]team=\\d{4}(?:&|$)/.test(location.search),seen=false;" +
+  "try{seen=sessionStorage.getItem('yatSplashSeen')==='1';sessionStorage.setItem('yatSplashSeen','1');}catch(e){}" +
+  "var css=function(id,t){var c=document.createElement('style');c.id=id;c.textContent=t;document.head.appendChild(c);};" +
+  "if(seen&&!T){css(S,'#yatSplash{display:none!important}');}" +
+  "else{var t0=Date.now(),done=false,lift=function(){if(done)return;done=true;" +
+  "setTimeout(function(){css('yat-splash-fade','#yatSplash{opacity:0!important;pointer-events:none!important}');" +
+  "setTimeout(function(){css(S,'#yatSplash{display:none!important}');},650);},Math.max(0,1200-(Date.now()-t0)));};" +
+  "addEventListener('yat:page-ready',lift);" +
+  "addEventListener('load',function(){if(!document.getElementById('alltime-grid'))setTimeout(lift,250);});" +
+  "setTimeout(lift,8000);}}catch(e){}";
 
 const SECTION_BOOTSTRAP_CSS =
   "html[data-yat-sec] .yat-section{display:none!important}" +
@@ -77,6 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             anyway. Rows 3-4 wait too, since they render for the gallery
             until the shell knows the section. */}
         <script dangerouslySetInnerHTML={{ __html: SECTION_BOOTSTRAP }} />
+        <script dangerouslySetInnerHTML={{ __html: SPLASH_BOOTSTRAP }} />
         <style dangerouslySetInnerHTML={{ __html: SECTION_BOOTSTRAP_CSS }} />
       </head>
       <body suppressHydrationWarning>

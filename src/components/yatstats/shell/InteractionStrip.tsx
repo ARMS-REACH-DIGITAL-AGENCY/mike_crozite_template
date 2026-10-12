@@ -43,6 +43,11 @@ type InteractionStripProps = {
   isNews?: boolean;
   players?: Player[];
   teamSeasonResults?: TeamSeasonResult[];
+  // The tab and team year the server rendered (a ?team=2017 link opens on
+  // All-Time with 2017 picked). The first render must match the server's, so
+  // the URL is read after mounting, never while rendering.
+  initialSection?: string;
+  initialTeamYear?: string | null;
 };
 
 function getLastName(name: string): string {
@@ -236,6 +241,8 @@ export default function InteractionStrip({
   isNews = false,
   players = [],
   teamSeasonResults = [],
+  initialSection = 'active',
+  initialTeamYear = null,
 }: InteractionStripProps) {
   // The All-Time year baseballs load with the page, so the tab opens on
   // them rather than on bare numbers.
@@ -243,11 +250,11 @@ export default function InteractionStrip({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [activeSection, setActiveSection] = useState(getCurrentSection);
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [selectedRosterYear, setSelectedRosterYear] = useState<string | null>(null);
+  const [selectedRosterYear, setSelectedRosterYear] = useState<string | null>(initialTeamYear);
   const [sectionPlayers, setSectionPlayers] = useState<Player[]>(() =>
-    fallbackPlayersForSection(getCurrentSection(), players)
+    fallbackPlayersForSection(initialSection, players)
   );
 
   const playersById = useMemo(
@@ -408,35 +415,40 @@ export default function InteractionStrip({
   // filter script picks the season once the list is set up. The strip
   // follows whichever year is picked, from here or from there.
   useEffect(() => {
-    // The cover app/layout.tsx puts over a team link's first load comes off
-    // once the team is on screen with its first photo (or at once, for a
-    // year with no team) - no silhouette standing in for the photo.
-    const uncover = () => window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-      const cover = document.getElementById('yat-team-cover');
-      if (!cover) return;
+    // Tell the splash (app/layout.tsx) the page is ready: on a team link,
+    // once the strip is on that year and the first card's photo is in (no
+    // silhouette standing in for it); otherwise as soon as this has mounted.
+    let readySent = false;
+    const ready = () => window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (readySent) return;
+      const send = () => {
+        if (readySent) return;
+        readySent = true;
+        window.dispatchEvent(new Event('yat:page-ready'));
+      };
       const firstCard = Array.from(document.querySelectorAll<HTMLElement>('#alltime-grid > *')).find((card) => card.style.display !== 'none');
-      const photo = firstCard?.querySelector<HTMLImageElement>('img.yat-bg-photo');
-      if (!photo || photo.complete) { cover.remove(); return; }
+      const photo = initialTeamYear ? firstCard?.querySelector<HTMLImageElement>('img.yat-bg-photo') : null;
+      if (!photo || photo.complete) { send(); return; }
       photo.loading = 'eager';
-      const lift = () => cover.remove();
-      photo.addEventListener('load', lift, { once: true });
-      photo.addEventListener('error', lift, { once: true });
-      window.setTimeout(lift, 2000);
+      photo.addEventListener('load', send, { once: true });
+      photo.addEventListener('error', send, { once: true });
+      window.setTimeout(send, 2000);
     }));
     const year = new URLSearchParams(window.location.search).get('team') || '';
     if (ALL_TIME_TEAM_YEARS.includes(year)) {
-      if (window.location.hash !== '#sec-alltime') window.location.hash = '#sec-alltime';
-    } else {
-      uncover();
+      if (window.location.hash !== '#sec-alltime') history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-alltime`);
+      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
     }
+    ready();
     const onYear = (event: Event) => {
       const detail = (event as CustomEvent<{ year?: unknown }>).detail;
       const picked = String(detail?.year || '');
       setSelectedRosterYear(picked || null);
-      window.requestAnimationFrame(() => {
-        if (picked) document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-        uncover();
-      });
+      if (picked) {
+        window.requestAnimationFrame(() => {
+          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+        });
+      }
     };
     window.addEventListener('yat:alltime-team-year-filter', onYear);
     return () => window.removeEventListener('yat:alltime-team-year-filter', onYear);

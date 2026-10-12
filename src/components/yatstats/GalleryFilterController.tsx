@@ -237,17 +237,25 @@ function applyPreset(section: string) {
     setValues('filterLevels', ['HIGH SCHOOL']);
   }
 
+  // A team link (?team=2017, which the year strip also keeps in the address
+  // bar): the All-Time list opens on that season. Picked here, after the
+  // preset - which clears any year - and in the same pass as the filter, so
+  // the whole list never shows between the two (the server already sent the
+  // page filtered to that team). The event then brings the strip and count
+  // box along.
+  const team = section === 'alltime' ? new URLSearchParams(window.location.search).get('team') || '' : '';
+  const teamYear = /^\d{4}$/.test(team) ? team : '';
+  if (teamYear) {
+    const allTimeSection = document.getElementById('sec-alltime');
+    if (allTimeSection) allTimeSection.dataset.alltimeTeamYearFilter = teamYear;
+    setValues('filterRosterYears', [teamYear]);
+  }
+
   syncEverySelectAll();
   applyFilters(section);
 
-  // A team link (?team=2017, which the year strip also keeps in the address
-  // bar): the All-Time list opens on that season. Picked here, after the
-  // preset - which clears any year - so nothing clears it again.
-  if (section === 'alltime') {
-    const team = new URLSearchParams(window.location.search).get('team') || '';
-    if (/^\d{4}$/.test(team)) {
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: team } })), 0);
-    }
+  if (teamYear) {
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: teamYear } })), 0);
   }
 }
 

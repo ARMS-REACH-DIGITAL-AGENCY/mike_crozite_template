@@ -4,7 +4,7 @@
 // when it's shared ("2017 State Champs (23-10)"). Used by the share preview
 // (metadata + image); the page's count box counts the same cards client-side.
 
-import { varsityDots } from './playerUtils';
+import { levelLabel, varsityDots } from './playerUtils';
 
 export const TEAM_YEAR_SHARE_TAGLINE = 'Where they YAT now?';
 
@@ -66,4 +66,68 @@ export function teamYearTitle(schoolName: string, year: string, result?: TeamSea
   const achievement = teamYearAchievement(result);
   const record = teamYearRecord(result);
   return [schoolName, year, achievement, record ? `(${record})` : ''].filter(Boolean).join(' ');
+}
+
+// Whether a flip card is on that year's team the way the page's All-Time
+// filter reads it: the card's roster years (data-rosteryears) as written,
+// roster_years or else the varsity dots. Server and filter must agree so a
+// ?team=2017 page rendered on the server needs no change once it loads.
+export function onTeamYearCard(p: Record<string, unknown>, year: string): boolean {
+  const years = Array.isArray(p.roster_years) ? (p.roster_years as unknown[]) : varsityDots(p);
+  return years.map(String).includes(year);
+}
+
+// The count box's number for a team year: its cards that played past high
+// school (no HIGH SCHOOL entries, no coaches) - PageMessageStrip's count.
+export function teamYearCardCount(rows: Record<string, unknown>[], year: string): number {
+  const ids = new Set<string>();
+  rows.forEach((p) => {
+    const id = String(p.playerid ?? '');
+    const level = String(p.level_label ?? '').trim().toUpperCase();
+    const status = String(p.status_label ?? '').trim().toUpperCase();
+    if (id && onTeamYearCard(p, year) && level !== 'HIGH SCHOOL' && !/COACH/.test(status)) ids.add(id);
+  });
+  return ids.size;
+}
+
+// The All-Time list as the filter lays it out once a team year is picked
+// (GalleryFilterController's sortFilteredAllTime): that team's cards first -
+// highest level, then graduating class, then most varsity years, then last
+// name - and every other card after them, hidden. Same order on the server,
+// so the page doesn't reshuffle when the filter runs on the phone.
+const TEAM_LEVEL_ORDER: Record<string, number> = {
+  MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
+  ROOKIE: 6, INDY: 7, "INT'L": 8, 'NCAA-D1': 9, 'NCAA-D2': 10,
+  'NCAA-D3': 11, NAIA: 12, JUCO: 13, 'HIGH SCHOOL': 14,
+};
+
+function cardLevelRank(p: Record<string, unknown>): number {
+  const level = String(p.level_label || levelLabel(String(p.level || '')) || p.level || '')
+    .trim().toUpperCase().replace(/\s+/g, '-')
+    .replace(/^NCAA-?D([123])$/, 'NCAA-D$1')
+    .replace(/^AAA$/, 'TRIPLE-A').replace(/^AA$/, 'DOUBLE-A')
+    .replace(/^A\+$/, 'HIGH-A').replace(/^A$/, 'LOW-A')
+    .replace(/^HIGH-SCHOOL$/, 'HIGH SCHOOL');
+  return TEAM_LEVEL_ORDER[level] ?? 99;
+}
+
+function cardName(p: Record<string, unknown>): string {
+  return `${String(p.firstname || p.first_name || '')} ${String(p.lastname || p.last_name || '')}`.toLowerCase().trim();
+}
+
+export function teamYearCardOrder<T extends Record<string, unknown>>(rows: T[], year: string): { player: T; onTeam: boolean }[] {
+  const grad = (p: T) => {
+    const value = Number(String(p.class_of || '').trim());
+    return Number.isFinite(value) && value > 0 ? value : 9999;
+  };
+  const years = (p: T) => {
+    const list = Array.isArray(p.roster_years) ? (p.roster_years as unknown[]) : varsityDots(p);
+    return list.map(String).join(',').split(',').filter(Boolean).length;
+  };
+  const last = (p: T) => cardName(p).split(/\s+/).pop() || '';
+  const sorted = [...rows].sort((a, b) => cardLevelRank(a) - cardLevelRank(b) || grad(a) - grad(b) || years(b) - years(a)
+    || last(a).localeCompare(last(b)) || cardName(a).localeCompare(cardName(b)));
+  const onTeam = sorted.filter((p) => onTeamYearCard(p, year));
+  const rest = sorted.filter((p) => !onTeamYearCard(p, year));
+  return [...onTeam.map((player) => ({ player, onTeam: true })), ...rest.map((player) => ({ player, onTeam: false }))];
 }

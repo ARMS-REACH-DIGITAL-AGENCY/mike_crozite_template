@@ -23,6 +23,12 @@ export function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
+  // A shared team link (?team=2017): the layout renders rows 2-3 and the
+  // count box for that team from the first byte (layouts get no
+  // searchParams of their own).
+  const team = request.nextUrl.searchParams.get('team') || '';
+  if (/^\d{4}$/.test(team)) requestHeaders.set('x-yat-team', team);
+  else requestHeaders.delete('x-yat-team');
 
   return NextResponse.next({
     request: {

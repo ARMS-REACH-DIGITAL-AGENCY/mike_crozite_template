@@ -12,15 +12,16 @@ type Message = {
 };
 
 export default function PageMessageStrip({
-  hsid, pageKey, activeAlumni,
-}: { hsid: string; pageKey: string; activeAlumni: number | null }) {
+  hsid, pageKey, activeAlumni, initialTeamYear = null, initialTeamCount = null,
+}: { hsid: string; pageKey: string; activeAlumni: number | null; initialTeamYear?: string | null; initialTeamCount?: number | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [index, setIndex] = useState(0);
-  const [teamAlumniCount, setTeamAlumniCount] = useState<number | null>(null);
+  // A ?team=2017 link starts on that team's count (the server counted it).
+  const [teamAlumniCount, setTeamAlumniCount] = useState<number | null>(initialTeamCount);
   // The team year picked on the All-Time list ('' = the whole list), and
   // whether the All-Time list is the page showing (the share button's home).
-  const [teamYear, setTeamYear] = useState('');
-  const [onAllTime, setOnAllTime] = useState(false);
+  const [teamYear, setTeamYear] = useState(initialTeamYear || '');
+  const [onAllTime, setOnAllTime] = useState(Boolean(initialTeamYear));
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -90,7 +91,10 @@ export default function PageMessageStrip({
   // the message is then the team card alone (its title and "Where they YAT
   // now?" come from the page's own preview), with no text or URL above it.
   const shareTeam = async () => {
-    const url = `${window.location.origin}${window.location.pathname}${teamYear ? `?team=${teamYear}` : ''}#sec-alltime`;
+    // A team goes out as its short link (/5004/t/2017), like the Fantasy
+    // game's /g/ links, so a text shows the team card alone, no long URL.
+    const base = `${window.location.origin}${window.location.pathname.replace(/\/+$/, '')}`;
+    const url = teamYear ? `${base}/t/${teamYear}` : `${base}/#sec-alltime`;
     try {
       if (navigator.share) {
         await navigator.share({ url });

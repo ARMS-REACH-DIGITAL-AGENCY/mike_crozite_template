@@ -41,6 +41,8 @@ import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
 import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
+import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
+import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -187,6 +189,16 @@ export default async function HsidLayout({
       || String(p.committed_teamid || '').trim() !== ''
   ).length;
 
+  // A shared team link (?team=2017, passed on by src/middleware.ts): rows
+  // 2-3 and the count box are rendered for that team from the first byte.
+  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
+  const initialTeamCount = initialTeamYear
+    ? teamYearCardCount([
+        ...allTimeRosterRows.map((p) => ({ ...(stageRows.find((s) => String(s.playerid) === String(p.playerid)) || {}), ...p })),
+        ...stageRows.filter((s) => !allTimeRosterRows.some((p) => String(p.playerid) === String(s.playerid))),
+      ], initialTeamYear)
+    : null;
+
   const schoolMeta = {
     activeAlumni: await getActiveAlumniCountByHsid(resolvedHsid),
 
@@ -280,6 +292,7 @@ export default async function HsidLayout({
 
   return (
     <SchoolContextProvider schoolData={schoolData}>
+      <SchoolSplash crestUrl={crestUrl} schoolName={schoolName} />
       <AnalyticsSchool hsid={String(resolvedHsid)} hsname={schoolName || ''} />
       <YatStyles />
 
@@ -288,6 +301,8 @@ export default async function HsidLayout({
         players={stripPlayers}
         teamSeasonResults={teamSeasonResults}
         schoolMeta={schoolMeta}
+        initialTeamYear={initialTeamYear}
+        initialTeamCount={initialTeamCount}
       >
         {children}
       </SharedShell>

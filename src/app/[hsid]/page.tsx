@@ -13,7 +13,6 @@ import {
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
-  getSchoolTeamSeasonResults,
   getPlayerById,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
@@ -21,8 +20,8 @@ import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
-import { TEAM_YEAR_SHARE_TAGLINE, parseTeamYear, teamYearAlumni, teamYearTitle } from "@/lib/teamYearShare";
-import { teamCardShareImage } from "@/lib/teamCards";
+import { parseTeamYear, teamYearCardOrder } from "@/lib/teamYearShare";
+import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -297,20 +296,8 @@ export async function generateMetadata({
   const teamYear = parseTeamYear(qp?.team);
   if (teamYear) {
     try {
-      const [teamResults, stageRows] = await Promise.all([
-        getSchoolTeamSeasonResults(schoolHsid).catch(() => []),
-        getFlipCardFrontStageByHsid(schoolHsid).catch(() => []),
-      ]);
-      const result = teamResults.find((r) => String(r.seasonYear) === teamYear) || null;
-      const count = teamYearAlumni(stageRows as Record<string, unknown>[], teamYear).length;
-      const schoolShort = name.replace(/\s+high\s+school$/i, '').trim();
-      const teamTitle = teamYearTitle(schoolShort, teamYear, result);
-      const description = `${count} from the ${teamYear} team went on to the next level. ${TEAM_YEAR_SHARE_TAGLINE}`;
       const hostBase = host ? `https://${host}` : canonicalUrl;
-      // A state-champion team with a card shares the card itself.
-      const ogImageUrl = teamCardShareImage(schoolHsid, teamYear)
-        || `${hostBase}/api/og/team-year?hsid=${encodeURIComponent(schoolHsid)}&year=${teamYear}`;
-      const title = `${teamTitle} | YAT?STATS`;
+      const { title, description, image: ogImageUrl } = await teamYearShareMeta(schoolHsid, name, teamYear, hostBase);
       return {
         title,
         description,
@@ -417,7 +404,7 @@ export default async function SchoolPage({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ schoolState?: string }>;
+  searchParams: Promise<{ schoolState?: string; team?: string }>;
 }) {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -577,9 +564,17 @@ export default async function SchoolPage({
       : Promise.resolve(emptyImageMap()),
   ]);
 
+  // A shared team link (?team=2017): the page arrives already on the
+  // All-Time list, filtered and ordered for that team (the other cards are
+  // there, hidden), so nothing switches or reshuffles once it loads.
+  const teamYear = parseTeamYear(qp.team);
+  const allTimeCards = teamYear
+    ? teamYearCardOrder(allTimeFrontRoster, teamYear)
+    : allTimeFrontRoster.map((player) => ({ player, onTeam: true }));
+
   return (
     <>
-      <section id="sec-active" className="yat-section visible">
+      <section id="sec-active" className={`yat-section${teamYear ? '' : ' visible'}`}>
         <div className="yat-grid" id="active-grid">
           {activeSortedRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
@@ -616,14 +611,18 @@ export default async function SchoolPage({
         <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
-      <section id="sec-alltime" className="yat-section">
+      <section
+        id="sec-alltime"
+        className={`yat-section${teamYear ? ' visible' : ''}`}
+        data-alltime-team-year-filter={teamYear || undefined}
+      >
         <div className="yat-grid" id="alltime-grid">
           {allTimeFrontRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
-            allTimeFrontRoster.map((p, i) => {
+            allTimeCards.map(({ player: p, onTeam }, i) => {
               const playerId = String(p.playerid);
-              return (
+              const card = (
                 <PlayerCard
                   key={`alltime-${playerId}`}
                   player={p}
@@ -634,9 +633,22 @@ export default async function SchoolPage({
                   schoolName={shareSchoolName}
                   schoolLocation={shareSchoolLocation}
                   isAllTime
-                  eager={i < 4}
+                  eager={onTeam && i < 4}
                 />
               );
+              // Team links wrap each card (like the Active list) so the
+              // other years can start hidden; the filter shows them again
+              // when the team is cleared.
+              return teamYear ? (
+                <div
+                  key={`alltime-wrap-${playerId}`}
+                  data-player-card-wrap="true"
+                  data-playerid={playerId}
+                  style={{ display: onTeam ? undefined : 'none' }}
+                >
+                  {card}
+                </div>
+              ) : card;
             })
           )}
         </div>

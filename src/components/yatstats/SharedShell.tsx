@@ -98,6 +98,8 @@ export default function SharedShell({
   schoolMeta,
   row3Content,
   row4Content,
+  initialTeamYear = null,
+  initialTeamCount = null,
 }: {
   children: ReactNode;
   hsid: string;
@@ -106,12 +108,19 @@ export default function SharedShell({
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
   row4Content?: ReactNode;
+  // A shared team link (?team=2017): the page is rendered on the server
+  // already on All-Time with that team picked, rows 2-3 and the count box
+  // included, so nothing switches once the phone takes over.
+  initialTeamYear?: string | null;
+  initialTeamCount?: number | null;
 }) {
   const pathname = usePathname();
-  const [activeSection, setActiveSection] = useState('active');
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
+  const teamYear = isPlayerProfile ? null : initialTeamYear;
+  const initialSection = teamYear ? 'alltime' : 'active';
+  const [activeSection, setActiveSection] = useState(initialSection);
   const isNews = activeSection === 'news';
   const isGallery = !isPlayerProfile && GALLERY_SECTIONS.has(activeSection);
 
@@ -221,6 +230,8 @@ export default function SharedShell({
                     isNews={isNews}
                     players={players}
                     teamSeasonResults={teamSeasonResults}
+                    initialSection={initialSection}
+                    initialTeamYear={teamYear}
                   />
                 )}
         </div>
@@ -232,7 +243,7 @@ export default function SharedShell({
       {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
         <div className="yat-unified-footer">
           <div className="yat-unified-footer-art" aria-hidden="true" />
-          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} />
+          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} initialTeamYear={teamYear} initialTeamCount={teamYear ? initialTeamCount : null} />
           <div className="yat-unified-footer-ticker">
             {activeSection === 'fantasy'
               ? <BracketTicker hsid={hsid} />
