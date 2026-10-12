@@ -41,7 +41,9 @@
 // best hitter against the other's best pitcher, the run going to whoever is
 // closer to (or further above) league average - OPS+ - 100 for the hitter,
 // 100 - FIP- for the pitcher. Still tied, or nothing left to compare: the
-// commissioner decides. Exact stat ties award no run.
+// school with the bigger fan base (registered YAT?STATS fans when the game
+// went final) wins. Even there too: the commissioner decides. Exact stat
+// ties award no run.
 //
 // W-L% counts every alumnus on a club's roster that week, game or no game:
 // a pitcher who throws once a week for a winning club helps his school; a
@@ -219,7 +221,7 @@ export function mergeLines(list: PlayerLines[]): PlayerLines {
 
 export type Inning = {
   inning: number;
-  kind: 'day' | 'week' | 'wl' | 'tiebreak' | 'cross' | 'commissioner';
+  kind: 'day' | 'week' | 'wl' | 'tiebreak' | 'cross' | 'fans' | 'commissioner';
   home: number;
   away: number;
   // what each side posted (null = no one played / no results)
@@ -238,7 +240,7 @@ export type GameResult = {
   winner: Side | null;
   // 'commissioner' with winner null: the commissioner's decision is still
   // to come.
-  decidedBy: 'runs' | 'players' | 'cross' | 'commissioner' | 'tie';
+  decidedBy: 'runs' | 'players' | 'cross' | 'fans' | 'commissioner' | 'tie';
   tieRank?: number; // 'players': which ranked hitter/pitcher pair decided it.
   tieScore?: [number, number]; // cumulative tiebreak runs, home first.
 };
@@ -353,7 +355,9 @@ export function volume(buckets: LevelBuckets) {
 // every extra inning - the side he gave it to, or null while he hasn't
 // ruled. Without one such a game comes back with winner null and decidedBy
 // 'commissioner' (still to be decided).
-export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, allowTie = false, commissioner?: () => Side | null): GameResult {
+// fans: each school's fan base when the game went final [home, away], for
+// the fan-base step before the commissioner.
+export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, allowTie = false, commissioner?: () => Side | null, fans?: [number, number]): GameResult {
   const innings: Inning[] = [];
   for (let d = 0; d < 7; d++) innings.push(scoreInning(d + 1, 'day', home.days[d] || new Map(), away.days[d] || new Map(), baselines, rules));
   const homeWeek = mergeLines(home.days);
@@ -394,8 +398,18 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
     };
   }
 
-  // Nothing left to compare: the commissioner decides. His decision is an
-  // extra inning worth one run, so a decided game never ends tied.
+  // Nothing left to compare: the bigger fan base wins, an extra inning worth
+  // one run (only for a game being decided - not one still in progress).
+  if (!allowTie && fans && fans[0] !== fans[1]) {
+    const run: [number, number] = fans[0] > fans[1] ? [1, 0] : [0, 1];
+    innings.push({ inning: 10 + pt.innings.length, kind: 'fans', home: run[0], away: run[1] });
+    hr += run[0];
+    ar += run[1];
+    return { innings, home: hr, away: ar, winner: run[0] ? 'home' : 'away', decidedBy: 'fans', tieScore: [tieScore[0] + run[0], tieScore[1] + run[1]] };
+  }
+
+  // Even fan bases too: the commissioner decides. His decision is an extra
+  // inning worth one run, so a decided game never ends tied.
   const ruling = commissioner?.() ?? null;
   if (ruling) {
     const run: [number, number] = ruling === 'home' ? [1, 0] : [0, 1];

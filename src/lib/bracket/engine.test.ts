@@ -247,6 +247,25 @@ test('extra innings: #1s split, nothing left at #2 - the hitter-vs-pitcher innin
   assert.ok(g.decidedBy === 'cross' || g.decidedBy === 'commissioner');
 });
 
+test('extra innings: nothing left to compare - the bigger fan base wins, then the commissioner', () => {
+  const coldDay = day('MLB', { pa: 12, ab: 12, h: 1 });
+  const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()]), players: roster(coldDay) };
+  const idle = tied(new Map());
+  // away has more registered fans: away wins the fan-base inning
+  const g = playGame(cold, idle, baselines, HOLD, false, () => 'home', [3, 10]);
+  assert.equal(g.winner, 'away');
+  assert.equal(g.decidedBy, 'fans');
+  assert.equal(g.innings[9].kind, 'fans');
+  assert.deepEqual([g.home, g.away], [0, 1]);
+  // even fan bases: on to the commissioner
+  const c = playGame(cold, idle, baselines, HOLD, false, () => 'home', [4, 4]);
+  assert.equal(c.decidedBy, 'commissioner');
+  assert.equal(c.winner, 'home');
+  // a game still in progress is never settled by fans
+  const live = playGame(cold, idle, baselines, HOLD, true, undefined, [3, 10]);
+  assert.equal(live.decidedBy, 'tie');
+});
+
 test("extra innings: a school with no one in action - the commissioner decides", () => {
   // Nobody to match against, the same way or the other way: no extra innings.
   const coldDay = day('MLB', { pa: 12, ab: 12, h: 1 });
