@@ -36,11 +36,12 @@
 // pitcher (lower FIP- wins 1 run); the 11th the #2s, and so on. Whichever of
 // the two matchups both schools can supply is played - no pitchers on one
 // side doesn't cancel the hitters' matchup - and nobody needs to beat league
-// average: the better number wins. When the same-type matchups run out with
-// the game still tied, the next inning is hitter vs pitcher: each school's
-// best hitter against the other's best pitcher, the run going to whoever is
-// closer to (or further above) league average - OPS+ - 100 for the hitter,
-// 100 - FIP- for the pitcher. Still tied, or nothing left to compare: the
+// average: the better number wins (Tiebreaker #1). When the same-type
+// matchups run out with the game still tied, the next innings are hitter vs
+// pitcher (Tiebreaker #2): the players #1 couldn't match, each school's next
+// hitter against the other's next pitcher, inning by inning, the run going to
+// whoever is closer to (or further above) league average - OPS+ - 100 for the
+// hitter, 100 - FIP- for the pitcher. Still tied, or nothing left to compare: the
 // school with the bigger fan base (registered YAT?STATS fans when the game
 // went final) wins. Even there too: the commissioner decides. Exact stat
 // ties award no run.
@@ -294,14 +295,15 @@ export function rankPlayers(players: PlayerLines | undefined, baselines: Baselin
 // The extra-innings ladder (see the header):
 //   #1 hitter vs #1 hitter and #1 pitcher vs #1 pitcher, one run each -
 //   whichever of the two both schools can supply; then #2, #3 ... while
-//   either matchup exists. Then one hitter-vs-pitcher inning on distance
-//   from league average (adjusted mode only). winner null: the commissioner.
+//   either matchup exists (Tiebreaker #1). Then hitter-vs-pitcher innings on
+//   distance from league average (Tiebreaker #2, adjusted mode only).
+//   winner null: on to the next tiebreakers.
 function playerTiebreak(
   home: SideWeek,
   away: SideWeek,
   baselines: Baselines,
   rules: Rules,
-): { winner: Side | null; rank?: number; cross?: boolean; crossAt?: number; innings: [number, number][] } {
+): { winner: Side | null; rank?: number; cross?: boolean; crossFrom?: number; innings: [number, number][] } {
   const h = rankPlayers(home.players ?? mergeLines(home.days), baselines, rules.mode);
   const a = rankPlayers(away.players ?? mergeLines(away.days), baselines, rules.mode);
   const innings: [number, number][] = [];
@@ -320,27 +322,30 @@ function playerTiebreak(
     if (inning[0] !== inning[1]) return { winner: inning[0] > inning[1] ? 'home' : 'away', rank: k + 1, innings };
   }
 
-  // Hitter vs pitcher, on the plus scale: a hitter's OPS+ - 100 against a
-  // pitcher's 100 - FIP-. Each school's best hitter faces the other's best
-  // pitcher; one run per matchup.
+  // Tiebreaker #2, the next extra innings: hitter vs pitcher on the plus
+  // scale - a hitter's OPS+ - 100 against a pitcher's 100 - FIP-, the run to
+  // whoever is closer to (or further above) league average. It uses the
+  // players Tiebreaker #1 couldn't match: inning by inning, each school's
+  // next hitter against the other's next pitcher, until those run out. If #1
+  // matched everyone, it starts again from each school's best. Adjusted mode
+  // only (raw OPS and FIP aren't on one scale).
   if (rules.mode === 'adjusted') {
-    let x = 0, y = 0, any = false;
-    if (h.hitters.length && a.pitchers.length) {
-      any = true;
-      const [p, q] = compareHigher(h.hitters[0] - 100, 100 - a.pitchers[0]);
-      x += p; y += q;
-    }
-    if (a.hitters.length && h.pitchers.length) {
-      any = true;
-      const [p, q] = compareHigher(100 - h.pitchers[0], a.hitters[0] - 100);
-      x += p; y += q;
-    }
-    if (any) {
+    const uh = Math.min(h.hitters.length, a.hitters.length);
+    const up = Math.min(h.pitchers.length, a.pitchers.length);
+    let hh = h.hitters.slice(uh), ah = a.hitters.slice(uh), hp = h.pitchers.slice(up), ap = a.pitchers.slice(up);
+    if (!(hh.length && ap.length) && !(ah.length && hp.length)) { hh = h.hitters; ah = a.hitters; hp = h.pitchers; ap = a.pitchers; }
+    const crossFrom = innings.length;
+    for (let k = 0; ; k++) {
+      const homeBats = k < hh.length && k < ap.length; // home hitter vs away pitcher
+      const awayBats = k < ah.length && k < hp.length; // away hitter vs home pitcher
+      if (!homeBats && !awayBats) break;
+      let x = 0, y = 0;
+      if (homeBats) { const [p, q] = compareHigher(hh[k] - 100, 100 - ap[k]); x += p; y += q; }
+      if (awayBats) { const [p, q] = compareHigher(100 - hp[k], ah[k] - 100); x += p; y += q; }
       innings.push([x, y]);
-      const crossAt = innings.length - 1;
-      if (x !== y) return { winner: x > y ? 'home' : 'away', cross: true, crossAt, innings };
-      return { winner: null, crossAt, innings };
+      if (x !== y) return { winner: x > y ? 'home' : 'away', cross: true, crossFrom, innings };
     }
+    if (innings.length > crossFrom) return { winner: null, crossFrom, innings };
   }
   return { winner: null, innings };
 }
@@ -377,7 +382,7 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   // #2s ... then the hitter-vs-pitcher inning (see playerTiebreak).
   const pt = playerTiebreak(home, away, baselines, rules);
   pt.innings.forEach(([h, a], i) => {
-    innings.push({ inning: 10 + i, kind: i === pt.crossAt ? 'cross' : 'tiebreak', home: h, away: a });
+    innings.push({ inning: 10 + i, kind: pt.crossFrom !== undefined && i >= pt.crossFrom ? 'cross' : 'tiebreak', home: h, away: a });
     hr += h;
     ar += a;
   });
