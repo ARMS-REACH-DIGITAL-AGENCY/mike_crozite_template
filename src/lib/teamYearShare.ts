@@ -6,7 +6,7 @@
 
 import { varsityDots } from './playerUtils';
 
-export const TEAM_YEAR_SHARE_TAGLINE = 'Where they at now?';
+export const TEAM_YEAR_SHARE_TAGLINE = 'Where they YAT now?';
 
 export type TeamSeasonResultLike = {
   seasonYear: number;

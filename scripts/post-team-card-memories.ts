@@ -47,13 +47,22 @@ async function main() {
       let added = 0;
       for (const year of years) {
         const keys = teamCardKeys(hsid, year);
-        const have = await client.query(
-          `SELECT 1 FROM player_moment_submissions m JOIN player_moment_photos p ON p.moment_id = m.id
+        const caption = `${team ? `${team}: ` : ""}${year} State Champions, Coach ${coachTitle}. Were you on this team? Where they YAT now?`;
+        const have = await client.query<{ id: string; caption: string | null }>(
+          `SELECT m.id::text AS id, m.caption FROM player_moment_submissions m JOIN player_moment_photos p ON p.moment_id = m.id
             WHERE m.playerid::text = $1 AND p.s3_key = $2 LIMIT 1`,
           [playerid, keys.full]
         );
-        if (have.rowCount) { console.log(`${hsid} ${year}: already posted`); continue; }
-        const caption = `${team ? `${team}: ` : ""}${year} State Champions, Coach ${coachTitle}. Were you on this team? Where they at now?`;
+        if (have.rowCount) {
+          // Already posted: only the wording can change.
+          if (have.rows[0].caption !== caption) {
+            if (!DRY_RUN) await client.query(`UPDATE player_moment_submissions SET caption = $2 WHERE id = $1`, [have.rows[0].id, caption]);
+            console.log(`${hsid} ${year}: ${DRY_RUN ? 'would reword' : 'reworded'} to "${caption}"`);
+          } else {
+            console.log(`${hsid} ${year}: already posted`);
+          }
+          continue;
+        }
         if (DRY_RUN) { console.log(`${hsid} ${year}: would post "${caption}"`); continue; }
         await client.query(
           `WITH story AS (

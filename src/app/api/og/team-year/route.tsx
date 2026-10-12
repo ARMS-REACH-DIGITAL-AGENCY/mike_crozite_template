@@ -9,7 +9,7 @@ import {
 // The share preview for one high school team on the All-Time Next-Level
 // List (?hsid=5004&year=2017): the crest, the season ("STATE CHAMPS 2017,
 // 23-10"), how many from that roster went on to the next level, a strip of
-// their faces, and the question the link asks: "Where they at now?"
+// their faces, and the question the link asks: "Where they YAT now?"
 
 export const runtime = 'nodejs';
 const size = { width: 1200, height: 630 };
