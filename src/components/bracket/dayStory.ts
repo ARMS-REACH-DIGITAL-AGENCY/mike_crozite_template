@@ -192,25 +192,27 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
   const ws = Math.max(hr, ar), ls = Math.min(hr, ar);
   const scoredIn = (side: 0 | 1) => Array.from({ length: innings }, (_, k) => k).filter((k) => Number(runs[k * 2 + side] || 0) > 0).map((k) => ORD(k + 1));
   const winIn = scoredIn(homeWon ? 0 : 1), loseIn = scoredIn(homeWon ? 1 : 0);
-  // A walk-off: the home school's last scoring half inning, from the 9th on,
-  // put it ahead for good.
-  let walkOff = false;
+  // Won in the home school's last half inning, from the 9th on: a walk-off
+  // when it came from behind, "wins it in the 9th" from a tie.
+  let walkOff = false, wonLast = false;
   if (homeWon) {
     const last = innings - 1;
     if (last >= 8 && Number(runs[last * 2] || 0) > 0) {
       let h = 0, a = 0;
       for (let k = 0; k < last; k++) { h += Number(runs[k * 2] || 0); a += Number(runs[k * 2 + 1] || 0); }
       a += Number(runs[last * 2 + 1] || 0);
-      walkOff = h <= a;
+      walkOff = h < a;
+      wonLast = h === a;
     }
   }
   const flip = g[4] === 'flip';
   const title = walkOff ? `${W.toUpperCase()} WALKS IT OFF`
+    : wonLast ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : !ls ? `${W.toUpperCase()} BLANKS ${L.toUpperCase()}`
     : `${W.toUpperCase()} WINS GAME ${gameNo}`;
   const lastRuns = Number(runs[(innings - 1) * 2] || 0);
   const how = flip ? `${W} won it on the commissioner's flip.`
-    : walkOff ? `${W} won it with ${runsWord(lastRuns)} in the bottom of the ${ORD(innings)}.`
+    : walkOff || wonLast ? `${W} won it with ${runsWord(lastRuns)} in the bottom of the ${ORD(innings)}${walkOff ? ', coming from behind' : ''}.`
     : `${W} scored in the ${joinAnd(winIn)}${loseIn.length ? `, ${L} in the ${joinAnd(loseIn)}` : `, and ${L} never got on the board`}.`;
   const weekRows = (home ? box?.h : box?.a)?.p || [];
   const shouts = shoutsOf(weekRows);
