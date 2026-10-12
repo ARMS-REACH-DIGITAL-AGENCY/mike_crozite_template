@@ -1,7 +1,7 @@
 // src/app/api/contribute/route.ts
 // Connect & Contribute: everything that isn't a photo.
 //
-//   POST { kind: 'data',    dataKind, playerId?, playerName?, hsid?, details, source? }
+//   POST { kind: 'data',    items: [{ kind, text }], season?, playerId?, playerName?, hsid?, source? }
 //        { kind: 'tip',     url, why?, playerId?, playerName?, hsid? }
 //        { kind: 'missing', name, hsid, gradYear?, position?, level?, team?, notes? }
 //   (plus idToken?, pageUrl?)
@@ -55,19 +55,27 @@ export async function POST(req: NextRequest) {
     }
 
     if (kind === 'data') {
-      const dataKind = DATA_KINDS.find((k) => k.id === text(body.dataKind, 20));
-      const details = text(body.details, 5000);
+      // One row in the queue per checked item, each labelled with what it
+      // is and the season it's about.
+      const raw = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
+      const items = raw
+        .map((it) => ({ kind: DATA_KINDS.find((k) => k.id === text(it?.kind, 20)), text: text(it?.text, 5000) }))
+        .filter((it): it is { kind: (typeof DATA_KINDS)[number]; text: string } => Boolean(it.kind && it.text))
+        .slice(0, 10);
       const source = text(body.source);
-      if (!dataKind) return fail('Pick what needs fixing.');
-      if (!details) return fail('Tell us what should change.');
+      const season = (body.season || null) as { year?: unknown; team?: unknown; label?: unknown } | null;
+      const seasonTag = season?.year ? ` ${text(season.year, 4)} ${text(season.team, 120)}${season.label ? ` (${text(season.label, 40)})` : ''}` : '';
+      if (!items.length) return fail('Check what you have and fill it in.');
       if (source && !/^https?:\/\//i.test(source)) return fail('The link should start with http:// or https://');
-      await query(
-        `INSERT INTO news_tip_queue (intake_source, sender_name, sender_contact_id, sender_role, raw_player_name,
-                                     matched_playerid, matched_hsid, article_url, notes, status)
-         VALUES ('correction', $1, $2, $3, $4, $5, $6, $7, $8, 'new')`,
-        [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, source || pageUrl || '', `[${dataKind.id}] ${details}`]
-      );
-      await logContribution(who, 'contribute_data', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { kind: dataKind.id } });
+      for (const it of items) {
+        await query(
+          `INSERT INTO news_tip_queue (intake_source, sender_name, sender_contact_id, sender_role, raw_player_name,
+                                       matched_playerid, matched_hsid, article_url, notes, status)
+           VALUES ('correction', $1, $2, $3, $4, $5, $6, $7, $8, 'new')`,
+          [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, source || pageUrl || '', `[${it.kind.id}${seasonTag}] ${it.text}`]
+        );
+      }
+      await logContribution(who, 'contribute_data', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { kinds: items.map((i) => i.kind.id), season: seasonTag.trim() || null } });
       return NextResponse.json({ ok: true }, { status: 201 });
     }
 

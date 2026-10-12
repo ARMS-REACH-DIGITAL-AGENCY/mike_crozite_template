@@ -6,6 +6,10 @@
 // silhouette, a missing headshot, a fallback crest, "missing stats",
 // "can't find a player?" - opens the same drawer with openContribute(),
 // passing what it already knows (the player, the school, the kind of photo).
+//
+// The fan picks the player, then one of his seasons (loaded from his
+// record), then checks what they have for that season. Labels start with
+// where it shows on the site, in the site's own words.
 
 export const CONTRIBUTE_OPEN_EVENT = 'yat:contribute-open';
 
@@ -21,9 +25,109 @@ export type ContributePlayer = {
 
 export type ContributeSchool = { hsid: string; name: string; location?: string };
 
-export type PhotoPurpose = 'flip_card' | 'headshot' | 'year_headshot' | 'back_hero' | 'school_logo';
+// One season of a player's career, as /api/contribute/seasons returns it.
+export type Season = {
+  key: string;
+  year: number;
+  stage: 'hs' | 'college' | 'pro';
+  team: string;
+  level: string;
+  // "HS Senior", "College Sophomore", "5th Year / Grad Student", "AAA"...
+  label: string;
+  current: boolean;
+};
 
-export type DataKind = 'grad_year' | 'stats' | 'team' | 'bio' | 'photo' | 'school' | 'all_time' | 'other';
+export type PhotoPurpose = 'flip_card' | 'back_hero' | 'headshot' | 'timeline_hero' | 'other_photo' | 'school_logo';
+
+type PhotoType = {
+  id: PhotoPurpose;
+  prefix: string;
+  label: string;
+  // Width / height of the crop frame; null = no crop (kept whole).
+  aspect: number | null;
+  // Which seasons it applies to: high school, the current season, any.
+  seasons: 'hs' | 'current' | 'any' | 'school';
+  spec: string;
+};
+
+export const PHOTO_TYPES: PhotoType[] = [
+  {
+    id: 'flip_card',
+    prefix: 'Flip Card Front',
+    label: 'High School Photo',
+    aspect: 5 / 7,
+    seasons: 'hs',
+    spec: 'The photo on the front of his flip card: him in high school, ideally in uniform. 5x7 portrait. No watermarks, please.',
+  },
+  {
+    id: 'headshot',
+    prefix: 'Headshot',
+    label: 'Current Headshot',
+    aspect: 5 / 7,
+    seasons: 'current',
+    spec: 'His face and shoulders from this season, like an official team headshot. 5x7 portrait.',
+  },
+  {
+    id: 'back_hero',
+    prefix: 'Flip Card Back',
+    label: 'Action Photo (Current Team)',
+    aspect: 4 / 5,
+    seasons: 'current',
+    spec: 'Him playing for his current team, for the back of his flip card. 4x5 portrait.',
+  },
+  {
+    id: 'timeline_hero',
+    prefix: 'Career Path Timeline',
+    label: 'Timeline Hero Image (Yearly Action or Headshot)',
+    aspect: 5 / 7,
+    seasons: 'any',
+    spec: "The big image on this season's slide of his Career Path Timeline: an action shot or a headshot from that year. 5x7 portrait; we cut him out of the background.",
+  },
+  {
+    id: 'other_photo',
+    prefix: 'Other',
+    label: 'Any Other Photo',
+    aspect: null,
+    seasons: 'any',
+    spec: "Something else from this season? Send it and tell us about it below.",
+  },
+  {
+    id: 'school_logo',
+    prefix: 'School Crest',
+    label: 'High School Logo',
+    aspect: null,
+    seasons: 'school',
+    spec: "The school's logo or crest. A PNG with a see-through background is best.",
+  },
+];
+
+export type DataKind = 'stats' | 'team' | 'grad_year' | 'bio' | 'school' | 'all_time' | 'other';
+
+export const DATA_KINDS: { id: DataKind; label: string; hint: string; seasons: 'hs' | 'any' | 'school' }[] = [
+  { id: 'stats', label: 'Stats for this season', hint: "What's missing or wrong, and the right numbers. A link to a box score or stat page helps.", seasons: 'any' },
+  { id: 'team', label: 'Team or level this season', hint: 'Where did he play this season?', seasons: 'any' },
+  { id: 'grad_year', label: 'Graduation year', hint: 'Which year did he graduate high school, and how do you know?', seasons: 'hs' },
+  { id: 'bio', label: 'Player info', hint: 'Position, bats/throws, height, honors... anything we have wrong or missing.', seasons: 'any' },
+  { id: 'other', label: 'Other', hint: 'Tell us what you see.', seasons: 'any' },
+  { id: 'school', label: 'School info', hint: 'Name, mascot, colors, location...', seasons: 'school' },
+  { id: 'all_time', label: "Our school's All-Time Next-Level List", hint: 'Former players who played at the next level that we should add. Paste a list or a link.', seasons: 'school' },
+];
+
+export const PLAYER_LEVELS = ['MLB', 'Minor leagues', 'College', 'Independent', 'Overseas', 'Retired'];
+
+export const CONTRIBUTE_MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+
+// The crop the fan chose, as fractions of the (upright) photo.
+export type Crop = { x: number; y: number; w: number; h: number };
+
+export function photoTypeLabel(id: string) {
+  const t = PHOTO_TYPES.find((p) => p.id === id);
+  return t ? `${t.prefix} · ${t.label}` : id;
+}
+
+export function openContribute(detail: ContributeOpen = {}) {
+  window.dispatchEvent(new CustomEvent<ContributeOpen>(CONTRIBUTE_OPEN_EVENT, { detail }));
+}
 
 export type ContributeOpen = {
   tab?: ContributeTab;
@@ -32,58 +136,3 @@ export type ContributeOpen = {
   player?: ContributePlayer | null;
   school?: ContributeSchool | null;
 };
-
-// What each kind of photo is for, and what we need (shown in the drawer).
-export const PHOTO_TYPES: { id: PhotoPurpose; label: string; forSchool?: boolean; spec: string }[] = [
-  {
-    id: 'flip_card',
-    label: 'High school photo (front of his flip card)',
-    spec: 'Him in high school, ideally in uniform. Tall (portrait) works best; we crop it to 5x7. No watermarks, please.',
-  },
-  {
-    id: 'headshot',
-    label: 'Current headshot',
-    spec: 'His face and shoulders, from this season. Tall (portrait); we crop it to 5x7.',
-  },
-  {
-    id: 'year_headshot',
-    label: 'Headshot from a past year',
-    spec: 'A headshot from one school year: pick which one. We keep a set, freshman to senior, for his Career Path timeline.',
-  },
-  {
-    id: 'back_hero',
-    label: 'Action photo (back of his flip card)',
-    spec: 'Him playing for his current team. Wide (landscape) works best.',
-  },
-  {
-    id: 'school_logo',
-    label: 'High school logo',
-    forSchool: true,
-    spec: "The school's logo or crest. A PNG with a see-through background is best.",
-  },
-];
-
-export const CLASS_YEARS = [
-  'HS Freshman', 'HS Sophomore', 'HS Junior', 'HS Senior',
-  'College Freshman', 'College Sophomore', 'College Junior', 'College Senior',
-];
-
-export const DATA_KINDS: { id: DataKind; label: string; hint: string }[] = [
-  { id: 'grad_year', label: 'Graduation year', hint: 'Which year did he graduate high school, and how do you know?' },
-  { id: 'stats', label: 'Missing or wrong stats', hint: 'Which games or seasons, and what the numbers should be. A link to a box score helps.' },
-  { id: 'team', label: 'Current team or level', hint: 'Where is he playing now?' },
-  { id: 'bio', label: 'Player info', hint: 'Position, bats/throws, height, college, anything we have wrong or missing.' },
-  { id: 'photo', label: 'Wrong or bad photo', hint: "Which photo, and what's wrong with it?" },
-  { id: 'school', label: 'School info', hint: 'Name, mascot, colors, location...' },
-  { id: 'all_time', label: "Our school's All-Time list", hint: 'Former players who played at the next level that we should add. Paste a list or a link.' },
-  { id: 'other', label: 'Something else', hint: 'Tell us what you see.' },
-];
-
-export const PLAYER_LEVELS = ['MLB', 'Minor leagues', 'College', 'Independent', 'Overseas', 'Retired'];
-
-export const CONTRIBUTE_MAX_PHOTOS = 10;
-export const CONTRIBUTE_MAX_PHOTO_BYTES = 4 * 1024 * 1024;
-
-export function openContribute(detail: ContributeOpen = {}) {
-  window.dispatchEvent(new CustomEvent<ContributeOpen>(CONTRIBUTE_OPEN_EVENT, { detail }));
-}

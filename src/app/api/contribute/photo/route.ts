@@ -3,14 +3,15 @@
 // on its own, so a phone photo never runs into the upload size limit).
 //
 //   POST multipart: photo, purpose, playerId | playerName + hsid, year,
-//                   classYear (year_headshot), note, pageUrl, idToken?
+//                   season (JSON: team, level, label), crop (JSON: x, y,
+//                   w, h as fractions), note, pageUrl, idToken?
 //
 // The photo is cropped and stored in staging and saved to media_upload as
 // 'pending'. It reaches the site only when a reviewer approves it.
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
-import { CLASS_YEARS, CONTRIBUTE_MAX_PHOTO_BYTES, PHOTO_TYPES, type PhotoPurpose } from '@/lib/contribute';
+import { CONTRIBUTE_MAX_PHOTO_BYTES, PHOTO_TYPES, type Crop, type PhotoPurpose } from '@/lib/contribute';
 import {
   CONTRIBUTE_DAILY_LIMIT,
   NotAnImageError,
@@ -18,6 +19,7 @@ import {
   identifyContributor,
   logContribution,
   stagePhoto,
+  uploadCategory,
 } from '@/lib/contributeServer';
 
 export const runtime = 'nodejs';
@@ -45,10 +47,14 @@ export async function POST(req: NextRequest) {
   if (file.size > CONTRIBUTE_MAX_PHOTO_BYTES) return fail('That photo is too large. Please choose a smaller one.', 413);
 
   const thisYear = new Date().getFullYear();
-  const year = Number(text(form.get('year'))) || (type.forSchool ? thisYear : NaN);
-  if (!Number.isInteger(year) || year < 1900 || year > thisYear + 1) return fail('Pick the year the photo was taken.');
-  const classYear = text(form.get('classYear'), 40);
-  if (purpose === 'year_headshot' && !CLASS_YEARS.includes(classYear)) return fail('Pick which school year this headshot is from.');
+  const isSchool = type.seasons === 'school';
+  const year = Number(text(form.get('year'))) || (isSchool ? thisYear : NaN);
+  if (!Number.isInteger(year) || year < 1900 || year > thisYear + 1) return fail('Pick the season.');
+  const json = <T,>(v: FormDataEntryValue | null): T | null => {
+    try { return JSON.parse(text(v, 2000)) as T; } catch { return null; }
+  };
+  const season = json<{ team?: string; level?: string; label?: string }>(form.get('season'));
+  const crop = json<Crop>(form.get('crop'));
 
   const playerId = text(form.get('playerId'), 20);
   let playerName = text(form.get('playerName'), 120);
@@ -57,7 +63,7 @@ export async function POST(req: NextRequest) {
   const pageUrl = text(form.get('pageUrl'), 500) || null;
 
   try {
-    if (!type.forSchool) {
+    if (!isSchool) {
       if (playerId) {
         // A player on the site: his name and school come from our records.
         const { rows } = await query<{ hsid: string | null; name: string }>(
@@ -79,10 +85,11 @@ export async function POST(req: NextRequest) {
     }
 
     const id = randomUUID();
-    const staged = await stagePhoto(id, purpose, Buffer.from(await file.arrayBuffer()));
+    const staged = await stagePhoto(id, purpose, Buffer.from(await file.arrayBuffer()), crop);
     const details = {
       note: note || null,
-      classYear: purpose === 'year_headshot' ? classYear : null,
+      season: season ? { year, team: text(season.team ?? '', 120), level: text(season.level ?? '', 40), label: text(season.label ?? '', 40) } : null,
+      cropped: Boolean(crop),
       playerName: playerName || null,
       by: { uid: who.uid, name: who.name, email: who.email || null },
       pageUrl,
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
     await query(
       `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description)
        VALUES ($1, $2, $3, $4, $5, $6::date, 'pending', $7, $8, $9, $10)`,
-      [id, playerId, hsid, type.forSchool ? 'school' : 'player', staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details)]
+      [id, playerId, hsid, uploadCategory(purpose), staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details)]
     );
     await logContribution(who, 'contribute_photo', { playerid: playerId || null, hsid, pageUrl, details: { upload_id: id, purpose } });
     return NextResponse.json({ ok: true, id }, { status: 201 });

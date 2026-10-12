@@ -6,12 +6,12 @@
 
 import { useEffect, useState } from 'react';
 import { auth } from '@/lib/firebase';
-import { PHOTO_TYPES } from '@/lib/contribute';
+import { photoTypeLabel } from '@/lib/contribute';
 
 type Photo = {
   id: string; playerid: string; hsid: string; purpose: string; url: string | null; date_taken: string | null;
   uploaded_at: string; player_name: string | null; school_name: string | null;
-  details: { note?: string | null; classYear?: string | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
+  details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
 type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
@@ -66,7 +66,7 @@ export default function ReviewQueue() {
       {data.photos.length === 0 ? <p className="ycr-muted">Nothing waiting.</p> : null}
       <div className="ycr-grid">
         {data.photos.map((p) => {
-          const type = PHOTO_TYPES.find((t) => t.id === p.purpose)?.label || p.purpose;
+          const type = photoTypeLabel(p.purpose);
           const who = p.player_name || p.details.playerName || '';
           return (
             <div className="ycr-card" key={p.id}>
@@ -77,7 +77,9 @@ export default function ReviewQueue() {
                 <span>{who ? `${who}${p.playerid ? '' : ' (not on the site yet)'}` : p.school_name || ''}</span>
                 {p.school_name && who ? <span className="ycr-muted">{p.school_name}</span> : null}
                 <span className="ycr-muted">
-                  {p.date_taken ? new Date(p.date_taken).getUTCFullYear() : ''}{p.details.classYear ? ` · ${p.details.classYear}` : ''}
+                  {p.details.season
+                    ? [p.details.season.year, p.details.season.team, p.details.season.label].filter(Boolean).join(' · ')
+                    : p.date_taken ? new Date(p.date_taken).getUTCFullYear() : ''}
                 </span>
                 {p.details.note ? <span>“{p.details.note}”</span> : null}
                 <span className="ycr-muted">From {p.details.by?.name || 'a fan'}{p.details.by?.email ? ` (${p.details.by.email})` : ''} · {when(p.uploaded_at)}</span>
@@ -124,7 +126,7 @@ function Style() {
   return (
     <style jsx global>{`
       .ycr { max-width: 1100px; margin: 0 auto; padding: 16px 16px 60px; color: var(--ink); }
-      .ycr h2 { font: 400 26px/1.1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .05em; margin: 24px 0 10px; }
+      .ycr h2 { font: 500 24px/1.1 Oswald, sans-serif; letter-spacing: .05em; margin: 24px 0 10px; }
       .ycr-muted { opacity: .65; }
       .ycr-error { color: #ff6b6b; }
       .ycr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
@@ -132,7 +134,7 @@ function Style() {
       .ycr-card img { width: 100%; aspect-ratio: 5/7; object-fit: contain; background: rgba(255,255,255,.05); border-radius: 6px; }
       .ycr-meta { display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.35; }
       .ycr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-      .ycr-btn { min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid #FFD700; background: transparent; color: #FFD700; font: 400 15px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+      .ycr-btn { min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid #FFD700; background: transparent; color: #FFD700; font: 500 14px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
       .ycr-yes { background: #FFD700; color: #000; }
       .ycr-btn:disabled { opacity: .5; }
       .ycr-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.45; }

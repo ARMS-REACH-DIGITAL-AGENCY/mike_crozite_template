@@ -4,10 +4,10 @@
 import { openContribute, type ContributeTab, type PhotoPurpose } from '@/lib/contribute';
 
 const DOORS: { tab: ContributeTab; photoType?: PhotoPurpose; icon: string; title: string; text: string }[] = [
-  { tab: 'photo', photoType: 'flip_card', icon: 'ri-image-add-line', title: 'Send photos', text: 'High school photos, headshots, action shots and school logos. The high school photo is the one we need most.' },
-  { tab: 'data', icon: 'ri-edit-2-line', title: 'Fix our data', text: 'A wrong graduation year, missing stats, a player on the wrong team.' },
-  { tab: 'missing', icon: 'ri-user-add-line', title: 'Add a missing player', text: 'Played at the next level and not on YAT?STATS? Tell us who he is.' },
-  { tab: 'tip', icon: 'ri-newspaper-line', title: 'Send a news tip', text: 'A story about one of our alumni we should share.' },
+  { tab: 'photo', icon: 'ri-image-add-line', title: 'Photos', text: 'High School Photos for flip card fronts, headshots, action photos, Timeline Hero Images and school crests. The High School Photo is the one we need most.' },
+  { tab: 'data', icon: 'ri-edit-2-line', title: 'Update Data', text: 'Missing or wrong stats, a graduation year, a team, player info, or your school\'s All-Time Next-Level List.' },
+  { tab: 'missing', icon: 'ri-user-add-line', title: 'Missing Next-Level Alumni', text: 'Played at the next level and not on YAT?STATS? Tell us who he is.' },
+  { tab: 'tip', icon: 'ri-newspaper-line', title: 'News Tip', text: 'A story about one of our alumni we should share.' },
 ];
 
 export default function ContributeButtons() {
@@ -26,7 +26,7 @@ export default function ContributeButtons() {
         .ycb-door:hover { border-color: #FFD700; }
         .ycb-door i { font-size: 26px; color: #FFD700; }
         body.light-theme .ycb-door i { color: #9a6f00; }
-        .ycb-title { font: 400 22px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+        .ycb-title { font: 500 20px/1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
         .ycb-text { font-size: 13px; line-height: 1.45; opacity: .75; }
       `}</style>
     </div>
