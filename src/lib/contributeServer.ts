@@ -122,16 +122,18 @@ export class NotAnImageError extends Error {}
 // media_upload.category allows only 'highschool', 'current' and 'gallery'.
 export function uploadCategory(purpose: PhotoPurpose): 'highschool' | 'current' | 'gallery' {
   if (purpose === 'flip_card' || purpose === 'school_logo') return 'highschool';
+  if (purpose === 'team_logo') return 'gallery';
   if (purpose === 'headshot' || purpose === 'back_hero') return 'current';
   return 'gallery';
 }
 
 // Output size for each framed photo type (the frame the fan placed it in).
+// (A timeline image placed 7x5 is turned the other way: 1400 x 1000.)
 const FRAMED: Partial<Record<PhotoPurpose, { w: number; h: number }>> = {
   flip_card: { w: 1000, h: 1400 },
   headshot: { w: 1000, h: 1400 },
   timeline_hero: { w: 1000, h: 1400 },
-  back_hero: { w: 1200, h: 1500 },
+  back_hero: { w: 2000, h: 700 },
 };
 
 function validCrop(c: Crop | null | undefined): c is Crop {
@@ -142,7 +144,7 @@ function validCrop(c: Crop | null | undefined): c is Crop {
 // removed. Player photos are cropped to 5x7 portrait around the most
 // interesting part (the face, usually); action photos are kept whole;
 // logos become PNGs with their transparency.
-export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffer, crop?: Crop | null): Promise<{ key: string; mime: string; bytes: number }> {
+export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffer, crop?: Crop | null, landscape = false): Promise<{ key: string; mime: string; bytes: number }> {
   let image: sharp.Sharp;
   let meta: sharp.Metadata;
   try {
@@ -156,9 +158,15 @@ export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffe
   let data: Buffer;
   let mime = 'image/jpeg';
   let ext = 'jpg';
-  const size = FRAMED[purpose];
-  if (purpose === 'school_logo') {
-    data = await image.resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true }).png({ compressionLevel: 9 }).toBuffer();
+  const framed = FRAMED[purpose];
+  const size = framed && landscape && purpose === 'timeline_hero' ? { w: framed.h, h: framed.w } : framed;
+  if (purpose === 'school_logo' || purpose === 'team_logo') {
+    // Logos are square and never cut: the whole logo, centered, on a
+    // see-through square.
+    data = await image
+      .resize({ width: 1000, height: 1000, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
     mime = 'image/png';
     ext = 'png';
   } else if (size) {
@@ -216,9 +224,10 @@ async function cutout(stagedKey: string): Promise<Buffer | null> {
 //                    hero on his Career Path Timeline, cut out of the
 //                    background), the photo itself kept in
 //                    players/season-photos/{id}_{year}.jpg
-//   other_photo   -> kept in players/fan-photos/{id}/ for us to place
+//   other_photo   -> kept in fan-photos/ for us to place
 //   back_hero     -> players/back/{id}.jpg + back-card, back-web (card back)
 //   school_logo   -> schools/{hsid}.png
+//   team_logo     -> teams/{teamid}.png + teams-web/{teamid}.webp
 // ---------------------------------------------------------------------------
 export type UploadRow = {
   id: string;
@@ -227,12 +236,14 @@ export type UploadRow = {
   purpose: string;
   s3_key: string;
   date_taken: string | Date | null;
+  // A team logo's team (our Baseball Cube team id).
+  team_at_time?: string | null;
 };
 
 export async function promoteUpload(u: UploadRow): Promise<string[]> {
   const pid = String(u.playerid || '').trim();
   const purpose = u.purpose as PhotoPurpose;
-  const needsPlayer = purpose !== 'school_logo';
+  const needsPlayer = purpose !== 'school_logo' && purpose !== 'team_logo' && purpose !== 'other_photo';
   if (needsPlayer && !/^\d+$/.test(pid)) throw new Error('This photo has no player on the site yet. Add the player first, then approve it.');
   const written: string[] = [];
   const src = await download(u.s3_key);
@@ -258,13 +269,20 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
       await put(`players/season-cutouts/${pid}_${year}.png`, png, 'image/png');
       written.push(`players/season-cutouts/${pid}_${year}.png`);
     }
+  } else if (purpose === 'team_logo') {
+    const teamId = String(u.team_at_time || '').trim();
+    if (!/^\d+$/.test(teamId)) throw new Error('This logo has no team.');
+    await copy(u.s3_key, `teams/${teamId}.png`, 'image/png');
+    await put(`teams-web/${teamId}.webp`, await webp(400, 400, 'inside'), 'image/webp');
+    written.push(`teams/${teamId}.png`, `teams-web/${teamId}.webp`);
   } else if (purpose === 'other_photo') {
-    const key = `players/fan-photos/${pid}/${u.id}.jpg`;
+    const key = `fan-photos/${/^\d+$/.test(pid) ? `players/${pid}` : 'unplaced'}/${u.id}.jpg`;
     await copy(u.s3_key, key, 'image/jpeg');
     written.push(key);
   } else if (purpose === 'back_hero') {
     await copy(u.s3_key, `players/back/${pid}.jpg`, 'image/jpeg');
-    await put(`players/back-card/${pid}.webp`, await webp(800, 1000, 'cover'), 'image/webp');
+    // The back of the card shows it as a wide 20:7 strip.
+    await put(`players/back-card/${pid}.webp`, await webp(1200, 420, 'cover'), 'image/webp');
     await put(`players/back-web/${pid}.webp`, await webp(1200, 800, 'inside', 78), 'image/webp');
     written.push(`players/back/${pid}.jpg`, `players/back-card/${pid}.webp`, `players/back-web/${pid}.webp`);
   } else if (purpose === 'school_logo') {

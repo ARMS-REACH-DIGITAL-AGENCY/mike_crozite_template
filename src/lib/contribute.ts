@@ -39,16 +39,26 @@ export type Season = {
   current: boolean;
 };
 
-export type PhotoPurpose = 'flip_card' | 'back_hero' | 'headshot' | 'timeline_hero' | 'other_photo' | 'school_logo';
+export type PhotoPurpose = 'flip_card' | 'back_hero' | 'headshot' | 'timeline_hero' | 'other_photo' | 'school_logo' | 'team_logo';
+
+// Guides drawn over the placement frame:
+//   eyes      - a headshot: eyes on the two crossings of the top third
+//   name-left - the flip card back: his name is printed over the left side
+export type PhotoGuide = 'eyes' | 'name-left';
 
 type PhotoType = {
   id: PhotoPurpose;
   prefix: string;
   label: string;
-  // Width / height of the crop frame; null = no crop (kept whole).
-  aspect: number | null;
-  // Which seasons it applies to: high school, the current season, any.
-  seasons: 'hs' | 'current' | 'any' | 'school';
+  // Width / height of the placement frame (the first is the default when
+  // there's a choice of orientation); null = kept whole, never cropped.
+  aspects: number[] | null;
+  guide?: PhotoGuide;
+  // What else we need to know: the season (a timeline slide), the team
+  // (a team logo), the school (a school logo), or nothing.
+  asks?: 'season' | 'team' | 'school';
+  // Needs a player tagged (everything but the logos).
+  needsPlayer: boolean;
   spec: string;
 };
 
@@ -57,49 +67,63 @@ export const PHOTO_TYPES: PhotoType[] = [
     id: 'flip_card',
     prefix: 'Flip Card Front',
     label: 'High School Photo',
-    aspect: 5 / 7,
-    seasons: 'hs',
+    aspects: [5 / 7],
+    needsPlayer: true,
     spec: 'The photo on the front of his flip card: him in high school, ideally in uniform. 5x7 portrait. No watermarks, please.',
   },
   {
     id: 'headshot',
     prefix: 'Headshot',
     label: 'Current Headshot',
-    aspect: 5 / 7,
-    seasons: 'current',
-    spec: 'His face and shoulders from this season, like an official team headshot. 5x7 portrait.',
+    aspects: [5 / 7],
+    guide: 'eyes',
+    needsPlayer: true,
+    spec: 'His face and shoulders from this season, like an official team headshot. 5x7 portrait: put his eyes on the two marks.',
   },
   {
     id: 'back_hero',
     prefix: 'Flip Card Back',
     label: 'Action Photo (Current Team)',
-    aspect: 4 / 5,
-    seasons: 'current',
-    spec: 'Him playing for his current team, for the back of his flip card. 4x5 portrait.',
+    aspects: [20 / 7],
+    guide: 'name-left',
+    needsPlayer: true,
+    spec: 'Him playing for his current team, across the top of the back of his flip card. A wide strip: his name is printed on the left, so keep him to the right.',
   },
   {
     id: 'timeline_hero',
     prefix: 'Career Path Timeline',
     label: 'Timeline Hero Image (Yearly Action or Headshot)',
-    aspect: 5 / 7,
-    seasons: 'any',
-    spec: "The big image on this season's slide of his Career Path Timeline: an action shot or a headshot from that year. 5x7 portrait; we cut him out of the background.",
-  },
-  {
-    id: 'other_photo',
-    prefix: 'Other',
-    label: 'Any Other Photo',
-    aspect: null,
-    seasons: 'any',
-    spec: "Something else from this season? Send it and tell us about it below.",
+    aspects: [5 / 7, 7 / 5],
+    asks: 'season',
+    needsPlayer: true,
+    spec: "The big image on one season's slide of his Career Path Timeline: an action shot or a headshot from that year. 5x7 or 7x5; we cut him out of the background.",
   },
   {
     id: 'school_logo',
     prefix: 'School Crest',
     label: 'High School Logo',
-    aspect: null,
-    seasons: 'school',
-    spec: "The school's logo or crest. A PNG with a see-through background is best.",
+    aspects: null,
+    asks: 'school',
+    needsPlayer: false,
+    spec: "The school's logo or crest. Square; a PNG with a see-through background is best.",
+  },
+  {
+    id: 'team_logo',
+    prefix: 'Team Logo',
+    label: 'College or Pro Team Logo',
+    aspects: null,
+    asks: 'team',
+    needsPlayer: false,
+    spec: "A college or pro team's logo. Square; a PNG with a see-through background is best.",
+  },
+  {
+    id: 'other_photo',
+    prefix: 'Other',
+    label: 'Any Other Photo',
+    aspects: null,
+    asks: 'season',
+    needsPlayer: false,
+    spec: "Something else? Send it and tell us about it below. We'll place it where it fits best.",
   },
 ];
 

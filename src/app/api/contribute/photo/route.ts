@@ -2,9 +2,12 @@
 // Connect & Contribute: one photo per request (the drawer sends each photo
 // on its own, so a phone photo never runs into the upload size limit).
 //
-//   POST multipart: photo, purpose, playerId | playerName + hsid, year,
-//                   season (JSON: team, level, label), crop (JSON: x, y,
-//                   w, h as fractions), note, pageUrl, idToken?
+//   POST multipart: photo, purpose, year, playerId (the main player) |
+//                   playerName + hsid, tagged (JSON: everyone in it),
+//                   season (JSON: team, level, label), teamId (a team
+//                   logo), hsid (a school logo), crop (JSON: x, y, w, h as
+//                   fractions), landscape (a 7x5 timeline image), note,
+//                   pageUrl, idToken?
 //
 // The photo is cropped and stored in staging and saved to media_upload as
 // 'pending'. It reaches the site only when a reviewer approves it.
@@ -53,14 +56,17 @@ export async function POST(req: NextRequest) {
   if (file.size > CONTRIBUTE_MAX_PHOTO_BYTES) return fail('That photo is too large. Please choose a smaller one.', 413);
 
   const thisYear = new Date().getFullYear();
-  const isSchool = type.seasons === 'school';
-  const year = Number(text(form.get('year'))) || (isSchool ? thisYear : NaN);
+  const year = Number(text(form.get('year'))) || (type.asks === 'season' ? NaN : thisYear);
   if (!Number.isInteger(year) || year < 1900 || year > thisYear + 1) return fail('Pick the season.');
+  const teamId = text(form.get('teamId'), 20);
+  if (type.asks === 'team' && !/^\d+$/.test(teamId)) return fail('Pick the team.');
   const json = <T,>(v: FormDataEntryValue | null): T | null => {
     try { return JSON.parse(text(v, 2000)) as T; } catch { return null; }
   };
   const season = json<{ team?: string; level?: string; label?: string }>(form.get('season'));
   const crop = json<Crop>(form.get('crop'));
+  const tagged = (json<string[]>(form.get('tagged')) || []).map((v) => String(v)).filter((v) => /^\d+$/.test(v)).slice(0, 20);
+  const landscape = text(form.get('landscape'), 5) === '1';
 
   const playerId = text(form.get('playerId'), 20);
   let playerName = text(form.get('playerName'), 120);
@@ -69,7 +75,7 @@ export async function POST(req: NextRequest) {
   const pageUrl = text(form.get('pageUrl'), 500) || null;
 
   try {
-    if (!isSchool) {
+    if (type.needsPlayer || playerId) {
       if (playerId) {
         // A player on the site: his name and school come from our records.
         const { rows } = await query<{ hsid: string | null; name: string }>(
@@ -91,19 +97,21 @@ export async function POST(req: NextRequest) {
     }
 
     const id = randomUUID();
-    const staged = await stagePhoto(id, purpose, Buffer.from(await file.arrayBuffer()), crop);
+    const staged = await stagePhoto(id, purpose, Buffer.from(await file.arrayBuffer()), crop, landscape);
     const details = {
       note: note || null,
       season: season ? { year, team: text(season.team ?? '', 120), level: text(season.level ?? '', 40), label: text(season.label ?? '', 40) } : null,
       cropped: Boolean(crop),
+      tagged,
+      landscape: purpose === 'timeline_hero' ? landscape : undefined,
       playerName: playerName || null,
       by: { uid: who.uid, name: who.name, email: who.email || null },
       pageUrl,
     };
     await query(
-      `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description)
-       VALUES ($1, $2, $3, $4, $5, $6::date, 'pending', $7, $8, $9, $10)`,
-      [id, playerId, hsid, uploadCategory(purpose), staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details)]
+      `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description, team_at_time)
+       VALUES ($1, $2, $3, $4, $5, $6::date, 'pending', $7, $8, $9, $10, $11)`,
+      [id, playerId, hsid, uploadCategory(purpose), staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details), teamId || null]
     );
     await logContribution(who, 'contribute_photo', { playerid: playerId || null, hsid, pageUrl, details: { upload_id: id, purpose } });
 
@@ -124,8 +132,8 @@ export async function POST(req: NextRequest) {
     } else if (verdict?.decision === 'approve') {
       try {
         // A photo for a player who isn't on the site yet can't be placed.
-        if (type.seasons !== 'school' && !/^\d+$/.test(playerId)) throw new Error('no player on the site');
-        await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01` });
+        if (type.needsPlayer && !/^\d+$/.test(playerId)) throw new Error('no player on the site');
+        await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null });
         status = 'approved';
         message = "Approved! It's on the site now.";
       } catch (error) {

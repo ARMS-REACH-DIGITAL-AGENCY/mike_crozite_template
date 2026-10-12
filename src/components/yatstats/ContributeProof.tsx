@@ -19,6 +19,7 @@ const SPOTS: Record<PhotoPurpose, (p: ProofPlayer, s: Season | null) => string[]
   timeline_hero: (p, s) => [`The ${s?.year || ''} slide of ${first(p.name)}'s Career Path Timeline, on his profile page`.replace('The  slide', 'A slide')],
   other_photo: () => ['Kept for the YAT?STATS team, who will place it where it fits best'],
   school_logo: (p) => [`The school crest in Row 2 of every page of ${p.schoolName || 'the school'}'s hub`, 'Global Search, Favorites and flip cards from this school'],
+  team_logo: () => ["The team's logo on flip cards, in Global Search and on the Career Path Timeline of everyone who played there"],
 };
 
 const first = (name: string) => name.split(' ')[0] || name;
@@ -75,17 +76,22 @@ function Headshot({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPl
   );
 }
 
+// The back of the card: the photo is a wide strip across the top with his
+// name printed over its left side, stats below.
 function FlipCardBack({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPlayer }) {
   return (
     <div className="ypf-back">
-      <div className="ypf-back-photo"><Cropped src={src} crop={crop} /></div>
-      <div className="ypf-back-bar"><b>{p.name}</b><span>{p.currentTeam}</span></div>
+      <div className="ypf-back-photo">
+        <Cropped src={src} crop={crop} />
+        <div className="ypf-back-name"><b>{first(p.name)}</b><b>{last(p.name)}</b><span>{p.currentTeam}</span></div>
+      </div>
       <div className="ypf-back-stats">{['G', 'AVG', 'HR', 'RBI'].map((k) => <span key={k}><small>{k}</small>–</span>)}</div>
+      <div className="ypf-back-lines" />
     </div>
   );
 }
 
-function TimelineSlide({ src, crop, p, s }: { src: string; crop: Crop | null; p: ProofPlayer; s: Season | null }) {
+function TimelineSlide({ src, crop, p, s, landscape }: { src: string; crop: Crop | null; p: ProofPlayer; s: Season | null; landscape: boolean }) {
   return (
     <div className="ypf-slide" style={s?.teamId ? { ['--ypf-logo' as string]: `url(${S3}/teams-web/${s.teamId}.webp)` } : undefined}>
       <div className="ypf-slide-left">
@@ -93,12 +99,22 @@ function TimelineSlide({ src, crop, p, s }: { src: string; crop: Crop | null; p:
         <small>{[s?.level, s?.label].filter(Boolean).join(' · ')}</small>
         {p.classOf ? <small className="ypf-gold">Class of {p.classOf}</small> : null}
       </div>
-      <div className="ypf-slide-person"><Cropped src={src} crop={crop} /></div>
+      <div className={`ypf-slide-person${landscape ? ' is-wide' : ''}`}><Cropped src={src} crop={crop} /></div>
       <div className="ypf-slide-right">
         <small className="ypf-gold">{[s?.year, s?.level].filter(Boolean).join(' · ')}</small>
         <b>{s?.team || ''}</b>
       </div>
       <div className="ypf-slide-rail"><span className="ypf-slide-year">{s?.year}</span></div>
+    </div>
+  );
+}
+
+function TeamLogo({ src, name }: { src: string; name: string }) {
+  return (
+    <div className="ypf-row2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" />
+      <div><small>Team logo</small><b>{name}</b></div>
     </div>
   );
 }
@@ -117,7 +133,12 @@ function SchoolCrest({ src, p }: { src: string; p: ProofPlayer }) {
   );
 }
 
-export default function ContributeProof({ purpose, src, crop, player, season }: { purpose: PhotoPurpose; src: string; crop: Crop | null; player: ProofPlayer; season: Season | null }) {
+export default function ContributeProof({
+  purpose, src, crop, player, season, landscape = false, teamName = '', tagged = [],
+}: {
+  purpose: PhotoPurpose; src: string; crop: Crop | null; player: ProofPlayer; season: Season | null;
+  landscape?: boolean; teamName?: string; teamId?: string; tagged?: string[];
+}) {
   const spots = SPOTS[purpose](player, season);
   return (
     <div className="ypf">
@@ -125,8 +146,9 @@ export default function ContributeProof({ purpose, src, crop, player, season }: 
         {purpose === 'flip_card' ? <FlipCardFront src={src} crop={crop} p={player} />
           : purpose === 'headshot' ? <Headshot src={src} crop={crop} p={player} />
           : purpose === 'back_hero' ? <FlipCardBack src={src} crop={crop} p={player} />
-          : purpose === 'timeline_hero' ? <TimelineSlide src={src} crop={crop} p={player} s={season} />
+          : purpose === 'timeline_hero' ? <TimelineSlide src={src} crop={crop} p={player} s={season} landscape={landscape} />
           : purpose === 'school_logo' ? <SchoolCrest src={src} p={player} />
+          : purpose === 'team_logo' ? <TeamLogo src={src} name={teamName} />
           // eslint-disable-next-line @next/next/no-img-element
           : <img className="ypf-plain" src={src} alt="" />}
       </div>
@@ -134,6 +156,7 @@ export default function ContributeProof({ purpose, src, crop, player, season }: 
         <div className="ypf-where-title">This photo will appear:</div>
         <ul>{spots.map((t) => <li key={t}>{t}</li>)}</ul>
         {purpose === 'timeline_hero' ? <div className="ypf-note">We cut him out of the background, like the other slides on his timeline.</div> : null}
+        {tagged.length > 1 ? <div className="ypf-note">Tagged: {tagged.join(', ')}.</div> : null}
       </div>
       <style jsx global>{`
         .ypf { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
@@ -161,12 +184,13 @@ export default function ContributeProof({ purpose, src, crop, player, season }: 
         .ypf-slot.is-new .ypf-circle { border-color: #FFD700; }
         .ypf-slot-name { min-height: 14px; font: 400 13px/1 Oswald, sans-serif; text-transform: uppercase; color: #ddd; }
         /* Flip card back */
-        .ypf-back { width: min(100%, 260px); aspect-ratio: 5 / 7; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; background: #0d0f10; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
-        .ypf-back-photo { flex: 1; min-height: 0; }
-        .ypf-back-bar { display: flex; flex-direction: column; padding: 8px 10px; color: #fff; }
-        .ypf-back-bar b { font: 700 16px/1 Oswald, sans-serif; text-transform: uppercase; }
-        .ypf-back-bar span { font-size: 11px; opacity: .7; }
-        .ypf-back-stats { display: grid; grid-template-columns: repeat(4, 1fr); padding: 0 10px 10px; color: #fff; font: 600 14px/1 Oswald, sans-serif; text-align: center; }
+        .ypf-back { width: min(100%, 300px); aspect-ratio: 5 / 7; display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 10px; overflow: hidden; background: #c2b9ae; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+        .ypf-back-photo { position: relative; aspect-ratio: 20 / 7; border: 2px solid rgba(30,22,14,.65); border-radius: 4px; overflow: hidden; }
+        .ypf-back-name { position: absolute; left: 6px; top: 6px; display: flex; flex-direction: column; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+        .ypf-back-name b { font: 700 13px/1 Oswald, sans-serif; text-transform: uppercase; }
+        .ypf-back-name span { font-size: 9px; }
+        .ypf-back-lines { flex: 1; background: repeating-linear-gradient(transparent 0 14px, rgba(30,22,14,.18) 14px 15px); }
+        .ypf-back-stats { display: grid; grid-template-columns: repeat(4, 1fr); color: #1e160e; font: 600 14px/1 Oswald, sans-serif; text-align: center; }
         .ypf-back-stats small { display: block; font-size: 9px; opacity: .6; margin-bottom: 2px; }
         /* Career Path Timeline slide */
         .ypf-slide { position: relative; width: 100%; max-width: 560px; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; color: #fff;
@@ -176,6 +200,7 @@ export default function ContributeProof({ purpose, src, crop, player, season }: 
         .ypf-slide-left b { font: 700 clamp(13px, 2.6vw, 18px)/1 Oswald, sans-serif; text-transform: uppercase; }
         .ypf-slide-left small { font: 500 clamp(8px, 1.4vw, 10px)/1.2 Oswald, sans-serif; text-transform: uppercase; opacity: .85; }
         .ypf-slide-person { position: absolute; z-index: 1; left: 30%; bottom: 10%; height: 82%; aspect-ratio: 5 / 7; border-radius: 6px; overflow: hidden; outline: 2px dashed rgba(255,215,0,.7); }
+        .ypf-slide-person.is-wide { left: 26%; height: 58%; aspect-ratio: 7 / 5; }
         .ypf-slide-right { position: absolute; z-index: 1; right: 4%; top: 10%; display: flex; flex-direction: column; align-items: flex-start; max-width: 40%; }
         .ypf-slide-right small { font: 500 clamp(8px, 1.4vw, 11px)/1 Oswald, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
         .ypf-slide-right b { font: 700 clamp(14px, 3vw, 24px)/1 Oswald, sans-serif; text-transform: uppercase; margin-top: 4px; }

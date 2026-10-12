@@ -32,10 +32,11 @@ export type ModerationVerdict = z.infer<typeof Verdict>;
 const WHAT_IT_SHOULD_BE: Record<PhotoPurpose, string> = {
   flip_card: 'a photo of one baseball player from his high school years, ideally in uniform (a portrait, cropped 5x7)',
   headshot: "a headshot of one baseball player: his face and shoulders, like an official team headshot",
-  back_hero: 'an action photo of one baseball player playing (batting, pitching, fielding, running) for his team',
+  back_hero: 'an action photo of one baseball player playing (batting, pitching, fielding, running) for his team, cropped as a wide strip',
   timeline_hero: 'a photo of one baseball player from that season: an action shot or a headshot',
   other_photo: 'a photo related to this baseball player (him, his team, a game, an award); anything appropriate qualifies',
   school_logo: "a high school's logo or crest (a graphic, not a photo of people)",
+  team_logo: "a college or professional baseball team's logo (a graphic, not a photo of people)",
 };
 
 const SYSTEM = `You review photos that fans send to YAT?STATS, a site that follows high school baseball alumni through college and pro ball. Photos you approve go on the site immediately, where families and kids see them, so be careful, but don't reject good photos for small things.

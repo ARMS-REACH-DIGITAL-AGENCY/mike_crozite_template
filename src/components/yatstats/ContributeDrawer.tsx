@@ -20,22 +20,17 @@ import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { SchoolContext } from '@/context/SchoolContext';
 import FanConfirm from '@/components/yatstats/FanConfirm';
-import PhotoCropper from '@/components/yatstats/PhotoCropper';
-import ContributeProof from '@/components/yatstats/ContributeProof';
+import ContributePhotoFlow from '@/components/yatstats/ContributePhotoFlow';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
-import { shrinkPhoto } from '@/lib/shrinkPhoto';
 import {
-  CONTRIBUTE_MAX_PHOTO_BYTES,
   CONTRIBUTE_OPTIONS,
   CONTRIBUTE_OPEN_EVENT,
   DATA_KINDS,
-  PHOTO_TYPES,
   PLAYER_LEVELS,
   type ContributeOpen,
   type ContributePlayer,
   type ContributeSchool,
   type ContributeTab,
-  type Crop,
   type DataKind,
   type PhotoPurpose,
   type Season,
@@ -43,7 +38,6 @@ import {
 } from '@/lib/contribute';
 
 type FanSession = { uid?: string; email?: string; firstName?: string | null; plan?: string | null; isSuperfan?: boolean };
-type PhotoPick = { file: File; preview: string; crop: Crop | null; state: 'ready' | 'sending' | 'sent' | 'error'; message?: string; outcome?: 'approved' | 'rejected' | 'pending' };
 type Status = { kind: 'idle' | 'sending' | 'error' | 'done'; text?: string; confirm?: boolean };
 type PlayerInfo = { name: string; profileUrl: string | null; classOf: number | null };
 
@@ -123,6 +117,8 @@ export default function ContributeDrawer() {
   const [sessionLoading, setSessionLoading] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [portalReady, setPortalReady] = useState(false);
+  // The portal's target (document.body) exists only once mounted.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setPortalReady(true), []);
 
   // Who it's about.
@@ -139,14 +135,12 @@ export default function ContributeDrawer() {
   const [manualYear, setManualYear] = useState<number | ''>('');
   const seasonRequest = useRef(0);
   // What they have.
-  const [photos, setPhotos] = useState<Partial<Record<PhotoPurpose, PhotoPick | null>>>({});
   const [data, setData] = useState<Partial<Record<DataKind, string>>>({});
-  const [note, setNote] = useState('');
-  // The proof screen: shown after Send, before anything is sent.
-  const [proof, setProof] = useState(false);
   const [source, setSource] = useState('');
-  const pickFor = useRef<PhotoPurpose | null>(null);
-  const fileInput = useRef<HTMLInputElement | null>(null);
+  // The Photos drawer (ContributePhotoFlow): the kind of photo an entry
+  // point asked for, and a key that starts it fresh for a new entry point.
+  const [photoType, setPhotoType] = useState<PhotoPurpose | undefined>(undefined);
+  const [photoFlowKey, setPhotoFlowKey] = useState(0);
   // Missing Next-Level Alumni / News Tip
   const [mp, setMp] = useState({ name: '', gradYear: '', position: '', level: '', team: '', notes: '' });
   const [tipUrl, setTipUrl] = useState('');
@@ -162,21 +156,12 @@ export default function ContributeDrawer() {
     if (!document.body.className.match(/drawer-(left|right|sort|account|favorites|story)-open/)) document.body.classList.remove('drawer-open');
   }, []);
 
-  const clearPicks = useCallback(() => {
-    setPhotos((current) => {
-      Object.values(current).forEach((p) => p && URL.revokeObjectURL(p.preview));
-      return {};
-    });
-    setData({});
-  }, []);
-
   const resetForms = useCallback(() => {
-    clearPicks();
-    setNote(''); setSource(''); setTipUrl(''); setTipWhy('');
+    setData({});
+    setSource(''); setTipUrl(''); setTipWhy('');
     setMp({ name: '', gradYear: '', position: '', level: '', team: '', notes: '' });
     setStatus({ kind: 'idle' });
-    setProof(false);
-  }, [clearPicks]);
+  }, []);
 
   // His seasons, newest first (the newest is "current").
   const loadSeasons = useCallback((p: ContributePlayer | null) => {
@@ -207,13 +192,17 @@ export default function ContributeDrawer() {
     const onOpen = (event: Event) => {
       const d = (event as CustomEvent<ContributeOpen>).detail || {};
       if (status.kind === 'done') resetForms();
-      setProof(false);
       if (d.tab) setTab(d.tab);
+      // An entry point that knows the player or the kind of photo starts
+      // the Photos drawer fresh with them.
+      if (d.player || d.photoType) {
+        setPhotoType(d.photoType);
+        setPhotoFlowKey((k) => k + 1);
+      }
       if (d.player !== undefined && d.player?.playerId !== player?.playerId) choosePlayer(d.player);
       if (d.school) setSchool(d.school);
       const wantsSchool = d.photoType === 'school_logo' || (d.dataKind ? DATA_KINDS.find((k) => k.id === d.dataKind)?.seasons === 'school' : false);
       setAboutSchool(Boolean(wantsSchool));
-      if (d.photoType) setPhotos((cur) => (d.photoType! in cur ? cur : { ...cur, [d.photoType!]: null }));
       if (d.dataKind) setData((cur) => (d.dataKind! in cur ? cur : { ...cur, [d.dataKind!]: '' }));
       setOpen(true);
       document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open');
@@ -255,35 +244,10 @@ export default function ContributeDrawer() {
   const seasonForItems: Season | null = aboutSchool
     ? null
     : season || (manualPlayer && manualYear ? { key: 'manual', year: Number(manualYear), stage: 'hs', team: school?.name || '', level: '', label: '', current: true } : null);
-  const photoTypes = PHOTO_TYPES.filter((t) =>
-    aboutSchool ? t.seasons === 'school'
-      : t.seasons === 'any' || (t.seasons === 'hs' && seasonForItems?.stage === 'hs') || (t.seasons === 'current' && seasonForItems?.current)
-  );
   const dataKinds = DATA_KINDS.filter((k) =>
     aboutSchool ? k.seasons === 'school' : k.seasons === 'any' || (k.seasons === 'hs' && seasonForItems?.stage === 'hs')
   );
 
-  const togglePhoto = (id: PhotoPurpose) => setPhotos((cur) => {
-    const next = { ...cur };
-    if (id in next) { const p = next[id]; if (p) URL.revokeObjectURL(p.preview); delete next[id]; } else next[id] = null;
-    return next;
-  });
-  const choosePhotoFile = (id: PhotoPurpose) => { pickFor.current = id; fileInput.current?.click(); };
-  const onFile = (files: FileList | null) => {
-    const id = pickFor.current;
-    const file = files?.[0];
-    if (fileInput.current) fileInput.current.value = '';
-    if (!id || !file) return;
-    setPhotos((cur) => {
-      const old = cur[id];
-      if (old) URL.revokeObjectURL(old.preview);
-      return { ...cur, [id]: { file, preview: URL.createObjectURL(file), crop: null, state: 'ready' } };
-    });
-    setStatus({ kind: 'idle' });
-  };
-  const setCrop = useCallback((id: PhotoPurpose, crop: Crop) => {
-    setPhotos((cur) => (cur[id] ? { ...cur, [id]: { ...cur[id]!, crop } } : cur));
-  }, []);
   const toggleData = (id: DataKind) => setData((cur) => {
     const next = { ...cur };
     if (id in next) delete next[id]; else next[id] = '';
@@ -301,75 +265,6 @@ export default function ContributeDrawer() {
     if (!player && !(manualPlayer && manualName.trim() && school)) return 'Pick the player (or type his name and pick his high school).';
     if (!seasonForItems) return 'Pick the season.';
     return null;
-  };
-
-  // Photos go one at a time, so each can fail or succeed on its own.
-  // What's ready to send, or what's missing.
-  const photosToSend = (): { todo: PhotoPurpose[]; problem: string | null } => {
-    const problem = needWho();
-    if (problem) return { todo: [], problem };
-    const checked = (Object.keys(photos) as PhotoPurpose[]).filter((id) => photoTypes.some((t) => t.id === id));
-    if (!checked.length) return { todo: [], problem: 'Check the kind of photo you have.' };
-    const empty = checked.find((id) => !photos[id]);
-    if (empty) return { todo: [], problem: `Choose the photo for ${PHOTO_TYPES.find((t) => t.id === empty)?.label}.` };
-    const todo = checked.filter((id) => photos[id]!.state !== 'sent');
-    return { todo, problem: todo.length ? null : 'Those photos are already sent.' };
-  };
-
-  const sendPhotos = async () => {
-    const { todo, problem } = photosToSend();
-    setProof(false);
-    if (problem) return setStatus({ kind: 'error', text: problem });
-    setStatus({ kind: 'sending', text: 'Sending…' });
-    const token = await idToken();
-    const w = who();
-    let failed = 0;
-    let rejected = 0;
-    for (const id of todo) {
-      const pick = photos[id]!;
-      setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: 'sending', message: undefined } }));
-      try {
-        // Logos keep their transparency; phone photos are shrunk first
-        // (same proportions, so the crop still lines up).
-        const blob = id === 'school_logo' && pick.file.size <= CONTRIBUTE_MAX_PHOTO_BYTES ? pick.file : await shrinkPhoto(pick.file);
-        const form = new FormData();
-        if (token) form.set('idToken', token);
-        form.set('photo', blob, pick.file.name);
-        form.set('purpose', id);
-        form.set('playerId', w.playerId);
-        form.set('playerName', w.playerName);
-        form.set('hsid', w.hsid);
-        if (seasonForItems) {
-          form.set('year', String(seasonForItems.year));
-          form.set('season', JSON.stringify({ team: seasonForItems.team, level: seasonForItems.level, label: seasonForItems.label }));
-        }
-        if (pick.crop) form.set('crop', JSON.stringify(pick.crop));
-        form.set('note', note.trim());
-        form.set('pageUrl', window.location.href);
-        const res = await fetch('/api/contribute/photo', { method: 'POST', body: form, credentials: 'include' });
-        const body = await res.json().catch(() => ({}));
-        if (res.status === 401) {
-          setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: 'ready' } }));
-          setStatus({ kind: 'error', confirm: true });
-          return;
-        }
-        if (!res.ok) throw new Error(body?.error || 'Not sent.');
-        // The automatic review's answer: live now, not accepted (and why),
-        // or waiting for a person.
-        const outcome: 'approved' | 'rejected' | 'pending' = body?.status === 'approved' || body?.status === 'rejected' ? body.status : 'pending';
-        if (outcome === 'rejected') rejected++;
-        setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: outcome === 'rejected' ? 'error' : 'sent', outcome, message: body?.message } }));
-      } catch (error) {
-        failed++;
-        setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: 'error', message: error instanceof Error ? error.message : 'Not sent.' } }));
-      }
-    }
-    // Stay on the list so the fan sees each photo's result.
-    setStatus(failed
-      ? { kind: 'error', text: `${failed} photo${failed === 1 ? '' : 's'} didn't go through. Try again.` }
-      : rejected
-        ? { kind: 'error', text: `${rejected === 1 ? "One photo wasn't" : `${rejected} photos weren't`} accepted. See why above, then choose a different photo.` }
-        : { kind: 'idle', text: 'sent' });
   };
 
   const post = async (body: Record<string, unknown>) => {
@@ -411,13 +306,6 @@ export default function ContributeDrawer() {
 
   const submit = () => {
     if (!signedIn) return openAccountDrawer('signin');
-    if (tab === 'photo') {
-      // First the proof: where each photo will go. Nothing is sent yet.
-      const { problem } = photosToSend();
-      if (problem) return setStatus({ kind: 'error', text: problem });
-      setStatus({ kind: 'idle' });
-      return setProof(true);
-    }
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the link to the story.' });
@@ -435,8 +323,7 @@ export default function ContributeDrawer() {
   const hubName = [hubSchool?.name, hubSchool?.location ? `(${hubSchool.location})` : ''].filter(Boolean).join(' ');
   const firstName = (player?.displayName || manualName || '').split(' ')[0] || 'him';
   const playerFlow = tab === 'photo' || tab === 'data';
-  const pendingPhotos = (Object.keys(photos) as PhotoPurpose[]).filter((id) => photoTypes.some((t) => t.id === id) && photos[id]?.state !== 'sent').length;
-  const sendLabel = !signedIn ? 'Sign in to send' : sending ? 'Sending…' : tab === 'photo' ? (pendingPhotos > 1 ? `Preview ${pendingPhotos} photos` : 'Preview photo') : 'Send';
+  const sendLabel = !signedIn ? 'Sign in to send' : sending ? 'Sending…' : 'Send';
 
   return createPortal(
     <aside className="yat-drawer yat-drawer-right yat-contribute-drawer" id="drawerContribute" aria-label="Contribute to YAT?STATS" aria-hidden={!open}>
@@ -465,7 +352,18 @@ export default function ContributeDrawer() {
           </div>
         ) : null}
 
-        {status.kind === 'done' ? (
+        {tab === 'photo' ? (
+          <ContributePhotoFlow
+            key={photoFlowKey}
+            hubSchool={hubSchool}
+            signedIn={signedIn}
+            email={session?.email}
+            initialPlayer={player}
+            initialType={photoType}
+            onSignIn={() => openAccountDrawer('signin')}
+            onClose={close}
+          />
+        ) : status.kind === 'done' ? (
           <div className="ycd-done">
             <p className="ycd-done-title">Thank you{fanName ? `, ${fanName}` : ''}!</p>
             <p className="ycd-muted">We review everything before it goes on the site. You&apos;re helping build the most complete record of Where they YAT now.</p>
@@ -560,84 +458,7 @@ export default function ContributeDrawer() {
                       : `What do you have from ${seasonForItems!.year}${seasonForItems!.team ? ` · ${seasonForItems!.team}` : ''}${seasonForItems!.label ? ` (${seasonForItems!.label})` : ''}?`}
                   </div>
 
-                  {tab === 'photo' && proof ? (
-                    <div className="ycd-proof">
-                      <div className="ycd-proof-head">Check before you send</div>
-                      <p className="ycd-muted ycd-small">Here&apos;s exactly where {photosToSend().todo.length > 1 ? 'each photo' : 'your photo'} will go. If anything looks wrong, go back and change it.</p>
-                      {photosToSend().todo.map((id) => {
-                        const pick = photos[id]!;
-                        const t = PHOTO_TYPES.find((x) => x.id === id)!;
-                        return (
-                          <div className="ycd-proof-item" key={id}>
-                            <div className="ycd-label"><b>{t.prefix}</b> · {t.label}</div>
-                            <ContributeProof
-                              purpose={id}
-                              src={pick.preview}
-                              crop={pick.crop}
-                              season={aboutSchool ? null : seasonForItems}
-                              player={{
-                                name: info?.name || player?.displayName || manualName || '',
-                                classOf: info?.classOf ?? null,
-                                currentTeam: seasons?.find((x) => x.current)?.team || '',
-                                schoolName: aboutSchool ? school?.name || '' : player?.schoolName || school?.name || '',
-                                schoolLocation: school?.location || hubSchool?.location || '',
-                              }}
-                            />
-                          </div>
-                        );
-                      })}
-                      <div className="ycd-actions">
-                        <button type="button" className="ycd-btn ycd-btn-primary" onClick={() => { void sendPhotos(); }} disabled={sending}>Looks right, send it</button>
-                        <button type="button" className="ycd-btn" onClick={() => setProof(false)}>Go back</button>
-                      </div>
-                    </div>
-                  ) : tab === 'photo' ? (
-                    <div className="ycd-checks">
-                      {photoTypes.map((t) => {
-                        const on = t.id in photos;
-                        const pick = photos[t.id];
-                        return (
-                          <div className={`ycd-check${on ? ' is-on' : ''}${pick ? ` is-${pick.state}` : ''}`} key={t.id}>
-                            <label className="ycd-check-head">
-                              <input type="checkbox" checked={on} onChange={() => togglePhoto(t.id)} disabled={pick?.state === 'sent'} />
-                              <span><b>{t.prefix}</b> · {t.label}</span>
-                            </label>
-                            {on ? (
-                              <div className="ycd-check-body">
-                                <div className="ycd-muted ycd-small">{t.spec}</div>
-                                {pick ? (
-                                  <div className="ycd-photo">
-                                    {t.aspect && pick.state !== 'sent' ? (
-                                      <PhotoCropper src={pick.preview} aspect={t.aspect} onChange={(c) => setCrop(t.id, c)} />
-                                    ) : (
-                                      /* eslint-disable-next-line @next/next/no-img-element */
-                                      <img className="ycd-preview" src={pick.preview} alt="" />
-                                    )}
-                                    <div className="ycd-small">
-                                      {pick.state === 'sent'
-                                        ? <span className={pick.outcome === 'approved' ? 'ycd-ok' : ''}>{pick.message || 'Sent. Thank you!'}</span>
-                                        : pick.state === 'sending' ? 'Checking your photo…'
-                                        : pick.state === 'error' ? <span className="ycd-error">{pick.message}</span> : null}
-                                    </div>
-                                    {pick.state !== 'sent' ? <button type="button" className="ycd-link ycd-small" onClick={() => choosePhotoFile(t.id)}>Choose a different photo</button> : null}
-                                  </div>
-                                ) : (
-                                  <button type="button" className="ycd-add" onClick={() => choosePhotoFile(t.id)}>
-                                    <i className="ri-image-add-line" aria-hidden="true" /><span>Upload photo</span>
-                                  </button>
-                                )}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                      <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files)} />
-                      <div className="ycd-field">
-                        <label className="ycd-label" htmlFor="ycdNote">Anything we should know? (optional)</label>
-                        <textarea id="ycdNote" rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Who took it, the game or event, who else is in it…" />
-                      </div>
-                    </div>
-                  ) : (
+                  {(
                     <div className="ycd-checks">
                       {dataKinds.map((k) => {
                         const on = k.id in data;
@@ -667,12 +488,10 @@ export default function ContributeDrawer() {
                   ) : status.kind === 'error' ? (
                     <div className="ycd-error">{status.text}</div>
                   ) : null}
-                  {!(tab === 'photo' && proof) ? (
                   <div className="ycd-actions">
                     <button type="button" className="ycd-btn ycd-btn-primary" onClick={submit} disabled={sending}>{sendLabel}</button>
                   </div>
-                  ) : null}
-                  <div className="ycd-muted ycd-small">{tab === 'photo' ? 'Each photo is checked automatically when you send it. Most go live right away.' : 'We review everything before it goes on the site.'}</div>
+                  <div className="ycd-muted ycd-small">We review everything before it goes on the site.</div>
                 </>
               ) : (
                 <div className="ycd-placeholder">
