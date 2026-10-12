@@ -11,7 +11,7 @@ import { photoTypeLabel } from '@/lib/contribute';
 type Photo = {
   id: string; playerid: string; hsid: string; purpose: string; url: string | null; date_taken: string | null;
   uploaded_at: string; player_name: string | null; school_name: string | null;
-  details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; playerName?: string | null; by?: { name?: string; email?: string | null } };
+  details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; moderation?: { decision?: string; description?: string } | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
 type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
@@ -82,6 +82,7 @@ export default function ReviewQueue() {
                     : p.date_taken ? new Date(p.date_taken).getUTCFullYear() : ''}
                 </span>
                 {p.details.note ? <span>“{p.details.note}”</span> : null}
+                {p.details.moderation?.description ? <span className="ycr-muted">Automatic check: unsure. {p.details.moderation.description}</span> : null}
                 <span className="ycr-muted">From {p.details.by?.name || 'a fan'}{p.details.by?.email ? ` (${p.details.by.email})` : ''} · {when(p.uploaded_at)}</span>
                 {busy[p.id] ? <span className="ycr-muted">{busy[p.id]}</span> : null}
               </div>

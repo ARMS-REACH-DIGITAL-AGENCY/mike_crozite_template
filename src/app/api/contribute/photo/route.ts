@@ -18,11 +18,17 @@ import {
   contributionsToday,
   identifyContributor,
   logContribution,
+  assetUrl,
+  promoteUpload,
   stagePhoto,
   uploadCategory,
 } from '@/lib/contributeServer';
+import { moderatePhoto } from '@/lib/contributeModeration';
 
 export const runtime = 'nodejs';
+// The automatic review (Claude) and putting an approved photo on the site
+// happen in this request, so the fan hears the result right away.
+export const maxDuration = 60;
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const text = (v: FormDataEntryValue | null, max = 500) => String(v ?? '').trim().slice(0, max);
@@ -100,7 +106,37 @@ export async function POST(req: NextRequest) {
       [id, playerId, hsid, uploadCategory(purpose), staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details)]
     );
     await logContribution(who, 'contribute_photo', { playerid: playerId || null, hsid, pageUrl, details: { upload_id: id, purpose } });
-    return NextResponse.json({ ok: true, id }, { status: 201 });
+
+    // Automatic review. Approved: on the site now. Rejected: the fan is told
+    // why. Unsure (or the check is unavailable): it waits for a person.
+    const verdict = await moderatePhoto({
+      imageUrl: assetUrl(staged.key) || '',
+      purpose,
+      playerName,
+      season: details.season,
+      note: note || null,
+    });
+    let status: 'approved' | 'rejected' | 'pending' = 'pending';
+    let message = "Thanks! We'll take a look at it shortly.";
+    if (verdict?.decision === 'reject') {
+      status = 'rejected';
+      message = verdict.reason_for_fan || "This photo can't be used.";
+    } else if (verdict?.decision === 'approve') {
+      try {
+        // A photo for a player who isn't on the site yet can't be placed.
+        if (type.seasons !== 'school' && !/^\d+$/.test(playerId)) throw new Error('no player on the site');
+        await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01` });
+        status = 'approved';
+        message = "Approved! It's on the site now.";
+      } catch (error) {
+        console.error('[contribute/photo] promote failed', error);
+      }
+    }
+    await query(
+      `UPDATE media_upload SET status = $2, description = $3 WHERE id = $1`,
+      [id, status, JSON.stringify({ ...details, moderation: verdict ? { decision: verdict.decision, description: verdict.description, reason: verdict.reason_for_fan, checked_at: new Date().toISOString() } : null })]
+    );
+    return NextResponse.json({ ok: true, id, status, message }, { status: 201 });
   } catch (error) {
     if (error instanceof NotAnImageError) return fail(error.message);
     console.error('[contribute/photo] failed', error);

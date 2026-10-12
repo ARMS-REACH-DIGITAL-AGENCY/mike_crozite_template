@@ -42,7 +42,7 @@ import {
 } from '@/lib/contribute';
 
 type FanSession = { uid?: string; email?: string; firstName?: string | null; plan?: string | null; isSuperfan?: boolean };
-type PhotoPick = { file: File; preview: string; crop: Crop | null; state: 'ready' | 'sending' | 'sent' | 'error'; message?: string };
+type PhotoPick = { file: File; preview: string; crop: Crop | null; state: 'ready' | 'sending' | 'sent' | 'error'; message?: string; outcome?: 'approved' | 'rejected' | 'pending' };
 type Status = { kind: 'idle' | 'sending' | 'error' | 'done'; text?: string; confirm?: boolean };
 type PlayerInfo = { name: string; profileUrl: string | null; classOf: number | null };
 
@@ -311,6 +311,7 @@ export default function ContributeDrawer() {
     const token = await idToken();
     const w = who();
     let failed = 0;
+    let rejected = 0;
     for (const id of todo) {
       const pick = photos[id]!;
       setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: 'sending', message: undefined } }));
@@ -340,13 +341,22 @@ export default function ContributeDrawer() {
           return;
         }
         if (!res.ok) throw new Error(body?.error || 'Not sent.');
-        setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: 'sent' } }));
+        // The automatic review's answer: live now, not accepted (and why),
+        // or waiting for a person.
+        const outcome: 'approved' | 'rejected' | 'pending' = body?.status === 'approved' || body?.status === 'rejected' ? body.status : 'pending';
+        if (outcome === 'rejected') rejected++;
+        setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: outcome === 'rejected' ? 'error' : 'sent', outcome, message: body?.message } }));
       } catch (error) {
         failed++;
         setPhotos((cur) => ({ ...cur, [id]: { ...cur[id]!, state: 'error', message: error instanceof Error ? error.message : 'Not sent.' } }));
       }
     }
-    setStatus(failed ? { kind: 'error', text: `${failed} photo${failed === 1 ? '' : 's'} didn't go through. Try again.` } : { kind: 'done' });
+    // Stay on the list so the fan sees each photo's result.
+    setStatus(failed
+      ? { kind: 'error', text: `${failed} photo${failed === 1 ? '' : 's'} didn't go through. Try again.` }
+      : rejected
+        ? { kind: 'error', text: `${rejected === 1 ? "One photo wasn't" : `${rejected} photos weren't`} accepted. See why above, then choose a different photo.` }
+        : { kind: 'idle', text: 'sent' });
   };
 
   const post = async (body: Record<string, unknown>) => {
@@ -554,7 +564,10 @@ export default function ContributeDrawer() {
                                       <img className="ycd-preview" src={pick.preview} alt="" />
                                     )}
                                     <div className="ycd-small">
-                                      {pick.state === 'sent' ? 'Sent. Thank you!' : pick.state === 'sending' ? 'Sending…' : pick.state === 'error' ? <span className="ycd-error">{pick.message}</span> : null}
+                                      {pick.state === 'sent'
+                                        ? <span className={pick.outcome === 'approved' ? 'ycd-ok' : ''}>{pick.message || 'Sent. Thank you!'}</span>
+                                        : pick.state === 'sending' ? 'Checking your photo…'
+                                        : pick.state === 'error' ? <span className="ycd-error">{pick.message}</span> : null}
                                     </div>
                                     {pick.state !== 'sent' ? <button type="button" className="ycd-link ycd-small" onClick={() => choosePhotoFile(t.id)}>Choose a different photo</button> : null}
                                   </div>
@@ -607,7 +620,7 @@ export default function ContributeDrawer() {
                   <div className="ycd-actions">
                     <button type="button" className="ycd-btn ycd-btn-primary" onClick={submit} disabled={sending}>{sendLabel}</button>
                   </div>
-                  <div className="ycd-muted ycd-small">We review everything before it goes on the site.</div>
+                  <div className="ycd-muted ycd-small">{tab === 'photo' ? 'Each photo is checked automatically when you send it. Most go live right away.' : 'We review everything before it goes on the site.'}</div>
                 </>
               ) : (
                 <div className="ycd-placeholder">
@@ -765,6 +778,7 @@ export default function ContributeDrawer() {
         .ycd-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 180px; padding: 24px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; opacity: .7; font-size: 14px; }
         .ycd-placeholder i { font-size: 30px; }
         .ycd-error { color: #ff6b6b; font-size: 13px; }
+        .ycd-ok { color: #3ddc84; font-weight: 600; }
         .ycd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .ycd-btn { min-height: 44px; padding: 0 22px; border-radius: 8px; border: 1px solid #FFD700; background: transparent; color: #FFD700; font: 500 15px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
         .ycd-btn-primary { background: #FFD700; color: #000; }
