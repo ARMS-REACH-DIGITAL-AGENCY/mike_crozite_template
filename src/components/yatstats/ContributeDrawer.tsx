@@ -21,6 +21,7 @@ import { auth } from '@/lib/firebase';
 import { SchoolContext } from '@/context/SchoolContext';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import PhotoCropper from '@/components/yatstats/PhotoCropper';
+import ContributeSearch from '@/components/yatstats/ContributeSearch';
 import { shrinkPhoto } from '@/lib/shrinkPhoto';
 import {
   CONTRIBUTE_MAX_PHOTO_BYTES,
@@ -65,111 +66,48 @@ async function idToken() {
   return auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
 }
 
-// Global Search for a player.
-function PlayerPicker({ value, onChange, onMissing }: { value: ContributePlayer | null; onChange: (p: ContributePlayer | null) => void; onMissing: () => void }) {
-  const [q, setQ] = useState('');
-  const [results, setResults] = useState<(ContributePlayer & { city?: string; state?: string })[]>([]);
-  const [searchedFor, setSearchedFor] = useState('');
-  const term = q.trim();
-  useEffect(() => {
-    if (term.length < 2) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      fetch(`/api/players/search?q=${encodeURIComponent(term)}&limit=8`, { signal: controller.signal })
-        .then((res) => res.json())
-        .then((data) => { setResults(Array.isArray(data?.players) ? data.players : []); setSearchedFor(term); })
-        .catch(() => {});
-    }, 250);
-    return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [term]);
-  const shown = term.length >= 2 ? results : [];
-  const searched = term.length >= 2 && searchedFor === term;
-
-  if (value) {
-    return (
-      <div className="ycd-chosen">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={value.crestUrl || (value.schoolId ? `${S3}/schools/${value.schoolId}.png` : CREST_FALLBACK)} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
-        <span className="ycd-chosen-text"><b>{value.displayName}</b>{value.schoolName ? <small>{value.schoolName}</small> : null}</span>
-        <button type="button" className="ycd-link" onClick={() => onChange(null)}>Change</button>
-      </div>
-    );
-  }
+// The chosen player, as the same card Global Search shows him.
+function ChosenPlayer({ player, onChange }: { player: ContributePlayer; onChange: () => void }) {
+  const crest = player.crestUrl || (player.schoolId ? `${S3}/schools/${player.schoolId}.png` : CREST_FALLBACK);
   return (
-    <div>
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search players by name" autoComplete="off" />
-      {shown.length > 0 && (
-        <div className="ycd-results yat-gs-results" role="listbox" aria-label="Players">
-          {shown.map((r) => {
-            const sub = [r.schoolName, [r.city, r.state].filter(Boolean).join(', ')].filter(Boolean).join(' - ');
-            return (
-              <button type="button" key={r.playerId} className="yat-gs-result yat-gs-player" role="option" aria-selected={false}
-                onClick={() => { onChange({ playerId: r.playerId, displayName: r.displayName, schoolId: r.schoolId, schoolName: r.schoolName, crestUrl: r.crestUrl }); setQ(''); }}>
-                <span className="yat-gs-result-top">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className="yat-gs-result-crest" src={r.crestUrl || CREST_FALLBACK} alt="" loading="lazy" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
-                  <span className="yat-gs-result-info">
-                    <span className="yat-gs-result-name">{r.displayName}</span>
-                    {sub ? <span className="yat-gs-result-loc">{sub}</span> : null}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {searched && shown.length === 0 ? (
-        <div className="ycd-muted ycd-small">Not on YAT?STATS yet? <button type="button" className="ycd-link" onClick={onMissing}>Tell us about him</button></div>
-      ) : null}
+    <div className="ycd-chosen-wrap">
+      <div className="yat-search-card yat-search-player-result ycd-chosen-player">
+        <span aria-hidden="true" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="yat-search-thumb yat-search-player-headshot" src={`${S3}/players/now/${encodeURIComponent(player.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
+        <span className="yat-search-player-text-link">
+          <strong>{player.displayName}</strong>
+          {player.schoolName ? <small className="yat-search-hs-line">{player.schoolName}</small> : null}
+        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="yat-search-thumb yat-search-player-hs-logo" src={crest} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
+      </div>
+      <button type="button" className="ycd-link ycd-small" onClick={onChange}>Change player</button>
     </div>
   );
 }
 
-// High school search.
-function SchoolPicker({ value, onChange }: { value: ContributeSchool | null; onChange: (s: ContributeSchool | null) => void }) {
-  const [q, setQ] = useState('');
-  const [results, setResults] = useState<{ hsid: string; hsname: string | null; hslocation: string | null }[]>([]);
-  const term = q.trim();
-  useEffect(() => {
-    if (term.length < 2) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      fetch(`/api/schools/search?q=${encodeURIComponent(term)}&limit=8`, { signal: controller.signal })
-        .then((res) => res.json())
-        .then((data) => setResults(Array.isArray(data?.programs) ? data.programs : []))
-        .catch(() => {});
-    }, 250);
-    return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [term]);
-  const shown = term.length >= 2 ? results : [];
-  if (value) {
-    return (
+function ChosenSchool({ school, onChange }: { school: ContributeSchool; onChange: () => void }) {
+  return (
+    <div className="ycd-chosen-wrap">
       <div className="ycd-chosen">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`${S3}/schools/${value.hsid}.png`} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
-        <span className="ycd-chosen-text"><b>{value.name}</b>{value.location ? <small>{value.location}</small> : null}</span>
-        <button type="button" className="ycd-link" onClick={() => onChange(null)}>Change</button>
+        <img src={`${S3}/schools/${school.hsid}.png`} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
+        <span className="ycd-chosen-text"><b>{school.name}</b>{school.location ? <small>{school.location}</small> : null}</span>
       </div>
-    );
-  }
-  return (
-    <div>
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search high schools" autoComplete="off" />
-      {shown.length > 0 && (
-        <div className="ycd-results yat-gs-results" role="listbox" aria-label="Schools">
-          {shown.map((s) => (
-            <button type="button" key={s.hsid} className="yat-gs-result" role="option" aria-selected={false}
-              onClick={() => { onChange({ hsid: String(s.hsid), name: s.hsname || '', location: s.hslocation || '' }); setQ(''); }}>
-              <span className="yat-gs-result-info">
-                <span className="yat-gs-result-name">{s.hsname}</span>
-                {s.hslocation ? <span className="yat-gs-result-loc">{s.hslocation}</span> : null}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      <button type="button" className="ycd-link ycd-small" onClick={onChange}>Change school</button>
     </div>
   );
+}
+
+// Pick a school: the shared search, schools only.
+function SchoolPicker({ value, onChange }: { value: ContributeSchool | null; onChange: (s: ContributeSchool | null) => void }) {
+  return value ? <ChosenSchool school={value} onChange={() => onChange(null)} /> : <ContributeSearch mode="school" onSchool={onChange} />;
+}
+
+// Pick a player: the shared search.
+function PlayerPicker({ value, onChange }: { value: ContributePlayer | null; onChange: (p: ContributePlayer | null) => void }) {
+  return value ? <ChosenPlayer player={value} onChange={() => onChange(null)} /> : <ContributeSearch onPlayer={onChange} />;
 }
 
 export default function ContributeDrawer() {
@@ -476,7 +414,8 @@ export default function ContributeDrawer() {
       <div className="ycd-header">
         <div>
           <div className="ycd-kicker">Connect &amp; Contribute</div>
-          <h3 className="ycd-title">{player && playerFlow && !aboutSchool ? `Help us complete ${player.displayName}` : `Help build ${hubSchool?.name || 'YAT?STATS'}`}</h3>
+          <h3 className="ycd-title"><i className={tabIcon(tab)} aria-hidden="true" /> {TABS.find((t) => t.id === tab)?.label}</h3>
+          <div className="ycd-sub">{player && playerFlow && !aboutSchool ? `Help us complete ${player.displayName}` : `Help build ${hubSchool?.name || 'YAT?STATS'}`}</div>
           {signedIn ? (
             <p className="ycd-hello">
               Hello {fanName || 'there'}! Thank you for being a contributing <b>{fanKind}</b> of the {hubName || 'YAT?STATS'} Community Hub.
@@ -486,14 +425,6 @@ export default function ContributeDrawer() {
         <button type="button" className="yat-icon-btn ycd-close" onClick={close} aria-label="Close"><i className="ri-close-line" /></button>
       </div>
 
-      <nav className="ycd-tabs" aria-label="What are you sending?">
-        {TABS.map((t) => (
-          <button type="button" key={t.id} className={`ycd-tab${tab === t.id ? ' is-active' : ''}`} aria-pressed={tab === t.id}
-            onClick={() => { setTab(t.id); if (status.kind !== 'sending') setStatus({ kind: 'idle' }); }}>
-            <i className={t.icon} aria-hidden="true" /><span>{t.label}</span>
-          </button>
-        ))}
-      </nav>
 
       <div className="ycd-body">
         {!sessionLoading && !signedIn ? (
@@ -540,7 +471,7 @@ export default function ContributeDrawer() {
                       </div>
                     ) : (
                       <>
-                        <PlayerPicker value={player} onChange={choosePlayer} onMissing={() => { setTab('missing'); setStatus({ kind: 'idle' }); }} />
+                        <PlayerPicker value={player} onChange={choosePlayer} />
                         {!player ? (
                           <button type="button" className="ycd-link ycd-small" onClick={() => { setManualPlayer(true); loadSeasons(null); }}>Can&apos;t find him? Type his name</button>
                         ) : null}
@@ -734,7 +665,7 @@ export default function ContributeDrawer() {
               <>
                 <div className="ycd-field">
                   <div className="ycd-label">Who is it about? (optional)</div>
-                  <PlayerPicker value={player} onChange={choosePlayer} onMissing={() => { setTab('missing'); setStatus({ kind: 'idle' }); }} />
+                  <PlayerPicker value={player} onChange={choosePlayer} />
                 </div>
                 <div className="ycd-field">
                   <label className="ycd-label" htmlFor="ycdTipUrl">Link to the story</label>
@@ -771,13 +702,13 @@ export default function ContributeDrawer() {
         .ycd-kicker { color: #FFD700; font: 500 14px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
         body.light-theme .ycd-kicker { color: #9a6f00; }
         .ycd-title { margin: 6px 0 0 !important; padding: 0 !important; font: 600 20px/1.05 Oswald, sans-serif !important; letter-spacing: .04em; }
+        .ycd-title i { color: #FFD700; font-size: .95em; vertical-align: -2px; }
+        body.light-theme .ycd-title i { color: #9a6f00; }
+        .ycd-sub { margin-top: 4px; font: 500 14px/1.2 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
+        .ycd-chosen-wrap { display: flex; flex-direction: column; gap: 6px; }
+        .ycd-chosen-player { border-color: rgba(255,215,0,.7) !important; }
         .ycd-hello { margin: 8px 0 0; font-size: 13px; line-height: 1.45; max-width: 640px; opacity: .85; }
         .ycd-close { position: static !important; flex: none; }
-        .ycd-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 12px 16px 0; flex-shrink: 0; }
-        .ycd-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 58px; padding: 8px 4px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; opacity: .7; cursor: pointer; font: 500 12px/1.05 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; text-align: center; }
-        .ycd-tab i { font-size: 19px; }
-        .ycd-tab.is-active { opacity: 1; border-color: #FFD700; color: #FFD700; background: rgba(255,215,0,.08); }
-        body.light-theme .ycd-tab.is-active { color: #9a6f00; border-color: #9a6f00; }
         .ycd-body { flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 32px; }
         .ycd-main { display: grid; grid-template-columns: 1fr; gap: 20px; }
         @media (min-width: 900px) { .ycd-main { grid-template-columns: minmax(300px, 380px) 1fr; gap: 28px; } }
