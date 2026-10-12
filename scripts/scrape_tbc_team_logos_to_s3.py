@@ -107,7 +107,17 @@ def content_type_for_ext(ext: str) -> str:
     return "image/png"
 
 
+def is_direct_tbc_college_logo(url: str) -> bool:
+    parsed = urlparse(url)
+    return (
+        parsed.netloc.endswith("thebaseballcube.com")
+        and re.fullmatch(r"/images/colleges/[A-Za-z0-9_-]+\.png", parsed.path) is not None
+    )
+
+
 def is_generic_image_url(url: str) -> bool:
+    if is_direct_tbc_college_logo(url):
+        return False
     lowered = url.lower()
     return any(marker in lowered for marker in GENERIC_IMAGE_MARKERS)
 

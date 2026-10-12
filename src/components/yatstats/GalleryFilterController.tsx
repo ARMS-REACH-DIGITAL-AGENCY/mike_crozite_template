@@ -125,6 +125,44 @@ function matchesGraduatingClass(value: string, selected: string[]): boolean {
   });
 }
 
+// Sort the actual filtered grid here, not in a separate event listener.
+// The year badge sets data-alltime-team-year-filter before applyFilters runs.
+const LEVEL_ORDER: Record<string, number> = {
+  MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
+  ROOKIE: 6, INDY: 7, "INT'L": 8, 'NCAA-D1': 9, 'NCAA-D2': 10,
+  'NCAA-D3': 11, NAIA: 12, JUCO: 13, 'HIGH SCHOOL': 14,
+};
+function sortFilteredAllTime(section: HTMLElement) {
+  const grid = section.querySelector<HTMLElement>('#alltime-grid');
+  if (!grid) return;
+  const cards = Array.from(grid.querySelectorAll<HTMLElement>('.yat-card[data-playerid]:not([data-superfan-synthetic="true"])'));
+  const wrap = (card: HTMLElement) => card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
+  const rank = (card: HTMLElement) => {
+    const level = normalize(card.dataset.level).replace(/\s+/g, '-')
+      .replace(/^NCAA-?D([123])$/, 'NCAA-D$1')
+      .replace(/^AAA$/, 'TRIPLE-A').replace(/^AA$/, 'DOUBLE-A')
+      .replace(/^A\+$/, 'HIGH-A').replace(/^A$/, 'LOW-A')
+      .replace(/^HIGH-SCHOOL$/, 'HIGH SCHOOL');
+    return LEVEL_ORDER[level] ?? 99;
+  };
+  const grad = (card: HTMLElement) => {
+    const year = Number(card.dataset.gradclass);
+    return Number.isFinite(year) && year > 0 ? year : 9999;
+  };
+  const years = (card: HTMLElement) => (card.dataset.rosteryears || '').split(',').filter(Boolean).length;
+  const name = (card: HTMLElement) => (card.dataset.name || '').trim();
+  const last = (card: HTMLElement) => name(card).split(/\s+/).pop() || '';
+  const coachPriority = (card: HTMLElement) => /(?:^|[ -])COACH(?:$|[ -])/.test(normalize(card.dataset.status));
+  const teamSelected = Boolean(section.dataset.alltimeTeamYearFilter);
+  cards.sort((a, b) => teamSelected
+    ? rank(a) - rank(b) || grad(a) - grad(b) || years(b) - years(a)
+      || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
+    : Number(coachPriority(b)) - Number(coachPriority(a)) || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
+  );
+  // Preserve the existing wrapper nodes and React card contents.
+  cards.forEach(card => grid.appendChild(wrap(card)));
+}
+
 function applyFilters(section: string) {
   if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
 
@@ -140,6 +178,9 @@ function applyFilters(section: string) {
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
   const rosterYears = getSelectedValues('filterRosterYears');
+  const allTimeTeamYear = section === 'alltime'
+    ? normalize(targetSection.dataset.alltimeTeamYearFilter)
+    : '';
   const favoritesGallery = getFavoritesGalleryRestriction(targetSection);
 
   targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
@@ -161,11 +202,14 @@ function applyFilters(section: string) {
       && (!levels.length || levels.includes(level))
       && (!organizations.length || organizations.includes(organization))
       && matchesGraduatingClass(gradClass, gradClasses)
-      && (!rosterYears.length || cardRosterYears.some((year) => rosterYears.includes(year)));
+      && (!rosterYears.length || cardRosterYears.some((year) => rosterYears.includes(year)))
+      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear));
 
     const displayTarget = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
     displayTarget.style.display = show ? '' : 'none';
   });
+
+  if (section === 'alltime') sortFilteredAllTime(targetSection);
 
   window.dispatchEvent(new CustomEvent('yat:gallery-filtered', { detail: { section } }));
 }
@@ -174,6 +218,10 @@ function applyPreset(section: string) {
   if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
 
   clearFilters();
+  if (section === 'alltime') {
+    const allTimeSection = document.getElementById('sec-alltime');
+    if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
+  }
 
   // Active: ACTIVE plus every injured-list status (src/lib/galleryStatuses.ts).
   if (section === 'active') {
@@ -301,6 +349,11 @@ export default function GalleryFilterController() {
       const section = getCurrentSection();
       if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
 
+      if (section === 'alltime' && target.closest('#filterRosterYears')) {
+        const allTimeSection = document.getElementById('sec-alltime');
+        if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
+      }
+
       event.stopPropagation();
       if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
 
@@ -316,6 +369,26 @@ export default function GalleryFilterController() {
       }
 
       applyFilters(section);
+    };
+
+    const onAllTimeTeamYearFilter = (event: Event) => {
+      const detail = (event as CustomEvent<{ year?: unknown; reset?: boolean }>).detail;
+      if (detail?.reset) {
+        applyPreset('alltime');
+        return;
+      }
+
+      const year = normalize(detail?.year);
+      if (year && (!/^\d{4}$/.test(year) || Number(year) < 1999 || Number(year) > 2027)) return;
+
+      const allTimeSection = document.getElementById('sec-alltime');
+      if (!allTimeSection) return;
+
+      if (year) allTimeSection.dataset.alltimeTeamYearFilter = year;
+      else delete allTimeSection.dataset.alltimeTeamYearFilter;
+
+      setValues('filterRosterYears', year ? [year] : []);
+      applyFilters('alltime');
     };
 
     const onInputCapture = (event: Event) => {
@@ -382,6 +455,7 @@ export default function GalleryFilterController() {
     document.addEventListener('input', onInputCapture, true);
     document.addEventListener('click', onClickCapture, true);
     window.addEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
+    window.addEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
 
     const sectionObserver = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -400,6 +474,7 @@ export default function GalleryFilterController() {
       document.removeEventListener('input', onInputCapture, true);
       document.removeEventListener('click', onClickCapture, true);
       window.removeEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
+      window.removeEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
       sectionObserver.disconnect();
     };
   }, []);

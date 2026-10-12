@@ -9,7 +9,18 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// AI and SEO scrapers that crawl every player page as fast as they can.
+// Each player page reads a career's worth of stats, and a crawl like that
+// took the database down (Oct 2026). Search engines (Google, Bing...) still
+// get in; these are refused before any page or API work starts. robots.txt
+// asks them to stay away too, but many don't ask.
+const BLOCKED_BOTS = /GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|CCBot|Bytespider|Amazonbot|meta-externalagent|PerplexityBot|Diffbot|ImagesiftBot|Omgilibot|AhrefsBot|SemrushBot|MJ12bot|DotBot|PetalBot|DataForSeoBot|BLEXBot|Barkrowler|serpstatbot|SeekportBot/i;
+
 export function middleware(request: NextRequest) {
+  if (BLOCKED_BOTS.test(request.headers.get('user-agent') || '')) {
+    return new NextResponse('Automated crawling is not permitted.', { status: 403 });
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
 

@@ -573,12 +573,12 @@ function FavoriteLinks({
           <div key={`${playerId}-${schoolId}`} className="yat-favorite-row">
             <button
               type="button"
-              className="yat-favorite-star-btn"
+              className="yat-favorite-heart-btn"
               aria-label={`Remove ${name} from favorites`}
               aria-disabled={removingId === playerId}
               onClick={() => onUnfavorite(player)}
             >
-              <i className="ri-star-fill" aria-hidden="true" />
+              <i className="ri-heart-fill" aria-hidden="true" />
             </button>
             <a href={profileHref} className="yat-favorite-headshot-link" title={`Open ${name} profile`}>
               <img
@@ -855,6 +855,15 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   }, [displayedPlayers, showGalleryView, currentHsid]);
 
   const handleGalleryViewChange = (checked: boolean) => {
+    // A school tab without a flip card gallery (the Fantasy Bracket Tourney,
+    // News, FAQ ...): switch to the Active gallery, then show the favorites
+    // there. Without this they went into the hidden Active gallery unseen.
+    if (checked && !isPlayerProfilePage() && !document.querySelector('.yat-section.visible .yat-grid') && document.getElementById('sec-active')) {
+      window.addEventListener('hashchange', () => setShowGalleryView(true), { once: true });
+      if (window.location.hash === '#sec-active') history.replaceState(null, '', window.location.pathname + window.location.search);
+      window.location.hash = '#sec-active';
+      return;
+    }
     if (checked && (isPlayerProfilePage() || !currentGrid())) {
       const wantsGallery = window.confirm('Would you like to navigate away from this profile page to see your favorites in your flip card gallery?');
       if (wantsGallery) {
@@ -1101,7 +1110,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           background: transparent;
         }
 
-        #drawerFavorites .yat-favorite-star-btn {
+        #drawerFavorites .yat-favorite-heart-btn {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1122,11 +1131,11 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           opacity: .85;
         }
 
-        #drawerFavorites .yat-favorite-star-btn:hover {
+        #drawerFavorites .yat-favorite-heart-btn:hover {
           color: #e8c98a;
         }
 
-        #drawerFavorites .yat-favorite-star-btn[aria-disabled="true"] {
+        #drawerFavorites .yat-favorite-heart-btn[aria-disabled="true"] {
           opacity: .5;
           cursor: wait;
         }

@@ -297,6 +297,16 @@ export default function DrawerRailController() {
         return;
       }
 
+      // Selecting a navigation destination or a search result must reveal the page.
+      const selectedDrawerLink = target.closest('#drawerLeft a[href]') as HTMLAnchorElement | null;
+      if (selectedDrawerLink) {
+        window.setTimeout(() => {
+          body.classList.remove('drawer-left-open', 'yat-left-search-mode');
+          syncRailMode();
+        }, 0);
+        return;
+      }
+
       const link = target.closest('a[href]') as HTMLAnchorElement | null;
       if (link) {
         saveDrawerState();

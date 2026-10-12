@@ -231,6 +231,8 @@ function teamLogoCandidates(row: StatRow) {
   const teamId = String(row.teamid || row.team_id || '').trim();
   if (!teamId || !/^\d+$/.test(teamId)) return [];
   return [
+    // Prefer background-removed team logos; preserve originals as fallback.
+    `${S3_BASE}/teams/cutouts/${teamId}.png`,
     `${S3_BASE}/teams-web/${teamId}.webp`,
     `${S3_BASE}/teams/${teamId}.png`,
     `${S3_BASE}/teams/${teamId}.jpg`,
@@ -947,7 +949,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             if (month >= 1 && month <= 12) {
               ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, thumb: story.photos?.[0]?.thumb || story.photos?.[0]?.web || null });
             }
-            const heroes = [...(story.photos || []), ...(story.kind === 'draft' ? story.commentPhotos || [] : [])];
+            // Photos fans added in replies are more of the same moment.
+            const heroes = [...(story.photos || []), ...(story.commentPhotos || [])];
             for (const photo of heroes) {
               if (photo.web && !photo.logo) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
             }

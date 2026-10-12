@@ -227,16 +227,18 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
           WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%RELEASED%' THEN 'FREE AGENT'
           WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) = 'FREE AGENT' THEN 'FREE AGENT'
           WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%DEVELOPMENT%' THEN 'DEVELOPMENT LIST'
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%DESIGNATED%' THEN 'DESIGNATED FOR ASSIGNMENT'
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%DESIGNATED%' THEN 'DFA'
           WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%REHAB%' THEN 'REHAB ASSIGNMENT'
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%INJURED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%IL%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%SUSPENDED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%RESTRICTED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%BEREAVEMENT%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%REASSIGNED%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%OPTION%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
-          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%MINOR%' THEN UPPER(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status))
+          WHEN UPPER(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), '')) LIKE '%OPTION%' THEN 'OPTIONED'
+          -- "Forty Man" is a tag, not a status: a 40-man player can be
+          -- active, injured, optioned... (is_on_40man carries the tag). A row
+          -- that only says "Forty Man" tells us nothing about his status, so
+          -- his other roster rows decide it (see chosen_truth).
+          WHEN UPPER(TRIM(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), ''))) = 'FORTY MAN' THEN NULL
+          -- Every other status MLB gives a player in its organization is a
+          -- status of ours, under MLB's own name (Injured 15-Day, Paternity
+          -- List, Military Leave, Restricted List, Reassigned to Minors...).
+          WHEN UPPER(TRIM(COALESCE(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status), ''))) NOT IN ('', 'ACTIVE') THEN UPPER(TRIM(COALESCE(CASE WHEN raw.source_team_id::text = mc.team_id THEN mc.status END, raw.roster_status)))
           ELSE 'ACTIVE'
         END AS normalized_status,
         raw.roster_type,
@@ -280,11 +282,19 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
       WHERE is_true_mlb_40man_row IS TRUE
       ORDER BY playerid, at_current_team DESC, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
+    -- A row whose only status is "Forty Man" is the 40-man TAG (usually a
+    -- Triple-A or Double-A player the club can call up), not where he plays
+    -- or how: it never sets his team, level or status. In season his
+    -- affiliate's full roster does ("Active", AAA); a 40-man player on the
+    -- IL stays on the 40-man with a real "Injured ..." status. In the
+    -- offseason the affiliate rosters are empty, so a tag-only player keeps
+    -- his last real team, level and status (not "MLB / ACTIVE").
     full_roster_truth AS (
       SELECT DISTINCT ON (playerid)
         *
       FROM matched_rows
       WHERE LOWER(COALESCE(roster_type, '')) = 'fullroster'
+        AND UPPER(TRIM(COALESCE(roster_status, ''))) <> 'FORTY MAN'
       ORDER BY
         playerid,
         -- The org MLB says he's with now beats a season-long listing at
@@ -308,6 +318,7 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
         *
       FROM matched_rows
       WHERE is_true_mlb_40man_row IS TRUE
+        AND UPPER(TRIM(COALESCE(roster_status, ''))) <> 'FORTY MAN'
       ORDER BY playerid, seen_at DESC NULLS LAST, updated_at DESC NULLS LAST, raw_id DESC
     ),
     player_universe AS (
@@ -316,8 +327,8 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
       SELECT playerid FROM full_roster_truth
       UNION
       SELECT playerid FROM forty_man_fallback_truth
-      UNION
-      SELECT playerid FROM forty_man_context
+      -- (forty_man_context alone - the tag with no real roster row - doesn't
+      -- put a player in this update: his card keeps its last real values.)
     ),
     chosen_truth AS (
       SELECT
@@ -329,7 +340,9 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
         COALESCE(a.level, fr.level, ff.level) AS raw_level,
         COALESCE(a.normalized_level, fr.normalized_level, ff.normalized_level) AS normalized_level,
         COALESCE(a.roster_status, fr.roster_status, ff.roster_status) AS roster_status,
-        COALESCE(a.normalized_status, fr.normalized_status, ff.normalized_status, 'ACTIVE') AS normalized_status,
+        -- No default: with no real status on any roster row (only the
+        -- 40-man tag), the card keeps the status it has (see the UPDATE).
+        COALESCE(a.normalized_status, fr.normalized_status, ff.normalized_status) AS normalized_status,
         COALESCE(a.roster_type, fr.roster_type, ff.roster_type) AS chosen_roster_type,
         COALESCE(a.org_name, fr.org_name, ff.org_name) AS org_name,
         COALESCE(a.org_abbr, fr.org_abbr, ff.org_abbr) AS org_abbr,
@@ -357,6 +370,18 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
         END AS display_level,
         normalized_status AS display_status
       FROM chosen_truth
+    ),
+    -- A team's organization (MiLB affiliate -> its MLB club, college ->
+    -- its conference), from the hand-maintained teamid_universe_mapping,
+    -- by exact team name. A name that maps to more than one org is left
+    -- out rather than guessed.
+    team_org AS (
+      SELECT LOWER(TRIM(current_team_name)) AS team_key,
+             MIN(current_org_or_conference_name) AS org_name
+        FROM public.teamid_universe_mapping
+       WHERE COALESCE(TRIM(current_org_or_conference_name), '') <> ''
+       GROUP BY 1
+      HAVING COUNT(DISTINCT current_org_or_conference_name) = 1
     )
     UPDATE public.flip_card_front_stage stage
        -- Being matched on a live roster this run is normally proof he's
@@ -412,10 +437,18 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
              THEN display_truth.verified_at
              ELSE stage.current_team_last_verified
            END,
+           -- A minor leaguer's org: MLB's on the 40-man, otherwise the
+           -- team mapping's (this used to keep whatever was there, so a
+           -- minor leaguer off the 40-man - Jake Bold at Lake Elsinore -
+           -- showed his team with no organization). A team the mapping
+           -- doesn't know keeps the old org only if he hasn't moved.
+           -- Major leaguers are unchanged (their card shows the club).
            current_org_or_conference_name = CASE
              WHEN stage.last_transaction_applied_at IS NOT NULL THEN stage.current_org_or_conference_name
-             WHEN display_truth.is_on_40man IS TRUE AND display_truth.normalized_level <> 'MLB'
-               THEN display_truth.forty_man_org_name
+             WHEN display_truth.normalized_level = 'MLB' THEN stage.current_org_or_conference_name
+             WHEN display_truth.is_on_40man IS TRUE THEN display_truth.forty_man_org_name
+             WHEN team_org.org_name IS NOT NULL THEN team_org.org_name
+             WHEN stage.current_team_name IS DISTINCT FROM display_truth.source_team_name THEN NULL
              ELSE stage.current_org_or_conference_name
            END,
            level_label = CASE
@@ -445,12 +478,12 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
            END,
            status_label = CASE
              WHEN stage.last_transaction_applied_at IS NULL
-             THEN display_truth.normalized_status
+             THEN COALESCE(display_truth.normalized_status, stage.status_label)
              ELSE stage.status_label
            END,
            display_status_label = CASE
              WHEN stage.last_transaction_applied_at IS NULL
-             THEN display_truth.display_status
+             THEN COALESCE(display_truth.display_status, stage.display_status_label)
              ELSE stage.display_status_label
            END,
            -- Only clears a legacy team_affiliation_status value (from the
@@ -464,6 +497,7 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
            current_team_absent_since = NULL,
            stage_updated_at = NOW()
       FROM display_truth
+      LEFT JOIN team_org ON team_org.team_key = LOWER(TRIM(display_truth.source_team_name))
      WHERE stage.playerid::text = display_truth.playerid::text
   `, [JSON.stringify(mlbCurrent)]);
 
