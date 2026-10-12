@@ -1,0 +1,28 @@
+name: Audit AFL coverage
+
+# Read-only: which Arizona Fall League players are in our universe, and
+# whether their AFL game lines are all in player_game_logs.
+
+on:
+  push:
+    paths:
+      - "scripts/audit-afl-coverage.ts"
+      - ".github/workflows/audit-afl-coverage.yml"
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Also look up a player by name (e.g. hansell)"
+        default: "hansell"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save pg tsx
+      - run: npx tsx scripts/audit-afl-coverage.ts --season 2026 --name "${{ inputs.name || 'hansell' }}"
