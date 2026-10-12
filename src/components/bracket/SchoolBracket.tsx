@@ -112,6 +112,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     ? (corrected.score[0] === corrected.score[1] ? g[6] : corrected.score[0] > corrected.score[1] ? g[2] : g[3])
     : g?.[6] ?? null;
   const played = card.state === 'final' || card.state === 'live';
+  // A shared snapshot carries only the innings already on the board: the
+  // rest of the week is still to be played, so it never reaches the image.
+  const sharedThrough = card.state === 'final' ? 9 : card.state === 'live' ? Math.min(card.days, 9) : 0;
 
   if (!g) {
     // A future game: the opponent is TBD (decided by earlier rounds), this
@@ -223,7 +226,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       title={`Round ${round} · Game ${gameNo}`}
       subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]).flat().join(','))}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`}
+      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>i<sharedThrough?[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]:[0,0]).flat().join(','))}&played=${sharedThrough}&weekStart=${index.weeks[card.week - 1]?.[0] || ''}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />
   ) : null;
@@ -265,17 +268,24 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
     return () => document.body.classList.remove(...cls);
   }, [sideKey]);
   useEffect(() => {
-    // Never over row 1: the drawers start below the site's top bar.
+    // Never over row 1: the drawers start below the site's top bar - and,
+    // docked on a wide screen, never over the season hero (YaTi) in row 3.
     const place = () => {
       const row5 = document.querySelector('.yfz') || document.querySelector('.yat-row5-shell');
       const bar = document.querySelector('.yat-topbar');
+      const hero = document.querySelector('.yat-row3-shell');
       const below = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
-      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(below, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
+      const heroBottom = hero ? hero.getBoundingClientRect().bottom : 0;
+      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(below, heroBottom, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
     };
     place();
+    // The rows above settle after the drawer opens (images, fonts): re-place
+    // whenever any of them changes size, not only on scroll or resize.
+    const ro = new ResizeObserver(place);
+    ['.yat-row1-shell', '.yat-row2-shell', '.yat-row3-shell', '.yfz'].forEach((sel) => { const el = document.querySelector(sel); if (el) ro.observe(el); });
     window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, { passive: true });
-    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place); };
+    window.addEventListener('scroll', place, { passive: true, capture: true });
+    return () => { ro.disconnect(); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, { capture: true }); };
   }, []);
   // Docked: drop each drawer's day tabs (M ... Weekly Totals) onto the line
   // of the Season Runs Leaderboard's region tabs (1-8, A-Z) beside them. The drawer
@@ -1268,7 +1278,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel .yfp-lb-rules { flex:none; align-self:center; margin-top:8px; }
         @media (max-width:599px) {
           .yfz-panel, body.yfp-dock-l .yfz-panel, body.yfp-dock-r .yfz-panel { padding:5px; row-gap:6px; grid-template-rows:max-content minmax(240px,1fr); }
-          .yfz-panel .yfp-lb-list ol { column-count:1; }
           .yfz-panel .yfp-lb-title { font-size:9px; letter-spacing:.02em; margin-right:0; padding-bottom:0; }
           .yfz-panel .yfp-lb-title i { margin:0 3px; }
           .yfp-lb-regions-k { letter-spacing:.04em; }

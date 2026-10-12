@@ -130,10 +130,25 @@ export default function SharedShell({
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
             document.documentElement.removeAttribute('data-yat-sec');
+            document.documentElement.removeAttribute('data-yat-switching');
           });
         });
       });
     };
+
+    // A tab tap swaps the gallery at once, but rows 3-4 wait for React:
+    // hide them for that moment (as on first paint) so the old tab's row
+    // never shows over the new gallery.
+    let switchTimer = 0;
+    const onTabTap = (event: MouseEvent) => {
+      const tab = (event.target as Element | null)?.closest?.<HTMLElement>('[data-tab]');
+      if (!tab || tab.closest('#drawerAccount') || !tab.dataset.tab) return;
+      if (normalizeSection(`sec-${tab.dataset.tab}`) === readRequestedSection()) return;
+      document.documentElement.setAttribute('data-yat-switching', '');
+      window.clearTimeout(switchTimer);
+      switchTimer = window.setTimeout(() => document.documentElement.removeAttribute('data-yat-switching'), 1500);
+    };
+    document.addEventListener('click', onTabTap, true);
 
     syncSection();
     window.addEventListener('hashchange', syncSection);
@@ -147,6 +162,8 @@ export default function SharedShell({
 
     return () => {
       window.cancelAnimationFrame(frame);
+      window.clearTimeout(switchTimer);
+      document.removeEventListener('click', onTabTap, true);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
       window.removeEventListener('yat:section-changed', syncSection);

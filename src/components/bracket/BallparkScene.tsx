@@ -48,10 +48,27 @@ function Wisp({ x, y, w, o = 0.8 }: { x: number; y: number; w: number; o?: numbe
   );
 }
 
+const BALLPARK_CSS = `
+.ybp { position:absolute; inset:0; z-index:0; pointer-events:none; }
+.ybp svg { display:block; }
+.ybp-day { display:none; }
+body.light-theme .ybp-day { display:inline; }
+body.light-theme .ybp-night { display:none; }
+.ybp-clouds { animation:ybp-drift 80s linear infinite alternate; }
+@keyframes ybp-drift { from { transform:translateX(-30px); } to { transform:translateX(40px); } }
+@media (prefers-reduced-motion: reduce) { .ybp-clouds { animation:none; } }
+.yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:#050505; }
+@media (max-width:760px) { .yft-hero { height:118px; min-height:118px; } }
+`;
+
 export default function BallparkScene() {
   const towers = [{ x: 90, top: 46, w: 120 }, { x: 470, top: 30, w: 150 }, { x: 1030, top: 34, w: 150 }, { x: 1420, top: 50, w: 120 }];
   return (
     <div className="ybp" aria-hidden="true">
+      {/* The scene's own rules ship with it, so the first frame is already
+          right - before the hero's data (and its stylesheet) arrive, the
+          day sky used to flash over the night game in the dark theme. */}
+      <style>{BALLPARK_CSS}</style>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
         <defs>
           <linearGradient id="ybp-night-sky" x1="0" y1="0" x2="0" y2="1">

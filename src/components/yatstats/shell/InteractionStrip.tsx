@@ -1,6 +1,7 @@
 'use client';
 
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
@@ -236,6 +237,9 @@ export default function InteractionStrip({
   players = [],
   teamSeasonResults = [],
 }: InteractionStripProps) {
+  // The All-Time year baseballs load with the page, so the tab opens on
+  // them rather than on bare numbers.
+  preload('/img/roster_year_ball.webp', { as: 'image' });
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -557,11 +561,11 @@ export default function InteractionStrip({
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
-          background:transparent url('https://raw.githubusercontent.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/Easter-NEWS/public/img/roster_year_ball.png') center / contain no-repeat;
+          background:transparent url('/img/roster_year_ball.webp') center / contain no-repeat;
           border:0; border-radius:0; box-shadow:none; color:#532a39;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge.alltime-state-champion .alltime-year-badge-media {
-          background-image:url('https://raw.githubusercontent.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/Easter-NEWS/public/img/az_state_champ_roster.png'); color:#fff;
+          background-image:url('/img/az_state_champ_roster.webp'); color:#fff;
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-year-number {
           font:900 22px/1 Oswald,sans-serif; display:block; text-shadow:0 1px 2px #7776;

@@ -28,6 +28,8 @@ interface PlayerCardProps {
   headshotUrl?: string | null;
   /** When true, applies all-time display differences (CAREER STATS label, etc.) */
   isAllTime?: boolean;
+  /** One of a gallery's first cards: the front photo loads with the page. */
+  eager?: boolean;
   /**
    * The rendering school's real canonical URL (school_success.microsite_url,
    * e.g. "https://hamilton.az.yatstats.com") - the caller resolves this
@@ -131,7 +133,7 @@ function imageText(value: unknown): string {
   return text;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, shareBaseUrl = null, schoolName = null, schoolLocation = null }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, eager = false, shareBaseUrl = null, schoolName = null, schoolLocation = null }: PlayerCardProps) {
   const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
   const gc = String(p.class_of || "").trim();
   const { estimated: gcEstimated } = gradClassInfo(p);
@@ -222,7 +224,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       <PlayerCardFlipBehavior />
       <div className="yat-card-inner">
         <div className="yat-flip">
-          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} gradClassEstimated={gcEstimated} hsid={String(resolvedHsid ?? "")} />
+          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} eager={eager} gradClassEstimated={gcEstimated} hsid={String(resolvedHsid ?? "")} />
           <PlayerCardBack
             player={playerWithSlug}
             resolvedHsid={resolvedHsid}
