@@ -1410,8 +1410,12 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
       const d = boxForView?.d?.[i];
       const complete = Boolean(d && settledAt(i, idx));
+      // The day being played: the school's number so far, in a yellow ring
+      // (not the full yellow of a won cell) until the day goes final.
+      const inPlay = !complete && d?.[idx] != null;
       const placeholder = higher ? 'OPS+' : 'FIP-';
-      return <span key={i} className={`bl-tb-cell ${complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher) : 'placeholder'}`}>{complete ? fmtStat(d?.[idx]) : placeholder}</span>;
+      const cls = complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher) : inPlay ? 'in-play' : 'placeholder';
+      return <span key={i} className={`bl-tb-cell ${cls}`}>{complete || inPlay ? fmtStat(d?.[idx]) : placeholder}</span>;
     });
     const nameCell = (
       <>
@@ -1923,6 +1927,7 @@ export function Styles() {
       .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
       .bl-tb-cell.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
+      .bl-tb-cell.in-play { box-shadow: inset 0 0 0 2px #f3c735; }
       .bl-tb-cell.na { color:#718379; }\n       .bl-tb-cell.placeholder { color:rgba(220,239,225,.10); opacity:.3; font-size:8px; font-weight:500; letter-spacing:-.02em; }
       .bl-tb-wlabel { display:grid; place-items:center; color:#fff; font:700 11px/1 Oswald,sans-serif; letter-spacing:.02em; }
       .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
