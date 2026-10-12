@@ -55,10 +55,12 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
 
   return (
     <aside className="ytm" aria-label="Teammates">
-      <div className="ytm-title">Teammates <span className="ytm-on">on</span> YAT?STATS <span className="ytm-count">*({total})</span></div>
-      <div className="ytm-sort" role="group" aria-label="Sort teammates">
-        <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => setOrder('az')}>A–Z</button>
-        <button type="button" className={order === 'year' ? 'on' : ''} aria-pressed={order === 'year'} onClick={() => setOrder('year')}>Year</button>
+      <div className="ytm-sticky">
+        <div className="ytm-title">Teammates <span className="ytm-on">on</span> YAT?STATS <span className="ytm-count">*({total})</span></div>
+        <div className="ytm-sort" role="group" aria-label="Sort teammates">
+          <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => setOrder('az')}>A–Z</button>
+          <button type="button" className={order === 'year' ? 'on' : ''} aria-pressed={order === 'year'} onClick={() => setOrder('year')}>Year</button>
+        </div>
       </div>
       {order === 'az' ? (
         <ul>
@@ -83,12 +85,13 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
       {/* Only players already on the platform can be listed for now. */}
       <p className="ytm-note">*Only Next-Level Alumni from the participating 1025 high school baseball programs are currently listed on the platform.</p>
       <style jsx>{`
-        .ytm { min-width: 0; color: var(--ysf-text, rgba(255,255,255,.88)); font: 400 10px/1.35 system-ui, sans-serif; }
+        .ytm { --ytm-rail-bg: var(--psi-page-bg, #070707); min-width: 0; color: var(--ysf-text, rgba(255,255,255,.88)); background: var(--ytm-rail-bg); font: 400 10px/1.35 system-ui, sans-serif; }
+        .ytm-sticky { position: sticky; top: 0; z-index: 6; margin: -10px 0 0; padding: 10px 0 2px; background: var(--ytm-rail-bg); box-shadow: 0 8px 12px rgba(0,0,0,.18); }
         .ytm-note { margin: 10px 0 0; color: var(--ysf-muted, rgba(255,255,255,.55)); font: 400 7px/1.3 system-ui, sans-serif; }
-        .ytm-title { margin: 0 0 6px; color: var(--ysf-when, #ffc107); font: 400 13px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+        .ytm-title { margin: 0 0 4px; color: var(--ysf-when, #ffc107); font: 400 13px/.95 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .ytm-on { text-transform: none; }
         .ytm-count { color: var(--ysf-muted, rgba(255,255,255,.55)); }
-        .ytm-sort { display: flex; gap: 2px; margin: 0 0 8px; }
+        .ytm-sort { display: flex; gap: 2px; margin: 0 0 3px; }
         .ytm-sort button { flex: 1; min-height: 22px; padding: 0 4px; border: 1px solid var(--ysf-card-border, rgba(255,255,255,.14)); border-radius: 4px; background: var(--ysf-card-bg, rgba(255,255,255,.055)); color: var(--ysf-muted, rgba(255,255,255,.55)); font: 600 9px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
         .ytm-sort button.on { border-color: var(--ysf-when, #ffc107); color: var(--ysf-when, #ffc107); }
         .ytm-group { margin: 0 0 9px; }
@@ -102,9 +105,9 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
         .ytm-yr { color: var(--ysf-when, #ffc107); font-size: 9px; }
         @media (max-width: 899px) {
           .ytm { font-size: 9px; }
-          .ytm-title { font-size: 11px; }
+          .ytm-title { font-size: 10px; letter-spacing: .035em; }
           .ytm-note { font-size: 6.5px; }
-          .ytm-sort button { min-height: 20px; font-size: 8px; }
+          .ytm-sort button { min-height: 18px; font-size: 8px; }
           .ytm-head { font-size: 8px; }
           .ytm-yr { font-size: 8px; }
         }

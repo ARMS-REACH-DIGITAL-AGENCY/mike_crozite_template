@@ -388,7 +388,6 @@ export default function FantasyTimeline() {
   return (
     <section className="yft-hero" aria-label="The season, round by round">
       <BallparkScene />
-      <RafflePolaroidCTA />
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {rounds.map((r)=>{
           const focus=r.cards.find(c=>c.week===cal?.week)||[...r.done].reverse()[0]||r.cards[0];
@@ -433,14 +432,6 @@ export default function FantasyTimeline() {
            dark theme, a day game in the light one. A scrim darkens just the
            band the words sit on, so the scene shows at both ends and the
            words still pop. */
-        .ybp { position:absolute; inset:0; z-index:0; pointer-events:none; }
-        .ybp svg { display:block; }
-        .ybp-day { display:none; }
-        body.light-theme .ybp-day { display:inline; }
-        body.light-theme .ybp-night { display:none; }
-        .ybp-clouds { animation:ybp-drift 80s linear infinite alternate; }
-        @keyframes ybp-drift { from { transform:translateX(-30px); } to { transform:translateX(40px); } }
-        @media (prefers-reduced-motion: reduce) { .ybp-clouds { animation:none; } }
         .yft-track { position:relative; z-index:1; }
         .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.25) 22%,rgba(4,5,12,.72) 38%,rgba(4,5,12,.72) 60%,rgba(0,0,0,.45) 78%,rgba(0,0,0,.4) 100%); }
         body.light-theme .yft-grad { background:linear-gradient(90deg,rgba(6,28,58,0) 0%,rgba(6,28,58,.25) 22%,rgba(6,28,58,.72) 38%,rgba(6,28,58,.72) 60%,rgba(6,28,58,.5) 78%,rgba(6,28,58,.45) 100%); }
@@ -451,7 +442,7 @@ export default function FantasyTimeline() {
         .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
         .yft-left-meta.yft-post-corner b span:first-child { text-transform:none; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
-        .yft-story { position:absolute; z-index:2; left:27%; right:36%; top:8px; bottom:40px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
+        .yft-story { position:absolute; z-index:2; left:5%; right:36%; top:8px; bottom:40px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
@@ -504,7 +495,7 @@ export default function FantasyTimeline() {
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
           .yft-left-meta span { font-size:6px; }
-          .yft-story { left:27%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
+          .yft-story { left:5%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
           .yft-title.long { font-size:13px; }

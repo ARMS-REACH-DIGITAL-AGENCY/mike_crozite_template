@@ -51,7 +51,7 @@ export default function ProfileFunZoneCleanupStyles() {
 
       /* Fixed FunZone: content panel above, icon strip anchored to footer. */
       .pp-funzone-outer {
-        height: calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important;
+        height: calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) ) !important;
         min-height: 318px !important;
         max-height: none !important;
         overflow: hidden !important;

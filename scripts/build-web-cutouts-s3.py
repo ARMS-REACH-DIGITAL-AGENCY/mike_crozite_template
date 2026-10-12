@@ -142,8 +142,8 @@ JOBS = {
     "then-card": ("players/then/", PHOTO_EXTENSIONS, "players/then-card/", lambda b: build_card_photo(b, 800)),
     "back-card": ("players/back/", PHOTO_EXTENSIONS, "players/back-card/", lambda b: build_card_photo(b, 800)),
     "now-thumb": ("players/now/", PHOTO_EXTENSIONS, "players/now-thumb/", lambda b: build_card_photo(b, 400)),
-    # Direct children of teams/ only, so teams/cutouts/ is left alone.
-    "team-logo": ("teams/", PHOTO_EXTENSIONS, "teams-web/", build_team_logo),
+    # Build display WebP from the transparent cutouts, not raw logos.
+    "team-logo": ("teams/cutouts/", (".png",), "teams-web/", build_team_logo),
 }
 
 

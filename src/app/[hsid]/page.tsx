@@ -111,6 +111,11 @@ function isCoachCard(p: Row | undefined): boolean {
   return String(p?.status_label ?? p?.status ?? "").trim().toUpperCase().includes("COACH");
 }
 
+function isRetiredCoachCard(p: Row | undefined): boolean {
+  const status = String(p?.status_label ?? p?.status ?? "").trim().toUpperCase();
+  return status.includes("RETIRED") && status.includes("COACH");
+}
+
 function isHighSchoolPlayer(p: Row | undefined): boolean {
   if (!p) return false;
 
@@ -223,7 +228,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string }>;
+  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -245,7 +250,7 @@ export async function generateMetadata({
     const home = cleanSchoolLabel(qp.homeName.slice(0,120));
     const visitor = cleanSchoolLabel(qp.awayName.slice(0,120));
     const hostBase = host ? `https://${host}` : canonicalUrl;
-    const qs = new URLSearchParams({gameId:String(fantasyGameId),snapshot:'1',homeName:home,awayName:visitor,scoreInnings:qp.scoreInnings,scoreStatus:qp.scoreStatus || 'LIVE',week:qp.week || '1',sharedAt:qp.sharedAt || ''});
+    const qs = new URLSearchParams({gameId:String(fantasyGameId),snapshot:'1',homeName:home,awayName:visitor,scoreInnings:qp.scoreInnings,scoreStatus:qp.scoreStatus || 'LIVE',week:qp.week || '1',sharedAt:qp.sharedAt || '',played:qp.played || '',weekStart:qp.weekStart || '',round:qp.round || '',gameNo:qp.gameNo || ''});
     const ogImageUrl = `${hostBase}/api/og/fantasy-game?${qs.toString()}`;
     const title = `${visitor} vs ${home} | YAT?STATS Fantasy Game`;
     return {title,description:`Scoreboard snapshot: ${visitor} vs ${home}.`,openGraph:{title,images:[{url:ogImageUrl,width:1200,height:630}]},twitter:{card:'summary_large_image',title,images:[ogImageUrl]}};
@@ -455,7 +460,7 @@ export default async function SchoolPage({
   const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
-  const currentTeamRoster = sortActivePlayers(stageRows.filter(isHighSchoolPlayer).map((p) => ({ ...p })));
+  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
   const activeSeenIds = new Set<string>();
@@ -494,7 +499,11 @@ export default async function SchoolPage({
     }
   }
 
-  const allTimeFrontRoster = sortAllTimePlayers(allTimeMerged);
+  // Coaches first, then A-Z - the same order the gallery's filter script
+  // keeps, so the first frame already shows it (no reshuffle on load).
+  const isCoachRow = (p: Record<string, unknown>) => /(?:^|[ -])COACH(?:$|[ -])/.test(String(p.status_label || '').trim().toUpperCase());
+  const allTimeSorted = sortAllTimePlayers(allTimeMerged);
+  const allTimeFrontRoster = [...allTimeSorted.filter(isCoachRow), ...allTimeSorted.filter((p) => !isCoachRow(p))];
   const activeStatsMap = new Map(
     [...activeMerged, ...tributeSourceRows]
       .filter(hasReal2026Stats)
@@ -542,7 +551,7 @@ export default async function SchoolPage({
           {activeSortedRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
           ) : (
-            activeSortedRoster.map((p) => {
+            activeSortedRoster.map((p, i) => {
               const status = String(p.status_label || p.status || '').toUpperCase().trim();
               const isRetired = status === 'RETIRED';
               const playerId = String(p.playerid);
@@ -564,12 +573,14 @@ export default async function SchoolPage({
                     shareBaseUrl={shareBaseUrl}
                     schoolName={shareSchoolName}
                     schoolLocation={shareSchoolLocation}
+                    eager={i < 4}
                   />
                 </div>
               );
             })
           )}
         </div>
+        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
       <section id="sec-alltime" className="yat-section">
@@ -577,7 +588,7 @@ export default async function SchoolPage({
           {allTimeFrontRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
-            allTimeFrontRoster.map((p) => {
+            allTimeFrontRoster.map((p, i) => {
               const playerId = String(p.playerid);
               return (
                 <PlayerCard
@@ -590,11 +601,13 @@ export default async function SchoolPage({
                   schoolName={shareSchoolName}
                   schoolLocation={shareSchoolLocation}
                   isAllTime
+                  eager={i < 4}
                 />
               );
             })
           )}
         </div>
+        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
       <section id="sec-news" className="yat-section">
@@ -626,6 +639,7 @@ export default async function SchoolPage({
             })
           )}
         </div>
+        <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
       <section id="sec-fantasy" className="yat-section">

@@ -11,6 +11,8 @@ interface PlayerCardFrontProps {
   gradClassEstimated?: boolean;
   /** The player's high school: the corner favorite star saves it with him. */
   hsid?: string;
+  /** One of a gallery's first cards: its photo loads with the page, not on scroll. */
+  eager?: boolean;
 }
 
 function asText(value: unknown): string {
@@ -338,6 +340,7 @@ export default function PlayerCardFront({
   frontImageUrl = null,
   gradClassEstimated = false,
   hsid = "",
+  eager = false,
 }: PlayerCardFrontProps) {
   const imageId = String(p.playerid || "");
   const isPitcher = p.is_pitcher === true;
@@ -458,6 +461,7 @@ export default function PlayerCardFront({
     normalizedStatus === "RETIRED" ||
     normalizedStatus === "NOT ACTIVE" ||
     normalizedStatus === "FREE AGENT" ||
+    normalizedStatus === "DFA" ||
     isSourcedDeparture;
 
   const nextGameStatusLabel = nextGameStatusLabelRaw || "NEXT GAME";
@@ -493,7 +497,7 @@ export default function PlayerCardFront({
           layer, which the browser downloaded for every card in the open
           tab whether it was on screen or not. */}
       <div className="yat-bg" style={{ backgroundImage: `url('${thenSilhouetteUrl}')` }}>
-        <CardPhoto srcs={photoSrcs} />
+        <CardPhoto srcs={photoSrcs} eager={eager} />
       </div>
       <div className="yat-shade" />
       {/* Favorite him right from the card (top-right corner). */}
