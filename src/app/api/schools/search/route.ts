@@ -1,6 +1,7 @@
 // src/app/api/schools/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
 export const runtime = "nodejs";
 
 function buildCorsHeaders(req: NextRequest) {
@@ -40,11 +41,8 @@ export async function GET(req: NextRequest) {
           SELECT COUNT(DISTINCT f.playerid)::int
           FROM flip_card_front_stage f
           WHERE f.hsid = school_success.hsid::text
-            AND UPPER(TRIM(COALESCE(f.status_label, ''))) IN (
-              'ACTIVE', 'INJURED 7-DAY', 'INJURED 10-DAY',
-              'INJURED 15-DAY', 'INJURED 30-DAY',
-              'INJURED 60-DAY', 'INJURED - FULL SEASON'
-            )
+            -- The Active gallery's statuses (see getActiveAlumniCountByHsid).
+            AND COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($6::text[])
         ), 0) AS current_aa,
         mlb,
         atnla,
@@ -71,6 +69,7 @@ export async function GET(req: NextRequest) {
       stateRaw,
       cityRaw,
       `%${cityRaw}%`,
+      [...ACTIVE_GALLERY_STATUSES],
     ];
     const { rows } = await query(sql, params);
     const programs = rows.map((r: any) => ({

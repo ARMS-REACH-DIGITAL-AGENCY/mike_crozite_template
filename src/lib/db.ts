@@ -19,6 +19,7 @@
 
 'use server';
 import { cache } from 'react';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
 
@@ -2581,16 +2582,17 @@ if (!global.__pgPoolShutdownRegistered) {
 
 // Live Active Alumni count, sourced from the same staged statuses used by the gallery.
 // Missing or unmatched school IDs produce zero, never a legacy school_success count.
+// The Active Alumni count is the Active gallery's card count: the same
+// statuses (ACTIVE, the injured lists, every MLB organization status, and
+// UNKNOWN - no status yet), read the same way the cards read them.
+const ACTIVE_ALUMNI_STATUS_SQL = `COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') = ANY($2::text[])`;
+
 export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
   const { rows } = await query(`
     SELECT COUNT(DISTINCT playerid)::int AS count
     FROM flip_card_front_stage
     WHERE hsid = $1
-      AND UPPER(TRIM(COALESCE(status_label, ''))) IN (
-        'ACTIVE', 'INJURED 7-DAY', 'INJURED 10-DAY',
-        'INJURED 15-DAY', 'INJURED 30-DAY',
-        'INJURED 60-DAY', 'INJURED - FULL SEASON'
-      )
-  `, [hsid]);
+      AND ${ACTIVE_ALUMNI_STATUS_SQL}
+  `, [hsid, [...ACTIVE_GALLERY_STATUSES]]);
   return Number(rows[0]?.count ?? 0);
 }
