@@ -19,9 +19,27 @@
 
 'use server';
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
+
+// A school's page data, kept across requests (and across server instances)
+// for 10 minutes: its roster, All-Time list, flip card rows, season results
+// and Active Alumni count. Every school homepage and player page ran ~15
+// queries per view - the career-stats one alone can pass the statement time
+// limit at a big school - so a crawler sweeping the microsites (Oct 11,
+// 5:05-5:18 PM: 92,600 "timeout exceeded when trying to connect") ran the
+// 3-connection pools dry. These numbers change with the nightly imports,
+// not by the minute. Failures aren't kept: the next view retries.
+const SCHOOL_DATA_TTL_SECONDS = 600;
+function keptAcrossRequests<T>(name: string, load: (key: string) => Promise<T>): (key: string) => Promise<T> {
+  return (key: string) =>
+    unstable_cache(() => load(key), ['school-data', name, String(key)], {
+      revalidate: SCHOOL_DATA_TTL_SECONDS,
+      tags: ['school-data', `school-data:${key}`],
+    })();
+}
 
 const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
@@ -246,7 +264,7 @@ export type SchoolTeamSeasonResult = {
   displayLine2: string | null;
 };
 
-export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
+export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeasonResults', async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
   if (!/^\d+$/.test(hsid)) return [];
 
   const { rows } = await query<{
@@ -274,7 +292,7 @@ export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTe
     displayLine1: row.display_line_1,
     displayLine2: row.display_line_2,
   }));
-}
+});
 
 export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
@@ -909,11 +927,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
   `;
 }
 
-export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   const sql = buildActiveRosterSql('ph.hsid = $1', 'TRUE');
   const { rows } = await query(sql, [hsid]);
   return rows;
-});
+}));
 
 // Same 2026-season stat computation as getActiveRosterByHsid, but for one
 // arbitrary player regardless of which school's page is currently being
@@ -939,7 +957,7 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // statement timeout", a blank All-Time list and an ~18s page). Same rows
 // either way: Hamilton's 107 rows fingerprint identically before and after;
 // a trimmed version for Perry went from 2.74s to 0.44s.
-export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
@@ -1469,7 +1487,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-});
+}));
 
 export interface PlayerSlugMatch {
   playerid: string;
@@ -2286,11 +2304,11 @@ const FLIP_CARD_STAGE_SELECT = `
     FROM flip_card_front_stage
 `;
 
-export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
-});
+}));
 
 // Same normalization as getFlipCardFrontStageByHsid, for one arbitrary
 // player regardless of which school's page is currently being viewed -
@@ -2587,7 +2605,7 @@ if (!global.__pgPoolShutdownRegistered) {
 // UNKNOWN - no status yet), read the same way the cards read them.
 const ACTIVE_ALUMNI_STATUS_SQL = `COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') = ANY($2::text[])`;
 
-export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
+export const getActiveAlumniCountByHsid = keptAcrossRequests('getActiveAlumniCountByHsid', async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
   const { rows } = await query(`
     SELECT COUNT(DISTINCT playerid)::int AS count
     FROM flip_card_front_stage
@@ -2595,4 +2613,4 @@ export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> 
       AND ${ACTIVE_ALUMNI_STATUS_SQL}
   `, [hsid, [...ACTIVE_GALLERY_STATUSES]]);
   return Number(rows[0]?.count ?? 0);
-}
+});
