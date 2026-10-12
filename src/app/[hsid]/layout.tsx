@@ -39,6 +39,7 @@ import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
 import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
+import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
 import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
 import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
@@ -512,6 +513,7 @@ async function SchoolShell({
       <DrawerLayoutOverrides />
       <DrawerRailController />
       <YatTourBridge />
+      <FavoritesFilter />
       <YatHomeSchoolFallback />
       <Script
         id="yat-nonlive-search-link-patch"

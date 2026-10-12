@@ -178,6 +178,8 @@ function applyFilters(section: string) {
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
   const rosterYears = getSelectedValues('filterRosterYears');
+  // "By My Favorites" (FavoritesFilter marks the reader's favorites).
+  const favoritesOnly = Boolean((document.getElementById('filterFavs') as HTMLInputElement | null)?.checked);
   const allTimeTeamYear = section === 'alltime'
     ? normalize(targetSection.dataset.alltimeTeamYearFilter)
     : '';
@@ -203,7 +205,8 @@ function applyFilters(section: string) {
       && (!organizations.length || organizations.includes(organization))
       && matchesGraduatingClass(gradClass, gradClasses)
       && (!rosterYears.length || cardRosterYears.some((year) => rosterYears.includes(year)))
-      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear));
+      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear))
+      && (!favoritesOnly || card.dataset.fav === 'true');
 
     const displayTarget = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
     displayTarget.style.display = show ? '' : 'none';

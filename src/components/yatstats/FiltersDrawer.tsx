@@ -1,6 +1,6 @@
 // src/components/yatstats/FiltersDrawer.tsx
 // Right-side filters drawer: by favorites, by name, by level, by graduating class.
-// The "By My Favorites" section is hidden by default; YatInteractivity reveals it
+// The "By My Favorites" section is hidden by default; FavoritesFilter reveals it
 // and stamps data-fav="true" on cards once the user's favorites are fetched.
 
 interface FiltersDrawerProps {
@@ -17,10 +17,9 @@ export default function FiltersDrawer({ gradClasses }: FiltersDrawerProps) {
       <div className="yat-drawer-content" id="filters">
 
         {/* ── My Favorites toggle ─────────────────────────────────────────────
-            Hidden until YatInteractivity fetches the user's favorites and
-            stamps data-fav="true" on the matching yat-card elements.
-            YatInteractivity removes the `display:none` style on this group
-            once the fetch completes and at least one favorite exists.       */}
+            Hidden until FavoritesFilter fetches the user's favorites and
+            stamps data-fav="true" on the matching yat-card elements; it
+            shows this group once at least one favorite is at this school. */}
         <details className="yat-filter-group" id="filterFavsGroup" style={{ display: 'none' }}>
           <summary>By My Favorites</summary>
           <div className="yat-filter-options">

@@ -37,7 +37,7 @@ interface FavoriteButtonProps {
   playerHsid: string;
 }
 
-function readYatUser(): YatUser | null {
+export function readYatUser(): YatUser | null {
   try {
     const raw = localStorage.getItem('yat-user');
     return raw ? (JSON.parse(raw) as YatUser) : null;
@@ -63,7 +63,7 @@ function openAccountDrawer() {
 // One favorites lookup per page, shared by every button (a school's flip
 // card gallery shows dozens), refreshed whenever a favorite changes.
 let favoriteIds: { uid: string; ids: Promise<Set<string>> } | null = null;
-function loadFavoriteIds(uid: string): Promise<Set<string>> {
+export function loadFavoriteIds(uid: string): Promise<Set<string>> {
   if (!favoriteIds || favoriteIds.uid !== uid) {
     favoriteIds = {
       uid,
