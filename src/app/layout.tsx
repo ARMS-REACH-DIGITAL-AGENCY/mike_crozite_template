@@ -29,7 +29,8 @@ const SECTION_BOOTSTRAP =
 const SECTION_BOOTSTRAP_CSS =
   "html[data-yat-sec] .yat-section{display:none!important}" +
   BOOTSTRAP_SECTIONS.map((s) => `html[data-yat-sec="${s}"] #sec-${s}{display:block!important}`).join('') +
-  "html[data-yat-sec] .yat-row3-shell,html[data-yat-sec] .yat-row4-shell{visibility:hidden}";
+  "html[data-yat-sec] .yat-row3-shell,html[data-yat-sec] .yat-row4-shell{visibility:hidden}" +
+  "html[data-yat-switching] .yat-row3-shell,html[data-yat-switching] .yat-row4-shell{visibility:hidden}";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
