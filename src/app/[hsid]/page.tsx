@@ -13,6 +13,7 @@ import {
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
+  getSchoolTeamSeasonResults,
   getPlayerById,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
@@ -20,6 +21,7 @@ import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
+import { TEAM_YEAR_SHARE_TAGLINE, parseTeamYear, teamYearAlumni, teamYearTitle } from "@/lib/teamYearShare";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -228,7 +230,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string }>;
+  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -286,6 +288,34 @@ export async function generateMetadata({
       }
     } catch {
       // fall through to player/school metadata
+    }
+  }
+
+  // A shared high school team (?team=2017): the All-Time list opens on that
+  // season, and the link preview names the team and asks where they're at.
+  const teamYear = parseTeamYear(qp?.team);
+  if (teamYear) {
+    try {
+      const [teamResults, stageRows] = await Promise.all([
+        getSchoolTeamSeasonResults(schoolHsid).catch(() => []),
+        getFlipCardFrontStageByHsid(schoolHsid).catch(() => []),
+      ]);
+      const result = teamResults.find((r) => String(r.seasonYear) === teamYear) || null;
+      const count = teamYearAlumni(stageRows as Record<string, unknown>[], teamYear).length;
+      const schoolShort = name.replace(/\s+high\s+school$/i, '').trim();
+      const teamTitle = teamYearTitle(schoolShort, teamYear, result);
+      const description = `${count} from the ${teamYear} team went on to the next level. ${TEAM_YEAR_SHARE_TAGLINE}`;
+      const hostBase = host ? `https://${host}` : canonicalUrl;
+      const ogImageUrl = `${hostBase}/api/og/team-year?hsid=${encodeURIComponent(schoolHsid)}&year=${teamYear}`;
+      const title = `${teamTitle} | YAT?STATS`;
+      return {
+        title,
+        description,
+        openGraph: { title, description, images: [{ url: ogImageUrl, width: 1200, height: 630 }] },
+        twitter: { card: "summary_large_image", title, description, images: [ogImageUrl] },
+      };
+    } catch {
+      // fall through to the school's own metadata
     }
   }
 

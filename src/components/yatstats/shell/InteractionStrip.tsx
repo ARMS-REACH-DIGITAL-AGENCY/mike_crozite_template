@@ -382,16 +382,42 @@ export default function InteractionStrip({
     }
   };
 
+  // The address bar names the team being looked at (?team=2017), so the
+  // page's own link opens on it too.
+  const syncTeamParam = (year: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (year) params.set('team', year); else params.delete('team');
+    const query = params.toString();
+    history.replaceState(history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  };
+
   const handleAllTimeYearClick = (year: string) => {
     const nextYear = selectedRosterYear === year ? '' : year;
     setSelectedRosterYear(nextYear || null);
+    syncTeamParam(nextYear);
     window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: nextYear } }));
   };
 
   const handleAllTimeResetClick = () => {
     setSelectedRosterYear(null);
+    syncTeamParam('');
     window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: '', reset: true } }));
   };
+
+  // A shared team link (?team=2017) opens the All-Time list on that season:
+  // the section first, then - once its preset has run, which clears any
+  // year - the team.
+  useEffect(() => {
+    const year = new URLSearchParams(window.location.search).get('team') || '';
+    if (!ALL_TIME_TEAM_YEARS.includes(year)) return;
+    if (window.location.hash !== '#sec-alltime') window.location.hash = '#sec-alltime';
+    const timer = window.setTimeout(() => {
+      setSelectedRosterYear(year);
+      window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year } }));
+      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
   const allTimeCount = players.length;
