@@ -221,3 +221,146 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
   const summary = `Final: ${W} ${ws}, ${L} ${ls} in Game ${gameNo}. ${how}${starLine} ${series}`.trim();
   return { day: 'Final', title, summary, shouts, hero: star };
 }
+
+// A finished game written up like a newspaper game story. The lede is what
+// decided it - the run that put the winner ahead for good and who drove it in
+// real life - then the other runs that mattered and who was behind them, how
+// the 8th (week totals) and 9th (clubs' W-L) went when they didn't decide it,
+// and where the series stands. clubOf names a player's real club.
+export type GameArticle = { headline: string; paragraphs: string[] };
+const count = (n: number, one: string, many: string) => (n === 1 ? `a ${one}` : `${NUM[n] || n} ${many}`);
+// "2-for-4 with a homer and two walks" from [PA AB H 2B 3B HR BB HBP SF].
+function batProse(s: number[]) {
+  const extra = [s[5] && count(s[5], 'homer', 'homers'), s[4] && count(s[4], 'triple', 'triples'), s[3] && count(s[3], 'double', 'doubles'), s[6] && count(s[6], 'walk', 'walks')].filter(Boolean) as string[];
+  return `${s[2]}-for-${s[1]}${extra.length ? ` with ${joinAnd(extra)}` : ''}`;
+}
+// "threw six innings with eight strikeouts" from [outs HR BB HBP K ...].
+function pitProse(s: number[]) {
+  const whole = Math.floor(s[0] / 3), part = s[0] % 3;
+  const ip = part ? `${whole ? `${whole} ` : ''}${part === 1 ? '⅓' : '⅔'} inning${whole ? 's' : ''}` : whole === 1 ? 'an inning' : `${NUM[whole] || whole} innings`;
+  return `threw ${ip}${s[4] ? ` with ${count(s[4], 'strikeout', 'strikeouts')}` : ''}`;
+}
+export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, opts: { gameNo: number; series: string; clubOf?: (id: string) => string }): GameArticle | null {
+  const runs = g[5] || [];
+  if (!runs.length || g[6] == null || !box) return null;
+  const innings = Math.ceil(runs.length / 2);
+  const name = (h: number) => shortName(index.schools[h]?.[0] || '');
+  const homeWon = g[6] === g[2];
+  const H = name(g[2]), A = name(g[3]);
+  const W = homeWon ? H : A, L = homeWon ? A : H;
+  let hr = 0, ar = 0;
+  for (let k = 0; k < innings; k++) { hr += Number(runs[k * 2] || 0); ar += Number(runs[k * 2 + 1] || 0); }
+  const ws = Math.max(hr, ar), ls = Math.min(hr, ar);
+  const club = (id: string) => { const c = opts.clubOf?.(id); return c ? ` (${c})` : ''; };
+
+  // Every scoring half inning, in order, with the score before and after.
+  type Ev = { k: number; home: boolean; n: number; bw: number; bl: number; aw: number; al: number };
+  const evs: Ev[] = [];
+  let h = 0, a = 0;
+  for (let k = 0; k < innings; k++) {
+    for (const home of [false, true]) {
+      const n = Number(runs[k * 2 + (home ? 0 : 1)] || 0);
+      if (!n) continue;
+      const [bw, bl] = homeWon ? [h, a] : [a, h];
+      if (home) h += n; else a += n;
+      const [aw, al] = homeWon ? [h, a] : [a, h];
+      evs.push({ k, home, n, bw, bl, aw, al });
+    }
+  }
+  const winnerEv = (e: Ev) => e.home === homeWon;
+  // The run that put the winner ahead for good.
+  const decisive = [...evs].reverse().find((e) => winnerEv(e) && e.aw > e.al && e.bw <= e.bl);
+
+  const best = (rows: PlayerRow[] | undefined) => {
+    const r = rows || [];
+    const bat = r.filter((p) => Array.isArray(p[4]) && p[4][0] > 0 && p[6] !== null).sort((x, y) => Number(y[6]) - Number(x[6]))[0];
+    const arm = r.filter((p) => Array.isArray(p[5]) && p[5].slice(0, 5).some((v) => v > 0) && p[7] !== null).sort((x, y) => Number(x[7]) - Number(y[7]))[0];
+    return { bat, arm };
+  };
+  // Who was behind a half inning's runs, in a clause.
+  const credit = (e: Ev): string => {
+    const side = e.home ? box.h : box.a;
+    const other = e.home ? box.a : box.h;
+    const S = e.home ? H : A, O = e.home ? A : H;
+    if (e.k < 7) {
+      const d = box.d?.[e.k] || [];
+      const [mo, to, mp, tp] = e.home ? [d[0], d[1], d[2], d[3]] : [d[1], d[0], d[3], d[2]];
+      const off = mo != null && (to == null ? mo > 100 : mo > to);
+      const pit = mp != null && (tp == null ? mp < 100 : mp < tp);
+      const { bat, arm } = best(side.days?.[e.k]);
+      const parts = [
+        off && bat ? `${bat[1]}${club(bat[0])}, who went ${batProse(bat[4] as number[])} on ${DAYS[e.k]} (${bat[6]} OPS+)` : '',
+        pit && arm ? `${arm[1]}${club(arm[0])}, who ${pitProse(arm[5] as number[])} on ${DAYS[e.k]} (${arm[7]} FIP-)` : '',
+      ].filter(Boolean);
+      return parts.length ? `thanks to ${joinAnd(parts)}` : `on the strength of ${S}'s ${DAYS[e.k]}`;
+    }
+    if (e.k === 7) {
+      const d = box.d?.[7] || [];
+      const [mo, to, mp, tp] = e.home ? [d[0], d[1], d[2], d[3]] : [d[1], d[0], d[3], d[2]];
+      const bits = [
+        mo != null && (to == null ? mo > 100 : mo > to) ? (to == null ? `hitting for ${an(mo)} OPS+` : `out-hitting ${O} ${mo} OPS+ to ${to}`) : '',
+        mp != null && (tp == null ? mp < 100 : mp < tp) ? (tp == null ? `pitching to ${an(mp)} FIP-` : `out-pitching ${O} ${mp} FIP- to ${tp}`) : '',
+      ].filter(Boolean);
+      return bits.length ? `on the week's totals, ${joinAnd(bits)}` : `on the week's totals`;
+    }
+    if (e.k === 8) {
+      const [w1, l1] = side.wl || [0, 0], [w2, l2] = other.wl || [0, 0];
+      return `on the strength of its alumni's real clubs, which went ${w1}-${l1} this week to ${O}'s ${w2}-${l2}`;
+    }
+    // Extra innings: the schools' top players head to head; only the
+    // matchups this side won.
+    const mine = best(side.p), theirs = best(other.p);
+    const vs = [
+      mine.bat && theirs.bat && Number(mine.bat[6]) > Number(theirs.bat[6]) ? `its top bat, ${mine.bat[1]} (${mine.bat[6]} OPS+), out-hit ${O}'s ${theirs.bat[1]} (${theirs.bat[6]})` : '',
+      mine.arm && theirs.arm && Number(mine.arm[7]) < Number(theirs.arm[7]) ? `its top arm, ${mine.arm[1]} (${mine.arm[7]} FIP-), outdueled ${O}'s ${theirs.arm[1]} (${theirs.arm[7]})` : '',
+    ].filter(Boolean);
+    return vs.length ? `when ${joinAnd(vs)}` : `in the tiebreaker, where each school's top hitter and pitcher go head to head`;
+  };
+
+  // The lede.
+  const score = `${ws}-${ls}`;
+  const verb = ls === 0 ? 'blanked' : 'beat';
+  let lede = `${W} ${verb} ${L} ${score} in Game ${opts.gameNo} of their Round 1 series`;
+  if (g[4] === 'flip') lede += `, winning on the commissioner's flip after the two schools couldn't be separated.`;
+  else if (decisive) {
+    const where = decisive.k < 9 ? `the ${ORD(decisive.k + 1)}` : `the ${ORD(decisive.k + 1)} inning, in extras`;
+    const walk = decisive.home && decisive.k >= 8 && decisive.bw < decisive.bl;
+    lede += decisive.k === 8
+      ? `, and it came down to the 9th: ${W} ${walk ? 'walked it off' : 'won it'} with ${runsWord(decisive.n)} ${credit(decisive)}.`
+      : decisive.k === 7
+        ? `, and the difference was depth: ${W} took the lead for good in the 8th ${credit(decisive)}.`
+        : decisive.k > 8
+          ? `, needing extra innings. Tied ${decisive.bw}-${decisive.bl} after nine, it went to the ${ORD(decisive.k + 1)}, and ${W} won it ${credit(decisive)}.`
+          : `. ${W} took the lead for good in ${where}, ${credit(decisive)}.`;
+  } else lede += '.';
+
+  // The other runs that mattered.
+  const rest = evs.filter((e) => e !== decisive);
+  const say = (e: Ev, i: number, list: Ev[]) => {
+    const S = e.home ? H : A;
+    const did = e.n === 1 ? 'pushed a run across' : `put ${runsWord(e.n)} on the board`;
+    // The other school scoring in the same inning answers in its half.
+    if (i > 0 && list[i - 1].k === e.k) return `${S} answered with ${runsWord(e.n)} in the bottom half, ${credit(e)}.`;
+    return `In the ${ORD(e.k + 1)}, ${S} ${did} ${credit(e)}.`;
+  };
+  const shown = rest.slice(0, 5);
+  const body = shown.map(say);
+  if (rest.length > 5) body.push(`The two combined for ${NUM[rest.slice(5).reduce((t, e) => t + e.n, 0)] || 'several'} more runs after that.`);
+  const ninth = evs.filter((e) => e.k === 8);
+  const after8 = evs.filter((e) => e.k <= 7);
+  const w8 = after8.reduce((t, e) => t + (winnerEv(e) ? e.n : 0), 0), l8 = after8.reduce((t, e) => t + (winnerEv(e) ? 0 : e.n), 0);
+  if (!ninth.length && innings >= 9 && w8 > l8) body.push(`Nobody scored in the 9th, and ${W} didn't need to.`);
+  if (ls === 0) body.push(`${L} never got on the board.`);
+
+  // The kicker: the series, and the week's standout for the winner.
+  const wSide = homeWon ? box.h : box.a;
+  const star = best(wSide.p).bat;
+  const close = [
+    star && Number(star[6]) >= 120 ? `${star[1]}${club(star[0])} led ${W} for the week, going ${batProse(star[4] as number[])} (${star[6]} OPS+).` : '',
+    opts.series,
+  ].filter(Boolean).join(' ');
+
+  const paragraphs = [lede, body.join(' '), close].filter((x) => x.trim());
+  const title = gameStory(index, g, box, g[2], opts.gameNo, '')?.title || `${W.toUpperCase()} WINS GAME ${opts.gameNo}`;
+  return { headline: title, paragraphs };
+}
