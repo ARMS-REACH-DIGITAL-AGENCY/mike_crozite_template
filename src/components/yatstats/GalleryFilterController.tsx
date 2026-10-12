@@ -371,10 +371,16 @@ export default function GalleryFilterController() {
       applyFilters(section);
     };
 
+    // A new team year (or back to the whole list) starts at the top of the
+    // gallery: the list is long, and staying scrolled down usually left the
+    // reader below every card of the year they picked.
+    const toTop = () => window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'auto' }));
+
     const onAllTimeTeamYearFilter = (event: Event) => {
       const detail = (event as CustomEvent<{ year?: unknown; reset?: boolean }>).detail;
       if (detail?.reset) {
         applyPreset('alltime');
+        toTop();
         return;
       }
 
@@ -389,6 +395,7 @@ export default function GalleryFilterController() {
 
       setValues('filterRosterYears', year ? [year] : []);
       applyFilters('alltime');
+      toTop();
     };
 
     const onInputCapture = (event: Event) => {
