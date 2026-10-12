@@ -1,6 +1,6 @@
 'use client';
 
-// "By My Favorites" in the Filters drawer (FiltersDrawer.tsx): marks the
+// "By My Favorites" in the Filters drawer (school layout): marks the
 // reader's favorites at this school (data-fav="true" on their flip cards) and
 // shows the group once there is at least one. GalleryFilterController keeps
 // only marked cards while "Show my favorites only" is checked. Uses the same

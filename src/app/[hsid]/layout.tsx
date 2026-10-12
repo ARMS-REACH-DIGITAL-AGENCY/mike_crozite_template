@@ -441,6 +441,18 @@ async function SchoolShell({
         </div>
 
         <div className="yat-drawer-content" id="filters">
+          {/* "By My Favorites": hidden until FavoritesFilter finds at least
+              one of the reader's favorites at this school (it marks their
+              cards data-fav="true"; GalleryFilterController filters on it). */}
+          <details className="yat-filter-group" id="filterFavsGroup" open style={{ display: 'none' }}>
+            <summary>By My Favorites</summary>
+            <div className="yat-filter-options">
+              <label>
+                <input type="checkbox" id="filterFavs" value="favs" /> Show my favorites only
+              </label>
+            </div>
+          </details>
+
           <details className="yat-filter-group" open>
             <summary>By Status</summary>
             <div className="yat-filter-options" id="filterStatus">
