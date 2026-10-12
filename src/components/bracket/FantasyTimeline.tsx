@@ -10,8 +10,8 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
-import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { type DayStory, dayStory } from './dayStory';
+import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
+import { type DayStory, dayStory, gameStory } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BallparkScene from './BallparkScene';
 
@@ -89,7 +89,7 @@ function scoreFor(card: WeekCard, me: number): [number, number] | null {
 function starHeadline(star: Star | undefined, round: number, done: number, wins: number, losses: number) {
   if (!star) {
     if (!done) return `ROUND ${round}`;
-    if (done < 3) return `ROUND ${round} IN PROGRESS`;
+    if (done < 3) return `GAME ${done + 1} UP NEXT`;
     if (wins >= 2) return `ROUND ${round} WON`;
     if (losses >= 2) return `ROUND ${round} COMPLETE`;
     return `ROUND ${round}`;
@@ -115,12 +115,22 @@ function buildSummary(index: Index, slide: Omit<RoundSlide, 'summary' | 'title' 
   if (!slide.done.length) {
     return `${schoolName} begins Round ${slide.round} in weeks ${slide.firstWeek}-${slide.lastWeek}. Each weekly game adds to the three-game series and the Most Runs Scored race.`;
   }
-  const record = `${slide.wins}-${slide.losses}`;
-  const finalWord = slide.complete ? 'finished' : 'stands';
   const names = slide.done.map((c) => stars[c.week]?.[0]).filter(Boolean);
   const notable = [...new Set(names)].slice(0, 3);
   const starText = notable.length ? ` Alumni of the Week so far: ${notable.join(', ')}.` : '';
-  return `${schoolName} ${finalWord} Round ${slide.round} ${record}${oppName ? ` against ${oppName}` : ''}.${starText}`;
+  return `${seriesSentence(slide, schoolName, oppName)}${starText}`;
+}
+
+// Where the series stands, in a sentence: "Cardinal Newman leads the series
+// 1-0.", "The series is tied 1-1.", "Hamilton wins the series 2-1 and
+// advances."
+function seriesSentence(slide: { done: WeekCard[]; wins: number; losses: number; complete: boolean }, schoolName: string, opponentName: string) {
+  if (!slide.done.length) return '';
+  const { wins: w, losses: l } = slide;
+  if (w >= 2) return `${schoolName} wins the series ${w}-${l} and advances.`;
+  if (l >= 2) return `${opponentName || 'The opponent'} wins the series ${l}-${w} and advances.`;
+  if (w === l) return `The series is tied ${w}-${l}.`;
+  return w > l ? `${schoolName} leads the series ${w}-${l}.` : `${opponentName || 'The opponent'} leads the series ${l}-${w}.`;
 }
 
 function seriesStatus(slide: RoundSlide, schoolName: string, opponentName: string) {
@@ -289,7 +299,7 @@ export default function FantasyTimeline() {
   }, []);
 
   const cards = useMemo(() => (data ? schoolSeason(data.index, data.lb, me, data.asof) : []), [data, me]);
-  const cal = data ? calendar(data.index, data.asof) : null;
+  const cal = useMemo(() => (data ? calendar(data.index, data.asof) : null), [data]);
   const region = data?.index.schools[me]?.[1];
 
   useEffect(() => {
@@ -332,10 +342,20 @@ export default function FantasyTimeline() {
       const heroWeek = [...done].reverse().find((c) => stars[c.week])?.week;
       const heroStar = heroWeek ? stars[heroWeek] : undefined;
       const base = { round, cards: list, done, wins, losses, opponent, heroStar, firstWeek, lastWeek, complete: done.length === 3 };
-      // The latest week under way: its latest settled day leads the slide.
-      const latest = [...list].reverse().find((c) => c.game && c.file && c.days > 0);
-      const story = latest?.game && latest.file ? dayStory(data.index, latest.game, boxes[latest.file]?.[String(latest.game[0])], me) : null;
-      const day = story && latest ? { ...story, label: `Game ${list.indexOf(latest) + 1} · ${story.day}` } : undefined;
+      // The latest game under way leads the slide with its latest inning;
+      // a finished game with its recap. Monday morning, before the new game
+      // is under way (leadWeek), that's last week's final.
+      const lead = cal ? leadWeek(cards, cal.week) : 0;
+      const latest = [...list].reverse().find((c) => c.game && c.file && c.days > 0 && c.week <= lead);
+      const gameNo = latest ? list.indexOf(latest) + 1 : 0;
+      const latestBox = latest?.game && latest.file ? boxes[latest.file]?.[String(latest.game[0])] : undefined;
+      const oppName = opponent ? shortName(data.index.schools[opponent]?.[0] || '') : '';
+      const story = latest?.game && latest.file
+        ? latest.state === 'final'
+          ? gameStory(data.index, latest.game, latestBox, me, gameNo, seriesSentence(base, shortName(data.index.schools[me]?.[0] || ''), oppName))
+          : dayStory(data.index, latest.game, latestBox, me)
+        : null;
+      const day = story && latest ? { ...story, label: `Game ${gameNo} · ${story.day}` } : undefined;
       return {
         ...base,
         day,
@@ -344,7 +364,7 @@ export default function FantasyTimeline() {
         heroIdentity: heroStar ? identities[heroStar[5]] : undefined,
       };
     });
-  }, [boxes, cards, data, identities, me, stars]);
+  }, [boxes, cal, cards, data, identities, me, stars]);
 
   const go = useCallback((i: number, smooth = true) => {
     const el = trackRef.current;
@@ -363,7 +383,7 @@ export default function FantasyTimeline() {
 
   useEffect(()=>{
     if(!rounds.length)return;
-    const initial:FantasyStageKey=nav.stageKey||stageKeyForWeek(Math.max(1,Math.min(34,cal?.week||1)));
+    const initial:FantasyStageKey=nav.stageKey||stageKeyForWeek(Math.max(1,Math.min(34,cal?leadWeek(cards,cal.week):1)));
     const i=Math.max(0,stageKeys.indexOf(initial));
     requestAnimationFrame(()=>{go(i,false);setActive(i);if(!nav.stageKey)selectStage(initial);});
   },[rounds.length,cal?.week,go]);
@@ -390,7 +410,7 @@ export default function FantasyTimeline() {
       <BallparkScene />
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {rounds.map((r)=>{
-          const focus=r.cards.find(c=>c.week===cal?.week)||[...r.done].reverse()[0]||r.cards[0];
+          const focus=r.cards.find(c=>c.week===(cal?leadWeek(cards,cal.week):0))||[...r.done].reverse()[0]||r.cards[0];
           const key=`r${r.round}` as FantasyStageKey;
           return <Slide key={key} index={data.index} slide={r} me={me} onTap={()=>{selectStage(key);if(focus)focusWeek(focus.week);}}/>;
         })}
