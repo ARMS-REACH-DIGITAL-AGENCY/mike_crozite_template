@@ -41,6 +41,7 @@ import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
 import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
 import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
+import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
 import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -166,7 +167,11 @@ export default async function HsidLayout({
   const splashHsid = String(school.hsid ?? hsid);
   return (
     <>
-      <SchoolSplash crestUrl={getSchoolCrestUrl(splashHsid)} schoolName={formatSchoolName(String(school.hsname || ''))} />
+      <SchoolSplash
+        crestUrl={getSchoolCrestUrl(splashHsid)}
+        schoolName={formatSchoolName(String(school.hsname || ''))}
+        partner={getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
+      />
       <Suspense fallback={null}>
         <SchoolShell hsid={hsid} school={school}>{children}</SchoolShell>
       </Suspense>

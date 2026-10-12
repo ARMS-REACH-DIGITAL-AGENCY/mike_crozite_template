@@ -105,10 +105,10 @@ function hasReal2026Stats(p: Row): boolean {
   });
 }
 
-// Any coach (status COACH or RETIRED - COACH). A current coach leads the
-// high school team; only a retired coach - listed at the high-school level
-// because he was on the school's staff - belongs in the alumni grids
-// (All-Time, and Active when his status is checked).
+// No high school level card is on the alumni grids (All-Time, Active) except
+// a retired coach (RETIRED - COACH), listed at the high school level because
+// he was on the school's staff. A current coach (COACH) is on the high
+// school team only.
 function isCoachCard(p: Row | undefined): boolean {
   return String(p?.status_label ?? p?.status ?? "").trim().toUpperCase().includes("COACH");
 }
