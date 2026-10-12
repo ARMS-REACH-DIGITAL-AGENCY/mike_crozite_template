@@ -260,6 +260,24 @@ test('extra innings: #1s split, nothing left at #2 - the hitter-vs-pitcher innin
   assert.ok(g.decidedBy === 'cross' || g.decidedBy === 'commissioner');
 });
 
+test('extra innings: nothing left to compare - the better club run differential wins first', () => {
+  const coldDay = day('MLB', { pa: 12, ab: 12, h: 1 });
+  const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()]), players: roster(coldDay), runDiff: 4 };
+  const idle: SideWeek = { ...tied(new Map()), runDiff: 11 };
+  // away's clubs +11 to home's +4: away wins, even with fewer fans
+  const g = playGame(cold, idle, baselines, HOLD, false, () => 'home', [10, 3]);
+  assert.equal(g.winner, 'away');
+  assert.equal(g.decidedBy, 'runDiff');
+  assert.equal(g.innings[9].kind, 'runDiff');
+  assert.deepEqual([g.home, g.away], [0, 1]);
+  // even differentials: on to the fan base
+  const f = playGame(cold, { ...idle, runDiff: 4 }, baselines, HOLD, false, () => 'away', [10, 3]);
+  assert.equal(f.decidedBy, 'fans');
+  assert.equal(f.winner, 'home');
+  // a game still in progress is never settled by run differential
+  assert.equal(playGame(cold, idle, baselines, HOLD, true).decidedBy, 'tie');
+});
+
 test('extra innings: nothing left to compare - the bigger fan base wins, then the commissioner', () => {
   const coldDay = day('MLB', { pa: 12, ab: 12, h: 1 });
   const cold: SideWeek = { ...week([coldDay, off(), off(), off(), off(), off(), off()]), players: roster(coldDay) };

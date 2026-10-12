@@ -41,7 +41,9 @@
 // pitcher (Tiebreaker #2): the players #1 couldn't match, each school's next
 // hitter against the other's next pitcher, inning by inning, the run going to
 // whoever is closer to (or further above) league average - OPS+ - 100 for the
-// hitter, 100 - FIP- for the pitcher. Still tied, or nothing left to compare: the
+// hitter, 100 - FIP- for the pitcher. Still tied, or nothing left to compare:
+// the better run differential of the alumni's real clubs that week wins
+// (Tiebreaker #3, summed per alumnus like the W-L inning). Even there too: the
 // school with the bigger fan base (registered YAT?STATS fans when the game
 // went final) wins. Even there too: the commissioner decides. Exact stat
 // ties award no run.
@@ -181,6 +183,9 @@ export type SideWeek = {
   // Real clubs' results that week, summed over the school's alumni.
   wins: number;
   losses: number;
+  // Real clubs' run differential that week (runs scored - allowed), summed
+  // over the school's alumni like wins and losses.
+  runDiff?: number;
   // Each alumnus's week for the tiebreak (default: the days merged).
   players?: PlayerLines;
 };
@@ -222,7 +227,7 @@ export function mergeLines(list: PlayerLines[]): PlayerLines {
 
 export type Inning = {
   inning: number;
-  kind: 'day' | 'week' | 'wl' | 'tiebreak' | 'cross' | 'fans' | 'commissioner';
+  kind: 'day' | 'week' | 'wl' | 'tiebreak' | 'cross' | 'runDiff' | 'fans' | 'commissioner';
   home: number;
   away: number;
   // what each side posted (null = no one played / no results)
@@ -241,7 +246,7 @@ export type GameResult = {
   winner: Side | null;
   // 'commissioner' with winner null: the commissioner's decision is still
   // to come.
-  decidedBy: 'runs' | 'players' | 'cross' | 'fans' | 'commissioner' | 'tie';
+  decidedBy: 'runs' | 'players' | 'cross' | 'runDiff' | 'fans' | 'commissioner' | 'tie';
   tieRank?: number; // 'players': which ranked hitter/pitcher pair decided it.
   tieScore?: [number, number]; // cumulative tiebreak runs, home first.
 };
@@ -403,8 +408,19 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
     };
   }
 
-  // Nothing left to compare: the bigger fan base wins, an extra inning worth
-  // one run (only for a game being decided - not one still in progress).
+  // Nothing left to compare: the better club run differential wins, an extra
+  // inning worth one run (only for a game being decided - not one still in
+  // progress).
+  const hd = home.runDiff ?? 0, ad = away.runDiff ?? 0;
+  if (!allowTie && hd !== ad) {
+    const run: [number, number] = hd > ad ? [1, 0] : [0, 1];
+    innings.push({ inning: 10 + pt.innings.length, kind: 'runDiff', home: run[0], away: run[1] });
+    hr += run[0];
+    ar += run[1];
+    return { innings, home: hr, away: ar, winner: run[0] ? 'home' : 'away', decidedBy: 'runDiff', tieScore: [tieScore[0] + run[0], tieScore[1] + run[1]] };
+  }
+
+  // Even run differentials: the bigger fan base wins, the same way.
   if (!allowTie && fans && fans[0] !== fans[1]) {
     const run: [number, number] = fans[0] > fans[1] ? [1, 0] : [0, 1];
     innings.push({ inning: 10 + pt.innings.length, kind: 'fans', home: run[0], away: run[1] });
