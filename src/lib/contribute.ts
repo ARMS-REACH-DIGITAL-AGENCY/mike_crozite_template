@@ -145,17 +145,19 @@ export type ContributeOption = {
   id: string;
   icon: string;
   label: string;
+  // The name under its circle in row 3 (one line, like a player's last name).
+  short: string;
   tab?: ContributeTab;
   section: string;
 };
 
 export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
-  { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', section: 'cc-photo' },
-  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', section: 'cc-data' },
-  { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', section: 'cc-missing' },
-  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'News Tip', section: 'cc-tip' },
-  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect with a Player', section: 'cc-player' },
-  { id: 'sponsor', icon: 'ri-hand-heart-line', label: 'Sponsor this Page', section: 'cc-sponsor' },
+  { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', short: 'Photos', section: 'cc-photo' },
+  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', section: 'cc-data' },
+  { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', short: 'Missing Alumni', section: 'cc-missing' },
+  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'News Tip', short: 'News Tip', section: 'cc-tip' },
+  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect with a Player', short: 'Connect', section: 'cc-player' },
+  { id: 'sponsor', icon: 'ri-hand-heart-line', label: 'Sponsor this Page', short: 'Sponsor', section: 'cc-sponsor' },
 ];
 
 export const tabIcon = (tab: ContributeTab) => CONTRIBUTE_OPTIONS.find((o) => o.tab === tab)?.icon || 'ri-upload-cloud-2-line';

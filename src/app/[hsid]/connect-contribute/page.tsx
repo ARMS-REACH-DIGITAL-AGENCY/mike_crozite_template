@@ -1,8 +1,8 @@
 // <school>.yatstats.com/connect-contribute/ - the Connect & Contribute
 // Portal's own page, inside the school's shell (topbar, drawers, row 2).
 // The shell reads this path as the "mentor" section (SharedShell,
-// YatInteractivity): row 3 is the portal's icon strip (ContributeRow3) and
-// this page is row 4, what each option is and why we need it.
+// YatInteractivity): row 3 is the shared strip with a circle per option,
+// and this page is row 4, what each option is and why we need it.
 
 import { getSchoolByHsid } from '@/lib/db';
 import ContributeGuide from '@/components/yatstats/ContributeGuide';

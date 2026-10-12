@@ -8,7 +8,6 @@ import { usePathname } from 'next/navigation';
 import GlobalTopbar from './shell/GlobalTopbar';
 import SchoolContextBar from './shell/SchoolContextBar';
 import InteractionStrip from './shell/InteractionStrip';
-import ContributeRow3 from './ContributeRow3';
 import MetadataRow from './shell/MetadataRow';
 import ClubhouseFooter from './shell/ClubhouseFooter';
 import PageMessageStrip from './shell/PageMessageStrip';
@@ -209,9 +208,6 @@ export default function SharedShell({
               // The Fantasy Bracket Tourney tab: the school's season, a
               // slide per week, where a profile has its Career Path Timeline.
               ? <FantasyTimeline />
-              : activeSection === 'mentor' && !isPlayerProfile
-              // The Connect & Contribute Portal: an icon per option.
-              ? <ContributeRow3 />
               : SECTION_ANCHORS[activeSection] && !isPlayerProfile
               ? <nav className="yat-section-anchor-strip" aria-label={activeSection === 'faq' ? 'FAQ topics' : activeSection === 'partner' ? 'Partnership questions' : 'About sections'}>
                   {SECTION_ANCHORS[activeSection].map((label, i) => <button type="button" key={label} onClick={() => {

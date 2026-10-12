@@ -3,6 +3,7 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
+import { CONTRIBUTE_OPTIONS, openContribute } from '@/lib/contribute';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
@@ -262,7 +263,10 @@ export default function InteractionStrip({
     [players]
   );
 
-  const showPlayerStrip = isGallery || isNews || PLAYER_GALLERY_SECTIONS.has(activeSection) || activeSection === 'news';
+  // The Connect & Contribute Portal: the same strip, a circle per option
+  // (its icon where a headshot would be) instead of players.
+  const isContribute = activeSection === 'mentor' && !isPlayerProfile;
+  const showPlayerStrip = isGallery || isNews || PLAYER_GALLERY_SECTIONS.has(activeSection) || activeSection === 'news' || isContribute;
   const showProfilePlaceholder = isPlayerProfile;
   const isCurrentTeamTab = activeSection === 'current';
 
@@ -789,6 +793,12 @@ export default function InteractionStrip({
             flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
           }
         }
+        .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+        .gallery-strip .gallery-contribute-media { display: grid; place-items: center; }
+        .gallery-strip .gallery-contribute-media i { font-size: min(46px, max(26px, 3.4vw)); color: #FFD700; line-height: 1; }
+        body.light-theme .gallery-strip .gallery-contribute-media { background: #fff; }
+        body.light-theme .gallery-strip .gallery-contribute-media i { color: #9a6f00; }
+        .gallery-contribute-slot:hover .gallery-contribute-media i, .gallery-contribute-slot:focus-visible .gallery-contribute-media i { transform: scale(1.08); }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
@@ -857,6 +867,25 @@ export default function InteractionStrip({
                   );
                 })}
               </>
+            ) : isContribute ? (
+              CONTRIBUTE_OPTIONS.map((option) => (
+                <button
+                  key={`contribute-${option.id}`}
+                  type="button"
+                  className="gallery-slot gallery-slot-link gallery-contribute-slot"
+                  title={option.label}
+                  aria-label={option.label}
+                  onClick={() => {
+                    if (option.tab) openContribute({ tab: option.tab });
+                    else document.getElementById(option.section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                >
+                  <div className="gallery-slot-media gallery-contribute-media">
+                    <i className={option.icon} aria-hidden="true" />
+                  </div>
+                  <div className="gallery-slot-name-overlay">{option.short}</div>
+                </button>
+              ))
             ) : sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
               const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
