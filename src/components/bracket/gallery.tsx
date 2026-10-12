@@ -86,7 +86,8 @@ export const WORLD_SERIES = 'Fantasy World Series';
 export const WORLD_SERIES_FULL = 'YAT?STATS High School Alumni Fantasy World Series';
 export const TIE_NOTE: Record<string, string> = {
   cross: "Tied after 9 and the head-to-head matchups · won hitter vs pitcher, the closer to league average (+1 run)",
-  commissioner: "Tied after every extra inning · the commissioner's decision (+1 run)",
+  fans: "Tied after every extra inning · won on the bigger fan base (+1 run)",
+  commissioner: "Tied after every extra inning and even fan bases · the commissioner's decision (+1 run)",
   'commissioner-pending': "Tied after every extra inning · awaiting the commissioner's decision",
 };
 // 'players-2': the tie went down to each school's #2 hitter and #2 pitcher
