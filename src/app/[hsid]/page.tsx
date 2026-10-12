@@ -480,7 +480,10 @@ export default async function SchoolPage({
   const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
-  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })));
+  // The coach leads the high school team, ahead of every player; the rest
+  // keep the gallery's usual order.
+  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })))
+    .sort((a, b) => Number(isCoachCard(b)) - Number(isCoachCard(a)));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
   const activeSeenIds = new Set<string>();
