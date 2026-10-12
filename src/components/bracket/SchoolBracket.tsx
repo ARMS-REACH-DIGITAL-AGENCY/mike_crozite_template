@@ -26,7 +26,7 @@ import {
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
-import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
@@ -780,10 +780,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return t;
   },[cards]);
 
+  // Monday morning leads with last week's final (leadWeek), not a 0-0 TOP 1.
+  const lead = cal ? leadWeek(cards, cal.week) : 0;
   const nowTab = useMemo(() => {
     if(!cal||cal.week<1) return 'r1';
-    return stageKeyForWeek(Math.min(34,cal.week));
-  },[cal]);
+    return stageKeyForWeek(Math.min(34,lead));
+  },[cal,lead]);
   const tab = nav.stageKey || nowTab;
 
   // A hero click/focus also changes the canonical stage.
@@ -812,6 +814,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const cur = tabs.find((t) => t.key === tab);
   const curList = cur?.list || [];
   let gameIdx = gameWeek != null ? curList.findIndex((c) => c.week === gameWeek) : -1;
+  if (gameIdx < 0 && cal && lead !== cal.week) gameIdx = curList.findIndex((c) => c.week === lead);
   if (gameIdx < 0) gameIdx = curList.findIndex((c) => c.state === 'live');
   if (gameIdx < 0) gameIdx = curList.findIndex((c) => c.state === 'next');
   if (gameIdx < 0) curList.forEach((c, i) => { if (c.state === 'final') gameIdx = i; });
