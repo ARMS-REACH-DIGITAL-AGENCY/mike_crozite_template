@@ -8,22 +8,18 @@
 // within 30 days (quick): all of it already lit, and only if the page is
 // still loading after 0.3s.
 //
-// The exit, every time (SPLASH_BOOTSTRAP adds it): the logo zooms in fast
-// through its "?" to full black, then the black slides off to the right,
-// revealing the school's hub.
+// The exit, every time (SPLASH_BOOTSTRAP runs it): the screen flips over
+// like a flip card, with the school's hub on the back.
 import type { TitlePartner } from '@/lib/titlePartners';
 
 const YAT_LOGO = '/img/yatstats-logo.png';
-// The "?" dot's centre in the logo image (753x109).
-const DOT = '38.8% 80.9%';
 
 const SPLASH_CSS = `
 #yatSplash{position:fixed;inset:0;z-index:2147483000;overflow:hidden;background:#000;opacity:1;transition:opacity .25s ease-out}
 #yatSplash .yat-splash-place{position:absolute;left:50%;transform:translate(-50%,-50%)}
 #yatSplash .yat-splash-place-logo{top:35%;z-index:1}
 #yatSplash .yat-splash-place-brands{top:71%;z-index:1}
-#yatSplash .yat-splash-zoom{line-height:0;transform-origin:${DOT};will-change:transform}
-#yatSplash .yat-splash-logo{position:relative;animation:yatSplashLogoIn .6s cubic-bezier(.2,.8,.2,1) both}
+#yatSplash .yat-splash-logo{position:relative;line-height:0;animation:yatSplashLogoIn .6s cubic-bezier(.2,.8,.2,1) both}
 #yatSplash .yat-splash-logo img{display:block;width:min(78vw,560px);height:auto;animation:yatSplashLightsOn .55s linear .65s both,yatSplashGlow 2.4s ease-in-out 1.5s infinite}
 #yatSplash .yat-splash-logo::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.8) 50%,transparent 58%) 90% 0/300% 100% no-repeat;-webkit-mask:url(${YAT_LOGO}) center/100% 100% no-repeat;mask:url(${YAT_LOGO}) center/100% 100% no-repeat;animation:yatSplashShine 1s ease-in-out 1.25s both}
 #yatSplash .yat-splash-beams{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;background:radial-gradient(ellipse 70% 40% at 0 0,rgba(255,255,255,.18),transparent 70%),radial-gradient(ellipse 70% 40% at 100% 0,rgba(255,255,255,.18),transparent 70%);animation:yatSplashBeams .55s linear .65s both}
@@ -41,9 +37,7 @@ const SPLASH_CSS = `
 @keyframes yatSplashFromLeft{from{opacity:0;transform:translateX(-48px)}to{opacity:1;transform:none}}
 @keyframes yatSplashFromRight{from{opacity:0;transform:translateX(48px)}to{opacity:1;transform:none}}
 @keyframes yatSplashGrow{from{transform:scaleY(0)}to{transform:none}}
-@keyframes yatSplashZoomIn{to{transform:scale(30)}}
-@keyframes yatSplashFadeOut{to{opacity:0}}
-@keyframes yatSplashSlideRight{to{transform:translateX(100%)}}
+@keyframes yatSplashFlipAway{to{transform:perspective(1400px) rotateY(90deg)}}
 @media (prefers-reduced-motion:reduce){#yatSplash *,#yatSplash *::after{animation:none!important}#yatSplash .yat-splash-beams{opacity:1}}
 `;
 
@@ -54,11 +48,9 @@ export default function SchoolSplash({ crestUrl, schoolName, partner = null }: {
     <div id="yatSplash" aria-hidden="true" suppressHydrationWarning>
       <style dangerouslySetInnerHTML={{ __html: SPLASH_CSS }} />
       <div className="yat-splash-place yat-splash-place-logo">
-        <div className="yat-splash-zoom">
-          <div className="yat-splash-logo">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={YAT_LOGO} alt="" fetchPriority="high" />
-          </div>
+        <div className="yat-splash-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={YAT_LOGO} alt="" fetchPriority="high" />
         </div>
       </div>
       <div className={`yat-splash-place yat-splash-place-brands yat-splash-brands${partner ? ' has-partner' : ''}`}>
