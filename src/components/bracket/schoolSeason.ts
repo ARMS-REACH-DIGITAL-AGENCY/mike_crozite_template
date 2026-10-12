@@ -102,6 +102,20 @@ const liveInnings = new Map<number, { day: number; phase: LivePhase }>();
 export function setLiveInning(gameId: number, day: number, phase: LivePhase) {
   liveInnings.set(gameId, { day, phase });
 }
+// Monday morning of a new week: its first inning is still in the Top - no
+// game under way yet for either school - so there's nothing to see in it.
+export function notUnderWay(g: GameRow | undefined) {
+  const lv = g ? liveInnings.get(g[0]) : undefined;
+  return !!lv && lv.day === 0 && lv.phase === 'top';
+}
+// The week a school's page leads with: the current one, except Monday
+// morning, when it's last week's final until the new game is under way
+// (BOT 1). The new game is still a tap away.
+export function leadWeek(cards: WeekCard[], week: number) {
+  const now = cards.find((c) => c.week === week);
+  const prev = cards.find((c) => c.week === week - 1);
+  return now?.state === 'live' && notUnderWay(now.game) && prev?.state === 'final' ? week - 1 : week;
+}
 // The days of game g to count, of the calendar's days in: a live game's runs
 // (g[5]) are its posted runs, so all of them.
 export function shownDays(g: GameRow, days: number) {
