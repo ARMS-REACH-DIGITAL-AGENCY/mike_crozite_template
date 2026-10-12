@@ -35,7 +35,8 @@ const SECTION_BOOTSTRAP =
 //   school subdomain - a superfan hopping between favorites' schools): the
 //   same screen already lit, no minimum, and only if the page is still
 //   loading after 0.3s.
-// Either way it leaves by zooming through the logo's "?" into the hub.
+// Either way it leaves fast: the logo zooms in through its "?" to full
+// black, then the black slides off to the right, revealing the hub.
 // ?splash=... in the address forces the full one (to show it off, or test).
 // Ready = 'yat:page-ready' (the gallery strip) or, on pages without a
 // gallery, the load event; never longer than 8s. The splash is driven
@@ -51,17 +52,15 @@ var set=function(css){st.textContent=css;};
 var P='html #yatSplash';
 var QUICK=P+' *,'+P+' *::after{animation:none!important}'+P+' .yat-splash-logo img{animation:yatSplashGlow 2.4s ease-in-out infinite!important}'+P+' .yat-splash-beams{opacity:1}';
 var RM=false;try{RM=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
-var EXIT=RM?P+'{opacity:0!important;pointer-events:none!important}':P+'{pointer-events:none!important}'+P+' .yat-splash-zoom{animation:yatSplashZoomThrough .75s cubic-bezier(.6,0,.9,.45) forwards!important}'+P+' .yat-splash-black{animation:yatSplashIris .75s cubic-bezier(.5,0,.8,.2) forwards!important}'+P+' .yat-splash-logo{animation:yatSplashFadeOut .3s ease-in .4s forwards!important}'+P+' .yat-splash-logo img{animation:none!important;filter:none!important}'+P+' .yat-splash-brands,'+P+' .yat-splash-beams{animation:yatSplashFadeOut .25s ease-out forwards!important}';
+var EXIT=RM?P+'{opacity:0!important;pointer-events:none!important}':P+'{pointer-events:none!important;animation:yatSplashSlideRight .45s cubic-bezier(.65,0,.35,1) .4s forwards!important}'+P+' .yat-splash-zoom{animation:yatSplashZoomIn .38s cubic-bezier(.55,0,1,.45) forwards!important}'+P+' .yat-splash-logo{animation:yatSplashFadeOut .3s ease-in forwards!important}'+P+' .yat-splash-logo img{animation:none!important;filter:none!important}'+P+' .yat-splash-brands,'+P+' .yat-splash-beams{animation:yatSplashFadeOut .2s ease-out forwards!important}';
 var OFF=P+'{display:none!important}';
-var dot=function(){try{var r=d.querySelector('#yatSplash .yat-splash-zoom').getBoundingClientRect();
-return P+' .yat-splash-black{--yat-dot-x:'+Math.round(r.left+r.width*.737)+'px;--yat-dot-y:'+Math.round(r.top+r.height*.437)+'px}';}catch(e){return '';}};
 var t0=Date.now(),ready=false,shown=!seen;
 if(seen){set(QUICK+P+'{opacity:0!important;pointer-events:none!important}');
 setTimeout(function(){if(!ready){shown=true;set(QUICK);}},300);}
 var lift=function(){if(ready)return;ready=true;
 if(!shown){set(OFF);return;}
-setTimeout(function(){set((seen?QUICK:'')+dot()+EXIT);
-setTimeout(function(){set(OFF);},800);},seen?0:Math.max(0,1900-(Date.now()-t0)));};
+setTimeout(function(){set((seen?QUICK:'')+EXIT);
+setTimeout(function(){set(OFF);},900);},seen?0:Math.max(0,1900-(Date.now()-t0)));};
 addEventListener('yat:page-ready',lift);
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);
