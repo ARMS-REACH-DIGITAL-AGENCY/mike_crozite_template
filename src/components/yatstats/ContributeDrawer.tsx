@@ -24,6 +24,7 @@ import PhotoCropper from '@/components/yatstats/PhotoCropper';
 import { shrinkPhoto } from '@/lib/shrinkPhoto';
 import {
   CONTRIBUTE_MAX_PHOTO_BYTES,
+  CONTRIBUTE_OPTIONS,
   CONTRIBUTE_OPEN_EVENT,
   DATA_KINDS,
   PHOTO_TYPES,
@@ -36,6 +37,7 @@ import {
   type DataKind,
   type PhotoPurpose,
   type Season,
+  tabIcon,
 } from '@/lib/contribute';
 
 type FanSession = { uid?: string; email?: string; firstName?: string | null; plan?: string | null; isSuperfan?: boolean };
@@ -43,12 +45,10 @@ type PhotoPick = { file: File; preview: string; crop: Crop | null; state: 'ready
 type Status = { kind: 'idle' | 'sending' | 'error' | 'done'; text?: string; confirm?: boolean };
 type PlayerInfo = { name: string; profileUrl: string | null; classOf: number | null };
 
-const TABS: { id: ContributeTab; label: string; icon: string }[] = [
-  { id: 'photo', label: 'Photos', icon: 'ri-image-add-line' },
-  { id: 'data', label: 'Update Data', icon: 'ri-edit-2-line' },
-  { id: 'missing', label: 'Missing Next-Level Alumni', icon: 'ri-user-add-line' },
-  { id: 'tip', label: 'News Tip', icon: 'ri-newspaper-line' },
-];
+// The same icons as the portal's row 3 (CONTRIBUTE_OPTIONS).
+const TABS: { id: ContributeTab; label: string; icon: string }[] = CONTRIBUTE_OPTIONS
+  .filter((o) => o.tab)
+  .map((o) => ({ id: o.tab!, label: o.label, icon: o.icon }));
 const CREST_FALLBACK = '/img/school-placeholder.png';
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const THIS_YEAR = new Date().getFullYear();
@@ -680,7 +680,7 @@ export default function ContributeDrawer() {
                 </>
               ) : (
                 <div className="ycd-placeholder">
-                  <i className={tab === 'photo' ? 'ri-image-add-line' : 'ri-edit-2-line'} aria-hidden="true" />
+                  <i className={tabIcon(tab)} aria-hidden="true" />
                   <span>{aboutSchool ? 'Pick the high school' : player || manualPlayer ? 'Pick the season' : 'Pick the player'}, and we&apos;ll show you what you can send.</span>
                 </div>
               )}

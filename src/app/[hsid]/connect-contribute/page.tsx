@@ -1,29 +1,25 @@
 // <school>.yatstats.com/connect-contribute/ - the Connect & Contribute
 // Portal's own page, inside the school's shell (topbar, drawers, row 2).
 // The shell reads this path as the "mentor" section (SharedShell,
-// YatInteractivity), so the section label and nav match it.
+// YatInteractivity): row 3 is the portal's icon strip (ContributeRow3) and
+// this page is row 4, what each option is and why we need it.
 
-import ContributeButtons from '@/components/yatstats/ContributeButtons';
+import { getSchoolByHsid } from '@/lib/db';
+import ContributeGuide from '@/components/yatstats/ContributeGuide';
 
 export async function generateMetadata() {
   return {
     title: 'Connect & Contribute Portal | YAT?STATS',
-    description: 'Share photos, memories and news tips, request a personalized message from a player, and support a player or the school.',
+    description: 'Send photos, update data, add missing next-level alumni and send news tips, connect with a player, or sponsor the page.',
   };
 }
 
-export default function ConnectContributePage() {
+export default async function ConnectContributePage({ params }: { params: Promise<{ hsid: string }> }) {
+  const { hsid } = await params;
+  const school = /^\d+$/.test(hsid) ? ((await getSchoolByHsid(hsid).catch(() => null)) as Record<string, unknown> | null) : null;
   return (
     <section id="sec-mentor" className="yat-section visible">
-      <div className="yat-placeholder" style={{ textAlign: 'left', maxWidth: 980, margin: '0 auto' }}>
-        <div className="yat-placeholder-title">CONNECT &amp; CONTRIBUTE PORTAL</div>
-        <div className="yat-placeholder-body">
-          YAT?STATS is built by the people who know these players best: their families, coaches,
-          teammates and fans. See a silhouette where a photo should be, a stat we missed, or a player
-          who isn&apos;t here? Send it in. We review everything before it goes on the site.
-        </div>
-        <ContributeButtons />
-      </div>
+      <ContributeGuide schoolName={String(school?.hsname || '')} />
     </section>
   );
 }
