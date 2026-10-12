@@ -22,6 +22,7 @@ import {
   type Baselines, type BatTotals, type GameResult, type LevelBuckets, type PitTotals, type PlayerLines, type SideWeek,
 } from '@/lib/bracket/engine';
 import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
+import { commissionerRuling } from '@/lib/bracket/commissioner';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
@@ -82,12 +83,6 @@ function holdRuns(hv: number | null | undefined, av: number | null | undefined, 
 
 const dayOf = (iso: string, start: string) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / DAY);
 
-// A deterministic commissioner's flip for a finished, level game.
-function flip(gameId: number): 'home' | 'away' {
-  let x = (gameId * 2654435761) >>> 0;
-  x ^= x >>> 16;
-  return x % 2 ? 'home' : 'away';
-}
 
 // A pitcher's FIP on his levels' scales: each level's core plus its FIP
 // constant, weighted by outs.
@@ -290,7 +285,7 @@ function score(idx: Index, live: Live, asof: string) {
       return { week: { days, wins, losses } as SideWeek, weekRows, dayRows };
     };
     const home = side(g[2]), away = side(g[3]);
-    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? () => flip(g[0]) : undefined);
+    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? () => commissionerRuling(g[1], g[2], g[3]) : undefined);
     // A week in progress counts only the posted runs; the week (8) and W-L
     // (9) innings post with Sunday's, and any tiebreak once it's final.
     g[5] = final
@@ -302,7 +297,8 @@ function score(idx: Index, live: Live, asof: string) {
         return [off[0] + pitc[0], off[1] + pitc[1]];
       });
     g[6] = final && result.winner ? (result.winner === 'home' ? g[2] : g[3]) : null;
-    g[4] = !final ? '' : result.decidedBy === 'players' ? `players-${result.tieRank}` : result.decidedBy;
+    g[4] = !final ? '' : result.decidedBy === 'players' ? `players-${result.tieRank}`
+      : result.decidedBy === 'commissioner' && !result.winner ? 'commissioner-pending' : result.decidedBy;
     boxes[String(g[0])] = {
       d: result.innings.slice(0, 8).map((i) => [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
       // Posted [offense, pitching] per inning 1-8, then the W-L inning.
