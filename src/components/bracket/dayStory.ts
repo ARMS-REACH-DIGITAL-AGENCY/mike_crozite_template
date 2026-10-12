@@ -68,31 +68,34 @@ function standouts(rows: PlayerRow[]) {
     arm && `${lastName(arm[1])} threw ${pitLine(arm[5] as number[])} (${arm[7]} FIP-)`,
   ].filter(Boolean) as string[];
 }
+// "a 104", "an 88", "an 11".
+const an = (n: number | string) => (/^8/.test(String(n)) || ['11', '18'].includes(String(n)) ? `an ${n}` : `a ${n}`);
 const joinAnd = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
-// The story of game g's latest settled inning (day), told the way a
+// The story of one settled inning of game g (k: 0-6 = Monday-Sunday, 7 =
+// the 8th, the week's totals, 8 = the 9th, the clubs' W-L), told the way a
 // broadcast updates a game in progress: who put runs up in which half
-// inning and what it did to the score, then who did it in real life. A day
-// is an inning; the visitors bat in the top, the home school in the bottom.
-// null before any inning settles.
-export function dayStory(index: Index, g: GameRow, box: GameBox | undefined, me: number): DayStory | null {
-  if (!box?.f) return null;
+// inning and what it did to the score, then who did it in real life. The
+// visitors bat in the top, the home school in the bottom. null until the
+// inning settles.
+export function inningStory(index: Index, g: GameRow, box: GameBox | undefined, me: number, k: number): DayStory | null {
+  if (!box?.f?.[k]?.[0] || !box.f[k]?.[1]) return null;
   const home = g[2] === me;
-  let d = -1;
-  for (let k = 0; k < 7; k++) if (box.f[k]?.[0] && box.f[k]?.[1]) d = k;
-  if (d < 0) return null;
   const school = shortName(index.schools[me]?.[0] || '');
   const opp = shortName(index.schools[home ? g[3] : g[2]]?.[0] || '');
   const runs = g[5] || [];
-  const mineAt = (k: number) => Number(runs[k * 2 + (home ? 0 : 1)] || 0);
-  const theirsAt = (k: number) => Number(runs[k * 2 + (home ? 1 : 0)] || 0);
+  const mineAt = (i: number) => Number(runs[i * 2 + (home ? 0 : 1)] || 0);
+  const theirsAt = (i: number) => Number(runs[i * 2 + (home ? 1 : 0)] || 0);
   let bm = 0, bt = 0;
-  for (let k = 0; k < d; k++) { bm += mineAt(k); bt += theirsAt(k); }
-  const mine = mineAt(d), theirs = theirsAt(d);
-  const inning = ORD(d + 1);
+  for (let i = 0; i < k; i++) { bm += mineAt(i); bt += theirsAt(i); }
+  const mine = mineAt(k), theirs = theirsAt(k);
+  const inning = ORD(k + 1);
   const S = school.toUpperCase(), O = opp.toUpperCase();
-  const myRows = (home ? box.h : box.a).days?.[d] || [];
-  const oppRows = (home ? box.a : box.h).days?.[d] || [];
+  const mySide = home ? box.h : box.a, oppSide = home ? box.a : box.h;
+  // The players behind the inning: that day's, or the whole week's for the
+  // 8th (and the 9th's shout-outs).
+  const myRows = (k < 7 ? mySide.days?.[k] : mySide.p) || [];
+  const oppRows = (k < 7 ? oppSide.days?.[k] : oppSide.p) || [];
   const shouts = shoutsOf(myRows);
 
   // The half innings in order: the visitors' top, then the home bottom.
@@ -109,8 +112,8 @@ export function dayStory(index: Index, g: GameRow, box: GameBox | undefined, me:
     const [after, oppAfter] = h.mineSide ? [m, t] : [t, m];
     plays.push(`${h.name} put up ${runsWord(h.n)} in the ${h.half} of the ${inning} ${effect(before, oppBefore, after, oppAfter)}`);
   }
-  const score = m === t ? (m ? `It's tied ${m}-${t} after ${d + 1}.` : `Still scoreless through ${d + 1}.`)
-    : `${m > t ? school : opp} leads ${Math.max(m, t)}-${Math.min(m, t)} after ${d + 1}.`;
+  const score = m === t ? (m ? `It's tied ${m}-${t} after ${k + 1}.` : `Still scoreless through ${k + 1}.`)
+    : `${m > t ? school : opp} leads ${Math.max(m, t)}-${Math.min(m, t)} after ${k + 1}.`;
   const lead = plays.length ? `${plays.join(', and ')}.` : `Zeros on both sides in the ${inning}. ${score}`;
 
   let title: string;
@@ -119,26 +122,59 @@ export function dayStory(index: Index, g: GameRow, box: GameBox | undefined, me:
     const pit = shouts.find((x) => x.kind === 'pit' && x.value <= 60);
     title = m > t && bm <= bt ? `${S} TAKES THE LEAD`
       : m === t ? `${S} TIES IT IN THE ${inning.toUpperCase()}`
-      : bat && (!pit || bat.value - 100 >= 100 - pit.value) ? `${surname(bat.name)} SPARKS ${S}`
-      : pit ? `${surname(pit.name)} DEALS FOR ${S}`
+      : k < 8 && bat && (!pit || bat.value - 100 >= 100 - pit.value) ? `${surname(bat.name)} SPARKS ${S}`
+      : k < 8 && pit ? `${surname(pit.name)} DEALS FOR ${S}`
       : `${S} ADDS ${mine === 1 ? 'ONE' : mine} IN THE ${inning.toUpperCase()}`;
   } else if (theirs && !mine) {
     title = t > m && bt <= bm ? `${O} TAKES THE LEAD` : t === m ? `${O} TIES IT` : `${O} ADDS ${theirs === 1 ? 'ONE' : theirs} IN THE ${inning.toUpperCase()}`;
   } else if (mine && theirs) {
     title = `RUNS TRADED IN THE ${inning.toUpperCase()}`;
   } else {
-    title = m === t && !m ? `SCORELESS THROUGH ${d + 1}` : `ZEROS IN THE ${inning.toUpperCase()}`;
+    title = m === t && !m ? `SCORELESS THROUGH ${k + 1}` : `ZEROS IN THE ${inning.toUpperCase()}`;
   }
 
-  const mineSay = standouts(myRows), theirSay = standouts(oppRows);
-  const who = [
-    mineSay.length ? `For ${school}, ${joinAnd(mineSay)}.` : '',
-    theirSay.length ? `For ${opp}, ${joinAnd(theirSay)}.` : '',
-  ].filter(Boolean).join(' ');
+  // What decided the inning in real life.
+  let who: string;
+  if (k === 8) {
+    const [mw, ml] = mySide.wl || [0, 0], [tw, tl] = oppSide.wl || [0, 0];
+    who = `The 9th is the alumni's real clubs: ${school}'s went ${mw}-${ml} this week, ${opp}'s ${tw}-${tl}.`;
+  } else {
+    const wk = k === 7 && box.d?.[7];
+    const totals = wk
+      ? `The 8th is the whole week: ${school} hit for ${an(wk[home ? 0 : 1])} OPS+ to ${opp}'s ${wk[home ? 1 : 0]}, and pitched to ${an(wk[home ? 2 : 3])} FIP- to ${wk[home ? 3 : 2]}. `
+      : '';
+    const mineSay = standouts(myRows), theirSay = standouts(oppRows);
+    who = totals + [
+      mineSay.length ? `For ${school}, ${joinAnd(mineSay)}${k === 7 ? ' for the week' : ''}.` : '',
+      theirSay.length ? `For ${opp}, ${joinAnd(theirSay)}${k === 7 ? ' for the week' : ''}.` : '',
+    ].filter(Boolean).join(' ');
+  }
   const summary = [lead, who].filter(Boolean).join(' ');
   // The hero picture: the bigger of the two days (OPS+ above 100, FIP- below).
   const hero = [...shouts].sort((a, b) => (b.kind === 'bat' ? b.value - 100 : 100 - b.value) - (a.kind === 'bat' ? a.value - 100 : 100 - a.value))[0];
-  return { day: DAYS[d], title, summary, shouts, hero };
+  const day = k < 7 ? `${inning} · ${DAYS[k]}` : k === 7 ? '8th · Week totals' : "9th · Clubs' W-L";
+  return { day, title, summary, shouts: k === 8 ? [] : shouts, hero };
+}
+
+// The story of game g's latest settled day (inning 1-7), or null.
+export function dayStory(index: Index, g: GameRow, box: GameBox | undefined, me: number): DayStory | null {
+  for (let k = 6; k >= 0; k--) if (box?.f?.[k]?.[0] && box.f[k]?.[1]) return inningStory(index, g, box, me, k);
+  return null;
+}
+
+// A week's stories in order, for the hero to rotate through: every settled
+// inning (1st-9th), then the recap once the game is final.
+export function weekStories(index: Index, g: GameRow, box: GameBox | undefined, me: number, gameNo: number, series: string, final: boolean): DayStory[] {
+  const out: DayStory[] = [];
+  for (let k = 0; k < 9; k++) {
+    const s = inningStory(index, g, box, me, k);
+    if (s) out.push(s);
+  }
+  if (final) {
+    const recap = gameStory(index, g, box, me, gameNo, series);
+    if (recap) out.push(recap);
+  }
+  return out;
 }
 
 // The recap of a finished game: the final, how it was won (a walk-off, a
