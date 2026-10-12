@@ -29,8 +29,8 @@ const SECTION_BOOTSTRAP =
 
 // The school splash (SchoolSplash, sent by the school layout before any
 // roster loads). Two modes, decided per person before the first paint:
-// - full, for someone new to YAT?STATS: the logo zooms in, its lights come
-//   on, the crest rises in; at least 1.9s;
+// - full, for someone new to YAT?STATS: the logo slides in from the right,
+//   the crest from the left, then they shine; at least 1.6s;
 // - quick, for anyone back within 30 days (a yat_seen cookie shared by every
 //   school subdomain - a superfan hopping between favorites' schools): the
 //   same screen already lit, no minimum, and only if the page is still
@@ -52,7 +52,7 @@ d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+dom;
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
 var set=function(css){st.textContent=css;};
 var P='html #yatSplash';
-var QUICK=P+' *,'+P+' *::after{animation:none!important}'+P+' .yat-splash-logo img{animation:yatSplashGlow 2.4s ease-in-out infinite!important}'+P+' .yat-splash-beams{opacity:1}';
+var QUICK=P+' *,'+P+' *::after{animation:none!important}'+P+' .yat-splash-logo img{animation:yatSplashGlow 2.4s ease-in-out infinite!important}';
 var RM=false;try{RM=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
 var EXIT=RM?P+'{opacity:0!important;pointer-events:none!important}':P+'{pointer-events:none!important;animation:yatSplashFlipAway .3s cubic-bezier(.55,0,1,.45) forwards!important}';
 var OFF=P+'{display:none!important}';
@@ -70,7 +70,7 @@ if(seen){set(QUICK+P+'{opacity:0!important;pointer-events:none!important}');
 setTimeout(function(){if(!ready){shown=true;set(QUICK);}},300);}
 var lift=function(){if(ready)return;ready=true;
 if(!shown){set(OFF);return;}
-setTimeout(flip,seen?0:Math.max(0,1900-(Date.now()-t0)));};
+setTimeout(flip,seen?0:Math.max(0,1600-(Date.now()-t0)));};
 addEventListener('yat:page-ready',lift);
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);
