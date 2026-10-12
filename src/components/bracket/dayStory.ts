@@ -181,6 +181,14 @@ export function weekStories(index: Index, g: GameRow, box: GameBox | undefined, 
 // shutout, the scoring innings) and where the series stands.
 export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me: number, gameNo: number, series: string): DayStory | null {
   const runs = g[5] || [];
+  if (runs.length && g[6] == null && g[4] === 'commissioner-pending') {
+    const n = Math.ceil(runs.length / 2);
+    let h0 = 0, a0 = 0;
+    for (let k = 0; k < n; k++) { h0 += Number(runs[k * 2] || 0); a0 += Number(runs[k * 2 + 1] || 0); }
+    const nm = (h: number) => shortName(index.schools[h]?.[0] || '');
+    return { day: 'Final', title: "IT'S THE COMMISSIONER'S CALL", shouts: [],
+      summary: `${nm(g[3])} and ${nm(g[2])} finished Game ${gameNo} tied ${a0}-${h0}: after nine innings and every extra-inning matchup, nothing was left to compare. The commissioner will decide it.` };
+  }
   if (!runs.length || g[6] == null) return null;
   const home = g[2] === me;
   const innings = Math.ceil(runs.length / 2);
@@ -205,14 +213,17 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
       wonLast = h === a;
     }
   }
-  const flip = g[4] === 'coin' || g[4] === 'flip';
-  const title = flip ? `${W.toUpperCase()} WINS ON THE FLIP`
+  const flip = g[4] === 'commissioner';
+  const cross = g[4] === 'cross';
+  const title = flip ? `${W.toUpperCase()} WINS ON THE COMMISSIONER'S CALL`
+    : cross ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : walkOff ? `${W.toUpperCase()} WALKS IT OFF`
     : wonLast ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : !ls ? `${W.toUpperCase()} BLANKS ${L.toUpperCase()}`
     : `${W.toUpperCase()} WINS GAME ${gameNo}`;
   const lastRuns = Number(runs[(innings - 1) * 2] || 0);
-  const how = flip ? `${W} won it on the commissioner's flip.`
+  const how = flip ? `${W} won it on the commissioner's decision after every extra inning came up even.`
+    : cross ? `${W} won it in the ${ORD(innings)}, hitter against pitcher: the player closer to league average took it.`
     : walkOff || wonLast ? `${W} won it with ${runsWord(lastRuns)} in the bottom of the ${ORD(innings)}${walkOff ? ', coming from behind' : ''}.`
     : `${W} scored in the ${joinAnd(winIn)}${loseIn.length ? `, ${L} in the ${joinAnd(loseIn)}` : `, and ${L} never got on the board`}.`;
   const weekRows = (home ? box?.h : box?.a)?.p || [];
@@ -310,6 +321,15 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
     }
     // Extra innings: the schools' top players head to head; only the
     // matchups this side won.
+    if (g[4] === 'cross' && e.k === innings - 1) {
+      // Hitter vs pitcher: distance from league average.
+      const m = best(side.p), t = best(other.p);
+      const bits = [
+        m.bat && t.arm && Number(m.bat[6]) - 100 > 100 - Number(t.arm[7]) ? `its hitter ${m.bat[1]} (${m.bat[6]} OPS+) came out closer to league average than ${O}'s pitcher ${t.arm[1]} (${t.arm[7]} FIP-)` : '',
+        m.arm && t.bat && 100 - Number(m.arm[7]) > Number(t.bat[6]) - 100 ? `its pitcher ${m.arm[1]} (${m.arm[7]} FIP-) came out closer to league average than ${O}'s hitter ${t.bat[1]} (${t.bat[6]} OPS+)` : '',
+      ].filter(Boolean);
+      return bits.length ? `in the hitter-vs-pitcher inning, when ${joinAnd(bits)}` : 'in the hitter-vs-pitcher inning';
+    }
     const mine = best(side.p), theirs = best(other.p);
     const vs = [
       mine.bat && theirs.bat && Number(mine.bat[6]) > Number(theirs.bat[6]) ? `its top bat, ${mine.bat[1]} (${mine.bat[6]} OPS+), out-hit ${O}'s ${theirs.bat[1]} (${theirs.bat[6]})` : '',
@@ -322,9 +342,9 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
   const score = `${ws}-${ls}`;
   const verb = ls === 0 ? 'blanked' : 'beat';
   let lede = `${W} ${verb} ${L} ${score} in Game ${opts.gameNo} of their Round 1 series`;
-  if (g[4] === 'coin' || g[4] === 'flip') {
-    // The flip's run is the last; the score before it was tied.
-    lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on the commissioner's flip. Tied ${ls}-${ls} after nine, the tiebreaker couldn't be played - it needs a hitter and a pitcher from each school - so a coin decided it, and the flip's run made it ${score}.`;
+  if (g[4] === 'commissioner') {
+    // The decision's run is the last; the score before it was tied.
+    lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on the commissioner's decision. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it came down to his call, and that run made it ${score}.`;
   }
   else if (decisive) {
     const where = decisive.k < 9 ? `the ${ORD(decisive.k + 1)}` : `the ${ORD(decisive.k + 1)} inning, in extras`;
