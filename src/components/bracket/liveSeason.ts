@@ -32,6 +32,7 @@ type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats
 type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
   clubs: Record<string, [number, string, 0 | 1][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
+  fans?: Record<string, number[]>; // registered fans as each week went final
 };
 
 const RULES = { mode: 'adjusted' as const, absent: 'hold' as const };
@@ -285,7 +286,8 @@ function score(idx: Index, live: Live, asof: string) {
       return { week: { days, wins, losses } as SideWeek, weekRows, dayRows };
     };
     const home = side(g[2]), away = side(g[3]);
-    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? () => commissionerRuling(g[1], g[2], g[3]) : undefined);
+    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? () => commissionerRuling(g[1], g[2], g[3]) : undefined,
+      [live.fans?.[String(g[2])]?.[week - 1] ?? 0, live.fans?.[String(g[3])]?.[week - 1] ?? 0]);
     // A week in progress counts only the posted runs; the week (8) and W-L
     // (9) innings post with Sunday's, and any tiebreak once it's final.
     g[5] = final

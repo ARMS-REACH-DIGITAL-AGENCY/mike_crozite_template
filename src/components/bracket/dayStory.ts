@@ -187,7 +187,7 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
     for (let k = 0; k < n; k++) { h0 += Number(runs[k * 2] || 0); a0 += Number(runs[k * 2 + 1] || 0); }
     const nm = (h: number) => shortName(index.schools[h]?.[0] || '');
     return { day: 'Final', title: "IT'S THE COMMISSIONER'S CALL", shouts: [],
-      summary: `${nm(g[3])} and ${nm(g[2])} finished Game ${gameNo} tied ${a0}-${h0}: after nine innings and every extra-inning matchup, nothing was left to compare. The commissioner will decide it.` };
+      summary: `${nm(g[3])} and ${nm(g[2])} finished Game ${gameNo} tied ${a0}-${h0}: after nine innings, every extra-inning matchup and even fan bases, nothing was left to compare. The commissioner will decide it.` };
   }
   if (!runs.length || g[6] == null) return null;
   const home = g[2] === me;
@@ -215,14 +215,17 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
   }
   const flip = g[4] === 'commissioner';
   const cross = g[4] === 'cross';
-  const title = flip ? `${W.toUpperCase()} WINS ON THE COMMISSIONER'S CALL`
+  const fanBase = g[4] === 'fans';
+  const title = fanBase ? `${W.toUpperCase()}'S FANS WIN IT`
+    : flip ? `${W.toUpperCase()} WINS ON THE COMMISSIONER'S CALL`
     : cross ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : walkOff ? `${W.toUpperCase()} WALKS IT OFF`
     : wonLast ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : !ls ? `${W.toUpperCase()} BLANKS ${L.toUpperCase()}`
     : `${W.toUpperCase()} WINS GAME ${gameNo}`;
   const lastRuns = Number(runs[(innings - 1) * 2] || 0);
-  const how = flip ? `${W} won it on the commissioner's decision after every extra inning came up even.`
+  const how = fanBase ? `${W} won it on the bigger fan base after every extra inning came up even.`
+    : flip ? `${W} won it on the commissioner's decision after every extra inning came up even.`
     : cross ? `${W} won it in the ${ORD(innings)}, hitter against pitcher: the player closer to league average took it.`
     : walkOff || wonLast ? `${W} won it with ${runsWord(lastRuns)} in the bottom of the ${ORD(innings)}${walkOff ? ', coming from behind' : ''}.`
     : `${W} scored in the ${joinAnd(winIn)}${loseIn.length ? `, ${L} in the ${joinAnd(loseIn)}` : `, and ${L} never got on the board`}.`;
@@ -342,7 +345,9 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
   const score = `${ws}-${ls}`;
   const verb = ls === 0 ? 'blanked' : 'beat';
   let lede = `${W} ${verb} ${L} ${score} in Game ${opts.gameNo} of their Round 1 series`;
-  if (g[4] === 'commissioner') {
+  if (g[4] === 'fans') {
+    lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on the strength of its fans. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it went to the fan-base tiebreaker - the most registered YAT?STATS fans - and that run made it ${score}.`;
+  } else if (g[4] === 'commissioner') {
     // The decision's run is the last; the score before it was tied.
     lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on the commissioner's decision. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it came down to his call, and that run made it ${score}.`;
   }
