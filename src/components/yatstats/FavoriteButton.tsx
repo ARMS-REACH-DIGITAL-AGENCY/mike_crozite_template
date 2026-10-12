@@ -55,7 +55,7 @@ function readIsSuperfan(): boolean {
   }
 }
 
-function openAccountDrawer() {
+export function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
   document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
 }

@@ -1,19 +1,27 @@
 'use client';
 
-// "By My Favorites" in the Filters drawer (school layout): marks the
-// reader's favorites at this school (data-fav="true" on their flip cards) and
-// shows the group once there is at least one. GalleryFilterController keeps
-// only marked cards while "Show my favorites only" is checked. Uses the same
-// one-per-page favorites lookup as the hearts on the cards (FavoriteButton),
-// and re-reads it when a favorite changes or the Filters drawer opens (which
-// also covers signing in after the page loaded).
+// "My Favorites" in the Filters drawer (school layout). The group shows for
+// everyone, so a visitor sees what registering gets them:
+// - visitor: the hint says to register, and tapping the checkbox opens the
+//   Account drawer instead of checking it;
+// - signed in, no favorites at this school yet: the hint says how to add one,
+//   and the checkbox stays unchecked;
+// - signed in with favorites: their flip cards are marked data-fav="true" and
+//   GalleryFilterController keeps only those while the box is checked.
+// Uses the same one-per-page favorites lookup as the hearts on the cards
+// (FavoriteButton), and re-reads it when a favorite changes, the reader signs
+// in, or the Filters drawer opens.
 
 import { useEffect } from 'react';
-import { loadFavoriteIds, readYatUser } from './FavoriteButton';
+import { loadFavoriteIds, openAccountDrawer, readYatUser } from './FavoriteButton';
+
+const HINT_VISITOR = 'Register free to save your favorites.';
+const HINT_NONE = 'Tap ♡ on any player to add them here.';
 
 export default function FavoritesFilter() {
   useEffect(() => {
     let live = true;
+    let favoritesHere = 0;
 
     const sync = async () => {
       const user = readYatUser();
@@ -26,11 +34,13 @@ export default function FavoritesFilter() {
         if (ids.has(id)) { card.dataset.fav = 'true'; here.add(id); }
         else delete card.dataset.fav;
       });
+      favoritesHere = here.size;
 
-      const group = document.getElementById('filterFavsGroup');
+      const hint = document.getElementById('filterFavsHint');
+      if (hint) hint.textContent = !user?.uid ? HINT_VISITOR : here.size ? '' : HINT_NONE;
+
       const box = document.getElementById('filterFavs') as HTMLInputElement | null;
-      if (group) group.style.display = here.size ? '' : 'none';
-      // Only while "Show my favorites only" is checked does the gallery need
+      // Only while "Only show my favorites" is checked does the gallery need
       // filtering again (to follow the new marks, or to let everyone back in
       // when the last favorite here is gone); otherwise leave it alone.
       if (!box?.checked) return;
@@ -40,15 +50,25 @@ export default function FavoritesFilter() {
 
     const onChange = () => { window.setTimeout(sync, 0); };
     const onClick = (event: MouseEvent) => {
-      if ((event.target as Element | null)?.closest?.('#openFilters')) onChange();
+      const target = event.target as Element | null;
+      if (target?.closest?.('#openFilters')) { onChange(); return; }
+      const box = target?.closest?.('#filterFavs') as HTMLInputElement | null;
+      // Checking the box with nothing to show: a visitor goes to register,
+      // a fan with no favorites here keeps the hint. Unchecking is never held.
+      // (A click handler sees the box already toggled, so checked = checking.)
+      if (!box || !box.checked) return;
+      if (!readYatUser()?.uid) { event.preventDefault(); openAccountDrawer(); return; }
+      if (!favoritesHere) event.preventDefault();
     };
 
     void sync();
     window.addEventListener('yat-favorites-changed', onChange);
+    window.addEventListener('yat-auth-success', onChange);
     document.addEventListener('click', onClick, true);
     return () => {
       live = false;
       window.removeEventListener('yat-favorites-changed', onChange);
+      window.removeEventListener('yat-auth-success', onChange);
       document.removeEventListener('click', onClick, true);
     };
   }, []);

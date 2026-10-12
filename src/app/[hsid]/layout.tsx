@@ -441,15 +441,18 @@ async function SchoolShell({
         </div>
 
         <div className="yat-drawer-content" id="filters">
-          {/* "By My Favorites": hidden until FavoritesFilter finds at least
-              one of the reader's favorites at this school (it marks their
-              cards data-fav="true"; GalleryFilterController filters on it). */}
-          <details className="yat-filter-group" id="filterFavsGroup" open style={{ display: 'none' }}>
-            <summary>By My Favorites</summary>
+          {/* "My Favorites": shown to everyone, so visitors see what
+              registering gets them. FavoritesFilter marks the reader's
+              favorites at this school (data-fav="true" on their cards, which
+              GalleryFilterController filters on), writes the hint, and sends
+              a visitor who taps the checkbox to the Account drawer. */}
+          <details className="yat-filter-group" id="filterFavsGroup" open>
+            <summary>My Favorites</summary>
             <div className="yat-filter-options">
               <label>
-                <input type="checkbox" id="filterFavs" value="favs" /> Show my favorites only
+                <input type="checkbox" id="filterFavs" value="favs" /> Only show my favorites
               </label>
+              <p id="filterFavsHint" style={{ margin: '6px 0 0', font: '400 11px Oswald,sans-serif', opacity: 0.7 }} />
             </div>
           </details>
 

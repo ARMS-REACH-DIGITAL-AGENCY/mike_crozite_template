@@ -178,7 +178,7 @@ function applyFilters(section: string) {
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
   const rosterYears = getSelectedValues('filterRosterYears');
-  // "By My Favorites" (FavoritesFilter marks the reader's favorites).
+  // "My Favorites" (FavoritesFilter marks the reader's favorites).
   const favoritesOnly = Boolean((document.getElementById('filterFavs') as HTMLInputElement | null)?.checked);
   const allTimeTeamYear = section === 'alltime'
     ? normalize(targetSection.dataset.alltimeTeamYearFilter)
