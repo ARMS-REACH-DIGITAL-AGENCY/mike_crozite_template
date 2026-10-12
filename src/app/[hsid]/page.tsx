@@ -22,6 +22,7 @@ import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
 import { TEAM_YEAR_SHARE_TAGLINE, parseTeamYear, teamYearAlumni, teamYearTitle } from "@/lib/teamYearShare";
+import { teamCardShareImage } from "@/lib/teamCards";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -306,7 +307,9 @@ export async function generateMetadata({
       const teamTitle = teamYearTitle(schoolShort, teamYear, result);
       const description = `${count} from the ${teamYear} team went on to the next level. ${TEAM_YEAR_SHARE_TAGLINE}`;
       const hostBase = host ? `https://${host}` : canonicalUrl;
-      const ogImageUrl = `${hostBase}/api/og/team-year?hsid=${encodeURIComponent(schoolHsid)}&year=${teamYear}`;
+      // A state-champion team with a card shares the card itself.
+      const ogImageUrl = teamCardShareImage(schoolHsid, teamYear)
+        || `${hostBase}/api/og/team-year?hsid=${encodeURIComponent(schoolHsid)}&year=${teamYear}`;
       const title = `${teamTitle} | YAT?STATS`;
       return {
         title,
