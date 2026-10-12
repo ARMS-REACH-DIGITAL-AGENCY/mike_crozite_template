@@ -29,31 +29,39 @@ const SECTION_BOOTSTRAP =
 
 // The school splash (SchoolSplash, sent by the school layout before any
 // roster loads). Two modes, decided per person before the first paint:
-// - full, for someone new to YAT?STATS: logo and crest, at least 1.2s, then
-//   it dissolves into the page;
+// - full, for someone new to YAT?STATS: the logo zooms in, its lights come
+//   on, the crest rises in; at least 1.9s;
 // - quick, for anyone back within 30 days (a yat_seen cookie shared by every
-//   school subdomain - a superfan hopping between favorites' schools): no
-//   logo, no minimum; the crest appears only if the page is still loading
-//   after 0.3s, and dissolves the moment it's ready.
+//   school subdomain - a superfan hopping between favorites' schools): the
+//   same screen already lit, no minimum, and only if the page is still
+//   loading after 0.3s.
+// Either way it leaves by zooming through the logo's "?" into the hub.
+// ?splash=... in the address forces the full one (to show it off, or test).
 // Ready = 'yat:page-ready' (the gallery strip) or, on pages without a
-// gallery, the load event; never longer than 8s. The splash is shown and
-// hidden through one <style> in <head> (React leaves those alone), never by
-// touching the element.
+// gallery, the load event; never longer than 8s. The splash is driven
+// through one <style> in <head> (React leaves those alone), never by
+// touching the element; its rules start with "html " to outrank the
+// splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
-var d=document,h=location.hostname,seen=/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
+var d=document,h=location.hostname,seen=!/[?&]splash=/.test(location.search)&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
 var dom=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
 d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+dom;
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
 var set=function(css){st.textContent=css;};
-var QUICK='#yatSplash .yat-splash-logo{display:none!important}#yatSplash .yat-splash-crest{animation:none!important;opacity:1!important}';
-var OFF='#yatSplash{display:none!important}';
+var P='html #yatSplash';
+var QUICK=P+' *,'+P+' *::after{animation:none!important}'+P+' .yat-splash-logo img{animation:yatSplashGlow 2.4s ease-in-out infinite!important}'+P+' .yat-splash-beams{opacity:1}';
+var RM=false;try{RM=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+var EXIT=RM?P+'{opacity:0!important;pointer-events:none!important}':P+'{pointer-events:none!important}'+P+' .yat-splash-zoom{animation:yatSplashZoomThrough .75s cubic-bezier(.6,0,.9,.45) forwards!important}'+P+' .yat-splash-black{animation:yatSplashIris .75s cubic-bezier(.5,0,.8,.2) forwards!important}'+P+' .yat-splash-logo{animation:yatSplashFadeOut .3s ease-in .4s forwards!important}'+P+' .yat-splash-logo img{animation:none!important;filter:none!important}'+P+' .yat-splash-brands,'+P+' .yat-splash-beams{animation:yatSplashFadeOut .25s ease-out forwards!important}';
+var OFF=P+'{display:none!important}';
+var dot=function(){try{var r=d.querySelector('#yatSplash .yat-splash-zoom').getBoundingClientRect();
+return P+' .yat-splash-black{--yat-dot-x:'+Math.round(r.left+r.width*.737)+'px;--yat-dot-y:'+Math.round(r.top+r.height*.437)+'px}';}catch(e){return '';}};
 var t0=Date.now(),ready=false,shown=!seen;
-if(seen){set(QUICK+'#yatSplash{opacity:0!important;pointer-events:none!important}');
-setTimeout(function(){if(!ready){shown=true;set(QUICK+'#yatSplash{transition:opacity .25s ease-out!important}');}},300);}
+if(seen){set(QUICK+P+'{opacity:0!important;pointer-events:none!important}');
+setTimeout(function(){if(!ready){shown=true;set(QUICK);}},300);}
 var lift=function(){if(ready)return;ready=true;
 if(!shown){set(OFF);return;}
-setTimeout(function(){set((seen?QUICK:'')+'#yatSplash{opacity:0!important;pointer-events:none!important}');
-setTimeout(function(){set(OFF);},850);},seen?0:Math.max(0,1200-(Date.now()-t0)));};
+setTimeout(function(){set((seen?QUICK:'')+dot()+EXIT);
+setTimeout(function(){set(OFF);},800);},seen?0:Math.max(0,1900-(Date.now()-t0)));};
 addEventListener('yat:page-ready',lift);
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);

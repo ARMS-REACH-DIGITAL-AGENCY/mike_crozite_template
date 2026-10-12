@@ -29,6 +29,10 @@ export function middleware(request: NextRequest) {
   const team = request.nextUrl.searchParams.get('team') || '';
   if (/^\d{4}$/.test(team)) requestHeaders.set('x-yat-team', team);
   else requestHeaders.delete('x-yat-team');
+  // ?splash=partner on a preview shows the splash with a placeholder title
+  // partner (the school layout checks it is a preview).
+  if (request.nextUrl.searchParams.get('splash') === 'partner') requestHeaders.set('x-yat-splash', 'partner');
+  else requestHeaders.delete('x-yat-splash');
 
   return NextResponse.next({
     request: {
