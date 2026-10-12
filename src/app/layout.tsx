@@ -41,7 +41,7 @@ const SPLASH_BOOTSTRAP =
   "if(seen&&!T){css(S,'#yatSplash{display:none!important}');}" +
   "else{var t0=Date.now(),done=false,lift=function(){if(done)return;done=true;" +
   "setTimeout(function(){css('yat-splash-fade','#yatSplash{opacity:0!important;pointer-events:none!important}');" +
-  "setTimeout(function(){css(S,'#yatSplash{display:none!important}');},650);},Math.max(0,1200-(Date.now()-t0)));};" +
+  "setTimeout(function(){css(S,'#yatSplash{display:none!important}');},850);},Math.max(0,1200-(Date.now()-t0)));};" +
   "addEventListener('yat:page-ready',lift);" +
   "addEventListener('load',function(){if(!document.getElementById('alltime-grid'))setTimeout(lift,250);});" +
   "setTimeout(lift,8000);}}catch(e){}";

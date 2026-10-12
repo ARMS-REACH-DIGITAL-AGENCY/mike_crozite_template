@@ -3,14 +3,16 @@
 // Server-rendered so it is the very first paint; whether it shows at all, and
 // when it fades, is SPLASH_BOOTSTRAP's call (app/layout.tsx) - first page of
 // a visit and shared team links, at least 1.2s, until the page is ready.
-const YAT_LOGO = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/yslogo.png';
+// The white-on-black wordmark (the header's yslogo.png is the dark one it
+// inverts; on this black screen its YAT? half disappears).
+const YAT_LOGO = '/img/yatstats-logo.png';
 
 const SPLASH_CSS = `
-#yatSplash{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(56px,14vh,120px);opacity:1;transition:opacity .6s ease-out}
+#yatSplash{position:fixed;inset:0;z-index:2147483000;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(56px,14vh,120px);opacity:1;transition:opacity .8s ease-out}
 #yatSplash .yat-splash-logo{position:relative;overflow:hidden;line-height:0}
 #yatSplash .yat-splash-logo img{width:clamp(240px,70vw,440px);height:auto;filter:drop-shadow(0 0 15px rgba(255,255,255,.2));animation:yatSplashGlow 2.4s ease-in-out infinite}
 #yatSplash .yat-splash-logo::after{content:'';position:absolute;top:0;left:-150%;width:70%;height:100%;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.22),rgba(255,255,255,0));transform:skewX(-25deg);animation:yatSplashShine 2.2s ease-in-out .3s infinite}
-#yatSplash .yat-splash-crest{height:clamp(56px,16vw,84px);width:auto;opacity:0;animation:yatSplashIn .7s ease-out .45s forwards}
+#yatSplash .yat-splash-crest{height:clamp(56px,16vw,84px);width:auto;opacity:0;animation:yatSplashIn .8s ease-in-out .6s forwards}
 @keyframes yatSplashGlow{50%{filter:drop-shadow(0 0 26px rgba(255,255,255,.42))}}
 @keyframes yatSplashShine{60%,100%{left:150%}}
 @keyframes yatSplashIn{to{opacity:1}}

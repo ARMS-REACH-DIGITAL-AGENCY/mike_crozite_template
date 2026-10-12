@@ -315,7 +315,7 @@ function scrollToLinkedCard(section: string, playerId: string) {
     const card = findCard(section, playerId);
     const shown = card && (card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card).style.display !== 'none';
     if (!card || !shown) return;
-    card.scrollIntoView({ behavior: 'auto', block: 'center' });
+    card.scrollIntoView({ behavior: 'instant', block: 'center' });
     if (!highlighted) {
       highlighted = true;
       card.animate?.(
@@ -391,8 +391,10 @@ export default function GalleryFilterController() {
 
     // A new team year (or back to the whole list) starts at the top of the
     // gallery: the list is long, and staying scrolled down usually left the
-    // reader below every card of the year they picked.
-    const toTop = () => window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'auto' }));
+    // reader below every card of the year they picked. Instantly, like a
+    // headshot tap on the Active list: 'auto' follows the page's
+    // scroll-behavior:smooth and glided the whole list by.
+    const toTop = () => window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
 
     const onAllTimeTeamYearFilter = (event: Event) => {
       const detail = (event as CustomEvent<{ year?: unknown; reset?: boolean }>).detail;

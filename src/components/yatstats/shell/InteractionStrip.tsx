@@ -437,7 +437,7 @@ export default function InteractionStrip({
     const year = new URLSearchParams(window.location.search).get('team') || '';
     if (ALL_TIME_TEAM_YEARS.includes(year)) {
       if (window.location.hash !== '#sec-alltime') history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-alltime`);
-      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
     }
     ready();
     const onYear = (event: Event) => {
@@ -446,7 +446,7 @@ export default function InteractionStrip({
       setSelectedRosterYear(picked || null);
       if (picked) {
         window.requestAnimationFrame(() => {
-          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
         });
       }
     };
