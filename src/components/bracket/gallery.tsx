@@ -85,7 +85,9 @@ export const SCT = 'Season Championship Tournament';
 export const WORLD_SERIES = 'Fantasy World Series';
 export const WORLD_SERIES_FULL = 'YAT?STATS High School Alumni Fantasy World Series';
 export const TIE_NOTE: Record<string, string> = {
-  coin: "Tied after 9 and after all available player tiebreakers · commissioner coin flip (+1 run)",
+  cross: "Tied after 9 and the head-to-head matchups · won hitter vs pitcher, the closer to league average (+1 run)",
+  commissioner: "Tied after every extra inning · the commissioner's decision (+1 run)",
+  'commissioner-pending': "Tied after every extra inning · awaiting the commissioner's decision",
 };
 // 'players-2': the tie went down to each school's #2 hitter and #2 pitcher
 export function tieNote(decidedBy: string) {
