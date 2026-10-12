@@ -68,6 +68,10 @@ async function main() {
        FROM player_source_map m WHERE m.source = 'mlb_api' AND m.source_player_id = ANY($1::text[])`,
     [roster.map((r) => r.personId)]
   );
+  // One MLB person can be linked to more than one of our player ids (an
+  // old and a new card for the same man): keep all of them.
+  const idsByPerson = new Map<string, typeof mapped>();
+  for (const m of mapped) idsByPerson.set(m.source_player_id, [...(idsByPerson.get(m.source_player_id) || []), m]);
   const byPerson = new Map(mapped.map((m) => [m.source_player_id, m]));
   const { rows: stored } = await pool.query<{ playerid: string; n: number }>(
     `SELECT playerid::text AS playerid, count(DISTINCT source_game_id)::int AS n
@@ -87,11 +91,13 @@ async function main() {
     const m = byPerson.get(r.personId)!;
     const [bat, pit] = await Promise.all([aflGames(r.personId, "hitting"), aflGames(r.personId, "pitching")]);
     const cur = await currentTeam(r.personId);
-    const have = storedBy.get(m.playerid) || 0;
+    const links = idsByPerson.get(r.personId) || [m];
+    const perId = links.map((l) => `${l.playerid}${l.match_method === 'rejected_bad_identity_match' ? '(rejected)' : ''}:${storedBy.get(l.playerid) || 0}`).join(' ');
+    const have = Math.max(...links.map((l) => storedBy.get(l.playerid) || 0));
     const mlbGames = Math.max(bat, pit);
     const status = mlbGames === 0 ? "no AFL games yet" : have === 0 ? "MISSING" : have < mlbGames ? "PARTIAL" : "complete";
     if (status === "complete") complete++; else if (status === "MISSING") missing++; else if (status === "PARTIAL") partial++; else none++;
-    console.log([r.name, r.team, r.pos, m.playerid, m.hsid || "-", `${bat}/${pit}`, have, `${cur.name} (${cur.sport ?? "-"})`, status].join(" | "));
+    console.log([r.name, r.team, r.pos, perId, m.hsid || "-", `${bat}/${pit}`, have, `${cur.name} (${cur.sport ?? "-"})`, status].join(" | "));
     await delay(150);
   }
   console.log(`\nSummary: ${complete} complete, ${partial} partial, ${missing} missing, ${none} with no AFL games yet (of ${inUniverse.length} in our universe)`);
