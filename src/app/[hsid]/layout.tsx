@@ -18,7 +18,6 @@ import {
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -29,7 +28,6 @@ import type { Metadata } from 'next';
 
 // Shared Components
 import YatStyles from '@/components/yatstats/YatStyles';
-import YatInteractivity from '@/components/yatstats/YatInteractivity';
 import AccountDrawer from '@/components/yatstats/AccountDrawer';
 import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
 import SchoolContextProvider from '@/context/SchoolContext';
@@ -514,10 +512,6 @@ async function SchoolShell({
       <DrawerLayoutOverrides />
       <DrawerRailController />
       <YatTourBridge />
-      <YatInteractivity
-        resolvedHsid={resolvedHsid}
-        firebaseConfigJSON={getFirebaseConfigJSON()}
-      />
       <YatHomeSchoolFallback />
       <Script
         id="yat-nonlive-search-link-patch"
@@ -527,7 +521,7 @@ async function SchoolShell({
 (function(){
   var NOT_LIVE_BASE='https://yatstats.com/school-not-live';
 
-  function clean(s){return String(s||'').replace(/\s+/g,' ').trim();}
+  function clean(s){return String(s||'').replace(/\\s+/g,' ').trim();}
 
   function setIf(qs,key,value){
     value=clean(value);
