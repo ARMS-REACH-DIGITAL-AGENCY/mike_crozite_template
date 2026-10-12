@@ -21,7 +21,7 @@ const COLLEGE_YEARS = ['College Freshman', 'College Sophomore', 'College Junior'
 const GRAD_YEAR = '5th Year / Grad Student';
 const COLLEGE_LEVEL = /NCAA|NJCAA|NAIA|JUCO|CCCAA|NWAC|USCAA|COLLEGE|^D[123]$/i;
 
-type Row = { year: number; team: string | null; level: string | null };
+type Row = { year: number; team: string | null; level: string | null; teamid: string | null };
 
 export async function GET(req: NextRequest) {
   const playerId = String(req.nextUrl.searchParams.get('playerId') || '').trim();
@@ -44,15 +44,15 @@ export async function GET(req: NextRequest) {
     );
     const statSql = present
       .map(({ t }) => `SELECT NULLIF(regexp_replace(r.year::text, '[^0-9]', '', 'g'), '')::int AS year,
-                              COALESCE(m.current_team_name, r.teamid::text) AS team, m.level_label AS level
+                              COALESCE(m.current_team_name, r.teamid::text) AS team, m.level_label AS level, r.teamid::text AS teamid
                          FROM public.${t} r LEFT JOIN teamid_universe_mapping m ON m.teamid::text = r.teamid::text
                         WHERE r.playerid::text = $1`)
       .join(' UNION ');
     const { rows } = await query<Row>(
-      `SELECT DISTINCT year, team, level FROM (
+      `SELECT DISTINCT ON (year, team) year, team, level, teamid FROM (
          ${statSql ? `${statSql} UNION ` : ''}
-         SELECT season AS year, team_name AS team, level FROM player_team_stints WHERE playerid = $1
-       ) s WHERE year IS NOT NULL ORDER BY year`,
+         SELECT season AS year, team_name AS team, level, teamid FROM player_team_stints WHERE playerid = $1
+       ) s WHERE year IS NOT NULL ORDER BY year, team, teamid NULLS LAST`,
       [playerId]
     );
 
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
       const label = isCollege ? COLLEGE_YEARS[collegeYears.indexOf(r.year)] || GRAD_YEAR : r.level || 'Pro';
       const key = `${isCollege ? 'college' : 'pro'}-${r.year}-${team}`;
       if (seasons.some((s) => s.key === key)) continue;
-      seasons.push({ key, year: r.year, stage: isCollege ? 'college' : 'pro', team, level: r.level || '', label, current: false });
+      seasons.push({ key, year: r.year, stage: isCollege ? 'college' : 'pro', team, teamId: /^\d+$/.test(r.teamid || '') ? r.teamid! : undefined, level: r.level || '', label, current: false });
     }
     seasons.sort((a, b) => b.year - a.year || (a.stage === b.stage ? 0 : a.stage === 'hs' ? 1 : -1));
     if (seasons[0]) seasons[0].current = true;

@@ -21,6 +21,7 @@ import { auth } from '@/lib/firebase';
 import { SchoolContext } from '@/context/SchoolContext';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import PhotoCropper from '@/components/yatstats/PhotoCropper';
+import ContributeProof from '@/components/yatstats/ContributeProof';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
 import { shrinkPhoto } from '@/lib/shrinkPhoto';
 import {
@@ -141,6 +142,8 @@ export default function ContributeDrawer() {
   const [photos, setPhotos] = useState<Partial<Record<PhotoPurpose, PhotoPick | null>>>({});
   const [data, setData] = useState<Partial<Record<DataKind, string>>>({});
   const [note, setNote] = useState('');
+  // The proof screen: shown after Send, before anything is sent.
+  const [proof, setProof] = useState(false);
   const [source, setSource] = useState('');
   const pickFor = useRef<PhotoPurpose | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -172,6 +175,7 @@ export default function ContributeDrawer() {
     setNote(''); setSource(''); setTipUrl(''); setTipWhy('');
     setMp({ name: '', gradYear: '', position: '', level: '', team: '', notes: '' });
     setStatus({ kind: 'idle' });
+    setProof(false);
   }, [clearPicks]);
 
   // His seasons, newest first (the newest is "current").
@@ -203,6 +207,7 @@ export default function ContributeDrawer() {
     const onOpen = (event: Event) => {
       const d = (event as CustomEvent<ContributeOpen>).detail || {};
       if (status.kind === 'done') resetForms();
+      setProof(false);
       if (d.tab) setTab(d.tab);
       if (d.player !== undefined && d.player?.playerId !== player?.playerId) choosePlayer(d.player);
       if (d.school) setSchool(d.school);
@@ -299,14 +304,22 @@ export default function ContributeDrawer() {
   };
 
   // Photos go one at a time, so each can fail or succeed on its own.
-  const sendPhotos = async () => {
+  // What's ready to send, or what's missing.
+  const photosToSend = (): { todo: PhotoPurpose[]; problem: string | null } => {
     const problem = needWho();
-    if (problem) return setStatus({ kind: 'error', text: problem });
+    if (problem) return { todo: [], problem };
     const checked = (Object.keys(photos) as PhotoPurpose[]).filter((id) => photoTypes.some((t) => t.id === id));
-    if (!checked.length) return setStatus({ kind: 'error', text: 'Check the kind of photo you have.' });
+    if (!checked.length) return { todo: [], problem: 'Check the kind of photo you have.' };
     const empty = checked.find((id) => !photos[id]);
-    if (empty) return setStatus({ kind: 'error', text: `Choose the photo for ${PHOTO_TYPES.find((t) => t.id === empty)?.label}.` });
+    if (empty) return { todo: [], problem: `Choose the photo for ${PHOTO_TYPES.find((t) => t.id === empty)?.label}.` };
     const todo = checked.filter((id) => photos[id]!.state !== 'sent');
+    return { todo, problem: todo.length ? null : 'Those photos are already sent.' };
+  };
+
+  const sendPhotos = async () => {
+    const { todo, problem } = photosToSend();
+    setProof(false);
+    if (problem) return setStatus({ kind: 'error', text: problem });
     setStatus({ kind: 'sending', text: 'Sending…' });
     const token = await idToken();
     const w = who();
@@ -398,7 +411,13 @@ export default function ContributeDrawer() {
 
   const submit = () => {
     if (!signedIn) return openAccountDrawer('signin');
-    if (tab === 'photo') return sendPhotos();
+    if (tab === 'photo') {
+      // First the proof: where each photo will go. Nothing is sent yet.
+      const { problem } = photosToSend();
+      if (problem) return setStatus({ kind: 'error', text: problem });
+      setStatus({ kind: 'idle' });
+      return setProof(true);
+    }
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the link to the story.' });
@@ -417,7 +436,7 @@ export default function ContributeDrawer() {
   const firstName = (player?.displayName || manualName || '').split(' ')[0] || 'him';
   const playerFlow = tab === 'photo' || tab === 'data';
   const pendingPhotos = (Object.keys(photos) as PhotoPurpose[]).filter((id) => photoTypes.some((t) => t.id === id) && photos[id]?.state !== 'sent').length;
-  const sendLabel = !signedIn ? 'Sign in to send' : sending ? 'Sending…' : tab === 'photo' ? (pendingPhotos > 1 ? `Send ${pendingPhotos} photos` : 'Send photo') : 'Send';
+  const sendLabel = !signedIn ? 'Sign in to send' : sending ? 'Sending…' : tab === 'photo' ? (pendingPhotos > 1 ? `Preview ${pendingPhotos} photos` : 'Preview photo') : 'Send';
 
   return createPortal(
     <aside className="yat-drawer yat-drawer-right yat-contribute-drawer" id="drawerContribute" aria-label="Contribute to YAT?STATS" aria-hidden={!open}>
@@ -541,7 +560,38 @@ export default function ContributeDrawer() {
                       : `What do you have from ${seasonForItems!.year}${seasonForItems!.team ? ` · ${seasonForItems!.team}` : ''}${seasonForItems!.label ? ` (${seasonForItems!.label})` : ''}?`}
                   </div>
 
-                  {tab === 'photo' ? (
+                  {tab === 'photo' && proof ? (
+                    <div className="ycd-proof">
+                      <div className="ycd-proof-head">Check before you send</div>
+                      <p className="ycd-muted ycd-small">Here&apos;s exactly where {photosToSend().todo.length > 1 ? 'each photo' : 'your photo'} will go. If anything looks wrong, go back and change it.</p>
+                      {photosToSend().todo.map((id) => {
+                        const pick = photos[id]!;
+                        const t = PHOTO_TYPES.find((x) => x.id === id)!;
+                        return (
+                          <div className="ycd-proof-item" key={id}>
+                            <div className="ycd-label"><b>{t.prefix}</b> · {t.label}</div>
+                            <ContributeProof
+                              purpose={id}
+                              src={pick.preview}
+                              crop={pick.crop}
+                              season={aboutSchool ? null : seasonForItems}
+                              player={{
+                                name: info?.name || player?.displayName || manualName || '',
+                                classOf: info?.classOf ?? null,
+                                currentTeam: seasons?.find((x) => x.current)?.team || '',
+                                schoolName: aboutSchool ? school?.name || '' : player?.schoolName || school?.name || '',
+                                schoolLocation: school?.location || hubSchool?.location || '',
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                      <div className="ycd-actions">
+                        <button type="button" className="ycd-btn ycd-btn-primary" onClick={() => { void sendPhotos(); }} disabled={sending}>Looks right, send it</button>
+                        <button type="button" className="ycd-btn" onClick={() => setProof(false)}>Go back</button>
+                      </div>
+                    </div>
+                  ) : tab === 'photo' ? (
                     <div className="ycd-checks">
                       {photoTypes.map((t) => {
                         const on = t.id in photos;
@@ -617,9 +667,11 @@ export default function ContributeDrawer() {
                   ) : status.kind === 'error' ? (
                     <div className="ycd-error">{status.text}</div>
                   ) : null}
+                  {!(tab === 'photo' && proof) ? (
                   <div className="ycd-actions">
                     <button type="button" className="ycd-btn ycd-btn-primary" onClick={submit} disabled={sending}>{sendLabel}</button>
                   </div>
+                  ) : null}
                   <div className="ycd-muted ycd-small">{tab === 'photo' ? 'Each photo is checked automatically when you send it. Most go live right away.' : 'We review everything before it goes on the site.'}</div>
                 </>
               ) : (
@@ -779,6 +831,10 @@ export default function ContributeDrawer() {
         .ycd-placeholder i { font-size: 30px; }
         .ycd-error { color: #ff6b6b; font-size: 13px; }
         .ycd-ok { color: #3ddc84; font-weight: 600; }
+        .ycd-proof { display: flex; flex-direction: column; gap: 12px; }
+        .ycd-proof-head { font: 600 20px/1.1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #FFD700; }
+        body.light-theme .ycd-proof-head { color: #9a6f00; }
+        .ycd-proof-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid rgba(255,215,0,.5); border-radius: 10px; }
         .ycd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .ycd-btn { min-height: 44px; padding: 0 22px; border-radius: 8px; border: 1px solid #FFD700; background: transparent; color: #FFD700; font: 500 15px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
         .ycd-btn-primary { background: #FFD700; color: #000; }

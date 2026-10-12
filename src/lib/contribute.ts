@@ -31,6 +31,8 @@ export type Season = {
   year: number;
   stage: 'hs' | 'college' | 'pro';
   team: string;
+  // Our (Baseball Cube) team id, for the team's logo.
+  teamId?: string;
   level: string;
   // "HS Senior", "College Sophomore", "5th Year / Grad Student", "AAA"...
   label: string;
