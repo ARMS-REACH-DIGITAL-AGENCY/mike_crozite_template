@@ -408,19 +408,25 @@ export default function InteractionStrip({
   // filter script picks the season once the list is set up. The strip
   // follows whichever year is picked, from here or from there.
   useEffect(() => {
+    // The cover app/layout.tsx puts over a team link's first load comes off
+    // once the team is on screen (or at once, for a year with no team).
+    const uncover = () => window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      document.documentElement.removeAttribute('data-yat-team');
+    }));
     const year = new URLSearchParams(window.location.search).get('team') || '';
-    if (ALL_TIME_TEAM_YEARS.includes(year) && window.location.hash !== '#sec-alltime') {
-      window.location.hash = '#sec-alltime';
+    if (ALL_TIME_TEAM_YEARS.includes(year)) {
+      if (window.location.hash !== '#sec-alltime') window.location.hash = '#sec-alltime';
+    } else {
+      uncover();
     }
     const onYear = (event: Event) => {
       const detail = (event as CustomEvent<{ year?: unknown }>).detail;
       const picked = String(detail?.year || '');
       setSelectedRosterYear(picked || null);
-      if (picked) {
-        window.requestAnimationFrame(() => {
-          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-        });
-      }
+      window.requestAnimationFrame(() => {
+        if (picked) document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+        uncover();
+      });
     };
     window.addEventListener('yat:alltime-team-year-filter', onYear);
     return () => window.removeEventListener('yat:alltime-team-year-filter', onYear);
