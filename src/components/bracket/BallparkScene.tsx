@@ -9,26 +9,26 @@ const H = 200;
 
 // A light standard seen from the field: a lattice mast from the bottom edge
 // up to a bank of lamps, with the glow it throws into the night.
-function Tower({ x, top, w }: { x: number; top: number; w: number }) {
+function Tower({ x, top, w, h = H, ids = 'ybp' }: { x: number; top: number; w: number; h?: number; ids?: string }) {
   const rows = 4;
   const cols = Math.round(w / 8);
   const bankH = rows * 6 + 4;
   const mid = x + w / 2;
   return (
     <g>
-      <ellipse cx={mid} cy={top + bankH / 2} rx={w * 2.4} ry={w * 1.3} fill="url(#ybp-glow)" />
+      <ellipse cx={mid} cy={top + bankH / 2} rx={w * 2.4} ry={w * 1.3} fill={`url(#${ids}-glow)`} />
       <g stroke="#1b1f2b" strokeWidth="1.3" fill="none" opacity=".9">
-        <path d={`M${mid - 9} ${top + bankH} L${mid - 14} ${H} M${mid + 9} ${top + bankH} L${mid + 14} ${H}`} />
+        <path d={`M${mid - 9} ${top + bankH} L${mid - 14} ${h} M${mid + 9} ${top + bankH} L${mid + 14} ${h}`} />
         {Array.from({ length: 8 }, (_, i) => {
-          const y1 = top + bankH + (i * (H - top - bankH)) / 8;
-          const y2 = top + bankH + ((i + 1) * (H - top - bankH)) / 8;
-          const s1 = 9 + (5 * (y1 - top - bankH)) / (H - top - bankH);
-          const s2 = 9 + (5 * (y2 - top - bankH)) / (H - top - bankH);
+          const y1 = top + bankH + (i * (h - top - bankH)) / 8;
+          const y2 = top + bankH + ((i + 1) * (h - top - bankH)) / 8;
+          const s1 = 9 + (5 * (y1 - top - bankH)) / (h - top - bankH);
+          const s2 = 9 + (5 * (y2 - top - bankH)) / (h - top - bankH);
           return <path key={i} d={`M${mid - s1} ${y1} L${mid + s2} ${y2} M${mid + s1} ${y1} L${mid - s2} ${y2}`} opacity=".6" />;
         })}
       </g>
       <rect x={x - 3} y={top - 3} width={w + 6} height={bankH + 2} rx="2" fill="#0e1119" />
-      <g filter="url(#ybp-bloom)">
+      <g filter={`url(#${ids}-bloom)`}>
         {Array.from({ length: rows * cols }, (_, i) => (
           <circle key={i} cx={x + 3 + (i % cols) * ((w - 6) / Math.max(1, cols - 1))} cy={top + 2 + Math.floor(i / cols) * 6} r="2.1" fill="#fffdf4" />
         ))}
@@ -45,6 +45,38 @@ function Wisp({ x, y, w, o = 0.8 }: { x: number; y: number; w: number; o?: numbe
       <ellipse cx={x + w * 0.25} cy={y - w * 0.06} rx={w * 0.55} ry={w * 0.07} fill="#fff" />
       <ellipse cx={x - w * 0.3} cy={y + w * 0.05} rx={w * 0.5} ry={w * 0.06} fill="#f4f9ff" />
     </g>
+  );
+}
+
+// The lamps' glow and bloom, under an id prefix so another copy of the
+// towers (the school splash's) can't point at a hidden one.
+function LightDefs({ ids }: { ids: string }) {
+  return (
+    <>
+      <radialGradient id={`${ids}-glow`}>
+        <stop offset="0" stopColor="#fffbe8" stopOpacity=".75" />
+        <stop offset=".3" stopColor="#fff1c4" stopOpacity=".25" />
+        <stop offset="1" stopColor="#fff1c4" stopOpacity="0" />
+      </radialGradient>
+      <filter id={`${ids}-bloom`} x="-20%" y="-60%" width="140%" height="220%">
+        <feGaussianBlur stdDeviation="1.6" result="b" />
+        <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+      </filter>
+    </>
+  );
+}
+
+// The night game's light towers alone, on black, for a phone-shaped strip:
+// the school splash's stadium lights (SchoolSplash fades them out below).
+export function BallparkLights({ className }: { className?: string }) {
+  const w = 600;
+  const h = 300;
+  const towers = [{ x: 34, top: 44, w: 104 }, { x: 246, top: 26, w: 108 }, { x: 462, top: 44, w: 104 }];
+  return (
+    <svg className={className} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMin slice" aria-hidden="true">
+      <defs><LightDefs ids="yslights" /></defs>
+      {towers.map((t, i) => <Tower key={i} {...t} h={h} ids="yslights" />)}
+    </svg>
   );
 }
 
@@ -81,15 +113,7 @@ export default function BallparkScene() {
             <stop offset=".55" stopColor="#4c9ae6" />
             <stop offset="1" stopColor="#a9d4f6" />
           </linearGradient>
-          <radialGradient id="ybp-glow">
-            <stop offset="0" stopColor="#fffbe8" stopOpacity=".75" />
-            <stop offset=".3" stopColor="#fff1c4" stopOpacity=".25" />
-            <stop offset="1" stopColor="#fff1c4" stopOpacity="0" />
-          </radialGradient>
-          <filter id="ybp-bloom" x="-20%" y="-60%" width="140%" height="220%">
-            <feGaussianBlur stdDeviation="1.6" result="b" />
-            <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
+          <LightDefs ids="ybp" />
           <filter id="ybp-wisp" x="-30%" y="-200%" width="160%" height="500%">
             <feGaussianBlur stdDeviation="6 3" />
           </filter>
