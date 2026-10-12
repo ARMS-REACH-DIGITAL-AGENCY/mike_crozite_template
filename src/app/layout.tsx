@@ -21,12 +21,21 @@ export const metadata: Metadata = {
 const BOOTSTRAP_SECTIONS = ['news', 'alltime', 'current', 'fantasy', 'mentor', 'partner', 'about', 'faq'];
 
 // A shared team link (?team=2017) opens on the All-Time list, and the page
-// stays covered until that season is picked (InteractionStrip lifts it) - so
-// the Active list, the whole All-Time list and the 1999 strip never flash by
-// on the way to the 2017 team.
+// stays covered until that season is on screen (InteractionStrip lifts it) -
+// so the Active list, the whole All-Time list and the 1999 strip never flash
+// by on the way to the 2017 team. The cover is its own <style> in <head>, not
+// an attribute on <html>: React re-renders the document and strips <html>
+// attributes partway through loading, which lifted an attribute cover early.
+const TEAM_COVER_CSS =
+  ".yat-row2-shell,.yat-row3-shell,.yat-row5-shell,.yat-page-message-strip{visibility:hidden!important}" +
+  "body::after{content:'LOADING THE YEAR TEAM';position:fixed;left:0;right:0;top:42%;z-index:5;text-align:center;" +
+  "font:800 15px/1.2 Archivo,system-ui,sans-serif;letter-spacing:.14em;color:rgba(255,255,255,.72);pointer-events:none}";
+
 const SECTION_BOOTSTRAP =
   "try{var d=document.documentElement,m=(location.hash||'').match(/^#sec-([a-z]+)/),t=/[?&]team=(\\d{4})(?:&|$)/.exec(location.search);" +
-  "if(t){m=[0,'alltime'];d.setAttribute('data-yat-team',t[1]);setTimeout(function(){d.removeAttribute('data-yat-team');},12000);}" +
+  "if(t){m=[0,'alltime'];var c=document.createElement('style');c.id='yat-team-cover';" +
+  "c.textContent=" + JSON.stringify(TEAM_COVER_CSS).replace('YEAR', '"+t[1]+"') + ";" +
+  "document.head.appendChild(c);setTimeout(function(){c.remove();},20000);}" +
   "if(m&&" + JSON.stringify(BOOTSTRAP_SECTIONS) + ".indexOf(m[1])!==-1){" +
   "var x=function(){d.removeAttribute('data-yat-sec');};d.setAttribute('data-yat-sec',m[1]);" +
   "addEventListener('load',function(){setTimeout(x,4000);});setTimeout(x,20000);}}catch(e){}";
@@ -35,10 +44,7 @@ const SECTION_BOOTSTRAP_CSS =
   "html[data-yat-sec] .yat-section{display:none!important}" +
   BOOTSTRAP_SECTIONS.map((s) => `html[data-yat-sec="${s}"] #sec-${s}{display:block!important}`).join('') +
   "html[data-yat-sec] .yat-row3-shell,html[data-yat-sec] .yat-row4-shell{visibility:hidden}" +
-  "html[data-yat-switching] .yat-row3-shell,html[data-yat-switching] .yat-row4-shell{visibility:hidden}" +
-  "html[data-yat-team] .yat-row2-shell,html[data-yat-team] .yat-row3-shell,html[data-yat-team] .yat-row5-shell,html[data-yat-team] .yat-page-message-strip{visibility:hidden}" +
-  "html[data-yat-team]::after{content:'LOADING THE ' attr(data-yat-team) ' TEAM';position:fixed;left:0;right:0;top:42%;z-index:5;text-align:center;" +
-  "font:800 15px/1.2 Archivo,system-ui,sans-serif;letter-spacing:.14em;color:rgba(255,255,255,.72);pointer-events:none}";
+  "html[data-yat-switching] .yat-row3-shell,html[data-yat-switching] .yat-row4-shell{visibility:hidden}";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -1,8 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
-import { SchoolContext } from '@/context/SchoolContext';
-import { TEAM_YEAR_SHARE_TAGLINE } from '@/lib/teamYearShare';
+import { useEffect, useState } from 'react';
 
 type Message = {
   id: string;
@@ -24,7 +22,6 @@ export default function PageMessageStrip({
   const [teamYear, setTeamYear] = useState('');
   const [onAllTime, setOnAllTime] = useState(false);
   const [copied, setCopied] = useState(false);
-  const school = useContext(SchoolContext);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -89,15 +86,14 @@ export default function PageMessageStrip({
 
   // Share the team (or the whole All-Time list): the link opens the list on
   // that season. Phones get the share sheet; elsewhere the link is copied.
+  // Only the link goes to the share sheet, as the Fantasy game share does:
+  // the message is then the team card alone (its title and "Where they YAT
+  // now?" come from the page's own preview), with no text or URL above it.
   const shareTeam = async () => {
     const url = `${window.location.origin}${window.location.pathname}${teamYear ? `?team=${teamYear}` : ''}#sec-alltime`;
-    const schoolName = String(school?.hsName || '').replace(/\s+high\s+school$/i, '').trim() || 'Our school';
-    const text = teamYear
-      ? `${schoolName} ${teamYear}: ${teamAlumniCount ?? 0} from that team went on to the next level. ${TEAM_YEAR_SHARE_TAGLINE}`
-      : `${schoolName}'s All-Time Next-Level List. ${TEAM_YEAR_SHARE_TAGLINE}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: `${schoolName}${teamYear ? ` ${teamYear}` : ''} | YAT?STATS`, text, url });
+        await navigator.share({ url });
         return;
       }
     } catch (error) {

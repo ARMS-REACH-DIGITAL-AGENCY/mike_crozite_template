@@ -409,9 +409,19 @@ export default function InteractionStrip({
   // follows whichever year is picked, from here or from there.
   useEffect(() => {
     // The cover app/layout.tsx puts over a team link's first load comes off
-    // once the team is on screen (or at once, for a year with no team).
+    // once the team is on screen with its first photo (or at once, for a
+    // year with no team) - no silhouette standing in for the photo.
     const uncover = () => window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-      document.documentElement.removeAttribute('data-yat-team');
+      const cover = document.getElementById('yat-team-cover');
+      if (!cover) return;
+      const firstCard = Array.from(document.querySelectorAll<HTMLElement>('#alltime-grid > *')).find((card) => card.style.display !== 'none');
+      const photo = firstCard?.querySelector<HTMLImageElement>('img.yat-bg-photo');
+      if (!photo || photo.complete) { cover.remove(); return; }
+      photo.loading = 'eager';
+      const lift = () => cover.remove();
+      photo.addEventListener('load', lift, { once: true });
+      photo.addEventListener('error', lift, { once: true });
+      window.setTimeout(lift, 2000);
     }));
     const year = new URLSearchParams(window.location.search).get('team') || '';
     if (ALL_TIME_TEAM_YEARS.includes(year)) {
