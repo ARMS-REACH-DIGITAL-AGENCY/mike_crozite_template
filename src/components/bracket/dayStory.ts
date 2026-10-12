@@ -324,7 +324,7 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
   let lede = `${W} ${verb} ${L} ${score} in Game ${opts.gameNo} of their Round 1 series`;
   if (g[4] === 'coin' || g[4] === 'flip') {
     // The flip's run is the last; the score before it was tied.
-    lede += `, on the commissioner's flip. Tied ${ls}-${ls} after nine, the tiebreaker couldn't be played - it needs a hitter and a pitcher from each school - so a coin decided it.`;
+    lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on the commissioner's flip. Tied ${ls}-${ls} after nine, the tiebreaker couldn't be played - it needs a hitter and a pitcher from each school - so a coin decided it, and the flip's run made it ${score}.`;
   }
   else if (decisive) {
     const where = decisive.k < 9 ? `the ${ORD(decisive.k + 1)}` : `the ${ORD(decisive.k + 1)} inning, in extras`;
