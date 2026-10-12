@@ -786,7 +786,8 @@ function syncStripToVisibleCards() {
   (function initSectionFromHash(){
     var hash=window.location.hash||'';
     var tab='';
-    if(window.location.pathname.split('/').filter(Boolean).pop()==='connect-contribute'){
+    var lastSegment=window.location.pathname.split('/').filter(Boolean).pop();
+    if(lastSegment==='connect-contribute'||lastSegment==='contribute-review'){
       tab='mentor';
     }else if(hash.indexOf('#sec-')===0){
       tab=hash.replace('#sec-','');

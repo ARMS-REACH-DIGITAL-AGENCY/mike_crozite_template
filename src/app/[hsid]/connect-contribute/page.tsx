@@ -3,6 +3,8 @@
 // The shell reads this path as the "mentor" section (SharedShell,
 // YatInteractivity), so the section label and nav match it.
 
+import ContributeButtons from '@/components/yatstats/ContributeButtons';
+
 export async function generateMetadata() {
   return {
     title: 'Connect & Contribute Portal | YAT?STATS',
@@ -13,18 +15,14 @@ export async function generateMetadata() {
 export default function ConnectContributePage() {
   return (
     <section id="sec-mentor" className="yat-section visible">
-      <div className="yat-placeholder">
+      <div className="yat-placeholder" style={{ textAlign: 'left', maxWidth: 980, margin: '0 auto' }}>
         <div className="yat-placeholder-title">CONNECT &amp; CONTRIBUTE PORTAL</div>
         <div className="yat-placeholder-body">
-          Share photos, memories and news tips about your school&apos;s alumni, request a personalized
-          message from a player, and support a player or the school. Coming soon.
+          YAT?STATS is built by the people who know these players best: their families, coaches,
+          teammates and fans. See a silhouette where a photo should be, a stat we missed, or a player
+          who isn&apos;t here? Send it in. We review everything before it goes on the site.
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/img/connect-contribute-coming-soon.jpg"
-          alt="Connect & Contribute Portal - Coming Soon. Real Players. Real Conversations. A Brighter Tomorrow."
-          style={{ display: 'block', width: '100%', maxWidth: 560, height: 'auto', margin: '24px auto 0', borderRadius: 6 }}
-        />
+        <ContributeButtons />
       </div>
     </section>
   );
