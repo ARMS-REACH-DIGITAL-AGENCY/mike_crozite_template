@@ -4,7 +4,7 @@
 // It owns Rows 1-2, the drawers, the footer, and all shared styles/scripts.
 // All internal pages (gallery, player profile, news) render as {children} inside this shell.
 
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 import Script from 'next/script';
 import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
@@ -21,7 +21,7 @@ import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { isNeverASchoolSegment } from '@/lib/schoolSegment';
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
 
@@ -41,6 +41,8 @@ import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
 import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
+import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
+import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -126,6 +128,10 @@ export async function generateMetadata({
   };
 }
 
+// The layout sends the school's splash (logo + crest) as soon as the school
+// is known - one lookup - and streams the rest of the shell and the page in
+// behind it (SchoolShell, inside Suspense), so a visitor sees the school's
+// opener at once instead of a black screen while every roster loads.
 export default async function HsidLayout({
   children,
   params,
@@ -148,6 +154,37 @@ export default async function HsidLayout({
   }
   if (!school) notFound();
 
+  // /{hsid} on a live school's own domain goes to its microsite. The page
+  // did this too, but once the splash has streamed a redirect can only be a
+  // client-side hop, so it is decided here, before anything is sent.
+  const micrositeUrl = String(school.microsite_url || '');
+  const isPreview = host.includes('vercel.app') || host.includes('localhost');
+  const pathname = headersList.get('x-pathname') || '';
+  if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && new RegExp(`^/${hsid}/?$`).test(pathname)) {
+    permanentRedirect(micrositeUrl.replace(/\/$/, ''));
+  }
+
+  const splashHsid = String(school.hsid ?? hsid);
+  return (
+    <>
+      <SchoolSplash crestUrl={getSchoolCrestUrl(splashHsid)} schoolName={formatSchoolName(String(school.hsname || ''))} />
+      <Suspense fallback={null}>
+        <SchoolShell hsid={hsid} school={school}>{children}</SchoolShell>
+      </Suspense>
+    </>
+  );
+}
+
+async function SchoolShell({
+  children,
+  hsid,
+  school,
+}: {
+  children: ReactNode;
+  hsid: string;
+  school: Record<string, unknown>;
+}) {
+  const headersList = await headers();
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
@@ -186,6 +223,16 @@ export default async function HsidLayout({
     (p) => normalizeStatusLabel(p.status_label || p.status) === 'COMMIT'
       || String(p.committed_teamid || '').trim() !== ''
   ).length;
+
+  // A shared team link (?team=2017, passed on by src/middleware.ts): rows
+  // 2-3 and the count box are rendered for that team from the first byte.
+  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
+  const initialTeamCount = initialTeamYear
+    ? teamYearCardCount([
+        ...allTimeRosterRows.map((p) => ({ ...(stageRows.find((s) => String(s.playerid) === String(p.playerid)) || {}), ...p })),
+        ...stageRows.filter((s) => !allTimeRosterRows.some((p) => String(p.playerid) === String(s.playerid))),
+      ], initialTeamYear)
+    : null;
 
   const schoolMeta = {
     activeAlumni: await getActiveAlumniCountByHsid(resolvedHsid),
@@ -288,6 +335,8 @@ export default async function HsidLayout({
         players={stripPlayers}
         teamSeasonResults={teamSeasonResults}
         schoolMeta={schoolMeta}
+        initialTeamYear={initialTeamYear}
+        initialTeamCount={initialTeamCount}
       >
         {children}
       </SharedShell>

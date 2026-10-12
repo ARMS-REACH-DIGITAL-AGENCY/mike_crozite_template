@@ -237,8 +237,26 @@ function applyPreset(section: string) {
     setValues('filterLevels', ['HIGH SCHOOL']);
   }
 
+  // A team link (?team=2017, which the year strip also keeps in the address
+  // bar): the All-Time list opens on that season. Picked here, after the
+  // preset - which clears any year - and in the same pass as the filter, so
+  // the whole list never shows between the two (the server already sent the
+  // page filtered to that team). The event then brings the strip and count
+  // box along.
+  const team = section === 'alltime' ? new URLSearchParams(window.location.search).get('team') || '' : '';
+  const teamYear = /^\d{4}$/.test(team) ? team : '';
+  if (teamYear) {
+    const allTimeSection = document.getElementById('sec-alltime');
+    if (allTimeSection) allTimeSection.dataset.alltimeTeamYearFilter = teamYear;
+    setValues('filterRosterYears', [teamYear]);
+  }
+
   syncEverySelectAll();
   applyFilters(section);
+
+  if (teamYear) {
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: teamYear } })), 0);
+  }
 }
 
 // "Take me to his flip card" links (favorites drawer, search, the profile's
@@ -297,7 +315,7 @@ function scrollToLinkedCard(section: string, playerId: string) {
     const card = findCard(section, playerId);
     const shown = card && (card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card).style.display !== 'none';
     if (!card || !shown) return;
-    card.scrollIntoView({ behavior: 'auto', block: 'center' });
+    card.scrollIntoView({ behavior: 'instant', block: 'center' });
     if (!highlighted) {
       highlighted = true;
       card.animate?.(
@@ -373,8 +391,10 @@ export default function GalleryFilterController() {
 
     // A new team year (or back to the whole list) starts at the top of the
     // gallery: the list is long, and staying scrolled down usually left the
-    // reader below every card of the year they picked.
-    const toTop = () => window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'auto' }));
+    // reader below every card of the year they picked. Instantly, like a
+    // headshot tap on the Active list: 'auto' follows the page's
+    // scroll-behavior:smooth and glided the whole list by.
+    const toTop = () => window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
 
     const onAllTimeTeamYearFilter = (event: Event) => {
       const detail = (event as CustomEvent<{ year?: unknown; reset?: boolean }>).detail;
