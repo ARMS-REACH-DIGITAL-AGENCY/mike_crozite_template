@@ -52,17 +52,20 @@ export async function GET(req:NextRequest){
   const status=(req.nextUrl.searchParams.get('scoreStatus') || (snap?'LIVE':'FINAL')).slice(0,16);
   const round=Math.max(1,Math.min(10,Number(req.nextUrl.searchParams.get('round'))||Math.ceil(g.week/3)));
   const gameNo=Math.max(1,Math.min(3,Number(req.nextUrl.searchParams.get('gameNo'))||((g.week-1)%3+1)));
-  const weekStart=new Date(Date.UTC(2026,9,5)+(g.week-1)*7*86400000);
-  const weekEnd=new Date(weekStart.getTime()+6*86400000);
+  // The week's dates come from the bracket calendar the card was shared from.
+  const startParam=req.nextUrl.searchParams.get('weekStart')||'';
+  const weekStart=/^\d{4}-\d{2}-\d{2}$/.test(startParam)?new Date(`${startParam}T00:00:00Z`):null;
   const fmt=(d:Date)=>d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).toUpperCase();
-  const weekDates=`${fmt(weekStart)} - ${fmt(weekEnd)}`;
+  const weekDates=weekStart?`${fmt(weekStart)} - ${fmt(new Date(weekStart.getTime()+6*86400000))}`:'';
   const activeMatch=/^(?:TOP|BOT)\s+(\d)$/i.exec(status);
   const activeInning=activeMatch?Number(activeMatch[1]):null;
-  const visibleThrough=status==='FINAL'?9:activeInning??(status==='LIVE'?null:0);
+  const playedParam=req.nextUrl.searchParams.get('played');
+  const playedCount=playedParam!=null && /^\d$/.test(playedParam)?Math.min(9,Number(playedParam)):null;
+  const visibleThrough=playedCount ?? (status==='FINAL'?9:activeInning??(status==='LIVE'?null:0));
   const boardRow=(side:'h'|'a',name:string,total:number)=>(
     <div style={{display:'flex',alignItems:'center',width:'100%',height:105,gap:8}}>
       <div style={{display:'flex',flexDirection:'column',width:250,alignItems:'flex-end',justifyContent:'center',paddingRight:12}}>
-        <div style={{display:'flex',fontSize:25,fontWeight:900,textAlign:'right',color:'#fff'}}>{name.replace(/\\s*\\([^)]*\\)/g,'').toUpperCase()}</div>
+        <div style={{display:'flex',fontSize:25,fontWeight:900,textAlign:'right',color:'#fff'}}>{name.replace(/\s*\([^)]*\)/g,'').toUpperCase()}</div>
         <div style={{display:'flex',fontSize:14,color:'#c9dfd3'}}>{name.includes('(') ? name.split('(')[1]?.split(')')[0] : ''}</div>
       </div>
       {[0,1,2,3,4,5,6,7,8].map(i=>{const v=inning(side,i);const played=visibleThrough===null?true:i<visibleThrough;const current=activeInning===i+1;return <div key={i} style={{display:'flex',flex:1,height:69,alignItems:'center',justifyContent:'center',borderRadius:7,background:'#103a2b',color:current?'#e6bb2f':'#fff',fontSize:32,fontWeight:900}}>{played?v:''}</div>})}

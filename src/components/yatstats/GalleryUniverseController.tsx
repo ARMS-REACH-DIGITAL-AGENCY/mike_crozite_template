@@ -20,14 +20,20 @@ function grid(k: Key){ return document.getElementById(`${k}-grid`); }
 // crash the whole page with a removeChild/insertBefore mismatch.
 function cards(k: Key){ return Array.from(grid(k)?.querySelectorAll<HTMLElement>('.yat-card[data-playerid]:not([data-superfan-synthetic="true"])') || []); }
 function wrapper(card: HTMLElement){ return card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card; }
-function level(card: HTMLElement){ return (card.dataset.level || '').toUpperCase(); }
+function level(card: HTMLElement){ return (card.dataset.level || '').trim().toUpperCase().replace(/\s+/g,'-'); }
+function levelRank(card: HTMLElement){ const raw=level(card); const normalized=raw.replace(/^NCAA-?D([123])$/,'NCAA-D$1').replace(/^AAA$/,'TRIPLE-A').replace(/^AA$/,'DOUBLE-A').replace(/^A\+$/,'HIGH-A').replace(/^A$/,'LOW-A').replace(/^HIGH-SCHOOL$/,'HIGH SCHOOL'); return rank[normalized] || 99; }
 function status(card: HTMLElement){ return (card.dataset.status || '').toUpperCase(); }
 function rosterCount(card: HTMLElement){ return (card.dataset.rosteryears || '').split(',').filter(Boolean).length; }
 function grad(card: HTMLElement){ const n=Number(card.dataset.gradclass); return Number.isFinite(n)&&n>0?n:9999; }
+function cardName(card: HTMLElement){ return (card.dataset.name || '').trim(); }
 function last(card: HTMLElement){ return (card.dataset.name || '').trim().split(/\s+/).pop() || ''; }
 function compare(k: Key,a: HTMLElement,b: HTMLElement){
-  if(k==='alltime') return grad(a)-grad(b)||(rank[level(a)]||99)-(rank[level(b)]||99)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
-  return (rank[level(a)]||99)-(rank[level(b)]||99)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b));
+  if(k==='alltime') {
+    const yearFiltered = !!document.getElementById('sec-alltime')?.dataset.alltimeTeamYearFilter;
+    if(yearFiltered) return levelRank(a)-levelRank(b)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
+    return last(a).localeCompare(last(b))||(cardName(a)).localeCompare(cardName(b));
+  }
+  return levelRank(a)-levelRank(b)||grad(a)-grad(b)||rosterCount(b)-rosterCount(a)||last(a).localeCompare(last(b))||cardName(a).localeCompare(cardName(b));
 }
 function cloneUniverse(){
   const source=new Map<string,HTMLElement>();
@@ -63,7 +69,7 @@ function filterUniverse(){
     const yes=(!name||(card.dataset.name||'').toLowerCase().includes(name))&&(!selected.status.length||selected.status.includes(status(card)))&&(!selected.level.length||selected.level.includes(level(card)))&&(!selected.org.length||selected.org.includes((card.dataset.org||'').toUpperCase()))&&(!selected.grad.length||selected.grad.includes((card.dataset.gradclass||'').toUpperCase()))&&(!selected.years.length||roster.some(y=>selected.years.includes(y)));
     setVisible(card,yes);
   });
-  sortVisible(k); mirrorRow3(k);
+  if(k!=='alltime') sortVisible(k); mirrorRow3(k);
 }
 function clearFilters(){
   document.querySelectorAll<HTMLInputElement>('#filters input').forEach(input=>{if(input.type==='checkbox')input.checked=false;else input.value='';});
@@ -82,9 +88,12 @@ function preset(k:Key){
   if(k==='current') document.querySelectorAll<HTMLInputElement>('#filterLevels input[type="checkbox"]:not([data-select-all])').forEach(x=>x.checked=x.value.toUpperCase()==='HIGH SCHOOL');
   syncSelectAll(); filterUniverse();
 }
-function sortVisible(k:Key){const g=grid(k);if(!g)return;cards(k).sort((a,b)=>compare(k,a,b)).forEach(card=>g.appendChild(wrapper(card)));}
+function sortVisible(k:Key){if(k==='alltime')return;const g=grid(k);if(!g)return;cards(k).sort((a,b)=>compare(k,a,b)).forEach(card=>g.appendChild(wrapper(card)));}
 function mirrorRow3(k:Key){
   if(!galleries.has(k))return;
+  // The All-Time outfield season rail is owned by React InteractionStrip.
+  // Never replace its year plaques with legacy player-headshot DOM nodes.
+  if(k==='alltime')return;
   const inner=document.querySelector<HTMLElement>('.gallery-strip-inner');if(!inner)return;
   inner.innerHTML='';
   cards(k).filter(card=>wrapper(card).style.display!=='none').forEach(card=>{
@@ -92,7 +101,7 @@ function mirrorRow3(k:Key){
     const a=document.createElement('a');
     a.href='#'; a.className='gallery-slot gallery-slot-link'; a.dataset.playerid=id; a.title=card.dataset.name||'';
     const safeId=encodeURIComponent(id);
-    a.innerHTML=`<div class="gallery-slot-media"><img class="gallery-slot-img" src="${NOW_BASE}/${safeId}.jpg" onerror="this.onerror=null;this.src='/img/headshot-silhouette.png'" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay">${last(card).toUpperCase()}</div></div>`;
+    a.innerHTML=`<div class="gallery-slot-media"><img class="gallery-slot-img" src="https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts/${safeId}.png" onerror="this.onerror=null;this.src='/img/headshot-silhouette.png'" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay">${last(card).toUpperCase()}</div></div>`;
     inner.appendChild(a);
   });
 }
@@ -114,8 +123,7 @@ export default function GalleryUniverseController(){
       if(nav){const k=(nav.dataset.tab==='team'?'current':nav.dataset.tab) as Key;if(k){e.preventDefault();e.stopImmediatePropagation();showSection(k);}return;}
       const reset=target.closest('#filtersReset,#filtersReset2');
       if(reset&&galleries.has(currentKey())){e.preventDefault();e.stopImmediatePropagation();preset(currentKey());return;}
-      const thumb=target.closest<HTMLElement>('.gallery-slot-link[data-playerid],.gallery-current-slot-link[data-playerid]');
-      if(thumb&&galleries.has(currentKey())){e.preventDefault();e.stopImmediatePropagation();cards(currentKey()).find(c=>c.dataset.playerid===thumb.dataset.playerid)?.scrollIntoView({behavior:'smooth',block:'start'});}
+      // Row 3 headshot navigation is owned by InteractionStrip/Row3MirrorGuard.
     };
     const change=(e:Event)=>{
       const target=e.target instanceof HTMLInputElement?e.target:null;if(!target||!target.closest('#filters')||!galleries.has(currentKey()))return;

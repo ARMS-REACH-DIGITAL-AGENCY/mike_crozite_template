@@ -97,6 +97,8 @@ export function tieNote(decidedBy: string) {
 }
 
 // Box scores are shared by every card of a round + region: one fetch each.
+// Only the bracket lab reads the 2026 simulation's box scores; a
+// school's bracket is the 2027 season, with nothing played yet.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
   // Live games: every round's boxes come from the live lines.
@@ -468,8 +470,17 @@ export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: St
 
 // index.json and lb.json, fetched once and shared (row 3 and row 5 of a
 // school's page both use them).
+//
+// A school's bracket is the upcoming 2027 season: the 2027 calendar (Week 1
+// = Mon Feb 1, 2027) and a blank scorecard - the field and Round 1's
+// matchups, and nothing played: no innings, scores, winners, later-round
+// matchups, leaderboard games, tournaments or champions. The 2026 simulation
+// (simulated stats and results) is only for the bracket lab, which asks
+// for it with loadIndex({ simulation: true }).
+let simulatedSeason = false;
 let indexPromise: Promise<Index> | null = null;
-export function loadIndex() {
+export function loadIndex({ simulation = false }: { simulation?: boolean } = {}) {
+  if (simulation) simulatedSeason = true;
   if (!indexPromise) {
     indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
       // Test branch: the season opens Mon Oct 5, 2026 - Week 1 = Oct 5-11.
@@ -485,6 +496,8 @@ export function loadIndex() {
 }
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
+  // Leaderboard games are played by schools out of the bracket - none yet.
+  if (!simulatedSeason) return Promise.resolve([] as LbGame[]);
   if (!lbPromise) {
     // Test branch: no practice-season leaderboard games.
     lbPromise = Promise.resolve([] as LbGame[]);

@@ -465,27 +465,8 @@ if(closeBtn){
     card.classList.toggle('is-flipped');
   });
 
-  document.addEventListener('click',function(e){
-    var slot=e.target.closest('.gallery-slot-link[data-playerid]');
-    if(!slot)return;
-    var pid=slot.dataset.playerid;
-    if(!pid)return;
-    e.preventDefault();
-    
-    var secActive=document.getElementById('sec-active');
-    var secAlltime=document.getElementById('sec-alltime');
-    var secNews=document.getElementById('sec-news');
-    
-    if(secNews && secNews.classList.contains('visible')){
-      // NEWS PAGE BEHAVIOR: Filter block-five news cards by the clicked player.
-      activeNewsPlayerId = activeNewsPlayerId === pid ? '' : pid;
-      document.querySelectorAll('.gallery-slot-link[data-playerid]').forEach(function(otherSlot){
-        otherSlot.classList.toggle('active-news-player-filter', activeNewsPlayerId !== '' && otherSlot.getAttribute('data-playerid') === activeNewsPlayerId);
-      });
-      applyNewsFilters();
-      scrollToContentTop(newsContainer);
-      return;
-    }
+  // Row 3 headshot clicks are owned by InteractionStrip/Row3MirrorGuard.
+  // Do not add a second delegated scroll/filter handler here.
 
     var visibleSection=(secAlltime&&secAlltime.classList.contains('visible'))
       ? secAlltime
@@ -494,7 +475,14 @@ if(closeBtn){
         : null;
     if(!visibleSection)return;
     var target=visibleSection.querySelector('#player-'+pid);
-    if(target)target.scrollIntoView({behavior:'smooth',block:'start'});
+    if(target){
+      // Align the selected card with the bottom of the sticky headshot strip.
+      // The clicked headshot uses this handler, not revealRequestedPlayerCard().
+      var strip=document.querySelector('.gallery-strip-inner')?.closest('.gallery-strip') || document.querySelector('.gallery-strip-inner');
+      var stripBottom=strip ? strip.getBoundingClientRect().bottom : getCssPx('--row1-h',36)+getCssPx('--row2-h',54)+getCssPx('--row3-h',100);
+      var cardTop=target.getBoundingClientRect().top+window.scrollY;
+      window.scrollTo({top:Math.max(0,cardTop-stripBottom+2),behavior:'smooth'});
+    }
   });
 
   function normalizeTab(tabId){
@@ -646,7 +634,7 @@ function syncStripToVisibleCards() {
       var labels={
         active:'ACTIVE BASEBALL ALUMNI',
         news:'ACTIVE ALUMNI NEWS',
-        alltime:'NEXT-LEVEL ALL-TIME LIST',
+        alltime:'ALL-TIME NEXT-LEVEL LIST',
         current:'${highSchoolTeamLabel()}',
         fantasy:'FANTASY BRACKET TOURNEY',
         mentor:'CONNECT & CONTRIBUTE PORTAL',
@@ -666,6 +654,8 @@ function syncStripToVisibleCards() {
     syncStripToSection(key);
     syncFlipAllVisibleCards();
     revealRequestedPlayerCard(false);
+    // replaceState does not emit hashchange; notify React-backed rows directly.
+    window.dispatchEvent(new CustomEvent('yat:section-changed', { detail: { section: key } }));
   }
 
   var yatPlayerAnchorScrolled=false;
@@ -725,7 +715,9 @@ function syncStripToVisibleCards() {
       // images settle) lands on whatever card ends up at that pixel
       // position once the page finishes loading, not the requested one.
       if(!yatPlayerAnchorFoundAt) yatPlayerAnchorFoundAt=Date.now();
-      target.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
+      var headshotBottom=getCssPx('--row1-h',36)+getCssPx('--row2-h',54)+getCssPx('--row3-h',100);
+      var cardTop=target.getBoundingClientRect().top+window.scrollY;
+      window.scrollTo({top:Math.max(0,cardTop-headshotBottom+10),behavior:'smooth'});
 
       if(!yatPlayerAnchorScrolled){
         target.classList.add('yat-card-anchor-highlight');

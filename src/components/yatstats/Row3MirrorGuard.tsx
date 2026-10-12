@@ -4,8 +4,9 @@ import { useLayoutEffect } from 'react';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
-const UNCOMMITTED_BADGE_URL = '/img/uncommitted.png';
+const UNCOMMITTED_BADGE_URL = '/img/uncommitted.jpg';
 const HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
+const PLAYER_NOW_CUTOUT_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts';
 
 function getVisibleSectionKey(): string {
   const visibleSection = Array.from(document.querySelectorAll<HTMLElement>('.yat-section.visible'))
@@ -55,17 +56,22 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
     };
   }
 
-  if (sectionKey === 'alltime') {
-    return {
-      src: clean(card.dataset.thumbnailThen),
-      fallback: clean(card.dataset.thumbnailThenFallback) || HEADSHOT_FALLBACK_URL,
-    };
-  }
-
   return {
-    src: clean(card.dataset.thumbnailNow),
-    fallback: clean(card.dataset.thumbnailNowFallback) || HEADSHOT_FALLBACK_URL,
+    src: `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(String(card.dataset.playerid || '').trim())}.png`,
+    fallback: HEADSHOT_FALLBACK_URL,
   };
+}
+
+function alignPlayerBelowRow3(card: HTMLElement): void {
+  // Keep synthetic Row 3 slots on the same single navigation rule as InteractionStrip.
+  const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const targetY = Math.max(0, rail?.getBoundingClientRect().bottom ?? 166) + 8;
+  const position = () => {
+    const delta = card.getBoundingClientRect().top - targetY;
+    if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
+  };
+  position();
+  requestAnimationFrame(position);
 }
 
 function wireSyntheticSlot(slot: HTMLElement) {
@@ -82,7 +88,13 @@ function wireSyntheticSlot(slot: HTMLElement) {
     if (!card) return;
 
     event.preventDefault();
-    card.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    slot.closest('.gallery-strip-inner')?.querySelectorAll('.gallery-slot.is-active').forEach((item) => {
+      item.classList.remove('is-active');
+      item.removeAttribute('aria-current');
+    });
+    slot.classList.add('is-active');
+    slot.setAttribute('aria-current', 'true');
+    alignPlayerBelowRow3(card);
   });
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
@@ -129,8 +141,8 @@ function createSyntheticSlot(template: HTMLElement | null): HTMLElement {
   const label = document.createElement('div');
   label.className = 'gallery-slot-name-overlay';
 
-  media.append(image, gradient, label);
-  slot.append(media);
+  media.append(image, gradient);
+  slot.append(media, label);
   return slot;
 }
 
@@ -181,7 +193,7 @@ function configureSlot(
     image.onerror = () => {
       // A card-size copy that hasn't been made yet: try the original photo
       // before the generic fallback.
-      const original = getOriginalForCardCopy(image.getAttribute('src'));
+      const original = isCurrent ? getOriginalForCardCopy(image.getAttribute('src')) : '';
       if (original) {
         image.setAttribute('src', original);
         return;
@@ -250,18 +262,26 @@ function dedupeSlots(slots: HTMLElement[]): Map<string, HTMLElement> {
 function syncRow3VisualOrderAndImages(): void {
   const strip = getReactOwnedStrip();
   if (!strip) return;
-
   const sectionKey = getVisibleSectionKey();
-  const stripInner = strip.querySelector<HTMLElement>('.gallery-strip-inner');
-
-  strip.dataset.activeSection = sectionKey;
-
-  if (!stripInner || !PLAYER_GALLERY_SECTIONS.has(sectionKey)) {
+  // All-Time Row 3 is a year filter rail, not a mirror of the player cards.
+  if (sectionKey === 'alltime') {
+    // Remove only guard-created headshots left behind when switching from a player gallery.
+    // React owns the year plaques; never manipulate those nodes.
+    strip.querySelectorAll<HTMLElement>('.gallery-strip-inner [data-row3-synthetic="true"]').forEach(slot => slot.remove());
+    strip.dataset.activeSection = sectionKey;
     strip.dataset.row5Synced = 'true';
     return;
   }
-
-  const blockFiveSection = document.getElementById(`sec-${sectionKey}`);
+  // News uses row 3 as a filter for the active alumni gallery, not a separate
+  // player gallery. Mirror sec-active so fresh News slots receive the visible marker.
+  const rowFiveSectionKey = sectionKey === 'news' ? 'active' : sectionKey;
+  const stripInner = strip.querySelector<HTMLElement>('.gallery-strip-inner');
+  strip.dataset.activeSection = sectionKey;
+  if (!stripInner || !PLAYER_GALLERY_SECTIONS.has(rowFiveSectionKey)) {
+    strip.dataset.row5Synced = 'true';
+    return;
+  }
+  const blockFiveSection = document.getElementById(`sec-${rowFiveSectionKey}`);
   if (!blockFiveSection) {
     strip.dataset.row5Synced = 'true';
     return;
@@ -305,7 +325,7 @@ function syncRow3VisualOrderAndImages(): void {
       slotByPlayerId.set(playerId, slot);
     }
 
-    configureSlot(slot, card, sectionKey, index);
+    configureSlot(slot, card, rowFiveSectionKey, index);
   });
 
   Array.from(
@@ -353,6 +373,7 @@ export default function Row3MirrorGuard() {
 
     window.addEventListener('hashchange', scheduleSync);
     window.addEventListener('popstate', scheduleSync);
+    window.addEventListener('yat:section-changed', scheduleSync);
     window.addEventListener('yat:gallery-filtered', scheduleSync as EventListener);
 
     const sectionObserver = new MutationObserver(scheduleSync);
@@ -405,6 +426,7 @@ export default function Row3MirrorGuard() {
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', scheduleSync);
       window.removeEventListener('popstate', scheduleSync);
+      window.removeEventListener('yat:section-changed', scheduleSync);
       window.removeEventListener('yat:gallery-filtered', scheduleSync as EventListener);
       sectionObserver.disconnect();
       rowFiveObserver.disconnect();
@@ -418,55 +440,24 @@ export default function Row3MirrorGuard() {
         visibility: hidden;
       }
 
-      [data-row3-synthetic="true"] .gallery-slot-media {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: #000;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-media {
+        position:relative; width:60px; height:60px; flex:0 0 60px;
+        overflow:hidden; border-radius:50%; border:1px solid #c7c7c7;
+        background:transparent;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-img {
+        display:block; width:100%; height:100%; object-fit:contain; padding:0;
+        border-radius:50%; background:transparent;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-img--contain {
-        object-fit: contain;
-        object-position: center;
-        padding: 6px;
-        background: transparent;
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-gradient { display:none; }
+      .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-name-overlay {
+        position:static; display:block; flex:0 0 12px; width:100%; height:12px;
+        padding:0; background:transparent; color:#e5e5e5;
+        font:300 9px/1 Oswald,sans-serif; letter-spacing:0;
+        text-align:center; text-shadow:none; text-transform:uppercase;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
       }
-
-      [data-row3-synthetic="true"] .gallery-slot-gradient {
-        position: absolute;
-        inset: auto 0 0;
-        height: 50%;
-        pointer-events: none;
-        background: linear-gradient(to top, rgba(0,0,0,.8), rgba(0,0,0,0));
-      }
-
-      [data-row3-synthetic="true"] .gallery-slot-name-overlay {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 4px;
-        z-index: 2;
-        overflow: hidden;
-        padding: 0 4px;
-        color: #fff;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1;
-        letter-spacing: .08em;
-        text-align: center;
-        text-overflow: ellipsis;
-        text-shadow: 0 1px 3px rgba(0,0,0,.95);
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
+      body.light-theme .gallery-strip[data-react-mirrors-row5="true"] [data-row3-synthetic="true"] .gallery-slot-name-overlay { color:#555; }
     `}</style>
   );
 }

@@ -1,13 +1,17 @@
 'use client';
 
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
+const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
+const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
-const UNCOMMITTED_BADGE_SRC = `${YAT_ASSETS_BASE}/colleges/uncommitted.png`;
+const UNCOMMITTED_BADGE_SRC = '/img/uncommitted.jpg';
+const isUncommittedBadge = (src: string): boolean => /\/uncommitted\.(?:png|webp|jpe?g)(?:[?#]|$)/i.test(src);
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
 type Player = {
@@ -23,11 +27,22 @@ type Player = {
   isPitcher?: boolean;
 };
 
+type TeamSeasonResult = {
+  seasonYear: number;
+  achievement: string;
+  wins: number;
+  losses: number;
+  seasonNote: string | null;
+  displayLine1: string | null;
+  displayLine2: string | null;
+};
+
 type InteractionStripProps = {
   isPlayerProfile?: boolean;
   isGallery?: boolean;
   isNews?: boolean;
   players?: Player[];
+  teamSeasonResults?: TeamSeasonResult[];
 };
 
 function getLastName(name: string): string {
@@ -85,6 +100,20 @@ function isCardVisible(card: HTMLElement): boolean {
     && (!wrapper || (!wrapper.hidden && wrapper.style.display !== 'none'));
 }
 
+function alignPlayerBelowRow3(card: HTMLElement): void {
+  // Align to the actual bottom of the sticky headshot row, not a diagnostic Y coordinate.
+  // Read the rendered geometry so responsive row heights are respected.
+  const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+  const rowBottom = rail?.getBoundingClientRect().bottom;
+  const targetY = Math.max(0, rowBottom ?? 166) + 8;
+  const position = () => {
+    const delta = card.getBoundingClientRect().top - targetY;
+    if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
+  };
+  position();
+  requestAnimationFrame(position);
+}
+
 function scrollToPlayerCard(playerId: string, sectionKey: string) {
   if (typeof document === 'undefined') return;
 
@@ -108,7 +137,7 @@ function scrollToPlayerCard(playerId: string, sectionKey: string) {
   target.style.display = '';
   target.hidden = false;
   target.classList.remove('is-hidden');
-  target.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+  alignPlayerBelowRow3(target);
 }
 
 function fallbackPlayersForSection(section: string, players: Player[]): Player[] {
@@ -119,7 +148,7 @@ function fallbackPlayersForSection(section: string, players: Player[]): Player[]
   if (section === 'alltime') {
     return players.filter((player) => !isHighSchoolStatus(player.status)).map((player) => ({
       ...player,
-      image: cleanSrc(player.thenImage) || cleanSrc(player.image),
+      image: cleanSrc(player.nowImage) || cleanSrc(player.image),
       imageFit: 'cover',
     }));
   }
@@ -175,12 +204,10 @@ function readPlayersFromVisibleBlockFive(
 
     const isCurrent = section === 'current';
     const isAllTime = section === 'alltime';
-    const selectedImage = isCurrent ? currentImage : isAllTime ? thenImage : nowImage;
+    const selectedImage = isCurrent ? currentImage : nowImage;
     const fallbackImage = isCurrent
       ? cleanSrc(card.dataset.thumbnailCurrentFallback) || UNCOMMITTED_BADGE_SRC
-      : isAllTime
-        ? cleanSrc(card.dataset.thumbnailThenFallback) || HEADSHOT_FALLBACK_SRC
-        : cleanSrc(card.dataset.thumbnailNowFallback) || cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC;
+      : cleanSrc(card.dataset.thumbnailNowFallback) || cleanSrc(source?.fallbackImage) || HEADSHOT_FALLBACK_SRC;
 
     result.push({
       id,
@@ -208,11 +235,17 @@ export default function InteractionStrip({
   isGallery = false,
   isNews = false,
   players = [],
+  teamSeasonResults = [],
 }: InteractionStripProps) {
+  // The All-Time year baseballs load with the page, so the tab opens on
+  // them rather than on bare numbers.
+  preload('/img/roster_year_ball.webp', { as: 'image' });
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const [activeSection, setActiveSection] = useState(getCurrentSection);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedRosterYear, setSelectedRosterYear] = useState<string | null>(null);
   const [sectionPlayers, setSectionPlayers] = useState<Player[]>(() =>
     fallbackPlayersForSection(getCurrentSection(), players)
   );
@@ -243,10 +276,20 @@ export default function InteractionStrip({
       frame = window.requestAnimationFrame(() => {
         const section = getCurrentSection();
         setActiveSection(section);
+        const allTimeSection = document.getElementById('sec-alltime');
+        setSelectedRosterYear(
+          section === 'alltime' ? allTimeSection?.dataset.alltimeTeamYearFilter || null : null
+        );
 
-        const nextPlayers = PLAYER_GALLERY_SECTIONS.has(section)
-          ? readPlayersFromVisibleBlockFive(section, playersById)
-          : fallbackPlayersForSection(section, players);
+        // Alumni News uses the same active-alumni headshots as the flip-card
+        // gallery, but as filters. Resolve its roster from the active gallery
+        // first so client-side navigation doesn't depend on a news-only list
+        // that may not be populated until a full refresh.
+        const nextPlayers = section === 'news'
+          ? fallbackPlayersForSection('active', players)
+          : PLAYER_GALLERY_SECTIONS.has(section)
+            ? readPlayersFromVisibleBlockFive(section, playersById)
+            : fallbackPlayersForSection(section, players);
 
         const resolvedPlayers = nextPlayers.length
           ? nextPlayers
@@ -263,6 +306,7 @@ export default function InteractionStrip({
     syncFromPage();
     window.addEventListener('hashchange', syncFromPage);
     window.addEventListener('popstate', syncFromPage);
+    window.addEventListener('yat:section-changed', syncFromPage);
     window.addEventListener('yat:gallery-filtered', syncFromPage as EventListener);
     document.addEventListener('click', syncFromPage, true);
 
@@ -285,6 +329,7 @@ export default function InteractionStrip({
       window.cancelAnimationFrame(frame);
       window.removeEventListener('hashchange', syncFromPage);
       window.removeEventListener('popstate', syncFromPage);
+      window.removeEventListener('yat:section-changed', syncFromPage);
       window.removeEventListener('yat:gallery-filtered', syncFromPage as EventListener);
       document.removeEventListener('click', syncFromPage, true);
       observer.disconnect();
@@ -317,6 +362,12 @@ export default function InteractionStrip({
 
   const handleSlotClick = (event: MouseEvent<HTMLAnchorElement>, playerId: string) => {
     event.preventDefault();
+    const selected = event.currentTarget;
+    const rail = selected.closest('.gallery-strip-inner');
+    rail?.querySelectorAll('.gallery-slot.is-active').forEach((slot) => { slot.classList.remove('is-active'); slot.removeAttribute('aria-current'); });
+    setSelectedPlayerId(playerId);
+    selected.classList.add('is-active');
+    selected.setAttribute('aria-current', 'true');
 
     // On the News tab a headshot filters the news cards to that player
     // (NewsGallery listens; clicking the same one again shows everyone).
@@ -331,7 +382,22 @@ export default function InteractionStrip({
     }
   };
 
+  const handleAllTimeYearClick = (year: string) => {
+    const nextYear = selectedRosterYear === year ? '' : year;
+    setSelectedRosterYear(nextYear || null);
+    window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: nextYear } }));
+  };
+
+  const handleAllTimeResetClick = () => {
+    setSelectedRosterYear(null);
+    window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: '', reset: true } }));
+  };
+
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
+  const allTimeCount = players.length;
+  const teamSeasonResultsByYear = new Map(
+    teamSeasonResults.map((result) => [String(result.seasonYear), result])
+  );
 
   return (
     <>
@@ -341,6 +407,25 @@ export default function InteractionStrip({
           display: block;
           text-decoration: none;
           color: inherit;
+        }
+
+        .alltime-year-badge {
+          appearance: none;
+          -webkit-appearance: none;
+          padding: 0;
+          color: inherit;
+          cursor: pointer;
+        }
+
+        .alltime-year-badge:focus-visible {
+          outline: 2px solid #f5c542;
+          outline-offset: -2px;
+          border-radius: 50%;
+        }
+
+        .alltime-year-badge.is-active .alltime-year-badge-media {
+          border-color: #f5c542;
+          box-shadow: 0 0 0 2px rgba(245, 197, 66, .72);
         }
 
         .gallery-slot-media {
@@ -383,6 +468,14 @@ export default function InteractionStrip({
           background: transparent;
         }
 
+        .gallery-current-slot-link .gallery-slot-media--uncommitted {
+          border-radius: 50%;
+          background: transparent;
+        }
+        .gallery-current-slot-link .gallery-slot-media--uncommitted .gallery-slot-img--contain {
+          width: 100%; height: 100%; padding: 0; object-fit: cover; border-radius: 50%;
+        }
+
         .gallery-slot-gradient {
           position: absolute;
           left: 0;
@@ -416,7 +509,226 @@ export default function InteractionStrip({
         }
       `}</style>
 
-      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
+      <style jsx global>{`
+        /* Give every player-card gallery the same 8px cushion below the row-3 rail. */
+        #sec-active, #sec-alltime, #sec-current { border-top:8px solid transparent; }
+        /* Compact alumni portrait rail: thin neutral separators, surnames below portraits. */
+        .gallery-strip[data-react-mirrors-row5="true"] { background:#0a0a0a; border:0; height:84px; min-height:84px; padding:0 6px; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] { background:#fff; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; gap:3px; align-items:center; padding:4px 54px 4px 54px; box-sizing:border-box; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot {
+          flex:0 0 64px; width:64px; min-width:64px; height:73px; display:flex;
+          flex-direction:column; align-items:center; justify-content:center;
+          gap:2px; border:0; border-radius:0; background:transparent;
+          overflow:visible; box-shadow:none; margin:0; text-decoration:none;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot + .gallery-slot { margin-left:0; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+          width:60px; height:60px; flex:0 0 60px; border:1px solid #c7c7c7;
+          border-radius:50%; overflow:hidden; background:transparent;
+          box-shadow:none; position:relative;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media { border-color:#d1d1d1; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge-media {
+          background:radial-gradient(circle at 38% 30%, #fff 0%, #fff 48%, #f5f5f5 76%, #e5e5e5 100%);
+          box-shadow:inset 0 1px 9px rgba(0,0,0,.09), inset 0 -3px 7px rgba(0,0,0,.06);
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { height:84px; min-height:84px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { height:84px; min-height:84px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex:0 0 64px; width:64px; min-width:64px; height:73px; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
+          display:flex; flex:0 0 60px; width:60px; height:60px; box-sizing:border-box;
+          align-items:center; justify-content:center; padding:7px; color:#171717;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
+          position:absolute; left:7px; top:8px; transform:none; z-index:7;
+          display:flex; flex-direction:column; justify-content:center; align-items:center;
+          width:65px; height:42px; border:1px solid #c8c5b9; border-radius:2px;
+          background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
+          position:absolute; top:49px; left:0; width:100%; color:#e2c34b; display:flex; flex-direction:column; align-items:stretch; font:800 8px/1 Oswald,sans-serif; letter-spacing:0; text-align:center; white-space:nowrap;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child { font-size:15px; line-height:1; letter-spacing:.5px; transform:scaleX(1.1); transform-origin:center; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-count {
+          font:900 27px/1 Oswald,sans-serif;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          padding-left:82px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
+          background:transparent url('/img/roster_year_ball.webp') center / contain no-repeat;
+          border:0; border-radius:0; box-shadow:none; color:#532a39;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge.alltime-state-champion .alltime-year-badge-media {
+          background-image:url('/img/az_state_champ_roster.webp'); color:#fff;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-year-number {
+          font:900 22px/1 Oswald,sans-serif; display:block; text-shadow:0 1px 2px #7776;
+        }
+        /* Outfield plaques: match Hamilton's raised condensed lettering and vertical hierarchy. */
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-season-record { color:#e2c34b !important; font-weight:800 !important; font-size:10px !important; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats { height:100%; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-layout,
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-layout {
+          display:flex; flex-direction:column; justify-content:center; width:100%; height:100%;
+          font-family:Impact,'Arial Narrow',sans-serif; font-stretch:condensed; font-weight:900;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-layout {
+          color:#f7f5ef; text-align:right; align-items:flex-end; padding:5px 4px 5px 0; box-sizing:border-box;
+          text-shadow:0 1px 1px #777,1px 2px 1px #333;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-heading {
+          display:flex; justify-content:flex-end; align-items:baseline; align-self:flex-end; gap:2px; line-height:.88;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-record {
+          font:700 5px/1 Arial,sans-serif; white-space:nowrap;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-state {
+          font-size:14px; line-height:.91; letter-spacing:-.4px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-champions {
+          font-size:12px; line-height:.93; letter-spacing:-.35px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-champ-year {
+          font-size:18px; line-height:1.08; letter-spacing:-.5px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-layout {
+          color:#65424b; text-align:center; padding:6px 2px 3px;
+          text-shadow:0 1px 1px #ffffffa8;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-record {
+          display:none;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note {
+          font-family:Oswald,'Arial Narrow',sans-serif; font-weight:400; font-size:7px; line-height:1; letter-spacing:-.15px; flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding-bottom:2px; overflow:hidden; width:100%;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-note > span { display:block; width:100%; white-space:nowrap; overflow:hidden; text-overflow:clip; text-align:center; flex:0 0 auto; line-height:1; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-ball-year {
+          font-size:17px; line-height:1.05;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats {
+          display:flex; flex-direction:column; align-items:center; justify-content:center;
+          width:100%; max-height:100%; overflow:hidden; text-align:center;
+          font:600 6.7px/1.08 Oswald, sans-serif; letter-spacing:0; text-transform:none;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-achievement { display:block; width:100%; overflow-wrap:anywhere; }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-note {
+          display:block; width:100%; margin-top:1px; font-size:5.8px; font-style:italic;
+          line-height:1.05; overflow-wrap:anywhere;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-record {
+          display:block; margin-top:2px; font:700 8px/1 Oswald, sans-serif; white-space:nowrap;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats--missing { font-size:7px; line-height:1.15; }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { filter:invert(1); }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
+          display:block; width:100%; height:100%; object-fit:contain;
+          object-position:center center; border-radius:50%; background:transparent; padding:0;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img--contain { object-fit:contain; padding:0; background:transparent; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-gradient { display:none; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay {
+          position:static; display:block; flex:0 0 11px; width:100%; height:11px;
+          min-height:0; padding:0; background:transparent; color:#e5e5e5;
+          font:300 9px/1 Oswald, sans-serif; letter-spacing:0; line-height:11px; text-transform:uppercase;
+          text-align:center; text-shadow:none; white-space:nowrap;
+          overflow:hidden; text-overflow:ellipsis; pointer-events:none;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-name-overlay { color:#555; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:hover,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active { box-shadow:none; }
+        /* Fade the full portrait and label near either edge, like the ticker. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner {
+          -webkit-mask-image:linear-gradient(to right,black 0%,black 87%,transparent 100%);
+          mask-image:linear-gradient(to right,black 0%,black 87%,transparent 100%);
+        }
+        /* All-Time wall: fade plaques into the wall's green, never the page's white.
+           Keep this after the shared portrait mask so it wins the cascade. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"],
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          background:#16472f !important;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          -webkit-mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
+        }
+        /* Right-justify all three lines within the plaque, with room for CHAMPS. */
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-layout {
+          padding:4px 1px 3px 0; align-items:flex-end; text-align:right;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-layout > span {
+          align-self:flex-end; text-align:right; max-width:100%; white-space:nowrap;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-champions {
+          font-size:10px; letter-spacing:-.55px;
+        }
+        /* The fixed sign's two-line descriptor ends at the same baseline as records. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
+          top:46px; line-height:1; gap:0;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child {
+          font-size:12px; transform:none; letter-spacing:.1px;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:last-child {
+          font-size:8px; letter-spacing:-.2px;
+        }
+        /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          z-index:3; background:rgba(20,20,20,.25); color:#ddd; border:0;
+          width:22px; box-shadow:none; opacity:.7;
+        }
+        body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          background:rgba(255,255,255,.25); color:#555;
+        }
+        /* The selected portrait drops slightly instead of rising into the top crop. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { transform:translateY(0); transition:transform .18s ease; }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(3px); }
+        /* Move the portrait and surname together using only the parent slot transform. */
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+          transform:none !important;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active .gallery-slot-name-overlay,
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"] .gallery-slot-name-overlay {
+          color:#d2b45c !important;
+          text-shadow:0 0 5px rgba(210,180,92,.28);
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.alltime-year-reset-badge {
+          flex:0 0 108px; width:108px; min-width:108px;
+          height:73px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-reset-badge .alltime-year-badge-media {
+          width:60px; height:60px; flex:0 0 60px;
+        }
+        .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-reset-label {
+          display:block; width:108px; height:11px; flex:0 0 11px;
+          color:#e5e5e5; font:300 9px/11px Oswald, sans-serif;
+          letter-spacing:0; text-align:center; white-space:nowrap;
+        }
+
+
+        @media(max-width:600px) {
+          .gallery-strip[data-react-mirrors-row5="true"] { padding-left:6px; padding-right:0; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner { gap:3px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot { flex-basis:64px; width:64px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
+            width:60px;
+            height:60px;
+            flex-basis:auto; aspect-ratio:1;
+          }
+          .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge { flex-basis:64px; width:64px; min-width:64px; }
+          .gallery-strip[data-react-mirrors-row5="true"] .alltime-year-badge:not(.alltime-year-reset-badge) .alltime-year-badge-media {
+            flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
+          }
+        }
+      `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
             type="button"
@@ -428,18 +740,74 @@ export default function InteractionStrip({
           </button>
         )}
 
+        {showPlayerStrip && activeSection === 'alltime' && (
+          <button type="button" className="alltime-distance-marker" onClick={handleAllTimeResetClick}
+            aria-label={`Show All-Time List, ${allTimeCount} alumni`} title="Show all-time alumni">
+            <strong className="alltime-distance-count">{allTimeCount}</strong>
+            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT LEVEL LIST</span></span>
+          </button>
+        )}
         <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
           {showPlayerStrip ? (
-            sectionPlayers.map((player) => {
+            activeSection === 'alltime' ? (
+              <>
+                {ALL_TIME_TEAM_YEARS.map((year) => {
+                  const isSelected = selectedRosterYear === year;
+                  const stats = teamSeasonResultsByYear.get(year);
+                  const displayLines = [stats?.displayLine1 || stats?.achievement || '', stats?.displayLine2 || stats?.seasonNote || ''];
+                  const isChampion = /\bstate\s+champ(?:ion)?s?\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
+                  const isRunnerUp = /\b(state\s+)?runner.up\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
+                  const statsLabel = stats
+                    ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${stats.wins}-${stats.losses})`
+                    : 'season stats not provided yet';
+                  return (
+                    <button
+                      key={`alltime-year-${year}`}
+                      type="button"
+                      className={`gallery-slot alltime-year-badge${isChampion ? ' alltime-state-champion' : ''}${isRunnerUp ? ' alltime-state-runnerup' : ''}${isSelected ? ' is-active' : ''}`}
+                      data-team-year={year}
+                      aria-label={`${year} team: ${statsLabel}. Filter All-Time alumni to team year ${year}`}
+                      aria-pressed={isSelected}
+                      title={`${year} Team — ${statsLabel}. Click to filter alumni.`}
+                      onClick={() => handleAllTimeYearClick(year)}
+                    >
+                      <div className="gallery-slot-media alltime-year-badge-media">
+                        <span className={`alltime-team-stats${stats ? '' : ' alltime-team-stats--missing'}`}>
+                          {isChampion ? (
+                            <span className="alltime-champ-layout">
+                              <span className="alltime-champ-heading">
+                                
+                                <span className="alltime-champ-state">STATE</span>
+                              </span>
+                              <span className="alltime-champ-champions">CHAMPS</span>
+                              <span className="alltime-champ-year">{year}</span>
+                            </span>
+                          ) : (
+                            <span className="alltime-ball-layout">
+                              
+                              <span className="alltime-ball-note"><><span>{displayLines[0]}</span><span>{displayLines[1]}</span></></span>
+                              <span className="alltime-ball-year">{year}</span>
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <span className="gallery-slot-name-overlay alltime-season-record" aria-hidden="true">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ""}</span>
+                    </button>
+                  );
+                })}
+              </>
+            ) : sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
-              const fallbackSrc = cleanSrc(player.fallbackImage) || (isCurrentTeamTab ? UNCOMMITTED_BADGE_SRC : HEADSHOT_FALLBACK_SRC);
+              const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
               const nowSrc = cleanSrc(player.nowImage)
                 || `${PLAYER_NOW_BASE}/${encodeURIComponent(player.id)}.jpg`;
               const thenSrc = cleanSrc(player.thenImage)
                 || `${PLAYER_THEN_BASE}/${encodeURIComponent(player.id)}.jpg`;
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
-              const displaySrc = cleanSrc(player.image)
-                || (isCurrentTeamTab ? currentSrc : activeSection === 'alltime' ? thenSrc : nowSrc);
+              const displaySrc = isCurrentTeamTab
+                ? currentSrc
+                : activeSection === 'news' ? (cleanSrc(player.nowImage) || cleanSrc(player.image) || nowSrc) : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+              const uncommittedBadge = isCurrentTeamTab && isUncommittedBadge(currentSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
               const linkClassName = isCurrentTeamTab
@@ -450,18 +818,18 @@ export default function InteractionStrip({
                 <a
                   key={`${activeSection}-${player.id}`}
                   href={`#player-${encodeURIComponent(player.id)}`}
-                  className={linkClassName}
+                  className={`${linkClassName}${selectedPlayerId === player.id ? ' is-active' : ''}`}
                   data-playerid={player.id}
                   data-status={status}
                   data-default-hidden={status === 'RETIRED' ? 'retired' : undefined}
                   title={player.name}
                   onClick={(event) => handleSlotClick(event, player.id)}
                 >
-                  <div className="gallery-slot-media">
+                  <div className={`gallery-slot-media${uncommittedBadge ? ' gallery-slot-media--uncommitted' : ''}`}>
                     <img
                       src={displaySrc}
                       alt={player.name}
-                      loading="lazy"
+                      loading={activeSection === "news" ? "eager" : "lazy"}
                       decoding="async"
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
@@ -470,7 +838,7 @@ export default function InteractionStrip({
                       onError={(event) => {
                         const image = event.currentTarget;
 
-                        if (image.dataset.extensionFallbackApplied !== 'true') {
+                        if (isCurrentTeamTab && image.dataset.extensionFallbackApplied !== 'true') {
                           const alternateSrc = getExtensionFallbackSrc(image.getAttribute('src'));
                           if (alternateSrc && alternateSrc !== image.getAttribute('src')) {
                             image.dataset.extensionFallbackApplied = 'true';
@@ -479,14 +847,20 @@ export default function InteractionStrip({
                           }
                         }
 
+                        if (activeSection === 'news' && image.dataset.nowFallbackApplied !== 'true' && nowSrc !== image.getAttribute('src')) {
+                          image.dataset.nowFallbackApplied = 'true';
+                          image.src = nowSrc;
+                          return;
+                        }
                         if (image.dataset.fallbackApplied === 'true') return;
                         image.dataset.fallbackApplied = 'true';
+                         image.dataset.silhouetteFallback = 'true';
                         image.src = fallbackSrc;
                       }}
                     />
                     {!isCurrentTeamTab && <div className="gallery-slot-gradient" />}
-                    {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                   </div>
+                  {lastName ? <div className="gallery-slot-name-overlay">{lastName}</div> : null}
                 </a>
               );
             })
