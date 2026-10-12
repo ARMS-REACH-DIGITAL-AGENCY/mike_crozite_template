@@ -216,7 +216,9 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
   const flip = g[4] === 'commissioner';
   const cross = g[4] === 'cross';
   const fanBase = g[4] === 'fans';
-  const title = fanBase ? `${W.toUpperCase()}'S FANS WIN IT`
+  const runDiff = g[4] === 'runDiff';
+  const title = runDiff ? `${W.toUpperCase()} WINS IT ON RUN DIFFERENTIAL`
+    : fanBase ? `${W.toUpperCase()}'S FANS WIN IT`
     : flip ? `${W.toUpperCase()} WINS ON THE COMMISSIONER'S CALL`
     : cross ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : walkOff ? `${W.toUpperCase()} WALKS IT OFF`
@@ -224,7 +226,8 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
     : !ls ? `${W.toUpperCase()} BLANKS ${L.toUpperCase()}`
     : `${W.toUpperCase()} WINS GAME ${gameNo}`;
   const lastRuns = Number(runs[(innings - 1) * 2] || 0);
-  const how = fanBase ? `${W} won it on the bigger fan base after every extra inning came up even.`
+  const how = runDiff ? `${W} won it on run differential after every extra inning came up even: its alumni's real clubs outscored their opponents by more this week.`
+    : fanBase ? `${W} won it on the bigger fan base after every extra inning came up even.`
     : flip ? `${W} won it on the commissioner's decision after every extra inning came up even.`
     : cross ? `${W} won it in the ${ORD(innings)}, hitter against pitcher: the player closer to league average took it.`
     : walkOff || wonLast ? `${W} won it with ${runsWord(lastRuns)} in the bottom of the ${ORD(innings)}${walkOff ? ', coming from behind' : ''}.`
@@ -364,7 +367,11 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
   const score = `${ws}-${ls}`;
   const verb = ls === 0 ? 'blanked' : 'beat';
   let lede = `${W} ${verb} ${L} ${score} in Game ${opts.gameNo} of their Round 1 series`;
-  if (g[4] === 'fans') {
+  if (g[4] === 'runDiff') {
+    const wb = g[6] === g[2] ? box.h : box.a, lb = g[6] === g[2] ? box.a : box.h;
+    const sign = (v: number | undefined) => (!v ? '0' : v > 0 ? `+${v}` : `${v}`);
+    lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on run differential. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it came down to the alumni's real clubs, which were a combined ${sign(wb?.rd)} for the week to ${L}'s ${sign(lb?.rd)}, and that run made it ${score}.`;
+  } else if (g[4] === 'fans') {
     lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on the strength of its fans. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it went to the fan-base tiebreaker - the most registered YAT?STATS fans - and that run made it ${score}.`;
   } else if (g[4] === 'commissioner') {
     // The decision's run is the last; the score before it was tied.
