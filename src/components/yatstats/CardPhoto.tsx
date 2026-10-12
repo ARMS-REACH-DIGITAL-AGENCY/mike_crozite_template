@@ -13,7 +13,7 @@
 // empty alt keeps a failed load from drawing a broken-image icon.
 import { useEffect, useRef, useState } from 'react';
 
-export default function CardPhoto({ srcs, className = 'yat-bg-photo' }: { srcs: string[]; className?: string }) {
+export default function CardPhoto({ srcs, className = 'yat-bg-photo', eager = false }: { srcs: string[]; className?: string; eager?: boolean }) {
   const [index, setIndex] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const src = srcs[index];
@@ -35,7 +35,8 @@ export default function CardPhoto({ srcs, className = 'yat-bg-photo' }: { srcs: 
       className={className}
       src={src}
       alt=""
-      loading="lazy"
+      loading={eager ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : undefined}
       decoding="async"
       onError={() => setIndex((i) => i + 1)}
     />
