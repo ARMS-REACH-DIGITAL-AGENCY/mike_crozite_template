@@ -69,7 +69,7 @@ function standouts(rows: PlayerRow[]) {
   ].filter(Boolean) as string[];
 }
 // "a 104", "an 88", "an 11".
-const an = (n: number | string) => (/^8/.test(String(n)) || ['11', '18'].includes(String(n)) ? `an ${n}` : `a ${n}`);
+const an = (n: number | string | null) => (/^8/.test(String(n)) || ['11', '18'].includes(String(n)) ? `an ${n}` : `a ${n}`);
 const joinAnd = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 // The story of one settled inning of game g (k: 0-6 = Monday-Sunday, 7 =
@@ -139,7 +139,7 @@ export function inningStory(index: Index, g: GameRow, box: GameBox | undefined, 
     const [mw, ml] = mySide.wl || [0, 0], [tw, tl] = oppSide.wl || [0, 0];
     who = `The 9th is the alumni's real clubs: ${school}'s went ${mw}-${ml} this week, ${opp}'s ${tw}-${tl}.`;
   } else {
-    const wk = k === 7 && box.d?.[7];
+    const wk = k === 7 && box.d?.[7]?.every((v) => v != null) ? box.d[7] : null;
     const totals = wk
       ? `The 8th is the whole week: ${school} hit for ${an(wk[home ? 0 : 1])} OPS+ to ${opp}'s ${wk[home ? 1 : 0]}, and pitched to ${an(wk[home ? 2 : 3])} FIP- to ${wk[home ? 3 : 2]}. `
       : '';
