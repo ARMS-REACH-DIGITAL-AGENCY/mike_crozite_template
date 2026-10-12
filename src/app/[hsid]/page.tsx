@@ -105,10 +105,10 @@ function hasReal2026Stats(p: Row): boolean {
   });
 }
 
-// A school's coach (status RETIRED - COACH) is listed at the high-school
-// level because he is on the school's staff, but he belongs in the alumni
-// grids (All-Time, and Active when his status is checked), not only the
-// current team.
+// No high school level card is on the alumni grids (All-Time, Active) except
+// a retired coach (RETIRED - COACH), listed at the high school level because
+// he was on the school's staff. A current coach (COACH) is on the high
+// school team only.
 function isCoachCard(p: Row | undefined): boolean {
   return String(p?.status_label ?? p?.status ?? "").trim().toUpperCase().includes("COACH");
 }
@@ -480,7 +480,10 @@ export default async function SchoolPage({
   const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
-  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })));
+  // The coach leads the high school team, ahead of every player; the rest
+  // keep the gallery's usual order.
+  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })))
+    .sort((a, b) => Number(isCoachCard(b)) - Number(isCoachCard(a)));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
   const activeSeenIds = new Set<string>();
@@ -489,7 +492,7 @@ export default async function SchoolPage({
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-    if (isHighSchoolPlayer(mergedRow) && !isCoachCard(mergedRow)) continue;
+    if (isHighSchoolPlayer(mergedRow) && !isRetiredCoachCard(mergedRow)) continue;
     activeMerged.push(mergedRow);
     activeSeenIds.add(id);
   }
@@ -507,14 +510,14 @@ export default async function SchoolPage({
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-    if (isHighSchoolPlayer(mergedRow) && !isCoachCard(mergedRow)) continue;
+    if (isHighSchoolPlayer(mergedRow) && !isRetiredCoachCard(mergedRow)) continue;
     allTimeMerged.push(mergedRow);
     allTimeSeenIds.add(id);
   }
 
   for (const p of stageRows) {
     const id = String(p.playerid);
-    if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isCoachCard(p))) {
+    if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isRetiredCoachCard(p))) {
       allTimeMerged.push({ ...p });
     }
   }
