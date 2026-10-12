@@ -264,6 +264,26 @@ function firstName(full?: string) {
   return String(full || '').trim().split(/\s+/)[0] || 'Player';
 }
 
+// A season on a coach's timeline, as the school's All-Time year badge has
+// it (school_team_season_results): record, finish, the badge's two lines.
+type TeamSeason = { seasonYear: number; achievement: string; wins: number; losses: number; seasonNote: string | null; displayLine1: string | null; displayLine2: string | null };
+
+// The season's headline and write-up: "2003: Hamilton wins the State
+// Championship" / "23-10 · State Champions".
+function coachSeasonCopy(year: number, school: string, season?: TeamSeason | null): { headline: string; line: string } {
+  const name = school.replace(/\s+high\s+school$/i, '').trim() || 'The team';
+  if (!season) return { headline: `The ${year} season`, line: '' };
+  const text = [season.achievement, season.seasonNote, season.displayLine1, season.displayLine2].filter(Boolean).join(' ');
+  const record = Number.isFinite(season.wins) && Number.isFinite(season.losses) ? `${season.wins}-${season.losses}` : '';
+  const finish = [season.displayLine1, season.displayLine2].filter(Boolean).join(' ').trim() || season.achievement || '';
+  let headline = `${year}: ${name} goes ${record}`;
+  if (/\bstate\s+champ/i.test(text)) headline = `${year}: ${name} wins the State Championship`;
+  else if (/runner.?up/i.test(text)) headline = `${year}: ${name} finishes State Runner-Up`;
+  else if (/established/i.test(text)) headline = `${year}: ${name} baseball is born`;
+  else if (!record) headline = `The ${year} season`;
+  return { headline, line: [record, /\bstate\s+champ/i.test(text) && !/champ/i.test(finish) ? 'State Champions' : finish, season.seasonNote && !finish.includes(season.seasonNote) ? season.seasonNote : ''].filter(Boolean).join(' · ') };
+}
+
 // "Woods" from "MIKE WOODS" - a coach's name as his players say it.
 function lastName(full?: string) {
   const last = String(full || '').trim().split(/\s+/).pop() || '';
@@ -953,6 +973,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [storyPhotosByYear, setStoryPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
   // year -> month (1-12) -> that month's stories (for the month rail).
   const [storiesByMonth, setStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
+  // year -> its stories' ids (a coach year's "open the memory" button).
+  const [storyIdsByYear, setStoryIdsByYear] = useState<Record<number, string[]>>({});
   useEffect(() => {
     setStoryPhotosByYear({});
     setStoriesByMonth({});
@@ -965,10 +987,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           if (cancelled || !Array.isArray(data?.stories)) return;
           const byYear: Record<number, HeroPhoto[]> = {};
           const byMonth: Record<number, Record<number, RailStory[]>> = {};
+          const idsByYear: Record<number, string[]> = {};
           type ApiPhoto = { web: string | null; thumb?: string | null; cutout?: string | null; source?: string | null; logo?: boolean };
           type ApiStory = { id: string; kind?: string; year: number | null; date?: string | null; photos?: ApiPhoto[]; commentPhotos?: ApiPhoto[] };
           for (const story of data.stories as ApiStory[]) {
             if (!story.year) continue;
+            (idsByYear[story.year] ||= []).push(story.id);
             const month = story.date ? Number(story.date.slice(5, 7)) : 0;
             if (month >= 1 && month <= 12) {
               ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, thumb: story.photos?.[0]?.thumb || story.photos?.[0]?.web || null });
@@ -981,6 +1005,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           }
           setStoryPhotosByYear(byYear);
           setStoriesByMonth(byMonth);
+          setStoryIdsByYear(idsByYear);
         })
         .catch((error) => console.error('[ZoomableCareerTimeline] stories fetch failed:', error));
     };
@@ -993,6 +1018,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       window.removeEventListener('yat:story-comment-photos', load);
     };
   }, [playerId]);
+
+  // A coach's seasons (record and finish), for each year's headline.
+  const [teamSeasons, setTeamSeasons] = useState<Record<number, TeamSeason>>({});
+  const coachHsid = coachTenure ? String(identityMeta?.hsid || '') : '';
+  useEffect(() => {
+    setTeamSeasons({});
+    if (!/^\d+$/.test(coachHsid)) return;
+    let cancelled = false;
+    fetch(`/api/schools/${coachHsid}/seasons`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data?.seasons)) return;
+        setTeamSeasons(Object.fromEntries((data.seasons as TeamSeason[]).map((x) => [Number(x.seasonYear), x])));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [coachHsid]);
 
   // When a year has more than one fan photo they take turns (StoryHeroStrip).
   const [heroTick, setHeroTick] = useState(0);
@@ -1990,13 +2032,27 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   )}
                 </>
               )}
-              {slide.kind === 'coachyear' && (
-                <>
-                  <span className="zt-kick">{slide.year} · {hsName || 'High School'}</span>
-                  <span className="zt-title">{slide.title}{slide.finalSeason ? ' · Final Season' : ''}</span>
-                  <span className="zt-bodycopy">Were you on the {slide.year} team? Share a memory from this season.</span>
-                </>
-              )}
+              {slide.kind === 'coachyear' && (() => {
+                // Eyebrow: which season of his tenure. Headline: the season
+                // itself, from the school's record. Then its memories.
+                const copy = coachSeasonCopy(slide.year, hsName, teamSeasons[slide.year]);
+                const memories = storyIdsByYear[slide.year] || [];
+                return (
+                  <>
+                    <span className="zt-kick">{slide.title}{slide.finalSeason ? ' · Final Season' : ''}</span>
+                    <span className="zt-title">{copy.headline}</span>
+                    {copy.line ? <span className="zt-bodycopy">{copy.line}</span> : null}
+                    <span className="zt-bodycopy">Were you on the {slide.year} team? Share a memory from this season.</span>
+                    {memories.length > 0 && (
+                      <div className="zt-upload-actions">
+                        <button type="button" className="zt-comment-pill" onClick={(e) => { e.stopPropagation(); showStoryInStoriesTab(memories[0]); }}>
+                          {memories.length > 1 ? `${memories.length} memories` : 'Open the memory'} · Comment
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               {slide.kind === 'future' && (
                 <>
                   <span className="zt-kick">{slide.year}</span>
