@@ -106,7 +106,7 @@ type BigStat = { label: string; value: string };
 // 'hsyear' is the grad year itself (senior year of high school). The anchor
 // (graduation, the opening screen) comes right after it, at the end of that
 // year; the first college/pro season follows the anchor.
-type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future' | 'draft';
+type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future' | 'draft' | 'coachyear';
 
 type MomentComment = {
   id: string;
@@ -146,6 +146,10 @@ type Slide = {
   isEarly?: boolean;
   // draft-kind only -- the pick this slide is about
   draft?: DraftPick;
+  // coachyear-kind only -- which season of his tenure (1 = his first) and
+  // whether it was his last (a retired coach's final season)
+  coachYear?: number;
+  finalSeason?: boolean;
   // upload-kind only
   momentDbId?: string;
   contributorName?: string;
@@ -258,6 +262,12 @@ function yatiPlaceholderFor(index: number) {
 
 function firstName(full?: string) {
   return String(full || '').trim().split(/\s+/)[0] || 'Player';
+}
+
+// "Woods" from "MIKE WOODS" - a coach's name as his players say it.
+function lastName(full?: string) {
+  const last = String(full || '').trim().split(/\s+/).pop() || '';
+  return last ? last[0].toUpperCase() + last.slice(1).toLowerCase() : '';
 }
 
 function isCurrentHeadshotUrl(value: unknown, playerId: string) {
@@ -838,6 +848,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     ...(school?.crestUrl ? [school.crestUrl] : []),
   ];
   const varsityYears = useMemo(() => new Set((identityMeta?.rosterYears || []).map(Number).filter(Boolean)), [identityMeta?.rosterYears]);
+  // A coach's card (COACH in its status: head coach, assistant, retired
+  // coach) is a coach profile: its timeline is his seasons with the
+  // program - Year 1 (his first) through his last - not a player's life
+  // years and Class Of. The tenure comes from his years on the roster
+  // ("99" ... "26", or four-digit years).
+  const coachTenure = useMemo(() => {
+    const status = String(identityMeta?.statusLabel || player?.statusLabel || '').toUpperCase();
+    if (!/(?:^|[ -])COACH(?:$|[ -])/.test(status)) return null;
+    const years = (identityMeta?.rosterYears || [])
+      .map((y) => { const n = Number(y); return n > 0 && n < 100 ? (n > 50 ? 1900 + n : 2000 + n) : n; })
+      .filter((n) => n >= 1900);
+    if (!years.length) return null;
+    return { start: Math.min(...years), end: Math.max(...years), retired: /RETIRED/.test(status) };
+  }, [identityMeta?.statusLabel, identityMeta?.rosterYears, player?.statusLabel]);
   // Position moved off this line and onto the end of batsThrowsHw below --
   // per direct feedback, this line is level + status only now (e.g.
   // "NCAA-D1 - ACTIVE"), not "position - level - status" like the flip
@@ -1223,12 +1247,47 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         default: return 0;
       }
     };
+    // A coach: his opening slide, then every season he coached (Year 1 ..
+    // Year N, the last one his final season if he's retired), his own
+    // playing seasons if any, and fan moments in the years they happened.
+    if (coachTenure) {
+      const { start, end, retired } = coachTenure;
+      const coachYears: Slide[] = Array.from({ length: end - start + 1 }, (_, i) => start + i).map((year) => ({
+        id: `coachyear-${year}`,
+        kind: 'coachyear' as const,
+        year,
+        coachYear: year - start + 1,
+        finalSeason: retired && year === end,
+        title: `Year ${year - start + 1}`,
+        yatiFallback: yatiPlaceholderFor(year - start + 1),
+      }));
+      const rawUploadYear = new Map(uploads.map((item) => [`upload-${item.id}`, item.photo_taken_year || yearOf(item.photo_taken_date) || start]));
+      const coachUploads = [...preHsUploaded, ...postHsUploaded]
+        .map((slide) => ({ ...slide, year: clamp(Number(rawUploadYear.get(slide.id) || start), start, futureYear) }));
+      const coachOrder = (slide: Slide) => {
+        switch (slide.kind) {
+          case 'anchor': return 0;
+          case 'coachyear': return 1;
+          case 'season': return 2;
+          case 'draft': return 3;
+          case 'upload': return 4;
+          case 'today': return 5;
+          case 'future': return 6;
+          default: return 7;
+        }
+      };
+      const coachSlides = [{ ...anchor, year: start }, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+        .sort((a, b) => a.year - b.year || coachOrder(a) - coachOrder(b));
+      const coachAnchor = coachSlides.findIndex((s) => s.kind === 'anchor');
+      return { startYear: coachSlides[0]?.year ?? start, endYear, hsYear: start, futureYear, slides: coachSlides, anchorIndex: coachAnchor < 0 ? 0 : coachAnchor };
+    }
+
     const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, hsSlide, ...gradYearUploads, anchor, ...seasons, ...draftSlides, ...laterUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
       .sort((a, b) => a.year - b.year || orderInYear(a) - orderInYear(b));
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks]);
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks, coachTenure]);
 
   const ready = statsLoaded && uploadsLoaded && identityLoaded;
 
@@ -1621,7 +1680,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 className="zt-persist-classof"
                 title={classOfIsEstimated ? 'Estimated from earliest recorded season -- not yet confirmed' : undefined}
               >
-                Class of {displayClassOf}{classOfIsEstimated ? '*' : ''}
+                {coachTenure
+                  ? `Coach ${coachTenure.start}${coachTenure.end > coachTenure.start ? `–${coachTenure.retired ? coachTenure.end : 'present'}` : ''}`
+                  : <>Class of {displayClassOf}{classOfIsEstimated ? '*' : ''}</>}
               </span>
             )}
           </div>
@@ -1719,13 +1780,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   area too, so this is a transparent window onto that one
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
-              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future' || slide.kind === 'draft') ? (
+              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future' || slide.kind === 'draft') ? (
                 <StoryMontage photos={storyPhotosByYear[slide.year].map((p) => p.web)} />
               ) : null}
               <span className="zt-visual-gradient" aria-hidden="true" />
-              {(slide.kind === 'lifeyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && (
+              {(slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && (
                 <span className="zt-logo-layer" aria-hidden="true">
-                  <SmartImage srcs={slide.kind === 'lifeyear' && varsityYears.has(slide.year) ? hsCrestSrcs : []} src={YS_CREST_FALLBACK} alt="" />
+                  <SmartImage srcs={slide.kind === 'coachyear' || (slide.kind === 'lifeyear' && varsityYears.has(slide.year)) ? hsCrestSrcs : []} src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
               {(slide.kind === 'season' || slide.kind === 'draft') && (
@@ -1807,7 +1868,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               </Fragment>
             );
           }
-          const storyPhotos = slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'future' || slide.kind === 'draft' ? storyPhotosByYear[slide.year] : undefined;
+          const storyPhotos = slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future' || slide.kind === 'draft' ? storyPhotosByYear[slide.year] : undefined;
           if (storyPhotos?.length) {
             return (
               <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
@@ -1828,6 +1889,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           if (slide.kind === 'lifeyear') {
             return (
               <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`Age ${slide.age}`} />
+            );
+          }
+          if (slide.kind === 'coachyear') {
+            return (
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Coach'} — ${slide.year}`} />
             );
           }
           if (slide.kind === 'future') {
@@ -1851,7 +1917,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         {ready && model.slides.map((slide) => (
           <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
             <span className="zt-copy">
-              {slide.kind === 'anchor' && (
+              {slide.kind === 'anchor' && coachTenure && (
+                <>
+                  <span className="zt-kick">Coach {resolvedPlayerName ? lastName(resolvedPlayerName) : ''} · {coachTenure.start}{coachTenure.end > coachTenure.start ? `–${coachTenure.retired ? coachTenure.end : 'present'}` : ''}</span>
+                  <span className="zt-title">Every player who came through {hsName || 'the program'} {coachTenure.retired ? 'played' : 'plays'} for him.</span>
+                  <span className="zt-bodycopy">{coachTenure.end - coachTenure.start + 1} seasons. Played for Coach {resolvedPlayerName ? lastName(resolvedPlayerName) : ''}? Share your memories of each year...</span>
+                </>
+              )}
+              {slide.kind === 'anchor' && !coachTenure && (
                 <>
                   <span className="zt-kick">His hometown never stopped caring</span>
                   <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>
@@ -1915,6 +1988,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   ) : (
                     <span className="zt-title">&ldquo;{LIFE_YEAR_QUOTES[slide.age ?? 0]}&rdquo;</span>
                   )}
+                </>
+              )}
+              {slide.kind === 'coachyear' && (
+                <>
+                  <span className="zt-kick">{slide.year} · {hsName || 'High School'}</span>
+                  <span className="zt-title">{slide.title}{slide.finalSeason ? ' · Final Season' : ''}</span>
+                  <span className="zt-bodycopy">Were you on the {slide.year} team? Share a memory from this season.</span>
                 </>
               )}
               {slide.kind === 'future' && (
@@ -2378,7 +2458,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            headline, not their own italic style, and pre-line was forcing
            a source-text line break to render literally instead of letting
            the sentence just flow and wrap naturally. */
-        .zt-anchor .zt-title, .zt-hsyear .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-future .zt-title, .zt-draft .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-anchor .zt-title, .zt-hsyear .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-coachyear .zt-title, .zt-future .zt-title, .zt-draft .zt-title { white-space:normal; overflow-wrap:anywhere; }
         /* Thin black outline around every headline, per direct feedback --
            same 8-direction text-shadow technique as .zt-polaroid-caption,
            at 1px instead of 1.5px. */
@@ -2402,7 +2482,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            breakpoint, including mobile -- per direct feedback. Life-year
            quotes are genuinely long/multi-line, so those still need to
            wrap. */
-        .zt-lifeyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
+        .zt-lifeyear .zt-bodycopy, .zt-coachyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
         /* Life-year slides now always carry a YaTi placeholder image (see
            .zt-person-stack's 'lifeyear' case), same as a season slide with
            no real cutout yet -- so the copy column no longer needs the
