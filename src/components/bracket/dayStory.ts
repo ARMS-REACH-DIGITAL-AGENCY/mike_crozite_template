@@ -205,8 +205,9 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
       wonLast = h === a;
     }
   }
-  const flip = g[4] === 'flip';
-  const title = walkOff ? `${W.toUpperCase()} WALKS IT OFF`
+  const flip = g[4] === 'coin' || g[4] === 'flip';
+  const title = flip ? `${W.toUpperCase()} WINS ON THE FLIP`
+    : walkOff ? `${W.toUpperCase()} WALKS IT OFF`
     : wonLast ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : !ls ? `${W.toUpperCase()} BLANKS ${L.toUpperCase()}`
     : `${W.toUpperCase()} WINS GAME ${gameNo}`;
@@ -321,7 +322,10 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
   const score = `${ws}-${ls}`;
   const verb = ls === 0 ? 'blanked' : 'beat';
   let lede = `${W} ${verb} ${L} ${score} in Game ${opts.gameNo} of their Round 1 series`;
-  if (g[4] === 'flip') lede += `, winning on the commissioner's flip after the two schools couldn't be separated.`;
+  if (g[4] === 'coin' || g[4] === 'flip') {
+    // The flip's run is the last; the score before it was tied.
+    lede += `, on the commissioner's flip. Tied ${ls}-${ls} after nine, the tiebreaker couldn't be played - it needs a hitter and a pitcher from each school - so a coin decided it.`;
+  }
   else if (decisive) {
     const where = decisive.k < 9 ? `the ${ORD(decisive.k + 1)}` : `the ${ORD(decisive.k + 1)} inning, in extras`;
     const walk = decisive.home && decisive.k >= 8 && decisive.bw < decisive.bl;
