@@ -273,15 +273,22 @@ type TeamSeason = { seasonYear: number; achievement: string; wins: number; losse
 function coachSeasonCopy(year: number, school: string, season?: TeamSeason | null): { headline: string; line: string } {
   const name = school.replace(/\s+high\s+school$/i, '').trim() || 'The team';
   if (!season) return { headline: `The ${year} season`, line: '' };
-  const text = [season.achievement, season.seasonNote, season.displayLine1, season.displayLine2].filter(Boolean).join(' ');
+  const a = String(season.achievement || '').trim();
   const record = Number.isFinite(season.wins) && Number.isFinite(season.losses) ? `${season.wins}-${season.losses}` : '';
-  const finish = [season.displayLine1, season.displayLine2].filter(Boolean).join(' ').trim() || season.achievement || '';
-  let headline = `${year}: ${name} goes ${record}`;
-  if (/\bstate\s+champ/i.test(text)) headline = `${year}: ${name} wins the State Championship`;
-  else if (/runner.?up/i.test(text)) headline = `${year}: ${name} finishes State Runner-Up`;
-  else if (/established/i.test(text)) headline = `${year}: ${name} baseball is born`;
-  else if (!record) headline = `The ${year} season`;
-  return { headline, line: [record, /\bstate\s+champ/i.test(text) && !/champ/i.test(finish) ? 'State Champions' : finish, season.seasonNote && !finish.includes(season.seasonNote) ? season.seasonNote : ''].filter(Boolean).join(' · ') };
+  const line = [record, a, season.seasonNote].filter(Boolean).join(' · ');
+  const champs = /^(.*?)\s*State Champ/i.exec(a);
+  const lost = /Lost (\w+) Round/i.exec(a);
+  let headline: string;
+  if (champs) headline = `${year}: ${name} wins the ${champs[1] ? `${champs[1]} ` : ''}State Championship`;
+  else if (/runner.?up/i.test(a)) headline = `${year}: ${name} finishes ${a.split(',')[0].trim()}`;
+  else if (/semi.?final/i.test(a)) headline = `${year}: ${name} reaches the State Semi-Finals`;
+  else if (/final (six|6)/i.test(a)) headline = `${year}: ${name} reaches the State Final Six`;
+  else if (/#1 nationally|#1 nat/i.test(a)) headline = `${year}: ${name} ranked #1 in the nation`;
+  else if (/established/i.test(a)) headline = `${year}: ${name} baseball is born`;
+  else if (lost) headline = `${year}: ${name}'s run ends in the ${lost[1].toLowerCase()} round`;
+  else if (/regional/i.test(a)) headline = `${year}: ${name}'s run ends in the regional playoff`;
+  else headline = record ? `${year}: ${name} goes ${record}` : `The ${year} season`;
+  return { headline, line };
 }
 
 // "Woods" from "MIKE WOODS" - a coach's name as his players say it.
