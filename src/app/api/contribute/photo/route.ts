@@ -67,6 +67,9 @@ export async function POST(req: NextRequest) {
   const crop = json<Crop>(form.get('crop'));
   const tagged = (json<string[]>(form.get('tagged')) || []).map((v) => String(v)).filter((v) => /^\d+$/.test(v)).slice(0, 20);
   const landscape = text(form.get('landscape'), 5) === '1';
+  // A headshot from his newest season (his headshot everywhere) or an
+  // earlier one (kept with that season).
+  const currentSeason = purpose === 'headshot' && text(form.get('currentSeason'), 5) === '1';
 
   const playerId = text(form.get('playerId'), 20);
   let playerName = text(form.get('playerName'), 120);
@@ -104,6 +107,7 @@ export async function POST(req: NextRequest) {
       cropped: Boolean(crop),
       tagged,
       landscape: purpose === 'timeline_hero' ? landscape : undefined,
+      currentSeason: purpose === 'headshot' ? currentSeason : undefined,
       playerName: playerName || null,
       by: { uid: who.uid, name: who.name, email: who.email || null },
       pageUrl,
@@ -133,7 +137,7 @@ export async function POST(req: NextRequest) {
       try {
         // A photo for a player who isn't on the site yet can't be placed.
         if (type.needsPlayer && !/^\d+$/.test(playerId)) throw new Error('no player on the site');
-        await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null });
+        await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason });
         status = 'approved';
         message = "Approved! It's on the site now.";
       } catch (error) {

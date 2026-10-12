@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   if (!/^[0-9a-f-]{36}$/i.test(id) || !['approve', 'reject'].includes(action)) return fail('Unknown request.');
   try {
     const { rows } = await query<UploadRow & { status: string }>(
-      `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time, status FROM media_upload WHERE id = $1`,
+      `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time, description, status FROM media_upload WHERE id = $1`,
       [id]
     );
     const upload = rows[0];

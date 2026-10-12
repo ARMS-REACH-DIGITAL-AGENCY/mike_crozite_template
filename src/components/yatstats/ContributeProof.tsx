@@ -14,7 +14,9 @@ export type ProofPlayer = { name: string; classOf: number | null; currentTeam: s
 // Every place the photo shows on the site, in the site's own words.
 const SPOTS: Record<PhotoPurpose, (p: ProofPlayer, s: Season | null) => string[]> = {
   flip_card: (p) => [`The front of ${first(p.name)}'s flip card, in the Active Alumni and All-Time galleries`, `The high school photo on his profile page`],
-  headshot: (p) => [`${first(p.name)}'s headshot in Row 3 of the galleries`, 'His profile page, Global Search and Favorites', 'Alumni News stories about him'],
+  headshot: (p, s) => s && !s.current
+    ? [`${first(p.name)}'s ${s.year} headshot, kept with his ${s.year} season on his Career Path Timeline`, 'His current headshot stays as it is']
+    : [`${first(p.name)}'s headshot in Row 3 of the galleries`, 'His profile page, Global Search and Favorites', 'Alumni News stories about him'],
   back_hero: (p) => [`The back of ${first(p.name)}'s flip card`, 'His profile page'],
   timeline_hero: (p, s) => [`The ${s?.year || ''} slide of ${first(p.name)}'s Career Path Timeline, on his profile page`.replace('The  slide', 'A slide')],
   other_photo: () => ['Kept for the YAT?STATS team, who will place it where it fits best'],
@@ -144,7 +146,8 @@ export default function ContributeProof({
     <div className="ypf">
       <div className="ypf-stage">
         {purpose === 'flip_card' ? <FlipCardFront src={src} crop={crop} p={player} />
-          : purpose === 'headshot' ? <Headshot src={src} crop={crop} p={player} />
+          // A headshot from an earlier season goes with that season's slide.
+          : purpose === 'headshot' ? (season && !season.current ? <TimelineSlide src={src} crop={crop} p={player} s={season} landscape={false} /> : <Headshot src={src} crop={crop} p={player} />)
           : purpose === 'back_hero' ? <FlipCardBack src={src} crop={crop} p={player} />
           : purpose === 'timeline_hero' ? <TimelineSlide src={src} crop={crop} p={player} s={season} landscape={landscape} />
           : purpose === 'school_logo' ? <SchoolCrest src={src} p={player} />

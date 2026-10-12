@@ -74,11 +74,12 @@ export const PHOTO_TYPES: PhotoType[] = [
   {
     id: 'headshot',
     prefix: 'Headshot',
-    label: 'Current Headshot',
+    label: 'Headshot (Any Season)',
     aspects: [5 / 7],
     guide: 'eyes',
+    asks: 'season',
     needsPlayer: true,
-    spec: 'His face and shoulders from this season, like an official team headshot. 5x7 portrait: put his eyes on the two marks.',
+    spec: "His face and shoulders, like an official team headshot, from the season you pick. His current season's becomes his headshot everywhere; an earlier one goes with that season on his Career Path Timeline. 5x7 portrait: put his eyes on the two marks.",
   },
   {
     id: 'back_hero',

@@ -150,7 +150,7 @@ export default function ContributePhotoFlow({
   const yearToSend = (): number | null => {
     if (!type) return null;
     if (type.id === 'flip_card') return info?.classOf || THIS_YEAR;
-    if (type.id === 'headshot' || type.id === 'back_hero') return current?.year || THIS_YEAR;
+    if (type.id === 'back_hero') return current?.year || THIS_YEAR;
     if (type.asks === 'season') return season?.year || (type.id === 'other_photo' ? THIS_YEAR : null);
     return THIS_YEAR;
   };
@@ -159,7 +159,7 @@ export default function ContributePhotoFlow({
     if (!file) return 'Select the picture.';
     if (!type) return "Pick what it's for.";
     if (type.needsPlayer && !main) return "Tag who's in the picture.";
-    if (type.id === 'timeline_hero' && !season) return 'Pick the season.';
+    if ((type.id === 'timeline_hero' || type.id === 'headshot') && !season) return 'Pick the season.';
     if (type.asks === 'team' && !teamId) return 'Pick the team.';
     if (type.asks === 'school' && !school) return 'Pick the high school.';
     return null;
@@ -197,6 +197,8 @@ export default function ContributePhotoFlow({
       if (type.asks === 'team') form.set('teamId', teamId);
       if (crop && aspect) form.set('crop', JSON.stringify(crop));
       if (type.id === 'timeline_hero' && landscape) form.set('landscape', '1');
+      // A headshot from his newest season becomes his headshot everywhere.
+      if (type.id === 'headshot' && season?.current) form.set('currentSeason', '1');
       form.set('note', note.trim());
       form.set('pageUrl', window.location.href);
       const res = await fetch('/api/contribute/photo', { method: 'POST', body: form, credentials: 'include' });

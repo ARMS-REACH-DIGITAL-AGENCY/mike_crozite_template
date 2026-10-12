@@ -219,7 +219,10 @@ async function cutout(stagedKey: string): Promise<Buffer | null> {
 // ---------------------------------------------------------------------------
 // Approval: copy the photo to the files the site reads.
 //   flip_card     -> players/then/{id}.jpg + then-card/{id}.webp (card front)
-//   headshot      -> players/now/{id}.jpg + now-web, now-thumb (row 3, back)
+//   headshot      -> players/season-headshots/{id}_{year}.jpg (that season,
+//                    for his Career Path Timeline); from his newest season
+//                    also players/now/{id}.jpg + now-web, now-thumb - his
+//                    headshot everywhere (Row 3, profile, search)
 //   timeline_hero -> players/season-cutouts/{id}_{year}.png (that season's
 //                    hero on his Career Path Timeline, cut out of the
 //                    background), the photo itself kept in
@@ -238,6 +241,9 @@ export type UploadRow = {
   date_taken: string | Date | null;
   // A team logo's team (our Baseball Cube team id).
   team_at_time?: string | null;
+  // A headshot from his newest season (else from its JSON description).
+  current_season?: boolean;
+  description?: string | null;
 };
 
 export async function promoteUpload(u: UploadRow): Promise<string[]> {
@@ -255,6 +261,16 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     await put(`players/then-card/${pid}.webp`, await webp(800, 1120, 'cover'), 'image/webp');
     written.push(`players/then/${pid}.jpg`, `players/then-card/${pid}.webp`);
   } else if (purpose === 'headshot') {
+    const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
+    if (year) {
+      await copy(u.s3_key, `players/season-headshots/${pid}_${year}.jpg`, 'image/jpeg');
+      written.push(`players/season-headshots/${pid}_${year}.jpg`);
+    }
+    let current = u.current_season;
+    if (current === undefined) {
+      try { current = Boolean(JSON.parse(u.description || '{}').currentSeason); } catch { current = false; }
+    }
+    if (!current) return written;
     await copy(u.s3_key, `players/now/${pid}.jpg`, 'image/jpeg');
     await put(`players/now-web/${pid}.webp`, await webp(400, 560, 'cover'), 'image/webp');
     await put(`players/now-thumb/${pid}.webp`, await webp(200, 200, 'cover', 70), 'image/webp');
