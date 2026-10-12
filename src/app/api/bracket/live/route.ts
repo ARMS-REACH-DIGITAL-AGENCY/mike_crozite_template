@@ -25,6 +25,9 @@ import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 //           scheduled pro game (team_schedules, refreshed every 10 minutes):
 //           done = final, postponed or cancelled; started = under way or done;
 //           start = scheduled first pitch (ms, 0 if unknown).
+//   fans:   { [hsid]: number[] } - registered fans (YAT?STATS accounts with
+//           that home school) as each week went final, week 1 first: the
+//           fan-base tiebreak, frozen at 4 a.m. Arizona the Monday after.
 
 export const dynamic = 'force-dynamic';
 
@@ -183,8 +186,20 @@ export async function GET(req: NextRequest) {
       if (!st || st.final) result(r.team, Number(r.day), r.game, r.is_win);
     }
 
+    // Registered fans as each week went final (4 a.m. Arizona = 11:00 UTC
+    // the Monday after the week), for the fan-base tiebreak.
+    const { rows: fanRows } = await query<{ hsid: string; w: number; n: string }>(
+      `SELECT home_hsid::text AS hsid, w, count(*)::text AS n
+         FROM user_profiles, generate_series(1, $3::int) AS w
+        WHERE home_hsid::text = ANY($1) AND created_at < ($2::date + w * 7) + interval '11 hours'
+        GROUP BY 1, 2`,
+      [hsids, start, weeks],
+    ).catch(() => ({ rows: [] as { hsid: string; w: number; n: string }[] }));
+    const fans: Record<string, number[]> = {};
+    for (const r of fanRows) (fans[r.hsid] ||= Array(weeks).fill(0))[Number(r.w) - 1] = Number(r.n);
+
     return NextResponse.json(
-      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games },
+      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games, fans },
       { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
     );
   } catch (error) {
