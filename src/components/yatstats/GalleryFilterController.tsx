@@ -239,6 +239,16 @@ function applyPreset(section: string) {
 
   syncEverySelectAll();
   applyFilters(section);
+
+  // A team link (?team=2017, which the year strip also keeps in the address
+  // bar): the All-Time list opens on that season. Picked here, after the
+  // preset - which clears any year - so nothing clears it again.
+  if (section === 'alltime') {
+    const team = new URLSearchParams(window.location.search).get('team') || '';
+    if (/^\d{4}$/.test(team)) {
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: team } })), 0);
+    }
+  }
 }
 
 // "Take me to his flip card" links (favorites drawer, search, the profile's

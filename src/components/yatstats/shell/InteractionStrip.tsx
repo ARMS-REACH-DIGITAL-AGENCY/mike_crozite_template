@@ -404,19 +404,26 @@ export default function InteractionStrip({
     window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: '', reset: true } }));
   };
 
-  // A shared team link (?team=2017) opens the All-Time list on that season:
-  // the section first, then - once its preset has run, which clears any
-  // year - the team.
+  // A shared team link (?team=2017) opens the All-Time list; the gallery's
+  // filter script picks the season once the list is set up. The strip
+  // follows whichever year is picked, from here or from there.
   useEffect(() => {
     const year = new URLSearchParams(window.location.search).get('team') || '';
-    if (!ALL_TIME_TEAM_YEARS.includes(year)) return;
-    if (window.location.hash !== '#sec-alltime') window.location.hash = '#sec-alltime';
-    const timer = window.setTimeout(() => {
-      setSelectedRosterYear(year);
-      window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year } }));
-      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-    }, 350);
-    return () => window.clearTimeout(timer);
+    if (ALL_TIME_TEAM_YEARS.includes(year) && window.location.hash !== '#sec-alltime') {
+      window.location.hash = '#sec-alltime';
+    }
+    const onYear = (event: Event) => {
+      const detail = (event as CustomEvent<{ year?: unknown }>).detail;
+      const picked = String(detail?.year || '');
+      setSelectedRosterYear(picked || null);
+      if (picked) {
+        window.requestAnimationFrame(() => {
+          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+        });
+      }
+    };
+    window.addEventListener('yat:alltime-team-year-filter', onYear);
+    return () => window.removeEventListener('yat:alltime-team-year-filter', onYear);
   }, []);
 
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
