@@ -959,13 +959,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            daily-stats button is a square with its chart icon, under "DAILY
            STATS" written across on one line. */
         .yfp-game-scorepane .yfp-green-board { --sq:clamp(17px,5.2vw,24px); padding-right:10px; }
-        .yfp-game-scorepane .yfp-green-row { grid-template-columns:minmax(64px,1fr) repeat(var(--inning-count,9),var(--sq)) var(--sq); grid-auto-columns:max-content; }
+        .yfp-game-scorepane .yfp-green-row { grid-template-columns:minmax(64px,1fr) repeat(var(--inning-count,9),var(--sq)) var(--sq); grid-auto-columns:var(--sq); }
         .yfp-game-scorepane .yfp-green-slot { height:auto; aspect-ratio:1; }
         .yfp-game-scorepane .yfp-green-run { height:auto; aspect-ratio:1; align-self:center; }
         .yfp-game-scorepane .yfp-green-full { white-space:normal; overflow:visible; text-overflow:clip; line-height:1.05; }
         .yfp-game-scorepane .yfp-green-row.head .stats { width:auto; justify-self:center; margin-left:0; white-space:nowrap; font-size:.95em; line-height:1; }
         /* Match each Daily Stats chart button exactly to an inning square. */
-        .yfp-game-scorepane .yfp-green-stats { justify-self:center; margin-left:0; width:var(--sq); height:var(--sq); aspect-ratio:1; border-radius:3px; border-width:1px; box-sizing:border-box; }
+        .yfp-game-scorepane .yfp-green-stats { justify-self:stretch; align-self:center; margin-left:0; width:100%; height:auto; aspect-ratio:1; min-height:0; border-radius:3px; border-width:1px; box-sizing:border-box; }
         .yfp-game-scorepane .yfp-green-stats svg { width:64%; height:64%; }
         .yfp-game-scorepane .yfp-green-stats:hover, .yfp-game-scorepane .yfp-green-stats:focus-visible { transform:none; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
@@ -1140,7 +1140,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             box-sizing:border-box; height:132px; margin:6px 8px 0; padding-top:0; padding-bottom:0; align-content:center;
             border:1px solid rgba(255,255,255,.12); border-radius:7px; box-shadow:inset 0 1px 8px rgba(0,0,0,.28);
             display:grid;
-            grid-template-columns:minmax(90px,1fr) repeat(var(--inning-count,9),minmax(14px,36px)) minmax(14px,36px) max-content;
+            grid-template-columns:minmax(90px,1fr) repeat(var(--inning-count,9),minmax(14px,36px)) minmax(14px,36px) minmax(14px,36px);
             column-gap:3px;
             justify-content:stretch; padding-left:14px; padding-right:20px;
           }
@@ -1165,8 +1165,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
           .yfp-game-scorepane .yfp-green-slot { height:auto; aspect-ratio:1; }
           .yfp-game-scorepane .yfp-green-run { height:auto; aspect-ratio:1; align-self:center; }
-          .yfp-game-scorepane .yfp-green-stats { margin-left:8px; width:auto; height:auto; align-self:stretch; aspect-ratio:1; contain:size; border-width:1.5px; border-radius:4px; }
-          .yfp-game-scorepane .yfp-green-row.head .stats { margin-left:8px; font-size:12px; width:auto; }
+          .yfp-game-scorepane .yfp-green-stats { margin-left:0; width:100%; height:auto; align-self:center; aspect-ratio:1; border-width:1.5px; border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-row.head .stats { margin-left:0; font-size:12px; width:auto; min-width:0; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
 
