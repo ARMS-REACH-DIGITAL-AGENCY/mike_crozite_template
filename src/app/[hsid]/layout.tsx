@@ -18,7 +18,6 @@ import {
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -29,7 +28,6 @@ import type { Metadata } from 'next';
 
 // Shared Components
 import YatStyles from '@/components/yatstats/YatStyles';
-import YatInteractivity from '@/components/yatstats/YatInteractivity';
 import AccountDrawer from '@/components/yatstats/AccountDrawer';
 import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
 import SchoolContextProvider from '@/context/SchoolContext';
@@ -41,6 +39,7 @@ import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
 import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
+import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
 import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
 import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
 import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
@@ -447,6 +446,21 @@ async function SchoolShell({
         </div>
 
         <div className="yat-drawer-content" id="filters">
+          {/* "My Favorites": shown to everyone, so visitors see what
+              registering gets them. FavoritesFilter marks the reader's
+              favorites at this school (data-fav="true" on their cards, which
+              GalleryFilterController filters on), writes the hint, and sends
+              a visitor who taps the checkbox to the Account drawer. */}
+          <details className="yat-filter-group" id="filterFavsGroup" open>
+            <summary>My Favorites</summary>
+            <div className="yat-filter-options">
+              <label>
+                <input type="checkbox" id="filterFavs" value="favs" /> Only show my favorites
+              </label>
+              <p id="filterFavsHint" style={{ margin: '6px 0 0', font: '400 11px Oswald,sans-serif', opacity: 0.7 }} />
+            </div>
+          </details>
+
           <details className="yat-filter-group" open>
             <summary>By Status</summary>
             <div className="yat-filter-options" id="filterStatus">
@@ -519,10 +533,7 @@ async function SchoolShell({
       <DrawerLayoutOverrides />
       <DrawerRailController />
       <YatTourBridge />
-      <YatInteractivity
-        resolvedHsid={resolvedHsid}
-        firebaseConfigJSON={getFirebaseConfigJSON()}
-      />
+      <FavoritesFilter />
       <YatHomeSchoolFallback />
       <Script
         id="yat-nonlive-search-link-patch"
@@ -532,7 +543,7 @@ async function SchoolShell({
 (function(){
   var NOT_LIVE_BASE='https://yatstats.com/school-not-live';
 
-  function clean(s){return String(s||'').replace(/\s+/g,' ').trim();}
+  function clean(s){return String(s||'').replace(/\\s+/g,' ').trim();}
 
   function setIf(qs,key,value){
     value=clean(value);

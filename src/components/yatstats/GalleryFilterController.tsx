@@ -154,8 +154,11 @@ function sortFilteredAllTime(section: HTMLElement) {
   const last = (card: HTMLElement) => name(card).split(/\s+/).pop() || '';
   const coachPriority = (card: HTMLElement) => /(?:^|[ -])COACH(?:$|[ -])/.test(normalize(card.dataset.status));
   const teamSelected = Boolean(section.dataset.alltimeTeamYearFilter);
+  // A-Z: the coach first. A team year: the highest-level player first and
+  // the coach last (same order as teamYearCardOrder on the server).
   cards.sort((a, b) => teamSelected
-    ? rank(a) - rank(b) || grad(a) - grad(b) || years(b) - years(a)
+    ? Number(coachPriority(a)) - Number(coachPriority(b))
+      || rank(a) - rank(b) || grad(a) - grad(b) || years(b) - years(a)
       || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
     : Number(coachPriority(b)) - Number(coachPriority(a)) || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
   );
@@ -178,6 +181,8 @@ function applyFilters(section: string) {
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
   const rosterYears = getSelectedValues('filterRosterYears');
+  // "My Favorites" (FavoritesFilter marks the reader's favorites).
+  const favoritesOnly = Boolean((document.getElementById('filterFavs') as HTMLInputElement | null)?.checked);
   const allTimeTeamYear = section === 'alltime'
     ? normalize(targetSection.dataset.alltimeTeamYearFilter)
     : '';
@@ -203,7 +208,8 @@ function applyFilters(section: string) {
       && (!organizations.length || organizations.includes(organization))
       && matchesGraduatingClass(gradClass, gradClasses)
       && (!rosterYears.length || cardRosterYears.some((year) => rosterYears.includes(year)))
-      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear));
+      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear))
+      && (!favoritesOnly || card.dataset.fav === 'true');
 
     const displayTarget = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
     displayTarget.style.display = show ? '' : 'none';

@@ -125,7 +125,10 @@ export function teamYearCardOrder<T extends Record<string, unknown>>(rows: T[], 
     return list.map(String).join(',').split(',').filter(Boolean).length;
   };
   const last = (p: T) => cardName(p).split(/\s+/).pop() || '';
-  const sorted = [...rows].sort((a, b) => cardLevelRank(a) - cardLevelRank(b) || grad(a) - grad(b) || years(b) - years(a)
+  // The team's coach goes last: the highest-level player leads a team.
+  const coach = (p: T) => /(?:^|[ -])COACH(?:$|[ -])/.test(String(p.status_label || '').trim().toUpperCase());
+  const sorted = [...rows].sort((a, b) => Number(coach(a)) - Number(coach(b))
+    || cardLevelRank(a) - cardLevelRank(b) || grad(a) - grad(b) || years(b) - years(a)
     || last(a).localeCompare(last(b)) || cardName(a).localeCompare(cardName(b)));
   const onTeam = sorted.filter((p) => onTeamYearCard(p, year));
   const rest = sorted.filter((p) => !onTeamYearCard(p, year));
