@@ -171,6 +171,7 @@ export default async function HsidLayout({
       <SchoolSplash
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
+        location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
         partner={getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
       />
       <Suspense fallback={null}>
