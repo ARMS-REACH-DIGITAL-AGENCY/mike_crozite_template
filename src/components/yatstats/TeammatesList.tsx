@@ -118,9 +118,11 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
         .ytm-head { padding: 0 0 4px; margin-bottom: 4px; border-bottom: 1px solid var(--ytm-border, rgba(255,255,255,.16)); color: var(--ytm-strong, #fff); font: 700 16px/1.2 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .02em; text-transform: uppercase; overflow-wrap: anywhere; }
         .ytm-head-yr { color: var(--ytm-accent, #ffc107); }
         ul { margin: 4px 0 0; padding: 0; list-style: none; }
-        li { padding: 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        a { color: inherit; text-decoration: none; }
-        a:hover, a:focus-visible { color: var(--ytm-accent, #ffc107); text-decoration: underline; }
+        li { padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* Every name with a profile is a link, and looks like one: a faint
+           underline, gold on hover or tap, and a full-height tap target. */
+        a { display: inline-block; padding: 4px 0; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 3px; }
+        a:hover, a:focus-visible, a:active { color: var(--ytm-accent, #ffc107); text-decoration-color: currentColor; }
         .ytm-plain { color: var(--ytm-muted, rgba(255,255,255,.55)); }
         .ytm-yr { color: var(--ytm-accent, #ffc107); font-size: 13px; }
       `}</style>
