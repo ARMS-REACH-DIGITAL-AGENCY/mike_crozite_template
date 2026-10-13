@@ -208,7 +208,7 @@ function renderSchoolRows(programs: any[], emptyText: string) {
                 ${location ? `<small>${esc(location)}</small>` : ''}
               </span>
               <span class="yat-search-school-crest-link" aria-hidden="true">
-                <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+                <img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
               </span>
             </div>
           </a>

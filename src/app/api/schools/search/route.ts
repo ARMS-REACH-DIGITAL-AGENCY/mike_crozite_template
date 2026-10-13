@@ -15,6 +15,62 @@ function buildCorsHeaders(req: NextRequest) {
   };
 }
 
+// Typing a state's name (or its two-letter code) lists every high school in
+// that state: schools whose own name starts with what was typed first
+// (Arizona College Prep, Arizona Lutheran Academy for "Arizona"), then the
+// rest by active alumni, all-time next-level alumni, drafted out of high
+// school, drafted overall, then A-Z.
+const STATES: Record<string, string> = {
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO', connecticut: 'CT',
+  delaware: 'DE', 'district of columbia': 'DC', florida: 'FL', georgia: 'GA', hawaii: 'HI', idaho: 'ID', illinois: 'IL',
+  indiana: 'IN', iowa: 'IA', kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
+  massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS', missouri: 'MO', montana: 'MT',
+  nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
+  'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH', oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA',
+  'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT',
+  vermont: 'VT', virginia: 'VA', washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY',
+};
+const STATE_CODES = new Set(Object.values(STATES));
+
+function stateFromQuery(q: string): string | null {
+  const v = q.toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (STATES[v]) return STATES[v];
+  const code = v.toUpperCase();
+  return code.length === 2 && STATE_CODES.has(code) ? code : null;
+}
+
+async function schoolsInState(state: string, qRaw: string) {
+  const { rows } = await query(
+    `WITH counts AS (
+       SELECT f.hsid,
+              COUNT(DISTINCT f.playerid) FILTER (
+                WHERE COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($3::text[])
+              )::int AS current_aa,
+              COUNT(DISTINCT f.playerid) FILTER (
+                WHERE UPPER(COALESCE(TRIM(f.level_label), '')) NOT IN ('HIGH SCHOOL', 'HS')
+              )::int AS all_time
+         FROM flip_card_front_stage f
+         JOIN school_success s ON s.hsid::text = f.hsid AND (s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2)
+        GROUP BY f.hsid
+     )
+     SELECT s.hsid, s.hsname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
+            COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
+            s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url
+       FROM school_success s
+       LEFT JOIN counts c ON c.hsid = s.hsid::text
+      WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
+      ORDER BY (s.hsname ILIKE $2 OR s.high_school ILIKE $2) DESC,
+               COALESCE(c.current_aa, 0) DESC,
+               COALESCE(c.all_time, 0) DESC,
+               s.drafted_hs DESC NULLS LAST,
+               s.drafted DESC NULLS LAST,
+               s.hsname ASC NULLS LAST
+      LIMIT 2000`,
+    [state, `${qRaw}%`, [...ACTIVE_GALLERY_STATUSES]]
+  );
+  return rows;
+}
+
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: buildCorsHeaders(req) });
 }
@@ -71,7 +127,8 @@ export async function GET(req: NextRequest) {
       `%${cityRaw}%`,
       [...ACTIVE_GALLERY_STATUSES],
     ];
-    const { rows } = await query(sql, params);
+    const state = !stateRaw && !cityRaw ? stateFromQuery(qRaw) : null;
+    const { rows } = state ? { rows: await schoolsInState(state, qRaw) } : await query(sql, params);
     const programs = rows.map((r: any) => ({
       hsid: r.hsid ?? null,
       hsname: r.hsname ?? null,
