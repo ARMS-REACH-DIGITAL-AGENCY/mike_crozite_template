@@ -18,7 +18,6 @@ import {
   type ContributeTab,
   type SponsorInterest,
 } from '@/lib/contribute';
-import { FlipCardBack, FlipCardFront, Headshot, ProofStyles, TimelineSlide, type ProofPlayer } from './ContributeProof';
 
 const option = (id: string) => CONTRIBUTE_OPTIONS.find((o) => o.id === id)!;
 const PARTNERS_URL = 'https://yatstats.com/partners/';
@@ -33,25 +32,6 @@ function Section({ id, title, soon, children }: { id: string; title: string; soo
         {children}
       </div>
     </section>
-  );
-}
-
-// A red marker on a mockup: where we need help.
-function Need({ children, x = '50%', y = '50%' }: { children: ReactNode; x?: string; y?: string }) {
-  return (
-    <span className="ccg-need" style={{ left: x, top: y }}>
-      <span className="ccg-need-dot" aria-hidden="true" />
-      <span className="ccg-need-label">{children}</span>
-    </span>
-  );
-}
-
-function Shot({ caption, children }: { caption: string; children: ReactNode }) {
-  return (
-    <figure className="ccg-shot">
-      <div className="ccg-shot-frame">{children}</div>
-      <figcaption>{caption}</figcaption>
-    </figure>
   );
 }
 
@@ -140,13 +120,22 @@ function Offer({ title, price, children, visual, interest, onInquire }: {
   );
 }
 
-export default function ContributeGuide({ schoolName }: { schoolName: string }) {
-  const school = useContext(SchoolContext);
-  const hsid = String(school?.hsid || '');
-  const crest = hsid ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/schools/${hsid}.png` : '/img/school-placeholder.png';
+// Real pieces of this school's site for the sections to show (built on the
+// server by the page: this school's own flip cards, PlayerCard).
+export type GuideExamples = { photo?: ReactNode; data?: ReactNode; missing?: ReactNode; alumni?: ReactNode };
+
+function Examples({ caption, children }: { caption: string; children?: ReactNode }) {
+  if (!children) return null;
+  return (
+    <figure className="ccg-shot ccg-real">
+      <div className="ccg-cards">{children}</div>
+      <figcaption>{caption}</figcaption>
+    </figure>
+  );
+}
+
+export default function ContributeGuide({ schoolName, examples = {} }: { schoolName: string; examples?: GuideExamples }) {
   const hub = schoolName || 'your school';
-  // The mockups' stand-in player.
-  const p: ProofPlayer = { name: 'Your Player', classOf: 2019, currentTeam: 'Next-Level Team', schoolName: hub, schoolLocation: school?.hsLocation || '' };
 
   // One inquiry form open at a time, under the offer that opened it.
   const [inquiry, setInquiry] = useState<{ at: string; interest: SponsorInterest } | null>(null);
@@ -157,7 +146,6 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
 
   return (
     <div className="ccg">
-      <ProofStyles />
       <header className="ccg-intro">
         <h2>Connect &amp; Contribute Portal</h2>
         <p>
@@ -174,20 +162,6 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           personal video: a birthday shout-out, an answer to your question, or his take on a video of your swing or your
           delivery.
         </p>
-        <div className="ccg-shots">
-          <Shot caption="Sample video message">
-            <div className="ccg-video">
-              <i className="ri-play-circle-fill" aria-hidden="true" />
-              <span>&ldquo;Hey, it&apos;s your hometown alum&hellip;&rdquo;</span>
-            </div>
-          </Shot>
-          <Shot caption="Search participating players">
-            <div>
-              <div className="ccg-search-mock"><i className="ri-search-line" aria-hidden="true" /> Search participating players</div>
-              <div className="ccg-muted ccg-small" style={{ marginTop: 8 }}>Request and pay securely with Stripe.</div>
-            </div>
-          </Shot>
-        </div>
       </Section>
 
       <Section id="fans" title="Connect With Fans">
@@ -203,26 +177,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           </div>
         </div>
 
-        <Offer
-          title="Co-Brand Title Sponsor"
-          price
-          interest="title"
-          onInquire={inquire('title')}
-          visual={(
-            <Shot caption="Your logo beside the school's, on the splash page">
-              <div className="ccg-splash-mock">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/img/yatstats-logo.png" alt="" className="ccg-splash-logo" />
-                <div className="ccg-splash-brands">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={crest} alt="" />
-                  <span className="ccg-splash-divider" />
-                  <span className="ccg-your-logo">YOUR<br />LOGO</span>
-                </div>
-              </div>
-            </Shot>
-          )}
-        >
+        <Offer title="Co-Brand Title Sponsor" price interest="title" onInquire={inquire('title')}>
           <p>
             Put your business on {hub}&apos;s YAT?STATS, next to the players and stories the town already follows.
             Sponsorships help keep the hub running and growing.
@@ -242,17 +197,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         </Offer>
         {inquiryForm('title')}
 
-        <Offer
-          title="Active Alumni Profile Sponsor"
-          price
-          interest="profile"
-          onInquire={inquire('profile')}
-          visual={(
-            <Shot caption="A banner on the player's profile">
-              <div className="ccg-banner-mock"><span>YOUR BUSINESS</span><small>proud sponsor of this player&apos;s page</small></div>
-            </Shot>
-          )}
-        >
+        <Offer title="Active Alumni Profile Sponsor" price interest="profile" onInquire={inquire('profile')}>
           <p>Sponsor an active alum&apos;s profile page: your business on the page his hometown fans visit all season.</p>
         </Offer>
         {inquiryForm('profile')}
@@ -269,20 +214,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           reach you, personally or for your business, your social handles, and the photo on the back of your flip card, so
           teammates, coaches and fans can find you. You can sponsor your own profile page, too.
         </p>
-        <div className="ccg-shots">
-          <Shot caption="Your contact card at the bottom of your profile">
-            <div className="ccg-footer-mock">
-              <b>WHERE YAT NOW?</b>
-              <span><i className="ri-briefcase-line" aria-hidden="true" /> Your business</span>
-              <span><i className="ri-mail-line" aria-hidden="true" /> you@yourbusiness.com</span>
-              <span><i className="ri-phone-line" aria-hidden="true" /> (555) 555-0123</span>
-              <span className="ccg-socials"><i className="ri-instagram-line" /><i className="ri-twitter-x-line" /><i className="ri-linkedin-box-line" /></span>
-            </div>
-          </Shot>
-          <Shot caption="The back of your flip card">
-            <FlipCardBack src="/img/career-path-default.png" crop={null} p={{ ...p, currentTeam: 'Your business' }} />
-          </Shot>
-        </div>
+        <Examples caption="Your flip card: tap it to see the back">{examples.alumni}</Examples>
         <div className="ccg-actions">
           <button type="button" className="ccg-btn" onClick={() => inquire('alumni')('alumni')}>Update my profile</button>
           <span className="ccg-muted ccg-small">Sponsor your own page: buy online coming soon</span>
@@ -298,26 +230,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           flip card is the hardest to find and the one we need most: try a family album, a yearbook or a team
           photographer&apos;s files.
         </p>
-        <div className="ccg-shots">
-          <Shot caption="Front of his flip card">
-            <div className="ccg-mark"><FlipCardFront src="/img/then-batter-silhouette.png" crop={null} p={p} /><Need x="50%" y="38%">No high school photo</Need></div>
-          </Shot>
-          <Shot caption="His headshot in Row 3">
-            <div className="ccg-mark"><Headshot src="/img/headshot-silhouette.png" crop={null} p={p} /><Need x="50%" y="40%">No headshot</Need></div>
-          </Shot>
-          <Shot caption="A season on his Career Path Timeline">
-            <div className="ccg-mark ccg-wide">
-              <TimelineSlide
-                src="/img/now-batter-silhouette.png"
-                crop={null}
-                p={p}
-                s={{ key: 'x', year: 2021, stage: 'college', team: 'His team', level: 'NCAA D1', label: 'Sophomore', current: false }}
-                landscape={false}
-              />
-              <Need x="42%" y="50%">No 2021 photo</Need>
-            </div>
-          </Shot>
-        </div>
+        <Examples caption={`${hub} alumni still missing their high school photo`}>{examples.photo}</Examples>
         <details className="ccg-details">
           <summary>Every kind of photo we take</summary>
           <ul className="ccg-list">{PHOTO_TYPES.map((t) => <li key={t.id}><b>{t.prefix} · {t.label}</b> {t.spec}</li>)}</ul>
@@ -327,26 +240,11 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
 
       <Section id="data" title="Update Data">
         <p>
-          Our stats come from public sources, and some leagues and box scores never reach us. A missing season, a wrong
-          number, the wrong graduation year: tell us, season by season.
+          Stats come from our official stat provider, so we don&apos;t take stat changes. Everything else about him, tell us:
+          his graduation year, height and weight, position, bats and throws, honors, a team or league we don&apos;t list.
         </p>
-        <div className="ccg-shots">
-          <Shot caption="His stats, season by season">
-            <div className="ccg-mark">
-              <div className="ccg-stats-mock">
-                <div className="is-head"><b>Year</b><span>AVG</span><span>HR</span><span>RBI</span></div>
-                {[['2019', '.312', '4', '28'], ['2020', '.298', '2', '19'], ['2021', '–', '–', '–'], ['2022', '.331', '7', '41']].map(([y, a, h, r]) => (
-                  <div key={y} className={y === '2021' ? 'is-missing' : ''}><b>{y}</b><span>{a}</span><span>{h}</span><span>{r}</span></div>
-                ))}
-              </div>
-              <Need x="50%" y="70%">2021 season missing</Need>
-            </div>
-          </Shot>
-          <Shot caption="His class year">
-            <div className="ccg-mark"><div className="ccg-chip-mock">Class of ????</div><Need x="50%" y="82%">Wrong or missing</Need></div>
-          </Shot>
-        </div>
-        <OpenDrawer tab="data">Update data</OpenDrawer>
+        <Examples caption="Everything on his card that isn't a stat, you can correct">{examples.data}</Examples>
+        <OpenDrawer tab="data">Update player info</OpenDrawer>
       </Section>
 
       <Section id="missing" title="Missing Next-Level Alumni">
@@ -354,20 +252,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           If he played college, pro or independent ball after high school, he belongs on {hub}&apos;s YAT?STATS. Tell us
           who he is, his class and where he played, and we&apos;ll add him.
         </p>
-        <div className="ccg-shots">
-          <Shot caption="The All-Time Next-Level List">
-            <div className="ccg-mark">
-              <div className="ccg-gallery-mock">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/img/then-batter-silhouette.png" alt="" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/img/then-pitcher-silhouette.png" alt="" />
-                <div className="ccg-empty-card">+</div>
-              </div>
-              <Need x="83%" y="50%">Who&apos;s missing?</Need>
-            </div>
-          </Shot>
-        </div>
+        <Examples caption="The All-Time Next-Level List">{examples.missing}</Examples>
         <OpenDrawer tab="missing">Add a missing alum</OpenDrawer>
       </Section>
 
@@ -376,14 +261,6 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           A call-up, an award, a big game, a feature story. Send us the link. One tip can show up in Active Alumni News, on
           his profile and on his flip card.
         </p>
-        <div className="ccg-shots">
-          <Shot caption="Active Alumni News">
-            <div className="ccg-mark">
-              <div className="ccg-news-mock"><small>ACTIVE ALUMNI NEWS</small><b>Your tip could be the next story</b><span /><span /><span /></div>
-              <Need x="50%" y="72%">Send us the link</Need>
-            </div>
-          </Shot>
-        </div>
         <OpenDrawer tab="tip">Send a news tip</OpenDrawer>
       </Section>
 
@@ -427,51 +304,24 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccg-shot { margin: 0; display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
         .ccg-shot-frame { padding: 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: rgba(255,255,255,.03); display: flex; justify-content: center; }
         .ccg-shot figcaption { font: 600 11px/1.2 var(--yat-font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--sb-ink-muted); opacity: .8; }
-        .ccg-mark { position: relative; }
-        .ccg-mark .ypf-card, .ccg-mark .ypf-back, .ccg-shot-frame > .ypf-back { width: 170px; }
-        .ccg-mark .ypf-circle { width: 64px; height: 64px; }
-        .ccg-wide { width: min(440px, 76vw); }
         .ccg-need { position: absolute; z-index: 3; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
         .ccg-need-dot { width: 16px; height: 16px; border-radius: 50%; background: #e11d2e; border: 2px solid #fff; box-shadow: 0 0 0 0 rgba(225,29,46,.6); animation: ccgPulse 1.6s ease-out infinite; }
         .ccg-need-label { padding: 3px 7px; border-radius: 6px; background: #e11d2e; color: #fff; font: 700 11px/1.1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
         @keyframes ccgPulse { 70% { box-shadow: 0 0 0 12px rgba(225,29,46,0); } 100% { box-shadow: 0 0 0 0 rgba(225,29,46,0); } }
         @media (prefers-reduced-motion: reduce) { .ccg-need-dot { animation: none; } }
-        .ccg-video { width: 150px; aspect-ratio: 9 / 16; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 10px; text-align: center;
           background: linear-gradient(160deg, #2a2f36, #0b0c0e); color: #fff; font-size: 12px; font-style: italic; }
-        .ccg-video i { font-size: 44px; color: var(--sb-gold); font-style: normal; }
-        .ccg-search-mock { width: min(280px, 70vw); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; opacity: .7; font-size: 13px; }
         .ccg-offer { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 12px; margin: 0 0 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: rgba(0,0,0,.12); }
         .ccg-offer-text { flex: 1 1 300px; min-width: 0; }
         .ccg-offer-visual { flex: 0 1 auto; }
         .ccg-benefits { font-size: 13px; margin-bottom: 8px; color: var(--sb-ink-muted); }
         .ccg-benefits ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.5; }
-        .ccg-splash-mock { width: 220px; aspect-ratio: 9 / 13; border-radius: 10px; background: radial-gradient(circle at 50% 0, rgba(255,255,255,.22), transparent 45%), #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
-        .ccg-splash-logo { width: 78%; height: auto; }
-        .ccg-splash-brands { display: flex; align-items: center; gap: 12px; }
-        .ccg-splash-brands img { width: 52px; height: 52px; object-fit: contain; }
-        .ccg-splash-divider { width: 2px; height: 46px; background: linear-gradient(transparent, rgba(255,255,255,.7), transparent); }
-        .ccg-your-logo { display: grid; place-items: center; width: 60px; height: 46px; border: 2px dashed var(--sb-gold); border-radius: 6px; color: var(--sb-gold); font: 700 10px/1.1 var(--yat-font-compact); text-align: center; }
-        .ccg-banner-mock { width: min(300px, 70vw); padding: 12px 14px; border-radius: 8px; border: 2px dashed var(--sb-gold); display: flex; flex-direction: column; gap: 2px; }
-        .ccg-banner-mock span { font: 700 15px/1 var(--yat-font-compact); letter-spacing: .05em; }
-        .ccg-banner-mock small { font-size: 11px; opacity: .75; }
-        .ccg-footer-mock { width: min(280px, 70vw); padding: 12px 14px; border-radius: 10px; background: #111; color: #eee; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-        .ccg-footer-mock b { color: var(--sb-gold); font: 700 13px/1 var(--yat-font-compact); letter-spacing: .06em; }
-        .ccg-footer-mock i { color: var(--sb-gold); margin-right: 6px; }
-        .ccg-socials { display: flex; gap: 10px; font-size: 18px; }
-        .ccg-stats-mock { width: 230px; display: flex; flex-direction: column; gap: 4px; font: 600 12px/1 var(--yat-font-compact); }
-        .ccg-stats-mock div { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 6px; padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,.06); }
-        .ccg-stats-mock div.is-head { background: none; padding-block: 2px; font-size: 11px; opacity: .6; }
-        .ccg-stats-mock div.is-missing { outline: 2px dashed #e11d2e; }
-        .ccg-chip-mock { padding: 14px 20px; margin-bottom: 40px; border: 1px solid var(--line); border-radius: 999px; font: 700 14px/1 var(--yat-font-compact); letter-spacing: .06em; }
-        .ccg-gallery-mock { display: flex; gap: 10px; justify-content: center; }
-        .ccg-gallery-mock img, .ccg-empty-card { width: 110px; aspect-ratio: 5 / 7; border-radius: 8px; object-fit: cover; background: #1a1a1a; }
-        .ccg-empty-card { display: grid; place-items: center; border: 2px dashed #e11d2e; color: #e11d2e; font: 700 40px/1 var(--yat-font-compact); background: transparent; }
-        @media (max-width: 560px) { .ccg-gallery-mock img, .ccg-empty-card { width: 24vw; } }
-        .ccg-news-mock { width: min(300px, 70vw); padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
-        .ccg-news-mock small { color: var(--sb-gold); font: 600 11px/1 var(--yat-font-compact); letter-spacing: .1em; }
-        .ccg-news-mock b { font: 700 15px/1.1 var(--yat-font-compact); }
-        .ccg-news-mock span { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); }
-        .ccg-news-mock span:last-child { width: 60%; }
+        /* This school's real flip cards (PlayerCard) */
+        .ccg-real { margin: 8px 0 12px; }
+        .ccg-cards { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+        .ccg-card { position: relative; width: min(220px, calc(50% - 6px)); }
+        .ccg-card .yat-card { width: 100%; }
+        .ccg-card-empty { aspect-ratio: 5 / 7; display: grid; place-items: center; border: 2px dashed #e11d2e; border-radius: 10px; color: #e11d2e; font: 700 44px/1 var(--yat-font-compact); }
+        .ccg-card .ccg-need { z-index: 5; }
         /* The Partner Program inquiry */
         .ccg-form { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin: 0 0 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); max-width: 640px; }
         .ccg-form-title { font: 700 14px/1.2 var(--yat-font-compact); letter-spacing: .04em; text-transform: uppercase; }

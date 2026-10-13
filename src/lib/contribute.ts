@@ -157,13 +157,13 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
 ];
 
-export type DataKind = 'stats' | 'team' | 'grad_year' | 'bio' | 'school' | 'all_time' | 'other';
+// No stats: those come from our official stat provider.
+export type DataKind = 'team' | 'grad_year' | 'bio' | 'school' | 'all_time' | 'other';
 
 export const DATA_KINDS: { id: DataKind; label: string; hint: string; seasons: 'hs' | 'any' | 'school' }[] = [
-  { id: 'stats', label: 'Stats for this season', hint: "What's missing or wrong, and the right numbers. A link to a box score or stat page helps.", seasons: 'any' },
-  { id: 'team', label: 'Team or level this season', hint: 'Where did he play this season?', seasons: 'any' },
+  { id: 'team', label: 'Team or league this season', hint: "A team or league we don't list: summer ball, a fall league, a travel team.", seasons: 'any' },
   { id: 'grad_year', label: 'Graduation year', hint: 'Which year did he graduate high school, and how do you know?', seasons: 'hs' },
-  { id: 'bio', label: 'Player info', hint: 'Position, bats/throws, height, honors... anything we have wrong or missing.', seasons: 'any' },
+  { id: 'bio', label: 'Player info', hint: 'Height, weight, position, bats/throws, honors... anything we have wrong or missing.', seasons: 'any' },
   { id: 'other', label: 'Other', hint: 'Tell us what you see.', seasons: 'any' },
   { id: 'school', label: 'School info', hint: 'Name, mascot, colors, location...', seasons: 'school' },
   { id: 'all_time', label: "Our school's All-Time Next-Level List", hint: 'Former players who played at the next level that we should add. Paste a list or a link.', seasons: 'school' },
