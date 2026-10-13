@@ -35,6 +35,7 @@ import {
   type PhotoPurpose,
   type Season,
   tabIcon,
+  yearsOfHisLife,
 } from '@/lib/contribute';
 
 type FanSession = { uid?: string; email?: string; firstName?: string | null; plan?: string | null; isSuperfan?: boolean };
@@ -148,7 +149,13 @@ export default function ContributeDrawer() {
 
   const signedIn = Boolean(session?.uid && session?.email);
   const sending = status.kind === 'sending';
-  const season = seasons?.find((s) => s.key === seasonKey) || null;
+  // Every year of his life, newest first (the same list as the Photo
+  // drawer), plus "Other": a year and a team or league we don't list.
+  const [other, setOther] = useState<{ year: number | ''; team: string }>({ year: '', team: '' });
+  const years = seasons ? yearsOfHisLife(seasons, info?.classOf ?? null, THIS_YEAR) : null;
+  const season: Season | null = seasonKey === 'other'
+    ? (other.year ? { key: 'other', year: Number(other.year), stage: 'other', team: other.team.trim(), level: '', label: 'Other', current: false } : null)
+    : years?.find((s) => s.key === seasonKey) || null;
 
   const sessionRef = useRef<FanSession | null>(null);
   const pendingOpen = useRef(false);
@@ -451,19 +458,34 @@ export default function ContributeDrawer() {
                         <div className="ycd-error">{seasonsError}</div>
                       ) : !seasons ? (
                         <div className="ycd-muted ycd-small">Loading his seasons…</div>
-                      ) : seasons.length === 0 ? (
-                        <div className="ycd-muted ycd-small">We don&apos;t have any seasons for him yet. Use Update Data to tell us where he played.</div>
                       ) : (
-                        <div className="ycd-seasons" role="listbox" aria-label="Seasons">
-                          {seasons.map((s) => (
-                            <button type="button" key={s.key} role="option" aria-selected={s.key === seasonKey}
-                              className={`ycd-season${s.key === seasonKey ? ' is-on' : ''}`} onClick={() => setSeasonKey(s.key)}>
-                              <b>{s.year}</b>
-                              <span>{s.team}</span>
-                              <small>{s.label}{s.current ? ' · Current' : ''}</small>
+                        <>
+                          <div className="ycd-seasons" role="listbox" aria-label="Seasons">
+                            {(years || []).map((s) => (
+                              <button type="button" key={s.key} role="option" aria-selected={s.key === seasonKey}
+                                className={`ycd-season${s.key === seasonKey ? ' is-on' : ''}${s.team ? '' : ' is-plain'}`} onClick={() => setSeasonKey(s.key)}>
+                                <b>{s.year}</b>
+                                <span>{s.team || s.label || '\u00a0'}</span>
+                                <small>{s.team ? `${s.label}${s.current ? ' · Current' : ''}` : ''}</small>
+                              </button>
+                            ))}
+                            <button type="button" role="option" aria-selected={seasonKey === 'other'}
+                              className={`ycd-season${seasonKey === 'other' ? ' is-on' : ''}`} onClick={() => setSeasonKey('other')}>
+                              <b>Other</b>
+                              <span>A year or team that isn&apos;t listed</span>
+                              <small>Fall league, summer ball, travel team…</small>
                             </button>
-                          ))}
-                        </div>
+                          </div>
+                          {seasonKey === 'other' ? (
+                            <div className="ycd-pair">
+                              <select value={other.year} onChange={(e) => setOther((o) => ({ ...o, year: e.target.value ? Number(e.target.value) : '' }))} aria-label="Year">
+                                <option value="">Year…</option>
+                                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                              </select>
+                              <input type="text" value={other.team} onChange={(e) => setOther((o) => ({ ...o, team: e.target.value }))} placeholder="Team or league" maxLength={120} />
+                            </div>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   )}
@@ -661,6 +683,7 @@ export default function ContributeDrawer() {
         .ycd-season b { grid-row: span 2; font: 600 15px/1 var(--yat-font-compact); color: var(--sb-text); }
         .ycd-season span { font: 700 13px/1.2 var(--yat-font-compact); text-transform: uppercase; letter-spacing: .02em; }
         .ycd-season small { font-size: 11px; opacity: .65; }
+        .ycd-season.is-plain span { opacity: .75; }
         .ycd-season.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
         .ycd-memories { margin: 0; font-size: 12px; line-height: 1.5; opacity: .8; }
         .ycd-memories a { color: var(--sb-text); }
