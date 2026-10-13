@@ -13,7 +13,7 @@
 // same as stories, and the fan's ARMS contact is tagged 'contributor'.
 import 'server-only';
 import type { NextRequest } from 'next/server';
-import { CopyObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { query } from './db';
 import { identifyFan } from './fanIdentity';
@@ -280,12 +280,50 @@ async function cutout(stagedKey: string): Promise<Buffer | null> {
   return sharp(png).trim({ threshold: 1 }).resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true }).png().toBuffer();
 }
 
+// The cutout his timeline shows for a photo that just replaced his then/,
+// back/ or now/ original: players/{kind}-cutouts/{id}.png and the trimmed
+// players/{kind}-web/{id}.webp made from it, the same way the Build Web
+// Cutouts job makes it (a wide action photo's left side faded out). Without
+// this he kept his old cutout: the hourly cutout job skips any player who
+// already has one. When remove.bg isn't set up or finds no one, the old
+// cutout is removed instead, so that job cuts the new photo within the hour.
+async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, stagedKey: string, written: string[]) {
+  const png = await cutout(stagedKey);
+  if (!png) {
+    await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `players/${kind}-cutouts/${pid}.png` })).catch(() => {});
+    return;
+  }
+  await put(`players/${kind}-cutouts/${pid}.png`, png, 'image/png');
+  const { data, info } = await sharp(png)
+    .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  if (kind === 'back' && info.width / info.height >= 2) {
+    for (let x = 0; x < info.width; x++) {
+      const t = Math.min(1, Math.max(0, (x / info.width - 0.12) / 0.3));
+      const fade = Math.pow(t * t * (3 - 2 * t), 1.5);
+      for (let y = 0; y < info.height; y++) {
+        const i = (y * info.width + x) * 4 + 3;
+        data[i] = Math.round(data[i] * fade);
+      }
+    }
+  }
+  const web = await sharp(data, { raw: info })
+    .trim({ threshold: 10 })
+    .resize({ width: 1400, height: 1000, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82, alphaQuality: 90 })
+    .toBuffer();
+  await put(`players/${kind}-web/${pid}.webp`, web, 'image/webp');
+  written.push(`players/${kind}-cutouts/${pid}.png`, `players/${kind}-web/${pid}.webp`);
+}
+
 // ---------------------------------------------------------------------------
 // Approval: copy the photo to the files the site reads.
 //   flip_card     -> players/then/{id}.jpg + then-card/{id}.webp (card front)
 //   headshot      -> players/season-headshots/{id}_{year}.jpg (that season,
 //                    for his Career Path Timeline); from his newest season
-//                    also players/now/{id}.jpg + now-web, now-thumb - his
+//                    also players/now/{id}.jpg + now-thumb, now-web - his
 //                    headshot everywhere (Row 3, profile, search)
 //   timeline_hero -> players/season-cutouts/{id}_{year}.png (that season's
 //                    hero on his Career Path Timeline, cut out of the
@@ -324,6 +362,7 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     await copy(u.s3_key, `players/then/${pid}.jpg`, 'image/jpeg');
     await put(`players/then-card/${pid}.webp`, await webp(800, 1120, 'cover'), 'image/webp');
     written.push(`players/then/${pid}.jpg`, `players/then-card/${pid}.webp`);
+    await replaceCutout('then', pid, u.s3_key, written);
   } else if (purpose === 'headshot') {
     const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
     if (year) {
@@ -336,9 +375,11 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     }
     if (!current) return written;
     await copy(u.s3_key, `players/now/${pid}.jpg`, 'image/jpeg');
-    await put(`players/now-web/${pid}.webp`, await webp(400, 560, 'cover'), 'image/webp');
     await put(`players/now-thumb/${pid}.webp`, await webp(200, 200, 'cover', 70), 'image/webp');
-    written.push(`players/now/${pid}.jpg`, `players/now-web/${pid}.webp`, `players/now-thumb/${pid}.webp`);
+    written.push(`players/now/${pid}.jpg`, `players/now-thumb/${pid}.webp`);
+    // now-web is his headshot cut out (the timeline's Today and anchor
+    // slides), never the square photo.
+    await replaceCutout('now', pid, u.s3_key, written);
   } else if (purpose === 'timeline_hero') {
     const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
     if (!year) throw new Error('This photo has no season.');
@@ -363,8 +404,9 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     await copy(u.s3_key, `players/back/${pid}.jpg`, 'image/jpeg');
     // The back of the card shows it as a wide 20:7 strip.
     await put(`players/back-card/${pid}.webp`, await webp(1200, 420, 'cover'), 'image/webp');
-    await put(`players/back-web/${pid}.webp`, await webp(1200, 800, 'inside', 78), 'image/webp');
-    written.push(`players/back/${pid}.jpg`, `players/back-card/${pid}.webp`, `players/back-web/${pid}.webp`);
+    written.push(`players/back/${pid}.jpg`, `players/back-card/${pid}.webp`);
+    // back-web is the action photo cut out, for his timeline.
+    await replaceCutout('back', pid, u.s3_key, written);
   } else if (purpose === 'school_logo') {
     const hsid = String(u.hsid || '').trim();
     if (!/^\d+$/.test(hsid)) throw new Error('This logo has no school.');
