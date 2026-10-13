@@ -71,8 +71,9 @@ function readRequestedSection(): string {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 'active';
 
   // The Connect & Contribute Portal is its own page (/connect-contribute),
-  // and so is its review queue (/contribute-review).
-  if (/\/(connect-contribute|contribute-review)\/?$/.test(window.location.pathname)) return 'mentor';
+  // and so are its review queue (/contribute-review) and bulk upload
+  // (/contribute-review/bulk).
+  if (/\/(connect-contribute|contribute-review(\/bulk)?)\/?$/.test(window.location.pathname)) return 'mentor';
 
   const hash = window.location.hash || '';
   if (hash.startsWith('#sec-')) return normalizeSection(hash);
