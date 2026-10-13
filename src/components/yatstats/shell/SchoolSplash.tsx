@@ -1,6 +1,7 @@
 // The opening splash: the YAT?STATS logo a third of the way down; below,
 // the school's name and city, its crest (and its title partner, side by
-// side, when it has one) and "Baseball Alumni Online Community". Server-rendered so it is the very first paint; whether it shows
+// side, when it has one) and "Baseball Alumni Online Community", the words
+// sized to the crest's width. Server-rendered so it is the very first paint; whether it shows
 // at all, and when it leaves, is SPLASH_BOOTSTRAP's call (app/layout.tsx).
 //
 // The stadium lights across the top are the Fantasy Bracket's night-game
@@ -25,11 +26,12 @@ const SPLASH_CSS = `
 #yatSplash .yat-splash-place-logo{top:35%}
 #yatSplash .yat-splash-place-brands{top:66%;width:min(92vw,560px)}
 #yatSplash .yat-splash-logo{animation:yatSplashInRight .5s cubic-bezier(.16,1,.3,1) .1s both}
-#yatSplash .yat-splash-logo img{display:block;width:min(78vw,560px);height:auto;animation:yatSplashGlint .6s ease-out .6s both,yatSplashGlow 2.4s ease-in-out 1.2s infinite}
-#yatSplash .yat-splash-school{display:flex;flex-direction:column;align-items:center;gap:clamp(12px,2.4vh,20px);color:#fff;text-align:center;font:500 clamp(15px,4.4vw,22px)/1.3 Arial,Helvetica,sans-serif;animation:yatSplashInLeft .5s cubic-bezier(.16,1,.3,1) .1s both}
+#yatSplash .yat-splash-logo img{display:block;width:min(90vw,720px);height:auto;animation:yatSplashGlint .6s ease-out .6s both,yatSplashGlow 2.4s ease-in-out 1.2s infinite}
+#yatSplash .yat-splash-school{display:flex;flex-direction:column;align-items:center;gap:clamp(10px,1.8vh,14px);color:#fff;text-align:center;font:600 clamp(9px,2.6vw,13px)/1.12 var(--yat-font-compact,'Barlow Condensed'),'Arial Narrow',Arial,sans-serif;letter-spacing:.02em;animation:yatSplashInLeft .5s cubic-bezier(.16,1,.3,1) .1s both}
 #yatSplash .yat-splash-school p{margin:0}
+#yatSplash .yat-splash-fit{display:block;width:max-content;margin:0 auto;white-space:nowrap}
 #yatSplash .yat-splash-name{text-transform:uppercase}
-#yatSplash .yat-splash-city{text-transform:none}
+#yatSplash .yat-splash-city{display:block;text-transform:none;font-weight:500;opacity:.85}
 #yatSplash .yat-splash-brands{display:flex;align-items:center;justify-content:center;gap:clamp(18px,6vw,36px)}
 #yatSplash .yat-splash-lights{position:absolute;left:50%;top:0;width:min(100%,760px);height:clamp(150px,30vh,280px);transform:translateX(-50%);-webkit-mask:linear-gradient(#000 35%,transparent),linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);-webkit-mask-composite:source-in;mask:linear-gradient(#000 35%,transparent),linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-composite:intersect;animation:yatSplashFadeIn .4s ease-out both}
 @media (max-width:760px){#yatSplash .yat-splash-lights{-webkit-mask:linear-gradient(#000 35%,transparent);mask:linear-gradient(#000 35%,transparent)}}
@@ -47,6 +49,16 @@ const SPLASH_CSS = `
 @keyframes yatSplashFlipAway{to{transform:perspective(1400px) rotateY(90deg)}}
 @media (prefers-reduced-motion:reduce){#yatSplash *,#yatSplash *::after{animation:none!important}}
 `;
+
+// The words around the crest are a lockup with it: each .yat-splash-fit
+// line is sized to exactly the width of the crest row (the crest, plus the
+// title partner when there is one). Re-fit once the crest image and the
+// condensed font have loaded, and on resize. The city line matches the
+// school name's size.
+const FIT_WORDS = `(function(){var s=document.getElementById('yatSplash');if(!s)return;var row=s.querySelector('.yat-splash-brands');if(!row)return;
+function fit(){var w=row.getBoundingClientRect().width;if(!w)return;s.querySelectorAll('.yat-splash-fit').forEach(function(el){el.style.fontSize='20px';var n=el.getBoundingClientRect().width;if(n)el.style.fontSize=(20*w/n).toFixed(2)+'px';});var name=s.querySelector('.yat-splash-name .yat-splash-fit'),city=s.querySelector('.yat-splash-city');if(name&&city)city.style.fontSize=name.style.fontSize;}
+fit();s.querySelectorAll('.yat-splash-brands img').forEach(function(i){if(!i.complete)i.addEventListener('load',fit);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);window.addEventListener('resize',fit);})();`;
 
 // A light sweep across one image, masked to its shape.
 function shine(src: string, delay: string): CSSProperties {
@@ -69,7 +81,7 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
       <div className="yat-splash-place yat-splash-place-brands">
         <div className="yat-splash-school">
           {schoolName ? (
-            <p className="yat-splash-name">{schoolName}{location ? <><br /><span className="yat-splash-city">({location})</span></> : null}</p>
+            <p className="yat-splash-name"><span className="yat-splash-fit">{schoolName}</span>{location ? <span className="yat-splash-city">({location})</span> : null}</p>
           ) : null}
           <div className="yat-splash-brands">
             {crestUrl ? (
@@ -84,9 +96,10 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
               </>
             ) : null}
           </div>
-          <p>BASEBALL ALUMNI<br />ONLINE COMMUNITY</p>
+          <p><span className="yat-splash-fit">BASEBALL ALUMNI</span><span className="yat-splash-fit">ONLINE COMMUNITY</span></p>
         </div>
       </div>
+      <script dangerouslySetInnerHTML={{ __html: FIT_WORDS }} />
     </div>
   );
 }
