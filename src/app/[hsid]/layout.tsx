@@ -388,8 +388,9 @@ async function SchoolShell({
             <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" /><span><strong>FANTASY</strong>BRACKET TOURNEY</span></a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
-            <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about"><i className="ri-shield-star-line yat-nav-page-icon" aria-hidden="true" />ABOUT US</a>
-            <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq"><i className="ri-question-mark yat-nav-page-icon" aria-hidden="true" />FAQ&apos;S</a>
+            {/* The YAT?STATS Guided Tour: the yatstats.com home page, where
+                a visitor picks the tour that fits them. */}
+            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-circle.png" alt="YAT?STATS" className="yat-nav-custom-icon yat-nav-tour-icon" /><span>GUIDED<strong>TOUR</strong></span></a>
           </div>
         </div>
 

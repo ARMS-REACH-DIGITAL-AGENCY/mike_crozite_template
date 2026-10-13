@@ -209,8 +209,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
           <a className="yat-topnav-item" data-cc-link href={connectContributeHref(hsid)}><strong>CONNECT</strong><span>&amp;</span><strong>CONTRIBUTE</strong><span>PORTAL</span></a>
           <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
-          <a className="yat-topnav-item" data-tab="about" href={schoolSectionHref(hsid, 'about')}><span>ABOUT</span><strong>US</strong></a>
-          <a className="yat-topnav-item" data-tab="faq" href={schoolSectionHref(hsid, 'faq')}><strong>FAQ&apos;S</strong></a>
+          <a className="yat-topnav-item" href="https://yatstats.com/"><span>YAT?STATS GUIDED</span><strong>TOUR</strong></a>
         </nav>
 
         <div className="yat-wordmark-wrap">

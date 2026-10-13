@@ -638,9 +638,7 @@ function syncStripToVisibleCards() {
         current:'${highSchoolTeamLabel()}',
         fantasy:'FANTASY BRACKET TOURNEY',
         mentor:'CONNECT & CONTRIBUTE PORTAL',
-        partner:'PARTNERSHIP PROGRAM',
-        about:'ABOUT US',
-        faq:"FAQ'S"
+        partner:'PARTNERSHIP PROGRAM'
       };
       var label=labels[key]||key.toUpperCase();
       sectionLabel.textContent=label;

@@ -26,7 +26,6 @@ import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
-import SchoolFaq from "@/components/yatstats/SchoolFaq";
 
 export const runtime = "nodejs";
 
@@ -724,14 +723,6 @@ export default async function SchoolPage({
             </>
           }
         />
-      </section>
-
-      <section id="sec-about" className="yat-section">
-        <Placeholder icon="ℹ️" title="About YAT?STATS" body="YAT?STATS helps schools, families, fans, and sponsors follow where players go after high school and celebrate their next-level journeys." />
-      </section>
-
-      <section id="sec-faq" className="yat-section">
-        <SchoolFaq schoolName={schoolName} />
       </section>
     </>
   );
