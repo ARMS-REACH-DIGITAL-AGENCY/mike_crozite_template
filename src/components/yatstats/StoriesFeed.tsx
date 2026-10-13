@@ -10,11 +10,14 @@
 //            nothing to open to join in (a photo still opens large).
 // Uploading happens only from the Polaroid on the Career Path Timeline
 // (StoryDrawer), never here.
+// His teammates are a drawer from the right, opened by the Teammates button
+// beside the search, so the stories get the whole width.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 import SortToggle from '@/components/yatstats/SortToggle';
-import TeammatesList from '@/components/yatstats/TeammatesList';
+import TeammatesList, { teammateCount, useTeammates, type TeammateSeason } from '@/components/yatstats/TeammatesList';
 import StoryViewer, { AlbumStrip, StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
@@ -55,6 +58,51 @@ function StoryPhotos({ story, onOpen }: { story: Story; onOpen: (index: number) 
 // Story cards spell the month out ("April 2003").
 const fullWhenLabel = (story: Story) => storyWhen(story);
 
+// The Teammates drawer: from the right, over the page; the mask, the X or
+// Escape closes it.
+function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+  }, [onClose]);
+  return createPortal(
+    <div className="ytd" role="dialog" aria-modal="true" aria-label="Teammates">
+      <button type="button" className="ytd-mask" aria-label="Close teammates" onClick={onClose} />
+      <div className="ytd-panel">
+        <button type="button" className="ytd-close" aria-label="Close" onClick={onClose}>
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
+        </button>
+        <TeammatesList rows={rows} />
+      </div>
+      <style jsx global>{`
+        .ytd { position: fixed; inset: 0; z-index: 10040; }
+        .ytd-mask { position: absolute; inset: 0; width: 100%; border: 0; padding: 0; background: rgba(0,0,0,.6); cursor: pointer; animation: ytd-fade .2s ease; }
+        .ytd-panel {
+          --ytm-bg: #0b0b0b; --ytm-text: rgba(255,255,255,.88); --ytm-muted: rgba(255,255,255,.55); --ytm-strong: #fff;
+          --ytm-border: rgba(255,255,255,.16); --ytm-accent: var(--gold, #ffc107);
+          position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 88vw); overflow-y: auto; overscroll-behavior: contain;
+          padding: 22px 22px calc(28px + env(safe-area-inset-bottom)); background: var(--ytm-bg); border-left: 1px solid var(--ytm-border);
+          box-shadow: -12px 0 32px rgba(0,0,0,.45); animation: ytd-in .24s cubic-bezier(.2,.8,.2,1);
+        }
+        body.light-theme .ytd-panel {
+          --ytm-bg: #fbf8f2; --ytm-text: rgba(31,25,18,.88); --ytm-muted: rgba(31,25,18,.55); --ytm-strong: rgba(31,25,18,.95);
+          --ytm-border: rgba(53,43,30,.18); --ytm-accent: #9a6f00;
+        }
+        .ytd-close { position: absolute; top: 14px; right: 14px; z-index: 3; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--ytm-muted); font-size: 22px; cursor: pointer; }
+        .ytd-close:hover { color: var(--ytm-strong); }
+        .ytd-panel .ytm-title { padding-right: 40px; }
+        @keyframes ytd-in { from { transform: translateX(100%); } to { transform: none; } }
+        @keyframes ytd-fade { from { opacity: 0; } to { opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) { .ytd-panel, .ytd-mask { animation: none; } }
+      `}</style>
+    </div>,
+    document.body
+  );
+}
+
 export default function StoriesFeed({ playerId, playerName }: { playerId: string; playerName: string }) {
   const firstName = (playerName || '').split(' ')[0] || 'this player';
   const me = useFanMe();
@@ -67,6 +115,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const [openPhoto, setOpenPhoto] = useState(0);
   const [openForComment, setOpenForComment] = useState(false);
   const [note, setNote] = useState('');
+  const teammates = useTeammates(playerId);
+  const teammatesTotal = teammateCount(teammates);
+  const [teammatesOpen, setTeammatesOpen] = useState(false);
+  const closeTeammates = useCallback(() => setTeammatesOpen(false), []);
   const openStory = stories?.find((s) => s.id === openId) || null;
   // A shared link (?story=<id>) opens that story once the list is in.
   const pendingOpen = useRef<string | null>(typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('story') : null);
@@ -213,19 +265,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
       </div>
     );
   } else {
-    const toolbar = (
-      <div className="ysf-tools">
-        <label className="ysf-search">
-          <i className="ri-search-line" aria-hidden="true" />
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
-        </label>
-        <SortToggle dir={sort} onChange={setSort} />
-      </div>
-    );
     const list = visible || [];
     body = (
       <>
-        {toolbar}
         {list.length === 0 ? (
           <div className="ysf-empty">No stories match “{search.trim()}”.</div>
         ) : isDesktop ? (
@@ -288,11 +330,27 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   return (
     <div className="ysf">
-      {/* The feed, with his teammates in a narrow column beside it. */}
-      <div className="ysf-layout">
-        <div className="ysf-main">{body}</div>
-        <TeammatesList playerId={playerId} />
-      </div>
+      {/* Search and sort (once there are stories), and his teammates. */}
+      {(stories?.length || teammatesTotal > 0) ? (
+        <div className="ysf-tools">
+          {stories?.length ? (
+            <>
+              <label className="ysf-search">
+                <i className="ri-search-line" aria-hidden="true" />
+                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
+              </label>
+              <SortToggle dir={sort} onChange={setSort} />
+            </>
+          ) : <span className="ysf-tools-fill" />}
+          {teammatesTotal > 0 ? (
+            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen}>
+              <i className="ri-team-line" aria-hidden="true" /> Teammates <span className="ysf-tm-count">{teammatesTotal}</span>
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="ysf-main">{body}</div>
+      {teammatesOpen && typeof document !== 'undefined' ? <TeammatesDrawer rows={teammates} onClose={closeTeammates} /> : null}
 
       {openStory && typeof document !== 'undefined' && (
         <StoryViewer key={`${openStory.id}-${openPhoto}`} story={openStory} playerId={playerId} initialPhoto={openPhoto} focusComment={openForComment} onClose={closeViewer} onChange={updateStory} onDeleted={removeStory} />
@@ -328,16 +386,19 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         }
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
-        .ysf-layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
-        .ysf-layout > .ytm { width: 150px; }
         .ysf-main { min-width: 0; }
-        @media (max-width: 899px) {
-          .ysf-layout { gap: 8px; }
-          .ysf-layout > .ytm { width: 92px; }
+        .ysf-tools-fill { flex: 1; }
+        /* Teammates: opens the drawer. Same height and frame as the sort. */
+        .ysf-tm-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 700 16px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
+        .ysf-tm-btn i { font-size: 17px; color: var(--ysf-when); }
+        .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color: var(--ysf-when); }
+        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 999px; background: var(--ysf-when); color: #111; font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
+        @media (max-width: 420px) {
+          .ysf-tm-btn { padding: 0 9px; font-size: 14px; }
         }
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
-        .ysf-feed-posts { gap: 16px; max-width: 720px; margin: 0 auto; }
-        .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 720px; }
+        .ysf-feed-posts { gap: 16px; max-width: 760px; margin: 0 auto; }
+        .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 760px; }
         /* Search and sort stay pinned at the top of the tab while you scroll. */
         .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
         .ysf-search { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
