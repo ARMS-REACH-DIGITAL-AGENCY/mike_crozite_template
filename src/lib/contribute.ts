@@ -215,7 +215,7 @@ export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
   { id: 'fans', icon: 'ri-hand-heart-line', label: 'Connect With Fans', short: 'Sponsor', blurb: 'Put your business in front of the hometown.', section: 'cc-fans' },
   { id: 'alumni', icon: 'ri-contacts-book-2-line', label: 'Connect With Fellow Alumni', short: 'Alumni', blurb: 'Where YAT now? Share how to reach you.', section: 'cc-alumni' },
   { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', short: 'Photos', blurb: 'Fill a silhouette with a real photo.', section: 'cc-photo' },
-  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', blurb: 'A missing season, a wrong stat, a grad year.', section: 'cc-data' },
+  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', blurb: 'A missing season, a grad year, his height or position.', section: 'cc-data' },
   { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', short: 'Missing Alumni', blurb: 'Know an alum who played on? Add him.', section: 'cc-missing' },
   { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'News Tip', short: 'News Tip', blurb: 'A call-up, an award, a story: send the link.', section: 'cc-tip' },
 ];
