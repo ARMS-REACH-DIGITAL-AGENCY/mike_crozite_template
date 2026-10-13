@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
 };
 
-const BOOTSTRAP_SECTIONS = ['news', 'alltime', 'current', 'fantasy', 'mentor', 'partner', 'about', 'faq'];
+const BOOTSTRAP_SECTIONS = ['news', 'alltime', 'current', 'fantasy', 'mentor', 'partner'];
 
 const SECTION_BOOTSTRAP =
   "try{var d=document.documentElement,m=(location.hash||'').match(/^#sec-([a-z]+)/);" +

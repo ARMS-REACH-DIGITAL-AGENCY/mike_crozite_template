@@ -54,14 +54,12 @@ type SchoolMeta = {
 };
 
 const VALID_SECTIONS = new Set([
-  'active', 'news', 'alltime', 'current', 'fantasy', 'mentor', 'partner', 'about', 'faq',
+  'active', 'news', 'alltime', 'current', 'fantasy', 'mentor', 'partner',
 ]);
 
 const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
 const SECTION_ANCHORS: Record<string, string[]> = {
   partner: ['WHO?', 'WHAT?', 'WHEN?', 'WHERE?', 'WHY?', 'HOW?'],
-  about: ['ABOUT', 'OUR MISSION', 'HOW IT WORKS', 'SCHOOLS', 'PLAYERS', 'FANS'],
-  faq: ['ABOUT', 'PLAYERS', 'STORIES', 'CONTRIBUTE', 'SUPER FANS', 'FANTASY', 'CONTACT'],
 };
 
 function normalizeSection(value: string): string {
@@ -208,7 +206,7 @@ export default function SharedShell({
               // slide per week, where a profile has its Career Path Timeline.
               ? <FantasyTimeline />
               : SECTION_ANCHORS[activeSection] && !isPlayerProfile
-              ? <nav className="yat-section-anchor-strip" aria-label={activeSection === 'faq' ? 'FAQ topics' : activeSection === 'partner' ? 'Partnership questions' : 'About sections'}>
+              ? <nav className="yat-section-anchor-strip" aria-label="Partnership questions">
                   {SECTION_ANCHORS[activeSection].map((label, i) => <button type="button" key={label} onClick={() => {
                     const section = document.getElementById(`sec-${activeSection}`);
                     const headings = Array.from(section?.querySelectorAll<HTMLElement>('h2,h3') || []);
