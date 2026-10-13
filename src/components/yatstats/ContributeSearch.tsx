@@ -145,7 +145,7 @@ export default function ContributeSearch(props: Props) {
       <style jsx global>{`
         .ycs .yat-gs-input-wrap { margin-top: 2px; }
         .ycs-results { max-height: none !important; overflow: visible !important; }
-        .ycs-back { align-self: flex-start; margin: 4px 0; border: 0; background: none; padding: 0; color: var(--sb-text); font: 500 13px/1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
+        .ycs-back { align-self: flex-start; margin: 4px 0; border: 0; background: none; padding: 0; color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
         .ycs .yat-search-player-result, .ycs .yat-search-school-card { cursor: pointer; }
       `}</style>
     </div>

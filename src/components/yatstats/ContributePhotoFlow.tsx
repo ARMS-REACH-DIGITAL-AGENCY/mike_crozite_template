@@ -488,8 +488,8 @@ export default function ContributePhotoFlow({
       ) : null}
 
       <style jsx global>{`
-        .ypf-flow { display: flex; flex-direction: column; gap: 18px; max-width: 1100px; }
-        .ypf-step { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid var(--line); min-width: 0; }
+        .ypf-flow { display: flex; flex-direction: column; gap: 10px; max-width: 1100px; }
+        .ypf-step { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); min-width: 0; }
         .ypf-sub { margin-top: 6px; }
         .ypf-step-sm { font-size: 11px !important; }
         .ypf-uploaded { display: flex; align-items: center; gap: 12px; }
@@ -502,12 +502,12 @@ export default function ContributePhotoFlow({
         .ypf-other select { flex: 0 0 110px; }
         .ypf-other input { flex: 1 1 220px; }
         .ycd-season.is-plain span { opacity: .75; }
-        .ypf-approve { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .ypf-approve { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--sb-card-border); border-radius: 6px; cursor: pointer; font-size: 13px; }
         .ypf-approve input { width: 18px; height: 18px; accent-color: var(--sb-green-hi); }
         .ypf-approve.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
-        .ypf-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 160px; padding: 20px; border: 2px dashed var(--sb-green-hi); border-radius: 12px; background: var(--sb-green-soft); color: inherit; cursor: pointer; }
-        .ypf-drop i { font-size: 44px; color: var(--sb-text); }
-        .ypf-drop span { font: 600 20px/1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+        .ypf-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 130px; padding: 16px; border: 1px dashed var(--sb-green-hi); border-radius: 12px; background: var(--sb-green-soft); color: inherit; cursor: pointer; }
+        .ypf-drop i { font-size: 30px; color: var(--sb-text); }
+        .ypf-drop span { font: 700 15px/1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; }
         .ypf-drop small { opacity: .65; }
         .ypf-photo { display: flex; flex-direction: column; gap: 8px; }
         .ypf-picked { max-width: 100%; max-height: 420px; object-fit: contain; border-radius: 8px; align-self: flex-start; }
@@ -517,12 +517,12 @@ export default function ContributePhotoFlow({
         .ypf-tag.is-main { border-color: var(--sb-green-hi); }
         .ypf-tag img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
         .ypf-tag span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .ypf-tag b { font: 700 14px/1.1 Oswald, sans-serif; text-transform: uppercase; }
-        .ypf-tag small { color: var(--sb-text); font: 500 11px/1 Oswald, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
+        .ypf-tag b { font: 700 12px/1.1 var(--yat-font-compact); text-transform: uppercase; }
+        .ypf-tag small { color: var(--sb-text); font: 600 11px/1 var(--yat-font-compact); text-transform: uppercase; letter-spacing: .05em; }
         .ypf-tag .ycd-link { font-size: 12px; }
         .ypf-tag-x { border: 0; background: none; color: inherit; font-size: 20px; cursor: pointer; opacity: .7; }
         .ypf-types { display: flex; flex-direction: column; gap: 6px; }
-        .ypf-type { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .ypf-type { display: flex; gap: 10px; align-items: flex-start; padding: 7px 10px; border: 1px solid var(--sb-card-border); border-radius: 6px; cursor: pointer; font-size: 13px; }
         .ypf-type input { margin-top: 3px; accent-color: var(--sb-green-hi); }
         .ypf-type span { display: flex; flex-direction: column; gap: 4px; }
         .ypf-type small { font-size: 12px; opacity: .7; line-height: 1.4; }
@@ -533,7 +533,7 @@ export default function ContributePhotoFlow({
         .ypf-team img { width: 30px; height: 30px; object-fit: contain; }
         .ypf-team.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
         .ypf-done { display: flex; flex-direction: column; gap: 10px; max-width: 560px; }
-        .ypf-done-title { font: 600 26px/1.1 Oswald, sans-serif; text-transform: uppercase; }
+        .ypf-done-title { font: 700 18px/1.1 var(--yat-font-compact); text-transform: uppercase; }
         .ypf-done-title.is-approved { color: #3ddc84; }
         .ypf-done-title.is-rejected { color: #ff6b6b; }
         .ypf-done p { margin: 0; line-height: 1.5; }

@@ -363,21 +363,34 @@ textarea {
 }
 
 
-/* The scoreboard look (the All-Time row, the Fantasy Bracket): green panels,
-   cream type, gold only as a thin rim. Used by every Connect & Contribute
-   piece: row 3 on the portal, the portal page, the account drawer's list
-   and the contribution drawers. */
+/* The Fantasy Bracket look, for every Connect & Contribute piece (row 3 on
+   the portal, the portal page, the account drawer's list, the drawers): the
+   site's ESPN-style type (Archivo for copy, Barlow Condensed for labels),
+   small; green scoreboard panels like the stat boards (#1f6546 -> #174c35)
+   with a thin white edge; the game-header green for section bars; gold only
+   for a highlight. */
 :root {
-  --sb-panel: linear-gradient(160deg, #246b48, #123b29);
-  --sb-green: #1f5e3f;
+  --sb-panel: linear-gradient(180deg, #1f6546, #174c35);
+  --sb-head: #2e8b5f;
+  --sb-rim: rgba(255, 255, 255, .14);
+  --sb-accent: #ffd34f;
   --sb-green-hi: #3a9a67;
-  --sb-green-soft: rgba(58, 154, 103, .16);
-  --sb-text: #7ed6a2;
-  --sb-gold: #dfc24d;
-  --sb-cream: #f4f1e9;
+  --sb-green-soft: rgba(46, 139, 95, .16);
+  --sb-text: #7fd18b;
+  --sb-gold: #ffd34f;
+  --sb-cream: #fff;
+  --sb-card-bg: rgba(255, 255, 255, .035);
+  --sb-card-border: rgba(255, 255, 255, .12);
+  --sb-ink: rgba(255, 255, 255, .88);
+  --sb-ink-muted: rgba(255, 255, 255, .7);
 }
 body.light-theme {
-  --sb-text: #1f5e3f;
-  --sb-green-hi: #1f5e3f;
-  --sb-green-soft: rgba(31, 94, 63, .10);
+  --sb-text: #1f6546;
+  --sb-green-hi: #1f6546;
+  --sb-green-soft: rgba(31, 101, 70, .10);
+  --sb-accent: #b78600;
+  --sb-card-bg: rgba(255, 255, 255, .52);
+  --sb-card-border: rgba(53, 43, 30, .18);
+  --sb-ink: rgba(31, 25, 18, .86);
+  --sb-ink-muted: rgba(31, 25, 18, .68);
 }

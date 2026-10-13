@@ -613,18 +613,18 @@ export default function ContributeDrawer() {
         /* Full width on phones; most of the screen on bigger ones. */
         .yat-contribute-drawer { width: 100vw; max-width: 100vw; }
         @media (min-width: 700px) { .yat-contribute-drawer { width: min(92vw, 1180px); } }
-        .ycd-header { position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 16px 12px; border-bottom: 1px solid var(--line); }
+        .ycd-header { position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
         .ycd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -6%; width: min(420px, 62%); aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
         body.light-theme .ycd-header::before { filter: invert(1); opacity: .09; }
-        .ycd-kicker { color: var(--sb-text); font: 500 14px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
-        .ycd-title { margin: 0 !important; padding: 0 !important; font: 600 24px/1.05 Oswald, sans-serif !important; text-transform: uppercase; letter-spacing: .04em; }
-        .ycd-title i { display: inline-grid; place-items: center; width: 1.45em; height: 1.45em; margin-right: 4px; border-radius: 50%; background: var(--sb-panel); border: 1px solid var(--sb-gold); color: var(--sb-cream); font-size: .8em; vertical-align: 1px; }
-        .ycd-sub { margin-top: 4px; font: 500 14px/1.2 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
+        .ycd-kicker { color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .1em; text-transform: uppercase; }
+        .ycd-title { margin: 0 !important; padding: 0 !important; font: 800 16px/1.2 var(--yat-font-ui) !important; text-transform: uppercase; letter-spacing: .04em; }
+        .ycd-title i { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px; border-radius: 5px; background: var(--sb-panel); border: 1px solid var(--sb-rim); color: #fff; font-size: 13px; vertical-align: 2px; }
+        .ycd-sub { margin-top: 4px; font: 600 12px/1.2 var(--yat-font-compact); letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
         .ycd-chosen-wrap { display: flex; flex-direction: column; gap: 6px; }
         .ycd-chosen-player { border-color: var(--sb-green-hi) !important; }
-        .ycd-hello { margin: 8px 0 0; font-size: 14px; line-height: 1.45; max-width: 720px; opacity: .9; }
+        .ycd-hello { margin: 6px 0 0; font: 400 12.5px/1.45 var(--yat-font-ui); max-width: 720px; color: var(--sb-ink-muted); }
         .ycd-close { position: static !important; flex: none; }
-        .ycd-body { flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 32px; }
+        .ycd-body { flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px 14px 28px; font-family: var(--yat-font-ui); font-size: 13px; }
         .ycd-main { display: grid; grid-template-columns: 1fr; gap: 20px; }
         @media (min-width: 900px) { .ycd-main { grid-template-columns: minmax(300px, 380px) 1fr; gap: 28px; } }
         .ycd-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -634,29 +634,29 @@ export default function ContributeDrawer() {
         .ycd-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         .ycd-stack { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
         .ycd-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .ycd-label { font: 500 14px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
-        .ycd-step { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 4px; border-radius: 50%; background: var(--sb-panel); border: 1px solid var(--sb-gold); color: var(--sb-cream); font-size: 13px; vertical-align: 1px; }
+        .ycd-label { font: 600 12px/1.15 var(--yat-font-compact); letter-spacing: .07em; text-transform: uppercase; }
+        .ycd-step { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; margin-right: 6px; border-radius: 4px; background: var(--sb-panel); border: 1px solid var(--sb-rim); color: #fff; font: 700 11px/1 var(--yat-font-compact); vertical-align: 1px; }
         .yat-contribute-drawer select, .yat-contribute-drawer textarea, .yat-contribute-drawer input[type="search"],
         .yat-contribute-drawer input[type="text"], .yat-contribute-drawer input[type="url"] {
-          width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.06);
-          color: var(--ink); padding: 10px 12px; font-family: inherit; font-size: 14px; line-height: 1.45;
+          width: 100%; border: 1px solid var(--sb-card-border); border-radius: 5px; background: rgba(255,255,255,.05);
+          color: var(--ink); padding: 7px 9px; font-family: var(--yat-font-ui); font-size: 13px; line-height: 1.4;
         }
         .yat-contribute-drawer textarea { resize: vertical; }
-        .ycd-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border: 1px solid var(--sb-green-hi); border-radius: 8px; background: var(--sb-green-soft); font-size: 13px; }
+        .ycd-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); font-size: 12.5px; }
         .ycd-link { border: 0; background: none; padding: 0; color: var(--sb-text); font: inherit; text-decoration: underline; cursor: pointer; text-align: left; }
-        .ycd-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; align-self: flex-start; }
-        .ycd-switch button { border: 0; background: transparent; color: inherit; padding: 6px 14px; border-radius: 999px; cursor: pointer; font: 500 13px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; opacity: .7; }
-        .ycd-switch button.is-on { background: var(--sb-panel); color: var(--sb-cream); box-shadow: inset 0 0 0 1px var(--sb-gold); opacity: 1; }
-        .ycd-chosen { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--sb-green-hi); border-radius: 8px; background: var(--sb-green-soft); }
+        .ycd-switch { display: inline-flex; border: 1px solid var(--sb-card-border); border-radius: 6px; padding: 2px; align-self: flex-start; }
+        .ycd-switch button { border: 0; background: transparent; color: inherit; padding: 5px 12px; border-radius: 4px; cursor: pointer; font: 600 12px/1 var(--yat-font-compact); letter-spacing: .07em; text-transform: uppercase; opacity: .7; }
+        .ycd-switch button.is-on { background: var(--sb-panel); color: var(--sb-cream); box-shadow: inset 0 0 0 1px var(--sb-rim); opacity: 1; }
+        .ycd-chosen { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--sb-green-hi); border-radius: 6px; background: var(--sb-green-soft); }
         .ycd-chosen img { width: 34px; height: 34px; object-fit: contain; flex: none; }
         .ycd-chosen-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
         .ycd-chosen-text small { opacity: .65; font-size: 12px; }
         .ycd-results.yat-gs-results { max-height: none; overflow: visible; }
         .ycd-results .yat-gs-result { width: 100%; text-align: left; font: inherit; }
         .ycd-seasons { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; padding-right: 2px; }
-        .ycd-season { display: grid; grid-template-columns: 46px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-        .ycd-season b { grid-row: span 2; font: 500 18px/1 Oswald, sans-serif; color: var(--sb-text); }
-        .ycd-season span { font-size: 13px; font-weight: 600; }
+        .ycd-season { display: grid; grid-template-columns: 46px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: baseline; padding: 6px 9px; border: 1px solid var(--sb-card-border); border-radius: 6px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+        .ycd-season b { grid-row: span 2; font: 600 15px/1 var(--yat-font-compact); color: var(--sb-text); }
+        .ycd-season span { font: 700 13px/1.2 var(--yat-font-compact); text-transform: uppercase; letter-spacing: .02em; }
         .ycd-season small { font-size: 11px; opacity: .65; }
         .ycd-season.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
         .ycd-memories { margin: 0; font-size: 12px; line-height: 1.5; opacity: .8; }
@@ -672,21 +672,21 @@ export default function ContributeDrawer() {
         .ycd-check-body { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px 40px; }
         .ycd-photo { display: flex; flex-direction: column; gap: 6px; }
         .ycd-preview { max-width: 240px; max-height: 260px; object-fit: contain; border-radius: 6px; background: rgba(255,255,255,.05); }
-        .ycd-add { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; font: 500 14px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+        .ycd-add { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; font: 600 12px/1 var(--yat-font-compact); letter-spacing: .07em; text-transform: uppercase; }
         .ycd-add i { font-size: 20px; }
         .ycd-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 180px; padding: 24px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; opacity: .7; font-size: 14px; }
         .ycd-placeholder i { font-size: 30px; }
         .ycd-error { color: #ff6b6b; font-size: 13px; }
         .ycd-ok { color: #3ddc84; font-weight: 600; }
         .ycd-proof { display: flex; flex-direction: column; gap: 12px; }
-        .ycd-proof-head { font: 600 20px/1.1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--sb-text); }
-        .ycd-proof-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--sb-green-hi); border-radius: 10px; }
+        .ycd-proof-head { font: 700 15px/1.1 var(--yat-font-compact); letter-spacing: .04em; text-transform: uppercase; color: var(--sb-text); }
+        .ycd-proof-item { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; }
         .ycd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ycd-btn { min-height: 44px; padding: 0 22px; border-radius: 8px; border: 1px solid var(--sb-green-hi); background: transparent; color: var(--sb-text); font: 500 15px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
-        .ycd-btn-primary { background: var(--sb-panel); border-color: var(--sb-gold); color: var(--sb-cream); }
+        .ycd-btn { min-height: 32px; padding: 0 14px; border-radius: 5px; border: 1px solid var(--sb-green-hi); background: transparent; color: var(--sb-text); font: 600 13px/1 var(--yat-font-compact); letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+        .ycd-btn-primary { background: var(--sb-panel); border-color: var(--sb-rim); color: #fff; }
         .ycd-btn:disabled { opacity: .55; cursor: default; }
         .ycd-done p { margin: 0 0 8px; line-height: 1.45; }
-        .ycd-done-title { font: 600 20px/1.1 Oswald, sans-serif; letter-spacing: .04em; }
+        .ycd-done-title { font: 700 15px/1.1 var(--yat-font-compact); letter-spacing: .04em; }
       `}</style>
     </aside>,
     document.body
