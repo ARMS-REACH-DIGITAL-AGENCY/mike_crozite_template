@@ -146,7 +146,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
             <span className="run">R</span>
-            <span className="stats">DAILY<br />STATS</span>
+            <span className="stats">DAILY STATS</span>
           </div>
           {tbdRow('a')}
           {tbdRow('h')}
@@ -210,7 +210,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
           <span className="run">R</span>
-          <span className="stats">DAILY<br />STATS</span>
+          <span className="stats">DAILY STATS</span>
         </div>
         {row('a')}
         {row('h')}
@@ -952,6 +952,17 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-stats svg { width:62%; height:62%; fill:currentColor; }
         .yfp-green-stats:hover, .yfp-green-stats:focus-visible { background:#ffd34f; color:#15251d; transform:scale(1.08); }
         .yfp-green-stats:focus-visible { outline:2px solid #fff; outline-offset:1px; }
+        /* Main scoreboard (not the drawers' boards): every inning box is a
+           true square, R matches them, and the daily-stats button is a
+           square of the same size with its chart icon, under "DAILY STATS"
+           written across on one line. */
+        .yfp-game-scorepane .yfp-green-row { grid-template-columns:minmax(58px,1.1fr) repeat(var(--inning-count,9),minmax(16px,1fr)) minmax(16px,1fr); grid-auto-columns:minmax(52px,auto); }
+        .yfp-game-scorepane .yfp-green-slot { height:auto; aspect-ratio:1; }
+        .yfp-game-scorepane .yfp-green-run { height:auto; align-self:stretch; }
+        .yfp-game-scorepane .yfp-green-row.head .stats { width:auto; justify-self:center; white-space:nowrap; font-size:.95em; line-height:1; }
+        .yfp-game-scorepane .yfp-green-stats { justify-self:center; align-self:stretch; width:auto; height:auto; aspect-ratio:1; contain:size; border-radius:3px; border-width:1px; }
+        .yfp-game-scorepane .yfp-green-stats svg { width:64%; height:64%; }
+        .yfp-game-scorepane .yfp-green-stats:hover, .yfp-game-scorepane .yfp-green-stats:focus-visible { transform:none; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
         .yfp-scorecard .yfp-social { margin-left:8px; margin-right:8px; }
 
@@ -1122,7 +1133,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             box-sizing:border-box; height:132px; margin:6px 8px 0; padding-top:0; padding-bottom:0; align-content:center;
             border:1px solid rgba(255,255,255,.12); border-radius:7px; box-shadow:inset 0 1px 8px rgba(0,0,0,.28);
             display:grid;
-            grid-template-columns:max-content repeat(var(--inning-count,9),minmax(14px,36px)) minmax(34px,52px) 44px;
+            grid-template-columns:max-content repeat(var(--inning-count,9),minmax(14px,36px)) minmax(14px,36px) max-content;
             column-gap:3px;
             justify-content:center;
           }
@@ -1141,12 +1152,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-row.head { margin-top:0; font-size:13px; }
           .yfp-game-scorepane .yfp-green-status { font-size:10px; padding:3px 6px 2px; }
           .yfp-game-scorepane .yfp-green-slot,
-          .yfp-game-scorepane .yfp-green-run { height:36px; font-size:18px; border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-run { font-size:18px; border-radius:4px; }
           .yfp-game-scorepane .yfp-green-run { font-size:21px; }
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
-          .yfp-game-scorepane .yfp-green-stats { width:26px; height:26px; font-size:15px; border-width:1.5px; }
-          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; width:26px; }
+          .yfp-game-scorepane .yfp-green-slot { height:auto; aspect-ratio:1; }
+          .yfp-game-scorepane .yfp-green-run { height:auto; align-self:stretch; }
+          .yfp-game-scorepane .yfp-green-stats { margin-left:6px; border-width:1.5px; border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-row.head .stats { margin-left:6px; font-size:12px; width:auto; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
 
