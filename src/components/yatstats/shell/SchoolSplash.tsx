@@ -22,7 +22,9 @@ import type { CSSProperties } from 'react';
 import { BallparkLights } from '@/components/bracket/BallparkScene';
 import type { TitlePartner } from '@/lib/titlePartners';
 
-const YAT_LOGO = '/img/yatstats-logo.png';
+// The YAT?STATS wordmark on a transparent background (the same file as the
+// yatstats.com splash), so the glow behind it shows around the letters.
+const YAT_LOGO = '/img/yatstats-wordmark-white.png';
 
 const SPLASH_CSS = `
 #yatSplash{position:fixed;inset:0;z-index:2147483000;overflow:hidden;background:#000;opacity:1;transition:opacity .25s ease-out;--yat-splash-w:min(50vw,400px);color:#fff;font-family:var(--yat-font-ui,'Archivo'),'Montserrat',Arial,Helvetica,sans-serif}
