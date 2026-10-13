@@ -610,9 +610,12 @@ export default function ContributeDrawer() {
       <style jsx global>{`
         body.drawer-contribute-open #drawerContribute { transform: translateX(0); }
         body.drawer-contribute-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
-        /* Full width on phones; most of the screen on bigger ones. */
-        .yat-contribute-drawer { width: 100vw; max-width: 100vw; }
-        @media (min-width: 700px) { .yat-contribute-drawer { width: min(92vw, 1180px); } }
+        /* Full screen, like the Fantasy Bracket's stat drawer: every side
+           drawer is held to the side-drawer width (DrawerLayoutOverrides,
+           !important), so the id beats it; above the site's floating
+           buttons, so nothing covers it. The content stays a readable width. */
+        #drawerContribute.yat-drawer { width: 100vw !important; max-width: 100vw !important; left: 0; right: 0; z-index: 2147483200; border-right: 0; }
+        #drawerContribute .ycd-header, #drawerContribute .ycd-body { width: 100%; max-width: 1240px; margin-left: auto; margin-right: auto; }
         .ycd-header { position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
         .ycd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -6%; width: min(420px, 62%); aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
         body.light-theme .ycd-header::before { filter: invert(1); opacity: .09; }
