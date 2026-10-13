@@ -141,6 +141,8 @@ export default function BulkUpload() {
   const [posted, setPosted] = useState<Record<number, Posted>>({});
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  // Story / Memory rows: posted as YAT?STATS (the crest) or as you.
+  const [asYatstats, setAsYatstats] = useState(true);
 
   const fileFor = (r: Row) => files.get(r.file.trim().toLowerCase()) || files.get(r.file.trim().toLowerCase().replace(/\.[a-z0-9]+$/, ''));
   const ready = useMemo(
@@ -204,6 +206,7 @@ export default function BulkUpload() {
       form.set('caption', r.caption);
       form.set('credit', r.credit);
       form.set('tagged', JSON.stringify(c.tagged.map((t) => t.playerid)));
+      if (asYatstats) form.set('asYatstats', '1');
       const res = await fetch('/api/contribute/bulk', { method: 'POST', credentials: 'include', headers: await authHeaders(), body: form });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error || 'It did not post.');
@@ -269,6 +272,11 @@ export default function BulkUpload() {
             <button type="button" className="ybu-go" disabled={!left.length || !!busy} onClick={postAll}>
               <span className="ybu-step">4</span> {busy === 'Posting…' ? `Posting… ${counts.done}/${ready.length}` : `Post ${left.length} Photo${left.length === 1 ? '' : 's'}`}
             </button>
+          </div>
+          <div className="ybu-as" role="radiogroup" aria-label="Post stories as">
+            <span>Post Story / Memory rows as</span>
+            <button type="button" role="radio" aria-checked={asYatstats} className={asYatstats ? 'is-on' : ''} onClick={() => setAsYatstats(true)}>YAT?STATS</button>
+            <button type="button" role="radio" aria-checked={!asYatstats} className={!asYatstats ? 'is-on' : ''} onClick={() => setAsYatstats(false)}>Me</button>
           </div>
           <p className="ybu-muted">Fix a row in the spreadsheet, pick it again and check: rows already posted show as posted until you reload.</p>
           <div className="ybu-table" role="table">
@@ -339,6 +347,10 @@ export default function BulkUpload() {
         .ybu-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin: 34px 0 6px; font: 600 15px/1 var(--yat-font-ui); }
         .ybu-summary b { font: 700 24px/1 var(--yat-font-compact); margin-right: 3px; }
         .ybu-summary .ybu-go { margin-left: auto; padding: 12px 18px; }
+        .ybu-as { display: flex; align-items: center; gap: 6px; margin: 4px 0 12px; font-size: 13px; }
+        .ybu-as span { margin-right: 6px; opacity: .75; }
+        .ybu-as button { padding: 6px 12px; border: 1px solid rgba(0,0,0,.18); border-radius: 999px; background: #fff; font: 700 14px/1 var(--yat-font-compact); cursor: pointer; color: inherit; }
+        .ybu-as button.is-on { background: #1f6546; border-color: #1f6546; color: #fff; }
         .ybu-muted { margin: 0 0 14px; font-size: 12px; opacity: .6; }
         .ybu-table { border-top: 2px solid #1f6546; }
         .ybu-row { display: grid; grid-template-columns: 44px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 14px; padding: 12px 4px; border-bottom: 1px solid rgba(0,0,0,.08); font-size: 13px; line-height: 1.35; }

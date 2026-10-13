@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
 import { identifyFan, likerKey, viewerUid } from '@/lib/fanIdentity';
+import { isReviewer } from '@/lib/contributeServer';
 import { getUserProfile } from '@/lib/userProfile';
 import {
   NotAnImageError,
@@ -34,6 +35,8 @@ export const maxDuration = 60;
 
 // Posted by YAT?STATS for every draft pick (scripts/import-player-draft-picks.ts).
 const DRAFT_STAGE = 'Draft Day';
+// A story a reviewer posted as YAT?STATS rather than as themselves.
+const OFFICIAL_ROLE = 'yatstats';
 const CREST = '/img/ys-crest.png';
 
 type StoryRow = {
@@ -52,6 +55,7 @@ type StoryRow = {
   comment_count: number;
   liked_by_me: boolean;
   is_mine: boolean;
+  contributor_role: string | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -89,7 +93,8 @@ export async function GET(req: NextRequest) {
               (SELECT count(*)::int FROM player_moment_likes l WHERE l.moment_id = m.id) AS like_count,
               (SELECT count(*)::int FROM player_moment_comments c WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_count,
               EXISTS (SELECT 1 FROM player_moment_likes l WHERE l.moment_id = m.id AND l.firebase_uid = $3) AS liked_by_me,
-              (m.contributor_firebase_uid IS NOT NULL AND m.contributor_firebase_uid = $2) AS is_mine
+              (m.contributor_firebase_uid IS NOT NULL AND m.contributor_firebase_uid = $2) AS is_mine,
+              m.contributor_role
          FROM player_moment_submissions m
          JOIN player_moment_players me ON me.moment_id = m.id AND me.playerid = $1
         WHERE m.status = 'live'
@@ -148,6 +153,9 @@ export async function GET(req: NextRequest) {
         commentCount: r.comment_count,
         likedByMe: r.liked_by_me,
         isMine: r.is_mine,
+        // Posted by YAT?STATS itself (Draft Day, or a reviewer posting as
+        // YAT?STATS): the crest instead of a fan's initials.
+        official: draft || r.contributor_role === OFFICIAL_ROLE,
       };
     });
 
@@ -177,9 +185,15 @@ export async function POST(req: NextRequest) {
   if (!identity) return fail('Please sign in again to post a story.', 401);
 
   const profile = await getUserProfile(identity.uid).catch(() => null);
-  const authorName =
-    [profile?.first_name, profile?.last_name].map((v) => String(v || '').trim()).filter(Boolean).join(' ') ||
-    'A YAT?STATS fan';
+  // Reviewers (CONTRIBUTE_REVIEWER_EMAILS) can post as YAT?STATS instead of
+  // as themselves. The story is still theirs to edit or delete.
+  const asYatstats =
+    form.get('asYatstats') === '1' &&
+    isReviewer({ uid: identity.uid, email: identity.email || profile?.email || '', name: '', profile });
+  const authorName = asYatstats
+    ? 'YAT?STATS'
+    : [profile?.first_name, profile?.last_name].map((v) => String(v || '').trim()).filter(Boolean).join(' ') ||
+      'A YAT?STATS fan';
 
   // 2. What they're posting.
   const playerId = String(form.get('playerId') || '').trim();
@@ -224,7 +238,7 @@ export async function POST(req: NextRequest) {
         WHERE contributor_firebase_uid = $1 AND created_at > now() - interval '1 day'`,
       [identity.uid]
     );
-    if ((recent[0]?.n || 0) >= STORY_DAILY_LIMIT) return fail('You have posted a lot of stories today. Please try again tomorrow.', 429);
+    if (!asYatstats && (recent[0]?.n || 0) >= STORY_DAILY_LIMIT) return fail('You have posted a lot of stories today. Please try again tomorrow.', 429);
 
     // 5. Photos to S3 (upright, no metadata, three sizes).
     const folder = randomUUID();
@@ -258,7 +272,7 @@ export async function POST(req: NextRequest) {
            $5, $6, $7, $8,
            $9, $10, $11, $12,
            $13::date, $14, $13::date, 'public', false,
-           $15, 'not_sent'
+           $15, $20
          ) RETURNING id
        ), photos AS (
          INSERT INTO player_moment_photos (moment_id, sort_order, s3_key, web_s3_key, thumb_s3_key, width, height, mime_type, file_size_bytes)
@@ -287,7 +301,7 @@ export async function POST(req: NextRequest) {
         authorName,
         identity.email || profile?.email || null,
         identity.uid,
-        profile?.role || 'fan',
+        asYatstats ? OFFICIAL_ROLE : profile?.role || 'fan',
         profile?.plan || 'fan',
         profile?.home_hsid || null,
         profile?.home_school_name || null,
@@ -300,6 +314,8 @@ export async function POST(req: NextRequest) {
         [playerId, ...taggedIds],
         stored.length,
         taggedIds,
+        // Posted as YAT?STATS: not sent to ARMS as a fan's story.
+        asYatstats ? 'system' : 'not_sent',
       ]
     );
 

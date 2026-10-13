@@ -27,6 +27,8 @@ export type Story = {
   id: string;
   // 'draft': the Draft Day story YAT?STATS posts for every draft pick.
   kind?: 'story' | 'draft';
+  // Posted by YAT?STATS itself (Draft Day, or a reviewer posting as it).
+  official?: boolean;
   story: string;
   author: string;
   date: string | null;
@@ -454,7 +456,7 @@ export function StoryThread({
 
   const header = (
     <div className="ysv-head">
-      {story.kind === 'draft' ? (
+      {story.kind === 'draft' || story.official ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="ysv-avatar ysv-avatar-crest" src="/img/ys-crest.png" alt="" aria-hidden="true" />
       ) : (

@@ -1,6 +1,9 @@
 // src/app/api/contribute/bulk/route.ts
 // Bulk photo upload, for reviewers (CONTRIBUTE_REVIEWER_EMAILS) only.
 //
+//   GET                                  - { reviewer }: whether the signed-in
+//                                          fan is a reviewer (the story box
+//                                          shows "Post as YAT?STATS" if so)
 //   POST JSON { action: 'check', rows }  - each spreadsheet row matched to a
 //                                          player; nothing is written
 //   POST form { row fields, photo }      - one photo, posted now: the same
@@ -37,6 +40,11 @@ const fail = (error: string, status = 400) => NextResponse.json({ error }, { sta
 const text = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const MAX_BYTES = 12 * 1024 * 1024;
 const MAX_ROWS = 2000;
+
+export async function GET(req: NextRequest) {
+  const who = await identifyContributor(req).catch(() => null);
+  return NextResponse.json({ reviewer: isReviewer(who) }, { headers: { 'Cache-Control': 'private, no-store' } });
+}
 
 export async function POST(req: NextRequest) {
   const who = await identifyContributor(req);
@@ -84,6 +92,8 @@ export async function POST(req: NextRequest) {
   const caption = text(form.get('caption'), 2000);
   const credit = text(form.get('credit'), 120);
   const fileName = text(form.get('fileName'), 200);
+  // A Story / Memory posted as YAT?STATS (the crest), not as the reviewer.
+  const asYatstats = form.get('asYatstats') === '1';
   let tagged: string[] = [];
   try {
     tagged = (JSON.parse(String(form.get('tagged') || '[]')) as unknown[]).map((v) => String(v)).filter((v) => PLAYER_ID.test(v)).slice(0, 20);
@@ -111,7 +121,8 @@ export async function POST(req: NextRequest) {
       const stored = await storeStoryPhoto(randomUUID(), 0, input);
       await Promise.race([makeStoryCutout(stored.s3_key), new Promise((resolve) => setTimeout(resolve, 20000))]);
       const takenDate = month ? `${year}-${String(month).padStart(2, '0')}-01` : null;
-      const story = credit && credit.toLowerCase() !== who!.name.toLowerCase() ? `${caption}\n\nPhoto: ${credit}` : caption;
+      const author = asYatstats ? 'YAT?STATS' : who!.name;
+      const story = credit && credit.toLowerCase() !== author.toLowerCase() ? `${caption}\n\nPhoto: ${credit}` : caption;
       const ids = [player.playerid, ...tagged.filter((t) => t.toUpperCase() !== player.playerid.toUpperCase())];
       const { rows } = await query<{ id: string }>(
         `WITH story AS (
@@ -121,8 +132,8 @@ export async function POST(req: NextRequest) {
              photo_taken_date, photo_taken_year, sort_date, visibility, is_private, arms_sync_status
            ) VALUES (
              $1, $2, 'Story', $3, $4, 'live',
-             $5, $6, 'reviewer', $7, $8,
-             $9::date, $10, COALESCE($9::date, make_date($10, 7, 1)), 'public', false, 'not_sent'
+             $5, $6, $19, $7, $8,
+             $9::date, $10, COALESCE($9::date, make_date($10, 7, 1)), 'public', false, $20
            ) RETURNING id
          ), photos AS (
            INSERT INTO player_moment_photos (moment_id, sort_order, s3_key, web_s3_key, thumb_s3_key, width, height, mime_type, file_size_bytes)
@@ -134,10 +145,12 @@ export async function POST(req: NextRequest) {
          )
          SELECT id::text AS id FROM story`,
         [
-          player.playerid, player.hsid, story, who!.name, who!.email || null, who!.uid, player.name, pageUrl,
+          player.playerid, player.hsid, story, author, who!.email || null, who!.uid, player.name, pageUrl,
           takenDate, year,
           stored.s3_key, stored.web_s3_key, stored.thumb_s3_key, stored.width, stored.height, stored.mime_type, stored.file_size_bytes,
           ids,
+          asYatstats ? 'yatstats' : 'reviewer',
+          asYatstats ? 'system' : 'not_sent',
         ]
       );
       await logContribution(who!, 'contribute_bulk_story', { playerid: player.playerid, hsid: player.hsid, pageUrl, details: { moment_id: rows[0]?.id, file: fileName } });

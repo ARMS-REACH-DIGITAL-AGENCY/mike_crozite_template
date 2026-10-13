@@ -58,6 +58,21 @@ export default function StoryDrawer() {
   const [month, setMonth] = useState<number>(0);
   const [story, setStory] = useState('');
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
+  // Reviewers can post as YAT?STATS (the crest) instead of as themselves.
+  const [canPostAsYatstats, setCanPostAsYatstats] = useState(false);
+  const [asYatstats, setAsYatstats] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    (async () => {
+      await auth.authStateReady?.();
+      const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+      const res = await fetch('/api/contribute/bulk', { credentials: 'include', cache: 'no-store', headers: token ? { 'x-firebase-token': token } : {} }).catch(() => null);
+      const body = res?.ok ? await res.json().catch(() => null) : null;
+      if (live) setCanPostAsYatstats(Boolean(body?.reviewer));
+    })();
+    return () => { live = false; };
+  }, [open]);
   const [tags, setTags] = useState<TagCandidate[]>([]);
   const [tagQuery, setTagQuery] = useState('');
   const [tagResults, setTagResults] = useState<TagCandidate[]>([]);
@@ -214,6 +229,7 @@ export default function StoryDrawer() {
       form.set('story', story.trim());
       form.set('tagged', JSON.stringify(tags.map((t) => t.playerId)));
       form.set('pageUrl', window.location.href);
+      if (canPostAsYatstats && asYatstats) form.set('asYatstats', '1');
       for (const photo of photos) {
         const blob = await shrinkPhoto(photo.file);
         form.append('photos', blob, photo.file.name.replace(/\.[a-z0-9]+$/i, '') + '.jpg');
@@ -373,6 +389,13 @@ export default function StoryDrawer() {
               <div className="ysd-error">{status.text}</div>
             ) : null}
 
+            {canPostAsYatstats ? (
+              <label className="ysd-as">
+                <input type="checkbox" checked={asYatstats} onChange={(e) => setAsYatstats(e.target.checked)} />
+                <span>Post as <b>YAT?STATS</b>, not as me</span>
+              </label>
+            ) : null}
+
             <div className="ysd-actions">
               <button type="button" className="ysd-btn ysd-btn-primary" onClick={submit} disabled={posting}>
                 {posting ? 'Posting…' : 'Post story'}
@@ -383,6 +406,8 @@ export default function StoryDrawer() {
       </div>
 
       <style jsx global>{`
+        .ysd-as { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; cursor: pointer; }
+        .ysd-as input { width: 18px; height: 18px; accent-color: #2e8b5f; }
         body.drawer-story-open #drawerStory { transform: translateX(0); }
         body.drawer-story-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
         .yat-story-drawer { width: min(94vw, 440px); }
