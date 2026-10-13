@@ -1235,7 +1235,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           kind: 'today',
           year: endYear,
           title: 'Today',
-          src: `${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`,
         };
 
     // Only add the standing invite if a real moment hasn't already been
@@ -1853,9 +1852,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <SmartImage srcs={hsCrestSrcs} src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
-              {slide.kind === 'today' && (
-                <SmartImage className="zt-person zt-person-cover" src={slide.src} alt="Current" />
-              )}
               {slide.kind === 'upload' && (
                 <SmartImage className="zt-person zt-person-cover" src={slide.src} alt={slide.title} />
               )}
@@ -1933,6 +1929,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           if (slide.kind === 'season' || slide.kind === 'draft') {
             return (
               <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.kind === 'draft' ? `drafted ${slide.draft?.draft_year}` : slide.year}`} />
+            );
+          }
+          // Today: his current headshot, as the same trimmed cutout the
+          // anchor slide uses (players/now-web, ~60 KB) at the height of
+          // every other slide's figure - not the original JPG (often 2 MB)
+          // stretched over the whole banner.
+          if (slide.kind === 'today') {
+            return (
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} alt={`${resolvedPlayerName || 'Player'} today`} />
             );
           }
           if (slide.kind === 'lifeyear') {
