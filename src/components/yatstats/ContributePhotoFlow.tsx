@@ -38,7 +38,7 @@ const THIS_YEAR = new Date().getFullYear();
 type Info = { name: string; classOf: number | null; profileUrl: string | null };
 type Stage = 'form' | 'sending' | 'done';
 type Pick = 'player' | 'school' | 'team';
-type Result = { outcome: 'approved' | 'rejected' | 'pending'; message: string };
+type Result = { outcome: 'approved' | 'rejected' | 'pending'; message: string; link?: string | null };
 
 export default function ContributePhotoFlow({
   hubSchool,
@@ -229,7 +229,7 @@ export default function ContributePhotoFlow({
       }
       if (!res.ok) throw new Error(body?.error || 'Your photo could not be sent.');
       const outcome: Result['outcome'] = body?.status === 'approved' || body?.status === 'rejected' ? body.status : 'pending';
-      setResult({ outcome, message: body?.message || 'Thanks!' });
+      setResult({ outcome, message: body?.message || 'Thanks!', link: typeof body?.link === 'string' && body.link.startsWith('/') ? body.link : null });
       setStage('done');
     } catch (e) {
       setStage('form');
@@ -252,6 +252,9 @@ export default function ContributePhotoFlow({
           {result.outcome === 'approved' ? 'It’s on the site!' : result.outcome === 'rejected' ? 'We can’t use this one' : 'Thank you!'}
         </div>
         <p>{result.message}</p>
+        {result.outcome === 'approved' && result.link ? (
+          <a className="ypf-see" href={result.link}>See it on the site <span aria-hidden="true">›</span></a>
+        ) : null}
         <div className="ycd-label"><span className="ycd-step">7</span> More?</div>
         <div className="ycd-actions">
           {result.outcome === 'rejected' ? (
@@ -537,6 +540,8 @@ export default function ContributePhotoFlow({
         .ypf-done-title.is-approved { color: #3ddc84; }
         .ypf-done-title.is-rejected { color: #ff6b6b; }
         .ypf-done p { margin: 0; line-height: 1.5; }
+        .ypf-see { align-self: flex-start; color: var(--sb-text); font: 700 18px/1 var(--yat-font-compact); letter-spacing: .03em; text-transform: uppercase; text-decoration: none; }
+        .ypf-see:hover { text-decoration: underline; text-underline-offset: 3px; }
       `}</style>
     </div>
   );

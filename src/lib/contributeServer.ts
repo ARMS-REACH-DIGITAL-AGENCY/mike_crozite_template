@@ -85,6 +85,20 @@ export async function logContribution(
 // turns down gets a short note too. Their ARMS contact is tagged
 // contribution-posted / contribution-declined either way, with a note of
 // what it was. Best effort: never holds up the request.
+// Where an approved photo shows on the site, as a path on the school's own
+// site: his profile (opened on the Career Path Timeline for a timeline
+// image), the school's home for its crest. "Other" photos are placed by
+// hand, so they have none.
+export function photoLinkPath(purpose: string, p: { playerId?: string | null; playerName?: string | null; hsid?: string | null }): string | null {
+  const hsid = String(p.hsid || '');
+  if (!/^\d+$/.test(hsid)) return null;
+  if (purpose === 'school_logo') return `/${hsid}`;
+  if (purpose === 'other_photo' || !p.playerId) return null;
+  const [fn, ...ln] = String(p.playerName || '').trim().split(/\s+/);
+  const profile = `/${hsid}/player/${encodeURIComponent(p.playerId)}/${toPlayerSlug(fn, ln.join(' '))}`;
+  return purpose === 'timeline_hero' ? `${profile}#playerCareerImages` : profile;
+}
+
 const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
 export async function notifyContributor(
@@ -102,9 +116,8 @@ export async function notifyContributor(
     let link = '';
     try {
       const origin = photo.pageUrl ? new URL(photo.pageUrl).origin : '';
-      const [fn, ...ln] = String(photo.playerName || '').split(/\s+/);
-      if (origin && photo.playerId && photo.hsid) link = `${origin}/${photo.hsid}/player/${photo.playerId}/${toPlayerSlug(fn, ln.join(' '))}`;
-      else if (origin) link = origin;
+      const path = photoLinkPath(photo.purpose, photo);
+      if (origin) link = path ? `${origin}${path}` : origin;
     } catch {}
     const hi = first ? `Hi ${esc(first)},` : 'Hi,';
     const [subject, body] = outcome === 'posted'

@@ -22,6 +22,7 @@ import {
   identifyContributor,
   logContribution,
   notifyContributor,
+  photoLinkPath,
   assetUrl,
   promoteUpload,
   stagePhoto,
@@ -150,7 +151,22 @@ export async function POST(req: NextRequest) {
       `UPDATE media_upload SET status = $2, description = $3 WHERE id = $1`,
       [id, status, JSON.stringify({ ...details, moderation: verdict ? { decision: verdict.decision, description: verdict.description, reason: verdict.reason_for_fan, checked_at: new Date().toISOString() } : null })]
     );
-    return NextResponse.json({ ok: true, id, status, message }, { status: 201 });
+    // Approved: where to see it (a path on this school's site).
+    let link: string | null = null;
+    if (status === 'approved') {
+      if (purpose === 'team_logo' && tagged[0]) {
+        // A team logo: the profile of the player tagged with it.
+        const { rows } = await query<{ hsid: string | null; name: string }>(
+          `SELECT hsid::text AS hsid, TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name
+             FROM flip_card_front_stage WHERE playerid::text = $1 LIMIT 1`,
+          [tagged[0]]
+        ).catch(() => ({ rows: [] as { hsid: string | null; name: string }[] }));
+        if (rows[0]) link = photoLinkPath('headshot', { playerId: tagged[0], playerName: rows[0].name, hsid: rows[0].hsid });
+      } else {
+        link = photoLinkPath(purpose, { playerId, playerName, hsid });
+      }
+    }
+    return NextResponse.json({ ok: true, id, status, message, link }, { status: 201 });
   } catch (error) {
     if (error instanceof NotAnImageError) return fail(error.message);
     console.error('[contribute/photo] failed', error);
