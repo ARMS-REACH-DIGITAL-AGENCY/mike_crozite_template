@@ -952,15 +952,19 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-stats svg { width:62%; height:62%; fill:currentColor; }
         .yfp-green-stats:hover, .yfp-green-stats:focus-visible { background:#ffd34f; color:#15251d; transform:scale(1.08); }
         .yfp-green-stats:focus-visible { outline:2px solid #fff; outline-offset:1px; }
-        /* Main scoreboard (not the drawers' boards): every inning box is a
-           true square, R matches them, and the daily-stats button is a
-           square of the same size with its chart icon, under "DAILY STATS"
-           written across on one line. */
-        .yfp-game-scorepane .yfp-green-row { grid-template-columns:minmax(58px,1.1fr) repeat(var(--inning-count,9),minmax(16px,1fr)) minmax(16px,1fr); grid-auto-columns:minmax(52px,auto); }
+        /* Main scoreboard (not the drawers' boards): the innings, R and the
+           daily-stats button sit together on the right, each inning a true
+           square, so the school names get all the room on the left (a long
+           one wraps to a second line rather than being cut off). The
+           daily-stats button is a square with its chart icon, under "DAILY
+           STATS" written across on one line. */
+        .yfp-game-scorepane .yfp-green-board { --sq:clamp(17px,5.2vw,24px); padding-right:10px; }
+        .yfp-game-scorepane .yfp-green-row { grid-template-columns:minmax(64px,1fr) repeat(var(--inning-count,9),var(--sq)) var(--sq); grid-auto-columns:max-content; }
         .yfp-game-scorepane .yfp-green-slot { height:auto; aspect-ratio:1; }
-        .yfp-game-scorepane .yfp-green-run { height:auto; align-self:stretch; }
-        .yfp-game-scorepane .yfp-green-row.head .stats { width:auto; justify-self:center; white-space:nowrap; font-size:.95em; line-height:1; }
-        .yfp-game-scorepane .yfp-green-stats { justify-self:center; align-self:stretch; width:auto; height:auto; aspect-ratio:1; contain:size; border-radius:3px; border-width:1px; }
+        .yfp-game-scorepane .yfp-green-run { height:auto; aspect-ratio:1; align-self:center; }
+        .yfp-game-scorepane .yfp-green-full { white-space:normal; overflow:visible; text-overflow:clip; line-height:1.05; }
+        .yfp-game-scorepane .yfp-green-row.head .stats { width:auto; justify-self:center; margin-left:4px; white-space:nowrap; font-size:.95em; line-height:1; }
+        .yfp-game-scorepane .yfp-green-stats { justify-self:center; margin-left:4px; width:calc(var(--sq) + 6px); height:calc(var(--sq) + 6px); border-radius:3px; border-width:1px; }
         .yfp-game-scorepane .yfp-green-stats svg { width:64%; height:64%; }
         .yfp-game-scorepane .yfp-green-stats:hover, .yfp-game-scorepane .yfp-green-stats:focus-visible { transform:none; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
@@ -1127,15 +1131,17 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           @container (min-width: 900px) {
             .yfp-game-scorepane .yfp-board-crest { display:block; position:absolute; top:50%; transform:translateY(-50%); height:84%; max-width:15%; object-fit:contain; opacity:.16; pointer-events:none; }
             .yfp-game-scorepane .yfp-board-crest.l { left:16px; }
-            .yfp-game-scorepane .yfp-board-crest.r { right:16px; }
+            /* Both crests at the left, in the room the names don't use;
+               the innings and the stats fill the right. */
+            .yfp-game-scorepane .yfp-board-crest.r { left:calc(24px + 15%); }
           }
           .yfp-game-scorepane .yfp-green-board {
             box-sizing:border-box; height:132px; margin:6px 8px 0; padding-top:0; padding-bottom:0; align-content:center;
             border:1px solid rgba(255,255,255,.12); border-radius:7px; box-shadow:inset 0 1px 8px rgba(0,0,0,.28);
             display:grid;
-            grid-template-columns:max-content repeat(var(--inning-count,9),minmax(14px,36px)) minmax(14px,36px) max-content;
+            grid-template-columns:minmax(90px,1fr) repeat(var(--inning-count,9),minmax(14px,36px)) minmax(14px,36px) max-content;
             column-gap:3px;
-            justify-content:center;
+            justify-content:stretch; padding-left:14px; padding-right:20px;
           }
           .yfp-game-scorepane .yfp-green-row {
             grid-column:1 / -1;
@@ -1148,7 +1154,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           /* The board is always the same height; only the inning columns
              narrow and widen with the card, up to 36px. */
           .yfp-game-scorepane .yfp-green-team { padding-right:10px; }
-          .yfp-game-scorepane .yfp-green-full { overflow:hidden; text-overflow:ellipsis; }
+          .yfp-game-scorepane .yfp-green-full { white-space:normal; overflow:visible; text-overflow:clip; line-height:1.05; }
           .yfp-game-scorepane .yfp-green-row.head { margin-top:0; font-size:13px; }
           .yfp-game-scorepane .yfp-green-status { font-size:10px; padding:3px 6px 2px; }
           .yfp-game-scorepane .yfp-green-slot,
@@ -1157,9 +1163,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
           .yfp-game-scorepane .yfp-green-slot { height:auto; aspect-ratio:1; }
-          .yfp-game-scorepane .yfp-green-run { height:auto; align-self:stretch; }
-          .yfp-game-scorepane .yfp-green-stats { margin-left:6px; border-width:1.5px; border-radius:4px; }
-          .yfp-game-scorepane .yfp-green-row.head .stats { margin-left:6px; font-size:12px; width:auto; }
+          .yfp-game-scorepane .yfp-green-run { height:auto; aspect-ratio:1; align-self:center; }
+          .yfp-game-scorepane .yfp-green-stats { margin-left:8px; width:auto; height:auto; align-self:stretch; aspect-ratio:1; contain:size; border-width:1.5px; border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-row.head .stats { margin-left:8px; font-size:12px; width:auto; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
 
