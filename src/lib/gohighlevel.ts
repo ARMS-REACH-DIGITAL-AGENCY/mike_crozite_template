@@ -260,3 +260,28 @@ export async function findOrCreateGhlContact(
   }
   return null;
 }
+
+/**
+ * Add a note to an existing contact in GoHighLevel (what a lead wrote).
+ */
+export async function addNoteToGHLContact(contactId: string, body: string): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey) return false;
+  try {
+    const response = await fetch(`https://services.leadconnectorhq.com/contacts/${encodeURIComponent(contactId)}/notes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "Version": "2021-07-28",
+      },
+      body: JSON.stringify({ body }),
+    });
+    if (!response.ok) console.error("addNoteToGHLContact failed:", response.status);
+    return response.ok;
+  } catch (error) {
+    console.error("addNoteToGHLContact error:", error);
+    return false;
+  }
+}

@@ -133,6 +133,8 @@ function applyHomeIdentity(identity: HomeIdentity) {
 
 export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [activeTab, setActiveTab] = useState<AccountTab>('register');
+  // Signed in: no JOIN / LOG IN tabs, just the close button.
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,8 +158,10 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         if (cancelled) return;
 
         if (data?.authenticated && data?.session?.uid) {
+          setSignedIn(true);
           applyHomeIdentity(data.session as HomeIdentity);
         } else {
+          setSignedIn(false);
           hideHomeIdentity();
         }
       } catch {
@@ -167,11 +171,15 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
 
     const onAuthSuccess = (event: Event) => {
       const detail = (event as CustomEvent<HomeIdentity>).detail;
+      setSignedIn(true);
       if (detail?.homeHsid) applyHomeIdentity(detail);
       void hydrateFromServerSession();
     };
 
-    const onSignOut = () => hideHomeIdentity();
+    const onSignOut = () => {
+      setSignedIn(false);
+      hideHomeIdentity();
+    };
 
     applyStoredIdentity();
     void hydrateFromServerSession();
@@ -204,53 +212,59 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           gap: 0,
         }}
       >
-        <button
-          type="button"
-          id="acctTabJoin"
-          data-tab="register"
-          role="tab"
-          aria-selected={activeTab === 'register'}
-          onClick={() => switchTab('register')}
-          style={{
-            flex: 1,
-            textAlign: 'center',
-            padding: '12px 4px',
-            cursor: 'pointer',
-            background: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'register' ? '2px solid var(--gold)' : '2px solid transparent',
-            color: activeTab === 'register' ? 'var(--gold)' : 'var(--fg)',
-            fontFamily: '"Bebas Neue", Oswald, sans-serif',
-            fontSize: '15px',
-            letterSpacing: '.06em',
-          }}
-        >
-          JOIN
-        </button>
+        {signedIn ? (
+          <span style={{ flex: 1 }} />
+        ) : (
+          <>
+            <button
+              type="button"
+              id="acctTabJoin"
+              data-tab="register"
+              role="tab"
+              aria-selected={activeTab === 'register'}
+              onClick={() => switchTab('register')}
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                padding: '12px 4px',
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'register' ? '2px solid var(--gold)' : '2px solid transparent',
+                color: activeTab === 'register' ? 'var(--gold)' : 'var(--fg)',
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '15px',
+                letterSpacing: '.06em',
+              }}
+            >
+              JOIN
+            </button>
 
-        <button
-          type="button"
-          id="acctTabLogin"
-          data-tab="signin"
-          role="tab"
-          aria-selected={activeTab === 'signin'}
-          onClick={() => switchTab('signin')}
-          style={{
-            flex: 1,
-            textAlign: 'center',
-            padding: '12px 4px',
-            cursor: 'pointer',
-            background: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'signin' ? '2px solid var(--gold)' : '2px solid transparent',
-            color: activeTab === 'signin' ? 'var(--gold)' : 'var(--muted)',
-            fontFamily: '"Bebas Neue", Oswald, sans-serif',
-            fontSize: '15px',
-            letterSpacing: '.06em',
-          }}
-        >
-          LOG IN
-        </button>
+            <button
+              type="button"
+              id="acctTabLogin"
+              data-tab="signin"
+              role="tab"
+              aria-selected={activeTab === 'signin'}
+              onClick={() => switchTab('signin')}
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                padding: '12px 4px',
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'signin' ? '2px solid var(--gold)' : '2px solid transparent',
+                color: activeTab === 'signin' ? 'var(--gold)' : 'var(--muted)',
+                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontSize: '15px',
+                letterSpacing: '.06em',
+              }}
+            >
+              LOG IN
+            </button>
+          </>
+        )}
 
         <button
           type="button"

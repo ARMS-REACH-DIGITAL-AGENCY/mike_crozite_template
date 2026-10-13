@@ -3,7 +3,7 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
-import { CONTRIBUTE_OPTIONS, openContribute } from '@/lib/contribute';
+import { CONTRIBUTE_OPTIONS, scrollToContributeSection } from '@/lib/contribute';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
@@ -875,10 +875,9 @@ export default function InteractionStrip({
                   className="gallery-slot gallery-slot-link gallery-contribute-slot"
                   title={option.label}
                   aria-label={option.label}
-                  onClick={() => {
-                    if (option.tab) openContribute({ tab: option.tab });
-                    else document.getElementById(option.section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
+                  // Down to its section of the page; the drawer opens from
+                  // the button there.
+                  onClick={() => scrollToContributeSection(option.section)}
                 >
                   <div className="gallery-slot-media gallery-contribute-media">
                     <i className={option.icon} aria-hidden="true" />

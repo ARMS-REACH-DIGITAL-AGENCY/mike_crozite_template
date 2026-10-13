@@ -165,26 +165,52 @@ export type ContributeOpen = {
 };
 
 // The Connect & Contribute options, each with the icon that stands for it
-// everywhere on the site (row 3 of the portal, the drawer's tabs, and the
-// entry points on cards and pages). The first four open the drawer; the
-// two Connect options are sections of the portal page.
+// everywhere on the site, in the order of the portal page: the three
+// Connect sections first, then the four ways to contribute. Row 3 of the
+// portal and the signed-in account drawer list them all; each scrolls to
+// its section of the page, where a button opens its drawer (from the left).
 export type ContributeOption = {
   id: string;
   icon: string;
   label: string;
   // The name under its circle in row 3 (one line, like a player's last name).
   short: string;
+  // One line on what it is, for the account drawer.
+  blurb: string;
   tab?: ContributeTab;
   section: string;
 };
 
 export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
-  { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', short: 'Photos', section: 'cc-photo' },
-  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', section: 'cc-data' },
-  { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', short: 'Missing Alumni', section: 'cc-missing' },
-  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'News Tip', short: 'News Tip', section: 'cc-tip' },
-  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect with a Player', short: 'Connect', section: 'cc-player' },
-  { id: 'sponsor', icon: 'ri-hand-heart-line', label: 'Sponsor this Page', short: 'Sponsor', section: 'cc-sponsor' },
+  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect with Players', short: 'Players', blurb: 'A personal video from a player you follow.', section: 'cc-player' },
+  { id: 'fans', icon: 'ri-hand-heart-line', label: 'Connect with Fans', short: 'Sponsor', blurb: 'Put your business in front of the hometown.', section: 'cc-fans' },
+  { id: 'alumni', icon: 'ri-contacts-book-2-line', label: 'Connect with Fellow Alumni', short: 'Alumni', blurb: 'Where YAT now? Share how to reach you.', section: 'cc-alumni' },
+  { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', short: 'Photos', blurb: 'Fill a silhouette with a real photo.', section: 'cc-photo' },
+  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', blurb: 'A missing season, a wrong stat, a grad year.', section: 'cc-data' },
+  { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', short: 'Missing Alumni', blurb: 'Know an alum who played on? Add him.', section: 'cc-missing' },
+  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'News Tip', short: 'News Tip', blurb: 'A call-up, an award, a story: send the link.', section: 'cc-tip' },
 ];
+
+// What a sponsorship inquiry is about (the portal's Partner Program form).
+export const SPONSOR_INTERESTS = {
+  title: 'Co-Brand Title Sponsor',
+  profile: 'Active Alumni Profile Sponsor',
+  bracket: 'Bracket Ticket Message',
+  alumni: 'My own profile (Where YAT Now?)',
+  other: 'Something else',
+} as const;
+export type SponsorInterest = keyof typeof SPONSOR_INTERESTS;
+
+// The Connect & Contribute page, opened on one of its sections. A school
+// subdomain adds the school itself; a bare host (previews) needs /<hsid>.
+export function contributeSectionHref(hsid: string, section: string) {
+  return `/${encodeURIComponent(hsid)}/connect-contribute#${section}`;
+}
+
+// Scroll the portal page to a section (row 3, and links on the page).
+export function scrollToContributeSection(section: string) {
+  document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try { history.replaceState(null, '', `#${section}`); } catch {}
+}
 
 export const tabIcon = (tab: ContributeTab) => CONTRIBUTE_OPTIONS.find((o) => o.tab === tab)?.icon || 'ri-upload-cloud-2-line';

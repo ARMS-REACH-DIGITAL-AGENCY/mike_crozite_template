@@ -50,7 +50,7 @@ function Cropped({ src, crop, className }: { src: string; crop: Crop | null; cla
   );
 }
 
-function FlipCardFront({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPlayer }) {
+export function FlipCardFront({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPlayer }) {
   return (
     <div className="ypf-card">
       <Cropped src={src} crop={crop} />
@@ -65,7 +65,7 @@ function FlipCardFront({ src, crop, p }: { src: string; crop: Crop | null; p: Pr
   );
 }
 
-function Headshot({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPlayer }) {
+export function Headshot({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPlayer }) {
   return (
     <div className="ypf-row3">
       {[0, 1, 2].map((i) => (
@@ -80,7 +80,7 @@ function Headshot({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPl
 
 // The back of the card: the photo is a wide strip across the top with his
 // name printed over its left side, stats below.
-function FlipCardBack({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPlayer }) {
+export function FlipCardBack({ src, crop, p }: { src: string; crop: Crop | null; p: ProofPlayer }) {
   return (
     <div className="ypf-back">
       <div className="ypf-back-photo">
@@ -93,7 +93,7 @@ function FlipCardBack({ src, crop, p }: { src: string; crop: Crop | null; p: Pro
   );
 }
 
-function TimelineSlide({ src, crop, p, s, landscape }: { src: string; crop: Crop | null; p: ProofPlayer; s: Season | null; landscape: boolean }) {
+export function TimelineSlide({ src, crop, p, s, landscape }: { src: string; crop: Crop | null; p: ProofPlayer; s: Season | null; landscape: boolean }) {
   return (
     <div className="ypf-slide" style={s?.teamId ? { ['--ypf-logo' as string]: `url(${S3}/teams-web/${s.teamId}.webp)` } : undefined}>
       <div className="ypf-slide-left">
@@ -161,7 +161,16 @@ export default function ContributeProof({
         {purpose === 'timeline_hero' ? <div className="ypf-note">We cut him out of the background, like the other slides on his timeline.</div> : null}
         {tagged.length > 1 ? <div className="ypf-note">Tagged: {tagged.join(', ')}.</div> : null}
       </div>
-      <style jsx global>{`
+      <ProofStyles />
+    </div>
+  );
+}
+
+// The mockups' styles: the proof uses them, and so does the portal page's
+// "where we need help" tour (ContributeGuide).
+export function ProofStyles() {
+  return (
+    <style jsx global>{`
         .ypf { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
         @media (min-width: 900px) { .ypf { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); } }
         .ypf-stage { display: flex; justify-content: center; }
@@ -216,7 +225,6 @@ export default function ContributeProof({
         .ypf-row2 small { font: 400 11px/1 Oswald, sans-serif; text-transform: uppercase; opacity: .7; }
         .ypf-row2 b { font: 700 16px/1.05 Oswald, sans-serif; text-transform: uppercase; }
         .ypf-plain { max-width: 260px; max-height: 280px; object-fit: contain; border-radius: 8px; }
-      `}</style>
-    </div>
+    `}</style>
   );
 }

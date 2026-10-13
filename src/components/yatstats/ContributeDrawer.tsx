@@ -150,6 +150,19 @@ export default function ContributeDrawer() {
   const sending = status.kind === 'sending';
   const season = seasons?.find((s) => s.key === seasonKey) || null;
 
+  const sessionRef = useRef<FanSession | null>(null);
+  const pendingOpen = useRef(false);
+
+  // Slide in from the left, over everything else (the account drawer
+  // included, when the fan just signed in from it).
+  const show = useCallback(() => {
+    setOpen(true);
+    document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open');
+    document.body.classList.add('drawer-contribute-open', 'drawer-open');
+    const account = document.getElementById('drawerAccount');
+    account?.classList.remove('open', 'is-open', 'active');
+  }, []);
+
   const close = useCallback(() => {
     setOpen(false);
     document.body.classList.remove('drawer-contribute-open');
@@ -204,31 +217,53 @@ export default function ContributeDrawer() {
       const wantsSchool = d.photoType === 'school_logo' || (d.dataKind ? DATA_KINDS.find((k) => k.id === d.dataKind)?.seasons === 'school' : false);
       setAboutSchool(Boolean(wantsSchool));
       if (d.dataKind) setData((cur) => (d.dataKind! in cur ? cur : { ...cur, [d.dataKind!]: '' }));
-      setOpen(true);
-      document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open');
-      document.body.classList.add('drawer-contribute-open', 'drawer-open');
+      // Signed in: open now. Not signed in (or not sure yet): ask the
+      // server; a fan who isn't signed in joins first, and this drawer
+      // opens as soon as they're in.
+      if (sessionRef.current?.uid) show();
       setSessionLoading(true);
       fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' })
         .then((res) => res.json())
-        .then((body) => setSession(body?.authenticated ? (body.session as FanSession) : null))
-        .catch(() => setSession(null))
+        .then((body) => {
+          const next = body?.authenticated ? (body.session as FanSession) : null;
+          setSession(next);
+          sessionRef.current = next;
+          if (next?.uid) show();
+          else {
+            pendingOpen.current = true;
+            close();
+            openAccountDrawer('register');
+          }
+        })
+        .catch(() => { setSession(null); show(); })
         .finally(() => setSessionLoading(false));
     };
     window.addEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
-  }, [resetForms, choosePlayer, status.kind, player?.playerId]);
+  }, [resetForms, choosePlayer, show, close, status.kind, player?.playerId]);
 
-  // Back from signing in: check again.
+  // Back from joining or logging in: check again, and open the drawer they
+  // asked for before they had to sign in.
   useEffect(() => {
     const refresh = () => {
       fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' })
         .then((res) => res.json())
-        .then((body) => setSession(body?.authenticated ? (body.session as FanSession) : null))
+        .then((body) => {
+          const next = body?.authenticated ? (body.session as FanSession) : null;
+          setSession(next);
+          sessionRef.current = next;
+          if (next?.uid && pendingOpen.current) {
+            pendingOpen.current = false;
+            show();
+          }
+        })
         .catch(() => {});
     };
+    const forget = () => { sessionRef.current = null; setSession(null); };
     window.addEventListener('yat-auth-success', refresh);
-    return () => window.removeEventListener('yat-auth-success', refresh);
-  }, []);
+    window.addEventListener('yat-sign-out', forget);
+    return () => { window.removeEventListener('yat-auth-success', refresh); window.removeEventListener('yat-sign-out', forget); };
+  }, [show]);
 
   // Close on Escape or a tap on the dark mask.
   useEffect(() => {
@@ -320,21 +355,19 @@ export default function ContributeDrawer() {
 
   const fanName = String(session?.firstName || '').trim();
   const fanKind = session?.isSuperfan || session?.plan === 'superfan' ? 'SuperFan' : 'Fan';
-  const hubName = [hubSchool?.name, hubSchool?.location ? `(${hubSchool.location})` : ''].filter(Boolean).join(' ');
+  const hubName = [hubSchool?.name?.toUpperCase(), hubSchool?.location ? `(${hubSchool.location.toUpperCase()})` : ''].filter(Boolean).join(' ');
   const firstName = (player?.displayName || manualName || '').split(' ')[0] || 'him';
   const playerFlow = tab === 'photo' || tab === 'data';
   const sendLabel = !signedIn ? 'Sign in to send' : sending ? 'Sending…' : 'Send';
 
   return createPortal(
-    <aside className="yat-drawer yat-drawer-right yat-contribute-drawer" id="drawerContribute" aria-label="Contribute to YAT?STATS" aria-hidden={!open}>
+    <aside className="yat-drawer yat-drawer-left yat-contribute-drawer" id="drawerContribute" aria-label="Contribute to YAT?STATS" aria-hidden={!open}>
       <div className="ycd-header">
         <div>
-          <div className="ycd-kicker">Connect &amp; Contribute</div>
-          <h3 className="ycd-title"><i className={tabIcon(tab)} aria-hidden="true" /> {TABS.find((t) => t.id === tab)?.label}</h3>
-          <div className="ycd-sub">{player && playerFlow && !aboutSchool ? `Help us complete ${player.displayName}` : `Help build ${hubSchool?.name || 'YAT?STATS'}`}</div>
+          <h3 className="ycd-title"><i className={tabIcon(tab)} aria-hidden="true" /> {tab === 'photo' ? 'Photo Contribution' : TABS.find((t) => t.id === tab)?.label}</h3>
           {signedIn ? (
             <p className="ycd-hello">
-              Hello {fanName || 'there'}! Thank you for being a contributing <b>{fanKind}</b> of the {hubName || 'YAT?STATS'} Community Hub.
+              Hello {fanName || 'there'}! Thank you for being a <b>{fanKind} Contributor</b> of <b>{hubName || 'YAT?STATS'}</b>.
             </p>
           ) : null}
         </div>
@@ -585,13 +618,13 @@ export default function ContributeDrawer() {
         body.light-theme .ycd-header::before { filter: invert(1); opacity: .09; }
         .ycd-kicker { color: #FFD700; font: 500 14px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
         body.light-theme .ycd-kicker { color: #9a6f00; }
-        .ycd-title { margin: 6px 0 0 !important; padding: 0 !important; font: 600 20px/1.05 Oswald, sans-serif !important; letter-spacing: .04em; }
+        .ycd-title { margin: 0 !important; padding: 0 !important; font: 600 24px/1.05 Oswald, sans-serif !important; text-transform: uppercase; letter-spacing: .04em; }
         .ycd-title i { color: #FFD700; font-size: .95em; vertical-align: -2px; }
         body.light-theme .ycd-title i { color: #9a6f00; }
         .ycd-sub { margin-top: 4px; font: 500 14px/1.2 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
         .ycd-chosen-wrap { display: flex; flex-direction: column; gap: 6px; }
         .ycd-chosen-player { border-color: rgba(255,215,0,.7) !important; }
-        .ycd-hello { margin: 8px 0 0; font-size: 13px; line-height: 1.45; max-width: 640px; opacity: .85; }
+        .ycd-hello { margin: 8px 0 0; font-size: 14px; line-height: 1.45; max-width: 720px; opacity: .9; }
         .ycd-close { position: static !important; flex: none; }
         .ycd-body { flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 32px; }
         .ycd-main { display: grid; grid-template-columns: 1fr; gap: 20px; }
