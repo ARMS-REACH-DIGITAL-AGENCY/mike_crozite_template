@@ -108,7 +108,15 @@ async function buildExamples(hsid: string, schoolName: string, schoolLocation: s
   const estimated = withPhoto.find((p) => gradClassInfo(p).estimated) || alumni.find((p) => gradClassInfo(p).estimated);
   const retired = withPhoto.find((p) => String(p.status_label || '').toUpperCase() === 'RETIRED');
 
-  const examples: GuideExamples = {};
+  // Real action photos for the section headers: the wide photo on the back
+  // of current alumni's flip cards (players/back-web), pros first.
+  const photoCandidates = alumni.filter(isActive).slice(0, 24);
+  const backOk = await Promise.all(photoCandidates.map((p) => exists(`${S3}/players/back-web/${String(p.playerid)}.webp`)));
+  const photos = photoCandidates
+    .filter((_, i) => backOk[i])
+    .map((p) => ({ src: `${S3}/players/back-web/${String(p.playerid)}.webp`, name: nameOf(p) }));
+
+  const examples: GuideExamples = { photos };
   if (noPhoto.length) {
     examples.photo = noPhoto.slice(0, 2).map((p) => (
       <div className="ccg-card" key={String(p.playerid)}>{card(p)}<Need>No high school photo</Need></div>
