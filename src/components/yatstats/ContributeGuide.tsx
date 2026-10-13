@@ -168,7 +168,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
 
       <h2 className="ccg-group">Connect</h2>
 
-      <Section id="player" title="Connect with Players" soon>
+      <Section id="player" title="Connect With Players" soon>
         <p>
           Players will record a short hello for the Connect tab of their profile. From there you&apos;ll be able to request a
           personal video: a birthday shout-out, an answer to your question, or his take on a video of your swing or your
@@ -190,7 +190,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         </div>
       </Section>
 
-      <Section id="fans" title="Connect with Fans">
+      <Section id="fans" title="Connect With Fans">
         <div className="ccg-offer">
           <div className="ccg-offer-text">
             <h4>Hey Players, Give Back to Your Hometown Fans <span className="ccg-soon">Coming soon</span></h4>
@@ -263,7 +263,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         {inquiryForm('bracket')}
       </Section>
 
-      <Section id="alumni" title="Connect with Fellow Alumni">
+      <Section id="alumni" title="Connect With Fellow Alumni">
         <p>
           <b>Where YAT now?</b> If you played at the next level, your profile page can say where you are today. Add how to
           reach you, personally or for your business, your social handles, and the photo on the back of your flip card, so
@@ -395,27 +395,29 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
 
       <style jsx global>{`
         .ccg { max-width: 1040px; margin: 0 auto; padding: 14px 12px 40px; display: flex; flex-direction: column; gap: 10px; font-family: var(--yat-font-ui); color: var(--sb-ink); }
-        .ccg h2 { margin: 0; font: 800 16px/1.15 var(--yat-font-ui); letter-spacing: .03em; text-transform: uppercase; }
-        .ccg-intro p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; max-width: 760px; color: var(--sb-ink-muted); }
+        .ccg h2 { margin: 0; font: 700 22px/1.15 var(--yat-font-compact); letter-spacing: .005em; }
+        .ccg-intro p { margin: 6px 0 0; font-size: 14px; line-height: 1.55; max-width: 760px; color: var(--sb-ink-muted); }
         .ccg-muted { opacity: .7; }
         .ccg-small { font-size: 12px; }
-        .ccg-group { margin: 10px 0 0 !important; padding: 6px 10px 5px; border-radius: 5px; background: var(--sb-head); color: #fff; font-size: 13px !important; letter-spacing: .06em !important; }
+        .ccg-group { margin: 12px 0 0 !important; padding: 6px 10px 5px; border-radius: 5px; background: var(--sb-head); color: #fff; font: 700 12px/1 var(--yat-font-ui) !important; letter-spacing: .06em !important; text-transform: uppercase; }
         .ccg-sec { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg);
           scroll-margin-top: calc(var(--row1-h, 56px) + var(--row2-h, 56px) + 96px); }
         @media (max-width: 560px) { .ccg-sec .ccg-shots, .ccg-sec .ccg-offer, .ccg-sec .ccg-form { margin-left: -44px; } }
         .ccg-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--sb-rim); background: var(--sb-panel); color: #fff; font-size: 17px; }
         .ccg-body { min-width: 0; }
-        .ccg-body h3 { margin: 6px 0 6px; font: 700 15px/1.2 var(--yat-font-ui); letter-spacing: .03em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .ccg-body h4 { margin: 0 0 6px; font: 700 13px/1.2 var(--yat-font-ui); letter-spacing: .03em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .ccg-body p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: var(--sb-ink-muted); }
-        .ccg-soon { padding: 2px 6px 1px; border: 0; border-radius: 3px; background: rgba(255,255,255,.12); color: var(--sb-ink); font: 600 11px/1 var(--yat-font-compact); letter-spacing: .08em; opacity: .7; }
+        .ccg-body h3 { margin: 4px 0 6px; font: 700 20px/1.15 var(--yat-font-compact); letter-spacing: .005em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .ccg-body h4 { margin: 0 0 6px; font: 700 17px/1.15 var(--yat-font-compact); letter-spacing: .005em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .ccg-body p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--sb-ink-muted); }
+        .ccg-soon { font: 600 11px/1 var(--yat-font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--sb-ink-muted); opacity: .8; }
         .ccg-cash { color: var(--sb-accent); font-weight: 700; }
         .ccg-list { margin: 8px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
         .ccg-list li { margin-bottom: 4px; }
         .ccg-list b { margin-right: 4px; }
         .ccg-details { margin: 0 0 12px; font-size: 13px; }
-        .ccg-details summary { cursor: pointer; font: 600 12px/1.3 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; opacity: .85; }
-        .ccg-btn { min-height: 32px; padding: 0 14px; border-radius: 5px; border: 1px solid var(--sb-rim); background: var(--sb-panel); color: var(--sb-cream); font: 600 13px/1 var(--yat-font-compact); letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+        .ccg-details summary { cursor: pointer; font: 600 11px/1.3 var(--yat-font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--sb-ink-muted); }
+        .ccg-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0; border: 0; background: none; color: var(--sb-text); font: 700 16px/1 var(--yat-font-compact); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
+        .ccg-btn::after { content: '›'; font-size: 20px; line-height: 1; transform: translateY(-1px); opacity: .8; }
+        .ccg-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
         .ccg-btn:disabled { opacity: .6; cursor: default; }
         .ccg-link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font-size: 13px; }
         .ccg-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
@@ -424,7 +426,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccg-shots { display: flex; flex-wrap: wrap; gap: 16px; margin: 6px 0 14px; align-items: flex-start; }
         .ccg-shot { margin: 0; display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
         .ccg-shot-frame { padding: 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: rgba(255,255,255,.03); display: flex; justify-content: center; }
-        .ccg-shot figcaption { font: 600 11px/1.2 var(--yat-font-compact); letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
+        .ccg-shot figcaption { font: 600 11px/1.2 var(--yat-font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--sb-ink-muted); opacity: .8; }
         .ccg-mark { position: relative; }
         .ccg-mark .ypf-card, .ccg-mark .ypf-back, .ccg-shot-frame > .ypf-back { width: 170px; }
         .ccg-mark .ypf-circle { width: 64px; height: 64px; }

@@ -44,12 +44,12 @@ export default function ContributeShortcuts() {
       ))}
       <style jsx global>{`
         .ycs { display: flex; flex-direction: column; gap: 2px; margin: 0 0 18px; }
-        .ycs-title { margin-bottom: 6px; color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .1em; text-transform: uppercase; }
+        .ycs-title { margin-bottom: 6px; color: var(--sb-ink-muted); font: 600 11px/1 var(--yat-font-ui); letter-spacing: .06em; text-transform: uppercase; }
         .ycs-item { display: flex; align-items: center; gap: 10px; padding: 5px 4px; border-radius: 8px; color: inherit; text-decoration: none; }
         .ycs-item:hover, .ycs-item:focus-visible { background: var(--sb-green-soft); }
         .ycs-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--sb-rim); background: var(--sb-panel); color: #fff; font-size: 16px; }
         .ycs-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .ycs-text b { font: 600 13px/1.1 var(--yat-font-compact); letter-spacing: .04em; text-transform: uppercase; }
+        .ycs-text b { font: 700 17px/1.15 var(--yat-font-compact); letter-spacing: .005em; }
         .ycs-text small { font: 400 11.5px/1.3 var(--yat-font-ui); opacity: .7; }
       `}</style>
     </nav>

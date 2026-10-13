@@ -617,7 +617,7 @@ export default function ContributeDrawer() {
         .ycd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -6%; width: min(420px, 62%); aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
         body.light-theme .ycd-header::before { filter: invert(1); opacity: .09; }
         .ycd-kicker { color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .1em; text-transform: uppercase; }
-        .ycd-title { margin: 0 !important; padding: 0 !important; font: 800 16px/1.2 var(--yat-font-ui) !important; text-transform: uppercase; letter-spacing: .04em; }
+        .ycd-title { margin: 0 !important; padding: 0 !important; font: 700 22px/1.15 var(--yat-font-compact) !important; letter-spacing: .005em; }
         .ycd-title i { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px; border-radius: 5px; background: var(--sb-panel); border: 1px solid var(--sb-rim); color: #fff; font-size: 13px; vertical-align: 2px; }
         .ycd-sub { margin-top: 4px; font: 600 12px/1.2 var(--yat-font-compact); letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
         .ycd-chosen-wrap { display: flex; flex-direction: column; gap: 6px; }
@@ -634,7 +634,7 @@ export default function ContributeDrawer() {
         .ycd-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         .ycd-stack { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
         .ycd-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .ycd-label { font: 600 12px/1.15 var(--yat-font-compact); letter-spacing: .07em; text-transform: uppercase; }
+        .ycd-label { font: 700 17px/1.2 var(--yat-font-compact); letter-spacing: .005em; }
         .ycd-step { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; margin-right: 6px; border-radius: 4px; background: var(--sb-panel); border: 1px solid var(--sb-rim); color: #fff; font: 700 11px/1 var(--yat-font-compact); vertical-align: 1px; }
         .yat-contribute-drawer select, .yat-contribute-drawer textarea, .yat-contribute-drawer input[type="search"],
         .yat-contribute-drawer input[type="text"], .yat-contribute-drawer input[type="url"] {
@@ -679,7 +679,7 @@ export default function ContributeDrawer() {
         .ycd-error { color: #ff6b6b; font-size: 13px; }
         .ycd-ok { color: #3ddc84; font-weight: 600; }
         .ycd-proof { display: flex; flex-direction: column; gap: 12px; }
-        .ycd-proof-head { font: 700 15px/1.1 var(--yat-font-compact); letter-spacing: .04em; text-transform: uppercase; color: var(--sb-text); }
+        .ycd-proof-head { font: 700 20px/1.15 var(--yat-font-compact); color: var(--sb-ink); }
         .ycd-proof-item { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; }
         .ycd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .ycd-btn { min-height: 32px; padding: 0 14px; border-radius: 5px; border: 1px solid var(--sb-green-hi); background: transparent; color: var(--sb-text); font: 600 13px/1 var(--yat-font-compact); letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }

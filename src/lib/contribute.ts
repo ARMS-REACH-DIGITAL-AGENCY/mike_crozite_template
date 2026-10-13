@@ -211,9 +211,9 @@ export type ContributeOption = {
 };
 
 export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
-  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect with Players', short: 'Players', blurb: 'A personal video from a player you follow.', section: 'cc-player' },
-  { id: 'fans', icon: 'ri-hand-heart-line', label: 'Connect with Fans', short: 'Sponsor', blurb: 'Put your business in front of the hometown.', section: 'cc-fans' },
-  { id: 'alumni', icon: 'ri-contacts-book-2-line', label: 'Connect with Fellow Alumni', short: 'Alumni', blurb: 'Where YAT now? Share how to reach you.', section: 'cc-alumni' },
+  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect With Players', short: 'Players', blurb: 'A personal video from a player you follow.', section: 'cc-player' },
+  { id: 'fans', icon: 'ri-hand-heart-line', label: 'Connect With Fans', short: 'Sponsor', blurb: 'Put your business in front of the hometown.', section: 'cc-fans' },
+  { id: 'alumni', icon: 'ri-contacts-book-2-line', label: 'Connect With Fellow Alumni', short: 'Alumni', blurb: 'Where YAT now? Share how to reach you.', section: 'cc-alumni' },
   { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', short: 'Photos', blurb: 'Fill a silhouette with a real photo.', section: 'cc-photo' },
   { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', blurb: 'A missing season, a wrong stat, a grad year.', section: 'cc-data' },
   { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', short: 'Missing Alumni', blurb: 'Know an alum who played on? Add him.', section: 'cc-missing' },
