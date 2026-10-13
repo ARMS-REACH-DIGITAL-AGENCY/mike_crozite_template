@@ -7,12 +7,15 @@
 //                 (College Freshman ... Senior, then 5th Year / Grad Student)
 //   pro         - his pro seasons (stat tables and player_team_stints), with
 //                 the level (MLB, AAA ...)
+//   coach       - a coach's card: every season he coached the program (his
+//                 roster years, Year 1 ... Year N), the same years as his
+//                 timeline - never his class year or the years of his life
 // The newest season is "current": the one a current headshot or a flip
 // card back photo belongs to.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { toPlayerSlug } from '@/lib/slug';
-import type { Season } from '@/lib/contribute';
+import { PLAYER_ID, type Season } from '@/lib/contribute';
 
 export const runtime = 'nodejs';
 
@@ -25,10 +28,10 @@ type Row = { year: number; team: string | null; level: string | null; teamid: st
 
 export async function GET(req: NextRequest) {
   const playerId = String(req.nextUrl.searchParams.get('playerId') || '').trim();
-  if (!/^\d+$/.test(playerId)) return NextResponse.json({ error: 'Unknown player.' }, { status: 400 });
+  if (!PLAYER_ID.test(playerId)) return NextResponse.json({ error: 'Unknown player.' }, { status: 400 });
   try {
-    const { rows: stage } = await query<{ first_name: string | null; last_name: string | null; class_of: string | null; hsid: string | null; hsname: string | null }>(
-      `SELECT f.first_name, f.last_name, f.class_of::text, f.hsid::text,
+    const { rows: stage } = await query<{ first_name: string | null; last_name: string | null; class_of: string | null; hsid: string | null; hsname: string | null; status_label: string | null; roster_years: unknown }>(
+      `SELECT f.first_name, f.last_name, f.class_of::text, f.hsid::text, f.status_label, f.roster_years,
               (SELECT hsname FROM school_success s WHERE s.hsid::text = f.hsid::text LIMIT 1) AS hsname
          FROM flip_card_front_stage f WHERE f.playerid::text = $1 LIMIT 1`,
       [playerId]
@@ -58,7 +61,19 @@ export async function GET(req: NextRequest) {
 
     const seasons: Season[] = [];
     const school = p.hsname || 'High School';
-    const classOf = Number(p.class_of);
+    // A coach (COACH in his status, as on the timeline): his seasons with
+    // the program, from his roster years ("99" ... "26" or 1999 ... 2026).
+    const isCoach = /(?:^|[ -])COACH(?:$|[ -])/.test(String(p.status_label || '').toUpperCase());
+    const coachYears = isCoach
+      ? Array.from(new Set((Array.isArray(p.roster_years) ? p.roster_years : [])
+          .map((y) => { const n = Number(y); return n > 0 && n < 100 ? (n > 50 ? 1900 + n : 2000 + n) : n; })
+          .filter((n) => Number.isInteger(n) && n >= 1900)))
+          .sort((a, b) => a - b)
+      : [];
+    coachYears.forEach((year) => {
+      seasons.push({ key: `coach-${year}`, year, stage: 'coach', team: school, level: 'Coach', label: `Year ${year - coachYears[0] + 1}`, current: false });
+    });
+    const classOf = isCoach ? NaN : Number(p.class_of);
     if (Number.isInteger(classOf) && classOf > 1900) {
       HS_YEARS.forEach((label, i) => {
         const year = classOf - 3 + i;
@@ -74,7 +89,7 @@ export async function GET(req: NextRequest) {
       if (seasons.some((s) => s.key === key)) continue;
       seasons.push({ key, year: r.year, stage: isCollege ? 'college' : 'pro', team, teamId: /^\d+$/.test(r.teamid || '') ? r.teamid! : undefined, level: r.level || '', label, current: false });
     }
-    seasons.sort((a, b) => b.year - a.year || (a.stage === b.stage ? 0 : a.stage === 'hs' ? 1 : -1));
+    seasons.sort((a, b) => b.year - a.year || (a.stage === b.stage ? 0 : a.stage === 'hs' || a.stage === 'coach' ? 1 : -1));
     if (seasons[0]) seasons[0].current = true;
 
     const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
@@ -84,7 +99,10 @@ export async function GET(req: NextRequest) {
         name,
         hsid: p.hsid,
         schoolName: p.hsname,
+        // No class year for a coach, so the drawers list his seasons, not
+        // the years of his life.
         classOf: Number.isInteger(classOf) ? classOf : null,
+        isCoach,
         profileUrl: p.hsid ? `/${p.hsid}/player/${playerId}/${toPlayerSlug(p.first_name, p.last_name)}` : null,
       },
       seasons,

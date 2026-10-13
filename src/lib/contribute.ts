@@ -58,7 +58,7 @@ export type Season = {
   key: string;
   year: number;
   // youth: before high school; other: a year we have no season for.
-  stage: 'youth' | 'hs' | 'college' | 'pro' | 'other';
+  stage: 'youth' | 'hs' | 'college' | 'pro' | 'coach' | 'other';
   team: string;
   // Our (Baseball Cube) team id, for the team's logo.
   teamId?: string;
@@ -243,3 +243,7 @@ export function scrollToContributeSection(section: string) {
 }
 
 export const tabIcon = (tab: ContributeTab) => CONTRIBUTE_OPTIONS.find((o) => o.tab === tab)?.icon || 'ri-upload-cloud-2-line';
+
+// A player id on the site: a number, or our own YAT-prefixed id for alumni
+// and coaches who aren't in the stat provider's data (Mike Woods: YAT000072).
+export const PLAYER_ID = /^(?:YAT)?\d+$/i;

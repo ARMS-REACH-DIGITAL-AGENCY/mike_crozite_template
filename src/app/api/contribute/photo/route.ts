@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
-import { CONTRIBUTE_MAX_PHOTO_BYTES, PHOTO_TYPES, type Crop, type PhotoPurpose } from '@/lib/contribute';
+import { CONTRIBUTE_MAX_PHOTO_BYTES, PHOTO_TYPES, PLAYER_ID, type Crop, type PhotoPurpose } from '@/lib/contribute';
 import {
   CONTRIBUTE_DAILY_LIMIT,
   NotAnImageError,
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   };
   const season = json<{ team?: string; level?: string; label?: string }>(form.get('season'));
   const crop = json<Crop>(form.get('crop'));
-  const tagged = (json<string[]>(form.get('tagged')) || []).map((v) => String(v)).filter((v) => /^\d+$/.test(v)).slice(0, 20);
+  const tagged = (json<string[]>(form.get('tagged')) || []).map((v) => String(v)).filter((v) => PLAYER_ID.test(v)).slice(0, 20);
   const landscape = text(form.get('landscape'), 5) === '1';
   // A headshot from his newest season (his headshot everywhere) or an
   // earlier one (kept with that season).
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     } else if (verdict?.decision === 'approve') {
       try {
         // A photo for a player who isn't on the site yet can't be placed.
-        if (type.needsPlayer && !/^\d+$/.test(playerId)) throw new Error('no player on the site');
+        if (type.needsPlayer && !PLAYER_ID.test(playerId)) throw new Error('no player on the site');
         await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason });
         status = 'approved';
         message = "Approved! It's on the site now.";

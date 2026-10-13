@@ -21,7 +21,7 @@ import { getUserProfile, type UserProfile } from './userProfile';
 import { addNoteToGHLContact, addTagToGHLContact, findOrCreateGhlContact, sendGHLEmail } from './gohighlevel';
 import { toPlayerSlug } from './slug';
 import { S3_BUCKET, S3_REGION, storyAssetUrl } from './storyAssets';
-import { photoTypeLabel, type Crop, type PhotoPurpose } from './contribute';
+import { PLAYER_ID, photoTypeLabel, type Crop, type PhotoPurpose } from './contribute';
 
 export { storyAssetUrl as assetUrl };
 
@@ -314,7 +314,7 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
   const pid = String(u.playerid || '').trim();
   const purpose = u.purpose as PhotoPurpose;
   const needsPlayer = purpose !== 'school_logo' && purpose !== 'team_logo' && purpose !== 'other_photo';
-  if (needsPlayer && !/^\d+$/.test(pid)) throw new Error('This photo has no player on the site yet. Add the player first, then approve it.');
+  if (needsPlayer && !PLAYER_ID.test(pid)) throw new Error('This photo has no player on the site yet. Add the player first, then approve it.');
   const written: string[] = [];
   const src = await download(u.s3_key);
   const webp = (w: number, h: number, fit: 'cover' | 'inside', quality = 75) =>
@@ -356,7 +356,7 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     await put(`teams-web/${teamId}.webp`, await webp(400, 400, 'inside'), 'image/webp');
     written.push(`teams/${teamId}.png`, `teams-web/${teamId}.webp`);
   } else if (purpose === 'other_photo') {
-    const key = `fan-photos/${/^\d+$/.test(pid) ? `players/${pid}` : 'unplaced'}/${u.id}.jpg`;
+    const key = `fan-photos/${PLAYER_ID.test(pid) ? `players/${pid}` : 'unplaced'}/${u.id}.jpg`;
     await copy(u.s3_key, key, 'image/jpeg');
     written.push(key);
   } else if (purpose === 'back_hero') {
