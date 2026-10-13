@@ -260,3 +260,54 @@ export async function findOrCreateGhlContact(
   }
   return null;
 }
+
+/**
+ * Add a note to an existing contact in GoHighLevel (what a lead wrote).
+ */
+export async function addNoteToGHLContact(contactId: string, body: string): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey) return false;
+  try {
+    const response = await fetch(`https://services.leadconnectorhq.com/contacts/${encodeURIComponent(contactId)}/notes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "Version": "2021-07-28",
+      },
+      body: JSON.stringify({ body }),
+    });
+    if (!response.ok) console.error("addNoteToGHLContact failed:", response.status);
+    return response.ok;
+  } catch (error) {
+    console.error("addNoteToGHLContact error:", error);
+    return false;
+  }
+}
+
+/**
+ * Send an email to a contact through GoHighLevel (Conversations), from the
+ * location's default sender. Returns false when it couldn't be sent.
+ */
+export async function sendGHLEmail(contactId: string, subject: string, html: string): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey) return false;
+  try {
+    const response = await fetch("https://services.leadconnectorhq.com/conversations/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "Version": "2021-04-15",
+      },
+      body: JSON.stringify({ type: "Email", contactId, subject, html }),
+    });
+    if (!response.ok) console.error("sendGHLEmail failed:", response.status, (await response.text()).slice(0, 300));
+    return response.ok;
+  } catch (error) {
+    console.error("sendGHLEmail error:", error);
+    return false;
+  }
+}

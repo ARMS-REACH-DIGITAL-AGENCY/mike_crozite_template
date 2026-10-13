@@ -1,8 +1,11 @@
 'use client';
 
-import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
+import { CONTRIBUTE_OPTIONS, contributeSectionHref, scrollToContributeSection } from '@/lib/contribute';
+import { SchoolContext } from '@/context/SchoolContext';
+import { getTitlePartner } from '@/lib/titlePartners';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
@@ -247,6 +250,11 @@ export default function InteractionStrip({
   // The All-Time year baseballs load with the page, so the tab opens on
   // them rather than on bare numbers.
   preload('/img/roster_year_ball.webp', { as: 'image' });
+  // The All-Time row's right-hand sign: the school's sponsor, or an open
+  // spot that links to the portal's sponsor section.
+  const schoolForSponsor = useContext(SchoolContext);
+  const sponsorHsid = String(schoolForSponsor?.hsid || '');
+  const sponsor = sponsorHsid ? getTitlePartner(sponsorHsid) : null;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -262,7 +270,10 @@ export default function InteractionStrip({
     [players]
   );
 
-  const showPlayerStrip = isGallery || isNews || PLAYER_GALLERY_SECTIONS.has(activeSection) || activeSection === 'news';
+  // The Connect & Contribute Portal: the same strip, a circle per option
+  // (its icon where a headshot would be) instead of players.
+  const isContribute = activeSection === 'mentor' && !isPlayerProfile;
+  const showPlayerStrip = isGallery || isNews || PLAYER_GALLERY_SECTIONS.has(activeSection) || activeSection === 'news' || isContribute;
   const showProfilePlaceholder = isPlayerProfile;
   const isCurrentTeamTab = activeSection === 'current';
 
@@ -789,6 +800,27 @@ export default function InteractionStrip({
             flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
           }
         }
+        /* The All-Time row's sponsor sign, on the fence at the right, mirroring
+           the All-Time sign on the left. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          padding-right:82px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black calc(100% - 94px),transparent calc(100% - 48px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black calc(100% - 94px),transparent calc(100% - 48px),transparent 100%);
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:78px; }
+        .alltime-sponsor-sign { position:absolute; right:7px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
+        .alltime-sponsor-board { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; padding:3px;
+          border:1px solid #c8c5b9; border-radius:2px; background:#f4f1e9; color:#733648; box-shadow:0 1px 5px #0005; overflow:hidden; }
+        .alltime-sponsor-board img { max-width:100%; max-height:100%; object-fit:contain; }
+        .alltime-sponsor-board b { font:900 12px/1.05 Oswald,sans-serif; letter-spacing:.2px; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-board { border-style:dashed; border-color:#733648; }
+        .alltime-sponsor-sign.is-open:hover .alltime-sponsor-board { background:#fffbe9; }
+        .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
+        .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
+        .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+        .gallery-strip .gallery-contribute-media { display: grid; place-items: center; background: linear-gradient(180deg, #1f6546, #174c35) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+        .gallery-strip .gallery-contribute-media i { font-size: min(46px, max(26px, 3.4vw)); color: #fff; line-height: 1; }
+        .gallery-contribute-slot:hover .gallery-contribute-media i, .gallery-contribute-slot:focus-visible .gallery-contribute-media i { transform: scale(1.08); }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
@@ -807,6 +839,20 @@ export default function InteractionStrip({
             <strong className="alltime-distance-count">{allTimeCount}</strong>
             <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT LEVEL LIST</span></span>
           </button>
+        )}
+        {showPlayerStrip && activeSection === 'alltime' && (
+          sponsor ? (
+            <span className="alltime-sponsor-sign" title={sponsor.name}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <span className="alltime-sponsor-board"><img src={sponsor.logoUrl} alt={sponsor.name} /></span>
+              <span className="alltime-sponsor-title"><span>PROUD</span><span>SPONSOR</span></span>
+            </span>
+          ) : (
+            <a className="alltime-sponsor-sign is-open" href={sponsorHsid ? contributeSectionHref(sponsorHsid, 'cc-fans') : '#'} aria-label="Sponsor this spot" title="Put your business here">
+              <span className="alltime-sponsor-board"><b>YOUR</b><b>BUSINESS</b></span>
+              <span className="alltime-sponsor-title"><span>SPONSOR</span><span>THIS SPOT</span></span>
+            </a>
+          )
         )}
         <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
           {showPlayerStrip ? (
@@ -857,6 +903,24 @@ export default function InteractionStrip({
                   );
                 })}
               </>
+            ) : isContribute ? (
+              CONTRIBUTE_OPTIONS.map((option) => (
+                <button
+                  key={`contribute-${option.id}`}
+                  type="button"
+                  className="gallery-slot gallery-slot-link gallery-contribute-slot"
+                  title={option.label}
+                  aria-label={option.label}
+                  // Down to its section of the page; the drawer opens from
+                  // the button there.
+                  onClick={() => scrollToContributeSection(option.section)}
+                >
+                  <div className="gallery-slot-media gallery-contribute-media">
+                    <i className={option.icon} aria-hidden="true" />
+                  </div>
+                  <div className="gallery-slot-name-overlay">{option.short}</div>
+                </button>
+              ))
             ) : sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
               const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;

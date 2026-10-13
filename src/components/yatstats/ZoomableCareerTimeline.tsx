@@ -1181,6 +1181,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         year,
         age: year - lifeYearStart + 1,
         title: `Age ${year - lifeYearStart + 1}`,
+        // A fan's photo for that year (Connect & Contribute: Timeline Hero
+        // Image, "Age N"), else the rotating YaTi placeholder.
+        seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
         // Same rotating YaTi placeholder mechanism season slides already
         // fall back to when there's no real photo yet -- these 17 screens
         // never have one (pre-HS), so they always show it, not just on
@@ -1202,6 +1205,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         age: 0,
         title: 'The year it all began.',
         isEarly: true,
+        seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
         yatiFallback: YATI_PLACEHOLDERS[0],
       };
     });
@@ -1923,7 +1927,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           }
           if (slide.kind === 'hsyear') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[seasonCutoutCandidates(playerId, slide.year)[0], webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
             );
           }
           if (slide.kind === 'season' || slide.kind === 'draft') {
@@ -1942,7 +1946,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           }
           if (slide.kind === 'lifeyear') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`Age ${slide.age}`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`Age ${slide.age}`} />
             );
           }
           if (slide.kind === 'coachyear') {

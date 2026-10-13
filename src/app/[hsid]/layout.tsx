@@ -30,6 +30,7 @@ import type { Metadata } from 'next';
 import YatStyles from '@/components/yatstats/YatStyles';
 import AccountDrawer from '@/components/yatstats/AccountDrawer';
 import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
+import ContributeDrawer from '@/components/yatstats/ContributeDrawer';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
 import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
@@ -416,6 +417,8 @@ async function SchoolShell({
 
       <AccountDrawer subdomain={subdomain} />
       <FavoritesDrawer currentHsid={resolvedHsid} />
+      {/* Connect & Contribute: one drawer for every entry point on the site. */}
+      <ContributeDrawer />
 
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
         <div

@@ -70,8 +70,9 @@ function normalizeSection(value: string): string {
 function readRequestedSection(): string {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 'active';
 
-  // The Connect & Contribute Portal is its own page (/connect-contribute).
-  if (/\/connect-contribute\/?$/.test(window.location.pathname)) return 'mentor';
+  // The Connect & Contribute Portal is its own page (/connect-contribute),
+  // and so is its review queue (/contribute-review).
+  if (/\/(connect-contribute|contribute-review)\/?$/.test(window.location.pathname)) return 'mentor';
 
   const hash = window.location.hash || '';
   if (hash.startsWith('#sec-')) return normalizeSection(hash);

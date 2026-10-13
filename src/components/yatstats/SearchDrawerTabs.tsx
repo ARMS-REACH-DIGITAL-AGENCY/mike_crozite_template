@@ -124,7 +124,7 @@ function playerHeadshotFallback() {
   return HEADSHOT_SILHOUETTE_FALLBACK;
 }
 
-function renderPlayerRows(players: any[], emptyText: string) {
+export function renderPlayerRows(players: any[], emptyText: string) {
   if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
   return `
@@ -139,7 +139,7 @@ function renderPlayerRows(players: any[], emptyText: string) {
         const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
         const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
         return `
-          <div class="yat-search-card yat-search-player-card yat-search-player-result">
+          <div class="yat-search-card yat-search-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
             ${favoriteButtonHtml(p, name)}
             <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
               <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
@@ -178,7 +178,7 @@ function favoriteButtonHtml(player: any, name: string) {
   `;
 }
 
-function renderSchoolRows(programs: any[], emptyText: string) {
+export function renderSchoolRows(programs: any[], emptyText: string) {
   if (!programs.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
   const grouped = new Map<string, any[]>();
@@ -200,7 +200,7 @@ function renderSchoolRows(programs: any[], emptyText: string) {
         const crest = schoolCrestUrl(hsid, s.crestUrl || s.crest_url || s.logoUrl || s.logo_url || s.schoolLogoUrl || s.school_logo_url);
         const activeCount = Number(s.current_aa ?? 0);
         return `
-          <a class="yat-search-card yat-search-school-card" href="${esc(schoolUrl(s))}">
+          <a class="yat-search-card yat-search-school-card" href="${esc(schoolUrl(s))}" data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
             <div class="yat-search-school-topline">
               <span class="yat-search-school-active-count" aria-label="${esc(activeCount)} active alumni"><strong>${esc(activeCount)}</strong><small>ACTIVE</small></span>
               <span class="yat-search-row-text">
@@ -218,7 +218,7 @@ function renderSchoolRows(programs: any[], emptyText: string) {
   `).join('');
 }
 
-function renderTeamRows(players: any[], emptyText: string) {
+export function renderTeamRows(players: any[], emptyText: string) {
   if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
   const grouped = new Map<string, any[]>();
@@ -248,7 +248,7 @@ function renderTeamRows(players: any[], emptyText: string) {
         const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
             const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
             return `
-              <div class="yat-search-card yat-search-team-player-card yat-search-player-result">
+              <div class="yat-search-card yat-search-team-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
                 ${favoriteButtonHtml(p, name)}
                 <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
                   <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
@@ -270,7 +270,7 @@ function renderTeamRows(players: any[], emptyText: string) {
   }).join('');
 }
 
-async function fetchJson(url: string) {
+export async function fetchJson(url: string) {
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return {};
   return res.json();
@@ -342,7 +342,7 @@ function setFavButtonState(button: HTMLElement, favorited: boolean) {
   if (icon) icon.className = favorited ? 'ri-heart-fill' : 'ri-heart-line';
 }
 
-async function hydrateFavoriteButtons(container: HTMLElement) {
+export async function hydrateFavoriteButtons(container: HTMLElement) {
   const buttons = Array.from(container.querySelectorAll<HTMLElement>('.yat-search-fav-btn'));
   if (!buttons.length) return;
 
@@ -360,7 +360,7 @@ async function hydrateFavoriteButtons(container: HTMLElement) {
   }
 }
 
-async function handleFavoriteButtonClick(button: HTMLElement) {
+export async function handleFavoriteButtonClick(button: HTMLElement) {
   const playerId = button.dataset.favPlayerId || '';
   const playerName = button.dataset.favPlayerName || playerId;
   const schoolId = button.dataset.favSchoolId || '';
@@ -584,58 +584,58 @@ export default function SearchDrawerTabs() {
 
   return (
     <style jsx global>{`
-      #drawerLeft .yat-search-drawer-title { margin-bottom: 4px !important; font-size: clamp(16px, 3.8vw, 22px) !important; white-space: nowrap; }
-      #drawerLeft .yat-search-drawer-sub { max-width: none; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
-      #drawerLeft .yat-search-mode-label { display: none !important; }
-      #drawerLeft .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
-      #drawerLeft .yat-search-mode-btn { min-height: 29px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
-      #drawerLeft .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
-      #drawerLeft .yat-search-empty { color: var(--muted); font: 400 13px/1.4 Oswald, sans-serif; padding: 8px 0; }
-      #drawerLeft .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
-      #drawerLeft .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
-      #drawerLeft .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
-      #drawerLeft .yat-search-card { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.045); color: var(--ink); text-decoration: none; }
-      #drawerLeft .yat-search-card:hover { color: var(--fg); background: rgba(255,255,255,.08); }
-      #drawerLeft .yat-search-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 5px; flex: 0 0 auto; background: rgba(255,255,255,.08); }
-      #drawerLeft .yat-search-school-thumb, #drawerLeft .yat-search-team-thumb { object-fit: contain; }
-      #drawerLeft .yat-search-row-text { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-      #drawerLeft .yat-search-row-text strong { font: 700 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
-      #drawerLeft .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
-      #drawerLeft .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
-      #drawerLeft .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
-      #drawerLeft .yat-search-school-card { padding: 8px 10px; }
-      #drawerLeft .yat-search-school-card .yat-search-school-topline { grid-template-columns: 38px minmax(0, 1fr) 54px; }
-      #drawerLeft .yat-search-school-active-count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; }
-      #drawerLeft .yat-search-school-active-count strong { font: 800 22px/1 Oswald, sans-serif; color: #00e08a; }
-      #drawerLeft .yat-search-school-active-count small { margin-top: 4px; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .05em; color: var(--muted); }
+      :is(#drawerLeft, #drawerContribute) .yat-search-drawer-title { margin-bottom: 4px !important; font-size: clamp(16px, 3.8vw, 22px) !important; white-space: nowrap; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-drawer-sub { max-width: none; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-mode-label { display: none !important; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn { min-height: 29px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
+      :is(#drawerLeft, #drawerContribute) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 Oswald, sans-serif; padding: 8px 0; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-card { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.045); color: var(--ink); text-decoration: none; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-card:hover { color: var(--fg); background: rgba(255,255,255,.08); }
+      :is(#drawerLeft, #drawerContribute) .yat-search-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 5px; flex: 0 0 auto; background: rgba(255,255,255,.08); }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-thumb, :is(#drawerLeft, #drawerContribute) .yat-search-team-thumb { object-fit: contain; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-row-text { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-row-text strong { font: 700 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-card { padding: 8px 10px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-topline { grid-template-columns: 38px minmax(0, 1fr) 54px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count strong { font: 800 22px/1 Oswald, sans-serif; color: #00e08a; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count small { margin-top: 4px; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .05em; color: var(--muted); }
 
-      #drawerLeft .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
-      #drawerLeft .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
-      #drawerLeft .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; border-radius: 0; background: transparent; }
-      #drawerLeft .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
-      #drawerLeft .yat-search-school-badge.live { border-color: rgba(0,255,140,.55); color: #00ff8c; }
-      #drawerLeft .yat-search-school-badge.candidate { border-color: rgba(255,209,102,.7); color: #ffd166; }
-      #drawerLeft .yat-search-school-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; border-top: 1px solid var(--line); padding-top: 7px; }
-      #drawerLeft .yat-search-school-stats span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
-      #drawerLeft .yat-search-school-stats strong { color: var(--fg); font: 900 14px/1 Oswald, sans-serif; white-space: nowrap; }
-      #drawerLeft .yat-search-school-stats small { color: var(--muted); font: 400 7px/1.1 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; }
-      #drawerLeft .yat-search-team-group { margin: 12px 0 4px; }
-      #drawerLeft .yat-search-team-heading { display: grid; grid-template-columns: 52px minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
-      #drawerLeft .yat-search-team-heading .yat-search-team-thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 0; background: transparent; }
-      #drawerLeft .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
-      #drawerLeft .yat-search-player-result { display: grid !important; grid-template-columns: 34px 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
-      #drawerLeft .yat-search-player-result a { color: inherit; text-decoration: none; }
-      #drawerLeft .yat-search-player-headshot-link { display: flex; align-items: center; justify-content: center; }
-      #drawerLeft .yat-search-player-headshot { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: rgba(0,0,0,.08); }
-      #drawerLeft .yat-search-player-text-link { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-      #drawerLeft .yat-search-player-text-link strong { font: 900 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
-      #drawerLeft .yat-search-player-text-link small { color: var(--muted); font: 400 10px/1.15 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      #drawerLeft .yat-search-player-flip-link { display: flex; align-items: center; justify-content: flex-end; }
-      #drawerLeft .yat-search-player-hs-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 0; background: transparent; }
-      #drawerLeft .yat-search-fav-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: none; background: transparent; color: var(--muted); font-size: 19px; line-height: 1; cursor: pointer; flex: 0 0 auto; }
-      #drawerLeft .yat-search-fav-btn:hover { color: var(--accent, #c8a96e); }
-      #drawerLeft .yat-search-fav-btn.is-favorited { color: var(--accent, #c8a96e); }
-      #drawerLeft .yat-search-fav-btn[aria-disabled] { opacity: .5; cursor: wait; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; border-radius: 0; background: transparent; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-badge.live { border-color: rgba(0,255,140,.55); color: #00ff8c; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-badge.candidate { border-color: rgba(255,209,102,.7); color: #ffd166; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; border-top: 1px solid var(--line); padding-top: 7px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats strong { color: var(--fg); font: 900 14px/1 Oswald, sans-serif; white-space: nowrap; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats small { color: var(--muted); font: 400 7px/1.1 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-team-group { margin: 12px 0 4px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-team-heading { display: grid; grid-template-columns: 52px minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-team-heading .yat-search-team-thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 0; background: transparent; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result { display: grid !important; grid-template-columns: 34px 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result a { color: inherit; text-decoration: none; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-headshot-link { display: flex; align-items: center; justify-content: center; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-headshot { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: rgba(0,0,0,.08); }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link strong { font: 900 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small { color: var(--muted); font: 400 10px/1.15 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-flip-link { display: flex; align-items: center; justify-content: flex-end; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-hs-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 0; background: transparent; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: none; background: transparent; color: var(--muted); font-size: 19px; line-height: 1; cursor: pointer; flex: 0 0 auto; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn:hover { color: var(--accent, #c8a96e); }
+      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn.is-favorited { color: var(--accent, #c8a96e); }
+      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn[aria-disabled] { opacity: .5; cursor: wait; }
       .yat-search-fav-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--surface, #1a1a1a); border: 1px solid rgba(255,255,255,.2); padding: 10px 18px; border-radius: 8px; font: 700 12px/1.4 Oswald, sans-serif; letter-spacing: .06em; z-index: 9999; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.4); opacity: 0; transition: opacity .2s ease, transform .2s ease; }
       .yat-search-fav-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
     `}</style>

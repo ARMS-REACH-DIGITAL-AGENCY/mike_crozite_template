@@ -11,6 +11,7 @@ import {
 } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { track } from '@/lib/analytics';
+import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
 
 interface AccountDrawerProps {
   subdomain: string;
@@ -958,6 +959,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveEmail}</p>
           </div>
 
+          {/* First thing after joining or logging in: the ways to connect
+              and contribute. Sign Out sits at the bottom. */}
+          <ContributeShortcuts />
+
           {!isSuperfan && !superfanLaunching && (
             <>
               <button
@@ -1048,6 +1053,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             onClick={handleSignOut}
             style={{
               width: '100%',
+              marginTop: '18px',
               padding: '12px',
               background: 'var(--fg)',
               color: 'var(--bg)',
