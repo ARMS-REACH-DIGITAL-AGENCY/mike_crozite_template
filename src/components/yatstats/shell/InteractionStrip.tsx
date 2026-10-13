@@ -818,10 +818,8 @@ export default function InteractionStrip({
         .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
-        .gallery-strip .gallery-contribute-media { display: grid; place-items: center; }
-        .gallery-strip .gallery-contribute-media i { font-size: min(46px, max(26px, 3.4vw)); color: #FFD700; line-height: 1; }
-        body.light-theme .gallery-strip .gallery-contribute-media { background: #fff; }
-        body.light-theme .gallery-strip .gallery-contribute-media i { color: #9a6f00; }
+        .gallery-strip .gallery-contribute-media { display: grid; place-items: center; background: linear-gradient(160deg, #246b48, #123b29) !important; box-shadow: inset 0 0 0 1px #dfc24d; }
+        .gallery-strip .gallery-contribute-media i { font-size: min(46px, max(26px, 3.4vw)); color: #f4f1e9; line-height: 1; }
         .gallery-contribute-slot:hover .gallery-contribute-media i, .gallery-contribute-slot:focus-visible .gallery-contribute-media i { transform: scale(1.08); }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (

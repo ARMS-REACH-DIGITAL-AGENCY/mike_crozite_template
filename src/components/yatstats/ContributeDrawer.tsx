@@ -616,14 +616,12 @@ export default function ContributeDrawer() {
         .ycd-header { position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 16px 12px; border-bottom: 1px solid var(--line); }
         .ycd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -6%; width: min(420px, 62%); aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
         body.light-theme .ycd-header::before { filter: invert(1); opacity: .09; }
-        .ycd-kicker { color: #FFD700; font: 500 14px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
-        body.light-theme .ycd-kicker { color: #9a6f00; }
+        .ycd-kicker { color: var(--sb-text); font: 500 14px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
         .ycd-title { margin: 0 !important; padding: 0 !important; font: 600 24px/1.05 Oswald, sans-serif !important; text-transform: uppercase; letter-spacing: .04em; }
-        .ycd-title i { color: #FFD700; font-size: .95em; vertical-align: -2px; }
-        body.light-theme .ycd-title i { color: #9a6f00; }
+        .ycd-title i { display: inline-grid; place-items: center; width: 1.45em; height: 1.45em; margin-right: 4px; border-radius: 50%; background: var(--sb-panel); border: 1px solid var(--sb-gold); color: var(--sb-cream); font-size: .8em; vertical-align: 1px; }
         .ycd-sub { margin-top: 4px; font: 500 14px/1.2 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
         .ycd-chosen-wrap { display: flex; flex-direction: column; gap: 6px; }
-        .ycd-chosen-player { border-color: rgba(255,215,0,.7) !important; }
+        .ycd-chosen-player { border-color: var(--sb-green-hi) !important; }
         .ycd-hello { margin: 8px 0 0; font-size: 14px; line-height: 1.45; max-width: 720px; opacity: .9; }
         .ycd-close { position: static !important; flex: none; }
         .ycd-body { flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 32px; }
@@ -637,20 +635,19 @@ export default function ContributeDrawer() {
         .ycd-stack { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
         .ycd-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .ycd-label { font: 500 14px/1.15 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
-        .ycd-step { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 4px; border-radius: 50%; background: #FFD700; color: #000; font-size: 13px; vertical-align: 1px; }
+        .ycd-step { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 4px; border-radius: 50%; background: var(--sb-panel); border: 1px solid var(--sb-gold); color: var(--sb-cream); font-size: 13px; vertical-align: 1px; }
         .yat-contribute-drawer select, .yat-contribute-drawer textarea, .yat-contribute-drawer input[type="search"],
         .yat-contribute-drawer input[type="text"], .yat-contribute-drawer input[type="url"] {
           width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.06);
           color: var(--ink); padding: 10px 12px; font-family: inherit; font-size: 14px; line-height: 1.45;
         }
         .yat-contribute-drawer textarea { resize: vertical; }
-        .ycd-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border: 1px solid rgba(255,215,0,.5); border-radius: 8px; background: rgba(255,215,0,.07); font-size: 13px; }
-        .ycd-link { border: 0; background: none; padding: 0; color: #FFD700; font: inherit; text-decoration: underline; cursor: pointer; text-align: left; }
-        body.light-theme .ycd-link { color: #9a6f00; }
+        .ycd-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border: 1px solid var(--sb-green-hi); border-radius: 8px; background: var(--sb-green-soft); font-size: 13px; }
+        .ycd-link { border: 0; background: none; padding: 0; color: var(--sb-text); font: inherit; text-decoration: underline; cursor: pointer; text-align: left; }
         .ycd-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; align-self: flex-start; }
         .ycd-switch button { border: 0; background: transparent; color: inherit; padding: 6px 14px; border-radius: 999px; cursor: pointer; font: 500 13px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; opacity: .7; }
-        .ycd-switch button.is-on { background: #FFD700; color: #000; opacity: 1; }
-        .ycd-chosen { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid rgba(255,215,0,.6); border-radius: 8px; background: rgba(255,215,0,.06); }
+        .ycd-switch button.is-on { background: var(--sb-panel); color: var(--sb-cream); box-shadow: inset 0 0 0 1px var(--sb-gold); opacity: 1; }
+        .ycd-chosen { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--sb-green-hi); border-radius: 8px; background: var(--sb-green-soft); }
         .ycd-chosen img { width: 34px; height: 34px; object-fit: contain; flex: none; }
         .ycd-chosen-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
         .ycd-chosen-text small { opacity: .65; font-size: 12px; }
@@ -658,21 +655,19 @@ export default function ContributeDrawer() {
         .ycd-results .yat-gs-result { width: 100%; text-align: left; font: inherit; }
         .ycd-seasons { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; padding-right: 2px; }
         .ycd-season { display: grid; grid-template-columns: 46px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-        .ycd-season b { grid-row: span 2; font: 500 18px/1 Oswald, sans-serif; color: #FFD700; }
-        body.light-theme .ycd-season b { color: #9a6f00; }
+        .ycd-season b { grid-row: span 2; font: 500 18px/1 Oswald, sans-serif; color: var(--sb-text); }
         .ycd-season span { font-size: 13px; font-weight: 600; }
         .ycd-season small { font-size: 11px; opacity: .65; }
-        .ycd-season.is-on { border-color: #FFD700; background: rgba(255,215,0,.1); }
+        .ycd-season.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
         .ycd-memories { margin: 0; font-size: 12px; line-height: 1.5; opacity: .8; }
-        .ycd-memories a { color: #FFD700; }
-        body.light-theme .ycd-memories a { color: #9a6f00; }
+        .ycd-memories a { color: var(--sb-text); }
         .ycd-checks { display: flex; flex-direction: column; gap: 8px; }
         .ycd-check { border: 1px solid var(--line); border-radius: 8px; }
-        .ycd-check.is-on { border-color: rgba(255,215,0,.7); }
+        .ycd-check.is-on { border-color: var(--sb-green-hi); }
         .ycd-check.is-sent { border-color: rgba(80,200,120,.8); }
         .ycd-check.is-error { border-color: #ff6b6b; }
         .ycd-check-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; font-size: 14px; }
-        .ycd-check-head input { width: 18px; height: 18px; accent-color: #FFD700; flex: none; }
+        .ycd-check-head input { width: 18px; height: 18px; accent-color: var(--sb-green-hi); flex: none; }
         .ycd-check-head b { font-weight: 700; }
         .ycd-check-body { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px 40px; }
         .ycd-photo { display: flex; flex-direction: column; gap: 6px; }
@@ -684,13 +679,11 @@ export default function ContributeDrawer() {
         .ycd-error { color: #ff6b6b; font-size: 13px; }
         .ycd-ok { color: #3ddc84; font-weight: 600; }
         .ycd-proof { display: flex; flex-direction: column; gap: 12px; }
-        .ycd-proof-head { font: 600 20px/1.1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #FFD700; }
-        body.light-theme .ycd-proof-head { color: #9a6f00; }
-        .ycd-proof-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid rgba(255,215,0,.5); border-radius: 10px; }
+        .ycd-proof-head { font: 600 20px/1.1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--sb-text); }
+        .ycd-proof-item { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--sb-green-hi); border-radius: 10px; }
         .ycd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ycd-btn { min-height: 44px; padding: 0 22px; border-radius: 8px; border: 1px solid #FFD700; background: transparent; color: #FFD700; font: 500 15px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
-        .ycd-btn-primary { background: #FFD700; color: #000; }
-        body.light-theme .ycd-btn:not(.ycd-btn-primary) { border-color: #9a6f00; color: #9a6f00; }
+        .ycd-btn { min-height: 44px; padding: 0 22px; border-radius: 8px; border: 1px solid var(--sb-green-hi); background: transparent; color: var(--sb-text); font: 500 15px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+        .ycd-btn-primary { background: var(--sb-panel); border-color: var(--sb-gold); color: var(--sb-cream); }
         .ycd-btn:disabled { opacity: .55; cursor: default; }
         .ycd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ycd-done-title { font: 600 20px/1.1 Oswald, sans-serif; letter-spacing: .04em; }

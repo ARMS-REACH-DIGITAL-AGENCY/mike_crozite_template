@@ -503,35 +503,35 @@ export default function ContributePhotoFlow({
         .ypf-other input { flex: 1 1 220px; }
         .ycd-season.is-plain span { opacity: .75; }
         .ypf-approve { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; }
-        .ypf-approve input { width: 18px; height: 18px; accent-color: #FFD700; }
-        .ypf-approve.is-on { border-color: #FFD700; background: rgba(255,215,0,.07); }
-        .ypf-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 160px; padding: 20px; border: 2px dashed rgba(255,215,0,.6); border-radius: 12px; background: rgba(255,215,0,.04); color: inherit; cursor: pointer; }
-        .ypf-drop i { font-size: 44px; color: #FFD700; }
+        .ypf-approve input { width: 18px; height: 18px; accent-color: var(--sb-green-hi); }
+        .ypf-approve.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
+        .ypf-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 160px; padding: 20px; border: 2px dashed var(--sb-green-hi); border-radius: 12px; background: var(--sb-green-soft); color: inherit; cursor: pointer; }
+        .ypf-drop i { font-size: 44px; color: var(--sb-text); }
         .ypf-drop span { font: 600 20px/1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
         .ypf-drop small { opacity: .65; }
         .ypf-photo { display: flex; flex-direction: column; gap: 8px; }
         .ypf-picked { max-width: 100%; max-height: 420px; object-fit: contain; border-radius: 8px; align-self: flex-start; }
-        .ypf-picked.is-logo { width: 220px; height: 220px; padding: 10px; background: repeating-conic-gradient(#2a2a2a 0 25%, #1c1c1c 0 50%) 0 0 / 20px 20px; outline: 2px dashed rgba(255,215,0,.6); }
+        .ypf-picked.is-logo { width: 220px; height: 220px; padding: 10px; background: repeating-conic-gradient(#2a2a2a 0 25%, #1c1c1c 0 50%) 0 0 / 20px 20px; outline: 2px dashed var(--sb-gold); }
         .ypf-tags { display: flex; flex-direction: column; gap: 6px; }
         .ypf-tag { display: grid; grid-template-columns: 40px 1fr 24px; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; }
-        .ypf-tag.is-main { border-color: rgba(255,215,0,.7); }
+        .ypf-tag.is-main { border-color: var(--sb-green-hi); }
         .ypf-tag img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; }
         .ypf-tag span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
         .ypf-tag b { font: 700 14px/1.1 Oswald, sans-serif; text-transform: uppercase; }
-        .ypf-tag small { color: #FFD700; font: 500 11px/1 Oswald, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
+        .ypf-tag small { color: var(--sb-text); font: 500 11px/1 Oswald, sans-serif; text-transform: uppercase; letter-spacing: .05em; }
         .ypf-tag .ycd-link { font-size: 12px; }
         .ypf-tag-x { border: 0; background: none; color: inherit; font-size: 20px; cursor: pointer; opacity: .7; }
         .ypf-types { display: flex; flex-direction: column; gap: 6px; }
         .ypf-type { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; }
-        .ypf-type input { margin-top: 3px; accent-color: #FFD700; }
+        .ypf-type input { margin-top: 3px; accent-color: var(--sb-green-hi); }
         .ypf-type span { display: flex; flex-direction: column; gap: 4px; }
         .ypf-type small { font-size: 12px; opacity: .7; line-height: 1.4; }
-        .ypf-type.is-on { border-color: #FFD700; background: rgba(255,215,0,.07); }
+        .ypf-type.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
         .ypf-type.is-blocked { opacity: .45; cursor: default; }
         .ypf-teams { display: flex; flex-wrap: wrap; gap: 8px; }
         .ypf-team { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
         .ypf-team img { width: 30px; height: 30px; object-fit: contain; }
-        .ypf-team.is-on { border-color: #FFD700; background: rgba(255,215,0,.08); }
+        .ypf-team.is-on { border-color: var(--sb-green-hi); background: var(--sb-green-soft); }
         .ypf-done { display: flex; flex-direction: column; gap: 10px; max-width: 560px; }
         .ypf-done-title { font: 600 26px/1.1 Oswald, sans-serif; text-transform: uppercase; }
         .ypf-done-title.is-approved { color: #3ddc84; }

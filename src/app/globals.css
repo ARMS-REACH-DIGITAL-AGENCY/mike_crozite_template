@@ -362,3 +362,22 @@ textarea {
   font-family: var(--yat-font-ui);
 }
 
+
+/* The scoreboard look (the All-Time row, the Fantasy Bracket): green panels,
+   cream type, gold only as a thin rim. Used by every Connect & Contribute
+   piece: row 3 on the portal, the portal page, the account drawer's list
+   and the contribution drawers. */
+:root {
+  --sb-panel: linear-gradient(160deg, #246b48, #123b29);
+  --sb-green: #1f5e3f;
+  --sb-green-hi: #3a9a67;
+  --sb-green-soft: rgba(58, 154, 103, .16);
+  --sb-text: #7ed6a2;
+  --sb-gold: #dfc24d;
+  --sb-cream: #f4f1e9;
+}
+body.light-theme {
+  --sb-text: #1f5e3f;
+  --sb-green-hi: #1f5e3f;
+  --sb-green-soft: rgba(31, 94, 63, .10);
+}

@@ -44,12 +44,10 @@ export default function ContributeShortcuts() {
       ))}
       <style jsx global>{`
         .ycs { display: flex; flex-direction: column; gap: 2px; margin: 0 0 18px; }
-        .ycs-title { margin-bottom: 6px; color: #FFD700; font: 500 13px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
-        body.light-theme .ycs-title { color: #9a6f00; }
+        .ycs-title { margin-bottom: 6px; color: var(--sb-text); font: 500 13px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
         .ycs-item { display: flex; align-items: center; gap: 12px; padding: 7px 4px; border-radius: 8px; color: inherit; text-decoration: none; }
-        .ycs-item:hover, .ycs-item:focus-visible { background: rgba(255,215,0,.08); }
-        .ycs-icon { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: 2px solid #FFD700; color: #FFD700; font-size: 20px; }
-        body.light-theme .ycs-icon { border-color: #9a6f00; color: #9a6f00; }
+        .ycs-item:hover, .ycs-item:focus-visible { background: var(--sb-green-soft); }
+        .ycs-icon { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--sb-gold); background: var(--sb-panel); color: var(--sb-cream); font-size: 20px; }
         .ycs-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
         .ycs-text b { font: 500 15px/1.1 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
         .ycs-text small { font-size: 12px; line-height: 1.3; opacity: .75; }

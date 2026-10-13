@@ -399,13 +399,11 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccg-intro p { margin: 8px 0 0; font-size: 15px; line-height: 1.55; max-width: 760px; }
         .ccg-muted { opacity: .7; }
         .ccg-small { font-size: 12px; }
-        .ccg-group { margin-top: 14px !important; padding-bottom: 6px; border-bottom: 2px solid #FFD700; color: #FFD700; font-size: 22px !important; }
-        body.light-theme .ccg-group { color: #9a6f00; border-color: #9a6f00; }
+        .ccg-group { margin-top: 14px !important; padding: 9px 14px 8px; border-top: 4px solid var(--sb-gold); border-radius: 2px; background: var(--sb-panel); color: var(--sb-cream); font-size: 22px !important; }
         .ccg-sec { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line);
           scroll-margin-top: calc(var(--row1-h, 56px) + var(--row2-h, 56px) + 96px); }
         @media (max-width: 560px) { .ccg-sec { grid-template-columns: 40px minmax(0, 1fr); gap: 10px; } .ccg-icon { width: 40px; height: 40px; font-size: 19px; } .ccg-sec .ccg-shots, .ccg-sec .ccg-offer, .ccg-sec .ccg-form { margin-left: -50px; } }
-        .ccg-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; border: 2px solid #FFD700; color: #FFD700; font-size: 25px; }
-        body.light-theme .ccg-icon { border-color: #9a6f00; color: #9a6f00; }
+        .ccg-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--sb-gold); background: var(--sb-panel); color: var(--sb-cream); font-size: 25px; }
         .ccg-body { min-width: 0; }
         .ccg-body h3 { margin: 4px 0 8px; font: 600 22px/1.1 Oswald, sans-serif; letter-spacing: .03em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .ccg-body h4 { margin: 0 0 6px; font: 600 17px/1.15 Oswald, sans-serif; letter-spacing: .03em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -417,7 +415,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccg-list b { margin-right: 4px; }
         .ccg-details { margin: 0 0 12px; font-size: 13px; }
         .ccg-details summary { cursor: pointer; font: 500 14px/1.3 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; opacity: .85; }
-        .ccg-btn { min-height: 40px; padding: 0 18px; border-radius: 8px; border: 0; background: #FFD700; color: #000; font: 500 15px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+        .ccg-btn { min-height: 40px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--sb-gold); background: var(--sb-panel); color: var(--sb-cream); font: 500 15px/1 Oswald, sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
         .ccg-btn:disabled { opacity: .6; cursor: default; }
         .ccg-link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font-size: 13px; }
         .ccg-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
@@ -438,7 +436,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         @media (prefers-reduced-motion: reduce) { .ccg-need-dot { animation: none; } }
         .ccg-video { width: 150px; aspect-ratio: 9 / 16; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 10px; text-align: center;
           background: linear-gradient(160deg, #2a2f36, #0b0c0e); color: #fff; font-size: 12px; font-style: italic; }
-        .ccg-video i { font-size: 44px; color: #FFD700; font-style: normal; }
+        .ccg-video i { font-size: 44px; color: var(--sb-gold); font-style: normal; }
         .ccg-search-mock { width: min(280px, 70vw); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; opacity: .7; font-size: 13px; }
         .ccg-offer { display: flex; flex-wrap: wrap; gap: 16px; padding: 14px; margin: 0 0 12px; border: 1px solid var(--line); border-radius: 12px; }
         .ccg-offer-text { flex: 1 1 300px; min-width: 0; }
@@ -450,13 +448,13 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccg-splash-brands { display: flex; align-items: center; gap: 12px; }
         .ccg-splash-brands img { width: 52px; height: 52px; object-fit: contain; }
         .ccg-splash-divider { width: 2px; height: 46px; background: linear-gradient(transparent, rgba(255,255,255,.7), transparent); }
-        .ccg-your-logo { display: grid; place-items: center; width: 60px; height: 46px; border: 2px dashed #FFD700; border-radius: 6px; color: #FFD700; font: 600 10px/1.1 Oswald, sans-serif; text-align: center; }
-        .ccg-banner-mock { width: min(300px, 70vw); padding: 12px 14px; border-radius: 8px; border: 2px dashed #FFD700; display: flex; flex-direction: column; gap: 2px; }
+        .ccg-your-logo { display: grid; place-items: center; width: 60px; height: 46px; border: 2px dashed var(--sb-gold); border-radius: 6px; color: var(--sb-gold); font: 600 10px/1.1 Oswald, sans-serif; text-align: center; }
+        .ccg-banner-mock { width: min(300px, 70vw); padding: 12px 14px; border-radius: 8px; border: 2px dashed var(--sb-gold); display: flex; flex-direction: column; gap: 2px; }
         .ccg-banner-mock span { font: 700 18px/1 Oswald, sans-serif; letter-spacing: .05em; }
         .ccg-banner-mock small { font-size: 11px; opacity: .75; }
         .ccg-footer-mock { width: min(280px, 70vw); padding: 12px 14px; border-radius: 10px; background: #111; color: #eee; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-        .ccg-footer-mock b { color: #FFD700; font: 600 15px/1 Oswald, sans-serif; letter-spacing: .06em; }
-        .ccg-footer-mock i { color: #FFD700; margin-right: 6px; }
+        .ccg-footer-mock b { color: var(--sb-gold); font: 600 15px/1 Oswald, sans-serif; letter-spacing: .06em; }
+        .ccg-footer-mock i { color: var(--sb-gold); margin-right: 6px; }
         .ccg-socials { display: flex; gap: 10px; font-size: 18px; }
         .ccg-stats-mock { width: 230px; display: flex; flex-direction: column; gap: 4px; font: 500 14px/1 Oswald, sans-serif; }
         .ccg-stats-mock div { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 6px; padding: 8px 10px; border-radius: 6px; background: rgba(255,255,255,.06); }
@@ -468,12 +466,12 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccg-empty-card { display: grid; place-items: center; border: 2px dashed #e11d2e; color: #e11d2e; font: 600 40px/1 Oswald, sans-serif; background: transparent; }
         @media (max-width: 560px) { .ccg-gallery-mock img, .ccg-empty-card { width: 24vw; } }
         .ccg-news-mock { width: min(300px, 70vw); padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
-        .ccg-news-mock small { color: #FFD700; font: 500 11px/1 Oswald, sans-serif; letter-spacing: .1em; }
+        .ccg-news-mock small { color: var(--sb-gold); font: 500 11px/1 Oswald, sans-serif; letter-spacing: .1em; }
         .ccg-news-mock b { font: 600 18px/1.1 Oswald, sans-serif; }
         .ccg-news-mock span { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); }
         .ccg-news-mock span:last-child { width: 60%; }
         /* The Partner Program inquiry */
-        .ccg-form { display: flex; flex-direction: column; gap: 10px; padding: 14px; margin: 0 0 14px; border: 1px solid #FFD700; border-radius: 12px; max-width: 640px; }
+        .ccg-form { display: flex; flex-direction: column; gap: 10px; padding: 14px; margin: 0 0 14px; border: 1px solid var(--sb-green-hi); border-radius: 12px; max-width: 640px; }
         .ccg-form-title { font: 600 16px/1.2 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
         .ccg-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; flex: 1 1 200px; }
         .ccg-form-row { display: flex; gap: 10px; flex-wrap: wrap; }
