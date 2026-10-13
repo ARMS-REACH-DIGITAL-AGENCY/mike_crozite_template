@@ -206,6 +206,23 @@ function dedupe(rows: StatRecord[]): StatRecord[] {
   return out;
 }
 
+// The Indy league feed (iScore) repeats a season our stat provider already
+// has for the same club - the same year and team, fewer columns (no WP, BK,
+// HB). Keep the provider's line; the feed's season lines only fill in a
+// season (or a club) the provider doesn't have yet.
+function withoutRepeatedSeasons(base: StatRecord[], indy: StatRecord[]): StatRecord[] {
+  const norm = (v: unknown) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const keys = (r: StatRecord) => {
+    const year = String(Number(r.year) || '');
+    const out: string[] = [];
+    if (String(r.teamid ?? '').trim()) out.push(`${year}|id:${String(r.teamid).trim()}`);
+    if (norm(r.team)) out.push(`${year}|name:${norm(r.team)}`);
+    return out;
+  };
+  const have = new Set(base.flatMap(keys));
+  return indy.filter((r) => !keys(r).some((k) => have.has(k)));
+}
+
 function externalStatRow(row: any): StatRecord {
   const stats = row?.stats || {};
   return clean({
@@ -296,8 +313,8 @@ export async function GET(req: NextRequest) {
     const indyPitchingRows = asStatRecordArray(indyIscore?.pitching);
     const indyRecentGameRows = asStatRecordArray(indyIscore?.recentGames);
 
-    const batting = dedupe([...battingBaseRows, ...indyBattingRows]).sort(byYearThenTeam);
-    const pitching = dedupe([...pitchingBaseRows, ...indyPitchingRows]).sort(byYearThenTeam);
+    const batting = dedupe([...battingBaseRows, ...withoutRepeatedSeasons(battingBaseRows, indyBattingRows)]).sort(byYearThenTeam);
+    const pitching = dedupe([...pitchingBaseRows, ...withoutRepeatedSeasons(pitchingBaseRows, indyPitchingRows)]).sort(byYearThenTeam);
     const externalRecentStats = [...externalBaseRows, ...indyRecentGameRows];
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
