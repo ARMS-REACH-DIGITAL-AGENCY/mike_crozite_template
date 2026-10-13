@@ -21,6 +21,7 @@
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
+import { currentFranchiseSql } from '@/lib/mlbFranchise';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
 
@@ -2465,7 +2466,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
                 u.teamid
            from player_draft_picks d
            left join teamid_universe_mapping u
-             on u.level_label = 'MLB' and lower(u.current_team_name) = lower(d.draft_team_name)
+             on u.level_label = 'MLB' and lower(u.current_team_name) = ${currentFranchiseSql('d.draft_team_name')}
           where d.playerid = $1
           order by d.draft_year asc`,
         [playerId]
