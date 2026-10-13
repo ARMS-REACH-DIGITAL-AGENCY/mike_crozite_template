@@ -26,10 +26,39 @@ export type ContributePlayer = {
 export type ContributeSchool = { hsid: string; name: string; location?: string };
 
 // One season of a player's career, as /api/contribute/seasons returns it.
+// Every year of a player's life a photo can belong to, newest first: the
+// seasons we have (from his stats), and every other year back to his birth
+// year (his class year minus 18, the same age-18 graduation the Career Path
+// Timeline uses) as a plain year - "Age 12" before high school. A player
+// without a class year gets just his seasons.
+export function yearsOfHisLife(seasons: Season[], classOf: number | null, thisYear = new Date().getFullYear()): Season[] {
+  const birth = classOf ? classOf - 18 : null;
+  const first = Math.min(birth ?? thisYear, ...seasons.map((s) => s.year));
+  const out: Season[] = [];
+  for (let year = Math.max(thisYear, ...seasons.map((s) => s.year)); year >= first; year--) {
+    const ofYear = seasons.filter((s) => s.year === year);
+    if (ofYear.length) { out.push(...ofYear); continue; }
+    if (birth === null) continue;
+    const age = year - birth;
+    const youth = classOf !== null && year < classOf - 3;
+    out.push({
+      key: `year-${year}`,
+      year,
+      stage: youth ? 'youth' : 'other',
+      team: '',
+      level: '',
+      label: youth ? (age === 0 ? 'The year he was born' : `Age ${age}`) : '',
+      current: false,
+    });
+  }
+  return out;
+}
+
 export type Season = {
   key: string;
   year: number;
-  stage: 'hs' | 'college' | 'pro';
+  // youth: before high school; other: a year we have no season for.
+  stage: 'youth' | 'hs' | 'college' | 'pro' | 'other';
   team: string;
   // Our (Baseball Cube) team id, for the team's logo.
   teamId?: string;

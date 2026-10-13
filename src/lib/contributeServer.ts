@@ -18,9 +18,10 @@ import sharp from 'sharp';
 import { query } from './db';
 import { identifyFan } from './fanIdentity';
 import { getUserProfile, type UserProfile } from './userProfile';
-import { addTagToGHLContact } from './gohighlevel';
+import { addNoteToGHLContact, addTagToGHLContact, findOrCreateGhlContact, sendGHLEmail } from './gohighlevel';
+import { toPlayerSlug } from './slug';
 import { S3_BUCKET, S3_REGION, storyAssetUrl } from './storyAssets';
-import type { Crop, PhotoPurpose } from './contribute';
+import { photoTypeLabel, type Crop, type PhotoPurpose } from './contribute';
 
 export { storyAssetUrl as assetUrl };
 
@@ -73,6 +74,56 @@ export async function logContribution(
   // Best effort: never holds up the fan.
   const contactId = c.profile?.arms_contact_id;
   if (contactId) addTagToGHLContact(contactId, 'contributor').catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
+// Telling the contributor (ARMS)
+// ---------------------------------------------------------------------------
+// When a photo goes on the site - right away, or after a reviewer approves
+// it - the fan who sent it gets an email from YAT?STATS through ARMS
+// (HighLevel), with a link to the player's profile. A photo a reviewer
+// turns down gets a short note too. Their ARMS contact is tagged
+// contribution-posted / contribution-declined either way, with a note of
+// what it was. Best effort: never holds up the request.
+const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+export async function notifyContributor(
+  by: { email?: string | null; name?: string | null } | null | undefined,
+  outcome: 'posted' | 'declined',
+  photo: { purpose: string; playerId?: string | null; playerName?: string | null; hsid?: string | null; year?: number | null; pageUrl?: string | null; reason?: string | null }
+) {
+  const email = String(by?.email || '').trim();
+  if (!email) return;
+  try {
+    const first = String(by?.name || '').trim().split(/\s+/)[0] || '';
+    const contactId = await findOrCreateGhlContact(email, first || undefined);
+    if (!contactId) return;
+    const what = `${photoTypeLabel(photo.purpose)}${photo.playerName ? ` of ${photo.playerName}` : ''}${photo.year ? ` (${photo.year})` : ''}`;
+    let link = '';
+    try {
+      const origin = photo.pageUrl ? new URL(photo.pageUrl).origin : '';
+      const [fn, ...ln] = String(photo.playerName || '').split(/\s+/);
+      if (origin && photo.playerId && photo.hsid) link = `${origin}/${photo.hsid}/player/${photo.playerId}/${toPlayerSlug(fn, ln.join(' '))}`;
+      else if (origin) link = origin;
+    } catch {}
+    const hi = first ? `Hi ${esc(first)},` : 'Hi,';
+    const [subject, body] = outcome === 'posted'
+      ? [
+          `Your photo${photo.playerName ? ` of ${photo.playerName}` : ''} is on YAT?STATS`,
+          `<p>${hi}</p><p>Thank you! Your ${esc(what)} is on the site now.</p>${link ? `<p><a href="${esc(link)}">See it on YAT?STATS</a></p>` : ''}<p>Every photo helps complete the story of where they YAT now.</p><p>YAT?STATS</p>`,
+        ]
+      : [
+          `About your photo${photo.playerName ? ` of ${photo.playerName}` : ''}`,
+          `<p>${hi}</p><p>Thank you for sending your ${esc(what)}. We weren't able to use this one${photo.reason ? `: ${esc(photo.reason)}` : '.'}</p><p>You're welcome to send another anytime.</p><p>YAT?STATS</p>`,
+        ];
+    await Promise.all([
+      addTagToGHLContact(contactId, `contribution-${outcome}`),
+      addNoteToGHLContact(contactId, `Photo ${outcome}: ${what}${link ? `\n${link}` : ''}${photo.reason ? `\nReason: ${photo.reason}` : ''}`),
+      sendGHLEmail(contactId, subject, body),
+    ]);
+  } catch (error) {
+    console.error('[contribute] notify contributor failed', error);
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -28,6 +28,7 @@ import {
   type Crop,
   type PhotoPurpose,
   type Season,
+  yearsOfHisLife,
 } from '@/lib/contribute';
 
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -70,6 +71,9 @@ export default function ContributePhotoFlow({
   // 3. What it's for, 4. the season / team / school
   const [purpose, setPurpose] = useState<PhotoPurpose | null>(initialType || null);
   const [seasonKey, setSeasonKey] = useState('');
+  // "Other": a year and a team or league we don't have (the Arizona Fall
+  // League, a travel team...).
+  const [other, setOther] = useState<{ year: number | ''; team: string }>({ year: '', team: '' });
   const [teamId, setTeamId] = useState('');
   const [school, setSchool] = useState<ContributeSchool | null>(hubSchool);
   // 5. Placement
@@ -89,7 +93,10 @@ export default function ContributePhotoFlow({
 
   const main = tagged[0] || null;
   const type = PHOTO_TYPES.find((t) => t.id === purpose) || null;
-  const season = seasons?.find((s) => s.key === seasonKey) || null;
+  const years = seasons ? yearsOfHisLife(seasons, info?.classOf ?? null, THIS_YEAR) : null;
+  const season: Season | null = seasonKey === 'other'
+    ? (other.year ? { key: 'other', year: Number(other.year), stage: 'other', team: other.team.trim(), level: '', label: 'Other', current: false } : null)
+    : years?.find((s) => s.key === seasonKey) || null;
   const current = seasons?.find((s) => s.current) || null;
   const aspect = type?.aspects ? (type.aspects.length > 1 && landscape ? type.aspects[1] : type.aspects[0]) : null;
   const pickFor: Pick = type?.asks === 'school' ? 'school' : type?.asks === 'team' ? 'team' : 'player';
@@ -170,14 +177,14 @@ export default function ContributePhotoFlow({
     if (!file) return 'Upload the picture.';
     if (!type) return 'Pick its purpose.';
     if (type.needsPlayer && !main) return 'Select the player.';
-    if ((type.id === 'timeline_hero' || type.id === 'headshot') && !season) return 'Pick the season.';
+    if ((type.id === 'timeline_hero' || type.id === 'headshot') && !season) return seasonKey === 'other' ? 'Pick the year.' : 'Pick the season.';
     if (type.asks === 'team' && !teamId) return 'Pick the team.';
     if (type.asks === 'school' && !school) return 'Pick the high school.';
     return null;
   };
 
   // What the proof shows; approving it holds only while this stays the same.
-  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, teamId, school?.hsid, landscape, crop]);
+  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop]);
   const approved = approvedSig === sig;
   const ready = !problem();
 
@@ -205,7 +212,7 @@ export default function ContributePhotoFlow({
       form.set('playerName', main?.displayName || '');
       form.set('hsid', (type.id === 'school_logo' ? school?.hsid : main?.schoolId || school?.hsid || hubSchool?.hsid) || '');
       form.set('tagged', JSON.stringify(tagged.map((t) => t.playerId)));
-      if (season && type.asks === 'season') form.set('season', JSON.stringify({ team: season.team, level: season.level, label: season.label }));
+      if (season && type.asks === 'season') form.set('season', JSON.stringify({ team: season.team, level: season.level, label: season.label || (season.stage === 'other' ? 'Other' : '') }));
       if (type.asks === 'team') form.set('teamId', teamId);
       if (crop && aspect) form.set('crop', JSON.stringify(crop));
       if (type.id === 'timeline_hero' && landscape) form.set('landscape', '1');
@@ -233,7 +240,7 @@ export default function ContributePhotoFlow({
   const startOver = () => {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null); setPreview(''); setPurpose(null); setCrop(null); setNote('');
-    setSeasonKey(''); setTeamId(''); setLandscape(false); setPickOverride(null); setApprovedSig('');
+    setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setLandscape(false); setPickOverride(null); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
   };
 
@@ -380,17 +387,28 @@ export default function ContributePhotoFlow({
           {needsSeason ? (
             <div className="ycd-field ypf-sub">
               <div className="ycd-label"><span className="ycd-step ypf-step-sm">3a</span> Select season{type.id === 'other_photo' ? ' (if you know)' : ''}</div>
-              {!seasons ? <div className="ycd-muted ycd-small">Loading his seasons…</div>
-                : !seasons.length ? <div className="ycd-muted ycd-small">We don&apos;t have his seasons yet. Tell us in the note below.</div>
+              {!years ? <div className="ycd-muted ycd-small">Loading his seasons…</div>
                 : (
                   <div className="ycd-seasons" role="listbox" aria-label="Seasons">
-                    {seasons.map((s) => (
-                      <button type="button" key={s.key} role="option" aria-selected={s.key === seasonKey} className={`ycd-season${s.key === seasonKey ? ' is-on' : ''}`} onClick={() => setSeasonKey(s.key)}>
-                        <b>{s.year}</b><span>{s.team}</span><small>{s.label}{s.current ? ' · Current' : ''}</small>
+                    {years.map((s) => (
+                      <button type="button" key={s.key} role="option" aria-selected={s.key === seasonKey} className={`ycd-season${s.key === seasonKey ? ' is-on' : ''}${s.team ? '' : ' is-plain'}`} onClick={() => setSeasonKey(s.key)}>
+                        <b>{s.year}</b><span>{s.team || s.label || '\u00a0'}</span><small>{s.team ? `${s.label}${s.current ? ' · Current' : ''}` : ''}</small>
                       </button>
                     ))}
+                    <button type="button" role="option" aria-selected={seasonKey === 'other'} className={`ycd-season${seasonKey === 'other' ? ' is-on' : ''}`} onClick={() => setSeasonKey('other')}>
+                      <b>Other</b><span>A year or team that isn&apos;t listed</span><small>Fall league, summer ball, travel team…</small>
+                    </button>
                   </div>
                 )}
+              {seasonKey === 'other' ? (
+                <div className="ypf-other">
+                  <select value={other.year} onChange={(e) => setOther((o) => ({ ...o, year: e.target.value ? Number(e.target.value) : '' }))} aria-label="Year">
+                    <option value="">Year…</option>
+                    {Array.from({ length: THIS_YEAR + 2 - 1960 }, (_, i) => THIS_YEAR + 1 - i).map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <input type="text" value={other.team} onChange={(e) => setOther((o) => ({ ...o, team: e.target.value }))} placeholder="Team or league (e.g. Arizona Fall League)" maxLength={120} />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>
@@ -480,6 +498,10 @@ export default function ContributePhotoFlow({
         .ypf-pick button:disabled { opacity: .35; cursor: default; }
         .ypf-verify { display: grid; grid-template-columns: 1fr; gap: 18px; }
         @media (min-width: 900px) { .ypf-verify { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ypf-verify .ypf-step { border-bottom: 0; } }
+        .ypf-other { display: flex; gap: 8px; flex-wrap: wrap; }
+        .ypf-other select { flex: 0 0 110px; }
+        .ypf-other input { flex: 1 1 220px; }
+        .ycd-season.is-plain span { opacity: .75; }
         .ypf-approve { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; }
         .ypf-approve input { width: 18px; height: 18px; accent-color: #FFD700; }
         .ypf-approve.is-on { border-color: #FFD700; background: rgba(255,215,0,.07); }

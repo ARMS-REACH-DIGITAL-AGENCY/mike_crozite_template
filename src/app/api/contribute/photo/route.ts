@@ -21,6 +21,7 @@ import {
   contributionsToday,
   identifyContributor,
   logContribution,
+  notifyContributor,
   assetUrl,
   promoteUpload,
   stagePhoto,
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
       note: note || null,
     });
     let status: 'approved' | 'rejected' | 'pending' = 'pending';
-    let message = "Thanks! We'll take a look at it shortly.";
+    let message = "Thanks! We'll take a look and email you when it's on the site.";
     if (verdict?.decision === 'reject') {
       status = 'rejected';
       message = verdict.reason_for_fan || "This photo can't be used.";
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest) {
         await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason });
         status = 'approved';
         message = "Approved! It's on the site now.";
+        await notifyContributor(details.by, 'posted', { purpose, playerId, playerName, hsid, year, pageUrl });
       } catch (error) {
         console.error('[contribute/photo] promote failed', error);
       }

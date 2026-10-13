@@ -10,7 +10,7 @@
 //                                ever reaches a card.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { assetUrl, identifyContributor, isReviewer, promoteUpload, type UploadRow } from '@/lib/contributeServer';
+import { assetUrl, identifyContributor, isReviewer, notifyContributor, promoteUpload, type UploadRow } from '@/lib/contributeServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -88,12 +88,25 @@ export async function POST(req: NextRequest) {
     const upload = rows[0];
     if (!upload) return fail('That photo was not found.', 404);
     if (upload.status !== 'pending') return fail(`Already ${upload.status}.`, 409);
+    // Who sent it, and from where, to tell them (notifyContributor).
+    let details: { by?: { email?: string; name?: string }; playerName?: string; pageUrl?: string } = {};
+    try { details = JSON.parse(String((upload as { description?: string }).description || '{}')); } catch {}
+    const photo = {
+      purpose: upload.purpose,
+      playerId: upload.playerid,
+      playerName: details.playerName || null,
+      hsid: upload.hsid,
+      year: upload.date_taken ? new Date(upload.date_taken).getUTCFullYear() : null,
+      pageUrl: details.pageUrl || null,
+    };
     if (action === 'approve') {
       const written = await promoteUpload(upload);
       await query(`UPDATE media_upload SET status = 'approved' WHERE id = $1`, [id]);
+      await notifyContributor(details.by, 'posted', photo);
       return NextResponse.json({ ok: true, status: 'approved', written });
     }
     await query(`UPDATE media_upload SET status = 'rejected' WHERE id = $1`, [id]);
+    await notifyContributor(details.by, 'declined', { ...photo, reason: typeof body.reason === 'string' ? body.reason.slice(0, 300) : null });
     return NextResponse.json({ ok: true, status: 'rejected' });
   } catch (error) {
     console.error('[contribute/review] POST failed', error);
