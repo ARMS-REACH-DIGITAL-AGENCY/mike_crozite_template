@@ -207,7 +207,8 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         const location = cleanLocation(loc.city, loc.state, s.hslocation || s.location);
         const crest = schoolCrestUrl(hsid, s.crestUrl || s.crest_url || s.logoUrl || s.logo_url || s.schoolLogoUrl || s.school_logo_url);
         const activeCount = Number(s.current_aa ?? 0);
-        if (includeBracketLinks) return `
+        const hasSchoolDestination = Boolean(hsid.trim() || String(s.microsite_url || s.micrositeUrl || '').trim());
+        if (includeBracketLinks && hasSchoolDestination) return `
           <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card" data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
             <div class="yat-search-school-topline">
               <a class="yat-search-school-gallery-link" href="${esc(schoolSectionUrl(s, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
@@ -227,19 +228,24 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
             </div>
           </div>
         `;
+        // The state directory includes schools without a microsite/HSID. Do not
+        // make their crests or bracket shortcuts point to the site's root.
+        const unavailable = includeBracketLinks && !hasSchoolDestination;
+        const tag = unavailable ? 'div' : 'a';
         return `
-          <a class="yat-search-card yat-search-school-card" href="${esc(schoolUrl(s))}" data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
+          <${tag} class="yat-search-card yat-search-school-card" ${unavailable ? '' : `href="${esc(schoolUrl(s))}"`} data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
             <div class="yat-search-school-topline">
               <span class="yat-search-school-active-count" aria-label="${esc(activeCount)} active alumni"><strong>${esc(activeCount)}</strong><small>ACTIVE</small></span>
               <span class="yat-search-row-text">
                 <strong>${esc(name)}</strong>
                 ${location ? `<small>${esc(location)}</small>` : ''}
+                ${unavailable ? '<small>School page not available yet</small>' : ''}
               </span>
               <span class="yat-search-school-crest-link" aria-hidden="true">
                 <img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
               </span>
             </div>
-          </a>
+          </${tag}>
         `;
       }).join('')}
     </div>
