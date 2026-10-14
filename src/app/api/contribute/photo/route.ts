@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
     });
     let status: 'approved' | 'rejected' | 'pending' = 'pending';
     let message = "Thanks! We'll take a look and email you when it's on the site.";
+    let publishedAssets: string[] = [];
     if (verdict?.decision === 'reject') {
       status = 'rejected';
       message = verdict.reason_for_fan || "This photo can't be used.";
@@ -139,18 +140,29 @@ export async function POST(req: NextRequest) {
       try {
         // A photo for a player who isn't on the site yet can't be placed.
         if (type.needsPlayer && !PLAYER_ID.test(playerId)) throw new Error('no player on the site');
-        await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason });
+        publishedAssets = await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason });
         status = 'approved';
         message = "Approved! It's on the site now.";
-        await notifyContributor(details.by, 'posted', { purpose, playerId, playerName, hsid, year, pageUrl });
       } catch (error) {
         console.error('[contribute/photo] promote failed', error);
       }
     }
-    await query(
-      `UPDATE media_upload SET status = $2, description = $3 WHERE id = $1`,
-      [id, status, JSON.stringify({ ...details, moderation: verdict ? { decision: verdict.decision, description: verdict.description, reason: verdict.reason_for_fan, checked_at: new Date().toISOString() } : null })]
+    const { rows: updated } = await query<{ id: string }>(
+      `UPDATE media_upload SET status = $2, description = $3 WHERE id = $1 RETURNING id::text AS id`,
+      [id, status, JSON.stringify({ ...details, moderation: verdict ? { decision: verdict.decision, description: verdict.description, reason: verdict.reason_for_fan, checked_at: new Date().toISOString() } : null, published_assets: publishedAssets })]
     );
+    if (updated.length !== 1) {
+      const { rows: [dbContext] } = await query<{ db_role: string; rls_active: boolean }>(
+        `SELECT current_user::text AS db_role, row_security_active('public.media_upload'::regclass) AS rls_active`
+      ).catch(() => ({ rows: [] as { db_role: string; rls_active: boolean }[] }));
+      console.error('[contribute/photo] moderation status update affected no row', { uploadId: id, intendedStatus: status, dbContext: dbContext || null });
+    }
+    // CRM/email is best effort; do it only after the moderation state is
+    // persisted so a slow or misconfigured CRM cannot leave an approved
+    // upload stuck as pending.
+    if (status === 'approved') {
+      await notifyContributor(details.by, 'posted', { purpose, playerId, playerName, hsid, year, pageUrl });
+    }
     // Approved: where to see it (a path on this school's site).
     let link: string | null = null;
     if (status === 'approved') {

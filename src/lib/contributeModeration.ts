@@ -92,7 +92,13 @@ export async function moderatePhoto(opts: {
       return { decision: 'review', appropriate: false, matches_type: false, watermark: false, quality_ok: false, reason_for_fan: '', description: 'The automatic check declined to review this photo.' };
     }
     const verdict = response.parsed_output;
-    if (!verdict) return null;
+    if (!verdict) {
+      console.error('[contribute] moderation returned no structured verdict', {
+        stopReason: response.stop_reason,
+        contentTypes: response.content.map((block) => block.type),
+      });
+      return null;
+    }
     // The code, not the model, has the last word on the hard rules.
     if (!verdict.appropriate || verdict.watermark) return { ...verdict, decision: 'reject' };
     if (verdict.decision === 'approve' && (!verdict.matches_type || !verdict.quality_ok)) return { ...verdict, decision: 'review' };
