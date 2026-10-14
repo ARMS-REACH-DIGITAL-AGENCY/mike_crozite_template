@@ -386,7 +386,13 @@ async function SchoolShell({
               {/* "2027 HIGH SCHOOL TEAM": the season year is the bold word. */}
               <img src="/img/nav/letterman-jacket.png" alt="" className="yat-nav-custom-icon" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
             </a>
-            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" /><span><strong>FANTASY</strong>BRACKET TOURNEY</span></a>
+            <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
+              <img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" />
+              <span className="yat-drawer-fantasy-copy">
+                <span><strong>FANTASY</strong> BRACKET TOURNEY</span>
+                <small className="yat-drawer-fantasy-start">Starts February 1st</small>
+              </span>
+            </a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
             {/* The YAT?STATS Guided Tour: the yatstats.com home page, where
