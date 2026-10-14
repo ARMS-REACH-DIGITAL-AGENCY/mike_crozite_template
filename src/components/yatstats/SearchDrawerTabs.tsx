@@ -562,6 +562,10 @@ export default function SearchDrawerTabs() {
     };
 
     function scheduleSearch(event?: Event) {
+      if (event && event.target !== input) return;
+      // Input events already cover typing/paste. A bubbled Tab/Enter from a
+      // result link must not rebuild the list and discard keyboard focus.
+      if (event instanceof KeyboardEvent && event.key !== 'Enter') return;
       event?.preventDefault?.();
       event?.stopPropagation?.();
       event?.stopImmediatePropagation?.();
