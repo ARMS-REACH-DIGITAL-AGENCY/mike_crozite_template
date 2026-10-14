@@ -97,6 +97,10 @@ function schoolSectionHref(hsid: string, section: string) {
   return `/${encodeURIComponent(hsid)}#sec-${section}`;
 }
 
+function schoolSectionHash(section: string) {
+  return `#sec-${section}`;
+}
+
 // The Connect & Contribute Portal is its own page. On a school subdomain it
 // lives at /connect-contribute (the middleware adds the school); on a bare
 // host (previews) it needs the /<hsid> prefix.
@@ -203,12 +207,12 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
 
         <nav className="yat-topnav" aria-label="Desktop navigation">
           <a className="yat-topnav-item" href={`/${hsid}`}><span>WHERE THEY</span><strong>YAT?</strong></a>
-          <a className="yat-topnav-item" data-tab="news" href={schoolSectionHref(hsid, 'news')}><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
-          <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHref(hsid, 'alltime')}><span>ALL-TIME</span><strong>NEXT-LEVEL LIST</strong></a>
-          <a className="yat-topnav-item" data-tab="current" href={schoolSectionHref(hsid, 'current')}><span>{teamSeason()}</span><strong>TEAM</strong></a>
-          <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHref(hsid, 'fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
+          <a className="yat-topnav-item" data-tab="news" href={schoolSectionHash('news')}><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
+          <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHash('alltime')}><span>ALL-TIME</span><strong>NEXT-LEVEL LIST</strong></a>
+          <a className="yat-topnav-item" data-tab="current" href={schoolSectionHash('current')}><span>{teamSeason()}</span><strong>TEAM</strong></a>
+          <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHash('fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
           <a className="yat-topnav-item" data-cc-link href={connectContributeHref(hsid)}><strong>CONNECT</strong><span>&amp;</span><strong>CONTRIBUTE</strong><span>PORTAL</span></a>
-          <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHref(hsid, 'partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
+          <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHash('partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
           <a className="yat-topnav-item" href="https://yatstats.com/"><span>YAT?STATS GUIDED</span><strong>TOUR</strong></a>
         </nav>
 
