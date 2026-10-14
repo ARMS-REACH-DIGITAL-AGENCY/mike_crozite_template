@@ -245,7 +245,9 @@ export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffe
         width: Math.max(1, Math.min(W - left, Math.round(crop.w * W))),
         height: Math.max(1, Math.min(H - top, Math.round(crop.h * H))),
       });
-      data = await image.resize({ width: size.w, height: size.h, fit: 'fill' }).jpeg({ quality: 86, mozjpeg: true }).toBuffer();
+      // The cropper's fractions can round to a one-pixel ratio mismatch.
+      // Cover makes the approved frame exact without stretching the player.
+      data = await image.resize({ width: size.w, height: size.h, fit: 'cover', position: sharp.strategy.attention }).jpeg({ quality: 86, mozjpeg: true }).toBuffer();
     } else {
       data = await image.resize({ width: size.w, height: size.h, fit: 'cover', position: sharp.strategy.attention }).jpeg({ quality: 86, mozjpeg: true }).toBuffer();
     }
@@ -258,21 +260,22 @@ export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffe
 }
 
 // The player cut out of the background (remove.bg), for his Career Path
-// Timeline's hero spot. null when remove.bg isn't set up or finds no one;
-// callers must provide a visible fallback rather than silently omitting it.
-async function cutout(stagedKey: string): Promise<Buffer | null> {
+// Timeline's hero spot. Send the staged bytes directly instead of making the
+// service fetch our S3 URL; this keeps processing independent of URL access.
+// null when remove.bg isn't set up or finds no one; callers must provide a
+// visible, aspect-preserving fallback rather than silently omitting the photo.
+async function cutout(source: Buffer): Promise<Buffer | null> {
   const apiKey = process.env.REMOVE_BG_API_KEY;
-  const url = storyAssetUrl(stagedKey);
   if (!apiKey) {
     console.warn('[contribute] remove.bg unavailable: REMOVE_BG_API_KEY is not configured');
     return null;
   }
-  if (!url) {
-    console.warn('[contribute] remove.bg unavailable: could not construct the staged image URL');
+  if (!source.length) {
+    console.warn('[contribute] remove.bg unavailable: staged image is empty');
     return null;
   }
   const form = new FormData();
-  form.set('image_url', url);
+  form.set('image_file', new Blob([new Uint8Array(source)], { type: 'image/jpeg' }), 'upload.jpg');
   form.set('size', 'auto');
   form.set('type', 'auto');
   form.set('crop', 'true');
@@ -295,6 +298,16 @@ async function cutout(stagedKey: string): Promise<Buffer | null> {
   }
   try {
     const png = Buffer.from(await res.arrayBuffer());
+    const metadata = await sharp(png).metadata();
+    const stats = await sharp(png).stats();
+    const alpha = metadata.hasAlpha ? stats.channels[3] : undefined;
+    if (!metadata.hasAlpha || !alpha || alpha.min >= 255 || alpha.max <= 0) {
+      console.warn('[contribute] remove.bg response did not contain usable transparency', {
+        format: metadata.format || 'unknown',
+        hasAlpha: Boolean(metadata.hasAlpha),
+      });
+      return null;
+    }
     return await sharp(png).trim({ threshold: 1 }).resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true }).png().toBuffer();
   } catch (error) {
     console.warn('[contribute] remove.bg response was not a usable image', { errorType: error instanceof Error ? error.name : 'unknown' });
@@ -309,8 +322,8 @@ async function cutout(stagedKey: string): Promise<Buffer | null> {
 // this he kept his old cutout: the hourly cutout job skips any player who
 // already has one. When remove.bg isn't set up or finds no one, the old
 // cutout is removed instead, so that job cuts the new photo within the hour.
-async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, stagedKey: string, written: string[]) {
-  const png = await cutout(stagedKey);
+async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source: Buffer, written: string[]) {
+  const png = await cutout(source);
   if (!png) {
     await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `players/${kind}-cutouts/${pid}.png` })).catch(() => {});
     return;
@@ -347,10 +360,9 @@ async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, stagedK
 //                    for his Career Path Timeline); from his newest season
 //                    also players/now/{id}.jpg + now-thumb, now-web - his
 //                    headshot everywhere (Row 3, profile, search)
-//   timeline_hero -> players/season-cutouts/{id}_{year}.png (that season's
-//                    hero on his Career Path Timeline, cut out of the
-//                    background), the photo itself kept in
-//                    players/season-photos/{id}_{year}.jpg
+//   timeline_hero -> players/season-cutouts/{id}_{year}.png (when background
+//                    removal succeeds); otherwise the timeline uses the
+//                    aspect-preserving original at season-photos/{id}_{year}.jpg
 //   other_photo   -> kept in fan-photos/ for us to place
 //   back_hero     -> players/back/{id}.jpg + back-card, back-web (card back)
 //   school_logo   -> schools/{hsid}.png
@@ -384,7 +396,7 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     await copy(u.s3_key, `players/then/${pid}.jpg`, 'image/jpeg');
     await put(`players/then-card/${pid}.webp`, await webp(800, 1120, 'cover'), 'image/webp');
     written.push(`players/then/${pid}.jpg`, `players/then-card/${pid}.webp`);
-    await replaceCutout('then', pid, u.s3_key, written);
+    await replaceCutout('then', pid, src, written);
   } else if (purpose === 'headshot') {
     const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
     if (year) {
@@ -401,26 +413,25 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     written.push(`players/now/${pid}.jpg`, `players/now-thumb/${pid}.webp`);
     // now-web is his headshot cut out (the timeline's Today and anchor
     // slides), never the square photo.
-    await replaceCutout('now', pid, u.s3_key, written);
+    await replaceCutout('now', pid, src, written);
   } else if (purpose === 'timeline_hero') {
     const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
     if (!year) throw new Error('This photo has no season.');
     await copy(u.s3_key, `players/season-photos/${pid}_${year}.jpg`, 'image/jpeg');
     written.push(`players/season-photos/${pid}_${year}.jpg`);
     const cutoutKey = `players/season-cutouts/${pid}_${year}.png`;
-    const cutoutPng = await cutout(u.s3_key);
-    // The timeline requests this PNG and falls back to YaTi if it is absent.
-    // If remove.bg is down, keep the uploaded photo visible as a full-frame
-    // hero instead of publishing the raw JPG while silently leaving YaTi up.
-    const heroPng = cutoutPng || await sharp(src)
-      .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
-      .png({ compressionLevel: 9 })
-      .toBuffer();
-    if (!cutoutPng) {
-      console.warn('[contribute/photo] using full-photo timeline hero fallback', { uploadId: u.id, playerId: pid, year });
+    const cutoutPng = await cutout(src);
+    if (cutoutPng) {
+      await put(cutoutKey, cutoutPng, 'image/png');
+      written.push(cutoutKey);
+    } else {
+      // Do not save an opaque rectangle under a cutout filename. The timeline
+      // will fall through to the original JPG and render it at its true ratio.
+      await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: cutoutKey })).catch((error) => {
+        console.warn('[contribute/photo] stale season cutout could not be removed', { uploadId: u.id, errorType: error instanceof Error ? error.name : 'unknown' });
+      });
+      console.warn('[contribute/photo] using aspect-preserving timeline photo fallback', { uploadId: u.id, playerId: pid, year });
     }
-    await put(cutoutKey, heroPng, 'image/png');
-    written.push(cutoutKey);
   } else if (purpose === 'team_logo') {
     const teamId = String(u.team_at_time || '').trim();
     if (!/^\d+$/.test(teamId)) throw new Error('This logo has no team.');
@@ -437,7 +448,7 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     await put(`players/back-card/${pid}.webp`, await webp(1200, 420, 'cover'), 'image/webp');
     written.push(`players/back/${pid}.jpg`, `players/back-card/${pid}.webp`);
     // back-web is the action photo cut out, for his timeline.
-    await replaceCutout('back', pid, u.s3_key, written);
+    await replaceCutout('back', pid, src, written);
   } else if (purpose === 'school_logo') {
     const hsid = String(u.hsid || '').trim();
     if (!/^\d+$/.test(hsid)) throw new Error('This logo has no school.');

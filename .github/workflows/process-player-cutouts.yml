@@ -23,14 +23,22 @@ on:
         description: "Optional max files to process/test. Leave blank for all."
         required: false
         default: ""
+      only_ids:
+        description: "Optional exact source filename stems, comma-separated, without extensions (e.g. 213884_2007)"
+        required: false
+        default: ""
       source_prefix:
-        description: "S3 source prefix containing original JPG/JPEG/WEBP files (players/then/, players/back/ or players/now/)"
+        description: "S3 source prefix containing original JPG/JPEG/WEBP files (e.g. players/then/ or players/season-photos/)"
         required: false
         default: "players/then/"
       output_prefix:
-        description: "S3 output prefix for generated transparent PNG cutouts (players/then-cutouts/, players/back-cutouts/ or players/now-cutouts/)"
+        description: "S3 output prefix for generated transparent PNG cutouts (e.g. players/then-cutouts/ or players/season-cutouts/)"
         required: false
         default: "players/then-cutouts/"
+
+concurrency:
+  group: player-cutout-processing
+  cancel-in-progress: false
 
 jobs:
   process-cutouts:
@@ -53,6 +61,7 @@ jobs:
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
       MAX_FILES: ${{ github.event.inputs.max_files || '' }}
+      ONLY_IDS: ${{ github.event.inputs.only_ids || '' }}
 
     steps:
       - name: Check out repository

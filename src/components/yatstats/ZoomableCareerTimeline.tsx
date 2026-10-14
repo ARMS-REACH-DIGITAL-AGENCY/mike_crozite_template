@@ -2322,6 +2322,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            per direct feedback that it still wasn't close enough to the
            headline. */
         .zt-person-stack :global(.zt-person) { position:absolute; left:calc(var(--hero-copy-left) - 8px - clamp(150px,18vw,252px)); bottom:-4%; width:clamp(150px,18vw,252px); height:104%; max-width:none; object-fit:contain; object-position:right bottom; filter:drop-shadow(0 14px 22px rgba(0,0,0,.44)); }
+        /* If background removal is unavailable, SmartImage loads the original
+           season JPG next. Give that full photo a frame ending just before
+           the copy column, and let object-fit:contain preserve either chosen
+           5x7 or 7x5 crop instead of squeezing it into the cutout box. */
+        .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { left:0; bottom:0; width:calc(var(--hero-copy-left) - 8px); height:100%; max-width:none; object-fit:contain; object-position:right bottom; filter:none; }
         /* A fan photo standing in for the YaTi cartoon: same spot, but a
            whole photo (not a cutout), so it sits above the rail instead of
            running off the bottom. Several photos crossfade (see heroTick). */
@@ -2795,6 +2800,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              as the desktop base rule, same reasons -- just recomputed
              against .zt-copy's left:32% at this breakpoint instead of 34%. */
           .zt-person-stack :global(.zt-person) { left:calc(32% - 8px - clamp(130px,26vw,200px)); width:clamp(130px,26vw,200px); }
+          .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { width:calc(32% - 8px); }
           /* Pro image and HS cutout (see the desktop base rules),
              recomputed against .zt-copy's real left:32% at this
              breakpoint -- var(--hero-copy-left) is a fixed ~34%/476px and
@@ -2837,6 +2843,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
              left, not lined up with anything. Back to the plain flat
              left:24%/object-position:left-bottom this had before that. */
           .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28vw,120px); object-position:left bottom; }
+          .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { width:calc(58% - 8px); }
           /* Anchor slide, per direct feedback: HS cutout big, pro image
              about half its height (55% of the row), a little to the right
              and in front of it -- both visible at once (no more then/now
