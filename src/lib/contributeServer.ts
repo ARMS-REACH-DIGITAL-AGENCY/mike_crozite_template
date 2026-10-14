@@ -258,26 +258,48 @@ export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffe
 }
 
 // The player cut out of the background (remove.bg), for his Career Path
-// Timeline's hero spot. null when remove.bg isn't set up or finds no one.
+// Timeline's hero spot. null when remove.bg isn't set up or finds no one;
+// callers must provide a visible fallback rather than silently omitting it.
 async function cutout(stagedKey: string): Promise<Buffer | null> {
   const apiKey = process.env.REMOVE_BG_API_KEY;
   const url = storyAssetUrl(stagedKey);
-  if (!apiKey || !url) return null;
+  if (!apiKey) {
+    console.warn('[contribute] remove.bg unavailable: REMOVE_BG_API_KEY is not configured');
+    return null;
+  }
+  if (!url) {
+    console.warn('[contribute] remove.bg unavailable: could not construct the staged image URL');
+    return null;
+  }
   const form = new FormData();
   form.set('image_url', url);
   form.set('size', 'auto');
   form.set('type', 'auto');
   form.set('crop', 'true');
   form.set('format', 'png');
-  const res = await fetch('https://api.remove.bg/v1.0/removebg', {
-    method: 'POST',
-    headers: { 'X-Api-Key': apiKey },
-    body: form,
-    signal: AbortSignal.timeout(25000),
-  }).catch(() => null);
-  if (!res?.ok) return null;
-  const png = Buffer.from(await res.arrayBuffer());
-  return sharp(png).trim({ threshold: 1 }).resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true }).png().toBuffer();
+  let res: Response;
+  try {
+    res = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: { 'X-Api-Key': apiKey },
+      body: form,
+      signal: AbortSignal.timeout(25000),
+    });
+  } catch (error) {
+    console.warn('[contribute] remove.bg request failed', { errorType: error instanceof Error ? error.name : 'unknown' });
+    return null;
+  }
+  if (!res.ok) {
+    console.warn('[contribute] remove.bg returned a non-success response', { status: res.status });
+    return null;
+  }
+  try {
+    const png = Buffer.from(await res.arrayBuffer());
+    return await sharp(png).trim({ threshold: 1 }).resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true }).png().toBuffer();
+  } catch (error) {
+    console.warn('[contribute] remove.bg response was not a usable image', { errorType: error instanceof Error ? error.name : 'unknown' });
+    return null;
+  }
 }
 
 // The cutout his timeline shows for a photo that just replaced his then/,
@@ -385,11 +407,20 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     if (!year) throw new Error('This photo has no season.');
     await copy(u.s3_key, `players/season-photos/${pid}_${year}.jpg`, 'image/jpeg');
     written.push(`players/season-photos/${pid}_${year}.jpg`);
-    const png = await cutout(u.s3_key);
-    if (png) {
-      await put(`players/season-cutouts/${pid}_${year}.png`, png, 'image/png');
-      written.push(`players/season-cutouts/${pid}_${year}.png`);
+    const cutoutKey = `players/season-cutouts/${pid}_${year}.png`;
+    const cutoutPng = await cutout(u.s3_key);
+    // The timeline requests this PNG and falls back to YaTi if it is absent.
+    // If remove.bg is down, keep the uploaded photo visible as a full-frame
+    // hero instead of publishing the raw JPG while silently leaving YaTi up.
+    const heroPng = cutoutPng || await sharp(src)
+      .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+    if (!cutoutPng) {
+      console.warn('[contribute/photo] using full-photo timeline hero fallback', { uploadId: u.id, playerId: pid, year });
     }
+    await put(cutoutKey, heroPng, 'image/png');
+    written.push(cutoutKey);
   } else if (purpose === 'team_logo') {
     const teamId = String(u.team_at_time || '').trim();
     if (!/^\d+$/.test(teamId)) throw new Error('This logo has no team.');

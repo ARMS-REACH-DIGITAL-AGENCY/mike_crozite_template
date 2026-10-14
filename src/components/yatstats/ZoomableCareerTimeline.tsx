@@ -125,7 +125,7 @@ type Slide = {
   src?: string;
   srcs?: string[];
   teamLogoSrcs?: string[];
-  seasonCutoutSrc?: string;
+  seasonHeroSrcs?: string[];
   yatiFallback?: string;
   // season-kind only -- normalizeLevel()'s output, kept alongside caption
   // so same-year stints can be ordered by level (see seasonOrderRank)
@@ -247,13 +247,15 @@ function teamLogoCandidates(row: StatRow) {
   ];
 }
 
-// Season-specific hero cutout, keyed by {playerId}_{year} -- plain S3
-// naming convention (no DB row, no filename-date parsing needed since the
-// season year already IS the join key). Falls back through SmartImage's
-// onError chain to a rotating YaTi placeholder when the real cutout
-// doesn't exist yet.
+// Season-specific hero assets, keyed by {playerId}_{year}. Prefer the
+// background-removed cutout; if that service did not produce one, use the
+// already-published full photo before falling back to YaTi.
 function seasonCutoutCandidates(playerId: string, year: number) {
-  return [`${S3_BASE}/players/season-cutouts/${encodeURIComponent(playerId)}_${year}.png`];
+  const id = encodeURIComponent(playerId);
+  return [
+    `${S3_BASE}/players/season-cutouts/${id}_${year}.png`,
+    `${S3_BASE}/players/season-photos/${id}_${year}.jpg`,
+  ];
 }
 
 function yatiPlaceholderFor(index: number) {
@@ -1114,7 +1116,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         caption: `${level}${org ? ` · ${org}` : ''}`,
         headline: statLineHeadline(row, team),
         teamLogoSrcs,
-        seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
+        seasonHeroSrcs: seasonCutoutCandidates(playerId, year),
         yatiFallback: yatiPlaceholderFor(seasonIndex++),
         level,
         bigStats: buildBigStats(row),
@@ -1183,7 +1185,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         title: `Age ${year - lifeYearStart + 1}`,
         // A fan's photo for that year (Connect & Contribute: Timeline Hero
         // Image, "Age N"), else the rotating YaTi placeholder.
-        seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
+        seasonHeroSrcs: seasonCutoutCandidates(playerId, year),
         // Same rotating YaTi placeholder mechanism season slides already
         // fall back to when there's no real photo yet -- these 17 screens
         // never have one (pre-HS), so they always show it, not just on
@@ -1205,7 +1207,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         age: 0,
         title: 'The year it all began.',
         isEarly: true,
-        seasonCutoutSrc: seasonCutoutCandidates(playerId, year)[0],
+        seasonHeroSrcs: seasonCutoutCandidates(playerId, year),
         yatiFallback: YATI_PLACEHOLDERS[0],
       };
     });
@@ -1280,7 +1282,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         title: pick.draft_team_name ? `Drafted by the ${pick.draft_team_name}` : 'Drafted',
         draft: pick,
         teamLogoSrcs: pick.teamid ? teamLogoCandidates({ teamid: pick.teamid } as StatRow) : [],
-        seasonCutoutSrc: seasonCutoutCandidates(playerId, Number(pick.draft_year))[0],
+        seasonHeroSrcs: seasonCutoutCandidates(playerId, Number(pick.draft_year)),
         yatiFallback: yatiPlaceholderFor(Number(pick.draft_year)),
       }));
 
@@ -1927,12 +1929,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           }
           if (slide.kind === 'hsyear') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[seasonCutoutCandidates(playerId, slide.year)[0], webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[...seasonCutoutCandidates(playerId, slide.year), webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
             );
           }
           if (slide.kind === 'season' || slide.kind === 'draft') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.kind === 'draft' ? `drafted ${slide.draft?.draft_year}` : slide.year}`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonHeroSrcs || []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.kind === 'draft' ? `drafted ${slide.draft?.draft_year}` : slide.year}`} />
             );
           }
           // Today: his current headshot, as the same trimmed cutout the
@@ -1946,7 +1948,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           }
           if (slide.kind === 'lifeyear') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonCutoutSrc ? [slide.seasonCutoutSrc] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`Age ${slide.age}`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={slide.seasonHeroSrcs || []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`Age ${slide.age}`} />
             );
           }
           if (slide.kind === 'coachyear') {
