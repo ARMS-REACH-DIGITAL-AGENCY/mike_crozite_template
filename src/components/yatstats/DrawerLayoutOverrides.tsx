@@ -81,6 +81,12 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:-.045em; word-spacing:-.12em; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav { padding-right:12px; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 10px 8px; border: 1px solid rgba(200,169,110,.6); border-left: 3px solid var(--accent, #c8a96e); border-radius: 7px; background: rgba(200,169,110,.10); color: var(--accent, #c8a96e); }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+      #drawerLeft .yat-drawer-fantasy-start { font: 500 11px/1.25 Oswald, sans-serif; letter-spacing: .035em; word-spacing: normal; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight:hover { background: rgba(200,169,110,.20); }
+      #drawerLeft .yat-drawer-fantasy-highlight:focus-visible { outline: 2px solid var(--accent, #c8a96e); outline-offset: 3px; }
+      body.light-theme #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { color: #70501e; border-color: #94713b; }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
       #drawerLeft .yat-nav-page-crest { width:25px; height:25px; object-fit:contain; flex:none; }
       #drawerLeft .yat-nav-custom-icon { width:24px; height:24px; min-width:24px; display:block; object-fit:contain; flex:none; mix-blend-mode:multiply; }
