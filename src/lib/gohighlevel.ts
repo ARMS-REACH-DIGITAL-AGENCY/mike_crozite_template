@@ -311,3 +311,100 @@ export async function sendGHLEmail(contactId: string, subject: string, html: str
     return false;
   }
 }
+
+/**
+ * Mirror the platform's authoritative school and entitlement in ARMS.
+ *
+ * HighLevel's built-in contact "type" API only represents lead/customer;
+ * use a dedicated contact custom field for FAN / SUPER FAN / SUPER FAN – PROMO.
+ * Keep unrelated contact tags and custom fields intact.
+ */
+export async function syncYatstatsContact(
+  contactId: string,
+  profile: {
+    home_hsid: string | null;
+    plan: string | null;
+    role: string | null;
+    subscription_status: string | null;
+    stripe_subscription_id: string | null;
+    promo_code: string | null;
+    promo_expires_at: Date | string | null;
+  },
+  school?: { hsname?: string | null; hslocation?: string | null } | null
+): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey || !contactId) return false;
+
+  const isPaid = !!profile.stripe_subscription_id
+    && ['active', 'trialing'].includes(String(profile.subscription_status || '').toLowerCase());
+  const promoValid = !!profile.promo_code
+    && (!profile.promo_expires_at || new Date(profile.promo_expires_at).getTime() > Date.now());
+  const comped = ['demo_comped', 'demo-comped'].includes(String(profile.subscription_status || '').toLowerCase());
+  const status = String(profile.subscription_status || '').toLowerCase();
+  // Do not rely on a stale plan='superfan' after cancellation or promo expiry.
+  const superfan = isPaid || promoValid || comped
+    || (profile.plan === 'superfan' && !profile.promo_code && !profile.stripe_subscription_id
+      && !['cancelled', 'canceled', 'unpaid', 'past_due'].includes(status));
+  const memberLabel = superfan ? (isPaid ? 'SUPER FAN' : 'SUPER FAN – PROMO') : 'FAN';
+  const tierTag = superfan ? (isPaid ? 'membership:superfan-paid' : 'membership:superfan-promo') : 'membership:fan';
+
+  const schoolId = String(profile.home_hsid || '').trim();
+  const schoolName = String(school?.hsname || '').trim();
+  const location = String(school?.hslocation || '').replace(/\s*,\s*/g, ', ').trim();
+  const schoolLabel = [schoolName, location].filter(Boolean).join(' — ');
+  const schoolSource = schoolLabel ? `YAT?STATS — ${schoolLabel}` : undefined;
+  const customFields: Array<{ id: string; fieldValue: string }> = [
+    { id: 'qaazm5coKEqVbZxQKn9M', fieldValue: memberLabel },
+    { id: 'ERQbXljhvoaoJ6JfmM8r', fieldValue: String(profile.promo_code || '') },
+  ];
+  if (schoolId) customFields.push({ id: 'AVS02RaVfIBGNyuWnDQo', fieldValue: schoolId });
+  if (schoolLabel) customFields.push({ id: 'lKg1hakCnKkA7DyhRXmL', fieldValue: schoolLabel });
+
+  try {
+    const headers = {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Version: 'v3',
+    };
+    const url = `https://services.leadconnectorhq.com/contacts/${encodeURIComponent(contactId)}`;
+    const currentResponse = await fetch(url, { headers, cache: 'no-store' });
+    if (!currentResponse.ok) {
+      console.error('ARMS contact lookup failed during membership sync:', currentResponse.status);
+      return false;
+    }
+    const current = (await currentResponse.json()) as {
+      contact?: { tags?: string[]; customFields?: Array<{ id?: string; value?: string | null }> };
+    };
+    const previousTags = current.contact?.tags || [];
+    const tags = previousTags.filter((tag) =>
+      !/^membership:/i.test(tag) && tag.toLowerCase() !== 'superfan'
+      && !/^promo:/i.test(tag)
+      && (!schoolId || tag !== schoolId)
+    );
+    if (!tags.some((tag) => tag.toLowerCase() === 'source:yatstats')) tags.push('source:yatstats');
+    tags.push(tierTag);
+    if (superfan) tags.push('superfan');
+    if (schoolId) tags.push(`hsid:${schoolId}`);
+    if (schoolLabel) tags.push(`school:${schoolLabel}`);
+    if (superfan && profile.promo_code && !isPaid) tags.push(`promo:${profile.promo_code}`);
+
+    const updates = new Map<string, { id: string; fieldValue: string }>();
+    for (const field of current.contact?.customFields || []) {
+      if (field.id && typeof field.value === 'string') {
+        updates.set(field.id, { id: field.id, fieldValue: field.value });
+      }
+    }
+    for (const field of customFields) updates.set(field.id, field);
+    const body = { tags: [...new Set(tags)], customFields: [...updates.values()], ...(schoolSource ? { source: schoolSource } : {}) };
+    const response = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(body), cache: 'no-store' });
+    if (!response.ok) {
+      console.error('ARMS contact update failed during membership sync:', response.status);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('ARMS contact membership sync failed:', error);
+    return false;
+  }
+}

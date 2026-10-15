@@ -13,8 +13,7 @@
  */
 
 import { query } from '@/lib/db';
-import { getUserProfile } from '@/lib/userProfile';
-import { addTagToGHLContact } from '@/lib/gohighlevel';
+import { syncUserProfileToArms } from '@/lib/armsProfileSync';
 
 interface PromoDef {
   /** Months the grant lasts. null = lifetime. */
@@ -78,15 +77,11 @@ export async function redeemPromoCode(
     [firebaseUid, email, code, def.durationMonths]
   );
 
-  // Tag the ARMS contact like the Stripe webhook does for paid superfans (non-fatal).
-  try {
-    const profile = await getUserProfile(firebaseUid);
-    if (profile?.arms_contact_id) {
-      await addTagToGHLContact(profile.arms_contact_id, 'superfan').catch(() => {});
-    }
-  } catch {
-    /* non-fatal */
-  }
+  // Keep the CRM's displayed membership and promo status synchronized.
+  // Never turn a successful grant into an error because ARMS is unavailable.
+  await syncUserProfileToArms(firebaseUid).catch((error) =>
+    console.error('Promo ARMS sync failed (non-fatal):', error)
+  );
 
   let expiresAt: string | null = null;
   if (def.durationMonths != null) {
