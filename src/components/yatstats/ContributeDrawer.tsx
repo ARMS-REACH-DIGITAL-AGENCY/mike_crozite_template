@@ -211,7 +211,8 @@ export default function ContributeDrawer() {
   useEffect(() => {
     const onOpen = (event: Event) => {
       const d = (event as CustomEvent<ContributeOpen>).detail || {};
-      if (status.kind === 'done') resetForms();
+      // A new card starts a new transaction, never stale selections/errors.
+      resetForms();
       if (d.tab) setTab(d.tab);
       // Each photo entry point starts fresh, with the correct destination.
       // Do not reuse a player or logo from the previous contributor's form.
@@ -283,8 +284,10 @@ export default function ContributeDrawer() {
   const seasonForItems: Season | null = aboutSchool
     ? null
     : season || (manualPlayer && manualYear ? { key: 'manual', year: Number(manualYear), stage: 'hs', team: school?.name || '', level: '', label: '', current: true } : null);
+  // Correcting an unknown graduation year must not require knowing a
+  // season first. Season context is helpful but completely optional.
   const dataKinds = DATA_KINDS.filter((k) =>
-    aboutSchool ? k.seasons === 'school' : k.seasons === 'any' || (k.seasons === 'hs' && seasonForItems?.stage === 'hs')
+    aboutSchool ? k.seasons === 'school' : k.seasons !== 'school'
   );
 
   const toggleData = (id: DataKind) => setData((cur) => {
@@ -302,7 +305,6 @@ export default function ContributeDrawer() {
   const needWho = (): string | null => {
     if (aboutSchool) return school ? null : 'Pick the high school.';
     if (!player && !(manualPlayer && manualName.trim() && school)) return 'Pick the player (or type his name and pick his high school).';
-    if (!seasonForItems) return 'Pick the season.';
     return null;
   };
 
@@ -344,7 +346,7 @@ export default function ContributeDrawer() {
   };
 
   const submit = () => {
-    if (!signedIn) return openAccountDrawer('signin');
+    if (!signedIn) { pendingOpen.current = true; return openAccountDrawer('signin'); }
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the link to the story.' });
@@ -444,7 +446,9 @@ export default function ContributeDrawer() {
                   </div>
 
                   {(player || manualPlayer) && (
-                    <div className="ycd-field">
+                    <details className="ycd-season-details">
+                      <summary>Specify a season or year (optional)</summary>
+                      <div className="ycd-field">
                       <div className="ycd-label"><span className="ycd-step">2</span> Which season?</div>
                       {manualPlayer ? (
                         <select value={manualYear} onChange={(e) => setManualYear(e.target.value ? Number(e.target.value) : '')} aria-label="Year">
@@ -484,7 +488,8 @@ export default function ContributeDrawer() {
                           ) : null}
                         </>
                       )}
-                    </div>
+                      </div>
+                    </details>
                   )}
 
                   {player && info?.profileUrl ? (
@@ -501,13 +506,13 @@ export default function ContributeDrawer() {
 
             {/* What they have */}
             <div className="ycd-col">
-              {(aboutSchool ? school : seasonForItems) ? (
+              {Boolean(aboutSchool ? school : player || (manualPlayer && manualName.trim() && school)) ? (
                 <>
                   <div className="ycd-label">
                     <span className="ycd-step">{aboutSchool ? 2 : 3}</span>{' '}
                     {aboutSchool
-                      ? `What do you have for ${school?.name || 'the school'}?`
-                      : `What do you have from ${seasonForItems!.year}${seasonForItems!.team ? ` · ${seasonForItems!.team}` : ''}${seasonForItems!.label ? ` (${seasonForItems!.label})` : ''}?`}
+                      ? `What information needs updating for ${school?.name || 'the school'}?`
+                      : `What information needs updating${seasonForItems ? ` for ${seasonForItems.year}` : ''}?`}
                   </div>
 
                   {(
@@ -548,7 +553,7 @@ export default function ContributeDrawer() {
               ) : (
                 <div className="ycd-placeholder">
                   <i className={tabIcon(tab)} aria-hidden="true" />
-                  <span>{aboutSchool ? 'Pick the high school' : player || manualPlayer ? 'Pick the season' : 'Pick the player'}, and we&apos;ll show you what you can send.</span>
+                  <span>{aboutSchool ? 'Pick the high school' : 'Pick the player'}, and we&apos;ll show you what you can send.</span>
                 </div>
               )}
             </div>
@@ -654,6 +659,10 @@ export default function ContributeDrawer() {
         .ycd-muted { opacity: .65; }
         .ycd-small { font-size: 12px; line-height: 1.4; }
         .ycd-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .ycd-season-details { border:1px solid var(--sb-card-border); border-radius:6px; padding:9px 11px; }
+        .ycd-season-details summary { cursor:pointer; color:var(--sb-text); font:600 12px/1.4 var(--yat-font-ui); }
+        .ycd-season-details[open] summary { margin-bottom:12px; }
+        .ycd-season-details .ycd-field { margin-top:6px; }
         .ycd-stack { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
         .ycd-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .ycd-label { font: 700 17px/1.2 var(--yat-font-compact); letter-spacing: .005em; }
