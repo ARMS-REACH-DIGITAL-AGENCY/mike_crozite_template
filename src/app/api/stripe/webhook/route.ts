@@ -21,8 +21,9 @@ import {
   activateSuperfan,
   deactivateSuperfan,
   getUserProfileByStripeCustomerId,
+  getUserProfileByStripeSubscriptionId,
 } from "@/lib/userProfile";
-import { addTagToGHLContact } from "@/lib/gohighlevel";
+import { syncUserProfileToArms } from "@/lib/armsProfileSync";
 
 export const runtime = "nodejs";
 
@@ -77,11 +78,10 @@ export async function POST(req: NextRequest) {
         const customerEmail = session.customer_details?.email || session.customer_email || null;
         await activateSuperfan(firebaseUid, customerId, subscriptionId, customerEmail);
 
-        // Optionally tag the ARMS contact as Superfan
-        const profile = await getUserProfileByStripeCustomerId(customerId);
-        if (profile?.arms_contact_id) {
-          await addTagToGHLContact(profile.arms_contact_id, "superfan").catch(() => { /* non-fatal */ });
-        }
+        // The CRM must distinguish paid Super Fan from promo Super Fan.
+        await syncUserProfileToArms(firebaseUid).catch((err) =>
+          console.error("ARMS checkout sync failed (non-fatal):", err)
+        );
 
         console.log(`Superfan activated for uid=${firebaseUid}, customer=${customerId}`);
         break;
@@ -94,6 +94,8 @@ export async function POST(req: NextRequest) {
         const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? "";
 
         // Only activate if the subscription is active or trialing
+        const existingProfile = await getUserProfileByStripeCustomerId(customerId);
+        const targetUid = firebaseUid || existingProfile?.firebase_uid;
         if (["active", "trialing"].includes(sub.status)) {
           if (firebaseUid) {
             await activateSuperfan(firebaseUid, customerId, sub.id);
@@ -109,19 +111,21 @@ export async function POST(req: NextRequest) {
         } else if (["canceled", "unpaid", "past_due"].includes(sub.status)) {
           await deactivateSuperfan(sub.id);
         }
+        if (targetUid) await syncUserProfileToArms(targetUid).catch((err) =>
+          console.error("ARMS subscription sync failed (non-fatal):", err)
+        );
         break;
       }
 
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
+        // Find the fan BEFORE the subscription ID is cleared.
+        const oldProfile = await getUserProfileByStripeSubscriptionId(sub.id);
         await deactivateSuperfan(sub.id);
-
-        // Remove ARMS superfan tag
-        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? "";
-        const profile = await getUserProfileByStripeCustomerId(customerId);
-        if (profile?.arms_contact_id) {
-          // TODO: implement ARMS tag removal once a removeTagFromARMSContact helper is added
-          console.log(`Subscription deleted, user ${profile.firebase_uid} downgraded to fan`);
+        if (oldProfile?.firebase_uid) {
+          await syncUserProfileToArms(oldProfile.firebase_uid).catch((err) =>
+            console.error("ARMS cancellation sync failed (non-fatal):", err)
+          );
         }
         break;
       }
