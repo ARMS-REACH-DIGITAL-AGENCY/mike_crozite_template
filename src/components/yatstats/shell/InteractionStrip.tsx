@@ -838,6 +838,13 @@ export default function InteractionStrip({
           object-fit:cover; object-position:center 25%; padding:0;
           border:0; border-radius:0; filter:none;
         }
+        /* Non-player artwork stays entirely inside the circular frame.
+           Only transparent player cutouts may extend above its top rim. */
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img:not(.gallery-contribute-cutout) {
+          width:100%; height:100%; max-width:100%; left:0; bottom:0;
+          transform:none; object-fit:contain; object-position:center center;
+          padding:5px; box-sizing:border-box;
+        }
         .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img.gallery-contribute-cutout {
           height:68px; object-fit:contain; object-position:center bottom;
         }
