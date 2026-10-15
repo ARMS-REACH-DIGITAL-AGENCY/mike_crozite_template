@@ -53,7 +53,7 @@ async function schoolsInState(state: string, qRaw: string) {
          JOIN school_success s ON s.hsid::text = f.hsid AND (s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2)
         GROUP BY f.hsid
      )
-     SELECT s.hsid, s.hsname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
+     SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
             COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
             s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url
        FROM school_success s
@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
       SELECT
         hsid,
         hsname,
+        cityname,
         hslocation,
         regionid,
         yatstats_national_rank,
