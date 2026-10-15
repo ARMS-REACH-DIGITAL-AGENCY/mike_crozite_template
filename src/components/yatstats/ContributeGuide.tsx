@@ -1,70 +1,103 @@
 'use client';
 
-// Row 4 of the Connect & Contribute Portal, top to bottom: the three ways to
-// connect (the paid ones), then the four ways to contribute. Row 3's icons
-// and the account drawer's list scroll here; each section shows where on the
-// site it lands (mockups built from the same pieces as the photo proof, with
-// a red marker where help is needed) and ends with the button that opens its
-// drawer from the left. Opening a drawer asks a fan who isn't signed in to
-// join first (ContributeDrawer).
+// Connect & Contribute is a transaction desk, not a marketing landing page.
+// The same four-field visual hierarchy as the player-profile News list:
+// destination graphic, action name, one instruction, and one click to begin.
+// All photo cards open the existing image flow with the correct slot preselected.
 
 import { useContext, useState, type ReactNode } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import {
-  CONTRIBUTE_OPTIONS,
-  PHOTO_TYPES,
-  SPONSOR_INTERESTS,
-  openContribute,
-  type ContributeTab,
-  type SponsorInterest,
+  PHOTO_TYPES, SPONSOR_INTERESTS, openContribute,
+  type ContributeOpen, type PhotoPurpose, type SponsorInterest,
 } from '@/lib/contribute';
 
-const option = (id: string) => CONTRIBUTE_OPTIONS.find((o) => o.id === id)!;
-const PARTNERS_URL = 'https://yatstats.com/partners/';
+const PHOTO_DETAILS: Partial<Record<PhotoPurpose, string>> = Object.fromEntries(
+  PHOTO_TYPES.map((p) => [p.id, p.spec])
+);
 
-type Photo = { src: string; name: string };
+type ThumbKind = 'front' | 'headshot' | 'back' | 'timeline' | 'logos' |
+  'news' | 'missing' | 'data' | 'profile' | 'banner' | 'bracket' | 'business' | 'video';
 
-// A real action photo, full width, with a bold label over its bottom left.
-function Tile({ photo, children, as = 'h3' }: { photo: Photo; children: ReactNode; as?: 'h2' | 'h3' }) {
-  const Title = as;
+type DeskCard = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  instruction: string;
+  thumb: ThumbKind;
+  action: string;
+  detail: ContributeOpen;
+  help?: PhotoPurpose;
+};
+type SponsorCard = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  instruction: string;
+  thumb: ThumbKind;
+  interest?: SponsorInterest;
+  action: string;
+  soon?: boolean;
+};
+
+const CONTRIBUTIONS: DeskCard[] = [
+  { id: 'cc-photo', eyebrow: 'FLIP CARD · FRONT', title: 'High School Photo', instruction: 'Add a high school-era photo to the front of an alumnus\'s flip card.', thumb: 'front', action: 'UPLOAD PHOTO', detail: { tab: 'photo', photoType: 'flip_card' }, help: 'flip_card' },
+  { id: 'cc-headshot', eyebrow: 'GALLERY · PROFILE', title: 'Player Headshot', instruction: 'Send a face-and-shoulders photo for a player or a specific season.', thumb: 'headshot', action: 'UPLOAD HEADSHOT', detail: { tab: 'photo', photoType: 'headshot' }, help: 'headshot' },
+  { id: 'cc-action', eyebrow: 'FLIP CARD · BACK', title: 'Current Action Photo', instruction: 'Add a current-season action photo to the back of a player\'s flip card.', thumb: 'back', action: 'UPLOAD ACTION PHOTO', detail: { tab: 'photo', photoType: 'back_hero' }, help: 'back_hero' },
+  { id: 'cc-timeline', eyebrow: 'PLAYER PROFILE · CAREER PATH', title: 'Career Timeline Photo', instruction: 'Add a playing-days photo to a specific year of an alumnus\'s career.', thumb: 'timeline', action: 'UPLOAD TIMELINE PHOTO', detail: { tab: 'photo', photoType: 'timeline_hero' }, help: 'timeline_hero' },
+  { id: 'cc-logo', eyebrow: 'SCHOOL & TEAM ARTWORK', title: 'School or Team Logo', instruction: 'Supply a missing or corrected logo for a school or college/pro team.', thumb: 'logos', action: 'UPLOAD LOGO', detail: { tab: 'photo', photoType: 'school_logo' }, help: 'school_logo' },
+  { id: 'cc-tip', eyebrow: 'ACTIVE ALUMNI NEWS', title: 'News Tip', instruction: 'Paste a link to a player story, award, signing, or call-up.', thumb: 'news', action: 'SEND LINK', detail: { tab: 'tip' } },
+  { id: 'cc-missing', eyebrow: 'ALL-TIME NEXT-LEVEL LIST', title: 'Missing Alumni', instruction: 'Tell us who is missing, their class year, and where they played.', thumb: 'missing', action: 'ADD ALUMNUS', detail: { tab: 'missing' } },
+  { id: 'cc-data', eyebrow: 'ROSTER & PLAYER RECORDS', title: 'Correct Information', instruction: 'Update graduation years, playing history, or school and player details.', thumb: 'data', action: 'SUBMIT CORRECTION', detail: { tab: 'data' } },
+];
+
+const SPONSORSHIPS: SponsorCard[] = [
+  { id: 'cc-profile-sponsor', eyebrow: 'PLAYER PROFILE', title: 'Sponsor a Player Profile', instruction: 'Request a business placement on an alumnus\'s profile.', thumb: 'profile', action: 'REQUEST PLACEMENT', interest: 'profile' },
+  { id: 'cc-fans', eyebrow: 'SCHOOL HUB', title: 'Sponsor This School', instruction: 'Request a banner or featured placement on this school\'s hub.', thumb: 'banner', action: 'REQUEST PLACEMENT', interest: 'title' },
+  { id: 'cc-bracket-sponsor', eyebrow: 'FANTASY BRACKET', title: 'Sponsor the Bracket', instruction: 'Request a placement in the school-versus-school fantasy competition.', thumb: 'bracket', action: 'REQUEST PLACEMENT', interest: 'bracket' },
+  { id: 'cc-alumni', eyebrow: 'ALUMNI PROFILE', title: 'Promote Your Alumni Business', instruction: 'Request business details and branding on your alumni profile.', thumb: 'business', action: 'REQUEST PLACEMENT', interest: 'alumni' },
+  { id: 'cc-player', eyebrow: 'PERSONAL VIDEO REQUESTS', title: 'Message From an Alumnus', instruction: 'Personalized player videos are planned but not available to order yet.', thumb: 'video', action: 'COMING SOON', soon: true },
+];
+
+// Editorial mini-previews, modeled on the actual site placement rather than
+// generic baseball photographs. The gold area is the part the upload replaces.
+function Thumb({ kind }: { kind: ThumbKind }) {
+  if (kind === 'front') return <span className="ccd-thumb ccd-front" aria-hidden="true"><span className="ccd-preview-cap">FLIP CARD / FRONT</span><span className="ccd-front-photo"><i className="ri-user-3-fill" /></span><span className="ccd-preview-caption">HS PHOTO</span><span className="ccd-outline" /></span>;
+  if (kind === 'headshot') return <span className="ccd-thumb ccd-head" aria-hidden="true"><span className="ccd-preview-cap">ROW 3 / PROFILE</span><span className="ccd-head-line"><span /><span className="ccd-head-target"><i className="ri-user-3-fill" /></span><span /></span><span className="ccd-preview-caption">HEADSHOT</span></span>;
+  if (kind === 'back') return <span className="ccd-thumb ccd-back" aria-hidden="true"><span className="ccd-back-hero"><i className="ri-run-line" /><span className="ccd-outline" /></span><span className="ccd-back-stats">G&nbsp; &nbsp; AVG&nbsp; &nbsp; HR</span><span className="ccd-preview-caption">FLIP CARD / BACK</span></span>;
+  if (kind === 'timeline') return <span className="ccd-thumb ccd-timeline" aria-hidden="true"><span className="ccd-preview-cap">CAREER PATH</span><span className="ccd-timeline-image"><i className="ri-user-star-line" /></span><span className="ccd-timeline-rail">2017 ━━━ 2018</span></span>;
+  if (kind === 'logos') return <span className="ccd-thumb ccd-logo" aria-hidden="true"><span className="ccd-preview-cap">SCHOOL / TEAM</span><span className="ccd-logo-target"><i className="ri-shield-star-line" /></span><span className="ccd-preview-caption">LOGO</span></span>;
+  const icons: Record<Exclude<ThumbKind, 'front' | 'headshot' | 'back' | 'timeline' | 'logos'>, string> = {
+    news: 'ri-newspaper-line', missing: 'ri-user-search-line', data: 'ri-edit-box-line',
+    profile: 'ri-id-card-line', banner: 'ri-layout-bottom-2-line',
+    bracket: 'ri-trophy-line', business: 'ri-store-2-line', video: 'ri-video-chat-line',
+  };
+  return <span className="ccd-thumb ccd-icon-thumb" aria-hidden="true"><i className={icons[kind]} /><span className="ccd-preview-caption">{kind === 'banner' ? 'SCHOOL HUB' : kind === 'bracket' ? 'FANTASY' : kind.toUpperCase()}</span></span>;
+}
+
+function Transaction({ item }: { item: DeskCard }) {
   return (
-    <div className="ccg-tile" style={{ backgroundImage: `url("${photo.src}")` }}>
-      <Title className="ccg-tile-title">{children}</Title>
-      <small className="ccg-tile-credit">{photo.name}</small>
-    </div>
+    <article className="ccd-item" id={item.id}>
+      <button className="ccd-item-main" type="button" onClick={() => openContribute(item.detail)} aria-label={item.action + ': ' + item.title}>
+        <Thumb kind={item.thumb} />
+        <span className="ccd-item-copy">
+          <span className="ccd-eyebrow">{item.eyebrow}</span>
+          <strong className="ccd-title">{item.title}</strong>
+          <span className="ccd-summary">{item.instruction}</span>
+          <span className="ccd-action">{item.action} <i className="ri-arrow-right-line" aria-hidden="true" /></span>
+        </span>
+      </button>
+      {item.help ? (
+        <details className="ccd-help">
+          <summary>Where does this photo go?</summary>
+          <p>{PHOTO_DETAILS[item.help]}</p>
+          <button type="button" onClick={() => openContribute(item.detail)}>Open upload</button>
+        </details>
+      ) : null}
+    </article>
   );
 }
 
-function Section({ id, title, soon, photo, children }: { id: string; title: string; soon?: boolean; photo?: Photo; children: ReactNode }) {
-  const o = option(id);
-  if (photo) {
-    return (
-      <section className="ccg-sec has-photo" id={o.section}>
-        <Tile photo={photo}>{title}</Tile>
-        <div className="ccg-body">
-          {soon ? <div className="ccg-soon">Coming soon</div> : null}
-          {children}
-        </div>
-      </section>
-    );
-  }
-  return (
-    <section className="ccg-sec" id={o.section}>
-      <div className="ccg-icon"><i className={o.icon} aria-hidden="true" /></div>
-      <div className="ccg-body">
-        <h3>{title}{soon ? <span className="ccg-soon">Coming soon</span> : null}</h3>
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function OpenDrawer({ tab, children }: { tab: ContributeTab; children: ReactNode }) {
-  return <button type="button" className="ccg-btn" onClick={() => openContribute({ tab })}>{children}</button>;
-}
-
-// "Contact the YAT?STATS Partner Program Team": an ARMS lead, tagged with
-// what they're interested in and this school.
 function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onClose: () => void }) {
   const school = useContext(SchoolContext);
   const [form, setForm] = useState({ name: '', email: '', phone: '', business: '', message: '', website: '' });
@@ -126,248 +159,142 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
   );
 }
 
-function Offer({ title, price, children, visual, interest, onInquire }: {
-  title: string; price?: boolean; children: ReactNode; visual?: ReactNode; interest: SponsorInterest; onInquire: (i: SponsorInterest) => void;
-}) {
-  return (
-    <div className="ccg-offer">
-      <div className="ccg-offer-text">
-        <h4>{price ? <span className="ccg-cash">$$$</span> : null}{title}{price ? <span className="ccg-cash">$$$</span> : null}</h4>
-        {children}
-        <div className="ccg-actions">
-          <button type="button" className="ccg-btn" onClick={() => onInquire(interest)}>I&apos;m interested</button>
-          <span className="ccg-muted ccg-small">Buy online: coming soon</span>
-        </div>
-      </div>
-      {visual ? <div className="ccg-offer-visual">{visual}</div> : null}
-    </div>
-  );
-}
 
-// Real pieces of this school's site for the sections to show (built on the
-// server by the page: this school's own flip cards, PlayerCard).
-export type GuideExamples = { photo?: ReactNode; data?: ReactNode; missing?: ReactNode; alumni?: ReactNode; photos?: { src: string; name: string }[] };
-
-function Examples({ caption, children }: { caption: string; children?: ReactNode }) {
-  if (!children) return null;
-  return (
-    <figure className="ccg-shot ccg-real">
-      <div className="ccg-cards">{children}</div>
-      <figcaption>{caption}</figcaption>
-    </figure>
-  );
-}
-
-export default function ContributeGuide({ schoolName, examples = {} }: { schoolName: string; examples?: GuideExamples }) {
+export default function ContributeGuide({ schoolName }: { schoolName: string }) {
+  const [inquiry, setInquiry] = useState<{ id: string; interest: SponsorInterest } | null>(null);
+  const [view, setView] = useState<'contribute' | 'connect'>('contribute');
   const hub = schoolName || 'your school';
-  // The section photos, in page order (reused when there are fewer).
-  const photos = examples.photos || [];
-  const pic = (i: number): Photo | undefined => (photos.length ? photos[i % photos.length] : undefined);
-
-  // One inquiry form open at a time, under the offer that opened it.
-  const [inquiry, setInquiry] = useState<{ at: string; interest: SponsorInterest } | null>(null);
-  const inquire = (at: string) => (interest: SponsorInterest) => setInquiry({ at, interest });
-  const inquiryForm = (at: string) => inquiry?.at === at
-    ? <SponsorInquiry key={`${at}-${inquiry.interest}`} interest={inquiry.interest} onClose={() => setInquiry(null)} />
-    : null;
 
   return (
-    <div className="ccg">
-      <header className="ccg-intro">
-        {pic(0) ? <Tile photo={pic(0)!} as="h2">Connect &amp; Contribute</Tile> : <h2>Connect &amp; Contribute Portal</h2>}
-        <p>
-          Connect with the players, fans and alumni of {hub}, and help complete their stories. Every next-level alum gets a
-          flip card, a profile and a Career Path Timeline, and the people who know them best can fill in what&apos;s missing.
-        </p>
+    <div className="ccd">
+      <header className="ccd-heading">
+        <div>
+          <span className="ccd-kicker">YAT?STATS / COMMUNITY DESK</span>
+          <h1>Connect <span>&amp;</span> Contribute</h1>
+          <p>Choose what you want to do. We&apos;ll take you straight to it.</p>
+        </div>
+        <span className="ccd-school">{hub}</span>
       </header>
 
-      <div className="ccg-group">Connect</div>
+      <nav className="ccd-mobile-switch" aria-label="Connect and Contribute sections">
+        <a href="#cc-contribute" className={view === 'contribute' ? 'is-on' : ''} onClick={() => setView('contribute')}>CONTRIBUTE</a>
+        <a href="#cc-connect" className={view === 'connect' ? 'is-on' : ''} onClick={() => setView('connect')}>CONNECT</a>
+      </nav>
 
-      <Section id="player" title="Connect With Players" photo={pic(1)} soon>
-        <p>
-          Players will record a short hello for the Connect tab of their profile. From there you&apos;ll be able to request a
-          personal video: a birthday shout-out, an answer to your question, or his take on a video of your swing or your
-          delivery.
-        </p>
-      </Section>
-
-      <Section id="fans" title="Connect With Fans" photo={pic(2)}>
-        <div className="ccg-offer">
-          <div className="ccg-offer-text">
-            <h4>Hey Players, Give Back to Your Hometown Fans <span className="ccg-soon">Coming soon</span></h4>
-            <p>
-              The people who watched you play in high school are still following you. Record a short hello for your
-              profile&apos;s Connect tab, and answer the requests that come in: a birthday shout-out for a young player, a
-              question about the next level, a look at a swing or a delivery. It takes a few minutes and means the world
-              to the kid on the other end.
-            </p>
+      <div className="ccd-columns">
+        <section className="ccd-column ccd-connect" id="cc-connect" aria-label="Connect transactions">
+          <header className="ccd-column-heading">
+            <h2>CONNECT</h2>
+            <p>Business placements and player experiences.</p>
+          </header>
+          <div className="ccd-list">
+            {SPONSORSHIPS.map((item) => (
+              <article id={item.id} className="ccd-item" key={item.id}>
+                <button type="button" className="ccd-item-main" disabled={item.soon} onClick={() => item.interest && setInquiry((prev) => prev?.id === item.id ? null : { id: item.id, interest: item.interest! })} aria-expanded={item.interest ? inquiry?.id === item.id : undefined}>
+                  <Thumb kind={item.thumb} />
+                  <span className="ccd-item-copy">
+                    <span className="ccd-eyebrow">{item.eyebrow}</span>
+                    <strong className="ccd-title">{item.title}</strong>
+                    <span className="ccd-summary">{item.instruction}</span>
+                    <span className="ccd-action">{item.action} {!item.soon && <i className="ri-arrow-right-line" aria-hidden="true" />}</span>
+                  </span>
+                </button>
+                {item.interest && inquiry?.id === item.id ? (
+                  <SponsorInquiry key={item.id} interest={inquiry.interest} onClose={() => setInquiry(null)} />
+                ) : null}
+              </article>
+            ))}
           </div>
-        </div>
+          <p className="ccd-footnote">Sponsorship requests go to the Partner Program team. Online checkout is not active yet.</p>
+        </section>
 
-        <Offer title="Co-Brand Title Sponsor" price interest="title" onInquire={inquire('title')}>
-          <p>
-            Put your business on {hub}&apos;s YAT?STATS, next to the players and stories the town already follows.
-            Sponsorships help keep the hub running and growing.
-          </p>
-          <div className="ccg-benefits">
-            <b>Multiple touch points:</b>
-            <ul>
-              <li>Sponsor Flip Card</li>
-              <li>Email and SMS messages</li>
-              <li>Fan Updates branding</li>
-              <li>Splash Page</li>
-            </ul>
+        <section className="ccd-column ccd-contribute" id="cc-contribute" aria-label="Contribute content and information">
+          <header className="ccd-column-heading">
+            <h2>CONTRIBUTE</h2>
+            <p>Photos, history, updates, and news.</p>
+          </header>
+          <div className="ccd-list">
+            {CONTRIBUTIONS.map((item) => <Transaction item={item} key={item.id} />)}
           </div>
-          <p className="ccg-small">
-            See every opportunity at <a href={PARTNERS_URL} target="_blank" rel="noreferrer">yatstats.com/partners</a>.
-          </p>
-        </Offer>
-        {inquiryForm('title')}
-
-        <Offer title="Active Alumni Profile Sponsor" price interest="profile" onInquire={inquire('profile')}>
-          <p>Sponsor an active alum&apos;s profile page: your business on the page his hometown fans visit all season.</p>
-        </Offer>
-        {inquiryForm('profile')}
-
-        <Offer title="Bracket Ticket Message" price interest="bracket" onInquire={inquire('bracket')}>
-          <p>Your message in the Fantasy Bracket Tourney, in front of the fans playing along every week.</p>
-        </Offer>
-        {inquiryForm('bracket')}
-      </Section>
-
-      <Section id="alumni" title="Connect With Fellow Alumni" photo={pic(3)}>
-        <p>
-          <b>Where YAT now?</b> If you played at the next level, your profile page can say where you are today. Add how to
-          reach you, personally or for your business, your social handles, and the photo on the back of your flip card, so
-          teammates, coaches and fans can find you. You can sponsor your own profile page, too.
-        </p>
-        <Examples caption="Your flip card: tap it to see the back">{examples.alumni}</Examples>
-        <div className="ccg-actions">
-          <button type="button" className="ccg-btn" onClick={() => inquire('alumni')('alumni')}>Update my profile</button>
-          <span className="ccg-muted ccg-small">Sponsor your own page: buy online coming soon</span>
-        </div>
-        {inquiryForm('alumni')}
-      </Section>
-
-      <div className="ccg-group">Contribute</div>
-
-      <Section id="photo" title="Photos" photo={pic(4)}>
-        <p>
-          A silhouette where a photo should be means we don&apos;t have one yet. The high school photo on the front of his
-          flip card is the hardest to find and the one we need most: try a family album, a yearbook or a team
-          photographer&apos;s files.
-        </p>
-        <Examples caption={`${hub} alumni still missing their high school photo`}>{examples.photo}</Examples>
-        <details className="ccg-details">
-          <summary>Every kind of photo we take</summary>
-          <ul className="ccg-list">{PHOTO_TYPES.map((t) => <li key={t.id}><b>{t.prefix} · {t.label}</b> {t.spec}</li>)}</ul>
-        </details>
-        <OpenDrawer tab="photo">Send a photo</OpenDrawer>
-      </Section>
-
-      <Section id="data" title="Update Data" photo={pic(5)}>
-        <p>
-          Stats come from our official stat provider, so we don&apos;t take stat changes. Everything else about him, tell us:
-          his graduation year, height and weight, position, bats and throws, honors, a team or league we don&apos;t list.
-        </p>
-        <Examples caption="Everything on his card that isn't a stat, you can correct">{examples.data}</Examples>
-        <OpenDrawer tab="data">Update player info</OpenDrawer>
-      </Section>
-
-      <Section id="missing" title="Missing Next-Level Alumni" photo={pic(6)}>
-        <p>
-          If he played college, pro or independent ball after high school, he belongs on {hub}&apos;s YAT?STATS. Tell us
-          who he is, his class and where he played, and we&apos;ll add him.
-        </p>
-        <Examples caption="The All-Time Next-Level List">{examples.missing}</Examples>
-        <OpenDrawer tab="missing">Add a missing alum</OpenDrawer>
-      </Section>
-
-      <Section id="tip" title="News Tip" photo={pic(7)}>
-        <p>
-          A call-up, an award, a big game, a feature story. Send us the link. One tip can show up in Active Alumni News, on
-          his profile and on his flip card.
-        </p>
-        <OpenDrawer tab="tip">Send a news tip</OpenDrawer>
-      </Section>
-
-      <p className="ccg-memories">
-        * Looking to share personal memories of a player? Post them on his profile page, on his Career Path Timeline:
-        click the Polaroid icon at the bottom left of the timeline. Stories there let you tell what happened, and let
-        others like, comment, share and tag.
-      </p>
+          <p className="ccd-footnote">If you see a silhouette, a missing name, or an incorrect detail, you can help complete the record.</p>
+        </section>
+      </div>
 
       <style jsx global>{`
-        .ccg { max-width: 1040px; margin: 0 auto; padding: 18px 16px 56px; display: flex; flex-direction: column; gap: 22px; font-family: var(--yat-font-ui); color: var(--sb-ink); }
-        .ccg h2 { margin: 0; font: 700 22px/1.15 var(--yat-font-compact); letter-spacing: .005em; }
-        .ccg-intro p { margin: 6px 0 0; font-size: 14px; line-height: 1.55; max-width: 760px; color: var(--sb-ink-muted); }
-        .ccg-muted { opacity: .7; }
-        .ccg-body a, .ccg-intro a { color: var(--sb-text); text-decoration: underline; text-underline-offset: 2px; }
-        .ccg-small { font-size: 12px; }
-        .ccg-group { margin: 26px 0 0; padding: 0 0 8px; border-bottom: 2px solid var(--sb-head); color: var(--sb-text); font: 700 13px/1 var(--yat-font-ui); letter-spacing: .14em; text-transform: uppercase; }
-        .ccg-sec { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg);
-          scroll-margin-top: calc(var(--row1-h, 56px) + var(--row2-h, 56px) + 96px); }
-        @media (max-width: 560px) { .ccg-sec:not(.has-photo) .ccg-shots, .ccg-sec:not(.has-photo) .ccg-offer, .ccg-sec:not(.has-photo) .ccg-form, .ccg-sec:not(.has-photo) .ccg-real { margin-left: -44px; } }
-        .ccg-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--sb-rim); background: var(--sb-panel); color: #fff; font-size: 17px; }
-        .ccg-body { min-width: 0; }
-        .ccg-body h3 { margin: 4px 0 6px; font: 700 20px/1.15 var(--yat-font-compact); letter-spacing: .005em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .ccg-body h4 { margin: 0 0 6px; font: 700 17px/1.15 var(--yat-font-compact); letter-spacing: .005em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .ccg-body p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--sb-ink-muted); }
-        .ccg-soon { font: 600 11px/1 var(--yat-font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--sb-ink-muted); opacity: .8; }
-        .ccg-cash { color: var(--sb-accent); font-weight: 700; }
-        .ccg-list { margin: 8px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
-        .ccg-list li { margin-bottom: 4px; }
-        .ccg-list b { margin-right: 4px; }
-        .ccg-details { margin: 0 0 12px; font-size: 13px; }
-        .ccg-details summary { cursor: pointer; font: 600 11px/1.3 var(--yat-font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--sb-ink-muted); }
-        .ccg-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0; border: 0; background: none; color: var(--sb-text); font: 700 16px/1 var(--yat-font-compact); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
-        .ccg-btn::after { content: '›'; font-size: 20px; line-height: 1; transform: translateY(-1px); opacity: .8; }
-        .ccg-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
-        .ccg-btn:disabled { opacity: .6; cursor: default; }
-        .ccg-link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font-size: 13px; }
-        .ccg-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
-        .ccg-memories { margin: 4px 0 0; font-size: 13px; line-height: 1.5; opacity: .8; }
-        /* The visual tour */
-        .ccg-shots { display: flex; flex-wrap: wrap; gap: 16px; margin: 6px 0 14px; align-items: flex-start; }
-        .ccg-shot { margin: 0; display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
-        .ccg-shot-frame { padding: 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: rgba(255,255,255,.03); display: flex; justify-content: center; }
-        .ccg-shot figcaption { font: 600 11px/1.2 var(--yat-font-ui); letter-spacing: .05em; text-transform: uppercase; color: var(--sb-ink-muted); opacity: .8; }
-        .ccg-need { position: absolute; z-index: 3; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
-        .ccg-need-dot { width: 16px; height: 16px; border-radius: 50%; background: #e11d2e; border: 2px solid #fff; box-shadow: 0 0 0 0 rgba(225,29,46,.6); animation: ccgPulse 1.6s ease-out infinite; }
-        .ccg-need-label { padding: 3px 7px; border-radius: 6px; background: #e11d2e; color: #fff; font: 700 11px/1.1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
-        @keyframes ccgPulse { 70% { box-shadow: 0 0 0 12px rgba(225,29,46,0); } 100% { box-shadow: 0 0 0 0 rgba(225,29,46,0); } }
-        @media (prefers-reduced-motion: reduce) { .ccg-need-dot { animation: none; } }
-          background: linear-gradient(160deg, #2a2f36, #0b0c0e); color: #fff; font-size: 12px; font-style: italic; }
-        .ccg-offer { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 12px; margin: 0 0 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: rgba(0,0,0,.12); }
-        .ccg-offer-text { flex: 1 1 300px; min-width: 0; }
-        .ccg-offer-visual { flex: 0 1 auto; }
-        .ccg-benefits { font-size: 13px; margin-bottom: 8px; color: var(--sb-ink-muted); }
-        .ccg-benefits ul { margin: 4px 0 0; padding-left: 18px; line-height: 1.5; }
-        /* Real action photos with a bold label (the section headers) */
-        .ccg-tile { position: relative; overflow: hidden; height: clamp(190px, 34vw, 360px); border-radius: 10px; background: #111 center 30% / cover no-repeat; }
-        .ccg-tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.18) 55%, rgba(0,0,0,0)); }
-        .ccg-tile-title { position: absolute; z-index: 1; left: 18px; right: 18px; bottom: 16px; margin: 0 !important; color: #fff; font: 800 clamp(30px, 6.4vw, 56px)/.92 var(--yat-font-compact) !important; letter-spacing: .01em !important; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,.35); }
-        .ccg-tile-credit { position: absolute; z-index: 1; right: 12px; top: 10px; color: rgba(255,255,255,.75); font: 600 10px/1 var(--yat-font-ui); letter-spacing: .08em; text-transform: uppercase; }
-        .ccg-intro .ccg-tile { margin-bottom: 16px; height: clamp(220px, 42vw, 440px); }
-        .ccg-sec.has-photo { display: block; padding: 0; border: 0; background: none; margin-top: 18px; }
-        .ccg-sec.has-photo .ccg-body { padding: 18px 2px 0; max-width: 820px; }
-        .ccg-sec.has-photo .ccg-soon { margin-bottom: 8px; }
-        /* This school's real flip cards (PlayerCard) */
-        .ccg-real { margin: 8px 0 12px; }
-        .ccg-cards { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
-        .ccg-card { position: relative; width: min(220px, calc(50% - 6px)); }
-        .ccg-card .yat-card { width: 100%; }
-        .ccg-card-empty { aspect-ratio: 5 / 7; display: grid; place-items: center; border: 2px dashed #e11d2e; border-radius: 10px; color: #e11d2e; font: 700 44px/1 var(--yat-font-compact); }
-        .ccg-card .ccg-need { z-index: 5; }
-        /* The Partner Program inquiry */
-        .ccg-form { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin: 0 0 10px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); max-width: 640px; }
-        .ccg-form-title { font: 700 14px/1.2 var(--yat-font-compact); letter-spacing: .04em; text-transform: uppercase; }
-        .ccg-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; flex: 1 1 200px; }
-        .ccg-form-row { display: flex; gap: 10px; flex-wrap: wrap; }
-        .ccg-form input, .ccg-form select, .ccg-form textarea { padding: 7px 9px; border-radius: 5px; font-family: var(--yat-font-ui); border: 1px solid var(--line); background: var(--bg, #000); color: inherit; font-size: 14px; }
-        .ccg-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
-        .ccg-form-error { color: #dc2626; margin: 0; font-size: 13px; }
-        .ccg-form-done { margin: 0; font-size: 14px; }
+        .ccd { width:100%; max-width:1160px; margin:0 auto; padding:18px 20px 60px; color:var(--sb-ink); font-family:var(--yat-font-ui); }
+        .ccd-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:18px; padding:4px 0 20px; border-bottom:1px solid var(--sb-card-border); }
+        .ccd-kicker { font:700 10px/1.2 var(--yat-font-ui); letter-spacing:.11em; color:var(--sb-text); }
+        .ccd-heading h1 { margin:5px 0 2px; font:800 clamp(25px,3.4vw,38px)/1 var(--yat-font-compact); text-transform:uppercase; letter-spacing:.015em; }
+        .ccd-heading h1 span { color:var(--sb-text); }
+        .ccd-heading p { margin:7px 0 0; font-size:12px; color:var(--sb-ink-muted); }
+        .ccd-school { font:700 11px/1.4 var(--yat-font-compact); color:var(--sb-ink-muted); text-transform:uppercase; text-align:right; white-space:nowrap; }
+        .ccd-columns { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; margin-top:18px; align-items:start; }
+        .ccd-column { min-width:0; }
+        .ccd-column-heading { padding:7px 0 11px; border-bottom:2px solid var(--sb-text); }
+        .ccd-column-heading h2 { margin:0; font:800 23px/1 var(--yat-font-compact); letter-spacing:.04em; }
+        .ccd-column-heading p { margin:5px 0 0; color:var(--sb-ink-muted); font-size:12px; }
+        .ccd-contribute .ccd-column-heading { border-bottom-color:var(--sb-accent, #d99a28); }
+        .ccd-list { display:flex; flex-direction:column; }
+        .ccd-item { min-width:0; padding:0; border-bottom:1px solid var(--sb-card-border); scroll-margin-top:215px; }
+        .ccd-item-main { display:grid; width:100%; grid-template-columns:86px minmax(0,1fr); gap:12px; align-items:center; padding:14px 3px; border:0; background:none; text-align:left; cursor:pointer; font:inherit; color:inherit; }
+        .ccd-item-main:hover .ccd-title, .ccd-item-main:focus-visible .ccd-title { text-decoration:underline; text-underline-offset:2px; }
+        .ccd-item-main:focus-visible { outline:2px solid var(--sb-text); outline-offset:-2px; }
+        .ccd-item-main:disabled { cursor:default; opacity:.63; }
+        .ccd-item-copy { display:flex; flex-direction:column; min-width:0; align-items:flex-start; }
+        .ccd-eyebrow { color:#cb940f; font:800 9px/1.2 var(--yat-font-ui); letter-spacing:.045em; margin-bottom:3px; }
+        .ccd-title { font:800 15px/1.15 var(--yat-font-ui); letter-spacing:-.025em; }
+        .ccd-summary { margin-top:4px; font:400 12px/1.37 var(--yat-font-ui); color:var(--sb-ink-muted); }
+        .ccd-action { margin-top:5px; font:800 10px/1.3 var(--yat-font-ui); color:var(--sb-text); letter-spacing:.025em; }
+        .ccd-action i { font-size:12px; vertical-align:-1px; }
+        .ccd-thumb { height:72px; width:86px; overflow:hidden; border-radius:4px; position:relative; display:flex; flex-direction:column; justify-content:center; align-items:center; border:1px solid #3b4148; background:#0c1216; color:#fff; isolation:isolate; }
+        .ccd-preview-cap { position:absolute; left:4px; top:4px; font:700 6px/1 var(--yat-font-ui); letter-spacing:.03em; color:#e8e8e8; }
+        .ccd-preview-caption { position:absolute; bottom:4px; left:5px; font:800 7px/1 var(--yat-font-ui); letter-spacing:.045em; color:#efad26; text-shadow:0 1px #000; }
+        .ccd-front-photo { display:flex; width:47%; height:78%; align-items:center; justify-content:center; background:linear-gradient(145deg,#243c38,#101617); border:2px solid #e9ab2b; margin-top:8px; }
+        .ccd-front-photo i { font-size:35px; color:#81928d; }
+        .ccd-head-line { display:flex; gap:4px; align-items:center; margin-top:6px; }
+        .ccd-head-line > span { border:1px solid #a3a8ad; border-radius:50%; width:15px; height:15px; opacity:.4; }
+        .ccd-head-line .ccd-head-target { display:grid; place-items:center; width:36px; height:36px; border:2px solid #e9ab2b; opacity:1; font-size:20px; }
+        .ccd-back-hero { position:absolute; left:4px; right:4px; top:5px; height:37px; border-radius:2px; display:grid; place-items:center; background:linear-gradient(115deg,#171c1a,#416859); border:2px solid #e9ab2b; }
+        .ccd-back-hero i { font-size:27px; }
+        .ccd-back-stats { position:absolute; top:48px; width:100%; font:700 7px/1 var(--yat-font-ui); text-align:center; opacity:.9; }
+        .ccd-timeline { background:linear-gradient(135deg,#192b29,#040706); }
+        .ccd-timeline-image { height:37px; width:42px; display:grid; place-items:center; margin-bottom:5px; border:2px solid #e9ab2b; font-size:26px; }
+        .ccd-timeline-rail { position:absolute; bottom:4px; left:4px; font:700 7px/1 var(--yat-font-ui); color:#efad26; }
+        .ccd-logo-target { display:grid; place-items:center; width:42px; height:42px; border:2px dashed #e9ab2b; border-radius:50%; font-size:27px; }
+        .ccd-icon-thumb { background:radial-gradient(circle at 50% 25%,#344038,#111315); }
+        .ccd-icon-thumb > i { font-size:32px; color:#efad26; }
+        .ccd-help { margin:-3px 0 12px 101px; color:var(--sb-ink-muted); font-size:11px; line-height:1.45; }
+        .ccd-help summary { display:list-item; cursor:pointer; color:var(--sb-text); font:700 10px/1.4 var(--yat-font-ui); }
+        .ccd-help p { margin:6px 0; }
+        .ccd-help button { background:transparent; color:var(--sb-text); font:700 11px var(--yat-font-ui); border:0; cursor:pointer; padding:2px 0; text-decoration:underline; }
+        .ccd-footnote { padding:10px 3px; color:var(--sb-ink-muted); font-size:11px; line-height:1.5; }
+        .ccd-mobile-switch { display:none; }
+        .ccd .ccg-form { display:flex; flex-direction:column; gap:9px; padding:14px; margin:0 0 15px; border:1px solid var(--sb-card-border); border-radius:5px; background:var(--sb-card-bg); }
+        .ccd .ccg-form-title { font:800 14px/1.2 var(--yat-font-ui); }
+        .ccd .ccg-form label { display:flex; flex-direction:column; gap:4px; flex:1 1 170px; min-width:0; font-size:11px; }
+        .ccd .ccg-form-row { display:flex; flex-wrap:wrap; gap:8px; }
+        .ccd .ccg-form input, .ccd .ccg-form select, .ccd .ccg-form textarea { width:100%; border:1px solid var(--sb-card-border); background:var(--bg,#111); color:var(--sb-ink); padding:8px; border-radius:4px; font:400 13px var(--yat-font-ui); }
+        .ccd .ccg-hp { position:absolute; left:-9999px; width:1px; height:1px; }
+        .ccd .ccg-form-error { color:#ff6b6b; margin:0; font-size:12px; }
+        .ccd .ccg-btn { background:var(--sb-panel); color:#fff; border:1px solid var(--sb-rim); font:700 12px var(--yat-font-ui); padding:8px 12px; border-radius:4px; cursor:pointer; }
+        .ccd .ccg-link { color:var(--sb-text); background:none; border:none; font-size:12px; text-decoration:underline; cursor:pointer; }
+        .ccd .ccg-actions { display:flex; gap:12px; align-items:center; }
+        @media (max-width:760px) {
+          .ccd { padding:12px 11px 80px; }
+          .ccd-heading { align-items:flex-start; padding-bottom:12px; }
+          .ccd-school { display:none; }
+          .ccd-columns { display:flex; flex-direction:column; gap:25px; margin-top:8px; }
+          .ccd-contribute { order:1; width:100%; }
+          .ccd-connect { order:2; width:100%; }
+          .ccd-mobile-switch { display:flex; gap:8px; padding:8px 0; }
+          .ccd-mobile-switch a { flex:1; text-align:center; border:1px solid var(--sb-card-border); border-radius:4px; padding:7px; text-decoration:none; color:var(--sb-ink); font:800 11px var(--yat-font-ui); }
+          .ccd-mobile-switch a.is-on { border-color:var(--sb-text); color:var(--sb-text); }
+          .ccd-item-main { grid-template-columns:76px minmax(0,1fr); gap:10px; padding:11px 2px; }
+          .ccd-thumb { width:76px; height:66px; }
+          .ccd-help { margin-left:88px; }
+          .ccd-title { font-size:14px; }
+          .ccd-summary { font-size:11.5px; }
+        }
       `}</style>
     </div>
   );
