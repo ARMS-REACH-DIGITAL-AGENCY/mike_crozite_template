@@ -3,7 +3,7 @@
 import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
-import { CONTRIBUTE_OPTIONS, contributeSectionHref, scrollToContributeSection } from '@/lib/contribute';
+import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, scrollToContributeSection } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
 
@@ -911,9 +911,11 @@ export default function InteractionStrip({
                   className="gallery-slot gallery-slot-link gallery-contribute-slot"
                   title={option.label}
                   aria-label={option.label}
-                  // Down to its section of the page; the drawer opens from
-                  // the button there.
-                  onClick={() => scrollToContributeSection(option.section)}
+                  // Contribution icons open their forms directly. Connect icons
+                  // still scroll to the portal's separate paid offerings.
+                  onClick={() => option.tab
+                    ? openContribute({ tab: option.tab })
+                    : scrollToContributeSection(option.section)}
                 >
                   <div className="gallery-slot-media gallery-contribute-media">
                     <i className={option.icon} aria-hidden="true" />
