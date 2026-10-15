@@ -20,21 +20,24 @@ const rows = [
   { hsid: '79', hsname: 'A & B "School" <test>', hslocation: 'Town, CA', microsite_url: 'https://school.yatstats.com/?team=2027#old' },
 ];
 const html = renderSchoolRows(rows, 'No schools', true);
-assert.equal((html.match(/class="yat-search-school-bracket-link"/g) || []).length, 3);
+assert.equal((html.match(/class="yat-search-school-bracket-link"/g) || []).length, 2, 'Only schools with microsites get bracket links.');
 assert.equal((html.match(/class="yat-search-school-link-guide"/g) || []).length, 0);
-assert.equal((html.match(/class="yat-search-school-crest-link yat-search-school-gallery-crest-link"/g) || []).length, 3);
+assert.equal((html.match(/class="yat-search-school-crest-link yat-search-school-gallery-crest-link"/g) || []).length, 2);
 for (const body of html.matchAll(/<a class="yat-search-school-bracket-link"[^>]*>([\s\S]*?)<\/a>/g)) {
   assert.equal(body[1].replace(/<[^>]*>/g, '').trim(), '', 'Bracket shortcut must be icon-only.');
   assert.ok(body[1].includes('yat-bracket-symbol'));
 }
-assert.ok(html.indexOf('yat-search-school-bracket-link') < html.indexOf('yat-search-school-gallery-crest-link'), 'Bracket must precede the far-right school logo.');
+assert.ok(html.indexOf('yat-search-school-gallery-crest-link') < html.indexOf('yat-search-school-bracket-link'), 'School crest must appear on the left, before the optional bracket icon.');
 assert.ok(html.includes('href="https://hamilton.az.yatstats.com/#sec-fantasy"'));
 assert.ok(html.includes('href="https://hamilton.az.yatstats.com/#sec-active"'));
-assert.ok(html.includes('href="/7733#sec-fantasy"'));
-assert.ok(html.includes('href="/7733#sec-active"'));
+assert.ok(!html.includes('href="/7733#sec-fantasy"'), 'No bracket shortcut without a microsite.');
+assert.ok(!html.includes('href="/7733#sec-active"'), 'No gallery link without a microsite.');
 assert.ok(html.includes('href="https://school.yatstats.com/?team=2027#sec-fantasy"'));
 assert.ok(!html.includes('#old'));
 assert.ok(html.includes('Open A &amp; B &quot;School&quot; &lt;test&gt; fantasy bracket tournament. Starts February 1st.'));
+assert.ok(html.includes('class="yat-search-row-text yat-search-school-identity"'), 'Every school uses the shared location/name/status block.');
+assert.ok(html.includes('class="yat-search-school-location"'), 'Location appears on the first school-identity line.');
+assert.ok(html.includes('class="yat-search-school-status"'), 'Alumni/status notation appears below the school name.');
 assert.ok(!html.includes('<test>'));
 assert.ok(!html.includes('data-tab="fantasy"'), 'Cross-school links must not trigger the current-school tab controller.');
 let openAnchors = 0;
@@ -65,4 +68,4 @@ const timelineGold = timeline.match(/const TIMELINE_YELLOW = '(#[0-9a-f]+)'/)[1]
 assert.ok(styles.includes(`--yat-bracket-accent: ${timelineGold};`), 'Use the actual timeline rail/status color.');
 assert.match(styles, /yat-drawer-fantasy-highlight \{[^}]*border: 0;[^}]*background: none;[^}]*outline: none;/);
 assert.match(source, /yat-search-school-bracket-link \{[^}]*border: 0;[^}]*background: none;[^}]*outline: none;/);
-console.log('PASS: icon-only links left of logos, exact timeline gold, no box/outline styles, school URLs, escaping, unchanged picker, and February start date.');
+console.log('PASS: crest-left school identities, correct conditional bracket links, safe school destinations, escaping, and February start date.');
