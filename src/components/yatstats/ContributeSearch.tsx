@@ -143,7 +143,19 @@ export default function ContributeSearch(props: Props) {
       ) : null}
       <div ref={results} className="yat-gs-results ycs-results" role="listbox" aria-label="Search results" />
       <style jsx global>{`
-        .ycs .yat-gs-input-wrap { margin-top: 2px; }
+        .ycs .yat-gs-input-wrap { margin-top: 2px; position:relative; display:flex; align-items:center; min-width:0; }
+        /* Search icon lives to the left of the prompt, with its own space.
+           Global drawer input styles otherwise overwrite search padding. */
+        .yat-contribute-drawer .ycs .yat-gs-input-wrap input.yat-gs-input {
+          box-sizing:border-box; width:100%; min-width:0;
+          padding:10px 34px 10px 43px !important;
+          text-indent:0 !important;
+        }
+        .yat-contribute-drawer .ycs .yat-gs-input-wrap .yat-gs-input-icon {
+          position:absolute !important; left:13px !important; right:auto !important;
+          top:50% !important; transform:translateY(-50%) !important;
+          z-index:1; font-size:18px; pointer-events:none; opacity:.8;
+        }
         .ycs-results { max-height: none !important; overflow: visible !important; }
         .ycs-back { align-self: flex-start; margin: 4px 0; border: 0; background: none; padding: 0; color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
         .ycs .yat-search-player-result, .ycs .yat-search-school-card { cursor: pointer; }
