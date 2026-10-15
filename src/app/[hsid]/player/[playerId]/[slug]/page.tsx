@@ -924,7 +924,16 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── NEWS tab ─────────────────────────────────────────────────────── */}
         <div id="ppTab-news" className="pp-fz-panel">
-          <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} />
+          <div className="yp-profile-partner-columns">
+            <div className="yp-profile-partner-body">
+              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} />
+            </div>
+            <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
+              <span>PLAYER PROFILE PARTNER</span>
+              <strong>ADVERTISER<br/>PLACEMENT</strong>
+              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+            </aside>
+          </div>
         </div>
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
@@ -964,18 +973,36 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── CONNECT tab ──────────────────────────────────────────────────── */}
         <div id="ppTab-connect" className="pp-fz-panel">
-          <div className="pp-fz-placeholder">
-            <i className="ri-group-line pp-ph-icon" />
-            <p>
-              Connect with {firstName} through the{" "}
-              <strong>Connect &amp; Contribute Portal</strong>.
-            </p>
+          <div className="yp-profile-partner-columns">
+            <div className="yp-profile-partner-body yp-profile-partner-connect">
+              <div className="yp-player-video-placeholder" role="img" aria-label="Player video invitation placeholder">
+                <i className="ri-play-circle-line" aria-hidden="true" />
+                <strong>A PERSONAL MESSAGE FROM {firstName.toUpperCase()}</strong>
+                <span>PLAYER VIDEO PREVIEW COMING SOON</span>
+              </div>
+              <p>Active and retired players can invite their fans to connect through personalized video messages.</p>
+              <a className="yp-player-video-link" href={`/${hsid}/connect-contribute#cc-connect`}>LEARN ABOUT VIDEO EXCHANGES →</a>
+            </div>
+            <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
+              <span>PLAYER PROFILE PARTNER</span>
+              <strong>ADVERTISER<br/>PLACEMENT</strong>
+              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+            </aside>
           </div>
         </div>
 
         {/* ── UPLOAD tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-upload" className="pp-fz-panel pp-fz-panel-default">
-          <StoriesFeed playerId={safePlayerId} playerName={playerNewsFullName} />
+          <div className="yp-profile-partner-columns">
+            <div className="yp-profile-partner-body">
+              <StoriesFeed playerId={safePlayerId} playerName={playerNewsFullName} />
+            </div>
+            <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
+              <span>PLAYER PROFILE PARTNER</span>
+              <strong>ADVERTISER<br/>PLACEMENT</strong>
+              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+            </aside>
+          </div>
         </div>
 
         {/* The icon row that switches these tabs is rendered by
@@ -988,6 +1015,50 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
+        /* Actual player FunZone layout: partner tower BESIDE existing content.
+           Never restructure the stats/schedule panels or the timeline. */
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+          display:grid;grid-template-columns:minmax(0,1fr) clamp(165px,22vw,235px);
+          align-items:stretch;gap:12px;width:100%;height:100%;min-height:0;
+          background:inherit;
+        }
+        #playerFunZone .yp-profile-partner-body {
+          min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;
+          scrollbar-width:thin;
+        }
+        #playerFunZone .yp-profile-partner-body .pp-news-feed {padding-left:6px;padding-right:6px;}
+        #playerFunZone .yp-profile-ad {
+          display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;
+          width:100%;min-width:0;min-height:0;padding:19px 12px;
+          border:1px dashed #9b9b9b;border-radius:4px;
+          color:#ececec;background:#191919;text-align:center;
+        }
+        #playerFunZone .yp-profile-ad span {font:800 10px/1.25 var(--yat-font-compact);letter-spacing:.07em;color:#ccc;}
+        #playerFunZone .yp-profile-ad strong {font:800 clamp(17px,2vw,27px)/1.05 var(--yat-font-compact);}
+        #playerFunZone .yp-profile-ad small {font:400 11px/1.4 var(--yat-font-ui);color:#bbb;}
+        #playerFunZone .yp-profile-partner-connect {display:flex;flex-direction:column;align-items:center;gap:11px;justify-content:flex-start;padding:13px;}
+        #playerFunZone .yp-player-video-placeholder {display:flex;flex-direction:column;gap:9px;align-items:center;justify-content:center;min-height:190px;width:100%;padding:14px;border:1px solid #444;background:radial-gradient(circle at 50% 40%,#194b36,#0d1512 70%);color:#eee;text-align:center;}
+        #playerFunZone .yp-player-video-placeholder i {font-size:40px;line-height:1;}
+        #playerFunZone .yp-player-video-placeholder strong {font:800 21px/1.1 var(--yat-font-compact);}
+        #playerFunZone .yp-player-video-placeholder span {color:#bbb;font:700 11px var(--yat-font-compact);}
+        #playerFunZone .yp-profile-partner-connect p {font:400 12px/1.45 var(--yat-font-ui);color:inherit;text-align:center;}
+        #playerFunZone .yp-player-video-link {border:1px solid currentColor;padding:8px 11px;font:800 11px/1.1 var(--yat-font-compact);text-decoration:none;color:inherit;}
+        @media(max-width:740px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+            display:flex;flex-direction:column;gap:0;height:100%;overflow:auto;
+          }
+          #playerFunZone .yp-profile-partner-body {
+            flex:1 0 auto;min-height:0;max-height:none;overflow:visible;
+          }
+          #playerFunZone .yp-profile-ad {
+            flex:0 0 auto;flex-direction:row;gap:12px;justify-content:space-around;
+            min-height:76px;max-height:95px;padding:10px;margin:5px 0 12px;
+          }
+          #playerFunZone .yp-profile-ad span {font-size:9px;}
+          #playerFunZone .yp-profile-ad strong {font-size:16px;}
+          #playerFunZone .yp-profile-ad small {max-width:33%;font-size:9px;}
+        }
+
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
