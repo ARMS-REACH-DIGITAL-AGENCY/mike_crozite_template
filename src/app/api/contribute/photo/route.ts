@@ -130,6 +130,31 @@ export async function POST(req: NextRequest) {
       season: details.season,
       note: note || null,
     });
+    // Do not publish an AI-approved photo until the moderation outcome can
+    // actually be persisted. The runtime database role may have INSERT but
+    // no UPDATE policy on media_upload. Previously this silently left
+    // approved/rejected uploads permanently 'pending' and could still
+    // publish the image to S3.
+    const moderation = verdict ? {
+      decision: verdict.decision,
+      description: verdict.description,
+      reason: verdict.reason_for_fan,
+      checked_at: new Date().toISOString(),
+    } : null;
+    const { rows: recordable } = await query<{ id: string }>(
+      `UPDATE media_upload SET description = $2 WHERE id = $1 RETURNING id::text AS id`,
+      [id, JSON.stringify({ ...details, moderation })]
+    );
+    if (recordable.length !== 1) {
+      console.error('[contribute/photo] moderation cannot be recorded; holding unpublished upload', {
+        uploadId: id, purpose,
+      });
+      return NextResponse.json({
+        ok: true, id, status: 'pending',
+        message: 'Your photo was received. It is awaiting review before it appears on the site.',
+        link: null,
+      }, { status: 201 });
+    }
     let status: 'approved' | 'rejected' | 'pending' = 'pending';
     let message = "Thanks! We'll take a look and email you when it's on the site.";
     let publishedAssets: string[] = [];
@@ -149,7 +174,7 @@ export async function POST(req: NextRequest) {
     }
     const { rows: updated } = await query<{ id: string }>(
       `UPDATE media_upload SET status = $2, description = $3 WHERE id = $1 RETURNING id::text AS id`,
-      [id, status, JSON.stringify({ ...details, moderation: verdict ? { decision: verdict.decision, description: verdict.description, reason: verdict.reason_for_fan, checked_at: new Date().toISOString() } : null, published_assets: publishedAssets })]
+      [id, status, JSON.stringify({ ...details, moderation, published_assets: publishedAssets })]
     );
     if (updated.length !== 1) {
       const { rows: [dbContext] } = await query<{ db_role: string; rls_active: boolean }>(

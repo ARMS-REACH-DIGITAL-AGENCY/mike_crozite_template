@@ -3,7 +3,7 @@
 import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
-import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, scrollToContributeSection } from '@/lib/contribute';
+import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
 
@@ -818,9 +818,49 @@ export default function InteractionStrip({
         .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
-        .gallery-strip .gallery-contribute-media { display: grid; place-items: center; background: linear-gradient(180deg, #1f6546, #174c35) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
-        .gallery-strip .gallery-contribute-media i { font-size: min(46px, max(26px, 3.4vw)); color: #fff; line-height: 1; }
-        .gallery-contribute-slot:hover .gallery-contribute-media i, .gallery-contribute-slot:focus-visible .gallery-contribute-media i { transform: scale(1.08); }
+        /* Row 3's existing 60px circular portrait and 9px Oswald caption.
+           Clip the portrait's lower 60px INSIDE the ring; extend only the
+           transparent upper 8px ABOVE it. Never float the entire cutout
+           outside the circle. */
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-contribute-media {
+          position:relative; width:60px; height:60px; overflow:visible !important;
+          border:0 !important; border-radius:0 !important;
+          background:transparent !important; box-shadow:none !important;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle {
+          position:absolute; inset:0; z-index:1; display:block;
+          overflow:hidden; border:1px solid #c7c7c7; border-radius:50%;
+          background:#111; box-sizing:border-box;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img {
+          position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+          display:block; width:60px; height:60px; max-width:none;
+          object-fit:cover; object-position:center 25%; padding:0;
+          border:0; border-radius:0; filter:none;
+        }
+        /* Non-player artwork stays entirely inside the circular frame.
+           Only transparent player cutouts may extend above its top rim. */
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img:not(.gallery-contribute-cutout) {
+          width:100%; height:100%; max-width:100%; left:0; bottom:0;
+          transform:none; object-fit:contain; object-position:center center;
+          padding:5px; box-sizing:border-box;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img.gallery-contribute-cutout {
+          height:68px; object-fit:contain; object-position:center bottom;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-media > img.gallery-contribute-above {
+          position:absolute; z-index:2; bottom:0; left:0; display:block;
+          width:60px; height:68px; max-width:none;
+          object-fit:contain; object-position:center bottom; filter:none;
+          border:0; border-radius:0;
+          clip-path:inset(0 0 60px 0); pointer-events:none;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:hover .gallery-contribute-media,
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:focus-visible .gallery-contribute-media { transform:translateY(-1px); }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay {
+          font:300 9px/11px Oswald,sans-serif; letter-spacing:0; color:#e5e5e5;
+        }
+        body.light-theme .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay { color:#555; }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
@@ -911,14 +951,51 @@ export default function InteractionStrip({
                   className="gallery-slot gallery-slot-link gallery-contribute-slot"
                   title={option.label}
                   aria-label={option.label}
-                  // Contribution icons open their forms directly. Connect icons
-                  // still scroll to the portal's separate paid offerings.
+                  // Every shortcut opens its associated drawer directly.
+                  // Paid/partner options open the Connect inquiry drawer;
+                  // informational contributions open the existing upload/data drawers.
                   onClick={() => option.tab
                     ? openContribute({ tab: option.tab })
-                    : scrollToContributeSection(option.section)}
+                    : openConnectInquiry(option.id === 'player' ? 'video' : option.id === 'fans' ? 'title' : 'alumni')}
                 >
                   <div className="gallery-slot-media gallery-contribute-media">
-                    <i className={option.icon} aria-hidden="true" />
+                    <span className="gallery-contribute-circle" aria-hidden="true">
+                      <img
+                        loading="lazy"
+                        alt=""
+                        className={option.id === 'player' || option.id === 'alumni' ? 'gallery-contribute-cutout' : undefined}
+                        src={({
+                          player: `${PLAYER_NOW_CUTOUT_BASE}/180827.png`,
+                          fans: '/img/splash-partner-demo.svg',
+                          alumni: `${PLAYER_NOW_CUTOUT_BASE}/225132.png`,
+                          photo: `${PLAYER_THEN_BASE}/180827.jpg`,
+                          data: '/img/az_state_champ_roster.webp',
+                          missing: '/img/az_state_champ_roster.webp',
+                          tip: '/img/connect-contribute-portal.png',
+                        } as Record<string,string>)[option.id] || '/img/connect-contribute-portal.png'}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.classList.contains('gallery-contribute-cutout')) {
+                            img.classList.remove('gallery-contribute-cutout');
+                            img.src = option.id === 'player'
+                              ? `${PLAYER_NOW_BASE}/180827.jpg`
+                              : `${PLAYER_NOW_BASE}/225132.jpg`;
+                            return;
+                          }
+                          if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
+                        }}
+                      />
+                    </span>
+                    {(option.id === 'player' || option.id === 'alumni') ? (
+                      <img
+                        aria-hidden="true"
+                        alt=""
+                        className="gallery-contribute-above"
+                        loading="lazy"
+                        src={`${PLAYER_NOW_CUTOUT_BASE}/${option.id === 'player' ? '180827' : '225132'}.png`}
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : null}
                   </div>
                   <div className="gallery-slot-name-overlay">{option.short}</div>
                 </button>
