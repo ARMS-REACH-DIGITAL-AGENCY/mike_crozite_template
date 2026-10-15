@@ -26,6 +26,7 @@ import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
+import PartnerProgramPage from "@/components/yatstats/PartnerProgramPage";
 
 export const runtime = "nodejs";
 
@@ -698,31 +699,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-partner" className="yat-section">
-        <Placeholder
-          icon="🤝"
-          title="PCD Action Partner Program"
-          body={
-            <>
-              Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
-              <br /><br />
-              <a
-                href="mailto:pete@yatstats.com"
-                style={{
-                  display: "inline-block",
-                  background: "#00e676",
-                  color: "#000",
-                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                  fontSize: "14px",
-                  letterSpacing: ".1em",
-                  padding: "10px 24px",
-                  borderRadius: "4px",
-                }}
-              >
-                Get In Touch
-              </a>
-            </>
-          }
-        />
+        <PartnerProgramPage />
       </section>
     </>
   );
