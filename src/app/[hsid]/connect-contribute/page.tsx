@@ -10,11 +10,13 @@
 // school photo, one whose class year is only an estimate, a retired alum.
 
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 import {
   getAllTimeRosterByHsid,
   getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
   getSchoolByHsid,
+  getSchoolByUrl,
 } from '@/lib/db';
 import { getPlayerThenCardUrl } from '@/lib/playerImage';
 import { gradClassInfo } from '@/lib/playerUtils';
@@ -147,7 +149,11 @@ async function buildExamples(hsid: string, schoolName: string, schoolLocation: s
 
 export default async function ConnectContributePage({ params }: { params: Promise<{ hsid: string }> }) {
   const { hsid } = await params;
-  const school = /^\d+$/.test(hsid) ? ((await getSchoolByHsid(hsid).catch(() => null)) as Row | null) : null;
+  // Use the same school lookup strategy as the shared dynamic school layout.
+  // Preview paths provide numeric HSIDs; school hostnames require the URL fallback.
+  const host = (await headers()).get('host') || '';
+  const schoolById = /^\d+$/.test(hsid) ? await getSchoolByHsid(hsid).catch(() => null) : null;
+  const school = (schoolById || (host ? await getSchoolByUrl(`https://${host}`).catch(() => null) : null)) as Row | null;
   const schoolName = String(school?.hsname || '');
   const examples = school
     ? await buildExamples(String(school.hsid ?? hsid), schoolName, String(school.hslocation || '')).catch((error) => {
