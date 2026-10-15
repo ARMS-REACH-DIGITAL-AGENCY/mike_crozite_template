@@ -211,9 +211,14 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
       if (connect) setView('connect');
       if (contribute) setView('contribute');
     };
+    const selectFromShortcut = () => selectFromHash();
     selectFromHash();
     window.addEventListener('hashchange', selectFromHash);
-    return () => window.removeEventListener('hashchange', selectFromHash);
+    window.addEventListener('yat-contribute-navigate', selectFromShortcut);
+    return () => {
+      window.removeEventListener('hashchange', selectFromHash);
+      window.removeEventListener('yat-contribute-navigate', selectFromShortcut);
+    };
   }, []);
 
   return (
