@@ -89,10 +89,16 @@ export async function logContribution(
 // site: his profile (opened on the Career Path Timeline for a timeline
 // image), the school's home for its crest. "Other" photos are placed by
 // hand, so they have none.
-export function photoLinkPath(purpose: string, p: { playerId?: string | null; playerName?: string | null; hsid?: string | null }): string | null {
+export function photoLinkPath(purpose: string, p: { playerId?: string | null; playerName?: string | null; hsid?: string | null; pageUrl?: string | null }): string | null {
   const hsid = String(p.hsid || '');
   if (!/^\d+$/.test(hsid)) return null;
-  if (purpose === 'school_logo') return `/${hsid}`;
+  if (purpose === 'school_logo') {
+    // Every TBC school appears in Global Search; only some have microsites.
+    // Keep the contributor on the page where they submitted the crest.
+    let path = '/';
+    try { if (p.pageUrl) path = new URL(p.pageUrl).pathname; } catch {}
+    return `${path}?schoolSearch=${encodeURIComponent(hsid)}`;
+  }
   if (purpose === 'other_photo' || !p.playerId) return null;
   const [fn, ...ln] = String(p.playerName || '').trim().split(/\s+/);
   const profile = `/${hsid}/player/${encodeURIComponent(p.playerId)}/${toPlayerSlug(fn, ln.join(' '))}`;
