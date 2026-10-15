@@ -39,6 +39,11 @@ function getDisplayName(session: FanSession | null) {
   return String(session.email || '').trim();
 }
 
+function prefillDateFromYear(year: unknown) {
+  const raw = String(year || '').match(/\d{4}/)?.[0];
+  return raw ? `${raw}-07-01` : '';
+}
+
 function openAccountDrawer(tab: 'signin' | 'register') {
   if (typeof window === 'undefined') return;
 
@@ -60,6 +65,7 @@ export default function GoldenLineUploadPanel() {
   const firstName = playerName.split(' ')[0] || 'this player';
 
   const [stage, setStage] = useState('Youth Baseball');
+  const [photoTakenDate, setPhotoTakenDate] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -101,16 +107,29 @@ export default function GoldenLineUploadPanel() {
       } catch {}
     };
 
+    const updatePrefillDate = (event?: Event) => {
+      try {
+        const eventYear = (event as CustomEvent | undefined)?.detail?.year;
+        const savedDate = sessionStorage.getItem('yat:goldenLinePrefillDate') || '';
+        const savedYear = sessionStorage.getItem('yat:goldenLinePrefillYear') || '';
+        const nextDate = prefillDateFromYear(eventYear) || savedDate || prefillDateFromYear(savedYear);
+        if (nextDate) setPhotoTakenDate(nextDate);
+      } catch {}
+    };
+
     updateStage();
+    updatePrefillDate();
     refreshSession();
 
     const handleAuthChange = () => refreshSession();
     window.addEventListener('yat:golden-line-stage', updateStage);
+    window.addEventListener('yat:golden-line-prefill', updatePrefillDate as EventListener);
     window.addEventListener('yat-auth-success', handleAuthChange);
     window.addEventListener('yat-sign-out', handleAuthChange);
 
     return () => {
       window.removeEventListener('yat:golden-line-stage', updateStage);
+      window.removeEventListener('yat:golden-line-prefill', updatePrefillDate as EventListener);
       window.removeEventListener('yat-auth-success', handleAuthChange);
       window.removeEventListener('yat-sign-out', handleAuthChange);
     };
@@ -144,6 +163,7 @@ export default function GoldenLineUploadPanel() {
     formData.set('playerId', playerId);
     formData.set('hsid', hsid);
     formData.set('stage', stage);
+    formData.set('photoTakenDate', photoTakenDate);
     formData.set('playerName', playerName);
     formData.set('pageUrl', typeof window !== 'undefined' ? window.location.href : '');
     formData.set('firebaseUid', session?.uid || '');
@@ -164,7 +184,7 @@ export default function GoldenLineUploadPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Upload failed');
-      setUploadStatus('Uploaded. It is pending review and should appear in the Golden Line after refresh.');
+      setUploadStatus('Uploaded. It is visible on the Golden Line while pending review.');
       form.reset();
       setPreviewUrl('');
       window.dispatchEvent(new CustomEvent('yat:golden-line-uploaded', { detail: data.moment }));
@@ -236,7 +256,7 @@ export default function GoldenLineUploadPanel() {
         <div className="glu-kicker">The Golden Line</div>
         <h2>Upload a memory from {firstName}&apos;s baseball journey.</h2>
         <p>
-          This submission will be saved under your YAT?STATS identity and synced into ARMS, so the memory connects back to the fan who shared it.
+          This submission will be saved under your YAT?STATS identity and synced into ARMS. Public memories appear immediately and remain subject to review/removal.
         </p>
         <div className="glu-identity-card">
           <span>Submitting as</span>
@@ -255,7 +275,7 @@ export default function GoldenLineUploadPanel() {
 
         <label>
           Date photo was taken
-          <input name="photoTakenDate" type="date" />
+          <input name="photoTakenDate" type="date" value={photoTakenDate} onChange={(event) => setPhotoTakenDate(event.target.value)} />
         </label>
 
         <label>
@@ -286,7 +306,7 @@ export default function GoldenLineUploadPanel() {
 
         <div className="glu-actions">
           <button type="submit" disabled={isUploading || !playerId}>{isUploading ? 'Uploading...' : 'Submit Memory'}</button>
-          <span>{uploadStatus || 'Submitted photos are saved as pending memories.'}</span>
+          <span>{uploadStatus || 'Public photos appear immediately and remain pending review.'}</span>
         </div>
       </form>
 
