@@ -83,7 +83,10 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-left-nav-content .yat-drawer-nav { padding-right:12px; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 10px 8px; border: 1px solid rgba(200,169,110,.6); border-left: 3px solid var(--accent, #c8a96e); border-radius: 7px; background: rgba(200,169,110,.10); color: var(--accent, #c8a96e); }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-      #drawerLeft .yat-drawer-fantasy-start { font: 500 11px/1.25 Oswald, sans-serif; letter-spacing: .035em; word-spacing: normal; }
+      #drawerLeft .yat-drawer-fantasy-title { display: flex; flex-direction: column; gap: 1px; line-height: 1.18; letter-spacing: -.025em; word-spacing: normal; }
+      #drawerLeft .yat-drawer-fantasy-title > span { display: block; white-space: nowrap; }
+      /* Doto is loaded by the school layout: match the existing bracket ticker's scoreboard lettering. */
+      #drawerLeft .yat-drawer-fantasy-start { display: block; font-size: 11px; font-weight: 700; line-height: 1.25; letter-spacing: .015em; word-spacing: normal; white-space: nowrap; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight:hover { background: rgba(200,169,110,.20); }
       #drawerLeft .yat-drawer-fantasy-highlight:focus-visible { outline: 2px solid var(--accent, #c8a96e); outline-offset: 3px; }
       body.light-theme #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { color: #70501e; border-color: #94713b; }
