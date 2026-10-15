@@ -5,7 +5,7 @@
 // destination graphic, action name, one instruction, and one click to begin.
 // All photo cards open the existing image flow with the correct slot preselected.
 
-import { useContext, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import {
   PHOTO_TYPES, SPONSOR_INTERESTS, openContribute,
@@ -164,6 +164,41 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
   const [inquiry, setInquiry] = useState<{ id: string; interest: SponsorInterest } | null>(null);
   const [view, setView] = useState<'contribute' | 'connect'>('contribute');
   const hub = schoolName || 'your school';
+  const handledShareLink = useRef(false);
+
+  // Shareable, prefilled upload links for school outreach, e.g.
+  // /connect-contribute?upload=flip_card&playerId=180827.
+  // A fan can go straight to the right form without searching for the
+  // school, the player, or the destination. An invalid player falls
+  // back safely to the normal player search.
+  useEffect(() => {
+    if (handledShareLink.current) return;
+    handledShareLink.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const rawType = params.get('upload') || params.get('photoType');
+    const photoType = PHOTO_TYPES.find((type) => type.id === rawType)?.id;
+    const action = params.get('contribute');
+    if (!photoType && !['tip', 'missing', 'data', 'photo'].includes(String(action || ''))) return;
+    const tab = photoType || action === 'photo' ? 'photo' : action === 'tip' || action === 'missing' || action === 'data' ? action : 'photo';
+    const playerId = String(params.get('playerId') || '').trim();
+    const open = (player?: ContributeOpen['player']) => {
+      requestAnimationFrame(() => openContribute({ tab, photoType, ...(player ? { player } : {}) }));
+    };
+    if (!playerId || !/^(?:YAT)?\d+$/i.test(playerId)) { open(); return; }
+    fetch(`/api/contribute/seasons?playerId=${encodeURIComponent(playerId)}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        const p = data?.player;
+        if (!p?.name || !p?.hsid) return open();
+        open({
+          playerId,
+          displayName: String(p.name),
+          schoolId: String(p.hsid),
+          schoolName: String(p.schoolName || hub),
+        });
+      })
+      .catch(() => open());
+  }, [hub]);
 
   return (
     <div className="ccd">
