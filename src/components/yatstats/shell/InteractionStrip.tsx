@@ -818,31 +818,38 @@ export default function InteractionStrip({
         .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
-        /* Connect & Contribute Row 3: restore the original circular thumbnails.
-           Only a verified transparent player cutout extends beyond the ring.
-           Reuse Row 3's existing 9px Oswald label and fixed baseline. */
+        /* Row 3's existing 60px circular portrait and 9px Oswald caption.
+           Clip the portrait's lower 60px INSIDE the ring; extend only the
+           transparent upper 8px ABOVE it. Never float the entire cutout
+           outside the circle. */
         .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-contribute-media {
           position:relative; width:60px; height:60px; overflow:visible !important;
           border:0 !important; border-radius:0 !important;
           background:transparent !important; box-shadow:none !important;
         }
         .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle {
-          position:absolute; inset:0; z-index:0;
-          border:1px solid #c7c7c7; border-radius:50%; background:#111;
+          position:absolute; inset:0; z-index:1; display:block;
+          overflow:hidden; border:1px solid #c7c7c7; border-radius:50%;
+          background:#111; box-sizing:border-box;
         }
-        .gallery-strip[data-active-section="mentor"] .gallery-contribute-media img {
-          display:block; position:absolute; z-index:1; left:0; bottom:0;
-          width:60px; height:60px; object-fit:cover; object-position:center 25%;
-          border-radius:50%; border:0; padding:0; filter:none;
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img {
+          position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+          display:block; width:60px; height:60px; max-width:none;
+          object-fit:cover; object-position:center 25%; padding:0;
+          border:0; border-radius:0; filter:none;
         }
-        .gallery-strip[data-active-section="mentor"] .gallery-contribute-media img.gallery-contribute-cutout {
-          height:70px; object-fit:contain; object-position:center bottom;
-          border-radius:0;
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img.gallery-contribute-cutout {
+          height:68px; object-fit:contain; object-position:center bottom;
         }
-        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:hover img,
-        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:focus-visible img {
-          transform:translateY(-2px);
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-media > img.gallery-contribute-above {
+          position:absolute; z-index:2; bottom:0; left:0; display:block;
+          width:60px; height:68px; max-width:none;
+          object-fit:contain; object-position:center bottom; filter:none;
+          border:0; border-radius:0;
+          clip-path:inset(0 0 60px 0); pointer-events:none;
         }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:hover .gallery-contribute-media,
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:focus-visible .gallery-contribute-media { transform:translateY(-1px); }
         .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay {
           font:300 9px/11px Oswald,sans-serif; letter-spacing:0; color:#e5e5e5;
         }
@@ -945,34 +952,43 @@ export default function InteractionStrip({
                     : openConnectInquiry(option.id === 'player' ? 'video' : option.id === 'fans' ? 'title' : 'alumni')}
                 >
                   <div className="gallery-slot-media gallery-contribute-media">
-                    <span className="gallery-contribute-circle" aria-hidden="true" />
-                    <img
-                      loading="lazy"
-                      alt=""
-                      className={option.id === 'player' || option.id === 'alumni' ? 'gallery-contribute-cutout' : undefined}
-                      src={({
-                        player: `${PLAYER_NOW_CUTOUT_BASE}/180827.png`,
-                        fans: '/img/splash-partner-demo.svg',
-                        alumni: `${PLAYER_NOW_CUTOUT_BASE}/225132.png`,
-                        photo: `${PLAYER_THEN_BASE}/180827.jpg`,
-                        data: '/img/az_state_champ_roster.webp',
-                        missing: '/img/az_state_champ_roster.webp',
-                        tip: '/img/connect-contribute-portal.png',
-                      } as Record<string,string>)[option.id] || '/img/connect-contribute-portal.png'}
-                      onError={(e) => {
-                        const img = e.currentTarget;
-                        // If a transparent cutout is unavailable, use a normal
-                        // circular headshot. Never leave a square error fallback.
-                        if (img.classList.contains('gallery-contribute-cutout')) {
-                          img.classList.remove('gallery-contribute-cutout');
-                          img.src = option.id === 'player'
-                            ? `${PLAYER_NOW_BASE}/180827.jpg`
-                            : `${PLAYER_NOW_BASE}/225132.jpg`;
-                          return;
-                        }
-                        if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
-                      }}
-                    />
+                    <span className="gallery-contribute-circle" aria-hidden="true">
+                      <img
+                        loading="lazy"
+                        alt=""
+                        className={option.id === 'player' || option.id === 'alumni' ? 'gallery-contribute-cutout' : undefined}
+                        src={({
+                          player: `${PLAYER_NOW_CUTOUT_BASE}/180827.png`,
+                          fans: '/img/splash-partner-demo.svg',
+                          alumni: `${PLAYER_NOW_CUTOUT_BASE}/225132.png`,
+                          photo: `${PLAYER_THEN_BASE}/180827.jpg`,
+                          data: '/img/az_state_champ_roster.webp',
+                          missing: '/img/az_state_champ_roster.webp',
+                          tip: '/img/connect-contribute-portal.png',
+                        } as Record<string,string>)[option.id] || '/img/connect-contribute-portal.png'}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          if (img.classList.contains('gallery-contribute-cutout')) {
+                            img.classList.remove('gallery-contribute-cutout');
+                            img.src = option.id === 'player'
+                              ? `${PLAYER_NOW_BASE}/180827.jpg`
+                              : `${PLAYER_NOW_BASE}/225132.jpg`;
+                            return;
+                          }
+                          if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
+                        }}
+                      />
+                    </span>
+                    {(option.id === 'player' || option.id === 'alumni') ? (
+                      <img
+                        aria-hidden="true"
+                        alt=""
+                        className="gallery-contribute-above"
+                        loading="lazy"
+                        src={`${PLAYER_NOW_CUTOUT_BASE}/${option.id === 'player' ? '180827' : '225132'}.png`}
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                      />
+                    ) : null}
                   </div>
                   <div className="gallery-slot-name-overlay">{option.short}</div>
                 </button>
