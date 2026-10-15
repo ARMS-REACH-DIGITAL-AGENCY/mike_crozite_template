@@ -59,20 +59,38 @@ const SPONSORSHIPS: SponsorCard[] = [
   { id: 'cc-player', eyebrow: 'PERSONAL VIDEO REQUESTS', title: 'Message From an Alumnus', instruction: 'Personalized player videos are planned but not available to order yet.', thumb: 'video', action: 'COMING SOON', soon: true },
 ];
 
-// Editorial mini-previews, modeled on the actual site placement rather than
-// generic baseball photographs. The gold area is the part the upload replaces.
+// Real baseball and existing YAT?STATS artwork instead of invented iconography.
+// These are illustrative examples, never passed off as the selected player's image.
+const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: string }> = {
+  front: { src: `${S3}/players/then/180827.jpg`, label: 'HIGH SCHOOL' },
+  headshot: { src: `${S3}/players/now/225132.jpg`, label: 'HEADSHOT', position: 'center 24%' },
+  back: { src: `${S3}/players/back-card/180827.webp`, label: 'ACTION PHOTO', position: 'center 30%' },
+  timeline: { src: `${S3}/players/then/225132.jpg`, label: 'CAREER PATH' },
+  logos: { src: `${S3}/schools/5004.png`, label: 'TEAM ARTWORK' },
+  news: { src: '/img/connect-contribute-portal.png', label: 'NEWS' },
+  missing: { src: '/img/az_state_champ_roster.webp', label: 'ALL-TIME ALUMNI' },
+  data: { src: '/img/connect-contribute-portal.png', label: 'PLAYER RECORDS' },
+  profile: { src: `${S3}/players/now/180827.jpg`, label: 'PLAYER PROFILE' },
+  banner: { src: '/img/splash-partner-demo.svg', label: 'SPONSORSHIP' },
+  bracket: { src: `${S3}/players/back-card/225132.webp`, label: 'FANTASY BRACKET' },
+  business: { src: `${S3}/players/now/180827.jpg`, label: 'ALUMNI' },
+  video: { src: `${S3}/players/now/225132.jpg`, label: 'VIDEO MESSAGE' },
+};
 function Thumb({ kind }: { kind: ThumbKind }) {
-  if (kind === 'front') return <span className="ccd-thumb ccd-front" aria-hidden="true"><span className="ccd-preview-cap">FLIP CARD / FRONT</span><span className="ccd-front-photo"><i className="ri-user-3-fill" /></span><span className="ccd-preview-caption">HS PHOTO</span><span className="ccd-outline" /></span>;
-  if (kind === 'headshot') return <span className="ccd-thumb ccd-head" aria-hidden="true"><span className="ccd-preview-cap">ROW 3 / PROFILE</span><span className="ccd-head-line"><span /><span className="ccd-head-target"><i className="ri-user-3-fill" /></span><span /></span><span className="ccd-preview-caption">HEADSHOT</span></span>;
-  if (kind === 'back') return <span className="ccd-thumb ccd-back" aria-hidden="true"><span className="ccd-back-hero"><i className="ri-run-line" /><span className="ccd-outline" /></span><span className="ccd-back-stats">G&nbsp; &nbsp; AVG&nbsp; &nbsp; HR</span><span className="ccd-preview-caption">FLIP CARD / BACK</span></span>;
-  if (kind === 'timeline') return <span className="ccd-thumb ccd-timeline" aria-hidden="true"><span className="ccd-preview-cap">CAREER PATH</span><span className="ccd-timeline-image"><i className="ri-user-star-line" /></span><span className="ccd-timeline-rail">2017 ━━━ 2018</span></span>;
-  if (kind === 'logos') return <span className="ccd-thumb ccd-logo" aria-hidden="true"><span className="ccd-preview-cap">SCHOOL / TEAM</span><span className="ccd-logo-target"><i className="ri-shield-star-line" /></span><span className="ccd-preview-caption">LOGO</span></span>;
-  const icons: Record<Exclude<ThumbKind, 'front' | 'headshot' | 'back' | 'timeline' | 'logos'>, string> = {
-    news: 'ri-newspaper-line', missing: 'ri-user-search-line', data: 'ri-edit-box-line',
-    profile: 'ri-id-card-line', banner: 'ri-layout-bottom-2-line',
-    bracket: 'ri-trophy-line', business: 'ri-store-2-line', video: 'ri-video-chat-line',
-  };
-  return <span className="ccd-thumb ccd-icon-thumb" aria-hidden="true"><i className={icons[kind]} /><span className="ccd-preview-caption">{kind === 'banner' ? 'SCHOOL HUB' : kind === 'bracket' ? 'FANTASY' : kind.toUpperCase()}</span></span>;
+  const { src, label, position } = THUMB_IMAGES[kind];
+  return (
+    <span className={`ccd-thumb ccd-thumb-${kind}`} aria-hidden="true">
+      {/* Native img avoids Next remote image configuration for S3 originals. */}
+      <img loading="lazy" src={src} alt="" style={position ? { objectPosition: position } : undefined}
+        onError={(e) => {
+          const img = e.currentTarget;
+          // Fallback is site artwork, not a glyph, sticker, or stick figure.
+          if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
+        }} />
+      <span className="ccd-thumb-label">{label}</span>
+    </span>
+  );
 }
 
 function Transaction({ item }: { item: DeskCard }) {
@@ -294,28 +312,29 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccd-summary { margin-top:4px; font:400 12px/1.37 var(--yat-font-ui); color:var(--sb-ink-muted); }
         .ccd-action { margin-top:5px; font:800 10px/1.3 var(--yat-font-ui); color:var(--sb-text); letter-spacing:.025em; }
         .ccd-action i { font-size:12px; vertical-align:-1px; }
-        .ccd-thumb { height:72px; width:86px; overflow:hidden; border-radius:4px; position:relative; display:flex; flex-direction:column; justify-content:center; align-items:center; border:1px solid #3b4148; background:#0c1216; color:#fff; isolation:isolate; }
-        .ccd-preview-cap { position:absolute; left:4px; top:4px; font:700 6px/1 var(--yat-font-ui); letter-spacing:.03em; color:#e8e8e8; }
-        .ccd-preview-caption { position:absolute; bottom:4px; left:5px; font:800 7px/1 var(--yat-font-ui); letter-spacing:.045em; color:#efad26; text-shadow:0 1px #000; }
-        .ccd-front-photo { display:flex; width:47%; height:78%; align-items:center; justify-content:center; background:linear-gradient(145deg,#243c38,#101617); border:2px solid #e9ab2b; margin-top:8px; }
-        .ccd-front-photo i { font-size:35px; color:#81928d; }
-        .ccd-head-line { display:flex; gap:4px; align-items:center; margin-top:6px; }
-        .ccd-head-line > span { border:1px solid #a3a8ad; border-radius:50%; width:15px; height:15px; opacity:.4; }
-        .ccd-head-line .ccd-head-target { display:grid; place-items:center; width:36px; height:36px; border:2px solid #e9ab2b; opacity:1; font-size:20px; }
-        .ccd-back-hero { position:absolute; left:4px; right:4px; top:5px; height:37px; border-radius:2px; display:grid; place-items:center; background:linear-gradient(115deg,#171c1a,#416859); border:2px solid #e9ab2b; }
-        .ccd-back-hero i { font-size:27px; }
-        .ccd-back-stats { position:absolute; top:48px; width:100%; font:700 7px/1 var(--yat-font-ui); text-align:center; opacity:.9; }
-        .ccd-timeline { background:linear-gradient(135deg,#192b29,#040706); }
-        .ccd-timeline-image { height:37px; width:42px; display:grid; place-items:center; margin-bottom:5px; border:2px solid #e9ab2b; font-size:26px; }
-        .ccd-timeline-rail { position:absolute; bottom:4px; left:4px; font:700 7px/1 var(--yat-font-ui); color:#efad26; }
-        .ccd-logo-target { display:grid; place-items:center; width:42px; height:42px; border:2px dashed #e9ab2b; border-radius:50%; font-size:27px; }
-        .ccd-icon-thumb { background:radial-gradient(circle at 50% 25%,#344038,#111315); }
-        .ccd-icon-thumb > i { font-size:32px; color:#efad26; }
+        .ccd-thumb { height:72px; width:86px; position:relative; overflow:hidden; border-radius:3px; display:block; background:#171717; border:1px solid #3b3b3b; color:#fff; }
+        .ccd-thumb img { width:100%; height:100%; display:block; object-fit:cover; filter:saturate(.83); }
+        .ccd-thumb-label { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,.88)); padding:12px 4px 4px; font:800 7px/1.1 var(--yat-font-ui); color:#fff; letter-spacing:.035em; text-shadow:0 1px 2px #000; }
+        .ccd-thumb-logos img, .ccd-thumb-banner img { object-fit:contain; padding:5px; }
         .ccd-help { margin:-3px 0 12px 101px; color:var(--sb-ink-muted); font-size:11px; line-height:1.45; }
         .ccd-help summary { display:list-item; cursor:pointer; color:var(--sb-text); font:700 10px/1.4 var(--yat-font-ui); }
         .ccd-help p { margin:6px 0; }
         .ccd-help button { background:transparent; color:var(--sb-text); font:700 11px var(--yat-font-ui); border:0; cursor:pointer; padding:2px 0; text-decoration:underline; }
         .ccd-footnote { padding:10px 3px; color:var(--sb-ink-muted); font-size:11px; line-height:1.5; }
+        /* Monochrome editorial desk: no scoreboard green or gold. */
+        .ccd { color:#f7f7f7 !important; background:#090909 !important; }
+        .ccd-columns { color:#f7f7f7; }
+        .ccd-column-heading { border-bottom-color:#f1f1f1 !important; }
+        .ccd-eyebrow { color:#aeb0b3 !important; }
+        .ccd-summary,.ccd-footnote { color:#c0c1c3 !important; }
+        .ccd-action,.ccd-help summary,.ccd-help button { color:#fff !important; }
+        .ccd-item { border-bottom-color:#3d3d3d !important; }
+        .ccd-title { color:#fff; }
+        .ccd-item-main:hover { background:#161616; }
+        .ccd .ccg-form { background:#161616; border-color:#464646; }
+        .ccd .ccg-form input,.ccd .ccg-form textarea,.ccd .ccg-form select { background:#0c0c0c; color:#fff; border-color:#555; }
+        .ccd .ccg-btn { background:#fff; color:#080808; border-color:#fff; }
+        .ccd .ccg-link { color:#fff; }
         .ccd-mobile-switch { display:none; }
         .ccd .ccg-form { display:flex; flex-direction:column; gap:9px; padding:14px; margin:0 0 15px; border:1px solid var(--sb-card-border); border-radius:5px; background:var(--sb-card-bg); }
         .ccd .ccg-form-title { font:800 14px/1.2 var(--yat-font-ui); }
@@ -334,8 +353,8 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           .ccd-column.is-active { display:block; }
           .ccd-column-heading { display:none; }
           .ccd-mobile-switch { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:3px 0 8px; }
-          .ccd-mobile-switch button { min-height:46px; text-align:center; border:1px solid var(--sb-card-border); border-radius:5px; padding:10px 8px; background:transparent; cursor:pointer; color:var(--sb-ink); font:800 16px/1 var(--yat-font-compact); letter-spacing:.035em; }
-          .ccd-mobile-switch button.is-on { background:var(--sb-panel); border-color:var(--sb-rim); color:#fff; box-shadow:inset 0 -3px #d9a02c; }
+          .ccd-mobile-switch button { min-height:46px; text-align:center; border:1px solid #777; border-radius:3px; padding:10px 8px; background:#0b0b0b; cursor:pointer; color:#fff; font:800 16px/1 var(--yat-font-compact); letter-spacing:.035em; }
+          .ccd-mobile-switch button.is-on { background:#fff; border-color:#fff; color:#070707; box-shadow:none; }
           .ccd-mobile-switch button:focus-visible { outline:2px solid var(--sb-text); outline-offset:2px; }
           .ccd-list { border-top:1px solid var(--sb-card-border); }
           .ccd-item-main { grid-template-columns:76px minmax(0,1fr); gap:10px; padding:11px 2px; }
