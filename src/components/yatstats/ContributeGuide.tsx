@@ -79,17 +79,29 @@ const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: s
 };
 function Thumb({ kind }: { kind: ThumbKind }) {
   const { src, label, position } = THUMB_IMAGES[kind];
+  const [cutoutAvailable, setCutoutAvailable] = useState(true);
   if (kind === 'headshot') {
+    // Reuse Row 3's actual transparent cutout. The same portrait is drawn
+    // twice at precisely the same size and position: inside the circular
+    // crop, then ONLY the 16px above its rim. There is no second full image
+    // slapped over the circle. On failure, show the regular cropped headshot.
+    const cutout = `${S3}/players/now-cutouts/225132.png`;
+    const photo = cutoutAvailable ? cutout : src;
     return (
       <span className="ccd-thumb ccd-thumb-headshot" aria-hidden="true">
         <span className="ccd-headshot-ring">
-          <img loading="lazy" src={src} alt="" onError={(event) => {
-            if (!event.currentTarget.src.endsWith('/img/connect-contribute-portal.png')) event.currentTarget.src = '/img/connect-contribute-portal.png';
-          }} />
+          <img className={cutoutAvailable ? 'ccd-headshot-cutout' : 'ccd-headshot-fallback'}
+            loading="lazy" src={photo} alt=""
+            onError={(event) => {
+              if (cutoutAvailable) setCutoutAvailable(false);
+              else if (!event.currentTarget.src.endsWith('/img/connect-contribute-portal.png'))
+                event.currentTarget.src = '/img/connect-contribute-portal.png';
+            }} />
         </span>
-        <img className="ccd-headshot-pop" loading="lazy"
-          src={`${S3}/players/now-cutouts/225132.png`} alt=""
-          onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+        {cutoutAvailable ? (
+          <img className="ccd-headshot-above" src={cutout} loading="lazy" alt=""
+            onError={() => setCutoutAvailable(false)} />
+        ) : null}
         <span className="ccd-thumb-label">HEADSHOT</span>
       </span>
     );
@@ -399,13 +411,41 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccd-thumb img { width:100%; height:100%; display:block; object-fit:cover; filter:saturate(.83); }
         .ccd-thumb-label { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,.88)); padding:12px 4px 4px; font:800 7px/1.1 var(--yat-font-ui); color:#fff; letter-spacing:.035em; text-shadow:0 1px 2px #000; }
         .ccd-thumb-logos img, .ccd-thumb-banner img { object-fit:contain; padding:5px; }
-        /* A true circular headshot, with an optional transparent portrait
-           emerging above the rim rather than a square clip. */
-        .ccd-thumb-headshot { overflow:visible; border:0; border-radius:0; background:transparent; }
-        .ccd-headshot-ring { position:absolute; bottom:1px; left:50%; transform:translateX(-50%); display:block; width:69px; height:69px; border:2px solid #ddd; box-sizing:border-box; overflow:hidden; border-radius:50%; background:#151515; }
-        .ccd-headshot-ring img { width:100%; height:100%; object-fit:cover; object-position:center 24%; filter:none; }
-        .ccd-thumb-headshot .ccd-headshot-pop { display:block; position:absolute; z-index:1; bottom:1px; left:50%; transform:translateX(-50%); width:80px; height:80px; object-fit:contain; object-position:center bottom; filter:none; }
-        .ccd-thumb-headshot .ccd-thumb-label { z-index:2; left:10px; right:10px; bottom:1px; border-radius:0 0 35px 35px; text-align:center; }
+        /* Exact Row 3 crop geometry: the circle masks the LOWER portrait;
+           only the transparent 16px ABOVE its top edge is drawn outside. */
+        .ccd-thumb-headshot {
+          --ccd-headshot-size:60px; --ccd-headshot-rise:16px;
+          height:calc(var(--ccd-headshot-size) + var(--ccd-headshot-rise));
+          overflow:visible; border:0; border-radius:0; background:transparent;
+        }
+        .ccd-headshot-ring {
+          position:absolute; z-index:1; bottom:0; left:50%; transform:translateX(-50%);
+          display:block; width:var(--ccd-headshot-size); height:var(--ccd-headshot-size);
+          box-sizing:border-box; overflow:hidden; border-radius:50%;
+          background:#151515; border:2px solid #ddd;
+        }
+        .ccd-headshot-ring img.ccd-headshot-cutout {
+          position:absolute; bottom:-2px; left:50%; transform:translateX(-50%);
+          width:calc(var(--ccd-headshot-size) + var(--ccd-headshot-rise));
+          height:calc(var(--ccd-headshot-size) + var(--ccd-headshot-rise));
+          max-width:none; object-fit:contain; object-position:center bottom; filter:none;
+        }
+        .ccd-headshot-ring img.ccd-headshot-fallback {
+          width:100%; height:100%; object-fit:cover; object-position:center 24%; filter:none;
+        }
+        .ccd-thumb-headshot .ccd-headshot-above {
+          position:absolute; z-index:2; bottom:0; left:50%; transform:translateX(-50%);
+          display:block; width:calc(var(--ccd-headshot-size) + var(--ccd-headshot-rise));
+          height:calc(var(--ccd-headshot-size) + var(--ccd-headshot-rise));
+          max-width:none; object-fit:contain; object-position:center bottom; filter:none;
+          /* Mask off everything inside/below the circle's top. */
+          clip-path:inset(0 0 var(--ccd-headshot-size) 0);
+          pointer-events:none;
+        }
+        .ccd-thumb-headshot .ccd-thumb-label {
+          position:absolute; z-index:3; left:11px; right:11px; bottom:0;
+          border-radius:0 0 30px 30px; text-align:center;
+        }
         .ccd-footnote { padding:10px 3px; color:var(--sb-ink-muted); font-size:11px; line-height:1.5; }
         /* Monochrome editorial desk: no scoreboard green or gold. */
         .ccd { color:#f7f7f7 !important; background:#090909 !important; }
@@ -460,8 +500,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           .ccd-item-main,.ccd-item-layout { grid-template-columns:76px minmax(0,1fr); gap:10px; padding:9px 2px; }
           .ccd-item + .ccd-item { margin-top:12px; }
           .ccd-thumb { width:76px; height:66px; }
-          .ccd-headshot-ring { width:64px; height:64px; }
-          .ccd-thumb-headshot .ccd-headshot-pop { width:75px; height:76px; }
+          .ccd-thumb-headshot { --ccd-headshot-size:58px; --ccd-headshot-rise:13px; }
           .ccd-placement-details { margin-left:88px; }
           .ccd-title,.ccd-title-button { font-size:14px; }
           .ccd-summary { font-size:11.5px; line-height:1.3; }
