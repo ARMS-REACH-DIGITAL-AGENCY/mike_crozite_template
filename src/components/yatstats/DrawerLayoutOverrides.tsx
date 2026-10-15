@@ -81,15 +81,22 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:-.045em; word-spacing:-.12em; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav { padding-right:12px; }
-      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 10px 8px; border: 1px solid rgba(200,169,110,.6); border-left: 3px solid var(--accent, #c8a96e); border-radius: 7px; background: rgba(200,169,110,.10); color: var(--accent, #c8a96e); }
-      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-      #drawerLeft .yat-drawer-fantasy-title { display: flex; flex-direction: column; gap: 1px; line-height: 1.18; letter-spacing: -.025em; word-spacing: normal; }
-      #drawerLeft .yat-drawer-fantasy-title > span { display: block; white-space: nowrap; }
-      /* Doto is loaded by the school layout: match the existing bracket ticker's scoreboard lettering. */
-      #drawerLeft .yat-drawer-fantasy-start { display: block; font-size: 11px; font-weight: 700; line-height: 1.25; letter-spacing: .015em; word-spacing: normal; white-space: nowrap; }
-      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight:hover { background: rgba(200,169,110,.20); }
-      #drawerLeft .yat-drawer-fantasy-highlight:focus-visible { outline: 2px solid var(--accent, #c8a96e); outline-offset: 3px; }
-      body.light-theme #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { color: #70501e; border-color: #94713b; }
+      /* Exact rail/status color: TIMELINE_YELLOW in ZoomableCareerTimeline. */
+      #drawerLeft { --yat-bracket-accent: #ffb21c; }
+      body.light-theme #drawerLeft { --yat-bracket-accent: #8a5a00; }
+      #drawerLeft .yat-bracket-symbol { display: block; width: 24px; height: 24px; flex: none; background-color: currentColor; -webkit-mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 8px 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; font-size: clamp(9px, 2.8vw, 12px); line-height: 1.15; }
+      #drawerLeft .yat-drawer-fantasy-copy > span { display: block; white-space: nowrap; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { gap: 7px; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown { display: flex; flex: 0 0 clamp(104px, 32vw, 124px); width: clamp(104px, 32vw, 124px); margin-left: auto; padding: 5px 6px 6px; flex-direction: column; gap: 4px; border: 0; border-radius: 5px; background: linear-gradient(145deg, #286343, #1c4f34); color: #fff; letter-spacing: normal; word-spacing: normal; text-transform: uppercase; }
+      #drawerLeft .yat-fantasy-countdown-date { display: block; text-align: center; color: #ffb21c; font: 700 12px/1.05 Caveat, "Segoe Print", cursive; letter-spacing: 0; text-transform: none; }
+      #drawerLeft .yat-fantasy-countdown-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+      #drawerLeft .yat-fantasy-countdown-cell { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; text-align: center; }
+      #drawerLeft .yat-fantasy-countdown-unit { color: #fff; font: 600 7px/1 Oswald, sans-serif; letter-spacing: .025em; }
+      #drawerLeft .yat-fantasy-countdown-number { display: block; padding: 4px 1px 3px; border: 0; border-radius: 4px; background: linear-gradient(180deg, #071c0e, #102f1b); box-shadow: inset 0 2px 5px rgba(0,0,0,.45); color: #ffb21c; font: 700 19px/1 Oswald, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.035em; text-shadow: 0 1px 1px #000; }
+      #drawerLeft .yat-drawer-fantasy-highlight:is(:hover, :focus-visible) .yat-drawer-fantasy-copy > span { text-decoration: underline; text-underline-offset: 3px; }
+      #drawerLeft .yat-drawer-fantasy-highlight:focus-visible .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
       #drawerLeft .yat-nav-page-crest { width:25px; height:25px; object-fit:contain; flex:none; }
       #drawerLeft .yat-nav-custom-icon { width:24px; height:24px; min-width:24px; display:block; object-fit:contain; flex:none; mix-blend-mode:multiply; }
