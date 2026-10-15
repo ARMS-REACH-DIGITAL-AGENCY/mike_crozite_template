@@ -390,7 +390,11 @@ async function SchoolShell({
               <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
                 <span><strong>FANTASY</strong> BRACKET TOURNEY</span>
-                <small className="yat-drawer-fantasy-start">Starts February 1st</small>
+              </span>
+              <span className="yat-drawer-fantasy-stamp" aria-label="Starts February 1st">
+                <span aria-hidden="true">Starts</span>
+                <span aria-hidden="true">February</span>
+                <strong aria-hidden="true">1st</strong>
               </span>
             </a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>

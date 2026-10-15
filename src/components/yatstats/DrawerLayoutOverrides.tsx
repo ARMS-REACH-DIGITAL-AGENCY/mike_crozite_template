@@ -86,8 +86,10 @@ export default function DrawerLayoutOverrides() {
       body.light-theme #drawerLeft { --yat-bracket-accent: #8a5a00; }
       #drawerLeft .yat-bracket-symbol { display: block; width: 24px; height: 24px; flex: none; background-color: currentColor; -webkit-mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 8px 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); }
-      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-      #drawerLeft .yat-drawer-fantasy-start { font: 500 11px/1.25 Oswald, sans-serif; letter-spacing: .035em; word-spacing: normal; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: block; flex: 1; min-width: 0; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-stamp { display: flex; flex: 0 0 52px; width: 52px; height: 52px; margin-left: auto; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 0; border-radius: 50%; background: var(--yat-bracket-accent); color: #171000; transform: rotate(-7deg); font: 600 9px/1.05 Oswald, sans-serif; letter-spacing: .025em; word-spacing: normal; text-transform: uppercase; }
+      #drawerLeft .yat-drawer-fantasy-stamp strong { font-size: 17px; line-height: 1; }
+      body.light-theme #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-stamp { color: #fff; }
       #drawerLeft .yat-drawer-fantasy-highlight:is(:hover, :focus-visible) .yat-drawer-fantasy-copy > span { text-decoration: underline; text-underline-offset: 3px; }
       #drawerLeft .yat-drawer-fantasy-highlight:focus-visible .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
