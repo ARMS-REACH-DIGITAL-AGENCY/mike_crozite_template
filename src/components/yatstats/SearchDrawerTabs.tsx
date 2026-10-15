@@ -196,49 +196,51 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
   return Array.from(grouped.entries()).map(([state, rows]) => `
     <div class="yat-search-section-label yat-search-state-label">${esc(stateFullName(state))}</div>
     <div class="yat-search-card-list yat-search-school-list">
-      ${rows.map((s) => {
-        const hsid = String(s.hsid || s.schoolId || '');
-        const name = String(s.hsname || s.schoolName || 'School');
-        const loc = splitSchoolLocation(s.hslocation || s.location);
-        const location = cleanLocation(loc.city, loc.state, s.hslocation || s.location);
-        const crest = schoolCrestUrl(hsid, s.crestUrl || s.crest_url || s.logoUrl || s.logo_url || s.schoolLogoUrl || s.school_logo_url);
-        const activeCount = Number(s.current_aa ?? 0);
-        const hasSchoolDestination = Boolean(String(s.microsite_url || s.micrositeUrl || '').trim());
+      ${rows.map((school) => {
+        const hsid = String(school.hsid || school.schoolId || '');
+        const name = String(school.hsname || school.schoolName || 'School');
+        const loc = splitSchoolLocation(school.hslocation || school.location);
+        const location = cleanLocation(loc.city, loc.state, school.hslocation || school.location);
+        const crest = schoolCrestUrl(hsid, school.crestUrl || school.crest_url || school.logoUrl || school.logo_url || school.schoolLogoUrl || school.school_logo_url);
+        const activeCount = Number(school.current_aa ?? 0);
+        // Tournament shortcuts exist only on schools with a live microsite.
+        // Current Neon audit: those 1,024 IDs match the 2026 bracket roster.
+        const hasSchoolDestination = Boolean(String(school.microsite_url || school.micrositeUrl || '').trim());
+        const unavailable = viewOnly || !hasSchoolDestination;
+        const meta = `data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}"`;
+        const crestImg = `<img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />`;
+        const identity = `
+          <span class="yat-search-row-text yat-search-school-identity">
+            ${location ? `<small class="yat-search-school-location">${esc(location)}</small>` : ''}
+            <strong>${esc(name)}</strong>
+            <small class="yat-search-school-status">${esc(activeCount)} ACTIVE ALUMNI${unavailable ? ' · SCHOOL PAGE NOT AVAILABLE YET' : ''}</small>
+          </span>
+        `;
+
         if (includeBracketLinks && hasSchoolDestination) return `
-          <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card" data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
+          <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card" ${meta}>
             <div class="yat-search-school-topline">
-              <a class="yat-search-school-gallery-link" href="${esc(schoolSectionUrl(s, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
-                <span class="yat-search-school-active-count" aria-label="${esc(activeCount)} active alumni"><strong>${esc(activeCount)}</strong><small>ACTIVE</small></span>
-                <span class="yat-search-row-text">
-                  <strong>${esc(name)}</strong>
-                  ${location ? `<small>${esc(location)}</small>` : ''}
-                </span>
+              <a class="yat-search-school-crest-link yat-search-school-gallery-crest-link" href="${esc(schoolSectionUrl(school, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
+                ${crestImg}
               </a>
-              <a class="yat-search-school-bracket-link" href="${esc(schoolSectionUrl(s, 'fantasy'))}" title="${esc(name)} fantasy bracket · Starts February 1st" aria-label="Open ${esc(name)} fantasy bracket tournament. Starts February 1st.">
+              <a class="yat-search-school-gallery-link" href="${esc(schoolSectionUrl(school, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
+                ${identity}
+              </a>
+              <a class="yat-search-school-bracket-link" href="${esc(schoolSectionUrl(school, 'fantasy'))}" title="${esc(name)} fantasy bracket · Starts February 1st" aria-label="Open ${esc(name)} fantasy bracket tournament. Starts February 1st.">
                 <span class="yat-bracket-symbol" aria-hidden="true"></span>
-              </a>
-              <a class="yat-search-school-crest-link yat-search-school-gallery-crest-link" href="${esc(schoolSectionUrl(s, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
-                <img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
               </a>
             </div>
           </div>
         `;
-        // The state directory includes schools without a microsite/HSID. Do not
-        // make their crests or bracket shortcuts point to the site's root.
-        const unavailable = viewOnly || !hasSchoolDestination;
+
+        // A school with no microsite can display a crest, but no fake link.
+        // The school picker and post-upload crest review also remain view-only.
         const tag = unavailable ? 'div' : 'a';
         return `
-          <${tag} class="yat-search-card yat-search-school-card" ${unavailable ? '' : `href="${esc(schoolUrl(s))}"`} data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
+          <${tag} class="yat-search-card yat-search-school-card" ${unavailable ? '' : `href="${esc(schoolUrl(school))}"`} ${meta}>
             <div class="yat-search-school-topline">
-              <span class="yat-search-school-active-count" aria-label="${esc(activeCount)} active alumni"><strong>${esc(activeCount)}</strong><small>ACTIVE</small></span>
-              <span class="yat-search-row-text">
-                <strong>${esc(name)}</strong>
-                ${location ? `<small>${esc(location)}</small>` : ''}
-                ${unavailable ? '<small>School page not available yet</small>' : ''}
-              </span>
-              <span class="yat-search-school-crest-link" aria-hidden="true">
-                <img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-              </span>
+              <span class="yat-search-school-crest-link" aria-hidden="true">${crestImg}</span>
+              ${identity}
             </div>
           </${tag}>
         `;
@@ -635,13 +637,11 @@ export default function SearchDrawerTabs() {
 
   return (
     <style jsx global>{`
-      :is(#drawerLeft, #drawerContribute) .yat-search-drawer-title { margin-bottom: 4px !important; font-size: clamp(16px, 3.8vw, 22px) !important; white-space: nowrap; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-drawer-sub { max-width: none; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-label { display: none !important; }
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn { min-height: 29px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn { min-height: 30px; padding: 5px 3px; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.04); color: var(--ink); font: 600 11px/1.2 var(--yat-font-ui); letter-spacing: 0; text-transform: none; cursor: pointer; }
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 Oswald, sans-serif; padding: 8px 0; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 var(--yat-font-ui); padding: 8px 0; }
       :is(#drawerLeft, #drawerContribute) .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
       :is(#drawerLeft, #drawerContribute) .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
       :is(#drawerLeft, #drawerContribute) .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
@@ -655,18 +655,30 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-card { padding: 8px 10px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-topline { grid-template-columns: 38px minmax(0, 1fr) 54px; }
+      #drawerLeft .yat-search-school-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr); align-items:center; gap: 10px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count strong { font: 800 22px/1 Oswald, sans-serif; color: #00e08a; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count small { margin-top: 4px; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .05em; color: var(--muted); }
 
       :is(#drawerLeft, #drawerContribute) .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; border-radius: 0; background: transparent; }
-      #drawerLeft .yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: minmax(0, 1fr) 44px 54px; gap: 6px; }
-      #drawerLeft .yat-search-school-gallery-link { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; color: inherit; text-decoration: none; }
-      #drawerLeft .yat-search-school-gallery-link .yat-search-row-text strong { overflow-wrap: anywhere; }
-      #drawerLeft .yat-search-school-bracket-link { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); text-decoration: none; cursor: pointer; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; object-fit:contain; border-radius:0; background:transparent; }
+      #drawerLeft .yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 34px; gap: 8px; }
+      #drawerLeft .yat-search-school-gallery-link { display: block; min-width: 0; color: inherit; text-decoration: none; }
+      #drawerLeft .yat-search-school-identity { display:flex; flex-direction:column; gap:1px; min-width:0; width:100%; }
+      #drawerLeft .yat-search-school-identity .yat-search-school-location {
+        font: 300 10px/1.1 Oswald, sans-serif; letter-spacing:.065em; text-transform:uppercase;
+        color:var(--muted); white-space:normal; overflow-wrap:anywhere;
+      }
+      #drawerLeft .yat-search-school-identity strong {
+        font:700 18px/1.03 "Bebas Neue",sans-serif; letter-spacing:.02em;
+        text-transform:uppercase; overflow-wrap:anywhere; color:var(--ink);
+      }
+      #drawerLeft .yat-search-school-identity .yat-search-school-status {
+        font:400 9px/1.25 Oswald,sans-serif; letter-spacing:.02em;
+        text-transform:uppercase; color:var(--muted); white-space:normal; overflow:visible;
+      }
+      #drawerLeft .yat-search-school-bracket-link { display: flex; align-items: center; justify-content: center; width: 34px; height: 44px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); text-decoration: none; cursor: pointer; }
       #drawerLeft .yat-search-school-bracket-link .yat-bracket-symbol { width: 22px; height: 22px; }
       #drawerLeft .yat-search-school-bracket-link:is(:hover, :focus-visible) .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); transform: scale(1.1); }
       #drawerLeft :is(.yat-search-school-gallery-link, .yat-search-school-gallery-crest-link):focus-visible { outline: none; }
