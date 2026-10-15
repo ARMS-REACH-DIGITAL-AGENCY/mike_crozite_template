@@ -203,7 +203,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         const location = cleanLocation(loc.city, loc.state, s.hslocation || s.location);
         const crest = schoolCrestUrl(hsid, s.crestUrl || s.crest_url || s.logoUrl || s.logo_url || s.schoolLogoUrl || s.school_logo_url);
         const activeCount = Number(s.current_aa ?? 0);
-        const hasSchoolDestination = Boolean(hsid.trim() || String(s.microsite_url || s.micrositeUrl || '').trim());
+        const hasSchoolDestination = Boolean(String(s.microsite_url || s.micrositeUrl || '').trim());
         if (includeBracketLinks && hasSchoolDestination) return `
           <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card" data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
             <div class="yat-search-school-topline">
@@ -225,7 +225,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         `;
         // The state directory includes schools without a microsite/HSID. Do not
         // make their crests or bracket shortcuts point to the site's root.
-        const unavailable = viewOnly || (includeBracketLinks && !hasSchoolDestination);
+        const unavailable = viewOnly || !hasSchoolDestination;
         const tag = unavailable ? 'div' : 'a';
         return `
           <${tag} class="yat-search-card yat-search-school-card" ${unavailable ? '' : `href="${esc(schoolUrl(s))}"`} data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
