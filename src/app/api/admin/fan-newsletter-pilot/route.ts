@@ -14,7 +14,7 @@ const TEST_EMAILS = new Set([
 type Fan = { firebase_uid: string; home_hsid: string; plan: string; subscription_status: string; promo_code: string | null; promo_expires_at: string | null; stripe_subscription_id: string | null };
 type Player = { playerid: string; name: string; hsid: string };
 type Stat = { playerid: string; stat_type: string; stats: Record<string,unknown> };
-const safe = (x: unknown) => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!);
+const safe = (x: unknown) => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'} as Record<string,string>)[c]);
 const n = (s:Record<string,unknown>, k:string) => Number(s[k] || 0);
 const line = (x:Stat) => {
   const s=x.stats || {};
