@@ -45,7 +45,10 @@ export async function POST(req: NextRequest) {
   try {
     const contactId = await findOrCreateGhlContact(email, firstName, rest.join(' '), hsid || undefined, schoolName || undefined);
     if (!contactId) return fail('Your message could not be sent. Please email info@yatstats.com.', 502);
-    await Promise.all(['sponsor-lead', `sponsor:${interest}`, ...(hsid ? [`sponsor-hsid:${hsid}`] : [])].map((tag) => addTagToGHLContact(contactId, tag)));
+    const tags = interest === 'video'
+      ? ['player-video-interest', ...(hsid ? [`video-hsid:${hsid}`] : [])]
+      : ['sponsor-lead', `sponsor:${interest}`, ...(hsid ? [`sponsor-hsid:${hsid}`] : [])];
+    await Promise.all(tags.map((tag) => addTagToGHLContact(contactId, tag)));
     await addNoteToGHLContact(contactId, [
       `Sponsorship inquiry: ${SPONSOR_INTERESTS[interest]}`,
       schoolName || hsid ? `School: ${schoolName}${hsid ? ` (hsid ${hsid})` : ''}` : '',
