@@ -81,12 +81,15 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:-.045em; word-spacing:-.12em; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav { padding-right:12px; }
-      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 10px 8px; border: 1px solid rgba(200,169,110,.6); border-left: 3px solid var(--accent, #c8a96e); border-radius: 7px; background: rgba(200,169,110,.10); color: var(--accent, #c8a96e); }
+      /* Exact rail/status color: TIMELINE_YELLOW in ZoomableCareerTimeline. */
+      #drawerLeft { --yat-bracket-accent: #ffb21c; }
+      body.light-theme #drawerLeft { --yat-bracket-accent: #8a5a00; }
+      #drawerLeft .yat-bracket-symbol { display: block; width: 24px; height: 24px; flex: none; background-color: currentColor; -webkit-mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 8px 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
       #drawerLeft .yat-drawer-fantasy-start { font: 500 11px/1.25 Oswald, sans-serif; letter-spacing: .035em; word-spacing: normal; }
-      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight:hover { background: rgba(200,169,110,.20); }
-      #drawerLeft .yat-drawer-fantasy-highlight:focus-visible { outline: 2px solid var(--accent, #c8a96e); outline-offset: 3px; }
-      body.light-theme #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { color: #70501e; border-color: #94713b; }
+      #drawerLeft .yat-drawer-fantasy-highlight:is(:hover, :focus-visible) .yat-drawer-fantasy-copy > span { text-decoration: underline; text-underline-offset: 3px; }
+      #drawerLeft .yat-drawer-fantasy-highlight:focus-visible .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
       #drawerLeft .yat-nav-page-crest { width:25px; height:25px; object-fit:contain; flex:none; }
       #drawerLeft .yat-nav-custom-icon { width:24px; height:24px; min-width:24px; display:block; object-fit:contain; flex:none; mix-blend-mode:multiply; }

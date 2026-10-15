@@ -387,7 +387,7 @@ async function SchoolShell({
               <img src="/img/nav/letterman-jacket.png" alt="" className="yat-nav-custom-icon" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
             </a>
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
-              <img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" />
+              <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
                 <span><strong>FANTASY</strong> BRACKET TOURNEY</span>
                 <small className="yat-drawer-fantasy-start">Starts February 1st</small>
