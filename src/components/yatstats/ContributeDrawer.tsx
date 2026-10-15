@@ -213,9 +213,9 @@ export default function ContributeDrawer() {
       const d = (event as CustomEvent<ContributeOpen>).detail || {};
       if (status.kind === 'done') resetForms();
       if (d.tab) setTab(d.tab);
-      // An entry point that knows the player or the kind of photo starts
-      // the Photos drawer fresh with them.
-      if (d.player || d.photoType) {
+      // Every direct Photos action starts a fresh upload, including the
+      // account-drawer shortcut with no preselected player or photo type.
+      if (d.tab === 'photo' || d.player || d.photoType) {
         setPhotoType(d.photoType);
         setPhotoFlowKey((k) => k + 1);
       }
@@ -239,7 +239,7 @@ export default function ContributeDrawer() {
           else {
             pendingOpen.current = true;
             close();
-            openAccountDrawer('register');
+            openAccountDrawer('signin');
           }
         })
         .catch(() => { setSession(null); show(); })
