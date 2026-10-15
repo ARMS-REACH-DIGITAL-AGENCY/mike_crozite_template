@@ -118,6 +118,9 @@ export default function SharedShell({
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
+  // Standalone review pages use this shared header/footer but are not gallery
+  // sections. The gallery's hash-driven section controller must not hide them.
+  const isStandaloneReview = /\/(?:design-review|partner-program)\/?$/.test(pathname);
   const teamYear = isPlayerProfile ? null : initialTeamYear;
   const initialSection = teamYear ? 'alltime' : 'active';
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -126,6 +129,13 @@ export default function SharedShell({
 
   useEffect(() => {
     if (isPlayerProfile) return;
+    if (isStandaloneReview) {
+      // app/layout's first-paint gallery bootstrap may set data-yat-sec,
+      // which hides every non-gallery page until that marker is cleared.
+      document.documentElement.removeAttribute('data-yat-sec');
+      document.documentElement.removeAttribute('data-yat-switching');
+      return;
+    }
 
     let frame = 0;
     const syncSection = () => {
@@ -178,7 +188,7 @@ export default function SharedShell({
       window.removeEventListener('yat:section-changed', syncSection);
       observer.disconnect();
     };
-  }, [isPlayerProfile]);
+  }, [isPlayerProfile, isStandaloneReview]);
 
   return (
     <>
