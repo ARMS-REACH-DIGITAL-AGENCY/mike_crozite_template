@@ -6,6 +6,7 @@
 
 import { ReactNode, Suspense } from 'react';
 import Script from 'next/script';
+import { Doto } from 'next/font/google';
 import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
   getSchoolByHsid,
@@ -46,6 +47,7 @@ import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
 import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+const launchDateFont = Doto({ subsets: ['latin'], weight: '700', display: 'swap' });
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
@@ -389,8 +391,11 @@ async function SchoolShell({
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
               <img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" />
               <span className="yat-drawer-fantasy-copy">
-                <span><strong>FANTASY</strong> BRACKET TOURNEY</span>
-                <small className="yat-drawer-fantasy-start">Starts February 1st</small>
+                <span className="yat-drawer-fantasy-title">
+                  <span><strong>ALUMNI FANTASY</strong></span>
+                  <span>BRACKET TOURNAMENT</span>
+                </span>
+                <small className={`yat-drawer-fantasy-start ${launchDateFont.className}`}>STARTS FEBRUARY 1, 2027</small>
               </span>
             </a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
