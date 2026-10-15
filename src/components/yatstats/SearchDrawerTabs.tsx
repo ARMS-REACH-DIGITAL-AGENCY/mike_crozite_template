@@ -182,7 +182,7 @@ function favoriteButtonHtml(player: any, name: string) {
   `;
 }
 
-export function renderSchoolRows(programs: any[], emptyText: string, includeBracketLinks = false) {
+export function renderSchoolRows(programs: any[], emptyText: string, includeBracketLinks = false, viewOnly = false) {
   if (!programs.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
   const grouped = new Map<string, any[]>();
@@ -225,7 +225,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         `;
         // The state directory includes schools without a microsite/HSID. Do not
         // make their crests or bracket shortcuts point to the site's root.
-        const unavailable = includeBracketLinks && !hasSchoolDestination;
+        const unavailable = viewOnly || (includeBracketLinks && !hasSchoolDestination);
         const tag = unavailable ? 'div' : 'a';
         return `
           <${tag} class="yat-search-card yat-search-school-card" ${unavailable ? '' : `href="${esc(schoolUrl(s))}"`} data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}">
@@ -530,7 +530,7 @@ export default function SearchDrawerTabs() {
         .then((data) => {
           if (lookupRequest !== requestId) return;
           const schools = Array.isArray(data.programs) ? data.programs : [];
-          results.innerHTML = renderSchoolRows(schools, 'School not found in Global Search.', false);
+          results.innerHTML = renderSchoolRows(schools, 'School not found in Global Search.', false, true);
           if (schools[0]) input.value = String(schools[0].hsname || '');
         })
         .catch(() => { if (lookupRequest === requestId) results.innerHTML = '<div class="yat-search-empty">Unable to load the school. Search by name.</div>'; });
