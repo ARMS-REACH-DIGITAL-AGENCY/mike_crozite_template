@@ -79,6 +79,16 @@ export async function GET(req: NextRequest) {
   const cors = buildCorsHeaders(req);
   try {
     const { searchParams } = new URL(req.url);
+    // Direct selection by canonical TBC HSID for an uploaded school crest.
+    const lookupHsid = (searchParams.get("hsid") || "").trim();
+    if (/^\d+$/.test(lookupHsid)) {
+      const { rows: schools } = await query(
+        `SELECT hsid, hsname, hslocation, regionid, cityname
+           FROM tbc_schools_raw WHERE hsid = $1::integer LIMIT 1`,
+        [lookupHsid]
+      );
+      return NextResponse.json({ programs: schools }, { headers: { ...cors, "Cache-Control": "no-store" } });
+    }
     const qRaw = (searchParams.get("q") || "").trim();
     const stateRaw = (searchParams.get("state") || "").trim().toUpperCase();
     const cityRaw = (searchParams.get("city") || "").trim();
