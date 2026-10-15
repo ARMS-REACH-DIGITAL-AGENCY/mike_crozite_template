@@ -58,6 +58,7 @@ assert.match(layout, /yat-drawer-fantasy-highlight[\s\S]*?data-tab="fantasy"[\s\
 assert.ok(!layout.includes('yat-drawer-fantasy-start'), 'Do not place the start date underneath the label.');
 assert.ok(!layout.includes('yat-drawer-fantasy-stamp'), 'Replace the stamp rather than displaying both.');
 assert.match(layout, /<FantasyNavCountdown \/>/);
+assert.match(layout, /<span><strong>ALUMNI FANTASY<\/strong><\/span>\s*<span>BRACKET TOURNAMENT<\/span>/, 'Use the exact requested two-line side-navigation label.');
 const timeline = fs.readFileSync(path.join(root, 'src/components/yatstats/ZoomableCareerTimeline.tsx'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'src/components/yatstats/DrawerLayoutOverrides.tsx'), 'utf8');
 const timelineGold = timeline.match(/const TIMELINE_YELLOW = '(#[0-9a-f]+)'/)[1];

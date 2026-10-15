@@ -27,10 +27,10 @@ export default function FantasyNavCountdown() {
   }, []);
 
   const label = !countdown
-    ? `Fantasy Bracket countdown. Starts ${FANTASY_COUNTDOWN_START_LABEL}.`
+    ? `Alumni Fantasy Bracket Tournament countdown. Starts ${FANTASY_COUNTDOWN_START_LABEL}.`
     : countdown.complete
       ? `Countdown complete. Scheduled start: ${FANTASY_COUNTDOWN_START_LABEL}.`
-      : `Fantasy Bracket countdown: ${countdown.days} days, ${countdown.hours} hours, ${countdown.minutes} minutes. Starts ${FANTASY_COUNTDOWN_START_LABEL}.`;
+      : `Alumni Fantasy Bracket Tournament countdown: ${countdown.days} days, ${countdown.hours} hours, ${countdown.minutes} minutes. Starts ${FANTASY_COUNTDOWN_START_LABEL}.`;
   const cells = [
     { key: 'days', label: 'Days', value: countdown?.days },
     { key: 'hours', label: 'Hours', value: countdown?.hours },
@@ -47,7 +47,7 @@ export default function FantasyNavCountdown() {
       data-countdown-complete={countdown?.complete ? 'true' : 'false'}
     >
       <span className="yat-fantasy-countdown-date" aria-hidden="true">
-        {countdown?.complete ? 'Countdown complete' : 'Feb 1 · Noon AZ'}
+        {countdown?.complete ? 'Countdown complete' : 'Starts February 1st, 2027'}
       </span>
       <span className="yat-fantasy-countdown-cells" aria-hidden="true">
         {cells.map(({ key, label: unitLabel, value }) => (

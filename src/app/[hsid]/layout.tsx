@@ -390,7 +390,8 @@ async function SchoolShell({
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
               <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
-                <span><strong>FANTASY</strong> BRACKET TOURNEY</span>
+                <span><strong>ALUMNI FANTASY</strong></span>
+                <span>BRACKET TOURNAMENT</span>
               </span>
               <FantasyNavCountdown />
             </a>
