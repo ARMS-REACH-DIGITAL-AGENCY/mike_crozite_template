@@ -238,8 +238,13 @@ export function contributeSectionHref(hsid: string, section: string) {
 
 // Scroll the portal page to a section (row 3, and links on the page).
 export function scrollToContributeSection(section: string) {
-  document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Mobile portal cards live in mutually exclusive tabs. Notify the page
+  // before scrolling, so a Row 3 shortcut never targets a hidden card.
+  window.dispatchEvent(new CustomEvent('yat-contribute-navigate', { detail: { section } }));
   try { history.replaceState(null, '', `#${section}`); } catch {}
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  });
 }
 
 export const tabIcon = (tab: ContributeTab) => CONTRIBUTE_OPTIONS.find((o) => o.tab === tab)?.icon || 'ri-upload-cloud-2-line';
