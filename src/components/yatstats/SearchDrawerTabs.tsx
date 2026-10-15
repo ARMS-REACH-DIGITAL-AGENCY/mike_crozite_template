@@ -193,11 +193,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
     grouped.get(stateCode)!.push(s);
   });
 
-  const guide = includeBracketLinks ? `
-    <p class="yat-search-school-link-guide">School logo <span aria-hidden="true">→</span> flip cards <span aria-hidden="true">·</span> Bracket <span aria-hidden="true">→</span> tournament starts February 1st</p>
-  ` : '';
-
-  return guide + Array.from(grouped.entries()).map(([state, rows]) => `
+  return Array.from(grouped.entries()).map(([state, rows]) => `
     <div class="yat-search-section-label yat-search-state-label">${esc(stateFullName(state))}</div>
     <div class="yat-search-card-list yat-search-school-list">
       ${rows.map((s) => {
@@ -217,13 +213,12 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
                   <strong>${esc(name)}</strong>
                   ${location ? `<small>${esc(location)}</small>` : ''}
                 </span>
-                <span class="yat-search-school-crest-link" aria-hidden="true">
-                  <img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
-                </span>
               </a>
               <a class="yat-search-school-bracket-link" href="${esc(schoolSectionUrl(s, 'fantasy'))}" title="${esc(name)} fantasy bracket · Starts February 1st" aria-label="Open ${esc(name)} fantasy bracket tournament. Starts February 1st.">
-                <img src="/img/nav/fantasy-bracket.png" alt="" width="24" height="24" class="yat-search-bracket-icon" />
-                <span>Bracket <span aria-hidden="true">↗</span></span>
+                <span class="yat-bracket-symbol" aria-hidden="true"></span>
+              </a>
+              <a class="yat-search-school-crest-link yat-search-school-gallery-crest-link" href="${esc(schoolSectionUrl(s, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
+                <img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
               </a>
             </div>
           </div>
@@ -650,19 +645,15 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; border-radius: 0; background: transparent; }
-      #drawerLeft .yat-search-school-link-guide { margin: 2px 0 10px; color: var(--muted); font: 400 11px/1.5 Oswald, sans-serif; }
-      #drawerLeft .yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; }
-      #drawerLeft .yat-search-school-gallery-link { display: grid; grid-template-columns: 34px minmax(0, 1fr) 48px; align-items: center; gap: 8px; min-width: 0; color: inherit; text-decoration: none; border-radius: 5px; }
+      #drawerLeft .yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: minmax(0, 1fr) 44px 54px; gap: 6px; }
+      #drawerLeft .yat-search-school-gallery-link { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; color: inherit; text-decoration: none; }
       #drawerLeft .yat-search-school-gallery-link .yat-search-row-text strong { overflow-wrap: anywhere; }
-      #drawerLeft .yat-search-school-gallery-link .yat-search-school-crest-link { width: 48px; }
-      #drawerLeft .yat-search-school-bracket-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 48px; min-height: 48px; border: 1px solid var(--accent, #c8a96e); border-radius: 7px; background: rgba(200,169,110,.10); color: var(--accent, #c8a96e); text-decoration: none; font: 600 9px/1 Oswald, sans-serif; cursor: pointer; }
-      #drawerLeft .yat-search-school-bracket-link > span { text-decoration: underline; text-underline-offset: 2px; }
-      #drawerLeft .yat-search-bracket-icon { width: 24px; height: 24px; object-fit: contain; mix-blend-mode: multiply; }
-      body:not(.light-theme) #drawerLeft .yat-search-bracket-icon { filter: invert(1); mix-blend-mode: screen; }
-      body.light-theme #drawerLeft .yat-search-school-bracket-link { color: #70501e; border-color: #94713b; }
-      #drawerLeft .yat-search-school-bracket-link:hover { background: rgba(200,169,110,.22); }
-      #drawerLeft .yat-search-school-gallery-link:hover .yat-search-school-thumb { filter: drop-shadow(0 0 3px var(--accent, #c8a96e)); }
-      #drawerLeft :is(.yat-search-school-gallery-link, .yat-search-school-bracket-link):focus-visible { outline: 2px solid var(--accent, #c8a96e); outline-offset: 3px; }
+      #drawerLeft .yat-search-school-bracket-link { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); text-decoration: none; cursor: pointer; }
+      #drawerLeft .yat-search-school-bracket-link .yat-bracket-symbol { width: 22px; height: 22px; }
+      #drawerLeft .yat-search-school-bracket-link:is(:hover, :focus-visible) .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); transform: scale(1.1); }
+      #drawerLeft :is(.yat-search-school-gallery-link, .yat-search-school-gallery-crest-link):focus-visible { outline: none; }
+      #drawerLeft .yat-search-school-gallery-link:focus-visible .yat-search-row-text strong { text-decoration: underline; text-underline-offset: 3px; }
+      #drawerLeft .yat-search-school-gallery-crest-link:is(:hover, :focus-visible) .yat-search-school-thumb { filter: drop-shadow(0 0 4px var(--yat-bracket-accent)); }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-badge.live { border-color: rgba(0,255,140,.55); color: #00ff8c; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-badge.candidate { border-color: rgba(255,209,102,.7); color: #ffd166; }
