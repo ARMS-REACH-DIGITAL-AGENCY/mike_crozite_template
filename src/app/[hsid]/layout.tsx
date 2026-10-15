@@ -6,7 +6,6 @@
 
 import { ReactNode, Suspense } from 'react';
 import Script from 'next/script';
-import { Doto } from 'next/font/google';
 import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
   getSchoolByHsid,
@@ -39,6 +38,7 @@ import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
 import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
+import FantasyNavCountdown from '@/components/yatstats/FantasyNavCountdown';
 import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
 import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
@@ -47,7 +47,6 @@ import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
 import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-const launchDateFont = Doto({ subsets: ['latin'], weight: '700', display: 'swap' });
 
 function normalizeStatusLabel(value: unknown): string {
   return String(value || '').trim().toUpperCase();
@@ -389,14 +388,12 @@ async function SchoolShell({
               <img src="/img/nav/letterman-jacket.png" alt="" className="yat-nav-custom-icon" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
             </a>
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
-              <img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" />
+              <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
-                <span className="yat-drawer-fantasy-title">
-                  <span><strong>ALUMNI FANTASY</strong></span>
-                  <span>BRACKET TOURNAMENT</span>
-                </span>
-                <small className={`yat-drawer-fantasy-start ${launchDateFont.className}`}>STARTS FEBRUARY 1, 2027</small>
+                <span><strong>ALUMNI FANTASY</strong></span>
+                <span>BRACKET TOURNAMENT</span>
               </span>
+              <FantasyNavCountdown />
             </a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
