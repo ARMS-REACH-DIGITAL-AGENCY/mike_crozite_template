@@ -340,8 +340,11 @@ export async function syncYatstatsContact(
   const promoValid = !!profile.promo_code
     && (!profile.promo_expires_at || new Date(profile.promo_expires_at).getTime() > Date.now());
   const comped = ['demo_comped', 'demo-comped'].includes(String(profile.subscription_status || '').toLowerCase());
+  const status = String(profile.subscription_status || '').toLowerCase();
+  // Do not rely on a stale plan='superfan' after cancellation or promo expiry.
   const superfan = isPaid || promoValid || comped
-    || (profile.plan === 'superfan' && !['cancelled', 'canceled', 'unpaid', 'past_due'].includes(String(profile.subscription_status || '').toLowerCase()));
+    || (profile.plan === 'superfan' && !profile.promo_code && !profile.stripe_subscription_id
+      && !['cancelled', 'canceled', 'unpaid', 'past_due'].includes(status));
   const memberLabel = superfan ? (isPaid ? 'SUPER FAN' : 'SUPER FAN – PROMO') : 'FAN';
   const tierTag = superfan ? (isPaid ? 'membership:superfan-paid' : 'membership:superfan-promo') : 'membership:fan';
 
