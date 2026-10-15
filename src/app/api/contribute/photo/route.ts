@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
         ).catch(() => ({ rows: [] as { hsid: string | null; name: string }[] }));
         if (rows[0]) link = photoLinkPath('headshot', { playerId: tagged[0], playerName: rows[0].name, hsid: rows[0].hsid });
       } else {
-        link = photoLinkPath(purpose, { playerId, playerName, hsid });
+        link = photoLinkPath(purpose, { playerId, playerName, hsid, pageUrl });
       }
     }
     return NextResponse.json({ ok: true, id, status, message, link }, { status: 201 });
