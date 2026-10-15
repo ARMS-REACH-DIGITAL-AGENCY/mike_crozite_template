@@ -79,6 +79,21 @@ const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: s
 };
 function Thumb({ kind }: { kind: ThumbKind }) {
   const { src, label, position } = THUMB_IMAGES[kind];
+  if (kind === 'headshot') {
+    return (
+      <span className="ccd-thumb ccd-thumb-headshot" aria-hidden="true">
+        <span className="ccd-headshot-ring">
+          <img loading="lazy" src={src} alt="" onError={(event) => {
+            if (!event.currentTarget.src.endsWith('/img/connect-contribute-portal.png')) event.currentTarget.src = '/img/connect-contribute-portal.png';
+          }} />
+        </span>
+        <img className="ccd-headshot-pop" loading="lazy"
+          src={`${S3}/players/now-cutouts/225132.png`} alt=""
+          onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+        <span className="ccd-thumb-label">HEADSHOT</span>
+      </span>
+    );
+  }
   return (
     <span className={`ccd-thumb ccd-thumb-${kind}`} aria-hidden="true">
       {/* Native img avoids Next remote image configuration for S3 originals. */}
@@ -94,23 +109,38 @@ function Thumb({ kind }: { kind: ThumbKind }) {
 }
 
 function Transaction({ item }: { item: DeskCard }) {
+  const [showPlacement, setShowPlacement] = useState(false);
+  const openUpload = () => openContribute(item.detail);
   return (
     <article className="ccd-item" id={item.id}>
-      <button className="ccd-item-main" type="button" onClick={() => openContribute(item.detail)} aria-label={item.action + ': ' + item.title}>
-        <Thumb kind={item.thumb} />
-        <span className="ccd-item-copy">
+      <div className="ccd-item-layout">
+        <button type="button" className="ccd-image-button" onClick={openUpload}
+          aria-label={item.action + ': ' + item.title}>
+          <Thumb kind={item.thumb} />
+        </button>
+        <div className="ccd-item-copy">
           <span className="ccd-eyebrow">{item.eyebrow}</span>
-          <strong className="ccd-title">{item.title}</strong>
+          <button type="button" className="ccd-title-button" onClick={openUpload}>{item.title}</button>
           <span className="ccd-summary">{item.instruction}</span>
-          <span className="ccd-action">{item.action} <i className="ri-arrow-right-line" aria-hidden="true" /></span>
-        </span>
-      </button>
-      {item.help ? (
-        <details className="ccd-help">
-          <summary>Where does this photo go?</summary>
+          <div className="ccd-item-actions">
+            <button type="button" className="ccd-action-button" onClick={openUpload}>
+              {item.action} <i className="ri-arrow-right-line" aria-hidden="true" />
+            </button>
+            {item.help ? (
+              <button type="button" className="ccd-placement-button"
+                aria-expanded={showPlacement} aria-controls={`ccd-placement-${item.id}`}
+                onClick={() => setShowPlacement((previous) => !previous)}>
+                {showPlacement ? 'HIDE DETAILS' : 'SEE PLACEMENT'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      {item.help && showPlacement ? (
+        <div id={`ccd-placement-${item.id}`} className="ccd-placement-details">
           <p>{PHOTO_DETAILS[item.help]}</p>
-          <button type="button" onClick={() => openContribute(item.detail)}>Open upload</button>
-        </details>
+          <button type="button" onClick={openUpload}>Start upload <i className="ri-arrow-right-line" aria-hidden="true" /></button>
+        </div>
       ) : null}
     </article>
   );
@@ -340,24 +370,42 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccd-contribute .ccd-column-heading { border-bottom-color:var(--sb-accent, #d99a28); }
         .ccd-list { display:flex; flex-direction:column; }
         .ccd-item { min-width:0; padding:0; border:0; scroll-margin-top:215px; }
-        .ccd-item-main { display:grid; width:100%; grid-template-columns:86px minmax(0,1fr); gap:12px; align-items:center; padding:7px 3px; border:0; background:none; text-align:left; cursor:pointer; font:inherit; color:inherit; }
+        /* News-style whitespace separates listings, without horizontal rules. */
+        .ccd-item + .ccd-item { margin-top:14px; }
+        .ccd-item-main, .ccd-item-layout { display:grid; width:100%; grid-template-columns:86px minmax(0,1fr); gap:12px; align-items:center; padding:9px 3px; border:0; background:none; text-align:left; font:inherit; color:inherit; }
+        .ccd-item-main { cursor:pointer; }
         .ccd-item-main:hover .ccd-title, .ccd-item-main:focus-visible .ccd-title { text-decoration:underline; text-underline-offset:2px; }
-        .ccd-item-main:focus-visible { outline:2px solid var(--sb-text); outline-offset:-2px; }
+        .ccd-item-main:focus-visible,.ccd-image-button:focus-visible,.ccd-title-button:focus-visible,.ccd-action-button:focus-visible,.ccd-placement-button:focus-visible { outline:2px solid #ddd; outline-offset:2px; }
         .ccd-item-main:disabled { cursor:default; opacity:.63; }
+        .ccd-image-button { display:block; appearance:none; background:none; padding:0; border:0; cursor:pointer; }
         .ccd-item-copy { display:flex; flex-direction:column; min-width:0; align-items:flex-start; }
-        .ccd-eyebrow { color:#cb940f; font:800 9px/1.15 var(--yat-font-ui); letter-spacing:.025em; margin-bottom:1px; }
-        .ccd-title { font:800 15px/1.12 var(--yat-font-ui); letter-spacing:-.02em; }
-        .ccd-summary { margin-top:2px; font:400 12px/1.24 var(--yat-font-ui); color:var(--sb-ink-muted); }
-        .ccd-action { margin-top:3px; font:800 10px/1.2 var(--yat-font-ui); color:var(--sb-text); letter-spacing:.025em; }
+        .ccd-eyebrow { color:#aeb0b3; font:800 9px/1.18 var(--yat-font-ui); letter-spacing:.025em; margin-bottom:2px; }
+        .ccd-title,.ccd-title-button { font:800 15px/1.15 var(--yat-font-ui); letter-spacing:-.02em; color:#fff; }
+        .ccd-title-button { display:block; padding:0; border:0; background:none; text-align:left; cursor:pointer; }
+        .ccd-title-button:hover { text-decoration:underline; }
+        .ccd-summary { margin-top:4px; font:400 12px/1.34 var(--yat-font-ui); color:#c0c1c3; }
+        .ccd-action { margin-top:5px; font:800 10px/1.2 var(--yat-font-ui); color:#fff; letter-spacing:.025em; }
         .ccd-action i { font-size:12px; vertical-align:-1px; }
+        .ccd-item-actions { display:flex; width:100%; min-width:0; justify-content:space-between; align-items:baseline; gap:6px; margin-top:7px; }
+        .ccd-action-button,.ccd-placement-button { appearance:none; background:none; border:0; padding:0; white-space:nowrap; cursor:pointer; }
+        .ccd-action-button { display:inline-flex; align-items:center; gap:3px; color:#fff; font:800 10px/1.3 var(--yat-font-ui); letter-spacing:.01em; }
+        .ccd-action-button i { font-size:12px; }
+        .ccd-placement-button { color:#b9b9b9; font:600 9px/1.3 var(--yat-font-ui); letter-spacing:.02em; }
+        .ccd-placement-button:hover { color:#fff; text-decoration:underline; }
+        .ccd-placement-details { margin:2px 3px 4px 101px; padding:10px 12px; background:#1b1b1b; border-radius:3px; color:#ddd; font:400 11px/1.4 var(--yat-font-ui); }
+        .ccd-placement-details p { margin:0 0 7px; }
+        .ccd-placement-details button { border:0; padding:0; color:#fff; background:none; cursor:pointer; font:700 11px/1.3 var(--yat-font-ui); }
         .ccd-thumb { height:72px; width:86px; position:relative; overflow:hidden; border-radius:3px; display:block; background:#171717; border:1px solid #3b3b3b; color:#fff; }
         .ccd-thumb img { width:100%; height:100%; display:block; object-fit:cover; filter:saturate(.83); }
         .ccd-thumb-label { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,.88)); padding:12px 4px 4px; font:800 7px/1.1 var(--yat-font-ui); color:#fff; letter-spacing:.035em; text-shadow:0 1px 2px #000; }
         .ccd-thumb-logos img, .ccd-thumb-banner img { object-fit:contain; padding:5px; }
-        .ccd-help { margin:-2px 0 9px 101px; color:var(--sb-ink-muted); font-size:11px; line-height:1.3; }
-        .ccd-help summary { display:list-item; cursor:pointer; color:var(--sb-text); font:700 10px/1.4 var(--yat-font-ui); }
-        .ccd-help p { margin:6px 0; }
-        .ccd-help button { background:transparent; color:var(--sb-text); font:700 11px var(--yat-font-ui); border:0; cursor:pointer; padding:2px 0; text-decoration:underline; }
+        /* A true circular headshot, with an optional transparent portrait
+           emerging above the rim rather than a square clip. */
+        .ccd-thumb-headshot { overflow:visible; border:0; border-radius:0; background:transparent; }
+        .ccd-headshot-ring { position:absolute; bottom:1px; left:50%; transform:translateX(-50%); display:block; width:69px; height:69px; border:2px solid #ddd; box-sizing:border-box; overflow:hidden; border-radius:50%; background:#151515; }
+        .ccd-headshot-ring img { width:100%; height:100%; object-fit:cover; object-position:center 24%; filter:none; }
+        .ccd-thumb-headshot .ccd-headshot-pop { display:block; position:absolute; z-index:1; bottom:1px; left:50%; transform:translateX(-50%); width:80px; height:80px; object-fit:contain; object-position:center bottom; filter:none; }
+        .ccd-thumb-headshot .ccd-thumb-label { z-index:2; left:10px; right:10px; bottom:1px; border-radius:0 0 35px 35px; text-align:center; }
         .ccd-footnote { padding:10px 3px; color:var(--sb-ink-muted); font-size:11px; line-height:1.5; }
         /* Monochrome editorial desk: no scoreboard green or gold. */
         .ccd { color:#f7f7f7 !important; background:#090909 !important; }
@@ -365,7 +413,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccd-column-heading { border:0 !important; }
         .ccd-eyebrow { color:#aeb0b3 !important; }
         .ccd-summary,.ccd-footnote { color:#c0c1c3 !important; }
-        .ccd-action,.ccd-help summary,.ccd-help button { color:#fff !important; }
+        .ccd-action,.ccd-action-button { color:#fff !important; }
         .ccd-item { border:0 !important; }
         .ccd-title { color:#fff; }
         .ccd-item-main:hover { background:#161616; }
@@ -409,11 +457,16 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           .ccd-mobile-switch button.is-on { background:#fff; border-color:#fff; color:#070707; box-shadow:none; }
           .ccd-mobile-switch button:focus-visible { outline:2px solid var(--sb-text); outline-offset:2px; }
           .ccd-list { border:0; }
-          .ccd-item-main { grid-template-columns:76px minmax(0,1fr); gap:10px; padding:7px 2px; }
+          .ccd-item-main,.ccd-item-layout { grid-template-columns:76px minmax(0,1fr); gap:10px; padding:9px 2px; }
+          .ccd-item + .ccd-item { margin-top:12px; }
           .ccd-thumb { width:76px; height:66px; }
-          .ccd-help { margin-left:88px; }
-          .ccd-title { font-size:14px; }
-          .ccd-summary { font-size:11.5px; line-height:1.2; }
+          .ccd-headshot-ring { width:64px; height:64px; }
+          .ccd-thumb-headshot .ccd-headshot-pop { width:75px; height:76px; }
+          .ccd-placement-details { margin-left:88px; }
+          .ccd-title,.ccd-title-button { font-size:14px; }
+          .ccd-summary { font-size:11.5px; line-height:1.3; }
+          .ccd-action-button { font-size:9.2px; }
+          .ccd-placement-button { font-size:8.8px; }
         }
       `}</style>
     </div>
