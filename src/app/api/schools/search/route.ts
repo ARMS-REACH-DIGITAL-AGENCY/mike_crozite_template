@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
     // Resolve its missing HSIDs against the canonical TBC school records.
     // Never guess an ID when name + city + state is ambiguous.
     const missingNames = Array.from(new Set(rows
-      .filter((r: any) => !/^\\d+$/.test(String(r.hsid ?? '').trim()))
+      .filter((r: any) => !/^\d+$/.test(String(r.hsid ?? '').trim()))
       .map((r: any) => String(r.hsname ?? '').trim().toLowerCase())
       .filter(Boolean)));
     const schoolKey = (name: unknown, city: unknown, state: unknown) =>
@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
       }
     }
     const resolvedRows = rows.map((row: any) => {
-      if (/^\\d+$/.test(String(row.hsid ?? '').trim())) return row;
+      if (/^\d+$/.test(String(row.hsid ?? '').trim())) return row;
       const key = schoolKey(row.hsname, row.cityname || String(row.hslocation ?? '').split(',')[0], row.regionid);
       const matches = canonicalIds.get(key);
       return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
