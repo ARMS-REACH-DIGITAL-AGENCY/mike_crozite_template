@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
             { email: body.email, firstName: profile.first_name || body.firstName || '', lastName: profile.last_name || body.lastName || '' },
             String(profile.home_hsid || body.subdomain || 'yatstats')
           );
-          if (!('error' in created)) contactId = created.contact?.id || null;
+          if (!('error' in created)) contactId = (created as { contact?: { id?: string } }).contact?.id || null;
         }
         if (contactId) {
           profile = await upsertUserProfile(body.uid, { email: body.email, arms_contact_id: contactId });
