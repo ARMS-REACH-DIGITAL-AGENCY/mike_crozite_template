@@ -79,7 +79,7 @@ const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: s
   video: { src: `${S3}/players/now/225132.jpg`, label: 'VIDEO MESSAGE' },
 };
 function Thumb({ kind }: { kind: ThumbKind }) {
-  const { src, label, position } = THUMB_IMAGES[kind];
+  const { src, position } = THUMB_IMAGES[kind];
   const [cutoutAvailable, setCutoutAvailable] = useState(true);
   if (kind === 'headshot') {
     // Reuse Row 3's actual transparent cutout. The same portrait is drawn
@@ -103,22 +103,19 @@ function Thumb({ kind }: { kind: ThumbKind }) {
           <img className="ccd-headshot-above" src={cutout} loading="lazy" alt=""
             onError={() => setCutoutAvailable(false)} />
         ) : null}
-        <span className="ccd-thumb-label">HEADSHOT</span>
       </span>
     );
   }
   return (
-    <span className={`ccd-thumb ccd-thumb-${kind} ccd-thumb-orbit`} aria-hidden="true">
-      {/* Native img avoids Next remote image configuration for S3 originals. */}
-      <img loading="lazy" src={src} alt="" style={position ? { objectPosition: position } : undefined}
-        onError={(e) => {
-          const img = e.currentTarget;
-          // Fallback is site artwork, not a glyph, sticker, or stick figure.
-          if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
-        }} />
-      <span className="ccd-thumb-label">{label}</span>
+    <span className={`ccd-thumb ccd-thumb-${kind} ccd-thumb-contained`} aria-hidden="true">
+      <span className="ccd-thumb-photo">
+        <img loading="lazy" src={src} alt="" style={position ? { objectPosition: position } : undefined}
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
+          }} />
+      </span>
     </span>
-  );
 }
 
 
@@ -665,27 +662,35 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         @media (prefers-reduced-motion:no-preference) { .ccd-inquiry-panel { animation:ccd-inquiry-enter .18s ease-out; } }
         @keyframes ccd-inquiry-enter { from { transform:translateX(-15px); opacity:.6; } to { transform:translateX(0); opacity:1; } }
 
-        /* The circle is the back layer, the art is the middle layer, and the
-           bottom mask is the foreground: the ring remains closed below. */
-        .ccd-thumb-orbit {
-          width:76px; height:76px; margin:0 auto; overflow:visible;
-          border:2px solid #d6d8d9; border-radius:50%;
-          background:radial-gradient(circle at 45% 30%,#257d56,#073d31);
-          isolation:isolate;
+        /* Rectangular images stay completely INSIDE their circular masks.
+           Only a verified transparent cutout can extend above the rim. */
+        .ccd-thumb-contained {
+          display:flex; align-items:center; justify-content:center;
+          width:74px; height:74px; margin:0 auto; padding:0;
+          border:2px solid #d4d7d7; border-radius:50%;
+          overflow:hidden; background:#153c34;
+          box-shadow:0 1px 5px rgba(0,0,0,.28);
         }
-        .ccd-thumb-orbit::after {
-          content:""; position:absolute; z-index:3; left:-2px; right:-2px;
-          bottom:-2px; height:28px; border:2px solid #d6d8d9;
-          border-top:0; border-radius:0 0 45px 45px;
-          pointer-events:none;
+        .ccd-thumb-contained .ccd-thumb-photo {
+          display:block; position:relative; width:100%; height:100%;
+          border-radius:50%; overflow:hidden;
         }
-        .ccd-thumb-orbit > img {
-          position:absolute; z-index:2; left:6px; top:-7px;
-          width:60px; height:72px; object-fit:contain;
-          border-radius:42% 42% 0 0; filter:none;
-          clip-path:inset(0 0 9px 0 round 30px 30px 0 0);
+        .ccd-thumb-contained .ccd-thumb-photo > img {
+          display:block; position:static; width:100%; height:100%; max-width:none;
+          object-fit:cover; padding:0; margin:0; border:0; border-radius:0;
+          clip-path:none; transform:none; filter:none;
         }
-        .ccd-thumb-orbit .ccd-thumb-label { z-index:4; bottom:1px; border-radius:0 0 36px 36px; text-align:center; }
+        .ccd-thumb-contained.ccd-thumb-logos .ccd-thumb-photo > img,
+        .ccd-thumb-contained.ccd-thumb-banner .ccd-thumb-photo > img {
+          object-fit:contain; padding:9px;
+        }
+        .ccd-thumb-contained .ccd-thumb-label,
+        .ccd-thumb-headshot .ccd-thumb-label { display:none; }
+        /* Keep the genuine transparent-cutout Row 3 headshot unchanged.
+           The lower head remains inside a complete circle; only the 16px
+           transparent crown extends above the rim. */
+        .ccd-thumb-headshot { margin:0 auto; width:74px; }
+        .ccd-thumb-headshot .ccd-headshot-ring { border-color:#d4d7d7; }
         .ccd-example-pair { display:grid; grid-template-columns:1fr 1fr; gap:13px; width:100%; align-items:end; }
         .ccd-example-flip { min-width:0; display:flex; flex-direction:column; gap:8px; align-items:center; }
         .ccd-example-flip .ypf-card { width:100%; max-width:185px; aspect-ratio:5/7; }
