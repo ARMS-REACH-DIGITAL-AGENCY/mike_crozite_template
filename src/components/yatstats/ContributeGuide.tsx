@@ -41,22 +41,22 @@ type SponsorCard = {
 };
 
 const CONTRIBUTIONS: DeskCard[] = [
-  { id: 'cc-photo', eyebrow: 'FLIP CARD · FRONT', title: 'High School Photo', instruction: 'Add a high school-era photo to the front of an alumnus\'s flip card.', thumb: 'front', action: 'UPLOAD PHOTO', detail: { tab: 'photo', photoType: 'flip_card' }, help: 'flip_card' },
-  { id: 'cc-headshot', eyebrow: 'GALLERY · PROFILE', title: 'Player Headshot', instruction: 'Send a face-and-shoulders photo for a player or a specific season.', thumb: 'headshot', action: 'UPLOAD HEADSHOT', detail: { tab: 'photo', photoType: 'headshot' }, help: 'headshot' },
-  { id: 'cc-action', eyebrow: 'FLIP CARD · BACK', title: 'Current Action Photo', instruction: 'Add a current-season action photo to the back of a player\'s flip card.', thumb: 'back', action: 'UPLOAD ACTION PHOTO', detail: { tab: 'photo', photoType: 'back_hero' }, help: 'back_hero' },
-  { id: 'cc-timeline', eyebrow: 'PLAYER PROFILE · CAREER PATH', title: 'Career Timeline Photo', instruction: 'Add a playing-days photo to a specific year of an alumnus\'s career.', thumb: 'timeline', action: 'UPLOAD TIMELINE PHOTO', detail: { tab: 'photo', photoType: 'timeline_hero' }, help: 'timeline_hero' },
+  { id: 'cc-photo', eyebrow: 'FLIP CARD · FRONT', title: 'High School Photo', instruction: 'Preserve a school-days photo on the front of an alumnus\'s flip card.', thumb: 'front', action: 'UPLOAD PHOTO', detail: { tab: 'photo', photoType: 'flip_card' }, help: 'flip_card' },
+  { id: 'cc-headshot', eyebrow: 'GALLERY · PROFILE', title: 'Player Headshot', instruction: 'Help fans recognize a player with a clear, season-specific headshot.', thumb: 'headshot', action: 'UPLOAD HEADSHOT', detail: { tab: 'photo', photoType: 'headshot' }, help: 'headshot' },
+  { id: 'cc-action', eyebrow: 'FLIP CARD · BACK', title: 'Current Action Photo', instruction: 'Show the alumnus in action today on the back of their flip card.', thumb: 'back', action: 'UPLOAD ACTION PHOTO', detail: { tab: 'photo', photoType: 'back_hero' }, help: 'back_hero' },
+  { id: 'cc-timeline', eyebrow: 'PLAYER PROFILE · CAREER PATH', title: 'Career Timeline Photo', instruction: 'Add a photo from a memorable season to an alumnus\'s career timeline.', thumb: 'timeline', action: 'UPLOAD TIMELINE PHOTO', detail: { tab: 'photo', photoType: 'timeline_hero' }, help: 'timeline_hero' },
   { id: 'cc-logo', eyebrow: 'SCHOOL & TEAM ARTWORK', title: 'School or Team Logo', instruction: 'Supply a missing or corrected logo for a school or college/pro team.', thumb: 'logos', action: 'UPLOAD LOGO', detail: { tab: 'photo', photoType: 'school_logo' }, help: 'school_logo' },
   { id: 'cc-tip', eyebrow: 'ACTIVE ALUMNI NEWS', title: 'News Tip', instruction: 'Paste a link to a player story, award, signing, or call-up.', thumb: 'news', action: 'SEND LINK', detail: { tab: 'tip' } },
-  { id: 'cc-missing', eyebrow: 'ALL-TIME NEXT-LEVEL LIST', title: 'Missing Alumni', instruction: 'Tell us who is missing, their class year, and where they played.', thumb: 'missing', action: 'ADD ALUMNUS', detail: { tab: 'missing' } },
+  { id: 'cc-missing', eyebrow: 'ALL-TIME NEXT-LEVEL LIST', title: 'Missing Alumni', instruction: 'Know someone we missed? Share their class year and where they played.', thumb: 'missing', action: 'ADD ALUMNUS', detail: { tab: 'missing' } },
   { id: 'cc-data', eyebrow: 'ROSTER & PLAYER RECORDS', title: 'Correct Information', instruction: 'Update graduation years, playing history, or school and player details.', thumb: 'data', action: 'SUBMIT CORRECTION', detail: { tab: 'data' } },
 ];
 
 const SPONSORSHIPS: SponsorCard[] = [
-  { id: 'cc-profile-sponsor', eyebrow: 'PLAYER PROFILE', title: 'Sponsor a Player Profile', instruction: 'Request a business placement on an alumnus\'s profile.', thumb: 'profile', action: 'REQUEST PLACEMENT', interest: 'profile' },
-  { id: 'cc-fans', eyebrow: 'SCHOOL HUB', title: 'Sponsor This School', instruction: 'Request a banner or featured placement on this school\'s hub.', thumb: 'banner', action: 'REQUEST PLACEMENT', interest: 'title' },
-  { id: 'cc-bracket-sponsor', eyebrow: 'FANTASY BRACKET', title: 'Sponsor the Bracket', instruction: 'Request a placement in the school-versus-school fantasy competition.', thumb: 'bracket', action: 'REQUEST PLACEMENT', interest: 'bracket' },
-  { id: 'cc-alumni', eyebrow: 'ALUMNI PROFILE', title: 'Promote Your Alumni Business', instruction: 'Request business details and branding on your alumni profile.', thumb: 'business', action: 'REQUEST PLACEMENT', interest: 'alumni' },
-  { id: 'cc-player', eyebrow: 'PERSONAL VIDEO REQUESTS', title: 'Message From an Alumnus', instruction: 'Personalized player videos are planned; ask to hear when requests open.', thumb: 'video', action: 'REQUEST UPDATES', interest: 'video' },
+  { id: 'cc-profile-sponsor', eyebrow: 'PLAYER PROFILE', title: 'Sponsor a Player Profile', instruction: 'Support an alumnus\'s career story with a business placement.', thumb: 'profile', action: 'REQUEST PLACEMENT', interest: 'profile' },
+  { id: 'cc-fans', eyebrow: 'SCHOOL HUB', title: 'Sponsor This School', instruction: 'Put your brand alongside this school and the fans who follow it.', thumb: 'banner', action: 'REQUEST PLACEMENT', interest: 'title' },
+  { id: 'cc-bracket-sponsor', eyebrow: 'FANTASY BRACKET', title: 'Sponsor the Bracket', instruction: 'Reach fans following their hometown alumni in the fantasy bracket.', thumb: 'bracket', action: 'REQUEST PLACEMENT', interest: 'bracket' },
+  { id: 'cc-alumni', eyebrow: 'ALUMNI PROFILE', title: 'Promote Your Alumni Business', instruction: 'Help fellow alumni and hometown fans discover your business.', thumb: 'business', action: 'REQUEST PLACEMENT', interest: 'alumni' },
+  { id: 'cc-player', eyebrow: 'PERSONAL VIDEO REQUESTS', title: 'Message From an Alumnus', instruction: 'Personalized alumni videos are planned. Hear when requests open.', thumb: 'video', action: 'REQUEST UPDATES', interest: 'video' },
 ];
 
 // Real baseball and existing YAT?STATS artwork instead of invented iconography.
@@ -311,7 +311,13 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
 
   return (
     <div className="ccd">
-      <h1 className="ccd-visually-hidden">Connect &amp; Contribute</h1>
+      <header className="ccd-page-intro">
+        <div className="ccd-page-title">
+          <span className="ccd-kicker">{hub} <span aria-hidden="true">·</span> COMMUNITY DESK</span>
+          <h1>Connect <span>&amp;</span> Contribute</h1>
+        </div>
+        <p>Honor the past. Follow the present. Help build what&apos;s next.</p>
+      </header>
       <nav className="ccd-mobile-switch" role="tablist" aria-label="Connect and Contribute">
         <button id="ccd-tab-contribute" type="button" role="tab" aria-controls="cc-contribute" aria-selected={view === 'contribute'} className={view === 'contribute' ? 'is-on' : ''} onClick={() => setView('contribute')}>CONTRIBUTE</button>
         <button id="ccd-tab-connect" type="button" role="tab" aria-controls="cc-connect" aria-selected={view === 'connect'} className={view === 'connect' ? 'is-on' : ''} onClick={() => setView('connect')}>CONNECT</button>
@@ -321,7 +327,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         <section className={`ccd-column ccd-connect${view === 'connect' ? ' is-active' : ''}`} id="cc-connect" aria-label="Connect transactions">
           <header className="ccd-column-heading">
             <h2>CONNECT</h2>
-            <p>Business placements and player experiences.</p>
+            <p>Support the school, honor its alumni, and reach hometown fans.</p>
           </header>
           <div className="ccd-list">
             {SPONSORSHIPS.map((item) => (
@@ -338,18 +344,18 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
               </article>
             ))}
           </div>
-          <p className="ccd-footnote">Sponsorship requests go to the Partner Program team. Online checkout is not active yet.</p>
+          <p className="ccd-footnote">Local partners help keep these school communities connected. Requests go to the Partner Program team; online checkout is not active yet.</p>
         </section>
 
         <section className={`ccd-column ccd-contribute${view === 'contribute' ? ' is-active' : ''}`} id="cc-contribute" aria-label="Contribute content and information">
           <header className="ccd-column-heading">
             <h2>CONTRIBUTE</h2>
-            <p>Photos, history, updates, and news.</p>
+            <p>Share what you know. Help complete the hometown story.</p>
           </header>
           <div className="ccd-list">
             {CONTRIBUTIONS.map((item) => <Transaction item={item} key={item.id} />)}
           </div>
-          <p className="ccd-footnote">If you see a silhouette, a missing name, or an incorrect detail, you can help complete the record.</p>
+          <p className="ccd-footnote">Whether you played, coached, cheered, or remember the moment, your contribution helps connect generations of {hub} baseball.</p>
         </section>
       </div>
 
@@ -507,6 +513,179 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           .ccd-action-button { font-size:9.2px; }
           .ccd-placement-button { font-size:8.8px; }
         }
+
+        /* Shared site type: Barlow Condensed = sports labels, Archivo = clear
+           social UI, Source Serif 4 = the human editorial bridge. Keep the
+           transaction desk compact; the school's five-row shell stays intact. */
+        .ccd {
+          --ccd-bg:#0b0b0b;
+          --ccd-panel:#171717;
+          --ccd-ink:#f5f4f0;
+          --ccd-muted:#c5c3be;
+          --ccd-quiet:#a9a59e;
+          --ccd-line:rgba(255,255,255,.13);
+          --ccd-hover:rgba(255,255,255,.045);
+          color:var(--ccd-ink) !important;
+          background:var(--ccd-bg) !important;
+          padding-top:9px;
+        }
+        body.light-theme .ccd {
+          --ccd-bg:#f7f6f3;
+          --ccd-panel:#eeece8;
+          --ccd-ink:#22211f;
+          --ccd-muted:#585650;
+          --ccd-quiet:#6d6961;
+          --ccd-line:rgba(30,28,25,.16);
+          --ccd-hover:rgba(30,28,25,.055);
+        }
+        .ccd-page-intro {
+          display:flex; align-items:end; justify-content:space-between; gap:26px;
+          padding:4px 4px 16px; border-bottom:1px solid var(--ccd-line);
+        }
+        .ccd-page-title { min-width:0; }
+        .ccd-page-intro .ccd-kicker {
+          display:block; font:700 12px/1.2 var(--yat-font-compact);
+          letter-spacing:.105em; text-transform:uppercase; color:var(--ccd-quiet);
+        }
+        .ccd-page-intro h1 {
+          margin:4px 0 0;
+          font-family:var(--yat-font-compact) !important;
+          font-size:clamp(28px,3vw,34px); line-height:1 !important;
+          font-weight:800 !important; letter-spacing:.025em !important;
+          color:var(--ccd-ink); text-transform:uppercase;
+        }
+        .ccd-page-intro h1 span { color:var(--ccd-quiet); }
+        .ccd-page-intro > p {
+          max-width:380px; margin:0 0 3px; color:var(--ccd-muted);
+          font:italic 400 15px/1.4 var(--yat-font-editorial);
+        }
+        .ccd-columns { gap:30px; margin-top:0; color:var(--ccd-ink); }
+        .ccd-connect { padding-right:17px; border-right:1px solid var(--ccd-line); }
+        .ccd-column-heading {
+          padding:14px 5px 12px; border-bottom:1px solid var(--ccd-line) !important;
+        }
+        .ccd .ccd-column-heading h2 {
+          font-family:var(--yat-font-compact) !important; font-size:24px;
+          font-weight:800 !important; letter-spacing:.05em !important;
+          color:var(--ccd-ink);
+        }
+        .ccd .ccd-column-heading p {
+          font:500 12.5px/1.4 var(--yat-font-ui);
+          color:var(--ccd-muted); max-width:38ch;
+        }
+        .ccd-item + .ccd-item { margin-top:5px; }
+        .ccd-item-main,.ccd-item-layout {
+          grid-template-columns:92px minmax(0,1fr); gap:14px;
+          align-items:center; padding:11px 6px; border-radius:8px;
+          transition:background-color .15s ease;
+        }
+        .ccd-item-main:hover,.ccd-item-main:focus-visible,
+        .ccd-item:hover > .ccd-item-layout { background:var(--ccd-hover); }
+        .ccd .ccd-eyebrow {
+          margin-bottom:4px; font:700 10.5px/1.1 var(--yat-font-compact);
+          letter-spacing:.085em; text-transform:uppercase;
+          color:var(--ccd-quiet) !important;
+        }
+        .ccd .ccd-title,.ccd .ccd-title-button {
+          font:750 15.5px/1.18 var(--yat-font-ui);
+          letter-spacing:-.012em; color:var(--ccd-ink) !important;
+        }
+        .ccd .ccd-summary {
+          margin-top:5px; font:400 12.6px/1.42 var(--yat-font-ui);
+          color:var(--ccd-muted) !important;
+        }
+        .ccd .ccd-action,.ccd .ccd-action-button {
+          font:700 11.5px/1.15 var(--yat-font-compact);
+          letter-spacing:.075em; color:var(--ccd-ink) !important;
+        }
+        .ccd .ccd-action { margin-top:9px; }
+        .ccd .ccd-item-actions { margin-top:9px; gap:10px; align-items:center; }
+        .ccd .ccd-placement-button {
+          font:600 10.5px/1.25 var(--yat-font-compact);
+          letter-spacing:.055em; color:var(--ccd-quiet);
+        }
+        .ccd .ccd-placement-button:hover { color:var(--ccd-ink); }
+        .ccd .ccd-footnote {
+          margin:3px 4px 0; padding:13px 0;
+          border-top:1px solid var(--ccd-line);
+          font:400 12px/1.5 var(--yat-font-ui);
+          color:var(--ccd-muted) !important;
+        }
+        .ccd-thumb {
+          width:92px; height:78px; border-radius:7px;
+          background:var(--ccd-panel); border-color:var(--ccd-line);
+        }
+        .ccd-thumb img { filter:saturate(.95) contrast(1.035); }
+        .ccd-thumb-label {
+          font:700 10px/1 var(--yat-font-compact);
+          letter-spacing:.08em; padding:15px 5px 5px;
+        }
+        .ccd-thumb-headshot {
+          width:92px; height:calc(var(--ccd-headshot-size) + var(--ccd-headshot-rise));
+        }
+        .ccd-headshot-ring { background:var(--ccd-panel); border-color:var(--ccd-muted); }
+        .ccd-headshot-ring img.ccd-headshot-cutout,
+        .ccd-headshot-ring img.ccd-headshot-fallback,
+        .ccd-thumb-headshot .ccd-headshot-above { filter:none; }
+        .ccd .ccd-placement-details {
+          background:var(--ccd-panel); color:var(--ccd-muted);
+          border:1px solid var(--ccd-line); border-radius:6px;
+        }
+        .ccd .ccd-placement-details button { color:var(--ccd-ink); }
+        .ccd .ccg-form,
+        .ccd .ccd-inquiry-panel .ccg-form {
+          background:var(--ccd-panel); color:var(--ccd-ink);
+          border-color:var(--ccd-line);
+        }
+        .ccd .ccg-form input,.ccd .ccg-form textarea,.ccd .ccg-form select,
+        .ccd .ccd-inquiry-panel .ccg-form input,
+        .ccd .ccd-inquiry-panel .ccg-form textarea,
+        .ccd .ccd-inquiry-panel .ccg-form select {
+          background:var(--ccd-bg); color:var(--ccd-ink);
+          border-color:var(--ccd-line);
+        }
+        .ccd .ccg-btn,.ccd .ccd-inquiry-panel .ccg-btn {
+          background:var(--ccd-ink); color:var(--ccd-bg);
+          border-color:var(--ccd-ink);
+        }
+        .ccd .ccg-link,.ccd .ccd-inquiry-panel .ccg-link { color:var(--ccd-ink); }
+        @media (max-width:760px) {
+          .ccd { padding:6px 11px 80px; }
+          .ccd-page-intro {
+            align-items:start; flex-direction:column; gap:7px;
+            padding:4px 2px 12px; margin-bottom:9px;
+          }
+          .ccd-page-intro h1 { font-size:28px; }
+          .ccd-page-intro > p { max-width:none; font-size:13.5px; }
+          .ccd-connect { padding-right:0; border-right:0; }
+          .ccd-columns { margin-top:0; }
+          .ccd-mobile-switch {
+            padding:3px 1px 9px; border-bottom:1px solid var(--ccd-line);
+          }
+          .ccd-mobile-switch button {
+            color:var(--ccd-muted); background:transparent;
+            border-color:var(--ccd-line);
+          }
+          .ccd-mobile-switch button.is-on {
+            background:var(--ccd-ink); border-color:var(--ccd-ink);
+            color:var(--ccd-bg);
+          }
+          .ccd-item-main,.ccd-item-layout {
+            grid-template-columns:78px minmax(0,1fr); gap:11px;
+            padding:11px 4px;
+          }
+          .ccd-thumb { width:78px; height:70px; }
+          .ccd-thumb-headshot {
+            width:78px;
+            height:calc(var(--ccd-headshot-size) + var(--ccd-headshot-rise));
+          }
+          .ccd .ccd-title,.ccd .ccd-title-button { font-size:14.5px; }
+          .ccd .ccd-summary { font-size:12px; }
+          .ccd .ccd-action-button { font-size:11px; }
+          .ccd .ccd-placement-button { font-size:10px; }
+          .ccd-placement-details { margin-left:91px; }
+        }
+
       `}</style>
     </div>
   );
