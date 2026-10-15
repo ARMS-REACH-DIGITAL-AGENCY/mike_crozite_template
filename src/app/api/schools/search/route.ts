@@ -129,7 +129,37 @@ export async function GET(req: NextRequest) {
     ];
     const state = !stateRaw && !cityRaw ? stateFromQuery(qRaw) : null;
     const { rows } = state ? { rows: await schoolsInState(state, qRaw) } : await query(sql, params);
-    const programs = rows.map((r: any) => ({
+    // school_success is a ranking/directory source, not a complete ID registry.
+    // Resolve its missing HSIDs against the canonical TBC school records.
+    // Never guess an ID when name + city + state is ambiguous.
+    const missingNames = Array.from(new Set(rows
+      .filter((r: any) => !/^\\d+$/.test(String(r.hsid ?? '').trim()))
+      .map((r: any) => String(r.hsname ?? '').trim().toLowerCase())
+      .filter(Boolean)));
+    const schoolKey = (name: unknown, city: unknown, state: unknown) =>
+      [name, city, state].map((v) => String(v ?? '').trim().toLowerCase()).join('|');
+    const canonicalIds = new Map<string, Set<string>>();
+    if (missingNames.length) {
+      const { rows: matches } = await query(
+        `SELECT hsid, hsname, cityname, regionid
+           FROM tbc_schools_raw
+          WHERE lower(trim(hsname)) = ANY($1::text[])
+            AND hsid IS NOT NULL`,
+        [missingNames]
+      );
+      for (const match of matches) {
+        const key = schoolKey(match.hsname, match.cityname, match.regionid);
+        if (!canonicalIds.has(key)) canonicalIds.set(key, new Set());
+        canonicalIds.get(key)!.add(String(match.hsid));
+      }
+    }
+    const resolvedRows = rows.map((row: any) => {
+      if (/^\\d+$/.test(String(row.hsid ?? '').trim())) return row;
+      const key = schoolKey(row.hsname, row.cityname || String(row.hslocation ?? '').split(',')[0], row.regionid);
+      const matches = canonicalIds.get(key);
+      return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
+    });
+    const programs = resolvedRows.map((r: any) => ({
       hsid: r.hsid ?? null,
       hsname: r.hsname ?? null,
       hslocation: r.hslocation ?? null,
