@@ -518,24 +518,6 @@ export default function SearchDrawerTabs() {
 
       if (!q) {
         results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
-    // After a crest upload, open Global Search at the exact TBC school.
-    const uploadedSchoolId = new URLSearchParams(window.location.search).get('schoolSearch');
-    if (uploadedSchoolId && /^\d+$/.test(uploadedSchoolId)) {
-      document.body.classList.add('drawer-open', 'drawer-left-open', 'yat-left-search-mode');
-      setMode('school');
-      input.value = '';
-      const lookupRequest = ++requestId;
-      results.innerHTML = '<div class="yat-search-empty">Loading uploaded school crest...</div>';
-      fetchJson(`/api/schools/search?hsid=${encodeURIComponent(uploadedSchoolId)}`)
-        .then((data) => {
-          if (lookupRequest !== requestId) return;
-          const schools = Array.isArray(data.programs) ? data.programs : [];
-          results.innerHTML = renderSchoolRows(schools, 'School not found in Global Search.', false, true);
-          if (schools[0]) input.value = String(schools[0].hsname || '');
-        })
-        .catch(() => { if (lookupRequest === requestId) results.innerHTML = '<div class="yat-search-empty">Unable to load the school. Search by name.</div>'; });
-    }
-
         return;
       }
 
@@ -600,7 +582,33 @@ export default function SearchDrawerTabs() {
       }, true);
     });
 
-    results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
+    // "View on site" after a school crest submission. A school without a
+    // microsite must open a view-only Global Search result, never a 404.
+    // Run this lookup once on mount: putting it inside runSearch()'s empty
+    // query branch recursively called setMode() and never initialized here.
+    const uploadedSchoolId = new URLSearchParams(window.location.search).get('schoolSearch');
+    if (uploadedSchoolId && /^\d+$/.test(uploadedSchoolId)) {
+      document.body.classList.add('drawer-open', 'drawer-left-open', 'yat-left-search-mode');
+      mode = 'school';
+      drawer.querySelectorAll<HTMLElement>('[data-search-mode]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.searchMode === 'school');
+      });
+      const lookupRequest = ++requestId;
+      results.innerHTML = '<div class="yat-search-empty">Loading uploaded school crest...</div>';
+      fetchJson(`/api/schools/search?hsid=${encodeURIComponent(uploadedSchoolId)}`)
+        .then((data) => {
+          if (lookupRequest !== requestId) return;
+          const schools = Array.isArray(data.programs) ? data.programs : [];
+          results.innerHTML = renderSchoolRows(schools, 'School not found in Global Search.', false, true);
+          if (schools[0]) input.value = String(schools[0].hsname || '');
+        })
+        .catch(() => {
+          if (lookupRequest === requestId) results.innerHTML =
+            '<div class="yat-search-empty">Unable to load the school. Search by name.</div>';
+        });
+    } else {
+      results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
+    }
 
     const onResultsClick = (event: Event) => {
       const button = (event.target as HTMLElement)?.closest('.yat-search-fav-btn') as HTMLElement | null;
@@ -635,13 +643,37 @@ export default function SearchDrawerTabs() {
 
   return (
     <style jsx global>{`
-      :is(#drawerLeft, #drawerContribute) .yat-search-drawer-title { margin-bottom: 4px !important; font-size: clamp(16px, 3.8vw, 22px) !important; white-space: nowrap; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-drawer-sub { max-width: none; margin-bottom: 12px !important; font-size: 10px !important; line-height: 1.35 !important; }
+      /* Utility copy must stay readable and leave room for the close X. */
+      #drawerLeft .yat-search-drawer-title {
+        max-width: 100%; box-sizing: border-box; padding-right: 46px;
+        margin: 0 0 6px !important; white-space: normal !important;
+        overflow-wrap: break-word; word-break: normal;
+        font: 800 clamp(16px, 2.2vw, 19px)/1.22 Arial, Helvetica, sans-serif !important;
+        letter-spacing: -.02em !important; text-transform: none !important;
+      }
+      #drawerLeft #closeLeft {
+        position: absolute; top: 10px; right: 12px; z-index: 20;
+        display: flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; min-width: 32px;
+        color: var(--ink); border-radius: 4px;
+      }
+      #drawerLeft .yat-search-drawer-sub {
+        max-width: none; margin: 0 0 12px !important;
+        font: 400 12px/1.45 Arial, Helvetica, sans-serif !important;
+        letter-spacing: 0 !important; text-transform: none !important;
+      }
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-label { display: none !important; }
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn { min-height: 29px; padding: 4px 2px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink); font: 400 11px/1.05 Oswald, sans-serif; text-transform: uppercase; cursor: pointer; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn {
+        min-height: 32px; padding: 5px 4px; border: 1px solid var(--line);
+        border-radius: 7px; background: rgba(255,255,255,.04); color: var(--ink);
+        font: 600 12px/1.25 Arial, Helvetica, sans-serif !important;
+        letter-spacing: 0 !important; text-transform: none !important; cursor: pointer;
+      }
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 Oswald, sans-serif; padding: 8px 0; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-empty {
+        color: var(--muted); font: 400 13px/1.4 Arial, Helvetica, sans-serif; padding: 8px 0;
+      }
       :is(#drawerLeft, #drawerContribute) .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
       :is(#drawerLeft, #drawerContribute) .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
       :is(#drawerLeft, #drawerContribute) .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
