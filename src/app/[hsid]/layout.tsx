@@ -38,6 +38,7 @@ import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
 import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
+import FantasyNavCountdown from '@/components/yatstats/FantasyNavCountdown';
 import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
 import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
@@ -391,11 +392,7 @@ async function SchoolShell({
               <span className="yat-drawer-fantasy-copy">
                 <span><strong>FANTASY</strong> BRACKET TOURNEY</span>
               </span>
-              <span className="yat-drawer-fantasy-stamp" aria-label="Starts February 1st">
-                <span aria-hidden="true">Starts</span>
-                <span aria-hidden="true">February</span>
-                <strong aria-hidden="true">1st</strong>
-              </span>
+              <FantasyNavCountdown />
             </a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
             <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>

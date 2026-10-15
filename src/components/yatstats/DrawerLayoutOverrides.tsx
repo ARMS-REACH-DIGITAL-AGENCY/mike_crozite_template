@@ -87,9 +87,13 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-bracket-symbol { display: block; width: 24px; height: 24px; flex: none; background-color: currentColor; -webkit-mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 8px 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: block; flex: 1; min-width: 0; }
-      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-stamp { display: flex; flex: 0 0 52px; width: 52px; height: 52px; margin-left: auto; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border: 0; border-radius: 50%; background: var(--yat-bracket-accent); color: #171000; transform: rotate(-7deg); font: 600 9px/1.05 Oswald, sans-serif; letter-spacing: .025em; word-spacing: normal; text-transform: uppercase; }
-      #drawerLeft .yat-drawer-fantasy-stamp strong { font-size: 17px; line-height: 1; }
-      body.light-theme #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-stamp { color: #fff; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { gap: 7px; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown { display: flex; flex: 0 0 124px; width: 124px; margin-left: auto; padding: 5px 6px 6px; flex-direction: column; gap: 4px; border: 0; border-radius: 5px; background: linear-gradient(145deg, #286343, #1c4f34); color: #fff; letter-spacing: normal; word-spacing: normal; text-transform: uppercase; }
+      #drawerLeft .yat-fantasy-countdown-date { display: block; text-align: center; color: #ffb21c; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .04em; }
+      #drawerLeft .yat-fantasy-countdown-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+      #drawerLeft .yat-fantasy-countdown-cell { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; text-align: center; }
+      #drawerLeft .yat-fantasy-countdown-unit { color: #fff; font: 600 7px/1 Oswald, sans-serif; letter-spacing: .025em; }
+      #drawerLeft .yat-fantasy-countdown-number { display: block; padding: 4px 1px 3px; border: 0; border-radius: 4px; background: linear-gradient(180deg, #071c0e, #102f1b); box-shadow: inset 0 2px 5px rgba(0,0,0,.45); color: #ffb21c; font: 700 19px/1 Oswald, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.035em; text-shadow: 0 1px 1px #000; }
       #drawerLeft .yat-drawer-fantasy-highlight:is(:hover, :focus-visible) .yat-drawer-fantasy-copy > span { text-decoration: underline; text-underline-offset: 3px; }
       #drawerLeft .yat-drawer-fantasy-highlight:focus-visible .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
