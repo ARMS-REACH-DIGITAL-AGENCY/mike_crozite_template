@@ -70,6 +70,7 @@ export default function ContributePhotoFlow({
   const seasonRequest = useRef(0);
   // 3. What it's for, 4. the season / team / school
   const [purpose, setPurpose] = useState<PhotoPurpose | null>(initialType || null);
+  const [showPurposePicker, setShowPurposePicker] = useState(!initialType);
   const [seasonKey, setSeasonKey] = useState('');
   // "Other": a year and a team or league we don't have (the Arizona Fall
   // League, a travel team...).
@@ -156,6 +157,7 @@ export default function ContributePhotoFlow({
 
   const choosePurpose = (id: PhotoPurpose) => {
     setPurpose(id);
+    setShowPurposePicker(false);
     setPickOverride(null);
     setCrop(null);
     setLandscape(false);
@@ -239,7 +241,7 @@ export default function ContributePhotoFlow({
 
   const startOver = () => {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(''); setPurpose(null); setCrop(null); setNote('');
+    setFile(null); setPreview(''); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
     setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setLandscape(false); setPickOverride(null); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
   };
@@ -283,9 +285,18 @@ export default function ContributePhotoFlow({
 
   return (
     <div className="ypf-flow">
+      {/* Enter from a particular contribution card with its destination set.
+          Changing the destination is optional and never a required step. */}
+      {type && !showPurposePicker ? (
+        <div className="ypf-selected-purpose">
+          <div><span className="ypf-selected-kicker">IMAGE DESTINATION</span><strong>{type.prefix} · {type.label}</strong></div>
+          <button type="button" className="ycd-link ycd-small" onClick={() => setShowPurposePicker(true)}>Change</button>
+          <details><summary>What photo should I send?</summary><p>{type.spec}</p></details>
+        </div>
+      ) : null}
       {/* 1. Upload + */}
       <section className="ypf-step">
-        <div className="ycd-label"><span className="ycd-step">1</span> Upload +</div>
+        <div className="ycd-label"><span className="ycd-step">1</span> {type ? 'Upload ' + type.label : 'Upload Photo'}</div>
         {!file ? (
           <button type="button" className="ypf-drop" onClick={() => fileInput.current?.click()}>
             <i className="ri-image-add-line" aria-hidden="true" />
@@ -302,9 +313,10 @@ export default function ContributePhotoFlow({
         <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => pickFile(e.target.files)} />
       </section>
 
-      {/* 2. Purpose */}
-      <section className="ypf-step">
-        <div className="ycd-label"><span className="ycd-step">2</span> Purpose</div>
+      {/* The complete list of destinations only appears for generic uploads
+          or when the contributor explicitly chooses to change the purpose. */}
+      {(!type || showPurposePicker) ? <section className="ypf-step">
+        <div className="ycd-label"><span className="ycd-step">2</span> Where will this image go?</div>
         <div className="ypf-types" role="radiogroup" aria-label="Purpose">
           {PHOTO_TYPES.map((t) => (
             <label className={`ypf-type${purpose === t.id ? ' is-on' : ''}`} key={t.id}>
@@ -313,12 +325,12 @@ export default function ContributePhotoFlow({
             </label>
           ))}
         </div>
-      </section>
+      </section> : null}
 
       {/* 3. Select: Player | School | Team */}
       {type ? (
         <section className="ypf-step">
-          <div className="ycd-label"><span className="ycd-step">3</span> Select</div>
+          <div className="ycd-label"><span className="ycd-step">3</span> {pick === 'school' ? 'Select the school' : pick === 'team' ? 'Select the team' : 'Select the player'}</div>
           <div className="ycd-switch ypf-pick" role="radiogroup" aria-label="Select">
             {(['player', 'school', 'team'] as Pick[]).map((k) => (
               <button
@@ -492,6 +504,13 @@ export default function ContributePhotoFlow({
 
       <style jsx global>{`
         .ypf-flow { display: flex; flex-direction: column; gap: 10px; max-width: 1100px; }
+        .ypf-selected-purpose { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; align-items:center; padding:9px 12px; border-left:3px solid #d69a24; border-bottom:1px solid var(--sb-card-border); }
+        .ypf-selected-purpose > div { display:flex; flex-direction:column; gap:3px; min-width:0; }
+        .ypf-selected-purpose strong { font:800 14px/1.2 var(--yat-font-ui); }
+        .ypf-selected-kicker { font:800 9px/1.2 var(--yat-font-ui); color:#d69a24; letter-spacing:.08em; }
+        .ypf-selected-purpose details { grid-column:1 / -1; font-size:12px; color:var(--sb-ink-muted); }
+        .ypf-selected-purpose summary { cursor:pointer; font-size:11px; }
+        .ypf-selected-purpose p { margin:5px 0; }
         .ypf-step { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); min-width: 0; }
         .ypf-sub { margin-top: 6px; }
         .ypf-step-sm { font-size: 11px !important; }
