@@ -181,7 +181,7 @@ export default function ContributePhotoFlow({
     if (type.needsPlayer && !main) return 'Select the player.';
     if ((type.id === 'timeline_hero' || type.id === 'headshot') && !season) return seasonKey === 'other' ? 'Pick the year.' : 'Pick the season.';
     if (type.asks === 'team' && !teamId) return 'Pick the team.';
-    if (type.asks === 'school' && !school) return 'Pick the high school.';
+    if (type.asks === 'school' && !/^\d+$/.test(String(school?.hsid ?? '').trim())) return 'Select a high school from the search results.';
     return null;
   };
 
@@ -189,13 +189,15 @@ export default function ContributePhotoFlow({
   const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop]);
   const approved = approvedSig === sig;
   const ready = !problem();
+  const submissionHsid = String(type?.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim();
+  const validSubmissionHsid = /^\d+$/.test(submissionHsid);
 
   const send = async () => {
     if (!file || !type) return;
     if (!signedIn) return onSignIn();
     const p = problem();
     if (p) return setError(p);
-    if (!/^\d+$/.test(String(type.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim())) return setError('Select a high school from the search results.');
+    if (!validSubmissionHsid) return setError('Select a high school from the search results.');
     if (!approved) return setError('Check the proof and approve it first.');
     setStage('sending');
     setError('');
@@ -213,7 +215,7 @@ export default function ContributePhotoFlow({
       form.set('year', String(yearToSend() || THIS_YEAR));
       form.set('playerId', type.id === 'school_logo' || type.id === 'team_logo' ? '' : main?.playerId || '');
       form.set('playerName', main?.displayName || '');
-      form.set('hsid', (type.id === 'school_logo' ? school?.hsid : main?.schoolId || school?.hsid || hubSchool?.hsid) || '');
+      form.set('hsid', submissionHsid);
       form.set('tagged', JSON.stringify(tagged.map((t) => t.playerId)));
       if (season && type.asks === 'season') form.set('season', JSON.stringify({ team: season.team, level: season.level, label: season.label || (season.stage === 'other' ? 'Other' : '') }));
       if (type.asks === 'team') form.set('teamId', teamId);
