@@ -3,7 +3,7 @@
 import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
-import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, scrollToContributeSection } from '@/lib/contribute';
+import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
 
@@ -818,10 +818,20 @@ export default function InteractionStrip({
         .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
-        .gallery-strip .gallery-contribute-media { display: block; overflow:hidden; background:#101010 !important; border:2px solid #bdbdbd; box-shadow:none; border-radius:50%; }
-        .gallery-strip .gallery-contribute-media img { width:100%; height:100%; display:block; object-fit:cover; object-position:center 24%; filter:saturate(.75); }
-        .gallery-contribute-slot:hover .gallery-contribute-media img, .gallery-contribute-slot:focus-visible .gallery-contribute-media img { transform:scale(1.05); }
-        .gallery-contribute-slot .gallery-slot-name-overlay { color:#f5f5f5; }
+        /* Portal rail: borderless, unmasked player art like actual Row 3;
+           retain the identical Oswald label baseline from shared gallery CSS. */
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-contribute-media {
+          overflow:visible !important; background:transparent !important;
+          border:0 !important; border-radius:0 !important; box-shadow:none !important;
+          width:60px; height:60px; display:flex; justify-content:center; align-items:flex-end;
+        }
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-contribute-media img {
+          display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom;
+          border:0; border-radius:0; filter:none; padding:0;
+        }
+        .gallery-contribute-slot:hover .gallery-contribute-media img, .gallery-contribute-slot:focus-visible .gallery-contribute-media img { transform:translateY(-2px); }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay { font:300 9px/11px Oswald,sans-serif; letter-spacing:0; color:#e5e5e5; }
+        body.light-theme .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay { color:#555; }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
@@ -912,20 +922,21 @@ export default function InteractionStrip({
                   className="gallery-slot gallery-slot-link gallery-contribute-slot"
                   title={option.label}
                   aria-label={option.label}
-                  // Contribution icons open their forms directly. Connect icons
-                  // still scroll to the portal's separate paid offerings.
+                  // Every shortcut opens its associated drawer directly.
+                  // Paid/partner options open the Connect inquiry drawer;
+                  // informational contributions open the existing upload/data drawers.
                   onClick={() => option.tab
                     ? openContribute({ tab: option.tab })
-                    : scrollToContributeSection(option.section)}
+                    : openConnectInquiry(option.id === 'player' ? 'video' : option.id === 'fans' ? 'title' : 'alumni')}
                 >
                   <div className="gallery-slot-media gallery-contribute-media">
                     <img
                       loading="lazy"
                       alt=""
                       src={({
-                        player: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/180827.jpg',
+                        player: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts/180827.png',
                         fans: '/img/splash-partner-demo.svg',
-                        alumni: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/225132.jpg',
+                        alumni: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts/225132.png',
                         photo: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/180827.jpg',
                         data: '/img/az_state_champ_roster.webp',
                         missing: '/img/az_state_champ_roster.webp',
