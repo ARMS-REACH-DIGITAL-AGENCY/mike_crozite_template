@@ -227,8 +227,17 @@ export const SPONSOR_INTERESTS = {
   bracket: 'Bracket Ticket Message',
   alumni: 'My own profile (Where YAT Now?)',
   other: 'Something else',
+  video: 'Personalized Player Video Interest',
 } as const;
 export type SponsorInterest = keyof typeof SPONSOR_INTERESTS;
+
+// The transaction desk listens for these requests anywhere in the school shell.
+// Sponsorship and alumni-business shortcuts share its compact slide-in inquiry
+// form; photo/data/news options continue using the separate contribution drawer.
+export const CONNECT_INQUIRY_EVENT = 'yat:connect-inquiry';
+export function openConnectInquiry(interest: SponsorInterest) {
+  window.dispatchEvent(new CustomEvent<SponsorInterest>(CONNECT_INQUIRY_EVENT, { detail: interest }));
+}
 
 // The Connect & Contribute page, opened on one of its sections. A school
 // subdomain adds the school itself; a bare host (previews) needs /<hsid>.
