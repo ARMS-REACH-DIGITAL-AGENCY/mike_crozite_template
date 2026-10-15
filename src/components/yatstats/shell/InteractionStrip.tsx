@@ -818,9 +818,10 @@ export default function InteractionStrip({
         .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
-        .gallery-strip .gallery-contribute-media { display: grid; place-items: center; background: linear-gradient(180deg, #1f6546, #174c35) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
-        .gallery-strip .gallery-contribute-media i { font-size: min(46px, max(26px, 3.4vw)); color: #fff; line-height: 1; }
-        .gallery-contribute-slot:hover .gallery-contribute-media i, .gallery-contribute-slot:focus-visible .gallery-contribute-media i { transform: scale(1.08); }
+        .gallery-strip .gallery-contribute-media { display: block; overflow:hidden; background:#101010 !important; border:2px solid #bdbdbd; box-shadow:none; border-radius:50%; }
+        .gallery-strip .gallery-contribute-media img { width:100%; height:100%; display:block; object-fit:cover; object-position:center 24%; filter:saturate(.75); }
+        .gallery-contribute-slot:hover .gallery-contribute-media img, .gallery-contribute-slot:focus-visible .gallery-contribute-media img { transform:scale(1.05); }
+        .gallery-contribute-slot .gallery-slot-name-overlay { color:#f5f5f5; }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
@@ -918,7 +919,23 @@ export default function InteractionStrip({
                     : scrollToContributeSection(option.section)}
                 >
                   <div className="gallery-slot-media gallery-contribute-media">
-                    <i className={option.icon} aria-hidden="true" />
+                    <img
+                      loading="lazy"
+                      alt=""
+                      src={({
+                        player: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/180827.jpg',
+                        fans: '/img/splash-partner-demo.svg',
+                        alumni: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/225132.jpg',
+                        photo: 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/180827.jpg',
+                        data: '/img/az_state_champ_roster.webp',
+                        missing: '/img/az_state_champ_roster.webp',
+                        tip: '/img/connect-contribute-portal.png',
+                      } as Record<string,string>)[option.id] || '/img/connect-contribute-portal.png'}
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
+                      }}
+                    />
                   </div>
                   <div className="gallery-slot-name-overlay">{option.short}</div>
                 </button>
