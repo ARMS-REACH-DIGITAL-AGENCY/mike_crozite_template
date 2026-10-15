@@ -200,24 +200,32 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
       .catch(() => open());
   }, [hub]);
 
+  // Links from the player gallery, account drawer and Row 3 must reveal
+  // the right mobile tab even when visitors arrive with an existing hash.
+  useEffect(() => {
+    const selectFromHash = () => {
+      const target = window.location.hash.slice(1);
+      if (!target) return;
+      const connect = target === 'cc-connect' || SPONSORSHIPS.some((card) => card.id === target);
+      const contribute = target === 'cc-contribute' || CONTRIBUTIONS.some((card) => card.id === target);
+      if (connect) setView('connect');
+      if (contribute) setView('contribute');
+    };
+    selectFromHash();
+    window.addEventListener('hashchange', selectFromHash);
+    return () => window.removeEventListener('hashchange', selectFromHash);
+  }, []);
+
   return (
     <div className="ccd">
-      <header className="ccd-heading">
-        <div>
-          <span className="ccd-kicker">YAT?STATS / COMMUNITY DESK</span>
-          <h1>Connect <span>&amp;</span> Contribute</h1>
-          <p>Choose what you want to do. We&apos;ll take you straight to it.</p>
-        </div>
-        <span className="ccd-school">{hub}</span>
-      </header>
-
-      <nav className="ccd-mobile-switch" aria-label="Connect and Contribute sections">
-        <a href="#cc-contribute" className={view === 'contribute' ? 'is-on' : ''} onClick={() => setView('contribute')}>CONTRIBUTE</a>
-        <a href="#cc-connect" className={view === 'connect' ? 'is-on' : ''} onClick={() => setView('connect')}>CONNECT</a>
+      <h1 className="ccd-visually-hidden">Connect &amp; Contribute</h1>
+      <nav className="ccd-mobile-switch" role="tablist" aria-label="Connect and Contribute">
+        <button id="ccd-tab-contribute" type="button" role="tab" aria-controls="cc-contribute" aria-selected={view === 'contribute'} className={view === 'contribute' ? 'is-on' : ''} onClick={() => setView('contribute')}>CONTRIBUTE</button>
+        <button id="ccd-tab-connect" type="button" role="tab" aria-controls="cc-connect" aria-selected={view === 'connect'} className={view === 'connect' ? 'is-on' : ''} onClick={() => setView('connect')}>CONNECT</button>
       </nav>
 
       <div className="ccd-columns">
-        <section className="ccd-column ccd-connect" id="cc-connect" aria-label="Connect transactions">
+        <section className={`ccd-column ccd-connect${view === 'connect' ? ' is-active' : ''}`} id="cc-connect" aria-label="Connect transactions">
           <header className="ccd-column-heading">
             <h2>CONNECT</h2>
             <p>Business placements and player experiences.</p>
@@ -243,7 +251,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
           <p className="ccd-footnote">Sponsorship requests go to the Partner Program team. Online checkout is not active yet.</p>
         </section>
 
-        <section className="ccd-column ccd-contribute" id="cc-contribute" aria-label="Contribute content and information">
+        <section className={`ccd-column ccd-contribute${view === 'contribute' ? ' is-active' : ''}`} id="cc-contribute" aria-label="Contribute content and information">
           <header className="ccd-column-heading">
             <h2>CONTRIBUTE</h2>
             <p>Photos, history, updates, and news.</p>
@@ -257,7 +265,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
 
       <style jsx global>{`
         .ccd { width:100%; max-width:1160px; margin:0 auto; padding:18px 20px 60px; color:var(--sb-ink); font-family:var(--yat-font-ui); }
-        .ccd-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:18px; padding:4px 0 20px; border-bottom:1px solid var(--sb-card-border); }
+        .ccd-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         .ccd-kicker { font:700 10px/1.2 var(--yat-font-ui); letter-spacing:.11em; color:var(--sb-text); }
         .ccd-heading h1 { margin:5px 0 2px; font:800 clamp(25px,3.4vw,38px)/1 var(--yat-font-compact); text-transform:uppercase; letter-spacing:.015em; }
         .ccd-heading h1 span { color:var(--sb-text); }
@@ -316,14 +324,15 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccd .ccg-actions { display:flex; gap:12px; align-items:center; }
         @media (max-width:760px) {
           .ccd { padding:12px 11px 80px; }
-          .ccd-heading { align-items:flex-start; padding-bottom:12px; }
-          .ccd-school { display:none; }
-          .ccd-columns { display:flex; flex-direction:column; gap:25px; margin-top:8px; }
-          .ccd-contribute { order:1; width:100%; }
-          .ccd-connect { order:2; width:100%; }
-          .ccd-mobile-switch { display:flex; gap:8px; padding:8px 0; }
-          .ccd-mobile-switch a { flex:1; text-align:center; border:1px solid var(--sb-card-border); border-radius:4px; padding:7px; text-decoration:none; color:var(--sb-ink); font:800 11px var(--yat-font-ui); }
-          .ccd-mobile-switch a.is-on { border-color:var(--sb-text); color:var(--sb-text); }
+          .ccd-columns { display:block; margin-top:5px; }
+          .ccd-column { display:none; width:100%; }
+          .ccd-column.is-active { display:block; }
+          .ccd-column-heading { display:none; }
+          .ccd-mobile-switch { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:3px 0 8px; }
+          .ccd-mobile-switch button { min-height:46px; text-align:center; border:1px solid var(--sb-card-border); border-radius:5px; padding:10px 8px; background:transparent; cursor:pointer; color:var(--sb-ink); font:800 16px/1 var(--yat-font-compact); letter-spacing:.035em; }
+          .ccd-mobile-switch button.is-on { background:var(--sb-panel); border-color:var(--sb-rim); color:#fff; box-shadow:inset 0 -3px #d9a02c; }
+          .ccd-mobile-switch button:focus-visible { outline:2px solid var(--sb-text); outline-offset:2px; }
+          .ccd-list { border-top:1px solid var(--sb-card-border); }
           .ccd-item-main { grid-template-columns:76px minmax(0,1fr); gap:10px; padding:11px 2px; }
           .ccd-thumb { width:76px; height:66px; }
           .ccd-help { margin-left:88px; }
