@@ -3,6 +3,7 @@
 
 import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
 import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl } from "@/lib/playerImage";
+import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
 import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
@@ -158,7 +159,8 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
 
   // Block 3 mirrors Block 5 while using section-specific artwork:
   // active = current headshot, all-time = HS-era card front,
-  // current team = the committed_teamid logo from flip_card_front_stage.
+  // current team = the school crest for coaches, otherwise the committed_teamid
+  // logo from flip_card_front_stage.
   // Card-size copies (see getPlayerThenCardUrl); the strip's error handler
   // falls back to the originals via getOriginalForCardCopy. The "then"
   // thumbnail is the same file as the card front's photo, so the browser
@@ -168,9 +170,13 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const committedTeamId = imageText(
     p.committed_teamid || p.committed_team_id || p.commit_teamid || p.commit_team_id
   );
-  // Small WebP copy; the strip falls back to the uploaded .jpg, then the
-  // uncommitted badge.
-  const committedLogoUrl = committedTeamId ? getTeamLogoUrl(committedTeamId) : UNCOMMITTED_BADGE_URL;
+  // Coaches represent their high school, not an uncommitted college player.
+  // The school crest is already the canonical logo used throughout the microsite.
+  const isCoach = status.includes("COACH");
+  const committedLogoUrl = isCoach
+    ? getSchoolCrestUrl(resolvedHsid)
+    : committedTeamId ? getTeamLogoUrl(committedTeamId) : UNCOMMITTED_BADGE_URL;
+  const committedLogoFallbackUrl = isCoach ? CREST_FALLBACK_PATH : UNCOMMITTED_BADGE_URL;
 
   return (
     <article
@@ -191,7 +197,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-thumbnail-current={committedLogoUrl}
       data-thumbnail-now-fallback={HEADSHOT_FALLBACK_URL}
       data-thumbnail-then-fallback={HEADSHOT_FALLBACK_URL}
-      data-thumbnail-current-fallback={UNCOMMITTED_BADGE_URL}
+      data-thumbnail-current-fallback={committedLogoFallbackUrl}
       data-stat-gp={gp}
       data-stat-avg={statValue(p.avg)}
       data-stat-obp={statValue(p.obp)}
