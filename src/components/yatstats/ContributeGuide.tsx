@@ -108,7 +108,7 @@ function Thumb({ kind }: { kind: ThumbKind }) {
     );
   }
   return (
-    <span className={`ccd-thumb ccd-thumb-${kind}`} aria-hidden="true">
+    <span className={`ccd-thumb ccd-thumb-${kind} ccd-thumb-orbit`} aria-hidden="true">
       {/* Native img avoids Next remote image configuration for S3 originals. */}
       <img loading="lazy" src={src} alt="" style={position ? { objectPosition: position } : undefined}
         onError={(e) => {
@@ -142,18 +142,34 @@ function PlacementExample({ kind, schoolName, crestUrl, schoolLocation }: {
   kind: ThumbKind; schoolName: string; crestUrl?: string; schoolLocation?: string;
 }) {
   const p: ProofPlayer = {
-    name: 'Sample Player', classOf: null, currentTeam: '',
+    name: '', classOf: null, currentTeam: '',
     schoolName, schoolLocation: schoolLocation || '',
   };
   const src = THUMB_IMAGES[kind].src;
   let picture: React.ReactNode;
-  if (kind === 'front') picture = <FlipCardFront src={src} crop={null} p={p} />;
-  else if (kind === 'headshot') picture = <Headshot src={src} crop={null} p={p} />;
+  // Before/after examples: real existing YAT?STATS artwork and a recognizable
+  // missing-photo silhouette. No invented "Sample Player" flip card.
+  if (kind === 'front') picture = (
+    <div className="ccd-example-pair">
+      <div className="ccd-example-flip"><FlipCardFront src={src} crop={null} p={p} /><span>PHOTO PRESENT</span></div>
+      <div className="ccd-example-flip"><div className="ccd-example-empty-card"><i className="ri-user-fill" aria-hidden="true" /></div><span>PHOTO MISSING</span></div>
+    </div>
+  );
+  else if (kind === 'headshot') picture = (
+    <div className="ccd-example-headshots">
+      <div className="ccd-example-headshot"><img src={THUMB_IMAGES.headshot.src} alt="" /><small>PHOTO</small></div>
+      <div className="ccd-example-headshot"><img src={THUMB_IMAGES.profile.src} alt="" /><small>PHOTO</small></div>
+      <div className="ccd-example-headshot is-missing"><i className="ri-user-fill" aria-hidden="true" /><small>MISSING</small></div>
+    </div>
+  );
   else if (kind === 'back') picture = <FlipCardBack src={src} crop={null} p={p} />;
   else if (kind === 'timeline') picture = (
-    <TimelineSlide src={src} crop={null} p={p}
-      s={{key:'example',year:2026,stage:'college',team:'',level:'',label:'Sample season',current:false}}
-      landscape={false} />
+    <div className="ccd-example-timeline">
+      <TimelineSlide src={src} crop={null} p={p}
+        s={{key:'example',year:2026,stage:'college',team:'',level:'',label:'Career season',current:false}}
+        landscape={false} />
+      <span>REPLACE THE PLACEHOLDER WITH A PHOTO FROM THIS SEASON</span>
+    </div>
   );
   else if (kind === 'logos' || kind === 'banner') picture = (
     <div className="ccd-example-school">
@@ -648,6 +664,54 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
         .ccd-inquiry-heading button { color:var(--fg); background:none; border:0; padding:0 5px; font:400 30px/1 var(--yat-font-ui); cursor:pointer; }
         @media (prefers-reduced-motion:no-preference) { .ccd-inquiry-panel { animation:ccd-inquiry-enter .18s ease-out; } }
         @keyframes ccd-inquiry-enter { from { transform:translateX(-15px); opacity:.6; } to { transform:translateX(0); opacity:1; } }
+
+        /* The circle is the back layer, the art is the middle layer, and the
+           bottom mask is the foreground: the ring remains closed below. */
+        .ccd-thumb-orbit {
+          width:76px; height:76px; margin:0 auto; overflow:visible;
+          border:2px solid #d6d8d9; border-radius:50%;
+          background:radial-gradient(circle at 45% 30%,#257d56,#073d31);
+          isolation:isolate;
+        }
+        .ccd-thumb-orbit::after {
+          content:""; position:absolute; z-index:3; left:-2px; right:-2px;
+          bottom:-2px; height:28px; border:2px solid #d6d8d9;
+          border-top:0; border-radius:0 0 45px 45px;
+          pointer-events:none;
+        }
+        .ccd-thumb-orbit > img {
+          position:absolute; z-index:2; left:6px; top:-7px;
+          width:60px; height:72px; object-fit:contain;
+          border-radius:42% 42% 0 0; filter:none;
+          clip-path:inset(0 0 9px 0 round 30px 30px 0 0);
+        }
+        .ccd-thumb-orbit .ccd-thumb-label { z-index:4; bottom:1px; border-radius:0 0 36px 36px; text-align:center; }
+        .ccd-example-pair { display:grid; grid-template-columns:1fr 1fr; gap:13px; width:100%; align-items:end; }
+        .ccd-example-flip { min-width:0; display:flex; flex-direction:column; gap:8px; align-items:center; }
+        .ccd-example-flip .ypf-card { width:100%; max-width:185px; aspect-ratio:5/7; }
+        .ccd-example-flip > span { color:var(--muted); font:700 10px var(--yat-font-compact); }
+        .ccd-example-empty-card {
+          display:flex; align-items:center; justify-content:center;
+          width:100%; max-width:185px; aspect-ratio:5/7;
+          background:linear-gradient(145deg,#292c30,#111318);
+          border:1px solid #555; border-radius:10px;
+        }
+        .ccd-example-empty-card i { font-size:90px; color:#777; }
+        .ccd-example-headshots { display:flex; justify-content:center; gap:12px; width:100%; }
+        .ccd-example-headshot { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:0; }
+        .ccd-example-headshot img,.ccd-example-headshot.is-missing i {
+          width:90px; height:90px; border:2px solid #ccc;
+          border-radius:50%; object-fit:cover; background:#1b1d20;
+        }
+        .ccd-example-headshot.is-missing i {
+          display:flex; align-items:center; justify-content:center;
+          color:#777; font-size:60px;
+        }
+        .ccd-example-headshot small { font:700 10px var(--yat-font-compact); color:var(--muted); }
+        .ccd-example-timeline { width:100%; display:flex; flex-direction:column; align-items:center; gap:10px; }
+        .ccd-example-timeline .ypf-slide-person { outline:0; border-radius:0; }
+        .ccd-example-timeline > span { font:700 10px/1.3 var(--yat-font-compact); color:var(--muted); text-align:center; }
+        .ccd-preview .ccd-example-stage { min-height:300px; }
         @media (max-width:980px) {
           .ccd { padding:6px 11px 80px; }
           .ccd-columns { display:block; }
