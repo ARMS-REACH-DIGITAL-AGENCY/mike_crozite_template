@@ -2,7 +2,7 @@
 
 import { useContext, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
-import { openConnectInquiry, type SponsorInterest } from '@/lib/contribute';
+import type { SponsorInterest } from '@/lib/contribute';
 
 type PackageId = 'title' | 'active' | 'retired' | 'bracket' | 'team';
 type Package = {
@@ -76,7 +76,7 @@ export default function PartnerProgramPage(){
        <Placement item={item}/>
        <div className="yp-partner-deliverables"><h3>INCLUDED PLACEMENTS</h3>
          <ul>{item.inventory.map((s,i)=><li key={i}>{s}</li>)}</ul></div>
-       <button type="button" className="yp-partner-primary" onClick={()=>openConnectInquiry(item.inquiry)}>ASK ABOUT THIS PACKAGE →</button>
+       <a className="yp-partner-primary" href={`mailto:pete@yatstats.com?subject=${encodeURIComponent("YAT?STATS Partnership Program: " + item.name)}&body=${encodeURIComponent("I am interested in the " + item.name + " package for " + (school?.hsName || "our school") + ".")}`}>ASK ABOUT THIS PACKAGE →</a>
      </aside>
    </div>
    <section className="yp-partner-rate-card"><div className="yp-partner-rate-heading"><h2>PARTNERSHIP RATE CARD</h2><p>Rates blank pending school-level reach, viewability, engagement, conversion and fulfillment measurements.</p>
@@ -130,7 +130,7 @@ export default function PartnerProgramPage(){
      .yp-partner-deliverables{margin-top:15px;border-top:1px solid var(--line);padding-top:11px}
      .yp-partner-deliverables h3{font:800 17px var(--yat-font-compact)}
      .yp-partner-deliverables ul{padding-left:20px;margin:10px 0}.yp-partner-deliverables li{font:400 11px/1.38 var(--yat-font-ui);margin-bottom:6px}
-     .yp-partner-primary{cursor:pointer;display:inline-flex;align-items:center;padding:10px 15px;border:1px solid var(--fg);border-radius:3px;background:var(--fg);color:var(--bg);font:800 12px var(--yat-font-compact)}
+     .yp-partner-primary{cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;padding:10px 15px;border:1px solid var(--fg);border-radius:3px;background:var(--fg);color:var(--bg);font:800 12px var(--yat-font-compact)}
      .yp-partner-rate-card{margin-top:25px;border-top:1px solid var(--line);padding-top:21px}
      .yp-partner-rate-heading{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:10px}
      .yp-partner-rate-heading h2{font:800 25px/1 var(--yat-font-compact)}.yp-partner-rate-heading p{font-size:11px;color:var(--muted)}
