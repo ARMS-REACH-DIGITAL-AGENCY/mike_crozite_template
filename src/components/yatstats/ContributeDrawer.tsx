@@ -213,21 +213,22 @@ export default function ContributeDrawer() {
       const d = (event as CustomEvent<ContributeOpen>).detail || {};
       if (status.kind === 'done') resetForms();
       if (d.tab) setTab(d.tab);
-      // Every direct Photos action starts a fresh upload, including the
-      // account-drawer shortcut with no preselected player or photo type.
-      if (d.tab === 'photo' || d.player || d.photoType) {
+      // Each photo entry point starts fresh, with the correct destination.
+      // Do not reuse a player or logo from the previous contributor's form.
+      if (d.tab === 'photo' || d.photoType) {
         setPhotoType(d.photoType);
         setPhotoFlowKey((k) => k + 1);
+        if (d.player === undefined) choosePlayer(null);
+        setSchool(d.school || hubSchool);
       }
       if (d.player !== undefined && d.player?.playerId !== player?.playerId) choosePlayer(d.player);
       if (d.school) setSchool(d.school);
       const wantsSchool = d.photoType === 'school_logo' || (d.dataKind ? DATA_KINDS.find((k) => k.id === d.dataKind)?.seasons === 'school' : false);
       setAboutSchool(Boolean(wantsSchool));
       if (d.dataKind) setData((cur) => (d.dataKind! in cur ? cur : { ...cur, [d.dataKind!]: '' }));
-      // Signed in: open now. Not signed in (or not sure yet): ask the
-      // server; a fan who isn't signed in joins first, and this drawer
-      // opens as soon as they're in.
-      if (sessionRef.current?.uid) show();
+      // Visitors can select their photo and preview the result without
+      // creating an account. Sign-in happens only at submission.
+      show();
       setSessionLoading(true);
       fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' })
         .then((res) => res.json())
@@ -235,19 +236,15 @@ export default function ContributeDrawer() {
           const next = body?.authenticated ? (body.session as FanSession) : null;
           setSession(next);
           sessionRef.current = next;
-          if (next?.uid) show();
-          else {
-            pendingOpen.current = true;
-            close();
-            openAccountDrawer('signin');
-          }
+          // Keep the drawer open while anonymous; the submit action
+          // takes the visitor through authentication when necessary.
         })
-        .catch(() => { setSession(null); show(); })
+        .catch(() => { setSession(null); })
         .finally(() => setSessionLoading(false));
     };
     window.addEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
-  }, [resetForms, choosePlayer, show, close, status.kind, player?.playerId]);
+  }, [resetForms, choosePlayer, show, status.kind, player?.playerId, hubSchool?.hsid]);
 
   // Back from joining or logging in: check again, and open the drawer they
   // asked for before they had to sign in.
@@ -385,7 +382,7 @@ export default function ContributeDrawer() {
       <div className="ycd-body">
         {!sessionLoading && !signedIn ? (
           <div className="ycd-gate">
-            <span>Sending takes a free fan account.</span>
+            <span>Get started now. A free account is only needed when you submit.</span>
             <button type="button" className="ycd-link" onClick={() => openAccountDrawer('signin')}>Sign in</button>
             <span className="ycd-muted">or</span>
             <button type="button" className="ycd-link" onClick={() => openAccountDrawer('register')}>Join free</button>
@@ -400,7 +397,7 @@ export default function ContributeDrawer() {
             email={session?.email}
             initialPlayer={player}
             initialType={photoType}
-            onSignIn={() => openAccountDrawer('signin')}
+            onSignIn={() => { pendingOpen.current = true; openAccountDrawer('signin'); }}
             onClose={close}
           />
         ) : status.kind === 'done' ? (
