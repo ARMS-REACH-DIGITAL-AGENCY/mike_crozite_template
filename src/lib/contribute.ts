@@ -227,8 +227,17 @@ export const SPONSOR_INTERESTS = {
   bracket: 'Bracket Ticket Message',
   alumni: 'My own profile (Where YAT Now?)',
   other: 'Something else',
+  video: 'Personalized Player Video Interest',
 } as const;
 export type SponsorInterest = keyof typeof SPONSOR_INTERESTS;
+
+// The transaction desk listens for these requests anywhere in the school shell.
+// Sponsorship and alumni-business shortcuts share its compact slide-in inquiry
+// form; photo/data/news options continue using the separate contribution drawer.
+export const CONNECT_INQUIRY_EVENT = 'yat:connect-inquiry';
+export function openConnectInquiry(interest: SponsorInterest) {
+  window.dispatchEvent(new CustomEvent<SponsorInterest>(CONNECT_INQUIRY_EVENT, { detail: interest }));
+}
 
 // The Connect & Contribute page, opened on one of its sections. A school
 // subdomain adds the school itself; a bare host (previews) needs /<hsid>.
@@ -238,8 +247,13 @@ export function contributeSectionHref(hsid: string, section: string) {
 
 // Scroll the portal page to a section (row 3, and links on the page).
 export function scrollToContributeSection(section: string) {
-  document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Mobile portal cards live in mutually exclusive tabs. Notify the page
+  // before scrolling, so a Row 3 shortcut never targets a hidden card.
   try { history.replaceState(null, '', `#${section}`); } catch {}
+  window.dispatchEvent(new CustomEvent('yat-contribute-navigate', { detail: { section } }));
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  });
 }
 
 export const tabIcon = (tab: ContributeTab) => CONTRIBUTE_OPTIONS.find((o) => o.tab === tab)?.icon || 'ri-upload-cloud-2-line';
