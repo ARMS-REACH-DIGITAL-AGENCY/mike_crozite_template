@@ -52,21 +52,43 @@ function Placement({item}:{item:Package}) {
     <p>Two placements together in one package. Existing All-Time layout remains as it is.</p>
   </div>;
 }
+function PackageDetails({item, number, schoolName, onClose}:{
+ item:Package; number:number; schoolName:string; onClose?:()=>void;
+}){
+ return <>
+   <header className="yp-partner-detail-head">
+     <div><small>PACKAGE {number} · WHERE PARTNERS APPEAR</small><h2>{item.name}</h2></div>
+     {onClose ? <button type="button" className="yp-partner-hide-detail" onClick={onClose} aria-label={'Close '+item.name+' placement examples'}>CLOSE <span aria-hidden="true">×</span></button> : null}
+   </header>
+   <p className="yp-partner-detail-intro">{item.intro}</p>
+   <Placement item={item}/>
+   <div className="yp-partner-deliverables"><h3>INCLUDED PLACEMENTS</h3>
+     <ul>{item.inventory.map((placement,i)=><li key={i}>{placement}</li>)}</ul>
+   </div>
+   <a className="yp-partner-primary" href={\`mailto:pete@yatstats.com?subject=\${encodeURIComponent('YAT?STATS Partnership Program: '+item.name)}&body=\${encodeURIComponent('I am interested in the '+item.name+' package for '+schoolName+'.')}\`}>ASK ABOUT THIS PACKAGE →</a>
+ </>;
+}
 export default function PartnerProgramPage(){
  const school=useContext(SchoolContext);
  const [selected,setSelected]=useState<PackageId>('title');
+ const [mobileExpanded,setMobileExpanded]=useState<PackageId|null>(null);
  useEffect(() => {
    const onPackage = (event: Event) => {
      const id = String((event as CustomEvent<{id?: string}>).detail?.id || '');
-     if (PACKAGES.some((p) => p.id === id)) setSelected(id as PackageId);
+     if (PACKAGES.some((p) => p.id === id)) {
+       setSelected(id as PackageId);
+       if ((event as CustomEvent<{source?: string}>).detail?.source !== 'package-card')
+         setMobileExpanded(id as PackageId);
+     }
    };
    window.addEventListener('yat:partner-package-change', onPackage);
    return () => window.removeEventListener('yat:partner-package-change', onPackage);
  }, []);
  const selectPackage = (id: PackageId) => {
    setSelected(id);
+   setMobileExpanded(current=>current===id?null:id);
    setShowAll(false);
-   window.dispatchEvent(new CustomEvent('yat:partner-package-change', {detail:{id}}));
+   window.dispatchEvent(new CustomEvent('yat:partner-package-change', {detail:{id,source:'package-card'}}));
  };
  const item=PACKAGES.find(p=>p.id===selected)||PACKAGES[0];
  const [showAll,setShowAll]=useState(false);
@@ -77,19 +99,32 @@ export default function PartnerProgramPage(){
    <div className="yp-partner-columns">
      <div className="yp-partner-left">
        <div className="yp-partner-tabs-title">CHOOSE A PARTNERSHIP PACKAGE</div>
-       {PACKAGES.map((p,i)=><button key={p.id} id={'yp-partner-option-'+p.id} type="button" className={'yp-partner-package'+(selected===p.id?' is-active':'')}
-         onClick={()=>selectPackage(p.id)} aria-pressed={selected===p.id}>
-         <span className="yp-partner-num">{String(i+1).padStart(2,'0')}</span>
-         <span className="yp-partner-package-copy"><small>{p.location}</small><strong>{p.name}</strong><span>{p.intro}</span><b>VIEW LOCATIONS →</b></span><span className="yp-partner-rate">RATE<br/>—</span>
-       </button>)}
+       {PACKAGES.map((p,i)=><div className="yp-partner-product" key={p.id}>
+         <button id={'yp-partner-option-'+p.id} type="button"
+           className={'yp-partner-package'+(selected===p.id?' is-active':'')}
+           onClick={()=>selectPackage(p.id)} aria-pressed={selected===p.id}
+           aria-expanded={mobileExpanded===p.id}
+           aria-controls={'yp-partner-preview-'+p.id}>
+           <span className="yp-partner-num">{String(i+1).padStart(2,'0')}</span>
+           <span className="yp-partner-package-copy">
+             <small>{p.location}</small><strong>{p.name}</strong><span>{p.intro}</span>
+             <b className="yp-partner-desktop-cta">VIEW LOCATIONS →</b>
+             <b className="yp-partner-mobile-cta">{mobileExpanded===p.id?'HIDE LOCATIONS ↑':'VIEW LOCATIONS ↓'}</b>
+           </span>
+           <span className="yp-partner-rate">RATE<br/>—</span>
+         </button>
+         <div id={'yp-partner-preview-'+p.id} className="yp-partner-mobile-preview"
+           role="region" aria-label={p.name+' placement examples'}
+           hidden={mobileExpanded!==p.id}>
+           {mobileExpanded===p.id ? <PackageDetails item={p} number={i+1}
+             schoolName={school?.hsName||'our school'} onClose={()=>setMobileExpanded(null)} /> : null}
+         </div>
+       </div>)
        <p className="yp-partner-aside">Each package has its own locations. Ad artwork and rates are intentionally blank. No inventory has been sold.</p>
      </div>
-     <aside className="yp-partner-right">
-       <header><small>PACKAGE {PACKAGES.indexOf(item)+1} · WHERE PARTNERS APPEAR</small><h2>{item.name}</h2><p>{item.intro}</p></header>
-       <Placement item={item}/>
-       <div className="yp-partner-deliverables"><h3>INCLUDED PLACEMENTS</h3>
-         <ul>{item.inventory.map((s,i)=><li key={i}>{s}</li>)}</ul></div>
-       <a className="yp-partner-primary" href={`mailto:pete@yatstats.com?subject=${encodeURIComponent("YAT?STATS Partnership Program: " + item.name)}&body=${encodeURIComponent("I am interested in the " + item.name + " package for " + (school?.hsName || "our school") + ".")}`}>ASK ABOUT THIS PACKAGE →</a>
+     <aside className="yp-partner-right" aria-label="Selected partner package placement examples">
+       <PackageDetails item={item} number={PACKAGES.indexOf(item)+1}
+         schoolName={school?.hsName||'our school'} />
      </aside>
    </div>
    <section className="yp-partner-rate-card"><div className="yp-partner-rate-heading"><h2>PARTNERSHIP RATE CARD</h2><p>Rates blank pending school-level reach, viewability, engagement, conversion and fulfillment measurements.</p>
@@ -109,7 +144,10 @@ export default function PartnerProgramPage(){
      .yp-partner-header-right{text-align:right;color:var(--muted);font:700 11px/1.4 var(--yat-font-compact)}
      .yp-partner-header-right strong{font-weight:800;color:var(--fg)}
      .yp-partner-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.95fr);gap:22px;align-items:start;padding-top:20px}
-     .yp-partner-left,.yp-partner-right{min-width:0}.yp-partner-tabs-title{padding-bottom:12px}
+     .yp-partner-left,.yp-partner-right{min-width:0}
+     .yp-partner-product{min-width:0}
+     .yp-partner-mobile-preview{display:none}
+     .yp-partner-mobile-cta{display:none}.yp-partner-tabs-title{padding-bottom:12px}
      .yp-partner-package{scroll-margin-top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,84px) + 10px);display:grid;grid-template-columns:27px minmax(0,1fr) 39px;gap:10px;align-items:start;width:100%;padding:14px 9px;margin:0 0 7px;border:1px solid var(--line);border-radius:4px;background:var(--card-bg);color:var(--fg);cursor:pointer;text-align:left}
      .yp-partner-package.is-active{border-color:var(--muted);background:color-mix(in srgb,var(--card-bg) 85%,var(--fg) 15%)}
      .yp-partner-num{font:800 18px var(--yat-font-compact);color:var(--muted)}
@@ -120,9 +158,12 @@ export default function PartnerProgramPage(){
      .yp-partner-package-copy b{font:800 11px var(--yat-font-compact);margin-top:3px}
      .yp-partner-rate{color:var(--muted);text-align:center;font:800 10px/1.1 var(--yat-font-compact)}
      .yp-partner-aside{color:var(--muted);font-size:11px;margin:11px 2px}
-     .yp-partner-right{position:sticky;top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + 13px);border:1px solid var(--line);border-radius:4px;background:var(--card-bg);padding:17px}
-     .yp-partner-right header h2{font:800 25px/1.04 var(--yat-font-compact);margin:5px 0}
-     .yp-partner-right header p{color:var(--muted);font:400 12px/1.45 var(--yat-font-ui);margin-bottom:12px}
+     .yp-partner-right{position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,84px) + 13px);align-self:start;z-index:4;max-height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,84px) - 26px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;border:1px solid var(--line);border-radius:4px;background:var(--card-bg);padding:17px}
+     .yp-partner-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:9px}
+     .yp-partner-detail-head h2{font:800 25px/1.04 var(--yat-font-compact);margin:5px 0}
+     .yp-partner-detail-intro{color:var(--muted);font:400 12px/1.45 var(--yat-font-ui);margin:7px 0 12px}
+     .yp-partner-hide-detail{display:flex;flex:0 0 auto;align-items:center;gap:5px;padding:4px 0 4px 7px;border:0;background:none;color:var(--fg);cursor:pointer;font:800 11px/1.1 var(--yat-font-compact)}
+     .yp-partner-hide-detail span{font:400 24px/1 Arial,sans-serif}
      .yp-partner-placements{display:grid;grid-template-columns:1fr 1fr;gap:9px}
      .yp-partner-placement{padding:10px;border:1px solid var(--line);border-radius:3px;min-width:0}
      .yp-partner-placement p{font:400 11px/1.4 var(--yat-font-ui);color:var(--muted);margin:7px 0}
@@ -157,7 +198,21 @@ export default function PartnerProgramPage(){
      .yp-partner-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
      .yp-partner-metrics article{padding:13px;border:1px solid var(--line)}
      .yp-partner-metrics strong{font:800 15px var(--yat-font-compact)}.yp-partner-metrics p{color:var(--muted);font-size:11px}
-     @media(max-width:740px){.yp-partner-columns{display:block}.yp-partner-right{position:static;margin-top:14px}.yp-partner{padding:10px 12px 105px}.yp-partner-header{align-items:start}.yp-partner-header-right{display:none}}
+     @media(max-width:740px){
+       .yp-partner-columns{display:block}
+       .yp-partner-right{display:none}
+       .yp-partner-mobile-preview:not([hidden]){display:block;min-width:0;margin:-1px 0 13px;padding:13px;border:1px solid var(--line);border-top:0;border-radius:0 0 5px 5px;background:var(--card-bg)}
+       .yp-partner-mobile-preview[hidden]{display:none}
+       .yp-partner-mobile-preview .yp-partner-detail-head{position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,84px) + 3px);z-index:8;align-items:center;padding:8px 2px 10px;border-bottom:1px solid var(--line);background:var(--card-bg)}
+       .yp-partner-mobile-preview .yp-partner-detail-head h2{font-size:21px}
+       .yp-partner-mobile-preview .yp-partner-placements{grid-template-columns:1fr 1fr}
+       .yp-partner-package:has(+ .yp-partner-mobile-preview:not([hidden])){border-radius:4px 4px 0 0;border-bottom-color:var(--muted)}
+       .yp-partner-mobile-cta{display:block}
+       .yp-partner-desktop-cta{display:none}
+       .yp-partner{padding:10px 12px 105px}
+       .yp-partner-header{align-items:start}
+       .yp-partner-header-right{display:none}
+     }
      @media(max-width:440px){.yp-partner-placements{grid-template-columns:1fr}.yp-partner-profile-sample{grid-template-columns:1fr 95px}.yp-partner-bracket{grid-template-columns:1fr 1fr}.yp-partner-metrics{grid-template-columns:1fr}}
    `}</style>
  </div>;
