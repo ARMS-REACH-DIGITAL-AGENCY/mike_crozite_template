@@ -1,0 +1,69 @@
+name: Sync shadcn pilot lockfiles
+
+# Preview-only dependency repair. No production refs, credentials, or data.
+on:
+  push:
+    branches:
+      - feature/shadcn-connect-contribute-pilot
+    paths:
+      - package.json
+      - .github/workflows/shadcn-pilot-lockfile-repair.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shadcn-pilot-lockfile-repair
+  cancel-in-progress: false
+
+jobs:
+  lock-and-check:
+    if: github.ref == 'refs/heads/feature/shadcn-connect-contribute-pilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.14.1'
+      - name: Use the package-manager versions verified in the isolated build
+        run: npm install --global npm@11.11.0 pnpm@10.34.5 --ignore-scripts --no-audit --no-fund
+      - name: Synchronize npm and pnpm locks without changing declared versions
+        run: |
+          set -euo pipefail
+          npm install --ignore-scripts --no-audit --no-fund
+          pnpm import
+          git diff --exit-code -- package.json
+      - name: Verify clean install, types, and application build
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm ls @radix-ui/react-dialog @radix-ui/react-tabs --depth=0
+          npx --no-install tsc --noEmit
+          npm run build
+      - name: Save only verified lockfiles to the same preview branch
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          target='refs/heads/feature/shadcn-connect-contribute-pilot'
+          test "$GITHUB_REF" = "$target"
+          current=$(git ls-remote origin "$target" | cut -f1)
+          if [ "$current" != "$EXPECTED_HEAD" ]; then
+            echo 'Preview branch changed during validation; refusing to overwrite it.'
+            exit 1
+          fi
+          git add -- package-lock.json pnpm-lock.yaml
+          if git diff --cached --quiet; then
+            echo 'Lockfiles already synchronized.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(shadcn pilot): synchronize npm and pnpm lockfiles after verified build'
+          git push origin "HEAD:$target"
