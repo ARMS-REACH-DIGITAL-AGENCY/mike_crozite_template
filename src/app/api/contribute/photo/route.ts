@@ -29,6 +29,7 @@ import {
   uploadCategory,
 } from '@/lib/contributeServer';
 import { moderatePhoto } from '@/lib/contributeModeration';
+import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 
 export const runtime = 'nodejs';
 // The automatic review (Claude) and putting an approved photo on the site
@@ -120,6 +121,21 @@ export async function POST(req: NextRequest) {
       [id, playerId, hsid, uploadCategory(purpose), staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details), teamId || null]
     );
     await logContribution(who, 'contribute_photo', { playerid: playerId || null, hsid, pageUrl, details: { upload_id: id, purpose } });
+
+    // Notification is sent after the staged file is durable, regardless of
+    // whether the photo subsequently passes automatic moderation.
+    try {
+      const contact=await findOrCreateGhlContact('images@yatstats.com','YATSTATS Image Review');
+      if(contact){
+        const clean=(v:string)=>v.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]||m));
+        await sendGHLEmail(contact,'New YAT?STATS photo upload: '+purpose,
+          '<p>A fan photo was uploaded for moderation.</p>'+
+          '<p><b>Type:</b> '+clean(purpose)+'<br/><b>Player:</b> '+clean(playerName)+
+          '<br/><b>School:</b> '+clean(hsid)+'<br/><b>Year:</b> '+String(year)+
+          '<br/><b>Upload ID:</b> '+clean(id)+'<br/><b>From:</b> '+clean(who.email||who.name)+'</p>');
+      }
+    }catch(error){console.error('[contribute/photo] image inbox notification failed',error);}
+
 
     // Automatic review. Approved: on the site now. Rejected: the fan is told
     // why. Unsure (or the check is unavailable): it waits for a person.
