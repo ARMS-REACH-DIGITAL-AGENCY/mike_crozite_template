@@ -35,22 +35,26 @@ export async function POST(req: NextRequest) {
   const hsid = text(body.hsid, 20);
   const schoolName = text(body.schoolName, 160);
   const pageUrl = text(body.pageUrl, 500);
+  const playerId = text(body.playerId, 40);
+  const playerName = text(body.playerName, 160);
 
   if (!name) return fail('Please add your name.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Please add a valid email.');
   if (!(interest in SPONSOR_INTERESTS)) return fail('Pick what you are interested in.');
   if (hsid && !/^\d+$/.test(hsid)) return fail('Unknown school.');
+  if (interest === 'video_player' && (!playerName || !/^(?:YAT)?\d+$/i.test(playerId))) return fail('Find and select your player profile before applying.');
 
   const [firstName, ...rest] = name.split(/\s+/);
   try {
     const contactId = await findOrCreateGhlContact(email, firstName, rest.join(' '), hsid || undefined, schoolName || undefined);
     if (!contactId) return fail('Your message could not be sent. Please email info@yatstats.com.', 502);
-    const tags = interest === 'video'
-      ? ['player-video-interest', ...(hsid ? [`video-hsid:${hsid}`] : [])]
+    const tags = interest === 'video' || interest === 'video_player'
+      ? [interest === 'video_player' ? 'player-video-program-applicant' : 'player-video-interest', ...(hsid ? [`video-hsid:${hsid}`] : [])]
       : ['sponsor-lead', `sponsor:${interest}`, ...(hsid ? [`sponsor-hsid:${hsid}`] : [])];
     await Promise.all(tags.map((tag) => addTagToGHLContact(contactId, tag)));
     await addNoteToGHLContact(contactId, [
-      `Sponsorship inquiry: ${SPONSOR_INTERESTS[interest]}`,
+      `${interest === 'video_player' ? 'Player application' : interest === 'video' ? 'Fan video interest' : 'Sponsorship inquiry'}: ${SPONSOR_INTERESTS[interest]}`,
+      playerName ? `Selected player: ${playerName} (${playerId})` : '',
       schoolName || hsid ? `School: ${schoolName}${hsid ? ` (hsid ${hsid})` : ''}` : '',
       business ? `Business: ${business}` : '',
       phone ? `Phone: ${phone}` : '',
