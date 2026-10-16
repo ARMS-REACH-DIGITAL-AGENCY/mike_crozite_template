@@ -16,10 +16,10 @@ const PHOTO_DETAILS: Partial<Record<PhotoPurpose, string>> = Object.fromEntries(
   PHOTO_TYPES.map((p) => [p.id, p.spec])
 );
 
-type ThumbKind = 'front' | 'headshot' | 'back' | 'timeline' | 'logos' |
+export type ThumbKind = 'front' | 'headshot' | 'back' | 'timeline' | 'logos' |
   'news' | 'missing' | 'data' | 'profile' | 'banner' | 'bracket' | 'business' | 'video';
 
-type DeskCard = {
+export type DeskCard = {
   id: string;
   eyebrow: string;
   title: string;
@@ -29,7 +29,7 @@ type DeskCard = {
   detail: ContributeOpen;
   help?: PhotoPurpose;
 };
-type SponsorCard = {
+export type SponsorCard = {
   id: string;
   eyebrow: string;
   title: string;
@@ -40,7 +40,7 @@ type SponsorCard = {
   soon?: boolean;
 };
 
-const CONTRIBUTIONS: DeskCard[] = [
+export const CONTRIBUTIONS: DeskCard[] = [
   { id: 'cc-photo', eyebrow: 'FLIP CARD · FRONT', title: 'High School Photo', instruction: 'Add a high school-era photo to the front of an alumnus\'s flip card.', thumb: 'front', action: 'UPLOAD PHOTO', detail: { tab: 'photo', photoType: 'flip_card' }, help: 'flip_card' },
   { id: 'cc-headshot', eyebrow: 'GALLERY · PROFILE', title: 'Player Headshot', instruction: 'Send a face-and-shoulders photo for a player or a specific season.', thumb: 'headshot', action: 'UPLOAD HEADSHOT', detail: { tab: 'photo', photoType: 'headshot' }, help: 'headshot' },
   { id: 'cc-action', eyebrow: 'FLIP CARD · BACK', title: 'Current Action Photo', instruction: 'Add a current-season action photo to the back of a player\'s flip card.', thumb: 'back', action: 'UPLOAD ACTION PHOTO', detail: { tab: 'photo', photoType: 'back_hero' }, help: 'back_hero' },
@@ -51,7 +51,7 @@ const CONTRIBUTIONS: DeskCard[] = [
   { id: 'cc-data', eyebrow: 'ROSTER & PLAYER RECORDS', title: 'Correct Information', instruction: 'Update graduation years, playing history, or school and player details.', thumb: 'data', action: 'SUBMIT CORRECTION', detail: { tab: 'data' } },
 ];
 
-const SPONSORSHIPS: SponsorCard[] = [
+export const SPONSORSHIPS: SponsorCard[] = [
   { id: 'cc-profile-sponsor', eyebrow: 'PLAYER PROFILE', title: 'Sponsor a Player Profile', instruction: 'Request a business placement on an alumnus\'s profile.', thumb: 'profile', action: 'REQUEST PLACEMENT', interest: 'profile' },
   { id: 'cc-fans', eyebrow: 'SCHOOL HUB', title: 'Sponsor This School', instruction: 'Request a banner or featured placement on this school\'s hub.', thumb: 'banner', action: 'REQUEST PLACEMENT', interest: 'title' },
   { id: 'cc-bracket-sponsor', eyebrow: 'FANTASY BRACKET', title: 'Sponsor the Bracket', instruction: 'Request a placement in the school-versus-school fantasy competition.', thumb: 'bracket', action: 'REQUEST PLACEMENT', interest: 'bracket' },
@@ -62,7 +62,7 @@ const SPONSORSHIPS: SponsorCard[] = [
 // Real baseball and existing YAT?STATS artwork instead of invented iconography.
 // These are illustrative examples, never passed off as the selected player's image.
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: string }> = {
+export const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: string }> = {
   front: { src: `${S3}/players/then/180827.jpg`, label: 'HIGH SCHOOL' },
   headshot: { src: `${S3}/players/now/225132.jpg`, label: 'HEADSHOT', position: 'center 24%' },
   back: { src: `${S3}/players/back-card/180827.webp`, label: 'ACTION PHOTO', position: 'center 30%' },
@@ -158,7 +158,7 @@ function Transaction({ item }: { item: DeskCard }) {
   );
 }
 
-function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onClose: () => void }) {
+export function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onClose: () => void }) {
   const school = useContext(SchoolContext);
   const [form, setForm] = useState({ name: '', email: '', phone: '', business: '', message: '', website: '' });
   const [choice, setChoice] = useState<SponsorInterest>(interest);
