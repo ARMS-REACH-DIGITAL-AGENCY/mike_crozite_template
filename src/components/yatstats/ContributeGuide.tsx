@@ -541,7 +541,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         /* Opaque scroll shield extends under Row 3 and closes the gap between
            the sticky header and tab bar as the page scrolls. Row 3 is layered
            above this bar, so its images remain visible. */
-        .ccd-mobile-switch::before { content:""; position:absolute; left:-24px; right:-24px; bottom:100%; height:110px; background:var(--bg); pointer-events:none; }
+        .ccd-mobile-switch::before { content:""; position:absolute; left:-24px; right:-24px; bottom:100%; height:34px; background:var(--bg); pointer-events:none; }
         .ccd-mobile-switch::after { content:""; position:absolute; inset:0; z-index:-1; background:var(--bg); pointer-events:none; }
         .ccd-mobile-switch button { appearance:none; flex:0 1 auto; background:var(--card-bg); border:1px solid var(--line); border-bottom:1px solid var(--muted); border-radius:7px 7px 0 0; margin-bottom:-1px; padding:7px 22px 8px; color:var(--muted); cursor:pointer; font:800 19px/1 var(--yat-font-compact); letter-spacing:.035em; transition:background .15s ease,color .15s ease; }
         .ccd-mobile-switch button.is-on { color:var(--fg); background:var(--bg); border-color:var(--muted); border-bottom-color:var(--bg); box-shadow:inset 0 3px 0 var(--fg); }
