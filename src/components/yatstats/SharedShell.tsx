@@ -58,9 +58,14 @@ const VALID_SECTIONS = new Set([
 ]);
 
 const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
-const SECTION_ANCHORS: Record<string, string[]> = {
-  partner: ['WHO?', 'WHAT?', 'WHEN?', 'WHERE?', 'WHY?', 'HOW?'],
-};
+// Partnership Row 3 mirrors the actual five rate-card packages.
+const PARTNER_LEVELS = [
+  { id: 'title', label: 'Title Sponsor', lines: ['TITLE', 'SPONSOR'] },
+  { id: 'active', label: 'Player Profile Partner — Active', lines: ['PROFILE', 'PARTNER', 'ACTIVE'] },
+  { id: 'retired', label: 'Player Profile Partner — Retired', lines: ['PROFILE', 'PARTNER', 'RETIRED'] },
+  { id: 'bracket', label: 'Fantasy Bracket Partner', lines: ['FANTASY', 'BRACKET', 'PARTNER'] },
+  { id: 'team', label: 'All-Time Sponsor a Team', lines: ['SPONSOR', 'A TEAM'] },
+] as const;
 
 function normalizeSection(value: string): string {
   const section = String(value || '').replace(/^#?sec-/, '').trim().toLowerCase();
@@ -121,6 +126,21 @@ export default function SharedShell({
   const teamYear = isPlayerProfile ? null : initialTeamYear;
   const initialSection = teamYear ? 'alltime' : 'active';
   const [activeSection, setActiveSection] = useState(initialSection);
+  const [partnerLevel, setPartnerLevel] = useState<string>('title');
+  useEffect(() => {
+    const onPartnerLevel = (event: Event) => {
+      const id = String((event as CustomEvent<{ id?: string }>).detail?.id || '');
+      if (PARTNER_LEVELS.some((level) => level.id === id)) setPartnerLevel(id);
+    };
+    window.addEventListener('yat:partner-package-change', onPartnerLevel);
+    return () => window.removeEventListener('yat:partner-package-change', onPartnerLevel);
+  }, []);
+  const openPartnerLevel = (id: string) => {
+    window.dispatchEvent(new CustomEvent('yat:partner-package-change', { detail: { id } }));
+    // Select the package in the real page, not a heading with a similarly named word.
+    const target = document.getElementById('yp-partner-option-' + id);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const isNews = activeSection === 'news';
   const isGallery = !isPlayerProfile && GALLERY_SECTIONS.has(activeSection);
 
@@ -207,15 +227,21 @@ export default function SharedShell({
               // The Fantasy Bracket Tourney tab: the school's season, a
               // slide per week, where a profile has its Career Path Timeline.
               ? <FantasyTimeline />
-              : SECTION_ANCHORS[activeSection] && !isPlayerProfile
-              ? <nav className="yat-section-anchor-strip" aria-label="Partnership questions">
-                  {SECTION_ANCHORS[activeSection].map((label, i) => <button type="button" key={label} onClick={() => {
-                    const section = document.getElementById(`sec-${activeSection}`);
-                    const headings = Array.from(section?.querySelectorAll<HTMLElement>('h2,h3') || []);
-                    const normalized = label.replace(/[?]/g, '').toLowerCase();
-                    const match = headings.find(h => h.textContent?.toLowerCase().includes(normalized)) || headings[i];
-                    match?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}>{label}</button>)}
+              : activeSection === 'partner' && !isPlayerProfile
+              ? <nav className="yat-section-anchor-strip" aria-label="Partnership package levels">
+                  {PARTNER_LEVELS.map((level) => (
+                    <button
+                      type="button"
+                      key={level.id}
+                      title={level.label}
+                      aria-label={level.label}
+                      aria-pressed={partnerLevel === level.id}
+                      className={partnerLevel === level.id ? 'is-active' : ''}
+                      onClick={() => openPartnerLevel(level.id)}
+                    >
+                      {level.lines.map((line) => <span key={line}>{line}</span>)}
+                    </button>
+                  ))}
                 </nav>
               : profilePlayerId
               ? (
@@ -251,9 +277,11 @@ export default function SharedShell({
           </div>
         </div>
         <style jsx global>{`
-          .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:8px 24px;scrollbar-width:thin;background:var(--bg,#111)}
-          .yat-section-anchor-strip button{flex:0 0 auto;min-width:68px;height:60px;padding:8px 12px;border:1px solid #777;border-radius:32px;background:transparent;color:var(--fg,#fff);font:700 12px Oswald,Arial,sans-serif;cursor:pointer}
-          .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible{border-color:#e7b738;color:#e7b738}
+          .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:4px 18px;scrollbar-width:thin;background:var(--bg,#111)}
+          .yat-section-anchor-strip button{flex:0 0 72px;width:72px;height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:7px 3px;border:1px solid #777;border-radius:50%;background:transparent;color:var(--fg,#fff);font:800 10px/1.1 var(--yat-font-compact,'Barlow Condensed',Oswald,sans-serif);letter-spacing:.025em;text-align:center;cursor:pointer}
+          .yat-section-anchor-strip button span{display:block;white-space:nowrap}
+          .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible,.yat-section-anchor-strip button.is-active{border-color:var(--fg,#fff);color:var(--fg,#fff);background:var(--card-bg,#222)}
+          .yat-section-anchor-strip button:focus-visible{outline:2px solid var(--fg,#fff);outline-offset:2px}
           .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
           .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
           @media(max-width:640px){.yat-unified-footer-art{width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px));height:calc(100% + 12px)}}
