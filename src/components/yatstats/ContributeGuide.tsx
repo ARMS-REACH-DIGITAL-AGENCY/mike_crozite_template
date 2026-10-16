@@ -61,14 +61,14 @@ const SPONSORSHIPS: SponsorCard[] = [
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Row/left-rail art also accepts dedicated files. Originals are retained in
 // the image error handlers until each replacement is uploaded by the owner.
+// Owner-supplied PNG cutouts. These paths are intentionally stable;
+// each falls back to its existing art until the new file is uploaded.
 const CONTRIBUTION_THUMBS: Partial<Record<ThumbKind, string>> = {
-  front: '/img/contribute/rail-high-school-photo.webp',
-  headshot: '/img/contribute/rail-current-headshot.png',
-  back: '/img/contribute/rail-current-action.webp',
-  timeline: '/img/contribute/rail-career-path.webp',
-  logos: '/img/contribute/rail-team-logo.png',
-  news: '/img/contribute/rail-news-tip.webp',
-  data: '/img/contribute/rail-player-data.webp',
+  front: '/img/contribute/rail_high_school.png',
+  headshot: '/img/contribute/rail_headshots.png',
+  back: '/img/contribute/rail_action_pics.png',
+  timeline: '/img/contribute/rail_yearly_pics.png',
+  logos: '/img/contribute/rail_team_logos.png',
 };
 const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: string }> = {
   front: { src: `${S3}/players/then/180827.jpg`, label: 'HIGH SCHOOL' },
@@ -88,42 +88,22 @@ const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: s
 function Thumb({ kind }: { kind: ThumbKind }) {
   const { src, position } = THUMB_IMAGES[kind];
   const replacement = CONTRIBUTION_THUMBS[kind];
-  const [cutoutAvailable, setCutoutAvailable] = useState(true);
-  if (kind === 'headshot' && !replacement) {
-    // Reuse Row 3's actual transparent cutout. The same portrait is drawn
-    // twice at precisely the same size and position: inside the circular
-    // crop, then ONLY the 16px above its rim. There is no second full image
-    // slapped over the circle. On failure, show the regular cropped headshot.
-    const cutout = `${S3}/players/now-cutouts/225132.png`;
-    const photo = cutoutAvailable ? cutout : src;
-    return (
-      <span className="ccd-thumb ccd-thumb-headshot" aria-hidden="true">
-        <span className="ccd-headshot-ring">
-          <img className={cutoutAvailable ? 'ccd-headshot-cutout' : 'ccd-headshot-fallback'}
-            loading="lazy" src={photo} alt=""
-            onError={(event) => {
-              if (cutoutAvailable) setCutoutAvailable(false);
-              else if (!event.currentTarget.src.endsWith('/img/connect-contribute-portal.png'))
-                event.currentTarget.src = '/img/connect-contribute-portal.png';
-            }} />
-        </span>
-        {cutoutAvailable ? (
-          <img className="ccd-headshot-above" src={cutout} loading="lazy" alt=""
-            onError={() => setCutoutAvailable(false)} />
-        ) : null}
-      </span>
-    );
+  const icon = kind === 'data' ? 'ri-bar-chart-2-line' : kind === 'news' ? 'ri-newspaper-line' : '';
+  if (icon) {
+    return <span className="ccd-thumb ccd-thumb-standard-icon" aria-hidden="true"><i className={icon} /></span>;
   }
   return (
     <span className={`ccd-thumb ccd-thumb-${kind} ccd-thumb-contained`} aria-hidden="true">
       <span className="ccd-thumb-photo">
-        <img loading="lazy" src={replacement || src} alt="" style={replacement ? { objectFit: 'contain' } : (position ? { objectPosition: position } : undefined)}
-          onError={(e) => {
-            const img = e.currentTarget;
+        <img loading="lazy" src={replacement || src} alt=""
+          style={{objectFit: replacement ? 'contain' : 'cover', objectPosition: position || 'center'}}
+          onError={(event) => {
+            const img = event.currentTarget;
             if (replacement && img.dataset.replacementFallback !== 'true') {
-              img.dataset.replacementFallback = 'true';
-              img.src = src;
-            } else if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
+              img.dataset.replacementFallback = 'true'; img.src = src;
+            } else if (!img.src.endsWith('/img/connect-contribute-portal.png')) {
+              img.src = '/img/connect-contribute-portal.png';
+            }
           }} />
       </span>
     </span>
@@ -151,13 +131,12 @@ const PLACEMENT_CAPTIONS: Record<ThumbKind, string> = {
 // public/img/contribute/ (they resolve at /img/contribute/... in the app).
 // Files are displayed using contain, with no sprite cropping or stretching.
 const REAL_PAGE_IMAGES: Partial<Record<ThumbKind, { file: string; caption: string }>> = {
-  front: { file: 'placement-high-school-photo.webp', caption: 'Existing and missing alumni flip-card photographs' },
-  headshot: { file: 'placement-current-headshot.webp', caption: 'Row 3: existing and missing player headshots' },
-  back: { file: 'placement-current-action.webp', caption: 'Existing and missing flip-card action photographs' },
-  timeline: { file: 'placement-career-path.webp', caption: 'Career Path Timeline: bust or action image representing the selected year' },
-  logos: { file: 'placement-team-logo.webp', caption: 'School identity and team artwork' },
-  news: { file: 'placement-news-tip.webp', caption: 'Active alumni news headline rows' },
-  data: { file: 'placement-player-data.webp', caption: 'Player record and statistics update destination' },
+  front: { file: 'placement-high-school.jpg', caption: 'High school image · alumni flip-card gallery' },
+  headshot: { file: 'placement-headshots.jpg', caption: 'Headshots · player gallery and missing portraits' },
+  back: { file: 'placement-action-pics.jpg', caption: 'Action pictures · flip-card backs' },
+  timeline: { file: 'placement-yearly-pics.jpg', caption: 'Yearly pictures · career timeline image' },
+  logos: { file: 'placement-team-logos.jpg', caption: 'School and team logos · site identity' },
+  news: { file: 'placement-news-tips.jpg', caption: 'News tips · alumni news feed' },
 };
 function RealPageReference({ kind }: { kind: ThumbKind }) {
   const item = REAL_PAGE_IMAGES[kind];
@@ -250,17 +229,17 @@ function Transaction({ item, onPreview, selected, schoolName, crestUrl, schoolLo
             <button type="button" className="ccd-placement-button"
               aria-controls={'ccd-placement-' + item.id} aria-expanded={showPlacement}
               onClick={() => { onPreview(item.id); setShowPlacement(current => !current); }}>
-              {showPlacement ? 'HIDE PLACEMENT' : 'SEE PLACEMENT'}
+              {showPlacement ? 'LESS' : 'LEARN MORE'}
             </button>
           </div>
         </div>
       </div>
-      {showPlacement ? <div className="ccd-placement-details" id={'ccd-placement-' + item.id}>
+      <div className={`ccd-placement-details${showPlacement ? ' is-expanded' : ''}`} id={'ccd-placement-' + item.id}>
         <div className="ccd-inline-example"><PlacementExample kind={item.thumb}
           schoolName={schoolName} crestUrl={crestUrl} schoolLocation={schoolLocation} /></div>
         <p>{item.help ? PHOTO_DETAILS[item.help] : item.instruction}</p>
         <button type="button" onClick={openUpload}>Start upload <i className="ri-arrow-right-line" aria-hidden="true" /></button>
-      </div> : null}
+      </div>
     </article>
   );
 }
@@ -453,7 +432,6 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
           </nav>
           <section className="ccd-column ccd-contribute" id="cc-contribute"
             role="tabpanel" aria-labelledby="ccd-tab-contribute" hidden={view !== 'contribute'}>
-            <header className="ccd-column-heading"><p>Photos, history, updates, and news.</p></header>
             <div className="ccd-list">
               {CONTRIBUTIONS.map(item => <Transaction key={item.id} item={item}
                 selected={selected.id === item.id} onPreview={inspect}
@@ -463,7 +441,6 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
           </section>
           <section className="ccd-column ccd-connect" id="cc-connect"
             role="tabpanel" aria-labelledby="ccd-tab-connect" hidden={view !== 'connect'}>
-            <header className="ccd-column-heading"><p>One connection: personal video messages between fans and active or retired players.</p></header>
             <div className="ccd-video-feature">
               <div className="ccd-video-screen" role="img" aria-label="Placeholder for sample player video">
                 <i className="ri-play-circle-line" aria-hidden="true" />
@@ -569,6 +546,8 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-placement-details p { margin:0 0 8px; }
         .ccd-placement-details button { background:none; border:0; padding:0; color:var(--fg); cursor:pointer; font:700 11px/1.3 var(--yat-font-ui); }
         .ccd-inline-example { display:none; }
+        .ccd-thumb-standard-icon { display:flex !important; align-items:center; justify-content:center; border-radius:50%; width:72px; height:72px; background:var(--card-bg); }
+        .ccd-thumb-standard-icon i { font-size:32px; color:var(--fg); }
         .ccd-thumb { height:72px; width:86px; position:relative; overflow:hidden; border-radius:3px; display:block; background:var(--card-bg); border:1px solid var(--line); color:#fff; }
         .ccd-thumb img { width:100%; height:100%; display:block; object-fit:cover; filter:saturate(.83); }
         .ccd-thumb-label { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,.88)); padding:12px 4px 4px; font:800 8px/1.1 var(--yat-font-ui); color:#fff; letter-spacing:.035em; text-shadow:0 1px 2px #000; }
@@ -758,6 +737,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
           .ccd-preview { display:none; }
           .ccd-inline-example { display:block; margin-bottom:10px; }
           .ccd-placement-details { display:block; margin-left:88px; }
+          .ccd-placement-button { display:none !important; }
         }
         @media (max-width:500px) {
           /* Keep both labels distinct and visibly separated on narrow phones. */
@@ -769,6 +749,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
           .ccd-title-button { font-size:14px; }
           .ccd-summary { font-size:11.5px; line-height:1.3; }
           .ccd-placement-details { margin-left:0; }
+          .ccd-thumb-standard-icon {width:66px;height:66px;}
           .ccd-example-stage { padding:9px; min-height:200px; }
         }
 
