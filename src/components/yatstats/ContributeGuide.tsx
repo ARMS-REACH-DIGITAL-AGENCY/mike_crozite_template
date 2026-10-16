@@ -526,13 +526,13 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
 
         /* Original compact News-style cards and approved font roles remain.
            The surrounding page and forms inherit the shared site theme. */
-        .ccd { width:100%; max-width:1160px; margin:0 auto; padding:12px 20px 70px; color:var(--fg); background:var(--bg); font-family:var(--yat-font-ui); }
+        .ccd { width:100%; max-width:1160px; margin:0 auto; padding:0 20px 70px; color:var(--fg); background:var(--bg); font-family:var(--yat-font-ui); }
         .ccd-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         .ccd-columns { display:grid; grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr); gap:28px; align-items:start; }
         .ccd-workspace,.ccd-preview,.ccd-column { min-width:0; }
         /* Folder tabs: recognizable individual hit targets, attached to a shared content edge. */
-        .ccd-mobile-switch { position:sticky; z-index:28; top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + 8px); display:flex; gap:16px; align-items:stretch; padding:8px 4px 0; background:var(--bg); border-bottom:1px solid var(--muted); }
-        .ccd-mobile-switch button { appearance:none; flex:0 1 auto; background:var(--card-bg); border:1px solid var(--line); border-bottom:1px solid var(--muted); border-radius:7px 7px 0 0; margin-bottom:-1px; padding:10px 22px 11px; color:var(--muted); cursor:pointer; font:800 19px/1 var(--yat-font-compact); letter-spacing:.035em; transition:background .15s ease,color .15s ease; }
+        .ccd-mobile-switch { position:sticky; z-index:28; top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h)); display:flex; gap:16px; align-items:stretch; padding:0 4px; background:var(--bg); border-bottom:1px solid var(--muted); }
+        .ccd-mobile-switch button { appearance:none; flex:0 1 auto; background:var(--card-bg); border:1px solid var(--line); border-bottom:1px solid var(--muted); border-radius:7px 7px 0 0; margin-bottom:-1px; padding:7px 22px 8px; color:var(--muted); cursor:pointer; font:800 19px/1 var(--yat-font-compact); letter-spacing:.035em; transition:background .15s ease,color .15s ease; }
         .ccd-mobile-switch button.is-on { color:var(--fg); background:var(--bg); border-color:var(--muted); border-bottom-color:var(--bg); box-shadow:inset 0 3px 0 var(--fg); }
         .ccd-mobile-switch button:not(.is-on):hover { color:var(--fg); background:var(--card-bg); }
         .ccd-column[hidden] { display:none !important; }
@@ -601,7 +601,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         }
 
         .ccd-footnote { padding:12px 4px; margin-top:4px; border-top:1px solid var(--line); color:var(--muted); font:400 11px/1.5 var(--yat-font-ui); }
-        .ccd-preview { position:sticky; top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + 14px); border:1px solid var(--line); border-radius:5px; background:var(--card-bg); padding:16px; }
+        .ccd-preview { position:sticky; top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + 4px); border:1px solid var(--line); border-radius:5px; background:var(--card-bg); padding:16px; }
         .ccd-preview-heading { padding:0 0 13px; }
         .ccd-preview-heading span { color:var(--muted); font:600 11px/1.2 var(--yat-font-compact); letter-spacing:.08em; }
         .ccd-preview-heading h2 { margin:4px 0 4px; color:var(--fg); font:800 20px/1.15 var(--yat-font-ui); letter-spacing:-.01em; text-transform:none; }
@@ -727,7 +727,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-example-timeline > span { font:700 10px/1.3 var(--yat-font-compact); color:var(--muted); text-align:center; }
         .ccd-preview .ccd-example-stage { min-height:300px; }
         @media (max-width:740px) {
-          .ccd { padding:6px 11px 80px; }
+          .ccd { padding:0 11px 80px; }
           .ccd-columns { display:block; }
           .ccd-preview { display:none; }
           .ccd-inline-example { display:block; margin-bottom:10px; }
@@ -736,7 +736,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         @media (max-width:500px) {
           /* Keep both labels distinct and visibly separated on narrow phones. */
           .ccd-mobile-switch { justify-content:space-between; gap:20px; padding-left:0; padding-right:0; }
-          .ccd-mobile-switch button { font-size:18px; min-width:0; flex:1; padding:12px 8px 13px; text-align:center; }
+          .ccd-mobile-switch button { font-size:17px; min-width:0; flex:1; padding:8px 8px 9px; text-align:center; }
           .ccd-item-layout { grid-template-columns:76px minmax(0,1fr); gap:10px; padding:9px 2px; }
           .ccd-thumb { width:76px; height:66px; }
           .ccd-thumb-headshot { --ccd-headshot-size:58px; --ccd-headshot-rise:13px; }
