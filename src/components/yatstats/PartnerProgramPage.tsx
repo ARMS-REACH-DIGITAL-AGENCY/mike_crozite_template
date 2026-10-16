@@ -65,7 +65,7 @@ function PackageDetails({item, number, schoolName, onClose}:{
    <div className="yp-partner-deliverables"><h3>INCLUDED PLACEMENTS</h3>
      <ul>{item.inventory.map((placement,i)=><li key={i}>{placement}</li>)}</ul>
    </div>
-   <a className="yp-partner-primary" href={\`mailto:pete@yatstats.com?subject=\${encodeURIComponent('YAT?STATS Partnership Program: '+item.name)}&body=\${encodeURIComponent('I am interested in the '+item.name+' package for '+schoolName+'.')}\`}>ASK ABOUT THIS PACKAGE →</a>
+   <a className="yp-partner-primary" href={`mailto:pete@yatstats.com?subject=${encodeURIComponent('YAT?STATS Partnership Program: '+item.name)}&body=${encodeURIComponent('I am interested in the '+item.name+' package for '+schoolName+'.')}`}>ASK ABOUT THIS PACKAGE →</a>
  </>;
 }
 export default function PartnerProgramPage(){
