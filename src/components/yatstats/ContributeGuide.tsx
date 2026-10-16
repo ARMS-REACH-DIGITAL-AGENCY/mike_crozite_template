@@ -6,6 +6,7 @@
 // All photo cards open the existing image flow with the correct slot preselected.
 
 import { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { SchoolContext } from '@/context/SchoolContext';
 import { FlipCardFront, FlipCardBack, Headshot, TimelineSlide, ProofStyles, type ProofPlayer } from '@/components/yatstats/ContributeProof';
 import {
@@ -508,7 +509,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         </aside>
       </div>
 
-      {inquiry ? (
+      {inquiry && typeof document !== 'undefined' ? createPortal(
         <div className="ccd-inquiry-overlay">
           <button type="button" className="ccd-inquiry-backdrop" aria-label="Close Connect inquiry" onClick={() => setInquiry(null)} />
           <aside className="ccd-inquiry-panel" role="dialog" aria-modal="true" aria-label={SPONSOR_INTERESTS[inquiry.interest]}>
@@ -519,7 +520,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
             <SponsorInquiry key={inquiry.id} interest={inquiry.interest} onClose={() => setInquiry(null)} />
           </aside>
         </div>
-      ) : null}
+      , document.body) : null}
 
       <style jsx global>{`
 
@@ -638,16 +639,16 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-example-partner strong,.ccd-example-news strong { font:800 16px/1.18 var(--yat-font-ui); }
         .ccd-example-news span { font:400 12px/1.3 var(--yat-font-ui); color:var(--muted); }
         .ccd-example-partner aside { grid-column:1/-1; }
-        .ccd .ccg-form,.ccd .ccd-inquiry-panel .ccg-form { display:flex; flex-direction:column; gap:9px; padding:14px; margin:0 0 15px; border:1px solid var(--line); border-radius:5px; background:var(--card-bg); color:var(--fg); }
-        .ccd .ccg-form-title { font:800 14px/1.2 var(--yat-font-ui); }
-        .ccd .ccg-form label { display:flex; flex-direction:column; gap:4px; flex:1 1 170px; min-width:0; font-size:11px; }
-        .ccd .ccg-form-row { display:flex; flex-wrap:wrap; gap:8px; }
-        .ccd .ccg-form input,.ccd .ccg-form textarea,.ccd .ccg-form select { width:100%; padding:8px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--fg); font:400 13px var(--yat-font-ui); }
-        .ccd .ccg-hp { position:absolute; left:-9999px; width:1px; height:1px; }
-        .ccd .ccg-form-error { color:#e35b5b; margin:0; font-size:12px; }
-        .ccd .ccg-btn,.ccd .ccd-inquiry-panel .ccg-btn { background:var(--fg); color:var(--bg); border:1px solid var(--fg); font:700 12px var(--yat-font-ui); padding:8px 12px; border-radius:4px; cursor:pointer; }
-        .ccd .ccg-link,.ccd .ccd-inquiry-panel .ccg-link { color:var(--fg); background:none; border:0; text-decoration:underline; font:600 12px var(--yat-font-ui); cursor:pointer; }
-        .ccd .ccg-actions { display:flex; gap:12px; align-items:center; }
+        .ccg-form,.ccd-inquiry-panel .ccg-form { display:flex; flex-direction:column; gap:9px; padding:14px; margin:0 0 15px; border:1px solid var(--line); border-radius:5px; background:var(--card-bg); color:var(--fg); }
+        .ccg-form-title { font:800 14px/1.2 var(--yat-font-ui); }
+        .ccg-form label { display:flex; flex-direction:column; gap:4px; flex:1 1 170px; min-width:0; font-size:11px; }
+        .ccg-form-row { display:flex; flex-wrap:wrap; gap:8px; }
+        .ccg-form input,.ccg-form textarea,.ccg-form select { width:100%; padding:8px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--fg); font:400 13px var(--yat-font-ui); }
+        .ccg-hp { position:absolute; left:-9999px; width:1px; height:1px; }
+        .ccg-form-error { color:#e35b5b; margin:0; font-size:12px; }
+        .ccg-btn,.ccd-inquiry-panel .ccg-btn { background:var(--fg); color:var(--bg); border:1px solid var(--fg); font:700 12px var(--yat-font-ui); padding:8px 12px; border-radius:4px; cursor:pointer; }
+        .ccg-link,.ccd-inquiry-panel .ccg-link { color:var(--fg); background:none; border:0; text-decoration:underline; font:600 12px var(--yat-font-ui); cursor:pointer; }
+        .ccg-actions { display:flex; gap:12px; align-items:center; }
         .ccd-inquiry-overlay { position:fixed; inset:0; z-index:2147483201; }
         .ccd-inquiry-backdrop { position:absolute; inset:0; border:0; background:#000b; cursor:pointer; width:100%; height:100%; }
         .ccd-inquiry-panel { position:absolute; inset:0 0 0 auto; z-index:2; display:flex; flex-direction:column; overflow:auto; width:min(100%,440px); max-height:100dvh; padding:15px 18px 22px; background:var(--drawer-bg,rgba(10,10,10,.96)); color:var(--fg); border-left:1px solid var(--line); box-shadow:-10px 0 45px #0008; backdrop-filter:blur(14px); }
