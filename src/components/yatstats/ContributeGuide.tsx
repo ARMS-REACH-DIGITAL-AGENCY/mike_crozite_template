@@ -526,6 +526,12 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
 
         /* Original compact News-style cards and approved font roles remain.
            The surrounding page and forms inherit the shared site theme. */
+        /* Remove the shared gallery wrapper's upper inset only on this route.
+           Keep Row 3 flush with the portal tabs in either theme. */
+        .yat-row5-shell:has(#sec-mentor) { padding-top:0 !important; }
+        #sec-mentor { margin:0 !important; padding:0 !important; }
+        #sec-mentor .ccd-columns, #sec-mentor .ccd-workspace { margin-top:0; padding-top:0; }
+        #sec-mentor .ccd-column { padding-top:0; }
         .ccd { width:100%; max-width:1160px; margin:0 auto; padding:0 20px 70px; color:var(--fg); background:var(--bg); font-family:var(--yat-font-ui); }
         .ccd-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
         .ccd-columns { display:grid; grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr); gap:28px; align-items:start; }
@@ -536,7 +542,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-mobile-switch button.is-on { color:var(--fg); background:var(--bg); border-color:var(--muted); border-bottom-color:var(--bg); box-shadow:inset 0 3px 0 var(--fg); }
         .ccd-mobile-switch button:not(.is-on):hover { color:var(--fg); background:var(--card-bg); }
         .ccd-column[hidden] { display:none !important; }
-        .ccd-column-heading { padding:10px 4px 5px; }
+        .ccd-column-heading { padding:3px 4px 3px; }
         .ccd-column-heading p { color:var(--muted); font:400 12px/1.4 var(--yat-font-ui); }
         .ccd-list { display:flex; flex-direction:column; }
         .ccd-item { min-width:0; border-radius:4px; scroll-margin-top:215px; }
@@ -727,6 +733,12 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-example-timeline > span { font:700 10px/1.3 var(--yat-font-compact); color:var(--muted); text-align:center; }
         .ccd-preview .ccd-example-stage { min-height:300px; }
         @media (max-width:740px) {
+          /* Compact mobile: Row 3 → tab strip → active content, no bands. */
+          #sec-mentor .ccd { padding:0 0 80px; }
+          #sec-mentor .ccd-mobile-switch { margin:0; padding:0 8px; border-radius:0; border-top:0; }
+          #sec-mentor .ccd-mobile-switch button { border-radius:6px 6px 0 0; }
+          #sec-mentor .ccd-column-heading { padding:2px 11px 3px; }
+          #sec-mentor .ccd-video-feature { padding:0 11px 16px; gap:8px; }
           .ccd { padding:0 11px 80px; }
           .ccd-columns { display:block; }
           .ccd-preview { display:none; }
@@ -749,7 +761,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
 
         /* Real page layout: photos and information in left-hand rail; placement on right.
            No sponsor packages on this page; only the player-video exchange. */
-        .ccd-video-feature { display:flex; flex-direction:column; gap:15px; padding:10px 2px 26px; }
+        .ccd-video-feature { display:flex; flex-direction:column; gap:10px; padding:0 2px 20px; }
         .ccd-video-screen { min-height:265px; display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center; padding:26px 14px; color:#f6f6f6; border:1px solid rgba(255,255,255,.23); border-radius:7px; background:radial-gradient(circle at 50% 45%,#254435 0,#101915 46%,#090b09 95%); text-align:center; }
         .ccd-video-screen i {font-size:54px;line-height:1;}
         .ccd-video-screen strong {font:900 28px/1 var(--yat-font-compact);}
