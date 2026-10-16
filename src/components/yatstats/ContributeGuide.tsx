@@ -68,7 +68,7 @@ const CONTRIBUTION_THUMBS: Partial<Record<ThumbKind, string>> = {
   headshot: '/img/contribute/rail_headshots.png',
   back: '/img/contribute/rail_action_pics.png',
   timeline: '/img/contribute/rail_yearly_pics.png',
-  logos: '/img/contribute/rail_team_logos.png',
+  logos: '/img/contribute/rail_school_logos.png',
 };
 const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: string }> = {
   front: { src: `${S3}/players/then/180827.jpg`, label: 'HIGH SCHOOL' },
