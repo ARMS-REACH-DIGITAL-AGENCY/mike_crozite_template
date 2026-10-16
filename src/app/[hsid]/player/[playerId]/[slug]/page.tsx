@@ -1015,6 +1015,50 @@ export default async function ProfilePage({ params }: Props) {
           INLINE STYLES — scoped to this page only, no global changes
           ═══════════════════════════════════════════════════════════════════════ */}
       <style>{`
+
+        /* Keep authentic story feeds centered on wider desktops, with a
+           readable, full-height tower. The same grid is used on News,
+           Connect and Stories without changing the player timeline. */
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+          width:min(100%,1290px)!important;
+          max-width:1290px!important;
+          margin:0 auto!important;
+          grid-template-columns:minmax(0,1fr) clamp(225px,25vw,325px)!important;
+          gap:20px!important;
+          padding-inline:clamp(8px,2vw,25px);
+        }
+        #playerFunZone .yp-profile-ad {
+          color:#efefef!important;
+          background:#181818!important;
+          border-color:rgba(255,255,255,.53)!important;
+          text-shadow:none!important;
+        }
+        #playerFunZone .yp-profile-ad span {color:#dadada!important;font-size:12px!important;}
+        #playerFunZone .yp-profile-ad strong {color:#fff!important;font-size:clamp(22px,2.2vw,33px)!important;}
+        #playerFunZone .yp-profile-ad small {color:#d0d0d0!important;font-size:12px!important;}
+        body.light-theme #playerFunZone .yp-profile-ad,
+        html.light-theme #playerFunZone .yp-profile-ad {
+          background:#f1e5cc!important;
+          color:#17130b!important;
+          border-color:rgba(90,67,35,.65)!important;
+        }
+        body.light-theme #playerFunZone .yp-profile-ad :is(span,strong,small),
+        html.light-theme #playerFunZone .yp-profile-ad :is(span,strong,small) {
+          color:#17130b!important;
+        }
+        @media(max-width:740px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+            display:flex!important;flex-direction:column!important;
+            width:100%!important;max-width:100%!important;
+            gap:5px!important;padding:0 5px!important;
+          }
+          #playerFunZone .yp-profile-ad {
+            min-height:68px!important;max-height:86px!important;
+            flex-direction:row!important;gap:12px!important;
+          }
+          #playerFunZone .yp-profile-ad strong {font-size:15px!important;}
+          #playerFunZone .yp-profile-ad :is(small,span) {font-size:9px!important;}
+        }
         /* Actual player FunZone layout: partner tower BESIDE existing content.
            Never restructure the stats/schedule panels or the timeline. */
         #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
