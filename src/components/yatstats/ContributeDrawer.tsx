@@ -21,6 +21,7 @@ import { auth } from '@/lib/firebase';
 import { SchoolContext } from '@/context/SchoolContext';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import ContributePhotoFlow from '@/components/yatstats/ContributePhotoFlow';
+import ContributePlayerInfoForm from '@/components/yatstats/ContributePlayerInfoForm';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
 import {
   CONTRIBUTE_OPTIONS,
@@ -409,6 +410,32 @@ export default function ContributeDrawer() {
             <div className="ycd-actions">
               <button type="button" className="ycd-btn ycd-btn-primary" onClick={resetForms}>Send more</button>
               <button type="button" className="ycd-btn" onClick={close}>Done</button>
+            </div>
+          </div>
+        ) : tab === 'data' ? (
+          <div className="ycd-main">
+            <div className="ycd-col">
+              <div className="ycd-label"><span className="ycd-step">1</span> Which player?</div>
+              <div className="ycd-switch" role="radiogroup" aria-label="Existing or new player">
+                <button type="button" role="radio" aria-checked={!manualPlayer} className={!manualPlayer ? 'is-on' : ''}
+                  onClick={() => { setManualPlayer(false); setStatus({kind:'idle'}); }}>Existing player</button>
+                <button type="button" role="radio" aria-checked={manualPlayer} className={manualPlayer ? 'is-on' : ''}
+                  onClick={() => { setManualPlayer(true); setPlayer(null); setStatus({kind:'idle'}); }}>Add a missing player</button>
+              </div>
+              {!manualPlayer ? <PlayerPicker value={player} onChange={choosePlayer} /> : (
+                <div className="ycd-field">
+                  <div className="ycd-label">Player&apos;s high school</div>
+                  <SchoolPicker value={school} onChange={setSchool} />
+                </div>
+              )}
+              <p className="ycd-muted ycd-small">Use the dropdowns for the player&apos;s graduation year, varsity years, status, level and position.</p>
+            </div>
+            <div className="ycd-col">
+              {player || manualPlayer ? (
+                <ContributePlayerInfoForm key={player?.playerId || 'new'} player={manualPlayer ? null : player}
+                  school={school || hubSchool} signedIn={signedIn}
+                  onSignIn={() => { pendingOpen.current = true; openAccountDrawer('signin'); }} />
+              ) : <div className="ycd-placeholder">Select a player, or choose Add a missing player.</div>}
             </div>
           </div>
         ) : playerFlow ? (
