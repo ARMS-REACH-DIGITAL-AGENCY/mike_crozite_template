@@ -9,14 +9,10 @@ import { getTitlePartner } from '@/lib/titlePartners';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 // Owner-supplied Row 3 artwork. Missing files fall back to existing imagery.
-const CONTRIBUTION_ROW3_IMAGES: Record<string,string> = {
-  player: '/img/contribute/row3-players.png',
-  fans: '/img/contribute/row3-sponsor.png',
-  alumni: '/img/contribute/row3-alumni.png',
-  photo: '/img/contribute/row3-photos.png',
-  data: '/img/contribute/row3-update-data.png',
-  missing: '/img/contribute/row3-missing-alumni.png',
-  tip: '/img/contribute/row3-news-tip.png',
+const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
+  photo: 'ri-upload-cloud-2-line',
+  data: 'ri-bar-chart-2-line',
+  tip: 'ri-newspaper-line',
 };
 
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
@@ -843,6 +839,15 @@ export default function InteractionStrip({
           overflow:hidden; border:1px solid #c7c7c7; border-radius:50%;
           background:#111; box-sizing:border-box;
         }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle > i {
+          display:flex; align-items:center; justify-content:center;
+          width:100%; height:100%; font-size:30px; line-height:1;
+          color:var(--fg); background:var(--bg);
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay {
+          font:700 9px/11px var(--yat-font-compact),sans-serif; letter-spacing:.01em;
+          white-space:nowrap;
+        }
         .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img {
           position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
           display:block; width:60px; height:60px; max-width:none;
@@ -956,68 +961,14 @@ export default function InteractionStrip({
               </>
             ) : isContribute ? (
               CONTRIBUTE_OPTIONS.map((option) => (
-                <button
-                  key={`contribute-${option.id}`}
-                  type="button"
+                <button key={`contribute-${option.id}`} type="button"
                   className="gallery-slot gallery-slot-link gallery-contribute-slot"
-                  title={option.label}
-                  aria-label={option.label}
-                  // Every shortcut opens its associated drawer directly.
-                  // Paid/partner options open the Connect inquiry drawer;
-                  // informational contributions open the existing upload/data drawers.
-                  onClick={() => option.tab
-                    ? openContribute({ tab: option.tab })
-                    : openConnectInquiry(option.id === 'player' ? 'video' : option.id === 'fans' ? 'title' : 'alumni')}
-                >
+                  title={option.label} aria-label={option.label}
+                  onClick={() => openContribute({ tab: option.tab || 'photo' })}>
                   <div className="gallery-slot-media gallery-contribute-media">
                     <span className="gallery-contribute-circle" aria-hidden="true">
-                      <img
-                        loading="lazy"
-                        alt=""
-                        className={option.id === 'player' || option.id === 'alumni' ? 'gallery-contribute-cutout' : undefined}
-                        src={CONTRIBUTION_ROW3_IMAGES[option.id] || '/img/connect-contribute-portal.png'}
-                        onError={(e) => {
-                          const img = e.currentTarget;
-                          if (img.dataset.customFallback !== 'true') {
-                            img.dataset.customFallback = 'true';
-                            img.src = ({
-                              player: `${PLAYER_NOW_CUTOUT_BASE}/180827.png`,
-                              fans: '/img/splash-partner-demo.svg',
-                              alumni: `${PLAYER_NOW_CUTOUT_BASE}/225132.png`,
-                              photo: `${PLAYER_THEN_BASE}/180827.jpg`,
-                              data: '/img/az_state_champ_roster.webp',
-                              missing: '/img/az_state_champ_roster.webp',
-                              tip: '/img/connect-contribute-portal.png',
-                            } as Record<string,string>)[option.id] || '/img/connect-contribute-portal.png';
-                            return;
-                          }
-                          if (img.classList.contains('gallery-contribute-cutout')) {
-                            img.classList.remove('gallery-contribute-cutout');
-                            img.src = option.id === 'player'
-                              ? `${PLAYER_NOW_BASE}/180827.jpg`
-                              : `${PLAYER_NOW_BASE}/225132.jpg`;
-                            return;
-                          }
-                          if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
-                        }}
-                      />
+                      <i className={CONTRIBUTION_ROW3_ICONS[option.id] || option.icon} />
                     </span>
-                    {(option.id === 'player' || option.id === 'alumni') ? (
-                      <img
-                        aria-hidden="true"
-                        alt=""
-                        className="gallery-contribute-above"
-                        loading="lazy"
-                        src={CONTRIBUTION_ROW3_IMAGES[option.id]}
-                        onError={(event) => {
-                          const img = event.currentTarget;
-                          if (img.dataset.customFallback !== 'true') {
-                            img.dataset.customFallback = 'true';
-                            img.src = `${PLAYER_NOW_CUTOUT_BASE}/${option.id === 'player' ? '180827' : '225132'}.png`;
-                          } else img.style.display = 'none';
-                        }}
-                      />
-                    ) : null}
                   </div>
                   <div className="gallery-slot-name-overlay">{option.short}</div>
                 </button>
