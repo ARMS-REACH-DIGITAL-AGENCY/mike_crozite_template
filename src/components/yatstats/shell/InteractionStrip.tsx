@@ -876,6 +876,19 @@ export default function InteractionStrip({
         .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay {
           font:300 9px/11px Oswald,sans-serif; letter-spacing:0; color:#e5e5e5;
         }
+        /* Three portal shortcuts may use their full descriptive names.
+           Keep every circle wholly inside its ring, and preserve the
+           names at every breakpoint without ellipsis. */
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot {
+          flex:0 0 112px; width:112px; min-width:112px; align-items:center;
+        }
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-contribute-media {
+          margin-inline:auto; overflow:hidden !important; border-radius:50% !important;
+        }
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-slot-name-overlay {
+          width:112px; font:700 10px/11px var(--yat-font-compact),sans-serif;
+          overflow:visible; text-overflow:clip; white-space:nowrap; letter-spacing:0;
+        }
         body.light-theme .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay { color:#555; }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
