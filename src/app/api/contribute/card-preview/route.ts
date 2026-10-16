@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     // the chosen player's cached roster row; never return full rosters.
     let gallery: Record<string,unknown> | null = null;
     const galleryHsid = String(raw.hsid || hsid || '');
-    if (/^\\d+$/.test(galleryHsid)) {
+    if (/^\d+$/.test(galleryHsid)) {
       try {
         const {getAllTimeRosterByHsid} = await import('@/lib/db');
         const roster = await getAllTimeRosterByHsid(galleryHsid);
