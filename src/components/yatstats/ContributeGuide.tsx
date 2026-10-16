@@ -528,7 +528,10 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
            The surrounding page and forms inherit the shared site theme. */
         /* Remove the shared gallery wrapper's upper inset only on this route.
            Keep Row 3 flush with the portal tabs in either theme. */
-        .yat-row5-shell:has(#sec-mentor) { padding-top:0 !important; }
+        /* The fixed ticker/footer is z-index 40. The generic Row 5 wrapper
+           has z-index 45, which obscures it on this page. Keep this portal
+           under the footer, without changing player-profile stacking. */
+        .yat-row5-shell:has(#sec-mentor) { z-index:5 !important; padding-top:0 !important; }
         #sec-mentor { margin:0 !important; padding:0 !important; }
         #sec-mentor .ccd-columns, #sec-mentor .ccd-workspace { margin-top:0; padding-top:0; }
         #sec-mentor .ccd-column { padding-top:0; }
@@ -538,11 +541,6 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-workspace,.ccd-preview,.ccd-column { min-width:0; }
         /* Folder tabs: recognizable individual hit targets, attached to a shared content edge. */
         .ccd-mobile-switch { position:sticky; z-index:28; top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h)); display:flex; gap:16px; align-items:stretch; padding:0 4px; background:var(--bg); border-bottom:1px solid var(--muted); }
-        /* Opaque scroll shield extends under Row 3 and closes the gap between
-           the sticky header and tab bar as the page scrolls. Row 3 is layered
-           above this bar, so its images remain visible. */
-        .ccd-mobile-switch::before { content:""; position:absolute; left:-24px; right:-24px; bottom:100%; height:34px; background:var(--bg); pointer-events:none; }
-        .ccd-mobile-switch::after { content:""; position:absolute; inset:0; z-index:-1; background:var(--bg); pointer-events:none; }
         .ccd-mobile-switch button { appearance:none; flex:0 1 auto; background:var(--card-bg); border:1px solid var(--line); border-bottom:1px solid var(--muted); border-radius:7px 7px 0 0; margin-bottom:-1px; padding:7px 22px 8px; color:var(--muted); cursor:pointer; font:800 19px/1 var(--yat-font-compact); letter-spacing:.035em; transition:background .15s ease,color .15s ease; }
         .ccd-mobile-switch button.is-on { color:var(--fg); background:var(--bg); border-color:var(--muted); border-bottom-color:var(--bg); box-shadow:inset 0 3px 0 var(--fg); }
         .ccd-mobile-switch button:not(.is-on):hover { color:var(--fg); background:var(--card-bg); }
@@ -740,7 +738,18 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         @media (max-width:740px) {
           /* Compact mobile: Row 3 → tab strip → active content, no bands. */
           #sec-mentor .ccd { padding:0 0 80px; }
-          #sec-mentor .ccd-mobile-switch { margin:0; padding:0 8px; border-radius:0; border-top:0; background:var(--bg) !important; isolation:isolate; box-shadow:0 -2px 0 var(--bg); }
+          /* Actual contribution rail is 84px tall on small screens.
+             A 100px offset exposes a strip of scrolling content. */
+          #sec-mentor .ccd-mobile-switch {
+            position:sticky;
+            top:calc(var(--row1-h) + var(--row2-h) + 84px);
+            z-index:28;
+            margin:0; padding:0 8px;
+            border-radius:0; border-top:0;
+            background:var(--bg) !important;
+            isolation:isolate;
+            box-shadow:0 -1px 0 var(--bg), 0 2px 0 var(--bg);
+          }
           #sec-mentor .ccd-mobile-switch button { border-radius:6px 6px 0 0; }
           #sec-mentor .ccd-column-heading { padding:2px 11px 3px; }
           #sec-mentor .ccd-video-feature { padding:0 11px 16px; gap:8px; }
