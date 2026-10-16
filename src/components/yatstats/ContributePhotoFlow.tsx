@@ -292,7 +292,7 @@ export default function ContributePhotoFlow({
           Changing the destination is optional and never a required step. */}
       {type && !showPurposePicker ? (
         <div className="ypf-selected-purpose">
-          <div><span className="ypf-selected-kicker">IMAGE DESTINATION</span><strong>{type.prefix} · {type.label}</strong></div>
+          <div><span className="ypf-selected-kicker">{type.prefix}</span><strong>{type.label}</strong></div>
           <button type="button" className="ycd-link ycd-small" onClick={() => setShowPurposePicker(true)}>Change</button>
           <details><summary>What photo should I send?</summary><p>{type.spec}</p></details>
         </div>
@@ -324,7 +324,7 @@ export default function ContributePhotoFlow({
           {PHOTO_TYPES.map((t) => (
             <label className={`ypf-type${purpose === t.id ? ' is-on' : ''}`} key={t.id}>
               <input type="radio" name="ypf-type" checked={purpose === t.id} onChange={() => choosePurpose(t.id)} />
-              <span><b>{t.prefix}</b> · {t.label}{purpose === t.id ? <small>{t.spec}</small> : null}</span>
+              <span><b>{t.label}</b><small>{t.prefix}{t.id === 'team_logo' ? ' · COLLEGE OR PRO TEAM LOGO' : t.id === 'school_logo' ? ' · HIGH SCHOOL CREST' : ''}</small>{purpose === t.id ? <small>{t.spec}</small> : null}</span>
             </label>
           ))}
         </div>

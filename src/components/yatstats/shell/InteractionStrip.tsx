@@ -3,7 +3,7 @@
 import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy } from '@/lib/playerImage';
-import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry } from '@/lib/contribute';
+import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry, scrollToContributeSection } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
 
@@ -977,7 +977,7 @@ export default function InteractionStrip({
                 <button key={`contribute-${option.id}`} type="button"
                   className="gallery-slot gallery-slot-link gallery-contribute-slot"
                   title={option.label} aria-label={option.label}
-                  onClick={() => openContribute({ tab: option.tab || 'photo' })}>
+                  onClick={() => option.id === 'video' ? scrollToContributeSection('sec-video') : openContribute({ tab: option.tab || 'photo' })}>
                   <div className="gallery-slot-media gallery-contribute-media">
                     <span className="gallery-contribute-circle" aria-hidden="true">
                       <i className={CONTRIBUTION_ROW3_ICONS[option.id] || option.icon} />
