@@ -29,6 +29,10 @@
     {
       "path": "/api/cron/instagram-sync",
       "schedule": "17 */6 * * *"
+    },
+    {
+      "path": "/api/cron/fan-daily-pilot",
+      "schedule": "0 7 * * *"
     }
   ]
 }
