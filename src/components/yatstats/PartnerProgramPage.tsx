@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import type { SponsorInterest } from '@/lib/contribute';
 
@@ -55,6 +55,19 @@ function Placement({item}:{item:Package}) {
 export default function PartnerProgramPage(){
  const school=useContext(SchoolContext);
  const [selected,setSelected]=useState<PackageId>('title');
+ useEffect(() => {
+   const onPackage = (event: Event) => {
+     const id = String((event as CustomEvent<{id?: string}>).detail?.id || '');
+     if (PACKAGES.some((p) => p.id === id)) setSelected(id as PackageId);
+   };
+   window.addEventListener('yat:partner-package-change', onPackage);
+   return () => window.removeEventListener('yat:partner-package-change', onPackage);
+ }, []);
+ const selectPackage = (id: PackageId) => {
+   setSelected(id);
+   setShowAll(false);
+   window.dispatchEvent(new CustomEvent('yat:partner-package-change', {detail:{id}}));
+ };
  const item=PACKAGES.find(p=>p.id===selected)||PACKAGES[0];
  const [showAll,setShowAll]=useState(false);
  return <div className="yp-partner" id="yp-real-partner-program">
@@ -64,8 +77,8 @@ export default function PartnerProgramPage(){
    <div className="yp-partner-columns">
      <div className="yp-partner-left">
        <div className="yp-partner-tabs-title">CHOOSE A PARTNERSHIP PACKAGE</div>
-       {PACKAGES.map((p,i)=><button key={p.id} type="button" className={'yp-partner-package'+(selected===p.id?' is-active':'')}
-         onClick={()=>{setSelected(p.id);setShowAll(false);}} aria-pressed={selected===p.id}>
+       {PACKAGES.map((p,i)=><button key={p.id} id={'yp-partner-option-'+p.id} type="button" className={'yp-partner-package'+(selected===p.id?' is-active':'')}
+         onClick={()=>selectPackage(p.id)} aria-pressed={selected===p.id}>
          <span className="yp-partner-num">{String(i+1).padStart(2,'0')}</span>
          <span className="yp-partner-package-copy"><small>{p.location}</small><strong>{p.name}</strong><span>{p.intro}</span><b>VIEW LOCATIONS →</b></span><span className="yp-partner-rate">RATE<br/>—</span>
        </button>)}
@@ -97,7 +110,7 @@ export default function PartnerProgramPage(){
      .yp-partner-header-right strong{font-weight:800;color:var(--fg)}
      .yp-partner-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.95fr);gap:22px;align-items:start;padding-top:20px}
      .yp-partner-left,.yp-partner-right{min-width:0}.yp-partner-tabs-title{padding-bottom:12px}
-     .yp-partner-package{display:grid;grid-template-columns:27px minmax(0,1fr) 39px;gap:10px;align-items:start;width:100%;padding:14px 9px;margin:0 0 7px;border:1px solid var(--line);border-radius:4px;background:var(--card-bg);color:var(--fg);cursor:pointer;text-align:left}
+     .yp-partner-package{scroll-margin-top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,84px) + 10px);display:grid;grid-template-columns:27px minmax(0,1fr) 39px;gap:10px;align-items:start;width:100%;padding:14px 9px;margin:0 0 7px;border:1px solid var(--line);border-radius:4px;background:var(--card-bg);color:var(--fg);cursor:pointer;text-align:left}
      .yp-partner-package.is-active{border-color:var(--muted);background:color-mix(in srgb,var(--card-bg) 85%,var(--fg) 15%)}
      .yp-partner-num{font:800 18px var(--yat-font-compact);color:var(--muted)}
      .yp-partner-package-copy{display:flex;flex-direction:column;gap:5px}
