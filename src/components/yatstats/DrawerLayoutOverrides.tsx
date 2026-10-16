@@ -95,6 +95,32 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-fantasy-countdown-cell { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; text-align: center; }
       #drawerLeft .yat-fantasy-countdown-unit { color: #fff; font: 600 7px/1 Oswald, sans-serif; letter-spacing: .025em; }
       #drawerLeft .yat-fantasy-countdown-number { display: block; padding: 4px 1px 3px; border: 0; border-radius: 4px; background: linear-gradient(180deg, #071c0e, #102f1b); box-shadow: inset 0 2px 5px rgba(0,0,0,.45); color: #ffb21c; font: 700 19px/1 Oswald, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.035em; text-shadow: 0 1px 1px #000; }
+      /* Treat the fantasy destination as a regular menu title, with a compact side countdown. */
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy {
+        font-family: var(--yat-font-compact), "Barlow Condensed", sans-serif;
+        font-size: inherit;
+        font-weight: 700;
+        line-height: 1.08;
+        letter-spacing: normal;
+        gap: 2px;
+      }
+      #drawerLeft .yat-drawer-fantasy-copy > span { white-space: normal; font-size: inherit; }
+      #drawerLeft .yat-drawer-fantasy-copy > span:nth-child(2) { font-weight: 700; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown {
+        flex: 0 0 115px;
+        width:115px;
+        padding: 4px 5px;
+        gap: 3px;
+      }
+      #drawerLeft .yat-fantasy-countdown-date { font-size: 9px; line-height: 1.1; white-space: nowrap; }
+      #drawerLeft .yat-fantasy-countdown-cells { gap: 3px; }
+      #drawerLeft .yat-fantasy-countdown-cell { gap: 2px; }
+      #drawerLeft .yat-fantasy-countdown-number { font-size: 16px; padding: 3px 1px 2px; }
+      @media (max-width: 420px) {
+        #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { gap: 5px; }
+        #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown { flex-basis: 108px; width: 108px; }
+        #drawerLeft .yat-fantasy-countdown-date { font-size: 8.5px; }
+      }
       #drawerLeft .yat-drawer-fantasy-highlight:is(:hover, :focus-visible) .yat-drawer-fantasy-copy > span { text-decoration: underline; text-underline-offset: 3px; }
       #drawerLeft .yat-drawer-fantasy-highlight:focus-visible .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
