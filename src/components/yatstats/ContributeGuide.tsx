@@ -131,6 +131,31 @@ const PLACEMENT_CAPTIONS: Record<ThumbKind, string> = {
   video: 'Personalized alumni video · planned',
 };
 
+// Cropped views of actual YAT?STATS pages supplied for this portal by the site owner.
+// The reference atlas keeps visual explanations faithful to the published UI.
+const REAL_PAGE_CROPS: Partial<Record<ThumbKind, [number, number, string]>> = {
+  front: [1, 0, 'Actual photo-present versus photo-missing alumni flip cards'],
+  headshot: [0, 0, 'Row 3: real portraits alongside missing headshot silhouettes'],
+  back: [1, 0, 'Alumni flip-card example and missing-image silhouette'],
+  timeline: [0, 1, 'Actual Career Path timeline with a player photo'],
+  logos: [0, 0, 'Actual school identity and Row 3 gallery'],
+  news: [0, 3, 'Actual player-news articles in the news feed'],
+  missing: [0, 2, 'Actual All-Time Next-Level List and year selector'],
+  data: [1, 2, 'Actual player-statistics cards'],
+};
+function RealPageReference({ kind }: { kind: ThumbKind }) {
+  const crop = REAL_PAGE_CROPS[kind];
+  if (!crop) return null;
+  const [column, row, description] = crop;
+  return (
+    <figure className="ccd-real-page-figure" aria-label={description}>
+      <div className="ccd-real-page-crop" role="img" aria-label={description}
+        style={{ backgroundPosition: `${column * 100}% ${row * (100 / 3)}%` }} />
+      <figcaption>{description}</figcaption>
+    </figure>
+  );
+}
+
 function PlacementExample({ kind, schoolName, crestUrl, schoolLocation, realFrontExamples }: {
   kind: ThumbKind; schoolName: string; crestUrl?: string; schoolLocation?: string;
   realFrontExamples?: React.ReactNode;
@@ -141,45 +166,14 @@ function PlacementExample({ kind, schoolName, crestUrl, schoolLocation, realFron
   };
   const src = THUMB_IMAGES[kind].src;
   let picture: React.ReactNode;
-  // Before/after examples: real existing YAT?STATS artwork and a recognizable
-  // missing-photo silhouette. No invented "Sample Player" flip card.
-  if (kind === 'front') picture = realFrontExamples || (
-    <div className="ccd-example-pair">
-      <div className="ccd-example-flip"><FlipCardFront src={src} crop={null} p={p} /><span>PHOTO PRESENT</span></div>
-      <div className="ccd-example-flip"><div className="ccd-example-empty-card"><img src="/img/headshot-silhouette.png" alt="" /></div><span>PHOTO MISSING</span></div>
-    </div>
-  );
-  else if (kind === 'headshot') picture = (
-    <div className="ccd-example-headshots">
-      <div className="ccd-example-headshot ccd-example-real-cutout"><Thumb kind="headshot" /><small>ROW 3 CUTOUT</small></div>
-      <div className="ccd-example-headshot"><img src={THUMB_IMAGES.profile.src} alt="" /><small>PHOTO</small></div>
-      <div className="ccd-example-headshot is-missing"><img src="/img/headshot-silhouette.png" alt="" /><small>MISSING</small></div>
-    </div>
-  );
-  else if (kind === 'back') picture = <FlipCardBack src={src} crop={null} p={p} />;
-  else if (kind === 'timeline') picture = (
-    <div className="ccd-example-timeline">
-      <TimelineSlide src={src} crop={null} p={p}
-        s={{key:'example',year:2026,stage:'college',team:'',level:'',label:'Career season',current:false}}
-        landscape={false} />
-      <span>CAREER-YEAR IDENTIFIER: A BUST OR ACTION PHOTO FOR THIS YEAR'S TIMELINE HERO — NOT A FAN MEMORY OR STORY POST</span>
-    </div>
-  );
+  // Direct, cropped references to real site pages instead of simulated cards.
+  if (REAL_PAGE_CROPS[kind]) picture = <RealPageReference kind={kind} />;
   else if (kind === 'logos' || kind === 'banner') picture = (
     <div className="ccd-example-school">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={crestUrl || S3 + '/schools/5004.png'} alt="" />
       <div><small>{schoolLocation || 'YOUR HOMETOWN'}</small><strong>{schoolName}</strong><span>ACTIVE BASEBALL ALUMNI</span></div>
       {kind === 'banner' ? <aside>FEATURED SCHOOL PARTNER · BANNER SPACE</aside> : null}
-    </div>
-  );
-  else if (kind === 'missing' || kind === 'data') picture = (
-    <div className="ccd-example-record">
-      <small>{schoolName}</small>
-      <strong>{kind === 'missing' ? 'ALL-TIME NEXT-LEVEL LIST' : 'PLAYER RECORDS'}</strong>
-      <div><span>ALUMNUS</span><span>CLASS</span><span>NEXT LEVEL</span></div>
-      <div><span>PLAYER ENTRY</span><span>YEAR</span><span>COLLEGE / PRO</span></div>
-      <div><span>PLAYER ENTRY</span><span>YEAR</span><span>COLLEGE / PRO</span></div>
     </div>
   );
   else if (kind === 'bracket') picture = (
@@ -210,7 +204,7 @@ function PlacementExample({ kind, schoolName, crestUrl, schoolLocation, realFron
   return (
     <div className="ccd-example">
       <div className="ccd-example-stage">{picture}</div>
-      <small className="ccd-example-label">ILLUSTRATIVE PLACEMENT · NOT PUBLISHED CONTENT</small>
+      <small className="ccd-example-label">ACTUAL YAT?STATS SCREENSHOT · CONTRIBUTION DESTINATION</small>
       <ProofStyles />
     </div>
   );
@@ -596,6 +590,9 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-preview-heading p { color:var(--muted); font:400 12px/1.35 var(--yat-font-ui); }
         .ccd-preview-copy { padding:12px 0; color:var(--muted); font:400 12px/1.4 var(--yat-font-ui); }
         .ccd-preview-action { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--fg); border-radius:3px; background:var(--fg); color:var(--bg); padding:7px 10px; cursor:pointer; font:700 11px/1.2 var(--yat-font-ui); }
+        .ccd-real-page-figure {width:100%;margin:0;display:flex;flex-direction:column;align-items:center;gap:9px;}
+        .ccd-real-page-crop {width:100%;aspect-ratio:270/138;background-image:url('/img/contribute-reference-atlas.svg');background-size:200% 400%;background-repeat:no-repeat;background-color:#090909;border-radius:5px;border:1px solid rgba(255,255,255,.18);}
+        .ccd-real-page-figure figcaption {font:600 12px/1.35 var(--yat-font-ui);color:var(--muted);text-align:center;}
         .ccd-example-stage { min-height:230px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--line); border-radius:5px; background:var(--bg); padding:14px; }
         .ccd-example-stage :is(.ypf-card,.ypf-back) { width:min(100%,205px); max-height:290px; }
         .ccd-example-stage .ypf-slide { max-width:100%; }
