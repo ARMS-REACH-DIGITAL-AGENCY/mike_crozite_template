@@ -18,6 +18,7 @@ import Row3MirrorGuard from './Row3MirrorGuard';
 import SponsorBanner from './SponsorBanner';
 import FantasyTimeline from '../bracket/FantasyTimeline';
 import BracketTicker from '../bracket/BracketTicker';
+import ContributeViewportLayout, { ContributePortalRail } from './ContributeViewportLayout';
 
 type StripPlayer = {
   id: string;
@@ -123,8 +124,9 @@ export default function SharedShell({
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
+  const isContributeRoute = /\/(connect-contribute|contribute-review(?:\/bulk)?)\/?$/.test(pathname);
   const teamYear = isPlayerProfile ? null : initialTeamYear;
-  const initialSection = teamYear ? 'alltime' : 'active';
+  const initialSection = isContributeRoute ? 'mentor' : teamYear ? 'alltime' : 'active';
   const [activeSection, setActiveSection] = useState(initialSection);
   const [partnerLevel, setPartnerLevel] = useState<string>('title');
   useEffect(() => {
@@ -142,7 +144,7 @@ export default function SharedShell({
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const isNews = activeSection === 'news';
-  const isGallery = !isPlayerProfile && GALLERY_SECTIONS.has(activeSection);
+  const isGallery = !isPlayerProfile && !isContributeRoute && GALLERY_SECTIONS.has(activeSection);
 
   useEffect(() => {
     if (isPlayerProfile) return;
@@ -198,13 +200,14 @@ export default function SharedShell({
       window.removeEventListener('yat:section-changed', syncSection);
       observer.disconnect();
     };
-  }, [isPlayerProfile]);
+  }, [isPlayerProfile, pathname]);
 
   return (
     <>
       <TimelineCleanup />
-      {!isPlayerProfile && <GalleryFilterController />}
-      {!isPlayerProfile && <Row3MirrorGuard />}
+      {isContributeRoute && <ContributeViewportLayout />}
+      {!isPlayerProfile && !isContributeRoute && <GalleryFilterController />}
+      {!isPlayerProfile && !isContributeRoute && <Row3MirrorGuard />}
 
       <div className={`yat-row1-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <GlobalTopbar hsid={hsid} />
@@ -223,7 +226,9 @@ export default function SharedShell({
         <div className="yat-row3-shell">
           {row3Content
             ? row3Content
-            : activeSection === 'fantasy' && !isPlayerProfile
+            : isContributeRoute
+              ? <ContributePortalRail />
+              : activeSection === 'fantasy' && !isPlayerProfile
               // The Fantasy Bracket Tourney tab: the school's season, a
               // slide per week, where a profile has its Career Path Timeline.
               ? <FantasyTimeline />
