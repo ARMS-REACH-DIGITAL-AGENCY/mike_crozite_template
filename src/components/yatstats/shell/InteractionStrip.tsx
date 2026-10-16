@@ -8,6 +8,17 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
 
 const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
+// Owner-supplied Row 3 artwork. Missing files fall back to existing imagery.
+const CONTRIBUTION_ROW3_IMAGES: Record<string,string> = {
+  player: '/img/contribute/row3-players.png',
+  fans: '/img/contribute/row3-sponsor.png',
+  alumni: '/img/contribute/row3-alumni.png',
+  photo: '/img/contribute/row3-photos.png',
+  data: '/img/contribute/row3-update-data.png',
+  missing: '/img/contribute/row3-missing-alumni.png',
+  tip: '/img/contribute/row3-news-tip.png',
+};
+
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
@@ -964,17 +975,22 @@ export default function InteractionStrip({
                         loading="lazy"
                         alt=""
                         className={option.id === 'player' || option.id === 'alumni' ? 'gallery-contribute-cutout' : undefined}
-                        src={({
-                          player: `${PLAYER_NOW_CUTOUT_BASE}/180827.png`,
-                          fans: '/img/splash-partner-demo.svg',
-                          alumni: `${PLAYER_NOW_CUTOUT_BASE}/225132.png`,
-                          photo: `${PLAYER_THEN_BASE}/180827.jpg`,
-                          data: '/img/az_state_champ_roster.webp',
-                          missing: '/img/az_state_champ_roster.webp',
-                          tip: '/img/connect-contribute-portal.png',
-                        } as Record<string,string>)[option.id] || '/img/connect-contribute-portal.png'}
+                        src={CONTRIBUTION_ROW3_IMAGES[option.id] || '/img/connect-contribute-portal.png'}
                         onError={(e) => {
                           const img = e.currentTarget;
+                          if (img.dataset.customFallback !== 'true') {
+                            img.dataset.customFallback = 'true';
+                            img.src = ({
+                              player: `${PLAYER_NOW_CUTOUT_BASE}/180827.png`,
+                              fans: '/img/splash-partner-demo.svg',
+                              alumni: `${PLAYER_NOW_CUTOUT_BASE}/225132.png`,
+                              photo: `${PLAYER_THEN_BASE}/180827.jpg`,
+                              data: '/img/az_state_champ_roster.webp',
+                              missing: '/img/az_state_champ_roster.webp',
+                              tip: '/img/connect-contribute-portal.png',
+                            } as Record<string,string>)[option.id] || '/img/connect-contribute-portal.png';
+                            return;
+                          }
                           if (img.classList.contains('gallery-contribute-cutout')) {
                             img.classList.remove('gallery-contribute-cutout');
                             img.src = option.id === 'player'
@@ -992,8 +1008,14 @@ export default function InteractionStrip({
                         alt=""
                         className="gallery-contribute-above"
                         loading="lazy"
-                        src={`${PLAYER_NOW_CUTOUT_BASE}/${option.id === 'player' ? '180827' : '225132'}.png`}
-                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                        src={CONTRIBUTION_ROW3_IMAGES[option.id]}
+                        onError={(event) => {
+                          const img = event.currentTarget;
+                          if (img.dataset.customFallback !== 'true') {
+                            img.dataset.customFallback = 'true';
+                            img.src = `${PLAYER_NOW_CUTOUT_BASE}/${option.id === 'player' ? '180827' : '225132'}.png`;
+                          } else img.style.display = 'none';
+                        }}
                       />
                     ) : null}
                   </div>
