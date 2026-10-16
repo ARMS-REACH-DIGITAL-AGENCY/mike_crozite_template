@@ -135,11 +135,11 @@ export default function PartnerProgramPage(){
      <p className="yp-partner-pricing-note">Pricing will be based on measured eligible visits, viewable impressions, expected responses, audience relevance and local brand value. Forecasts are not delivery guarantees.</p>
    </section>
    <style jsx global>{`
-     .yp-partner{color:var(--fg);background:var(--bg);font:400 13px/1.5 var(--yat-font-ui);width:min(1260px,100%);margin:0 auto;padding:18px 19px 140px}
+     .yp-partner{color:var(--fg);background:var(--bg);font:400 13px/1.5 var(--yat-font-ui);width:min(1160px,100%);margin:0 auto;padding:12px 20px 100px}
      .yp-partner *{box-sizing:border-box}
-     .yp-partner-header{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:4px 0 20px;border-bottom:1px solid var(--line)}
+     .yp-partner-header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 0 13px;border-bottom:1px solid var(--line)}
      .yp-partner-header span,.yp-partner-tabs-title,.yp-partner-right header small,.yp-partner-placement small{font:700 11px var(--yat-font-compact);letter-spacing:.08em;color:var(--muted)}
-     .yp-partner-header h1{font:800 clamp(30px,4vw,42px)/1 var(--yat-font-compact);margin:6px 0}
+     .yp-partner-header h1{font:800 clamp(19px,2.8vw,25px)/1.08 var(--yat-font-compact);letter-spacing:.035em;white-space:nowrap;margin:6px 0}
      .yp-partner-header p{color:var(--muted);font-size:12px}.yp-partner-header p strong{color:var(--fg)}
      .yp-partner-header-right{text-align:right;color:var(--muted);font:700 11px/1.4 var(--yat-font-compact)}
      .yp-partner-header-right strong{font-weight:800;color:var(--fg)}
@@ -153,14 +153,14 @@ export default function PartnerProgramPage(){
      .yp-partner-num{font:800 18px var(--yat-font-compact);color:var(--muted)}
      .yp-partner-package-copy{display:flex;flex-direction:column;gap:5px}
      .yp-partner-package-copy small{color:var(--muted);font:700 10px var(--yat-font-compact)}
-     .yp-partner-package-copy strong{font:800 19px/1.05 var(--yat-font-compact)}
+     .yp-partner-package-copy strong{font:800 15px/1.18 var(--yat-font-ui);letter-spacing:-.02em}
      .yp-partner-package-copy>span{font:400 12px/1.4 var(--yat-font-ui);color:var(--muted)}
      .yp-partner-package-copy b{font:800 11px var(--yat-font-compact);margin-top:3px}
      .yp-partner-rate{color:var(--muted);text-align:center;font:800 10px/1.1 var(--yat-font-compact)}
      .yp-partner-aside{color:var(--muted);font-size:11px;margin:11px 2px}
      .yp-partner-right{position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,84px) + 13px);align-self:start;z-index:4;max-height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,84px) - 26px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;border:1px solid var(--line);border-radius:4px;background:var(--card-bg);padding:17px}
      .yp-partner-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:9px}
-     .yp-partner-detail-head h2{font:800 25px/1.04 var(--yat-font-compact);margin:5px 0}
+     .yp-partner-detail-head h2{font:800 20px/1.12 var(--yat-font-ui);letter-spacing:-.025em;margin:5px 0}
      .yp-partner-detail-intro{color:var(--muted);font:400 12px/1.45 var(--yat-font-ui);margin:7px 0 12px}
      .yp-partner-hide-detail{display:flex;flex:0 0 auto;align-items:center;gap:5px;padding:4px 0 4px 7px;border:0;background:none;color:var(--fg);cursor:pointer;font:800 11px/1.1 var(--yat-font-compact)}
      .yp-partner-hide-detail span{font:400 24px/1 Arial,sans-serif}
@@ -212,6 +212,9 @@ export default function PartnerProgramPage(){
        .yp-partner{padding:10px 12px 105px}
        .yp-partner-header{align-items:start}
        .yp-partner-header-right{display:none}
+       .yp-partner-header h1{font-size:20px;white-space:nowrap}
+       .yp-partner-header p{font-size:11px}
+       .yp-partner-package-copy strong{font-size:15px}
      }
      @media(max-width:440px){.yp-partner-placements{grid-template-columns:1fr}.yp-partner-profile-sample{grid-template-columns:1fr 95px}.yp-partner-bracket{grid-template-columns:1fr 1fr}.yp-partner-metrics{grid-template-columns:1fr}}
    `}</style>
