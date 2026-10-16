@@ -139,6 +139,7 @@ const REAL_PAGE_IMAGES: Partial<Record<ThumbKind, { file: string; caption: strin
   timeline: { file: 'placement-yearly-pics.jpg', caption: 'Yearly pictures · career timeline image' },
   logos: { file: 'placement-team-logos.jpg', caption: 'School and team logos · site identity' },
   news: { file: 'placement-news-tips.jpg', caption: 'News tips · alumni news feed' },
+  data: { file: 'placements_player_updates.jpg', caption: 'Player information updates · verified alumni records' },
 };
 function RealPageReference({ kind }: { kind: ThumbKind }) {
   const item = REAL_PAGE_IMAGES[kind];
@@ -147,7 +148,13 @@ function RealPageReference({ kind }: { kind: ThumbKind }) {
     <figure className="ccd-real-page-figure">
       {/* Image intentionally scales as a full photograph, never a crop. */}
       <img className="ccd-real-page-image" src={`/img/contribute/${item.file}`} alt={item.caption}
-        onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+        onError={(event) => {
+          const el = event.currentTarget;
+          if (kind === 'data' && !el.dataset.fallback) {
+            el.dataset.fallback = 'true';
+            el.src = '/img/connect-contribute-portal.png';
+          } else el.style.display = 'none';
+        }} />
       <figcaption>{item.caption}</figcaption>
     </figure>
   );

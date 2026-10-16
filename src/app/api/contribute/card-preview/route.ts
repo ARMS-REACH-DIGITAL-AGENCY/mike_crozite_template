@@ -17,6 +17,11 @@ const PUBLIC_KEYS = [
   'next_game_status_label','next_game_date','next_game_home_away',
   'next_game_opponent','next_game_time_local','next_game_time_utc',
   'next_game_time_zone','school_time_zone','school_timezone',
+  'level','height','weight','is_pitcher','g','pg','avg','ab','h','obp',
+  'r','bb','slg','hr','rbi','ops','sb','ip','er','era','ko','whip',
+  'so9','bb9','so_bb','w','l','saves','has_2026_stats',
+  'stat_year','pitch_year','season_batting_buckets','season_pitching_buckets',
+  'career_batting_buckets','career_pitching_buckets',
 ];
 
 export async function GET(req: NextRequest) {
@@ -35,9 +40,23 @@ export async function GET(req: NextRequest) {
     );
     if (!rows.length) return NextResponse.json({error:'Player not found'}, {status:404});
     const raw = rows[0].published;
+    // Match the gallery's real merged stage + roster data. Pull only
+    // the chosen player's cached roster row; never return full rosters.
+    let gallery: Record<string,unknown> | null = null;
+    const galleryHsid = String(raw.hsid || hsid || '');
+    if (/^\\d+$/.test(galleryHsid)) {
+      try {
+        const {getAllTimeRosterByHsid} = await import('@/lib/db');
+        const roster = await getAllTimeRosterByHsid(galleryHsid);
+        gallery = (Array.isArray(roster) ? roster : []).find((p) =>
+          String((p as Record<string,unknown>).playerid || '') === id
+        ) as Record<string,unknown> || null;
+      } catch { /* Gallery data may be unavailable; stage is still valid. */ }
+    }
+    const merged = {...raw,...(gallery || {})};
     const player:Record<string,unknown> = {};
     for (const key of PUBLIC_KEYS) {
-      if (Object.prototype.hasOwnProperty.call(raw,key)) player[key] = raw[key];
+      if (Object.prototype.hasOwnProperty.call(merged,key)) player[key] = merged[key];
     }
     // The real gallery expects these canonical name keys.
     player.firstname = player.firstname || player.first_name || '';

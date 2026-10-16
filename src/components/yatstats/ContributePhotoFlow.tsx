@@ -102,7 +102,7 @@ export default function ContributePhotoFlow({
   useEffect(() => {
     let active = true;
     setPublishedCard(null);
-    if (purpose !== 'flip_card' || !main?.playerId) return;
+    if ((purpose !== 'flip_card' && purpose !== 'back_hero') || !main?.playerId) return;
     const params = new URLSearchParams({ playerId: main.playerId });
     if (main.schoolId) params.set('hsid', main.schoolId);
     fetch('/api/contribute/card-preview?' + params.toString())

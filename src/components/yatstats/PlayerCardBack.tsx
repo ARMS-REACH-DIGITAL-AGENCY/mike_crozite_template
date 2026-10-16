@@ -20,24 +20,16 @@
 // - container-type:inline-size on .yat-back-cq.
 // - All sizing uses cqi (card-width-relative), not vw.
 
-import SafeImage from "@/components/SafeImage";
+import PlayerCardBackHero from "@/components/yatstats/PlayerCardBackHero";
 import FunZone from "@/components/yatstats/FunZone";
 import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
-function getPlayerBackImageUrl(imageId: string): string {
-  return `${S3_BASE}/players/back/${imageId}.jpg`;
-}
-
 // Card-size WebP copy of the back photo (Build Web Cutouts job, 800px
 // wide): ~15-30KB instead of the ~1MB original, which stays as the
 // fallback until the job has made the copy.
-function getPlayerBackCardUrl(imageId: string): string {
-  return `${S3_BASE}/players/back-card/${imageId}.webp`;
-}
-
 const YATCREST_URL = `${S3_BASE}/assets/YatCrest.png`;
 
 function asText(value: unknown): string {
@@ -200,7 +192,6 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   const slug = String(p.slug || "");
   void draft;
 
-  const backImageSrc = getPlayerBackImageUrl(imageId);
   const has2026Stats = p.has_2026_stats === true;
   const statBarLabel = has2026Stats ? "2026 SEASON STATS" : "CAREER STATS";
 
@@ -302,28 +293,15 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
     <div className="yat-face yat-back yat-back-cq" data-player-card-id={imageId}>
       <div className="yat-back-texture">
         <div className="yat-back-inner">
-          <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
-            {/* Lazy: every card back sits in the page (including hidden
-                tabs, where an eager <img> still downloads), but only the
-                cards near the screen need their photo. */}
-            <SafeImage
-              src={getPlayerBackCardUrl(imageId)}
-              fallbackSrc={backImageSrc}
-              alt={displayName}
-              className="yat-back-img"
-              placeholderSrc={YATCREST_URL}
-              loading="lazy"
-            />
-            <div className="yat-back-hero-fallback" aria-hidden="true" />
-            <div className="yat-back-scrim" aria-hidden="true" />
-            <div className="yat-back-meta">
-              {displayName && <div className="ybm-name">{displayName}</div>}
-              {teamName && <div className="ybm-team">{teamName}</div>}
-              {orgConf && <div className="ybm-org">{orgConf}</div>}
-              {posLevelStatus && <div className="ybm-pos">{posLevelStatus}</div>}
-              {btHw && <div className="ybm-bthw">{btHw}</div>}
-            </div>
-          </a>
+          <PlayerCardBackHero
+            playerId={imageId}
+            displayName={displayName}
+            profileHref={profileHref}
+            teamName={teamName}
+            orgConf={orgConf}
+            posLevelStatus={posLevelStatus}
+            btHw={btHw}
+          />
 
           <FunZone
             player={p}
