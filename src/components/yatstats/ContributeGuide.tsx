@@ -462,7 +462,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
               <h2>Hear from a player. Share your connection.</h2>
               <p>Request a personalized video message from a participating active or retired alumnus. A meaningful way to celebrate birthdays, milestones and the players who inspired your hometown.</p>
               <div className="ccd-video-actions">
-                <button type="button" className="ccd-preview-action" onClick={() => openConnectInquiry('video')}>REQUEST INFORMATION <i className="ri-arrow-right-line" aria-hidden="true" /></button>
+                <button type="button" className="ccd-preview-action" onClick={() => document.getElementById('sec-video-request')?.scrollIntoView({behavior:'smooth',block:'center'})}>REQUEST INFORMATION <i className="ri-arrow-right-line" aria-hidden="true" /></button>
                 <button type="button" className="ccd-preview-action ccd-buy-now" disabled aria-disabled="true" title="Stripe checkout will be connected when the program launches">BUY NOW · COMING SOON</button>
               </div>
               <small>Checkout is not active. Stripe integration and pricing will be added before launch; no payments are collected here.</small>
@@ -529,6 +529,11 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
             <div className="ccd-video-total"><span>PRICE</span><strong>TO BE ANNOUNCED</strong></div>
             <button type="button" className="ccd-preview-action ccd-buy-now" disabled aria-disabled="true">BUY NOW · STRIPE COMING SOON</button>
             <small>Transaction fields are a preview only. Payment, availability and delivery are not active.</small>
+          </div>
+          <div className="ccd-video-request" id="sec-video-request">
+            <h3>GET NOTIFIED WHEN VIDEO MESSAGES LAUNCH</h3>
+            <p>Leave your contact information and we’ll follow up when participating players and checkout are available.</p>
+            <SponsorInquiry interest="video" onClose={() => {}} />
           </div>
         </aside>
       </section>
@@ -813,6 +818,11 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         }
         .ccd-video-main{display:flex;flex-direction:column;gap:32px;min-width:0;}
         .ccd-video-side{position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,95px) + 12px);}
+        .ccd-video-request{padding-top:16px;margin-top:16px;border-top:1px solid var(--line);scroll-margin-top:140px;}
+        .ccd-video-request h3{font:800 17px/1.2 var(--yat-font-compact);margin:0 0 8px;}
+        .ccd-video-request p{font:400 12px/1.4 var(--yat-font-ui);color:var(--muted);margin:0 0 12px;}
+        .ccd-video-request .ccg-link{display:none;}
+        .ccd-video-request .ccg-form{padding:12px;margin:0;}
         .ccd-video-transaction{display:flex;flex-direction:column;gap:11px;margin-top:15px;padding-top:17px;border-top:1px solid var(--line);}
         .ccd-video-transaction h3{font:800 17px/1.1 var(--yat-font-compact);margin:0;}
         .ccd-video-transaction label{display:flex;flex-direction:column;gap:4px;font:700 11px var(--yat-font-ui);}
