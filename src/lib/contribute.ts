@@ -211,14 +211,10 @@ export type ContributeOption = {
 };
 
 export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
-  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect With Players', short: 'Players', blurb: 'A personal video from a player you follow.', section: 'cc-player' },
-  { id: 'fans', icon: 'ri-hand-heart-line', label: 'Connect With Fans', short: 'Sponsor', blurb: 'Put your business in front of the hometown.', section: 'cc-fans' },
-  { id: 'alumni', icon: 'ri-contacts-book-2-line', label: 'Connect With Fellow Alumni', short: 'Alumni', blurb: 'Where YAT now? Share how to reach you.', section: 'cc-alumni' },
-  { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', short: 'Photos', blurb: 'Fill a silhouette with a real photo.', section: 'cc-photo' },
-  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', blurb: 'A missing season, a grad year, his height or position.', section: 'cc-data' },
-  { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', short: 'Missing Alumni', blurb: 'Know an alum who played on? Add him.', section: 'cc-missing' },
-  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'News Tip', short: 'News Tip', blurb: 'A call-up, an award, a story: send the link.', section: 'cc-tip' },
-];
+  { id: 'photo', tab: 'photo', icon: 'ri-upload-cloud-2-line', label: 'PHOTO UPLOADS', short: 'PHOTO UPLOADS', blurb: 'High school, headshots, action pics, yearly pics, and team logos.', section: 'cc-photo' },
+  { id: 'data', tab: 'data', icon: 'ri-bar-chart-2-line', label: 'ADD PLAYER INFO', short: 'ADD PLAYER INFO', blurb: 'Correct a player or add a missing next-level alumnus.', section: 'cc-data' },
+  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'SHARE NEWS TIP', short: 'SHARE NEWS TIP', blurb: 'Send a published player news link.', section: 'cc-tip' },
+]
 
 // What a sponsorship inquiry is about (the portal's Partner Program form).
 export const SPONSOR_INTERESTS = {
