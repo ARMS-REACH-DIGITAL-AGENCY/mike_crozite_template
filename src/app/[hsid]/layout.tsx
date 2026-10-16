@@ -388,7 +388,7 @@ async function SchoolShell({
             </a>
             <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" /><span>ACTIVE ALUMNI<strong>NEWS</strong></span></a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
-            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
+            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
               <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
