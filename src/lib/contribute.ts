@@ -225,6 +225,7 @@ export const SPONSOR_INTERESTS = {
   alumni: 'My own profile (Where YAT Now?)',
   other: 'Something else',
   video: 'Personalized Player Video Interest',
+  video_player: 'Player Video Program Application',
 } as const;
 export type SponsorInterest = keyof typeof SPONSOR_INTERESTS;
 
