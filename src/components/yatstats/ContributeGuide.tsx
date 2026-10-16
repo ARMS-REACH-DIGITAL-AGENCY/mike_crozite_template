@@ -151,7 +151,7 @@ function PlacementExample({ kind, schoolName, crestUrl, schoolLocation, realFron
   );
   else if (kind === 'headshot') picture = (
     <div className="ccd-example-headshots">
-      <div className="ccd-example-headshot"><img src={THUMB_IMAGES.headshot.src} alt="" /><small>PHOTO</small></div>
+      <div className="ccd-example-headshot ccd-example-real-cutout"><Thumb kind="headshot" /><small>ROW 3 CUTOUT</small></div>
       <div className="ccd-example-headshot"><img src={THUMB_IMAGES.profile.src} alt="" /><small>PHOTO</small></div>
       <div className="ccd-example-headshot is-missing"><img src="/img/headshot-silhouette.png" alt="" /><small>MISSING</small></div>
     </div>
@@ -693,6 +693,9 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
           border:1px solid #555; border-radius:10px;
         }
         .ccd-example-empty-card i { font-size:90px; color:#777; }
+        .ccd-example-real-cutout {padding-top:10px;}
+        .ccd-example-real-cutout .ccd-thumb-headshot {transform:scale(1.2);transform-origin:center bottom;overflow:visible;margin:0 auto 7px;}
+        .ccd-example-real-cutout small {margin-top:0;}
         .ccd-example-headshots { display:flex; justify-content:center; gap:12px; width:100%; }
         .ccd-example-headshot { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:0; }
         .ccd-example-headshot img,.ccd-example-headshot.is-missing i {
