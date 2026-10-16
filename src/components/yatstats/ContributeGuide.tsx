@@ -45,7 +45,7 @@ const CONTRIBUTIONS: DeskCard[] = [
   { id: 'cc-photo', eyebrow: 'HIGH SCHOOL · FLIP CARD FRONT', title: 'High School Photo', instruction: 'Share a high school-era photo for the front of an alumnus\'s flip card.', thumb: 'front', action: 'UPLOAD HIGH SCHOOL PHOTO', detail: { tab: 'photo', photoType: 'flip_card' }, help: 'flip_card' },
   { id: 'cc-headshot', eyebrow: 'CURRENT SEASON · ROW 3', title: 'Current Player Headshot', instruction: 'Current-year face-and-shoulders portrait with eyes aligned for the player gallery.', thumb: 'headshot', action: 'UPLOAD CURRENT HEADSHOT', detail: { tab: 'photo', photoType: 'headshot' }, help: 'headshot' },
   { id: 'cc-action', eyebrow: 'CURRENT SEASON · FLIP CARD BACK', title: 'Current Action Photo', instruction: 'Action photo from the current season for the back of the alumni flip card.', thumb: 'back', action: 'UPLOAD ACTION PHOTO', detail: { tab: 'photo', photoType: 'back_hero' }, help: 'back_hero' },
-  { id: 'cc-timeline', eyebrow: 'PAST SEASONS · CAREER PATH', title: 'Career Path Timeline Photo', instruction: 'Add a bust or action photo from a specific career year to the player\'s timeline.', thumb: 'timeline', action: 'UPLOAD CAREER PHOTO', detail: { tab: 'photo', photoType: 'timeline_hero' }, help: 'timeline_hero' },
+  { id: 'cc-timeline', eyebrow: 'PAST SEASONS · CAREER PATH', title: 'Career Path Year Photo', instruction: 'A bust or action photo representing that specific career year on the timeline — NOT a fan memory post.', thumb: 'timeline', action: 'UPLOAD CAREER PHOTO', detail: { tab: 'photo', photoType: 'timeline_hero' }, help: 'timeline_hero' },
   { id: 'cc-logo', eyebrow: 'SCHOOL / CURRENT TEAM', title: 'School or Current Team Logo', instruction: 'Provide a missing or corrected high school crest or current team logo.', thumb: 'logos', action: 'UPLOAD TEAM LOGO', detail: { tab: 'photo', photoType: 'school_logo' }, help: 'school_logo' },
   { id: 'cc-tip', eyebrow: 'ACTIVE ALUMNI NEWS', title: 'Active Player News Tip', instruction: 'Paste a published link to a real player story, award, signing or call-up.', thumb: 'news', action: 'SEND NEWS LINK', detail: { tab: 'tip' } },
   { id: 'cc-data', eyebrow: 'PLAYER DETAILS', title: 'Player Information Updates', instruction: 'Help correct player information, school details or playing history.', thumb: 'data', action: 'SUBMIT CORRECTION', detail: { tab: 'data' } },
@@ -131,8 +131,9 @@ const PLACEMENT_CAPTIONS: Record<ThumbKind, string> = {
   video: 'Personalized alumni video · planned',
 };
 
-function PlacementExample({ kind, schoolName, crestUrl, schoolLocation }: {
+function PlacementExample({ kind, schoolName, crestUrl, schoolLocation, realFrontExamples }: {
   kind: ThumbKind; schoolName: string; crestUrl?: string; schoolLocation?: string;
+  realFrontExamples?: React.ReactNode;
 }) {
   const p: ProofPlayer = {
     name: '', classOf: null, currentTeam: '',
@@ -142,17 +143,17 @@ function PlacementExample({ kind, schoolName, crestUrl, schoolLocation }: {
   let picture: React.ReactNode;
   // Before/after examples: real existing YAT?STATS artwork and a recognizable
   // missing-photo silhouette. No invented "Sample Player" flip card.
-  if (kind === 'front') picture = (
+  if (kind === 'front') picture = realFrontExamples || (
     <div className="ccd-example-pair">
       <div className="ccd-example-flip"><FlipCardFront src={src} crop={null} p={p} /><span>PHOTO PRESENT</span></div>
-      <div className="ccd-example-flip"><div className="ccd-example-empty-card"><i className="ri-user-fill" aria-hidden="true" /></div><span>PHOTO MISSING</span></div>
+      <div className="ccd-example-flip"><div className="ccd-example-empty-card"><img src="/img/headshot-silhouette.png" alt="" /></div><span>PHOTO MISSING</span></div>
     </div>
   );
   else if (kind === 'headshot') picture = (
     <div className="ccd-example-headshots">
       <div className="ccd-example-headshot"><img src={THUMB_IMAGES.headshot.src} alt="" /><small>PHOTO</small></div>
       <div className="ccd-example-headshot"><img src={THUMB_IMAGES.profile.src} alt="" /><small>PHOTO</small></div>
-      <div className="ccd-example-headshot is-missing"><i className="ri-user-fill" aria-hidden="true" /><small>MISSING</small></div>
+      <div className="ccd-example-headshot is-missing"><img src="/img/headshot-silhouette.png" alt="" /><small>MISSING</small></div>
     </div>
   );
   else if (kind === 'back') picture = <FlipCardBack src={src} crop={null} p={p} />;
@@ -161,7 +162,7 @@ function PlacementExample({ kind, schoolName, crestUrl, schoolLocation }: {
       <TimelineSlide src={src} crop={null} p={p}
         s={{key:'example',year:2026,stage:'college',team:'',level:'',label:'Career season',current:false}}
         landscape={false} />
-      <span>REPLACE THE PLACEHOLDER WITH A PHOTO FROM THIS SEASON</span>
+      <span>CAREER-YEAR IDENTIFIER: A BUST OR ACTION PHOTO FOR THIS YEAR'S TIMELINE HERO — NOT A FAN MEMORY OR STORY POST</span>
     </div>
   );
   else if (kind === 'logos' || kind === 'banner') picture = (
@@ -317,7 +318,9 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
 }
 
 
-export default function ContributeGuide({ schoolName }: { schoolName: string }) {
+export default function ContributeGuide({ schoolName, realFrontExamples }: {
+  schoolName: string; realFrontExamples?: React.ReactNode;
+}) {
   const [inquiry, setInquiry] = useState<{ id: string; interest: SponsorInterest } | null>(null);
   const [view, setView] = useState<'contribute' | 'connect'>('contribute');
   const [selectedId, setSelectedId] = useState('cc-photo');
@@ -486,7 +489,7 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
                 <span>WHERE THIS GOES</span><h2>{selected.title}</h2>
                 <p>{PLACEMENT_CAPTIONS[selected.thumb]}</p>
               </div>
-              <PlacementExample kind={selected.thumb} schoolName={hub} schoolLocation={schoolLocation} crestUrl={crestUrl} />
+              <PlacementExample kind={selected.thumb} schoolName={hub} schoolLocation={schoolLocation} crestUrl={crestUrl} realFrontExamples={realFrontExamples} />
               <p className="ccd-preview-copy">{'help' in selected && selected.help ? PHOTO_DETAILS[selected.help] : selected.instruction}</p>
               <button type="button" className="ccd-preview-action" onClick={() => {
                 if ('detail' in selected) openContribute(selected.detail);
@@ -673,6 +676,12 @@ export default function ContributeGuide({ schoolName }: { schoolName: string }) 
            transparent crown extends above the rim. */
         .ccd-thumb-headshot { margin:0 auto; width:74px; }
         .ccd-thumb-headshot .ccd-headshot-ring { border-color:#d4d7d7; }
+        .ccd-real-card-pair {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;align-items:start;justify-items:center;}
+        .ccd-real-card-example {display:flex;flex-direction:column;align-items:center;min-width:0;width:100%;gap:6px;}
+        .ccd-real-card-example .yat-card {width:100%;max-width:200px;aspect-ratio:5/7;min-width:0;}
+        .ccd-real-card-example > span {text-align:center;color:var(--muted);font:700 10px/1.25 var(--yat-font-compact);}
+        .ccd-real-card-example .yat-card .yat-front-content{pointer-events:none;}
+        .ccd-example-empty-card img {width:100%;height:100%;object-fit:cover;}
         .ccd-example-pair { display:grid; grid-template-columns:1fr 1fr; gap:13px; width:100%; align-items:end; }
         .ccd-example-flip { min-width:0; display:flex; flex-direction:column; gap:8px; align-items:center; }
         .ccd-example-flip .ypf-card { width:100%; max-width:185px; aspect-ratio:5/7; }
