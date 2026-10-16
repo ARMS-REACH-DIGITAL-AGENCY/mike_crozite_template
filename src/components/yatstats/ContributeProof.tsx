@@ -6,6 +6,7 @@
 // school's crest - with every place that photo appears listed under it.
 
 import type { Crop, PhotoPurpose, Season } from '@/lib/contribute';
+import PlayerCardFront from '@/components/yatstats/PlayerCardFront';
 
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -136,16 +137,30 @@ function SchoolCrest({ src, p }: { src: string; p: ProofPlayer }) {
 }
 
 export default function ContributeProof({
-  purpose, src, crop, player, season, landscape = false, teamName = '', tagged = [],
+  purpose, src, crop, player, season, landscape = false, teamName = '', tagged = [], publishedCard = null,
 }: {
   purpose: PhotoPurpose; src: string; crop: Crop | null; player: ProofPlayer; season: Season | null;
   landscape?: boolean; teamName?: string; teamId?: string; tagged?: string[];
+  publishedCard?: Record<string, unknown> | null;
 }) {
   const spots = SPOTS[purpose](player, season);
   return (
-    <div className="ypf">
+    <div className="ypf" style={{gridTemplateColumns:'minmax(0,1fr)'}}>
       <div className="ypf-stage">
-        {purpose === 'flip_card' ? <FlipCardFront src={src} crop={crop} p={player} />
+        {purpose === 'flip_card' ? (
+          publishedCard ? (
+            <div className="ypf-real-front" aria-label={player.name + ' live gallery flip card with your proposed high school photo'} style={crop ? {
+              ['--ypf-crop-width' as string]: `${100 / Math.max(crop.w, 0.001)}%`,
+              ['--ypf-crop-height' as string]: `${100 / Math.max(crop.h, 0.001)}%`,
+              ['--ypf-crop-left' as string]: `${(-crop.x / Math.max(crop.w, 0.001)) * 100}%`,
+              ['--ypf-crop-top' as string]: `${(-crop.y / Math.max(crop.h, 0.001)) * 100}%`,
+            } : undefined}>
+              <PlayerCardFront player={publishedCard} frontImageUrl={src} hsid={String(publishedCard.hsid || '')} eager />
+            </div>
+          ) : (
+            <div className="ypf-real-front-loading">Loading {player.name || 'the player'}&apos;s actual flip card…</div>
+          )
+        )
           // A headshot from an earlier season goes with that season's slide.
           : purpose === 'headshot' ? (season && !season.current ? <TimelineSlide src={src} crop={crop} p={player} s={season} landscape={false} /> : <Headshot src={src} crop={crop} p={player} />)
           : purpose === 'back_hero' ? <FlipCardBack src={src} crop={crop} p={player} />
@@ -171,8 +186,17 @@ export default function ContributeProof({
 export function ProofStyles() {
   return (
     <style jsx global>{`
-        .ypf { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
-        @media (min-width: 900px) { .ypf { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); } }
+        .ypf { display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start;min-width:0 }
+        .ypf-stage,.ypf-where {width:100%;min-width:0;max-width:100%}
+        /* The proof is always BELOW Verify in the 360px side drawer.
+           This is the real card-front component used in the gallery.
+           Preview photo crop is applied to the normal card image layer,
+           without changing how gallery cards render elsewhere. */
+        .ypf-real-front {position:relative;width:min(100%,280px);aspect-ratio:5/7;border-radius:9px;overflow:hidden;isolation:isolate;background:#111;pointer-events:none}
+        .ypf-real-front .yat-face {position:absolute;inset:0;width:100%;height:100%}
+        .ypf-real-front .yat-bg-photo {inset:auto!important;left:var(--ypf-crop-left,0%)!important;top:var(--ypf-crop-top,0%)!important;width:var(--ypf-crop-width,100%)!important;height:var(--ypf-crop-height,100%)!important;max-width:none!important;max-height:none!important;object-fit:cover!important}
+        .ypf-real-front-loading {min-height:170px;display:flex;align-items:center;justify-content:center;padding:20px;color:var(--sb-ink-muted);font:600 13px/1.4 var(--yat-font-ui);text-align:center}
+        .ypf-where {font-family:var(--yat-font-ui)}
         .ypf-stage { display: flex; justify-content: center; }
         .ypf-crop { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; }
         .ypf-crop img { position: absolute; max-width: none; }

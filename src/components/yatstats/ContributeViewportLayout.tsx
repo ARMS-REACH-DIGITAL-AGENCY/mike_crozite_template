@@ -147,6 +147,28 @@ export default function ContributeViewportLayout() {
        mobile form is full width. The form's fields stay in one column. */
     body #drawerContribute.yat-drawer { position:fixed!important;top:0!important;bottom:0!important;left:auto!important;right:0!important;height:100dvh!important;width:min(100vw,var(--yat-side-drawer-w,360px))!important;max-width:var(--yat-side-drawer-w,360px)!important;box-sizing:border-box;transform:translateX(105%);border-right:0;border-left:1px solid var(--line);z-index:2147483200!important;overflow-x:hidden;overflow-y:auto; }
     body.drawer-contribute-open #drawerContribute.yat-drawer { transform:translateX(0)!important; }
+    /* Match the other docked YAT?STATS side drawers above 779px: the
+       page is pushed LEFT of this right-hand drawer and remains usable.
+       Mobile continues to use the normal full-screen modal overlay. */
+    @media (min-width:780px) {
+      body.drawer-contribute-open {overflow-y:auto!important;}
+      body #drawerContribute.yat-drawer {
+        top:calc(var(--row1-h) + var(--row2-h))!important;
+        bottom:var(--footerH)!important;
+        height:auto!important;
+        z-index:64!important;
+      }
+      body.drawer-contribute-open .yat-drawer-mask {
+        display:none!important;opacity:0!important;pointer-events:none!important;
+      }
+      body.drawer-contribute-open .yat-row3-shell,
+      body.drawer-contribute-open .yat-row4-shell,
+      body.drawer-contribute-open .yat-row5-shell,
+      body.drawer-contribute-open .yat-row6-shell {
+        margin-right:var(--yat-side-drawer-w,360px)!important;
+        transition:margin-right .22s ease;
+      }
+    }
     body.drawer-contribute-open .yat-drawer-mask { display:block!important;opacity:1!important;pointer-events:auto!important;z-index:2147483199!important; }
     body #drawerContribute .ycd-main { grid-template-columns:minmax(0,1fr)!important;gap:16px; }
     body #drawerContribute .ycd-header,body #drawerContribute .ycd-body { box-sizing:border-box;max-width:100%;width:100%; }

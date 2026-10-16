@@ -94,6 +94,25 @@ export default function ContributePhotoFlow({
 
   const main = tagged[0] || null;
   const type = PHOTO_TYPES.find((t) => t.id === purpose) || null;
+
+  // Fetch only the selected player's published flip-card facts. The
+  // approval preview reuses the genuine PlayerCardFront renderer rather
+  // than assembling an unrelated schematic or invented player data.
+  const [publishedCard, setPublishedCard] = useState<Record<string, unknown> | null>(null);
+  useEffect(() => {
+    let active = true;
+    setPublishedCard(null);
+    if (purpose !== 'flip_card' || !main?.playerId) return;
+    const params = new URLSearchParams({ playerId: main.playerId });
+    if (main.schoolId) params.set('hsid', main.schoolId);
+    fetch('/api/contribute/card-preview?' + params.toString())
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (active) setPublishedCard(data?.player && typeof data.player === 'object' ? data.player : null);
+      })
+      .catch(() => { if (active) setPublishedCard(null); });
+    return () => { active = false; };
+  }, [purpose, main?.playerId, main?.schoolId]);
   const years = seasons ? yearsOfHisLife(seasons, info?.classOf ?? null, THIS_YEAR) : null;
   const season: Season | null = seasonKey === 'other'
     ? (other.year ? { key: 'other', year: Number(other.year), stage: 'other', team: other.team.trim(), level: '', label: 'Other', current: false } : null)
@@ -456,7 +475,7 @@ export default function ContributePhotoFlow({
 
       {/* 4. Verify position, 5. Approve */}
       {type && file ? (
-        <div className="ypf-verify">
+        <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
           <section className="ypf-step">
             <div className="ycd-label"><span className="ycd-step">4</span> Verify position</div>
             {aspect ? (
@@ -493,6 +512,7 @@ export default function ContributePhotoFlow({
                   teamId={type.asks === 'team' ? teamId : ''}
                   tagged={tagged.map((t) => t.displayName)}
                   player={proofPlayer}
+                  publishedCard={publishedCard}
                 />
                 <label className={`ypf-approve${approved ? ' is-on' : ''}`}>
                   <input type="checkbox" checked={approved} onChange={(e) => setApprovedSig(e.target.checked ? sig : '')} />
@@ -549,7 +569,7 @@ export default function ContributePhotoFlow({
         .ypf-uploaded img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
         .ypf-pick { align-self: flex-start; }
         .ypf-pick button:disabled { opacity: .35; cursor: default; }
-        .ypf-verify { display: grid; grid-template-columns: 1fr; gap: 18px; }
+        .ypf-verify { display:flex; flex-direction:column; align-items:stretch; gap:14px; min-width:0; }
         /* The contribution drawer is intentionally the same width as other side
            drawers. On large desktop viewports this form used to switch to
            two columns based on WINDOW width, crushing both the crop tool and
