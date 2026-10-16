@@ -45,7 +45,9 @@ export async function POST(req:NextRequest){
  const subject='YAT?STATS | '+school.hsname+' Stat Ledger | '+date;
  if(body?.send===true){
  const id=await lookupGHLContactByEmail(email);
- const sent=id?await sendGHLEmail(id,subject,html):false;
+ const senderDomainReady=process.env.YATSTATS_SENDING_DOMAIN_VERIFIED==='true';
+ if(!senderDomainReady){result.push({email,status:'blocked_unverified_sending_domain',school:school.hsname});continue;}
+ const sent=id?await sendGHLEmail(id,subject,html,'YAT?STATS Daily <daily@yatstats.com>'):false;
  result.push({email,status:sent?'queued':'send_failed',school:school.hsname,homePlayers:home.length,favorites:extra.length,statLines:logs.length});
  }else result.push({email,status:'preview',school:school.hsname,homePlayers:home.length,favorites:extra.length,statLines:logs.length,subject,html});
  }catch(error){result.push({email,status:'error',error:String(error).slice(0,160)});}
