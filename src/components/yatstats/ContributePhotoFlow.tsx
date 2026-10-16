@@ -522,7 +522,19 @@ export default function ContributePhotoFlow({
         .ypf-pick { align-self: flex-start; }
         .ypf-pick button:disabled { opacity: .35; cursor: default; }
         .ypf-verify { display: grid; grid-template-columns: 1fr; gap: 18px; }
-        @media (min-width: 900px) { .ypf-verify { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ypf-verify .ypf-step { border-bottom: 0; } }
+        /* The contribution drawer is intentionally the same width as other side
+           drawers. On large desktop viewports this form used to switch to
+           two columns based on WINDOW width, crushing both the crop tool and
+           proof into ~140px columns. Always stack these inside the drawer. */
+        #drawerContribute .ypf-verify { grid-template-columns:minmax(0, 1fr); gap:14px; }
+        #drawerContribute .ypf-verify > .ypf-step { width:100%;min-width:0; }
+        /* The proof ALSO had its own viewport-based two-column split.
+           Keep the rendered photo above its explanatory text at any width. */
+        #drawerContribute .ypf-verify .ypf { grid-template-columns:minmax(0, 1fr);gap:12px; }
+        #drawerContribute .ypf-verify .ypf-stage,
+        #drawerContribute .ypf-verify .ypf-where { min-width:0;max-width:100%;width:100%; }
+        #drawerContribute .ypf-verify .ypf-stage > * { max-width:100%; }
+
         .ypf-other { display: flex; gap: 8px; flex-wrap: wrap; }
         .ypf-other select { flex: 0 0 110px; }
         .ypf-other input { flex: 1 1 220px; }
