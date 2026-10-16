@@ -6,6 +6,8 @@
 import { getSchoolByHsid, getSchoolByUrl } from '@/lib/db';
 import { headers } from 'next/headers';
 import ContributeGuide from '@/components/yatstats/ContributeGuide';
+import ContributeShadcnPilot from '@/components/yatstats/ContributeShadcnPilot';
+import '@/components/yatstats/ContributeShadcnPilot.css';
 
 export async function generateMetadata() {
   return {
@@ -14,8 +16,15 @@ export async function generateMetadata() {
   };
 }
 
-export default async function ConnectContributePage({ params }: { params: Promise<{ hsid: string }> }) {
+export default async function ConnectContributePage({
+  params, searchParams,
+}: {
+  params: Promise<{ hsid: string }>;
+  searchParams?: Promise<{ ui?: string | string[] }>;
+}) {
   const { hsid } = await params;
+  const query = searchParams ? await searchParams : {};
+  const usePilot = query.ui === 'shadcn';
   const host = (await headers()).get('host') || '';
   const byId = /^\d+$/.test(hsid) ? await getSchoolByHsid(hsid).catch(() => null) : null;
   const school = byId || (host ? await getSchoolByUrl(`https://${host}`).catch(() => null) : null);
@@ -23,7 +32,9 @@ export default async function ConnectContributePage({ params }: { params: Promis
 
   return (
     <section id="sec-mentor" className="yat-section visible">
-      <ContributeGuide schoolName={schoolName} />
+      {usePilot
+        ? <ContributeShadcnPilot schoolName={schoolName} />
+        : <ContributeGuide schoolName={schoolName} />}
     </section>
   );
 }
