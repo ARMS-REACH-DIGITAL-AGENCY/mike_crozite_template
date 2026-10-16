@@ -352,6 +352,61 @@ export default function DrawerLayoutOverrides() {
           pointer-events: auto !important;
         }
       }
+      /* YAT?STATS photo/data/news contribution drawer: ONE unified geometry,
+         regardless of entry point (account success, player card, portal).
+         The four rows remain browsable while it is open. */
+      #drawerContribute.yat-drawer {
+        position:fixed!important;
+        inset:auto 0 0 auto!important;
+        top:0!important;
+        height:100dvh!important;
+        width:var(--yat-side-drawer-w)!important;
+        max-width:var(--yat-side-drawer-w)!important;
+        box-sizing:border-box!important;
+        overflow-x:hidden!important;
+        overflow-y:auto!important;
+        background:rgba(6,6,6,.80)!important;
+        backdrop-filter:blur(9px)!important;
+        -webkit-backdrop-filter:blur(9px)!important;
+        border-left:1px solid var(--line)!important;
+        border-right:0!important;
+        transform:translateX(105%)!important;
+        transition:transform .22s ease!important;
+        z-index:64!important;
+      }
+      body.light-theme #drawerContribute.yat-drawer {background:rgba(255,255,255,.87)!important;}
+      body.drawer-contribute-open #drawerContribute.yat-drawer {transform:translateX(0)!important;}
+      @media (min-width:780px) {
+        body.drawer-contribute-open {overflow-y:auto!important;}
+        body #drawerContribute.yat-drawer {
+          top:calc(var(--row1-h) + var(--row2-h))!important;
+          bottom:var(--footerH)!important;
+          height:auto!important;
+        }
+        body.drawer-contribute-open .yat-drawer-mask {
+          display:none!important;
+          opacity:0!important;
+          pointer-events:none!important;
+        }
+        body.drawer-contribute-open .yat-row3-shell,
+        body.drawer-contribute-open .yat-row4-shell,
+        body.drawer-contribute-open .yat-row5-shell,
+        body.drawer-contribute-open .yat-row6-shell {
+          margin-right:var(--yat-side-drawer-w)!important;
+          transition:margin-right .22s ease;
+        }
+      }
+      @media (max-width:779px) {
+        #drawerContribute.yat-drawer {
+          top:0!important;bottom:0!important;height:100dvh!important;
+          width:100vw!important;max-width:100vw!important;
+          z-index:2147483200!important;
+        }
+        body.drawer-contribute-open .yat-drawer-mask {
+          opacity:1!important;pointer-events:auto!important;
+          z-index:2147483199!important;
+        }
+      }
     `}</style>
   );
 }

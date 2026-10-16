@@ -143,37 +143,11 @@ export default function ContributeViewportLayout() {
     #sec-mentor .ccd-columns > .ccd-preview .ccd-real-page-image { width:100%;height:100%;max-height:100%;object-fit:contain; }
     #sec-mentor .ccd-columns > .ccd-preview .ccd-preview-copy { margin:0;padding:0;font:400 12px/1.35 var(--yat-font-ui,'Archivo',sans-serif); }
     #sec-mentor .ccd-columns > .ccd-preview > .ccd-preview-action { justify-self:start;max-width:100%;white-space:normal; }
-    /* Inherit the same width token as the existing site drawers. Only the
-       mobile form is full width. The form's fields stay in one column. */
-    body #drawerContribute.yat-drawer { position:fixed!important;top:0!important;bottom:0!important;left:auto!important;right:0!important;height:100dvh!important;width:min(100vw,var(--yat-side-drawer-w,360px))!important;max-width:var(--yat-side-drawer-w,360px)!important;box-sizing:border-box;transform:translateX(105%);border-right:0;border-left:1px solid var(--line);z-index:2147483200!important;overflow-x:hidden;overflow-y:auto; }
-    body.drawer-contribute-open #drawerContribute.yat-drawer { transform:translateX(0)!important; }
-    /* Match the other docked YAT?STATS side drawers above 779px: the
-       page is pushed LEFT of this right-hand drawer and remains usable.
-       Mobile continues to use the normal full-screen modal overlay. */
-    @media (min-width:780px) {
-      body.drawer-contribute-open {overflow-y:auto!important;}
-      body #drawerContribute.yat-drawer {
-        top:calc(var(--row1-h) + var(--row2-h))!important;
-        bottom:var(--footerH)!important;
-        height:auto!important;
-        z-index:64!important;
-      }
-      body.drawer-contribute-open .yat-drawer-mask {
-        display:none!important;opacity:0!important;pointer-events:none!important;
-      }
-      body.drawer-contribute-open .yat-row3-shell,
-      body.drawer-contribute-open .yat-row4-shell,
-      body.drawer-contribute-open .yat-row5-shell,
-      body.drawer-contribute-open .yat-row6-shell {
-        margin-right:var(--yat-side-drawer-w,360px)!important;
-        transition:margin-right .22s ease;
-      }
-    }
-    body.drawer-contribute-open .yat-drawer-mask { display:block!important;opacity:1!important;pointer-events:auto!important;z-index:2147483199!important; }
-    body #drawerContribute .ycd-main { grid-template-columns:minmax(0,1fr)!important;gap:16px; }
-    body #drawerContribute .ycd-header,body #drawerContribute .ycd-body { box-sizing:border-box;max-width:100%;width:100%; }
-    body #drawerContribute .ycd-header { position:sticky;top:0;z-index:3;background:var(--bg,#111); }
-    @media(max-width:779px) { body #drawerContribute.yat-drawer { width:100vw!important;max-width:100vw!important; } }
+    /* The shared contribution drawer is docked site-wide in
+       DrawerLayoutOverrides, not only on the portal page. */
+    body #drawerContribute .ycd-main {grid-template-columns:minmax(0,1fr)!important;gap:16px;}
+    body #drawerContribute .ycd-header,body #drawerContribute .ycd-body {box-sizing:border-box;max-width:100%;width:100%;}
+    body #drawerContribute .ycd-header {position:sticky;top:0;z-index:3;background:var(--bg,#111);}
     @media(max-width:740px) {
       .cc-portal-rail { padding-inline:8px;gap:4px; }
       .cc-portal-shortcut { flex-basis:86px;width:86px; }
