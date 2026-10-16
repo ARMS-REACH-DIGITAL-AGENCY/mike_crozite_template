@@ -101,10 +101,11 @@ export default function DrawerLayoutOverrides() {
         font-size: inherit;
         font-weight: 700;
         line-height: 1.08;
-        letter-spacing: normal;
+        letter-spacing: normal !important;
+        word-spacing: normal !important;
         gap: 2px;
       }
-      #drawerLeft .yat-drawer-fantasy-copy > span { white-space: normal; font-size: inherit; }
+      #drawerLeft .yat-drawer-fantasy-copy > span { white-space: normal; font-size: inherit; letter-spacing: normal !important; word-spacing: normal !important; }
       #drawerLeft .yat-drawer-fantasy-copy > span:nth-child(2) { font-weight: 700; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown {
         flex: 0 0 115px;
