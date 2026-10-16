@@ -8,6 +8,8 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SchoolContext } from '@/context/SchoolContext';
+import ContributeSearch from '@/components/yatstats/ContributeSearch';
+import type { ContributePlayer } from '@/lib/contribute';
 import { FlipCardFront, FlipCardBack, Headshot, TimelineSlide, ProofStyles, type ProofPlayer } from '@/components/yatstats/ContributeProof';
 import {
   PHOTO_TYPES, SPONSOR_INTERESTS, openContribute, openConnectInquiry, CONNECT_INQUIRY_EVENT,
@@ -312,6 +314,9 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
 }) {
   const [inquiry, setInquiry] = useState<{ id: string; interest: SponsorInterest } | null>(null);
   const [view, setView] = useState<'contribute' | 'connect'>('contribute');
+  const [playerApplication, setPlayerApplication] = useState<ContributePlayer | null>(null);
+  const [applicant, setApplicant] = useState({name:'',email:'',phone:'',message:'',website:''});
+  const [applicationStatus, setApplicationStatus] = useState<{kind:'idle'|'sending'|'sent'|'error';message?:string}>({kind:'idle'});
   const [selectedId, setSelectedId] = useState('cc-photo');
   const school = useContext(SchoolContext);
   const crestUrl = school?.crestUrl || undefined;
@@ -334,8 +339,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
       const interest = (event as CustomEvent<SponsorInterest>).detail;
       if (!interest || !(interest in SPONSOR_INTERESTS)) return;
       setInquiry({ id: interest, interest });
-      setView('connect');
-      setSelectedId(SPONSORSHIPS.find(item => item.interest === interest)?.id || SPONSORSHIPS[0].id);
+      document.getElementById('sec-video')?.scrollIntoView({behavior:'smooth',block:'start'});
     };
     window.addEventListener(CONNECT_INQUIRY_EVENT, onInquiry);
     return () => window.removeEventListener(CONNECT_INQUIRY_EVENT, onInquiry);
@@ -399,13 +403,14 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
       const connectItem = SPONSORSHIPS.find(card => card.id === target);
       const contributeItem = CONTRIBUTIONS.find(card => card.id === target);
       if (target === 'cc-connect' || connectItem) {
-        setView('connect'); setSelectedId(connectItem?.id || SPONSORSHIPS[0].id);
+        document.getElementById('sec-video')?.scrollIntoView({behavior:'smooth',block:'start'});
       }
       if (target === 'cc-contribute' || contributeItem) {
         setView('contribute'); setSelectedId(contributeItem?.id || CONTRIBUTIONS[0].id);
       }
     };
     const selectFromShortcut = () => selectFromHash();
+    if (window.location.hash === '#sec-video') requestAnimationFrame(() => document.getElementById('sec-video')?.scrollIntoView({behavior:'smooth',block:'start'}));
     selectFromHash();
     window.addEventListener('hashchange', selectFromHash);
     window.addEventListener('yat-contribute-navigate', selectFromShortcut);
@@ -420,18 +425,8 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
       <h1 className="ccd-visually-hidden">Connect &amp; Contribute</h1>
       <div className="ccd-columns">
         <div className="ccd-workspace">
-          <nav className="ccd-mobile-switch" role="tablist" aria-label="Connect and Contribute">
-            <button id="ccd-tab-contribute" type="button" role="tab"
-              aria-controls="cc-contribute" aria-selected={view === 'contribute'}
-              className={view === 'contribute' ? 'is-on' : ''}
-              onClick={() => switchView('contribute')}>CONTRIBUTE</button>
-            <button id="ccd-tab-connect" type="button" role="tab"
-              aria-controls="cc-connect" aria-selected={view === 'connect'}
-              className={view === 'connect' ? 'is-on' : ''}
-              onClick={() => switchView('connect')}>CONNECT</button>
-          </nav>
           <section className="ccd-column ccd-contribute" id="cc-contribute"
-            role="tabpanel" aria-labelledby="ccd-tab-contribute" hidden={view !== 'contribute'}>
+            aria-label="Contribute photos, player information and news">
             <div className="ccd-list">
               {CONTRIBUTIONS.map(item => <Transaction key={item.id} item={item}
                 selected={selected.id === item.id} onPreview={inspect}
@@ -439,39 +434,9 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
             </div>
             <p className="ccd-footnote">If you see a silhouette, a missing name, or an incorrect detail, you can help complete the record.</p>
           </section>
-          <section className="ccd-column ccd-connect" id="cc-connect"
-            role="tabpanel" aria-labelledby="ccd-tab-connect" hidden={view !== 'connect'}>
-            <div className="ccd-video-feature">
-              <div className="ccd-video-screen" role="img" aria-label="Placeholder for sample player video">
-                <i className="ri-play-circle-line" aria-hidden="true" />
-                <strong>SAMPLE PLAYER VIDEO</strong>
-                <span>VIDEO PREVIEW COMING SOON</span>
-              </div>
-              <div className="ccd-video-feature-copy">
-                <span className="ccd-eyebrow">PERSONAL VIDEO EXCHANGE</span>
-                <h2>Hear from a player. Share your connection.</h2>
-                <p>Active and retired alumni will be able to exchange personalized video messages with fans. Watch a player's invitation, then request your own.</p>
-                <button type="button" className="ccd-preview-action" onClick={() => openConnectInquiry('video')}>REQUEST VIDEO EXCHANGE <i className="ri-arrow-right-line" aria-hidden="true" /></button>
-                <small>Preview layout · transaction and checkout are not yet active.</small>
-              </div>
-            </div>
-          </section>
         </div>
-        <aside className="ccd-preview" aria-label={view === 'connect' ? 'How the video exchange works' : 'Where the selected contribution appears'}>
-          {view === 'connect' ? (
-            <>
-              <div className="ccd-preview-heading"><span>CONNECT · VIDEO EXCHANGE</span><h2>Make it personal.</h2>
-                <p>Player messages are the only Connect offering on this page.</p></div>
-              <div className="ccd-video-instructions">
-                <div><b>01</b><span><strong>Choose a player</strong><small>Active or retired alumni may participate.</small></span></div>
-                <div><b>02</b><span><strong>Request a personal message</strong><small>Use the right-side drawer when the program opens.</small></span></div>
-                <div><b>03</b><span><strong>Exchange videos</strong><small>Personal messages and delivery will be handled through the program.</small></span></div>
-              </div>
-              <p className="ccd-preview-copy">The transaction, upload and payment experience is planned; this preview provides the layout and interest drawer only.</p>
-              <button type="button" className="ccd-preview-action" onClick={() => openConnectInquiry('video')}>OPEN REQUEST DRAWER <i className="ri-arrow-right-line" aria-hidden="true" /></button>
-            </>
-          ) : (
-            <>
+        <aside className="ccd-preview" aria-label="Where the selected contribution appears">
+
               <div className="ccd-preview-heading">
                 <span>WHERE THIS GOES</span><h2>{selected.title}</h2>
                 <p>{PLACEMENT_CAPTIONS[selected.thumb]}</p>
@@ -481,10 +446,92 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
               <button type="button" className="ccd-preview-action" onClick={() => {
                 if ('detail' in selected) openContribute(selected.detail);
               }}>{selected.action} <i className="ri-arrow-right-line" aria-hidden="true" /></button>
-            </>
-          )}
-        </aside>
+                    </aside>
       </div>
+
+      <section className="ccd-video-section" id="sec-video" aria-label="YAT-A-BOY Player Connect video messages">
+        <div className="ccd-video-main">
+          <div className="ccd-video-feature">
+            <div className="ccd-video-screen" role="img" aria-label="YAT-A-BOY Player Connect coming soon">
+              <i className="ri-play-circle-line" aria-hidden="true" />
+              <strong>COMING SOON!</strong>
+              <span>YAT-A-BOY PLAYER CONNECT</span>
+            </div>
+            <div className="ccd-video-feature-copy">
+              <span className="ccd-eyebrow">YAT-A-BOY · VIDEO MESSAGES</span>
+              <h2>Hear from a player. Share your connection.</h2>
+              <p>Request a personalized video message from a participating active or retired alumnus. A meaningful way to celebrate birthdays, milestones and the players who inspired your hometown.</p>
+              <div className="ccd-video-actions">
+                <button type="button" className="ccd-preview-action" onClick={() => openConnectInquiry('video')}>REQUEST INFORMATION <i className="ri-arrow-right-line" aria-hidden="true" /></button>
+                <button type="button" className="ccd-preview-action ccd-buy-now" disabled aria-disabled="true" title="Stripe checkout will be connected when the program launches">BUY NOW · COMING SOON</button>
+              </div>
+              <small>Checkout is not active. Stripe integration and pricing will be added before launch; no payments are collected here.</small>
+            </div>
+          </div>
+          <div className="ccd-player-signup" id="sec-player-join">
+            <span className="ccd-eyebrow">FOR ACTIVE &amp; RETIRED PLAYERS</span>
+            <h2>Want to connect with your fans?</h2>
+            <p>Join the YAT-A-BOY Player Connect interest list. Fans will be able to request personalized video greetings from participating alumni. Find your YAT?STATS player profile below, then tell us how to reach you.</p>
+            {applicationStatus.kind === 'sent' ? (
+              <p role="status" className="ccg-form-done">Thanks for your interest. The YAT?STATS team will contact you about participating.</p>
+            ) : (
+              <form className="ccg-form ccd-player-apply" onSubmit={async event=>{
+                event.preventDefault();
+                if(!playerApplication){setApplicationStatus({kind:'error',message:'Find and select your player profile first.'});return;}
+                setApplicationStatus({kind:'sending'});
+                try {
+                  const response=await fetch('/api/contribute/sponsor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                    ...applicant,interest:'video_player',playerId:playerApplication.playerId,playerName:playerApplication.displayName,
+                    hsid:playerApplication.schoolId || school?.hsid || '',schoolName:playerApplication.schoolName || school?.hsName || '',
+                    pageUrl:window.location.href
+                  })});
+                  const result=await response.json().catch(()=>({}));
+                  if(!response.ok)throw new Error(result?.error || 'Unable to send application.');
+                  setApplicationStatus({kind:'sent'});
+                }catch(error){setApplicationStatus({kind:'error',message:error instanceof Error?error.message:'Unable to send application.'});}
+              }}>
+                <div className="ccg-form-title">1 · FIND YOUR PLAYER PROFILE</div>
+                {playerApplication ? (
+                  <div className="ccd-player-chosen"><strong>{playerApplication.displayName}</strong><small>{playerApplication.schoolName || 'YAT?STATS alumni'}</small>
+                    <button type="button" onClick={()=>setPlayerApplication(null)}>CHANGE PLAYER</button></div>
+                ) : <ContributeSearch mode="player" onPlayer={setPlayerApplication} />}
+                <div className="ccg-form-title">2 · LET US KNOW YOU'RE INTERESTED</div>
+                <div className="ccg-form-row">
+                  <label>Your name<input required autoComplete="name" value={applicant.name} onChange={e=>setApplicant(v=>({...v,name:e.target.value}))} /></label>
+                  <label>Email<input required type="email" autoComplete="email" value={applicant.email} onChange={e=>setApplicant(v=>({...v,email:e.target.value}))} /></label>
+                </div>
+                <div className="ccg-form-row">
+                  <label>Phone (optional)<input type="tel" autoComplete="tel" value={applicant.phone} onChange={e=>setApplicant(v=>({...v,phone:e.target.value}))} /></label>
+                </div>
+                <label>Anything you'd like us to know?<textarea rows={3} value={applicant.message} onChange={e=>setApplicant(v=>({...v,message:e.target.value}))} placeholder="Tell us about your interest in connecting with fans." /></label>
+                <input className="ccg-hp" tabIndex={-1} aria-hidden="true" autoComplete="off" value={applicant.website} onChange={e=>setApplicant(v=>({...v,website:e.target.value}))}/>
+                {applicationStatus.kind==='error'?<p role="alert" className="ccg-form-error">{applicationStatus.message}</p>:null}
+                <button className="ccd-preview-action" type="submit" disabled={applicationStatus.kind==='sending'}>{applicationStatus.kind==='sending'?'SENDING…':'I WANT TO PARTICIPATE →'}</button>
+                <small>Submitting your interest does not enroll you in a paid program.</small>
+              </form>
+            )}
+          </div>
+        </div>
+        <aside className="ccd-preview ccd-video-side" aria-label="How YAT-A-BOY Player Connect works">
+          <div className="ccd-preview-heading"><span>CONNECT · VIDEO EXCHANGE</span><h2>Make it personal.</h2>
+            <p>Personalized messages from the players who make hometown baseball memorable.</p></div>
+          <div className="ccd-video-instructions">
+            <div><b>01</b><span><strong>Choose a player</strong><small>Find a participating active or retired alumnus.</small></span></div>
+            <div><b>02</b><span><strong>Tell us about your message</strong><small>Share the occasion, recipient and what you would like the player to say.</small></span></div>
+            <div><b>03</b><span><strong>Checkout and delivery</strong><small>Complete payment and receive the personal video when the program launches.</small></span></div>
+          </div>
+          <div className="ccd-video-transaction">
+            <h3>YOUR VIDEO REQUEST</h3>
+            <label>Player<select disabled defaultValue=""><option value="">Choose a participating player · coming soon</option></select></label>
+            <label>Occasion<select disabled defaultValue=""><option value="">Select an occasion · coming soon</option></select></label>
+            <label>Recipient<input disabled placeholder="Recipient's name" /></label>
+            <label>Message instructions<textarea disabled rows={3} placeholder="What should the player say?" /></label>
+            <div className="ccd-video-total"><span>PRICE</span><strong>TO BE ANNOUNCED</strong></div>
+            <button type="button" className="ccd-preview-action ccd-buy-now" disabled aria-disabled="true">BUY NOW · STRIPE COMING SOON</button>
+            <small>Transaction fields are a preview only. Payment, availability and delivery are not active.</small>
+          </div>
+        </aside>
+      </section>
 
       {inquiry && typeof document !== 'undefined' ? createPortal(
         <div className="ccd-inquiry-overlay">
@@ -754,6 +801,39 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         }
 
 
+        /* Single contribution desk followed by a scroll-target video program.
+           No Connect/Contribute tabs and no video-request drawer. */
+        .ccd-mobile-switch,.ccd-column.ccd-connect {display:none!important;}
+        .ccd-column.ccd-contribute[hidden] {display:block!important;}
+        .ccd-video-section {
+          display:grid;grid-template-columns:minmax(0,1.1fr) minmax(310px,1fr);
+          align-items:start;gap:24px;margin:45px 0 30px;
+          padding:24px 0;border-top:2px solid var(--line);
+          scroll-margin-top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,95px) + 12px);
+        }
+        .ccd-video-main{display:flex;flex-direction:column;gap:32px;min-width:0;}
+        .ccd-video-side{position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,95px) + 12px);}
+        .ccd-video-transaction{display:flex;flex-direction:column;gap:11px;margin-top:15px;padding-top:17px;border-top:1px solid var(--line);}
+        .ccd-video-transaction h3{font:800 17px/1.1 var(--yat-font-compact);margin:0;}
+        .ccd-video-transaction label{display:flex;flex-direction:column;gap:4px;font:700 11px var(--yat-font-ui);}
+        .ccd-video-transaction :is(input,select,textarea){width:100%;padding:10px;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--fg);font:400 12px var(--yat-font-ui);opacity:.7;}
+        .ccd-video-transaction small{font:400 11px/1.4 var(--yat-font-ui);color:var(--muted);}
+        .ccd-video-total{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px;font:700 12px var(--yat-font-ui);}
+        .ccd-video-actions{display:flex;gap:10px;flex-wrap:wrap;}
+        .ccd-buy-now:disabled{opacity:.55;cursor:not-allowed;}
+        .ccd-player-signup{padding:18px 0 0;border-top:1px solid var(--line);scroll-margin-top:150px;}
+        .ccd-player-signup h2{margin:6px 0;font:800 25px/1.1 var(--yat-font-compact);text-transform:uppercase;}
+        .ccd-player-signup>p{max-width:620px;font:400 13px/1.5 var(--yat-font-ui);color:var(--muted);}
+        .ccd-player-apply{margin-top:15px;padding:15px;}
+        .ccd-player-apply .ycs{min-width:0;}
+        .ccd-player-apply .yat-gs-results{max-height:300px!important;overflow-y:auto!important;}
+        .ccd-player-apply .yat-search-card{color:var(--fg);}
+        .ccd-player-chosen{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--line);padding:10px;}
+        .ccd-player-chosen strong{font:800 16px var(--yat-font-compact);}
+        .ccd-player-chosen small{font:400 11px var(--yat-font-ui);color:var(--muted);}
+        .ccd-player-chosen button{margin-left:auto;background:none;color:var(--fg);border:0;text-decoration:underline;cursor:pointer;font:700 11px var(--yat-font-ui);}
+        @media(max-width:980px){.ccd-video-section{grid-template-columns:1fr;gap:15px;margin-top:30px;}.ccd-video-side{display:block;position:static;}.ccd-video-screen{min-height:210px;}}
+        @media(max-width:740px){#sec-mentor .ccd{padding-bottom:60px;}.ccd-video-section{margin:25px 10px 20px;padding-top:15px;}.ccd-video-side{display:block!important;}.ccd-player-apply{padding:12px;}.ccd-video-actions{flex-direction:column;align-items:stretch;}}
         /* Real page layout: photos and information in left-hand rail; placement on right.
            No sponsor packages on this page; only the player-video exchange. */
         .ccd-video-feature { display:flex; flex-direction:column; gap:10px; padding:0 2px 20px; }
