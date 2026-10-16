@@ -58,6 +58,17 @@ const SPONSORSHIPS: SponsorCard[] = [
 // Real baseball and existing YAT?STATS artwork instead of invented iconography.
 // These are illustrative examples, never passed off as the selected player's image.
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+// Row/left-rail art also accepts dedicated files. Originals are retained in
+// the image error handlers until each replacement is uploaded by the owner.
+const CONTRIBUTION_THUMBS: Partial<Record<ThumbKind, string>> = {
+  front: '/img/contribute/rail-high-school-photo.webp',
+  headshot: '/img/contribute/rail-current-headshot.png',
+  back: '/img/contribute/rail-current-action.webp',
+  timeline: '/img/contribute/rail-career-path.webp',
+  logos: '/img/contribute/rail-team-logo.png',
+  news: '/img/contribute/rail-news-tip.webp',
+  data: '/img/contribute/rail-player-data.webp',
+};
 const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: string }> = {
   front: { src: `${S3}/players/then/180827.jpg`, label: 'HIGH SCHOOL' },
   headshot: { src: `${S3}/players/now/225132.jpg`, label: 'HEADSHOT', position: 'center 24%' },
@@ -75,8 +86,9 @@ const THUMB_IMAGES: Record<ThumbKind, { src: string; label: string; position?: s
 };
 function Thumb({ kind }: { kind: ThumbKind }) {
   const { src, position } = THUMB_IMAGES[kind];
+  const replacement = CONTRIBUTION_THUMBS[kind];
   const [cutoutAvailable, setCutoutAvailable] = useState(true);
-  if (kind === 'headshot') {
+  if (kind === 'headshot' && !replacement) {
     // Reuse Row 3's actual transparent cutout. The same portrait is drawn
     // twice at precisely the same size and position: inside the circular
     // crop, then ONLY the 16px above its rim. There is no second full image
@@ -104,10 +116,13 @@ function Thumb({ kind }: { kind: ThumbKind }) {
   return (
     <span className={`ccd-thumb ccd-thumb-${kind} ccd-thumb-contained`} aria-hidden="true">
       <span className="ccd-thumb-photo">
-        <img loading="lazy" src={src} alt="" style={position ? { objectPosition: position } : undefined}
+        <img loading="lazy" src={replacement || src} alt="" style={replacement ? { objectFit: 'contain' } : (position ? { objectPosition: position } : undefined)}
           onError={(e) => {
             const img = e.currentTarget;
-            if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
+            if (replacement && img.dataset.replacementFallback !== 'true') {
+              img.dataset.replacementFallback = 'true';
+              img.src = src;
+            } else if (!img.src.endsWith('/img/connect-contribute-portal.png')) img.src = '/img/connect-contribute-portal.png';
           }} />
       </span>
     </span>
@@ -131,27 +146,27 @@ const PLACEMENT_CAPTIONS: Record<ThumbKind, string> = {
   video: 'Personalized alumni video · planned',
 };
 
-// Cropped views of actual YAT?STATS pages supplied for this portal by the site owner.
-// The reference atlas keeps visual explanations faithful to the published UI.
-const REAL_PAGE_CROPS: Partial<Record<ThumbKind, [number, number, string]>> = {
-  front: [1, 0, 'Actual photo-present versus photo-missing alumni flip cards'],
-  headshot: [0, 0, 'Row 3: real portraits alongside missing headshot silhouettes'],
-  back: [1, 0, 'Alumni flip-card example and missing-image silhouette'],
-  timeline: [0, 1, 'Actual Career Path timeline with a player photo'],
-  logos: [0, 0, 'Actual school identity and Row 3 gallery'],
-  news: [0, 3, 'Actual player-news articles in the news feed'],
-  missing: [0, 2, 'Actual All-Time Next-Level List and year selector'],
-  data: [1, 2, 'Actual player-statistics cards'],
+// Individual full-resolution owner-supplied screenshots. Place the files in
+// public/img/contribute/ (they resolve at /img/contribute/... in the app).
+// Files are displayed using contain, with no sprite cropping or stretching.
+const REAL_PAGE_IMAGES: Partial<Record<ThumbKind, { file: string; caption: string }>> = {
+  front: { file: 'placement-high-school-photo.webp', caption: 'Existing and missing alumni flip-card photographs' },
+  headshot: { file: 'placement-current-headshot.webp', caption: 'Row 3: existing and missing player headshots' },
+  back: { file: 'placement-current-action.webp', caption: 'Existing and missing flip-card action photographs' },
+  timeline: { file: 'placement-career-path.webp', caption: 'Career Path Timeline: bust or action image representing the selected year' },
+  logos: { file: 'placement-team-logo.webp', caption: 'School identity and team artwork' },
+  news: { file: 'placement-news-tip.webp', caption: 'Active alumni news headline rows' },
+  data: { file: 'placement-player-data.webp', caption: 'Player record and statistics update destination' },
 };
 function RealPageReference({ kind }: { kind: ThumbKind }) {
-  const crop = REAL_PAGE_CROPS[kind];
-  if (!crop) return null;
-  const [column, row, description] = crop;
+  const item = REAL_PAGE_IMAGES[kind];
+  if (!item) return null;
   return (
-    <figure className="ccd-real-page-figure" aria-label={description}>
-      <div className="ccd-real-page-crop" role="img" aria-label={description}
-        style={{ backgroundPosition: `${column * 100}% ${row * (100 / 3)}%` }} />
-      <figcaption>{description}</figcaption>
+    <figure className="ccd-real-page-figure">
+      {/* Image intentionally scales as a full photograph, never a crop. */}
+      <img className="ccd-real-page-image" src={`/img/contribute/${item.file}`} alt={item.caption}
+        onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+      <figcaption>{item.caption}</figcaption>
     </figure>
   );
 }
@@ -167,7 +182,7 @@ function PlacementExample({ kind, schoolName, crestUrl, schoolLocation, realFron
   const src = THUMB_IMAGES[kind].src;
   let picture: React.ReactNode;
   // Direct, cropped references to real site pages instead of simulated cards.
-  if (REAL_PAGE_CROPS[kind]) picture = <RealPageReference kind={kind} />;
+  if (REAL_PAGE_IMAGES[kind]) picture = <RealPageReference kind={kind} />;
   else if (kind === 'logos' || kind === 'banner') picture = (
     <div className="ccd-example-school">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -591,7 +606,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-preview-copy { padding:12px 0; color:var(--muted); font:400 12px/1.4 var(--yat-font-ui); }
         .ccd-preview-action { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--fg); border-radius:3px; background:var(--fg); color:var(--bg); padding:7px 10px; cursor:pointer; font:700 11px/1.2 var(--yat-font-ui); }
         .ccd-real-page-figure {width:100%;margin:0;display:flex;flex-direction:column;align-items:center;gap:9px;}
-        .ccd-real-page-crop {width:100%;aspect-ratio:270/138;background-image:url('/img/contribute-reference-atlas.svg');background-size:200% 400%;background-repeat:no-repeat;background-color:#090909;border-radius:5px;border:1px solid rgba(255,255,255,.18);}
+        .ccd-real-page-image { display:block; width:100%; height:auto; max-height:460px; object-fit:contain; border-radius:5px; }
         .ccd-real-page-figure figcaption {font:600 12px/1.35 var(--yat-font-ui);color:var(--muted);text-align:center;}
         .ccd-example-stage { min-height:230px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--line); border-radius:5px; background:var(--bg); padding:14px; }
         .ccd-example-stage :is(.ypf-card,.ypf-back) { width:min(100%,205px); max-height:290px; }
