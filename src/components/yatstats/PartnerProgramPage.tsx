@@ -119,7 +119,7 @@ export default function PartnerProgramPage(){
            {mobileExpanded===p.id ? <PackageDetails item={p} number={i+1}
              schoolName={school?.hsName||'our school'} onClose={()=>setMobileExpanded(null)} /> : null}
          </div>
-       </div>)
+       </div>)}
        <p className="yp-partner-aside">Each package has its own locations. Ad artwork and rates are intentionally blank. No inventory has been sold.</p>
      </div>
      <aside className="yp-partner-right" aria-label="Selected partner package placement examples">
