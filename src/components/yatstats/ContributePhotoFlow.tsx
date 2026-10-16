@@ -297,6 +297,28 @@ export default function ContributePhotoFlow({
           <details><summary>What photo should I send?</summary><p>{type.spec}</p></details>
         </div>
       ) : null}
+      {/* Mobile-only placement reference for the selected destination.
+          Desktop keeps its dedicated portal viewport; the upload form never
+          needs a second side-by-side preview. */}
+      {type ? (
+        <figure className="ypf-mobile-placement">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={type.id}
+            src={`/img/contribute/${({
+              flip_card: 'placement-high-school.jpg',
+              headshot: 'placement-headshots.jpg',
+              back_hero: 'placement-action-pics.jpg',
+              timeline_hero: 'placement-yearly-pics.jpg',
+              school_logo: 'placement-team-logos.jpg',
+              team_logo: 'placement-team-logos.jpg',
+              other_photo: 'placement-high-school.jpg',
+            } as Record<PhotoPurpose, string>)[type.id]}`}
+            alt={`Example of where a ${type.label.toLowerCase()} appears on YAT?STATS`}
+          />
+          <figcaption>EXAMPLE PLACEMENT · {type.label.toUpperCase()}</figcaption>
+        </figure>
+      ) : null}
       {/* 1. Upload + */}
       <section className="ypf-step">
         <div className="ycd-label"><span className="ycd-step">1</span> {type ? 'Upload ' + type.label : 'Upload Photo'}</div>
@@ -507,6 +529,12 @@ export default function ContributePhotoFlow({
 
       <style jsx global>{`
         .ypf-flow { display: flex; flex-direction: column; gap: 10px; max-width: 1100px; }
+        .ypf-mobile-placement { display:none; }
+        @media (max-width:779px) {
+          #drawerContribute .ypf-mobile-placement { display:flex;flex-direction:column;gap:6px;margin:0;padding:10px;border:1px solid var(--sb-card-border);border-radius:7px;background:var(--sb-card-bg);min-width:0; }
+          #drawerContribute .ypf-mobile-placement img { display:block;width:100%;height:auto;max-height:42dvh;object-fit:contain;border-radius:4px; }
+          #drawerContribute .ypf-mobile-placement figcaption { font:700 10px/1.3 var(--yat-font-compact);letter-spacing:.04em;text-align:center;color:var(--sb-ink-muted); }
+        }
         .ypf-selected-purpose { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; align-items:center; padding:9px 12px; border-left:3px solid #d69a24; border-bottom:1px solid var(--sb-card-border); }
         .ypf-selected-purpose > div { display:flex; flex-direction:column; gap:3px; min-width:0; }
         .ypf-selected-purpose strong { font:800 14px/1.2 var(--yat-font-ui); }
