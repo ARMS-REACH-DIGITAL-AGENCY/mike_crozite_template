@@ -82,6 +82,13 @@ export async function GET(req: NextRequest) {
           results.push({ id: item.id, outcome: 'duplicate-held' });
           continue;
         }
+        if (purpose === 'other_photo') {
+          const moderation = { decision: 'review', checked_at: new Date().toISOString(), description: 'Gallery-only photo: awaiting a public gallery placement.' };
+          await query('UPDATE media_upload SET description = $2 WHERE id = $1',
+            [item.id, JSON.stringify({ ...details, moderation })]);
+          results.push({ id: item.id, outcome: 'gallery-placement-held' });
+          continue;
+        }
         const occupied = await existingPublishedTarget(item);
         if (occupied) {
           const moderation = { decision: 'review', checked_at: new Date().toISOString(), description: 'Existing published slot: reviewer must choose whether to replace.' };
@@ -98,7 +105,10 @@ export async function GET(req: NextRequest) {
           note: details.note
         });
         if (!verdict) {
-          results.push({ id: item.id, outcome: 'ai-unavailable' });
+          const moderation = { decision: 'review', checked_at: new Date().toISOString(), description: 'Automatic moderation unavailable; no publication attempted.' };
+          await query('UPDATE media_upload SET description = $2 WHERE id = $1',
+            [item.id, JSON.stringify({ ...details, moderation })]);
+          results.push({ id: item.id, outcome: 'ai-unavailable-held' });
           continue;
         }
         const moderation = { decision: verdict.decision, checked_at: new Date().toISOString(),
