@@ -726,7 +726,7 @@ const requestedCutouts = new Set<string>();
 // cutout exists it shows the whole photo (sitting above the rail) and asks
 // the server to make one, so the next visit gets the cutout.
 function StoryHeroImg({ photo, className, style, alt }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string }) {
-  const canCut = Boolean(photo.cutout && photo.source && !missingCutouts.has(photo.source));
+  const canCut = Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
   const [cutFailed, setCutFailed] = useState(false);
   const useCut = canCut && !cutFailed;
   const onError = () => {
