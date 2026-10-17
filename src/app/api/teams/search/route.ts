@@ -71,13 +71,18 @@ export async function GET(req: NextRequest) {
           f.hsid::text as hsid,
           f.current_team_name,
           f.current_org_or_conference_name,
-          f.level_label,
+          coalesce(nullif(trim(f.level_label), ''), m.level_label) as level_label,
           m.teamid::text as current_teamid,
           ss.hsname,
           ss.hslocation
         from flip_card_front_stage f
         left join public.teamid_universe_mapping m
           on lower(trim(m.current_team_name)) = lower(trim(f.current_team_name))
+         and not exists (
+           select 1 from public.teamid_universe_mapping other
+           where lower(trim(other.current_team_name)) = lower(trim(m.current_team_name))
+             and other.teamid <> m.teamid
+         )
          and (
            coalesce(f.current_org_or_conference_name, '') = ''
            or coalesce(m.current_org_or_conference_name, '') = ''
