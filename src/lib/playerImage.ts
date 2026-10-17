@@ -218,8 +218,26 @@ function normalizeHandedness(value: unknown): "L" | "R" | "" {
   return "";
 }
 
+/**
+ * A documented field position is more reliable than the latest-stat-type flag.
+ * A player who is a pitcher can have batting stats, and stage-only rows may
+ * have no is_pitcher flag at all.
+ */
+function pitcherFromPosition(value: unknown): boolean | null {
+  if (typeof value !== "string") return null;
+  const position = value.trim().toUpperCase();
+  if (!position || position === "UNKNOWN" || position === "-" || position === "--") return null;
+  return /(?:^|[^A-Z])(?:P|SP|RP|LHP|RHP|PITCHER)(?=$|[^A-Z])/.test(position);
+}
+
+function trueFlag(value: unknown): boolean {
+  return value === true || value === 1 ||
+    (typeof value === "string" && /^(?:true|t|1|yes|y)$/i.test(value.trim()));
+}
+
 export interface ThenSilhouetteInput {
-  isPitcher?: boolean;
+  isPitcher?: unknown;
+  position?: unknown;
   bats?: unknown;
   throws?: unknown;
 }
@@ -236,10 +254,14 @@ export interface ThenSilhouetteInput {
  * - Batter + bats right    -> /img/batter_right_silhouette.jpg
  * - Batter + bats left     -> /img/batter_left_silhouette.jpg
  *
- * Unknown handedness falls back to right-handed by role because that avoids empty cards.
+ * Position takes precedence over isPitcher (a latest-stat-type flag).
+ * Unknown position uses isPitcher; unknown/switch batting handedness and
+ * unknown throwing handedness use a right-handed placeholder, not a blank card.
  */
 export function getThenSilhouetteUrl(input: boolean | ThenSilhouetteInput): string {
-  const isPitcher = typeof input === "boolean" ? input : input.isPitcher === true;
+  const isPitcher = typeof input === "boolean"
+    ? input
+    : pitcherFromPosition(input.position) ?? trueFlag(input.isPitcher);
   const bats = typeof input === "boolean" ? "" : normalizeHandedness(input.bats);
   const throwsHand = typeof input === "boolean" ? "" : normalizeHandedness(input.throws);
 
