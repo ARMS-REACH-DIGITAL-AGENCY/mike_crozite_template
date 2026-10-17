@@ -61,6 +61,69 @@ export default function DrawerLayoutOverrides() {
     return () => { document.removeEventListener('click', closeLeftDrawer, true); document.removeEventListener('click', closeOnDestination, true); };
   }, []);
 
+  /* Match the Connect & Contribute selection highlight without changing the
+     existing navigation, drawer opening, or section routing behavior. */
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>('#drawerLeft .yat-left-nav-content .yat-drawer-nav');
+    if (!nav) return;
+    const links = Array.from(nav.querySelectorAll<HTMLAnchorElement>('.yat-drawer-nav-item'));
+
+    const highlight = (selected: HTMLAnchorElement | null) => {
+      for (const link of links) {
+        if (link === selected) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      }
+    };
+
+    const syncFromLocation = () => {
+      const pathname = window.location.pathname;
+      if (/\/connect-contribute(?:\/|$)/.test(pathname)) {
+        highlight(nav.querySelector<HTMLAnchorElement>('[data-cc-link]'));
+      } else if (/\/player\//.test(pathname)) {
+        // A profile is not itself one of the listed school destinations.
+        highlight(null);
+      } else {
+        const section = window.location.hash.match(/^#sec-([a-z-]+)/i)?.[1];
+        highlight(
+          (section ? nav.querySelector<HTMLAnchorElement>('[data-tab="' + section + '"]') : null)
+          || nav.querySelector<HTMLAnchorElement>('.yat-drawer-visiting-school')
+        );
+      }
+    };
+
+    const onNavigationClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+      const clickedLink = target.closest('#drawerLeft .yat-drawer-nav-item') as HTMLAnchorElement | null;
+      if (clickedLink) {
+        highlight(clickedLink);
+        return;
+      }
+      // Other section controls update the selected link without waiting for a
+      // hashchange event (some routes use history.replaceState).
+      const sectionControl = target.closest('[data-tab]') as HTMLElement | null;
+      if (sectionControl) {
+        const tab = sectionControl.dataset.tab;
+        const item = tab ? nav.querySelector<HTMLAnchorElement>('[data-tab="' + tab + '"]') : null;
+        if (item) highlight(item);
+      } else if (target.closest('#btnMenu')) {
+        syncFromLocation();
+      }
+    };
+
+    syncFromLocation();
+    document.addEventListener('click', onNavigationClick, true);
+    window.addEventListener('hashchange', syncFromLocation);
+    window.addEventListener('popstate', syncFromLocation);
+    window.addEventListener('pageshow', syncFromLocation);
+    return () => {
+      document.removeEventListener('click', onNavigationClick, true);
+      window.removeEventListener('hashchange', syncFromLocation);
+      window.removeEventListener('popstate', syncFromLocation);
+      window.removeEventListener('pageshow', syncFromLocation);
+    };
+  }, []);
+
   return (
     <style jsx global>{`
       :root {
@@ -407,6 +470,83 @@ export default function DrawerLayoutOverrides() {
           z-index:2147483199!important;
         }
       }
+      /* Mobile navigation uses the same visual rhythm as the Connect &
+         Contribute list: compact Archivo labels, no rules, rounded grey
+         selection. Reserve scrolling room above the fixed ticker/footer. */
+      @media (max-width:779px) {
+        body.drawer-left-open #drawerLeft {
+          bottom:var(--footerH, 88px)!important;
+          height:auto!important;
+        }
+        #drawerLeft .yat-left-nav-content {
+          flex:1 1 auto;
+          min-height:0;
+          overflow-y:auto;
+          overscroll-behavior-y:contain;
+          padding:8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+          scrollbar-width:thin;
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-nav {
+          gap:3px;
+          padding-right:0;
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-nav-item {
+          box-sizing:border-box;
+          display:flex;
+          align-items:center;
+          flex:0 0 auto;
+          min-height:46px;
+          padding:7px 9px;
+          gap:10px;
+          border:0!important;
+          border-bottom:0!important;
+          border-radius:4px;
+          background:transparent;
+          color:var(--ink);
+          text-decoration:none;
+          font:800 14px/1.15 var(--yat-font-ui, Archivo, sans-serif)!important;
+          letter-spacing:-.02em!important;
+          word-spacing:normal!important;
+          transition:background-color .12s ease;
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span {
+          min-width:0;
+          letter-spacing:-.02em!important;
+          word-spacing:normal!important;
+          text-decoration:none;
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong {
+          font-weight:inherit;
+          letter-spacing:inherit;
+        }
+        #drawerLeft .yat-left-nav-content :is(.yat-drawer-home-school,.yat-drawer-visiting-school) {
+          margin-right:34px;
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-nav-item:is(:hover,:active,:focus-visible,[aria-current="page"]) {
+          background:var(--line);
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-nav-item:focus-visible {
+          outline:2px solid var(--fg);
+          outline-offset:-2px;
+        }
+        /* Retain the special tournament art and countdown, but give its row
+           the same background highlight and compact typography. */
+        #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight {
+          min-height:56px;
+          padding:7px 9px;
+          border-radius:4px;
+          background:transparent;
+          color:var(--yat-bracket-accent);
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy {
+          font:800 12px/1.12 var(--yat-font-ui, Archivo, sans-serif);
+        }
+        #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight:is(:hover,:active,:focus-visible,[aria-current="page"]) {
+          background:var(--line);
+          color:var(--yat-bracket-accent);
+        }
+      }
+
     `}</style>
   );
 }
