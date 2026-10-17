@@ -1012,6 +1012,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               if (photo.web && !photo.logo) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
             }
           }
+          // Photo-only contributions share the existing five-second Story
+          // rotation but remain independent of Story/Memory records.
+          type TimelinePhoto = { id: string; year: number; web: string | null; cutout: string | null; source: string | null };
+          for (const image of (Array.isArray(data.timelinePhotos) ? data.timelinePhotos : []) as TimelinePhoto[]) {
+            if (image.year && image.web) (byYear[image.year] ||= []).push({ web: image.web, cutout: image.cutout, source: image.source });
+          }
           setStoryPhotosByYear(byYear);
           setStoriesByMonth(byMonth);
           setStoryIdsByYear(idsByYear);
