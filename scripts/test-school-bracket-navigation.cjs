@@ -52,7 +52,7 @@ assert.equal(renderSchoolRows([], 'No schools', true), '<div class="yat-search-e
 const unavailable = renderSchoolRows([{ hsid: null, hsname: 'No Page Yet', microsite_url: '' }], 'No schools', true);
 assert.ok(!unavailable.includes('href='), 'Missing-school records must not link to the root.');
 assert.ok(!unavailable.includes('yat-search-school-bracket-link'));
-assert.ok(unavailable.includes('School page not available yet'));
+assert.ok(unavailable.includes('SCHOOL PAGE NOT AVAILABLE YET'));
 const layout = fs.readFileSync(path.join(root, 'src/app/[hsid]/layout.tsx'), 'utf8');
 assert.match(layout, /yat-drawer-fantasy-highlight[\s\S]*?data-tab="fantasy"[\s\S]*?href="#sec-fantasy"/);
 assert.ok(!layout.includes('yat-drawer-fantasy-start'), 'Do not place the start date underneath the label.');
