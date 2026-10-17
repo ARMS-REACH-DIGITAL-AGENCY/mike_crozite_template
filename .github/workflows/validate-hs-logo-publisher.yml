@@ -1,0 +1,29 @@
+name: Validate HS Logo Auto-Publisher
+
+on:
+  push:
+    branches:
+      - feature/hs-logo-backfill-7954-prep
+    paths:
+      - tests/test_hs_logo_publisher.py
+      - scripts/publish_verified_hs_logos.py
+      - scripts/plan_hs_logo_publication.py
+      - .github/workflows/validate-hs-logo-publisher.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: All HS logo safety tests
+        run: python -m unittest discover -s tests -p 'test_hs_logo*.py' -v
+      - name: Python syntax check
+        run: python -m compileall -q scripts/fetch_hs_logos_expanded.py scripts/verify_hs_logo_staging.py scripts/plan_hs_logo_publication.py scripts/publish_verified_hs_logos.py scripts/aggregate_hs_logo_exceptions.py
