@@ -258,9 +258,8 @@ function BoardCrest({ id, side }: { id: number; side: 'l' | 'r' }) {
 // screen.
 function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () => void; children: React.ReactNode; dual?: boolean; sides: ('l' | 'r')[] }) {
   const [box, setBox] = useState<{ top: number; mobile?: boolean } | null>(null);
-  // Desktop: the drawers dock beside the game cards (body classes pad the
-  // panel on those sides) rather than covering them, so the other school's
-  // name stays visible and clickable.
+  // Only on sufficiently wide desktops do the drawers dock beside the cards.
+  // At smaller widths they overlay the page rather than squeeze the scoreboard.
   const sideKey = sides.join('');
   useEffect(() => {
     const cls = sideKey.split('').map((x) => `yfp-dock-${x}`);
@@ -276,7 +275,7 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
       const hero = document.querySelector('.yat-row3-shell');
       const below = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
       const heroBottom = hero ? hero.getBoundingClientRect().bottom : 0;
-      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(below, heroBottom, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
+      setBox(window.matchMedia(`(min-width: ${DUAL_DRAWER_MIN_WIDTH}px)`).matches && row5 ? { top: Math.max(below, heroBottom, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
     };
     place();
     // The rows above settle after the drawer opens (images, fonts): re-place
@@ -660,9 +659,9 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
   );
 }
 
-// From this width both Stat Ledger drawers open together (about a third of
-// the screen each), leaving ~600px of game cards between them.
-const DUAL_DRAWER_MIN_WIDTH = 1240;
+// Both 422px Stat Ledgers may dock only after they and a readable center
+// scoreboard (at least 680px) fit, with a little breathing room on each side.
+const DUAL_DRAWER_MIN_WIDTH = 1560;
 // From this width the site's docked drawers (Search on the left, Favorites
 // on the right) open beside the Stat Ledgers instead of closing them: each
 // ledger moves in by the site drawer's width and the game narrows to fit.
@@ -1292,12 +1291,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-title i { margin:0 2px; }
           .yfp-lb-regions-k { letter-spacing:0; }
         }
-        /* From 820px, like the flip-card gallery: the game (up to 680px)
-           sits centered with no drawer, and when one opens it slides over
-           and sits right against it, shrinking only if the room left is
-           narrower than 680px; with both open (1240px and up) it fills all
-           the space between them, flush on both sides, and the board grows
-           with it. */
+        /* Center column sizing is tied only to viewport width, never to
+           whether the Stat Ledger overlay/drawers happen to be open. */
         @media (min-width:820px) {
           .yfz-panel,
           body.yfp-dock-l .yfz-panel,
@@ -1310,10 +1305,20 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           body.yfp-dock-r .yfz-panel { padding-right:var(--yfp-dw); padding-left:max(8px, calc(100% - var(--yfp-dw) - 680px)); }
           body.yfp-dock-l.yfp-dock-r .yfz-panel { padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
         }
-        /* Keep the central scoreboard and runs leaderboard the exact same
-           width/position with either, both, or neither Stat Ledger open.
-           Reserve both 422px ledger lanes on wide desktop even when closed. */
-        @media (min-width:1240px) {
+        /* Below 1560px the ledgers are overlays. Do not reserve their
+           width or resize the center when one opens. */
+        @media (min-width:820px) and (max-width:1559px) {
+          .yfz-panel,
+          body.yfp-dock-l .yfz-panel,
+          body.yfp-dock-r .yfz-panel,
+          body.yfp-dock-l.yfp-dock-r .yfz-panel {
+            padding-left:max(8px, calc((100% - 680px) / 2));
+            padding-right:max(8px, calc((100% - 680px) / 2));
+          }
+        }
+        /* Only reserve 422px on each side when two ledgers and a readable
+           scoreboard all fit. Keep the reservation while ledgers are closed. */
+        @media (min-width:1560px) {
           .yfz-panel,
           body.yfp-dock-l .yfz-panel,
           body.yfp-dock-r .yfz-panel,
