@@ -32,6 +32,7 @@ Outputs (also uploaded as a workflow artifact):
 """
 
 import argparse
+import hashlib
 import os
 import base64
 import csv
@@ -285,19 +286,6 @@ def main():
 
     if args.promote:
         raise ValueError("Promotion disabled in staging collector; approval required")
-    # Reviewed by eye: move staged logos into place (never over an existing one).
-    for h in [h.strip() for h in args.promote.split(",") if h.strip()]:
-        if h in have:
-            log.info(f"PROMOTE\t{h}\tskipped, schools/{h}.png already exists")
-        elif args.mode == "dry_run":
-            log.info(f"PROMOTE\t{h}\twould copy")
-        else:
-            s3.copy_object(Bucket=args.bucket, Key=f"{args.prefix}{h}.png", ContentType="image/png",
-                           CopySource={"Bucket": args.bucket, "Key": f"{args.stage_prefix}{h}.png"},
-                           MetadataDirective="REPLACE", CacheControl="public, max-age=86400")
-            have.add(h)
-            log.info(f"PROMOTE\t{h}\tcopied to {args.prefix}{h}.png")
-
     # Pages picked by hand for schools the matcher missed (spelling, renamed mascot).
     forced = dict(pair.split("=", 1) for pair in args.pages.split(",") if "=" in pair)
     forced = {h.strip(): u.strip() for h, u in forced.items()}
@@ -318,7 +306,7 @@ def main():
     for i, s in enumerate(todo, 1):
         best, second, page = (100, 0, forced[s["hsid"]]) if s["hsid"] in forced else match(s, by_state)
         row = {**s, "score": best, "runner_up": second, "page": page, "page_seen": "",
-               "logo_url": "", "status": "no_match", "key": ""}
+               "logo_url": "", "status": "no_match", "key": "", "image_sha256": ""}
         try:
             if page and best >= 50:
                 time.sleep(DELAY)
@@ -334,15 +322,25 @@ def main():
                         row["status"] = "bad_image"
                     else:
                         thumbs[s["hsid"]] = thumb(png)
+                        row["image_sha256"] = hashlib.sha256(png).hexdigest()
                         sure = best >= CONFIDENT and best - second >= 15
                         dest = args.prefix if (args.mode == "publish" and sure) else args.stage_prefix
                         row["key"] = f"{dest}{s['hsid']}.png"
                         if args.mode == "dry_run":
-                            row["status"] = "would_publish" if sure else "would_stage"
+                            row["status"] = "would_stage"
                         else:
-                            s3.put_object(Bucket=args.bucket, Key=row["key"], Body=png,
-                                          ContentType="image/png", CacheControl="public, max-age=86400")
-                            row["status"] = "published" if dest == args.prefix else "staged"
+                            identity = "|".join(str(s[k]).strip() for k in
+                                                ("hsid", "name", "nickname", "city", "state"))
+                            signature = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+                            s3.put_object(
+                                Bucket=args.bucket, Key=row["key"], Body=png,
+                                ContentType="image/png", CacheControl="public, max-age=86400",
+                                Metadata={
+                                    "hsid": s["hsid"],
+                                    "source-sha256": row["image_sha256"],
+                                    "school-signature": signature,
+                                })
+                            row["status"] = "staged"
         except Exception as e:  # one school's failure never stops the run
             row["status"] = f"error: {type(e).__name__}"
         rows.append(row)
