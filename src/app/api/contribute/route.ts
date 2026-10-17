@@ -92,9 +92,9 @@ export async function POST(req: NextRequest) {
       if (isNew) {
         const first=String(submitted.first_name||'').trim(),last=String(submitted.last_name||'').trim();
         if (!first||!last) return fail('Enter first and last names separately.');
-        if (!/^\\d+$/.test(hsid)) return fail('Select a high school.');
+        if (!/^\d+$/.test(hsid)) return fail('Select a high school.');
         playerName=[first,last].join(' ');
-      } else if (!/^\\d+$/.test(hsid)) return fail('Player school was not found.');
+      } else if (!/^\d+$/.test(hsid)) return fail('Player school was not found.');
       const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
         by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
       if (isNew) {
