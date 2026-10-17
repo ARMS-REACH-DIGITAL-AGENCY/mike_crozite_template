@@ -40,34 +40,25 @@ function stateFromQuery(q: string): string | null {
   return code.length === 2 && STATE_CODES.has(code) ? code : null;
 }
 
-async function schoolsInState(state: string, qRaw: string) {
+// Keep statewide queries bounded. The earlier CTE aggregated every player's
+// history across the entire state, then canonicalized up to 2,000 rows,
+// exceeding the database statement timeout on searches such as "Arizona".
+// Global Search displays a short result list, so first select just the
+// relevant school records and avoid scanning the full player history.
+async function schoolsInState(state: string, qRaw: string, limit: number) {
   const { rows } = await query(
-    `WITH counts AS (
-       SELECT f.hsid,
-              COUNT(DISTINCT f.playerid) FILTER (
-                WHERE COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($3::text[])
-              )::int AS current_aa,
-              COUNT(DISTINCT f.playerid) FILTER (
-                WHERE UPPER(COALESCE(TRIM(f.level_label), '')) NOT IN ('HIGH SCHOOL', 'HS')
-              )::int AS all_time
-         FROM flip_card_front_stage f
-         JOIN school_success s ON s.hsid::text = f.hsid AND (s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2)
-        GROUP BY f.hsid
-     )
-     SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
-            COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
-            s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url, s.bracket_seeding
+    `SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid,
+            s.yatstats_national_rank, s.yatstats_state_rank,
+            s.mlb, s.atnla, s.drafted_hs, s.drafted,
+            s.microsite_url, s.bracket_seeding
        FROM school_success s
-       LEFT JOIN counts c ON c.hsid = s.hsid::text
       WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
       ORDER BY (s.hsname ILIKE $2 OR s.high_school ILIKE $2) DESC,
-               COALESCE(c.current_aa, 0) DESC,
-               COALESCE(c.all_time, 0) DESC,
-               s.drafted_hs DESC NULLS LAST,
-               s.drafted DESC NULLS LAST,
+               s.yatstats_national_rank ASC NULLS LAST,
+               s.atnla DESC NULLS LAST,
                s.hsname ASC NULLS LAST
-      LIMIT 2000`,
-    [state, `${qRaw}%`, [...ACTIVE_GALLERY_STATUSES]]
+      LIMIT $3`,
+    [state, `${qRaw}%`, limit],
   );
   return rows;
 }
@@ -141,7 +132,7 @@ export async function GET(req: NextRequest) {
       [...ACTIVE_GALLERY_STATUSES],
     ];
     const state = !stateRaw && !cityRaw ? stateFromQuery(qRaw) : null;
-    const { rows } = state ? { rows: await schoolsInState(state, qRaw) } : await query(sql, params);
+    const { rows } = state ? { rows: await schoolsInState(state, qRaw, limit) } : await query(sql, params);
     // school_success is a ranking/directory source, not a complete ID registry.
     // Resolve its missing HSIDs against the canonical TBC school records.
     // Never guess an ID when name + city + state is ambiguous.
@@ -167,7 +158,7 @@ export async function GET(req: NextRequest) {
             AND ($3::boolean OR t.hsname ILIKE $4)
           ORDER BY t.hsname, t.hsid
           LIMIT $5`,
-        [searchState, cityRaw ? `%${cityRaw}%` : '', isStateSearch, `%${qRaw}%`, state ? 2000 : limit],
+        [searchState, cityRaw ? `%${cityRaw}%` : '', isStateSearch, `%${qRaw}%`, limit],
       );
       resultRows.push(...missingSchools);
     }
