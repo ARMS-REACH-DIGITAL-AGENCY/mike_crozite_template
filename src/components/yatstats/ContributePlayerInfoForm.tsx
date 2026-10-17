@@ -58,6 +58,12 @@ export default function ContributePlayerInfoForm({
     return()=>{cancelled=true};
   },[player?.playerId]);
 
+  // A school selected from search satisfies the school requirement. Clear an
+  // earlier validation message when the selection changes, without losing the form.
+  useEffect(()=>{
+    setError(previous=>/high school|school id|school was not found/i.test(previous)?'':previous);
+  },[school?.hsid,school?.name,school?.location,player?.schoolId]);
+
   const changed=Object.fromEntries(Object.entries(values).filter(([key,value])=>JSON.stringify(value)!==JSON.stringify(initial[key as keyof Fields])));
   async function submit() {
     setMessage('');setError('');
