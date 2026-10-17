@@ -177,9 +177,9 @@ export async function GET(req: NextRequest) {
       let info: { published_assets?: string[] } = {};
       try { info = JSON.parse(upload.description || '{}'); } catch {}
       const all = Array.isArray(info.published_assets) ? info.published_assets : [];
-      const full = all.find((key) => /^players\\/season-photos\\/[a-zA-Z0-9_-]+_\\d{4}_[0-9a-f-]{36}\\.jpg$/.test(key));
+      const full = all.find((key) => typeof key === 'string' && key.startsWith('players/season-photos/') && key.endsWith('_' + upload.id + '.jpg'));
       if (!full) return [];
-      const cutout = all.find((key) => /^players\\/season-cutouts\\/[a-zA-Z0-9_-]+_\\d{4}_[0-9a-f-]{36}\\.png$/.test(key));
+      const cutout = all.find((key) => typeof key === 'string' && key.startsWith('players/season-cutouts/') && key.endsWith('_' + upload.id + '.png'));
       const year = new Date(upload.date_taken).getUTCFullYear();
       if (!Number.isInteger(year)) return [];
       return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: cutout ? storyAssetUrl(cutout) : null, source: null }];
