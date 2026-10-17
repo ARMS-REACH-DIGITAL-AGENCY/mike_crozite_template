@@ -162,7 +162,172 @@ export default async function HsidLayout({
   const micrositeUrl = String(school.microsite_url || '');
   const isPreview = host.includes('vercel.app') || host.includes('localhost');
   const pathname = headersList.get('x-pathname') || '';
-  if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && new RegExp(`^/${hsid}/?$`).test(pathname)) {
+  const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
+  if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && !isHostRewrite && new RegExp(`^/${hsid}/?// src/app/[hsid]/layout.tsx
+// THE UNIFIED SHARED SHELL
+// This is the single source of truth for the 5-row system.
+// It owns Rows 1-2, the drawers, the footer, and all shared styles/scripts.
+// All internal pages (gallery, player profile, news) render as {children} inside this shell.
+
+import { ReactNode, Suspense } from 'react';
+import Script from 'next/script';
+import { AnalyticsSchool } from '@/components/analytics/Analytics';
+import {
+  getSchoolByHsid,
+  getActiveAlumniCountByHsid,
+  getSchoolByUrl,
+  getSchoolTeamSeasonResults,
+  getAllTimeRosterByHsid,
+  getFlipCardFrontStageByHsid,
+  getBatchDesignatedPlayerImages,
+} from '@/lib/db';
+import { headers } from 'next/headers';
+import { getSchoolCrestUrl } from '@/lib/schoolAssets';
+import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
+import { getPlayerThenImageUrl } from '@/lib/playerImage';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { isNeverASchoolSegment } from '@/lib/schoolSegment';
+import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
+
+import type { Metadata } from 'next';
+
+// Shared Components
+import YatStyles from '@/components/yatstats/YatStyles';
+import AccountDrawer from '@/components/yatstats/AccountDrawer';
+import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
+import ContributeDrawer from '@/components/yatstats/ContributeDrawer';
+import SchoolContextProvider from '@/context/SchoolContext';
+import SharedShell from '@/components/yatstats/SharedShell';
+import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
+import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
+import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
+import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
+import DrawerRailController from '@/components/yatstats/DrawerRailController';
+import FantasyNavCountdown from '@/components/yatstats/FantasyNavCountdown';
+import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
+import YatTourBridge from '@/components/yatstats/YatTourBridge';
+import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
+import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
+import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
+import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
+
+const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+
+function normalizeStatusLabel(value: unknown): string {
+  return String(value || '').trim().toUpperCase();
+}
+
+function isCurrentHighSchoolRosterStatus(value: unknown): boolean {
+  const status = normalizeStatusLabel(value);
+  return status === 'COMMIT' || status === 'UNCOMMITTED';
+}
+
+function isHighSchoolLevel(value: unknown): boolean {
+  const level = normalizeStatusLabel(value);
+  return level === 'HIGH SCHOOL' || level === 'HS';
+}
+
+function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
+  return isCurrentHighSchoolRosterStatus(p.status_label || p.status) ||
+    isHighSchoolLevel(p.current_level_label || p.display_level_label || p.level_label || p.level);
+}
+
+function getStripImageForPlayer(
+  playerId: string,
+  frontImageUrl?: string | null
+) {
+  const thenImage = String(frontImageUrl || '').trim() || getPlayerThenImageUrl(playerId);
+  return {
+    image: thenImage,
+    nowImage: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
+    thenImage,
+    fallbackImage: '/img/headshot-silhouette.png',
+    imageFit: 'cover' as const,
+  };
+}
+
+type StripImageMap = Map<string, { image_url?: string | null }>;
+
+function emptyStripImageMap(): StripImageMap {
+  return new Map();
+}
+
+export const runtime = 'nodejs';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ hsid: string }>;
+}): Promise<Metadata> {
+  const { hsid } = await params;
+  if (isNeverASchoolSegment(hsid)) notFound();
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  let school: Record<string, unknown> | null = null;
+  try {
+    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    if (!school && host) school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
+  } catch {
+    school = null;
+  }
+  const resolvedHsid = String(school?.hsid ?? hsid);
+  const schoolName = formatSchoolName(String(school?.hsname || 'YAT?STATS'));
+  const crestUrl = getSchoolCrestUrl(resolvedHsid);
+
+  return {
+    title: `${schoolName} | YAT?STATS`,
+    icons: {
+      icon: [
+        { url: crestUrl, type: 'image/png', sizes: '192x192' },
+        { url: crestUrl, type: 'image/png', sizes: '512x512' },
+      ],
+      apple: [
+        { url: crestUrl, type: 'image/png', sizes: '180x180' },
+      ],
+      shortcut: [
+        { url: crestUrl, type: 'image/png' },
+      ],
+    },
+    appleWebApp: {
+      capable: true,
+      title: schoolName,
+    },
+  };
+}
+
+// The layout sends the school's splash (logo + crest) as soon as the school
+// is known - one lookup - and streams the rest of the shell and the page in
+// behind it (SchoolShell, inside Suspense), so a visitor sees the school's
+// opener at once instead of a black screen while every roster loads.
+export default async function HsidLayout({
+  children,
+  params,
+}: {
+  children: ReactNode;
+  params: Promise<{ hsid: string }>;
+}) {
+  const { hsid } = await params;
+  if (isNeverASchoolSegment(hsid)) notFound();
+  const headersList = await headers();
+  const host = headersList.get('host') || '';
+  let school: Record<string, unknown> | null = null;
+  try {
+    school = (await getSchoolByHsid(hsid)) as Record<string, unknown> | null;
+    if (!school && host) {
+      school = (await getSchoolByUrl(`https://${host}`)) as Record<string, unknown> | null;
+    }
+  } catch {
+    notFound();
+  }
+  if (!school) notFound();
+
+  // /{hsid} on a live school's own domain goes to its microsite. The page
+  // did this too, but once the splash has streamed a redirect can only be a
+  // client-side hop, so it is decided here, before anything is sent.
+  const micrositeUrl = String(school.microsite_url || '');
+  const isPreview = host.includes('vercel.app') || host.includes('localhost');
+  const pathname = headersList.get('x-pathname') || '';
+).test(pathname)) {
     permanentRedirect(micrositeUrl.replace(/\/$/, ''));
   }
 
