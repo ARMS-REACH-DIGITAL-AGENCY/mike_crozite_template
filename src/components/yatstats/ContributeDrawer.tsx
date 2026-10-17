@@ -388,7 +388,8 @@ export default function ContributeDrawer() {
 
   const fanName = String(session?.firstName || '').trim();
   const fanKind = session?.isSuperfan || session?.plan === 'superfan' ? 'SuperFan' : 'Fan';
-  const hubName = [hubSchool?.name?.toUpperCase(), hubSchool?.location ? `(${hubSchool.location.toUpperCase()})` : ''].filter(Boolean).join(' ');
+  const hubLocation = String(hubSchool?.location || '').split(',').map((part) => part.trim()).filter(Boolean).join(', ');
+  const hubName = [String(hubSchool?.name || '').trim(), hubLocation ? `(${hubLocation})` : ''].filter(Boolean).join(' ');
   const firstName = (player?.displayName || manualName || '').split(' ')[0] || 'him';
   const playerFlow = tab === 'photo' || tab === 'data';
   const sendLabel = !signedIn ? 'Sign in to send' : sending ? 'Sending…' : 'Send';
@@ -397,10 +398,11 @@ export default function ContributeDrawer() {
     <aside className="yat-drawer yat-drawer-right yat-contribute-drawer" id="drawerContribute" aria-label="Contribute to YAT?STATS" aria-hidden={!open}>
       <div className="ycd-header">
         <div>
-          <h3 className="ycd-title"><i className={tabIcon(tab)} aria-hidden="true" /> {tab === 'photo' ? 'Photo Contribution' : TABS.find((t) => t.id === tab)?.label}</h3>
+          <h3 className="ycd-title"><i className={tabIcon(tab)} aria-hidden="true" /><span>{tab === 'photo' ? 'Photo Contribution' : TABS.find((t) => t.id === tab)?.label}</span></h3>
           {signedIn ? (
             <p className="ycd-hello">
-              Hello {fanName || 'there'}! Thank you for being a <b>{fanKind} Contributor</b> of <b>{hubName || 'YAT?STATS'}</b>.
+              <span className="ycd-hello-account">{fanName || 'Fan'}{fanKind === 'SuperFan' ? ' · SuperFan' : ''}</span>
+              <span className="ycd-hello-school">Contributing to {hubName || 'YAT?STATS'}</span>
             </p>
           ) : null}
         </div>
