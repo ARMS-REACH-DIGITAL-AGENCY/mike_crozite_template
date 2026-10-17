@@ -624,6 +624,32 @@ export default function ContributePhotoFlow({
         .ypf-done p { margin: 0; line-height: 1.5; }
         .ypf-see { align-self: flex-start; color: var(--sb-text); font: 700 18px/1 var(--yat-font-compact); letter-spacing: .03em; text-transform: uppercase; text-decoration: none; }
         .ypf-see:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+        /* Compact neutral visual vocabulary shared by all photo destinations. */
+        #drawerContribute .ypf-flow{gap:12px;font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ypf-selected-purpose{gap:5px 10px;padding:10px 12px;border-left:3px solid var(--fg);border-bottom:1px solid var(--line);background:var(--card-bg);}
+        #drawerContribute .ypf-selected-kicker{color:var(--muted);font:700 11px/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);letter-spacing:.07em;}
+        #drawerContribute .ypf-selected-purpose strong{font:800 15px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em;}
+        #drawerContribute .ypf-selected-purpose summary{font:500 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ypf-step{gap:10px;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--card-bg);}
+        #drawerContribute .ypf-drop{min-height:128px;gap:9px;padding:16px;border:1.5px dashed var(--muted);border-radius:10px;background:var(--line);color:var(--fg);}
+        #drawerContribute .ypf-drop i{font-size:28px;color:var(--fg);}
+        #drawerContribute .ypf-drop span{font:800 13px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.02em;}
+        #drawerContribute .ypf-drop small{font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);opacity:1;}
+        #drawerContribute .ypf-type{gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;}
+        #drawerContribute .ypf-type input,#drawerContribute .ypf-approve input{accent-color:var(--fg);}
+        #drawerContribute .ypf-type span{gap:4px;}
+        #drawerContribute .ypf-type b{font:700 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ypf-type small{font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);opacity:1;}
+        #drawerContribute .ypf-type.is-on,#drawerContribute .ypf-team.is-on,#drawerContribute .ypf-approve.is-on{border-color:var(--fg);background:var(--line);}
+        #drawerContribute .ypf-approve{border:1px solid var(--line);border-radius:8px;padding:10px;}
+        #drawerContribute .ypf-tag.is-main{border-color:var(--fg);}
+        #drawerContribute .ypf-tag b{font:700 12px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);text-transform:none;}
+        #drawerContribute .ypf-tag small{color:var(--muted);font:500 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ypf-mobile-placement{border-color:var(--line);background:var(--card-bg);border-radius:9px;}
+        #drawerContribute .ypf-mobile-placement figcaption{font:700 10px/1.2 var(--yat-font-compact,"Barlow Condensed",sans-serif);color:var(--muted);letter-spacing:.04em;}
+        #drawerContribute .ypf-done-title{font:800 18px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ypf-see{color:var(--fg);font:700 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);}
       `}</style>
     </div>
   );
