@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   let levelLabel = "";
   let classOf = "";
   let photoUrl = "";
-  let isPitcher = false;
+  let position: unknown = "";
   let bats: unknown = "";
   let throwsHand: unknown = "";
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       lastName = asText(player?.lastname || player?.last_name);
       bats = player?.bats;
       throwsHand = player?.throws;
-      isPitcher = /pitch/i.test(asText(player?.position));
+      position = player?.position;
       teamName = asText(resolvedCurrentTeam?.team_name) || asText(player?.current_team_name);
       orgLine = asText(player?.current_org_or_conference_name);
       statusLabel = asText(player?.status_label).toUpperCase();
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!photoUrl) photoUrl = playerId ? getPlayerThenImageUrl(playerId) : "";
-  const silhouettePath = getThenSilhouetteUrl({ isPitcher, bats, throws: throwsHand });
+  const silhouettePath = getThenSilhouetteUrl({ position, bats, throws: throwsHand });
   const silhouetteUrl = new URL(silhouettePath, req.url).toString();
 
 
