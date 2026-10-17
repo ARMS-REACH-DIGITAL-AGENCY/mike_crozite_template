@@ -388,117 +388,30 @@ return (
 // X, where it's a plain mention inside the tweet text.
 const YAT_STATS_X_HANDLE = "yat_stats";
 
-// Facebook, X, and Instagram are complete, self-contained app-icon badges
-// (rounded-square background baked in) - a fan recognizes "the blue
-// Facebook square" and "the black X square" as icons in their own right.
-// Copy/mail/text have no badge of their own - the .fz-social-cell they sit
-// in already supplies a border/background matching the Stats tab's cells,
-// so a second background here would just double up on it.
-// Each non-badge glyph is scaled down and recentered to roughly the same
-// ~50%-of-canvas footprint as InstagramIcon's own camera mark, and the
-// Facebook/X marks are similarly inset within their badges - the real
-// brand marks are drawn edge-to-edge in their official artwork, which
-// reads as "blown up" once every icon sits in the same cell size.
-const GLYPH_INSET_TRANSFORM = "translate(20 20) scale(0.55) translate(-20 -20)";
 
-// Copy/mail/text have no colored badge behind them, so their glyph IS all
-// the visible "ink" - drawn up close to the canvas edges (rather than
-// InstagramIcon's own inset camera mark) so they read as just as big as
-// the top row's full-bleed badges instead of a small outline floating in
-// empty space.
-const UTILITY_GLYPH_ENLARGE_TRANSFORM = "translate(20 20) scale(1.5) translate(-20 -20)";
-
-function FacebookIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#1877F2" />
-      <path
-        transform="translate(13.2 9) scale(0.043)"
-        d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z"
-        fill="#fff"
-      />
-    </svg>
+type SocialIconKind = "facebook" | "x" | "instagram" | "text" | "email" | "copy" | "check";
+// All share actions use a consistent, unbadged and self-contained vector mark.
+function SocialActionIcon({ kind }: { kind: SocialIconKind }) {
+  if (kind === "facebook") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M14.4 21v-7.9h2.66l.4-3.12H14.4V8c0-.91.25-1.53 1.54-1.53h1.64V3.68a22.6 22.6 0 0 0-2.39-.12c-2.38 0-4.01 1.45-4.01 4.12v2.3H8.5v3.12h2.68V21h3.22Z" /></svg>
   );
-}
-
-function XIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#000" />
-      <path
-        transform="translate(9.23 9) scale(0.01793)"
-        d="M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z"
-        fill="#fff"
-      />
-    </svg>
+  if (kind === "x") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M17.5 3H21l-7.5 8.57L22.2 21h-6.78l-5.32-6.95L4 21H.5l8.04-9.18L.2 3h6.95l4.82 6.35L17.5 3Zm-1.2 16.36h1.88L6.12 4.55H4.1L16.3 19.36Z" /></svg>
   );
-}
-
-// Copy/mail/text share no colored badge - the cell itself already supplies
-// the border/background (matching the Stats tab's cells), so a second
-// background here would just double up on it.
-function TextIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={UTILITY_GLYPH_ENLARGE_TRANSFORM}>
-        <path
-          d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
-          fill="#2E7DF7"
-        />
-      </g>
-    </svg>
+  if (kind === "instagram") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.4" cy="6.7" r=".9" fill="currentColor" stroke="none" /></svg>
   );
-}
-
-function EmailIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={UTILITY_GLYPH_ENLARGE_TRANSFORM}>
-        <rect x="9" y="12" width="22" height="16" rx="2.5" fill="none" stroke="#1266C4" strokeWidth="2" />
-        <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
+  if (kind === "text") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.5 15.7a3 3 0 0 1-3 3H9l-4.5 3v-4.2a3 3 0 0 1-2-2.8V6.5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9.2Z" /><path d="M7 9h9M7 13h6" /></svg>
   );
-}
-
-function InstagramIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <defs>
-        <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
-          <stop offset="0%" stopColor="#fdf497" />
-          <stop offset="30%" stopColor="#fd5949" />
-          <stop offset="60%" stopColor="#d6249f" />
-          <stop offset="100%" stopColor="#285AEB" />
-        </radialGradient>
-      </defs>
-      <rect width="40" height="40" rx="9" fill="url(#igGrad)" />
-      <rect x="10" y="10" width="20" height="20" rx="6" fill="none" stroke="#fff" strokeWidth="2" />
-      <circle cx="20" cy="20" r="5" fill="none" stroke="#fff" strokeWidth="2" />
-      <circle cx="26" cy="14" r="1.4" fill="#fff" />
-    </svg>
+  if (kind === "email") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></svg>
   );
-}
-
-function CopyIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={UTILITY_GLYPH_ENLARGE_TRANSFORM}>
-        <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
-        <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
-      </g>
-    </svg>
+  if (kind === "check") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="m4.5 12.5 5 5 10-11" /></svg>
   );
-}
-
-function CheckIcon() {
   return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#1c7a3e" />
-      <g transform={GLYPH_INSET_TRANSFORM}>
-        <path d="m11 21 6 6 12-13" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg>
   );
 }
 
@@ -530,10 +443,21 @@ function SocialPanel({
     ? schoolLocation.split(",").map((part) => part.trim()).filter(Boolean).join(", ")
     : "";
 
+  // Some school records already include "High School" in their names.
+  // Length tiers are computed on the server too for unhydrated favorite cards.
+  const schoolBase = schoolName.trim();
+  const schoolFullName = !schoolBase ? "" :
+    /(?:high school|secondary school|preparatory school|prep school|academy)$/i.test(schoolBase)
+      ? schoolBase : `${schoolBase} High School`;
+  const nameClass = fullName.length > 38 ? " fz-social-name-longest" :
+    fullName.length > 26 ? " fz-social-name-long" : "";
+  const schoolClass = schoolFullName.length > 58 ? " fz-social-school-longest" :
+    schoolFullName.length > 35 ? " fz-social-school-long" : "";
+
   const shareText =
     schoolName && formattedLocation
       ? [
-          `Hey Alumni of ${schoolName} High School in ${formattedLocation}...`,
+          `Hey Alumni of ${schoolFullName} in ${formattedLocation}...`,
           `Do you ever wonder what became of one of your school's best baseball players like ${fullName}?`,
           `Visit @${YAT_STATS_X_HANDLE} to find out`,
           `Where They #YAT and`,
@@ -541,36 +465,6 @@ function SocialPanel({
           `#${hashtag}`,
         ].join("\n")
       : `Check out ${fullName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS! #${hashtag}`;
-
-  // Same copy as shareText above, just as JSX with the @handle/#YAT/#STATS
-  // tokens pulled into their own elements for the accent color - kept as a
-  // second, parallel construction (rather than parsing shareText with a
-  // regex) so the plain-text version used for the actual share links can
-  // never drift from what's visually shown here as "the message that's
-  // going to be posted." A flat array of inline nodes, not one <span> per
-  // logical line - rendered as a single flowing paragraph so it wraps
-  // naturally instead of stacking fixed line breaks (which wasted vertical
-  // space and forced a smaller font).
-  const messageNodes: ReactNode[] =
-    schoolName && formattedLocation
-      ? [
-          `Hey Alumni of ${schoolName} High School in ${formattedLocation}... Do you ever wonder what became of one of your school's best baseball players like ${fullName}? Visit `,
-          <b className="fz-social-accent" key="handle">@{YAT_STATS_X_HANDLE}</b>,
-          " to find out Where They ",
-          <b className="fz-social-accent" key="yat">#YAT</b>,
-          " and What's Their ",
-          <b className="fz-social-accent" key="stats">#STATS</b>,
-          "! ",
-          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
-        ]
-      : [
-          `Check out ${fullName}'s YAT?STATS player card! Where They `,
-          <b className="fz-social-accent" key="yat">#YAT</b>,
-          " and What's Their ",
-          <b className="fz-social-accent" key="stats">#STATS</b>,
-          "! ",
-          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
-        ];
 
   const encodedUrl = encodeURIComponent(shareUrl);
   const encodedText = encodeURIComponent(shareText);
@@ -591,26 +485,20 @@ function SocialPanel({
     });
   }
 
+
   return (
     <div className="fz-social">
-      {/* Same bar treatment as the Stats tab's "2026 SEASON" header
-          (.yat-stats-bar) - a dedicated, identically-styled class rather
-          than that literal class, so a Social-only tweak here can never
-          bleed into the Stats tab's own bar (the same reason the action
-          grid below has its own class instead of reusing .yat-stats-grid). */}
-      <div className="fz-social-bar">#{hashtag}</div>
-
-      {/* Same 3-column/4-row grid as the Stats tab, so these cells are
-          exactly as tall as .yat-stat's - the message cell spans the first
-          two rows (where Stats would show its first 6 stat cells), and the
-          six share icons auto-flow into the remaining two rows. */}
+      <div className="fz-social-bar">
+        <span className="fz-social-bar-label">SHARE THE JOURNEY</span>
+        <span className="fz-social-hashtag" title={"#" + hashtag}>#{hashtag}</span>
+      </div>
       <div className="fz-social-grid">
         <div className="fz-social-message-cell">
-          {/* The link itself is never shown in this preview - it's still
-              part of every actual share (fullPostText/encodedSmsBody below,
-              and the Facebook/X links' own url params), just not spelled
-              out here, which frees up room to run the message text bigger. */}
-          <p className="fz-social-message-text">{messageNodes}</p>
+          <span className="fz-social-kicker">ALUMNI SPOTLIGHT</span>
+          <strong className={"fz-social-player-name" + nameClass} title={fullName}>{fullName}</strong>
+          {schoolFullName ? <span className={"fz-social-school" + schoolClass} title={schoolFullName}>{schoolFullName}</span> : null}
+          {formattedLocation ? <span className="fz-social-location">{formattedLocation}</span> : null}
+          <p className="fz-social-message-text">See where they <strong>YAT</strong> now. Share the story.</p>
         </div>
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
@@ -619,7 +507,8 @@ function SocialPanel({
           className="fz-social-cell"
           aria-label="Share on Facebook"
         >
-          <FacebookIcon />
+          <SocialActionIcon kind="facebook" />
+          <span className="fz-social-action-label">Facebook</span>
         </a>
         <a
           href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`}
@@ -628,7 +517,8 @@ function SocialPanel({
           className="fz-social-cell"
           aria-label="Share on X"
         >
-          <XIcon />
+          <SocialActionIcon kind="x" />
+          <span className="fz-social-action-label">X</span>
         </a>
         {/* A real <a href>, not a button+window.open - Instagram has no web
             share/compose intent, so this just opens the app/site the same
@@ -646,28 +536,32 @@ function SocialPanel({
           className="fz-social-cell"
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
-          aria-label="Share on Instagram"
+          aria-label="Copy caption and open Instagram"
         >
-          <InstagramIcon />
+          <SocialActionIcon kind="instagram" />
+          <span className="fz-social-action-label">Instagram</span>
         </a>
         <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-cell" aria-label="Share by text">
-          <TextIcon />
+          <SocialActionIcon kind="text" />
+          <span className="fz-social-action-label">Text</span>
         </a>
         <a
           href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`}
           className="fz-social-cell"
           aria-label="Share by email"
         >
-          <EmailIcon />
+          <SocialActionIcon kind="email" />
+          <span className="fz-social-action-label">Email</span>
         </a>
         <button
           type="button"
-          className={`fz-social-cell${copied ? " copied" : ""}`}
+          className={`fz-social-cell fz-social-cell-primary${copied ? " copied" : ""}`}
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
           aria-label={copied ? "Copied" : "Copy post text"}
         >
-          {copied ? <CheckIcon /> : <CopyIcon />}
+          <SocialActionIcon kind={copied ? "check" : "copy"} />
+          <span className="fz-social-action-label">{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
     </div>
@@ -1213,100 +1107,122 @@ export default function FunZone({
         }
 
 
-        /* -- Social panel ----------------------------------------------- */
-        /* Follows the Stats tab's own layout exactly: a header bar, then a
-           3-column/4-row grid - here the message takes the space that
-           would be Stats' first two rows, and the six share icons fill the
-           remaining two rows at the exact same cell height as .yat-stat.
-           .fz-social-bar/.fz-social-grid are visual copies of
-           .yat-stats-bar/.yat-stats-grid, not the same classes - sharing
-           those literal classes is what let an earlier Social-only fix
-           bleed into and resize the Stats tab's own grid. */
-        .fz-social{
-          display:flex;
-          flex-direction:column;
-          gap:clamp(5px,1.8cqi,10px);
-          height:100%;
-          min-height:0;
+        /* Social-only responsive redesign. Uses the same two fonts as
+           Connect & Contribute; no styling bleeds into the Stats tab. */
+        .fz-social {
+          display:flex; flex-direction:column; width:100%; height:100%;
+          min-height:0; gap:clamp(4px,1.2cqi,8px);
+          color:#233c31; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);
         }
-        .fz-social-bar{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          min-height:clamp(20px,6.5cqi,34px);
-          padding:clamp(3px,1cqi,6px) clamp(6px,2cqi,12px);
-          border:1px solid rgba(30,22,14,0.22);
-          border-radius:clamp(4px,1.2cqi,7px);
-          background:rgba(255,255,255,0.16);
-          color:rgba(0,0,0,0.88);
-          font:700 clamp(9px,3cqi,15px)/1 "Bebas Neue",Oswald,sans-serif;
-          letter-spacing:.055em;
-          text-transform:uppercase;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.22);
-          overflow:hidden;
-          white-space:nowrap;
-          text-overflow:ellipsis;
+        .fz-social-bar {
+          min-width:0; min-height:clamp(21px,6cqi,33px); flex:0 0 auto;
+          display:flex; align-items:center; justify-content:space-between;
+          gap:clamp(4px,1.5cqi,8px); padding:clamp(4px,1.2cqi,7px) clamp(7px,2cqi,12px);
+          background:#193c31; color:#fffaf0; border-radius:clamp(4px,1.2cqi,8px);
         }
-        .fz-social-grid{
-          display:grid;
+        .fz-social-bar-label {
+          flex:0 1 auto; min-width:0; white-space:nowrap;
+          font:800 clamp(9px,2.7cqi,14px)/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:.06em;
+        }
+        .fz-social-hashtag {
+          flex:0 1 auto; min-width:0; max-width:52%;
+          white-space:nowrap; text-align:right; overflow:hidden;
+          text-overflow:ellipsis; color:#f2d48a;
+          font:700 clamp(8px,2.25cqi,12px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:-.02em;
+        }
+        .fz-social-grid {
+          display:grid; width:100%; min-width:0; min-height:0; flex:1;
           grid-template-columns:repeat(3,minmax(0,1fr));
-          grid-template-rows:repeat(4,minmax(0,1fr));
-          gap:clamp(5px,1.7cqi,10px);
-          flex:1;
-          min-height:0;
+          grid-template-rows:minmax(0,1.7fr) repeat(2,minmax(0,1fr));
+          gap:clamp(4px,1.4cqi,9px);
         }
-        /* Spans the first two rows across all three columns - the same
-           space Stats' first 6 cells would occupy. One flowing paragraph,
-           not stacked lines, so wrapped text uses the space efficiently and
-           can run at a bigger point size. */
-        .fz-social-message-cell{
-          grid-column:1 / -1;
-          grid-row:1 / 3;
-          display:flex;
-          align-items:center;
-          min-width:0;
-          min-height:0;
-          overflow:hidden;
-          padding:clamp(6px,2cqi,12px);
-          border:1px solid rgba(30,22,14,0.10);
-          border-radius:clamp(8px,2.2cqi,16px);
-          background:rgba(255,255,255,0.36);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.34),
-            0 1px 2px rgba(30,22,14,0.08);
+        .fz-social-message-cell {
+          grid-column:1/-1; grid-row:1;
+          display:flex; flex-direction:column; justify-content:center;
+          align-items:flex-start; min-width:0; min-height:0; overflow:hidden;
+          gap:clamp(2px,.7cqi,5px); padding:clamp(7px,2cqi,14px);
+          background:rgba(255,252,244,.84);
+          border:1px solid rgba(31,49,39,.16);
+          border-left:clamp(3px,.8cqi,5px) solid #bd9141;
+          border-radius:clamp(5px,1.4cqi,10px);
         }
-        /* Plain block so mixed text + inline elements wrap as one flowing
-           paragraph - display:flex directly on the text container turns each
-           text run/inline element into its own flex item instead of letting
-           them wrap together. */
-        .fz-social-message-text{
-          margin:0;
-          width:100%;
-          font:500 clamp(11px,4.4cqi,18px)/1.3 Oswald,sans-serif;
-          color:rgba(30,22,14,0.85);
+        .fz-social-kicker {
+          flex:0 0 auto; color:#8c6b32; letter-spacing:.12em;
+          font:800 clamp(8px,2.3cqi,12px)/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);
         }
-        .fz-social-accent{ color:#2451c9; font-weight:700; }
-        /* Icon-only - the branded mark says what it is, so no text label. */
-        .fz-social-cell{
-          min-width:0;
-          min-height:0;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          border:1px solid rgba(30,22,14,0.10);
-          border-radius:clamp(8px,2.2cqi,16px);
-          background:rgba(255,255,255,0.36);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.34),
-            0 1px 2px rgba(30,22,14,0.08);
-          cursor:pointer;
+        .fz-social-player-name {
+          display:block; min-width:0; max-width:100%; color:#142c22;
+          font:800 clamp(12px,4.5cqi,23px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:-.04em; overflow-wrap:anywhere; text-wrap:balance;
         }
-        /* Sized well under the cell itself, so the Facebook/X/Instagram
-           badges show a visible margin of the cell's own background around
-           them instead of touching its top/bottom edges. */
-        .fz-social-cell svg{ width:clamp(20px,8.5cqi,40px); height:clamp(20px,8.5cqi,40px); flex-shrink:0; }
-        .fz-social-cell:hover{ background:rgba(255,255,255,0.52); border-color:rgba(30,22,14,0.26); }
-        .fz-social-cell.copied{ border-color:#1c7a3e; }
+        .fz-social-player-name.fz-social-name-long {
+          font-size:clamp(10px,3.7cqi,19px);
+        }
+        .fz-social-player-name.fz-social-name-longest {
+          font-size:clamp(9px,3.05cqi,16px);
+        }
+        .fz-social-school {
+          display:block; min-width:0; max-width:100%; color:#454d43;
+          font:700 clamp(9px,2.85cqi,14px)/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:.015em; overflow-wrap:anywhere;
+        }
+        .fz-social-school.fz-social-school-long {
+          font-size:clamp(8px,2.45cqi,12px);
+        }
+        .fz-social-school.fz-social-school-longest {
+          font-size:clamp(7px,2.15cqi,11px);
+        }
+        .fz-social-location {
+          color:#69736c; font:500 clamp(8px,2cqi,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          overflow-wrap:anywhere;
+        }
+        .fz-social-message-text {
+          margin:clamp(1px,.6cqi,4px) 0 0; color:#606b62;
+          font:500 clamp(9px,2.2cqi,12px)/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        }
+        .fz-social-message-text strong { color:#193c31; font-weight:800; }
+        .fz-social-cell {
+          display:flex; flex-direction:column; align-items:center; justify-content:center;
+          gap:clamp(2px,.7cqi,5px); min-width:0; min-height:0;
+          padding:clamp(3px,.9cqi,7px) 2px;
+          border:1px solid rgba(35,61,47,.22);
+          border-radius:clamp(5px,1.5cqi,9px);
+          background:rgba(255,253,248,.77);
+          color:#254537; text-decoration:none; cursor:pointer;
+          transition:background-color .12s ease,border-color .12s ease;
+        }
+        .fz-social-cell svg {
+          display:block; flex:0 0 auto; width:clamp(16px,5.2cqi,28px);
+          height:clamp(16px,5.2cqi,28px);
+        }
+        .fz-social-action-label {
+          display:block; max-width:100%; overflow:hidden; white-space:nowrap;
+          text-overflow:ellipsis; color:inherit;
+          font:700 clamp(8px,2.05cqi,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:-.025em;
+        }
+        .fz-social-cell:hover {
+          background:#fffdf8; border-color:rgba(25,60,49,.65); text-decoration:none;
+        }
+        .fz-social-cell:focus-visible { outline:2px solid #246b4e; outline-offset:-2px; }
+        .fz-social-cell-primary {
+          background:#193c31; color:#fff9ef; border-color:#193c31;
+        }
+        .fz-social-cell-primary:hover { background:#275944; color:#fff; }
+        .fz-social-cell-primary.copied { background:#287247; border-color:#287247; }
+        @container yat-back (max-width:390px) {
+          .fz-social-message-text { display:none; }
+          .fz-social-message-cell { gap:clamp(2px,.5cqi,4px); }
+        }
+        @container yat-back (max-width:300px) {
+          .fz-social-kicker,.fz-social-location { display:none; }
+          .fz-social-grid { gap:3px; }
+          .fz-social-message-cell { padding:4px 6px; }
+          .fz-social-bar { gap:3px; }
+          .fz-social-cell { gap:1px; }
+        }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
