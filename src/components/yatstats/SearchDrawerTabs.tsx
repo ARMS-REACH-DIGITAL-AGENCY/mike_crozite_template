@@ -250,16 +250,22 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
 export function renderTeamRows(players: any[], emptyText: string) {
   if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
-  const grouped = new Map<string, any[]>();
+  // Team identity, not the player-level label, determines the search group.
+  // A canonical team ID survives older player records with missing level data.
+  // Unresolved names retain their level so distinct same-name programs are not merged.
+  const grouped = new Map<string, { team: string; level: string; rows: any[] }>();
   players.forEach((p) => {
     const team = String(p.currentTeamName || p.current_team_name || 'Current Team Unknown').trim() || 'Current Team Unknown';
     const level = String(p.levelLabel || p.level_label || '').trim();
-    const key = `${team}${level ? ` - ${level}` : ''}`;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(p);
+    const id = teamIdOf(p);
+    const key = id ? `id:${id}` : `unresolved:${team.toLowerCase()}|${level.toUpperCase()}`;
+    const group = grouped.get(key);
+    if (group) group.rows.push(p);
+    else grouped.set(key, { team, level, rows: [p] });
   });
 
-  return Array.from(grouped.entries()).map(([teamLevel, rows]) => {
+  return Array.from(grouped.values()).map(({ team, level, rows }) => {
+    const teamLevel = `${team}${level ? ` - ${level}` : ''}`;
     const first = rows[0] || {};
     return `
       <div class="yat-search-team-group">
