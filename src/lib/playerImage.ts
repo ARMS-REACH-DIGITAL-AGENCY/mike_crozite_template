@@ -123,6 +123,31 @@ export function getPlayerNowThumbUrl(imageId: string): string {
   return `${S3_BASE}/players/now-thumb/${imageId}.webp`;
 }
 
+export const PLAYER_HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
+
+/**
+ * Current headshots for the player gallery, best first. The MLB importer
+ * writes now/ before the separate cutout/WebP jobs run, so a missing derived
+ * copy must not hide an already available headshot. These are all current
+ * images of this player; HS card fronts and back-card action photos keep
+ * their own image-role rules.
+ */
+export function getPlayerHeadshotSources(playerId: string, headshotUrl?: string | null): string[] {
+  const id = String(playerId || '').trim();
+  const supplied = String(headshotUrl || '').trim();
+  const headshot = /^(?:null|undefined)$/i.test(supplied) ? '' : supplied;
+  if (!id) return [...new Set([headshot, PLAYER_HEADSHOT_FALLBACK_URL].filter(Boolean))];
+
+  const imageId = encodeURIComponent(id);
+  const cutout = `${S3_BASE}/players/now-cutouts/${imageId}.png`;
+  const thumbnail = getPlayerNowThumbUrl(imageId);
+  const original = getPlayerNowImageUrl(imageId);
+  // The shell initially supplies now/ and the card may supply now-thumb/.
+  // Neither is a separate designated image; keep the optimized copy first.
+  const designated = headshot !== original && headshot !== thumbnail && headshot !== PLAYER_HEADSHOT_FALLBACK_URL ? headshot : '';
+  return [...new Set([cutout, designated, thumbnail, original, PLAYER_HEADSHOT_FALLBACK_URL].filter(Boolean))];
+}
+
 /**
  * Photos for a news card, best first. A story's publisher image is used only
  * when verification confirmed it shows our player (display_image_url set to
