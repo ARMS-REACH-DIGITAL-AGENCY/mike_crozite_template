@@ -485,26 +485,20 @@ function SocialPanel({
     });
   }
 
+
   return (
     <div className="fz-social">
-      {/* Same bar treatment as the Stats tab's "2026 SEASON" header
-          (.yat-stats-bar) - a dedicated, identically-styled class rather
-          than that literal class, so a Social-only tweak here can never
-          bleed into the Stats tab's own bar (the same reason the action
-          grid below has its own class instead of reusing .yat-stats-grid). */}
-      <div className="fz-social-bar">#{hashtag}</div>
-
-      {/* Same 3-column/4-row grid as the Stats tab, so these cells are
-          exactly as tall as .yat-stat's - the message cell spans the first
-          two rows (where Stats would show its first 6 stat cells), and the
-          six share icons auto-flow into the remaining two rows. */}
+      <div className="fz-social-bar">
+        <span className="fz-social-bar-label">SHARE THE JOURNEY</span>
+        <span className="fz-social-hashtag" title={"#" + hashtag}>#{hashtag}</span>
+      </div>
       <div className="fz-social-grid">
         <div className="fz-social-message-cell">
-          {/* The link itself is never shown in this preview - it's still
-              part of every actual share (fullPostText/encodedSmsBody below,
-              and the Facebook/X links' own url params), just not spelled
-              out here, which frees up room to run the message text bigger. */}
-          <p className="fz-social-message-text">{messageNodes}</p>
+          <span className="fz-social-kicker">ALUMNI SPOTLIGHT</span>
+          <strong className={"fz-social-player-name" + nameClass} title={fullName}>{fullName}</strong>
+          {schoolFullName ? <span className={"fz-social-school" + schoolClass} title={schoolFullName}>{schoolFullName}</span> : null}
+          {formattedLocation ? <span className="fz-social-location">{formattedLocation}</span> : null}
+          <p className="fz-social-message-text">See where they <strong>YAT</strong> now. Share the story.</p>
         </div>
         <a
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
@@ -513,7 +507,8 @@ function SocialPanel({
           className="fz-social-cell"
           aria-label="Share on Facebook"
         >
-          <FacebookIcon />
+          <SocialActionIcon kind="facebook" />
+          <span className="fz-social-action-label">Facebook</span>
         </a>
         <a
           href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`}
@@ -522,7 +517,8 @@ function SocialPanel({
           className="fz-social-cell"
           aria-label="Share on X"
         >
-          <XIcon />
+          <SocialActionIcon kind="x" />
+          <span className="fz-social-action-label">X</span>
         </a>
         {/* A real <a href>, not a button+window.open - Instagram has no web
             share/compose intent, so this just opens the app/site the same
@@ -540,28 +536,32 @@ function SocialPanel({
           className="fz-social-cell"
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
-          aria-label="Share on Instagram"
+          aria-label="Copy caption and open Instagram"
         >
-          <InstagramIcon />
+          <SocialActionIcon kind="instagram" />
+          <span className="fz-social-action-label">Instagram</span>
         </a>
         <a href={`sms:?&body=${encodedSmsBody}`} className="fz-social-cell" aria-label="Share by text">
-          <TextIcon />
+          <SocialActionIcon kind="text" />
+          <span className="fz-social-action-label">Text</span>
         </a>
         <a
           href={`mailto:?subject=${encodedEmailSubject}&body=${encodedSmsBody}`}
           className="fz-social-cell"
           aria-label="Share by email"
         >
-          <EmailIcon />
+          <SocialActionIcon kind="email" />
+          <span className="fz-social-action-label">Email</span>
         </a>
         <button
           type="button"
-          className={`fz-social-cell${copied ? " copied" : ""}`}
+          className={`fz-social-cell fz-social-cell-primary${copied ? " copied" : ""}`}
           data-copy-text={fullPostText}
           onClick={handleCopyPost}
           aria-label={copied ? "Copied" : "Copy post text"}
         >
-          {copied ? <CheckIcon /> : <CopyIcon />}
+          <SocialActionIcon kind={copied ? "check" : "copy"} />
+          <span className="fz-social-action-label">{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
     </div>
