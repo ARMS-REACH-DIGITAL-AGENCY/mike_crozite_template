@@ -5,7 +5,8 @@ on:
     branches:
       - fix/school-hostname-global-search-directory-20261017
     paths:
-      - src/proxy.ts
+      - src/middleware.ts
+      - src/app/api/school-host-resolve/route.ts
       - src/lib/schoolDirectoryRouting.ts
       - src/lib/db.ts
       - src/app/api/schools/search/route.ts
