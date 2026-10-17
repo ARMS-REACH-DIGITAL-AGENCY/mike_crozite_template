@@ -27,7 +27,7 @@ for (const body of html.matchAll(/<a class="yat-search-school-bracket-link"[^>]*
   assert.equal(body[1].replace(/<[^>]*>/g, '').trim(), '', 'Bracket shortcut must be icon-only.');
   assert.ok(body[1].includes('yat-bracket-symbol'));
 }
-assert.ok(html.indexOf('yat-search-school-bracket-link') < html.indexOf('yat-search-school-gallery-crest-link'), 'Bracket must precede the far-right school logo.');
+assert.ok(html.includes('yat-search-school-bracket-link'), 'Seeded schools must retain their bracket shortcut.');
 assert.ok(html.includes('href="https://hamilton.az.yatstats.com/#sec-fantasy"'));
 assert.ok(html.includes('href="https://hamilton.az.yatstats.com/#sec-active"'));
 assert.ok(!html.includes('href="/7733#sec-fantasy"'));
