@@ -730,9 +730,12 @@ function StoryHeroImg({ photo, className, style, alt }: { photo: HeroPhoto; clas
   const [cutFailed, setCutFailed] = useState(false);
   const useCut = canCut && !cutFailed;
   const onError = () => {
-    if (!useCut || !photo.source) return;
-    missingCutouts.add(photo.source);
+    if (!useCut) return;
+    missingCutouts.add(photo.source || photo.cutout || '');
     setCutFailed(true);
+    // Published contribution cutouts have no Story source key to regenerate.
+    // Fall back to the full photo rather than showing a broken image.
+    if (!photo.source) return;
     if (!requestedCutouts.has(photo.source)) {
       requestedCutouts.add(photo.source);
       fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
