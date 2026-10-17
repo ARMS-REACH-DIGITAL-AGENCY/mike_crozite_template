@@ -2,7 +2,7 @@
 // Full flip card container: article element with front and back faces
 
 import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
-import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl } from "@/lib/playerImage";
+import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
@@ -167,6 +167,12 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // downloads it once for both.
   const nowThumbnailUrl = imageText(headshotUrl) || getPlayerNowThumbUrl(encodeURIComponent(playerId));
   const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenCardUrl(playerId);
+  const thenSilhouetteUrl = getThenSilhouetteUrl({
+    isPitcher: p.is_pitcher,
+    position: p.position,
+    bats: p.bats,
+    throws: p.throws,
+  });
   const committedTeamId = imageText(
     p.committed_teamid || p.committed_team_id || p.commit_teamid || p.commit_team_id
   );
@@ -196,7 +202,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-thumbnail-then={thenThumbnailUrl}
       data-thumbnail-current={committedLogoUrl}
       data-thumbnail-now-fallback={HEADSHOT_FALLBACK_URL}
-      data-thumbnail-then-fallback={HEADSHOT_FALLBACK_URL}
+      data-thumbnail-then-fallback={thenSilhouetteUrl}
       data-thumbnail-current-fallback={committedLogoFallbackUrl}
       data-stat-gp={gp}
       data-stat-avg={statValue(p.avg)}
