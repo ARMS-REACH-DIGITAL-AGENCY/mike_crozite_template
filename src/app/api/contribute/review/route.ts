@@ -10,7 +10,7 @@
 //                                ever reaches a card.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { assetUrl, identifyContributor, isReviewer, notifyContributor, promoteUpload, type UploadRow } from '@/lib/contributeServer';
+import { assetUrl, existingPublishedTarget, identifyContributor, isReviewer, notifyContributor, promoteUpload, type UploadRow } from '@/lib/contributeServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -100,8 +100,11 @@ export async function POST(req: NextRequest) {
       pageUrl: details.pageUrl || null,
     };
     if (action === 'approve') {
+      const existing = await existingPublishedTarget(upload);
+      if (existing) return fail('This slot already contains a published image. Replacement requires a separate explicit workflow.', 409);
       const written = await promoteUpload(upload);
-      await query(`UPDATE media_upload SET status = 'approved' WHERE id = $1`, [id]);
+      await query(`UPDATE media_upload SET status = 'approved', description = $2 WHERE id = $1`,
+        [id, JSON.stringify({ ...details, published_assets: written, manual_review: { approved_at: new Date().toISOString() } })]);
       await notifyContributor(details.by, 'posted', photo);
       return NextResponse.json({ ok: true, status: 'approved', written });
     }
