@@ -1,94 +1,80 @@
 name: Fetch HS Logos to S3
 
+# Expanded, staged, Neon-backed successor to the legacy CSV collector.
+# Run manually on feature/hs-logo-backfill-7954-prep for a small trial.
+# Production branch remains unchanged until reviewed.
 on:
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: "Run without uploading to S3"
+      mode:
+        description: "dry_run = inspect only; stage = upload candidates for review (NEVER publish)"
         required: true
-        default: "true"
+        default: "dry_run"
         type: choice
         options:
-          - "true"
-          - "false"
+          - dry_run
+          - stage
       limit:
-        description: "Only process first N schools (0 = all)"
+        description: "Batch size 1-100, default 10"
         required: true
         default: "10"
-      csv_path:
-        description: "Path to schools CSV inside this repo"
+      start_after_hsid:
+        description: "Only process HSIDs greater than this value (default 0)"
         required: true
-        default: "data/hsid_for_Claude.csv"
-      bucket:
-        description: "Target S3 bucket"
-        required: true
-        default: "yatstats-assets"
-      prefix:
-        description: "S3 prefix"
-        required: true
-        default: "schools/"
-      region:
-        description: "AWS region"
-        required: true
-        default: "us-west-2"
+        default: "0"
+      hsids:
+        description: "Optional comma-separated HSIDs to inspect"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hs-logo-expanded-stage
+  cancel-in-progress: false
 
 jobs:
   fetch-logos:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 120
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ github.event.inputs.region }}
-
+      AWS_DEFAULT_REGION: us-west-2
+      YAT_LOGO_MODE: ${{ inputs.mode }}
+      YAT_LOGO_LIMIT: ${{ inputs.limit }}
+      YAT_LOGO_START: ${{ inputs.start_after_hsid }}
+      YAT_LOGO_HSIDS: ${{ inputs.hsids }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install boto3 requests beautifulsoup4 playwright
-          python -m playwright install --with-deps chromium
-
-      - name: Verify required files exist
+          pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Validate inputs and secrets
         run: |
-          test -f scripts/fetch_hs_logos.py
-          test -f "${{ github.event.inputs.csv_path }}"
-          echo "Script and CSV found."
-
-      - name: Dry run (no upload)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
+          test -n "$DATABASE_URL" || { echo "Missing DATABASE_URL" ; exit 1; }
+          test -n "$AWS_ACCESS_KEY_ID" || { echo "Missing AWS_ACCESS_KEY_ID" ; exit 1; }
+          test -n "$AWS_SECRET_ACCESS_KEY" || { echo "Missing AWS_SECRET_ACCESS_KEY" ; exit 1; }
+          case "$YAT_LOGO_LIMIT" in ''|*[!0-9]*) echo "Invalid limit"; exit 1;; esac
+          case "$YAT_LOGO_START" in ''|*[!0-9]*) echo "Invalid start_after_hsid"; exit 1;; esac
+          test "$YAT_LOGO_LIMIT" -ge 1 && test "$YAT_LOGO_LIMIT" -le 100
+          test "$YAT_LOGO_MODE" = dry_run || test "$YAT_LOGO_MODE" = stage
+      - name: Fetch logos from live Neon school list
         run: |
-          python scripts/fetch_hs_logos.py \
-            --csv "${{ github.event.inputs.csv_path }}" \
-            --bucket "${{ github.event.inputs.bucket }}" \
-            --prefix "${{ github.event.inputs.prefix }}" \
-            --region "${{ github.event.inputs.region }}" \
-            --limit "${{ github.event.inputs.limit }}" \
-            --dry-run
-
-      - name: Fetch and upload logos to S3
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: |
-          python scripts/fetch_hs_logos.py \
-            --csv "${{ github.event.inputs.csv_path }}" \
-            --bucket "${{ github.event.inputs.bucket }}" \
-            --prefix "${{ github.event.inputs.prefix }}" \
-            --region "${{ github.event.inputs.region }}" \
-            --limit "${{ github.event.inputs.limit }}"
-
-      - name: Upload logs as artifact
+          python scripts/fetch_hs_logos_expanded.py --mode "$YAT_LOGO_MODE" --limit "$YAT_LOGO_LIMIT" \
+            --start-after-hsid "$YAT_LOGO_START" --hsids "$YAT_LOGO_HSIDS"
+      - name: Upload review and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fetch-logos-report
+          name: hs-logo-expanded-report
           path: |
             fetch_logos.log
-            failed_logos.csv
+            logo_report.csv
+            logo_review.html
           if-no-files-found: ignore
