@@ -1,0 +1,118 @@
+name: Publish Verified School Logos - Production S3
+
+# One manual launch on Easter-NEWS. No web application deployment required:
+# the site reads the published S3 schools/{hsid}.png assets.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Choose PUBLISH to automatically publish verified missing school logos"
+        required: true
+        type: choice
+        default: "DRY_RUN"
+        options:
+          - "DRY_RUN"
+          - "PUBLISH"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yatstats-production-school-logos
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      batches: ${{ steps.plan.outputs.batch_count }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Verify test suite
+        run: python -m unittest discover -s tests -p 'test_hs_logo*.py' -v
+      - name: Ensure secrets configured
+        run: |
+          test -n "$DATABASE_URL" && test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY"
+      - name: Plan all missing school logos
+        id: plan
+        run: python scripts/plan_hs_logo_publication.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-publication-plan
+          path: bulk_logo_plan.json
+  collect-verify-publish:
+    needs: plan
+    if: ${{ needs.plan.outputs.batches != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      max-parallel: 2
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      HSIDS: ${{ matrix.hsids }}
+      CHOICE: ${{ inputs.confirm }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Find missing candidates (dry run makes no writes)
+        run: |
+          if test "$CHOICE" = PUBLISH; then
+            python scripts/fetch_hs_logos_expanded.py --mode stage --limit 100 --hsids "$HSIDS"
+          else
+            python scripts/fetch_hs_logos_expanded.py --mode dry_run --limit 100 --hsids "$HSIDS"
+          fi
+      - name: Publish only independently verified exact matches
+        if: ${{ env.CHOICE == 'PUBLISH' }}
+        run: python scripts/publish_verified_hs_logos.py --hsids "$HSIDS" --report logo_report.csv
+      - name: Archive per-batch results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-production-batch-${{ matrix.batch }}
+          retention-days: 90
+          if-no-files-found: ignore
+          path: |
+            logo_batch_summary.csv
+            logo_exceptions.csv
+            logo_report.csv
+            fetch_logos.log
+  exceptions-only:
+    needs: [plan, collect-verify-publish]
+    if: ${{ always() && needs.plan.result == 'success' && inputs.confirm == 'PUBLISH' && needs.plan.outputs.batches != '0' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect all batch reports (including partial failures)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: hs-logo-production-batch-*
+          path: batch-reports
+      - name: Build exception-only report
+        run: python scripts/aggregate_hs_logo_exceptions.py
+      - name: Upload ONLY exceptions for user review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-exceptions-only
+          if-no-files-found: ignore
+          path: hs_logo_exceptions_only.csv
