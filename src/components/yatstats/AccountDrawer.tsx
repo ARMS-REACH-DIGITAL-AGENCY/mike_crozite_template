@@ -200,7 +200,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   };
 
   return (
-    <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
+    <aside className="yat-drawer yat-drawer-right yat-account-modern" id="drawerAccount">
       <div
         role="tablist"
         aria-label="Account access"
@@ -232,7 +232,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 border: 'none',
                 borderBottom: activeTab === 'register' ? '2px solid var(--gold)' : '2px solid transparent',
                 color: activeTab === 'register' ? 'var(--gold)' : 'var(--fg)',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '15px',
                 letterSpacing: '.06em',
               }}
@@ -256,7 +256,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 border: 'none',
                 borderBottom: activeTab === 'signin' ? '2px solid var(--gold)' : '2px solid transparent',
                 color: activeTab === 'signin' ? 'var(--gold)' : 'var(--muted)',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '15px',
                 letterSpacing: '.06em',
               }}
@@ -287,6 +287,13 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         </button>
       </div>
 
+      <style jsx global>{`
+        #drawerAccount.yat-account-modern { --yat-account-gold:var(--gold); font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        #drawerAccount.yat-account-modern > [role="tablist"] { flex:none; background:var(--card-bg); border-bottom:1px solid var(--line); }
+        #drawerAccount.yat-account-modern > [role="tablist"] > button[role="tab"] { font:800 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif)!important; letter-spacing:.025em!important; }
+        #drawerAccount.yat-account-modern #closeAccount { width:48px; min-width:48px; color:var(--fg)!important; }
+        #drawerAccount.yat-account-modern #closeAccount:focus-visible { outline:2px solid var(--fg); outline-offset:-3px; }
+      `}</style>
       <AccountDrawerContent subdomain={subdomain} />
     </aside>
   );

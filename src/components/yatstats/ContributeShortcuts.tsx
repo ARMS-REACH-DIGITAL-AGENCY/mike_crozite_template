@@ -4,6 +4,7 @@
 // corresponding left-side contribution form immediately, without leaving the
 // current school or player page for the Connect & Contribute portal.
 import { CONTRIBUTE_OPTIONS, openContribute } from '@/lib/contribute';
+import ContributeActionIcon from './ContributeActionIcon';
 
 const CONTRIBUTION_ACTIONS = CONTRIBUTE_OPTIONS.filter((option) => option.tab);
 
@@ -30,20 +31,24 @@ export default function ContributeShortcuts() {
             openContribute({ tab: option.tab });
           }}
         >
-          <span className="ycs-icon"><i className={option.icon} aria-hidden="true" /></span>
+          <span className="ycs-icon"><ContributeActionIcon id={option.id} /></span>
           <span className="ycs-text"><b>{option.label}</b><small>{option.blurb}</small></span>
         </button>
       ))}
       <style jsx global>{`
-        .ycs { display: flex; flex-direction: column; gap: 2px; margin: 0 0 18px; }
-        .ycs-title { margin-bottom: 6px; color: var(--sb-ink-muted); font: 600 11px/1 var(--yat-font-ui); letter-spacing: .06em; text-transform: uppercase; }
-        .ycs-item { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; text-align: left; font: inherit; background: transparent; cursor: pointer; padding: 5px 4px; border-radius: 8px; color: inherit; text-decoration: none; }
-        .ycs-item:hover, .ycs-item:focus-visible { background: var(--sb-green-soft); }
-        .ycs-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--sb-rim); background: var(--sb-panel); color: #fff; font-size: 16px; }
-        .ycs-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .ycs-text b { font: 700 17px/1.15 var(--yat-font-compact); letter-spacing: .005em; }
-        .ycs-text small { font: 400 11.5px/1.3 var(--yat-font-ui); opacity: .7; }
-      `}</style>
+        #drawerAccount .ycs { display:flex; flex-direction:column; gap:4px; margin:0 0 18px; }
+        #drawerAccount .ycs-title { margin:0 0 7px; color:var(--muted); font:700 11px/1.2 var(--yat-font-compact); letter-spacing:.1em; text-transform:uppercase; }
+        #drawerAccount .ycs-item { display:grid; grid-template-columns:52px minmax(0,1fr) 16px; align-items:center; gap:12px; width:100%; min-height:75px; padding:10px 9px; background:transparent; border:0; border-radius:7px; text-align:left; color:var(--fg); cursor:pointer; }
+        #drawerAccount .ycs-item::after { content:'›'; font:500 20px/1 var(--yat-font-ui); color:var(--muted); }
+        #drawerAccount .ycs-item:hover,#drawerAccount .ycs-item:focus-visible { background:var(--line); }
+        #drawerAccount .ycs-item:focus-visible { outline:2px solid var(--fg); outline-offset:-2px; }
+        #drawerAccount .ycs-icon { display:grid; place-items:center; width:50px; height:50px; border-radius:50%; border:1px solid var(--line); background:var(--card-bg); color:var(--fg); }
+        #drawerAccount .ycs-icon svg { display:block; width:27px; height:27px; }
+        #drawerAccount .ycs-text { display:flex; min-width:0; flex-direction:column; gap:5px; }
+        #drawerAccount .ycs-text b { font:800 14px/1.17 var(--yat-font-ui); letter-spacing:-.02em; }
+        #drawerAccount .ycs-text small { color:var(--muted); opacity:1; font:400 12px/1.35 var(--yat-font-ui); }
+        @media(max-width:420px) { #drawerAccount .ycs-item { grid-template-columns:45px minmax(0,1fr) 12px; gap:9px; min-height:70px; padding:9px 4px; } #drawerAccount .ycs-icon { width:44px; height:44px; } #drawerAccount .ycs-icon svg { width:24px; height:24px; } }
+`}</style>
     </nav>
   );
 }
