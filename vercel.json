@@ -4,11 +4,11 @@
   "crons": [
     {
       "path": "/api/cron/tbc-safe-ingest",
-      "schedule": "5 * * * *"
+      "schedule": "0 10,22 * * *"
     },
     {
       "path": "/api/cron/tbc-ingest-watchdog",
-      "schedule": "35 8 * * *"
+      "schedule": "15 11,23 * * *"
     },
     {
       "path": "/api/cron/alpb-stats-ingest",
