@@ -774,6 +774,55 @@ export default function ContributeDrawer() {
         .ycd-btn:disabled { opacity: .55; cursor: default; }
         .ycd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ycd-done-title { font: 700 15px/1.1 var(--yat-font-compact); letter-spacing: .04em; }
+
+        /* Neutral contribution design system: scoped to this drawer only. */
+        #drawerContribute {
+          --cd-accent:var(--fg);
+          --cd-soft:var(--line);
+          --cd-border:var(--line);
+          --cd-surface:var(--card-bg);
+          font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);
+          color:var(--fg);
+        }
+        #drawerContribute .ycd-header{padding:16px 20px 14px;gap:10px;align-items:flex-start;}
+        #drawerContribute .ycd-header::before{opacity:.04;}
+        #drawerContribute .ycd-title{display:flex;align-items:center;gap:11px;min-width:0;font:800 clamp(18px,3.5vw,22px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;overflow-wrap:anywhere;}
+        #drawerContribute .ycd-title i{flex:0 0 38px;width:38px;height:38px;margin:0;border-radius:50%;background:var(--card-bg);border:1px solid var(--line);color:var(--fg);font-size:20px;vertical-align:middle;}
+        #drawerContribute .ycd-close{margin-top:3px;color:var(--fg);}
+        #drawerContribute .ycd-hello{display:flex;flex-direction:column;gap:2px;margin:8px 0 0;font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);}
+        #drawerContribute .ycd-hello-account{font-weight:700;color:var(--fg);}
+        #drawerContribute .ycd-hello-school{overflow-wrap:anywhere;}
+        #drawerContribute .ycd-body{gap:12px;padding:14px 20px 30px;font:400 13px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ycd-main{gap:14px;}
+        #drawerContribute .ycd-col,#drawerContribute .ycd-narrow{gap:12px;}
+        #drawerContribute .ycd-label{display:flex;align-items:center;gap:6px;min-width:0;font:800 14px/1.22 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.02em;}
+        #drawerContribute .ycd-step{flex:0 0 auto;margin:0;min-width:22px;height:22px;padding:0 5px;border:1px solid var(--line);border-radius:5px;background:var(--fg);color:var(--bg);font:800 11px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ycd-muted{opacity:1;color:var(--muted);}
+        #drawerContribute .ycd-small{font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ycd-link,#drawerContribute .ycd-memories a{color:var(--fg);text-underline-offset:3px;}
+        #drawerContribute .ycd-gate,#drawerContribute .ycd-proof-item,#drawerContribute .ycd-season-details{background:var(--card-bg);border:1px solid var(--line);border-radius:9px;padding:12px;}
+        #drawerContribute .ycd-gate{gap:8px;line-height:1.45;}
+        #drawerContribute .ycd-switch{border:1px solid var(--line);border-radius:8px;padding:3px;max-width:100%;}
+        #drawerContribute .ycd-switch button{font:700 11px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:0;text-transform:none;opacity:1;min-height:34px;padding:7px 10px;border-radius:5px;color:var(--muted);}
+        #drawerContribute .ycd-switch button.is-on{background:var(--fg);color:var(--bg);box-shadow:none;}
+        #drawerContribute .ycd-chosen,#drawerContribute .ycd-chosen-player{border:1px solid var(--fg)!important;background:var(--line)!important;border-radius:9px;}
+        #drawerContribute .ycd-season{border-color:var(--line);border-radius:8px;gap:4px;}
+        #drawerContribute .ycd-season b,#drawerContribute .ycd-season span{color:var(--fg);font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ycd-season.is-on,#drawerContribute .ycd-check.is-on{border-color:var(--fg);background:var(--line);}
+        #drawerContribute .ycd-check-head input{accent-color:var(--fg);}
+        #drawerContribute .ycd-proof-head,#drawerContribute .ycd-done-title{font:800 18px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em;}
+        #drawerContribute .ycd-btn{min-height:40px;padding:9px 15px;border:1px solid var(--line);border-radius:8px;background:var(--card-bg);color:var(--fg);font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.02em;}
+        #drawerContribute .ycd-btn-primary{background:var(--fg);color:var(--bg);border-color:var(--fg);}
+        #drawerContribute .ycd-field :is(input,select,textarea){min-height:40px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:400 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);background:var(--card-bg);color:var(--fg);}
+        #drawerContribute .ycd-field textarea{min-height:92px;}
+        #drawerContribute :is(button,a,input,select,textarea):focus-visible{outline:2px solid var(--fg);outline-offset:2px;}
+        @media(max-width:779px){
+          #drawerContribute .ycd-header{padding:15px 16px 12px;}
+          #drawerContribute .ycd-title{font-size:20px!important;}
+          #drawerContribute .ycd-title i{width:34px;height:34px;flex-basis:34px;font-size:18px;}
+          #drawerContribute .ycd-body{padding:12px 16px 25px;}
+          #drawerContribute .ycd-pair{gap:9px;}
+        }
       `}</style>
     </aside>,
     document.body
