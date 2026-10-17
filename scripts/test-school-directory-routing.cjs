@@ -27,9 +27,9 @@ const schools=[
 const query=async (sql,params=[])=>{
   if(sql.includes('same_state_name_count'))
     return {rows:schools.filter(s=>params[0].includes(s.hsid))};
-  if(sql.includes('LOWER(BTRIM(microsite_url')) && sql.includes('ANY('))
+  if(sql.includes('LOWER(BTRIM(microsite_url') && sql.includes('ANY('))
     return {rows:[{url:'https://hillsboro.or.yatstats.com'}]};
-  if(sql.includes('LOWER(BTRIM(microsite_url')) && sql.includes('LIMIT 2'))
+  if(sql.includes('LOWER(BTRIM(microsite_url') && sql.includes('LIMIT 2'))
     return {rows:params[0]==='https://hamilton.az.yatstats.com'?[{hsid:'5004'}]:[]};
   if(sql.includes('EXISTS') && sql.includes('LIMIT 1'))
     return {rows:params[0]==='5004'?[{hsid:'5004'}]:[]};
