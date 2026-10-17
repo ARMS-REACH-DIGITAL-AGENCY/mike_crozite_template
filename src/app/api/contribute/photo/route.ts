@@ -24,6 +24,7 @@ import {
   notifyContributor,
   photoLinkPath,
   assetUrl,
+  existingPublishedTarget,
   promoteUpload,
   stagePhoto,
   uploadCategory,
@@ -116,9 +117,9 @@ export async function POST(req: NextRequest) {
       pageUrl,
     };
     await query(
-      `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description, team_at_time)
-       VALUES ($1, $2, $3, $4, $5, $6::date, 'pending', $7, $8, $9, $10, $11)`,
-      [id, playerId, hsid, uploadCategory(purpose), staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details), teamId || null]
+      `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description, team_at_time, sha256)
+       VALUES ($1, $2, $3, $4, $5, $6::date, 'pending', $7, $8, $9, $10, $11, $12)`,
+      [id, playerId, hsid, uploadCategory(purpose), staged.key, `${year}-01-01`, staged.mime, staged.bytes, purpose, JSON.stringify(details), teamId || null, staged.sha256]
     );
     await logContribution(who, 'contribute_photo', { playerid: playerId || null, hsid, pageUrl, details: { upload_id: id, purpose } });
 
@@ -181,7 +182,20 @@ export async function POST(req: NextRequest) {
       try {
         // A photo for a player who isn't on the site yet can't be placed.
         if (type.needsPlayer && !PLAYER_ID.test(playerId)) throw new Error('no player on the site');
-        publishedAssets = await promoteUpload({ id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason });
+        const upload = { id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason };
+        // Distinct photos for a year coexist. Exact reuploads are kept in
+        // staging but never added to the rotation twice.
+        const { rows: duplicates } = await query<{ id: string }>(
+          `SELECT id::text FROM media_upload
+            WHERE id <> $1 AND playerid = $2 AND purpose = $3 AND date_taken = $4::date
+              AND sha256 = $5 AND status IN ('pending','approved')
+            ORDER BY uploaded_at ASC LIMIT 1`,
+          [id, playerId, purpose, `${year}-01-01`, staged.sha256]
+        );
+        if (duplicates.length) throw new Error('duplicate image; keep existing upload');
+        const occupied = await existingPublishedTarget(upload);
+        if (occupied) throw new Error('existing published image; hold for review');
+        publishedAssets = await promoteUpload(upload);
         status = 'approved';
         message = "Approved! It's on the site now.";
       } catch (error) {

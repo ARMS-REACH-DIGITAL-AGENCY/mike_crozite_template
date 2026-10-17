@@ -24,6 +24,7 @@ import {
   NotAnImageError,
   identifyContributor,
   isReviewer,
+  existingPublishedTarget,
   logContribution,
   photoLinkPath,
   promoteUpload,
@@ -181,12 +182,26 @@ export async function POST(req: NextRequest) {
       pageUrl,
     };
     await query(
-      `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description)
-       VALUES ($1, $2, $3, $4, $5, $6::date, 'pending', $7, $8, $9, $10)`,
-      [id, player.playerid, player.hsid, uploadCategory(type), staged.key, `${dateYear}-01-01`, staged.mime, staged.bytes, type, JSON.stringify(details)]
+      `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description, sha256)
+       VALUES ($1, $2, $3, $4, $5, $6::date, 'pending', $7, $8, $9, $10, $11)`,
+      [id, player.playerid, player.hsid, uploadCategory(type), staged.key, `${dateYear}-01-01`, staged.mime, staged.bytes, type, JSON.stringify(details), staged.sha256]
     );
-    const written = await promoteUpload({ id, playerid: player.playerid, hsid: player.hsid, purpose: type, s3_key: staged.key, date_taken: `${dateYear}-01-01`, current_season: currentSeason });
-    await query(`UPDATE media_upload SET status = 'approved' WHERE id = $1`, [id]);
+    const upload = { id, playerid: player.playerid, hsid: player.hsid, purpose: type, s3_key: staged.key, date_taken: `${dateYear}-01-01`, current_season: currentSeason };
+    const { rows: same } = await query<{ id: string }>(
+      `SELECT id::text FROM media_upload
+        WHERE id <> $1 AND playerid = $2 AND purpose = $3 AND date_taken = $4::date
+          AND sha256 = $5 AND status IN ('pending', 'approved')
+        ORDER BY uploaded_at ASC LIMIT 1`,
+      [id, player.playerid, type, `${dateYear}-01-01`, staged.sha256]
+    );
+    const occupied = await existingPublishedTarget(upload);
+    if (same.length || occupied) {
+      // Never silently replace a photo or publish an identical contribution;
+      // keep the durable staging record available to the reviewer.
+      return NextResponse.json({ ok: true, status: 'pending', id, message: same.length ? 'Duplicate upload held for review.' : 'Existing photo held for review.' }, { status: 201 });
+    }
+    const written = await promoteUpload(upload);
+    await query(`UPDATE media_upload SET status = 'approved', description = $2 WHERE id = $1`, [id, JSON.stringify({ ...details, published_assets: written })]);
     await logContribution(who!, 'contribute_bulk_photo', { playerid: player.playerid, hsid: player.hsid, pageUrl, details: { upload_id: id, purpose: type, file: fileName } });
     return NextResponse.json({ ok: true, link: photoLinkPath(type, { playerId: player.playerid, playerName: player.name, hsid: player.hsid }), written }, { status: 201 });
   } catch (error) {

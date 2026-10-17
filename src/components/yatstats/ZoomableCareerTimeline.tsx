@@ -726,13 +726,16 @@ const requestedCutouts = new Set<string>();
 // cutout exists it shows the whole photo (sitting above the rail) and asks
 // the server to make one, so the next visit gets the cutout.
 function StoryHeroImg({ photo, className, style, alt }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string }) {
-  const canCut = Boolean(photo.cutout && photo.source && !missingCutouts.has(photo.source));
+  const canCut = Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
   const [cutFailed, setCutFailed] = useState(false);
   const useCut = canCut && !cutFailed;
   const onError = () => {
-    if (!useCut || !photo.source) return;
-    missingCutouts.add(photo.source);
+    if (!useCut) return;
+    missingCutouts.add(photo.source || photo.cutout || '');
     setCutFailed(true);
+    // Published contribution cutouts have no Story source key to regenerate.
+    // Fall back to the full photo rather than showing a broken image.
+    if (!photo.source) return;
     if (!requestedCutouts.has(photo.source)) {
       requestedCutouts.add(photo.source);
       fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
@@ -1011,6 +1014,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             for (const photo of heroes) {
               if (photo.web && !photo.logo) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
             }
+          }
+          // Photo-only contributions share the existing five-second Story
+          // rotation but remain independent of Story/Memory records.
+          type TimelinePhoto = { id: string; year: number; web: string | null; cutout: string | null; source: string | null };
+          for (const image of (Array.isArray(data.timelinePhotos) ? data.timelinePhotos : []) as TimelinePhoto[]) {
+            if (image.year && image.web) (byYear[image.year] ||= []).push({ web: image.web, cutout: image.cutout, source: image.source });
           }
           setStoryPhotosByYear(byYear);
           setStoriesByMonth(byMonth);
