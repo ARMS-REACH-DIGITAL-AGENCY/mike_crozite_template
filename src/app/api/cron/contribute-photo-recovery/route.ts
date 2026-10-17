@@ -10,7 +10,7 @@ import { moderatePhoto } from '@/lib/contributeModeration';
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
-const BATCH = 3;
+const BATCH = 6;
 
 type Pending = UploadRow & { uploaded_at: string; sha256: string | null };
 type Details = {
@@ -90,13 +90,9 @@ export async function GET(req: NextRequest) {
           continue;
         }
         const occupied = await existingPublishedTarget(item);
-        if (occupied) {
-          const moderation = { decision: 'review', checked_at: new Date().toISOString(), description: 'Existing published slot: reviewer must choose whether to replace.' };
-          await query('UPDATE media_upload SET description = $2 WHERE id = $1',
-            [item.id, JSON.stringify({ ...details, moderation })]);
-          results.push({ id: item.id, outcome: 'replacement-held' });
-          continue;
-        }
+        // An existing card image is not a reason to suppress a valid upload.
+        // Preserve it and add the new photo to the year-specific timeline.
+        const appendTimeline = Boolean(occupied && purpose !== 'school_logo' && purpose !== 'team_logo');
         const verdict = details.moderation?.decision === 'approve' ? { decision: 'approve' as const, description: 'Previously AI approved; retrying publication.', reason_for_fan: '' } : await moderatePhoto({
           imageUrl: assetUrl(item.s3_key) || '',
           purpose,
@@ -126,7 +122,7 @@ export async function GET(req: NextRequest) {
           // completed upload never quietly overwrites another asset.
           await query('UPDATE media_upload SET description = $2 WHERE id = $1',
             [item.id, JSON.stringify({ ...details, moderation })]);
-          const written = await promoteUpload({ ...item, current_season: details.currentSeason });
+          const written = await promoteUpload({ ...item, purpose: appendTimeline ? 'timeline_hero' : item.purpose, current_season: details.currentSeason });
           await query("UPDATE media_upload SET status = 'approved', description = $2 WHERE id = $1",
             [item.id, JSON.stringify({ ...details, moderation, published_assets: written })]);
           results.push({ id: item.id, outcome: 'published' });

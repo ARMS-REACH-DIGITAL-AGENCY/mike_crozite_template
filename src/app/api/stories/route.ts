@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT id::text, date_taken::text, s3_key, description
          FROM media_upload
-        WHERE playerid = $1 AND purpose = 'timeline_hero' AND status = 'approved'
+        WHERE playerid = $1 AND purpose IN ('timeline_hero', 'back_hero', 'flip_card', 'headshot') AND status = 'approved'
           AND s3_key LIKE 'staging/contribute/%'
         ORDER BY date_taken ASC, uploaded_at ASC, id ASC LIMIT 100`,
       [playerId]
