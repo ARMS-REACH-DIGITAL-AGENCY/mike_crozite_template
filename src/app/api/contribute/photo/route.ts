@@ -194,8 +194,10 @@ export async function POST(req: NextRequest) {
         );
         if (duplicates.length) throw new Error('duplicate image; keep existing upload');
         const occupied = await existingPublishedTarget(upload);
-        if (occupied) throw new Error('existing published image; hold for review');
-        publishedAssets = await promoteUpload(upload);
+        // Preserve existing card art; publish distinct approved photo to the timeline.
+        const appendTimeline = Boolean(occupied && purpose !== 'school_logo' && purpose !== 'team_logo');
+        if (occupied && !appendTimeline) throw new Error('logo identity requires review');
+        publishedAssets = await promoteUpload(appendTimeline ? { ...upload, purpose: 'timeline_hero' } : upload);
         status = 'approved';
         message = "Approved! It's on the site now.";
       } catch (error) {
