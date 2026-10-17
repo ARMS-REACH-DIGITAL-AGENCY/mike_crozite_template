@@ -2975,6 +2975,42 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-anchor .zt-copy { width:20.5%; }
           .zt-bodycopy { font-size:clamp(9px,2.2vw,11px); }
         }
+        /* Responsive transition band: previous 620px threshold suddenly
+           doubled each slide to 200% while image layers kept viewport
+           coordinates, causing hero/quote overlaps around 600px.
+           Between 560 and 740px use one viewport-sized frame for both;
+           keep small-phone (below 560px) extended-swipe treatment. */
+        @media (min-width:560px) and (max-width:740px) {
+          .zt-slide {flex:0 0 100%;width:100%;min-width:100%;}
+          .zt-copy {left:51%;right:4%;width:auto;bottom:17px;padding-top:10px;}
+          .zt-anchor .zt-copy {left:51%;right:4%;width:auto;}
+          .zt-kick {font-size:9px;}
+          .zt-title {font-size:clamp(17px,2.9vw,22px);line-height:1.05;}
+          .zt-bodycopy {font-size:clamp(10px,1.7vw,12px);}
+          .zt-anchor .zt-bodycopy {font-size:10px;}
+          .zt-person-stack :global(.zt-person) {
+            left:clamp(128px,22vw,168px);width:clamp(160px,28vw,215px);
+            height:100%;bottom:0;object-position:left bottom;
+          }
+          .zt-person-stack :global(.zt-person-then) {
+            left:clamp(113px,19vw,153px);width:clamp(170px,30vw,220px);
+          }
+          .zt-person-stack :global(.zt-person-now) {
+            left:calc(51% + 12px - 800px);width:800px;height:48%;bottom:8px;
+            object-position:right bottom;
+          }
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) {
+            left:calc(51% - 800px);
+          }
+          .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) {
+            left:0;width:47%;height:100%;
+          }
+          .zt-visual-gradient {background:linear-gradient(90deg,rgba(3,4,5,.1) 0%,rgba(3,4,5,.20) 35%,rgba(3,4,5,.86) 52%,#030405 100%);}
+          .zt-logo-layer {right:-14%;width:53%;opacity:.15;}
+          .zt-persist-name {font-size:clamp(11px,2vw,15px);}
+          .zt-persist-team {font-size:8.5px;}
+          .zt-persist-org {font-size:8px;}
+        }
       `}</style>
     </section>
     </>

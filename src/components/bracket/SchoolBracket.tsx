@@ -1310,6 +1310,18 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           body.yfp-dock-r .yfz-panel { padding-right:var(--yfp-dw); padding-left:max(8px, calc(100% - var(--yfp-dw) - 680px)); }
           body.yfp-dock-l.yfp-dock-r .yfz-panel { padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
         }
+        /* Keep the central scoreboard and runs leaderboard the exact same
+           width/position with either, both, or neither Stat Ledger open.
+           Reserve both 422px ledger lanes on wide desktop even when closed. */
+        @media (min-width:1240px) {
+          .yfz-panel,
+          body.yfp-dock-l .yfz-panel,
+          body.yfp-dock-r .yfz-panel,
+          body.yfp-dock-l.yfp-dock-r .yfz-panel {
+            padding-left:var(--yfp-dw);
+            padding-right:var(--yfp-dw);
+          }
+        }
         @media (prefers-reduced-motion: reduce) { .yfz-panel { transition:none !important; } }
         /* Every game by master game #: a scrolling table inside the panel. */
         .yfz-all { height: 100%; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--yfp-card-border); border-radius: 8px; background: var(--yfp-card-bg); }

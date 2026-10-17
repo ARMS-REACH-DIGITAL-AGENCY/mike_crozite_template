@@ -207,12 +207,12 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
 
         <nav className="yat-topnav" aria-label="Desktop navigation">
           <a className="yat-topnav-item" href={`/${hsid}`}><span>WHERE THEY</span><strong>YAT?</strong></a>
-          <a className="yat-topnav-item" data-tab="news" href={schoolSectionHash('news')}><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
           <a className="yat-topnav-item" data-tab="alltime" href={schoolSectionHash('alltime')}><span>ALL-TIME</span><strong>NEXT-LEVEL LIST</strong></a>
           <a className="yat-topnav-item" data-tab="current" href={schoolSectionHash('current')}><span>{teamSeason()}</span><strong>TEAM</strong></a>
-          <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHash('fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
+          <a className="yat-topnav-item" data-tab="news" href={schoolSectionHash('news')}><span>ACTIVE ALUMNI</span><strong>NEWS</strong></a>
           <a className="yat-topnav-item" data-cc-link href={connectContributeHref(hsid)}><strong>CONNECT</strong><span>&amp;</span><strong>CONTRIBUTE</strong><span>PORTAL</span></a>
-          <a className="yat-topnav-item" data-tab="partner" href={schoolSectionHash('partner')}><span>PARTNER</span><strong>PROGRAM</strong></a>
+          <a className="yat-topnav-item" href="https://yatstats.com/partners/"><span>PARTNER</span><strong>PROGRAM</strong></a>
+          <a className="yat-topnav-item" data-tab="fantasy" href={schoolSectionHash('fantasy')}><span>FANTASY</span><strong>BRACKET</strong></a>
           <a className="yat-topnav-item" href="https://yatstats.com/"><span>YAT?STATS GUIDED</span><strong>TOUR</strong></a>
         </nav>
 
@@ -232,11 +232,27 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         #drawerLeft .yat-left-search-content { display: none; }
         body.yat-left-search-mode #drawerLeft .yat-left-nav-content { display: none; }
         body.yat-left-search-mode #drawerLeft .yat-left-search-content { display: block; }
-        #drawerLeft .yat-search-drawer-title { margin: 0 0 4px; font: 900 15px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-        #drawerLeft .yat-search-drawer-sub { margin: 0 0 12px; color: var(--muted); font: 400 10px/1.35 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+        /* Same display face as the CONNECT / CONTRIBUTE headings.
+           Reserve the close X column and allow natural wrapping. */
+        #drawerLeft .yat-search-drawer-title {
+          max-width:100%; min-width:0; margin:0 0 8px; padding-right:42px;
+          font:800 clamp(21px, 2vw, 25px)/1.05 var(--yat-font-compact);
+          letter-spacing:.015em; text-transform:uppercase; white-space:normal;
+          overflow-wrap:normal; color:var(--ink);
+        }
+        /* Instructions use the standard Archivo interface face, not school-ID display type. */
+        #drawerLeft .yat-search-drawer-sub {
+          margin:0 0 12px; color:var(--muted); font:400 12px/1.4 var(--yat-font-ui);
+          letter-spacing:0; text-transform:none;
+        }
         #drawerLeft .yat-gs-input-wrap { margin-bottom: 10px; position: relative; display: flex; align-items: center; }
         #drawerLeft .yat-gs-input-wrap i { position: absolute; right: 11px; left: auto; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: .78; z-index: 2; }
-        #drawerLeft .yat-gs-input { padding-left: 10px !important; padding-right: 36px !important; }
+        #drawerLeft .yat-gs-input {
+          padding-left:12px !important; padding-right:38px !important;
+          font:400 14px/1.35 var(--yat-font-ui) !important;
+          letter-spacing:0 !important; text-transform:none !important;
+        }
+        #drawerLeft .yat-gs-input::placeholder { font:400 13px/1.35 var(--yat-font-ui); opacity:.8; }
         #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--row2-h) - var(--footerH) - 170px); overflow: auto; }
 
         #drawerFavorites { width: min(86vw, var(--yat-right-drawer-w)) !important; }

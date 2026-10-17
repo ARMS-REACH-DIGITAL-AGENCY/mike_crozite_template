@@ -95,6 +95,33 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-fantasy-countdown-cell { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; text-align: center; }
       #drawerLeft .yat-fantasy-countdown-unit { color: #fff; font: 600 7px/1 Oswald, sans-serif; letter-spacing: .025em; }
       #drawerLeft .yat-fantasy-countdown-number { display: block; padding: 4px 1px 3px; border: 0; border-radius: 4px; background: linear-gradient(180deg, #071c0e, #102f1b); box-shadow: inset 0 2px 5px rgba(0,0,0,.45); color: #ffb21c; font: 700 19px/1 Oswald, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.035em; text-shadow: 0 1px 1px #000; }
+      /* Treat the fantasy destination as a regular menu title, with a compact side countdown. */
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy {
+        font-family: var(--yat-font-compact), "Barlow Condensed", sans-serif;
+        font-size: inherit;
+        font-weight: 700;
+        line-height: 1.08;
+        letter-spacing: normal !important;
+        word-spacing: normal !important;
+        gap: 2px;
+      }
+      #drawerLeft .yat-drawer-fantasy-copy > span { white-space: normal; font-size: inherit; letter-spacing: normal !important; word-spacing: normal !important; }
+      #drawerLeft .yat-drawer-fantasy-copy > span:nth-child(2) { font-weight: 700; }
+      #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown {
+        flex: 0 0 115px;
+        width:115px;
+        padding: 4px 5px;
+        gap: 3px;
+      }
+      #drawerLeft .yat-fantasy-countdown-date { font-size: 9px; line-height: 1.1; white-space: nowrap; }
+      #drawerLeft .yat-fantasy-countdown-cells { gap: 3px; }
+      #drawerLeft .yat-fantasy-countdown-cell { gap: 2px; }
+      #drawerLeft .yat-fantasy-countdown-number { font-size: 16px; padding: 3px 1px 2px; }
+      @media (max-width: 420px) {
+        #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { gap: 5px; }
+        #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown { flex-basis: 108px; width: 108px; }
+        #drawerLeft .yat-fantasy-countdown-date { font-size: 8.5px; }
+      }
       #drawerLeft .yat-drawer-fantasy-highlight:is(:hover, :focus-visible) .yat-drawer-fantasy-copy > span { text-decoration: underline; text-underline-offset: 3px; }
       #drawerLeft .yat-drawer-fantasy-highlight:focus-visible .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); }
       #drawerLeft .yat-nav-page-icon { width:22px; min-width:22px; text-align:center; font-size:20px; }
@@ -323,6 +350,61 @@ export default function DrawerLayoutOverrides() {
         body.drawer-favorites-open .yat-drawer-mask {
           opacity: 1 !important;
           pointer-events: auto !important;
+        }
+      }
+      /* YAT?STATS photo/data/news contribution drawer: ONE unified geometry,
+         regardless of entry point (account success, player card, portal).
+         The four rows remain browsable while it is open. */
+      #drawerContribute.yat-drawer {
+        position:fixed!important;
+        inset:auto 0 0 auto!important;
+        top:0!important;
+        height:100dvh!important;
+        width:var(--yat-side-drawer-w)!important;
+        max-width:var(--yat-side-drawer-w)!important;
+        box-sizing:border-box!important;
+        overflow-x:hidden!important;
+        overflow-y:auto!important;
+        background:rgba(6,6,6,.80)!important;
+        backdrop-filter:blur(9px)!important;
+        -webkit-backdrop-filter:blur(9px)!important;
+        border-left:1px solid var(--line)!important;
+        border-right:0!important;
+        transform:translateX(105%)!important;
+        transition:transform .22s ease!important;
+        z-index:64!important;
+      }
+      body.light-theme #drawerContribute.yat-drawer {background:rgba(255,255,255,.87)!important;}
+      body.drawer-contribute-open #drawerContribute.yat-drawer {transform:translateX(0)!important;}
+      @media (min-width:780px) {
+        body.drawer-contribute-open {overflow-y:auto!important;}
+        body #drawerContribute.yat-drawer {
+          top:calc(var(--row1-h) + var(--row2-h))!important;
+          bottom:var(--footerH)!important;
+          height:auto!important;
+        }
+        body.drawer-contribute-open .yat-drawer-mask {
+          display:none!important;
+          opacity:0!important;
+          pointer-events:none!important;
+        }
+        body.drawer-contribute-open .yat-row3-shell,
+        body.drawer-contribute-open .yat-row4-shell,
+        body.drawer-contribute-open .yat-row5-shell,
+        body.drawer-contribute-open .yat-row6-shell {
+          margin-right:var(--yat-side-drawer-w)!important;
+          transition:margin-right .22s ease;
+        }
+      }
+      @media (max-width:779px) {
+        #drawerContribute.yat-drawer {
+          top:0!important;bottom:0!important;height:100dvh!important;
+          width:100vw!important;max-width:100vw!important;
+          z-index:2147483200!important;
+        }
+        body.drawer-contribute-open .yat-drawer-mask {
+          opacity:1!important;pointer-events:auto!important;
+          z-index:2147483199!important;
         }
       }
     `}</style>

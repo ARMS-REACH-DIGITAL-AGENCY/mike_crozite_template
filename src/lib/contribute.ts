@@ -94,7 +94,7 @@ type PhotoType = {
 export const PHOTO_TYPES: PhotoType[] = [
   {
     id: 'flip_card',
-    prefix: 'Flip Card Front',
+    prefix: 'HIGH SCHOOL · FLIP CARD FRONT',
     label: 'High School Photo',
     aspects: [5 / 7],
     needsPlayer: true,
@@ -102,8 +102,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'headshot',
-    prefix: 'Headshot',
-    label: 'Headshot (Any Season)',
+    prefix: 'CURRENT SEASON · ROW 3',
+    label: 'Current Player Headshot',
     aspects: [5 / 7],
     guide: 'eyes',
     asks: 'season',
@@ -112,8 +112,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'back_hero',
-    prefix: 'Flip Card Back',
-    label: 'Action Photo (Current Team)',
+    prefix: 'CURRENT SEASON · FLIP CARD BACK',
+    label: 'Current Action Photo',
     aspects: [20 / 7],
     guide: 'name-left',
     needsPlayer: true,
@@ -121,17 +121,17 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'timeline_hero',
-    prefix: 'Career Path Timeline',
-    label: 'Timeline Hero Image (Yearly Action or Headshot)',
+    prefix: 'PAST SEASONS · CAREER PATH',
+    label: 'Career Path Year Photo',
     aspects: [5 / 7, 7 / 5],
     asks: 'season',
     needsPlayer: true,
-    spec: "The big image on one season's slide of his Career Path Timeline: an action shot or a headshot from that year. 5x7 or 7x5; we cut him out of the background.",
+    spec: "A bust or action photo identifying a specific playing year on the Career Path Timeline. This is the slide's hero image, NOT a fan memory or story post. 5x7 or 7x5; we remove the background.",
   },
   {
     id: 'school_logo',
-    prefix: 'School Crest',
-    label: 'High School Logo',
+    prefix: 'SCHOOL / CURRENT TEAM',
+    label: 'School or Current Team Logo',
     aspects: null,
     asks: 'school',
     needsPlayer: false,
@@ -139,8 +139,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'team_logo',
-    prefix: 'Team Logo',
-    label: 'College or Pro Team Logo',
+    prefix: 'SCHOOL / CURRENT TEAM',
+    label: 'School or Current Team Logo',
     aspects: null,
     asks: 'team',
     needsPlayer: false,
@@ -148,8 +148,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'other_photo',
-    prefix: 'Other',
-    label: 'Any Other Photo',
+    prefix: 'ADDITIONAL PHOTOS',
+    label: 'Other Photo',
     aspects: null,
     asks: 'season',
     needsPlayer: false,
@@ -211,14 +211,11 @@ export type ContributeOption = {
 };
 
 export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
-  { id: 'player', icon: 'ri-video-chat-line', label: 'Connect With Players', short: 'Players', blurb: 'A personal video from a player you follow.', section: 'cc-player' },
-  { id: 'fans', icon: 'ri-hand-heart-line', label: 'Connect With Fans', short: 'Sponsor', blurb: 'Put your business in front of the hometown.', section: 'cc-fans' },
-  { id: 'alumni', icon: 'ri-contacts-book-2-line', label: 'Connect With Fellow Alumni', short: 'Alumni', blurb: 'Where YAT now? Share how to reach you.', section: 'cc-alumni' },
-  { id: 'photo', tab: 'photo', icon: 'ri-camera-3-line', label: 'Photos', short: 'Photos', blurb: 'Fill a silhouette with a real photo.', section: 'cc-photo' },
-  { id: 'data', tab: 'data', icon: 'ri-edit-box-line', label: 'Update Data', short: 'Update Data', blurb: 'A missing season, a grad year, his height or position.', section: 'cc-data' },
-  { id: 'missing', tab: 'missing', icon: 'ri-user-search-line', label: 'Missing Next-Level Alumni', short: 'Missing Alumni', blurb: 'Know an alum who played on? Add him.', section: 'cc-missing' },
-  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'News Tip', short: 'News Tip', blurb: 'A call-up, an award, a story: send the link.', section: 'cc-tip' },
-];
+  { id: 'video', icon: 'ri-video-chat-line', label: 'VIDEO MESSAGE', short: 'VIDEO MESSAGE', blurb: 'YAT-A-BOY player video exchange — coming soon.', section: 'sec-video' },
+  { id: 'photo', tab: 'photo', icon: 'ri-upload-cloud-2-line', label: 'PHOTO UPLOADS', short: 'PHOTO UPLOADS', blurb: 'High school, headshots, action pics, yearly pics, and team logos.', section: 'cc-photo' },
+  { id: 'data', tab: 'data', icon: 'ri-bar-chart-2-line', label: 'ADD PLAYER INFO', short: 'ADD PLAYER INFO', blurb: 'Correct a player or add a missing next-level alumnus.', section: 'cc-data' },
+  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'SHARE NEWS TIP', short: 'SHARE NEWS TIP', blurb: 'Send a published player news link.', section: 'cc-tip' },
+]
 
 // What a sponsorship inquiry is about (the portal's Partner Program form).
 export const SPONSOR_INTERESTS = {
@@ -228,6 +225,7 @@ export const SPONSOR_INTERESTS = {
   alumni: 'My own profile (Where YAT Now?)',
   other: 'Something else',
   video: 'Personalized Player Video Interest',
+  video_player: 'Player Video Program Application',
 } as const;
 export type SponsorInterest = keyof typeof SPONSOR_INTERESTS;
 

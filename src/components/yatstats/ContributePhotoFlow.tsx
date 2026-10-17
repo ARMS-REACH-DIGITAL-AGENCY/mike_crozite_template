@@ -94,6 +94,25 @@ export default function ContributePhotoFlow({
 
   const main = tagged[0] || null;
   const type = PHOTO_TYPES.find((t) => t.id === purpose) || null;
+
+  // Fetch only the selected player's published flip-card facts. The
+  // approval preview reuses the genuine PlayerCardFront renderer rather
+  // than assembling an unrelated schematic or invented player data.
+  const [publishedCard, setPublishedCard] = useState<Record<string, unknown> | null>(null);
+  useEffect(() => {
+    let active = true;
+    setPublishedCard(null);
+    if ((purpose !== 'flip_card' && purpose !== 'back_hero') || !main?.playerId) return;
+    const params = new URLSearchParams({ playerId: main.playerId });
+    if (main.schoolId) params.set('hsid', main.schoolId);
+    fetch('/api/contribute/card-preview?' + params.toString())
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (active) setPublishedCard(data?.player && typeof data.player === 'object' ? data.player : null);
+      })
+      .catch(() => { if (active) setPublishedCard(null); });
+    return () => { active = false; };
+  }, [purpose, main?.playerId, main?.schoolId]);
   const years = seasons ? yearsOfHisLife(seasons, info?.classOf ?? null, THIS_YEAR) : null;
   const season: Season | null = seasonKey === 'other'
     ? (other.year ? { key: 'other', year: Number(other.year), stage: 'other', team: other.team.trim(), level: '', label: 'Other', current: false } : null)
@@ -292,10 +311,32 @@ export default function ContributePhotoFlow({
           Changing the destination is optional and never a required step. */}
       {type && !showPurposePicker ? (
         <div className="ypf-selected-purpose">
-          <div><span className="ypf-selected-kicker">IMAGE DESTINATION</span><strong>{type.prefix} · {type.label}</strong></div>
+          <div><span className="ypf-selected-kicker">{type.prefix}</span><strong>{type.label}</strong></div>
           <button type="button" className="ycd-link ycd-small" onClick={() => setShowPurposePicker(true)}>Change</button>
           <details><summary>What photo should I send?</summary><p>{type.spec}</p></details>
         </div>
+      ) : null}
+      {/* Mobile-only placement reference for the selected destination.
+          Desktop keeps its dedicated portal viewport; the upload form never
+          needs a second side-by-side preview. */}
+      {type ? (
+        <figure className="ypf-mobile-placement">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={type.id}
+            src={`/img/contribute/${({
+              flip_card: 'placement-high-school.jpg',
+              headshot: 'placement-headshots.jpg',
+              back_hero: 'placement-action-pics.jpg',
+              timeline_hero: 'placement-yearly-pics.jpg',
+              school_logo: 'placement-team-logos.jpg',
+              team_logo: 'placement-team-logos.jpg',
+              other_photo: 'placement-high-school.jpg',
+            } as Record<PhotoPurpose, string>)[type.id]}`}
+            alt={`Example of where a ${type.label.toLowerCase()} appears on YAT?STATS`}
+          />
+          <figcaption>EXAMPLE PLACEMENT · {type.label.toUpperCase()}</figcaption>
+        </figure>
       ) : null}
       {/* 1. Upload + */}
       <section className="ypf-step">
@@ -324,7 +365,7 @@ export default function ContributePhotoFlow({
           {PHOTO_TYPES.map((t) => (
             <label className={`ypf-type${purpose === t.id ? ' is-on' : ''}`} key={t.id}>
               <input type="radio" name="ypf-type" checked={purpose === t.id} onChange={() => choosePurpose(t.id)} />
-              <span><b>{t.prefix}</b> · {t.label}{purpose === t.id ? <small>{t.spec}</small> : null}</span>
+              <span><b>{t.label}</b><small>{t.prefix}{t.id === 'team_logo' ? ' · COLLEGE OR PRO TEAM LOGO' : t.id === 'school_logo' ? ' · HIGH SCHOOL CREST' : ''}</small>{purpose === t.id ? <small>{t.spec}</small> : null}</span>
             </label>
           ))}
         </div>
@@ -434,7 +475,7 @@ export default function ContributePhotoFlow({
 
       {/* 4. Verify position, 5. Approve */}
       {type && file ? (
-        <div className="ypf-verify">
+        <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
           <section className="ypf-step">
             <div className="ycd-label"><span className="ycd-step">4</span> Verify position</div>
             {aspect ? (
@@ -471,6 +512,7 @@ export default function ContributePhotoFlow({
                   teamId={type.asks === 'team' ? teamId : ''}
                   tagged={tagged.map((t) => t.displayName)}
                   player={proofPlayer}
+                  publishedCard={publishedCard}
                 />
                 <label className={`ypf-approve${approved ? ' is-on' : ''}`}>
                   <input type="checkbox" checked={approved} onChange={(e) => setApprovedSig(e.target.checked ? sig : '')} />
@@ -507,6 +549,12 @@ export default function ContributePhotoFlow({
 
       <style jsx global>{`
         .ypf-flow { display: flex; flex-direction: column; gap: 10px; max-width: 1100px; }
+        .ypf-mobile-placement { display:none; }
+        @media (max-width:779px) {
+          #drawerContribute .ypf-mobile-placement { display:flex;flex-direction:column;gap:6px;margin:0;padding:10px;border:1px solid var(--sb-card-border);border-radius:7px;background:var(--sb-card-bg);min-width:0; }
+          #drawerContribute .ypf-mobile-placement img { display:block;width:100%;height:auto;max-height:42dvh;object-fit:contain;border-radius:4px; }
+          #drawerContribute .ypf-mobile-placement figcaption { font:700 10px/1.3 var(--yat-font-compact);letter-spacing:.04em;text-align:center;color:var(--sb-ink-muted); }
+        }
         .ypf-selected-purpose { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 12px; align-items:center; padding:9px 12px; border-left:3px solid #d69a24; border-bottom:1px solid var(--sb-card-border); }
         .ypf-selected-purpose > div { display:flex; flex-direction:column; gap:3px; min-width:0; }
         .ypf-selected-purpose strong { font:800 14px/1.2 var(--yat-font-ui); }
@@ -521,8 +569,20 @@ export default function ContributePhotoFlow({
         .ypf-uploaded img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
         .ypf-pick { align-self: flex-start; }
         .ypf-pick button:disabled { opacity: .35; cursor: default; }
-        .ypf-verify { display: grid; grid-template-columns: 1fr; gap: 18px; }
-        @media (min-width: 900px) { .ypf-verify { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ypf-verify .ypf-step { border-bottom: 0; } }
+        .ypf-verify { display:flex; flex-direction:column; align-items:stretch; gap:14px; min-width:0; }
+        /* The contribution drawer is intentionally the same width as other side
+           drawers. On large desktop viewports this form used to switch to
+           two columns based on WINDOW width, crushing both the crop tool and
+           proof into ~140px columns. Always stack these inside the drawer. */
+        #drawerContribute .ypf-verify { grid-template-columns:minmax(0, 1fr); gap:14px; }
+        #drawerContribute .ypf-verify > .ypf-step { width:100%;min-width:0; }
+        /* The proof ALSO had its own viewport-based two-column split.
+           Keep the rendered photo above its explanatory text at any width. */
+        #drawerContribute .ypf-verify .ypf { grid-template-columns:minmax(0, 1fr);gap:12px; }
+        #drawerContribute .ypf-verify .ypf-stage,
+        #drawerContribute .ypf-verify .ypf-where { min-width:0;max-width:100%;width:100%; }
+        #drawerContribute .ypf-verify .ypf-stage > * { max-width:100%; }
+
         .ypf-other { display: flex; gap: 8px; flex-wrap: wrap; }
         .ypf-other select { flex: 0 0 110px; }
         .ypf-other input { flex: 1 1 220px; }
