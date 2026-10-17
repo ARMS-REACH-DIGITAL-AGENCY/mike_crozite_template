@@ -2,10 +2,11 @@
 // Connect & Contribute: server helpers for /api/contribute.
 //
 // Where things go (tables that were already in the database):
-//   photos          -> media_upload (status 'pending'), the file in S3 under
-//                      staging/contribute/. Nothing reaches the site until a
-//                      reviewer approves it (/api/contribute/review); then the
-//                      photo is copied to the files the cards already read.
+//   photos          -> media_upload, with unique staged files and automatic AI
+//                      review. Approved timeline photos get unique published
+//                      keys per upload, so same-year images rotate together.
+//                      Only exceptions (unsafe or conflicting replacements)
+//                      wait for a reviewer.
 //   corrections,
 //   stats, tips     -> news_tip_queue (intake 'correction' / 'fan_drawer')
 //   missing players -> missing_player_submission
@@ -13,7 +14,8 @@
 // same as stories, and the fan's ARMS contact is tagged 'contributor'.
 import 'server-only';
 import type { NextRequest } from 'next/server';
-import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { createHash } from 'crypto';
 import sharp from 'sharp';
 import { query } from './db';
 import { identifyFan } from './fanIdentity';
@@ -214,7 +216,7 @@ function validCrop(c: Crop | null | undefined): c is Crop {
 // removed. Player photos are cropped to 5x7 portrait around the most
 // interesting part (the face, usually); action photos are kept whole;
 // logos become PNGs with their transparency.
-export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffer, crop?: Crop | null, landscape = false): Promise<{ key: string; mime: string; bytes: number }> {
+export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffer, crop?: Crop | null, landscape = false): Promise<{ key: string; mime: string; bytes: number; sha256: string }> {
   let image: sharp.Sharp;
   let meta: sharp.Metadata;
   try {
@@ -262,7 +264,7 @@ export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffe
   }
   const key = `staging/contribute/${id}.${ext}`;
   await put(key, data, mime, STAGED_CACHE);
-  return { key, mime, bytes: data.length };
+  return { key, mime, bytes: data.length, sha256: createHash('sha256').update(data).digest('hex') };
 }
 
 // The player cut out of the background (remove.bg), for his Career Path
@@ -374,6 +376,13 @@ async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source:
 //   school_logo   -> schools/{hsid}.png
 //   team_logo     -> teams/{teamid}.png + teams-web/{teamid}.webp
 // ---------------------------------------------------------------------------
+// The upload's immutable staged bytes are the source of truth for duplicate
+// detection, including submissions saved before we began recording sha256.
+export async function sha256ForStagedPhoto(key: string): Promise<string> {
+  if (!/^staging\/contribute\/[0-9a-f-]{36}\.(jpg|png)$/.test(key)) throw new Error('Not a staged contribution');
+  return createHash('sha256').update(await download(key)).digest('hex');
+}
+
 export type UploadRow = {
   id: string;
   playerid: string;
@@ -387,6 +396,30 @@ export type UploadRow = {
   current_season?: boolean;
   description?: string | null;
 };
+
+// Legacy card, logo and season headshot slots contain exactly one image.
+// Never silently overwrite those when automatically processing a fan upload.
+// A reviewer may explicitly replace them; timeline heroes are append-only.
+export async function existingPublishedTarget(u: UploadRow): Promise<string | null> {
+  const pid = String(u.playerid || '').trim();
+  const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
+  const purpose = u.purpose as PhotoPurpose;
+  let key: string | null = null;
+  if (purpose === 'flip_card') key = `players/then/${pid}.jpg`;
+  else if (purpose === 'back_hero') key = `players/back/${pid}.jpg`;
+  else if (purpose === 'headshot' && year) key = `players/season-headshots/${pid}_${year}.jpg`;
+  else if (purpose === 'school_logo') key = `schools/${u.hsid}.png`;
+  else if (purpose === 'team_logo') key = `teams/${u.team_at_time}.png`;
+  if (!key) return null;
+  try {
+    await getS3().send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
+    return key;
+  } catch (error) {
+    const e = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+    if (e.$metadata?.httpStatusCode === 404 || e.name === 'NotFound' || e.name === 'NoSuchKey') return null;
+    throw error; // An S3 outage or permissions error must never mean "safe to overwrite".
+  }
+}
 
 export async function promoteUpload(u: UploadRow): Promise<string[]> {
   const pid = String(u.playerid || '').trim();
@@ -423,9 +456,13 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
   } else if (purpose === 'timeline_hero') {
     const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
     if (!year) throw new Error('This photo has no season.');
-    await copy(u.s3_key, `players/season-photos/${pid}_${year}.jpg`, 'image/jpeg');
-    written.push(`players/season-photos/${pid}_${year}.jpg`);
-    const cutoutKey = `players/season-cutouts/${pid}_${year}.png`;
+    // Every photo gets its own immutable destination. Multiple photos from
+    // one player/season can coexist and rotate; never rewrite the legacy
+    // ${pid}_${year}.jpg file or another fan's image.
+    const photoKey = `players/season-photos/${pid}_${year}_${u.id}.jpg`;
+    await copy(u.s3_key, photoKey, 'image/jpeg');
+    written.push(photoKey);
+    const cutoutKey = `players/season-cutouts/${pid}_${year}_${u.id}.png`;
     const cutoutPng = await cutout(src);
     if (cutoutPng) {
       await put(cutoutKey, cutoutPng, 'image/png');
