@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
+import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";
 export const runtime = "nodejs";
 
 function buildCorsHeaders(req: NextRequest) {
@@ -55,7 +56,7 @@ async function schoolsInState(state: string, qRaw: string) {
      )
      SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
             COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
-            s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url
+            s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url, s.bracket_seeding
        FROM school_success s
        LEFT JOIN counts c ON c.hsid = s.hsid::text
       WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
@@ -115,7 +116,8 @@ export async function GET(req: NextRequest) {
         atnla,
         drafted_hs,
         drafted,
-        microsite_url
+        microsite_url,
+        bracket_seeding
       FROM ${TABLE}
       WHERE
         ($1::text = '' OR (
@@ -143,7 +145,33 @@ export async function GET(req: NextRequest) {
     // school_success is a ranking/directory source, not a complete ID registry.
     // Resolve its missing HSIDs against the canonical TBC school records.
     // Never guess an ID when name + city + state is ambiguous.
-    const missingNames = Array.from(new Set(rows
+    // school_success excludes some player-linked high schools. Include those
+    // real school IDs from TBC without altering any roster or ranking table.
+    // This is the same population routed by the school-domain resolver.
+    const resultRows: any[] = [...rows];
+    if (qRaw || stateRaw || cityRaw) {
+      const isStateSearch = Boolean(state);
+      const searchState = state || stateRaw;
+      const { rows: missingSchools } = await query(
+        `SELECT t.hsid, t.hsname, t.cityname, t.hslocation, t.regionid,
+                NULL::int AS yatstats_national_rank,
+                NULL::text AS yatstats_state_rank,
+                0::int AS current_aa, NULL::int AS mlb,
+                NULL::int AS atnla, NULL::int AS drafted_hs, NULL::int AS drafted,
+                NULL::text AS microsite_url, FALSE AS bracket_eligible
+           FROM public.tbc_schools_raw t
+          WHERE EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+            AND NOT EXISTS (SELECT 1 FROM public.school_success s WHERE s.hsid = t.hsid)
+            AND ($1::text = '' OR t.regionid = $1)
+            AND ($2::text = '' OR t.cityname ILIKE $2)
+            AND ($3::boolean OR t.hsname ILIKE $4)
+          ORDER BY t.hsname, t.hsid
+          LIMIT $5`,
+        [searchState, cityRaw ? `%${cityRaw}%` : '', isStateSearch, `%${qRaw}%`, state ? 2000 : limit],
+      );
+      resultRows.push(...missingSchools);
+    }
+    const missingNames = Array.from(new Set(resultRows
       .filter((r: any) => !/^\d+$/.test(String(r.hsid ?? '').trim()))
       .map((r: any) => String(r.hsname ?? '').trim().toLowerCase())
       .filter(Boolean)));
@@ -164,12 +192,16 @@ export async function GET(req: NextRequest) {
         canonicalIds.get(key)!.add(String(match.hsid));
       }
     }
-    const resolvedRows = rows.map((row: any) => {
+    const resolvedRows = resultRows.map((row: any) => {
       if (/^\d+$/.test(String(row.hsid ?? '').trim())) return row;
       const key = schoolKey(row.hsname, row.cityname || String(row.hslocation ?? '').split(',')[0], row.regionid);
       const matches = canonicalIds.get(key);
       return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
     });
+    const derivedUrls = await canonicalSchoolUrls(
+      resolvedRows.map((r: any) => String(r.hsid || '')),
+      (sql, params = []) => query(sql, params),
+    );
     const programs = resolvedRows.map((r: any) => ({
       hsid: r.hsid ?? null,
       hsname: r.hsname ?? null,
@@ -183,7 +215,8 @@ export async function GET(req: NextRequest) {
       drafted_hs: r.drafted_hs ?? null,
       drafted: r.drafted ?? null,
       drafted_ratio: r.drafted_hs && r.drafted ? `${r.drafted_hs}/${r.drafted}` : null,
-      microsite_url: r.microsite_url ?? null,
+      microsite_url: derivedUrls.get(String(r.hsid || '')) || r.microsite_url || null,
+      bracket_eligible: Boolean(r.bracket_eligible || r.bracket_seeding),
     }));
     return NextResponse.json(
       { programs },
