@@ -497,6 +497,49 @@ async function ensureFlipCardBaselineRows(
   return { created: Number(rows[0]?.created || 0), held: rows[0]?.held || [] };
 }
 
+
+// Backfill classifications only when both a unique canonical mapping and this
+// season's TBC stats independently agree. Never overwrite competing identities.
+async function hydrateVerifiedTeamMetadata(client: any): Promise<number> {
+  const result = await client.query(`
+    with canonical as (
+      select lower(trim(current_team_name)) as name_key,
+             max(teamid) as teamid, max(level_label) as level_label,
+             max(current_org_or_conference_name) as org
+      from public.teamid_universe_mapping
+      where nullif(trim(current_team_name), '') is not null
+      group by lower(trim(current_team_name))
+      having count(distinct teamid) = 1
+         and count(distinct nullif(trim(level_label), '')) = 1
+    ), eligible as (
+      select f.playerid, c.teamid, c.level_label
+      from public.flip_card_front_stage f
+      join canonical c on lower(trim(f.current_team_name)) = c.name_key
+      where nullif(trim(f.level_label), '') is null
+        and nullif(trim(f.current_team_name), '') is not null
+        and (nullif(trim(f.current_teamid), '') is null or f.current_teamid = c.teamid)
+        and (nullif(trim(f.current_team_source_team_id), '') is null or f.current_team_source_team_id = c.teamid)
+        and (nullif(trim(f.current_org_or_conference_name), '') is null or nullif(trim(c.org), '') is null or lower(trim(f.current_org_or_conference_name)) = lower(trim(c.org)))
+        and (nullif(trim(f.display_level_label), '') is null or upper(trim(f.display_level_label)) = upper(trim(c.level_label)))
+        and (nullif(trim(f.current_level_label), '') is null or upper(trim(f.current_level_label)) = upper(trim(c.level_label)))
+        and (nullif(trim(f.current_team_level), '') is null or upper(trim(f.current_team_level)) = upper(trim(c.level_label)))
+        and (
+          exists (select 1 from public.tbc_batting_2026_season_raw b where b.playerid::text = f.playerid::text and b.teamid::text = c.teamid and b.year::text = '2026')
+          or exists (select 1 from public.tbc_pitching_2026_season_raw p where p.playerid::text = f.playerid::text and p.teamid::text = c.teamid and p.year::text = '2026')
+        )
+    )
+    update public.flip_card_front_stage f
+    set current_teamid = coalesce(nullif(trim(f.current_teamid), ''), e.teamid),
+        level_label = e.level_label,
+        display_level_label = coalesce(nullif(trim(f.display_level_label), ''), e.level_label),
+        current_level_label = coalesce(nullif(trim(f.current_level_label), ''), e.level_label),
+        stage_updated_at = now()
+    from eligible e where f.playerid = e.playerid
+    returning f.playerid
+  `);
+  return result.rowCount || 0;
+}
+
 async function ensureIngestHealthTable(client: any): Promise<void> {
   await client.query(`
     create table if not exists public.ingest_job_health (
@@ -610,8 +653,9 @@ export async function GET(req: NextRequest) {
     const baseline = await ensureFlipCardBaselineRows(client);
     const newFlipCardRows = baseline.created;
     const heldForIdentityReview = baseline.held;
+    const hydratedTeamMetadata = await hydrateVerifiedTeamMetadata(client);
 
-    await recordIngestSuccess(client, { results, newFlipCardRows, heldForIdentityReview });
+    await recordIngestSuccess(client, { results, newFlipCardRows, heldForIdentityReview, hydratedTeamMetadata });
 
     await client.query("commit");
 
@@ -653,6 +697,7 @@ export async function GET(req: NextRequest) {
       results,
       newFlipCardRows,
       heldForIdentityReview,
+      hydratedTeamMetadata,
     });
   } catch (error: any) {
     if (client) {
