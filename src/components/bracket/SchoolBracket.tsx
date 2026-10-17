@@ -380,7 +380,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
   const todayIdx = weekStart ? Math.round((Date.parse(`${previewDate()}T00:00:00Z`) - Date.parse(`${weekStart}T00:00:00Z`)) / 86400000) : -1;
   const openDay: 'week' | number = todayIdx >= 0 && todayIdx <= 6 ? todayIdx : 'week';
   return (
-      <aside className={`bl bl-embed yfp-drawer left`} role="dialog" aria-modal="true"
+      <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head yfp-drawer-head-line">
           <span className="yfp-drawer-who">
@@ -402,7 +402,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
 
 function TeamDrawer({ index, open, me, onClose, onSwitch }: { index: Index; open: Open; me: number; onClose: () => void; onSwitch: () => void }) {
   return (
-    <DrawerWrap onClose={onClose} sides={['l']}>
+    <DrawerWrap onClose={onClose} sides={[open.side === 'h' ? 'r' : 'l']}>
       <TeamDrawerPanel index={index} open={open} me={me} onClose={onClose} onSwitch={onSwitch} />
     </DrawerWrap>
   );
@@ -413,7 +413,7 @@ function TeamDrawer({ index, open, me, onClose, onSwitch }: { index: Index; open
 // visible (and usable) between them.
 function DualTeamDrawers({ index, open, me, onClose }: { index: Index; open: Open; me: number; onClose: () => void }) {
   return (
-    <DrawerWrap onClose={onClose} dual sides={['l', 'l']}>
+    <DrawerWrap onClose={onClose} dual sides={['l', 'r']}>
       <TeamDrawerPanel index={index} open={{ card: open.card, side: 'a' }} me={me} onClose={onClose} />
       <TeamDrawerPanel index={index} open={{ card: open.card, side: 'h' }} me={me} onClose={onClose} />
     </DrawerWrap>
@@ -662,7 +662,7 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
 
 // From this width both Stat Ledger drawers open together (about a third of
 // the screen each), leaving ~600px of game cards between them.
-const DUAL_DRAWER_MIN_WIDTH = 1640;
+const DUAL_DRAWER_MIN_WIDTH = 1240;
 // From this width the site's docked drawers (Search on the left, Favorites
 // on the right) open beside the Stat Ledgers instead of closing them: each
 // ledger moves in by the site drawer's width and the game narrows to fit.
@@ -854,14 +854,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {index && lb && cal && (
         <div className="yfz" ref={yfzRef}>
-          <div className={`yfz-panel${open ? ' yfz-stats-open' : ' yfz-stats-closed'}`}>
-            {shownCard && !open ? (
-              <aside className="yfp-bracket-ad-slot" aria-label="Fantasy Bracket Partner placement">
-                <small>BRACKET PARTNER · RESERVED AD SPACE</small>
-                <strong>YOUR BRAND<br/>GOES HERE</strong>
-                <span>Visible when both statistical panels are closed.</span>
-              </aside>
-            ) : null}
+          <div className="yfz-panel">
             <div className="yfz-round">
               {tab === 'c1' || tab === 'c2' || tab === 'cg' || tab === 'yws' ? (
                 <PostseasonStage stage={tab} index={index} me={me} cal={cal} rec={rec} onOpen={openStats} />
@@ -1387,69 +1380,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         body:has(.yat-row4-off) { --row4-h:0px; }
         .yat-row4-shell.yat-row4-off { display:none; }
 
-
-        /* Tournament inventory never covers the scoreboard or live stats.
-           All stat ledgers are docked to the LEFT on desktop, with the
-           game and leaderboard anchored on the RIGHT. */
-        @media(min-width:1100px){
-          .yfz-panel,
-          body.yfp-dock-l .yfz-panel,
-          body.yfp-dock-r .yfz-panel {
-            grid-template-columns:minmax(0,1fr) minmax(0,680px)!important;
-            grid-template-rows:max-content minmax(240px,1fr)!important;
-            justify-content:stretch!important;
-            column-gap:18px!important;
-          }
-          .yfz-panel > .yfz-round {
-            grid-column:2!important;grid-row:1!important;min-width:0;
-          }
-          .yfz-panel > .yfp-lb {
-            grid-column:2!important;grid-row:2!important;min-width:0;
-          }
-          .yfp-bracket-ad-slot {
-            grid-column:1!important;grid-row:1 / span 2!important;
-            margin:0 6px 0 12px;min-width:0;min-height:280px;
-            align-self:stretch;
-          }
-          .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer.left {
-            left:0!important;right:auto!important;
-          }
-          .yfp-drawer-wrap.row5.dual .bl.bl-embed.yfp-drawer.left:nth-of-type(2) {
-            left:var(--yfp-dw,422px)!important;right:auto!important;
-          }
-        }
-        @media(min-width:1640px){
-          .yfz-panel:has(.yfp-bracket-ad-slot) {
-            grid-template-columns:minmax(0,1fr) minmax(0,680px)!important;
-          }
-        }
-        .yfp-bracket-ad-slot {
-          display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-          box-sizing:border-box;
-          padding:24px 18px;background:var(--yfp-card-bg);
-          color:var(--yfp-text);border:1px dashed var(--yfp-muted);
-          border-radius:5px;text-align:center;
-        }
-        .yfp-bracket-ad-slot small {
-          font:800 12px/1.25 var(--yat-font-compact,Oswald,sans-serif);letter-spacing:.05em;
-        }
-        .yfp-bracket-ad-slot strong {
-          font:900 clamp(20px,2.6vw,38px)/1 var(--yat-font-compact,Oswald,sans-serif);
-        }
-        .yfp-bracket-ad-slot span {
-          font:400 12px/1.45 var(--yat-font-ui,Arial,sans-serif);color:var(--yfp-muted);
-        }
-        @media(max-width:1099px){
-          .yfp-bracket-ad-slot {
-            grid-row:auto;grid-column:1;margin:12px 3px 7px;
-            min-height:75px;gap:8px;flex-direction:row;padding:10px 13px;
-          }
-          .yfp-bracket-ad-slot strong {font-size:17px;}
-          .yfp-bracket-ad-slot :is(small,span) {font-size:10px;}
-        }
-        @media(min-width:900px) and (max-width:1639px){
-          .yfp-drawer-wrap.row5 .bl.bl-embed.yfp-drawer.left {left:0!important;right:auto!important}
-        }
         /* The drawers: home from the right, visitor from the left. */
         /* Above the site's floating buttons, so nothing covers the close button. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
