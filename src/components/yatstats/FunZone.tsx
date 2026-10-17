@@ -443,10 +443,21 @@ function SocialPanel({
     ? schoolLocation.split(",").map((part) => part.trim()).filter(Boolean).join(", ")
     : "";
 
+  // Some school records already include "High School" in their names.
+  // Length tiers are computed on the server too for unhydrated favorite cards.
+  const schoolBase = schoolName.trim();
+  const schoolFullName = !schoolBase ? "" :
+    /(?:high school|secondary school|preparatory school|prep school|academy)$/i.test(schoolBase)
+      ? schoolBase : `${schoolBase} High School`;
+  const nameClass = fullName.length > 38 ? " fz-social-name-longest" :
+    fullName.length > 26 ? " fz-social-name-long" : "";
+  const schoolClass = schoolFullName.length > 58 ? " fz-social-school-longest" :
+    schoolFullName.length > 35 ? " fz-social-school-long" : "";
+
   const shareText =
     schoolName && formattedLocation
       ? [
-          `Hey Alumni of ${schoolName} High School in ${formattedLocation}...`,
+          `Hey Alumni of ${schoolFullName} in ${formattedLocation}...`,
           `Do you ever wonder what became of one of your school's best baseball players like ${fullName}?`,
           `Visit @${YAT_STATS_X_HANDLE} to find out`,
           `Where They #YAT and`,
@@ -454,36 +465,6 @@ function SocialPanel({
           `#${hashtag}`,
         ].join("\n")
       : `Check out ${fullName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS! #${hashtag}`;
-
-  // Same copy as shareText above, just as JSX with the @handle/#YAT/#STATS
-  // tokens pulled into their own elements for the accent color - kept as a
-  // second, parallel construction (rather than parsing shareText with a
-  // regex) so the plain-text version used for the actual share links can
-  // never drift from what's visually shown here as "the message that's
-  // going to be posted." A flat array of inline nodes, not one <span> per
-  // logical line - rendered as a single flowing paragraph so it wraps
-  // naturally instead of stacking fixed line breaks (which wasted vertical
-  // space and forced a smaller font).
-  const messageNodes: ReactNode[] =
-    schoolName && formattedLocation
-      ? [
-          `Hey Alumni of ${schoolName} High School in ${formattedLocation}... Do you ever wonder what became of one of your school's best baseball players like ${fullName}? Visit `,
-          <b className="fz-social-accent" key="handle">@{YAT_STATS_X_HANDLE}</b>,
-          " to find out Where They ",
-          <b className="fz-social-accent" key="yat">#YAT</b>,
-          " and What's Their ",
-          <b className="fz-social-accent" key="stats">#STATS</b>,
-          "! ",
-          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
-        ]
-      : [
-          `Check out ${fullName}'s YAT?STATS player card! Where They `,
-          <b className="fz-social-accent" key="yat">#YAT</b>,
-          " and What's Their ",
-          <b className="fz-social-accent" key="stats">#STATS</b>,
-          "! ",
-          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
-        ];
 
   const encodedUrl = encodeURIComponent(shareUrl);
   const encodedText = encodeURIComponent(shareText);
