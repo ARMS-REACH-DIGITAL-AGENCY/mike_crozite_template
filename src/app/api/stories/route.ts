@@ -159,7 +159,32 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ stories }, { headers: { 'Cache-Control': 'no-store' } });
+    // Approved Connect & Contribute timeline photos are standalone assets,
+    // not Story posts. Return them beside Stories so the existing five-second
+    // StoryHeroStrip displays all same-year photos without a second carousel.
+    // Staged, rejected and non-timeline media must never appear here.
+    const { rows: timelineUploads } = await query<{
+      id: string; date_taken: string; s3_key: string; description: string | null;
+    }>(
+      `SELECT id::text, date_taken::text, s3_key, description
+         FROM media_upload
+        WHERE playerid = $1 AND purpose = 'timeline_hero' AND status = 'approved'
+          AND s3_key LIKE 'staging/contribute/%'
+        ORDER BY date_taken ASC, uploaded_at ASC, id ASC LIMIT 100`,
+      [playerId]
+    );
+    const timelinePhotos = timelineUploads.flatMap((upload) => {
+      let info: { published_assets?: string[] } = {};
+      try { info = JSON.parse(upload.description || '{}'); } catch {}
+      const all = Array.isArray(info.published_assets) ? info.published_assets : [];
+      const full = all.find((key) => /^players\\/season-photos\\/[a-zA-Z0-9_-]+_\\d{4}_[0-9a-f-]{36}\\.jpg$/.test(key));
+      if (!full) return [];
+      const cutout = all.find((key) => /^players\\/season-cutouts\\/[a-zA-Z0-9_-]+_\\d{4}_[0-9a-f-]{36}\\.png$/.test(key));
+      const year = new Date(upload.date_taken).getUTCFullYear();
+      if (!Number.isInteger(year)) return [];
+      return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: cutout ? storyAssetUrl(cutout) : null, source: null }];
+    });
+    return NextResponse.json({ stories, timelinePhotos }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[stories] GET failed', error);
     return NextResponse.json({ error: 'Could not load stories.' }, { status: 500 });
