@@ -63,6 +63,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Test filename, image and source safety checks
+        run: |
+          python -m unittest discover -s tests -p 'test_hs_logo_verification.py' -v
       - name: Validate inputs and secrets
         run: |
           test -n "$DATABASE_URL" || { echo "Missing DATABASE_URL" ; exit 1; }
@@ -76,6 +79,10 @@ jobs:
         run: |
           python scripts/fetch_hs_logos_expanded.py --mode "$YAT_LOGO_MODE" --limit "$YAT_LOGO_LIMIT" \
             --start-after-hsid "$YAT_LOGO_START" --hsids "$YAT_LOGO_HSIDS"
+      - name: Independent staged S3 read-back verification
+        if: ${{ success() && env.YAT_LOGO_MODE == 'stage' }}
+        run: |
+          python scripts/verify_hs_logo_staging.py --report logo_report.csv --limit 100
       - name: Upload review and logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -85,4 +92,6 @@ jobs:
             fetch_logos.log
             logo_report.csv
             logo_review.html
+            logo_verification.csv
+            logo_verification_review.html
           if-no-files-found: ignore
