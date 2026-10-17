@@ -2,12 +2,12 @@
 
 import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
-import { getOriginalForCardCopy } from '@/lib/playerImage';
+import { getOriginalForCardCopy, getPlayerHeadshotSources, PLAYER_HEADSHOT_FALLBACK_URL as HEADSHOT_FALLBACK_SRC } from '@/lib/playerImage';
+import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
 import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry, scrollToContributeSection } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
 
-const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 // Owner-supplied Row 3 artwork. Missing files fall back to existing imagery.
 const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
   photo: 'ri-upload-cloud-2-line',
@@ -18,7 +18,6 @@ const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
-const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
 const UNCOMMITTED_BADGE_SRC = '/img/uncommitted.jpg';
 const isUncommittedBadge = (src: string): boolean => /\/uncommitted\.(?:png|webp|jpe?g)(?:[?#]|$)/i.test(src);
@@ -996,7 +995,7 @@ export default function InteractionStrip({
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
-                : activeSection === 'news' ? (cleanSrc(player.nowImage) || cleanSrc(player.image) || nowSrc) : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+                : getPlayerHeadshotSources(player.id, nowSrc)[0];
               const uncommittedBadge = isCurrentTeamTab && isUncommittedBadge(currentSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
@@ -1013,22 +1012,30 @@ export default function InteractionStrip({
                   data-status={status}
                   data-default-hidden={status === 'RETIRED' ? 'retired' : undefined}
                   title={player.name}
+                  aria-label={player.name}
                   onClick={(event) => handleSlotClick(event, player.id)}
                 >
                   <div className={`gallery-slot-media${uncommittedBadge ? ' gallery-slot-media--uncommitted' : ''}`}>
                     <img
+                      ref={(image) => {
+                        if (image && !isCurrentTeamTab) syncPlayerHeadshot(image, player.id, nowSrc);
+                      }}
                       src={displaySrc}
-                      alt={player.name}
+                      alt={isCurrentTeamTab ? player.name : ''}
                       loading={activeSection === "news" ? "eager" : "lazy"}
                       decoding="async"
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
                       data-then-src={thenSrc}
                       data-current-src={currentSrc}
-                      onError={(event) => {
+                      onError={isCurrentTeamTab ? (event) => {
                         const image = event.currentTarget;
+                        // A mirror synchronization may have repurposed a
+                        // team tile before React switches tabs. Its shared
+                        // headshot handler owns that event now.
+                        if (image.dataset.headshotManaged === 'true') return;
 
-                        if (isCurrentTeamTab && image.dataset.extensionFallbackApplied !== 'true') {
+                        if (image.dataset.extensionFallbackApplied !== 'true') {
                           const alternateSrc = getExtensionFallbackSrc(image.getAttribute('src'));
                           if (alternateSrc && alternateSrc !== image.getAttribute('src')) {
                             image.dataset.extensionFallbackApplied = 'true';
@@ -1037,16 +1044,11 @@ export default function InteractionStrip({
                           }
                         }
 
-                        if (activeSection === 'news' && image.dataset.nowFallbackApplied !== 'true' && nowSrc !== image.getAttribute('src')) {
-                          image.dataset.nowFallbackApplied = 'true';
-                          image.src = nowSrc;
-                          return;
-                        }
                         if (image.dataset.fallbackApplied === 'true') return;
                         image.dataset.fallbackApplied = 'true';
-                         image.dataset.silhouetteFallback = 'true';
+                        image.dataset.silhouetteFallback = 'true';
                         image.src = fallbackSrc;
-                      }}
+                      } : undefined}
                     />
                     {!isCurrentTeamTab && <div className="gallery-slot-gradient" />}
                   </div>
