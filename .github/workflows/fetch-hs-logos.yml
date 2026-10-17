@@ -6,6 +6,14 @@ name: Fetch HS Logos to S3
 on:
   workflow_dispatch:
     inputs:
+      dry_run:
+        description: "Compatibility with production selector: true = dry run, false = stage candidates ONLY"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
       mode:
         description: "dry_run = inspect only; stage = upload candidates for review (NEVER publish)"
         required: true
@@ -43,7 +51,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
-      YAT_LOGO_MODE: ${{ inputs.mode }}
+      YAT_LOGO_MODE: ${{ (inputs.mode == 'stage' || inputs.dry_run == 'false') && 'stage' || 'dry_run' }}
       YAT_LOGO_LIMIT: ${{ inputs.limit }}
       YAT_LOGO_START: ${{ inputs.start_after_hsid }}
       YAT_LOGO_HSIDS: ${{ inputs.hsids }}
