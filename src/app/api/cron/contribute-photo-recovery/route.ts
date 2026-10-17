@@ -40,7 +40,10 @@ export async function GET(req: NextRequest) {
               description, uploaded_at, sha256
          FROM media_upload WHERE status = 'pending'
           AND s3_key LIKE 'staging/contribute/%'
-          AND COALESCE((description::jsonb->'moderation'->>'checked_at'), '') = ''
+          AND (COALESCE((description::jsonb->'moderation'->>'checked_at'), '') = ''
+            OR (description::jsonb->'moderation'->>'decision' = 'approve'
+                AND COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(description::jsonb->'published_assets') = 'array'
+                  THEN description::jsonb->'published_assets' ELSE '[]'::jsonb END), 0) = 0))
          ORDER BY uploaded_at ASC LIMIT $1`,
       [BATCH]
     );
@@ -61,8 +64,9 @@ export async function GET(req: NextRequest) {
           `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time,
                   description, uploaded_at, sha256 FROM media_upload
              WHERE id <> $1 AND playerid = $2 AND purpose = $3 AND date_taken = $4::date
-               AND status IN ('pending', 'approved') AND uploaded_at < $5
-             ORDER BY uploaded_at ASC LIMIT 20`,
+               AND status IN ('pending', 'approved')
+               AND (status = 'approved' OR uploaded_at < $5)
+             ORDER BY CASE WHEN status = 'approved' THEN 0 ELSE 1 END, uploaded_at ASC LIMIT 20`,
           [item.id, item.playerid, item.purpose, item.date_taken, item.uploaded_at]
         );
         let duplicateId: string | null = null;
@@ -86,7 +90,7 @@ export async function GET(req: NextRequest) {
           results.push({ id: item.id, outcome: 'replacement-held' });
           continue;
         }
-        const verdict = await moderatePhoto({
+        const verdict = details.moderation?.decision === 'approve' ? { decision: 'approve' as const, description: 'Previously AI approved; retrying publication.', reason_for_fan: '' } : await moderatePhoto({
           imageUrl: assetUrl(item.s3_key) || '',
           purpose,
           playerName: details.playerName,
