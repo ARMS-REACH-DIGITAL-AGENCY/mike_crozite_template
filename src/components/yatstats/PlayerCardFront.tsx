@@ -343,10 +343,9 @@ export default function PlayerCardFront({
   eager = false,
 }: PlayerCardFrontProps) {
   const imageId = String(p.playerid || "");
-  const isPitcher = p.is_pitcher === true;
-
   const thenSilhouetteUrl = getThenSilhouetteUrl({
-    isPitcher,
+    isPitcher: p.is_pitcher,
+    position: p.position,
     bats: p.bats,
     throws: p.throws,
   });
