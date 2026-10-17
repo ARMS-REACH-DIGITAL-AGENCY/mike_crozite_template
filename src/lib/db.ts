@@ -2260,7 +2260,12 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // so both normalize level_label/status_label identically instead of
 // drifting into two resolvers for the same "truth" table.
 const FLIP_CARD_STAGE_SELECT = `
-    SELECT *,
+    SELECT fs.*,
+      -- Staging does not store bats/throws and often has NULL position.
+      -- Pull the canonical TBC metadata so stage-only cards choose the right silhouette.
+      tp.bats,
+      tp.throws,
+      COALESCE(NULLIF(BTRIM(fs.position), ''), NULLIF(BTRIM(tp.posit), '')) AS position,
       -- Every alumnus we know of gets a card: one with no status yet is
       -- UNKNOWN (until someone tells us), never left off the page.
       COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
@@ -2302,11 +2307,12 @@ const FLIP_CARD_STAGE_SELECT = `
         WHEN 'HIGH SCHOOL'   THEN 'HIGH SCHOOL'
         ELSE COALESCE(UPPER(level_label), '')
       END AS level_label
-    FROM flip_card_front_stage
+    FROM flip_card_front_stage fs
+    LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
 `;
 
 export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
-  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE hsid = $1`;
+  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
 }));
@@ -2315,7 +2321,7 @@ export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCard
 // player regardless of which school's page is currently being viewed -
 // used to build a real flip card for a cross-school favorite.
 export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardFrontStageByPlayerId(playerId: string): Promise<any | null> {
-  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE playerid::text = $1 LIMIT 1`;
+  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE fs.playerid = $1 LIMIT 1`;
   const { rows } = await query(sql, [playerId]);
   return rows[0] || null;
 });
