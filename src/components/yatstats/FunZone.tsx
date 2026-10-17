@@ -1107,100 +1107,122 @@ export default function FunZone({
         }
 
 
-        /* -- Social panel ----------------------------------------------- */
-        /* Follows the Stats tab's own layout exactly: a header bar, then a
-           3-column/4-row grid - here the message takes the space that
-           would be Stats' first two rows, and the six share icons fill the
-           remaining two rows at the exact same cell height as .yat-stat.
-           .fz-social-bar/.fz-social-grid are visual copies of
-           .yat-stats-bar/.yat-stats-grid, not the same classes - sharing
-           those literal classes is what let an earlier Social-only fix
-           bleed into and resize the Stats tab's own grid. */
-        .fz-social{
-          display:flex;
-          flex-direction:column;
-          gap:clamp(5px,1.8cqi,10px);
-          height:100%;
-          min-height:0;
+        /* Social-only responsive redesign. Uses the same two fonts as
+           Connect & Contribute; no styling bleeds into the Stats tab. */
+        .fz-social {
+          display:flex; flex-direction:column; width:100%; height:100%;
+          min-height:0; gap:clamp(4px,1.2cqi,8px);
+          color:#233c31; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);
         }
-        .fz-social-bar{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          min-height:clamp(20px,6.5cqi,34px);
-          padding:clamp(3px,1cqi,6px) clamp(6px,2cqi,12px);
-          border:1px solid rgba(30,22,14,0.22);
-          border-radius:clamp(4px,1.2cqi,7px);
-          background:rgba(255,255,255,0.16);
-          color:rgba(0,0,0,0.88);
-          font:700 clamp(9px,3cqi,15px)/1 "Bebas Neue",Oswald,sans-serif;
-          letter-spacing:.055em;
-          text-transform:uppercase;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.22);
-          overflow:hidden;
-          white-space:nowrap;
-          text-overflow:ellipsis;
+        .fz-social-bar {
+          min-width:0; min-height:clamp(21px,6cqi,33px); flex:0 0 auto;
+          display:flex; align-items:center; justify-content:space-between;
+          gap:clamp(4px,1.5cqi,8px); padding:clamp(4px,1.2cqi,7px) clamp(7px,2cqi,12px);
+          background:#193c31; color:#fffaf0; border-radius:clamp(4px,1.2cqi,8px);
         }
-        .fz-social-grid{
-          display:grid;
+        .fz-social-bar-label {
+          flex:0 1 auto; min-width:0; white-space:nowrap;
+          font:800 clamp(9px,2.7cqi,14px)/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:.06em;
+        }
+        .fz-social-hashtag {
+          flex:0 1 auto; min-width:0; max-width:52%;
+          white-space:nowrap; text-align:right; overflow:hidden;
+          text-overflow:ellipsis; color:#f2d48a;
+          font:700 clamp(8px,2.25cqi,12px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:-.02em;
+        }
+        .fz-social-grid {
+          display:grid; width:100%; min-width:0; min-height:0; flex:1;
           grid-template-columns:repeat(3,minmax(0,1fr));
-          grid-template-rows:repeat(4,minmax(0,1fr));
-          gap:clamp(5px,1.7cqi,10px);
-          flex:1;
-          min-height:0;
+          grid-template-rows:minmax(0,1.7fr) repeat(2,minmax(0,1fr));
+          gap:clamp(4px,1.4cqi,9px);
         }
-        /* Spans the first two rows across all three columns - the same
-           space Stats' first 6 cells would occupy. One flowing paragraph,
-           not stacked lines, so wrapped text uses the space efficiently and
-           can run at a bigger point size. */
-        .fz-social-message-cell{
-          grid-column:1 / -1;
-          grid-row:1 / 3;
-          display:flex;
-          align-items:center;
-          min-width:0;
-          min-height:0;
-          overflow:hidden;
-          padding:clamp(6px,2cqi,12px);
-          border:1px solid rgba(30,22,14,0.10);
-          border-radius:clamp(8px,2.2cqi,16px);
-          background:rgba(255,255,255,0.36);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.34),
-            0 1px 2px rgba(30,22,14,0.08);
+        .fz-social-message-cell {
+          grid-column:1/-1; grid-row:1;
+          display:flex; flex-direction:column; justify-content:center;
+          align-items:flex-start; min-width:0; min-height:0; overflow:hidden;
+          gap:clamp(2px,.7cqi,5px); padding:clamp(7px,2cqi,14px);
+          background:rgba(255,252,244,.84);
+          border:1px solid rgba(31,49,39,.16);
+          border-left:clamp(3px,.8cqi,5px) solid #bd9141;
+          border-radius:clamp(5px,1.4cqi,10px);
         }
-        /* Plain block so mixed text + inline elements wrap as one flowing
-           paragraph - display:flex directly on the text container turns each
-           text run/inline element into its own flex item instead of letting
-           them wrap together. */
-        .fz-social-message-text{
-          margin:0;
-          width:100%;
-          font:500 clamp(11px,4.4cqi,18px)/1.3 Oswald,sans-serif;
-          color:rgba(30,22,14,0.85);
+        .fz-social-kicker {
+          flex:0 0 auto; color:#8c6b32; letter-spacing:.12em;
+          font:800 clamp(8px,2.3cqi,12px)/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);
         }
-        .fz-social-accent{ color:#2451c9; font-weight:700; }
-        /* Icon-only - the branded mark says what it is, so no text label. */
-        .fz-social-cell{
-          min-width:0;
-          min-height:0;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          border:1px solid rgba(30,22,14,0.10);
-          border-radius:clamp(8px,2.2cqi,16px);
-          background:rgba(255,255,255,0.36);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,0.34),
-            0 1px 2px rgba(30,22,14,0.08);
-          cursor:pointer;
+        .fz-social-player-name {
+          display:block; min-width:0; max-width:100%; color:#142c22;
+          font:800 clamp(12px,4.5cqi,23px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:-.04em; overflow-wrap:anywhere; text-wrap:balance;
         }
-        /* Sized well under the cell itself, so the Facebook/X/Instagram
-           badges show a visible margin of the cell's own background around
-           them instead of touching its top/bottom edges. */
-        .fz-social-cell svg{ width:clamp(20px,8.5cqi,40px); height:clamp(20px,8.5cqi,40px); flex-shrink:0; }
-        .fz-social-cell:hover{ background:rgba(255,255,255,0.52); border-color:rgba(30,22,14,0.26); }
-        .fz-social-cell.copied{ border-color:#1c7a3e; }
+        .fz-social-player-name.fz-social-name-long {
+          font-size:clamp(10px,3.7cqi,19px);
+        }
+        .fz-social-player-name.fz-social-name-longest {
+          font-size:clamp(9px,3.05cqi,16px);
+        }
+        .fz-social-school {
+          display:block; min-width:0; max-width:100%; color:#454d43;
+          font:700 clamp(9px,2.85cqi,14px)/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:.015em; overflow-wrap:anywhere;
+        }
+        .fz-social-school.fz-social-school-long {
+          font-size:clamp(8px,2.45cqi,12px);
+        }
+        .fz-social-school.fz-social-school-longest {
+          font-size:clamp(7px,2.15cqi,11px);
+        }
+        .fz-social-location {
+          color:#69736c; font:500 clamp(8px,2cqi,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          overflow-wrap:anywhere;
+        }
+        .fz-social-message-text {
+          margin:clamp(1px,.6cqi,4px) 0 0; color:#606b62;
+          font:500 clamp(9px,2.2cqi,12px)/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        }
+        .fz-social-message-text strong { color:#193c31; font-weight:800; }
+        .fz-social-cell {
+          display:flex; flex-direction:column; align-items:center; justify-content:center;
+          gap:clamp(2px,.7cqi,5px); min-width:0; min-height:0;
+          padding:clamp(3px,.9cqi,7px) 2px;
+          border:1px solid rgba(35,61,47,.22);
+          border-radius:clamp(5px,1.5cqi,9px);
+          background:rgba(255,253,248,.77);
+          color:#254537; text-decoration:none; cursor:pointer;
+          transition:background-color .12s ease,border-color .12s ease;
+        }
+        .fz-social-cell svg {
+          display:block; flex:0 0 auto; width:clamp(16px,5.2cqi,28px);
+          height:clamp(16px,5.2cqi,28px);
+        }
+        .fz-social-action-label {
+          display:block; max-width:100%; overflow:hidden; white-space:nowrap;
+          text-overflow:ellipsis; color:inherit;
+          font:700 clamp(8px,2.05cqi,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:-.025em;
+        }
+        .fz-social-cell:hover {
+          background:#fffdf8; border-color:rgba(25,60,49,.65); text-decoration:none;
+        }
+        .fz-social-cell:focus-visible { outline:2px solid #246b4e; outline-offset:-2px; }
+        .fz-social-cell-primary {
+          background:#193c31; color:#fff9ef; border-color:#193c31;
+        }
+        .fz-social-cell-primary:hover { background:#275944; color:#fff; }
+        .fz-social-cell-primary.copied { background:#287247; border-color:#287247; }
+        @container yat-back (max-width:390px) {
+          .fz-social-message-text { display:none; }
+          .fz-social-message-cell { gap:clamp(2px,.5cqi,4px); }
+        }
+        @container yat-back (max-width:300px) {
+          .fz-social-kicker,.fz-social-location { display:none; }
+          .fz-social-grid { gap:3px; }
+          .fz-social-message-cell { padding:4px 6px; }
+          .fz-social-bar { gap:3px; }
+          .fz-social-cell { gap:1px; }
+        }
 
         /* -- Placeholder (fallback for empty tabs) ---------------------- */
         .fz-placeholder{
