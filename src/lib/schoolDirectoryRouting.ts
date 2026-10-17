@@ -48,16 +48,22 @@ export async function canonicalSchoolUrls(
   if (!numericIds.length) return new Map();
   const slug = PG_NAME_SLUG('t');
   const otherSlug = PG_NAME_SLUG('other');
+  // Resolve name collisions once for the batch, not one master-table scan
+  // per result. This keeps the full production statewide result list intact.
   const sql = `
+    WITH name_counts AS MATERIALIZED (
+      SELECT UPPER(other.regionid) AS region_key, ${otherSlug} AS name_slug,
+             COUNT(*)::int AS same_state_name_count
+        FROM public.tbc_schools_raw other
+       GROUP BY 1, 2
+    )
     SELECT t.hsid::text AS hsid, NULLIF(BTRIM(s.microsite_url), '') AS existing,
            t.regionid, ${slug} AS name_slug,
-           (
-             SELECT COUNT(*)::int FROM public.tbc_schools_raw other
-             WHERE UPPER(other.regionid) = UPPER(t.regionid)
-               AND ${otherSlug} = ${slug}
-           ) AS same_state_name_count
+           COALESCE(n.same_state_name_count, 0) AS same_state_name_count
     FROM public.tbc_schools_raw t
     LEFT JOIN public.school_success s ON s.hsid = t.hsid
+    LEFT JOIN name_counts n ON n.region_key = UPPER(t.regionid)
+                          AND n.name_slug = ${slug}
     WHERE t.hsid::text = ANY($1::text[])
       AND EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
   `;
