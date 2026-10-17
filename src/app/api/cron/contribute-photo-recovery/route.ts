@@ -10,7 +10,7 @@ import { moderatePhoto } from '@/lib/contributeModeration';
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
-const BATCH = 3;
+const BATCH = 6;
 
 type Pending = UploadRow & { uploaded_at: string; sha256: string | null };
 type Details = {
