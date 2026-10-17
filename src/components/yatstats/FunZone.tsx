@@ -388,117 +388,30 @@ return (
 // X, where it's a plain mention inside the tweet text.
 const YAT_STATS_X_HANDLE = "yat_stats";
 
-// Facebook, X, and Instagram are complete, self-contained app-icon badges
-// (rounded-square background baked in) - a fan recognizes "the blue
-// Facebook square" and "the black X square" as icons in their own right.
-// Copy/mail/text have no badge of their own - the .fz-social-cell they sit
-// in already supplies a border/background matching the Stats tab's cells,
-// so a second background here would just double up on it.
-// Each non-badge glyph is scaled down and recentered to roughly the same
-// ~50%-of-canvas footprint as InstagramIcon's own camera mark, and the
-// Facebook/X marks are similarly inset within their badges - the real
-// brand marks are drawn edge-to-edge in their official artwork, which
-// reads as "blown up" once every icon sits in the same cell size.
-const GLYPH_INSET_TRANSFORM = "translate(20 20) scale(0.55) translate(-20 -20)";
 
-// Copy/mail/text have no colored badge behind them, so their glyph IS all
-// the visible "ink" - drawn up close to the canvas edges (rather than
-// InstagramIcon's own inset camera mark) so they read as just as big as
-// the top row's full-bleed badges instead of a small outline floating in
-// empty space.
-const UTILITY_GLYPH_ENLARGE_TRANSFORM = "translate(20 20) scale(1.5) translate(-20 -20)";
-
-function FacebookIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#1877F2" />
-      <path
-        transform="translate(13.2 9) scale(0.043)"
-        d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z"
-        fill="#fff"
-      />
-    </svg>
+type SocialIconKind = "facebook" | "x" | "instagram" | "text" | "email" | "copy" | "check";
+// All share actions use a consistent, unbadged and self-contained vector mark.
+function SocialActionIcon({ kind }: { kind: SocialIconKind }) {
+  if (kind === "facebook") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M14.4 21v-7.9h2.66l.4-3.12H14.4V8c0-.91.25-1.53 1.54-1.53h1.64V3.68a22.6 22.6 0 0 0-2.39-.12c-2.38 0-4.01 1.45-4.01 4.12v2.3H8.5v3.12h2.68V21h3.22Z" /></svg>
   );
-}
-
-function XIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#000" />
-      <path
-        transform="translate(9.23 9) scale(0.01793)"
-        d="M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z"
-        fill="#fff"
-      />
-    </svg>
+  if (kind === "x") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M17.5 3H21l-7.5 8.57L22.2 21h-6.78l-5.32-6.95L4 21H.5l8.04-9.18L.2 3h6.95l4.82 6.35L17.5 3Zm-1.2 16.36h1.88L6.12 4.55H4.1L16.3 19.36Z" /></svg>
   );
-}
-
-// Copy/mail/text share no colored badge - the cell itself already supplies
-// the border/background (matching the Stats tab's cells), so a second
-// background here would just double up on it.
-function TextIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={UTILITY_GLYPH_ENLARGE_TRANSFORM}>
-        <path
-          d="M9 13.5A3.5 3.5 0 0 1 12.5 10h15A3.5 3.5 0 0 1 31 13.5v7A3.5 3.5 0 0 1 27.5 24H18l-5.2 4v-4h-.3A3.5 3.5 0 0 1 9 20.5v-7Z"
-          fill="#2E7DF7"
-        />
-      </g>
-    </svg>
+  if (kind === "instagram") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.4" cy="6.7" r=".9" fill="currentColor" stroke="none" /></svg>
   );
-}
-
-function EmailIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={UTILITY_GLYPH_ENLARGE_TRANSFORM}>
-        <rect x="9" y="12" width="22" height="16" rx="2.5" fill="none" stroke="#1266C4" strokeWidth="2" />
-        <path d="m10 13.5 10 7.5 10-7.5" stroke="#1266C4" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
+  if (kind === "text") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.5 15.7a3 3 0 0 1-3 3H9l-4.5 3v-4.2a3 3 0 0 1-2-2.8V6.5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9.2Z" /><path d="M7 9h9M7 13h6" /></svg>
   );
-}
-
-function InstagramIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <defs>
-        <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
-          <stop offset="0%" stopColor="#fdf497" />
-          <stop offset="30%" stopColor="#fd5949" />
-          <stop offset="60%" stopColor="#d6249f" />
-          <stop offset="100%" stopColor="#285AEB" />
-        </radialGradient>
-      </defs>
-      <rect width="40" height="40" rx="9" fill="url(#igGrad)" />
-      <rect x="10" y="10" width="20" height="20" rx="6" fill="none" stroke="#fff" strokeWidth="2" />
-      <circle cx="20" cy="20" r="5" fill="none" stroke="#fff" strokeWidth="2" />
-      <circle cx="26" cy="14" r="1.4" fill="#fff" />
-    </svg>
+  if (kind === "email") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></svg>
   );
-}
-
-function CopyIcon() {
-  return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <g transform={UTILITY_GLYPH_ENLARGE_TRANSFORM}>
-        <rect x="16" y="16" width="15" height="15" rx="2.5" fill="none" stroke="#1a1208" strokeWidth="2" />
-        <path d="M24 16v-4a2 2 0 0 0-2-2H11a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h4" fill="none" stroke="#1a1208" strokeWidth="2" />
-      </g>
-    </svg>
+  if (kind === "check") return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="m4.5 12.5 5 5 10-11" /></svg>
   );
-}
-
-function CheckIcon() {
   return (
-    <svg viewBox="0 0 40 40" width="1em" height="1em" aria-hidden="true">
-      <rect width="40" height="40" rx="9" fill="#1c7a3e" />
-      <g transform={GLYPH_INSET_TRANSFORM}>
-        <path d="m11 21 6 6 12-13" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg>
   );
 }
 
