@@ -17,6 +17,7 @@ import CardPhoto from "@/components/yatstats/CardPhoto";
 import { markPlayerName } from "@/components/yatstats/PlayerNameMentions";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { toSlugFromDisplay } from "@/lib/slug";
+import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 
 type NewsPost = {
   uuid: string;
@@ -268,230 +269,84 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     document.querySelectorAll<HTMLElement>("#sec-news .news-card").forEach((card) => card.classList.add("is-flipped"));
   }, [visible]);
 
-  let body: React.ReactNode;
-  if (failed) {
-    body = (
-      <div className="yat-news-error">
-        <div className="yat-news-error-icon">⚠️</div>
-        <div className="yat-news-error-text">Unable to load news right now. Please try again later.</div>
-      </div>
-    );
-  } else if (posts === null) {
-    body = (
-      <div className="yat-news-loading">
-        <div className="yat-news-loading-spinner" />
-        <div className="yat-news-loading-text">LOADING ALUMNI NEWS&hellip;</div>
-      </div>
-    );
-  } else if (visible.length === 0) {
-    body = (
-      <div className="yat-news-loading">
-        <div className="yat-news-empty-icon">⚾</div>
-        <div className="yat-news-loading-text">
-          {playerFilter ? `NO NEWS YET FOR ${filteredName.toUpperCase()}` : "NO ALUMNI NEWS FOUND YET"}
-        </div>
-        <div className="yat-news-loading-text yat-news-empty-sub">
-          News for active alumni will appear here as articles are published. Check back soon.
-        </div>
-      </div>
-    );
-  } else {
-    body = visible.map((post) => <NewsCard key={`${post.uuid}-${post.playerId || ""}`} post={post} hsid={hsid} />);
-  }
+  const rows: ProfileNewsStory[] = visible.map((post) => ({
+    uuid: post.uuid,
+    title: stripHtml(post.displayHeadline || post.title) || 'Alumni news',
+    url: post.url,
+    source: post.displaySourceLabel || post.source,
+    publishedAt: post.publishedAt,
+    recap: stripHtml(post.displayRecap),
+    whyLocal: stripHtml(post.displayWhyLocal),
+    imageUrl: post.imageUrl,
+    newsworthiness: 'STANDARD',
+    tease: limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
+    playerId: post.playerId,
+    playerName: post.playerName,
+  }));
 
   return (
-    <>
+    <section className="yp-school-news" aria-label="Active Alumni News">
       {playerFilter ? (
         <div className="yat-news-filter-bar">
-          <span>
-            SHOWING NEWS FOR <strong>{filteredName.toUpperCase()}</strong>
-          </span>
-          <button type="button" onClick={clearFilter}>
-            SHOW ALL <i className="ri-close-line" />
-          </button>
+          <span>SHOWING NEWS FOR <strong>{filteredName.toUpperCase()}</strong></span>
+          <button type="button" onClick={clearFilter}>SHOW ALL <i className="ri-close-line" /></button>
         </div>
       ) : null}
-      <div className="yat-grid" id="news-grid">
-        {body}
+      <div className="yp-school-news-layout">
+        <div className="yp-school-news-main">
+          {failed ? (
+            <div className="yat-news-error">Unable to load Alumni News right now. Please retry.</div>
+          ) : posts === null ? (
+            <div className="yat-news-loading"><div className="yat-news-loading-spinner" /><div className="yat-news-loading-text">LOADING ALUMNI NEWS…</div></div>
+          ) : rows.length === 0 ? (
+            <div className="yat-news-loading">
+              <div className="yat-news-loading-text">{playerFilter ? 'NO STORIES FOR '+filteredName.toUpperCase() : 'NO ALUMNI NEWS YET'}</div>
+            </div>
+          ) : (
+            <ProfileNewsList stories={rows} firstName="school alumni" playerId="" playerName="" schoolWide />
+          )}
+        </div>
+        <aside className="yp-school-news-tower" aria-label="Title Sponsor desktop advertisement placement">
+          <small>TITLE SPONSOR · ACTIVE ALUMNI NEWS</small>
+          <strong>ADVERTISING<br />TOWER</strong>
+          <span>Reserved for sponsor creative</span>
+        </aside>
       </div>
       <style>{`
-        .news-card .yat-bg{
-          filter:brightness(.84) saturate(.88);
+        .yp-school-news {
+          width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;
+          color:var(--fg);background:var(--bg);min-height:60vh;
         }
-        .news-card .yat-shade{
-          /* Base card CSS only covers the bottom 70%, which created the
-             visible horizontal dark band. News cards need one continuous
-             full-image screen from top to bottom. */
-          top:0;
-          bottom:0;
-          height:auto;
-          background:linear-gradient(
-            to bottom,
-            rgba(0,0,0,.76) 0%,
-            rgba(0,0,0,.58) 22%,
-            rgba(0,0,0,.28) 48%,
-            rgba(0,0,0,.40) 72%,
-            rgba(0,0,0,.68) 100%
-          );
+        .yp-school-news-layout {
+          display:grid;grid-template-columns:minmax(0,1fr) clamp(225px,24vw,325px);
+          align-items:start;gap:20px;min-width:0;
         }
-        .news-card .yat-news-front-content{padding:12px;display:flex;flex-direction:column;justify-content:space-between}
-        .yat-news-headline-top{
-          width:100%;
-          font:800 19px/1.16 var(--yat-font-ui,"Archivo",Arial,sans-serif);
-          letter-spacing:-.018em;
-          text-transform:none;
-          color:#fff;
-          text-shadow:1px 1px 4px rgba(0,0,0,.8);
-          /* Break between words only - never mid-word - and even out the
-             line lengths so a headline doesn't end on one orphaned word. */
-          overflow-wrap:normal;
-          word-break:normal;
-          hyphens:none;
-          text-wrap:balance;
-          padding:1px 2px 8px;
-          border-bottom:2px solid var(--gold);
+        .yp-school-news-main {min-width:0}
+        .yp-school-news-main .pp-news-feed {padding:0 3px 40px}
+        .yp-school-news-tower {
+          display:flex;flex-direction:column;gap:14px;align-items:center;
+          justify-content:center;min-height:390px;padding:25px 14px;
+          position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + 14px);
+          border:1px dashed #898989;border-radius:3px;
+          background:#181818;color:#fff;text-align:center;
         }
-        .yat-news-front-bottom-row{
-          width:100%;
-          display:grid;
-          grid-template-columns:minmax(0,1fr) minmax(86px,40%);
-          align-items:end;
-          gap:8px;
+        .yp-school-news-tower small,.yp-school-news-tower span {
+          font:700 12px/1.3 var(--yat-font-compact,Oswald,sans-serif);color:#d4d4d4;
         }
-        .yat-news-player-meta{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
-        .news-card .yat-news-player-name{
-          font-size:20px;
-          line-height:.88;
-          margin-bottom:4px;
+        .yp-school-news-tower strong {
+          font:800 clamp(23px,2.2vw,34px)/1.1 var(--yat-font-compact,Oswald,sans-serif);
         }
-        .news-card .yat-front-team-name{
-          font:600 12px/1.15 var(--yat-font-ui,"Archivo",Arial,sans-serif);
-          color:#fff;
-          text-shadow:1px 1px 3px rgba(0,0,0,.75);
-          text-transform:none;
+        body.light-theme .yp-school-news-tower {
+          background:#f0e6d1;color:#17130b;border-color:#8d7a5b;
         }
-        .news-card .yat-front-org-name{
-          margin-top:2px;
-          font:500 9px/1.2 var(--yat-font-ui,"Archivo",Arial,sans-serif);
-          color:rgba(255,255,255,.8);
-          text-shadow:1px 1px 3px rgba(0,0,0,.75);
-        }
-        .yat-news-chip-stack{
-          display:flex;
-          flex-direction:column;
-          gap:5px;
-          align-items:flex-start;
-          margin-top:7px;
-        }
-        .news-card .yat-news-chip-stack .front-chip{
-          width:fit-content;
-          background:rgba(0,0,0,.58);
-          color:#fff;
-          border:1px solid rgba(255,255,255,.3);
-          border-radius:5px;
-          padding:3px 7px;
-          font:700 9px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif);
-          letter-spacing:.02em;
-        }
-        .news-card .yat-front-year-dots{display:flex;gap:4px;margin-top:1px}
-        .news-card .yat-dot{width:22px;height:22px;font-size:9px}
-        .yat-news-source-actions{
-          min-width:0;
-          display:flex;
-          flex-direction:column;
-          align-items:stretch;
-          justify-content:flex-end;
-          gap:6px;
-        }
-        .yat-news-source-line{
-          font:600 9px/1.25 var(--yat-font-ui,"Archivo",Arial,sans-serif);
-          letter-spacing:.02em;
-          text-transform:uppercase;
-          color:rgba(255,255,255,.9);
-          text-align:right;
-          text-shadow:1px 1px 3px rgba(0,0,0,.8);
-          /* Only a source name too long for the column may break. */
-          overflow-wrap:break-word;
-        }
-        .yat-news-source-line span{display:block;color:rgba(255,255,255,.65);margin-top:2px}
-        .news-card .yat-news-flip-button{
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          width:100%;
-          min-height:23px;
-          background:var(--gold);
-          border:1px solid rgba(255,255,255,.38);
-          border-radius:6px;
-          color:#000;
-          padding:4px 6px;
-          font:700 9px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif);
-          letter-spacing:.01em;
-          text-transform:uppercase;
-          box-shadow:0 2px 8px rgba(0,0,0,.3);
-        }
-        /* Card back follows the site theme: dark by default, light paper
-           in light mode. */
-        .news-card .yat-back{
-          --news-back-bg:#111;
-          --news-back-fg:rgba(255,255,255,.92);
-          --news-back-muted:rgba(255,255,255,.62);
-          --news-back-label:var(--gold,#ffc107);
-          --news-back-rule:rgba(255,255,255,.14);
-        }
-        body.light-theme .news-card .yat-back{
-          background:#fbf9f4;
-          --news-back-bg:#fbf9f4;
-          --news-back-fg:rgba(18,18,18,.9);
-          --news-back-muted:rgba(18,18,18,.58);
-          --news-back-label:#9a6f00;
-          --news-back-rule:rgba(0,0,0,.12);
-        }
-        .news-card .news-back-content{background:var(--news-back-bg);color:var(--news-back-fg)}
-        .yat-news-back{padding:16px 18px;display:flex;flex-direction:column;height:100%}
-        .yat-news-back-label{color:var(--news-back-label);font:700 11px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:.04em;margin-bottom:12px}
-        .yat-news-back-body{font:400 15px/1.5 var(--yat-news-font);color:var(--news-back-fg);flex:1;overflow-y:auto;padding-right:4px;padding-bottom:18px;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
-        .yat-news-player-mention{color:inherit;font-weight:700}
-        a.yat-news-player-mention{text-decoration:underline;text-decoration-color:var(--gold,#ffc107);text-decoration-thickness:2px;text-underline-offset:3px}
-        .yat-news-back-actions{margin-top:10px;padding-top:10px;border-top:1px solid var(--news-back-rule);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px}
-        .yat-news-back-cta{display:inline-flex;align-items:center;gap:5px;background:var(--gold);color:#000;padding:6px 10px;font:700 10px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:.02em;border-radius:4px;text-decoration:none;white-space:nowrap}
-        .yat-news-back-source{display:inline-flex;align-items:center;gap:4px;min-width:0;color:var(--news-back-muted);font:500 10px/1.25 var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:.01em;text-decoration:none;overflow-wrap:break-word}
-        .yat-news-back-share{display:flex;align-items:center;gap:12px}
-        .yat-news-back-share span{font:600 12px var(--yat-font-ui,"Archivo",Arial,sans-serif);color:rgba(255,255,255,.5)}
-        .yat-news-back-share a{background:rgba(255,255,255,.1);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none}
-        .yat-news-empty-sub{font-weight:300;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto}
-        .yat-news-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 9px;margin:0 0 8px;border:1px solid var(--line);border-radius:6px;font:500 11px/1.2 var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:0;color:var(--fg)}
-        .yat-news-filter-bar > span{min-width:0;white-space:nowrap;font-size:clamp(8px,1.7vw,11px)}
-        .yat-news-filter-bar strong{color:var(--gold)}
-        .yat-news-filter-bar button{background:none;border:1px solid var(--line);color:var(--fg);font:600 10px var(--yat-font-ui,"Archivo",Arial,sans-serif);letter-spacing:0;padding:4px 7px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
-        .gallery-slot-link.active-news-player-filter{outline:none!important;outline-offset:0}
-
-        /* News uses horizontal story cards; preserve the existing flip-to-recap interaction. */
-        #news-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-        #news-grid .news-card{width:100%;max-width:none;aspect-ratio:16/9;height:auto;min-height:0}
-        #news-grid .news-card .yat-card-inner,
-        #news-grid .news-card .yat-flip,
-        #news-grid .news-card .yat-face{height:100%;min-height:0}
-        #news-grid .news-card .yat-news-front-content{padding:14px}
-        #news-grid .news-card .yat-news-headline-top{font-size:clamp(15px,1.9vw,23px);line-height:1.13}
-        #news-grid .news-card .yat-news-front-bottom-row{gap:8px}
-        #news-grid .news-card .yat-news-chip-stack{display:none}
-        #news-grid .news-card .yat-news-player-name{font-size:clamp(14px,1.6vw,20px)}
-        @media(max-width:700px){
-          #news-grid{grid-template-columns:1fr;gap:12px}
-          #news-grid .news-card{aspect-ratio:16/9}
-          #news-grid .news-card .yat-news-front-content{padding:11px}
-          #news-grid .news-card .yat-news-headline-top{font-size:clamp(16px,4vw,21px)}
-          #news-grid .news-card .yat-news-player-name{font-size:15px}
-          #news-grid .news-card .yat-front-team-name,
-          #news-grid .news-card .yat-front-org-name{font-size:11px}
-          #news-grid .news-card .yat-news-flip-button{font-size:9px}
-        }
-        @media(max-width:520px){
-          .yat-news-headline-top{font-size:20px}
-          .news-card .yat-news-player-name{font-size:19px}
+        body.light-theme .yp-school-news-tower :is(small,span) {color:#3b3224}
+        @media(max-width:740px){
+          .yp-school-news{padding:8px 12px 100px}
+          .yp-school-news-layout{display:block}
+          .yp-school-news-tower{display:none}
+          .yp-school-news-main .pp-news-feed{padding:0 2px 55px}
         }
       `}</style>
-    </>
+    </section>
   );
 }

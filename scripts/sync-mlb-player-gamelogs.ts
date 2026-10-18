@@ -202,6 +202,31 @@ async function fetchCurrentSportId(personId: string): Promise<number> {
 
 // Every level (sportId) each player was on this season, from his team
 // stints and the teams' schedules.
+// Everyone on a fall/winter league roster this season (sportId 17: the
+// Arizona Fall League and the winter leagues), by MLB person id. MLB keeps
+// most of them listed under their minor league club, so his current team
+// alone never asks for these games - 15 of our 72 AFL alumni had none.
+const WINTER_SPORT_ID = 17;
+async function getWinterLeaguePlayers(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  try {
+    const res = await fetch(`${MLB_API_BASE}/teams?sportId=${WINTER_SPORT_ID}&season=${SEASON}`);
+    const teams: { id: number }[] = res.ok ? (await res.json()).teams || [] : [];
+    for (const team of teams) {
+      for (const rosterType of ["fullSeason", "active"]) {
+        const r = await fetch(`${MLB_API_BASE}/teams/${team.id}/roster?season=${SEASON}&rosterType=${rosterType}`);
+        const roster: { person?: { id?: number } }[] = r.ok ? (await r.json()).roster || [] : [];
+        roster.forEach((p) => { if (p.person?.id) ids.add(String(p.person.id)); });
+        if (roster.length) break;
+      }
+      await delay(DELAY_MS);
+    }
+  } catch (err) {
+    console.error("getWinterLeaguePlayers error:", err);
+  }
+  return ids;
+}
+
 async function getStintSportIds(): Promise<Map<string, Set<number>>> {
   const bySport = new Map<string, Set<number>>();
   try {
@@ -360,6 +385,8 @@ async function main() {
     const players = await getMappedPlayers();
     console.log(`Found ${players.length} mlb_api-mapped players`);
     const stintSports = await getStintSportIds();
+    const winterLeague = await getWinterLeaguePlayers();
+    console.log(`On a fall/winter league roster: ${winterLeague.size}`);
     console.log(`Players with team stints this season: ${stintSports.size}`);
     console.log("");
     let extraLevelRows = 0;
@@ -370,6 +397,8 @@ async function main() {
 
       // His current level first, then any other level he was on this season.
       const sportIds = [currentSportId, ...[...(stintSports.get(playerid) ?? [])].filter((id) => id !== currentSportId)];
+      // On a fall/winter league roster: those games too.
+      if (winterLeague.has(String(personId)) && !sportIds.includes(WINTER_SPORT_ID)) sportIds.push(WINTER_SPORT_ID);
       const rows: GameLogRow[] = [];
       for (const sportId of sportIds) {
         const [hitting, pitching] = await Promise.all([

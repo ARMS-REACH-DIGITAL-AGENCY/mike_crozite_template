@@ -1,0 +1,45 @@
+name: Audit staged HS logos
+
+on:
+  push:
+    branches:
+      - feature/hs-logo-backfill-7954-prep
+    paths:
+      - scripts/verify_hs_logo_staging.py
+      - scripts/fetch_hs_logos_expanded.py
+      - tests/test_hs_logo_verification.py
+      - .github/workflows/audit-hs-logo-candidates.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install audit requirements
+        run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Unit tests (no network, no S3 writes)
+        run: python -m unittest discover -s tests -p test_hs_logo_verification.py -v
+      - name: Inspect first 10 currently staged S3 candidates
+        run: python scripts/verify_hs_logo_staging.py --audit --hsids "4,5,6,7,9,11,12,13,16,17" --limit 10
+      - name: Upload independent audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-storage-audit
+          if-no-files-found: ignore
+          path: |
+            logo_verification.csv
+            logo_verification_review.html
