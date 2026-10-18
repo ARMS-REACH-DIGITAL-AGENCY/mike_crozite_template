@@ -12,8 +12,7 @@ import {
   getActiveAlumniSummaryByHsid,
   getSchoolByUrl,
   getSchoolTeamSeasonResults,
-  getAllTimeRosterByHsid,
-  getFlipCardFrontStageByHsid,
+  getSchoolSharedRosterData,
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
 import { headers } from 'next/headers';
@@ -209,14 +208,10 @@ async function SchoolShell({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  const [allStageRows, rawAllTimeRoster, teamSeasonResults, activeSummary] = await Promise.all([
-    getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
-      console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
-      return [];
-    }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
-      return [];
+  const [sharedRosters, teamSeasonResults, activeSummary] = await Promise.all([
+    getSchoolSharedRosterData(resolvedHsid).catch((error) => {
+      console.error('getSchoolSharedRosterData failed', { resolvedHsid, error });
+      return { allTimeRoster: [], flipCardStage: [] };
     }),
     getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
       console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
@@ -224,6 +219,8 @@ async function SchoolShell({
     }),
     getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
+  const allStageRows = sharedRosters.flipCardStage;
+  const rawAllTimeRoster = sharedRosters.allTimeRoster;
   // Keep current-season evidence for stat badges only. Active Alumni
   // membership itself is the owner-approved status preset, shared with the
   // gallery and Row 3.
