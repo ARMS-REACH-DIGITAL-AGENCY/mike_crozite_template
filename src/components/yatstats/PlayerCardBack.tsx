@@ -24,6 +24,7 @@ import PlayerCardBackHero from "@/components/yatstats/PlayerCardBackHero";
 import FunZone from "@/components/yatstats/FunZone";
 import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
+import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
@@ -193,7 +194,10 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   void draft;
 
   const has2026Stats = p.has_2026_stats === true;
-  const statBarLabel = has2026Stats ? "2026 SEASON STATS" : "CAREER STATS";
+  const seasonStatsPending = !isAllTime && p.season_stats_pending === true;
+  const statBarLabel = seasonStatsPending
+    ? "2026 STATS PENDING"
+    : has2026Stats ? "2026 SEASON STATS" : "CAREER STATS";
 
   const batterStats = [
     { k: "AVG", v: fmt("AVG", p.avg) },
@@ -242,38 +246,11 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
 
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
-  // Same sourced-fact override as PlayerCardFront.tsx — keep the card
-  // back consistent with the front rather than flipping to a stale team
-  // name. previous_team_name/previous_org_or_conference_name are the same
-  // columns the site's existing retired-player rows already use, so a
-  // FREE AGENT/RETIRED card looks like every other card, plain text — the
-  // specific transaction fact lives in the front card's 40-MAN chip slot
-  // only. See scripts/apply-mlb-transaction-status.ts and
-  // scripts/refresh-flip-card-front-stage-from-mlb.ts (flagRosterAbsences).
-  const rawTeamName = asText(p.current_team_name);
-  const teamAffiliationStatus = asText(p.team_affiliation_status).toUpperCase();
-  const lastTransactionType = asText(p.last_transaction_type);
-  const previousTeamName = asText(p.previous_team_name);
-  const previousOrgOrConferenceName = asText(p.previous_org_or_conference_name);
-
-  const isSourcedDeparture =
-    (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
-    !!lastTransactionType;
-
-  const teamName = isSourcedDeparture
-    ? previousTeamName || rawTeamName
-    : rawTeamName;
-
-  const orgConf = isSourcedDeparture
-    ? previousOrgOrConferenceName
-    : asText(p.current_org_or_conference_name);
-
+  const display = resolvePlayerDisplay(p);
   const posLevelStatus = [
     asText(p.position),
-    asText(p.level_label) || asText(p.level),
-    isSourcedDeparture
-      ? teamAffiliationStatus
-      : asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
+    display.levelLabel,
+    display.statusLabel,
   ].filter(Boolean).join(" - ");
 
   const bats = asText(p.bats);
@@ -297,8 +274,8 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             playerId={imageId}
             displayName={displayName}
             profileHref={profileHref}
-            teamName={teamName}
-            orgConf={orgConf}
+            teamName={display.teamName}
+            orgConf={display.orgConferenceName}
             posLevelStatus={posLevelStatus}
             btHw={btHw}
           />
@@ -308,9 +285,9 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             isPitcher={isPitcher}
             isAllTime={isAllTime ?? false}
             resolvedHsid={resolvedHsid}
-            stats={stats}
+            stats={seasonStatsPending ? stats.map((stat) => ({ ...stat, v: "—" })) : stats}
             statBarLabel={statBarLabel}
-            statBuckets={statBuckets}
+            statBuckets={seasonStatsPending ? [] : statBuckets}
             displayName={displayName}
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}

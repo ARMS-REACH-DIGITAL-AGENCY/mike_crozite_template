@@ -14,9 +14,6 @@ import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 
 export const runtime = "nodejs";
 
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
-
 function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }

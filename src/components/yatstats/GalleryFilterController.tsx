@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
@@ -129,7 +128,7 @@ function matchesGraduatingClass(value: string, selected: string[]): boolean {
 // The year badge sets data-alltime-team-year-filter before applyFilters runs.
 const LEVEL_ORDER: Record<string, number> = {
   MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
-  ROOKIE: 6, INDY: 7, "INT'L": 8, 'NCAA-D1': 9, 'NCAA-D2': 10,
+  ROOKIE: 6, INDY: 7, "INT'L": 8, NCAA: 9, 'NCAA-D1': 9, 'NCAA-D2': 10,
   'NCAA-D3': 11, NAIA: 12, JUCO: 13, 'HIGH SCHOOL': 14,
 };
 function sortFilteredAllTime(section: HTMLElement) {
@@ -229,9 +228,10 @@ function applyPreset(section: string) {
     if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
   }
 
-  // Active: ACTIVE plus every injured-list status (src/lib/galleryStatuses.ts).
+  // The server's Active roster already requires 2026 statistics. Show every
+  // status on first load, including a player who retired during that season.
   if (section === 'active') {
-    setValues('filterStatus', [...ACTIVE_GALLERY_STATUSES]);
+    setAll('filterStatus', true);
   }
 
   if (section === 'alltime') {
@@ -285,9 +285,8 @@ function readLinkedPlayer(): { id: string; view: string } {
 
 // Whether a tab's roster preset (applyPreset) shows this card.
 function presetShows(section: string, card: HTMLElement): boolean {
-  const status = normalize(card.dataset.status);
   if (section === 'active') {
-    return ACTIVE_GALLERY_STATUSES.includes(status);
+    return true;
   }
   if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL';
   return true;

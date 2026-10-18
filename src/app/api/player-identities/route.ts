@@ -5,7 +5,8 @@
 // comes from the same current truth as the flip card and player profile.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getBatchDesignatedPlayerImages, getPlayerIdentityMeta } from '@/lib/db';
+import { getPlayerIdentityMeta } from '@/lib/db';
+import { getBatchPlayerHeadshots } from '@/lib/playerHeadshots';
 
 const MAX_IDS = 100;
 
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   try {
     const [metas, headshots] = await Promise.all([
       Promise.all(ids.map(async (playerId) => [playerId, await getPlayerIdentityMeta(playerId)] as const)),
-      getBatchDesignatedPlayerImages(ids, 'HEADSHOT'),
+      getBatchPlayerHeadshots(ids),
     ]);
 
     return NextResponse.json(Object.fromEntries(metas.map(([playerId, meta]) => [

@@ -29,6 +29,7 @@ type StripPlayer = {
   fallbackImage?: string;
   imageFit?: 'cover' | 'contain';
   status?: string;
+  has2026Stats?: boolean;
 };
 
 type TeamSeasonResult = {
@@ -43,6 +44,7 @@ type TeamSeasonResult = {
 
 type SchoolMeta = {
   activeAlumni: number | null;
+  activeStatsPending?: boolean;
   mlb: number | null;
   natRank: number | null;
   stateRank: string | null;
@@ -274,7 +276,7 @@ export default function SharedShell({
       {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
         <div className="yat-unified-footer">
           <div className="yat-unified-footer-art" aria-hidden="true" />
-          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} initialTeamYear={teamYear} initialTeamCount={teamYear ? initialTeamCount : null} />
+          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} activeStatsPending={schoolMeta.activeStatsPending} initialTeamYear={teamYear} initialTeamCount={teamYear ? initialTeamCount : null} />
           <div className="yat-unified-footer-ticker">
             {activeSection === 'fantasy'
               ? <BracketTicker hsid={hsid} />

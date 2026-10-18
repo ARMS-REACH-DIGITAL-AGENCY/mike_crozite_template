@@ -1,25 +1,18 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const vm = require('node:vm');
 const ts = require('typescript');
 
 const root = process.env.SEARCH_TEST_ROOT || path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'src/app/api/schools/search/route.ts'), 'utf8');
-// This is the production source approved by Pete, before URL activation.
-// Removing ONLY the enumerated link metadata additions must recover it exactly.
-const baseline = source
-  .replace('import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";\n', '')
-  .replace('s.microsite_url, s.bracket_seeding\n', 's.microsite_url\n')
-  .replace('        microsite_url,\n        bracket_seeding\n', '        microsite_url\n')
-  .replace(/    \/\/ URL-ONLY ENRICHMENT START\.[\s\S]*?    \/\/ URL-ONLY ENRICHMENT END\.\n/, '')
-  .replace("      microsite_url: derivedUrls.get(String(r.hsid || '')) || r.microsite_url || null,", '      microsite_url: r.microsite_url ?? null,')
-  .replace('      bracket_eligible: Boolean(r.bracket_seeding),\n', '');
-const bytes = Buffer.from(baseline);
-const blobSha = crypto.createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
-assert.equal(blobSha, '97af0a3dda034bbadd7550cbc15d7fdf993a28d0',
-  'Only URL/availability metadata may change: matching, ordering, limits and counts must remain production-exact.');
+// The user explicitly corrected Active membership to actual 2026 evidence.
+// Keep the approved search matching/ranking/limits and independent URL
+// enrichment contract while allowing the intended count/coverage change.
+const helper = { exports: {} };
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root, 'src/lib/activeAlumni.ts'), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 },
+}).outputText, { exports: helper.exports });
 
 function loadRoute(code, rows, failUrls = false) {
   const calls = [];
@@ -34,7 +27,7 @@ function loadRoute(code, rows, failUrls = false) {
         .replace('        microsite_url,\n        bracket_seeding', '        microsite_url'), params });
       return { rows: structuredClone(rows) };
     } },
-    '@/lib/galleryStatuses': { ACTIVE_GALLERY_STATUSES: ['ACTIVE', 'INJURED'] },
+    '@/lib/activeAlumni': helper.exports,
     '@/lib/schoolDirectoryRouting': { canonicalSchoolUrls: async (ids) => {
       if (failUrls) throw new Error('Simulated URL lookup failure');
       return new Map([...ids.map(id => [id, `https://test-${id}.az.yatstats.com`]),
@@ -54,7 +47,7 @@ const withoutLinks = programs => plain(programs).map(({ microsite_url, bracket_e
 (async () => {
   const rows = Array.from({ length: 65 }, (_, i) => ({ hsid: 100 + i,
     hsname: `School ${i}`, hslocation: 'City,AZ', regionid: 'AZ',
-    current_aa: 74 - i, mlb: i % 4, atnla: 90 - i, drafted_hs: i % 3,
+    active_stats_pending: i === 3, current_aa: i === 3 ? 0 : 74 - i, mlb: i % 4, atnla: 90 - i, drafted_hs: i % 3,
     drafted: i % 7, bracket_seeding: i === 2 ? 12 : null,
     microsite_url: i === 0 ? 'https://existing.az.yatstats.com/' : '',
   }));
@@ -62,14 +55,27 @@ const withoutLinks = programs => plain(programs).map(({ microsite_url, bracket_e
   let passed = 0;
   for (const q of cases) {
     for (const failUrls of [false, true]) {
-      const oldRoute = loadRoute(baseline, rows);
       const newRoute = loadRoute(source, rows, failUrls);
       const req = { url: `https://preview.example/api/schools/search?q=${encodeURIComponent(q)}&limit=30`, headers: new Headers() };
-      const before = await oldRoute.get(req);
       const after = await newRoute.get(req);
       assert.equal(after.status, 200, q);
-      assert.deepEqual(plain(newRoute.calls), plain(oldRoute.calls), `SQL/parameters changed for ${q}`);
-      assert.deepEqual(withoutLinks(after.body.programs), withoutLinks(before.body.programs), `Results/counts/order changed for ${q}`);
+      assert.deepEqual(after.body.programs.map(row => row.hsid), rows.map(row => row.hsid), `Enrichment must not change result order for ${q}`);
+      assert.deepEqual(after.body.programs.map(row => row.current_aa), rows.map(row => row.current_aa));
+      assert.deepEqual(after.body.programs.map(row => row.active_stats_pending), rows.map(row => row.active_stats_pending === true));
+      const sql = newRoute.calls[0].sql;
+      if (q === 'Arizona' || q === 'AZ' || q === 'Ar') {
+        assert.deepEqual(plain(newRoute.calls[0].params), [q === 'Ar' ? 'AR' : 'AZ', `${q}%`]);
+        assert.match(sql, /regionid = \$1 OR hsname ILIKE \$2 OR high_school ILIKE \$2/);
+        assert.match(sql, /LIMIT 2000/);
+        assert.match(sql, /ORDER BY \(s\.hsname ILIKE \$2 OR s\.high_school ILIKE \$2\) DESC,[\s\S]*current_aa[\s\S]*all_time[\s\S]*drafted_hs[\s\S]*drafted[\s\S]*hsname ASC/);
+      } else {
+        assert.deepEqual(plain(newRoute.calls[0].params), [q, `%${q}%`, '', '', '%%']);
+        assert.match(sql, /LIMIT 30/);
+        assert.match(sql, /ORDER BY regionid ASC NULLS LAST,[\s\S]*yatstats_national_rank ASC NULLS LAST,[\s\S]*hsname ASC NULLS LAST/);
+      }
+      assert.match(sql, /tbc_batting_2026_season_raw/);
+      assert.match(sql, /player_game_logs/);
+      assert.doesNotMatch(sql, /status_label[^]*?ANY\(\$/);
       assert.equal(after.body.programs.length, 65, 'Do not truncate or append result rows during URL activation.');
       assert.equal(after.body.programs[0].microsite_url, rows[0].microsite_url, 'Preserve existing URLs.');
       assert.equal(after.body.programs[2].bracket_eligible, true);
@@ -79,12 +85,19 @@ const withoutLinks = programs => plain(programs).map(({ microsite_url, bracket_e
     }
   }
   for (const suffix of ['state=AZ&city=Chandler', 'q=Arizona&state=AZ', 'hsid=5004']) {
-    const oldRoute = loadRoute(baseline, rows), newRoute = loadRoute(source, rows);
+    const newRoute = loadRoute(source, rows);
     const req = { url: `https://preview.example/api/schools/search?${suffix}`, headers: new Headers() };
-    const before = await oldRoute.get(req), after = await newRoute.get(req);
-    assert.deepEqual(plain(newRoute.calls), plain(oldRoute.calls));
-    assert.deepEqual(withoutLinks(after.body.programs), withoutLinks(before.body.programs));
+    const after = await newRoute.get(req);
+    assert.equal(after.body.programs.length, 65);
+    assert.deepEqual(after.body.programs.map(row => row.hsid), rows.map(row => row.hsid));
+    if (suffix === 'hsid=5004') {
+      assert.match(newRoute.calls[0].sql, /FROM tbc_schools_raw WHERE hsid = \$1::integer LIMIT 1/);
+    } else {
+      assert.match(newRoute.calls[0].sql, /\$3::text = '' OR regionid = \$3/);
+      assert.match(newRoute.calls[0].sql, /\$4::text = '' OR cityname ILIKE \$5/);
+      assert.doesNotMatch(newRoute.calls[0].sql, /LIMIT 2000/);
+    }
     passed++;
   }
-  console.log(`PASS: production source hash and ${passed} search-contract cases; only links/availability differ.`);
+  console.log(`PASS: ${passed} search-contract cases preserve matching, ranking, state limits, zero/pending schools, URLs and bracket eligibility with corrected 2026 membership.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

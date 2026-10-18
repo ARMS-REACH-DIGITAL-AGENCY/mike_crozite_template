@@ -1,7 +1,7 @@
 // src/app/api/schools/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
+import { activeAlumniSummaryCtes } from "@/lib/activeAlumni";
 import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";
 export const runtime = "nodejs";
 
@@ -42,32 +42,34 @@ function stateFromQuery(q: string): string | null {
 
 async function schoolsInState(state: string, qRaw: string) {
   const { rows } = await query(
-    `WITH counts AS (
+    `WITH matched_schools AS MATERIALIZED (
+       SELECT * FROM school_success
+       WHERE regionid = $1 OR hsname ILIKE $2 OR high_school ILIKE $2
+     ), ${activeAlumniSummaryCtes('SELECT hsid FROM matched_schools')},
+     counts AS (
        SELECT f.hsid,
-              COUNT(DISTINCT f.playerid) FILTER (
-                WHERE COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($3::text[])
-              )::int AS current_aa,
               COUNT(DISTINCT f.playerid) FILTER (
                 WHERE UPPER(COALESCE(TRIM(f.level_label), '')) NOT IN ('HIGH SCHOOL', 'HS')
               )::int AS all_time
          FROM flip_card_front_stage f
-         JOIN school_success s ON s.hsid::text = f.hsid AND (s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2)
+         JOIN matched_schools s ON s.hsid::text = f.hsid
         GROUP BY f.hsid
      )
      SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
-            COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
+            COALESCE(a.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
+            COALESCE(a.active_stats_pending, FALSE) AS active_stats_pending,
             s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url, s.bracket_seeding
-       FROM school_success s
+       FROM matched_schools s
        LEFT JOIN counts c ON c.hsid = s.hsid::text
-      WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
+       LEFT JOIN active_alumni_summary a ON a.hsid = s.hsid
       ORDER BY (s.hsname ILIKE $2 OR s.high_school ILIKE $2) DESC,
-               COALESCE(c.current_aa, 0) DESC,
+               COALESCE(a.current_aa, 0) DESC,
                COALESCE(c.all_time, 0) DESC,
                s.drafted_hs DESC NULLS LAST,
                s.drafted DESC NULLS LAST,
                s.hsname ASC NULLS LAST
       LIMIT 2000`,
-    [state, `${qRaw}%`, [...ACTIVE_GALLERY_STATUSES]]
+    [state, `${qRaw}%`]
   );
   return rows;
 }
@@ -97,40 +99,39 @@ export async function GET(req: NextRequest) {
     // IMPORTANT: correct table name
     const TABLE = "school_success";
     const sql = `
+      WITH matched_schools AS MATERIALIZED (
+        SELECT * FROM ${TABLE}
+        WHERE
+          ($1::text = '' OR (hsname ILIKE $2 OR high_school ILIKE $2))
+          AND ($3::text = '' OR regionid = $3)
+          AND ($4::text = '' OR cityname ILIKE $5)
+        ORDER BY regionid ASC NULLS LAST,
+                 yatstats_national_rank ASC NULLS LAST,
+                 hsname ASC NULLS LAST
+        LIMIT ${limit}
+      ), ${activeAlumniSummaryCtes('SELECT hsid FROM matched_schools')}
       SELECT
-        hsid,
+        s.hsid,
         hsname,
         cityname,
         hslocation,
         regionid,
         yatstats_national_rank,
         yatstats_state_rank,
-        COALESCE((
-          SELECT COUNT(DISTINCT f.playerid)::int
-          FROM flip_card_front_stage f
-          WHERE f.hsid = school_success.hsid::text
-            -- The Active gallery's statuses (see getActiveAlumniCountByHsid).
-            AND COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($6::text[])
-        ), 0) AS current_aa,
+        COALESCE(a.current_aa, 0) AS current_aa,
+        COALESCE(a.active_stats_pending, FALSE) AS active_stats_pending,
         mlb,
         atnla,
         drafted_hs,
         drafted,
         microsite_url,
         bracket_seeding
-      FROM ${TABLE}
-      WHERE
-        ($1::text = '' OR (
-          hsname ILIKE $2 OR
-          high_school ILIKE $2
-        ))
-        AND ($3::text = '' OR regionid = $3)
-        AND ($4::text = '' OR cityname ILIKE $5)
+      FROM matched_schools s
+      LEFT JOIN active_alumni_summary a ON a.hsid = s.hsid
       ORDER BY
         regionid ASC NULLS LAST,
         yatstats_national_rank ASC NULLS LAST,
-        hsname ASC NULLS LAST
-      LIMIT ${limit};
+        hsname ASC NULLS LAST;
     `;
     const params = [
       qRaw,
@@ -138,7 +139,6 @@ export async function GET(req: NextRequest) {
       stateRaw,
       cityRaw,
       `%${cityRaw}%`,
-      [...ACTIVE_GALLERY_STATUSES],
     ];
     const state = !stateRaw && !cityRaw ? stateFromQuery(qRaw) : null;
     const { rows } = state ? { rows: await schoolsInState(state, qRaw) } : await query(sql, params);
@@ -172,8 +172,28 @@ export async function GET(req: NextRequest) {
       const matches = canonicalIds.get(key);
       return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
     });
+    // A directory row can acquire its canonical HSID only after selection.
+    // Give that row the same season-backed count without changing result order.
+    const recoveredIds = Array.from(new Set(resolvedRows
+      .filter((row: any, index: number) => row.hsid != null && rows[index].hsid == null)
+      .map((row: any) => String(row.hsid))));
+    if (recoveredIds.length) {
+      const { rows: counts } = await query(
+        `WITH ${activeAlumniSummaryCtes('SELECT unnest($1::integer[])')}
+         SELECT hsid, current_aa, active_stats_pending FROM active_alumni_summary`,
+        [recoveredIds],
+      );
+      const byHsid = new Map(counts.map((row: any) => [String(row.hsid), row]));
+      for (const row of resolvedRows) {
+        if (recoveredIds.includes(String(row.hsid))) {
+          const summary = byHsid.get(String(row.hsid));
+          row.current_aa = Number(summary?.current_aa ?? 0);
+          row.active_stats_pending = summary?.active_stats_pending === true;
+        }
+      }
+    }
     // URL-ONLY ENRICHMENT START. Never filter, reorder, cap or append results here.
-    // Keep the production query and alumni counts unchanged; only activate links.
+    // URL lookup is independent of Active membership: historical schools stay live.
     let derivedUrls = new Map<string, string>();
     try {
       derivedUrls = await canonicalSchoolUrls(
@@ -194,6 +214,7 @@ export async function GET(req: NextRequest) {
       yatstats_national_rank: r.yatstats_national_rank ?? null,
       yatstats_state_rank: r.yatstats_state_rank ?? null,
       current_aa: r.current_aa ?? null,
+      active_stats_pending: r.active_stats_pending === true,
       mlb: r.mlb ?? null,
       atnla: r.atnla ?? null,
       drafted_hs: r.drafted_hs ?? null,

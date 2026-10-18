@@ -22,6 +22,7 @@ import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAl
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
 import { parseTeamYear, teamYearCardOrder } from "@/lib/teamYearShare";
 import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
+import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -389,7 +390,7 @@ function Placeholder({ icon, title, body }: { icon: string; title: string; body:
   );
 }
 
-function EmptyGrid({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+function EmptyGrid({ icon, title, sub }: { icon: string; title: string; sub: React.ReactNode }) {
   return (
     <div className="yat-empty">
       <div className="yat-empty-icon">{icon}</div>
@@ -487,22 +488,13 @@ export default async function SchoolPage({
     .sort((a, b) => Number(isCoachCard(b)) - Number(isCoachCard(a)));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
-  const activeSeenIds = new Set<string>();
   const activeMerged: Row[] = [];
   for (const p of activeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
     if (isHighSchoolPlayer(mergedRow) && !isRetiredCoachCard(mergedRow)) continue;
-    activeMerged.push(mergedRow);
-    activeSeenIds.add(id);
-  }
-
-  for (const p of stageRows) {
-    const id = String(p.playerid);
-    if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE" && !isHighSchoolPlayer(p)) {
-      activeMerged.push({ ...p });
-    }
+    activeMerged.push({ ...mergedRow, has_2026_stats: true });
   }
 
   const allTimeSeenIds = new Set<string>();
@@ -527,14 +519,15 @@ export default async function SchoolPage({
   // keeps, so the first frame already shows it (no reshuffle on load).
   const isCoachRow = (p: Record<string, unknown>) => /(?:^|[ -])COACH(?:$|[ -])/.test(String(p.status_label || '').trim().toUpperCase());
   const allTimeSorted = sortAllTimePlayers(allTimeMerged);
-  const allTimeFrontRoster = [...allTimeSorted.filter(isCoachRow), ...allTimeSorted.filter((p) => !isCoachRow(p))];
   const activeStatsMap = new Map(
     [...activeMerged, ...tributeSourceRows]
       .filter(hasReal2026Stats)
       .map((p) => [String(p.playerid), p])
   );
 
-  const activeDisplayRoster = allTimeMerged.map((p) => {
+  // Keep the established tribute on its historical card. Borrowed statistics
+  // do not make the tribute player's own ID an Active 2026 participant.
+  const allTimeFrontRoster = [...allTimeSorted.filter(isCoachRow), ...allTimeSorted.filter((p) => !isCoachRow(p))].map((p) => {
     const id = String(p.playerid);
     const tributeOverride = getTributeOverride(resolvedHsid, id);
     const tributeStatsRow = tributeOverride ? activeStatsMap.get(tributeOverride.sourcePlayerId) : null;
@@ -543,12 +536,12 @@ export default async function SchoolPage({
       return applyTributeStatOverride(p, tributeStatsRow, tributeOverride);
     }
 
-    const activeStatsRow = activeStatsMap.get(id);
-    return activeStatsRow ? { ...p, ...activeStatsRow, has_2026_stats: true } : { ...p, has_2026_stats: false };
+    return p;
   });
 
-  const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
+  const activeSortedRoster = sortActivePlayers(activeMerged);
   const allRosterIds = Array.from(new Set([
+    ...activeMerged.map((p) => String(p.playerid)),
     ...allTimeMerged.map((p) => String(p.playerid)),
     ...currentTeamRoster.map((p) => String(p.playerid)),
   ])).filter(Boolean);
@@ -561,8 +554,8 @@ export default async function SchoolPage({
         })
       : Promise.resolve(emptyImageMap()),
     allRosterIds.length
-      ? getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT").catch((error) => {
-          console.error("getBatchDesignatedPlayerImages failed", { resolvedHsid, imageType: "HEADSHOT", error });
+      ? getBatchPlayerHeadshots(allRosterIds).catch((error) => {
+          console.error("getBatchPlayerHeadshots failed", { resolvedHsid, error });
           return emptyImageMap();
         })
       : Promise.resolve(emptyImageMap()),
@@ -581,11 +574,9 @@ export default async function SchoolPage({
       <section id="sec-active" className={`yat-section${teamYear ? '' : ' visible'}`}>
         <div className="yat-grid" id="active-grid">
           {activeSortedRoster.length === 0 ? (
-            <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
+            <EmptyGrid icon="⚾" title="No 2026 stats available" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
           ) : (
             activeSortedRoster.map((p, i) => {
-              const status = String(p.status_label || p.status || '').toUpperCase().trim();
-              const isRetired = status === 'RETIRED';
               const playerId = String(p.playerid);
 
               return (
@@ -593,8 +584,6 @@ export default async function SchoolPage({
                   key={`active-wrap-${playerId}`}
                   data-player-card-wrap="true"
                   data-playerid={playerId}
-                  data-default-hidden={isRetired ? 'retired' : undefined}
-                  style={{ display: isRetired ? 'none' : undefined }}
                 >
                   <PlayerCard
                     key={`active-${playerId}`}

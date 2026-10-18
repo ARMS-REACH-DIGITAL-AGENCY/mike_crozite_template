@@ -12,8 +12,8 @@ type Message = {
 };
 
 export default function PageMessageStrip({
-  hsid, pageKey, activeAlumni, initialTeamYear = null, initialTeamCount = null,
-}: { hsid: string; pageKey: string; activeAlumni: number | null; initialTeamYear?: string | null; initialTeamCount?: number | null }) {
+  hsid, pageKey, activeAlumni, activeStatsPending = false, initialTeamYear = null, initialTeamCount = null,
+}: { hsid: string; pageKey: string; activeAlumni: number | null; activeStatsPending?: boolean; initialTeamYear?: string | null; initialTeamCount?: number | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [index, setIndex] = useState(0);
   // A ?team=2017 link starts on that team's count (the server counted it).
@@ -129,9 +129,9 @@ export default function PageMessageStrip({
         : <span className="yat-page-message-copy">{active.message_text}</span>)
         : <span className="yat-page-message-copy" />}
     </div>
-    <div className={`yat-page-message-count${onAllTime ? ' has-share' : ''}`} aria-live="polite" aria-label={teamAlumniCount !== null ? `${teamAlumniCount} ${teamYear} next level alumni` : `${activeAlumni ?? 'Unknown'} active alumni`}>
-      <strong>{teamAlumniCount ?? activeAlumni ?? '—'}</strong>
-      <span>{teamAlumniCount !== null ? <>{teamYear} NEXT LEVEL<br/>ALUMNI</> : <>ACTIVE<br/>ALUMNI</>}</span>
+    <div className={`yat-page-message-count${onAllTime ? ' has-share' : ''}`} aria-live="polite" aria-label={teamAlumniCount !== null ? `${teamAlumniCount} ${teamYear} next level alumni` : activeStatsPending ? `${activeAlumni || 'No'} confirmed active alumni; 2026 coverage is incomplete, so the total is not yet known` : `${activeAlumni ?? 'Unknown'} active alumni`}>
+      <strong>{teamAlumniCount ?? (activeStatsPending ? (activeAlumni ? `${activeAlumni}+` : '—') : activeAlumni ?? '—')}</strong>
+      <span>{teamAlumniCount !== null ? <>{teamYear} NEXT LEVEL<br/>ALUMNI</> : activeStatsPending ? (activeAlumni ? <>CONFIRMED<br/>ACTIVE</> : <>2026 STATS<br/>PENDING</>) : <>ACTIVE<br/>ALUMNI</>}</span>
       {onAllTime ? (
         <button type="button" className="yat-page-message-share" onClick={shareTeam}
           aria-label={teamYear ? `Share the ${teamYear} team` : 'Share the All-Time Next-Level List'} title={copied ? 'Link copied' : 'Share'}>
