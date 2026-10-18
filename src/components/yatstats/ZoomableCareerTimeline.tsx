@@ -205,14 +205,16 @@ function normalizeLevel(value: unknown) {
   if (raw.includes('TRIPLE') || raw === 'AAA') return 'Triple-A';
   if (raw.includes('DOUBLE') || raw === 'AA') return 'Double-A';
   if (raw.includes('HIGH') || raw === 'A+') return 'High-A';
-  if (raw.includes('LOW') || raw === 'A') return 'A Ball';
+  if (raw.includes('SINGLE') || raw.includes('LOW') || raw === 'A') return 'SINGLE-A';
   if (raw.includes('ROOKIE') || raw === 'RK') return 'Rookie';
   if (raw.includes('INDY') || raw.includes('INDEPENDENT')) return 'INDY';
   if (raw.includes('NAIA')) return 'NAIA';
   if (raw.includes('NCAA-D1')) return 'NCAA-D1';
   if (raw.includes('NCAA-D2')) return 'NCAA-D2';
   if (raw.includes('NCAA-D3')) return 'NCAA-D3';
-  if (raw.includes('NJCAA') || raw.includes('JUCO')) return 'JUCO';
+  if (raw.includes('CCCAA')) return 'CCCAA';
+  if (raw.includes('NWAC')) return 'NWAC';
+  if (raw.includes('NJCAA') || raw.includes('JUCO')) return 'NJCAA';
   return raw;
 }
 
