@@ -88,9 +88,8 @@ export async function logContribution(
 // contribution-posted / contribution-declined either way, with a note of
 // what it was. Best effort: never holds up the request.
 // Where an approved photo shows on the site, as a path on the school's own
-// site: his profile (opened on the Career Path Timeline for a timeline
-// image), the school's home for its crest. "Other" photos are placed by
-// hand, so they have none.
+// site: his profile (opened on the Career Path Timeline for timeline and
+// additional player photos), or the school's home for its crest.
 export function photoLinkPath(purpose: string, p: { playerId?: string | null; playerName?: string | null; hsid?: string | null; pageUrl?: string | null }): string | null {
   const hsid = String(p.hsid || '');
   if (!/^\d+$/.test(hsid)) return null;
@@ -101,10 +100,10 @@ export function photoLinkPath(purpose: string, p: { playerId?: string | null; pl
     try { if (p.pageUrl) path = new URL(p.pageUrl).pathname; } catch {}
     return `${path}?schoolSearch=${encodeURIComponent(hsid)}`;
   }
-  if (purpose === 'other_photo' || !p.playerId) return null;
+  if (!p.playerId) return null;
   const [fn, ...ln] = String(p.playerName || '').trim().split(/\s+/);
   const profile = `/${hsid}/player/${encodeURIComponent(p.playerId)}/${toPlayerSlug(fn, ln.join(' '))}`;
-  return purpose === 'timeline_hero' ? `${profile}#playerCareerImages` : profile;
+  return purpose === 'timeline_hero' || purpose === 'other_photo' ? `${profile}#playerCareerImages` : profile;
 }
 
 const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -371,7 +370,8 @@ async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source:
 //   timeline_hero -> players/season-cutouts/{id}_{year}.png (when background
 //                    removal succeeds); otherwise the timeline uses the
 //                    aspect-preserving original at season-photos/{id}_{year}.jpg
-//   other_photo   -> kept in fan-photos/ for us to place
+//   other_photo   -> player-tagged uploads publish as timeline photos; only
+//                    legacy untagged uploads remain in fan-photos/
 //   back_hero     -> players/back/{id}.jpg + back-card, back-web (card back)
 //   school_logo   -> schools/{hsid}.png
 //   team_logo     -> teams/{teamid}.png + teams-web/{teamid}.webp
@@ -423,7 +423,7 @@ export async function existingPublishedTarget(u: UploadRow): Promise<string | nu
 
 export async function promoteUpload(u: UploadRow): Promise<string[]> {
   const pid = String(u.playerid || '').trim();
-  const purpose = u.purpose as PhotoPurpose;
+  const purpose = (u.purpose === 'other_photo' && PLAYER_ID.test(pid) ? 'timeline_hero' : u.purpose) as PhotoPurpose;
   const needsPlayer = purpose !== 'school_logo' && purpose !== 'team_logo' && purpose !== 'other_photo';
   if (needsPlayer && !PLAYER_ID.test(pid)) throw new Error('This photo has no player on the site yet. Add the player first, then approve it.');
   const written: string[] = [];
