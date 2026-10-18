@@ -21,7 +21,7 @@ SPORT_LEVELS = {
     11: "TRIPLE-A",
     12: "DOUBLE-A",
     13: "HIGH-A",
-    14: "LOW-A",
+    14: "SINGLE-A",
     16: "ROOKIE",
 }
 
@@ -323,6 +323,7 @@ def refresh_flip_card_next_games(cur: psycopg.Cursor) -> int:
           'A+',
           'A',
           'LOW-A',
+          'SINGLE-A',
           'ROOKIE',
           'ACL',
           'FCL'

@@ -95,9 +95,9 @@ async function lookupLevelForPlayerAtTeam(
          WHEN 'AA' THEN 'DOUBLE-A'
          WHEN 'DOUBLE-A' THEN 'DOUBLE-A'
          WHEN 'HIGH-A' THEN 'HIGH-A'
-         WHEN 'SINGLE-A' THEN 'LOW-A'
-         WHEN 'LOW-A' THEN 'LOW-A'
-         WHEN 'A' THEN 'LOW-A'
+         WHEN 'SINGLE-A' THEN 'SINGLE-A'
+         WHEN 'LOW-A' THEN 'SINGLE-A'
+         WHEN 'A' THEN 'SINGLE-A'
          WHEN 'ROOKIE' THEN 'ROOKIE'
          ELSE NULLIF(UPPER(COALESCE(raw.level, '')), '')
        END AS normalized_level

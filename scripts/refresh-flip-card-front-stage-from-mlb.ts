@@ -596,9 +596,9 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
           WHEN 'AA' THEN 'DOUBLE-A'
           WHEN 'DOUBLE-A' THEN 'DOUBLE-A'
           WHEN 'HIGH-A' THEN 'HIGH-A'
-          WHEN 'SINGLE-A' THEN 'LOW-A'
-          WHEN 'LOW-A' THEN 'LOW-A'
-          WHEN 'A' THEN 'LOW-A'
+          WHEN 'SINGLE-A' THEN 'SINGLE-A'
+          WHEN 'LOW-A' THEN 'SINGLE-A'
+          WHEN 'A' THEN 'SINGLE-A'
           WHEN 'ROOKIE' THEN 'ROOKIE'
           ELSE UPPER(COALESCE(raw.level, ''))
         END AS normalized_level,
@@ -913,7 +913,7 @@ async function refreshLoadedNextGames(): Promise<number> {
         AND f.current_team_source_team_id ~ '^[0-9]+$'
         AND LOWER(TRIM(COALESCE(f.status_label, ''))) NOT IN ('retired', 'not active', 'free agent')
         AND UPPER(TRIM(COALESCE(f.level_label, ''))) IN (
-          'MLB','AAA','TRIPLE-A','AA','DOUBLE-A','HIGH-A','A+','A','LOW-A','ROOKIE','ACL','FCL'
+          'MLB','AAA','TRIPLE-A','AA','DOUBLE-A','HIGH-A','A+','A','LOW-A','SINGLE-A','ROOKIE','ACL','FCL'
         )
     ),
     resolved_next_games AS (
