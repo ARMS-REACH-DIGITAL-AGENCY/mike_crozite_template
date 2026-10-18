@@ -8,7 +8,7 @@
 // mode="school" is the school picker (the crest, school info, a missing alum).
 
 import { useEffect, useRef, useState } from 'react';
-import type { ContributePlayer, ContributeSchool } from '@/lib/contribute';
+import type { ContributePlayer, ContributeSchool, ContributeTeam } from '@/lib/contribute';
 import {
   fetchJson,
   handleFavoriteButtonClick,
@@ -21,13 +21,15 @@ import {
 type Mode = 'name' | 'school' | 'team';
 
 type Props =
-  | { mode?: 'player'; onPlayer: (p: ContributePlayer) => void; onSchool?: never }
-  | { mode: 'school'; onSchool: (s: ContributeSchool) => void; onPlayer?: never };
+  | { mode?: 'player'; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
+  | { mode: 'school'; onSchool: (s: ContributeSchool) => void; onPlayer?: never; onTeam?: never }
+  | { mode: 'team'; onTeam: (t: ContributeTeam) => void; onPlayer?: never; onSchool?: never };
 
 export default function ContributeSearch(props: Props) {
   const schoolOnly = props.mode === 'school';
+  const teamOnly = props.mode === 'team';
   const [q, setQ] = useState('');
-  const [mode, setMode] = useState<Mode>(schoolOnly ? 'school' : 'name');
+  const [mode, setMode] = useState<Mode>(schoolOnly ? 'school' : teamOnly ? 'team' : 'name');
   const [rosterOf, setRosterOf] = useState<{ hsid: string; name: string } | null>(null);
   const results = useRef<HTMLDivElement | null>(null);
   const pick = useRef(props);
@@ -68,10 +70,26 @@ export default function ContributeSearch(props: Props) {
           if (!live) return;
           el.innerHTML = renderSchoolRows(Array.isArray(data.programs) ? data.programs : [], 'No school matches.');
         } else {
-          const data = await fetchJson(`/api/teams/search?q=${encodeURIComponent(term)}&limit=75`);
+          const endpoint = teamOnly ? '/api/teams/entities/search' : '/api/teams/search';
+          const data = await fetchJson(`${endpoint}?q=${encodeURIComponent(term)}&limit=75`);
           if (!live) return;
-          el.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
-          hydrateFavoriteButtons(el);
+          if (teamOnly) {
+            const teams = Array.isArray(data.teams) ? data.teams : [];
+            el.innerHTML = teams.length ? `<div class="yat-search-card-list">${teams.map((t: Record<string, unknown>) => {
+              const teamId = String(t.teamId || t.teamid || '').trim();
+              const name = String(t.name || t.currentTeamName || t.current_team_name || '').trim();
+              const level = String(t.level || t.levelLabel || t.level_label || '').trim();
+              const org = String(t.orgName || t.currentOrgOrConferenceName || t.current_org_or_conference_name || '').trim();
+              const logo = String(t.logoUrl || '').trim() || `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(teamId)}.png`;
+              return `<button type="button" class="yat-search-card yat-search-team-entity-card" data-team-id="${teamId}" data-team-name="${name.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}" data-team-level="${level.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}" data-team-org="${org.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}" style="width:100%;text-align:left">
+                <img src="${logo}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='/img/yatstats-logo-circle.png';this.onerror=null" />
+                <span class="yat-search-player-text-link"><strong>${name}</strong>${level ? `<small>${level}</small>` : ''}${org ? `<small>${org}</small>` : ''}</span>
+              </button>`;
+            }).join('')}</div>` : '<div class="yat-search-empty">No college or pro team matches.</div>';
+          } else {
+            el.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
+            hydrateFavoriteButtons(el);
+          }
         }
       } catch {
         if (live) el.innerHTML = '<div class="yat-search-empty">Search failed. Try again.</div>';
@@ -93,11 +111,23 @@ export default function ContributeSearch(props: Props) {
         if (!fav.hasAttribute('aria-disabled')) handleFavoriteButtonClick(fav);
         return;
       }
-      const card = target.closest<HTMLElement>('[data-player-id], [data-school-id].yat-search-school-card');
+      const card = target.closest<HTMLElement>('[data-player-id], [data-school-id].yat-search-school-card, [data-team-id].yat-search-team-entity-card');
       if (!card) return;
       event.preventDefault();
       event.stopPropagation();
       const d = card.dataset;
+      if (card.classList.contains('yat-search-team-entity-card')) {
+        if (pick.current.mode === 'team') {
+          pick.current.onTeam({
+            teamId: d.teamId || '',
+            name: d.teamName || '',
+            level: d.teamLevel || '',
+            orgName: d.teamOrg || '',
+            logoUrl: d.teamId ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(d.teamId)}.png` : '',
+          });
+        }
+        return;
+      }
       if (card.classList.contains('yat-search-school-card')) {
         const school = { hsid: d.schoolId || '', name: d.schoolName || '', location: d.schoolLocation || '' };
         if (pick.current.mode === 'school') pick.current.onSchool(school);
@@ -125,13 +155,13 @@ export default function ContributeSearch(props: Props) {
           className="yat-gs-input"
           value={q}
           onChange={(e) => { setQ(e.target.value); setRosterOf(null); }}
-          placeholder={schoolOnly ? 'Search high schools...' : 'Search by name, school, or team...'}
+          placeholder={schoolOnly ? 'Search high schools...' : teamOnly ? 'Search college or pro teams...' : 'Search by name, school, or team...'}
           autoComplete="off"
-          aria-label={schoolOnly ? 'Search high schools' : 'Search players'}
+          aria-label={schoolOnly ? 'Search high schools' : teamOnly ? 'Search college or pro teams' : 'Search players'}
         />
         <i className="ri-search-line yat-gs-input-icon" aria-hidden="true" />
       </div>
-      {!schoolOnly && (
+      {!schoolOnly && !teamOnly && (
         <div className="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
           {([['name', 'Player Name'], ['school', 'High School'], ['team', 'Current Team']] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} className={`yat-search-mode-btn${mode === m ? ' active' : ''}`} onClick={() => { setMode(m); setRosterOf(null); }}>{label}</button>
@@ -158,7 +188,9 @@ export default function ContributeSearch(props: Props) {
         }
         .ycs-results { max-height: none !important; overflow: visible !important; }
         .ycs-back { align-self: flex-start; margin: 4px 0; border: 0; background: none; padding: 0; color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
-        .ycs .yat-search-player-result, .ycs .yat-search-school-card { cursor: pointer; }
+        .ycs .yat-search-player-result, .ycs .yat-search-school-card, .ycs .yat-search-team-entity-card { cursor: pointer; }
+        .ycs .yat-search-team-entity-card { display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:10px;border:1px solid var(--line);background:transparent;color:inherit;padding:8px 10px;border-radius:8px; }
+        .ycs .yat-search-team-entity-card .yat-search-player-text-link { display:flex;flex-direction:column;gap:2px;text-decoration:none;color:inherit; }
       `}</style>
     </div>
   );
