@@ -8,7 +8,7 @@
 //
 // Signed out: asks the fan to sign in, or join if they're new.
 // Signed in: their name is already on it, the year comes from the slide;
-// they pick the month, tell the story, add photos, tag players, and post.
+// they add photos, tag players, pick the month, tell the story, and post.
 // The story is live immediately, in the Stories tab.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -332,34 +332,6 @@ export default function StoryDrawer() {
             <div className="ysd-poster">Hi {fanFirstName}!</div>
 
             <div className="ysd-field">
-              <div className="ysd-label">When was this?</div>
-              <div className="ysd-date">
-                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month">
-                  <option value={0}>Month</option>
-                  {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                </select>
-                <select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Year">
-                  {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
-              <div className="ysd-muted ysd-small">
-                {month ? `Goes on ${firstName}'s timeline in ${MONTHS[month - 1]} ${year}. Is that right?` : `Pick the month. A best guess is fine.`}
-              </div>
-            </div>
-
-            <div className="ysd-field">
-              <label className="ysd-label" htmlFor="ysdStory">Tell the story</label>
-              <textarea
-                id="ysdStory"
-                rows={7}
-                value={story}
-                maxLength={10000}
-                onChange={(e) => setStory(e.target.value)}
-                placeholder={`Where was this? What happened? Why does this moment with ${firstName} matter to you?`}
-              />
-            </div>
-
-            <div className="ysd-field">
               <div className="ysd-label">Photos <span className="ysd-muted">({photos.length}/{MAX_PHOTOS})</span></div>
               <div className="ysd-photos">
                 {photos.map((p) => (
@@ -418,6 +390,34 @@ export default function StoryDrawer() {
                   })}
                 </div>
               )}
+            </div>
+
+            <div className="ysd-field">
+              <div className="ysd-label">When was this?</div>
+              <div className="ysd-date">
+                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month">
+                  <option value={0}>Month</option>
+                  {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+                <select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Year">
+                  {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+              <div className="ysd-muted ysd-small">
+                {month ? `Goes on ${firstName}'s timeline in ${MONTHS[month - 1]} ${year}. Is that right?` : `Pick the month. A best guess is fine.`}
+              </div>
+            </div>
+
+            <div className="ysd-field">
+              <label className="ysd-label" htmlFor="ysdStory">Tell the story</label>
+              <textarea
+                id="ysdStory"
+                rows={7}
+                value={story}
+                maxLength={10000}
+                onChange={(e) => setStory(e.target.value)}
+                placeholder={`Where was this? What happened? Why does this moment with ${firstName} matter to you?`}
+              />
             </div>
 
             {status.kind === 'error' && status.confirm ? (
