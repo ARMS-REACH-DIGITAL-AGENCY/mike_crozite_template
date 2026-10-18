@@ -6,6 +6,7 @@ import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
 import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
+import { isCareerYearSlide, storyYearSlideIndex, withCareerMemoryYears } from '@/lib/careerTimelinePlacement';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -107,7 +108,7 @@ type BigStat = { label: string; value: string };
 // 'hsyear' is the grad year itself (senior year of high school). The anchor
 // (graduation, the opening screen) comes right after it, at the end of that
 // year; the first college/pro season follows the anchor.
-type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future' | 'draft' | 'coachyear';
+type SlideKind = 'anchor' | 'hsyear' | 'season' | 'upload' | 'today' | 'lifeyear' | 'future' | 'draft' | 'coachyear' | 'memoryyear';
 
 type MomentComment = {
   id: string;
@@ -378,10 +379,11 @@ function openAccountDrawer(tab: 'signin' | 'register') {
   mask?.classList.add('open', 'is-open', 'active');
 }
 
-function useFanSession() {
+function useFanSession(enabled = true) {
   const [session, setSession] = useState<FanSession | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     async function refresh() {
@@ -404,7 +406,7 @@ function useFanSession() {
       window.removeEventListener('yat-auth-success', onChange);
       window.removeEventListener('yat-sign-out', onChange);
     };
-  }, []);
+  }, [enabled]);
 
   return session;
 }
@@ -662,7 +664,23 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
 type HeroPhoto = { web: string; cutout: string | null; source: string | null };
-type RailStory = { id: string; thumb: string | null };
+type RailStory = { id: string; thumb: string | null; draft?: boolean };
+
+export type CareerTimelinePreviewState = {
+  revision: string;
+  status: 'loading' | 'ready' | 'error';
+};
+
+export type CareerTimelinePreview = {
+  year: number;
+  month: number;
+  photos: { id: string; url: string }[];
+  activePhotoId?: string;
+  revision: string;
+  onStateChange?: (state: CareerTimelinePreviewState) => void;
+};
+
+type TimelineLoad = { key: string; status: 'loading' | 'ready' | 'error' };
 
 const RAIL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
@@ -726,17 +744,17 @@ const requestedCutouts = new Set<string>();
 // cartoon - bottom pinned to the bottom of the slide, full height. Until a
 // cutout exists it shows the whole photo (sitting above the rail) and asks
 // the server to make one, so the next visit gets the cutout.
-function StoryHeroImg({ photo, className, style, alt }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string }) {
+function StoryHeroImg({ photo, className, style, alt, readOnly = false }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string; readOnly?: boolean }) {
   const canCut = Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
   const [cutFailed, setCutFailed] = useState(false);
   const useCut = canCut && !cutFailed;
   const onError = () => {
     if (!useCut) return;
-    missingCutouts.add(photo.source || photo.cutout || '');
+    if (!readOnly) missingCutouts.add(photo.source || photo.cutout || '');
     setCutFailed(true);
     // Published contribution cutouts have no Story source key to regenerate.
     // Fall back to the full photo rather than showing a broken image.
-    if (!photo.source) return;
+    if (readOnly || !photo.source) return;
     if (!requestedCutouts.has(photo.source)) {
       requestedCutouts.add(photo.source);
       fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
@@ -760,10 +778,10 @@ function StoryHeroImg({ photo, className, style, alt }: { photo: HeroPhoto; clas
 // the YaTi cartoon stands), the rest lined up to its right behind the quote,
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
-function StoryHeroStrip({ photos, tick, alt }: { photos: HeroPhoto[]; tick: number; alt: string }) {
+function StoryHeroStrip({ photos, tick, alt, readOnly = false }: { photos: HeroPhoto[]; tick: number; alt: string; readOnly?: boolean }) {
   const n = photos.length;
   if (n === 1) {
-    return <StoryHeroImg photo={photos[0]} className="zt-person zt-person-story zt-story-hero-img" alt={alt} />;
+    return <StoryHeroImg photo={photos[0]} className="zt-person zt-person-story zt-story-hero-img" alt={alt} readOnly={readOnly} />;
   }
   const current = tick % n;
   const previous = (current - 1 + n) % n;
@@ -781,11 +799,12 @@ function StoryHeroStrip({ photos, tick, alt }: { photos: HeroPhoto[]; tick: numb
             className={`zt-person zt-person-story ${slot === 0 ? 'zt-story-hero-img' : 'zt-story-queued'}${slot === n - 1 ? ' zt-story-entering' : ''}`}
             style={{ '--slot': slot } as CSSProperties}
             alt={slot === 0 ? alt : ''}
+            readOnly={readOnly}
           />
         );
       })}
       {tick > 0 && (
-        <StoryHeroImg key={`leaving-${tick}`} photo={photos[previous]} className="zt-person zt-person-story zt-story-leaving" alt="" />
+        <StoryHeroImg key={`leaving-${tick}`} photo={photos[previous]} className="zt-person zt-person-story zt-story-leaving" alt="" readOnly={readOnly} />
       )}
     </>
   );
@@ -805,7 +824,8 @@ function StoryMontage({ photos }: { photos: string[] }) {
   );
 }
 
-export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
+export default function ZoomableCareerTimeline({ playerId, variant = 'combined', preview }: { playerId: string; variant?: 'combined' | 'images' | 'line'; preview?: CareerTimelinePreview }) {
+  const isPreview = Boolean(preview);
   const [timelineHydrated, setTimelineHydrated] = useState(false);
   useEffect(() => setTimelineHydrated(true), []);
   const player = usePlayerProfile();
@@ -829,7 +849,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // True once the identity fetch below has settled (either way). Class Of
   // and the anchor slide wait on it so a fan never sees the estimated grad
   // year flash before the verified one arrives.
-  const [identityLoaded, setIdentityLoaded] = useState(false);
+  const [identityLoad, setIdentityLoad] = useState<TimelineLoad>({ key: '', status: 'loading' });
+  const identityLoaded = identityLoad.key === playerId && identityLoad.status !== 'loading';
   // SharedShell doesn't remount between two players' profiles, so this
   // effect re-fires on client-side navigation with the previous player's
   // identity still in state. Cleared first so a slow or failed fetch
@@ -837,7 +858,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // player's team as if it were this one's.
   useEffect(() => {
     setIdentityMeta(null);
-    setIdentityLoaded(false);
+    setIdentityLoad({ key: playerId, status: 'loading' });
     if (!playerId) return;
     let cancelled = false;
     fetch(`/api/player-identity?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
@@ -845,9 +866,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         if (!res.ok) throw new Error(`player-identity ${res.status} for playerId=${playerId}`);
         return res.json();
       })
-      .then((data) => { if (!cancelled && data) setIdentityMeta(data); })
-      .catch((error) => { if (!cancelled) console.error('[ZoomableCareerTimeline] identity fetch failed:', error); })
-      .finally(() => { if (!cancelled) setIdentityLoaded(true); });
+      .then((data) => {
+        if (cancelled) return;
+        if (!data || typeof data !== 'object') throw new Error('Missing player identity');
+        setIdentityMeta(data);
+        setIdentityLoad({ key: playerId, status: 'ready' });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('[ZoomableCareerTimeline] identity fetch failed:', error);
+        setIdentityLoad({ key: playerId, status: 'error' });
+      });
     return () => { cancelled = true; };
   }, [playerId]);
   // Same resolution SchoolContextBar.tsx uses for its own breadcrumb: the
@@ -859,7 +888,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const storyOpenOwner = useMemo(() => Symbol(`story-open:${playerId}:${pathname}`), [playerId, pathname]);
   // Cancel an undelivered click when its originating timeline leaves or
   // changes player/path, including navigation through a non-player page.
-  useEffect(() => () => cancelPendingStoryDrawerOpen(storyOpenOwner), [storyOpenOwner]);
+  useEffect(() => {
+    if (isPreview) return;
+    return () => cancelPendingStoryDrawerOpen(storyOpenOwner);
+  }, [storyOpenOwner, isPreview]);
   const slugDerivedName = (() => {
     const match = pathname?.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
     return match?.[2]
@@ -918,10 +950,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       : (identityMeta?.height || player?.height || identityMeta?.weight || player?.weight || ''),
     identityMeta?.position || player?.position,
   ].filter(Boolean).join(' - ');
-  const session = useFanSession();
+  const session = useFanSession(!isPreview);
   const [stats, setStats] = useState<StatRow[]>([]);
   const [uploads, setUploads] = useState<SubmittedMoment[]>([]);
-  const [statsLoaded, setStatsLoaded] = useState(false);
+  const [statsLoad, setStatsLoad] = useState<TimelineLoad>({ key: '', status: 'loading' });
+  const statsLoaded = statsLoad.key === playerId && statsLoad.status !== 'loading';
   const [uploadsLoaded, setUploadsLoaded] = useState(false);
   const [localOverrides, setLocalOverrides] = useState<Record<string, { reactionCount: number; viewerReacted: boolean; extraComments: MomentComment[] }>>({});
   const [openMomentId, setOpenMomentId] = useState<string | null>(null);
@@ -933,6 +966,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ dragging: boolean; moved: boolean; startX: number; startScroll: number; pointerId: number | null }>({ dragging: false, moved: false, startX: 0, startScroll: 0, pointerId: null });
   const railRef = useRef<HTMLDivElement | null>(null);
+  const previewMonthScrollRef = useRef<HTMLDivElement | null>(null);
   const railDragRef = useRef<{ dragging: boolean; pointerId: number | null }>({ dragging: false, pointerId: null });
   const scrollRafRef = useRef<number | null>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -947,7 +981,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   useEffect(() => {
     let cancelled = false;
     setStats([]);
-    setStatsLoaded(false);
+    setStatsLoad({ key: playerId, status: 'loading' });
     fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
       .then((res) => {
         if (!res.ok) throw new Error(`player-season-stats ${res.status} for playerId=${playerId}`);
@@ -961,13 +995,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           ...(Array.isArray(data?.batting) ? data.batting : []),
         ];
         setStats(Array.isArray(primary) && primary.length ? primary : fallback);
+        setStatsLoad({ key: playerId, status: 'ready' });
       })
       .catch((error) => {
         if (cancelled) return;
         console.error('[ZoomableCareerTimeline] season stats fetch failed:', error);
         setStats([]);
-      })
-      .finally(() => { if (!cancelled) setStatsLoaded(true); });
+        setStatsLoad({ key: playerId, status: 'error' });
+      });
     return () => { cancelled = true; };
   }, [playerId]);
 
@@ -989,21 +1024,30 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // story's club logo isn't a hero (the draft slide already shows the
   // logo behind him); photos fans add in its comments are. Reloaded when a
   // fan posts from the drawer or adds photos in a comment.
-  const [storyPhotosByYear, setStoryPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
+  const [publishedPhotosByYear, setPublishedPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
   // year -> month (1-12) -> that month's stories (for the month rail).
-  const [storiesByMonth, setStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
+  const [publishedStoriesByMonth, setPublishedStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
   // year -> its stories' ids (a coach year's "open the memory" button).
   const [storyIdsByYear, setStoryIdsByYear] = useState<Record<number, string[]>>({});
+  const [storiesLoad, setStoriesLoad] = useState<TimelineLoad>({ key: '', status: 'loading' });
   useEffect(() => {
-    setStoryPhotosByYear({});
-    setStoriesByMonth({});
+    setPublishedPhotosByYear({});
+    setPublishedStoriesByMonth({});
+    setStoryIdsByYear({});
+    setStoriesLoad({ key: playerId, status: 'loading' });
     if (!playerId) return;
     let cancelled = false;
+    let request = 0;
     const load = () => {
+      const currentRequest = ++request;
       fetch(`/api/stories?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-        .then((res) => (res.ok ? res.json() : null))
+        .then((res) => {
+          if (!res.ok) throw new Error(`stories ${res.status} for playerId=${playerId}`);
+          return res.json();
+        })
         .then((data) => {
-          if (cancelled || !Array.isArray(data?.stories)) return;
+          if (cancelled || currentRequest !== request) return;
+          if (!Array.isArray(data?.stories)) throw new Error('Missing player stories');
           const byYear: Record<number, HeroPhoto[]> = {};
           const byMonth: Record<number, Record<number, RailStory[]>> = {};
           const idsByYear: Record<number, string[]> = {};
@@ -1028,36 +1072,84 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           for (const image of (Array.isArray(data.timelinePhotos) ? data.timelinePhotos : []) as TimelinePhoto[]) {
             if (image.year && image.web) (byYear[image.year] ||= []).push({ web: image.web, cutout: image.cutout, source: image.source });
           }
-          setStoryPhotosByYear(byYear);
-          setStoriesByMonth(byMonth);
+          setPublishedPhotosByYear(byYear);
+          setPublishedStoriesByMonth(byMonth);
           setStoryIdsByYear(idsByYear);
+          setStoriesLoad({ key: playerId, status: 'ready' });
         })
-        .catch((error) => console.error('[ZoomableCareerTimeline] stories fetch failed:', error));
+        .catch((error) => {
+          if (cancelled || currentRequest !== request) return;
+          console.error('[ZoomableCareerTimeline] stories fetch failed:', error);
+          setStoriesLoad({ key: playerId, status: 'error' });
+        });
     };
     load();
-    window.addEventListener('yat:story-posted', load);
-    window.addEventListener('yat:story-comment-photos', load);
+    if (!isPreview) {
+      window.addEventListener('yat:story-posted', load);
+      window.addEventListener('yat:story-comment-photos', load);
+    }
     return () => {
       cancelled = true;
       window.removeEventListener('yat:story-posted', load);
       window.removeEventListener('yat:story-comment-photos', load);
     };
-  }, [playerId]);
+  }, [playerId, isPreview]);
+
+  // A draft has no server record: overlay its prepared browser images on
+  // the same year/month buckets as published Stories. The inspected photo
+  // leads the hero strip, and the published buckets remain untouched.
+  const storyPhotosByYear = useMemo(() => {
+    if (!preview?.photos.length) return publishedPhotosByYear;
+    const active = preview.photos.find((photo) => photo.id === preview.activePhotoId) || preview.photos[0];
+    const ordered = [active, ...preview.photos.filter((photo) => photo !== active)];
+    return {
+      ...publishedPhotosByYear,
+      [preview.year]: [
+        ...ordered.map((photo) => ({ web: photo.url, cutout: null, source: null })),
+        ...(publishedPhotosByYear[preview.year] || []),
+      ],
+    };
+  }, [publishedPhotosByYear, preview?.year, preview?.photos, preview?.activePhotoId]);
+  const storiesByMonth = useMemo(() => {
+    if (!preview?.photos.length || preview.month < 1 || preview.month > 12) return publishedStoriesByMonth;
+    return {
+      ...publishedStoriesByMonth,
+      [preview.year]: {
+        ...publishedStoriesByMonth[preview.year],
+        [preview.month]: [
+          { id: 'local-story-preview', thumb: preview.photos[0].url, draft: true },
+          ...(publishedStoriesByMonth[preview.year]?.[preview.month] || []),
+        ],
+      },
+    };
+  }, [publishedStoriesByMonth, preview?.year, preview?.month, preview?.photos]);
+  const memoryYears = useMemo(() => [...new Set([
+    ...Object.keys(storyIdsByYear).map(Number),
+    ...Object.keys(publishedPhotosByYear).map(Number),
+    ...(preview ? [preview.year] : []),
+  ])], [storyIdsByYear, publishedPhotosByYear, preview?.year]);
 
   // A coach's seasons (record and finish), for each year's headline.
   const [teamSeasons, setTeamSeasons] = useState<Record<number, TeamSeason>>({});
   const coachHsid = coachTenure ? String(identityMeta?.hsid || '') : '';
+  const [teamSeasonsLoad, setTeamSeasonsLoad] = useState<TimelineLoad>({ key: '', status: 'loading' });
   useEffect(() => {
     setTeamSeasons({});
+    setTeamSeasonsLoad({ key: coachHsid, status: 'loading' });
     if (!/^\d+$/.test(coachHsid)) return;
     let cancelled = false;
     fetch(`/api/schools/${coachHsid}/seasons`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !Array.isArray(data?.seasons)) return;
-        setTeamSeasons(Object.fromEntries((data.seasons as TeamSeason[]).map((x) => [Number(x.seasonYear), x])));
+      .then((res) => {
+        if (!res.ok) throw new Error(`school seasons ${res.status}`);
+        return res.json();
       })
-      .catch(() => {});
+      .then((data) => {
+        if (cancelled) return;
+        if (!Array.isArray(data?.seasons)) throw new Error('Missing school seasons');
+        setTeamSeasons(Object.fromEntries((data.seasons as TeamSeason[]).map((x) => [Number(x.seasonYear), x])));
+        setTeamSeasonsLoad({ key: coachHsid, status: 'ready' });
+      })
+      .catch(() => { if (!cancelled) setTeamSeasonsLoad({ key: coachHsid, status: 'error' }); });
     return () => { cancelled = true; };
   }, [coachHsid]);
 
@@ -1065,10 +1157,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   const [heroTick, setHeroTick] = useState(0);
   const rotatingHeroes = Object.values(storyPhotosByYear).some((photos) => photos.length > 1);
   useEffect(() => {
-    if (!rotatingHeroes) return;
+    if (isPreview || !rotatingHeroes) return;
     const timer = window.setInterval(() => setHeroTick((n) => n + 1), 5000);
     return () => window.clearInterval(timer);
-  }, [rotatingHeroes]);
+  }, [rotatingHeroes, isPreview]);
 
   const model = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -1346,20 +1438,38 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           default: return 7;
         }
       };
-      const coachSlides = [{ ...anchor, year: start }, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
-        .sort((a, b) => a.year - b.year || coachOrder(a) - coachOrder(b));
+      const coachSlides = withCareerMemoryYears(
+        [{ ...anchor, year: start }, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+          .sort((a, b) => a.year - b.year || coachOrder(a) - coachOrder(b)),
+        memoryYears,
+        (year): Slide => ({ id: `memoryyear-${year}`, kind: 'memoryyear', year, title: `Memories from ${year}` }),
+      );
       const coachAnchor = coachSlides.findIndex((s) => s.kind === 'anchor');
       return { startYear: coachSlides[0]?.year ?? start, endYear, hsYear: start, futureYear, slides: coachSlides, anchorIndex: coachAnchor < 0 ? 0 : coachAnchor };
     }
 
-    const slides = [...earlyYears, ...lifeYears, ...preHsUploaded, hsSlide, ...gradYearUploads, anchor, ...seasons, ...draftSlides, ...laterUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
-      .sort((a, b) => a.year - b.year || orderInYear(a) - orderInYear(b));
+    const slides = withCareerMemoryYears(
+      [...earlyYears, ...lifeYears, ...preHsUploaded, hsSlide, ...gradYearUploads, anchor, ...seasons, ...draftSlides, ...laterUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+        .sort((a, b) => a.year - b.year || orderInYear(a) - orderInYear(b)),
+      memoryYears,
+      (year): Slide => ({ id: `memoryyear-${year}`, kind: 'memoryyear', year, title: `Memories from ${year}` }),
+    );
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
-    return { startYear: hsYear - HS_GRAD_AGE, endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks, coachTenure]);
+    return { startYear: Math.min(hsYear - HS_GRAD_AGE, slides[0]?.year ?? hsYear), endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
+  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks, coachTenure, memoryYears]);
 
-  const ready = statsLoaded && uploadsLoaded && identityLoaded;
+  const storiesLoaded = storiesLoad.key === playerId && storiesLoad.status !== 'loading';
+  const previewContextError = identityLoad.status === 'error' || statsLoad.status === 'error' || storiesLoad.status === 'error'
+    || Boolean(coachTenure && (!/^\d+$/.test(coachHsid) || teamSeasonsLoad.status === 'error'));
+  const previewContextLoaded = !coachTenure || (teamSeasonsLoad.key === coachHsid && teamSeasonsLoad.status === 'ready');
+  const previewValid = !preview || (Number.isInteger(preview.year) && preview.year >= 1950 && preview.year <= new Date().getFullYear() + 1
+    && Number.isInteger(preview.month) && preview.month >= 1 && preview.month <= 12 && preview.photos.length > 0);
+  const ready = statsLoaded && uploadsLoaded && identityLoaded
+    && (!isPreview || (storiesLoaded && previewContextLoaded && !previewContextError && previewValid));
+  const previewTargetIndex = preview ? storyYearSlideIndex(model.slides, preview.year) : -1;
+  const [positionedRevision, setPositionedRevision] = useState<string | null>(null);
+  const previousSlidesRef = useRef<Slide[]>([]);
 
   // Start downloading the anchor slide's two photos right away, in
   // parallel with the stats/uploads/identity fetches, instead of only once
@@ -1367,12 +1477,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // also preloads them). By the time the slide appears they're usually
   // already in the browser cache.
   useEffect(() => {
-    if (!playerId) return;
+    if (!playerId || isPreview) return;
     for (const kind of ['then', 'back'] as const) {
       const img = new Image();
       img.src = webCutoutUrl(kind, playerId);
     }
-  }, [playerId]);
+  }, [playerId, isPreview]);
 
   // Anchor-slide entrance, once per player, per direct feedback: the HS
   // cutout always lands first (slides in from the left), and the pro
@@ -1392,14 +1502,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // Safety net: a stalled HS request never keeps the pro image hidden
   // for good.
   useEffect(() => {
+    if (isPreview) return;
     const timer = window.setTimeout(() => setHsSettled(true), 6000);
     return () => window.clearTimeout(timer);
-  }, [playerId]);
+  }, [playerId, isPreview]);
   useEffect(() => {
-    if (!hsSettled || !proSettled || introDone) return;
+    if (isPreview || !hsSettled || !proSettled || introDone) return;
     const timer = window.setTimeout(() => setIntroDone(true), 1200);
     return () => window.clearTimeout(timer);
-  }, [hsSettled, proSettled, introDone]);
+  }, [hsSettled, proSettled, introDone, isPreview]);
   const handleHsSettled = useCallback(() => setHsSettled(true), []);
   const handleProSettled = useCallback(() => setProSettled(true), []);
 
@@ -1408,15 +1519,34 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // effect, that first frame painted slide 0 (the earliest life year and
   // its YaTi placeholder) for an instant before snapping to the grad year.
   useLayoutEffect(() => {
-    if (!ready || initializedRef.current) return;
+    if (!ready) return;
+    if (preview) {
+      if (previewTargetIndex < 0) return;
+      const place = () => {
+        setScrollProgress(previewTargetIndex);
+        scrollToIndex(previewTargetIndex, false);
+        setRailSettled(true);
+        setPositionedRevision(preview.revision);
+      };
+      place();
+      const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+      if (trackRef.current) observer?.observe(trackRef.current);
+      return () => observer?.disconnect();
+    }
+    const previousSlides = previousSlidesRef.current;
+    previousSlidesRef.current = model.slides;
+    if (initializedRef.current && previousSlides === model.slides) return;
+    const previousSlide = previousSlides[Math.round(scrollProgress)];
+    const retainedIndex = initializedRef.current && previousSlide ? model.slides.findIndex((slide) => slide.id === previousSlide.id) : -1;
+    const index = retainedIndex >= 0 ? retainedIndex : model.anchorIndex;
     initializedRef.current = true;
     // Opens on the HS anchor slide (now the 18th screen, not the first --
     // see model.anchorIndex above), jumped to instantly rather than
     // animated in from slide 0 since there's no slide 0-through-17 pass to
     // show on first paint.
-    setScrollProgress(model.anchorIndex);
-    scrollToIndex(model.anchorIndex, false);
-  }, [ready, model.anchorIndex]);
+    setScrollProgress(index);
+    scrollToIndex(index, false);
+  }, [ready, model.slides, model.anchorIndex, preview?.revision, previewTargetIndex, isPreview]);
 
   useEffect(() => {
     const maxIndex = Math.max(0, model.slides.length - 1);
@@ -1429,7 +1559,34 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // years; the grad year's months are on its own slide just before it).
   const activeSlide = model.slides[activeIndex];
   // The draft slide keeps the years too: it's one day, not a year.
-  const monthRailYear = railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft' ? activeSlide.year : null;
+  const monthRailYear = preview && ready && previewTargetIndex >= 0
+    ? preview.year
+    : railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft' ? activeSlide.year : null;
+  const previewStatus: CareerTimelinePreviewState['status'] = !previewValid || previewContextError ? 'error'
+    : ready && positionedRevision === preview?.revision && activeSlide?.year === preview?.year && isCareerYearSlide(activeSlide)
+      && Math.abs(scrollProgress - activeIndex) < 0.01 ? 'ready' : 'loading';
+  const previewStateCallback = useRef(preview?.onStateChange);
+  previewStateCallback.current = preview?.onStateChange;
+  useEffect(() => {
+    if (preview) previewStateCallback.current?.({ revision: preview.revision, status: previewStatus });
+  }, [preview?.revision, previewStatus]);
+
+  // Only the miniature's month strip moves: neither the drawer nor the
+  // underlying page is scrolled when the form's month/year changes.
+  useLayoutEffect(() => {
+    const scroller = previewMonthScrollRef.current;
+    const rail = railRef.current;
+    if (!preview || !ready || !scroller || !rail) return;
+    const center = () => {
+      const marker = rail.querySelector<HTMLElement>('[data-preview-month="true"]');
+      if (!marker) return;
+      scroller.scrollLeft = Math.max(0, rail.offsetLeft + marker.offsetLeft - scroller.clientWidth / 2);
+    };
+    center();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(center);
+    observer?.observe(scroller);
+    return () => observer?.disconnect();
+  }, [ready, preview?.revision, preview?.month]);
 
   // Every time he was drafted: its own draft slide (see the model above),
   // a gold pennant on that slide's rail tick, and one on the draft month
@@ -1444,7 +1601,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // The first time the timeline is ready it may not scroll at all (already
   // on its opening slide), so check once whether it's at rest.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || isPreview) return;
     const timer = setTimeout(() => {
       const el = trackRef.current;
       if (!el || dragRef.current.dragging || railDragRef.current.dragging || settleTimerRef.current != null) return;
@@ -1452,7 +1609,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       if (Math.abs(progress - Math.round(progress)) < 0.01) setRailSettled(true);
     }, 700);
     return () => clearTimeout(timer);
-  }, [ready]);
+  }, [ready, isPreview]);
   // Fraction of the rail the "traveled" fill covers, driven by the
   // continuous scroll position (not the rounded activeIndex) so it tracks
   // smoothly mid-drag instead of snapping slide-to-slide.
@@ -1648,6 +1805,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   }
 
   function handleSlideClick(slide: Slide) {
+    if (isPreview) return;
     if (dragRef.current.moved) return;
     if (slide.kind === 'upload') setOpenMomentId(slide.id);
   }
@@ -1658,6 +1816,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // listener (not React's onWheel) is required to call preventDefault --
   // React's synthetic wheel handler is attached passively.
   useEffect(() => {
+    if (isPreview) return;
     const el = trackRef.current;
     if (!el) return;
     function onWheel(event: WheelEvent) {
@@ -1667,7 +1826,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
     }
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [isPreview]);
 
   if (variant === 'line') {
     return null;
@@ -1680,7 +1839,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           box, so there's no seam or height math shared with the carousel
           below. Just the same photo, cropped on its own for this strip,
           sitting behind the now-transparent header bars. */}
-      <div className="zt-hero-bleed" aria-hidden="true">
+      {!isPreview && <div className="zt-hero-bleed" aria-hidden="true">
         <SmartImage className="zt-hero-bleed-bg" src={HERO_BG} alt="" />
         {/* One continuous top-to-bottom darkening over the full bleed
             (rows 1+2+3 together, not per-row), darkest at the very top
@@ -1689,8 +1848,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             (.zt-visual-gradient) so there's no visible seam where the
             two overlays meet. */}
         <span className="zt-hero-bleed-overlay" />
-      </div>
-      <section className="zt-shell-images yat-profile-career-strip" id="playerCareerImages">
+      </div>}
+      <section
+        className={`zt-shell-images ${isPreview ? 'zt-story-preview' : 'yat-profile-career-strip'}`}
+        id={isPreview ? undefined : 'playerCareerImages'}
+        aria-label={isPreview ? `${resolvedPlayerName || 'Player'} career timeline preview` : undefined}
+        data-preview-timeline={isPreview ? 'true' : undefined}
+        data-active-year={ready ? activeSlide?.year : undefined}
+        data-active-kind={ready ? activeSlide?.kind : undefined}
+      >
+      {preview && <div className="zt-preview-date">Your photo · {RAIL_MONTHS[preview.month - 1]} {preview.year}</div>}
+      {isPreview && !ready && <div className="zt-preview-message" role={previewStatus === 'error' ? 'alert' : 'status'}>
+        {previewStatus === 'error' ? 'We couldn’t load this timeline.' : 'Loading the player’s timeline…'}
+      </div>}
       {/* Top-left, persistent CTA + identity block -- not inside
           .zt-hero-bleed (that div sits at z-index:-1, deliberately
           painted BEHIND this entire section's own content -- see the
@@ -1720,7 +1890,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-kick over in the headline column, per direct feedback --
           both are the first line of their respective columns, so they
           should read as one shared top edge across the slide. */}
-      {(resolvedPlayerName || currentTeamName || orgConferenceName || posLevelStatus || batsThrowsHw || displayClassOf) && (
+      {!isPreview && (resolvedPlayerName || currentTeamName || orgConferenceName || posLevelStatus || batsThrowsHw || displayClassOf) && (
         <div className="zt-moment-cta" aria-hidden="true">
           {/* Same fields as the flip card's BACK, reordered per direct
               feedback: name, team, org, then level/status (position moved
@@ -1773,7 +1943,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           mounted on the profile page) with the year of the slide the fan is
           looking at. Inline pointer-events overrides the stack's own
           pointer-events:none in the style block below. */}
-      <button
+      {!isPreview && <button
         type="button"
         className="zt-polaroid-stack"
         disabled={!timelineHydrated}
@@ -1812,7 +1982,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             then switched to display:block under the 620px override below,
             which forces it back onto its own line there. */}
         <span className="zt-polaroid-caption">Add a<br />memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career <span className="zt-polaroid-caption-timeline">Timeline!</span></span>
-      </button>
+      </button>}
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
           does -- each opacity-driven by how close the continuous scroll
@@ -1845,7 +2015,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   area too, so this is a transparent window onto that one
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
-              {storyPhotosByYear[slide.year]?.length && (slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future' || slide.kind === 'draft') ? (
+              {storyPhotosByYear[slide.year]?.length && (isCareerYearSlide(slide) || slide.kind === 'draft') ? (
                 <StoryMontage photos={storyPhotosByYear[slide.year].map((p) => p.web)} />
               ) : null}
               <span className="zt-visual-gradient" aria-hidden="true" />
@@ -1930,11 +2100,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               </Fragment>
             );
           }
-          const storyPhotos = slide.kind === 'season' || slide.kind === 'hsyear' || slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future' || slide.kind === 'draft' ? storyPhotosByYear[slide.year] : undefined;
+          const storyPhotos = isCareerYearSlide(slide) || slide.kind === 'draft' ? storyPhotosByYear[slide.year] : undefined;
           if (storyPhotos?.length) {
             return (
               <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
-                <StoryHeroStrip photos={storyPhotos} tick={heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
+                <StoryHeroStrip photos={storyPhotos} tick={isPreview ? 0 : heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} readOnly={isPreview} />
               </span>
             );
           }
@@ -1979,14 +2149,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
       <div
         className="zt-carousel"
         ref={trackRef}
-        onScroll={handleScroll}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onScroll={isPreview ? undefined : handleScroll}
+        onPointerDown={isPreview ? undefined : handlePointerDown}
+        onPointerMove={isPreview ? undefined : handlePointerMove}
+        onPointerUp={isPreview ? undefined : handlePointerUp}
+        onPointerCancel={isPreview ? undefined : handlePointerUp}
       >
         {ready && model.slides.map((slide) => (
-          <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={() => handleSlideClick(slide)} title={slide.title}>
+          <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={isPreview ? undefined : () => handleSlideClick(slide)} title={slide.title} data-year={slide.year} data-kind={slide.kind}>
             <span className="zt-copy">
               {slide.kind === 'anchor' && coachTenure && (
                 <>
@@ -2049,6 +2219,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   <span className="zt-title">{resolvedPlayerName || ''}</span>
                 </>
               )}
+              {slide.kind === 'memoryyear' && (
+                <>
+                  <span className="zt-kick">{slide.year}</span>
+                  <span className="zt-title">{slide.title}</span>
+                </>
+              )}
               {slide.kind === 'lifeyear' && (
                 <>
                   <span className="zt-kick">{slide.isEarly ? 'Born' : `Age ${slide.age}`}</span>
@@ -2072,7 +2248,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                     <span className="zt-title">{copy.headline}</span>
                     {copy.line ? <span className="zt-bodycopy">{copy.line}</span> : null}
                     <span className="zt-bodycopy">Were you on the {slide.year} team? Share a memory from this season.</span>
-                    {memories.length > 0 && (
+                    {!isPreview && memories.length > 0 && (
                       <div className="zt-upload-actions">
                         <button type="button" className="zt-comment-pill" onClick={(e) => { e.stopPropagation(); showStoryInStoriesTab(memories[0]); }}>
                           {memories.length > 1 ? `${memories.length} memories` : 'Open the memory'} · Comment
@@ -2095,13 +2271,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                   )}
                   <span className="zt-title">{slide.title}</span>
                   {slide.caption ? <span className="zt-bodycopy">{slide.caption}</span> : null}
-                  <div className="zt-upload-actions">
+                  {!isPreview && <div className="zt-upload-actions">
                     <ReactionButton moment={slide} session={session} onToggled={handleReactionToggled} />
                     <button type="button" className="zt-comment-pill" onClick={(e) => { e.stopPropagation(); setOpenMomentId(slide.id); }}>
                       <i className="ri-chat-3-line" />
                       {(slide.comments || []).length}
                     </button>
-                  </div>
+                  </div>}
                 </>
               )}
             </span>
@@ -2111,12 +2287,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
 
       {ready && model.slides.length > 1 && (
         <>
-          <button type="button" className="zt-nav zt-nav-prev" onClick={goPrev} disabled={activeIndex === 0} aria-label="Previous">
+          {!isPreview && <button type="button" className="zt-nav zt-nav-prev" onClick={goPrev} disabled={activeIndex === 0} aria-label="Previous">
             <i className="ri-arrow-left-s-line" />
-          </button>
-          <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
+          </button>}
+          {!isPreview && <button type="button" className="zt-nav zt-nav-next" onClick={goNext} disabled={activeIndex === model.slides.length - 1} aria-label="Next">
             <i className="ri-arrow-right-s-line" />
-          </button>
+          </button>}
           {/* Closing boundary for the future screen above -- per direct
               feedback, adding that one screen really means two points on
               the timeline (each point marks a January 1st: the screen
@@ -2125,11 +2301,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
               doesn't open a screen of its own -- plain span, not a button,
               and outside .zt-rail entirely so it doesn't need to fit into
               that div's own index-based tick spacing. */}
-          {!monthRailYear && (
+          {!isPreview && !monthRailYear && (
             <span className="zt-rail-tick zt-rail-tick-boundary" aria-hidden="true">
               <span className="zt-rail-tick-year">{String(model.futureYear + 1).slice(-2)}</span>
             </span>
           )}
+          <div className={isPreview ? 'zt-preview-month-scroll' : 'zt-rail-wrap'} ref={isPreview ? previewMonthScrollRef : undefined}>
           <div className={`zt-rail${monthRailYear ? ' zt-rail-months' : ''}`} ref={railRef}>
             <span className="zt-rail-track" aria-hidden="true" />
             {monthRailYear ? (
@@ -2140,13 +2317,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                 <span className="zt-rail-monthyear">{monthRailYear}</span>
                 {RAIL_MONTHS.map((label, m) => {
                   const stories = storiesByMonth[monthRailYear]?.[m + 1] || [];
+                  const selected = Boolean(preview && monthRailYear === preview.year && m + 1 === preview.month);
                   return (
-                    <span key={label} className={`zt-rail-month${stories.length ? ' has-story' : ''}`} style={{ left: `calc(${RAIL_MONTH_START}px + (100% - ${RAIL_MONTH_START}px) * ${m / 12})` }}>
+                    <span key={label} className={`zt-rail-month${stories.length ? ' has-story' : ''}${selected ? ' is-preview-selected' : ''}`} style={{ left: `calc(${RAIL_MONTH_START}px + (100% - ${RAIL_MONTH_START}px) * ${m / 12})` }} data-month={m + 1} data-preview-month={selected ? 'true' : undefined} aria-current={selected ? 'date' : undefined}>
                       <span className="zt-rail-month-label" aria-hidden="true">{label}</span>
                       {monthRailDraft && m === draftMonthIndex(monthRailYear) && (
                         <span className="zt-pennant" role="img" aria-label={draftLine(monthRailDraft)} title={draftLine(monthRailDraft)} />
                       )}
-                      {stories.length > 0 && (
+                      {stories.length > 0 && (isPreview ? (
+                        <span className="zt-rail-story" role="img" aria-label={`${selected ? 'Your photo' : `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`} in ${label} ${monthRailYear}`}>
+                          {stories[0].thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img className="zt-rail-story-thumb" src={stories[0].thumb} alt="" />
+                          ) : null}
+                          {selected ? <span className="zt-preview-marker-label">Your photo</span> : null}
+                          {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
+                        </span>
+                      ) : (
                         <button
                           type="button"
                           className="zt-rail-story"
@@ -2159,7 +2346,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
                           ) : null}
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </button>
-                      )}
+                      ))}
                     </span>
                   );
                 })}
@@ -2216,10 +2403,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             </>
             )}
           </div>
+          </div>
         </>
       )}
 
-      {openMoment && (
+      {!isPreview && openMoment && (
         <MomentDetailModal
           moment={openMoment}
           session={session}
@@ -2551,7 +2739,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            headline, not their own italic style, and pre-line was forcing
            a source-text line break to render literally instead of letting
            the sentence just flow and wrap naturally. */
-        .zt-anchor .zt-title, .zt-hsyear .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-coachyear .zt-title, .zt-future .zt-title, .zt-draft .zt-title { white-space:normal; overflow-wrap:anywhere; }
+        .zt-anchor .zt-title, .zt-hsyear .zt-title, .zt-season .zt-title, .zt-lifeyear .zt-title, .zt-coachyear .zt-title, .zt-future .zt-title, .zt-draft .zt-title, .zt-memoryyear .zt-title { white-space:normal; overflow-wrap:anywhere; }
         /* Thin black outline around every headline, per direct feedback --
            same 8-direction text-shadow technique as .zt-polaroid-caption,
            at 1px instead of 1.5px. */
@@ -3025,6 +3213,44 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           .zt-persist-team {font-size:8.5px;}
           .zt-persist-org {font-size:8px;}
         }
+        /* The proof reuses this renderer in a drawer-sized container.
+           These rules follow the viewport rules intentionally: a narrow
+           drawer on a wide monitor must use its own compact dimensions. */
+        .zt-rail-wrap { display:contents; }
+        .zt-story-preview {
+          width:100%; height:272px; min-height:272px; max-height:272px;
+          border:1px solid rgba(255,178,28,.32); border-radius:8px;
+          background:#040506 url('${HERO_BG}') left center / cover no-repeat;
+          isolation:isolate; container-type:inline-size;
+        }
+        .zt-preview-date { position:absolute; z-index:8; top:9px; left:10px; right:10px; color:${TIMELINE_YELLOW}; font:700 12px/1.2 Oswald,sans-serif; letter-spacing:.04em; }
+        .zt-preview-message { position:absolute; z-index:9; inset:32px 0 0; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center; color:#fff; background:rgba(4,5,6,.88); font:400 13px/1.5 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .zt-story-preview .zt-visual-stack,
+        .zt-story-preview .zt-person-stack { top:30px; bottom:88px; height:auto; }
+        .zt-story-preview .zt-carousel { top:30px; height:154px; overflow:hidden; touch-action:pan-y; cursor:default; }
+        .zt-story-preview .zt-slide { flex:0 0 100%; width:100%; min-width:100%; }
+        .zt-story-preview .zt-copy { top:8px; bottom:8px; left:45%; right:10px; width:auto; max-width:none; padding:0; justify-content:center; }
+        .zt-story-preview .zt-kick { font-size:9px; margin-bottom:4px; }
+        .zt-story-preview .zt-title { font-size:clamp(14px,4.2cqi,17px); line-height:1.12; margin-bottom:4px; white-space:normal; }
+        .zt-story-preview .zt-bodycopy { font-size:11px; line-height:1.3; white-space:normal; }
+        .zt-story-preview .zt-bigstats { column-gap:12px; row-gap:5px; }
+        .zt-story-preview .zt-bigstat-label { font-size:8px; }
+        .zt-story-preview .zt-bigstat-value { font-size:21px; }
+        .zt-story-preview .zt-logo-layer { right:-10%; width:58%; opacity:.18; }
+        .zt-story-preview .zt-visual-gradient { background:linear-gradient(90deg,rgba(4,5,6,.05) 0%,rgba(4,5,6,.25) 38%,rgba(4,5,6,.82) 49%,rgba(4,5,6,.96) 100%); }
+        .zt-story-preview .zt-person-stack :global(.zt-person),
+        .zt-story-preview .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { left:8px; width:calc(43% - 16px); height:100%; bottom:0; object-position:center bottom; }
+        .zt-story-preview .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:8px; height:calc(100% - 16px); }
+        .zt-story-preview .zt-person-stack :global(.zt-person.zt-person-story) { transition:none; animation:none; }
+        .zt-preview-month-scroll { position:absolute; z-index:8; left:0; right:0; bottom:0; height:88px; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; touch-action:pan-x; scrollbar-width:thin; scrollbar-color:rgba(255,178,28,.5) transparent; background:rgba(4,5,6,.93); }
+        .zt-story-preview .zt-rail { position:relative; left:auto; right:auto; bottom:auto; width:calc(100% - 28px); min-width:520px; height:12px; margin:52px 14px 20px; }
+        .zt-story-preview .zt-rail-month { animation:none; }
+        .zt-story-preview .zt-rail-month-label { font-size:9px; }
+        .zt-story-preview .zt-rail-month.is-preview-selected { background:${TIMELINE_YELLOW}; box-shadow:0 0 0 3px rgba(255,178,28,.35); }
+        .zt-story-preview .zt-rail-month.is-preview-selected .zt-rail-month-label { color:#fff; font-size:10px; font-weight:700; }
+        .zt-story-preview .zt-rail-story { cursor:default; }
+        .zt-story-preview .zt-rail-story:hover { transform:translateX(-50%); }
+        .zt-preview-marker-label { position:absolute; left:50%; bottom:calc(100% + 4px); transform:translateX(-50%); white-space:nowrap; color:${TIMELINE_YELLOW}; font:700 9px/1 Oswald,sans-serif; }
       `}</style>
     </section>
     </>
