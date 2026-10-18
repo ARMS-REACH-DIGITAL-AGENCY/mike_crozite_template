@@ -9,6 +9,7 @@ import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
+import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
@@ -22,9 +23,22 @@ function joinSchoolUrl(base: string, suffix = ''): string {
   return cleanBase ? `${cleanBase}${suffix}` : suffix || '/';
 }
 
-function playerFlipCardHref(playerSchoolUrl: string | undefined, playerHsid: string, playerId: string): string {
+function playerFlipCardHref(
+  playerSchoolUrl: string | undefined,
+  playerHsid: string,
+  playerId: string,
+  statusLabel?: string,
+  levelLabel?: string,
+): string {
   const base = playerSchoolUrl || `/${encodeURIComponent(playerHsid)}`;
-  return joinSchoolUrl(base, `?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`);
+  const status = String(statusLabel || '').trim().toUpperCase();
+  const level = String(levelLabel || '').trim().toUpperCase();
+  const view = isActiveGalleryStatus(status)
+    ? 'active'
+    : (level === 'HIGH SCHOOL' || level === 'HS' || status === 'COMMIT' || status === 'UNCOMMITTED')
+      ? 'current'
+      : 'alltime';
+  return joinSchoolUrl(base, `?view=${view}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`);
 }
 
 function getVisibleGallerySection(): HTMLElement | null {
@@ -172,7 +186,13 @@ export default function SchoolContextBar({
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isPlayerProfile && profilePlayerId && resolvedPlayerHsid && (
-          <a href={playerFlipCardHref(resolvedPlayerSchoolUrl, resolvedPlayerHsid, profilePlayerId)} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+          <a href={playerFlipCardHref(
+              resolvedPlayerSchoolUrl,
+              resolvedPlayerHsid,
+              profilePlayerId,
+              playerProfile?.statusLabel,
+              playerProfile?.levelLabel,
+            )} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
             <FlipCardIcon size={20} />
           </a>
         )}
