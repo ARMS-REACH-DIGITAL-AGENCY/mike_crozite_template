@@ -120,10 +120,37 @@ export async function GET(req: NextRequest) {
       stateRaw,
       cityRaw,
       `%${cityRaw}%`,
-      [...ACTIVE_GALLERY_STATUSES],
     ];
     const state = !stateRaw && !cityRaw ? stateFromQuery(qRaw) : null;
     const { rows } = state ? { rows: await schoolsInState(state, qRaw, limit) } : await query(sql, params);
+    // Include player-linked schools absent from the ranking directory, without
+    // expanding or delaying ordinary ranked results unnecessarily.
+    const resultRows: any[] = [...rows];
+    if (resultRows.length < limit && (qRaw || stateRaw || cityRaw)) {
+      try {
+        const { rows: extras } = await query(
+          `SELECT t.hsid, t.hsname, t.cityname, t.hslocation, t.regionid,
+                  NULL::int AS yatstats_national_rank,
+                  NULL::text AS yatstats_state_rank,
+                  NULL::int AS current_aa, NULL::int AS mlb,
+                  NULL::int AS atnla, NULL::int AS drafted_hs,
+                  NULL::int AS drafted, NULL::text AS microsite_url,
+                  FALSE AS bracket_seeding
+             FROM public.tbc_schools_raw t
+            WHERE EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+              AND NOT EXISTS (SELECT 1 FROM public.school_success s WHERE s.hsid = t.hsid)
+              AND ($1::text = '' OR t.regionid = $1)
+              AND ($2::text = '' OR t.cityname ILIKE $2)
+              AND ($3::boolean OR t.hsname ILIKE $4)
+            ORDER BY t.hsname, t.hsid
+            LIMIT $5`,
+          [state || stateRaw, cityRaw ? `%${cityRaw}%` : '', Boolean(state), `%${qRaw}%`, limit - resultRows.length],
+        );
+        resultRows.push(...extras);
+      } catch (error) {
+        console.warn('[school-search] supplemental school lookup failed', error);
+      }
+    }
     // school_success is a ranking/directory source, not a complete ID registry.
     // Resolve its missing HSIDs against the canonical TBC school records.
     // Never guess an ID when name + city + state is ambiguous.
@@ -148,7 +175,7 @@ export async function GET(req: NextRequest) {
         canonicalIds.get(key)!.add(String(match.hsid));
       }
     }
-    const resolvedRows = rows.map((row: any) => {
+    const resolvedRows = resultRows.map((row: any) => {
       if (/^\d+$/.test(String(row.hsid ?? '').trim())) return row;
       const key = schoolKey(row.hsname, row.cityname || String(row.hslocation ?? '').split(',')[0], row.regionid);
       const matches = canonicalIds.get(key);
