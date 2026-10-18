@@ -29,6 +29,14 @@ function hasAnyRightOpen() {
   return getRightState() !== '';
 }
 
+// Player stories are transient overlays, not persisted navigation rails.
+// Keep their mask active when a resize or rail sync runs while one is open.
+function hasOpenDrawer() {
+  return hasLeftOpen() || hasAnyRightOpen()
+    || document.body.classList.contains('drawer-story-open')
+    || document.body.classList.contains('drawer-contribute-open');
+}
+
 function closeRightRails() {
   document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
 }
@@ -79,7 +87,7 @@ function applyRightState(right: DrawerState['right']) {
 function forceAccountDrawerOpen() {
   const body = document.body;
   body.classList.add('drawer-account-open', 'drawer-open');
-  body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+  body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open', 'drawer-story-open');
   saveDrawerState();
 }
 
@@ -91,6 +99,7 @@ function consumeDrawerClick(event: MouseEvent) {
 
 function openRightDrawer(right: Exclude<DrawerState['right'], ''>) {
   const body = document.body;
+  body.classList.remove('drawer-story-open');
   closeRightRails();
   body.classList.add('drawer-open');
 
@@ -150,7 +159,7 @@ function syncRailMode() {
 
   if (!railCapable) {
     document.body.classList.remove('yat-both-rails-capable', 'yat-desktop-docked-drawers');
-    document.body.classList.toggle('drawer-open', hasLeftOpen() || hasAnyRightOpen());
+    document.body.classList.toggle('drawer-open', hasOpenDrawer());
     saveDrawerState();
     return;
   }
@@ -159,7 +168,7 @@ function syncRailMode() {
     closeRightRails();
   }
 
-  document.body.classList.toggle('drawer-open', hasLeftOpen() || hasAnyRightOpen());
+  document.body.classList.toggle('drawer-open', hasOpenDrawer());
   saveDrawerState();
 }
 
@@ -262,7 +271,7 @@ export default function DrawerRailController() {
       if (target.closest('#drawerMask')) {
         consumeDrawerClick(event);
         window.setTimeout(() => {
-          body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-open', 'yat-left-search-mode');
+          body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open', 'drawer-open', 'yat-left-search-mode');
           syncRailMode();
         }, 0);
         return;

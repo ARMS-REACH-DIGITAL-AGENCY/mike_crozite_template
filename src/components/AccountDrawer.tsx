@@ -83,18 +83,6 @@ function PasswordInput({
       >
         <i className={visible ? 'ri-eye-off-line' : 'ri-eye-line'} />
       </button>
-      <style jsx global>{`
-        #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
-        #drawerAccount .yat-account-signed-in{padding:18px 20px 28px!important;min-width:0;}
-        #drawerAccount .yat-account-identity{margin:6px 0 18px!important;padding:0 2px 17px;border-bottom:1px solid var(--line);}
-        #drawerAccount .yat-account-identity p:first-child{margin:0 0 6px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
-        #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
-        #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
-        #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
-        #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
-        @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:14px 16px 25px!important;}#drawerAccount .yat-account-identity{margin-top:2px!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
-      `}</style>
-
     </div>
   );
 }
@@ -1498,6 +1486,18 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           </div>
         </>
       )}
+      {/* Account styles must survive sign-in, when both password fields unmount. */}
+      <style jsx global>{`
+        #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
+        #drawerAccount .yat-account-signed-in{padding:18px 20px 28px!important;min-width:0;}
+        #drawerAccount .yat-account-identity{margin:6px 0 18px!important;padding:0 2px 17px;border-bottom:1px solid var(--line);}
+        #drawerAccount .yat-account-identity p:first-child{margin:0 0 6px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
+        #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
+        #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
+        #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
+        #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:14px 16px 25px!important;}#drawerAccount .yat-account-identity{margin-top:2px!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
+      `}</style>
     </div>
   );
 }

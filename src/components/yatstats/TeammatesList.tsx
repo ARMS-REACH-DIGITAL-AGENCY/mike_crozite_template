@@ -17,7 +17,7 @@ type Order = 'az' | 'year';
 
 function Name({ t }: { t: TeammateSeason }) {
   return t.href
-    ? <a href={t.href} onClick={() => track('teammate_click', { teammate_playerid: t.playerId, teammate_year: t.year })}>{t.name}</a>
+    ? <a className="ytm-name" href={t.href} onClick={() => track('teammate_click', { teammate_playerid: t.playerId, teammate_year: t.year })}>{t.name}</a>
     : <span className="ytm-plain">{t.name}</span>;
 }
 
@@ -46,7 +46,7 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
   // A new order starts from the top of the list.
   const pick = (next: Order) => {
     setOrder(next);
-    const scroller = listRef.current?.closest('.ytd-panel');
+    const scroller = listRef.current?.closest('.ytd-scroll');
     if (scroller) scroller.scrollTop = 0;
   };
 
@@ -119,11 +119,12 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
         .ytm-head-yr { color: var(--ytm-accent, #ffc107); }
         ul { margin: 4px 0 0; padding: 0; list-style: none; }
         li { padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        /* Every name with a profile is a link, and looks like one: a faint
-           underline, gold on hover or tap, and a full-height tap target. */
-        a { display: inline-block; padding: 4px 0; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 3px; }
-        a:hover, a:focus-visible, a:active { color: var(--ytm-accent, #ffc107); text-decoration-color: currentColor; }
-        .ytm-plain { color: var(--ytm-muted, rgba(255,255,255,.55)); }
+        /* Name is a child component and does not inherit this styled-jsx
+           scope class. Keep its approved link treatment inside .ytm while
+           explicitly reaching the child's rendered elements. */
+        .ytm :global(a.ytm-name) { display: inline-block; padding: 4px 0; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 3px; }
+        .ytm :global(a.ytm-name:hover), .ytm :global(a.ytm-name:focus-visible), .ytm :global(a.ytm-name:active) { color: var(--ytm-accent, #ffc107); text-decoration-color: currentColor; }
+        .ytm :global(.ytm-plain) { color: var(--ytm-muted, rgba(255,255,255,.55)); }
         .ytm-yr { color: var(--ytm-accent, #ffc107); font-size: 13px; }
       `}</style>
     </aside>

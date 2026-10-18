@@ -24,6 +24,13 @@ export const STORY_POSTED_EVENT = 'yat:story-posted';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_PHOTOS = 4;
+const OTHER_DRAWER_CLASSES = ['drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-contribute-open'];
+
+function clearStoryDrawerState() {
+  const body = document.body;
+  if (body.classList.contains('drawer-story-open')) body.classList.remove('drawer-story-open');
+  if (body.classList.contains('drawer-open') && !OTHER_DRAWER_CLASSES.some((name) => body.classList.contains(name))) body.classList.remove('drawer-open');
+}
 
 type FanSession = {
   uid?: string;
@@ -88,9 +95,26 @@ export default function StoryDrawer() {
 
   const close = useCallback(() => {
     setOpen(false);
-    document.body.classList.remove('drawer-story-open');
-    if (!document.body.className.match(/drawer-(left|right|sort|account|favorites)-open/)) document.body.classList.remove('drawer-open');
+    clearStoryDrawerState();
   }, []);
+
+  // This portal belongs to the player layout. Leaving that layout must not
+  // leave a screen mask behind after the drawer itself has unmounted.
+  useEffect(() => () => clearStoryDrawerState(), []);
+
+  // Other drawers use body classes to replace the active rail. Suspend this
+  // drawer as well, without resetting the fan's draft, so its ARIA state and
+  // Escape/mask handlers agree with the panel that is actually visible.
+  useEffect(() => {
+    if (!open) return;
+    const sync = () => {
+      const body = document.body;
+      if (!body.classList.contains('drawer-story-open') || OTHER_DRAWER_CLASSES.some((name) => body.classList.contains(name))) close();
+    };
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, [open, close]);
 
   const resetForm = useCallback(() => {
     setMonth(0);
@@ -117,7 +141,8 @@ export default function StoryDrawer() {
       if (!inProgress) setYear(Number.isInteger(slideYear) && slideYear > 1950 && slideYear <= thisYear + 1 ? slideYear : thisYear);
       if (status.kind === 'done') resetForm();
       setOpen(true);
-      document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open');
+      document.body.classList.remove(...OTHER_DRAWER_CLASSES, 'yat-left-search-mode');
+      document.getElementById('drawerAccount')?.classList.remove('open', 'is-open', 'active');
       document.body.classList.add('drawer-story-open', 'drawer-open');
       setSessionLoading(true);
       fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' })
@@ -410,7 +435,9 @@ export default function StoryDrawer() {
         .ysd-as input { width: 18px; height: 18px; accent-color: #2e8b5f; }
         body.drawer-story-open #drawerStory { transform: translateX(0); }
         body.drawer-story-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
-        .yat-story-drawer { width:min(94vw,440px); font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
+        /* The generic drawer rail has a 360px !important cap. Preserve this
+           form's approved 440px layout regardless of style injection order. */
+        #drawerStory.yat-story-drawer { width:min(94vw,440px)!important; max-width:440px!important; font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
         .ysd-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
         /* The YAT?STATS crest screened back behind the header, the same as
            the News reader drawer (ProfileContentDrawer): large at 15%
@@ -423,7 +450,7 @@ export default function StoryDrawer() {
            Preserve existing gold CTA and 8px-rounded fields. */
         .ysd-kicker { color:#FFD700; font:700 13px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.07em; text-transform:uppercase; }
         body.light-theme .ysd-kicker { color: #9a6f00; }
-        .ysd-title { margin:6px 0 0 !important; padding:0 !important; font:800 20px/1.12 var(--yat-font-ui, Archivo, Arial, sans-serif) !important; letter-spacing:-.025em; }
+        #drawerStory .ysd-title { margin:6px 0 0 !important; padding:0 !important; font:800 20px/1.12 var(--yat-font-ui, Archivo, Arial, sans-serif) !important; letter-spacing:-.025em!important; }
         .ysd-close { position: static !important; flex: none; }
         .ysd-body { flex-shrink:0; display:flex; flex-direction:column; gap:16px; padding:14px 16px 28px; font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
         .ysd-muted { opacity: .65; }
@@ -432,10 +459,11 @@ export default function StoryDrawer() {
         .ysd-field { display: flex; flex-direction: column; gap: 6px; }
         .ysd-label { font:700 14px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.06em; text-transform:uppercase; }
         .ysd-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
-        .yat-story-drawer select, .yat-story-drawer textarea, .yat-story-drawer input[type="search"] {
+        #drawerStory select, #drawerStory textarea, #drawerStory input[type="search"] {
           width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.06);
           color:var(--ink); padding:10px 12px; font:400 14px/1.45 var(--yat-font-ui, Archivo, Arial, sans-serif);
         }
+        body.light-theme #drawerStory input[type="search"] { background: rgba(0,0,0,.06); }
         .yat-story-drawer textarea { resize: vertical; min-height: 140px; }
         .ysd-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .ysd-photo, .ysd-photo-add { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
