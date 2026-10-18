@@ -23,7 +23,7 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 import { parseTeamYear, teamYearCardOrder } from "@/lib/teamYearShare";
 import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
-import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
+import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -493,8 +493,13 @@ export default async function SchoolPage({
   // enrich those cards when present; they do not decide whether a player is
   // Active. This keeps cards, filters, Row 3 and the footer tally identical.
   const activeStatsById = new Map(activeRosterRows.map((p) => [String(p.playerid), p]));
+  // Keep every status the Active filter offers in the DOM, but the
+  // owner-approved preset still controls first paint. This is especially
+  // important for RETIRED - COACH: the filter used to offer it while the
+  // server omitted those cards entirely, so selecting it could never show
+  // Mike Woods or another retired coach.
   const activeMerged: Row[] = stageRows
-    .filter((p) => ACTIVE_GALLERY_STATUSES.includes(String(p.status_label || p.status || '').trim().toUpperCase()))
+    .filter((p) => GALLERY_STATUS_OPTIONS.includes(String(p.status_label || p.status || '').trim().toUpperCase() as (typeof GALLERY_STATUS_OPTIONS)[number]))
     .filter((p) => !isHighSchoolPlayer(p) || isRetiredCoachCard(p))
     .map((stageRow) => {
       const id = String(stageRow.playerid);
@@ -591,6 +596,11 @@ export default async function SchoolPage({
                   key={`active-wrap-${playerId}`}
                   data-player-card-wrap="true"
                   data-playerid={playerId}
+                  style={{
+                    display: ACTIVE_GALLERY_STATUSES.includes(String(p.status_label || p.status || '').trim().toUpperCase())
+                      ? undefined
+                      : 'none',
+                  }}
                 >
                   <PlayerCard
                     key={`active-${playerId}`}
