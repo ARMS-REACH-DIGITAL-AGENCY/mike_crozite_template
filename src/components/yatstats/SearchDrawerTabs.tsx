@@ -219,6 +219,7 @@ export function renderSchoolRows(
         const unavailable = viewOnly || !hasSchoolDestination;
         const microsite = String(school.microsite_url || school.micrositeUrl || '').trim();
         const displayUrl = microsite.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+        const displayUrlHtml = esc(displayUrl).replace(/\./g, '.<wbr>');
         const globalClass = globalSearch ? ' yat-search-school-global-card' : '';
         const meta = `data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}"`;
         const crestImg = `<img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />`;
@@ -227,7 +228,7 @@ export function renderSchoolRows(
             ${location ? `<small class="yat-search-school-location">${esc(location)}</small>` : ''}
             <strong>${esc(name)}</strong>
             ${globalSearch
-              ? `${hasSchoolDestination ? `<small class="yat-search-school-url">${esc(displayUrl)}</small>` : '<small class="yat-search-school-status">SCHOOL PAGE NOT AVAILABLE YET</small>'}`
+              ? `${hasSchoolDestination ? `<small class="yat-search-school-url">${displayUrlHtml}</small>` : '<small class="yat-search-school-status">SCHOOL PAGE NOT AVAILABLE YET</small>'}`
               : `<small class="yat-search-school-status">${esc(activeCount)} ACTIVE ALUMNI${unavailable ? ' · SCHOOL PAGE NOT AVAILABLE YET' : ''}</small>`}
           </span>
         `;
@@ -819,10 +820,10 @@ export default function SearchDrawerTabs() {
         font:400 9px/1.25 Oswald,sans-serif; letter-spacing:.02em;
         text-transform:uppercase; color:var(--muted); white-space:normal; overflow:visible;
       }
-      #drawerLeft .yat-search-school-global-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 48px; }
-      #drawerLeft .yat-search-school-global-card.yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 48px 34px; }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 40px; }
+      #drawerLeft .yat-search-school-global-card.yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 40px 34px; }
       #drawerLeft .yat-search-school-global-card .yat-search-school-url { font: 400 10px/1.25 var(--yat-font-ui); letter-spacing: 0; text-transform: none; color: var(--accent, #c8a96e); text-decoration: underline; text-underline-offset: 2px; white-space: normal; overflow-wrap: anywhere; }
-      #drawerLeft .yat-search-school-global-card .yat-search-school-count { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 48px; min-width: 0; text-align: center; }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-count { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; min-width: 0; text-align: center; }
       #drawerLeft .yat-search-school-global-card .yat-search-school-count strong { color: #00e08a; font: 800 24px/1 Oswald, sans-serif; }
       #drawerLeft .yat-search-school-global-card .yat-search-school-count small { margin-top: 4px; color: var(--muted); font: 600 8px/1.15 Oswald, sans-serif; letter-spacing: .04em; }
       #drawerLeft .yat-search-school-bracket-link { display: flex; align-items: center; justify-content: center; width: 34px; height: 44px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); text-decoration: none; cursor: pointer; }
