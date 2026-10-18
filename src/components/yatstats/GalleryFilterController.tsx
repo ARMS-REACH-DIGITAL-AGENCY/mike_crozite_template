@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
@@ -228,10 +229,10 @@ function applyPreset(section: string) {
     if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
   }
 
-  // The server's Active roster already requires 2026 statistics. Show every
-  // status on first load, including a player who retired during that season.
+  // Owner-approved Active preset: ACTIVE + injured + organization roster
+  // states + redshirts. Retired/free-agent/etc. stay available but unchecked.
   if (section === 'active') {
-    setAll('filterStatus', true);
+    setValues('filterStatus', [...ACTIVE_GALLERY_STATUSES]);
   }
 
   if (section === 'alltime') {
@@ -286,7 +287,7 @@ function readLinkedPlayer(): { id: string; view: string } {
 // Whether a tab's roster preset (applyPreset) shows this card.
 function presetShows(section: string, card: HTMLElement): boolean {
   if (section === 'active') {
-    return true;
+    return ACTIVE_GALLERY_STATUSES.includes(normalize(card.dataset.status));
   }
   if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL';
   return true;
