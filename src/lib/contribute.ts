@@ -152,8 +152,8 @@ export const PHOTO_TYPES: PhotoType[] = [
     label: 'Other Photo',
     aspects: null,
     asks: 'season',
-    needsPlayer: false,
-    spec: "Something else? Send it and tell us about it below. We'll place it where it fits best.",
+    needsPlayer: true,
+    spec: "Another photo from a player's selected year. It publishes immediately to that player's Career Path Timeline.",
   },
 ];
 
