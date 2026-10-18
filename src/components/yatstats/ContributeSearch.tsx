@@ -103,7 +103,7 @@ export default function ContributeSearch(props: Props) {
       }
     }, rosterOf ? 0 : 180);
     return () => { live = false; window.clearTimeout(timer); };
-  }, [q, mode, rosterOf]);
+  }, [q, mode, rosterOf, teamOnly]);
 
   // A result picks the player (or school) here instead of opening his page.
   useEffect(() => {
@@ -141,7 +141,7 @@ export default function ContributeSearch(props: Props) {
         else setRosterOf({ hsid: school.hsid, name: school.name });
         return;
       }
-      if (pick.current.mode !== 'school' && d.playerId) {
+      if (pick.current.mode !== 'school' && pick.current.mode !== 'team' && d.playerId) {
         pick.current.onPlayer({
           playerId: d.playerId,
           displayName: d.playerName || '',
