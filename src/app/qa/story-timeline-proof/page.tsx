@@ -52,10 +52,10 @@ export default function TimelineProofQaPage() {
       <label>Profile <select aria-label="Profile" value={proofCase} onChange={(event) => {
         const next = event.target.value as 'coach' | 'player';
         setProofCase(next); setYear(CASES[next].year); setMonth(CASES[next].month); setStatus(null);
-      }} style={{ color: '#111', marginBottom: 12 }}><option value="coach">Mike Woods · coach</option><option value="player">Cody Holtz · player</option></select></label>
+      }} style={{ color: '#f4f5f6', background: '#253142', marginBottom: 12 }}><option value="coach">Mike Woods · coach</option><option value="player">Cody Holtz · player</option></select></label>
       <div>
-        <label>Month <select ref={monthInput} aria-label="Month" value={month} onChange={(event) => setMonth(Number(event.target.value))} style={{ color: '#111', margin: '0 8px 14px 4px' }}>{MONTHS.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}</select></label>
-        <label>Year <select aria-label="Year" value={year} onChange={(event) => setYear(Number(event.target.value))} style={{ color: '#111' }}>{Array.from({ length: 68 }, (_, index) => 2027 - index).map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <label>Month <select ref={monthInput} aria-label="Month" value={month} onChange={(event) => setMonth(Number(event.target.value))} style={{ color: '#f4f5f6', background: '#253142', margin: '0 8px 14px 4px' }}>{MONTHS.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}</select></label>
+        <label>Year <select aria-label="Year" value={year} onChange={(event) => setYear(Number(event.target.value))} style={{ color: '#f4f5f6', background: '#253142' }}>{Array.from({ length: 68 }, (_, index) => 2027 - index).map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
       </div>
       <p data-qa-status={status?.revision === revision ? status.status : 'loading'} style={{ margin: '0 0 14px', fontSize: 12 }}>Placement: {status?.revision === revision ? status.status : 'loading'}</p>
       <StoryPreview key={person.id} playerId={person.id} playerName={person.name} photos={person.photos} story="Check the selected year, month, and the photo’s position on the actual Career Timeline before approving." author="Preview fan" official={false} month={month} year={year} tags={[]} placementRevision={revision} onPlacementStateChange={report} onEditDate={() => { monthInput.current?.scrollIntoView({ block: 'center' }); monthInput.current?.focus({ preventScroll: true }); }} />
