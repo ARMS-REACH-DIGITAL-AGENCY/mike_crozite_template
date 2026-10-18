@@ -1,3 +1,5 @@
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
+
 /**
  * Active alumni have their own batting or pitching row in the 2026 season.
  * A roster status (including UNKNOWN, injured, retired or free agent) is not
@@ -74,20 +76,25 @@ export function activeAlumniCtes(scopeSql: string): string {
  * correlated archive scan for each player or each search result.
  */
 export function activeAlumniSummaryCtes(scopeSql: string): string {
-  return `${activeAlumniCtes(scopeSql)},
-    recorded_stat_schools AS MATERIALIZED (
-      SELECT DISTINCT l.hsid FROM linked_alumni l
-      WHERE l.playerid IN (
-        SELECT playerid::text AS playerid FROM public.tbc_batting_raw
-        UNION ALL SELECT playerid::text FROM public.tbc_pitching_raw
-        UNION ALL SELECT playerid::text FROM public.tbc_batting_2026_season_raw
-        UNION ALL SELECT playerid::text FROM public.tbc_pitching_2026_season_raw
-      )
+  const activeStatusesSql = ACTIVE_GALLERY_STATUSES
+    .map((status) => `'${status.replace(/'/g, "''")}'`)
+    .join(', ');
+  return `scoped_schools AS MATERIALIZED (
+      SELECT DISTINCT hsid::int AS hsid FROM (${scopeSql}) scoped(hsid)
+    ), active_alumni AS MATERIALIZED (
+      SELECT DISTINCT f.hsid::int AS hsid, f.playerid::text AS playerid
+      FROM public.flip_card_front_stage f
+      JOIN scoped_schools s ON s.hsid = f.hsid::int
+      WHERE UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY(ARRAY[${activeStatusesSql}]::text[])
     ), active_alumni_summary AS (
-      SELECT s.hsid, COALESCE(a.current_aa, 0)::int AS current_aa,
-        h.hsid IS NULL AS active_stats_pending
-      FROM (SELECT DISTINCT hsid FROM linked_alumni) s
-      LEFT JOIN (SELECT hsid, COUNT(*)::int AS current_aa FROM active_alumni GROUP BY hsid) a ON a.hsid = s.hsid
-      LEFT JOIN recorded_stat_schools h ON h.hsid = s.hsid
+      SELECT s.hsid,
+             COALESCE(a.current_aa, 0)::int AS current_aa,
+             FALSE AS active_stats_pending
+      FROM scoped_schools s
+      LEFT JOIN (
+        SELECT hsid, COUNT(*)::int AS current_aa
+        FROM active_alumni
+        GROUP BY hsid
+      ) a ON a.hsid = s.hsid
     )`;
 }
