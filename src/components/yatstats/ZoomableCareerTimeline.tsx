@@ -981,6 +981,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   // as "active" (dots/arrows) and how far each slide's hero visual has
   // dissolved in/out, instead of a plain integer index that only ever jumps.
   const [scrollProgress, setScrollProgress] = useState(0);
+  const scrollProgressRef = useRef(scrollProgress);
+  scrollProgressRef.current = scrollProgress;
+  const requestedSlideRef = useRef<number | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ dragging: boolean; moved: boolean; startX: number; startScroll: number; pointerId: number | null }>({ dragging: false, moved: false, startX: 0, startScroll: 0, pointerId: null });
   const railRef = useRef<HTMLDivElement | null>(null);
@@ -1033,8 +1036,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     setLocalOverrides({});
     setOpenMomentId(null);
     initializedRef.current = false;
+    cancelRequestedNavigation();
+    if (settleTimerRef.current != null) { clearTimeout(settleTimerRef.current); settleTimerRef.current = null; }
     setUploadsLoaded(true);
   }, [playerId]);
+
+  useEffect(() => () => {
+    if (snapTimerRef.current != null) clearTimeout(snapTimerRef.current);
+    if (settleTimerRef.current != null) clearTimeout(settleTimerRef.current);
+    if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
+  }, []);
 
   // Fan Stories (/api/stories, newest first): each year's photos become
   // that year's hero image, in place of the YaTi cartoon. A Draft Day
@@ -1553,7 +1564,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     const previousSlides = previousSlidesRef.current;
     previousSlidesRef.current = model.slides;
     if (initializedRef.current && previousSlides === model.slides) return;
-    const previousSlide = previousSlides[Math.round(scrollProgress)];
+    const previousSlide = previousSlides[requestedSlideRef.current ?? Math.round(scrollProgress)];
     const retainedIndex = initializedRef.current && previousSlide ? model.slides.findIndex((slide) => slide.id === previousSlide.id) : -1;
     const index = retainedIndex >= 0 ? retainedIndex : model.anchorIndex;
     initializedRef.current = true;
@@ -1564,6 +1575,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     setScrollProgress(index);
     scrollToIndex(index, false);
   }, [ready, model.slides, model.anchorIndex, preview?.revision, previewTargetIndex, isPreview]);
+
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!ready || isPreview || !track || typeof ResizeObserver === 'undefined') return;
+    let previousWidth = getSlideWidth();
+    const observer = new ResizeObserver(() => {
+      const width = getSlideWidth();
+      if (Math.abs(width - previousWidth) < 0.1) return;
+      previousWidth = width;
+      // Scroll offsets are pixels, while the current moment is expressed
+      // in slides. Keep that moment when a docked drawer or orientation
+      // change resizes the frame, including the phone's doubled slides.
+      const requestedSlide = requestedSlideRef.current;
+      scrollToIndex(requestedSlide ?? scrollProgressRef.current, requestedSlide != null);
+    });
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [ready, isPreview, model.slides]);
 
   useEffect(() => {
     const maxIndex = Math.max(0, model.slides.length - 1);
@@ -1604,7 +1633,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!ready || isPreview) return;
     const timer = setTimeout(() => {
       const el = trackRef.current;
-      if (!el || dragRef.current.dragging || railDragRef.current.dragging || settleTimerRef.current != null) return;
+      if (!el || dragRef.current.dragging || railDragRef.current.dragging || requestedSlideRef.current != null || settleTimerRef.current != null) return;
       const progress = el.scrollLeft / getSlideWidth();
       if (Math.abs(progress - Math.round(progress)) < 0.01) setRailSettled(true);
     }, 700);
@@ -1686,10 +1715,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!el) return;
     const width = getSlideWidth();
     const target = clamp(index, 0, Math.max(0, model.slides.length - 1));
+    requestedSlideRef.current = smooth && Math.abs(el.scrollLeft - target * width) > 0.5 ? target : null;
+    if (snapTimerRef.current != null) { clearTimeout(snapTimerRef.current); snapTimerRef.current = null; }
     el.scrollTo({ left: target * width, behavior: smooth ? 'smooth' : 'auto' });
   }
-  function goPrev() { scrollToIndex(Math.round(scrollProgress) - 1); }
-  function goNext() { scrollToIndex(Math.round(scrollProgress) + 1); }
+  function cancelRequestedNavigation() {
+    requestedSlideRef.current = null;
+    if (snapTimerRef.current != null) { clearTimeout(snapTimerRef.current); snapTimerRef.current = null; }
+  }
+  function navigateToIndex(index: number) {
+    if (settleTimerRef.current != null) { clearTimeout(settleTimerRef.current); settleTimerRef.current = null; }
+    setRailSettled(false);
+    scrollToIndex(index);
+    // Clicking the already active year or a disabled boundary produces no
+    // scroll event, so there is nothing else to settle in that case.
+    if (requestedSlideRef.current == null) setRailSettled(true);
+  }
+  function goPrev() { navigateToIndex((requestedSlideRef.current ?? Math.round(scrollProgress)) - 1); }
+  function goNext() { navigateToIndex((requestedSlideRef.current ?? Math.round(scrollProgress)) + 1); }
 
   // The year chip on the rail doubles as a scrubber: its position along
   // the rail IS the fraction of the whole timeline, so dragging it
@@ -1712,6 +1755,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   }
   function handleRailYearPointerDown(event: ReactPointerEvent) {
     event.stopPropagation();
+    cancelRequestedNavigation();
     railDragRef.current = { dragging: true, pointerId: event.pointerId };
     markRailMoving();
     try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch {}
@@ -1751,7 +1795,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
       const el = trackRef.current;
       if (!el) return;
       const width = getSlideWidth();
-      scrollToIndex(Math.round(el.scrollLeft / width));
+      // A native smooth scroll can pause between scroll events. Keep an
+      // explicitly chosen year through that pause instead of replacing
+      // it with whichever intermediate slide happens to be nearest.
+      scrollToIndex(requestedSlideRef.current ?? Math.round(el.scrollLeft / width));
     }, 140);
   }
 
@@ -1762,7 +1809,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (settleTimerRef.current != null) clearTimeout(settleTimerRef.current);
     settleTimerRef.current = setTimeout(() => {
       settleTimerRef.current = null;
-      if (dragRef.current.dragging || railDragRef.current.dragging) return;
+      if (dragRef.current.dragging || railDragRef.current.dragging || requestedSlideRef.current != null) return;
       const el = trackRef.current;
       if (!el) return;
       const progress = el.scrollLeft / getSlideWidth();
@@ -1778,13 +1825,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
       const el = trackRef.current;
       if (!el) return;
       const width = getSlideWidth();
-      setScrollProgress(el.scrollLeft / width);
+      const progress = el.scrollLeft / width;
+      if (requestedSlideRef.current != null && Math.abs(el.scrollLeft - requestedSlideRef.current * width) <= 0.5) requestedSlideRef.current = null;
+      scrollProgressRef.current = progress;
+      setScrollProgress(progress);
     });
     scheduleSnap();
   }
 
   function handlePointerDown(event: ReactPointerEvent) {
-    if (event.pointerType === 'touch' || event.button !== 0) return;
+    if (event.pointerType === 'touch') { cancelRequestedNavigation(); return; }
+    if (event.button !== 0) return;
+    cancelRequestedNavigation();
     const el = trackRef.current;
     if (!el) return;
     dragRef.current = { dragging: true, moved: false, startX: event.clientX, startScroll: el.scrollLeft, pointerId: event.pointerId };
@@ -1824,6 +1876,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     const el = trackRef.current;
     if (!el) return;
     function onWheel(event: WheelEvent) {
+      cancelRequestedNavigation();
       if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
       event.preventDefault();
       el!.scrollLeft += event.deltaY;
@@ -2398,7 +2451,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                 key={slide.id}
                 className={`zt-rail-tick${i === activeIndex ? ' active' : ''}`}
                 style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%` }}
-                onClick={() => scrollToIndex(i)}
+                onClick={() => navigateToIndex(i)}
                 aria-label={`Slide ${i + 1}: ${slide.year}${slide.draft ? ` · ${draftLine(slide.draft)}` : ''}`}
               >
                 {slide.kind !== 'anchor' && <span className="zt-rail-tick-year" aria-hidden="true">{String(slide.year).slice(-2)}</span>}
