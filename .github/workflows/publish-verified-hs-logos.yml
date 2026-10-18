@@ -3,6 +3,9 @@ name: Publish Verified School Logos - Production S3
 # One manual launch on Easter-NEWS. No web application deployment required:
 # the site reads the published S3 schools/{hsid}.png assets.
 on:
+  push:
+    branches:
+      - ops/run-all-hs-logos-20261018
   workflow_dispatch:
     inputs:
       school_scope:
@@ -40,7 +43,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
-      HS_LOGO_SCOPE: ${{ inputs.school_scope }}
+      HS_LOGO_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.school_scope || 'all' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -75,7 +78,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
       HSIDS: ${{ matrix.hsids }}
-      CHOICE: ${{ inputs.confirm }}
+      CHOICE: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm || 'PUBLISH' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -107,7 +110,7 @@ jobs:
             fetch_logos.log
   exceptions-only:
     needs: [plan, collect-verify-publish]
-    if: ${{ always() && needs.plan.result == 'success' && inputs.confirm == 'PUBLISH' && needs.plan.outputs.batches != '0' }}
+    if: ${{ always() && needs.plan.result == 'success' && (github.event_name == 'push' || inputs.confirm == 'PUBLISH') && needs.plan.outputs.batches != '0' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
