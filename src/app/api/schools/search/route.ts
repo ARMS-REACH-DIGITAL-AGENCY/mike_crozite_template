@@ -40,34 +40,22 @@ function stateFromQuery(q: string): string | null {
   return code.length === 2 && STATE_CODES.has(code) ? code : null;
 }
 
-async function schoolsInState(state: string, qRaw: string) {
+// Select bounded schools first. Never aggregate a full state's player history
+// before responding to a search request.
+async function schoolsInState(state: string, qRaw: string, limit: number) {
   const { rows } = await query(
-    `WITH counts AS (
-       SELECT f.hsid,
-              COUNT(DISTINCT f.playerid) FILTER (
-                WHERE COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($3::text[])
-              )::int AS current_aa,
-              COUNT(DISTINCT f.playerid) FILTER (
-                WHERE UPPER(COALESCE(TRIM(f.level_label), '')) NOT IN ('HIGH SCHOOL', 'HS')
-              )::int AS all_time
-         FROM flip_card_front_stage f
-         JOIN school_success s ON s.hsid::text = f.hsid AND (s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2)
-        GROUP BY f.hsid
-     )
-     SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
-            COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
-            s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url, s.bracket_seeding
+    `SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid,
+            s.yatstats_national_rank, s.yatstats_state_rank,
+            s.mlb, s.atnla, s.drafted_hs, s.drafted,
+            s.microsite_url, s.bracket_seeding
        FROM school_success s
-       LEFT JOIN counts c ON c.hsid = s.hsid::text
       WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
       ORDER BY (s.hsname ILIKE $2 OR s.high_school ILIKE $2) DESC,
-               COALESCE(c.current_aa, 0) DESC,
-               COALESCE(c.all_time, 0) DESC,
-               s.drafted_hs DESC NULLS LAST,
-               s.drafted DESC NULLS LAST,
+               s.yatstats_national_rank ASC NULLS LAST,
+               s.atnla DESC NULLS LAST,
                s.hsname ASC NULLS LAST
-      LIMIT 2000`,
-    [state, `${qRaw}%`, [...ACTIVE_GALLERY_STATUSES]]
+      LIMIT $3`,
+    [state, `${qRaw}%`, limit],
   );
   return rows;
 }
@@ -105,13 +93,7 @@ export async function GET(req: NextRequest) {
         regionid,
         yatstats_national_rank,
         yatstats_state_rank,
-        COALESCE((
-          SELECT COUNT(DISTINCT f.playerid)::int
-          FROM flip_card_front_stage f
-          WHERE f.hsid = school_success.hsid::text
-            -- The Active gallery's statuses (see getActiveAlumniCountByHsid).
-            AND COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($6::text[])
-        ), 0) AS current_aa,
+        NULL::int AS current_aa,
         mlb,
         atnla,
         drafted_hs,
@@ -141,7 +123,7 @@ export async function GET(req: NextRequest) {
       [...ACTIVE_GALLERY_STATUSES],
     ];
     const state = !stateRaw && !cityRaw ? stateFromQuery(qRaw) : null;
-    const { rows } = state ? { rows: await schoolsInState(state, qRaw) } : await query(sql, params);
+    const { rows } = state ? { rows: await schoolsInState(state, qRaw, limit) } : await query(sql, params);
     // school_success is a ranking/directory source, not a complete ID registry.
     // Resolve its missing HSIDs against the canonical TBC school records.
     // Never guess an ID when name + city + state is ambiguous.
@@ -172,6 +154,27 @@ export async function GET(req: NextRequest) {
       const matches = canonicalIds.get(key);
       return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
     });
+    // Count alumni only for the small selected result set (not the state).
+    const selectedIds = [...new Set(resolvedRows.map((r: any) => String(r.hsid || ''))
+      .filter((id: string) => /^[1-9][0-9]*$/.test(id)))];
+    const activeCounts = new Map<string, number>();
+    if (selectedIds.length) {
+      try {
+        const { rows: countRows } = await query(
+          `SELECT f.hsid::text AS hsid,
+                  COUNT(DISTINCT f.playerid) FILTER (
+                    WHERE COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($2::text[])
+                  )::int AS current_aa
+             FROM flip_card_front_stage f
+            WHERE f.hsid = ANY($1::text[])
+            GROUP BY f.hsid`,
+          [selectedIds, [...ACTIVE_GALLERY_STATUSES]],
+        );
+        for (const row of countRows) activeCounts.set(String(row.hsid), Number(row.current_aa) || 0);
+      } catch (error) {
+        console.warn('[school-search] bounded count lookup failed; returning schools', error);
+      }
+    }
     // URL-ONLY ENRICHMENT START. Never filter, reorder, cap or append results here.
     // Keep the production query and alumni counts unchanged; only activate links.
     let derivedUrls = new Map<string, string>();
@@ -193,13 +196,13 @@ export async function GET(req: NextRequest) {
       regionid: r.regionid ?? null,
       yatstats_national_rank: r.yatstats_national_rank ?? null,
       yatstats_state_rank: r.yatstats_state_rank ?? null,
-      current_aa: r.current_aa ?? null,
+      current_aa: activeCounts.get(String(r.hsid || '')) ?? r.current_aa ?? 0,
       mlb: r.mlb ?? null,
       atnla: r.atnla ?? null,
       drafted_hs: r.drafted_hs ?? null,
       drafted: r.drafted ?? null,
       drafted_ratio: r.drafted_hs && r.drafted ? `${r.drafted_hs}/${r.drafted}` : null,
-      microsite_url: derivedUrls.get(String(r.hsid || '')) || r.microsite_url || null,
+      microsite_url: derivedUrls.get(String(r.hsid || '')) || r.microsite_url || (/^[1-9][0-9]*$/.test(String(r.hsid || '')) ? `https://${r.hsid}.yatstats.com` : null),
       bracket_eligible: Boolean(r.bracket_seeding),
     }));
     return NextResponse.json(
