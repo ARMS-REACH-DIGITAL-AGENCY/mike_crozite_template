@@ -159,23 +159,25 @@ function getS3() {
   return s3Client;
 }
 
-// Staged uploads never change (a new upload gets a new key). Files the site
-// reads by player id can be replaced on approval, so they cache for a day.
+// Staged and UUID-addressed timeline uploads never change. Fixed player/logo
+// keys DO change when a fan replaces a slot, so browsers must revalidate them
+// immediately or an approved upload can look stale for hours.
 const STAGED_CACHE = 'public, max-age=31536000, immutable';
-const LIVE_CACHE = 'public, max-age=86400';
+const IMMUTABLE_CACHE = STAGED_CACHE;
+const LIVE_CACHE = 'public, max-age=0, must-revalidate';
 
 async function put(key: string, body: Buffer, contentType: string, cache = LIVE_CACHE) {
   await getS3().send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: body, ContentType: contentType, CacheControl: cache }));
 }
 
-async function copy(from: string, to: string, contentType: string) {
+async function copy(from: string, to: string, contentType: string, cache = LIVE_CACHE) {
   await getS3().send(
     new CopyObjectCommand({
       Bucket: S3_BUCKET,
       CopySource: `${S3_BUCKET}/${from}`,
       Key: to,
       ContentType: contentType,
-      CacheControl: LIVE_CACHE,
+      CacheControl: cache,
       MetadataDirective: 'REPLACE',
     })
   );
@@ -460,12 +462,12 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     // one player/season can coexist and rotate; never rewrite the legacy
     // ${pid}_${year}.jpg file or another fan's image.
     const photoKey = `players/season-photos/${pid}_${year}_${u.id}.jpg`;
-    await copy(u.s3_key, photoKey, 'image/jpeg');
+    await copy(u.s3_key, photoKey, 'image/jpeg', IMMUTABLE_CACHE);
     written.push(photoKey);
     const cutoutKey = `players/season-cutouts/${pid}_${year}_${u.id}.png`;
     const cutoutPng = await cutout(src);
     if (cutoutPng) {
-      await put(cutoutKey, cutoutPng, 'image/png');
+      await put(cutoutKey, cutoutPng, 'image/png', IMMUTABLE_CACHE);
       written.push(cutoutKey);
     } else {
       // Do not save an opaque rectangle under a cutout filename. The timeline
