@@ -120,7 +120,7 @@ export default function ContributePhotoFlow({
   const current = seasons?.find((s) => s.current) || null;
   const aspect = type?.aspects ? (type.aspects.length > 1 && landscape ? type.aspects[1] : type.aspects[0]) : null;
   const pickFor: Pick = type?.asks === 'school' ? 'school' : type?.asks === 'team' ? 'team' : 'player';
-  const pick: Pick = type?.id === 'other_photo' ? pickOverride || 'player' : pickFor;
+  const pick: Pick = pickFor;
 
   const loadSeasons = useCallback((p: ContributePlayer | null) => {
     const request = ++seasonRequest.current;
@@ -383,7 +383,7 @@ export default function ContributePhotoFlow({
                 key={k}
                 aria-checked={pick === k}
                 className={pick === k ? 'is-on' : ''}
-                disabled={type.id !== 'other_photo' && pickFor !== k}
+                disabled={pickFor !== k}
                 onClick={() => setPickOverride(k)}
               >
                 {k === 'player' ? 'Player' : k === 'school' ? 'School' : 'Team'}
