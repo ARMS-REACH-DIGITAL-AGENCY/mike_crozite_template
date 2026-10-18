@@ -63,7 +63,8 @@ function playerFlipCardUrl(player: any) {
 function schoolUrl(program: any) {
   const microsite = String(program.microsite_url || program.micrositeUrl || '');
   if (microsite) return microsite;
-  return `/${encodeURIComponent(String(program.hsid || program.schoolId || ''))}`;
+  const hsid = String(program.hsid || program.schoolId || '').trim();
+  return /^[1-9][0-9]*$/.test(hsid) ? `https://${hsid}.yatstats.com` : '';
 }
 
 function schoolSectionUrl(program: Record<string, unknown>, section: 'active' | 'fantasy') {
@@ -205,16 +206,19 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         const activeCount = Number(school.current_aa ?? 0);
         // Only explicitly seeded 2026 tournament schools get a bracket shortcut.
         // Having a player-linked school page does NOT imply tournament membership.
-        const hasSchoolDestination = Boolean(String(school.microsite_url || school.micrositeUrl || '').trim());
+        const destination = schoolUrl(school);
+        const hasSchoolDestination = Boolean(destination);
         const bracketEligible = school.bracket_eligible === true || school.bracket_eligible === 'true';
         const unavailable = viewOnly || !hasSchoolDestination;
+        const displayUrl = hasSchoolDestination ? destination.replace(/^https?:\/\//, '').replace(/\/$/, '') : '';
+        const alumniBadge = `<span class="yat-search-school-count"><strong>${esc(activeCount)}</strong><small>ACTIVE<br/>ALUMNI</small></span>`;
         const meta = `data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}"`;
         const crestImg = `<img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />`;
         const identity = `
           <span class="yat-search-row-text yat-search-school-identity">
             ${location ? `<small class="yat-search-school-location">${esc(location)}</small>` : ''}
             <strong>${esc(name)}</strong>
-            <small class="yat-search-school-status">${esc(activeCount)} ACTIVE ALUMNI${unavailable ? ' · SCHOOL PAGE NOT AVAILABLE YET' : ''}</small>
+            <small class="yat-search-school-status">${displayUrl ? esc(displayUrl) : 'SCHOOL PAGE NOT AVAILABLE YET'}</small>
           </span>
         `;
 
@@ -227,6 +231,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
               <a class="yat-search-school-gallery-link" href="${esc(schoolSectionUrl(school, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
                 ${identity}
               </a>
+              ${alumniBadge}
               <a class="yat-search-school-bracket-link" href="${esc(schoolSectionUrl(school, 'fantasy'))}" title="${esc(name)} fantasy bracket · Starts February 1st" aria-label="Open ${esc(name)} fantasy bracket tournament. Starts February 1st.">
                 <span class="yat-bracket-symbol" aria-hidden="true"></span>
               </a>
@@ -586,7 +591,7 @@ export default function SearchDrawerTabs() {
       event?.stopPropagation?.();
       event?.stopImmediatePropagation?.();
       if (timer) clearTimeout(timer);
-      timer = setTimeout(runSearch, 180);
+      timer = setTimeout(runSearch, 90);
     }
 
     drawer.addEventListener('input', scheduleSearch, true);
@@ -656,7 +661,7 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-card { padding: 8px 10px; }
-      #drawerLeft .yat-search-school-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr); align-items:center; gap: 10px; }
+      #drawerLeft .yat-search-school-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 48px; align-items:center; gap: 8px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count strong { font: 800 22px/1 Oswald, sans-serif; color: #00e08a; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count small { margin-top: 4px; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .05em; color: var(--muted); }
@@ -664,7 +669,7 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
       :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; object-fit:contain; border-radius:0; background:transparent; }
-      #drawerLeft .yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 34px; gap: 8px; }
+      #drawerLeft .yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 48px 34px; gap: 8px; }
       #drawerLeft .yat-search-school-gallery-link { display: block; min-width: 0; color: inherit; text-decoration: none; }
       #drawerLeft .yat-search-school-identity { display:flex; flex-direction:column; gap:1px; min-width:0; width:100%; }
       #drawerLeft .yat-search-school-identity .yat-search-school-location {
@@ -679,6 +684,10 @@ export default function SearchDrawerTabs() {
         font:400 9px/1.25 Oswald,sans-serif; letter-spacing:.02em;
         text-transform:uppercase; color:var(--muted); white-space:normal; overflow:visible;
       }
+      #drawerLeft .yat-search-school-count { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0; flex:0 0 48px; text-align:center; }
+      #drawerLeft .yat-search-school-count strong { font:800 24px/1 "Bebas Neue",Oswald,sans-serif; color:var(--ink); }
+      #drawerLeft .yat-search-school-count small { font:600 8px/1.05 Oswald,sans-serif; letter-spacing:.045em; color:var(--muted); }
+      #drawerLeft .yat-search-school-status { overflow-wrap:anywhere; text-transform:none !important; }
       #drawerLeft .yat-search-school-bracket-link { display: flex; align-items: center; justify-content: center; width: 34px; height: 44px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); text-decoration: none; cursor: pointer; }
       #drawerLeft .yat-search-school-bracket-link .yat-bracket-symbol { width: 22px; height: 22px; }
       #drawerLeft .yat-search-school-bracket-link:is(:hover, :focus-visible) .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); transform: scale(1.1); }
