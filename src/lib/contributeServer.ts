@@ -88,9 +88,8 @@ export async function logContribution(
 // contribution-posted / contribution-declined either way, with a note of
 // what it was. Best effort: never holds up the request.
 // Where an approved photo shows on the site, as a path on the school's own
-// site: his profile (opened on the Career Path Timeline for a timeline
-// image), the school's home for its crest. "Other" photos are placed by
-// hand, so they have none.
+// site: his profile (opened on the Career Path Timeline for timeline and
+// additional player photos), or the school's home for its crest.
 export function photoLinkPath(purpose: string, p: { playerId?: string | null; playerName?: string | null; hsid?: string | null; pageUrl?: string | null }): string | null {
   const hsid = String(p.hsid || '');
   if (!/^\d+$/.test(hsid)) return null;
@@ -101,10 +100,10 @@ export function photoLinkPath(purpose: string, p: { playerId?: string | null; pl
     try { if (p.pageUrl) path = new URL(p.pageUrl).pathname; } catch {}
     return `${path}?schoolSearch=${encodeURIComponent(hsid)}`;
   }
-  if (purpose === 'other_photo' || !p.playerId) return null;
+  if (!p.playerId) return null;
   const [fn, ...ln] = String(p.playerName || '').trim().split(/\s+/);
   const profile = `/${hsid}/player/${encodeURIComponent(p.playerId)}/${toPlayerSlug(fn, ln.join(' '))}`;
-  return purpose === 'timeline_hero' ? `${profile}#playerCareerImages` : profile;
+  return purpose === 'timeline_hero' || purpose === 'other_photo' ? `${profile}#playerCareerImages` : profile;
 }
 
 const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -160,25 +159,25 @@ function getS3() {
   return s3Client;
 }
 
-// Staged uploads never change (a new upload gets a new key). Files the site
-// reads by player id can be replaced on approval, so they cache for a day.
+// Staged and UUID-addressed timeline uploads never change. Fixed player/logo
+// keys DO change when a fan replaces a slot, so browsers must revalidate them
+// immediately or an approved upload can look stale for hours.
 const STAGED_CACHE = 'public, max-age=31536000, immutable';
-// Card photos keep a fixed name (players/back/{id}.jpg), so a replaced
-// photo must not sit in a browser for a day: 5 minutes, then it re-checks.
-const LIVE_CACHE = 'public, max-age=300';
+const IMMUTABLE_CACHE = STAGED_CACHE;
+const LIVE_CACHE = 'public, max-age=0, must-revalidate';
 
 async function put(key: string, body: Buffer, contentType: string, cache = LIVE_CACHE) {
   await getS3().send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: body, ContentType: contentType, CacheControl: cache }));
 }
 
-async function copy(from: string, to: string, contentType: string) {
+async function copy(from: string, to: string, contentType: string, cache = LIVE_CACHE) {
   await getS3().send(
     new CopyObjectCommand({
       Bucket: S3_BUCKET,
       CopySource: `${S3_BUCKET}/${from}`,
       Key: to,
       ContentType: contentType,
-      CacheControl: LIVE_CACHE,
+      CacheControl: cache,
       MetadataDirective: 'REPLACE',
     })
   );
@@ -373,7 +372,8 @@ async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source:
 //   timeline_hero -> players/season-cutouts/{id}_{year}.png (when background
 //                    removal succeeds); otherwise the timeline uses the
 //                    aspect-preserving original at season-photos/{id}_{year}.jpg
-//   other_photo   -> kept in fan-photos/ for us to place
+//   other_photo   -> player-tagged uploads publish as timeline photos; only
+//                    legacy untagged uploads remain in fan-photos/
 //   back_hero     -> players/back/{id}.jpg + back-card, back-web (card back)
 //   school_logo   -> schools/{hsid}.png
 //   team_logo     -> teams/{teamid}.png + teams-web/{teamid}.webp
@@ -425,7 +425,7 @@ export async function existingPublishedTarget(u: UploadRow): Promise<string | nu
 
 export async function promoteUpload(u: UploadRow): Promise<string[]> {
   const pid = String(u.playerid || '').trim();
-  const purpose = u.purpose as PhotoPurpose;
+  const purpose = (u.purpose === 'other_photo' && PLAYER_ID.test(pid) ? 'timeline_hero' : u.purpose) as PhotoPurpose;
   const needsPlayer = purpose !== 'school_logo' && purpose !== 'team_logo' && purpose !== 'other_photo';
   if (needsPlayer && !PLAYER_ID.test(pid)) throw new Error('This photo has no player on the site yet. Add the player first, then approve it.');
   const written: string[] = [];
@@ -462,12 +462,12 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     // one player/season can coexist and rotate; never rewrite the legacy
     // ${pid}_${year}.jpg file or another fan's image.
     const photoKey = `players/season-photos/${pid}_${year}_${u.id}.jpg`;
-    await copy(u.s3_key, photoKey, 'image/jpeg');
+    await copy(u.s3_key, photoKey, 'image/jpeg', IMMUTABLE_CACHE);
     written.push(photoKey);
     const cutoutKey = `players/season-cutouts/${pid}_${year}_${u.id}.png`;
     const cutoutPng = await cutout(src);
     if (cutoutPng) {
-      await put(cutoutKey, cutoutPng, 'image/png');
+      await put(cutoutKey, cutoutPng, 'image/png', IMMUTABLE_CACHE);
       written.push(cutoutKey);
     } else {
       // Do not save an opaque rectangle under a cutout filename. The timeline

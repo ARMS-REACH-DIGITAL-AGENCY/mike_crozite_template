@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 // A cron that keeps its own health table: the writer connection, not the
 // site's read-only pool.
 import { writerQuery as query } from "@/lib/dbWriter";
+import { findOrCreateGhlContact, sendGHLEmail } from "@/lib/gohighlevel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const JOB_NAME = "flip_card_auto_create_review";
 const SOURCE_NOTE = "AUTO_BASELINE:mlb_roster_sync";
+const QUARANTINE_EMAIL = "pete@yatstats.com";
 
 function isAuthorized(req: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
@@ -17,7 +19,7 @@ function isAuthorized(req: NextRequest): boolean {
 
 async function postAlert(payload: Record<string, unknown>) {
   const webhookUrl = process.env.ARMS_PLAYER_ALERT_WEBHOOK_URL?.trim();
-  if (!webhookUrl) throw new Error("ARMS_PLAYER_ALERT_WEBHOOK_URL is not configured");
+  if (!webhookUrl) return;
 
   const response = await fetch(webhookUrl, {
     method: "POST",
@@ -28,6 +30,73 @@ async function postAlert(payload: Record<string, unknown>) {
   if (!response.ok) {
     const text = (await response.text().catch(() => "")).slice(0, 500);
     throw new Error(`ARMS player alert webhook failed: ${response.status} ${text}`);
+  }
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+async function sendQuarantineEmail(
+  held: Array<{
+    playerid?: string;
+    hsid?: string;
+    reason?: string;
+    firstname?: string;
+    lastname?: string;
+    created_at?: string | Date;
+  }>,
+) {
+  const contactId = await findOrCreateGhlContact(
+    QUARANTINE_EMAIL,
+    "Pete",
+    "DeLuca",
+    undefined,
+    "YAT?STATS Operations",
+  );
+  if (!contactId) {
+    throw new Error(`Could not resolve or create HighLevel contact for ${QUARANTINE_EMAIL}`);
+  }
+
+  const rows = held.map((player) => {
+    const name = [player.firstname, player.lastname].filter(Boolean).join(" ").trim() || "(name unavailable)";
+    return `
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd">${escapeHtml(name)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${escapeHtml(player.playerid)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${escapeHtml(player.hsid)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${escapeHtml(player.reason)}</td>
+      </tr>`;
+  }).join("");
+
+  const subject = `YAT?STATS ALERT: ${held.length} FlipCard ${held.length === 1 ? "player" : "players"} quarantined for review`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.45;color:#111">
+      <h2 style="margin:0 0 12px">YAT?STATS FlipCard identity review</h2>
+      <p>The automated MLB FlipCard process found ${held.length} potential new ${held.length === 1 ? "player" : "players"} with an identity conflict.</p>
+      <p><strong>No FlipCard was created for ${held.length === 1 ? "this player" : "these players"}.</strong> ${held.length === 1 ? "The player was" : "They were"} quarantined for manual review.</p>
+      <table style="border-collapse:collapse;margin-top:14px">
+        <thead>
+          <tr>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Player</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Player ID</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left">HSID</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Reason held</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="margin-top:16px">Review these identities before releasing them into <code>flip_card_front_stage</code>.</p>
+    </div>`;
+
+  const sent = await sendGHLEmail(contactId, subject, html);
+  if (!sent) {
+    throw new Error(`Failed to send quarantine review email to ${QUARANTINE_EMAIL}`);
   }
 }
 
@@ -122,6 +191,7 @@ export async function GET(req: NextRequest) {
       players: held,
       occurredAt: new Date().toISOString(),
     });
+    await sendQuarantineEmail(held);
   }
 
   const createdCursor = created.length

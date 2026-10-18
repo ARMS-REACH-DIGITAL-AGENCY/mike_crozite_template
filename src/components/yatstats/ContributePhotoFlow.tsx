@@ -14,6 +14,7 @@
 // It's checked automatically when it arrives (lib/contributeModeration).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import PhotoCropper from '@/components/yatstats/PhotoCropper';
@@ -57,6 +58,7 @@ export default function ContributePhotoFlow({
   onSignIn: () => void;
   onClose: () => void;
 }) {
+  const router = useRouter();
   // 1. The picture
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
@@ -81,8 +83,6 @@ export default function ContributePhotoFlow({
   const [landscape, setLandscape] = useState(false);
   const [crop, setCrop] = useState<Crop | null>(null);
   const [note, setNote] = useState('');
-  // 3. Player | School | Team (only "Other" lets the fan choose)
-  const [pickOverride, setPickOverride] = useState<Pick | null>(null);
   // 5. Approved: the proof the fan said looks right (anything changed
   // after that needs a new look).
   const [approvedSig, setApprovedSig] = useState('');
@@ -120,7 +120,7 @@ export default function ContributePhotoFlow({
   const current = seasons?.find((s) => s.current) || null;
   const aspect = type?.aspects ? (type.aspects.length > 1 && landscape ? type.aspects[1] : type.aspects[0]) : null;
   const pickFor: Pick = type?.asks === 'school' ? 'school' : type?.asks === 'team' ? 'team' : 'player';
-  const pick: Pick = type?.id === 'other_photo' ? pickOverride || 'player' : pickFor;
+  const pick: Pick = pickFor;
 
   const loadSeasons = useCallback((p: ContributePlayer | null) => {
     const request = ++seasonRequest.current;
@@ -177,7 +177,6 @@ export default function ContributePhotoFlow({
   const choosePurpose = (id: PhotoPurpose) => {
     setPurpose(id);
     setShowPurposePicker(false);
-    setPickOverride(null);
     setCrop(null);
     setLandscape(false);
     setError('');
@@ -254,6 +253,15 @@ export default function ContributePhotoFlow({
       if (!res.ok) throw new Error(body?.error || 'Your photo could not be sent.');
       const outcome: Result['outcome'] = body?.status === 'approved' || body?.status === 'rejected' ? body.status : 'pending';
       setResult({ outcome, message: body?.message || 'Thanks!', link: typeof body?.link === 'string' && body.link.startsWith('/') ? body.link : null });
+      if (outcome === 'approved') {
+        // Make the already-open site reflect the just-published asset now.
+        // The timeline listens for this event; router.refresh covers server
+        // rendered card/headshot/logo slots without requiring a manual reload.
+        window.dispatchEvent(new CustomEvent('yat:contribute-photo-published', {
+          detail: { playerId: main?.playerId || '', purpose: type.id, uploadId: body?.id || '' },
+        }));
+        router.refresh();
+      }
       setStage('done');
     } catch (e) {
       setStage('form');
@@ -264,7 +272,7 @@ export default function ContributePhotoFlow({
   const startOver = () => {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null); setPreview(''); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
-    setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setLandscape(false); setPickOverride(null); setApprovedSig('');
+    setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
   };
 
@@ -383,8 +391,7 @@ export default function ContributePhotoFlow({
                 key={k}
                 aria-checked={pick === k}
                 className={pick === k ? 'is-on' : ''}
-                disabled={type.id !== 'other_photo' && pickFor !== k}
-                onClick={() => setPickOverride(k)}
+                disabled={pickFor !== k}
               >
                 {k === 'player' ? 'Player' : k === 'school' ? 'School' : 'Team'}
               </button>
