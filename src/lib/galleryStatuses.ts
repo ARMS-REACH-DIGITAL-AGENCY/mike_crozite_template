@@ -69,7 +69,22 @@ export const ROSTER_STATUSES: readonly string[] = ['ACTIVE', ...INJURED_STATUSES
 // ACTIVE, injured, MLB organization roster states, and both redshirt statuses.
 // Historical/admin statuses remain available in the drawer but are unchecked.
 export const ACTIVE_GALLERY_STATUSES: readonly string[] = [
-  ...ROSTER_STATUSES,
+  'ACTIVE',
+  ...INJURED_STATUSES,
+  'ADMINISTRATIVE LEAVE',
+  'BEREAVEMENT LIST',
+  'DEVELOPMENT LIST',
+  'INELIGIBLE LIST',
+  'MILITARY LEAVE',
+  'NOT YET REPORTED',
+  'OPTIONED',
+  'PATERNITY LIST',
+  'REASSIGNED TO MINORS',
+  'REHAB ASSIGNMENT',
+  'RESERVE LIST (MINORS)',
+  'RESTRICTED LIST',
+  'SUSPENDED',
+  'TEMPORARILY INACTIVE LIST',
   'RED SHIRT',
   'REDSHIRT-MEDICAL',
 ];
