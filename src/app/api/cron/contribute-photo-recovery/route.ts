@@ -33,8 +33,8 @@ function allowed(req: NextRequest) {
 export async function GET(req: NextRequest) {
   if (!allowed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
-    // Old uploads had no recorded AI outcome; a separate review verdict must
-    // not be retried continually. A lock avoids competing recovery requests.
+    // Old uploads and interrupted safety checks are retried. A genuine
+    // safety-review verdict under the current policy is left for a person.
     const { rows: pending } = await query<Pending>(
       `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time,
               description, uploaded_at, sha256
@@ -96,7 +96,10 @@ export async function GET(req: NextRequest) {
           note: details.note
         });
         if (!verdict) {
-          const moderation = { decision: 'review', checked_at: new Date().toISOString(), policy_version: CONTRIBUTE_MODERATION_POLICY_VERSION, description: 'Automatic safety check unavailable; no publication attempted.' };
+          // Keep policy_version below the current policy so the next cron run
+          // retries the safety service instead of turning an outage into a
+          // permanent human-review queue item.
+          const moderation = { decision: 'review', checked_at: new Date().toISOString(), policy_version: 0, description: 'Automatic safety check unavailable; retry automatically.' };
           await query('UPDATE media_upload SET description = $2 WHERE id = $1',
             [item.id, JSON.stringify({ ...details, moderation })]);
           results.push({ id: item.id, outcome: 'ai-unavailable-held' });
