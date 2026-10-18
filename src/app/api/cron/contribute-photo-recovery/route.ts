@@ -1,6 +1,6 @@
-// Recover uploads blocked before the media_upload RLS repair.
-// Vercel cron (CRON_SECRET) only. A bounded, idempotent, AI-gated batch;
-// no published image is overwritten and uncertain files remain in review.
+// Recover legacy pending uploads and retry interrupted publications.
+// Vercel cron (CRON_SECRET) only. A bounded, idempotent, safety-gated batch;
+// family-safe photos publish, genuine safety uncertainty remains in review.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { PHOTO_TYPES, PLAYER_ID, type PhotoPurpose } from '@/lib/contribute';
@@ -65,10 +65,9 @@ export async function GET(req: NextRequest) {
           `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time,
                   description, uploaded_at, sha256 FROM media_upload
              WHERE id <> $1 AND playerid = $2 AND purpose = $3 AND date_taken = $4::date
-               AND status IN ('pending', 'approved')
-               AND (status = 'approved' OR uploaded_at < $5)
-             ORDER BY CASE WHEN status = 'approved' THEN 0 ELSE 1 END, uploaded_at ASC LIMIT 20`,
-          [item.id, item.playerid, item.purpose, item.date_taken, item.uploaded_at]
+               AND status = 'approved'
+             ORDER BY uploaded_at ASC LIMIT 20`,
+          [item.id, item.playerid, item.purpose, item.date_taken]
         );
         let duplicateId: string | null = null;
         for (const sibling of siblings) {
