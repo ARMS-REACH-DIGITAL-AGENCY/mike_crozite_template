@@ -247,6 +247,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
             <div class="yat-search-school-topline">
               <span class="yat-search-school-crest-link" aria-hidden="true">${crestImg}</span>
               ${identity}
+              ${alumniBadge}
             </div>
           </${tag}>
         `;
