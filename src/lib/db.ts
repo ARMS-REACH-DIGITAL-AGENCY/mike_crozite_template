@@ -24,7 +24,7 @@ import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { currentFranchiseSql } from '@/lib/mlbFranchise';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
-import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
+import { canonicalSchoolUrls, PLAYER_LINKED_SCHOOLS_CTE, resolveSchoolHsidFromHost, schoolHostnamePattern } from '@/lib/schoolDirectoryRouting';
 
 // A school's page data, kept across requests (and across server instances)
 // for 10 minutes: its roster, All-Time list, flip card rows, season results
@@ -302,25 +302,55 @@ export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
-  if (rows[0]) return rows[0];
+  let school = rows[0];
   // Newer player-linked schools do not all have a school_success directory row.
   // Render the same real HSID page using canonical TBC school metadata.
-  const { rows: raw } = await query(
-    `SELECT t.hsid, t.hsname, t.hslocation, t.cityname, t.regionid, t.nickname,
-            t.color1 AS primary_color, t.color2 AS secondary_color,
-            NULL::text AS microsite_url, NULL::text AS staging_url
-       FROM public.tbc_schools_raw t
-      WHERE t.hsid = $1
-        AND EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
-      LIMIT 1`,
-    [hsid],
-  );
-  return raw[0] || null;
+  if (!school) {
+    const { rows: raw } = await query(
+      `WITH ${PLAYER_LINKED_SCHOOLS_CTE}
+       SELECT t.hsid, t.hsname, t.hslocation, t.cityname, t.regionid, t.nickname,
+              t.color1 AS primary_color, t.color2 AS secondary_color,
+              NULL::text AS microsite_url, NULL::text AS staging_url
+         FROM public.tbc_schools_raw t
+         JOIN player_linked_schools p ON p.hsid = t.hsid
+        WHERE t.hsid = $1
+        LIMIT 1`,
+      [hsid],
+    );
+    school = raw[0];
+  }
+  if (!school) return null;
+  // Search, page metadata, and social sharing use the same official address.
+  // Keep a successful school lookup usable if a transient URL query fails.
+  try {
+    const urls = await canonicalSchoolUrls([hsid], (sql, params = []) => query(sql, params));
+    const micrositeUrl = urls.get(hsid);
+    if (micrositeUrl) return { ...school, microsite_url: micrositeUrl };
+  } catch (error) {
+    console.warn('[school-directory] Canonical URL lookup failed', { hsid, error });
+  }
+  // Raw-only metadata has already passed the linked-player eligibility join.
+  // Optional URL enrichment must not hide an existing numeric microsite.
+  return school;
 });
 
 export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
   if (!hostOnly || !httpsUrl) return null;
+  // Numeric hosts identify the actual HSID, even when a legacy staging_url
+  // was assigned to another school. Ambiguous named hosts must fail closed.
+  if (schoolHostnamePattern(hostOnly)) {
+    try {
+      const hsid = await resolveSchoolHsidFromHost(hostOnly,
+        (sql, params = []) => query(sql, params));
+      return hsid ? getSchoolByHsid(hsid) : null;
+    } catch (error) {
+      // A page may already have resolved an explicit numeric HSID. A failed
+      // host lookup should let it retain that identity instead of causing 404.
+      console.warn('[school-directory] Host lookup failed', { hostOnly, error });
+      return null;
+    }
+  }
   const candidates = Array.from(new Set([httpsUrl, hostOnly]));
   const sql = `
     SELECT *

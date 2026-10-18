@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - fix/school-hostname-global-search-directory-20261017
+      - fix/complete-school-url-directory-20261017
     paths:
       - src/middleware.ts
       - src/app/api/school-host-resolve/route.ts
       - src/lib/schoolDirectoryRouting.ts
+      - src/lib/canonicalUrl.ts
       - src/lib/db.ts
       - src/app/api/schools/search/route.ts
       - src/components/yatstats/SearchDrawerTabs.tsx
@@ -15,6 +17,8 @@ on:
       - scripts/test-school-directory-routing.cjs
       - scripts/test-school-bracket-navigation.cjs
       - scripts/test-school-search-contract.cjs
+      - scripts/test-school-metadata-routing.cjs
+      - scripts/test-school-canonical-hosts.cjs
       - .github/workflows/validate-school-routing.yml
   workflow_dispatch:
 
@@ -34,9 +38,13 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Validate hostname routing and search renderer
         run: node scripts/test-school-directory-routing.cjs
+      - name: Validate canonical URL uniqueness and city disambiguation
+        run: node scripts/test-school-canonical-hosts.cjs
       - name: Validate tournament-only bracket links
         run: node scripts/test-school-bracket-navigation.cjs
       - name: Preserve production matching, ordering and counts
         run: node scripts/test-school-search-contract.cjs
       - name: TypeScript validation
         run: npx tsc --noEmit --pretty false
+      - name: Validate canonical metadata and preview navigation
+        run: node scripts/test-school-metadata-routing.cjs

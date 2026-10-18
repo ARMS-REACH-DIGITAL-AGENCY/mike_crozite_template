@@ -18,26 +18,26 @@ assert.equal(routing.schoolHostnamePattern('www.yatstats.com'),null);
 assert.equal(routing.schoolHostnamePattern('notreallyyatstats.com'),null);
 
 const schools=[
-  {hsid:'5004',name_slug:'hamilton',regionid:'AZ',existing:'https://hamilton.az.yatstats.com',same_state_name_count:1},
-  {hsid:'4',name_slug:'melbourne',regionid:'FL',existing:null,same_state_name_count:1},
-  {hsid:'111',name_slug:'lincoln',regionid:'CA',existing:null,same_state_name_count:2},
-  {hsid:'112',name_slug:'lincoln',regionid:'CA',existing:null,same_state_name_count:2},
-  {hsid:'887',name_slug:'hillsboro',regionid:'OR',existing:null,same_state_name_count:1},
+  {hsid:'5004',name_slug:'hamilton',regionid:'AZ',city_slug:'chandler',same_state_city_count:1,existing:'https://hamilton.az.yatstats.com',same_state_name_count:1,existing_host_count:1},
+  {hsid:'4',name_slug:'melbourne',regionid:'FL',city_slug:'melbourne',same_state_city_count:1,existing:null,same_state_name_count:1},
+  {hsid:'111',name_slug:'lincoln',regionid:'CA',city_slug:'city-one',same_state_city_count:1,existing:null,same_state_name_count:2},
+  {hsid:'112',name_slug:'lincoln',regionid:'CA',city_slug:'city-two',same_state_city_count:1,existing:null,same_state_name_count:2},
+  {hsid:'887',name_slug:'hillsboro',regionid:'OR',city_slug:'hillsboro',same_state_city_count:1,existing:null,same_state_name_count:1},
 ];
 const query=async (sql,params=[])=>{
-  if(sql.includes('same_state_name_count'))
+  if(sql.includes('/* school-canonical-candidates */'))
     return {rows:schools.filter(s=>params[0].includes(s.hsid))};
-  if(sql.includes('LOWER(BTRIM(microsite_url') && sql.includes('ANY('))
-    return {rows:[{url:'https://hillsboro.or.yatstats.com'}]};
-  if(sql.includes('LOWER(BTRIM(microsite_url') && sql.includes('LIMIT 2'))
-    return {rows:params[0]==='https://hamilton.az.yatstats.com'?[{hsid:'5004'}]:[]};
-  if(sql.includes('EXISTS') && sql.includes('LIMIT 1'))
+  if(sql.includes('/* school-reserved-hosts */'))
+    return {rows:[{hostname:'hillsboro.or.yatstats.com',source:'legacy'}]};
+  if(sql.includes('/* school-legacy-host */'))
+    return {rows:params[0]==='hamilton.az.yatstats.com'?[{hsid:'5004'}]:[]};
+  if(sql.includes('/* school-numeric-host */'))
     return {rows:params[0]==='5004'?[{hsid:'5004'}]:[]};
-  if(sql.includes('AND EXISTS') && sql.includes('LIMIT 30')) {
+  if(sql.includes('/* school-named-host-candidates */')) {
     const state=params[0];
     return {rows:schools.filter(s=>s.regionid===state && (
-      s.name_slug===params[1] || (s.name_slug+'-'+s.hsid)===params[1]
-    )).map(s=>({hsid:s.hsid}))};
+      s.name_slug===params[1] || s.hsid===params[2]
+    ) && (!params[3] || s.city_slug===params[3])).map(s=>({hsid:s.hsid}))};
   }
   throw Error('Unhandled mocked SQL: '+sql.slice(0,130));
 };
@@ -45,16 +45,16 @@ const query=async (sql,params=[])=>{
   const urls=await routing.canonicalSchoolUrls(['5004','4','111','112','887'],query);
   assert.equal(urls.get('5004'),'https://hamilton.az.yatstats.com');
   assert.equal(urls.get('4'),'https://melbourne.fl.yatstats.com');
-  assert.equal(urls.get('111'),'https://lincoln-111.ca.yatstats.com');
-  assert.equal(urls.get('112'),'https://lincoln-112.ca.yatstats.com');
-  assert.equal(urls.get('887'),'https://hillsboro-887.or.yatstats.com');
+  assert.equal(urls.get('111'),'https://lincoln.ca.city-one.yatstats.com');
+  assert.equal(urls.get('112'),'https://lincoln.ca.city-two.yatstats.com');
+  assert.equal(urls.get('887'),'https://hillsboro.or.hillsboro.yatstats.com');
   for(const [url,id] of [
     ['hamilton.az.yatstats.com','5004'],
     ['5004.yatstats.com','5004'],
     ['melbourne.fl.yatstats.com','4'],
-    ['lincoln-111.ca.yatstats.com','111'],
-    ['lincoln-112.ca.yatstats.com','112'],
-    ['hillsboro-887.or.yatstats.com','887'],
+    ['lincoln.ca.city-one.yatstats.com','111'],
+    ['lincoln.ca.city-two.yatstats.com','112'],
+    ['hillsboro.or.hillsboro.yatstats.com','887'],
     ['lincoln.ca.yatstats.com',null],
     ['arbitrary.ca.yatstats.com',null],
     ['admin.yatstats.com',null],
@@ -74,7 +74,7 @@ const query=async (sql,params=[])=>{
     {hsid:'111',hsname:'Lincoln',hslocation:'City,CA',microsite_url:urls.get('111'),bracket_eligible:false,current_aa:11},
   ],'No results',true);
   assert.ok(html.includes('href="https://melbourne.fl.yatstats.com"'), 'Melbourne must link');
-  assert.ok(html.includes('href="https://lincoln-111.ca.yatstats.com"'), 'collision must link uniquely');
+  assert.ok(html.includes('href="https://lincoln.ca.city-one.yatstats.com"'), 'collision must link uniquely by school.state.city');
   assert.equal((html.match(/yat-search-school-bracket-link"/g)||[]).length,1,'only seeded Hamilton gets bracket');
   assert.ok(!html.includes('SCHOOL PAGE NOT AVAILABLE YET'),'active schools must not appear unavailable');
   console.log('PASS hostname resolution, canonical collisions, existing domains, numeric aliases, and Global Search links.');

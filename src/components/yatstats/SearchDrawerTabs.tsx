@@ -61,6 +61,12 @@ function playerFlipCardUrl(player: any) {
 }
 
 function schoolUrl(program: any) {
+  const hsid = String(program.hsid || program.schoolId || '');
+  // Keep a review on the same build. Production still uses the official URL.
+  if (/^[1-9][0-9]*$/.test(hsid) && typeof window !== 'undefined' &&
+      (window.location.hostname.endsWith('.vercel.app') || window.location.hostname === 'localhost')) {
+    return `/${encodeURIComponent(hsid)}`;
+  }
   const microsite = String(program.microsite_url || program.micrositeUrl || '');
   if (microsite) return microsite;
   return `/${encodeURIComponent(String(program.hsid || program.schoolId || ''))}`;
