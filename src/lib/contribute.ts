@@ -25,6 +25,18 @@ export type ContributePlayer = {
 
 export type ContributeSchool = { hsid: string; name: string; location?: string };
 
+export type ContributeTeam = {
+  teamId: string;
+  name: string;
+  shortName?: string;
+  nickname?: string;
+  orgName?: string;
+  orgAbbrev?: string;
+  level?: string;
+  location?: string;
+  logoUrl?: string;
+};
+
 // One season of a player's career, as /api/contribute/seasons returns it.
 // Every year of a player's life a photo can belong to, newest first: the
 // seasons we have (from his stats), and every other year back to his birth
