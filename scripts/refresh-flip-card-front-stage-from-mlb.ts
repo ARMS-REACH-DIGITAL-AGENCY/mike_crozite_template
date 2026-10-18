@@ -202,7 +202,7 @@ async function ensureCurrentProTeamMappings(): Promise<{
         AND raw.source_team_id IS NOT NULL
         AND NULLIF(BTRIM(raw.source_team_name), '') IS NOT NULL
     ),
-    references AS (
+    mapping_references AS (
       SELECT LOWER(BTRIM(current_team)) AS team_key, teamid::text AS tbc_teamid
       FROM public."150-pro_team_look_up_tbc_mlb"
       WHERE NULLIF(BTRIM(current_team), '') IS NOT NULL
@@ -215,7 +215,7 @@ async function ensureCurrentProTeamMappings(): Promise<{
     ),
     unique_reference AS (
       SELECT team_key, MIN(tbc_teamid) AS tbc_teamid
-      FROM references
+      FROM mapping_references
       GROUP BY team_key
       HAVING COUNT(DISTINCT tbc_teamid) = 1
     ),
