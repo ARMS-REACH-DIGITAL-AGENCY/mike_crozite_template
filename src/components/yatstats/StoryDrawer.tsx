@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { auth } from '@/lib/firebase';
 import FanConfirm from '@/components/yatstats/FanConfirm';
-import StoryPreview from '@/components/yatstats/StoryPreview';
+import StoryPreview, { type StoryPlacementState } from '@/components/yatstats/StoryPreview';
 import { track } from '@/lib/analytics';
 import { copyStoryPhoto, createStoryUploadBody, prepareStoryPhoto, type StoryPhotoData } from '@/lib/storyPhotoUpload';
 import { STORY_DRAWER_OPEN_EVENT, takePendingStoryDrawerOpen, type StoryDrawerOpenDetail } from '@/lib/storyDrawer';
@@ -84,6 +84,18 @@ export default function StoryDrawer() {
   const [identityRefreshing, setIdentityRefreshing] = useState(false);
   const [photoError, setPhotoError] = useState('');
   const [approvedPreview, setApprovedPreview] = useState('');
+  const [timelinePlacement, setTimelinePlacement] = useState<StoryPlacementState | null>(null);
+  const placementRevisionRef = useRef('');
+  const reportTimelinePlacement = useCallback((next: StoryPlacementState) => {
+    if (next.revision !== placementRevisionRef.current) return;
+    if (next.status !== 'ready') setApprovedPreview('');
+    setTimelinePlacement((previous) => previous?.revision === next.revision && previous.status === next.status ? previous : next);
+  }, []);
+  const monthInput = useRef<HTMLSelectElement | null>(null);
+  const editPreviewDate = useCallback(() => {
+    monthInput.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    monthInput.current?.focus({ preventScroll: true });
+  }, []);
   const replacePhotos = useCallback((next: PickedPhoto[]) => {
     photosRef.current = next;
     setPhotos(next);
@@ -135,7 +147,12 @@ export default function StoryDrawer() {
     playerId, playerName, month, year, story, photos.map((photo) => [photo.id, photo.name]),
     tags.map((tag) => [tag.playerId, tag.displayName]), session?.uid, previewAuthor, postAsOfficial,
   ]);
-  const previewApproved = previewReady && approvedPreview === previewSignature;
+  // A date change immediately invalidates readiness from the previous
+  // timeline frame, even before the renderer's next layout effect runs.
+  const placementRevision = JSON.stringify([playerId, year, month, photos.map((photo) => photo.id)]);
+  placementRevisionRef.current = placementRevision;
+  const timelineReady = timelinePlacement?.revision === placementRevision && timelinePlacement.status === 'ready';
+  const previewApproved = previewReady && timelineReady && approvedPreview === previewSignature;
   const previewPrompt = identityRefreshing ? 'Refreshing your sign-in…'
     : needsConfirmation ? 'Confirm your sign-in below, then review your story.'
       : preparingPhotos ? 'Preparing your photos for preview…'
@@ -172,6 +189,7 @@ export default function StoryDrawer() {
     setPreparingPhotos(false);
     setPhotoError('');
     setApprovedPreview('');
+    setTimelinePlacement(null);
     setMonth(0);
     setStory('');
     photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.preview));
@@ -532,7 +550,7 @@ export default function StoryDrawer() {
             <div className="ysd-field">
               <div className="ysd-label">When was this?</div>
               <div className="ysd-date">
-                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month" disabled={posting}>
+                <select ref={monthInput} value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month" disabled={posting}>
                   <option value={0}>Month</option>
                   {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                 </select>
@@ -569,10 +587,15 @@ export default function StoryDrawer() {
               <div className="ysd-label" id="ysdPreviewTitle">Preview &amp; approve</div>
               {previewReady ? (
                 <>
-                  <StoryPreview photos={photos} story={story} author={previewAuthor} official={postAsOfficial} playerName={playerName} month={MONTHS[month - 1]} year={year} tags={tags} />
+                  <StoryPreview
+                    photos={photos} story={story} author={previewAuthor} official={postAsOfficial}
+                    playerId={playerId} playerName={playerName} month={month} year={year} tags={tags}
+                    placementRevision={placementRevision} onPlacementStateChange={reportTimelinePlacement}
+                    onEditDate={editPreviewDate} posting={posting}
+                  />
                   <label className={`ysd-approve${previewApproved ? ' is-on' : ''}`}>
-                    <input type="checkbox" checked={previewApproved} onChange={(e) => setApprovedPreview(e.target.checked ? previewSignature : '')} disabled={posting} />
-                    <span>Looks right. This is the story I want to post.</span>
+                    <input type="checkbox" checked={previewApproved} onChange={(e) => setApprovedPreview(e.target.checked ? previewSignature : '')} disabled={posting || !timelineReady} />
+                    <span>Looks right. The photos, story, and timeline date are correct.</span>
                   </label>
                 </>
               ) : <div className="ysd-muted ysd-small">{previewPrompt}</div>}
