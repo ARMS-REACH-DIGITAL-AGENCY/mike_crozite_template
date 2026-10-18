@@ -21,6 +21,7 @@
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { activeAlumniSummaryCtes, confirmed2026GameLogPlayersSql } from '@/lib/activeAlumni';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { currentFranchiseSql } from '@/lib/mlbFranchise';
 import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE, PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES } from '@/lib/playerStageIdentity';
 import { resolvePlayerDisplay } from '@/lib/playerDisplay';
@@ -2614,16 +2615,17 @@ if (!global.__pgPoolShutdownRegistered) {
   });
 }
 
-// Share one current-season membership set between the shell's count and its
-// Active headshot strip. The versioned key cannot reuse old status-only counts.
-export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-2026-coverage', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
+// Canonical Active Alumni membership. The gallery, Row 3, school-search
+// tally and footer tally all use the same owner-approved status preset.
+export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-status-contract-v2', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
   if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return { playerIds: [], statsPending: false };
   const { rows } = await query(`
-    WITH ${activeAlumniSummaryCtes('SELECT $1::integer')}
-    SELECT ARRAY(SELECT playerid FROM active_alumni ORDER BY playerid) AS player_ids,
-      COALESCE((SELECT active_stats_pending FROM active_alumni_summary), FALSE) AS stats_pending
-  `, [hsid]);
-  return { playerIds: (rows[0]?.player_ids ?? []).map(String), statsPending: rows[0]?.stats_pending === true };
+    SELECT ARRAY_AGG(DISTINCT f.playerid::text ORDER BY f.playerid::text) AS player_ids
+      FROM public.flip_card_front_stage f
+     WHERE f.hsid::text = $1
+       AND UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY($2::text[])
+  `, [hsid, [...ACTIVE_GALLERY_STATUSES]]);
+  return { playerIds: (rows[0]?.player_ids ?? []).map(String), statsPending: false };
 }));
 
 export async function getActiveAlumniPlayerIdsByHsid(hsid: string): Promise<string[]> {
