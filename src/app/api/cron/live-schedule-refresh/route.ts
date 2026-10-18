@@ -386,13 +386,22 @@ const EXPIRE_STALE_NEXT_GAMES_SQL = `
               next_game_opponent = null,
               next_game_status_label = null,
               stage_updated_at = now()
-            where next_game_time_utc is not null
+            where (next_game_time_utc is not null or next_game_date is not null)
               and (
-                -- A scheduled game whose start time has passed and that
+                -- Expire any dated next-game value once its calendar date is
+                -- in the past, including manually-entered rows that never had
+                -- next_game_time_utc populated. This is the platform-wide
+                -- safety net for stale manual/schedule data.
+                (
+                  next_game_date is not null
+                  and next_game_date::date < current_date
+                )
+                -- A scheduled game whose exact start time has passed and that
                 -- the refresh above didn't replace (it only picks future
                 -- scheduled games) is stale.
-                (
-                  next_game_time_utc < now()
+                or (
+                  next_game_time_utc is not null
+                  and next_game_time_utc < now()
                   and upper(trim(coalesce(next_game_status_label, 'NEXT GAME'))) = 'NEXT GAME'
                 )
                 -- A live label (In Progress, Pre-Game, Delayed, ...) always
