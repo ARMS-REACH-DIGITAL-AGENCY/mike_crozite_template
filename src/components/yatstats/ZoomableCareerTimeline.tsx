@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
+import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -853,6 +854,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // /player/[playerId]/[slug] segment rather than ever showing "him"/"his"
   // in its place.
   const pathname = usePathname();
+  const storyOpenOwner = useMemo(() => Symbol(`story-open:${playerId}:${pathname}`), [playerId, pathname]);
+  // Cancel an undelivered click when its originating timeline leaves or
+  // changes player/path, including navigation through a non-player page.
+  useEffect(() => () => cancelPendingStoryDrawerOpen(storyOpenOwner), [storyOpenOwner]);
   const slugDerivedName = (() => {
     const match = pathname?.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
     return match?.[2]
@@ -1773,12 +1778,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
         aria-label={`Add a memory to ${resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}'s Career Timeline`}
         style={{ pointerEvents: 'auto', cursor: 'pointer' }}
         onClick={() => {
-          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
+          openStoryDrawer({ playerId, year: model.slides[activeIndex]?.year ?? null }, storyOpenOwner);
         }}
         onKeyDown={(event) => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
-          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
+          openStoryDrawer({ playerId, year: model.slides[activeIndex]?.year ?? null }, storyOpenOwner);
         }}
       >
         {/* Class Of used to live written on this Polaroid's own bottom
