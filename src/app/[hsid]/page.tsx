@@ -418,7 +418,8 @@ export default async function SchoolPage({
   const micrositeUrl = school.microsite_url as string | undefined;
   const isNumericHsid = /^\d+$/.test(hsid);
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
-  if (micrositeUrl && isNumericHsid && !isPreview) {
+  const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
+  if (micrositeUrl && isNumericHsid && !isPreview && !isHostRewrite) {
     permanentRedirect(micrositeUrl.replace(/\/$/, ""));
   }
 
