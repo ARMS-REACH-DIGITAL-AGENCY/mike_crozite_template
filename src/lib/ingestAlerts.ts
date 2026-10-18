@@ -7,7 +7,8 @@ export type IngestAlertPayload = {
     | "yatstats_ingest_failed"
     | "yatstats_ingest_recovered"
     | "yatstats_ingest_stale"
-    | "yatstats_identity_review";
+    | "yatstats_identity_review"
+    | "yatstats_metadata_coverage_gap";
   job: string;
   occurredAt: string;
   environment: string;
