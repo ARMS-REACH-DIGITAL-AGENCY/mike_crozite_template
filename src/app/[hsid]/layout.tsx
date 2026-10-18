@@ -22,7 +22,7 @@ import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sort
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isNeverASchoolSegment } from '@/lib/schoolSegment';
-import { GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
+import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
 import { getBatchPlayerHeadshots } from '@/lib/playerHeadshots';
 
 import type { Metadata } from 'next';
@@ -499,7 +499,7 @@ async function SchoolShell({
 
               {statusFilterOptions.map((s) => (
                 <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked /> {s}
+                  <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
                 </label>
               ))}
             </div>
