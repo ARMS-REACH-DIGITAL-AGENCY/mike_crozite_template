@@ -163,7 +163,9 @@ function getS3() {
 // Staged uploads never change (a new upload gets a new key). Files the site
 // reads by player id can be replaced on approval, so they cache for a day.
 const STAGED_CACHE = 'public, max-age=31536000, immutable';
-const LIVE_CACHE = 'public, max-age=86400';
+// Card photos keep a fixed name (players/back/{id}.jpg), so a replaced
+// photo must not sit in a browser for a day: 5 minutes, then it re-checks.
+const LIVE_CACHE = 'public, max-age=300';
 
 async function put(key: string, body: Buffer, contentType: string, cache = LIVE_CACHE) {
   await getS3().send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: body, ContentType: contentType, CacheControl: cache }));
