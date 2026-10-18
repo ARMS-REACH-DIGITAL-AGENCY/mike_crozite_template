@@ -132,7 +132,7 @@ class TestElement extends TestEventTarget {
   contains(element) { return element === this || this.children.some(child => child.contains(element)); }
 }
 
-function createEnvironment({ queryString = '', code = fs.readFileSync(sourcePath, 'utf8') } = {}) {
+function createEnvironment({ queryString = '', hostname = 'example.test', code = fs.readFileSync(sourcePath, 'utf8') } = {}) {
   const body = new TestElement('body');
   const left = body.appendChild(new TestElement('aside')); left.id = 'drawerLeft';
   const drawer = left.appendChild(new TestElement()); drawer.className = 'yat-left-search-content';
@@ -156,7 +156,7 @@ function createEnvironment({ queryString = '', code = fs.readFileSync(sourcePath
   const setTimeout = (callback, delay = 0, ...args) => { const id = ++nextTimer; const ms = Math.max(0, Number(delay) || 0); timers.set(id, { at: now + ms, callback, args }); timerHistory.push({ id, delay: ms }); return id; };
   const clearTimeout = id => timers.delete(id);
   class ClockDate extends Date { constructor(...args) { super(...(args.length ? args : [now])); } static now() { return now; } }
-  Object.assign(window, { document, location: { search: queryString, href: 'https://example.test/' + queryString, pathname: '/' }, setTimeout, clearTimeout });
+  Object.assign(window, { document, location: { search: queryString, hostname, href: 'https://' + hostname + '/' + queryString, pathname: '/' }, setTimeout, clearTimeout });
   const requests = [];
   const fetch = (url, init = {}) => {
     let resolve, reject;
@@ -400,6 +400,61 @@ function rendererChecks() {
   passed('School rendering changes only with the Global option: visible URL plus separate actual count; default and crest markup remain identical; no fake numeric links or implicit bracket eligibility');
 }
 
+function previewNavigationChecks() {
+  const officialSchool = 'https://fixture.az.yatstats.com/';
+  const officialBase = officialSchool.slice(0, -1);
+  const school = { hsid: '5004', hsname: 'Fixture High', current_aa: 42, microsite_url: officialSchool, bracket_eligible: false };
+  const player = { playerId: '100', schoolId: '5004', slug: 'fixture-player', displayName: 'Fixture Player', micrositeUrl: officialSchool, currentTeamName: 'Fixture Team' };
+  const hrefs = html => Array.from(html.matchAll(/\bhref="([^"]*)"/g), match => match[1].replaceAll('&amp;', '&'));
+  const hosts = [
+    { hostname: 'review-abc.vercel.app', preview: true },
+    { hostname: 'localhost', preview: true },
+    { hostname: 'hamilton.az.yatstats.com', preview: false },
+    { hostname: 'review.vercel.app.evil.test', preview: false },
+    { hostname: 'localhost.evil.test', preview: false },
+    { hostname: 'vercel.app', preview: false },
+  ];
+
+  for (const { hostname, preview } of hosts) {
+    const actual = createEnvironment({ hostname }).exports;
+    const base = preview ? '/5004' : officialBase;
+    const schoolTarget = preview ? '/5004' : officialSchool;
+    const global = actual.renderSchoolRows([school], 'Empty', true, false, { globalSearch: true });
+    assert.deepEqual(hrefs(global), [schoolTarget], hostname + ': school results use the intended build');
+    assert.ok(global.replace(/<[^>]*>/g, '').includes('fixture.az.yatstats.com'), hostname + ': the displayed URL remains official');
+    const bracket = actual.renderSchoolRows([{ ...school, bracket_eligible: true }], 'Empty', true, false, { globalSearch: true });
+    assert.deepEqual(hrefs(bracket), [schoolTarget + '#sec-active', schoolTarget + '#sec-active', schoolTarget + '#sec-fantasy'], hostname + ': both school sections stay on the intended build');
+    const expectedPlayerLinks = [base + '/player/100/fixture-player', base + '/player/100/fixture-player', base + '?view=active&player=100#player-100'];
+    assert.deepEqual(hrefs(actual.renderPlayerRows([player], 'Empty')), expectedPlayerLinks, hostname + ': player profile and flip-card links agree');
+    assert.deepEqual(hrefs(actual.renderTeamRows([player], 'Empty')), expectedPlayerLinks, hostname + ': current-team results use the same profile and flip-card destinations');
+    const playerAliases = { ...player, schoolId: undefined, hsid: 5004, micrositeUrl: undefined, microsite_url: officialSchool };
+    assert.deepEqual(hrefs(actual.renderPlayerRows([playerAliases], 'Empty')), expectedPlayerLinks, hostname + ': numeric IDs and API aliases resolve consistently');
+
+    const withoutUrl = actual.renderSchoolRows([{ ...school, microsite_url: null, bracket_eligible: true }], 'Empty', true, false, { globalSearch: true });
+    assert.deepEqual(hrefs(withoutUrl), [], hostname + ': a known school ID alone does not create an unavailable school link');
+    assert.ok(!/<a\b/.test(withoutUrl));
+    const viewOnly = actual.renderSchoolRows([{ ...school, bracket_eligible: true }], 'Empty', true, true, { globalSearch: true });
+    assert.deepEqual(hrefs(viewOnly), [], hostname + ': crest review stays unlinked even when a URL exists');
+  }
+
+  const preview = createEnvironment({ hostname: 'review-abc.vercel.app' }).exports;
+  for (const invalidId of ['', 0, -1, '5004.0', '05004', '5004/other', '2147483648', '999999999999999999']) {
+    const invalidSchool = { ...school, hsid: invalidId };
+    const invalidPlayer = { ...player, schoolId: invalidId };
+    assert.deepEqual(hrefs(preview.renderSchoolRows([invalidSchool], 'Empty', false, false, { globalSearch: true })), [officialSchool], 'Invalid IDs cannot replace a known official school link with a fabricated preview path');
+    const expected = [officialBase + '/player/100/fixture-player', officialBase + '/player/100/fixture-player', officialBase + '?view=active&player=100#player-100'];
+    assert.deepEqual(hrefs(preview.renderPlayerRows([invalidPlayer], 'Empty')), expected, 'Invalid school IDs preserve the established official player destinations');
+    assert.deepEqual(hrefs(preview.renderTeamRows([invalidPlayer], 'Empty')), expected, 'Invalid school IDs preserve the established official current-team destinations');
+    assert.deepEqual(hrefs(preview.renderSchoolRows([{ ...invalidSchool, microsite_url: null }], 'Empty', true, false, { globalSearch: true })), [], 'An invalid ID without a URL remains an unlinked school row');
+  }
+
+  const server = createEnvironment();
+  delete server.context.window;
+  assert.deepEqual(hrefs(server.exports.renderSchoolRows([school], 'Empty')), [officialSchool], 'Rendering without a browser retains the official destination');
+  assert.deepEqual(hrefs(server.exports.renderPlayerRows([player], 'Empty')), [officialBase + '/player/100/fixture-player', officialBase + '/player/100/fixture-player', officialBase + '?view=active&player=100#player-100']);
+  passed('Validated preview school paths keep school sections, player profiles and flip cards on the same Vercel/localhost build; official URLs, production links and unavailable/view-only guards remain intact');
+}
+
 async function crestChecks() {
   const env = createEnvironment({ queryString: '?schoolSearch=5004' });
   env.mount(); await env.flush();
@@ -432,6 +487,7 @@ async function crestChecks() {
 
 (async () => {
   rendererChecks();
+  previewNavigationChecks();
   await invalidationChecks();
   await duplicateChecks();
   await errorChecks();

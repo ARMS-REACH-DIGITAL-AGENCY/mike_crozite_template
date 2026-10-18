@@ -1,7 +1,8 @@
 // src/components/yatstats/PlayerCard.tsx
 // Full flip card container: article element with front and back faces
 
-import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
+import { gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
+import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
@@ -135,16 +136,13 @@ function imageText(value: unknown): string {
 }
 
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, eager = false, shareBaseUrl = null, schoolName = null, schoolLocation = null }: PlayerCardProps) {
-  const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
+  const display = resolvePlayerDisplay(p);
+  const lvl = display.levelLabel;
   const gc = String(p.class_of || "").trim();
   const { estimated: gcEstimated } = gradClassInfo(p);
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
-  const org = normalizeOrg(String(p.current_org_or_conference_name || ""));
-  const status = String(
-    p.status_label || (p.is_active_2025 ? "ACTIVE" : "RETIRED")
-  )
-    .trim()
-    .toUpperCase();
+  const org = normalizeOrg(display.orgConferenceName);
+  const status = display.statusLabel;
   const slug = toPlayerSlug(
     String(p.firstname || p.first_name || ""),
     String(p.lastname || p.last_name || "")

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { sanitizeError, sendIngestAlert } from "@/lib/ingestAlerts";
+import { enrichFlipCardBaselineMetadata } from "@/lib/playerMetadataEnrichment";
+import { assertTbcCsvRowWidths, parseTbcFeedCsv, type TbcCsvFeed } from "@/lib/tbcFeedCsv";
+import { routeTbcStatFeed, type TbcStatRoutingResult } from "@/lib/tbcStatRouting";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -25,11 +28,13 @@ const FEEDS = {
     url: "https://www.thebaseballcube.com/data/feed/yatstats/batting/?pw=yattbc",
     landingTable: "public.tbc_batting_landing_latest",
     targetTable: "public.tbc_batting_2026_season_raw",
+    historicalTable: "public.tbc_batting_raw",
   },
   pitching: {
     url: "https://www.thebaseballcube.com/data/feed/yatstats/pitching/?pw=yattbc",
     landingTable: "public.tbc_pitching_landing_latest",
     targetTable: "public.tbc_pitching_2026_season_raw",
+    historicalTable: "public.tbc_pitching_raw",
   },
 } as const;
 
@@ -59,71 +64,7 @@ function splitQualifiedTableName(value: string): { schema: string; table: string
   return { schema, table };
 }
 
-function normalizeHeader(value: string): string {
-  return String(value || "")
-    .trim()
-    .replace(/^\uFEFF/, "")
-    .replace(/\s+/g, "_")
-    .replace(/[^\w]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .toLowerCase()
-    .replace(/^2b$/, "dbl")
-    .replace(/^3b$/, "tpl");
-}
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const next = text[i + 1];
-
-    if (inQuotes) {
-      if (ch === '"' && next === '"') {
-        cell += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        cell += ch;
-      }
-      continue;
-    }
-
-    if (ch === '"') {
-      inQuotes = true;
-      continue;
-    }
-
-    if (ch === ",") {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-
-    if (ch === "\n") {
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-      continue;
-    }
-
-    if (ch === "\r") continue;
-
-    cell += ch;
-  }
-
-  row.push(cell);
-  if (row.length > 1 || row[0] !== "") rows.push(row);
-  return rows;
-}
-
-async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: string[][] }> {
+async function fetchCsvRows(url: string): Promise<TbcCsvFeed> {
   const res = await fetch(url, {
     cache: "no-store",
     headers: {
@@ -175,29 +116,7 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
     throw new Error(`TBC returned HTML instead of CSV. content-type=${contentType}. preview=${preview}`);
   }
 
-  const parsed = parseCsv(body);
-  if (!parsed.length) {
-    throw new Error(`CSV was empty for ${url}`);
-  }
-
-  const rawHeaders = parsed[0].map(normalizeHeader);
-  const headers = rawHeaders.map((h, idx) => h || `col_${idx + 1}`);
-
-  if (headers.length > 200) {
-    throw new Error(
-      `Header sanity check failed: got ${headers.length} columns. This is not a valid TBC CSV header. preview=${preview}`,
-    );
-  }
-
-  if (!headers.includes("playerid")) {
-    throw new Error(`CSV header missing playerid. preview=${preview}`);
-  }
-
-  const rows = parsed
-    .slice(1)
-    .filter((r) => r.some((v) => String(v || "").trim() !== ""));
-
-  return { headers, rows };
+  return parseTbcFeedCsv(body);
 }
 
 async function recreateLandingTable(
@@ -225,6 +144,7 @@ async function insertLandingRows(
   rows: string[][],
 ): Promise<number> {
   if (!rows.length) return 0;
+  assertTbcCsvRowWidths(headers, rows);
 
   const { schema, table } = splitQualifiedTableName(qualifiedTable);
   const colsSql = headers.map(quoteIdent).join(", ");
@@ -237,10 +157,10 @@ async function insertLandingRows(
     const tuples: string[] = [];
 
     for (const row of batch) {
-      const padded = headers.map((_, idx) => (row[idx] ?? "").trim());
+      const valuesForRow = row.map((value) => value.trim());
       const placeholders: string[] = [];
 
-      for (const value of padded) {
+      for (const value of valuesForRow) {
         values.push(value === "" ? null : value);
         placeholders.push(`$${values.length}`);
       }
@@ -275,31 +195,6 @@ async function getTargetColumns(client: any, qualifiedTable: string): Promise<st
     [schema, table],
   );
   return rows.map((r: any) => r.column_name);
-}
-
-async function replaceTargetFromLanding(
-  client: any,
-  landingTable: string,
-  targetTable: string,
-  landingHeaders: string[],
-): Promise<number> {
-  const targetCols = await getTargetColumns(client, targetTable);
-  const commonCols = targetCols.filter((c) => landingHeaders.includes(c));
-
-  if (!commonCols.length) {
-    throw new Error(`No common columns between ${landingTable} and ${targetTable}`);
-  }
-
-  const quotedCols = commonCols.map(quoteIdent).join(", ");
-  await client.query(`truncate table ${targetTable}`);
-  await client.query(`
-    insert into ${targetTable} (${quotedCols})
-    select ${quotedCols}
-    from ${landingTable}
-  `);
-
-  const { rows } = await client.query(`select count(*)::text as count from ${targetTable}`);
-  return Number(rows[0]?.count || 0);
 }
 
 async function mergePlayersFromLanding(
@@ -353,20 +248,41 @@ async function mergePlayersFromLanding(
 
 async function syncOneFeed(client: any, feed: FeedKey) {
   const cfg = FEEDS[feed];
-  const { headers, rows } = await fetchCsvRows(cfg.url);
+  const { headers, rows, downloadedRows, validation } = await fetchCsvRows(cfg.url);
+
+  if (validation.skippedRows > 0) {
+    // Bounded record numbers and shape errors only; never log feed rows.
+    console.warn("[tbc-safe-ingest] skipped malformed CSV records", { feed, ...validation });
+  }
 
   await recreateLandingTable(client, cfg.landingTable, headers);
   const insertedRows = await insertLandingRows(client, cfg.landingTable, headers, rows);
 
-  const targetRows = feed === "players"
-    ? await mergePlayersFromLanding(client, cfg.landingTable, cfg.targetTable, headers)
-    : await replaceTargetFromLanding(client, cfg.landingTable, cfg.targetTable, headers);
+  let statRouting: TbcStatRoutingResult | null = null;
+  let targetRows: number;
+  if (feed === "players") {
+    targetRows = await mergePlayersFromLanding(client, cfg.landingTable, cfg.targetTable, headers);
+  } else {
+    statRouting = await routeTbcStatFeed(client, {
+      landingTable: cfg.landingTable,
+      currentTable: cfg.targetTable,
+      historicalTable: FEEDS[feed].historicalTable,
+      landingColumns: headers,
+      skippedRows: validation.skippedRows,
+    });
+    targetRows = statRouting.targetRows;
+    if (statRouting.state === "degraded") {
+      console.warn("[tbc-safe-ingest] statistics routing requires review", { feed, ...statRouting });
+    }
+  }
 
   return {
     feed,
-    downloadedRows: rows.length,
+    downloadedRows,
     insertedRows,
     targetRows,
+    statRouting,
+    ...validation,
   };
 }
 
@@ -555,14 +471,14 @@ async function recordIngestFailure(client: any, error: unknown): Promise<number 
   return Number(rows[0]?.consecutive_failures || 0);
 }
 
-function validateResults(results: Array<{ feed: FeedKey; downloadedRows: number; insertedRows: number; targetRows: number }>) {
+function validateResults(results: Array<{ feed: FeedKey; downloadedRows: number; insertedRows: number; targetRows: number; statRouting: TbcStatRoutingResult | null }>) {
   for (const result of results) {
     if (result.downloadedRows <= 0 || result.insertedRows <= 0) {
       throw new Error(`${result.feed} feed was empty; canonical tables were not changed`);
     }
 
-    if (result.feed !== "players" && result.targetRows !== result.insertedRows) {
-      throw new Error(`${result.feed} target count did not match the downloaded feed`);
+    if (result.statRouting?.currentReplacement === "replaced" && result.targetRows !== result.statRouting.currentRowsWritten) {
+      throw new Error(`${result.feed} target count did not match its current-season rows`);
     }
   }
 }
@@ -610,10 +526,34 @@ export async function GET(req: NextRequest) {
     const baseline = await ensureFlipCardBaselineRows(client);
     const newFlipCardRows = baseline.created;
     const heldForIdentityReview = baseline.held;
+    // The identity feed supplies only names and school IDs. Resolve available
+    // metadata after stats are loaded and before committing new baseline cards.
+    const metadataCoverage = await enrichFlipCardBaselineMetadata(client);
+    const dataQuality = metadataCoverage.state === "degraded" || results.some((result) => result.skippedRows > 0 || result.statRouting?.state === "degraded")
+      ? "degraded" : "healthy";
 
-    await recordIngestSuccess(client, { results, newFlipCardRows, heldForIdentityReview });
+    await recordIngestSuccess(client, {
+      results, newFlipCardRows, heldForIdentityReview,
+      dataQuality, metadataCoverage,
+    });
 
     await client.query("commit");
+
+    if (metadataCoverage.state === "degraded") {
+      console.warn("[tbc-safe-ingest] player metadata source coverage is incomplete", metadataCoverage);
+      try {
+        await sendIngestAlert({
+          event: "yatstats_metadata_coverage_gap",
+          job: JOB_NAME,
+          occurredAt: new Date().toISOString(),
+          details: { metadataCoverage },
+        });
+      } catch (alertError) {
+        console.error("[tbc-safe-ingest] failed to send metadata coverage alert", {
+          message: sanitizeError(alertError),
+        });
+      }
+    }
 
     if (heldForIdentityReview.length > 0) {
       console.warn("[tbc-safe-ingest] held new TBC players for identity review", heldForIdentityReview);
@@ -653,6 +593,8 @@ export async function GET(req: NextRequest) {
       results,
       newFlipCardRows,
       heldForIdentityReview,
+      dataQuality,
+      metadataCoverage,
     });
   } catch (error: any) {
     if (client) {

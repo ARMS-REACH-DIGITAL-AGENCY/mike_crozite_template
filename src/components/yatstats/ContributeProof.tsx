@@ -11,6 +11,7 @@ import PlayerCardBackHero from '@/components/yatstats/PlayerCardBackHero';
 import FunZone from '@/components/yatstats/FunZone';
 import { useEffect, useState } from 'react';
 import { fmt } from '@/lib/playerUtils';
+import { resolvePlayerDisplay } from '@/lib/playerDisplay';
 
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -158,11 +159,8 @@ function FlippableGalleryProof({
   const playerId = String(p.playerid || '');
   const hsid = String(p.hsid || '');
   const displayName = String(p.display_name || [p.firstname || p.first_name, p.lastname || p.last_name].filter(Boolean).join(' '));
-  const rawTeam = String(p.current_team_name || '');
-  const departure = ['FREE AGENT', 'RETIRED'].includes(String(p.team_affiliation_status || '').toUpperCase()) && Boolean(p.last_transaction_type);
-  const teamName = departure ? String(p.previous_team_name || rawTeam) : rawTeam;
-  const orgConf = departure ? String(p.previous_org_or_conference_name || '') : String(p.current_org_or_conference_name || '');
-  const posLevelStatus = [p.position,p.level_label || p.level,p.status_label].filter(Boolean).map(String).join(' - ');
+  const display = resolvePlayerDisplay(p);
+  const posLevelStatus = [p.position,display.levelLabel,display.statusLabel].filter(Boolean).map(String).join(' - ');
   const btHw = [
     p.bats && p.throws ? 'B/T '+p.bats+'/'+p.throws : '',
     p.height && p.weight ? p.height+' / '+p.weight : p.height || p.weight || '',
@@ -207,8 +205,8 @@ function FlippableGalleryProof({
                   playerId={playerId}
                   displayName={displayName}
                   profileHref={'/'+hsid+'/player/'+playerId}
-                  teamName={teamName}
-                  orgConf={orgConf}
+                  teamName={display.teamName}
+                  orgConf={display.orgConferenceName}
                   posLevelStatus={posLevelStatus}
                   btHw={btHw}
                   previewImageUrl={purpose==='back_hero' ? src : null}

@@ -250,9 +250,12 @@ async function tableExists(tableName: string) {
   return Boolean(rows[0]?.table_name);
 }
 
-async function readPlayerRows(tableName: string, playerId: string) {
+async function readPlayerRows(tableName: string, playerId: string, seasonYear?: number) {
   if (!(await tableExists(tableName))) return [];
 
+  // A held ingest can retain older seasons in the current table after they
+  // have been archived. Match the canonical views so those seasons appear once.
+  const seasonFilter = seasonYear === undefined ? '' : ' and r.year::text = $3::text';
   const { rows } = await query(
     `select
        r.*,
@@ -263,10 +266,10 @@ async function readPlayerRows(tableName: string, playerId: string) {
        $2::text as _source
      from public.${tableName} r
      left join public.teamid_universe_mapping m on m.teamid::text = r.teamid::text
-     where r.playerid::text = $1
+     where r.playerid::text = $1${seasonFilter}
      order by nullif(regexp_replace(coalesce(r.year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
               coalesce(m.current_team_name, r.teamid::text)`,
-    [playerId, tableName]
+    seasonYear === undefined ? [playerId, tableName] : [playerId, tableName, String(seasonYear)]
   );
 
   return rows;
@@ -283,9 +286,9 @@ export async function GET(req: NextRequest) {
 
     const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw, indyIscore] = await Promise.all([
       readPlayerRows(BATTING_TABLES[0], playerId),
-      readPlayerRows(BATTING_TABLES[1], playerId),
+      readPlayerRows(BATTING_TABLES[1], playerId, LIVE_SEASON_YEAR),
       readPlayerRows(PITCHING_TABLES[0], playerId),
-      readPlayerRows(PITCHING_TABLES[1], playerId),
+      readPlayerRows(PITCHING_TABLES[1], playerId, LIVE_SEASON_YEAR),
       getRecentExternalStatsForPlayer(playerId, 10).catch((error) => {
         console.warn('external stats lookup failed:', error);
         return [];
