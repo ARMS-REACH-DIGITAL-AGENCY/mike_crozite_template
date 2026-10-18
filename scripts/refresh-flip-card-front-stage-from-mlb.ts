@@ -251,7 +251,7 @@ async function ensureCurrentProTeamMappings(): Promise<{
       WHERE EXISTS (
         SELECT 1
         FROM public.mlb_org_roster_raw raw
-        WHERE raw.source_team_id = a.mlb_id
+        WHERE raw.source_team_id::text = a.mlb_id::text
           AND LOWER(BTRIM(raw.source_team_name)) = LOWER(BTRIM(a.team_name))
       )
         AND NOT EXISTS (
