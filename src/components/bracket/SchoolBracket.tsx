@@ -26,7 +26,7 @@ import {
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
   StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
-import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, masterGames, records, runsThrough, schoolSeason, starLine } from './schoolSeason';
+import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
@@ -98,7 +98,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   }, [g, card.file]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
-  const pill = card.state === 'final' ? 'FINAL' : card.state === 'live' ? 'LIVE' : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
+  // A live game's inning ("TOP 2") and its yellow, not-yet-final cells.
+  const lv = card.state === 'live' && g ? liveBoard(g) : null;
+  const pill = card.state === 'final' ? 'FINAL' : lv ? lv.status : card.state === 'live' ? 'LIVE' : card.state === 'next' ? fmtDate(index.weeks[card.week - 1][0]) : card.state === 'bye' ? 'BYE' : 'TBD';
   const corrected = g && previewData?.box
     ? correctedRosterGame(g[5], card.week, previewData.box.h?.p || [], previewData.box.a?.p || [], previewData.homeRoster, previewData.awayRoster)
     : null;
@@ -114,7 +116,11 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const played = card.state === 'final' || card.state === 'live';
   // A shared snapshot carries only the innings already on the board: the
   // rest of the week is still to be played, so it never reaches the image.
-  const sharedThrough = card.state === 'final' ? 9 : card.state === 'live' ? Math.min(card.days, 9) : 0;
+  const sharedThrough = lv
+    // Live: every inning on the ballpark board - those played, the one being
+    // played, and 8-9 once the week is posted.
+    ? Math.max(...lv.cells.map((side) => side.filter((c) => c.v !== '').length))
+    : card.state === 'final' ? 9 : card.state === 'live' ? Math.min(card.days, 9) : 0;
 
   if (!g) {
     // A future game: the opponent is TBD (decided by earlier rounds), this
@@ -192,6 +198,10 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {Array.from({ length: inningCount }, (_, i) => i).map((i) => {
+          if (lv) {
+            const c = lv.cells[side === 'a' ? 0 : 1][i];
+            return <span key={i} className={`yfp-green-slot${c.v ? ' scored' : ''}${c.now ? ' now' : ''}`}>{c.v}</span>;
+          }
           const shown = card.state === 'final' || (card.state === 'live' && i < Math.min(card.days, 9));
           const value = shownInnings[i * 2 + off] || 0;
           return <span key={i} className={`yfp-green-slot${shown && value ? ' scored' : ''}`}>{shown ? value : ''}</span>;
@@ -226,7 +236,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       title={`Round ${round} · Game ${gameNo}`}
       subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>i<sharedThrough?[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]:[0,0]).flat().join(','))}&played=${sharedThrough}&weekStart=${index.weeks[card.week - 1]?.[0] || ''}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`}
+      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>lv?[Number(lv.cells[1][i]?.v || 0),Number(lv.cells[0][i]?.v || 0)]:i<sharedThrough?[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]:[0,0]).flat().join(','))}&played=${sharedThrough}&weekStart=${index.weeks[card.week - 1]?.[0] || ''}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />
   ) : null;
@@ -373,8 +383,9 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           : 'YAT?STATS WORLD SERIES';
   // Staged simulation: the drawer only shows results once the week's games
   // are final. Before that it's the empty Day-1 state (no leaked sim data).
-  const played = card.state === 'final';
-  const [hr, ar] = played ? runsThrough(g, 7) : [0, 0];
+  // Live: a week in progress shows its days so far.
+  const played = card.state === 'final' || (card.state === 'live' && card.days > 0);
+  const [hr, ar] = played ? runsThrough(g, card.state === 'final' ? 7 : card.days) : [0, 0];
   // The drawer opens on today's tab during the week (Monday = 0), else on the week.
   const weekStart = index.weeks[card.week - 1]?.[0];
   const todayIdx = weekStart ? Math.round((Date.parse(`${previewDate()}T00:00:00Z`) - Date.parse(`${weekStart}T00:00:00Z`)) / 86400000) : -1;
@@ -446,7 +457,7 @@ function RulesDrawer({ onClose }: { onClose: () => void }) {
 }
 
 // The narrow column (a profile's teammates): the Most Runs Scored
-// Leaderboards through the last final week - all 8 regions, or every school
+// Leaderboards through the last final week (live: through this week's days so far) - all 8 regions, or every school
 // A-Z (like the teammates' A-Z / Year). Opens on this school.
 function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbGame[]; me: number; final: number; onRules: () => void }) {
   const myRegion = index.schools[me]?.[1] || 1;
@@ -768,10 +779,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return t;
   },[cards]);
 
+  // Monday morning leads with last week's final (leadWeek), not a 0-0 TOP 1.
+  const lead = cal ? leadWeek(cards, cal.week) : 0;
   const nowTab = useMemo(() => {
     if(!cal||cal.week<1) return 'r1';
-    return stageKeyForWeek(Math.min(34,cal.week));
-  },[cal]);
+    return stageKeyForWeek(Math.min(34,lead));
+  },[cal,lead]);
   const tab = nav.stageKey || nowTab;
 
   // A hero click/focus also changes the canonical stage.
@@ -800,6 +813,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const cur = tabs.find((t) => t.key === tab);
   const curList = cur?.list || [];
   let gameIdx = gameWeek != null ? curList.findIndex((c) => c.week === gameWeek) : -1;
+  if (gameIdx < 0 && cal && lead !== cal.week) gameIdx = curList.findIndex((c) => c.week === lead);
   if (gameIdx < 0) gameIdx = curList.findIndex((c) => c.state === 'live');
   if (gameIdx < 0) gameIdx = curList.findIndex((c) => c.state === 'next');
   if (gameIdx < 0) curList.forEach((c, i) => { if (c.state === 'final') gameIdx = i; });
@@ -867,7 +881,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
                 </div>
               )}
             </div>
-            <RegionColumn index={index} lb={lb} me={me} final={cal.final} onRules={()=>setRules(true)}/>
+            <RegionColumn index={index} lb={lb} me={me} final={cal.days ? Math.max(cal.final, cal.week) : cal.final} onRules={()=>setRules(true)}/>
           </div>
         </div>
       )}
@@ -930,6 +944,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-row.me .yfp-green-team { color:#ffd34f; }
         .yfp-green-slot { height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; box-shadow:inset 0 1px 3px rgba(0,0,0,.75); color:#edf4ee; font:800 11px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
         .yfp-green-slot.scored { color:#fff; }
+        /* The inning being played, and runs not yet final: yellow, like a
+           ballpark board until the half-inning is over. */
+        .yfp-green-slot.now { color:#ffd34f; }
         /* Board crests show only on a wide card (see the container query). */
         .yfp-board-crest { display:none; }
         .yfp-green-run { position:relative; height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; color:#ffd34f; font:800 13px/1 Oswald,sans-serif; }

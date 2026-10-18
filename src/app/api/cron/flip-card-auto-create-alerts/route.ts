@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+// A cron that keeps its own health table: the writer connection, not the
+// site's read-only pool.
+import { writerQuery as query } from "@/lib/dbWriter";
 import { findOrCreateGhlContact, sendGHLEmail } from "@/lib/gohighlevel";
 
 export const runtime = "nodejs";

@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 import { gunzipSync } from 'zlib';
-import { query } from '@/lib/db';
+import { query as readQuery } from '@/lib/db';
+// Ingest writes go through the writer connection; the site's read-only
+// pool is used only by the player-profile reader below.
+import { writerQuery as query } from '@/lib/dbWriter';
 
 const ISCORE_API_BASE = 'https://api.microservices.iscoresports.com/api';
 const SOURCE_SYSTEM = 'iscore_central';
@@ -1195,7 +1198,7 @@ export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10):
   // lookup -- ~435 Indy players' 2026 stats never reached their profiles.
   // The tables already exist; the ingest jobs still run the ensure pass.
   const [batting, pitching, recentGames] = await Promise.all([
-    query<AnyRecord>(
+    readQuery<AnyRecord>(
       `select
          b.*, m.current_team_name, m.current_org_or_conference_name, m.current_org_or_conference_abbrev, m.level_label
        from public.indy_iscore_batting_2026_season_raw b
@@ -1204,7 +1207,7 @@ export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10):
        order by b.season_year, coalesce(m.current_team_name, b.source_team_name)`,
       [playerId]
     ),
-    query<AnyRecord>(
+    readQuery<AnyRecord>(
       `select
          p.*, m.current_team_name, m.current_org_or_conference_name, m.current_org_or_conference_abbrev, m.level_label
        from public.indy_iscore_pitching_2026_season_raw p
@@ -1213,7 +1216,7 @@ export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10):
        order by p.season_year, coalesce(m.current_team_name, p.source_team_name)`,
       [playerId]
     ),
-    query<AnyRecord>(
+    readQuery<AnyRecord>(
       `select
          g.*, gm.game_date, gm.home_team_abbrev, gm.away_team_abbrev
        from public.indy_iscore_player_game_stats_raw g

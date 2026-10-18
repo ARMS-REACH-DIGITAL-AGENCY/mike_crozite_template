@@ -6,6 +6,8 @@ export function arizonaToday(now = Date.now()) {
   return new Date(now - 7 * 3600000).toISOString().slice(0, 10);
 }
 
+// The bracket's day turns over at 4 a.m. Arizona, not midnight: that's when
+// the day before goes final and the next inning starts (see liveSeason.ts).
 export function simulationAsOf() {
-  return arizonaToday();
+  return arizonaToday(Date.now() - 4 * 3600000);
 }
