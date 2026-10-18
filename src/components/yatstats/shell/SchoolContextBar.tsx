@@ -114,9 +114,9 @@ export default function SchoolContextBar({
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
   const [allCardsFlipped, setAllCardsFlipped] = useState(false);
-  const storyOpenOwner = useMemo(() => Symbol(`profile-story-open:${profilePlayerId || 'none'}`), [profilePlayerId]);
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
+  const storyOpenOwner = useMemo(() => Symbol(`profile-story-open:${profilePlayerId || 'none'}`), [profilePlayerId]);
   const slugDerivedName = playerRouteMatch?.[2]
     ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : '';
