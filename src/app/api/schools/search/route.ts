@@ -243,13 +243,13 @@ export async function GET(req: NextRequest) {
     // A numeric school domain is always an unambiguous, working fallback.
     const owners = new Map<string, Set<string>>();
     for (const school of programs) {
-      const url = String(school.microsite_url || '').trim().toLowerCase().replace(/\\/+$/, '');
+      const url = String(school.microsite_url || '').trim().toLowerCase().replace(/[/]+$/, '');
       if (!url) continue;
       if (!owners.has(url)) owners.set(url, new Set());
       owners.get(url)!.add(String(school.hsid || ''));
     }
     for (const school of programs) {
-      const url = String(school.microsite_url || '').trim().toLowerCase().replace(/\\/+$/, '');
+      const url = String(school.microsite_url || '').trim().toLowerCase().replace(/[/]+$/, '');
       if (owners.get(url)?.size && owners.get(url)!.size > 1 && /^[1-9][0-9]*$/.test(String(school.hsid || ''))) {
         school.microsite_url = `https://${school.hsid}.yatstats.com`;
       }
