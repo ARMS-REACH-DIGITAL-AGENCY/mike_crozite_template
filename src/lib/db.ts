@@ -24,6 +24,7 @@ import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { currentFranchiseSql } from '@/lib/mlbFranchise';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
+import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
 
 // A school's page data, kept across requests (and across server instances)
 // for 10 minutes: its roster, All-Time list, flip card rows, season results
@@ -301,7 +302,20 @@ export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
-  return rows[0] || null;
+  if (rows[0]) return rows[0];
+  // Newer player-linked schools do not all have a school_success directory row.
+  // Render the same real HSID page using canonical TBC school metadata.
+  const { rows: raw } = await query(
+    `SELECT t.hsid, t.hsname, t.hslocation, t.cityname, t.regionid, t.nickname,
+            t.color1 AS primary_color, t.color2 AS secondary_color,
+            NULL::text AS microsite_url, NULL::text AS staging_url
+       FROM public.tbc_schools_raw t
+      WHERE t.hsid = $1
+        AND EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+      LIMIT 1`,
+    [hsid],
+  );
+  return raw[0] || null;
 });
 
 export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: string) {
@@ -316,7 +330,10 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
     LIMIT 1
   `;
   const { rows } = await query(sql, [candidates]);
-  return rows[0] || null;
+  if (rows[0]) return rows[0];
+  const hsid = await resolveSchoolHsidFromHost(hostOnly,
+    (sql, params = []) => query(sql, params));
+  return hsid ? getSchoolByHsid(hsid) : null;
 });
 
 // ---------------------------------------------------------------------------

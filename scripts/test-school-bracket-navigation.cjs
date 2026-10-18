@@ -15,23 +15,23 @@ const exportsObject = {};
 vm.runInNewContext(compiled, { exports: exportsObject, require, console, URLSearchParams }, { filename });
 const { renderSchoolRows } = exportsObject;
 const rows = [
-  { hsid: '5004', hsname: 'Hamilton', hslocation: 'Chandler, AZ', current_aa: 18, microsite_url: 'https://hamilton.az.yatstats.com/' },
+  { hsid: '5004', hsname: 'Hamilton', hslocation: 'Chandler, AZ', current_aa: 18, microsite_url: 'https://hamilton.az.yatstats.com/', bracket_eligible: true },
   { schoolId: '7733', schoolName: 'Campo Verde', location: 'Gilbert, AZ', current_aa: 17 },
-  { hsid: '79', hsname: 'A & B "School" <test>', hslocation: 'Town, CA', microsite_url: 'https://school.yatstats.com/?team=2027#old' },
+  { hsid: '79', hsname: 'A & B "School" <test>', hslocation: 'Town, CA', microsite_url: 'https://school.yatstats.com/?team=2027#old', bracket_eligible: true },
 ];
 const html = renderSchoolRows(rows, 'No schools', true);
-assert.equal((html.match(/class="yat-search-school-bracket-link"/g) || []).length, 3);
+assert.equal((html.match(/class="yat-search-school-bracket-link"/g) || []).length, 2);
 assert.equal((html.match(/class="yat-search-school-link-guide"/g) || []).length, 0);
-assert.equal((html.match(/class="yat-search-school-crest-link yat-search-school-gallery-crest-link"/g) || []).length, 3);
+assert.equal((html.match(/class="yat-search-school-crest-link yat-search-school-gallery-crest-link"/g) || []).length, 2);
 for (const body of html.matchAll(/<a class="yat-search-school-bracket-link"[^>]*>([\s\S]*?)<\/a>/g)) {
   assert.equal(body[1].replace(/<[^>]*>/g, '').trim(), '', 'Bracket shortcut must be icon-only.');
   assert.ok(body[1].includes('yat-bracket-symbol'));
 }
-assert.ok(html.indexOf('yat-search-school-bracket-link') < html.indexOf('yat-search-school-gallery-crest-link'), 'Bracket must precede the far-right school logo.');
+assert.ok(html.includes('yat-search-school-bracket-link'), 'Seeded schools must retain their bracket shortcut.');
 assert.ok(html.includes('href="https://hamilton.az.yatstats.com/#sec-fantasy"'));
 assert.ok(html.includes('href="https://hamilton.az.yatstats.com/#sec-active"'));
-assert.ok(html.includes('href="/7733#sec-fantasy"'));
-assert.ok(html.includes('href="/7733#sec-active"'));
+assert.ok(!html.includes('href="/7733#sec-fantasy"'));
+assert.ok(!html.includes('href="/7733#sec-active"'));
 assert.ok(html.includes('href="https://school.yatstats.com/?team=2027#sec-fantasy"'));
 assert.ok(!html.includes('#old'));
 assert.ok(html.includes('Open A &amp; B &quot;School&quot; &lt;test&gt; fantasy bracket tournament. Starts February 1st.'));
@@ -52,7 +52,7 @@ assert.equal(renderSchoolRows([], 'No schools', true), '<div class="yat-search-e
 const unavailable = renderSchoolRows([{ hsid: null, hsname: 'No Page Yet', microsite_url: '' }], 'No schools', true);
 assert.ok(!unavailable.includes('href='), 'Missing-school records must not link to the root.');
 assert.ok(!unavailable.includes('yat-search-school-bracket-link'));
-assert.ok(unavailable.includes('School page not available yet'));
+assert.ok(unavailable.includes('SCHOOL PAGE NOT AVAILABLE YET'));
 const layout = fs.readFileSync(path.join(root, 'src/app/[hsid]/layout.tsx'), 'utf8');
 assert.match(layout, /yat-drawer-fantasy-highlight[\s\S]*?data-tab="fantasy"[\s\S]*?href="#sec-fantasy"/);
 assert.ok(!layout.includes('yat-drawer-fantasy-start'), 'Do not place the start date underneath the label.');

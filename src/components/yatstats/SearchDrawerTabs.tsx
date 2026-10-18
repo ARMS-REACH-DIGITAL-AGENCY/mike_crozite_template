@@ -203,9 +203,10 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         const location = cleanLocation(loc.city, loc.state, school.hslocation || school.location);
         const crest = schoolCrestUrl(hsid, school.crestUrl || school.crest_url || school.logoUrl || school.logo_url || school.schoolLogoUrl || school.school_logo_url);
         const activeCount = Number(school.current_aa ?? 0);
-        // Tournament shortcuts exist only on schools with a live microsite.
-        // Current Neon audit: those 1,024 IDs match the 2026 bracket roster.
+        // Only explicitly seeded 2026 tournament schools get a bracket shortcut.
+        // Having a player-linked school page does NOT imply tournament membership.
         const hasSchoolDestination = Boolean(String(school.microsite_url || school.micrositeUrl || '').trim());
+        const bracketEligible = school.bracket_eligible === true || school.bracket_eligible === 'true';
         const unavailable = viewOnly || !hasSchoolDestination;
         const meta = `data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}"`;
         const crestImg = `<img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />`;
@@ -217,7 +218,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
           </span>
         `;
 
-        if (includeBracketLinks && hasSchoolDestination) return `
+        if (includeBracketLinks && hasSchoolDestination && bracketEligible && !viewOnly) return `
           <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card" ${meta}>
             <div class="yat-search-school-topline">
               <a class="yat-search-school-crest-link yat-search-school-gallery-crest-link" href="${esc(schoolSectionUrl(school, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">

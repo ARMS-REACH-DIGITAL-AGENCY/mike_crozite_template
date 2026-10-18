@@ -162,7 +162,8 @@ export default async function HsidLayout({
   const micrositeUrl = String(school.microsite_url || '');
   const isPreview = host.includes('vercel.app') || host.includes('localhost');
   const pathname = headersList.get('x-pathname') || '';
-  if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && new RegExp(`^/${hsid}/?$`).test(pathname)) {
+  const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
+  if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && !isHostRewrite && new RegExp(`^/${hsid}/?$`).test(pathname)) {
     permanentRedirect(micrositeUrl.replace(/\/$/, ''));
   }
 

@@ -748,7 +748,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         (error as { isEmailTaken?: boolean })?.isEmailTaken
       ) {
         setMessage('This email already has a YAT?STATS account. Please sign in.');
-        setActiveTab('signin');
+        window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: 'signin' }));
       } else {
         setMessage(error instanceof Error ? error.message : 'Registration failed');
       }

@@ -137,6 +137,16 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
+    // Other drawers open a specific account form through the same event.
+    const onAccountTab = (event: Event) => {
+      const tab = (event as CustomEvent<unknown>).detail;
+      if (tab === 'signin' || tab === 'register') setActiveTab(tab);
+    };
+    window.addEventListener('yat:acct-tab', onAccountTab);
+    return () => window.removeEventListener('yat:acct-tab', onAccountTab);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     const applyStoredIdentity = () => {

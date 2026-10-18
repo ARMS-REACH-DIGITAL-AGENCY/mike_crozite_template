@@ -25,8 +25,13 @@ export const STORY_POSTED_EVENT = 'yat:story-posted';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_PHOTOS = 4;
 const OTHER_DRAWER_CLASSES = ['drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-contribute-open'];
+// A departing player layout must not close a newer layout's story portal.
+// This is client-only ownership of the currently visible drawer, not data.
+let activeStoryDrawerOwner: symbol | null = null;
 
-function clearStoryDrawerState() {
+function clearStoryDrawerState(owner: symbol) {
+  if (activeStoryDrawerOwner !== owner) return;
+  activeStoryDrawerOwner = null;
   const body = document.body;
   if (body.classList.contains('drawer-story-open')) body.classList.remove('drawer-story-open');
   if (body.classList.contains('drawer-open') && !OTHER_DRAWER_CLASSES.some((name) => body.classList.contains(name))) body.classList.remove('drawer-open');
@@ -53,6 +58,7 @@ function openAccountDrawer(tab: 'signin' | 'register') {
 }
 
 export default function StoryDrawer() {
+  const [drawerOwner] = useState(() => Symbol('story-drawer'));
   const profile = usePlayerProfile();
   const playerId = String(profile?.playerId || '').trim();
   const playerName = String(profile?.playerName || '').trim() || 'this player';
@@ -95,12 +101,12 @@ export default function StoryDrawer() {
 
   const close = useCallback(() => {
     setOpen(false);
-    clearStoryDrawerState();
-  }, []);
+    clearStoryDrawerState(drawerOwner);
+  }, [drawerOwner]);
 
   // This portal belongs to the player layout. Leaving that layout must not
   // leave a screen mask behind after the drawer itself has unmounted.
-  useEffect(() => () => clearStoryDrawerState(), []);
+  useEffect(() => () => clearStoryDrawerState(drawerOwner), [drawerOwner]);
 
   // Other drawers use body classes to replace the active rail. Suspend this
   // drawer as well, without resetting the fan's draft, so its ARIA state and
@@ -109,12 +115,12 @@ export default function StoryDrawer() {
     if (!open) return;
     const sync = () => {
       const body = document.body;
-      if (!body.classList.contains('drawer-story-open') || OTHER_DRAWER_CLASSES.some((name) => body.classList.contains(name))) close();
+      if (activeStoryDrawerOwner !== drawerOwner || !body.classList.contains('drawer-story-open') || OTHER_DRAWER_CLASSES.some((name) => body.classList.contains(name))) close();
     };
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
-  }, [open, close]);
+  }, [open, close, drawerOwner]);
 
   const resetForm = useCallback(() => {
     setMonth(0);
@@ -140,6 +146,7 @@ export default function StoryDrawer() {
       const inProgress = status.kind !== 'done' && (story.trim() !== '' || photos.length > 0);
       if (!inProgress) setYear(Number.isInteger(slideYear) && slideYear > 1950 && slideYear <= thisYear + 1 ? slideYear : thisYear);
       if (status.kind === 'done') resetForm();
+      activeStoryDrawerOwner = drawerOwner;
       setOpen(true);
       document.body.classList.remove(...OTHER_DRAWER_CLASSES, 'yat-left-search-mode');
       document.getElementById('drawerAccount')?.classList.remove('open', 'is-open', 'active');
@@ -153,7 +160,7 @@ export default function StoryDrawer() {
     };
     window.addEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
-  }, [resetForm, status.kind, story, photos.length]);
+  }, [resetForm, status.kind, story, photos.length, drawerOwner]);
 
   // Close on Escape or a tap on the dark mask.
   useEffect(() => {

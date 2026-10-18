@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
+import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";
 export const runtime = "nodejs";
 
 function buildCorsHeaders(req: NextRequest) {
@@ -55,7 +56,7 @@ async function schoolsInState(state: string, qRaw: string) {
      )
      SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
             COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
-            s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url
+            s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url, s.bracket_seeding
        FROM school_success s
        LEFT JOIN counts c ON c.hsid = s.hsid::text
       WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
@@ -115,7 +116,8 @@ export async function GET(req: NextRequest) {
         atnla,
         drafted_hs,
         drafted,
-        microsite_url
+        microsite_url,
+        bracket_seeding
       FROM ${TABLE}
       WHERE
         ($1::text = '' OR (
@@ -170,6 +172,20 @@ export async function GET(req: NextRequest) {
       const matches = canonicalIds.get(key);
       return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
     });
+    // URL-ONLY ENRICHMENT START. Never filter, reorder, cap or append results here.
+    // Keep the production query and alumni counts unchanged; only activate links.
+    let derivedUrls = new Map<string, string>();
+    try {
+      derivedUrls = await canonicalSchoolUrls(
+        resolvedRows.filter((r: any) => !String(r.microsite_url || '').trim())
+          .map((r: any) => String(r.hsid || '')),
+        (sql, params = []) => query(sql, params),
+      );
+    } catch (error) {
+      // A URL lookup failure must not erase a successful search result list.
+      console.warn('[school-search] URL enrichment failed; preserving search results', error);
+    }
+    // URL-ONLY ENRICHMENT END.
     const programs = resolvedRows.map((r: any) => ({
       hsid: r.hsid ?? null,
       hsname: r.hsname ?? null,
@@ -183,7 +199,8 @@ export async function GET(req: NextRequest) {
       drafted_hs: r.drafted_hs ?? null,
       drafted: r.drafted ?? null,
       drafted_ratio: r.drafted_hs && r.drafted ? `${r.drafted_hs}/${r.drafted}` : null,
-      microsite_url: r.microsite_url ?? null,
+      microsite_url: derivedUrls.get(String(r.hsid || '')) || r.microsite_url || null,
+      bracket_eligible: Boolean(r.bracket_seeding),
     }));
     return NextResponse.json(
       { programs },

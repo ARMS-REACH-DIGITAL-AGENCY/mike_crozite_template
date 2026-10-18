@@ -5,6 +5,14 @@ name: Publish Verified School Logos - Production S3
 on:
   workflow_dispatch:
     inputs:
+      school_scope:
+        description: "Which schools? Start with linked; run ALL after initial verification."
+        required: true
+        type: choice
+        default: "linked"
+        options:
+          - "linked"
+          - "all"
       confirm:
         description: "Choose PUBLISH to automatically publish verified missing school logos"
         required: true
@@ -32,6 +40,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
+      HS_LOGO_SCOPE: ${{ inputs.school_scope }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

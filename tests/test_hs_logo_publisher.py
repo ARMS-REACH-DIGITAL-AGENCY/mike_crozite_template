@@ -1,4 +1,5 @@
 import hashlib
+import os
 import io
 import sys
 import unittest
@@ -9,6 +10,7 @@ from PIL import Image
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
 from publish_verified_hs_logos import can_auto_publish, put_live_if_missing
 from plan_hs_logo_batches import build_plan
+from fetch_hs_logos_expanded import school_selection_sql
 
 
 def png():
@@ -62,6 +64,21 @@ class PublisherTests(unittest.TestCase):
         client.get_object.return_value={"Body":io.BytesIO(b"corrupt"),"ContentType":"image/png"}
         with self.assertRaises(RuntimeError):
             put_live_if_missing(client,"yatstats-assets","schools/4.png",self.data,self.school,"")
+
+    def test_linked_scope_is_player_join(self):
+        sql = school_selection_sql("linked")
+        self.assertIn("JOIN public.tbc_schools_raw", sql)
+        self.assertIn("public.player_hsids", sql)
+
+    def test_all_scope_is_every_master_school(self):
+        sql = school_selection_sql("all")
+        self.assertIn("FROM public.tbc_schools_raw", sql)
+        self.assertNotIn("player_hsids", sql)
+        self.assertIn("ORDER BY t.hsid", sql)
+
+    def test_invalid_scope_rejected(self):
+        with self.assertRaises(ValueError):
+            school_selection_sql("unknown")
 
     def test_plan_includes_previously_staged_for_approval(self):
         schools=[{"hsid":str(i),"name":"x","state":"AZ"} for i in range(1,103)]

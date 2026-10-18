@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/hs-logo-backfill-7954-prep
+      - feature/hs-logos-all-schools-scope-20261017
     paths:
       - tests/test_hs_logo_publisher.py
       - scripts/publish_verified_hs_logos.py
