@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+// A cron that keeps its own health table: the writer connection, not the
+// site's read-only pool.
+import { writerQuery as query } from "@/lib/dbWriter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
