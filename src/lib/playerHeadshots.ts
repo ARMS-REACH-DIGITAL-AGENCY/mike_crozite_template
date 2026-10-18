@@ -22,7 +22,7 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
   const result = new Map<string, PlayerHeadshot>();
   if (!ids.length) return result;
 
-  const [designated, identities, contributed] = await Promise.all([
+  const [designated, contributed, identities] = await Promise.all([
     getBatchDesignatedPlayerImages(ids, 'HEADSHOT'),
     query<{ playerid: string; description: string | null; date_taken: string | null; uploaded_at: string }>(
       `SELECT DISTINCT ON (playerid)
