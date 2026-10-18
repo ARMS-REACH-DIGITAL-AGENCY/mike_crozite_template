@@ -101,7 +101,7 @@ function isMlbCallup(tx: TransactionRow): boolean {
 function articleTitle(tx: TransactionRow): string {
   if (isMlbCallup(tx)) {
     const team = text(tx.to_team_name) || text(tx.current_team_name) || "the majors";
-    return `YADABOY! ${tx.player_name} called up to ${team}`;
+    return `YAT-A-BOY! ${tx.player_name} called up to ${team}`;
   }
 
   const description = payloadDescription(tx).replace(/[.\s]+$/, "");
@@ -115,7 +115,7 @@ function articleTitle(tx: TransactionRow): string {
 function emailSubject(tx: TransactionRow): string {
   if (isMlbCallup(tx)) {
     const team = text(tx.to_team_name) || text(tx.current_team_name) || "MLB";
-    return `YADABOY! ${tx.player_name} has been called up to ${team}`;
+    return `YAT-A-BOY! ${tx.player_name} has been called up to ${team}`;
   }
   return `YAT?STATS Roster Alert: ${tx.player_name} — ${text(tx.transaction_type) || "Roster Update"}`;
 }
@@ -135,7 +135,7 @@ function buildEmailHtml(tx: TransactionRow, recipient: RecipientRow): string {
   const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : "YAT?STATS roster alert:";
   const headline = articleTitle(tx);
   const url = profileUrl(tx);
-  const badge = isMlbCallup(tx) ? "YADABOY!" : "ROSTER ALERT";
+  const badge = isMlbCallup(tx) ? "YAT-A-BOY!" : "ROSTER ALERT";
 
   return `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111;max-width:620px">
