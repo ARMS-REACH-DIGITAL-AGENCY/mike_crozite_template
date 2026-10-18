@@ -236,7 +236,7 @@ async function insertTransactionNews(tx: TransactionRow): Promise<boolean> {
       transactionType: tx.transaction_type,
       fromTeam: tx.from_team_name,
       toTeam: tx.to_team_name,
-      yatABoy: isMlbCallup(tx),
+      yadaboy: isMlbCallup(tx),
     }),
     newsworthiness,
   ]);
@@ -262,7 +262,7 @@ async function postArmsWebhook(tx: TransactionRow, recipientCount: number) {
       fromTeam: tx.from_team_name,
       toTeam: tx.to_team_name,
       description: payloadDescription(tx),
-      yatABoy: isMlbCallup(tx),
+      yadaboy: isMlbCallup(tx),
       superFanRecipients: recipientCount,
       profileUrl: profileUrl(tx),
       occurredAt: tx.effective_date,
