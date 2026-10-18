@@ -3,8 +3,7 @@ import type { NextRequest } from 'next/server';
 import { cleanSchoolLabel, fantasyGameScore, getSharedFantasyGame } from '@/lib/bracket/shareGame';
 
 export const runtime='nodejs';
-export const size={width:1200,height:630};
-export const contentType='image/png';
+const size={width:1200,height:630};
 
 function abbr(s:string){
   const base=s.replace(/\s*\([^)]*\)\s*/g,'').trim();

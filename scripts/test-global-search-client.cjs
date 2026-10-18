@@ -397,7 +397,46 @@ function rendererChecks() {
   assert.ok(!/<a\b/.test(noDestination), 'An unavailable school remains an unlinked row');
   assert.ok(!/href="\/7000/.test(noDestination), 'No fake numeric destination is manufactured');
   assert.ok(!noDestination.includes('yat-search-school-bracket-link'));
+  const pendingSchool = { ...schools[0], current_aa: 0, active_stats_pending: true };
+  const pending = actual.renderSchoolRows([pendingSchool], 'Empty', true, false, { globalSearch: true });
+  assert.match(pending, /2026<br \/>STATS<br \/>PENDING/, 'Proven missing feed coverage is identified explicitly');
+  assert.ok(!pending.includes('<strong>0</strong>'), 'Missing statistics must not masquerade as a genuine zero active count');
+  assert.match(pending, /#sec-active/, 'Historical school destinations remain accessible while statistics are pending');
+  assert.match(actual.renderSchoolRows([pendingSchool], 'Empty'), /2026 STATS PENDING/, 'The shared picker also describes missing coverage honestly');
+  const partialSchool = { ...pendingSchool, current_aa: 1 };
+  const partial = actual.renderSchoolRows([partialSchool], 'Empty', true, false, { globalSearch: true });
+  assert.match(partial, /<strong>1\+<\/strong>/, 'Verified participation is shown as a confirmed minimum while feed coverage is incomplete');
+  assert.match(partial, /STATS<br \/>PENDING/, 'Partial positive counts keep a visible coverage note');
+  assert.match(actual.renderSchoolRows([partialSchool], 'Empty'), /1\+ ACTIVE ALUMNI · MORE 2026 STATS PENDING/, 'Shared pickers preserve the confirmed count and pending qualification');
   passed('School rendering changes only with the Global option: visible URL plus separate actual count; default and crest markup remain identical; no fake numeric links or implicit bracket eligibility');
+}
+
+function headshotChecks() {
+  const actual = createEnvironment().exports;
+  const sources = [
+    'https://example.test/approved-headshot.png',
+    'https://example.test/existing-player-thumb.webp',
+    'https://img.mlbstatic.com/mlb-photos/image/upload/w_400,q_auto:good/v1/people/571510/headshot/67/current',
+    '/img/headshot-silhouette.png',
+  ];
+  const player = { playerId: '157347', schoolId: '329', firstName: 'Matthew', lastName: 'Boyd', currentTeamName: 'Chicago Cubs', headshotSources: sources };
+  const decode = text => text.replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&');
+  for (const render of [actual.renderPlayerRows, actual.renderTeamRows]) {
+    const html = render([player], 'No players');
+    const tag = html.match(/<img\b[^>]*data-headshot-sources="[^"]*"[^>]*>/)?.[0];
+    assert.ok(tag, 'Both result types carry their API-provided headshot chain');
+    const attrs = Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(([, key, value]) => [key, decode(value)]));
+    assert.equal(attrs.src, sources[0], 'The approved photo is tried first');
+    const image = { src: attrs.src, dataset: { headshotSources: attrs['data-headshot-sources'], headshotIndex: attrs['data-headshot-index'], silhouetteFallback: attrs['data-silhouette-fallback'] }, onerror: true };
+    const onError = new Function(attrs.onerror);
+    for (let i = 1; i < sources.length; i++) {
+      onError.call(image);
+      assert.equal(image.src, sources[i], 'A failed copy advances to the next image of the same verified player');
+      assert.equal(image.dataset.silhouetteFallback, String(i === sources.length - 1), 'Only the final silhouette receives the light-theme treatment');
+    }
+    assert.equal(image.onerror, null, 'The final fallback cannot start an error loop');
+  }
+  passed('Player and team result headshots prefer approved photos, recover through verified alternatives, style only the final silhouette, and stop on the final fallback');
 }
 
 async function crestChecks() {
@@ -432,6 +471,7 @@ async function crestChecks() {
 
 (async () => {
   rendererChecks();
+  headshotChecks();
   await invalidationChecks();
   await duplicateChecks();
   await errorChecks();

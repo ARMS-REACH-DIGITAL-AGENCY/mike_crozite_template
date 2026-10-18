@@ -3,6 +3,9 @@ import { query } from "@/lib/db";
 import { toPlayerSlug } from "@/lib/slug";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
+import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE } from "@/lib/playerStageIdentity";
+import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
+import { getPlayerHeadshotSources } from "@/lib/playerImage";
 
 export const runtime = "nodejs";
 
@@ -70,7 +73,7 @@ export async function GET(req: NextRequest) {
     const pattern = `%${qRaw}%`;
 
     const sql = `
-      with tbc_matches as (
+      with ${PLAYER_STAGE_IDENTITY_CTES}, tbc_matches as (
         select distinct on (tp.playerid::text, ph.hsid::text)
           tp.playerid::text as playerid,
           tp.firstname as firstname,
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
           ss.hsname,
           ss.hslocation,
           'stage'::text as source_rank
-        from flip_card_front_stage f
+        from ${PLAYER_STAGE_IDENTITY_SOURCE} f
         join school_success ss
           on ss.hsid::text = f.hsid::text
         where
@@ -125,7 +128,7 @@ export async function GET(req: NextRequest) {
       from combined c
       -- His current team (the row's second line in the search drawer).
       left join lateral (
-        select f.current_team_name from flip_card_front_stage f
+        select f.current_team_name from ${PLAYER_STAGE_IDENTITY_SOURCE} f
          where f.playerid::text = c.playerid and f.hsid::text = c.hsid
          limit 1
       ) t on true
@@ -134,6 +137,7 @@ export async function GET(req: NextRequest) {
     `;
 
     const { rows } = await query(sql, [pattern, limit]);
+    const headshots = await getBatchPlayerHeadshots(rows.map((row: any) => String(row.playerid)));
 
     const players = rows.map((r: any) => {
       const locParts = String(r.hslocation || "").split(",");
@@ -154,7 +158,8 @@ export async function GET(req: NextRequest) {
         state,
         slug: toPlayerSlug(r.firstname, r.lastname),
         crestUrl: getSchoolCrestUrl(r.hsid),
-        headshotUrl: "",
+        headshotUrl: headshots.get(String(r.playerid))?.image_url ?? "",
+        headshotSources: getPlayerHeadshotSources(String(r.playerid), headshots.get(String(r.playerid))?.image_url),
         micrositeUrl,
         currentTeamName: r.current_team_name ?? "",
       };

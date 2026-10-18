@@ -129,7 +129,7 @@ function matchesGraduatingClass(value: string, selected: string[]): boolean {
 // The year badge sets data-alltime-team-year-filter before applyFilters runs.
 const LEVEL_ORDER: Record<string, number> = {
   MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
-  ROOKIE: 6, INDY: 7, "INT'L": 8, 'NCAA-D1': 9, 'NCAA-D2': 10,
+  ROOKIE: 6, INDY: 7, "INT'L": 8, NCAA: 9, 'NCAA-D1': 9, 'NCAA-D2': 10,
   'NCAA-D3': 11, NAIA: 12, JUCO: 13, 'HIGH SCHOOL': 14,
 };
 function sortFilteredAllTime(section: HTMLElement) {
@@ -229,7 +229,8 @@ function applyPreset(section: string) {
     if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
   }
 
-  // Active: ACTIVE plus every injured-list status (src/lib/galleryStatuses.ts).
+  // Owner-approved Active preset: ACTIVE + injured + organization roster
+  // states + redshirts. Retired/free-agent/etc. stay available but unchecked.
   if (section === 'active') {
     setValues('filterStatus', [...ACTIVE_GALLERY_STATUSES]);
   }
@@ -285,9 +286,8 @@ function readLinkedPlayer(): { id: string; view: string } {
 
 // Whether a tab's roster preset (applyPreset) shows this card.
 function presetShows(section: string, card: HTMLElement): boolean {
-  const status = normalize(card.dataset.status);
   if (section === 'active') {
-    return ACTIVE_GALLERY_STATUSES.includes(status);
+    return ACTIVE_GALLERY_STATUSES.includes(normalize(card.dataset.status));
   }
   if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL';
   return true;

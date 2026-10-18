@@ -124,8 +124,15 @@ function schoolLogoFallback() {
   return YAT_CIRCLE_CREST_FALLBACK;
 }
 
-function playerHeadshotFallback() {
-  return HEADSHOT_SILHOUETTE_FALLBACK;
+function playerHeadshotHtml(player: any) {
+  // The API supplies the shared, identity-verified fallback chain. Keep the
+  // existing URL contract for callers that have not supplied that field yet.
+  const supplied = Array.isArray(player.headshotSources)
+    ? player.headshotSources.filter((url: unknown): url is string => typeof url === 'string' && Boolean(url.trim()))
+    : [playerHeadshotUrl(player)];
+  const sources = [...new Set([...supplied.filter((url: string) => url !== HEADSHOT_SILHOUETTE_FALLBACK), HEADSHOT_SILHOUETTE_FALLBACK])];
+  const fallback = sources[0] === HEADSHOT_SILHOUETTE_FALLBACK;
+  return `<img src="${esc(sources[0])}" alt="" class="yat-search-thumb yat-search-player-headshot" data-headshot-sources="${esc(JSON.stringify(sources))}" data-headshot-index="0" data-silhouette-fallback="${fallback}" onerror="const sources=JSON.parse(this.dataset.headshotSources||'[]');const index=Number(this.dataset.headshotIndex||0)+1;this.dataset.headshotIndex=String(index);if(!sources[index]){this.onerror=null;return;}this.dataset.silhouetteFallback=String(index===sources.length-1);if(index===sources.length-1)this.onerror=null;this.src=sources[index];" />`;
 }
 
 export function renderPlayerRows(players: any[], emptyText: string) {
@@ -146,7 +153,7 @@ export function renderPlayerRows(players: any[], emptyText: string) {
           <div class="yat-search-card yat-search-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
             ${favoriteButtonHtml(p, name)}
             <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
-              <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
+              ${playerHeadshotHtml(p)}
             </a>
             <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
               <strong>${esc(name)}</strong>
@@ -212,6 +219,10 @@ export function renderSchoolRows(
         const location = cleanLocation(loc.city, loc.state, school.hslocation || school.location);
         const crest = schoolCrestUrl(hsid, school.crestUrl || school.crest_url || school.logoUrl || school.logo_url || school.schoolLogoUrl || school.school_logo_url);
         const activeCount = Number(school.current_aa ?? 0);
+        const statsPending = school.active_stats_pending === true;
+        const activeLabel = statsPending
+          ? (activeCount > 0 ? `${activeCount}+ ACTIVE ALUMNI · MORE 2026 STATS PENDING` : '2026 STATS PENDING')
+          : `${activeCount} ACTIVE ALUMNI`;
         // Only explicitly seeded 2026 tournament schools get a bracket shortcut.
         // Having a player-linked school page does NOT imply tournament membership.
         const hasSchoolDestination = Boolean(String(school.microsite_url || school.micrositeUrl || '').trim());
@@ -229,10 +240,14 @@ export function renderSchoolRows(
             <strong>${esc(name)}</strong>
             ${globalSearch
               ? `${hasSchoolDestination ? `<small class="yat-search-school-url">${displayUrlHtml}</small>` : '<small class="yat-search-school-status">SCHOOL PAGE NOT AVAILABLE YET</small>'}`
-              : `<small class="yat-search-school-status">${esc(activeCount)} ACTIVE ALUMNI${unavailable ? ' · SCHOOL PAGE NOT AVAILABLE YET' : ''}</small>`}
+              : `<small class="yat-search-school-status">${esc(activeLabel)}${unavailable ? ' · SCHOOL PAGE NOT AVAILABLE YET' : ''}</small>`}
           </span>
         `;
-        const count = globalSearch ? `<span class="yat-search-school-count"><strong>${esc(activeCount)}</strong><small>ACTIVE<br />ALUMNI</small></span>` : '';
+        const count = globalSearch ? (statsPending
+          ? (activeCount > 0
+            ? `<span class="yat-search-school-count is-partial" title="At least ${esc(activeCount)} active alumni are confirmed by 2026 game statistics. Additional 2026 statistics are pending."><strong>${esc(activeCount)}+</strong><small>ACTIVE<br />ALUMNI<span class="yat-search-count-note">STATS<br />PENDING</span></small></span>`
+            : '<span class="yat-search-school-count is-pending" title="2026 statistics are not yet available for this school; the active count is pending."><strong>—</strong><small>2026<br />STATS<br />PENDING</small></span>')
+          : `<span class="yat-search-school-count"><strong>${esc(activeCount)}</strong><small>ACTIVE<br />ALUMNI</small></span>`) : '';
 
         if (includeBracketLinks && hasSchoolDestination && bracketEligible && !viewOnly) return `
           <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card${globalClass}" ${meta}>
@@ -301,7 +316,7 @@ export function renderTeamRows(players: any[], emptyText: string) {
               <div class="yat-search-card yat-search-team-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
                 ${favoriteButtonHtml(p, name)}
                 <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
-                  <img src="${esc(playerHeadshotUrl(p))}" alt="" class="yat-search-thumb yat-search-player-headshot" onerror="this.src='${playerHeadshotFallback()}';this.onerror=null" />
+                  ${playerHeadshotHtml(p)}
                 </a>
                 <a class="yat-search-player-text-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
                   <strong>${esc(name)}</strong>
@@ -858,6 +873,78 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn[aria-disabled] { opacity: .5; cursor: wait; }
       .yat-search-fav-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--surface, #1a1a1a); border: 1px solid rgba(255,255,255,.2); padding: 10px 18px; border-radius: 8px; font: 700 12px/1.4 Oswald, sans-serif; letter-spacing: .06em; z-index: 9999; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.4); opacity: 0; transition: opacity .2s ease, transform .2s ease; }
       .yat-search-fav-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+      /* Global Search follows the approved Connect & Contribute list: Archivo
+         titles, compact context, open rows and a neutral hover/focus highlight.
+         Keep these rules scoped here because Contribute shares the renderers. */
+      body.yat-left-search-mode #drawerLeft { background: var(--bg); }
+      #drawerLeft .yat-left-search-content { --yat-search-positive: #00e08a; color: var(--fg); font-family: var(--yat-font-ui); }
+      body.light-theme #drawerLeft .yat-left-search-content { --yat-search-positive: #08784c; }
+      #drawerLeft .yat-left-search-content .yat-search-drawer-title {
+        font: 800 clamp(20px, 2vw, 24px)/1.18 var(--yat-font-ui);
+        letter-spacing: -.025em; text-transform: none; color: var(--fg);
+      }
+      #drawerLeft .yat-left-search-content .yat-search-drawer-sub { line-height: 1.45; }
+      #drawerLeft .yat-gs-input { min-height: 42px; border-radius: 6px; background: var(--card-bg); border-color: var(--line); }
+      #drawerLeft .yat-gs-input:focus { border-color: var(--muted); outline: 2px solid var(--line); outline-offset: 2px; }
+      #drawerLeft .yat-search-mode-buttons { gap: 4px; margin: 10px 0 14px; }
+      #drawerLeft .yat-search-mode-btn { min-height: 36px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-weight: 600; }
+      #drawerLeft .yat-search-mode-btn:is(:hover, :focus-visible),
+      #drawerLeft .yat-search-mode-btn.active { background: var(--line); color: var(--fg); box-shadow: none; }
+      #drawerLeft .yat-search-mode-btn.active { font-weight: 800; }
+      #drawerLeft .yat-search-mode-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+      #drawerLeft .yat-search-section-label {
+        margin: 16px 6px 5px; color: var(--muted); font: 600 11px/1.2 var(--yat-font-compact);
+        font-family: var(--yat-font-compact) !important; letter-spacing: .07em;
+      }
+      #drawerLeft .yat-search-card-list { gap: 2px; }
+      #drawerLeft .yat-search-card {
+        min-height: 62px; padding: 10px 6px; border: 0; border-radius: 4px;
+        background: transparent; color: var(--fg); box-shadow: none;
+        transition: background-color .15s ease;
+      }
+      #drawerLeft .yat-search-card:is(:hover, :focus-within) { background: var(--line); color: var(--fg); }
+      #drawerLeft .yat-search-card:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+      #drawerLeft .yat-search-school-identity { gap: 3px; }
+      #drawerLeft .yat-search-school-identity strong,
+      #drawerLeft .yat-search-player-text-link strong {
+        color: var(--fg); font: 800 14px/1.2 var(--yat-font-ui);
+        letter-spacing: -.02em; text-transform: none; overflow-wrap: anywhere;
+      }
+      #drawerLeft .yat-search-school-identity .yat-search-school-location,
+      #drawerLeft .yat-search-school-identity .yat-search-school-status {
+        color: var(--muted); font: 500 10px/1.2 var(--yat-font-compact); letter-spacing: .045em;
+      }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-url {
+        color: var(--muted); font: 400 10px/1.35 var(--yat-font-ui); text-decoration: none;
+      }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-count strong {
+        color: var(--yat-search-positive); font-family: var(--yat-font-compact);
+      }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-count small { color: var(--muted); font-family: var(--yat-font-compact); }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-count.is-pending strong { color: var(--muted); }
+      #drawerLeft .yat-search-count-note { display: block; margin-top: 3px; font-size: 7px; letter-spacing: .02em; }
+      #drawerLeft .yat-search-player-text-link { gap: 3px; }
+      #drawerLeft .yat-search-player-text-link small,
+      #drawerLeft .yat-search-player-text-link small.yat-search-hs-line {
+        color: var(--muted); opacity: 1; font: 500 11px/1.25 var(--yat-font-compact);
+        text-transform: none; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere;
+      }
+      #drawerLeft .yat-search-team-group { margin: 14px 0 6px; }
+      #drawerLeft .yat-search-team-heading {
+        margin: 0 6px 6px; color: var(--fg); font: 800 14px/1.25 var(--yat-font-ui);
+        letter-spacing: -.02em; text-transform: none;
+      }
+      #drawerLeft .yat-search-team-player-card { border: 0; border-radius: 4px; }
+      #drawerLeft .yat-search-player-headshot { border-radius: 4px; background: transparent; }
+      body.light-theme #drawerLeft .yat-search-player-headshot[data-silhouette-fallback="true"] { filter: invert(1); }
+      #drawerLeft .yat-search-fav-btn:is(:hover, .is-favorited) { color: var(--fg); }
+      #drawerLeft .yat-search-school-badge.candidate { color: var(--muted); border-color: var(--line); }
+      #drawerLeft :is(.yat-search-player-text-link, .yat-search-school-gallery-link):hover strong,
+      #drawerLeft .yat-search-school-global-card:where(a):hover strong { text-decoration: underline; text-underline-offset: 3px; }
+      #drawerLeft .yat-search-player-result a:focus-visible,
+      #drawerLeft .yat-search-school-bracket-link:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; border-radius: 4px; }
+      body.light-theme #drawerLeft .yat-search-school-bracket-link { color: var(--muted); }
     `}</style>
   );
 }

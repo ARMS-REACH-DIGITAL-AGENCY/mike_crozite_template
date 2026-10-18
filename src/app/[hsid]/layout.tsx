@@ -9,7 +9,7 @@ import Script from 'next/script';
 import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
   getSchoolByHsid,
-  getActiveAlumniCountByHsid,
+  getActiveAlumniSummaryByHsid,
   getSchoolByUrl,
   getSchoolTeamSeasonResults,
   getAllTimeRosterByHsid,
@@ -23,6 +23,7 @@ import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isNeverASchoolSegment } from '@/lib/schoolSegment';
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
+import { getBatchPlayerHeadshots } from '@/lib/playerHeadshots';
 
 import type { Metadata } from 'next';
 
@@ -69,12 +70,13 @@ function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
 
 function getStripImageForPlayer(
   playerId: string,
-  frontImageUrl?: string | null
+  frontImageUrl?: string | null,
+  headshotUrl?: string | null
 ) {
   const thenImage = String(frontImageUrl || '').trim() || getPlayerThenImageUrl(playerId);
   return {
     image: thenImage,
-    nowImage: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
+    nowImage: String(headshotUrl || '').trim() || `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
     thenImage,
     fallbackImage: '/img/headshot-silhouette.png',
     imageFit: 'cover' as const,
@@ -207,7 +209,7 @@ async function SchoolShell({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  const [allStageRows, rawAllTimeRoster, teamSeasonResults] = await Promise.all([
+  const [allStageRows, rawAllTimeRoster, teamSeasonResults, activeSummary] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
@@ -220,11 +222,23 @@ async function SchoolShell({
       console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
       return [];
     }),
+    getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
+  // Keep current-season evidence for stat badges only. Active Alumni
+  // membership itself is the owner-approved status preset, shared with the
+  // gallery and Row 3.
+  const activeStatsPlayerIdSet = new Set(activeSummary.playerIds);
 
   const stageRows = (Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : []).filter(
     (p) => !isRetiredAtHighSchoolLevel(p)
   );
+  const activeAlumniRows = stageRows.filter((p) =>
+    ACTIVE_GALLERY_STATUSES.includes(normalizeStatusLabel(p.status_label || p.status))
+    && !isHighSchoolStripPlayer(p)
+  );
+  const activeAlumniPlayerIds = Array.from(new Set(
+    activeAlumniRows.map((p) => String(p.playerid || '').trim()).filter(Boolean)
+  ));
   const allTimeRosterRows = Array.isArray(rawAllTimeRoster) ? (rawAllTimeRoster as Record<string, unknown>[]) : [];
   const currentRosterRows = stageRows.filter((p) => isHighSchoolStripPlayer(p));
   const collegeCommitCount = currentRosterRows.filter(
@@ -243,7 +257,8 @@ async function SchoolShell({
     : null;
 
   const schoolMeta = {
-    activeAlumni: await getActiveAlumniCountByHsid(resolvedHsid),
+    activeAlumni: activeAlumniPlayerIds.length,
+    activeStatsPending: activeSummary.statsPending,
 
     mlb:
       typeof school.mlb === 'number'
@@ -306,23 +321,32 @@ async function SchoolShell({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
-  const stripFrontImageMap = stripPlayerIds.length
-    ? await getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
+  const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
+    stripPlayerIds.length
+      ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
         console.error('getBatchDesignatedPlayerImages failed for interaction strip', {
           resolvedHsid,
           imageType: 'YATSTATS_FRONT',
           error,
         });
         return emptyStripImageMap();
-      })
-    : emptyStripImageMap();
+        })
+      : Promise.resolve(emptyStripImageMap()),
+    stripPlayerIds.length
+      ? getBatchPlayerHeadshots(stripPlayerIds).catch((error) => {
+          console.error('getBatchPlayerHeadshots failed for interaction strip', { resolvedHsid, error });
+          return emptyStripImageMap();
+        })
+      : Promise.resolve(emptyStripImageMap()),
+  ]);
 
   const stripPlayers = allStripRows.map((p) => {
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
     const stripImages = getStripImageForPlayer(
       playerId,
-      stripFrontImageMap.get(playerId)?.image_url ?? null
+      stripFrontImageMap.get(playerId)?.image_url ?? null,
+      stripHeadshotMap.get(playerId)?.image_url ?? null,
     );
 
     return {
@@ -330,6 +354,7 @@ async function SchoolShell({
       name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
       ...stripImages,
       status,
+      has2026Stats: activeStatsPlayerIdSet.has(playerId),
     };
   });
 
@@ -494,7 +519,7 @@ async function SchoolShell({
             <div className="yat-filter-options" id="filterLevels">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
               {[
-                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
+                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
               ].map((l) => (
                 <label key={l}>
                   <input type="checkbox" value={l} /> {l}

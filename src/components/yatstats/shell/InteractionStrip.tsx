@@ -2,12 +2,13 @@
 
 import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
-import { getOriginalForCardCopy } from '@/lib/playerImage';
+import { getOriginalForCardCopy, getPlayerHeadshotSources, PLAYER_HEADSHOT_FALLBACK_URL as HEADSHOT_FALLBACK_SRC } from '@/lib/playerImage';
+import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
 import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry, scrollToContributeSection } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
-const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
 // Owner-supplied Row 3 artwork. Missing files fall back to existing imagery.
 const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
   photo: 'ri-upload-cloud-2-line',
@@ -18,7 +19,6 @@ const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
-const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
 const UNCOMMITTED_BADGE_SRC = '/img/uncommitted.jpg';
 const isUncommittedBadge = (src: string): boolean => /\/uncommitted\.(?:png|webp|jpe?g)(?:[?#]|$)/i.test(src);
@@ -35,6 +35,7 @@ type Player = {
   imageFit?: 'cover' | 'contain';
   status?: string | null;
   isPitcher?: boolean;
+  has2026Stats?: boolean;
 };
 
 type TeamSeasonResult = {
@@ -170,10 +171,7 @@ function fallbackPlayersForSection(section: string, players: Player[]): Player[]
 
   if (section === 'active' || section === 'news') {
     return players
-      .filter((player) => {
-        const status = normalizeStatus(player.status);
-        return !isHighSchoolStatus(status) && status !== 'RETIRED';
-      })
+      .filter((player) => ACTIVE_GALLERY_STATUSES.includes(normalizeStatus(player.status)))
       .map((player) => ({
         ...player,
         image: cleanSrc(player.nowImage) || cleanSrc(player.image),
@@ -198,7 +196,6 @@ function readPlayersFromVisibleBlockFive(
 
   targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
     if (!isCardVisible(card)) return;
-
     const id = String(card.dataset.playerid || '').trim();
     if (!id || seen.has(id)) return;
     seen.add(id);
@@ -235,6 +232,7 @@ function readPlayersFromVisibleBlockFive(
       imageFit: isCurrent ? 'contain' : 'cover',
       status: normalizeStatus(card.dataset.status || source?.status),
       isPitcher: source?.isPitcher,
+      has2026Stats: card.dataset.has2026Stats === 'true' || source?.has2026Stats === true,
     });
   });
 
@@ -634,8 +632,6 @@ export default function InteractionStrip({
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
           padding-left:82px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -705,6 +701,7 @@ export default function InteractionStrip({
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats--missing { font-size:7px; line-height:1.15; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { filter:invert(1); }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { object-fit:cover; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
           display:block; width:100%; height:100%; object-fit:contain;
           object-position:center center; border-radius:50%; background:transparent; padding:0;
@@ -732,10 +729,6 @@ export default function InteractionStrip({
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"],
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
           background:#16472f !important;
-        }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          -webkit-mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
         }
         /* Right-justify all three lines within the plaque, with room for CHAMPS. */
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-layout {
@@ -808,11 +801,14 @@ export default function InteractionStrip({
           }
         }
         /* The All-Time row's sponsor sign, on the fence at the right, mirroring
-           the All-Time sign on the left. */
+           the All-Time sign on the left. Keep one mask for both signs: each
+           reaches 72px from the rail edge (7px inset + 65px wide). Finish the
+           32px dissolve before that boundary, so years never pass under a sign.
+           The fixed signs are siblings of the masked scroller and stay opaque. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
           padding-right:82px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black calc(100% - 94px),transparent calc(100% - 48px),transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black calc(100% - 94px),transparent calc(100% - 48px),transparent 100%);
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:78px; }
         .alltime-sponsor-sign { position:absolute; right:7px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
@@ -996,7 +992,7 @@ export default function InteractionStrip({
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
-                : activeSection === 'news' ? (cleanSrc(player.nowImage) || cleanSrc(player.image) || nowSrc) : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+                : getPlayerHeadshotSources(player.id, nowSrc)[0];
               const uncommittedBadge = isCurrentTeamTab && isUncommittedBadge(currentSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
@@ -1013,22 +1009,30 @@ export default function InteractionStrip({
                   data-status={status}
                   data-default-hidden={status === 'RETIRED' ? 'retired' : undefined}
                   title={player.name}
+                  aria-label={player.name}
                   onClick={(event) => handleSlotClick(event, player.id)}
                 >
                   <div className={`gallery-slot-media${uncommittedBadge ? ' gallery-slot-media--uncommitted' : ''}`}>
                     <img
+                      ref={(image) => {
+                        if (image && !isCurrentTeamTab) syncPlayerHeadshot(image, player.id, nowSrc);
+                      }}
                       src={displaySrc}
-                      alt={player.name}
+                      alt={isCurrentTeamTab ? player.name : ''}
                       loading={activeSection === "news" ? "eager" : "lazy"}
                       decoding="async"
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
                       data-then-src={thenSrc}
                       data-current-src={currentSrc}
-                      onError={(event) => {
+                      onError={isCurrentTeamTab ? (event) => {
                         const image = event.currentTarget;
+                        // A mirror synchronization may have repurposed a
+                        // team tile before React switches tabs. Its shared
+                        // headshot handler owns that event now.
+                        if (image.dataset.headshotManaged === 'true') return;
 
-                        if (isCurrentTeamTab && image.dataset.extensionFallbackApplied !== 'true') {
+                        if (image.dataset.extensionFallbackApplied !== 'true') {
                           const alternateSrc = getExtensionFallbackSrc(image.getAttribute('src'));
                           if (alternateSrc && alternateSrc !== image.getAttribute('src')) {
                             image.dataset.extensionFallbackApplied = 'true';
@@ -1037,16 +1041,11 @@ export default function InteractionStrip({
                           }
                         }
 
-                        if (activeSection === 'news' && image.dataset.nowFallbackApplied !== 'true' && nowSrc !== image.getAttribute('src')) {
-                          image.dataset.nowFallbackApplied = 'true';
-                          image.src = nowSrc;
-                          return;
-                        }
                         if (image.dataset.fallbackApplied === 'true') return;
                         image.dataset.fallbackApplied = 'true';
-                         image.dataset.silhouetteFallback = 'true';
+                        image.dataset.silhouetteFallback = 'true';
                         image.src = fallbackSrc;
-                      }}
+                      } : undefined}
                     />
                     {!isCurrentTeamTab && <div className="gallery-slot-gradient" />}
                   </div>

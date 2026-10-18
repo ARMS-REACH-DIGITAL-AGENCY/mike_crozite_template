@@ -5,11 +5,16 @@ name: Import MLB Headshots
 #   players/season-headshots/{playerid}_{season}.jpg  (every real run)
 #   players/now/{playerid}.jpg                        (only when missing,
 #                                                      unless replace_now)
+# Missing players/now-thumb/ gallery photos are generated immediately.
 # The hourly Player Image Cutouts job cuts out anything new in players/now/.
 #
-# Manual only; defaults to a dry run. The report is attached to the run.
+# Daily real import retries unpublished photos and picks up new MLB links.
+# Manual runs default to a dry run. The report is attached to every run.
 
 on:
+  schedule:
+    # 7:25 AM Arizona, after the 13:40 UTC identity-link audit.
+    - cron: "25 14 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -37,6 +42,15 @@ on:
         required: false
         default: ""
 
+# All branches write the same S3 keys. Never overlap an import or cancel it
+# midway through filling its current photo and gallery thumbnail.
+concurrency:
+  group: import-mlb-headshots
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   import-mlb-headshots:
     runs-on: ubuntu-latest
@@ -49,7 +63,7 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       YATSTATS_S3_BUCKET: yatstats-assets
-      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || github.event.inputs.dry_run || 'true' }}
       REPLACE_NOW: ${{ github.event.inputs.replace_now || 'false' }}
       MAX_PLAYERS: ${{ github.event.inputs.max_players || '' }}
       ONLY_PLAYERIDS: ${{ github.event.inputs.only_playerids || '' }}
@@ -66,6 +80,9 @@ jobs:
 
       - name: Install dependencies
         run: pip install boto3 "psycopg[binary]" requests pillow
+
+      - name: Verify headshot safety checks
+        run: python -m unittest discover -s tests -p 'test_mlb_headshot_import.py'
 
       - name: Import headshots
         run: python scripts/import-mlb-headshots-s3.py
