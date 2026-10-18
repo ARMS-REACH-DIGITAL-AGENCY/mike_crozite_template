@@ -7,6 +7,7 @@ import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
 import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry, scrollToContributeSection } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
 // Owner-supplied Row 3 artwork. Missing files fall back to existing imagery.
 const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
@@ -170,7 +171,7 @@ function fallbackPlayersForSection(section: string, players: Player[]): Player[]
 
   if (section === 'active' || section === 'news') {
     return players
-      .filter((player) => player.has2026Stats === true)
+      .filter((player) => ACTIVE_GALLERY_STATUSES.includes(normalizeStatus(player.status)))
       .map((player) => ({
         ...player,
         image: cleanSrc(player.nowImage) || cleanSrc(player.image),
@@ -195,8 +196,6 @@ function readPlayersFromVisibleBlockFive(
 
   targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
     if (!isCardVisible(card)) return;
-    if (section === 'active' && targetSection.dataset.favoritesGalleryActive !== 'true' && card.dataset.has2026Stats !== 'true') return;
-
     const id = String(card.dataset.playerid || '').trim();
     if (!id || seen.has(id)) return;
     seen.add(id);
