@@ -126,8 +126,7 @@ export default function ContributePhotoFlow({
 
   const loadSeasons = useCallback((p: ContributePlayer | null) => {
     const request = ++seasonRequest.current;
-    setSeasons(null); setInfo(null); setSeasonKey(''); setTeamId('');
-    if (purpose !== 'team_logo') setSelectedTeam(null);
+    setSeasons(null); setInfo(null); setSeasonKey('');
     if (!p?.playerId) return;
     fetch(`/api/contribute/seasons?playerId=${encodeURIComponent(p.playerId)}`)
       .then((res) => res.json())
