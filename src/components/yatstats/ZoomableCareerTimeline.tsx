@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
+import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -805,6 +806,8 @@ function StoryMontage({ photos }: { photos: string[] }) {
 }
 
 export default function ZoomableCareerTimeline({ playerId, variant = 'combined' }: { playerId: string; variant?: 'combined' | 'images' | 'line' }) {
+  const [timelineHydrated, setTimelineHydrated] = useState(false);
+  useEffect(() => setTimelineHydrated(true), []);
   const player = usePlayerProfile();
   const school = useContext(SchoolContext);
   const isPhone = useIsPhone();
@@ -853,6 +856,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
   // /player/[playerId]/[slug] segment rather than ever showing "him"/"his"
   // in its place.
   const pathname = usePathname();
+  const storyOpenOwner = useMemo(() => Symbol(`story-open:${playerId}:${pathname}`), [playerId, pathname]);
+  // Cancel an undelivered click when its originating timeline leaves or
+  // changes player/path, including navigation through a non-player page.
+  useEffect(() => () => cancelPendingStoryDrawerOpen(storyOpenOwner), [storyOpenOwner]);
   const slugDerivedName = (() => {
     const match = pathname?.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
     return match?.[2]
@@ -1766,19 +1773,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
           mounted on the profile page) with the year of the slide the fan is
           looking at. Inline pointer-events overrides the stack's own
           pointer-events:none in the style block below. */}
-      <div
+      <button
+        type="button"
         className="zt-polaroid-stack"
-        role="button"
-        tabIndex={0}
+        disabled={!timelineHydrated}
         aria-label={`Add a memory to ${resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}'s Career Timeline`}
-        style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+        style={{ pointerEvents: 'auto', cursor: timelineHydrated ? 'pointer' : 'wait' }}
         onClick={() => {
-          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' && event.key !== ' ') return;
-          event.preventDefault();
-          window.dispatchEvent(new CustomEvent('yat:story-drawer-open', { detail: { year: model.slides[activeIndex]?.year ?? null } }));
+          openStoryDrawer({ playerId, year: model.slides[activeIndex]?.year ?? null }, storyOpenOwner);
         }}
       >
         {/* Class Of used to live written on this Polaroid's own bottom
@@ -1789,13 +1791,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             as everywhere else on this slide, and it inherits this whole
             card's own -4deg rotation for free by sitting inside it, rather
             than needing a second rotation of its own. */}
-        <div className="zt-moment-thumb">
+        <span className="zt-moment-thumb">
           <span className="zt-moment-thumb-frame">
             {/* 3 lines now (was 2: "Click To" / "Upload"), per direct
                 feedback, one word per line. */}
             <span className="zt-moment-thumb-upload">Click<br />to<br />Upload</span>
           </span>
-        </div>
+        </span>
         {/* Explicit breaks, not natural wrap -- per direct feedback with a
             reference mockup showing exactly these line breaks, not
             wherever the text happens to wrap at this box's width.
@@ -1810,7 +1812,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
             then switched to display:block under the 620px override below,
             which forces it back onto its own line there. */}
         <span className="zt-polaroid-caption">Add a<br />memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career <span className="zt-polaroid-caption-timeline">Timeline!</span></span>
-      </div>
+      </button>
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
           does -- each opacity-driven by how close the continuous scroll
@@ -2474,6 +2476,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined' 
            below the Polaroid's top). gap:4px, not 10px -- per direct
            feedback, "push the text block closer to the Polaroid." */
         .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:94px; display:flex; flex-direction:row; align-items:flex-start; gap:4px; pointer-events:none; }
+        /* Native disabled state blocks clicks before React installs the
+           handler; reset only this button to preserve the approved art. */
+        .zt-polaroid-stack { appearance:none; margin:0; padding:0; border:0; border-radius:0; background:none; color:inherit; font:inherit; text-align:left; opacity:1; }
         /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
            Oswald -- reads as a personal note, not another line of the
            same UI chrome type everywhere else on this slide. One wording

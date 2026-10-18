@@ -18,8 +18,9 @@ import { auth } from '@/lib/firebase';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import { track } from '@/lib/analytics';
 import { shrinkPhoto } from '@/lib/shrinkPhoto';
+import { STORY_DRAWER_OPEN_EVENT, takePendingStoryDrawerOpen, type StoryDrawerOpenDetail } from '@/lib/storyDrawer';
 
-export const STORY_DRAWER_OPEN_EVENT = 'yat:story-drawer-open';
+export { STORY_DRAWER_OPEN_EVENT } from '@/lib/storyDrawer';
 export const STORY_POSTED_EVENT = 'yat:story-posted';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -138,7 +139,11 @@ export default function StoryDrawer() {
   // Open from the Polaroid, with the year of the slide the fan is on.
   useEffect(() => {
     const onOpen = (event: Event) => {
-      const detail = (event as CustomEvent<{ year?: number | null }>).detail || {};
+      const detail = (event as CustomEvent<StoryDrawerOpenDetail>).detail || {};
+      if (detail.playerId && detail.playerId !== playerId) return;
+      // A live listener consumes the queued click immediately; a drawer
+      // that hydrates later replays it once after registering below.
+      takePendingStoryDrawerOpen(playerId);
       const slideYear = Number(detail.year);
       const thisYear = new Date().getFullYear();
       // Keep the fan's own pick when they come back to a story in progress
@@ -159,8 +164,10 @@ export default function StoryDrawer() {
         .finally(() => setSessionLoading(false));
     };
     window.addEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
+    const pending = takePendingStoryDrawerOpen(playerId);
+    if (pending) onOpen(new CustomEvent<StoryDrawerOpenDetail>(STORY_DRAWER_OPEN_EVENT, { detail: pending }));
     return () => window.removeEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
-  }, [resetForm, status.kind, story, photos.length, drawerOwner]);
+  }, [resetForm, status.kind, story, photos.length, drawerOwner, playerId]);
 
   // Close on Escape or a tap on the dark mask.
   useEffect(() => {
