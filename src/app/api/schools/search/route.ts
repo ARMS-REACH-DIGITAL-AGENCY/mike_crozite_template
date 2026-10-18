@@ -179,11 +179,18 @@ export async function GET(req: NextRequest) {
     // Keep the production query and alumni counts unchanged; only activate links.
     let derivedUrls = new Map<string, string>();
     try {
-      derivedUrls = await canonicalSchoolUrls(
-        resolvedRows.filter((r: any) => !String(r.microsite_url || '').trim())
-          .map((r: any) => String(r.hsid || '')),
-        (sql, params = []) => query(sql, params),
-      );
+      // Canonical names are best-effort enrichment: never delay the fan's
+      // school list indefinitely when the mapping query is slow.
+      derivedUrls = await Promise.race([
+        canonicalSchoolUrls(
+          resolvedRows.filter((r: any) => !String(r.microsite_url || '').trim())
+            .map((r: any) => String(r.hsid || '')),
+          (sql, params = []) => query(sql, params),
+        ),
+        new Promise<Map<string, string>>((resolve) =>
+          setTimeout(() => resolve(new Map()), 650),
+        ),
+      ]);
     } catch (error) {
       // A URL lookup failure must not erase a successful search result list.
       console.warn('[school-search] URL enrichment failed; preserving search results', error);
