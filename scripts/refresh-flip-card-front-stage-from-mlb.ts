@@ -435,6 +435,59 @@ async function ensureCurrentProTeamMappings(): Promise<{
   };
 }
 
+
+// Backfill every existing MLB-owned stage row from the canonical team map.
+// The roster refresh only touches players present in the newest source run;
+// mappings can be added later, so older rows otherwise stay null/stale forever.
+// This pass is safe because it keys on MLB's stable source_team_id and only
+// writes the authoritative TBC team id plus a missing organization label.
+async function backfillMappedCurrentTeamIdentity(): Promise<{
+  teamIds: number;
+  orgs: number;
+}> {
+  const teamIds = await pool.query(`
+    WITH mapped AS (
+      SELECT f.ctid, m.tbc_teamid::text AS tbc_teamid
+      FROM public.flip_card_front_stage f
+      JOIN public.team_id_map m
+        ON m.mlb_stats_api_id::text = f.current_team_source_team_id::text
+      WHERE f.current_team_source = 'mlb_api'
+        AND NULLIF(BTRIM(f.current_team_source_team_id::text), '') IS NOT NULL
+    )
+    UPDATE public.flip_card_front_stage f
+       SET current_teamid = mapped.tbc_teamid,
+           stage_updated_at = NOW()
+      FROM mapped
+     WHERE f.ctid = mapped.ctid
+       AND f.current_teamid IS DISTINCT FROM mapped.tbc_teamid
+  `);
+
+  const orgs = await pool.query(`
+    WITH org_ref AS (
+      SELECT
+        m.mlb_stats_api_id::text AS mlb_id,
+        NULLIF(BTRIM(MAX(l.organization)), '') AS organization
+      FROM public.team_id_map m
+      LEFT JOIN public."150-pro_team_look_up_tbc_mlb" l
+        ON l.teamid::text = m.tbc_teamid::text
+      GROUP BY m.mlb_stats_api_id
+    )
+    UPDATE public.flip_card_front_stage f
+       SET current_org_or_conference_name = org_ref.organization,
+           stage_updated_at = NOW()
+      FROM org_ref
+     WHERE f.current_team_source = 'mlb_api'
+       AND f.current_team_source_team_id::text = org_ref.mlb_id
+       AND NULLIF(BTRIM(f.current_org_or_conference_name), '') IS NULL
+       AND org_ref.organization IS NOT NULL
+  `);
+
+  return {
+    teamIds: teamIds.rowCount ?? 0,
+    orgs: orgs.rowCount ?? 0,
+  };
+}
+
 // Everyone matched in the latest roster run, plus every card whose team
 // still comes from this pipeline - a player who has dropped off every
 // roster (retired, released) isn't in the run but his card still shows
@@ -1149,11 +1202,15 @@ async function main() {
     );
 
     const updated = await refreshStage(mlbCurrent);
+    const backfill = await backfillMappedCurrentTeamIdentity();
     const departed = await applyDepartures(mlbCurrent);
     const scheduled = await refreshLoadedNextGames();
     const absences = await flagRosterAbsences();
 
     console.log(`Updated flip_card_front_stage rows: ${updated}`);
+    console.log(
+      `Canonical MLB team backfill: ${backfill.teamIds} team ids, ${backfill.orgs} organization labels`
+    );
     console.log(`Departed (retired/released per MLB roster entries): ${departed}`);
     console.log(`Loaded next-game assignments refreshed by MLB team ID: ${scheduled}`);
     console.log(
