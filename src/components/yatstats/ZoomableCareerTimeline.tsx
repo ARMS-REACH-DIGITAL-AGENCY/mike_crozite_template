@@ -2160,7 +2160,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     flip-card-back action photo belongs exclusively on the
                     back of the card and must not leak into the profile
                     anchor slide. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={1} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
+                {!coachTenure && (
+                  <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={1} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
+                )}
               </Fragment>
             );
           }
