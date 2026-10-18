@@ -10,7 +10,7 @@ name: Hourly Player Image Cutouts
 # only pulled down (and only then does real work happen) on an hour that
 # actually has a new file to process.
 #
-# workflow_dispatch is kept for an ad-hoc manual run of the same three
+# workflow_dispatch is kept for an ad-hoc manual run of the same four
 # pairs; use the existing process-player-cutouts.yml instead for a
 # one-off custom source/output prefix or a dry run.
 
@@ -19,11 +19,15 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: player-cutout-processing
+  cancel-in-progress: false
+
 jobs:
   process-cutouts:
-    name: Process S3 player cutouts (then / back / now)
+    name: Process S3 player cutouts (then / back / now / timeline heroes)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -84,4 +88,13 @@ jobs:
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/now/
           YATSTATS_S3_OUTPUT_PREFIX: players/now-cutouts/
+        run: python scripts/process-player-cutouts-s3.py
+
+      # Timeline hero photos are a separate source folder from the three
+      # anchor-slide folders above. Process only missing outputs; a failed
+      # immediate API cutout will be retried on the next hourly run.
+      - name: Timeline hero (players/season-photos -> players/season-cutouts)
+        env:
+          YATSTATS_S3_SOURCE_PREFIX: players/season-photos/
+          YATSTATS_S3_OUTPUT_PREFIX: players/season-cutouts/
         run: python scripts/process-player-cutouts-s3.py

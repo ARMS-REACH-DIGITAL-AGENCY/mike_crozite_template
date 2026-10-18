@@ -4,12 +4,12 @@
 // It owns Rows 1-2, the drawers, the footer, and all shared styles/scripts.
 // All internal pages (gallery, player profile, news) render as {children} inside this shell.
 
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 import Script from 'next/script';
 import { AnalyticsSchool } from '@/components/analytics/Analytics';
 import {
   getSchoolByHsid,
-  getActiveAlumniCountByHsid,
+  getActiveAlumniSummaryByHsid,
   getSchoolByUrl,
   getSchoolTeamSeasonResults,
   getAllTimeRosterByHsid,
@@ -18,20 +18,20 @@ import {
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { getFirebaseConfigJSON } from '@/lib/firebase-config';
 import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { isNeverASchoolSegment } from '@/lib/schoolSegment';
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
+import { getBatchPlayerHeadshots } from '@/lib/playerHeadshots';
 
 import type { Metadata } from 'next';
 
 // Shared Components
 import YatStyles from '@/components/yatstats/YatStyles';
-import YatInteractivity from '@/components/yatstats/YatInteractivity';
 import AccountDrawer from '@/components/yatstats/AccountDrawer';
 import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
+import ContributeDrawer from '@/components/yatstats/ContributeDrawer';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
 import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
@@ -39,8 +39,13 @@ import SearchDrawerTabs from '@/components/yatstats/SearchDrawerTabs';
 import FilterAnchorGuard from '@/components/yatstats/FilterAnchorGuard';
 import DrawerLayoutOverrides from '@/components/yatstats/DrawerLayoutOverrides';
 import DrawerRailController from '@/components/yatstats/DrawerRailController';
+import FantasyNavCountdown from '@/components/yatstats/FantasyNavCountdown';
 import YatHomeSchoolFallback from '@/components/yatstats/YatHomeSchoolFallback';
 import YatTourBridge from '@/components/yatstats/YatTourBridge';
+import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
+import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
+import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
+import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
@@ -65,12 +70,13 @@ function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
 
 function getStripImageForPlayer(
   playerId: string,
-  frontImageUrl?: string | null
+  frontImageUrl?: string | null,
+  headshotUrl?: string | null
 ) {
   const thenImage = String(frontImageUrl || '').trim() || getPlayerThenImageUrl(playerId);
   return {
     image: thenImage,
-    nowImage: `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
+    nowImage: String(headshotUrl || '').trim() || `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
     thenImage,
     fallbackImage: '/img/headshot-silhouette.png',
     imageFit: 'cover' as const,
@@ -126,6 +132,10 @@ export async function generateMetadata({
   };
 }
 
+// The layout sends the school's splash (logo + crest) as soon as the school
+// is known - one lookup - and streams the rest of the shell and the page in
+// behind it (SchoolShell, inside Suspense), so a visitor sees the school's
+// opener at once instead of a black screen while every roster loads.
 export default async function HsidLayout({
   children,
   params,
@@ -148,6 +158,43 @@ export default async function HsidLayout({
   }
   if (!school) notFound();
 
+  // /{hsid} on a live school's own domain goes to its microsite. The page
+  // did this too, but once the splash has streamed a redirect can only be a
+  // client-side hop, so it is decided here, before anything is sent.
+  const micrositeUrl = String(school.microsite_url || '');
+  const isPreview = host.includes('vercel.app') || host.includes('localhost');
+  const pathname = headersList.get('x-pathname') || '';
+  const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
+  if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && !isHostRewrite && new RegExp(`^/${hsid}/?$`).test(pathname)) {
+    permanentRedirect(micrositeUrl.replace(/\/$/, ''));
+  }
+
+  const splashHsid = String(school.hsid ?? hsid);
+  return (
+    <>
+      <SchoolSplash
+        crestUrl={getSchoolCrestUrl(splashHsid)}
+        schoolName={formatSchoolName(String(school.hsname || ''))}
+        location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
+        partner={getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
+      />
+      <Suspense fallback={null}>
+        <SchoolShell hsid={hsid} school={school}>{children}</SchoolShell>
+      </Suspense>
+    </>
+  );
+}
+
+async function SchoolShell({
+  children,
+  hsid,
+  school,
+}: {
+  children: ReactNode;
+  hsid: string;
+  school: Record<string, unknown>;
+}) {
+  const headersList = await headers();
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
@@ -162,7 +209,7 @@ export default async function HsidLayout({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  const [allStageRows, rawAllTimeRoster, teamSeasonResults] = await Promise.all([
+  const [allStageRows, rawAllTimeRoster, teamSeasonResults, activeSummary] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
@@ -175,11 +222,23 @@ export default async function HsidLayout({
       console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
       return [];
     }),
+    getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
+  // Keep current-season evidence for stat badges only. Active Alumni
+  // membership itself is the owner-approved status preset, shared with the
+  // gallery and Row 3.
+  const activeStatsPlayerIdSet = new Set(activeSummary.playerIds);
 
   const stageRows = (Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : []).filter(
     (p) => !isRetiredAtHighSchoolLevel(p)
   );
+  const activeAlumniRows = stageRows.filter((p) =>
+    ACTIVE_GALLERY_STATUSES.includes(normalizeStatusLabel(p.status_label || p.status))
+    && !isHighSchoolStripPlayer(p)
+  );
+  const activeAlumniPlayerIds = Array.from(new Set(
+    activeAlumniRows.map((p) => String(p.playerid || '').trim()).filter(Boolean)
+  ));
   const allTimeRosterRows = Array.isArray(rawAllTimeRoster) ? (rawAllTimeRoster as Record<string, unknown>[]) : [];
   const currentRosterRows = stageRows.filter((p) => isHighSchoolStripPlayer(p));
   const collegeCommitCount = currentRosterRows.filter(
@@ -187,8 +246,19 @@ export default async function HsidLayout({
       || String(p.committed_teamid || '').trim() !== ''
   ).length;
 
+  // A shared team link (?team=2017, passed on by src/middleware.ts): rows
+  // 2-3 and the count box are rendered for that team from the first byte.
+  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
+  const initialTeamCount = initialTeamYear
+    ? teamYearCardCount([
+        ...allTimeRosterRows.map((p) => ({ ...(stageRows.find((s) => String(s.playerid) === String(p.playerid)) || {}), ...p })),
+        ...stageRows.filter((s) => !allTimeRosterRows.some((p) => String(p.playerid) === String(s.playerid))),
+      ], initialTeamYear)
+    : null;
+
   const schoolMeta = {
-    activeAlumni: await getActiveAlumniCountByHsid(resolvedHsid),
+    activeAlumni: activeAlumniPlayerIds.length,
+    activeStatsPending: activeSummary.statsPending,
 
     mlb:
       typeof school.mlb === 'number'
@@ -251,23 +321,32 @@ export default async function HsidLayout({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
-  const stripFrontImageMap = stripPlayerIds.length
-    ? await getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
+  const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
+    stripPlayerIds.length
+      ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
         console.error('getBatchDesignatedPlayerImages failed for interaction strip', {
           resolvedHsid,
           imageType: 'YATSTATS_FRONT',
           error,
         });
         return emptyStripImageMap();
-      })
-    : emptyStripImageMap();
+        })
+      : Promise.resolve(emptyStripImageMap()),
+    stripPlayerIds.length
+      ? getBatchPlayerHeadshots(stripPlayerIds).catch((error) => {
+          console.error('getBatchPlayerHeadshots failed for interaction strip', { resolvedHsid, error });
+          return emptyStripImageMap();
+        })
+      : Promise.resolve(emptyStripImageMap()),
+  ]);
 
   const stripPlayers = allStripRows.map((p) => {
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
     const stripImages = getStripImageForPlayer(
       playerId,
-      stripFrontImageMap.get(playerId)?.image_url ?? null
+      stripFrontImageMap.get(playerId)?.image_url ?? null,
+      stripHeadshotMap.get(playerId)?.image_url ?? null,
     );
 
     return {
@@ -275,6 +354,7 @@ export default async function HsidLayout({
       name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
       ...stripImages,
       status,
+      has2026Stats: activeStatsPlayerIdSet.has(playerId),
     };
   });
 
@@ -288,6 +368,8 @@ export default async function HsidLayout({
         players={stripPlayers}
         teamSeasonResults={teamSeasonResults}
         schoolMeta={schoolMeta}
+        initialTeamYear={initialTeamYear}
+        initialTeamCount={initialTeamCount}
       >
         {children}
       </SharedShell>
@@ -316,7 +398,7 @@ export default async function HsidLayout({
             </a>
 
             <a className="yat-drawer-nav-item yat-drawer-visiting-school" href={`/${resolvedHsid}`}>
-              <img src={crestUrl} alt="" className="yat-nav-page-crest" /><span>WHERE THEY <strong>YAT?</strong></span>
+              <img src={crestUrl} alt="" className="yat-nav-page-crest" /><span>WHERE THEY{' '}<strong>YAT?</strong></span>
               {/* The school whose site this is - the visited one, which is the
                   home school only when they're the same. */}
               <img
@@ -325,17 +407,24 @@ export default async function HsidLayout({
                 className="yat-drawer-crest-thumb"
               />
             </a>
-            <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" /><span>ACTIVE ALUMNI<strong>NEWS</strong></span></a>
-            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime"><i className="ri-list-check-2 yat-nav-page-icon" aria-hidden="true" /><span>ALL-TIME<strong>NEXT-LEVEL LIST</strong></span></a>
+            <a className="yat-drawer-nav-item" data-tab="alltime" href="#sec-alltime"><i className="ri-list-check-2 yat-nav-page-icon" aria-hidden="true" /><span>ALL-TIME{' '}<strong>NEXT-LEVEL LIST</strong></span></a>
             <a className="yat-drawer-nav-item" data-tab="current" href="#sec-current">
               {/* "2027 HIGH SCHOOL TEAM": the season year is the bold word. */}
-              <img src="/img/nav/letterman-jacket.png" alt="" className="yat-nav-custom-icon" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
+              <img src="/img/nav/letterman-jacket.png" alt="" className="yat-nav-custom-icon" /><span><strong>{highSchoolTeamLabel().split(" ")[0]}</strong>{' '}{highSchoolTeamLabel().split(" ").slice(1).join(" ")}</span>
             </a>
-            <a className="yat-drawer-nav-item" data-tab="fantasy" href="#sec-fantasy"><img src="/img/nav/fantasy-bracket.png" alt="" className="yat-nav-custom-icon" /><span><strong>FANTASY</strong>BRACKET TOURNEY</span></a>
-            <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>&amp;<strong>CONTRIBUTE</strong>PORTAL</span></a>
-            <a className="yat-drawer-nav-item" data-tab="partner" href="#sec-partner"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>PROGRAM</span></a>
-            <a className="yat-drawer-nav-item" data-tab="about" href="#sec-about"><i className="ri-shield-star-line yat-nav-page-icon" aria-hidden="true" />ABOUT US</a>
-            <a className="yat-drawer-nav-item" data-tab="faq" href="#sec-faq"><i className="ri-question-mark yat-nav-page-icon" aria-hidden="true" />FAQ&apos;S</a>
+            <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" /><span>ACTIVE ALUMNI{' '}<strong>NEWS</strong></span></a>
+            <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>{' '}&amp;{' '}<strong>CONTRIBUTE</strong>{' '}PORTAL</span></a>
+            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>{' '}PROGRAM</span></a>
+            {/* Guided Tour comes before Alumni Fantasy in the navigation. */}
+            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-circle.png" alt="YAT?STATS" className="yat-nav-custom-icon yat-nav-tour-icon" /><span>GUIDED{' '}<strong>TOUR</strong></span></a>
+            <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
+              <span className="yat-bracket-symbol" aria-hidden="true" />
+              <span className="yat-drawer-fantasy-copy">
+                <span><strong>ALUMNI FANTASY</strong></span>
+                <span>BRACKET TOURNAMENT</span>
+              </span>
+              <FantasyNavCountdown />
+            </a>
           </div>
         </div>
 
@@ -361,6 +450,8 @@ export default async function HsidLayout({
 
       <AccountDrawer subdomain={subdomain} />
       <FavoritesDrawer currentHsid={resolvedHsid} />
+      {/* Connect & Contribute: one drawer for every entry point on the site. */}
+      <ContributeDrawer />
 
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
         <div
@@ -393,6 +484,21 @@ export default async function HsidLayout({
         </div>
 
         <div className="yat-drawer-content" id="filters">
+          {/* "My Favorites": shown to everyone, so visitors see what
+              registering gets them. FavoritesFilter marks the reader's
+              favorites at this school (data-fav="true" on their cards, which
+              GalleryFilterController filters on), writes the hint, and sends
+              a visitor who taps the checkbox to the Account drawer. */}
+          <details className="yat-filter-group" id="filterFavsGroup" open>
+            <summary>My Favorites</summary>
+            <div className="yat-filter-options">
+              <label>
+                <input type="checkbox" id="filterFavs" value="favs" /> Only show my favorites
+              </label>
+              <p id="filterFavsHint" style={{ margin: '6px 0 0', font: '400 11px Oswald,sans-serif', opacity: 0.7 }} />
+            </div>
+          </details>
+
           <details className="yat-filter-group" open>
             <summary>By Status</summary>
             <div className="yat-filter-options" id="filterStatus">
@@ -413,7 +519,7 @@ export default async function HsidLayout({
             <div className="yat-filter-options" id="filterLevels">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
               {[
-                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
+                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
               ].map((l) => (
                 <label key={l}>
                   <input type="checkbox" value={l} /> {l}
@@ -465,10 +571,7 @@ export default async function HsidLayout({
       <DrawerLayoutOverrides />
       <DrawerRailController />
       <YatTourBridge />
-      <YatInteractivity
-        resolvedHsid={resolvedHsid}
-        firebaseConfigJSON={getFirebaseConfigJSON()}
-      />
+      <FavoritesFilter />
       <YatHomeSchoolFallback />
       <Script
         id="yat-nonlive-search-link-patch"
@@ -478,7 +581,7 @@ export default async function HsidLayout({
 (function(){
   var NOT_LIVE_BASE='https://yatstats.com/school-not-live';
 
-  function clean(s){return String(s||'').replace(/\s+/g,' ').trim();}
+  function clean(s){return String(s||'').replace(/\\s+/g,' ').trim();}
 
   function setIf(qs,key,value){
     value=clean(value);

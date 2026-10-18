@@ -1,14 +1,24 @@
 'use client';
 
-import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { preload } from 'react-dom';
-import { getOriginalForCardCopy } from '@/lib/playerImage';
+import { getOriginalForCardCopy, getPlayerHeadshotSources, PLAYER_HEADSHOT_FALLBACK_URL as HEADSHOT_FALLBACK_SRC } from '@/lib/playerImage';
+import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
+import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry, scrollToContributeSection } from '@/lib/contribute';
+import { SchoolContext } from '@/context/SchoolContext';
+import { getTitlePartner } from '@/lib/titlePartners';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
-const HEADSHOT_FALLBACK_SRC = '/img/headshot-silhouette.png';
+// Owner-supplied Row 3 artwork. Missing files fall back to existing imagery.
+const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
+  photo: 'ri-upload-cloud-2-line',
+  data: 'ri-bar-chart-2-line',
+  tip: 'ri-newspaper-line',
+};
+
 const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
-const PLAYER_NOW_CUTOUT_BASE = `${YAT_ASSETS_BASE}/players/now-cutouts`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
 const UNCOMMITTED_BADGE_SRC = '/img/uncommitted.jpg';
 const isUncommittedBadge = (src: string): boolean => /\/uncommitted\.(?:png|webp|jpe?g)(?:[?#]|$)/i.test(src);
@@ -25,6 +35,7 @@ type Player = {
   imageFit?: 'cover' | 'contain';
   status?: string | null;
   isPitcher?: boolean;
+  has2026Stats?: boolean;
 };
 
 type TeamSeasonResult = {
@@ -43,6 +54,11 @@ type InteractionStripProps = {
   isNews?: boolean;
   players?: Player[];
   teamSeasonResults?: TeamSeasonResult[];
+  // The tab and team year the server rendered (a ?team=2017 link opens on
+  // All-Time with 2017 picked). The first render must match the server's, so
+  // the URL is read after mounting, never while rendering.
+  initialSection?: string;
+  initialTeamYear?: string | null;
 };
 
 function getLastName(name: string): string {
@@ -155,10 +171,7 @@ function fallbackPlayersForSection(section: string, players: Player[]): Player[]
 
   if (section === 'active' || section === 'news') {
     return players
-      .filter((player) => {
-        const status = normalizeStatus(player.status);
-        return !isHighSchoolStatus(status) && status !== 'RETIRED';
-      })
+      .filter((player) => ACTIVE_GALLERY_STATUSES.includes(normalizeStatus(player.status)))
       .map((player) => ({
         ...player,
         image: cleanSrc(player.nowImage) || cleanSrc(player.image),
@@ -183,7 +196,6 @@ function readPlayersFromVisibleBlockFive(
 
   targetSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]').forEach((card) => {
     if (!isCardVisible(card)) return;
-
     const id = String(card.dataset.playerid || '').trim();
     if (!id || seen.has(id)) return;
     seen.add(id);
@@ -220,6 +232,7 @@ function readPlayersFromVisibleBlockFive(
       imageFit: isCurrent ? 'contain' : 'cover',
       status: normalizeStatus(card.dataset.status || source?.status),
       isPitcher: source?.isPitcher,
+      has2026Stats: card.dataset.has2026Stats === 'true' || source?.has2026Stats === true,
     });
   });
 
@@ -236,18 +249,25 @@ export default function InteractionStrip({
   isNews = false,
   players = [],
   teamSeasonResults = [],
+  initialSection = 'active',
+  initialTeamYear = null,
 }: InteractionStripProps) {
   // The All-Time year baseballs load with the page, so the tab opens on
   // them rather than on bare numbers.
   preload('/img/roster_year_ball.webp', { as: 'image' });
+  // The All-Time row's right-hand sign: the school's sponsor, or an open
+  // spot that links to the portal's sponsor section.
+  const schoolForSponsor = useContext(SchoolContext);
+  const sponsorHsid = String(schoolForSponsor?.hsid || '');
+  const sponsor = sponsorHsid ? getTitlePartner(sponsorHsid) : null;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [activeSection, setActiveSection] = useState(getCurrentSection);
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [selectedRosterYear, setSelectedRosterYear] = useState<string | null>(null);
+  const [selectedRosterYear, setSelectedRosterYear] = useState<string | null>(initialTeamYear);
   const [sectionPlayers, setSectionPlayers] = useState<Player[]>(() =>
-    fallbackPlayersForSection(getCurrentSection(), players)
+    fallbackPlayersForSection(initialSection, players)
   );
 
   const playersById = useMemo(
@@ -255,7 +275,10 @@ export default function InteractionStrip({
     [players]
   );
 
-  const showPlayerStrip = isGallery || isNews || PLAYER_GALLERY_SECTIONS.has(activeSection) || activeSection === 'news';
+  // The Connect & Contribute Portal: the same strip, a circle per option
+  // (its icon where a headshot would be) instead of players.
+  const isContribute = activeSection === 'mentor' && !isPlayerProfile;
+  const showPlayerStrip = isGallery || isNews || PLAYER_GALLERY_SECTIONS.has(activeSection) || activeSection === 'news' || isContribute;
   const showProfilePlaceholder = isPlayerProfile;
   const isCurrentTeamTab = activeSection === 'current';
 
@@ -382,16 +405,70 @@ export default function InteractionStrip({
     }
   };
 
+  // The address bar names the team being looked at (?team=2017), so the
+  // page's own link opens on it too.
+  const syncTeamParam = (year: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (year) params.set('team', year); else params.delete('team');
+    const query = params.toString();
+    history.replaceState(history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  };
+
   const handleAllTimeYearClick = (year: string) => {
     const nextYear = selectedRosterYear === year ? '' : year;
     setSelectedRosterYear(nextYear || null);
+    syncTeamParam(nextYear);
     window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: nextYear } }));
   };
 
   const handleAllTimeResetClick = () => {
     setSelectedRosterYear(null);
+    syncTeamParam('');
     window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: '', reset: true } }));
   };
+
+  // A shared team link (?team=2017) opens the All-Time list; the gallery's
+  // filter script picks the season once the list is set up. The strip
+  // follows whichever year is picked, from here or from there.
+  useEffect(() => {
+    // Tell the splash (app/layout.tsx) the page is ready: on a team link,
+    // once the strip is on that year and the first card's photo is in (no
+    // silhouette standing in for it); otherwise as soon as this has mounted.
+    let readySent = false;
+    const ready = () => window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (readySent) return;
+      const send = () => {
+        if (readySent) return;
+        readySent = true;
+        window.dispatchEvent(new Event('yat:page-ready'));
+      };
+      const firstCard = Array.from(document.querySelectorAll<HTMLElement>('#alltime-grid > *')).find((card) => card.style.display !== 'none');
+      const photo = initialTeamYear ? firstCard?.querySelector<HTMLImageElement>('img.yat-bg-photo') : null;
+      if (!photo || photo.complete) { send(); return; }
+      photo.loading = 'eager';
+      photo.addEventListener('load', send, { once: true });
+      photo.addEventListener('error', send, { once: true });
+      window.setTimeout(send, 2000);
+    }));
+    const year = new URLSearchParams(window.location.search).get('team') || '';
+    if (ALL_TIME_TEAM_YEARS.includes(year)) {
+      if (window.location.hash !== '#sec-alltime') history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-alltime`);
+      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+    }
+    ready();
+    const onYear = (event: Event) => {
+      const detail = (event as CustomEvent<{ year?: unknown }>).detail;
+      const picked = String(detail?.year || '');
+      setSelectedRosterYear(picked || null);
+      if (picked) {
+        window.requestAnimationFrame(() => {
+          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+        });
+      }
+    };
+    window.addEventListener('yat:alltime-team-year-filter', onYear);
+    return () => window.removeEventListener('yat:alltime-team-year-filter', onYear);
+  }, []);
 
   const shouldRenderPlaceholder = !showPlayerStrip && !showProfilePlaceholder;
   const allTimeCount = players.length;
@@ -555,8 +632,6 @@ export default function InteractionStrip({
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
           padding-left:82px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 48px,black 94px,black 87%,transparent 100%);
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -626,6 +701,7 @@ export default function InteractionStrip({
         }
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-team-stats--missing { font-size:7px; line-height:1.15; }
         body.light-theme .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { filter:invert(1); }
+        .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img[data-silhouette-fallback="true"] { object-fit:cover; }
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-img {
           display:block; width:100%; height:100%; object-fit:contain;
           object-position:center center; border-radius:50%; background:transparent; padding:0;
@@ -653,10 +729,6 @@ export default function InteractionStrip({
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"],
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
           background:#16472f !important;
-        }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          -webkit-mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0,transparent 52px,#000 105px,#000 calc(100% - 58px),transparent 100%);
         }
         /* Right-justify all three lines within the plaque, with room for CHAMPS. */
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-layout {
@@ -728,6 +800,92 @@ export default function InteractionStrip({
             flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
           }
         }
+        /* The All-Time row's sponsor sign, on the fence at the right, mirroring
+           the All-Time sign on the left. Keep one mask for both signs: each
+           reaches 72px from the rail edge (7px inset + 65px wide). Finish the
+           32px dissolve before that boundary, so years never pass under a sign.
+           The fixed signs are siblings of the masked scroller and stay opaque. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
+          padding-right:82px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:78px; }
+        .alltime-sponsor-sign { position:absolute; right:7px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
+        .alltime-sponsor-board { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; padding:3px;
+          border:1px solid #c8c5b9; border-radius:2px; background:#f4f1e9; color:#733648; box-shadow:0 1px 5px #0005; overflow:hidden; }
+        .alltime-sponsor-board img { max-width:100%; max-height:100%; object-fit:contain; }
+        .alltime-sponsor-board b { font:900 12px/1.05 Oswald,sans-serif; letter-spacing:.2px; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-board { border-style:dashed; border-color:#733648; }
+        .alltime-sponsor-sign.is-open:hover .alltime-sponsor-board { background:#fffbe9; }
+        .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
+        .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
+        .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+        /* Row 3's existing 60px circular portrait and 9px Oswald caption.
+           Clip the portrait's lower 60px INSIDE the ring; extend only the
+           transparent upper 8px ABOVE it. Never float the entire cutout
+           outside the circle. */
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-contribute-media {
+          position:relative; width:60px; height:60px; overflow:visible !important;
+          border:0 !important; border-radius:0 !important;
+          background:transparent !important; box-shadow:none !important;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle {
+          position:absolute; inset:0; z-index:1; display:block;
+          overflow:hidden; border:1px solid #c7c7c7; border-radius:50%;
+          background:#111; box-sizing:border-box;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle > i {
+          display:flex; align-items:center; justify-content:center;
+          width:100%; height:100%; font-size:30px; line-height:1;
+          color:var(--fg); background:var(--bg);
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay {
+          font:700 9px/11px var(--yat-font-compact),sans-serif; letter-spacing:.01em;
+          white-space:nowrap;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img {
+          position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+          display:block; width:60px; height:60px; max-width:none;
+          object-fit:cover; object-position:center 25%; padding:0;
+          border:0; border-radius:0; filter:none;
+        }
+        /* Non-player artwork stays entirely inside the circular frame.
+           Only transparent player cutouts may extend above its top rim. */
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img:not(.gallery-contribute-cutout) {
+          width:100%; height:100%; max-width:100%; left:0; bottom:0;
+          transform:none; object-fit:contain; object-position:center center;
+          padding:5px; box-sizing:border-box;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-circle img.gallery-contribute-cutout {
+          height:68px; object-fit:contain; object-position:center bottom;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-media > img.gallery-contribute-above {
+          position:absolute; z-index:2; bottom:0; left:0; display:block;
+          width:60px; height:68px; max-width:none;
+          object-fit:contain; object-position:center bottom; filter:none;
+          border:0; border-radius:0;
+          clip-path:inset(0 0 60px 0); pointer-events:none;
+        }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:hover .gallery-contribute-media,
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot:focus-visible .gallery-contribute-media { transform:translateY(-1px); }
+        .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay {
+          font:300 9px/11px Oswald,sans-serif; letter-spacing:0; color:#e5e5e5;
+        }
+        /* Three portal shortcuts may use their full descriptive names.
+           Keep every circle wholly inside its ring, and preserve the
+           names at every breakpoint without ellipsis. */
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot {
+          flex:0 0 112px; width:112px; min-width:112px; align-items:center;
+        }
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-contribute-media {
+          margin-inline:auto; overflow:hidden !important; border-radius:50% !important;
+        }
+        .gallery-strip[data-active-section="mentor"][data-react-mirrors-row5="true"] .gallery-contribute-slot .gallery-slot-name-overlay {
+          width:112px; font:700 10px/11px var(--yat-font-compact),sans-serif;
+          overflow:visible; text-overflow:clip; white-space:nowrap; letter-spacing:0;
+        }
+        body.light-theme .gallery-strip[data-active-section="mentor"] .gallery-contribute-slot .gallery-slot-name-overlay { color:#555; }
       `}</style>      <div className="gallery-strip" data-active-section={activeSection} data-react-mirrors-row5="true">
         {showPlayerStrip && (
           <button
@@ -746,6 +904,20 @@ export default function InteractionStrip({
             <strong className="alltime-distance-count">{allTimeCount}</strong>
             <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT LEVEL LIST</span></span>
           </button>
+        )}
+        {showPlayerStrip && activeSection === 'alltime' && (
+          sponsor ? (
+            <span className="alltime-sponsor-sign" title={sponsor.name}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <span className="alltime-sponsor-board"><img src={sponsor.logoUrl} alt={sponsor.name} /></span>
+              <span className="alltime-sponsor-title"><span>PROUD</span><span>SPONSOR</span></span>
+            </span>
+          ) : (
+            <a className="alltime-sponsor-sign is-open" href={sponsorHsid ? contributeSectionHref(sponsorHsid, 'cc-fans') : '#'} aria-label="Sponsor this spot" title="Put your business here">
+              <span className="alltime-sponsor-board"><b>YOUR</b><b>BUSINESS</b></span>
+              <span className="alltime-sponsor-title"><span>SPONSOR</span><span>THIS SPOT</span></span>
+            </a>
+          )
         )}
         <div ref={showPlayerStrip ? scrollRef : null} className="gallery-strip-inner">
           {showPlayerStrip ? (
@@ -796,6 +968,20 @@ export default function InteractionStrip({
                   );
                 })}
               </>
+            ) : isContribute ? (
+              CONTRIBUTE_OPTIONS.map((option) => (
+                <button key={`contribute-${option.id}`} type="button"
+                  className="gallery-slot gallery-slot-link gallery-contribute-slot"
+                  title={option.label} aria-label={option.label}
+                  onClick={() => option.id === 'video' ? scrollToContributeSection('sec-video') : openContribute({ tab: option.tab || 'photo' })}>
+                  <div className="gallery-slot-media gallery-contribute-media">
+                    <span className="gallery-contribute-circle" aria-hidden="true">
+                      <i className={CONTRIBUTION_ROW3_ICONS[option.id] || option.icon} />
+                    </span>
+                  </div>
+                  <div className="gallery-slot-name-overlay">{option.short}</div>
+                </button>
+              ))
             ) : sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
               const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
@@ -806,7 +992,7 @@ export default function InteractionStrip({
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
-                : activeSection === 'news' ? (cleanSrc(player.nowImage) || cleanSrc(player.image) || nowSrc) : `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(player.id)}.png`;
+                : getPlayerHeadshotSources(player.id, nowSrc)[0];
               const uncommittedBadge = isCurrentTeamTab && isUncommittedBadge(currentSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';
@@ -823,22 +1009,30 @@ export default function InteractionStrip({
                   data-status={status}
                   data-default-hidden={status === 'RETIRED' ? 'retired' : undefined}
                   title={player.name}
+                  aria-label={player.name}
                   onClick={(event) => handleSlotClick(event, player.id)}
                 >
                   <div className={`gallery-slot-media${uncommittedBadge ? ' gallery-slot-media--uncommitted' : ''}`}>
                     <img
+                      ref={(image) => {
+                        if (image && !isCurrentTeamTab) syncPlayerHeadshot(image, player.id, nowSrc);
+                      }}
                       src={displaySrc}
-                      alt={player.name}
+                      alt={isCurrentTeamTab ? player.name : ''}
                       loading={activeSection === "news" ? "eager" : "lazy"}
                       decoding="async"
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
                       data-then-src={thenSrc}
                       data-current-src={currentSrc}
-                      onError={(event) => {
+                      onError={isCurrentTeamTab ? (event) => {
                         const image = event.currentTarget;
+                        // A mirror synchronization may have repurposed a
+                        // team tile before React switches tabs. Its shared
+                        // headshot handler owns that event now.
+                        if (image.dataset.headshotManaged === 'true') return;
 
-                        if (isCurrentTeamTab && image.dataset.extensionFallbackApplied !== 'true') {
+                        if (image.dataset.extensionFallbackApplied !== 'true') {
                           const alternateSrc = getExtensionFallbackSrc(image.getAttribute('src'));
                           if (alternateSrc && alternateSrc !== image.getAttribute('src')) {
                             image.dataset.extensionFallbackApplied = 'true';
@@ -847,16 +1041,11 @@ export default function InteractionStrip({
                           }
                         }
 
-                        if (activeSection === 'news' && image.dataset.nowFallbackApplied !== 'true' && nowSrc !== image.getAttribute('src')) {
-                          image.dataset.nowFallbackApplied = 'true';
-                          image.src = nowSrc;
-                          return;
-                        }
                         if (image.dataset.fallbackApplied === 'true') return;
                         image.dataset.fallbackApplied = 'true';
-                         image.dataset.silhouetteFallback = 'true';
+                        image.dataset.silhouetteFallback = 'true';
                         image.src = fallbackSrc;
-                      }}
+                      } : undefined}
                     />
                     {!isCurrentTeamTab && <div className="gallery-slot-gradient" />}
                   </div>

@@ -11,6 +11,7 @@ import {
 } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
 import { track } from '@/lib/analytics';
+import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
 
 interface AccountDrawerProps {
   subdomain: string;
@@ -747,7 +748,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         (error as { isEmailTaken?: boolean })?.isEmailTaken
       ) {
         setMessage('This email already has a YAT?STATS account. Please sign in.');
-        setActiveTab('signin');
+        window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: 'signin' }));
       } else {
         setMessage(error instanceof Error ? error.message : 'Registration failed');
       }
@@ -829,9 +830,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
   };
 
   return (
-    <div className="yat-drawer-content">
+    <div className="yat-drawer-content yat-account-content">
       {isAuthenticated ? (
-        <div style={{ padding: '20px' }}>
+        <div className="yat-account-signed-in" style={{ padding: '20px' }}>
           {superfanLaunching && (
             <div
               style={{
@@ -944,7 +945,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </div>
           )}
 
-          <div style={{ marginBottom: '20px' }}>
+          <div className="yat-account-identity" style={{ marginBottom: '20px' }}>
             <p
               style={{
                 fontSize: '18px',
@@ -957,6 +958,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </p>
             <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveEmail}</p>
           </div>
+
+          {/* First thing after joining or logging in: the ways to connect
+              and contribute. Sign Out sits at the bottom. */}
+          <ContributeShortcuts />
 
           {!isSuperfan && !superfanLaunching && (
             <>
@@ -1045,9 +1050,11 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           )}
 
           <button
+            className="yat-account-signout"
             onClick={handleSignOut}
             style={{
               width: '100%',
+              marginTop: '18px',
               padding: '12px',
               background: 'var(--fg)',
               color: 'var(--bg)',
@@ -1479,6 +1486,18 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           </div>
         </>
       )}
+      {/* Account styles must survive sign-in, when both password fields unmount. */}
+      <style jsx global>{`
+        #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
+        #drawerAccount .yat-account-signed-in{padding:18px 20px 28px!important;min-width:0;}
+        #drawerAccount .yat-account-identity{margin:6px 0 18px!important;padding:0 2px 17px;border-bottom:1px solid var(--line);}
+        #drawerAccount .yat-account-identity p:first-child{margin:0 0 6px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
+        #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
+        #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
+        #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
+        #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:14px 16px 25px!important;}#drawerAccount .yat-account-identity{margin-top:2px!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
+      `}</style>
     </div>
   );
 }

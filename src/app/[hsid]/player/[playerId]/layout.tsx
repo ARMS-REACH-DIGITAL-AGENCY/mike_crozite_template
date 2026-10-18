@@ -2,7 +2,8 @@ import { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById, getPlayerIdentityMeta, type PlayerIdentityMeta } from '@/lib/db';
+import { getPlayerById, getPlayerIdentityMeta, query, type PlayerIdentityMeta } from '@/lib/db';
+import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import StoryDrawer from '@/components/yatstats/StoryDrawer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
@@ -70,7 +71,11 @@ export default async function PlayerLayout({
 
     meta = identityMeta;
     canonicalPlayerHsid = meta.hsid || String(player?.hsid || '').trim() || hsid;
-    playerSchoolUrl = buildMicrositeUrl(canonicalPlayerHsid, meta.hsname || undefined, meta.hslocation || undefined);
+    const canonicalUrls = await canonicalSchoolUrls(
+      [canonicalPlayerHsid],
+      (sql, params = []) => query(sql, params),
+    );
+    playerSchoolUrl = canonicalUrls.get(canonicalPlayerHsid) || (canonicalPlayerHsid ? `/${canonicalPlayerHsid}` : '');
 
     const firstName = String(player?.firstname || player?.first_name || '').trim();
     const lastName = String(player?.lastname || player?.last_name || '').trim();

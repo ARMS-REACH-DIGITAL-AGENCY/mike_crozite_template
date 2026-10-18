@@ -1,29 +1,30 @@
 'use client';
 
 // src/components/yatstats/TeammatesList.tsx
-// The narrow column beside the Stories feed: everyone the player shared a
-// roster with, in small type, one line per teammate per season (a teammate
-// for three years is listed three times, once with each year).
+// The Teammates drawer on the Stories tab (opened by the Teammates button
+// beside the story search): everyone the player shared a roster with, one
+// line per teammate per season (a teammate for three years is listed three
+// times, once with each year).
 //   A-Z:  every line by last name, each with its year.
 //   Year: newest season first, under that season's year and team.
 // Every name links to that teammate's profile when he has one.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { track } from '@/lib/analytics';
 
-type TeammateSeason = { playerId: string; name: string; sortName: string; href: string | null; year: number; team: string };
+export type TeammateSeason = { playerId: string; name: string; sortName: string; href: string | null; year: number; team: string };
 type Order = 'az' | 'year';
 
 function Name({ t }: { t: TeammateSeason }) {
   return t.href
-    ? <a href={t.href} onClick={() => track('teammate_click', { teammate_playerid: t.playerId, teammate_year: t.year })}>{t.name}</a>
+    ? <a className="ytm-name" href={t.href} onClick={() => track('teammate_click', { teammate_playerid: t.playerId, teammate_year: t.year })}>{t.name}</a>
     : <span className="ytm-plain">{t.name}</span>;
 }
 
-export default function TeammatesList({ playerId }: { playerId: string }) {
+// His teammates, loaded once (null while loading): the Stories tab needs
+// the count for its button before the drawer is opened.
+export function useTeammates(playerId: string) {
   const [rows, setRows] = useState<TeammateSeason[] | null>(null);
-  const [order, setOrder] = useState<Order>('az');
-
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/teammates?playerId=${encodeURIComponent(playerId)}`)
@@ -32,6 +33,22 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
       .catch(() => { if (!cancelled) setRows([]); });
     return () => { cancelled = true; };
   }, [playerId]);
+  return rows;
+}
+
+export function teammateCount(rows: TeammateSeason[] | null) {
+  return new Set((rows || []).map((t) => t.playerId)).size;
+}
+
+export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null }) {
+  const [order, setOrder] = useState<Order>('az');
+  const listRef = useRef<HTMLElement>(null);
+  // A new order starts from the top of the list.
+  const pick = (next: Order) => {
+    setOrder(next);
+    const scroller = listRef.current?.closest('.ytd-scroll');
+    if (scroller) scroller.scrollTop = 0;
+  };
 
   const alphabetical = useMemo(
     () => (rows || []).slice().sort((a, b) => a.sortName.localeCompare(b.sortName) || a.year - b.year),
@@ -51,15 +68,16 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
   }, [rows]);
 
   if (!rows?.length) return null;
-  const total = new Set(rows.map((t) => t.playerId)).size;
+  const total = teammateCount(rows);
 
   return (
-    <aside className="ytm" aria-label="Teammates">
+    <aside className="ytm" aria-label="Teammates" ref={listRef}>
       <div className="ytm-sticky">
-        <div className="ytm-title">Teammates <span className="ytm-on">on</span> YAT?STATS <span className="ytm-count">*({total})</span></div>
+        <div className="ytm-title">Teammates</div>
+        <div className="ytm-sub"><b>{total}</b> on <span className="ytm-brand">YAT?STATS</span>*</div>
         <div className="ytm-sort" role="group" aria-label="Sort teammates">
-          <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => setOrder('az')}>A–Z</button>
-          <button type="button" className={order === 'year' ? 'on' : ''} aria-pressed={order === 'year'} onClick={() => setOrder('year')}>Year</button>
+          <button type="button" className={order === 'az' ? 'on' : ''} aria-pressed={order === 'az'} onClick={() => pick('az')}>A–Z</button>
+          <button type="button" className={order === 'year' ? 'on' : ''} aria-pressed={order === 'year'} onClick={() => pick('year')}>Year</button>
         </div>
       </div>
       {order === 'az' ? (
@@ -85,32 +103,29 @@ export default function TeammatesList({ playerId }: { playerId: string }) {
       {/* Only players already on the platform can be listed for now. */}
       <p className="ytm-note">*Only Next-Level Alumni from the participating 1025 high school baseball programs are currently listed on the platform.</p>
       <style jsx>{`
-        .ytm { --ytm-rail-bg: var(--psi-page-bg, #070707); min-width: 0; color: var(--ysf-text, rgba(255,255,255,.88)); background: var(--ytm-rail-bg); font: 400 10px/1.35 system-ui, sans-serif; }
-        .ytm-sticky { position: sticky; top: 0; z-index: 6; margin: -10px 0 0; padding: 10px 0 2px; background: var(--ytm-rail-bg); box-shadow: 0 8px 12px rgba(0,0,0,.18); }
-        .ytm-note { margin: 10px 0 0; color: var(--ysf-muted, rgba(255,255,255,.55)); font: 400 7px/1.3 system-ui, sans-serif; }
-        .ytm-title { margin: 0 0 4px; color: var(--ysf-when, #ffc107); font: 400 13px/.95 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
-        .ytm-on { text-transform: none; }
-        .ytm-count { color: var(--ysf-muted, rgba(255,255,255,.55)); }
-        .ytm-sort { display: flex; gap: 2px; margin: 0 0 3px; }
-        .ytm-sort button { flex: 1; min-height: 22px; padding: 0 4px; border: 1px solid var(--ysf-card-border, rgba(255,255,255,.14)); border-radius: 4px; background: var(--ysf-card-bg, rgba(255,255,255,.055)); color: var(--ysf-muted, rgba(255,255,255,.55)); font: 600 9px/1 Oswald, sans-serif; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
-        .ytm-sort button.on { border-color: var(--ysf-when, #ffc107); color: var(--ysf-when, #ffc107); }
-        .ytm-group { margin: 0 0 9px; }
-        .ytm-head { color: var(--ysf-strong, #fff); font: 600 9px/1.25 Oswald, sans-serif; letter-spacing: .04em; text-transform: uppercase; overflow-wrap: anywhere; }
-        .ytm-head-yr { color: var(--ysf-when, #ffc107); }
-        ul { margin: 2px 0 0; padding: 0; list-style: none; }
-        li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        a { color: inherit; text-decoration: none; }
-        a:hover, a:focus-visible { color: var(--ysf-when, #ffc107); text-decoration: underline; }
-        .ytm-plain { color: var(--ysf-muted, rgba(255,255,255,.55)); }
-        .ytm-yr { color: var(--ysf-when, #ffc107); font-size: 9px; }
-        @media (max-width: 899px) {
-          .ytm { font-size: 9px; }
-          .ytm-title { font-size: 10px; letter-spacing: .035em; }
-          .ytm-note { font-size: 6.5px; }
-          .ytm-sort button { min-height: 18px; font-size: 8px; }
-          .ytm-head { font-size: 8px; }
-          .ytm-yr { font-size: 8px; }
-        }
+        .ytm { min-width: 0; color: var(--ytm-text, rgba(255,255,255,.88)); font: 400 15px/1.5 var(--yat-font-ui, system-ui, sans-serif); }
+        .ytm-sticky { position: sticky; top: 0; z-index: 2; padding: 0 0 10px; background: var(--ytm-bg, #0b0b0b); }
+        .ytm-note { margin: 18px 0 0; color: var(--ytm-muted, rgba(255,255,255,.55)); font: 400 11px/1.4 var(--yat-font-ui, system-ui, sans-serif); }
+        .ytm-title { margin: 0 0 10px; color: var(--ytm-accent, #ffc107); font: 700 22px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .01em; text-transform: uppercase; }
+        .ytm-title { margin-bottom: 4px; font-size: 28px; }
+        .ytm-sub { margin: 0 0 12px; color: var(--ytm-muted, rgba(255,255,255,.55)); font: 600 12px/1.2 var(--yat-font-ui, system-ui, sans-serif); letter-spacing: .04em; text-transform: uppercase; }
+        .ytm-sub b { color: var(--ytm-strong, #fff); }
+        .ytm-brand { white-space: nowrap; }
+        .ytm-sort { display: flex; gap: 6px; }
+        .ytm-sort button { flex: 1; min-height: 34px; padding: 0 10px; border: 1px solid var(--ytm-border, rgba(255,255,255,.16)); border-radius: 6px; background: transparent; color: var(--ytm-muted, rgba(255,255,255,.6)); font: 700 15px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+        .ytm-sort button.on { border-color: var(--ytm-accent, #ffc107); color: var(--ytm-accent, #ffc107); }
+        .ytm-group { margin: 0 0 16px; }
+        .ytm-head { padding: 0 0 4px; margin-bottom: 4px; border-bottom: 1px solid var(--ytm-border, rgba(255,255,255,.16)); color: var(--ytm-strong, #fff); font: 700 16px/1.2 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .02em; text-transform: uppercase; overflow-wrap: anywhere; }
+        .ytm-head-yr { color: var(--ytm-accent, #ffc107); }
+        ul { margin: 4px 0 0; padding: 0; list-style: none; }
+        li { padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* Name is a child component and does not inherit this styled-jsx
+           scope class. Keep its approved link treatment inside .ytm while
+           explicitly reaching the child's rendered elements. */
+        .ytm :global(a.ytm-name) { display: inline-block; padding: 4px 0; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 3px; }
+        .ytm :global(a.ytm-name:hover), .ytm :global(a.ytm-name:focus-visible), .ytm :global(a.ytm-name:active) { color: var(--ytm-accent, #ffc107); text-decoration-color: currentColor; }
+        .ytm :global(.ytm-plain) { color: var(--ytm-muted, rgba(255,255,255,.55)); }
+        .ytm-yr { color: var(--ytm-accent, #ffc107); font-size: 13px; }
       `}</style>
     </aside>
   );

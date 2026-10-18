@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId } from "@/lib/gohighlevel";
+import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
@@ -133,6 +133,33 @@ export async function POST(request: NextRequest) {
       } catch (schoolErr) {
         console.error("School lookup failed (non-fatal):", schoolErr);
       }
+    }
+
+    // A profile may have been created while the ARMS token was unavailable.
+    // Repair only its missing CRM link, never create a duplicate when one exists.
+    if (!profile.arms_contact_id) {
+      try {
+        let contactId = await lookupGHLContactByEmail(body.email);
+        if (!contactId) {
+          const created = await createGHLContact(
+            { email: body.email, firstName: profile.first_name || body.firstName || '', lastName: profile.last_name || body.lastName || '' },
+            String(profile.home_hsid || body.subdomain || 'yatstats')
+          );
+          if (!('error' in created)) contactId = (created as { contact?: { id?: string } }).contact?.id || null;
+        }
+        if (contactId) {
+          profile = await upsertUserProfile(body.uid, { email: body.email, arms_contact_id: contactId });
+        }
+      } catch (error) {
+        console.error('ARMS contact relink failed (non-fatal):', error);
+      }
+    }
+
+    if (profile.arms_contact_id) {
+      await syncYatstatsContact(profile.arms_contact_id, profile, {
+        hsname: homeSchoolName,
+        hslocation: homeSchoolLocation,
+      });
     }
 
     const superfan = isSuperfan(profile);
