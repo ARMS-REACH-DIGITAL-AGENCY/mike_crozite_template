@@ -16,8 +16,9 @@ import { createPortal } from 'react-dom';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { auth } from '@/lib/firebase';
 import FanConfirm from '@/components/yatstats/FanConfirm';
+import StoryPreview from '@/components/yatstats/StoryPreview';
 import { track } from '@/lib/analytics';
-import { shrinkPhoto } from '@/lib/shrinkPhoto';
+import { copyStoryPhoto, createStoryUploadBody, prepareStoryPhoto, type StoryPhotoData } from '@/lib/storyPhotoUpload';
 import { STORY_DRAWER_OPEN_EVENT, takePendingStoryDrawerOpen, type StoryDrawerOpenDetail } from '@/lib/storyDrawer';
 
 export { STORY_DRAWER_OPEN_EVENT } from '@/lib/storyDrawer';
@@ -25,6 +26,7 @@ export const STORY_POSTED_EVENT = 'yat:story-posted';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_PHOTOS = 4;
+const MAX_TAGS = 20;
 const OTHER_DRAWER_CLASSES = ['drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-contribute-open'];
 // A departing player layout must not close a newer layout's story portal.
 // This is client-only ownership of the currently visible drawer, not data.
@@ -50,7 +52,7 @@ type TagCandidate = { playerId: string; displayName: string; schoolName?: string
 
 const CREST_FALLBACK = '/img/school-placeholder.png';
 
-type PickedPhoto = { id: string; file: File; preview: string };
+type PickedPhoto = StoryPhotoData & { id: string; preview: string };
 
 function openAccountDrawer(tab: 'signin' | 'register') {
   document.body.classList.remove('drawer-story-open');
@@ -72,18 +74,42 @@ export default function StoryDrawer() {
   const [month, setMonth] = useState<number>(0);
   const [story, setStory] = useState('');
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
+  const photosRef = useRef<PickedPhoto[]>([]);
+  const [preparingPhotos, setPreparingPhotos] = useState(false);
+  const preparingPhotosRef = useRef(false);
+  const preparationVersion = useRef(0);
+  const sessionRequest = useRef(0);
+  const reviewerRequest = useRef(0);
+  const confirmationRequest = useRef(0);
+  const [identityRefreshing, setIdentityRefreshing] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const [approvedPreview, setApprovedPreview] = useState('');
+  const replacePhotos = useCallback((next: PickedPhoto[]) => {
+    photosRef.current = next;
+    setPhotos(next);
+  }, []);
+  useEffect(() => () => {
+    preparationVersion.current++;
+    sessionRequest.current++;
+    reviewerRequest.current++;
+    confirmationRequest.current++;
+    preparingPhotosRef.current = false;
+    photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.preview));
+    photosRef.current = [];
+  }, []);
   // Reviewers can post as YAT?STATS (the crest) instead of as themselves.
   const [canPostAsYatstats, setCanPostAsYatstats] = useState(false);
   const [asYatstats, setAsYatstats] = useState(false);
   useEffect(() => {
     if (!open) return;
     let live = true;
+    const request = ++reviewerRequest.current;
     (async () => {
       await auth.authStateReady?.();
       const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
       const res = await fetch('/api/contribute/bulk', { credentials: 'include', cache: 'no-store', headers: token ? { 'x-firebase-token': token } : {} }).catch(() => null);
       const body = res?.ok ? await res.json().catch(() => null) : null;
-      if (live) setCanPostAsYatstats(Boolean(body?.reviewer));
+      if (live && request === reviewerRequest.current) setCanPostAsYatstats(Boolean(body?.reviewer));
     })();
     return () => { live = false; };
   }, [open]);
@@ -99,6 +125,23 @@ export default function StoryDrawer() {
 
   const signedIn = Boolean(session?.uid && session?.email);
   const fanFirstName = String(session?.firstName || '').trim() || 'there';
+  const postAsOfficial = canPostAsYatstats && asYatstats;
+  const previewAuthor = postAsOfficial ? 'YAT?STATS' : [session?.firstName, session?.lastName].map((name) => String(name || '').trim()).filter(Boolean).join(' ') || 'A YAT?STATS fan';
+  const needsConfirmation = status.kind === 'error' && Boolean(status.confirm);
+  const previewReady = Boolean(photos.length && month && story.trim() && !preparingPhotos && !identityRefreshing && !needsConfirmation);
+  // Approval applies to exactly the draft the fan reviewed. Any meaningful
+  // edit invalidates it; a failed request leaves it available for a retry.
+  const previewSignature = JSON.stringify([
+    playerId, playerName, month, year, story, photos.map((photo) => [photo.id, photo.name]),
+    tags.map((tag) => [tag.playerId, tag.displayName]), session?.uid, previewAuthor, postAsOfficial,
+  ]);
+  const previewApproved = previewReady && approvedPreview === previewSignature;
+  const previewPrompt = identityRefreshing ? 'Refreshing your sign-in…'
+    : needsConfirmation ? 'Confirm your sign-in below, then review your story.'
+      : preparingPhotos ? 'Preparing your photos for preview…'
+    : !photos.length ? 'Add a photo to preview your story.'
+      : !month ? 'Choose the month to preview your story.'
+        : 'Tell the story to see your preview.';
 
   const close = useCallback(() => {
     setOpen(false);
@@ -124,17 +167,20 @@ export default function StoryDrawer() {
   }, [open, close, drawerOwner]);
 
   const resetForm = useCallback(() => {
+    preparationVersion.current++;
+    preparingPhotosRef.current = false;
+    setPreparingPhotos(false);
+    setPhotoError('');
+    setApprovedPreview('');
     setMonth(0);
     setStory('');
-    setPhotos((current) => {
-      current.forEach((p) => URL.revokeObjectURL(p.preview));
-      return [];
-    });
+    photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.preview));
+    replacePhotos([]);
     setTags([]);
     setTagQuery('');
     setTagResults([]);
     setStatus({ kind: 'idle' });
-  }, []);
+  }, [replacePhotos]);
 
   // Open from the Polaroid, with the year of the slide the fan is on.
   useEffect(() => {
@@ -148,7 +194,7 @@ export default function StoryDrawer() {
       const thisYear = new Date().getFullYear();
       // Keep the fan's own pick when they come back to a story in progress
       // (e.g. after signing in).
-      const inProgress = status.kind !== 'done' && (story.trim() !== '' || photos.length > 0);
+      const inProgress = status.kind !== 'done' && (story.trim() !== '' || photos.length > 0 || preparingPhotosRef.current);
       if (!inProgress) setYear(Number.isInteger(slideYear) && slideYear > 1950 && slideYear <= thisYear + 1 ? slideYear : thisYear);
       if (status.kind === 'done') resetForm();
       activeStoryDrawerOwner = drawerOwner;
@@ -157,11 +203,20 @@ export default function StoryDrawer() {
       document.getElementById('drawerAccount')?.classList.remove('open', 'is-open', 'active');
       document.body.classList.add('drawer-story-open', 'drawer-open');
       setSessionLoading(true);
+      const request = ++sessionRequest.current;
       fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' })
         .then((res) => res.json())
-        .then((data) => setSession(data?.authenticated ? (data.session as FanSession) : null))
-        .catch(() => setSession(null))
-        .finally(() => setSessionLoading(false));
+        .then((data) => {
+          if (request !== sessionRequest.current) return;
+          const nextSession = data?.authenticated ? (data.session as FanSession) : null;
+          if (auth.currentUser?.uid && nextSession?.uid && auth.currentUser.uid !== nextSession.uid) {
+            setApprovedPreview('');
+            setStatus({ kind: 'error', confirm: true, text: 'Your sign-in changed. Confirm it below before reviewing your story.' });
+          }
+          setSession(nextSession);
+        })
+        .catch(() => { if (request === sessionRequest.current) setSession(null); })
+        .finally(() => { if (request === sessionRequest.current) setSessionLoading(false); });
     };
     window.addEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
     const pending = takePendingStoryDrawerOpen(playerId);
@@ -213,28 +268,58 @@ export default function StoryDrawer() {
     return list;
   }, []);
 
-  const addPhotos = (files: FileList | null) => {
-    if (!files) return;
-    const room = MAX_PHOTOS - photos.length;
+  const addPhotos = async (files: FileList | null) => {
+    if (!files || preparingPhotosRef.current || status.kind === 'posting') return;
+    const room = MAX_PHOTOS - photosRef.current.length;
     const picked = Array.from(files)
       .filter((f) => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name))
-      .slice(0, Math.max(0, room))
-      .map((file) => ({ id: `${file.name}-${file.size}-${Math.random()}`, file, preview: URL.createObjectURL(file) }));
-    setPhotos((current) => [...current, ...picked]);
-    if (fileInput.current) fileInput.current.value = '';
+      .slice(0, Math.max(0, room));
+    const input = fileInput.current;
+    if (!picked.length) {
+      if (input) input.value = '';
+      return;
+    }
+
+    const version = ++preparationVersion.current;
+    preparingPhotosRef.current = true;
+    setPreparingPhotos(true);
+    setPhotoError('');
+    setApprovedPreview('');
+    // Start every provider read immediately. Keep the native input alive
+    // until these copies finish; compression then uses only memory blobs.
+    const copies = await Promise.allSettled(picked.map(copyStoryPhoto));
+    if (input) input.value = '';
+    if (version !== preparationVersion.current) return;
+
+    const errors: string[] = [];
+    for (const copy of copies) {
+      try {
+        if (copy.status === 'rejected') throw copy.reason;
+        // Decode one at a time to avoid holding several full phone-sized
+        // image bitmaps in memory at once.
+        const prepared = await prepareStoryPhoto(copy.value);
+        if (version !== preparationVersion.current) return;
+        const photo = { ...prepared, id: `${prepared.name}-${Math.random()}`, preview: URL.createObjectURL(prepared.blob) };
+        replacePhotos([...photosRef.current, photo]);
+      } catch (error) {
+        if (version !== preparationVersion.current) return;
+        errors.push(error instanceof Error ? error.message : 'That photo could not be prepared. Please choose it again.');
+      }
+    }
+    setPhotoError(errors.join(' '));
+    preparingPhotosRef.current = false;
+    setPreparingPhotos(false);
   };
 
   const removePhoto = (id: string) => {
-    setPhotos((current) => {
-      const gone = current.find((p) => p.id === id);
-      if (gone) URL.revokeObjectURL(gone.preview);
-      return current.filter((p) => p.id !== id);
-    });
+    const gone = photosRef.current.find((photo) => photo.id === id);
+    if (gone) URL.revokeObjectURL(gone.preview);
+    replacePhotos(photosRef.current.filter((photo) => photo.id !== id));
   };
 
   const addTag = (candidate: TagCandidate) => {
     if (candidate.playerId === playerId) return;
-    setTags((current) => (current.some((t) => t.playerId === candidate.playerId) ? current : [...current, candidate]));
+    setTags((current) => (current.length >= MAX_TAGS || current.some((t) => t.playerId === candidate.playerId) ? current : [...current, candidate]));
     setTagQuery('');
     setTagResults([]);
   };
@@ -247,10 +332,53 @@ export default function StoryDrawer() {
     document.getElementById('playerFunZone')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const refreshConfirmedIdentity = async () => {
+    const request = ++confirmationRequest.current;
+    const sessionVersion = ++sessionRequest.current;
+    const reviewerVersion = ++reviewerRequest.current;
+    setApprovedPreview('');
+    setCanPostAsYatstats(false);
+    setAsYatstats(false);
+    setIdentityRefreshing(true);
+    setSessionLoading(false);
+    setStatus({ kind: 'idle' });
+    try {
+      await auth.authStateReady?.();
+      const user = auth.currentUser;
+      const token = user ? await user.getIdToken().catch(() => '') : '';
+      if (request !== confirmationRequest.current || sessionVersion !== sessionRequest.current) return;
+      const [sessionResponse, reviewerResponse] = await Promise.all([
+        fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/contribute/bulk', { credentials: 'include', cache: 'no-store', headers: token ? { 'x-firebase-token': token } : {} }).catch(() => null),
+      ]);
+      const data = await sessionResponse.json().catch(() => null);
+      const reviewer = reviewerResponse?.ok ? await reviewerResponse.json().catch(() => null) : null;
+      if (request !== confirmationRequest.current || sessionVersion !== sessionRequest.current) return;
+      const nextSession = data?.authenticated ? (data.session as FanSession) : null;
+      // FanConfirm may sign into a different account, and its login request
+      // can fail. Never approve an old cookie author for a new token's post.
+      if (!sessionResponse.ok || !nextSession?.uid || !nextSession.email ||
+        auth.currentUser?.uid !== user?.uid || (user?.uid && nextSession.uid !== user.uid)) {
+        throw new Error('Session does not match the confirmed account');
+      }
+      setSession(nextSession);
+      if (reviewerVersion === reviewerRequest.current) setCanPostAsYatstats(Boolean(reviewer?.reviewer));
+    } catch {
+      if (request === confirmationRequest.current && sessionVersion === sessionRequest.current) {
+        setStatus({ kind: 'error', confirm: true, text: 'We couldn’t refresh your sign-in. Please confirm again before posting.' });
+      }
+    } finally {
+      if (request === confirmationRequest.current) setIdentityRefreshing(false);
+      if (sessionVersion === sessionRequest.current) setSessionLoading(false);
+    }
+  };
+
   const submit = async () => {
+    if (preparingPhotosRef.current || status.kind === 'posting') return;
     if (!month) return setStatus({ kind: 'error', text: 'Choose the month.' });
     if (!story.trim()) return setStatus({ kind: 'error', text: 'Tell the story behind this photo.' });
     if (photos.length === 0) return setStatus({ kind: 'error', text: 'Add at least one photo.' });
+    if (!previewApproved) return setStatus({ kind: 'error', text: 'Check your preview and confirm it looks right before posting.' });
 
     setStatus({ kind: 'posting', text: 'Posting your story…' });
     try {
@@ -258,6 +386,11 @@ export default function StoryDrawer() {
       // signed in on another yatstats.com site there isn't one here, and the
       // server uses the signed pass set at sign-in instead.
       await auth.authStateReady?.();
+      if (auth.currentUser?.uid && auth.currentUser.uid !== session?.uid) {
+        setApprovedPreview('');
+        setStatus({ kind: 'error', confirm: true, text: 'Your sign-in changed. Confirm it below before reviewing your story.' });
+        return;
+      }
       const idToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
 
       const form = new FormData();
@@ -270,13 +403,14 @@ export default function StoryDrawer() {
       form.set('pageUrl', window.location.href);
       if (canPostAsYatstats && asYatstats) form.set('asYatstats', '1');
       for (const photo of photos) {
-        const blob = await shrinkPhoto(photo.file);
-        form.append('photos', blob, photo.file.name.replace(/\.[a-z0-9]+$/i, '') + '.jpg');
+        form.append('photos', photo.blob, photo.name);
       }
 
-      const res = await fetch('/api/stories', { method: 'POST', body: form, credentials: 'include' });
+      const { body, contentType } = await createStoryUploadBody(form);
+      const res = await fetch('/api/stories', { method: 'POST', body, headers: { 'Content-Type': contentType }, credentials: 'include' });
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
+        setApprovedPreview('');
         setStatus({ kind: 'error', confirm: true });
         return;
       }
@@ -333,22 +467,24 @@ export default function StoryDrawer() {
 
             <div className="ysd-field">
               <div className="ysd-label">Photos <span className="ysd-muted">({photos.length}/{MAX_PHOTOS})</span></div>
-              <div className="ysd-photos">
+              <div className="ysd-photos" aria-busy={preparingPhotos}>
                 {photos.map((p) => (
                   <div className="ysd-photo" key={p.id}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={p.preview} alt="" />
-                    <button type="button" onClick={() => removePhoto(p.id)} aria-label="Remove photo">×</button>
+                    <button type="button" onClick={() => removePhoto(p.id)} aria-label="Remove photo" disabled={posting}>×</button>
                   </div>
                 ))}
                 {photos.length < MAX_PHOTOS && (
-                  <button type="button" className="ysd-photo-add" onClick={() => fileInput.current?.click()}>
+                  <button type="button" className="ysd-photo-add" onClick={() => fileInput.current?.click()} disabled={preparingPhotos || posting}>
                     <i className="ri-image-add-line" aria-hidden="true" />
                     <span>Add photo</span>
                   </button>
                 )}
               </div>
-              <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files)} />
+              <input ref={fileInput} type="file" accept="image/*" multiple hidden disabled={preparingPhotos || posting} onChange={(e) => { void addPhotos(e.target.files); }} />
+              {preparingPhotos ? <div className="ysd-muted ysd-small" role="status">Preparing photos…</div> : null}
+              {photoError ? <div className="ysd-error" role="alert">{photoError}</div> : null}
             </div>
 
             <div className="ysd-field">
@@ -358,19 +494,20 @@ export default function StoryDrawer() {
                   {tags.map((t) => (
                     <span className="ysd-tag" key={t.playerId}>
                       {t.displayName}
-                      <button type="button" onClick={() => setTags((c) => c.filter((x) => x.playerId !== t.playerId))} aria-label={`Remove ${t.displayName}`}>×</button>
+                      <button type="button" onClick={() => setTags((c) => c.filter((x) => x.playerId !== t.playerId))} aria-label={`Remove ${t.displayName}`} disabled={posting}>×</button>
                     </span>
                   ))}
                 </div>
               )}
-              <input id="ysdTag" type="search" value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} placeholder="Search players by name" autoComplete="off" />
+              <input id="ysdTag" type="search" value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} placeholder="Search players by name" autoComplete="off" disabled={posting || tags.length >= MAX_TAGS} />
+              {tags.length >= MAX_TAGS ? <div className="ysd-muted ysd-small">Up to {MAX_TAGS} players can be tagged in a story.</div> : null}
               {tagResults.length > 0 && (
                 <div className="ysd-results yat-gs-results" role="listbox" aria-label="Players">
                   {tagResults.filter((r) => r.playerId !== playerId).map((r) => {
                     const loc = [r.city, r.state].filter(Boolean).join(', ');
                     const subtitle = [r.schoolName, loc].filter(Boolean).join(' - ');
                     return (
-                      <button type="button" key={r.playerId} className="yat-gs-result yat-gs-player" role="option" aria-selected={false} onClick={() => addTag(r)}>
+                      <button type="button" key={r.playerId} className="yat-gs-result yat-gs-player" role="option" aria-selected={false} onClick={() => addTag(r)} disabled={posting || tags.length >= MAX_TAGS}>
                         <span className="yat-gs-result-top">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -395,11 +532,11 @@ export default function StoryDrawer() {
             <div className="ysd-field">
               <div className="ysd-label">When was this?</div>
               <div className="ysd-date">
-                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month">
+                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month" disabled={posting}>
                   <option value={0}>Month</option>
                   {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                 </select>
-                <select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Year">
+                <select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Year" disabled={posting}>
                   {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
@@ -416,27 +553,44 @@ export default function StoryDrawer() {
                 value={story}
                 maxLength={10000}
                 onChange={(e) => setStory(e.target.value)}
+                disabled={posting}
                 placeholder={`Where was this? What happened? Why does this moment with ${firstName} matter to you?`}
               />
             </div>
 
-            {status.kind === 'error' && status.confirm ? (
-              // This site couldn't tell who's posting: confirm once, then the
-              // story posts straight away (nothing to retype).
-              <FanConfirm email={session?.email} onConfirmed={() => { void submit(); }} />
-            ) : status.kind === 'error' ? (
-              <div className="ysd-error">{status.text}</div>
-            ) : null}
-
             {canPostAsYatstats ? (
               <label className="ysd-as">
-                <input type="checkbox" checked={asYatstats} onChange={(e) => setAsYatstats(e.target.checked)} />
+                <input type="checkbox" checked={asYatstats} onChange={(e) => setAsYatstats(e.target.checked)} disabled={posting} />
                 <span>Post as <b>YAT?STATS</b>, not as me</span>
               </label>
             ) : null}
 
+            <section className="ysd-field ysd-review" aria-labelledby="ysdPreviewTitle">
+              <div className="ysd-label" id="ysdPreviewTitle">Preview &amp; approve</div>
+              {previewReady ? (
+                <>
+                  <StoryPreview photos={photos} story={story} author={previewAuthor} official={postAsOfficial} playerName={playerName} month={MONTHS[month - 1]} year={year} tags={tags} />
+                  <label className={`ysd-approve${previewApproved ? ' is-on' : ''}`}>
+                    <input type="checkbox" checked={previewApproved} onChange={(e) => setApprovedPreview(e.target.checked ? previewSignature : '')} disabled={posting} />
+                    <span>Looks right. This is the story I want to post.</span>
+                  </label>
+                </>
+              ) : <div className="ysd-muted ysd-small">{previewPrompt}</div>}
+            </section>
+
+            {status.kind === 'error' && status.confirm ? (
+              // Confirmation can change the posting identity. Refresh it and
+              // review the current draft again, without an automatic post.
+              <>
+                {status.text ? <div className="ysd-error" role="alert">{status.text}</div> : null}
+                <FanConfirm email={auth.currentUser?.email || session?.email} onConfirmed={() => { void refreshConfirmedIdentity(); }} />
+              </>
+            ) : status.kind === 'error' ? (
+              <div className="ysd-error">{status.text}</div>
+            ) : null}
+
             <div className="ysd-actions">
-              <button type="button" className="ysd-btn ysd-btn-primary" onClick={submit} disabled={posting}>
+              <button type="button" className="ysd-btn ysd-btn-primary" onClick={submit} disabled={posting || !previewApproved}>
                 {posting ? 'Posting…' : 'Post story'}
               </button>
             </div>
@@ -447,6 +601,10 @@ export default function StoryDrawer() {
       <style jsx global>{`
         .ysd-as { display:flex; align-items:center; gap:8px; margin:12px 0 0; font:500 13px/1.35 var(--yat-font-ui, Archivo, Arial, sans-serif); cursor:pointer; }
         .ysd-as input { width: 18px; height: 18px; accent-color: #2e8b5f; }
+        #drawerStory .ysd-review { gap:12px; min-width:0; }
+        #drawerStory .ysd-approve { display:flex; align-items:center; gap:10px; padding:10px; border:1px solid var(--line); border-radius:8px; cursor:pointer; font:400 13px/1.4 var(--yat-font-ui, Archivo, Arial, sans-serif); }
+        #drawerStory .ysd-approve input { flex:0 0 18px; width:18px; height:18px; accent-color:var(--ink); }
+        #drawerStory .ysd-approve.is-on { border-color:var(--ink); background:var(--line); }
         body.drawer-story-open #drawerStory { transform: translateX(0); }
         body.drawer-story-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
         /* The generic drawer rail has a 360px !important cap. Preserve this
@@ -485,6 +643,7 @@ export default function StoryDrawer() {
         .ysd-photo button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
         .ysd-photo-add { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:transparent; color:inherit; cursor:pointer; font:800 11px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.01em; text-transform:uppercase; }
         .ysd-photo-add i { font-size: 22px; }
+        .ysd-photo-add:disabled { opacity:.6; cursor:wait; }
         .ysd-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .ysd-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:999px; background:rgba(255,215,0,.14); border:1px solid rgba(255,215,0,.6); font:600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); }
         .ysd-tag button { border: 0; background: none; color: inherit; font-size: 15px; cursor: pointer; }
