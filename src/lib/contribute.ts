@@ -142,8 +142,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'school_logo',
-    prefix: 'SCHOOL / CURRENT TEAM',
-    label: 'School or Current Team Logo',
+    prefix: 'HIGH SCHOOL',
+    label: 'High School Logo / Crest',
     aspects: null,
     asks: 'school',
     needsPlayer: false,
@@ -151,8 +151,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'team_logo',
-    prefix: 'SCHOOL / CURRENT TEAM',
-    label: 'School or Current Team Logo',
+    prefix: 'COLLEGE / PRO TEAM',
+    label: 'College or Pro Team Logo',
     aspects: null,
     asks: 'team',
     needsPlayer: false,
