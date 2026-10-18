@@ -1115,11 +1115,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!isPreview) {
       window.addEventListener('yat:story-posted', load);
       window.addEventListener('yat:story-comment-photos', load);
+      window.addEventListener('yat:contribute-photo-published', load);
     }
     return () => {
       cancelled = true;
       window.removeEventListener('yat:story-posted', load);
       window.removeEventListener('yat:story-comment-photos', load);
+      window.removeEventListener('yat:contribute-photo-published', load);
     };
   }, [playerId, isPreview]);
 
