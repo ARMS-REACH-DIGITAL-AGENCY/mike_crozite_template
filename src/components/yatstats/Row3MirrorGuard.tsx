@@ -21,10 +21,11 @@ function getVisibleSectionKey(): string {
 
 function isCardVisible(card: HTMLElement): boolean {
   const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]');
-  const favoritesGallery = card.closest<HTMLElement>('.yat-section')?.dataset.favoritesGalleryActive === 'true';
 
-  return (getVisibleSectionKey() !== 'active' || favoritesGallery || card.dataset.has2026Stats === 'true')
-    && !card.hidden
+  // Row 3 is a visual mirror of the visible gallery, exactly like the
+  // 2027 Current Team rail. Membership belongs to the gallery/filter layer;
+  // Row 3 must not impose a second "has 2026 stats" eligibility rule.
+  return !card.hidden
     && card.style.display !== 'none'
     && (!wrapper || (!wrapper.hidden && wrapper.style.display !== 'none'));
 }
