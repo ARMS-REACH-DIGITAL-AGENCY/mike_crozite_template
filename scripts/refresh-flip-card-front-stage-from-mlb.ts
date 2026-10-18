@@ -41,6 +41,8 @@ async function ensureStageColumns(): Promise<void> {
     ALTER TABLE public.flip_card_front_stage
       ADD COLUMN IF NOT EXISTS current_team_name text,
       ADD COLUMN IF NOT EXISTS current_team_level text,
+      ADD COLUMN IF NOT EXISTS current_teamid text,
+      ADD COLUMN IF NOT EXISTS current_level_label text,
       ADD COLUMN IF NOT EXISTS current_team_source text,
       ADD COLUMN IF NOT EXISTS current_team_source_player_id text,
       ADD COLUMN IF NOT EXISTS current_team_source_team_id text,
@@ -102,6 +104,209 @@ function classifyDeparture(description: string | null | undefined): "RETIRED" | 
     return "FREE AGENT";
   }
   return null;
+}
+
+// TBC-safe-ingest creates baseline cards for every new player in player_hsids.
+// The MLB workflow must be able to do the same thing on its own, though: roster
+// discovery can run hours before the next TBC ingest, and every later MLB step
+// is an UPDATE. Joining through player_hsids preserves the TBC identity guard -
+// identities held by player_hsid_exclusion never reach this insert.
+async function ensureLatestMatchedPlayersInStage(): Promise<{ created: number; eligible: number }> {
+  const { rows } = await pool.query<{ created: string; eligible: string }>(`
+    WITH latest_completed_run AS (
+      SELECT run_id
+      FROM public.source_ingest_runs
+      WHERE source = 'mlb_api'
+        AND feed_name = 'mlb_full_org_roster'
+        AND status = 'completed'
+      ORDER BY completed_at DESC NULLS LAST, started_at DESC
+      LIMIT 1
+    ),
+    matched AS MATERIALIZED (
+      SELECT DISTINCT res.playerid::text AS playerid
+      FROM public.mlb_org_roster_resolution res
+      JOIN public.mlb_org_roster_raw raw ON raw.id = res.raw_id
+      JOIN latest_completed_run lr ON lr.run_id = raw.run_id
+      WHERE res.match_status = 'matched'
+        AND res.playerid IS NOT NULL
+    ),
+    candidates AS MATERIALIZED (
+      SELECT DISTINCT ON (m.playerid)
+        m.playerid,
+        ph.hsid::text AS hsid,
+        p.firstname,
+        p.lastname
+      FROM matched m
+      JOIN public.player_hsids ph ON ph.playerid::text = m.playerid
+      LEFT JOIN public.tbc_players_raw p ON p.playerid::text = m.playerid
+      LEFT JOIN public.flip_card_front_stage f ON f.playerid::text = m.playerid
+      WHERE f.playerid IS NULL
+        AND ph.hsid IS NOT NULL
+      ORDER BY m.playerid, ph.hsid::text
+    ),
+    inserted AS (
+      INSERT INTO public.flip_card_front_stage (
+        playerid, hsid, display_name, first_name, last_name
+      )
+      SELECT
+        playerid,
+        hsid,
+        TRIM(COALESCE(firstname, '') || ' ' || COALESCE(lastname, '')),
+        firstname,
+        lastname
+      FROM candidates
+      ON CONFLICT (playerid) DO NOTHING
+      RETURNING playerid
+    )
+    SELECT
+      (SELECT COUNT(*)::text FROM inserted) AS created,
+      (SELECT COUNT(*)::text FROM candidates) AS eligible
+  `);
+
+  return {
+    created: Number(rows[0]?.created ?? 0),
+    eligible: Number(rows[0]?.eligible ?? 0),
+  };
+}
+
+// team_id_map is the canonical MLB Stats API id -> Baseball Cube teamid
+// crosswalk used by the card/logo and game-log readers. Keep it current before
+// writing the stage row. Exact-name additions are deliberately fail-closed;
+// aliases below are limited to reviewed one-to-one renames. MLB's consolidated
+// rookie clubs that correspond to two TBC split squads remain unresolved rather
+// than receiving a fabricated teamid.
+async function ensureCurrentProTeamMappings(): Promise<{
+  exactInserted: number;
+  aliasInserted: number;
+  unresolved: { mlb_id: string; team_name: string; level: string | null }[];
+}> {
+  const exact = await pool.query(`
+    WITH latest_completed_run AS (
+      SELECT run_id
+      FROM public.source_ingest_runs
+      WHERE source = 'mlb_api'
+        AND feed_name = 'mlb_full_org_roster'
+        AND status = 'completed'
+      ORDER BY completed_at DESC NULLS LAST, started_at DESC
+      LIMIT 1
+    ),
+    current_teams AS MATERIALIZED (
+      SELECT DISTINCT
+        raw.source_team_id::int AS mlb_id,
+        raw.source_team_name AS team_name
+      FROM public.mlb_org_roster_resolution res
+      JOIN public.mlb_org_roster_raw raw ON raw.id = res.raw_id
+      JOIN latest_completed_run lr ON lr.run_id = raw.run_id
+      WHERE res.match_status = 'matched'
+        AND res.playerid IS NOT NULL
+        AND raw.source_team_id IS NOT NULL
+        AND NULLIF(BTRIM(raw.source_team_name), '') IS NOT NULL
+    ),
+    mapping_references AS (
+      SELECT LOWER(BTRIM(current_team)) AS team_key, teamid::text AS tbc_teamid
+      FROM public."150-pro_team_look_up_tbc_mlb"
+      WHERE NULLIF(BTRIM(current_team), '') IS NOT NULL
+        AND NULLIF(BTRIM(teamid), '') IS NOT NULL
+      UNION ALL
+      SELECT LOWER(BTRIM(teamname)) AS team_key, teamid::text AS tbc_teamid
+      FROM public.tbc_pro_teams_map_raw
+      WHERE NULLIF(BTRIM(teamname), '') IS NOT NULL
+        AND NULLIF(BTRIM(teamid), '') IS NOT NULL
+    ),
+    unique_reference AS (
+      SELECT team_key, MIN(tbc_teamid) AS tbc_teamid
+      FROM mapping_references
+      GROUP BY team_key
+      HAVING COUNT(DISTINCT tbc_teamid) = 1
+    ),
+    candidates AS (
+      SELECT ct.mlb_id, ct.team_name, ur.tbc_teamid
+      FROM current_teams ct
+      JOIN unique_reference ur ON ur.team_key = LOWER(BTRIM(ct.team_name))
+      WHERE NOT EXISTS (
+        SELECT 1 FROM public.team_id_map m WHERE m.mlb_stats_api_id = ct.mlb_id
+      )
+        AND NOT EXISTS (
+          SELECT 1 FROM public.team_id_map m WHERE m.tbc_teamid = ur.tbc_teamid
+        )
+    )
+    INSERT INTO public.team_id_map (
+      tbc_teamid, team_name, mlb_stats_api_id, source, updated_at
+    )
+    SELECT tbc_teamid, team_name, mlb_id, 'mlb_roster_exact_name', NOW()
+    FROM candidates
+    ON CONFLICT (tbc_teamid) DO NOTHING
+    RETURNING tbc_teamid
+  `);
+
+  const aliases = await pool.query(`
+    WITH aliases(mlb_id, tbc_teamid, team_name) AS (
+      VALUES
+        (1991, '14130'::text, 'ACL D-backs'::text),
+        (5374, '14134'::text, 'ACL Guardians'::text)
+    ),
+    eligible AS (
+      SELECT a.*
+      FROM aliases a
+      WHERE EXISTS (
+        SELECT 1
+        FROM public.mlb_org_roster_raw raw
+        WHERE raw.source_team_id = a.mlb_id
+          AND LOWER(BTRIM(raw.source_team_name)) = LOWER(BTRIM(a.team_name))
+      )
+        AND NOT EXISTS (
+          SELECT 1 FROM public.team_id_map m WHERE m.mlb_stats_api_id = a.mlb_id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM public.team_id_map m WHERE m.tbc_teamid = a.tbc_teamid
+        )
+    )
+    INSERT INTO public.team_id_map (
+      tbc_teamid, team_name, mlb_stats_api_id, source, updated_at
+    )
+    SELECT tbc_teamid, team_name, mlb_id, 'mlb_roster_verified_alias', NOW()
+    FROM eligible
+    ON CONFLICT (tbc_teamid) DO NOTHING
+    RETURNING tbc_teamid
+  `);
+
+  const gaps = await pool.query<{ mlb_id: string; team_name: string; level: string | null }>(`
+    WITH latest_completed_run AS (
+      SELECT run_id
+      FROM public.source_ingest_runs
+      WHERE source = 'mlb_api'
+        AND feed_name = 'mlb_full_org_roster'
+        AND status = 'completed'
+      ORDER BY completed_at DESC NULLS LAST, started_at DESC
+      LIMIT 1
+    ),
+    current_teams AS (
+      SELECT DISTINCT
+        raw.source_team_id::text AS mlb_id,
+        raw.source_team_name AS team_name,
+        raw.level
+      FROM public.mlb_org_roster_resolution res
+      JOIN public.mlb_org_roster_raw raw ON raw.id = res.raw_id
+      JOIN latest_completed_run lr ON lr.run_id = raw.run_id
+      WHERE res.match_status = 'matched'
+        AND res.playerid IS NOT NULL
+        AND raw.source_team_id IS NOT NULL
+        AND NULLIF(BTRIM(raw.source_team_name), '') IS NOT NULL
+    )
+    SELECT ct.mlb_id, ct.team_name, MIN(ct.level) AS level
+    FROM current_teams ct
+    LEFT JOIN public.team_id_map m
+      ON m.mlb_stats_api_id::text = ct.mlb_id
+    WHERE m.mlb_stats_api_id IS NULL
+    GROUP BY ct.mlb_id, ct.team_name
+    ORDER BY MIN(ct.level), ct.team_name
+  `);
+
+  return {
+    exactInserted: exact.rowCount ?? 0,
+    aliasInserted: aliases.rowCount ?? 0,
+    unresolved: gaps.rows,
+  };
 }
 
 // Everyone matched in the latest roster run, plus every card whose team
@@ -427,6 +632,12 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
              THEN display_truth.source_team_id
              ELSE stage.current_team_source_team_id
            END,
+           current_teamid = CASE
+             WHEN stage.last_transaction_applied_at IS NOT NULL THEN stage.current_teamid
+             WHEN team_map.tbc_teamid IS NOT NULL THEN team_map.tbc_teamid
+             WHEN stage.current_team_name IS DISTINCT FROM display_truth.source_team_name THEN NULL
+             ELSE stage.current_teamid
+           END,
            current_team_roster_status = CASE
              WHEN stage.last_transaction_applied_at IS NULL
              THEN display_truth.roster_status
@@ -437,19 +648,22 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
              THEN display_truth.verified_at
              ELSE stage.current_team_last_verified
            END,
-           -- A minor leaguer's org: MLB's on the 40-man, otherwise the
-           -- team mapping's (this used to keep whatever was there, so a
-           -- minor leaguer off the 40-man - Jake Bold at Lake Elsinore -
-           -- showed his team with no organization). A team the mapping
-           -- doesn't know keeps the old org only if he hasn't moved.
-           -- Major leaguers are unchanged (their card shows the club).
+           -- org_name is carried on every org-wide MLB roster row and is the
+           -- parent MLB organization for both major- and minor-league teams.
+           -- Prefer that sourced value, then the 40-man context and our team
+           -- directory. Never preserve an old org across an actual team move.
            current_org_or_conference_name = CASE
              WHEN stage.last_transaction_applied_at IS NOT NULL THEN stage.current_org_or_conference_name
-             WHEN display_truth.normalized_level = 'MLB' THEN stage.current_org_or_conference_name
+             WHEN NULLIF(BTRIM(display_truth.org_name), '') IS NOT NULL THEN display_truth.org_name
              WHEN display_truth.is_on_40man IS TRUE THEN display_truth.forty_man_org_name
              WHEN team_org.org_name IS NOT NULL THEN team_org.org_name
              WHEN stage.current_team_name IS DISTINCT FROM display_truth.source_team_name THEN NULL
              ELSE stage.current_org_or_conference_name
+           END,
+           current_level_label = CASE
+             WHEN stage.last_transaction_applied_at IS NULL
+             THEN display_truth.normalized_level
+             ELSE stage.current_level_label
            END,
            level_label = CASE
              WHEN stage.last_transaction_applied_at IS NULL
@@ -498,9 +712,80 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
            stage_updated_at = NOW()
       FROM display_truth
       LEFT JOIN team_org ON team_org.team_key = LOWER(TRIM(display_truth.source_team_name))
+      LEFT JOIN public.team_id_map team_map
+        ON team_map.mlb_stats_api_id::text = display_truth.source_team_id::text
      WHERE stage.playerid::text = display_truth.playerid::text
   `, [JSON.stringify(mlbCurrent)]);
 
+  return result.rowCount ?? 0;
+}
+
+// The daily full-schedule ingest owns schedule acquisition. The 3-hour roster
+// sync owns card readiness. Once roster truth changes, immediately attach the
+// best game already present in team_schedules so a newly discovered player
+// does not wait for the next daily schedule run. Use MLB numeric team IDs,
+// which stay authoritative across display-name aliases and rebrands.
+async function refreshLoadedNextGames(): Promise<number> {
+  const result = await pool.query(`
+    WITH eligible_players AS (
+      SELECT f.ctid AS row_id, f.current_team_source_team_id
+      FROM public.flip_card_front_stage f
+      WHERE f.current_team_source = 'mlb_api'
+        AND f.current_team_source_team_id ~ '^[0-9]+$'
+        AND LOWER(TRIM(COALESCE(f.status_label, ''))) NOT IN ('retired', 'not active', 'free agent')
+        AND UPPER(TRIM(COALESCE(f.level_label, ''))) IN (
+          'MLB','AAA','TRIPLE-A','AA','DOUBLE-A','HIGH-A','A+','A','LOW-A','ROOKIE','ACL','FCL'
+        )
+    ),
+    resolved_next_games AS (
+      SELECT ep.row_id, ng.game_time_utc, ng.schedule_status, ng.home_away, ng.opponent
+      FROM eligible_players ep
+      JOIN LATERAL (
+        SELECT
+          ts.game_time_utc,
+          ts.status AS schedule_status,
+          CASE WHEN ts.away_team_id::text = ep.current_team_source_team_id THEN '@' ELSE 'vs.' END AS home_away,
+          CASE WHEN ts.away_team_id::text = ep.current_team_source_team_id THEN ts.home_team_name ELSE ts.away_team_name END AS opponent,
+          CASE
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) = 'in progress' THEN 1
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) = 'pre-game' THEN 2
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) IN ('delayed','warmup','manager challenge','review') THEN 3
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) = 'scheduled' THEN 4
+            ELSE 9
+          END AS status_priority
+        FROM public.team_schedules ts
+        WHERE ep.current_team_source_team_id IN (ts.home_team_id::text, ts.away_team_id::text)
+          AND LOWER(TRIM(COALESCE(ts.status, ''))) NOT IN ('final','game over','completed early','not necessary')
+          AND (
+            LOWER(TRIM(COALESCE(ts.status, ''))) IN ('pre-game','in progress','delayed','warmup','manager challenge','review')
+            OR (LOWER(TRIM(COALESCE(ts.status, ''))) = 'scheduled' AND ts.game_time_utc > NOW())
+          )
+        ORDER BY status_priority, ts.game_time_utc
+        LIMIT 1
+      ) ng ON TRUE
+    )
+    UPDATE public.flip_card_front_stage f
+       SET next_game_date = CASE
+             WHEN (rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'))::date =
+                  (NOW() AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'))::date
+             THEN 'TODAY | ' || TO_CHAR(rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'), 'FMMonth DD, YYYY')
+             ELSE TO_CHAR(rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'), 'FMDay | FMMonth DD, YYYY')
+           END,
+           next_game_time_local = TO_CHAR(
+             rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'),
+             'FMHH12:MI AM'
+           ),
+           next_game_time_utc = rng.game_time_utc,
+           next_game_home_away = rng.home_away,
+           next_game_opponent = rng.opponent,
+           next_game_status_label = CASE
+             WHEN LOWER(TRIM(COALESCE(rng.schedule_status, ''))) = 'scheduled' THEN 'NEXT GAME'
+             ELSE rng.schedule_status
+           END,
+           stage_updated_at = NOW()
+      FROM resolved_next_games rng
+     WHERE f.ctid = rng.row_id
+  `);
   return result.rowCount ?? 0;
 }
 
@@ -702,6 +987,19 @@ async function main() {
   try {
     await ensureStageColumns();
 
+    const baseline = await ensureLatestMatchedPlayersInStage();
+    const mappings = await ensureCurrentProTeamMappings();
+    console.log(
+      `MLB stage baseline: ${baseline.created} new rows from ${baseline.eligible} currently missing matched cards`
+    );
+    console.log(
+      `Team-id mapping refresh: ${mappings.exactInserted} exact additions, ${mappings.aliasInserted} verified aliases, ` +
+        `${mappings.unresolved.length} current source teams still unresolved`
+    );
+    for (const gap of mappings.unresolved) {
+      console.log(`  unresolved team map: MLB ${gap.mlb_id} ${gap.team_name} [${gap.level ?? "unknown"}]`);
+    }
+
     const matchedIds = await linkedMlbIds();
     const mlbCurrent = await fetchMlbCurrent(matchedIds);
     console.log(
@@ -711,10 +1009,12 @@ async function main() {
 
     const updated = await refreshStage(mlbCurrent);
     const departed = await applyDepartures(mlbCurrent);
+    const scheduled = await refreshLoadedNextGames();
     const absences = await flagRosterAbsences();
 
     console.log(`Updated flip_card_front_stage rows: ${updated}`);
     console.log(`Departed (retired/released per MLB roster entries): ${departed}`);
+    console.log(`Loaded next-game assignments refreshed by MLB team ID: ${scheduled}`);
     console.log(
       `Roster-absence pass: ${absences.reappeared} reappeared (clock cleared), ` +
         `${absences.firstMiss} first miss (clock started), ` +
