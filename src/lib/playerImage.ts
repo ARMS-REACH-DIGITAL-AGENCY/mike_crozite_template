@@ -123,6 +123,46 @@ export function getPlayerNowThumbUrl(imageId: string): string {
   return `${S3_BASE}/players/now-thumb/${imageId}.webp`;
 }
 
+export const PLAYER_HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
+
+/** MLB people IDs must come from the verified identity crosswalk, never a name search. */
+export function getMlbHeadshotUrl(mlbPlayerId: string, kind: '67' | 'milb' = '67'): string {
+  const id = String(mlbPlayerId || '').trim();
+  return /^\d+$/.test(id)
+    ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_400,q_auto:good/v1/people/${id}/headshot/${kind}/current`
+    : '';
+}
+
+/**
+ * Current headshots for the player gallery, best first. The MLB importer
+ * writes now/ before the separate cutout/WebP jobs run, so a missing derived
+ * copy must not hide an already available headshot. These are all current
+ * images of this player; HS card fronts and back-card action photos keep
+ * their own image-role rules.
+ */
+export function getPlayerHeadshotSources(playerId: string, headshotUrl?: string | null): string[] {
+  const id = String(playerId || '').trim();
+  const supplied = String(headshotUrl || '').trim();
+  const headshot = /^(?:null|undefined)$/i.test(supplied) ? '' : supplied;
+  if (!id) return [...new Set([headshot, PLAYER_HEADSHOT_FALLBACK_URL].filter(Boolean))];
+
+  const imageId = encodeURIComponent(id);
+  const cutout = `${S3_BASE}/players/now-cutouts/${imageId}.png`;
+  const thumbnail = getPlayerNowThumbUrl(imageId);
+  const original = getPlayerNowImageUrl(imageId);
+  const originalPng = `${S3_BASE}/players/now/${imageId}.png`;
+  const official = headshot.match(/^https:\/\/img\.mlbstatic\.com\/mlb-photos\/image\/upload\/[^/]+\/v1\/people\/(\d+)\/headshot\/(67|milb)\/current$/);
+  // The shell initially supplies now/ and the card may supply now-thumb/.
+  // Neither is a separate designated image; keep the optimized copy first.
+  const designated = !official && ![cutout, original, originalPng, thumbnail, PLAYER_HEADSHOT_FALLBACK_URL].includes(headshot) ? headshot : '';
+  // An approved contribution owns the slot. Existing current photos also
+  // precede a newly discovered official image; the MLB source only fills a gap.
+  const officialSources = official
+    ? [headshot, getMlbHeadshotUrl(official[1], official[2] === '67' ? 'milb' : '67')]
+    : [];
+  return [...new Set([designated, cutout, thumbnail, original, originalPng, ...officialSources, PLAYER_HEADSHOT_FALLBACK_URL].filter(Boolean))];
+}
+
 /**
  * Photos for a news card, best first. A story's publisher image is used only
  * when verification confirmed it shows our player (display_image_url set to
@@ -218,8 +258,26 @@ function normalizeHandedness(value: unknown): "L" | "R" | "" {
   return "";
 }
 
+/**
+ * A documented field position is more reliable than the latest-stat-type flag.
+ * A player who is a pitcher can have batting stats, and stage-only rows may
+ * have no is_pitcher flag at all.
+ */
+function pitcherFromPosition(value: unknown): boolean | null {
+  if (typeof value !== "string") return null;
+  const position = value.trim().toUpperCase();
+  if (!position || position === "UNKNOWN" || position === "-" || position === "--") return null;
+  return /(?:^|[^A-Z])(?:P|SP|RP|LHP|RHP|PITCHER)(?=$|[^A-Z])/.test(position);
+}
+
+function trueFlag(value: unknown): boolean {
+  return value === true || value === 1 ||
+    (typeof value === "string" && /^(?:true|t|1|yes|y)$/i.test(value.trim()));
+}
+
 export interface ThenSilhouetteInput {
-  isPitcher?: boolean;
+  isPitcher?: unknown;
+  position?: unknown;
   bats?: unknown;
   throws?: unknown;
 }
@@ -236,10 +294,14 @@ export interface ThenSilhouetteInput {
  * - Batter + bats right    -> /img/batter_right_silhouette.jpg
  * - Batter + bats left     -> /img/batter_left_silhouette.jpg
  *
- * Unknown handedness falls back to right-handed by role because that avoids empty cards.
+ * Position takes precedence over isPitcher (a latest-stat-type flag).
+ * Unknown position uses isPitcher; unknown/switch batting handedness and
+ * unknown throwing handedness use a right-handed placeholder, not a blank card.
  */
 export function getThenSilhouetteUrl(input: boolean | ThenSilhouetteInput): string {
-  const isPitcher = typeof input === "boolean" ? input : input.isPitcher === true;
+  const isPitcher = typeof input === "boolean"
+    ? input
+    : pitcherFromPosition(input.position) ?? trueFlag(input.isPitcher);
   const bats = typeof input === "boolean" ? "" : normalizeHandedness(input.bats);
   const throwsHand = typeof input === "boolean" ? "" : normalizeHandedness(input.throws);
 

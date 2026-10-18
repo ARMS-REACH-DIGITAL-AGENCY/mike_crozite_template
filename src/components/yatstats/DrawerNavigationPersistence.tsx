@@ -97,8 +97,6 @@ function showSectionWithoutClosing(tabId: string) {
       fantasy: 'FANTASY BRACKET TOURNEY',
       mentor: 'CONNECT & CONTRIBUTE PORTAL',
       partner: 'PARTNERSHIP PROGRAM',
-      about: 'ABOUT US',
-      faq: "FAQ'S",
     };
     sectionLabel.textContent = labels[key] || key.toUpperCase();
   }

@@ -65,10 +65,29 @@ export const GALLERY_STATUS_OPTIONS = [
 // organization status (the fantasy Stat Ledger's rosters).
 export const ROSTER_STATUSES: readonly string[] = ['ACTIVE', ...INJURED_STATUSES, ...MLB_ORG_STATUSES];
 
-// What the gallery shows on first load and after a reset: the roster, plus
-// every alumnus whose status we don't know yet (UNKNOWN). Nobody we know of
-// is left off the page for a missing status.
-export const ACTIVE_GALLERY_STATUSES: readonly string[] = [...ROSTER_STATUSES, 'UNKNOWN'];
+// Owner-approved Active Alumni first-paint preset and membership contract:
+// ACTIVE, injured, MLB organization roster states, and both redshirt statuses.
+// Historical/admin statuses remain available in the drawer but are unchecked.
+export const ACTIVE_GALLERY_STATUSES: readonly string[] = [
+  'ACTIVE',
+  ...INJURED_STATUSES,
+  'ADMINISTRATIVE LEAVE',
+  'BEREAVEMENT LIST',
+  'DEVELOPMENT LIST',
+  'INELIGIBLE LIST',
+  'MILITARY LEAVE',
+  'NOT YET REPORTED',
+  'OPTIONED',
+  'PATERNITY LIST',
+  'REASSIGNED TO MINORS',
+  'REHAB ASSIGNMENT',
+  'RESERVE LIST (MINORS)',
+  'RESTRICTED LIST',
+  'SUSPENDED',
+  'TEMPORARILY INACTIVE LIST',
+  'RED SHIRT',
+  'REDSHIRT-MEDICAL',
+];
 
 // A missing status reads as UNKNOWN, the same as the database loader.
 export function normalizeGalleryStatus(value: unknown): string {

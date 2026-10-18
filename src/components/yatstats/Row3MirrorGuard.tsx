@@ -1,12 +1,11 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
-import { getOriginalForCardCopy } from '@/lib/playerImage';
+import { getOriginalForCardCopy, getPlayerHeadshotSources, PLAYER_HEADSHOT_FALLBACK_URL } from '@/lib/playerImage';
+import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 const UNCOMMITTED_BADGE_URL = '/img/uncommitted.jpg';
-const HEADSHOT_FALLBACK_URL = '/img/headshot-silhouette.png';
-const PLAYER_NOW_CUTOUT_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts';
 
 function getVisibleSectionKey(): string {
   const visibleSection = Array.from(document.querySelectorAll<HTMLElement>('.yat-section.visible'))
@@ -23,6 +22,9 @@ function getVisibleSectionKey(): string {
 function isCardVisible(card: HTMLElement): boolean {
   const wrapper = card.closest<HTMLElement>('[data-player-card-wrap="true"]');
 
+  // Row 3 is a visual mirror of the visible gallery, exactly like the
+  // 2027 Current Team rail. Membership belongs to the gallery/filter layer;
+  // Row 3 must not impose a second "has 2026 stats" eligibility rule.
   return !card.hidden
     && card.style.display !== 'none'
     && (!wrapper || (!wrapper.hidden && wrapper.style.display !== 'none'));
@@ -57,8 +59,8 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
   }
 
   return {
-    src: `${PLAYER_NOW_CUTOUT_BASE}/${encodeURIComponent(String(card.dataset.playerid || '').trim())}.png`,
-    fallback: HEADSHOT_FALLBACK_URL,
+    src: getPlayerHeadshotSources(String(card.dataset.playerid || ''), card.dataset.thumbnailNow)[0],
+    fallback: PLAYER_HEADSHOT_FALLBACK_URL,
   };
 }
 
@@ -96,21 +98,6 @@ function wireSyntheticSlot(slot: HTMLElement) {
     slot.setAttribute('aria-current', 'true');
     alignPlayerBelowRow3(card);
   });
-
-  const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
-  if (image && image.dataset.row3SyntheticErrorWired !== 'true') {
-    image.dataset.row3SyntheticErrorWired = 'true';
-    image.addEventListener('error', () => {
-      // configureSlot's onerror (set on every slot, and it runs first) owns
-      // the fallback chain, including trying the original photo; acting
-      // here too would overwrite what it just chose.
-      if (image.onerror) return;
-      const fallback = clean(image.dataset.guardFallbackSrc);
-      if (!fallback || image.dataset.guardFallbackApplied === 'true') return;
-      image.dataset.guardFallbackApplied = 'true';
-      image.src = fallback;
-    });
-  }
 }
 
 function createSyntheticSlot(template: HTMLElement | null): HTMLElement {
@@ -165,6 +152,7 @@ function configureSlot(
   slot.removeAttribute('data-default-hidden');
   slot.setAttribute('href', `#player-${encodeURIComponent(playerId)}`);
   slot.setAttribute('title', playerName || `Player ${playerId}`);
+  slot.setAttribute('aria-label', playerName || `Player ${playerId}`);
 
   if (slot.hidden) slot.hidden = false;
   if (slot.style.display === 'none') slot.style.display = '';
@@ -176,45 +164,53 @@ function configureSlot(
 
   const image = slot.querySelector<HTMLImageElement>('.gallery-slot-img');
   if (image) {
-    // Only (re)point the image when the photo this slot should show has
-    // actually changed (different player or tab). This sync re-runs on
-    // every src change in the strip, so it used to see a slot sitting on
-    // its fallback silhouette, "correct" it back to the missing photo, and
-    // loop -- fail, silhouette, reset, fail -- every frame for every
-    // player without a photo: the flashing row 3 slots, and a silhouette
-    // that never stayed put.
-    const desiredChanged = image.dataset.guardDesiredSrc !== src;
-    image.alt = playerName || `Player ${playerId}`;
-    image.dataset.guardDesiredSrc = src;
-    image.dataset.guardFallbackSrc = fallback;
-    if (desiredChanged) image.dataset.guardFallbackApplied = '';
+    // The link already names the player. Empty alt also prevents a failed
+    // pre-hydration image from drawing his name inside the small circle.
+    image.alt = isCurrent ? playerName || `Player ${playerId}` : '';
     image.classList.toggle('gallery-slot-img--contain', isCurrent);
-
-    image.onerror = () => {
-      // A card-size copy that hasn't been made yet: try the original photo
-      // before the generic fallback.
-      const original = isCurrent ? getOriginalForCardCopy(image.getAttribute('src')) : '';
-      if (original) {
-        image.setAttribute('src', original);
-        return;
-      }
-      const guardedFallback = clean(image.dataset.guardFallbackSrc);
-      if (guardedFallback && image.getAttribute('src') !== guardedFallback) {
-        image.setAttribute('src', guardedFallback);
-      }
-    };
-    // It may have failed before this handler existed (a team logo's WebP
-    // copy that the converter hasn't built yet fails fast): catch up now.
-    if (image.getAttribute('src') && image.complete && image.naturalWidth === 0) {
-      image.onerror(new Event('error'));
-    }
-
     image.loading = 'lazy';
     image.decoding = 'async';
-    if (src && desiredChanged && image.getAttribute('src') !== src) {
-      image.dataset.extensionFallbackApplied = 'true';
-      image.dataset.fallbackApplied = 'true';
-      image.setAttribute('src', src);
+
+    if (!isCurrent) {
+      // A synthetic tile can later be reused for a current-team logo.
+      // That transition must restore the logo even if it was shown earlier.
+      delete image.dataset.guardDesiredSrc;
+      syncPlayerHeadshot(image, playerId, card.dataset.thumbnailNow);
+    } else {
+      if (image.dataset.headshotManaged === 'true' && image.style.visibility === 'hidden') {
+        image.style.visibility = '';
+      }
+      delete image.dataset.headshotManaged;
+      // Preserve the existing team-logo fallback. Only reset it when the
+      // desired logo changes, never because its fallback is displayed.
+      const desiredChanged = image.dataset.guardDesiredSrc !== src;
+      image.dataset.guardDesiredSrc = src;
+      image.dataset.guardFallbackSrc = fallback;
+      if (desiredChanged) image.dataset.guardFallbackApplied = '';
+
+      image.onerror = () => {
+        // A card-size copy that hasn't been made yet: try the original logo
+        // before the generic fallback.
+        const original = getOriginalForCardCopy(image.getAttribute('src'));
+        if (original) {
+          image.setAttribute('src', original);
+          return;
+        }
+        const guardedFallback = clean(image.dataset.guardFallbackSrc);
+        if (guardedFallback && image.getAttribute('src') !== guardedFallback) {
+          image.setAttribute('src', guardedFallback);
+        }
+      };
+      // A missing team-logo copy may have failed before this handler existed.
+      if (image.getAttribute('src') && image.complete && image.naturalWidth === 0) {
+        image.onerror(new Event('error'));
+      }
+
+      if (src && desiredChanged && image.getAttribute('src') !== src) {
+        image.dataset.extensionFallbackApplied = 'true';
+        image.dataset.fallbackApplied = 'true';
+        image.setAttribute('src', src);
+      }
     }
   }
 

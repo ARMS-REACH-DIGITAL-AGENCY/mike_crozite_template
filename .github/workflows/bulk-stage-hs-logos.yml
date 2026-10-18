@@ -1,0 +1,107 @@
+name: Bulk Stage HS Logos - One Click
+
+# Separate workflow; never publishes to live schools/ and never merges code.
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: "Maximum schools per job (1-100). Leave at 100."
+        required: true
+        default: "100"
+        type: number
+
+permissions:
+  contents: read
+
+# Prevent duplicate large runs from claiming the same unprocessed school IDs.
+concurrency:
+  group: hs-logo-staging-bulk
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      batch_count: ${{ steps.plan.outputs.batch_count }}
+      remaining: ${{ steps.plan.outputs.remaining }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      BATCH_SIZE: ${{ inputs.batch_size }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Unit tests
+        run: python -m unittest discover -s tests -p 'test_hs_logo*.py' -v
+      - name: Validate credentials and batch limit
+        run: |
+          test -n "$DATABASE_URL" && test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY"
+          case "$BATCH_SIZE" in ''|*[!0-9]*) echo "Invalid batch size"; exit 1;; esac
+          test "$BATCH_SIZE" -ge 1 && test "$BATCH_SIZE" -le 100
+      - name: Snapshot missing-school manifest and create work batches
+        id: plan
+        run: python scripts/plan_hs_logo_batches.py --batch-size "$BATCH_SIZE"
+      - name: Save full manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: hs-logos-bulk-manifest
+          path: bulk_logo_plan.json
+  stage-and-verify:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.batch_count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      BATCH_HSIDS: ${{ matrix.hsids }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Collect candidates to isolated S3 staging only
+        run: |
+          python scripts/fetch_hs_logos_expanded.py --mode stage --limit 100 --hsids "$BATCH_HSIDS"
+      - name: Verify each new S3 object (canonical ID, alpha, source, checksum)
+        id: verify
+        if: always()
+        run: |
+          if test -f logo_report.csv; then
+            python scripts/verify_hs_logo_staging.py --report logo_report.csv --limit 100
+          else
+            echo "Batch did not produce a report. Review this job."
+            exit 1
+          fi
+      - name: Save per-batch reports, even on failed runs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-batch-${{ matrix.batch }}
+          if-no-files-found: ignore
+          retention-days: 90
+          path: |
+            fetch_logos.log
+            logo_report.csv
+            logo_review.html
+            logo_verification.csv
+            logo_verification_review.html
+
+# GitHub Actions marks the overall run complete after all matrix jobs finish.
+# A failed job is visible individually. Re-run the whole workflow to resume:
+# existing staged candidate objects are skipped and missing ones retried.
