@@ -48,6 +48,41 @@ const query=async (sql,params=[])=>{
   assert.equal(urls.get('111'),'https://lincoln-111.ca.yatstats.com');
   assert.equal(urls.get('112'),'https://lincoln-112.ca.yatstats.com');
   assert.equal(urls.get('887'),'https://hillsboro-887.or.yatstats.com');
+  // Invalid and oversized IDs must remain no-match inputs, never PostgreSQL
+  // integer-cast errors or a reason to run the expensive player-link lookup.
+  let invalidCalls=0;
+  const invalidUrls=await routing.canonicalSchoolUrls([
+    '', '0', '-1', '01', '1.5', '2147483648', '9'.repeat(300), NaN, Infinity,
+  ],async()=>{invalidCalls++;throw Error('Invalid IDs must not reach SQL');});
+  assert.equal(invalidUrls.size,0);
+  assert.equal(invalidCalls,0);
+  const mixedCalls=[];
+  const mixedUrls=await routing.canonicalSchoolUrls([
+    5004, '5004', '4', '2147483647', '2147483648', '9'.repeat(300),
+  ],async(sql,params)=>{mixedCalls.push({sql,params});return query(sql,params);});
+  assert.deepEqual(Array.from(mixedCalls[0].params[0]),['5004','4','2147483647']);
+  assert.equal(mixedUrls.get('5004'),urls.get('5004'));
+  assert.equal(mixedUrls.get('4'),urls.get('4'));
+  assert.equal(mixedUrls.has('2147483647'),false,'An unmatched ID must not gain a generated URL.');
+  // A single requested school still sees collisions with unrequested schools.
+  const oneCollision=await routing.canonicalSchoolUrls(['111'],query);
+  assert.equal(oneCollision.get('111'),'https://lincoln-111.ca.yatstats.com');
+  // URL enrichment must handle the complete statewide list, including IDs
+  // without player links, rather than truncating results to a 30-row page.
+  const statewideIds=Array.from({length:207},(_,i)=>String(20000+i));
+  const statewideCalls=[];
+  const statewideUrls=await routing.canonicalSchoolUrls(statewideIds,async(sql,params)=>{
+    statewideCalls.push({sql,params});
+    if(sql.includes('same_state_name_count')) return {rows:statewideIds.slice(0,-1).map(id=>({
+      hsid:id,name_slug:`school-${id}`,regionid:'AZ',existing:null,same_state_name_count:1,
+    }))};
+    return {rows:[]};
+  });
+  assert.equal(statewideCalls.length,2,'One batch lookup and one claimed-host check.');
+  assert.deepEqual(Array.from(statewideCalls[0].params[0]),statewideIds);
+  assert.equal(statewideUrls.size,206);
+  assert.equal(statewideUrls.get('20205'),'https://school-20205.az.yatstats.com');
+  assert.equal(statewideUrls.has('20206'),false,'Only player-linked rows may receive URLs.');
   for(const [url,id] of [
     ['hamilton.az.yatstats.com','5004'],
     ['5004.yatstats.com','5004'],
@@ -77,5 +112,5 @@ const query=async (sql,params=[])=>{
   assert.ok(html.includes('href="https://lincoln-111.ca.yatstats.com"'), 'collision must link uniquely');
   assert.equal((html.match(/yat-search-school-bracket-link"/g)||[]).length,1,'only seeded Hamilton gets bracket');
   assert.ok(!html.includes('SCHOOL PAGE NOT AVAILABLE YET'),'active schools must not appear unavailable');
-  console.log('PASS hostname resolution, canonical collisions, existing domains, numeric aliases, and Global Search links.');
+  console.log('PASS hostname resolution, canonical collisions, existing domains, safe integer IDs, complete statewide URL batches, numeric aliases, and Global Search links.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

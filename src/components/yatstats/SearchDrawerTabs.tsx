@@ -182,8 +182,17 @@ function favoriteButtonHtml(player: any, name: string) {
   `;
 }
 
-export function renderSchoolRows(programs: any[], emptyText: string, includeBracketLinks = false, viewOnly = false) {
+export function renderSchoolRows(
+  programs: any[],
+  emptyText: string,
+  includeBracketLinks = false,
+  viewOnly = false,
+  options: { globalSearch?: boolean } = {},
+) {
   if (!programs.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
+  // Contribute's picker and the post-upload crest review share this renderer.
+  // Opt in only for normal Global Search results so those approved rows stay intact.
+  const globalSearch = options.globalSearch === true && !viewOnly;
 
   const grouped = new Map<string, any[]>();
   programs.forEach((s) => {
@@ -208,18 +217,25 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         const hasSchoolDestination = Boolean(String(school.microsite_url || school.micrositeUrl || '').trim());
         const bracketEligible = school.bracket_eligible === true || school.bracket_eligible === 'true';
         const unavailable = viewOnly || !hasSchoolDestination;
+        const microsite = String(school.microsite_url || school.micrositeUrl || '').trim();
+        const displayUrl = microsite.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+        const displayUrlHtml = esc(displayUrl).replace(/\./g, '.<wbr>');
+        const globalClass = globalSearch ? ' yat-search-school-global-card' : '';
         const meta = `data-school-id="${esc(hsid)}" data-school-name="${esc(name)}" data-school-location="${esc(location)}"`;
         const crestImg = `<img src="${esc(crest)}" alt="" loading="lazy" decoding="async" class="yat-search-thumb yat-search-school-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />`;
         const identity = `
           <span class="yat-search-row-text yat-search-school-identity">
             ${location ? `<small class="yat-search-school-location">${esc(location)}</small>` : ''}
             <strong>${esc(name)}</strong>
-            <small class="yat-search-school-status">${esc(activeCount)} ACTIVE ALUMNI${unavailable ? ' · SCHOOL PAGE NOT AVAILABLE YET' : ''}</small>
+            ${globalSearch
+              ? `${hasSchoolDestination ? `<small class="yat-search-school-url">${displayUrlHtml}</small>` : '<small class="yat-search-school-status">SCHOOL PAGE NOT AVAILABLE YET</small>'}`
+              : `<small class="yat-search-school-status">${esc(activeCount)} ACTIVE ALUMNI${unavailable ? ' · SCHOOL PAGE NOT AVAILABLE YET' : ''}</small>`}
           </span>
         `;
+        const count = globalSearch ? `<span class="yat-search-school-count"><strong>${esc(activeCount)}</strong><small>ACTIVE<br />ALUMNI</small></span>` : '';
 
         if (includeBracketLinks && hasSchoolDestination && bracketEligible && !viewOnly) return `
-          <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card" ${meta}>
+          <div class="yat-search-card yat-search-school-card yat-search-school-bracket-card${globalClass}" ${meta}>
             <div class="yat-search-school-topline">
               <a class="yat-search-school-crest-link yat-search-school-gallery-crest-link" href="${esc(schoolSectionUrl(school, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
                 ${crestImg}
@@ -227,6 +243,7 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
               <a class="yat-search-school-gallery-link" href="${esc(schoolSectionUrl(school, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
                 ${identity}
               </a>
+              ${count}
               <a class="yat-search-school-bracket-link" href="${esc(schoolSectionUrl(school, 'fantasy'))}" title="${esc(name)} fantasy bracket · Starts February 1st" aria-label="Open ${esc(name)} fantasy bracket tournament. Starts February 1st.">
                 <span class="yat-bracket-symbol" aria-hidden="true"></span>
               </a>
@@ -238,10 +255,11 @@ export function renderSchoolRows(programs: any[], emptyText: string, includeBrac
         // The school picker and post-upload crest review also remain view-only.
         const tag = unavailable ? 'div' : 'a';
         return `
-          <${tag} class="yat-search-card yat-search-school-card" ${unavailable ? '' : `href="${esc(schoolUrl(school))}"`} ${meta}>
+          <${tag} class="yat-search-card yat-search-school-card${globalClass}" ${unavailable ? '' : `href="${esc(schoolUrl(school))}"`} ${meta}>
             <div class="yat-search-school-topline">
               <span class="yat-search-school-crest-link" aria-hidden="true">${crestImg}</span>
               ${identity}
+              ${count}
             </div>
           </${tag}>
         `;
@@ -507,75 +525,158 @@ export default function SearchDrawerTabs() {
       input.closest('.yat-gs-input-wrap')?.insertAdjacentElement('afterend', tabs);
     }
 
-    let mode: SearchMode = 'name';
+    const modeButtons = Array.from(drawer.querySelectorAll<HTMLButtonElement>('[data-search-mode]'));
+    const selectedMode = modeButtons.find((button) => button.classList.contains('active'))?.dataset.searchMode;
+    let mode: SearchMode = selectedMode === 'school' || selectedMode === 'team' ? selectedMode : 'name';
     let timer: ReturnType<typeof setTimeout> | null = null;
     let requestId = 0;
+    let controller: AbortController | null = null;
+    let disposed = false;
+    let intendedKey: string | null = null;
+    let phase: 'idle' | 'waiting' | 'loading' | 'ready' | 'error' = 'idle';
+    const cache = new Map<string, { data: any; expiresAt: number }>();
+    const cacheLifetimeMs = 30_000;
+    const cacheLimit = 24;
+    const debounceMs = 90;
+    const status = document.createElement('div');
+    status.className = 'yat-search-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.hidden = true;
+    results.insertAdjacentElement('beforebegin', status);
 
-    const renderLoading = () => {
-      results.innerHTML = '<div class="yat-search-empty">Searching...</div>';
+    const isCurrent = (id: number) => !disposed && id === requestId;
+    const searchKey = (searchMode: SearchMode, q: string) => `${searchMode}\u0000${q}`;
+    const setStatus = (message = '') => {
+      status.textContent = message;
+      status.hidden = !message;
+      results.setAttribute('aria-busy', String(Boolean(message)));
     };
 
-    async function runSearch() {
-      const q = input.value.trim();
-      const thisRequest = ++requestId;
-
-      if (!q) {
-        results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
-    // After a crest upload, open Global Search at the exact TBC school.
-    const uploadedSchoolId = new URLSearchParams(window.location.search).get('schoolSearch');
-    if (uploadedSchoolId && /^\d+$/.test(uploadedSchoolId)) {
-      document.body.classList.add('drawer-open', 'drawer-left-open', 'yat-left-search-mode');
-      setMode('school');
-      input.value = '';
-      const lookupRequest = ++requestId;
-      results.innerHTML = '<div class="yat-search-empty">Loading uploaded school crest...</div>';
-      fetchJson(`/api/schools/search?hsid=${encodeURIComponent(uploadedSchoolId)}`)
-        .then((data) => {
-          if (lookupRequest !== requestId) return;
-          const schools = Array.isArray(data.programs) ? data.programs : [];
-          results.innerHTML = renderSchoolRows(schools, 'School not found in Global Search.', false, true);
-          if (schools[0]) input.value = String(schools[0].hsname || '');
-        })
-        .catch(() => { if (lookupRequest === requestId) results.innerHTML = '<div class="yat-search-empty">Unable to load the school. Search by name.</div>'; });
+    function invalidateSearch() {
+      // Invalidate at the keystroke, before the debounce delay. An older response
+      // may still resolve after abort and must never render under a newer query.
+      requestId += 1;
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      controller?.abort();
+      controller = null;
+      return requestId;
     }
 
+    function readCache(key: string) {
+      const now = Date.now();
+      for (const [entryKey, entry] of cache) {
+        if (entry.expiresAt <= now) cache.delete(entryKey);
+      }
+      const entry = cache.get(key);
+      if (entry) {
+        cache.delete(key);
+        cache.set(key, entry);
+      }
+      return entry;
+    }
+
+    function writeCache(key: string, data: any) {
+      cache.delete(key);
+      cache.set(key, { data, expiresAt: Date.now() + cacheLifetimeMs });
+      while (cache.size > cacheLimit) cache.delete(cache.keys().next().value!);
+    }
+
+    async function loadSearch(url: string, signal: AbortSignal) {
+      // Keep the shared Contribute fetch helper unchanged. Global Search must
+      // distinguish an API failure from a successful search with no matches.
+      const response = await fetch(url, { cache: 'no-store', signal });
+      if (!response.ok) throw new Error(`Search returned ${response.status}`);
+      return response.json();
+    }
+
+    function renderData(searchMode: SearchMode, data: any) {
+      if (searchMode === 'school') {
+        results.innerHTML = renderSchoolRows(Array.isArray(data.programs) ? data.programs : [], 'No school matches.', true, false, { globalSearch: true });
+      } else {
+        results.innerHTML = searchMode === 'name'
+          ? renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.')
+          : renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
+        void hydrateFavoriteButtons(results);
+      }
+      phase = 'ready';
+      setStatus();
+    }
+
+    async function runSearch(q: string, searchMode: SearchMode, key: string, id: number) {
+      if (!isCurrent(id)) return;
+      const activeController = new AbortController();
+      controller = activeController;
+      phase = 'loading';
+      const endpoint = searchMode === 'name' ? 'players' : searchMode === 'school' ? 'schools' : 'teams';
+      const limit = searchMode === 'name' ? 200 : searchMode === 'school' ? 30 : 75;
+      try {
+        const data = await loadSearch(`/api/${endpoint}/search?q=${encodeURIComponent(q)}&limit=${limit}`, activeController.signal);
+        if (!isCurrent(id) || activeController.signal.aborted) return;
+        writeCache(key, data);
+        renderData(searchMode, data);
+      } catch {
+        if (!isCurrent(id) || activeController.signal.aborted) return;
+        phase = 'error';
+        setStatus();
+        results.innerHTML = '<div class="yat-search-empty" role="alert">Search failed. Try again.</div>';
+      } finally {
+        if (controller === activeController) controller = null;
+      }
+    }
+
+    function requestSearch(immediate = false) {
+      if (disposed) return;
+      const q = input.value.trim();
+      const key = searchKey(mode, q);
+      if (key === intendedKey && phase !== 'error') {
+        // Enter can flush a pending debounce, but input/search/keyup events for
+        // the same query must not restart a request or rebuild focused results.
+        if (immediate && timer !== null) {
+          clearTimeout(timer);
+          timer = null;
+          void runSearch(q, mode, key, requestId);
+        }
         return;
       }
 
-      renderLoading();
+      const id = invalidateSearch();
+      intendedKey = key;
+      if (!q) {
+        phase = 'idle';
+        setStatus();
+        results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
+        return;
+      }
 
-      try {
-        if (mode === 'name') {
-          const data = await fetchJson(`/api/players/search?q=${encodeURIComponent(q)}&limit=200`);
-          if (thisRequest !== requestId) return;
-          results.innerHTML = renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.');
-          hydrateFavoriteButtons(results);
-          return;
-        }
+      const cached = readCache(key);
+      if (cached) {
+        renderData(mode, cached.data);
+        return;
+      }
 
-        if (mode === 'school') {
-          const data = await fetchJson(`/api/schools/search?q=${encodeURIComponent(q)}&limit=30`);
-          if (thisRequest !== requestId) return;
-          results.innerHTML = renderSchoolRows(Array.isArray(data.programs) ? data.programs : [], 'No school matches.', true);
-          return;
-        }
-
-        const data = await fetchJson(`/api/teams/search?q=${encodeURIComponent(q)}&limit=75`);
-        if (thisRequest !== requestId) return;
-        results.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
-        hydrateFavoriteButtons(results);
-      } catch {
-        if (thisRequest === requestId) results.innerHTML = '<div class="yat-search-empty">Search failed. Try again.</div>';
+      phase = 'waiting';
+      // Keep the last complete rows in place while the new query is pending.
+      // This status is separate so fast typing does not repeatedly wipe the list.
+      setStatus(`Searching for “${q}”…`);
+      const searchMode = mode;
+      if (immediate) {
+        void runSearch(q, searchMode, key, id);
+      } else {
+        timer = setTimeout(() => {
+          timer = null;
+          void runSearch(q, searchMode, key, id);
+        }, debounceMs);
       }
     }
 
-    const setMode = (next: SearchMode) => {
+    function updateMode(next: SearchMode) {
       mode = next;
-      drawer.querySelectorAll<HTMLElement>('[data-search-mode]').forEach((button) => {
+      modeButtons.forEach((button) => {
         button.classList.toggle('active', button.dataset.searchMode === next);
       });
-      runSearch();
-    };
+    }
 
     function scheduleSearch(event?: Event) {
       if (event && event.target !== input) return;
@@ -585,25 +686,23 @@ export default function SearchDrawerTabs() {
       event?.preventDefault?.();
       event?.stopPropagation?.();
       event?.stopImmediatePropagation?.();
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(runSearch, 180);
+      requestSearch(event instanceof KeyboardEvent);
     }
 
     drawer.addEventListener('input', scheduleSearch, true);
     drawer.addEventListener('keyup', scheduleSearch, true);
     drawer.addEventListener('search', scheduleSearch, true);
 
-    drawer.querySelectorAll<HTMLButtonElement>('[data-search-mode]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        const next = button.dataset.searchMode as SearchMode;
-        if (next) setMode(next);
-      }, true);
-    });
-
-    results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
+    const onModeClick = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const next = (event.currentTarget as HTMLButtonElement).dataset.searchMode;
+      if (next !== 'name' && next !== 'school' && next !== 'team') return;
+      updateMode(next);
+      requestSearch(true);
+    };
+    modeButtons.forEach((button) => button.addEventListener('click', onModeClick, true));
 
     const onResultsClick = (event: Event) => {
       const button = (event.target as HTMLElement)?.closest('.yat-search-fav-btn') as HTMLElement | null;
@@ -627,12 +726,52 @@ export default function SearchDrawerTabs() {
     };
     window.addEventListener('yat-auth-success', onAuthSuccess);
 
+    // Handle the crest handoff once at mount, rather than recursively entering
+    // an empty search whenever the fan clears the input.
+    const uploadedSchoolId = new URLSearchParams(window.location.search).get('schoolSearch');
+    if (uploadedSchoolId && /^\d+$/.test(uploadedSchoolId)) {
+      document.body.classList.add('drawer-open', 'drawer-left-open', 'yat-left-search-mode');
+      updateMode('school');
+      input.value = '';
+      const id = invalidateSearch();
+      intendedKey = `crest:${uploadedSchoolId}`;
+      phase = 'loading';
+      setStatus('Loading uploaded school crest…');
+      const activeController = new AbortController();
+      controller = activeController;
+      loadSearch(`/api/schools/search?hsid=${encodeURIComponent(uploadedSchoolId)}`, activeController.signal)
+        .then((data) => {
+          if (!isCurrent(id) || activeController.signal.aborted) return;
+          const schools = Array.isArray(data.programs) ? data.programs : [];
+          results.innerHTML = renderSchoolRows(schools, 'School not found in Global Search.', false, true);
+          if (schools[0]) input.value = String(schools[0].hsname || '');
+          phase = 'ready';
+          setStatus();
+        })
+        .catch(() => {
+          if (!isCurrent(id) || activeController.signal.aborted) return;
+          phase = 'error';
+          setStatus();
+          results.innerHTML = '<div class="yat-search-empty" role="alert">Unable to load the school. Search by name.</div>';
+        })
+        .finally(() => { if (controller === activeController) controller = null; });
+    } else {
+      updateMode(mode);
+      requestSearch(true);
+    }
+
     return () => {
+      disposed = true;
+      invalidateSearch();
+      cache.clear();
       drawer.removeEventListener('input', scheduleSearch, true);
       drawer.removeEventListener('keyup', scheduleSearch, true);
       drawer.removeEventListener('search', scheduleSearch, true);
+      modeButtons.forEach((button) => button.removeEventListener('click', onModeClick, true));
       results.removeEventListener('click', onResultsClick);
       window.removeEventListener('yat-auth-success', onAuthSuccess);
+      results.removeAttribute('aria-busy');
+      status.remove();
     };
   }, []);
 
@@ -643,6 +782,8 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn { min-height: 30px; padding: 5px 3px; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.04); color: var(--ink); font: 600 11px/1.2 var(--yat-font-ui); letter-spacing: 0; text-transform: none; cursor: pointer; }
       :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
       :is(#drawerLeft, #drawerContribute) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 var(--yat-font-ui); padding: 8px 0; }
+      #drawerLeft .yat-search-status { color: var(--muted); font: 400 12px/1.4 var(--yat-font-ui); padding: 4px 0; overflow-wrap: anywhere; }
+      #drawerLeft .yat-search-status[hidden] { display: none; }
       :is(#drawerLeft, #drawerContribute) .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
       :is(#drawerLeft, #drawerContribute) .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
       :is(#drawerLeft, #drawerContribute) .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
@@ -679,6 +820,12 @@ export default function SearchDrawerTabs() {
         font:400 9px/1.25 Oswald,sans-serif; letter-spacing:.02em;
         text-transform:uppercase; color:var(--muted); white-space:normal; overflow:visible;
       }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 40px; }
+      #drawerLeft .yat-search-school-global-card.yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 40px 34px; }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-url { font: 400 10px/1.25 var(--yat-font-ui); letter-spacing: 0; text-transform: none; color: var(--accent, #c8a96e); text-decoration: underline; text-underline-offset: 2px; white-space: normal; overflow-wrap: anywhere; }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-count { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; min-width: 0; text-align: center; }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-count strong { color: #00e08a; font: 800 24px/1 Oswald, sans-serif; }
+      #drawerLeft .yat-search-school-global-card .yat-search-school-count small { margin-top: 4px; color: var(--muted); font: 600 8px/1.15 Oswald, sans-serif; letter-spacing: .04em; }
       #drawerLeft .yat-search-school-bracket-link { display: flex; align-items: center; justify-content: center; width: 34px; height: 44px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); text-decoration: none; cursor: pointer; }
       #drawerLeft .yat-search-school-bracket-link .yat-bracket-symbol { width: 22px; height: 22px; }
       #drawerLeft .yat-search-school-bracket-link:is(:hover, :focus-visible) .yat-bracket-symbol { filter: drop-shadow(0 0 3px currentColor); transform: scale(1.1); }

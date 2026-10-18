@@ -44,14 +44,22 @@ export async function canonicalSchoolUrls(
   ids: Array<string | number>,
   run: SchoolQuery,
 ): Promise<Map<string, string>> {
-  const numericIds = [...new Set(ids.map(String).filter((x) => /^[1-9]\d*$/.test(x)))];
+  // HSIDs are PostgreSQL integers. Oversized numeric input previously matched
+  // no rows through text comparison; keep that behavior before casting the batch.
+  const numericIds = [...new Set(ids.map(String).filter((x) =>
+    /^[1-9]\d*$/.test(x) && Number(x) <= 2147483647))];
   if (!numericIds.length) return new Map();
   const slug = PG_NAME_SLUG('t');
   const otherSlug = PG_NAME_SLUG('other');
-  // Resolve name collisions once for the batch, not one master-table scan
-  // per result. This keeps the full production statewide result list intact.
+  // player_hsids expands a normalized player/school-name join. Materialize the
+  // requested linked IDs once so a correlated EXISTS cannot rescan all players
+  // for every result. Keep collision checks against the full master reference.
   const sql = `
-    WITH name_counts AS MATERIALIZED (
+    WITH linked_schools AS MATERIALIZED (
+      SELECT DISTINCT p.hsid
+        FROM public.player_hsids p
+       WHERE p.hsid = ANY($1::integer[])
+    ), name_counts AS MATERIALIZED (
       SELECT UPPER(other.regionid) AS region_key, ${otherSlug} AS name_slug,
              COUNT(*)::int AS same_state_name_count
         FROM public.tbc_schools_raw other
@@ -61,11 +69,11 @@ export async function canonicalSchoolUrls(
            t.regionid, ${slug} AS name_slug,
            COALESCE(n.same_state_name_count, 0) AS same_state_name_count
     FROM public.tbc_schools_raw t
+    JOIN linked_schools linked ON linked.hsid = t.hsid
     LEFT JOIN public.school_success s ON s.hsid = t.hsid
     LEFT JOIN name_counts n ON n.region_key = UPPER(t.regionid)
                           AND n.name_slug = ${slug}
-    WHERE t.hsid::text = ANY($1::text[])
-      AND EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+    WHERE t.hsid = ANY($1::integer[])
   `;
   const result = await run(sql, [numericIds]);
   const rows = result.rows;
