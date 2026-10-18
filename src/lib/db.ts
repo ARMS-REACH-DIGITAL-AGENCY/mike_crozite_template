@@ -2384,6 +2384,19 @@ export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardF
   return rows[0] || null;
 });
 
+// Share the same roster and flip-card database work between the school layout
+// and the homepage during a single React server render. Individually these
+// readers remain available to profile pages and other consumers. React cache
+// deduplicates the in-flight promise; persistent 10-minute caches remain the
+// responsibility of the underlying readers.
+export const getSchoolSharedRosterData = cache(async (hsid: string) => {
+  const [allTimeRoster, flipCardStage] = await Promise.all([
+    getAllTimeRosterByHsid(hsid),
+    getFlipCardFrontStageByHsid(hsid),
+  ]);
+  return { allTimeRoster, flipCardStage };
+});
+
 // ---------------------------------------------------------------------------
 // ROSTER TRUTH - resolved current team + transactions
 // ---------------------------------------------------------------------------
