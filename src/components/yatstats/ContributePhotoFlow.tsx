@@ -437,7 +437,7 @@ export default function ContributePhotoFlow({
                     <span className={`ypf-tag${i === 0 ? ' is-main' : ''}`} key={t.playerId}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={`${S3}/players/now/${encodeURIComponent(t.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
-                      <span><b>{t.displayName}</b>{i === 0 ? <small>{pick === 'team' ? 'Played for the team' : 'Main player'}</small> : <button type="button" className="ycd-link" onClick={() => makeMain(t.playerId)}>Make main</button>}</span>
+                      <span><b>{t.displayName}</b>{i === 0 ? <small>Main player</small> : <button type="button" className="ycd-link" onClick={() => makeMain(t.playerId)}>Make main</button>}</span>
                       <button type="button" className="ypf-tag-x" onClick={() => removeTag(t.playerId)} aria-label={`Remove ${t.displayName}`}>×</button>
                     </span>
                   ))}
