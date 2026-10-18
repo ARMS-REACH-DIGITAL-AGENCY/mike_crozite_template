@@ -20,11 +20,15 @@ import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
+import { parseTeamYear, teamYearCardOrder } from "@/lib/teamYearShare";
+import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
+import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
+import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
-import SchoolFaq from "@/components/yatstats/SchoolFaq";
+import PartnerProgramPage from "@/components/yatstats/PartnerProgramPage";
 
 export const runtime = "nodejs";
 
@@ -103,10 +107,10 @@ function hasReal2026Stats(p: Row): boolean {
   });
 }
 
-// A school's coach (status RETIRED - COACH) is listed at the high-school
-// level because he is on the school's staff, but he belongs in the alumni
-// grids (All-Time, and Active when his status is checked), not only the
-// current team.
+// No high school level card is on the alumni grids (All-Time, Active) except
+// a retired coach (RETIRED - COACH), listed at the high school level because
+// he was on the school's staff. A current coach (COACH) is on the high
+// school team only.
 function isCoachCard(p: Row | undefined): boolean {
   return String(p?.status_label ?? p?.status ?? "").trim().toUpperCase().includes("COACH");
 }
@@ -228,7 +232,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string }>;
+  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -286,6 +290,24 @@ export async function generateMetadata({
       }
     } catch {
       // fall through to player/school metadata
+    }
+  }
+
+  // A shared high school team (?team=2017): the All-Time list opens on that
+  // season, and the link preview names the team and asks where they're at.
+  const teamYear = parseTeamYear(qp?.team);
+  if (teamYear) {
+    try {
+      const hostBase = host ? `https://${host}` : canonicalUrl;
+      const { title, description, image: ogImageUrl } = await teamYearShareMeta(schoolHsid, name, teamYear, hostBase);
+      return {
+        title,
+        description,
+        openGraph: { title, description, images: [{ url: ogImageUrl, width: 1200, height: 630 }] },
+        twitter: { card: "summary_large_image", title, description, images: [ogImageUrl] },
+      };
+    } catch {
+      // fall through to the school's own metadata
     }
   }
 
@@ -369,7 +391,7 @@ function Placeholder({ icon, title, body }: { icon: string; title: string; body:
   );
 }
 
-function EmptyGrid({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+function EmptyGrid({ icon, title, sub }: { icon: string; title: string; sub: React.ReactNode }) {
   return (
     <div className="yat-empty">
       <div className="yat-empty-icon">{icon}</div>
@@ -384,7 +406,7 @@ export default async function SchoolPage({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ schoolState?: string }>;
+  searchParams: Promise<{ schoolState?: string; team?: string }>;
 }) {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -398,7 +420,8 @@ export default async function SchoolPage({
   const micrositeUrl = school.microsite_url as string | undefined;
   const isNumericHsid = /^\d+$/.test(hsid);
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
-  if (micrositeUrl && isNumericHsid && !isPreview) {
+  const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
+  if (micrositeUrl && isNumericHsid && !isPreview && !isHostRewrite) {
     permanentRedirect(micrositeUrl.replace(/\/$/, ""));
   }
 
@@ -460,26 +483,26 @@ export default async function SchoolPage({
   const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
-  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })));
+  // The coach leads the high school team, ahead of every player; the rest
+  // keep the gallery's usual order.
+  const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })))
+    .sort((a, b) => Number(isCoachCard(b)) - Number(isCoachCard(a)));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
-  const activeSeenIds = new Set<string>();
-  const activeMerged: Row[] = [];
-  for (const p of activeRosterRows) {
-    const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-    if (isHighSchoolPlayer(mergedRow) && !isCoachCard(mergedRow)) continue;
-    activeMerged.push(mergedRow);
-    activeSeenIds.add(id);
-  }
-
-  for (const p of stageRows) {
-    const id = String(p.playerid);
-    if (!activeSeenIds.has(id) && String(p.status_label || "").toUpperCase() === "ACTIVE" && !isHighSchoolPlayer(p)) {
-      activeMerged.push({ ...p });
-    }
-  }
+  // Active membership is the owner-approved status preset. Season stats
+  // enrich those cards when present; they do not decide whether a player is
+  // Active. This keeps cards, filters, Row 3 and the footer tally identical.
+  const activeStatsById = new Map(activeRosterRows.map((p) => [String(p.playerid), p]));
+  const activeMerged: Row[] = stageRows
+    .filter((p) => ACTIVE_GALLERY_STATUSES.includes(String(p.status_label || p.status || '').trim().toUpperCase()))
+    .filter((p) => !isHighSchoolPlayer(p) || isRetiredCoachCard(p))
+    .map((stageRow) => {
+      const id = String(stageRow.playerid);
+      const statsRow = activeStatsById.get(id);
+      return statsRow
+        ? { ...stageRow, ...statsRow, status_label: stageRow.status_label, display_status_label: stageRow.display_status_label, has_2026_stats: true }
+        : { ...stageRow, has_2026_stats: false, season_stats_pending: true };
+    });
 
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Row[] = [];
@@ -487,14 +510,14 @@ export default async function SchoolPage({
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-    if (isHighSchoolPlayer(mergedRow) && !isCoachCard(mergedRow)) continue;
+    if (isHighSchoolPlayer(mergedRow) && !isRetiredCoachCard(mergedRow)) continue;
     allTimeMerged.push(mergedRow);
     allTimeSeenIds.add(id);
   }
 
   for (const p of stageRows) {
     const id = String(p.playerid);
-    if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isCoachCard(p))) {
+    if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isRetiredCoachCard(p))) {
       allTimeMerged.push({ ...p });
     }
   }
@@ -503,14 +526,15 @@ export default async function SchoolPage({
   // keeps, so the first frame already shows it (no reshuffle on load).
   const isCoachRow = (p: Record<string, unknown>) => /(?:^|[ -])COACH(?:$|[ -])/.test(String(p.status_label || '').trim().toUpperCase());
   const allTimeSorted = sortAllTimePlayers(allTimeMerged);
-  const allTimeFrontRoster = [...allTimeSorted.filter(isCoachRow), ...allTimeSorted.filter((p) => !isCoachRow(p))];
   const activeStatsMap = new Map(
     [...activeMerged, ...tributeSourceRows]
       .filter(hasReal2026Stats)
       .map((p) => [String(p.playerid), p])
   );
 
-  const activeDisplayRoster = allTimeMerged.map((p) => {
+  // Keep the established tribute on its historical card. Borrowed statistics
+  // do not make the tribute player's own ID an Active 2026 participant.
+  const allTimeFrontRoster = [...allTimeSorted.filter(isCoachRow), ...allTimeSorted.filter((p) => !isCoachRow(p))].map((p) => {
     const id = String(p.playerid);
     const tributeOverride = getTributeOverride(resolvedHsid, id);
     const tributeStatsRow = tributeOverride ? activeStatsMap.get(tributeOverride.sourcePlayerId) : null;
@@ -519,12 +543,12 @@ export default async function SchoolPage({
       return applyTributeStatOverride(p, tributeStatsRow, tributeOverride);
     }
 
-    const activeStatsRow = activeStatsMap.get(id);
-    return activeStatsRow ? { ...p, ...activeStatsRow, has_2026_stats: true } : { ...p, has_2026_stats: false };
+    return p;
   });
 
-  const activeSortedRoster = sortActivePlayers(activeDisplayRoster);
+  const activeSortedRoster = sortActivePlayers(activeMerged);
   const allRosterIds = Array.from(new Set([
+    ...activeMerged.map((p) => String(p.playerid)),
     ...allTimeMerged.map((p) => String(p.playerid)),
     ...currentTeamRoster.map((p) => String(p.playerid)),
   ])).filter(Boolean);
@@ -537,23 +561,29 @@ export default async function SchoolPage({
         })
       : Promise.resolve(emptyImageMap()),
     allRosterIds.length
-      ? getBatchDesignatedPlayerImages(allRosterIds, "HEADSHOT").catch((error) => {
-          console.error("getBatchDesignatedPlayerImages failed", { resolvedHsid, imageType: "HEADSHOT", error });
+      ? getBatchPlayerHeadshots(allRosterIds).catch((error) => {
+          console.error("getBatchPlayerHeadshots failed", { resolvedHsid, error });
           return emptyImageMap();
         })
       : Promise.resolve(emptyImageMap()),
   ]);
 
+  // A shared team link (?team=2017): the page arrives already on the
+  // All-Time list, filtered and ordered for that team (the other cards are
+  // there, hidden), so nothing switches or reshuffles once it loads.
+  const teamYear = parseTeamYear(qp.team);
+  const allTimeCards = teamYear
+    ? teamYearCardOrder(allTimeFrontRoster, teamYear)
+    : allTimeFrontRoster.map((player) => ({ player, onTeam: true }));
+
   return (
     <>
-      <section id="sec-active" className="yat-section visible">
+      <section id="sec-active" className={`yat-section${teamYear ? '' : ' visible'}`}>
         <div className="yat-grid" id="active-grid">
           {activeSortedRoster.length === 0 ? (
-            <EmptyGrid icon="⚾" title="No players found" sub="Check back as we continue building the database" />
+            <EmptyGrid icon="⚾" title="No active alumni found" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
           ) : (
             activeSortedRoster.map((p, i) => {
-              const status = String(p.status_label || p.status || '').toUpperCase().trim();
-              const isRetired = status === 'RETIRED';
               const playerId = String(p.playerid);
 
               return (
@@ -561,8 +591,6 @@ export default async function SchoolPage({
                   key={`active-wrap-${playerId}`}
                   data-player-card-wrap="true"
                   data-playerid={playerId}
-                  data-default-hidden={isRetired ? 'retired' : undefined}
-                  style={{ display: isRetired ? 'none' : undefined }}
                 >
                   <PlayerCard
                     key={`active-${playerId}`}
@@ -583,14 +611,18 @@ export default async function SchoolPage({
         <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
       </section>
 
-      <section id="sec-alltime" className="yat-section">
+      <section
+        id="sec-alltime"
+        className={`yat-section${teamYear ? ' visible' : ''}`}
+        data-alltime-team-year-filter={teamYear || undefined}
+      >
         <div className="yat-grid" id="alltime-grid">
           {allTimeFrontRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
-            allTimeFrontRoster.map((p, i) => {
+            allTimeCards.map(({ player: p, onTeam }, i) => {
               const playerId = String(p.playerid);
-              return (
+              const card = (
                 <PlayerCard
                   key={`alltime-${playerId}`}
                   player={p}
@@ -601,9 +633,22 @@ export default async function SchoolPage({
                   schoolName={shareSchoolName}
                   schoolLocation={shareSchoolLocation}
                   isAllTime
-                  eager={i < 4}
+                  eager={onTeam && i < 4}
                 />
               );
+              // Team links wrap each card (like the Active list) so the
+              // other years can start hidden; the filter shows them again
+              // when the team is cleared.
+              return teamYear ? (
+                <div
+                  key={`alltime-wrap-${playerId}`}
+                  data-player-card-wrap="true"
+                  data-playerid={playerId}
+                  style={{ display: onTeam ? undefined : 'none' }}
+                >
+                  {card}
+                </div>
+              ) : card;
             })
           )}
         </div>
@@ -651,39 +696,7 @@ export default async function SchoolPage({
       </section>
 
       <section id="sec-partner" className="yat-section">
-        <Placeholder
-          icon="🤝"
-          title="PCD Action Partner Program"
-          body={
-            <>
-              Sponsorship and partnership opportunities for brands wanting to connect with the YAT?STATS network.
-              <br /><br />
-              <a
-                href="mailto:pete@yatstats.com"
-                style={{
-                  display: "inline-block",
-                  background: "#00e676",
-                  color: "#000",
-                  fontFamily: '"Bebas Neue",Oswald,sans-serif',
-                  fontSize: "14px",
-                  letterSpacing: ".1em",
-                  padding: "10px 24px",
-                  borderRadius: "4px",
-                }}
-              >
-                Get In Touch
-              </a>
-            </>
-          }
-        />
-      </section>
-
-      <section id="sec-about" className="yat-section">
-        <Placeholder icon="ℹ️" title="About YAT?STATS" body="YAT?STATS helps schools, families, fans, and sponsors follow where players go after high school and celebrate their next-level journeys." />
-      </section>
-
-      <section id="sec-faq" className="yat-section">
-        <SchoolFaq schoolName={schoolName} />
+        <PartnerProgramPage />
       </section>
     </>
   );

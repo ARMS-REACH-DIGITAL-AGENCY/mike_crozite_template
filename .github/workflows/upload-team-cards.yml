@@ -1,0 +1,55 @@
+name: Upload team cards to S3
+
+# State-champion team cards (assets/team-cards/{hsid}/{year}*.jpg|webp) to
+# s3://yatstats-assets/team-cards/: the full card, the web and thumb copies
+# used on the site, and the 1200x630 share preview. Runs when cards are
+# pushed, or by hand - by hand it can also post them as YAT?STATS memories on
+# the coach's timeline (scripts/post-team-card-memories.ts).
+
+on:
+  push:
+    paths:
+      - "assets/team-cards/**"
+  workflow_dispatch:
+    inputs:
+      post_memories:
+        description: "Also post the cards on the coach's timeline: no / dry_run / yes"
+        default: "no"
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload JPEGs
+        run: >
+          aws s3 sync assets/team-cards s3://yatstats-assets/team-cards
+          --exclude "*" --include "*.jpg"
+          --content-type image/jpeg --cache-control "public, max-age=86400"
+      - name: Upload WebPs
+        run: >
+          aws s3 sync assets/team-cards s3://yatstats-assets/team-cards
+          --exclude "*" --include "*.webp"
+          --content-type image/webp --cache-control "public, max-age=86400"
+      - name: List
+        run: aws s3 ls s3://yatstats-assets/team-cards/ --recursive | tail -50
+
+  memories:
+    needs: upload
+    if: github.event_name == 'workflow_dispatch' && inputs.post_memories != 'no'
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save pg tsx
+      - name: Post team card memories
+        run: npx tsx scripts/post-team-card-memories.ts ${{ inputs.post_memories == 'dry_run' && '--dry-run' || '' }}

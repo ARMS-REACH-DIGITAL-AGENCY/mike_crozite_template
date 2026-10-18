@@ -18,6 +18,7 @@ import Row3MirrorGuard from './Row3MirrorGuard';
 import SponsorBanner from './SponsorBanner';
 import FantasyTimeline from '../bracket/FantasyTimeline';
 import BracketTicker from '../bracket/BracketTicker';
+import ContributeViewportLayout, { ContributePortalRail } from './ContributeViewportLayout';
 
 type StripPlayer = {
   id: string;
@@ -28,6 +29,7 @@ type StripPlayer = {
   fallbackImage?: string;
   imageFit?: 'cover' | 'contain';
   status?: string;
+  has2026Stats?: boolean;
 };
 
 type TeamSeasonResult = {
@@ -42,6 +44,7 @@ type TeamSeasonResult = {
 
 type SchoolMeta = {
   activeAlumni: number | null;
+  activeStatsPending?: boolean;
   mlb: number | null;
   natRank: number | null;
   stateRank: string | null;
@@ -54,15 +57,18 @@ type SchoolMeta = {
 };
 
 const VALID_SECTIONS = new Set([
-  'active', 'news', 'alltime', 'current', 'fantasy', 'mentor', 'partner', 'about', 'faq',
+  'active', 'news', 'alltime', 'current', 'fantasy', 'mentor', 'partner',
 ]);
 
 const GALLERY_SECTIONS = new Set(['active', 'alltime', 'news', 'current']);
-const SECTION_ANCHORS: Record<string, string[]> = {
-  partner: ['WHO?', 'WHAT?', 'WHEN?', 'WHERE?', 'WHY?', 'HOW?'],
-  about: ['ABOUT', 'OUR MISSION', 'HOW IT WORKS', 'SCHOOLS', 'PLAYERS', 'FANS'],
-  faq: ['ABOUT', 'PLAYERS', 'STORIES', 'CONTRIBUTE', 'SUPER FANS', 'FANTASY', 'CONTACT'],
-};
+// Partnership Row 3 mirrors the actual five rate-card packages.
+const PARTNER_LEVELS = [
+  { id: 'title', label: 'Title Sponsor', lines: ['TITLE', 'SPONSOR'] },
+  { id: 'active', label: 'Player Profile Partner — Active', lines: ['PROFILE', 'PARTNER', 'ACTIVE'] },
+  { id: 'retired', label: 'Player Profile Partner — Retired', lines: ['PROFILE', 'PARTNER', 'RETIRED'] },
+  { id: 'bracket', label: 'Fantasy Bracket Partner', lines: ['FANTASY', 'BRACKET', 'PARTNER'] },
+  { id: 'team', label: 'All-Time Sponsor a Team', lines: ['SPONSOR', 'A TEAM'] },
+] as const;
 
 function normalizeSection(value: string): string {
   const section = String(value || '').replace(/^#?sec-/, '').trim().toLowerCase();
@@ -72,8 +78,10 @@ function normalizeSection(value: string): string {
 function readRequestedSection(): string {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 'active';
 
-  // The Connect & Contribute Portal is its own page (/connect-contribute).
-  if (/\/connect-contribute\/?$/.test(window.location.pathname)) return 'mentor';
+  // The Connect & Contribute Portal is its own page (/connect-contribute),
+  // and so are its review queue (/contribute-review) and bulk upload
+  // (/contribute-review/bulk).
+  if (/\/(connect-contribute|contribute-review(\/bulk)?)\/?$/.test(window.location.pathname)) return 'mentor';
 
   const hash = window.location.hash || '';
   if (hash.startsWith('#sec-')) return normalizeSection(hash);
@@ -98,6 +106,8 @@ export default function SharedShell({
   schoolMeta,
   row3Content,
   row4Content,
+  initialTeamYear = null,
+  initialTeamCount = null,
 }: {
   children: ReactNode;
   hsid: string;
@@ -106,14 +116,37 @@ export default function SharedShell({
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
   row4Content?: ReactNode;
+  // A shared team link (?team=2017): the page is rendered on the server
+  // already on All-Time with that team picked, rows 2-3 and the count box
+  // included, so nothing switches once the phone takes over.
+  initialTeamYear?: string | null;
+  initialTeamCount?: number | null;
 }) {
   const pathname = usePathname();
-  const [activeSection, setActiveSection] = useState('active');
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
+  const isContributeRoute = /\/(connect-contribute|contribute-review(?:\/bulk)?)\/?$/.test(pathname);
+  const teamYear = isPlayerProfile ? null : initialTeamYear;
+  const initialSection = isContributeRoute ? 'mentor' : teamYear ? 'alltime' : 'active';
+  const [activeSection, setActiveSection] = useState(initialSection);
+  const [partnerLevel, setPartnerLevel] = useState<string>('title');
+  useEffect(() => {
+    const onPartnerLevel = (event: Event) => {
+      const id = String((event as CustomEvent<{ id?: string }>).detail?.id || '');
+      if (PARTNER_LEVELS.some((level) => level.id === id)) setPartnerLevel(id);
+    };
+    window.addEventListener('yat:partner-package-change', onPartnerLevel);
+    return () => window.removeEventListener('yat:partner-package-change', onPartnerLevel);
+  }, []);
+  const openPartnerLevel = (id: string) => {
+    window.dispatchEvent(new CustomEvent('yat:partner-package-change', { detail: { id } }));
+    // Select the package in the real page, not a heading with a similarly named word.
+    const target = document.getElementById('yp-partner-option-' + id);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const isNews = activeSection === 'news';
-  const isGallery = !isPlayerProfile && GALLERY_SECTIONS.has(activeSection);
+  const isGallery = !isPlayerProfile && !isContributeRoute && GALLERY_SECTIONS.has(activeSection);
 
   useEffect(() => {
     if (isPlayerProfile) return;
@@ -169,13 +202,14 @@ export default function SharedShell({
       window.removeEventListener('yat:section-changed', syncSection);
       observer.disconnect();
     };
-  }, [isPlayerProfile]);
+  }, [isPlayerProfile, pathname]);
 
   return (
     <>
       <TimelineCleanup />
-      {!isPlayerProfile && <GalleryFilterController />}
-      {!isPlayerProfile && <Row3MirrorGuard />}
+      {isContributeRoute && <ContributeViewportLayout />}
+      {!isPlayerProfile && !isContributeRoute && <GalleryFilterController />}
+      {!isPlayerProfile && !isContributeRoute && <Row3MirrorGuard />}
 
       <div className={`yat-row1-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <GlobalTopbar hsid={hsid} />
@@ -194,19 +228,27 @@ export default function SharedShell({
         <div className="yat-row3-shell">
           {row3Content
             ? row3Content
-            : activeSection === 'fantasy' && !isPlayerProfile
+            : isContributeRoute
+              ? <ContributePortalRail />
+              : activeSection === 'fantasy' && !isPlayerProfile
               // The Fantasy Bracket Tourney tab: the school's season, a
               // slide per week, where a profile has its Career Path Timeline.
               ? <FantasyTimeline />
-              : SECTION_ANCHORS[activeSection] && !isPlayerProfile
-              ? <nav className="yat-section-anchor-strip" aria-label={activeSection === 'faq' ? 'FAQ topics' : activeSection === 'partner' ? 'Partnership questions' : 'About sections'}>
-                  {SECTION_ANCHORS[activeSection].map((label, i) => <button type="button" key={label} onClick={() => {
-                    const section = document.getElementById(`sec-${activeSection}`);
-                    const headings = Array.from(section?.querySelectorAll<HTMLElement>('h2,h3') || []);
-                    const normalized = label.replace(/[?]/g, '').toLowerCase();
-                    const match = headings.find(h => h.textContent?.toLowerCase().includes(normalized)) || headings[i];
-                    match?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}>{label}</button>)}
+              : activeSection === 'partner' && !isPlayerProfile
+              ? <nav className="yat-section-anchor-strip" aria-label="Partnership package levels">
+                  {PARTNER_LEVELS.map((level) => (
+                    <button
+                      type="button"
+                      key={level.id}
+                      title={level.label}
+                      aria-label={level.label}
+                      aria-pressed={partnerLevel === level.id}
+                      className={partnerLevel === level.id ? 'is-active' : ''}
+                      onClick={() => openPartnerLevel(level.id)}
+                    >
+                      {level.lines.map((line) => <span key={line}>{line}</span>)}
+                    </button>
+                  ))}
                 </nav>
               : profilePlayerId
               ? (
@@ -221,6 +263,8 @@ export default function SharedShell({
                     isNews={isNews}
                     players={players}
                     teamSeasonResults={teamSeasonResults}
+                    initialSection={initialSection}
+                    initialTeamYear={teamYear}
                   />
                 )}
         </div>
@@ -232,7 +276,7 @@ export default function SharedShell({
       {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
         <div className="yat-unified-footer">
           <div className="yat-unified-footer-art" aria-hidden="true" />
-          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} />
+          <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} activeStatsPending={schoolMeta.activeStatsPending} initialTeamYear={teamYear} initialTeamCount={teamYear ? initialTeamCount : null} />
           <div className="yat-unified-footer-ticker">
             {activeSection === 'fantasy'
               ? <BracketTicker hsid={hsid} />
@@ -240,9 +284,11 @@ export default function SharedShell({
           </div>
         </div>
         <style jsx global>{`
-          .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:8px 24px;scrollbar-width:thin;background:var(--bg,#111)}
-          .yat-section-anchor-strip button{flex:0 0 auto;min-width:68px;height:60px;padding:8px 12px;border:1px solid #777;border-radius:32px;background:transparent;color:var(--fg,#fff);font:700 12px Oswald,Arial,sans-serif;cursor:pointer}
-          .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible{border-color:#e7b738;color:#e7b738}
+          .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:4px 18px;scrollbar-width:thin;background:var(--bg,#111)}
+          .yat-section-anchor-strip button{flex:0 0 72px;width:72px;height:72px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:7px 3px;border:1px solid #777;border-radius:50%;background:transparent;color:var(--fg,#fff);font:800 10px/1.1 var(--yat-font-compact,'Barlow Condensed',Oswald,sans-serif);letter-spacing:.025em;text-align:center;cursor:pointer}
+          .yat-section-anchor-strip button span{display:block;white-space:nowrap}
+          .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible,.yat-section-anchor-strip button.is-active{border-color:var(--fg,#fff);color:var(--fg,#fff);background:var(--card-bg,#222)}
+          .yat-section-anchor-strip button:focus-visible{outline:2px solid var(--fg,#fff);outline-offset:2px}
           .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
           .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
           @media(max-width:640px){.yat-unified-footer-art{width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px));height:calc(100% + 12px)}}

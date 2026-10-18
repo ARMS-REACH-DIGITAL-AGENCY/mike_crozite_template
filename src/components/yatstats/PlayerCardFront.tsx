@@ -1,5 +1,6 @@
 import { CSSProperties } from "react";
 import { getPlayerThenCardUrl, getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 import CardPhoto from "./CardPhoto";
 import FavoriteButton from "./FavoriteButton";
 
@@ -17,15 +18,6 @@ interface PlayerCardFrontProps {
 
 function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function asNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value.trim());
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
 }
 
 function asDateTimeText(value: unknown): string {
@@ -51,16 +43,6 @@ function asBoolean(value: unknown): boolean {
     return v === "true" || v === "t" || v === "1" || v === "yes" || v === "y";
   }
   return false;
-}
-
-function getFallbackStatusLabel(player: Record<string, unknown>): string {
-  const battingYear = asNumber(player.stat_year);
-  const pitchingYear = asNumber(player.pitch_year);
-  const latestYear = Math.max(battingYear ?? 0, pitchingYear ?? 0);
-
-  if (latestYear >= 2026) return "ACTIVE";
-  if (latestYear === 2025) return "NOT ACTIVE";
-  return "RETIRED";
 }
 
 function formatNameParts(player: Record<string, unknown>) {
@@ -343,10 +325,9 @@ export default function PlayerCardFront({
   eager = false,
 }: PlayerCardFrontProps) {
   const imageId = String(p.playerid || "");
-  const isPitcher = p.is_pitcher === true;
-
   const thenSilhouetteUrl = getThenSilhouetteUrl({
-    isPitcher,
+    isPitcher: p.is_pitcher,
+    position: p.position,
     bats: p.bats,
     throws: p.throws,
   });
@@ -362,23 +343,10 @@ export default function PlayerCardFront({
   const classOf = asText(p.class_of);
   const rosterYears = asTextArray(p.roster_years);
 
-  const statusLabelRaw =
-    asText(p.display_status_label) ||
-    asText(p.status_label) ||
-    getFallbackStatusLabel(p);
-
-  const levelLabelRaw =
-    asText(p.display_level_label) ||
-    asText(p.level_label) ||
-    asText(p.level) ||
-    "--";
-
-  const statusLabel = statusLabelRaw.toUpperCase();
-  const levelLabel = levelLabelRaw.toUpperCase();
+  const display = resolvePlayerDisplay(p);
+  const statusLabel = display.statusLabel;
   const showFortyManPill = asBoolean(p.is_on_40man);
-  const visibleLevelLabel = showFortyManPill
-    ? levelLabel.replace(/\s*\(?40-MAN\)?\s*/g, " ").replace(/\s{2,}/g, " ").trim() || levelLabel
-    : levelLabel;
+  const visibleLevelLabel = display.levelLabel || "--";
   const fortyManOrgName = asText(p.forty_man_org_name);
   const fortyManOrgAbbr = asText(p.forty_man_org_abbr);
   const fortyManPillTitle = fortyManOrgName
@@ -386,40 +354,11 @@ export default function PlayerCardFront({
     : "MLB 40-man roster";
   const fortyManPillLabel = fortyManOrgAbbr ? `${fortyManOrgAbbr} 40-MAN` : "40-MAN";
 
-  const currentTeamName = asText(p.current_team_name) || "--";
-  const currentOrgOrConferenceName = asText(p.current_org_or_conference_name);
-  const previousTeamName = asText(p.previous_team_name);
-  const previousOrgOrConferenceName = asText(p.previous_org_or_conference_name);
-
-  // Sourced-fact override: when the transactions pipeline has confirmed a
-  // player is FREE AGENT/RETIRED, show his last real team/org exactly like
-  // every other card does (previous_team_name/previous_org_or_conference_name
-  // — the same columns the site's existing retired-player rows already use),
-  // not a stale current_team_name. The specific transaction fact (type +
-  // date) doesn't replace those lines; it's a note in the 40-MAN chip's
-  // slot instead (see departureNotePillLabel below) — a player can't be on
-  // the 40-man roster and released at the same time, so the two never
-  // collide. See scripts/apply-mlb-transaction-status.ts and
-  // scripts/refresh-flip-card-front-stage-from-mlb.ts (flagRosterAbsences).
-  const teamAffiliationStatus = asText(p.team_affiliation_status).toUpperCase();
+  const displayTeamName = display.teamName || "--";
+  const displayOrgLine = display.orgConferenceName;
   const lastTransactionType = asText(p.last_transaction_type);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
-
-  const isSourcedDeparture =
-    (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
-    !!lastTransactionType;
-
-  const displayTeamName = isSourcedDeparture
-    ? previousTeamName || currentTeamName
-    : currentTeamName;
-
-  const displayOrgLine = isSourcedDeparture
-    ? previousOrgOrConferenceName
-    : currentOrgOrConferenceName;
-
-  const statusPillLabel = isSourcedDeparture
-    ? teamAffiliationStatus
-    : formatCommitStatusLabel(p, statusLabel);
+  const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
 
   // RETIRED is a status (shown via statusPillLabel above, alongside
   // ACTIVE/FREE AGENT) — it does NOT belong in this note slot. This slot
@@ -429,7 +368,7 @@ export default function PlayerCardFront({
   // its own — the FREE AGENT status pill already says everything there
   // is to say about that case).
   const departureNotePillLabel =
-    isSourcedDeparture && teamAffiliationStatus === "FREE AGENT" && /released/i.test(lastTransactionType)
+    display.isTransactionDeparture && statusLabel === "FREE AGENT" && /released/i.test(lastTransactionType)
       ? ["RELEASED", lastTransactionDateLabel].filter(Boolean).join(" ")
       : "";
 
@@ -462,7 +401,7 @@ export default function PlayerCardFront({
     normalizedStatus === "NOT ACTIVE" ||
     normalizedStatus === "FREE AGENT" ||
     normalizedStatus === "DFA" ||
-    isSourcedDeparture;
+    display.isSourcedDeparture;
 
   const nextGameStatusLabel = nextGameStatusLabelRaw || "NEXT GAME";
   const { dayLine, dateLine } = tryFormatGameDate(

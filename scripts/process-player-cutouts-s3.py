@@ -5,6 +5,7 @@ S3 folders (what's on the bucket and what the site reads):
 - players/then/ -> players/then-cutouts/  (HS flip-card front photo)
 - players/back/ -> players/back-cutouts/  (flip-card back action photo)
 - players/now/  -> players/now-cutouts/   (current headshot)
+- players/season-photos/ -> players/season-cutouts/ (timeline hero photos)
 
 Behavior:
 - Reads source images from YATSTATS_S3_SOURCE_PREFIX (default players/then/)
@@ -22,6 +23,7 @@ Environment variables:
 - DRY_RUN: true/false, default true
 - OVERWRITE: true/false, default false; only controls replacing generated PNG outputs
 - MAX_FILES: optional integer limit for testing
+- ONLY_IDS: optional comma-separated exact source filename stems, without extensions
 """
 
 from __future__ import annotations
@@ -45,6 +47,7 @@ DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 OVERWRITE = os.getenv("OVERWRITE", "false").lower() == "true"
 MAX_FILES_RAW = os.getenv("MAX_FILES", "").strip()
 MAX_FILES = int(MAX_FILES_RAW) if MAX_FILES_RAW.isdigit() else None
+ONLY_IDS = {item.strip() for item in os.getenv("ONLY_IDS", "").split(",") if item.strip()}
 
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
@@ -103,6 +106,9 @@ def list_source_keys(bucket: str, prefix: str) -> list[str]:
 def process_image_bytes(input_bytes: bytes) -> bytes:
     removed = remove(input_bytes)
     image = Image.open(io.BytesIO(removed)).convert("RGBA")
+    alpha_min, alpha_max = image.getchannel("A").getextrema()
+    if alpha_min >= 255 or alpha_max <= 0:
+        raise ValueError("background removal returned no usable transparency; refusing to publish an opaque/empty cutout")
 
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)
@@ -117,8 +123,11 @@ def main() -> int:
     print(f"Dry run: {DRY_RUN}")
     print(f"Overwrite generated PNG outputs: {OVERWRITE}")
     print(f"Max files: {MAX_FILES if MAX_FILES is not None else 'all'}")
+    print(f"Only source filename stems: {', '.join(sorted(ONLY_IDS)) if ONLY_IDS else 'all'}")
 
     keys = list_source_keys(BUCKET, SOURCE_PREFIX)
+    if ONLY_IDS:
+        keys = [key for key in keys if PurePosixPath(key).stem in ONLY_IDS]
     if MAX_FILES is not None:
         keys = keys[:MAX_FILES]
 

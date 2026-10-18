@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 type SchoolMeta = {
   activeAlumni: number | null;
+  activeStatsPending?: boolean;
   mlb: number | null;
   natRank: number | null;
   stateRank: string | null;
@@ -107,9 +108,9 @@ export default function MetadataRow({
 
     return (
       <div className="yat-shell-meta-wrap" style={{ display: 'flex', justifyContent: 'flex-start', paddingInline: 'max(12px, 2vw)' }}>
-        <div role="group" aria-label="Active Alumni count" style={{ display: 'flex', alignItems: 'baseline', gap: '9px', padding: '12px 0' }}>
-          <strong style={{ color: '#00e08a', fontFamily: 'Oswald, sans-serif', fontSize: '30px', lineHeight: 1 }}>{schoolMeta.activeAlumni ?? 0}</strong>
-          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '15px', fontWeight: 600, letterSpacing: '.08em' }}>ACTIVE ALUMNI</span>
+        <div role="group" aria-label={schoolMeta.activeStatsPending ? `${schoolMeta.activeAlumni || 'No'} confirmed active alumni; 2026 coverage is incomplete, so the total is not yet known` : 'Active Alumni count'} style={{ display: 'flex', alignItems: 'baseline', gap: '9px', padding: '12px 0' }}>
+          <strong style={{ color: '#00e08a', fontFamily: 'Oswald, sans-serif', fontSize: '30px', lineHeight: 1 }}>{schoolMeta.activeStatsPending ? (schoolMeta.activeAlumni ? `${schoolMeta.activeAlumni}+` : '—') : schoolMeta.activeAlumni ?? '—'}</strong>
+          <span style={{ fontFamily: 'Oswald, sans-serif', fontSize: '15px', fontWeight: 600, letterSpacing: '.08em' }}>{schoolMeta.activeStatsPending ? (schoolMeta.activeAlumni ? 'CONFIRMED ACTIVE' : '2026 STATS PENDING') : 'ACTIVE ALUMNI'}</span>
         </div>
       </div>
     );

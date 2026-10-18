@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { toPlayerSlug } from "@/lib/slug";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
+import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE } from "@/lib/playerStageIdentity";
+import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
+import { getPlayerHeadshotSources } from "@/lib/playerImage";
 
 export const runtime = "nodejs";
 
@@ -62,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     const pattern = `%${qRaw}%`;
     const sql = `
-      with matches as (
+      with ${PLAYER_STAGE_IDENTITY_CTES}, matches as (
         select distinct on (f.playerid::text, f.hsid::text, coalesce(f.current_team_name, ''), coalesce(f.level_label, ''))
           f.playerid::text as playerid,
           coalesce(nullif(f.first_name, ''), split_part(coalesce(f.display_name, ''), ' ', 1)) as firstname,
@@ -72,10 +75,10 @@ export async function GET(req: NextRequest) {
           f.current_team_name,
           f.current_org_or_conference_name,
           f.level_label,
-          m.teamid::text as current_teamid,
+          coalesce(m.teamid::text, case when f.current_team_source = 'identity_reconciled_2026' then f.current_teamid end) as current_teamid,
           ss.hsname,
           ss.hslocation
-        from flip_card_front_stage f
+        from ${PLAYER_STAGE_IDENTITY_SOURCE} f
         left join public.teamid_universe_mapping m
           on lower(trim(m.current_team_name)) = lower(trim(f.current_team_name))
          and (
@@ -109,6 +112,7 @@ export async function GET(req: NextRequest) {
     `;
 
     const { rows } = await query(sql, [pattern, limit]);
+    const headshots = await getBatchPlayerHeadshots(rows.map((row: any) => String(row.playerid)));
 
     const teams = rows.map((r: any) => {
       const locParts = String(r.hslocation || "").split(",");
@@ -131,6 +135,8 @@ export async function GET(req: NextRequest) {
         state: (locParts.slice(1).join(",") || "").trim(),
         slug: toPlayerSlug(firstName, lastName || displayName),
         crestUrl: getSchoolCrestUrl(r.hsid),
+        headshotUrl: headshots.get(String(r.playerid))?.image_url ?? "",
+        headshotSources: getPlayerHeadshotSources(String(r.playerid), headshots.get(String(r.playerid))?.image_url),
         micrositeUrl,
         microsite_url: micrositeUrl,
         currentTeamName: r.current_team_name || "",

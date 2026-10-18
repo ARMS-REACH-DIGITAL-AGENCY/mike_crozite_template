@@ -108,7 +108,7 @@ export function levelLabel(level: string): string {
     "INDY":      "INDY",      "Indy":      "INDY",
     "INT'L":     "INT'L",     "INTL":      "INT'L",     "Intl":     "INT'L",
     // College
-    "NCAA-D1":   "NCAA-D1",   "D1":        "NCAA-D1",   "NCAA":     "NCAA-D1",
+    "NCAA-D1":   "NCAA-D1",   "D1":        "NCAA-D1",   "NCAA":     "NCAA",
     "NCAA-D2":   "NCAA-D2",   "D2":        "NCAA-D2",
     "NCAA-D3":   "NCAA-D3",   "D3":        "NCAA-D3",
     "NAIA":      "NAIA",
@@ -248,6 +248,7 @@ export const LEVEL_RANK: Record<string, number> = {
   "NCAA-D1":      9,
   "NCAA-D2":      10,
   "NCAA-D3":      11,
+  "NCAA":         9,
   "NAIA":         12,
   "JUCO":         13,
   "HIGH SCHOOL":  14,

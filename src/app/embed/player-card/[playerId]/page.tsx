@@ -22,6 +22,7 @@ import {
   getSchoolByHsid,
 } from "@/lib/db";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
+import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
 import PlayerCard from "@/components/yatstats/PlayerCard";
 
 export const runtime = "nodejs";
@@ -54,7 +55,7 @@ export default async function PlayerCardEmbedPage({
   // need to point at the real subdomain instead of a 404ing bare-domain URL.
   const [frontImageMap, headshotMap, school] = await Promise.all([
     getBatchDesignatedPlayerImages([id], "YATSTATS_FRONT"),
-    getBatchDesignatedPlayerImages([id], "HEADSHOT"),
+    getBatchPlayerHeadshots([id]),
     getSchoolByHsid(resolvedHsid),
   ]);
   const shareBaseUrl = getCanonicalBaseUrl(school, resolvedHsid);

@@ -20,24 +20,17 @@
 // - container-type:inline-size on .yat-back-cq.
 // - All sizing uses cqi (card-width-relative), not vw.
 
-import SafeImage from "@/components/SafeImage";
+import PlayerCardBackHero from "@/components/yatstats/PlayerCardBackHero";
 import FunZone from "@/components/yatstats/FunZone";
 import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
+import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
-
-function getPlayerBackImageUrl(imageId: string): string {
-  return `${S3_BASE}/players/back/${imageId}.jpg`;
-}
 
 // Card-size WebP copy of the back photo (Build Web Cutouts job, 800px
 // wide): ~15-30KB instead of the ~1MB original, which stays as the
 // fallback until the job has made the copy.
-function getPlayerBackCardUrl(imageId: string): string {
-  return `${S3_BASE}/players/back-card/${imageId}.webp`;
-}
-
 const YATCREST_URL = `${S3_BASE}/assets/YatCrest.png`;
 
 function asText(value: unknown): string {
@@ -200,9 +193,11 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   const slug = String(p.slug || "");
   void draft;
 
-  const backImageSrc = getPlayerBackImageUrl(imageId);
   const has2026Stats = p.has_2026_stats === true;
-  const statBarLabel = has2026Stats ? "2026 SEASON STATS" : "CAREER STATS";
+  const seasonStatsPending = !isAllTime && p.season_stats_pending === true;
+  const statBarLabel = seasonStatsPending
+    ? "2026 STATS PENDING"
+    : has2026Stats ? "2026 SEASON STATS" : "CAREER STATS";
 
   const batterStats = [
     { k: "AVG", v: fmt("AVG", p.avg) },
@@ -251,38 +246,11 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
 
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
-  // Same sourced-fact override as PlayerCardFront.tsx — keep the card
-  // back consistent with the front rather than flipping to a stale team
-  // name. previous_team_name/previous_org_or_conference_name are the same
-  // columns the site's existing retired-player rows already use, so a
-  // FREE AGENT/RETIRED card looks like every other card, plain text — the
-  // specific transaction fact lives in the front card's 40-MAN chip slot
-  // only. See scripts/apply-mlb-transaction-status.ts and
-  // scripts/refresh-flip-card-front-stage-from-mlb.ts (flagRosterAbsences).
-  const rawTeamName = asText(p.current_team_name);
-  const teamAffiliationStatus = asText(p.team_affiliation_status).toUpperCase();
-  const lastTransactionType = asText(p.last_transaction_type);
-  const previousTeamName = asText(p.previous_team_name);
-  const previousOrgOrConferenceName = asText(p.previous_org_or_conference_name);
-
-  const isSourcedDeparture =
-    (teamAffiliationStatus === "FREE AGENT" || teamAffiliationStatus === "RETIRED") &&
-    !!lastTransactionType;
-
-  const teamName = isSourcedDeparture
-    ? previousTeamName || rawTeamName
-    : rawTeamName;
-
-  const orgConf = isSourcedDeparture
-    ? previousOrgOrConferenceName
-    : asText(p.current_org_or_conference_name);
-
+  const display = resolvePlayerDisplay(p);
   const posLevelStatus = [
     asText(p.position),
-    asText(p.level_label) || asText(p.level),
-    isSourcedDeparture
-      ? teamAffiliationStatus
-      : asText(p.status_label) || (p.stat_year || p.pitch_year ? "ACTIVE" : ""),
+    display.levelLabel,
+    display.statusLabel,
   ].filter(Boolean).join(" - ");
 
   const bats = asText(p.bats);
@@ -302,37 +270,24 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
     <div className="yat-face yat-back yat-back-cq" data-player-card-id={imageId}>
       <div className="yat-back-texture">
         <div className="yat-back-inner">
-          <a href={profileHref} className="yat-back-hero" aria-label={`View ${displayName}'s profile`}>
-            {/* Lazy: every card back sits in the page (including hidden
-                tabs, where an eager <img> still downloads), but only the
-                cards near the screen need their photo. */}
-            <SafeImage
-              src={getPlayerBackCardUrl(imageId)}
-              fallbackSrc={backImageSrc}
-              alt={displayName}
-              className="yat-back-img"
-              placeholderSrc={YATCREST_URL}
-              loading="lazy"
-            />
-            <div className="yat-back-hero-fallback" aria-hidden="true" />
-            <div className="yat-back-scrim" aria-hidden="true" />
-            <div className="yat-back-meta">
-              {displayName && <div className="ybm-name">{displayName}</div>}
-              {teamName && <div className="ybm-team">{teamName}</div>}
-              {orgConf && <div className="ybm-org">{orgConf}</div>}
-              {posLevelStatus && <div className="ybm-pos">{posLevelStatus}</div>}
-              {btHw && <div className="ybm-bthw">{btHw}</div>}
-            </div>
-          </a>
+          <PlayerCardBackHero
+            playerId={imageId}
+            displayName={displayName}
+            profileHref={profileHref}
+            teamName={display.teamName}
+            orgConf={display.orgConferenceName}
+            posLevelStatus={posLevelStatus}
+            btHw={btHw}
+          />
 
           <FunZone
             player={p}
             isPitcher={isPitcher}
             isAllTime={isAllTime ?? false}
             resolvedHsid={resolvedHsid}
-            stats={stats}
+            stats={seasonStatsPending ? stats.map((stat) => ({ ...stat, v: "—" })) : stats}
             statBarLabel={statBarLabel}
-            statBuckets={statBuckets}
+            statBuckets={seasonStatsPending ? [] : statBuckets}
             displayName={displayName}
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}

@@ -19,8 +19,32 @@
 
 'use server';
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
+import { activeAlumniSummaryCtes, confirmed2026GameLogPlayersSql } from '@/lib/activeAlumni';
+import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
+import { currentFranchiseSql } from '@/lib/mlbFranchise';
+import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE, PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES } from '@/lib/playerStageIdentity';
+import { resolvePlayerDisplay } from '@/lib/playerDisplay';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
+import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
+
+// A school's page data, kept across requests (and across server instances)
+// for 10 minutes: its roster, All-Time list, flip card rows, season results
+// and Active Alumni count. Every school homepage and player page ran ~15
+// queries per view - the career-stats one alone can pass the statement time
+// limit at a big school - so a crawler sweeping the microsites (Oct 11,
+// 5:05-5:18 PM: 92,600 "timeout exceeded when trying to connect") ran the
+// 3-connection pools dry. These numbers change with the nightly imports,
+// not by the minute. Failures aren't kept: the next view retries.
+const SCHOOL_DATA_TTL_SECONDS = 600;
+function keptAcrossRequests<T>(name: string, load: (key: string) => Promise<T>): (key: string) => Promise<T> {
+  return (key: string) =>
+    unstable_cache(() => load(key), ['school-data', name, String(key)], {
+      revalidate: SCHOOL_DATA_TTL_SECONDS,
+      tags: ['school-data', `school-data:${key}`],
+    })();
+}
 
 const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
@@ -176,7 +200,8 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
       current_team_name: string | null;
       current_org_or_conference_name: string | null;
     }>(
-      `select
+      `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES}
+       select
          playerid::text as playerid,
          first_name,
          last_name,
@@ -189,7 +214,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
          level_label,
          current_team_name,
          current_org_or_conference_name
-       from flip_card_front_stage
+       from ${PLAYER_STAGE_IDENTITY_SOURCE}
        where playerid::text = $1
        limit 1`,
       [playerId]
@@ -245,7 +270,7 @@ export type SchoolTeamSeasonResult = {
   displayLine2: string | null;
 };
 
-export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
+export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeasonResults', async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
   if (!/^\d+$/.test(hsid)) return [];
 
   const { rows } = await query<{
@@ -273,7 +298,7 @@ export async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTe
     displayLine1: row.display_line_1,
     displayLine2: row.display_line_2,
   }));
-}
+});
 
 export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
@@ -281,7 +306,20 @@ export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
     [hsid]
   );
-  return rows[0] || null;
+  if (rows[0]) return rows[0];
+  // Newer player-linked schools do not all have a school_success directory row.
+  // Render the same real HSID page using canonical TBC school metadata.
+  const { rows: raw } = await query(
+    `SELECT t.hsid, t.hsname, t.hslocation, t.cityname, t.regionid, t.nickname,
+            t.color1 AS primary_color, t.color2 AS secondary_color,
+            NULL::text AS microsite_url, NULL::text AS staging_url
+       FROM public.tbc_schools_raw t
+      WHERE t.hsid = $1
+        AND EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+      LIMIT 1`,
+    [hsid],
+  );
+  return raw[0] || null;
 });
 
 export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: string) {
@@ -296,7 +334,10 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
     LIMIT 1
   `;
   const { rows } = await query(sql, [candidates]);
-  return rows[0] || null;
+  if (rows[0]) return rows[0];
+  const hsid = await resolveSchoolHsidFromHost(hostOnly,
+    (sql, params = []) => query(sql, params));
+  return hsid ? getSchoolByHsid(hsid) : null;
 });
 
 // ---------------------------------------------------------------------------
@@ -332,6 +373,10 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       FROM player_hsids ph
       JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
       WHERE ${schoolPlayersFilter}
+    ),
+
+    confirmed_game_log_players AS MATERIALIZED (
+      ${confirmed2026GameLogPlayersSql('SELECT playerid::text FROM school_players')}
     ),
 
     batting_2026_rows AS (
@@ -811,6 +856,8 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT DISTINCT playerid::text AS playerid
       FROM pitching_2026_rows
       WHERE playerid::text IN (SELECT playerid::text FROM school_players)
+      UNION
+      SELECT playerid FROM confirmed_game_log_players
     )
 
     SELECT
@@ -833,6 +880,8 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       sp.bats,
       sp.throws,
       sp.position,
+      TRUE AS has_2026_stats,
+      (lb.stat_year IS NULL AND lp.pitch_year IS NULL) AS season_stats_pending,
       lb.stat_year,
       lb.g, lb.ab, lb.r, lb.h,
       lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb,
@@ -861,12 +910,14 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         WHEN lp.pitch_year IS NOT NULL AND (
           lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric
         ) THEN true
+        WHEN lb.stat_year IS NULL THEN COALESCE(cg.has_pitching, false)
         ELSE false
       END AS is_pitcher
     FROM school_players sp
     JOIN active_playerids ap ON sp.playerid::text = ap.playerid
     LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
     LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
+    LEFT JOIN confirmed_game_log_players cg ON cg.playerid = sp.playerid::text
     LEFT JOIN season_batting_buckets sbb ON sp.playerid::text = sbb.playerid
     LEFT JOIN season_pitching_buckets spb ON sp.playerid::text = spb.playerid
     ORDER BY
@@ -890,6 +941,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         WHEN 'Indy'          THEN 8
         WHEN 'INDEPENDENT'   THEN 8
         WHEN 'NCAA-D1'       THEN 9
+        WHEN 'NCAA'          THEN 9
         WHEN 'D1'            THEN 9
         WHEN 'NCAA-D2'       THEN 10
         WHEN 'D2'            THEN 10
@@ -908,11 +960,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
   `;
 }
 
-export const getActiveRosterByHsid = cache(async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-2026-evidence', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   const sql = buildActiveRosterSql('ph.hsid = $1', 'TRUE');
   const { rows } = await query(sql, [hsid]);
   return rows;
-});
+}));
 
 // Each player's latest season usage, for telling pitchers from batters by
 // what they actually did rather than the listed position alone (a "UT" who
@@ -955,7 +1007,7 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // statement timeout", a blank All-Time list and an ~18s page). Same rows
 // either way: Hamilton's 107 rows fingerprint identically before and after;
 // a trimmed version for Perry went from 2.74s to 0.44s.
-export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
@@ -1485,7 +1537,7 @@ export const getAllTimeRosterByHsid = cache(async function getAllTimeRosterByHsi
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-});
+}));
 
 export interface PlayerSlugMatch {
   playerid: string;
@@ -2257,7 +2309,12 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // so both normalize level_label/status_label identically instead of
 // drifting into two resolvers for the same "truth" table.
 const FLIP_CARD_STAGE_SELECT = `
-    SELECT *,
+    SELECT fs.*,
+      -- Staging does not store bats/throws and often has NULL position.
+      -- Pull the canonical TBC metadata so stage-only cards choose the right silhouette.
+      tp.bats,
+      tp.throws,
+      COALESCE(NULLIF(BTRIM(fs.position), ''), NULLIF(BTRIM(tp.posit), '')) AS position,
       -- Every alumnus we know of gets a card: one with no status yet is
       -- UNKNOWN (until someone tells us), never left off the page.
       COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
@@ -2286,7 +2343,7 @@ const FLIP_CARD_STAGE_SELECT = `
         WHEN 'INDEPENDENT'   THEN 'INDY'
         WHEN 'NCAA-D1'       THEN 'NCAA-D1'
         WHEN 'D1'            THEN 'NCAA-D1'
-        WHEN 'NCAA'          THEN 'NCAA-D1'
+        WHEN 'NCAA'          THEN 'NCAA'
         WHEN 'NCAA-D2'       THEN 'NCAA-D2'
         WHEN 'D2'            THEN 'NCAA-D2'
         WHEN 'NCAA-D3'       THEN 'NCAA-D3'
@@ -2299,20 +2356,21 @@ const FLIP_CARD_STAGE_SELECT = `
         WHEN 'HIGH SCHOOL'   THEN 'HIGH SCHOOL'
         ELSE COALESCE(UPPER(level_label), '')
       END AS level_label
-    FROM flip_card_front_stage
+    FROM ${PLAYER_STAGE_IDENTITY_SOURCE} fs
+    LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
 `;
 
-export const getFlipCardFrontStageByHsid = cache(async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
-  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE hsid = $1`;
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-identity-20261018', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+  const sql = `WITH ${PLAYER_STAGE_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
-});
+}));
 
 // Same normalization as getFlipCardFrontStageByHsid, for one arbitrary
 // player regardless of which school's page is currently being viewed -
 // used to build a real flip card for a cross-school favorite.
 export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardFrontStageByPlayerId(playerId: string): Promise<any | null> {
-  const sql = `${FLIP_CARD_STAGE_SELECT}    WHERE playerid::text = $1 LIMIT 1`;
+  const sql = `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.playerid = $1 LIMIT 1`;
   const { rows } = await query(sql, [playerId]);
   return rows[0] || null;
 });
@@ -2346,20 +2404,6 @@ export async function getResolvedCurrentTeam(playerid: string): Promise<any | nu
     console.error(`[getResolvedCurrentTeam] flip_card_front_stage read failed for playerid=${playerid}:`, error);
     return null;
   }
-}
-
-function normalizePlayerAffiliationStatus(value: unknown, statusLabel: string, teamName: string) {
-  const raw = String(value || '').trim().toUpperCase();
-  if (raw) return raw;
-
-  const status = String(statusLabel || '').trim().toUpperCase();
-  if (status === 'ACTIVE' && teamName) return 'CURRENT';
-  if (status === 'RETIRED' && teamName) return 'RETIRED_LAST_KNOWN';
-  // No explicit status on record but he has a team on file: the honest
-  // real-world bucket for "not active, not confirmed retired" is free
-  // agency, not a made-up generic label.
-  if (teamName) return 'FREE AGENT';
-  return 'UNKNOWN';
 }
 
 export type PlayerIdentityMeta = {
@@ -2411,15 +2455,14 @@ export type PlayerDraftPick = {
 // two ended up silently disagreeing in the first place.
 export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIdentityMeta> {
   const empty: PlayerIdentityMeta = {
-    currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: '',
+    currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: 'UNKNOWN',
     position: '', bats: '', throws: '', height: '', weight: '', classOf: '',
     hsid: '', hsname: '', hslocation: '', rosterYears: [], draftPicks: [],
   };
 
   try {
-    const [player, resolvedCurrentTeam, stageResult, draftResult] = await Promise.all([
+    const [player, stageResult, draftResult] = await Promise.all([
       getPlayerById(playerId),
-      getResolvedCurrentTeam(playerId),
       query<{
         hsid: string;
         hsname: string | null;
@@ -2431,12 +2474,16 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
         display_status_label: string | null;
         display_level_label: string | null;
         team_affiliation_status: string | null;
+        current_team_source: string | null;
         last_transaction_type: string | null;
+        last_transaction_applied_at: unknown;
         previous_team_name: string | null;
         previous_org_or_conference_name: string | null;
+        previous_level_label: string | null;
         roster_years: string[] | null;
       }>(
-        `select
+        `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES}
+         select
            f.hsid::text as hsid,
            ss.hsname,
            ss.hslocation,
@@ -2447,11 +2494,14 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
            f.display_status_label,
            f.display_level_label,
            f.team_affiliation_status,
+           f.current_team_source,
            f.last_transaction_type,
+           f.last_transaction_applied_at,
            f.previous_team_name,
            f.previous_org_or_conference_name,
+           f.previous_level_label,
            f.roster_years
-         from flip_card_front_stage f
+         from ${PLAYER_STAGE_IDENTITY_SOURCE} f
          left join school_success ss on ss.hsid::text = f.hsid::text
          where f.playerid::text = $1
          order by f.updated_at desc nulls last
@@ -2463,7 +2513,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
                 u.teamid
            from player_draft_picks d
            left join teamid_universe_mapping u
-             on u.level_label = 'MLB' and lower(u.current_team_name) = lower(d.draft_team_name)
+             on u.level_label = 'MLB' and lower(u.current_team_name) = ${currentFranchiseSql('d.draft_team_name')}
           where d.playerid = $1
           order by d.draft_year asc`,
         [playerId]
@@ -2472,30 +2522,15 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
 
     const stage = stageResult.rows[0];
 
-    const latestYear = Number(player?.stat_year || player?.pitch_year || player?.year || 0);
-    const rawStatusLabel = String(stage?.display_status_label || stage?.status_label || player?.status_label || (latestYear >= 2025 ? 'ACTIVE' : 'RETIRED')).trim().toUpperCase();
-    const rawTeamName = String(resolvedCurrentTeam?.team_name || stage?.current_team_name || player?.current_team_name || player?.team_name || '').trim();
-    const rawOrgConferenceName = String(stage?.current_org_or_conference_name || resolvedCurrentTeam?.org_conf || player?.current_org_or_conference_name || player?.org_conf || player?.league || '').trim();
-    const levelLabel = String(resolvedCurrentTeam?.level || stage?.display_level_label || stage?.level_label || player?.level_label || player?.level || '').trim().toUpperCase();
-    const affiliationStatus = normalizePlayerAffiliationStatus(stage?.team_affiliation_status, rawStatusLabel, rawTeamName);
-
-    // A sourced MLB transaction record outranks both resolvers above
-    // (flip_card_front_stage.current_team_name and
-    // v_player_current_team_resolved) — neither notices when a player
-    // leaves affiliated baseball entirely, but the transactions feed does.
-    // See scripts/apply-mlb-transaction-status.ts.
-    const lastTransactionType = String(stage?.last_transaction_type || '').trim();
-    const isSourcedDeparture =
-      (affiliationStatus === 'FREE AGENT' || affiliationStatus === 'RETIRED') &&
-      !!lastTransactionType;
-    const previousTeamName = String(stage?.previous_team_name || '').trim();
-    const previousOrgOrConferenceName = String(stage?.previous_org_or_conference_name || '').trim();
+    // Use the same explicit, reconciled stage facts as both card faces.
+    // Missing statistics or a career level never invent a playing status.
+    const display = resolvePlayerDisplay({ ...player, ...stage });
 
     return {
-      currentTeamName: isSourcedDeparture ? previousTeamName || rawTeamName : rawTeamName,
-      orgConferenceName: isSourcedDeparture ? previousOrgOrConferenceName : rawOrgConferenceName,
-      levelLabel,
-      statusLabel: isSourcedDeparture ? affiliationStatus : rawStatusLabel,
+      currentTeamName: display.teamName,
+      orgConferenceName: display.orgConferenceName,
+      levelLabel: display.levelLabel,
+      statusLabel: display.statusLabel,
       position: String(player?.position || '').trim(),
       bats: String(player?.bats || '').trim(),
       throws: String(player?.throws || '').trim(),
@@ -2530,7 +2565,8 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
 export async function getFlipCardTransactionStatus(playerid: string): Promise<any | null> {
   try {
     const { rows } = await query(
-      `SELECT
+      `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES}
+       SELECT
          playerid,
          current_team_name,
          current_team_source,
@@ -2541,7 +2577,7 @@ export async function getFlipCardTransactionStatus(playerid: string): Promise<an
          previous_org_or_conference_name,
          school_timezone,
          status_label
-       FROM public.flip_card_front_stage
+       FROM ${PLAYER_STAGE_IDENTITY_SOURCE}
        WHERE playerid::text = $1
        LIMIT 1`,
       [playerid]
@@ -2596,18 +2632,23 @@ if (!global.__pgPoolShutdownRegistered) {
   });
 }
 
-// Live Active Alumni count, sourced from the same staged statuses used by the gallery.
-// Missing or unmatched school IDs produce zero, never a legacy school_success count.
-export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
+// Canonical Active Alumni membership. The gallery, Row 3, school-search
+// tally and footer tally all use the same owner-approved status preset.
+export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-status-contract-v2', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
+  if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return { playerIds: [], statsPending: false };
   const { rows } = await query(`
-    SELECT COUNT(DISTINCT playerid)::int AS count
-    FROM flip_card_front_stage
-    WHERE hsid = $1
-      AND UPPER(TRIM(COALESCE(status_label, ''))) IN (
-        'ACTIVE', 'INJURED 7-DAY', 'INJURED 10-DAY',
-        'INJURED 15-DAY', 'INJURED 30-DAY',
-        'INJURED 60-DAY', 'INJURED - FULL SEASON'
-      )
-  `, [hsid]);
-  return Number(rows[0]?.count ?? 0);
+    SELECT ARRAY_AGG(DISTINCT f.playerid::text ORDER BY f.playerid::text) AS player_ids
+      FROM public.flip_card_front_stage f
+     WHERE f.hsid::text = $1
+       AND UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY($2::text[])
+  `, [hsid, [...ACTIVE_GALLERY_STATUSES]]);
+  return { playerIds: (rows[0]?.player_ids ?? []).map(String), statsPending: false };
+}));
+
+export async function getActiveAlumniPlayerIdsByHsid(hsid: string): Promise<string[]> {
+  return (await getActiveAlumniSummaryByHsid(hsid)).playerIds;
+}
+
+export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
+  return (await getActiveAlumniPlayerIdsByHsid(hsid)).length;
 }
