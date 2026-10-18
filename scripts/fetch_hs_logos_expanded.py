@@ -66,31 +66,54 @@ CONFIDENT = 85  # score at or above this, 15+ clear of the runner-up, publishes
 
 # ── Schools ──────────────────────────────────────────────────────────────────
 
+def school_selection_sql(scope: str) -> str:
+    """Fixed, parameter-free SQL for linked schools or the full master school list.
+
+    HSIDs always come from tbc_schools_raw; do not substitute source CSV row numbers.
+    """
+    if scope == "linked":
+        return """
+            SELECT DISTINCT p.hsid, t.hsname, t.nickname, t.cityname, t.regionid
+            FROM public.player_hsids p
+            JOIN public.tbc_schools_raw t ON p.hsid=t.hsid
+            WHERE p.hsid IS NOT NULL
+            ORDER BY p.hsid
+        """
+    if scope == "all":
+        return """
+            SELECT t.hsid, t.hsname, t.nickname, t.cityname, t.regionid
+            FROM public.tbc_schools_raw t
+            WHERE t.hsid IS NOT NULL
+            ORDER BY t.hsid
+        """
+    raise ValueError(f"Unsupported HS_LOGO_SCOPE={scope!r}; expected linked or all")
+
+
 def load_schools(path: Path | None = None) -> list[dict]:
-    """Load the live school population via immutable HSIDs, not the historical bracket CSV."""
+    """Load canonical school HSIDs from Neon according to the selected scope.
+
+    HS_LOGO_SCOPE=linked (default): 7,954 schools currently linked to players.
+    HS_LOGO_SCOPE=all: every school in tbc_schools_raw (17,248 as of 2026-10-17).
+    """
     if path is not None:
         raise ValueError("CSV mode disabled: old bracket CSV has incorrect HSIDs for 168 schools")
+    scope = os.environ.get("HS_LOGO_SCOPE", "linked").strip().lower()
+    query = school_selection_sql(scope)
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise RuntimeError("DATABASE_URL required for canonical school export")
     import psycopg
     with psycopg.connect(database_url, sslmode="require") as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT DISTINCT p.hsid, t.hsname, t.nickname, t.cityname, t.regionid
-                FROM public.player_hsids p
-                JOIN public.tbc_schools_raw t ON p.hsid=t.hsid
-                WHERE p.hsid IS NOT NULL
-                ORDER BY p.hsid
-            """)
-            rows=cur.fetchall()
-    out=[]
-    for hsid,name,nickname,city,state in rows:
-        if not (name and state):
-            continue
-        out.append({"hsid":str(hsid),"name":name.strip(),"nickname":(nickname or "").strip(),
-                    "city":(city or "").strip(),"state":state.strip().upper()})
-    log.info("Canonical Neon school list: %d records", len(out))
+            cur.execute(query)
+            rows = cur.fetchall()
+    out = []
+    for hsid, name, nickname, city, state in rows:
+        if not (name and city and state):
+            raise ValueError(f"Canonical school HSID {hsid} lacks name, city or state")
+        out.append({"hsid":str(hsid), "name":name.strip(), "nickname":(nickname or "").strip(),
+                    "city":city.strip(), "state":state.strip().upper()})
+    log.info("Canonical Neon school list: %d records; scope=%s", len(out), scope)
     return out
 
 def existing_hsids(s3, bucket: str, prefix: str) -> set[str]:
