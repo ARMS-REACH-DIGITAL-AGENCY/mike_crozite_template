@@ -81,8 +81,6 @@ export default function ContributePhotoFlow({
   const [landscape, setLandscape] = useState(false);
   const [crop, setCrop] = useState<Crop | null>(null);
   const [note, setNote] = useState('');
-  // 3. Player | School | Team (only "Other" lets the fan choose)
-  const [pickOverride, setPickOverride] = useState<Pick | null>(null);
   // 5. Approved: the proof the fan said looks right (anything changed
   // after that needs a new look).
   const [approvedSig, setApprovedSig] = useState('');
@@ -177,7 +175,6 @@ export default function ContributePhotoFlow({
   const choosePurpose = (id: PhotoPurpose) => {
     setPurpose(id);
     setShowPurposePicker(false);
-    setPickOverride(null);
     setCrop(null);
     setLandscape(false);
     setError('');
@@ -264,7 +261,7 @@ export default function ContributePhotoFlow({
   const startOver = () => {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null); setPreview(''); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
-    setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setLandscape(false); setPickOverride(null); setApprovedSig('');
+    setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
   };
 
@@ -384,7 +381,7 @@ export default function ContributePhotoFlow({
                 aria-checked={pick === k}
                 className={pick === k ? 'is-on' : ''}
                 disabled={pickFor !== k}
-                onClick={() => setPickOverride(k)}
+                onClick={() => {}}
               >
                 {k === 'player' ? 'Player' : k === 'school' ? 'School' : 'Team'}
               </button>
