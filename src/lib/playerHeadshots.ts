@@ -11,9 +11,9 @@ export type PlayerHeadshot = {
 };
 
 /**
- * A designated, approved photo always wins. If none exists, an unambiguous
- * verified MLB identity supplies an official headshot candidate. This reads
- * existing evidence; it neither creates an identity link nor writes a photo.
+ * A designated, approved photo always wins. If none exists, an approved
+ * Connect & Contribute headshot is used. If neither exists, an unambiguous
+ * verified MLB identity supplies an official headshot candidate.
  */
 export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadshots(
   playerIds: string[],
@@ -24,9 +24,9 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
 
   const [designated, contributed, identities] = await Promise.all([
     getBatchDesignatedPlayerImages(ids, 'HEADSHOT'),
-    query<{ playerid: string; description: string | null; date_taken: string | null; uploaded_at: string }>(
+    query<{ playerid: string; description: string | null }>(
       `SELECT DISTINCT ON (playerid)
-              playerid::text AS playerid, description, date_taken::text, uploaded_at::text
+              playerid::text AS playerid, description
          FROM media_upload
         WHERE playerid = ANY($1::text[])
           AND purpose = 'headshot'
@@ -38,7 +38,7 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
       [ids],
     ).catch((error) => {
       console.error('Approved contributed headshot lookup failed', { error });
-      return { rows: [] };
+      return { rows: [] as { playerid: string; description: string | null }[] };
     }),
     query<{ playerid: string; mlb_player_id: string }>(
       `SELECT playerid, MIN(source_player_id) AS mlb_player_id
@@ -49,54 +49,46 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
         GROUP BY playerid
        HAVING COUNT(DISTINCT source_player_id) = 1
           AND BOOL_OR(is_verified IS TRUE)
-          AND MIN(source_player_id) ~ '^[0-9]+
-
-  for (const row of identities.rows) {
-    const image = getMlbHeadshotUrl(row.mlb_player_id);
-    if (image) result.set(String(row.playerid), {
-      playerid: String(row.playerid), image_url: image, source: 'verified_mlb',
-    });
-  }
-  // A Connect & Contribute headshot is already an approved designation by
-  // intent, even when the player is retired and therefore had no
-  // "currentSeason" flag. Use its published season-headshot asset for
-  // search/gallery cards instead of falling all the way to a silhouette.
-  for (const row of contributed.rows) {
-    let parsed: { published_assets?: string[] } = {};
-    try { parsed = JSON.parse(row.description || '{}'); } catch {}
-    const key = (parsed.published_assets || []).find((value) =>
-      typeof value === 'string' && value.startsWith('players/season-headshots/')
-    );
-    if (!key) continue;
-    result.set(String(row.playerid), {
-      playerid: String(row.playerid),
-      image_url: storyAssetUrl(key),
-      source: 'approved_photo',
-    });
-  }
-  for (const [id, photo] of designated) {
-    const image = String(photo?.image_url || '').trim();
-    if (image) result.set(id, { playerid: id, image_url: image, source: 'approved_photo' });
-  }
-  return result;
-});
-`,
+          AND MIN(source_player_id) ~ '^[0-9]+$'`,
       [ids],
     ).catch((error) => {
       console.error('Verified player headshot lookup failed', { error });
-      return { rows: [] };
+      return { rows: [] as { playerid: string; mlb_player_id: string }[] };
     }),
   ]);
 
   for (const row of identities.rows) {
     const image = getMlbHeadshotUrl(row.mlb_player_id);
-    if (image) result.set(String(row.playerid), {
-      playerid: String(row.playerid), image_url: image, source: 'verified_mlb',
-    });
+    if (image) {
+      result.set(String(row.playerid), {
+        playerid: String(row.playerid),
+        image_url: image,
+        source: 'verified_mlb',
+      });
+    }
   }
+
+  for (const row of contributed.rows) {
+    let parsed: { published_assets?: string[] } = {};
+    try { parsed = JSON.parse(row.description || '{}'); } catch {}
+    const key = (parsed.published_assets || []).find(
+      (value) => typeof value === 'string' && value.startsWith('players/season-headshots/'),
+    );
+    const image = key ? storyAssetUrl(key) : null;
+    if (image) {
+      result.set(String(row.playerid), {
+        playerid: String(row.playerid),
+        image_url: image,
+        source: 'approved_photo',
+      });
+    }
+  }
+
+  // Explicit HEADSHOT designation stays authoritative over every fallback.
   for (const [id, photo] of designated) {
     const image = String(photo?.image_url || '').trim();
     if (image) result.set(id, { playerid: id, image_url: image, source: 'approved_photo' });
   }
+
   return result;
 });
