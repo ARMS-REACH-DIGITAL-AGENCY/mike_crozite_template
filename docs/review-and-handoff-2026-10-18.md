@@ -34,15 +34,26 @@ Part 2 is the starting point for the stats-ingestion thread.
    minutes and served as small per-game files, instead of every phone
    downloading and scoring all 1,024 schools. Needed for traffic of any
    size. Plus firewall rate limits for crawlers, and a load test.
-6. **Rotate the database password** if it hasn't been changed since Dec
-   2025 (a real one is in git history, `yatstats-microsite/.env.local`).
-7. **Three site checks out of date since PR #433** (Active Alumni rework):
-   `scripts/test-active-school-page.cjs`, `test-gallery-membership.cjs`,
-   `test-school-search-contract.cjs`. Row 3 no longer hides cards without
-   2026 stats, so the gallery layer must - check Hamilton's Active count.
-8. **Smaller:** GoHighLevel token rejected (sign-ups), photo cut-out API
-   key invalid, Indy and ALPB imports blocked by a database permission
-   error, `/api/schools/search` sends 6 parameters to a 5-parameter query.
+6. **Old password in git history - low priority.** It opens only the
+   empty YAT_STATS_APP_DB project, not "Players". Reset it (or delete that
+   empty project) when convenient; change it anywhere it was reused.
+7. **Row 3 shows every card the gallery shows - intended** (redshirts like
+   Logan Solomon and Brock Selvidge belong in Active). The three Oct 17
+   site checks still expect the old rule and need updating to match.
+8. **Fixed on this branch (Oct 18):**
+   - GoHighLevel lookup never found existing contacts (it called
+     `/contacts/search`), so the Player Connect / Partner forms refused
+     anyone already in the CRM and photo-review emails never went out. The
+     token itself was replaced Oct 15 and works.
+   - Replaced card photos showed for up to a day (browser cache); now 5 min.
+   - Indy, ALPB and the FlipCard alert crons now write through the writer
+     connection (`DATABASE_URL`) instead of the read-only site pool.
+   - **Still for Pete:** a new remove.bg key (`REMOVE_BG_API_KEY`, from
+     May; remove.bg calls it invalid). Cut-outs still arrive via the free
+     GitHub job within a few hours, just not instantly.
+   - **Waiting for review:** ~18 fan photos held as pending at
+     `/<school>/contribute-review` (blurry, not action, or replacing a
+     photo) - nobody was emailed about them.
 
 ### Stats sources (Part 2)
 
