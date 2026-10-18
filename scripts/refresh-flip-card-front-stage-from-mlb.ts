@@ -782,7 +782,6 @@ async function refreshLoadedNextGames(): Promise<number> {
              WHEN LOWER(TRIM(COALESCE(rng.schedule_status, ''))) = 'scheduled' THEN 'NEXT GAME'
              ELSE rng.schedule_status
            END,
-           next_game_time_zone = COALESCE(f.school_timezone, 'America/Phoenix'),
            stage_updated_at = NOW()
       FROM resolved_next_games rng
      WHERE f.ctid = rng.row_id
