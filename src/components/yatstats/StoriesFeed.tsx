@@ -75,7 +75,9 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         <button type="button" className="ytd-close" aria-label="Close" onClick={onClose}>
           <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
         </button>
-        <TeammatesList rows={rows} />
+        <div className="ytd-scroll">
+          <TeammatesList rows={rows} />
+        </div>
       </div>
       <style jsx global>{`
         .ytd { position: fixed; inset: 0; z-index: 10040; }
@@ -83,10 +85,13 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-panel {
           --ytm-bg: #0b0b0b; --ytm-text: rgba(255,255,255,.88); --ytm-muted: rgba(255,255,255,.55); --ytm-strong: #fff;
           --ytm-border: rgba(255,255,255,.16); --ytm-accent: var(--gold, #ffc107);
-          position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 88vw); overflow-y: auto; overscroll-behavior: contain;
-          padding: 22px 22px calc(28px + env(safe-area-inset-bottom)); background: var(--ytm-bg); border-left: 1px solid var(--ytm-border);
+          position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 88vw); overflow: hidden;
+          background: var(--ytm-bg); border-left: 1px solid var(--ytm-border);
           box-shadow: -12px 0 32px rgba(0,0,0,.45); animation: ytd-in .24s cubic-bezier(.2,.8,.2,1);
         }
+        /* Keep the close control outside the scrolling roster so it stays
+           reachable alongside the sticky heading on long teammate lists. */
+        .ytd-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px 22px calc(28px + env(safe-area-inset-bottom)); }
         body.light-theme .ytd-panel {
           --ytm-bg: #fbf8f2; --ytm-text: rgba(31,25,18,.88); --ytm-muted: rgba(31,25,18,.55); --ytm-strong: rgba(31,25,18,.95);
           --ytm-border: rgba(53,43,30,.18); --ytm-accent: #9a6f00;
