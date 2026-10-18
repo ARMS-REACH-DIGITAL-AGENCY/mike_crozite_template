@@ -23,6 +23,7 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 import { parseTeamYear, teamYearCardOrder } from "@/lib/teamYearShare";
 import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
+import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -488,14 +489,20 @@ export default async function SchoolPage({
     .sort((a, b) => Number(isCoachCard(b)) - Number(isCoachCard(a)));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
 
-  const activeMerged: Row[] = [];
-  for (const p of activeRosterRows) {
-    const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
-    if (isHighSchoolPlayer(mergedRow) && !isRetiredCoachCard(mergedRow)) continue;
-    activeMerged.push({ ...mergedRow, has_2026_stats: true });
-  }
+  // Active membership is the owner-approved status preset. Season stats
+  // enrich those cards when present; they do not decide whether a player is
+  // Active. This keeps cards, filters, Row 3 and the footer tally identical.
+  const activeStatsById = new Map(activeRosterRows.map((p) => [String(p.playerid), p]));
+  const activeMerged: Row[] = stageRows
+    .filter((p) => ACTIVE_GALLERY_STATUSES.includes(String(p.status_label || p.status || '').trim().toUpperCase()))
+    .filter((p) => !isHighSchoolPlayer(p) || isRetiredCoachCard(p))
+    .map((stageRow) => {
+      const id = String(stageRow.playerid);
+      const statsRow = activeStatsById.get(id);
+      return statsRow
+        ? { ...stageRow, ...statsRow, status_label: stageRow.status_label, display_status_label: stageRow.display_status_label, has_2026_stats: true }
+        : { ...stageRow, has_2026_stats: false, season_stats_pending: true };
+    });
 
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Row[] = [];
@@ -574,7 +581,7 @@ export default async function SchoolPage({
       <section id="sec-active" className={`yat-section${teamYear ? '' : ' visible'}`}>
         <div className="yat-grid" id="active-grid">
           {activeSortedRoster.length === 0 ? (
-            <EmptyGrid icon="⚾" title="No 2026 stats available" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
+            <EmptyGrid icon="⚾" title="No active alumni found" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
           ) : (
             activeSortedRoster.map((p, i) => {
               const playerId = String(p.playerid);
