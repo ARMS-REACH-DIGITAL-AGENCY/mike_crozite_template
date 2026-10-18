@@ -982,7 +982,7 @@ export default function InteractionStrip({
                   <div className="gallery-slot-name-overlay">{option.short}</div>
                 </button>
               ))
-            ) : sectionPlayers.map((player) => {
+            ) : sectionPlayers.map((player, playerIndex) => {
               const lastName = getLastName(player.name);
               const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
               const nowSrc = cleanSrc(player.nowImage)
@@ -1019,7 +1019,8 @@ export default function InteractionStrip({
                       }}
                       src={displaySrc}
                       alt={isCurrentTeamTab ? player.name : ''}
-                      loading={activeSection === "news" ? "eager" : "lazy"}
+                      loading={playerIndex < 8 ? "eager" : "lazy"}
+                      fetchPriority={playerIndex < 4 ? "high" : "auto"}
                       decoding="async"
                       className={imageFit === 'contain' ? 'gallery-slot-img gallery-slot-img--contain' : 'gallery-slot-img'}
                       data-now-src={nowSrc}
