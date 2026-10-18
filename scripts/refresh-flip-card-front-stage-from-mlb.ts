@@ -720,6 +720,76 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+// The daily full-schedule ingest owns schedule acquisition. The 3-hour roster
+// sync owns card readiness. Once roster truth changes, immediately attach the
+// best game already present in team_schedules so a newly discovered player
+// does not wait for the next daily schedule run. Use MLB numeric team IDs,
+// which stay authoritative across display-name aliases and rebrands.
+async function refreshLoadedNextGames(): Promise<number> {
+  const result = await pool.query(`
+    WITH eligible_players AS (
+      SELECT f.ctid AS row_id, f.current_team_source_team_id
+      FROM public.flip_card_front_stage f
+      WHERE f.current_team_source = 'mlb_api'
+        AND f.current_team_source_team_id ~ '^[0-9]+$'
+        AND LOWER(TRIM(COALESCE(f.status_label, ''))) NOT IN ('retired', 'not active', 'free agent')
+        AND UPPER(TRIM(COALESCE(f.level_label, ''))) IN (
+          'MLB','AAA','TRIPLE-A','AA','DOUBLE-A','HIGH-A','A+','A','LOW-A','ROOKIE','ACL','FCL'
+        )
+    ),
+    resolved_next_games AS (
+      SELECT ep.row_id, ng.game_time_utc, ng.schedule_status, ng.home_away, ng.opponent
+      FROM eligible_players ep
+      JOIN LATERAL (
+        SELECT
+          ts.game_time_utc,
+          ts.status AS schedule_status,
+          CASE WHEN ts.away_team_id::text = ep.current_team_source_team_id THEN '@' ELSE 'vs.' END AS home_away,
+          CASE WHEN ts.away_team_id::text = ep.current_team_source_team_id THEN ts.home_team_name ELSE ts.away_team_name END AS opponent,
+          CASE
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) = 'in progress' THEN 1
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) = 'pre-game' THEN 2
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) IN ('delayed','warmup','manager challenge','review') THEN 3
+            WHEN LOWER(TRIM(COALESCE(ts.status, ''))) = 'scheduled' THEN 4
+            ELSE 9
+          END AS status_priority
+        FROM public.team_schedules ts
+        WHERE ep.current_team_source_team_id IN (ts.home_team_id::text, ts.away_team_id::text)
+          AND LOWER(TRIM(COALESCE(ts.status, ''))) NOT IN ('final','game over','completed early','not necessary')
+          AND (
+            LOWER(TRIM(COALESCE(ts.status, ''))) IN ('pre-game','in progress','delayed','warmup','manager challenge','review')
+            OR (LOWER(TRIM(COALESCE(ts.status, ''))) = 'scheduled' AND ts.game_time_utc > NOW())
+          )
+        ORDER BY status_priority, ts.game_time_utc
+        LIMIT 1
+      ) ng ON TRUE
+    )
+    UPDATE public.flip_card_front_stage f
+       SET next_game_date = CASE
+             WHEN (rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'))::date =
+                  (NOW() AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'))::date
+             THEN 'TODAY | ' || TO_CHAR(rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'), 'FMMonth DD, YYYY')
+             ELSE TO_CHAR(rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'), 'FMDay | FMMonth DD, YYYY')
+           END,
+           next_game_time_local = TO_CHAR(
+             rng.game_time_utc AT TIME ZONE COALESCE(f.school_timezone, 'America/Phoenix'),
+             'FMHH12:MI AM'
+           ),
+           next_game_time_utc = rng.game_time_utc,
+           next_game_home_away = rng.home_away,
+           next_game_opponent = rng.opponent,
+           next_game_status_label = CASE
+             WHEN LOWER(TRIM(COALESCE(rng.schedule_status, ''))) = 'scheduled' THEN 'NEXT GAME'
+             ELSE rng.schedule_status
+           END,
+           next_game_time_zone = COALESCE(f.school_timezone, 'America/Phoenix'),
+           stage_updated_at = NOW()
+      FROM resolved_next_games rng
+     WHERE f.ctid = rng.row_id
+  `);
+  return result.rowCount ?? 0;
+}
+
 // A linked player MLB shows with no open roster entry, whose last entry
 // was a retirement or release: same card shape as a sourced departure in
 // scripts/apply-mlb-transaction-status.ts (status + previous_* team, no
@@ -940,10 +1010,12 @@ async function main() {
 
     const updated = await refreshStage(mlbCurrent);
     const departed = await applyDepartures(mlbCurrent);
+    const scheduled = await refreshLoadedNextGames();
     const absences = await flagRosterAbsences();
 
     console.log(`Updated flip_card_front_stage rows: ${updated}`);
     console.log(`Departed (retired/released per MLB roster entries): ${departed}`);
+    console.log(`Loaded next-game assignments refreshed by MLB team ID: ${scheduled}`);
     console.log(
       `Roster-absence pass: ${absences.reappeared} reappeared (clock cleared), ` +
         `${absences.firstMiss} first miss (clock started), ` +
