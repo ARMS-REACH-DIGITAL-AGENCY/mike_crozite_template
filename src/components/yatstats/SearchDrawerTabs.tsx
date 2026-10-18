@@ -243,10 +243,10 @@ export function renderSchoolRows(
               <a class="yat-search-school-gallery-link" href="${esc(schoolSectionUrl(school, 'active'))}" title="Open ${esc(name)} flip cards" aria-label="Open ${esc(name)} flip cards">
                 ${identity}
               </a>
-              ${count}
               <a class="yat-search-school-bracket-link" href="${esc(schoolSectionUrl(school, 'fantasy'))}" title="${esc(name)} fantasy bracket · Starts February 1st" aria-label="Open ${esc(name)} fantasy bracket tournament. Starts February 1st.">
                 <span class="yat-bracket-symbol" aria-hidden="true"></span>
               </a>
+              ${count}
             </div>
           </div>
         `;
@@ -821,7 +821,7 @@ export default function SearchDrawerTabs() {
         text-transform:uppercase; color:var(--muted); white-space:normal; overflow:visible;
       }
       #drawerLeft .yat-search-school-global-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 40px; }
-      #drawerLeft .yat-search-school-global-card.yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 40px 34px; }
+      #drawerLeft .yat-search-school-global-card.yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 34px 40px; }
       #drawerLeft .yat-search-school-global-card .yat-search-school-url { font: 400 10px/1.25 var(--yat-font-ui); letter-spacing: 0; text-transform: none; color: var(--accent, #c8a96e); text-decoration: underline; text-underline-offset: 2px; white-space: normal; overflow-wrap: anywhere; }
       #drawerLeft .yat-search-school-global-card .yat-search-school-count { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; min-width: 0; text-align: center; }
       #drawerLeft .yat-search-school-global-card .yat-search-school-count strong { color: #00e08a; font: 800 24px/1 Oswald, sans-serif; }
