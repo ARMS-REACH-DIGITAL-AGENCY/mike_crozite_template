@@ -6,6 +6,8 @@ const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], displa
 
 import { useContext, useEffect, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
+import { contributeSectionHref } from '@/lib/contribute';
+import { getTitlePartner } from '@/lib/titlePartners';
 
 // The images below are compressed copies of the four user-supplied LED artworks.
 const suppliedLedArt = {
@@ -66,6 +68,11 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
   const school = useContext(SchoolContext);
   const schoolName = school?.hsName?.trim() || 'YOUR SCHOOL';
   const schoolLocation = school?.hsLocation?.trim() || 'YOUR COMMUNITY';
+  // The ticker's sponsor spot, on every page: the school's sponsor, or an
+  // open spot that links to the portal's sponsor section.
+  const hsid = String(school?.hsid || '');
+  const sponsor = hsid ? getTitlePartner(hsid) : null;
+  const sponsorHref = hsid ? contributeSectionHref(hsid, 'cc-fans') : 'https://yatstats.com/partners/';
   const [tickerPaused, setTickerPaused] = useState(false);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
@@ -115,6 +122,9 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
       .yat-clubhouse-inline-icon {display:inline-flex !important;align-items:center !important;vertical-align:middle;flex:none !important;gap:6px;margin:0 18px;color:#ffb238;text-decoration:none !important;white-space:nowrap !important;}
       .yat-clubhouse-inline-icon img {width:38px !important;height:38px !important;object-fit:contain !important;}
       .yat-clubhouse-inline-icon b {font-size:19px;font-weight:900;}
+      .yat-clubhouse-sponsor {display:inline-flex !important;align-items:center !important;gap:12px;flex:none !important;margin:0 18px;color:#ffb238;text-decoration:none !important;white-space:nowrap !important;}
+      .yat-clubhouse-sponsor img {height:38px;width:auto;max-width:140px;object-fit:contain;}
+      .yat-clubhouse-sponsor-board {padding:5px 10px;border:2px dashed #ffb238;border-radius:4px;font-size:17px;letter-spacing:.06em;}
       .yat-clubhouse-marquee[data-paused='true'] {animation-play-state:paused !important;}
       .yat-clubhouse-copy {display:flex;align-items:center;flex:none;gap:2px;height:100%;padding:0 0 0 84px;}
       .yat-clubhouse-nav .yat-clubhouse-intro {
@@ -161,14 +171,27 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
           <span className="yat-clubhouse-intro">
             <span className="yat-clubhouse-single-line">FOR A GUIDED TOUR TO HELP YOU NAVIGATE ALL OF THE 1024 YAT?STATS BASEBALL COMMUNITY HUBS AND EXPERIENCE ACTIVE ALUMNI FROM OTHER TOP PROGRAMS IN THE COUNTRY AS WELL... CLICK THE TICKER ICON THAT YOU RELATE TO MOST....</span>
             <span className="yat-clubhouse-single-line">YOU WILL THEN BE DIRECTED TO THE YAT?STATS HOME PAGE TO EXPERIENCE FIRST HAND WHAT OUR PLATFORM HAS TO OFFER THE </span>
-            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="fans"/><b>FANS</b></a>
+            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/fans/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="fans"/><b>FANS</b></a>
             <span className="yat-clubhouse-single-line">OF {schoolName.toUpperCase()} AND THE COMMUNITY OF {schoolLocation.toUpperCase()}... IF YOU WANT TO KNOW &quot;WHERE THEY YAT? AND WHAT&apos;S THEIR STATS&quot;... YOU&apos;RE IN THE RIGHT PLACE! TO THE CURRENT COACHING STAFF OR THE PROGRAM&apos;S BOOSTER CLUB.... YOU WILL LEARN HOW YAT?STATS CAN HELP</span>
-            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="schools"/><b>SCHOOLS</b></a>
+            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/programs/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="schools"/><b>SCHOOLS</b></a>
             <span className="yat-clubhouse-single-line">COMMUNICATE BETTER WITH THEIR ALUMNI AND LOCAL COMMUNITY... THERE IS ALSO A SPECIFIC TOUR FOR THE {schoolName.toUpperCase()} ACTIVE ALUMNI WHO ARE STILL PLAYING BASEBALL COLLEGIATELY OR PROFESSIONALLY.. WITHOUT THE</span>
-            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="players"/><b>PLAYERS</b></a>
+            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/players/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="players"/><b>PLAYERS</b></a>
             <span className="yat-clubhouse-single-line">THIS NOSTALGIC PLATFORM WOULDN&apos;T EXIST... MOST IMPORTANTLY WE WOULD LIKE TO THANK OUR LOCAL SPONSOR</span>
-            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="partners"/><b>PARTNERS</b></a>
+            <a className="yat-clubhouse-inline-icon" href="https://yatstats.com/partners/" tabIndex={copy === 1 ? -1 : undefined}><Icon kind="partners"/><b>PARTNERS</b></a>
             <span className="yat-clubhouse-single-line">FOR MAKING THIS PLATFORM POSSIBLE FOR THE BASEBALL FANS AND ALUMNI OF {schoolName.toUpperCase()}...</span>
+            {sponsor ? (
+              <span className="yat-clubhouse-sponsor">
+                <span className="yat-clubhouse-single-line">PROUDLY SPONSORED BY</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={sponsor.logoUrl} alt={sponsor.name} />
+                <span className="yat-clubhouse-single-line">{sponsor.name.toUpperCase()}...</span>
+              </span>
+            ) : (
+              <a className="yat-clubhouse-sponsor is-open" href={sponsorHref} tabIndex={copy === 1 ? -1 : undefined}>
+                <span className="yat-clubhouse-sponsor-board">YOUR BUSINESS HERE</span>
+                <span className="yat-clubhouse-single-line">SPONSOR THIS PAGE...</span>
+              </a>
+            )}
           </span>
 
 

@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const JOB_NAME = "tbc_safe_ingest";
-const MAX_AGE_MS = 26 * 60 * 60 * 1000;
+const MAX_AGE_MS = 13 * 60 * 60 * 1000;
 
 const pool = new Pool({
   connectionString: process.env.PLAYERS_DATABASE_URL || process.env.DATABASE_URL,
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         job: JOB_NAME,
         occurredAt: new Date().toISOString(),
         lastSuccessAt,
-        error: "No successful TBC ingest was recorded in the last 26 hours",
+        error: "No successful TBC ingest was recorded in the last 13 hours",
       });
     }
 

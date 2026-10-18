@@ -12,8 +12,10 @@ export async function generateMetadata({
     const { playerId } = await params;
     const player = await getPlayerById(String(playerId));
     const playerName = player ? `${player.firstname || ""} ${player.lastname || ""}`.trim() : "Player";
+    // A coach's card (COACH in its status) is a coach profile.
+    const isCoach = /(?:^|[ -])COACH(?:$|[ -])/.test(String((player as Record<string, unknown> | null)?.status_label || "").toUpperCase());
     return {
-      title: `${playerName.toUpperCase()} | YAT?STATS - Player Profile`,
+      title: `${playerName.toUpperCase()} | YAT?STATS - ${isCoach ? "Coach" : "Player"} Profile`,
       description: `Full career stats and profile for ${playerName}.`,
     };
   } catch {

@@ -129,7 +129,7 @@ function matchesGraduatingClass(value: string, selected: string[]): boolean {
 // The year badge sets data-alltime-team-year-filter before applyFilters runs.
 const LEVEL_ORDER: Record<string, number> = {
   MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
-  ROOKIE: 6, INDY: 7, "INT'L": 8, 'NCAA-D1': 9, 'NCAA-D2': 10,
+  ROOKIE: 6, INDY: 7, "INT'L": 8, NCAA: 9, 'NCAA-D1': 9, 'NCAA-D2': 10,
   'NCAA-D3': 11, NAIA: 12, JUCO: 13, 'HIGH SCHOOL': 14,
 };
 function sortFilteredAllTime(section: HTMLElement) {
@@ -154,8 +154,11 @@ function sortFilteredAllTime(section: HTMLElement) {
   const last = (card: HTMLElement) => name(card).split(/\s+/).pop() || '';
   const coachPriority = (card: HTMLElement) => /(?:^|[ -])COACH(?:$|[ -])/.test(normalize(card.dataset.status));
   const teamSelected = Boolean(section.dataset.alltimeTeamYearFilter);
+  // A-Z: the coach first. A team year: the highest-level player first and
+  // the coach last (same order as teamYearCardOrder on the server).
   cards.sort((a, b) => teamSelected
-    ? rank(a) - rank(b) || grad(a) - grad(b) || years(b) - years(a)
+    ? Number(coachPriority(a)) - Number(coachPriority(b))
+      || rank(a) - rank(b) || grad(a) - grad(b) || years(b) - years(a)
       || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
     : Number(coachPriority(b)) - Number(coachPriority(a)) || last(a).localeCompare(last(b)) || name(a).localeCompare(name(b))
   );
@@ -178,6 +181,8 @@ function applyFilters(section: string) {
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
   const rosterYears = getSelectedValues('filterRosterYears');
+  // "My Favorites" (FavoritesFilter marks the reader's favorites).
+  const favoritesOnly = Boolean((document.getElementById('filterFavs') as HTMLInputElement | null)?.checked);
   const allTimeTeamYear = section === 'alltime'
     ? normalize(targetSection.dataset.alltimeTeamYearFilter)
     : '';
@@ -203,7 +208,8 @@ function applyFilters(section: string) {
       && (!organizations.length || organizations.includes(organization))
       && matchesGraduatingClass(gradClass, gradClasses)
       && (!rosterYears.length || cardRosterYears.some((year) => rosterYears.includes(year)))
-      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear));
+      && (!allTimeTeamYear || cardRosterYears.includes(allTimeTeamYear))
+      && (!favoritesOnly || card.dataset.fav === 'true');
 
     const displayTarget = card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card;
     displayTarget.style.display = show ? '' : 'none';
@@ -223,7 +229,8 @@ function applyPreset(section: string) {
     if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
   }
 
-  // Active: ACTIVE plus every injured-list status (src/lib/galleryStatuses.ts).
+  // Owner-approved Active preset: ACTIVE + injured + organization roster
+  // states + redshirts. Retired/free-agent/etc. stay available but unchecked.
   if (section === 'active') {
     setValues('filterStatus', [...ACTIVE_GALLERY_STATUSES]);
   }
@@ -237,8 +244,26 @@ function applyPreset(section: string) {
     setValues('filterLevels', ['HIGH SCHOOL']);
   }
 
+  // A team link (?team=2017, which the year strip also keeps in the address
+  // bar): the All-Time list opens on that season. Picked here, after the
+  // preset - which clears any year - and in the same pass as the filter, so
+  // the whole list never shows between the two (the server already sent the
+  // page filtered to that team). The event then brings the strip and count
+  // box along.
+  const team = section === 'alltime' ? new URLSearchParams(window.location.search).get('team') || '' : '';
+  const teamYear = /^\d{4}$/.test(team) ? team : '';
+  if (teamYear) {
+    const allTimeSection = document.getElementById('sec-alltime');
+    if (allTimeSection) allTimeSection.dataset.alltimeTeamYearFilter = teamYear;
+    setValues('filterRosterYears', [teamYear]);
+  }
+
   syncEverySelectAll();
   applyFilters(section);
+
+  if (teamYear) {
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: teamYear } })), 0);
+  }
 }
 
 // "Take me to his flip card" links (favorites drawer, search, the profile's
@@ -261,9 +286,8 @@ function readLinkedPlayer(): { id: string; view: string } {
 
 // Whether a tab's roster preset (applyPreset) shows this card.
 function presetShows(section: string, card: HTMLElement): boolean {
-  const status = normalize(card.dataset.status);
   if (section === 'active') {
-    return ACTIVE_GALLERY_STATUSES.includes(status);
+    return ACTIVE_GALLERY_STATUSES.includes(normalize(card.dataset.status));
   }
   if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL';
   return true;
@@ -297,7 +321,7 @@ function scrollToLinkedCard(section: string, playerId: string) {
     const card = findCard(section, playerId);
     const shown = card && (card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card).style.display !== 'none';
     if (!card || !shown) return;
-    card.scrollIntoView({ behavior: 'auto', block: 'center' });
+    card.scrollIntoView({ behavior: 'instant', block: 'center' });
     if (!highlighted) {
       highlighted = true;
       card.animate?.(
@@ -371,10 +395,18 @@ export default function GalleryFilterController() {
       applyFilters(section);
     };
 
+    // A new team year (or back to the whole list) starts at the top of the
+    // gallery: the list is long, and staying scrolled down usually left the
+    // reader below every card of the year they picked. Instantly, like a
+    // headshot tap on the Active list: 'auto' follows the page's
+    // scroll-behavior:smooth and glided the whole list by.
+    const toTop = () => window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+
     const onAllTimeTeamYearFilter = (event: Event) => {
       const detail = (event as CustomEvent<{ year?: unknown; reset?: boolean }>).detail;
       if (detail?.reset) {
         applyPreset('alltime');
+        toTop();
         return;
       }
 
@@ -389,6 +421,7 @@ export default function GalleryFilterController() {
 
       setValues('filterRosterYears', year ? [year] : []);
       applyFilters('alltime');
+      toTop();
     };
 
     const onInputCapture = (event: Event) => {

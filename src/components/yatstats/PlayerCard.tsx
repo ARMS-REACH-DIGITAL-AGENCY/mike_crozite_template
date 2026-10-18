@@ -1,8 +1,10 @@
 // src/components/yatstats/PlayerCard.tsx
 // Full flip card container: article element with front and back faces
 
-import { levelLabel, gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
-import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl } from "@/lib/playerImage";
+import { gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
+import { resolvePlayerDisplay } from "@/lib/playerDisplay";
+import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
 import PlayerCardBack from "@/components/yatstats/PlayerCardBack";
@@ -21,9 +23,9 @@ interface PlayerCardProps {
    */
   frontImageUrl?: string | null;
   /**
-   * Explicitly designated HEADSHOT image URL (player_photos WHERE image_role='HEADSHOT').
-   * Pass null when no designated HEADSHOT has been looked up — back card will show silhouette.
-   * Do NOT pass the legacy players/now/{id}.jpg path here.
+   * Approved designated HEADSHOT or an official image from a verified MLB identity.
+   * The shared headshot chain preserves approved photos before same-player legacy assets.
+   * Pass null when neither source exists; legacy assets and the silhouette remain available.
    */
   headshotUrl?: string | null;
   /** When true, applies all-time display differences (CAREER STATS label, etc.) */
@@ -134,16 +136,13 @@ function imageText(value: unknown): string {
 }
 
 export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, eager = false, shareBaseUrl = null, schoolName = null, schoolLocation = null }: PlayerCardProps) {
-  const lvl = String(p.level_label || levelLabel(String(p.level || "")) || p.level || "");
+  const display = resolvePlayerDisplay(p);
+  const lvl = display.levelLabel;
   const gc = String(p.class_of || "").trim();
   const { estimated: gcEstimated } = gradClassInfo(p);
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
-  const org = normalizeOrg(String(p.current_org_or_conference_name || ""));
-  const status = String(
-    p.status_label || (p.is_active_2025 ? "ACTIVE" : "RETIRED")
-  )
-    .trim()
-    .toUpperCase();
+  const org = normalizeOrg(display.orgConferenceName);
+  const status = display.statusLabel;
   const slug = toPlayerSlug(
     String(p.firstname || p.first_name || ""),
     String(p.lastname || p.last_name || "")
@@ -158,19 +157,30 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
 
   // Block 3 mirrors Block 5 while using section-specific artwork:
   // active = current headshot, all-time = HS-era card front,
-  // current team = the committed_teamid logo from flip_card_front_stage.
+  // current team = the school crest for coaches, otherwise the committed_teamid
+  // logo from flip_card_front_stage.
   // Card-size copies (see getPlayerThenCardUrl); the strip's error handler
   // falls back to the originals via getOriginalForCardCopy. The "then"
   // thumbnail is the same file as the card front's photo, so the browser
   // downloads it once for both.
   const nowThumbnailUrl = imageText(headshotUrl) || getPlayerNowThumbUrl(encodeURIComponent(playerId));
   const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenCardUrl(playerId);
+  const thenSilhouetteUrl = getThenSilhouetteUrl({
+    isPitcher: p.is_pitcher,
+    position: p.position,
+    bats: p.bats,
+    throws: p.throws,
+  });
   const committedTeamId = imageText(
     p.committed_teamid || p.committed_team_id || p.commit_teamid || p.commit_team_id
   );
-  // Small WebP copy; the strip falls back to the uploaded .jpg, then the
-  // uncommitted badge.
-  const committedLogoUrl = committedTeamId ? getTeamLogoUrl(committedTeamId) : UNCOMMITTED_BADGE_URL;
+  // Coaches represent their high school, not an uncommitted college player.
+  // The school crest is already the canonical logo used throughout the microsite.
+  const isCoach = status.includes("COACH");
+  const committedLogoUrl = isCoach
+    ? getSchoolCrestUrl(resolvedHsid)
+    : committedTeamId ? getTeamLogoUrl(committedTeamId) : UNCOMMITTED_BADGE_URL;
+  const committedLogoFallbackUrl = isCoach ? CREST_FALLBACK_PATH : UNCOMMITTED_BADGE_URL;
 
   return (
     <article
@@ -190,8 +200,8 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-thumbnail-then={thenThumbnailUrl}
       data-thumbnail-current={committedLogoUrl}
       data-thumbnail-now-fallback={HEADSHOT_FALLBACK_URL}
-      data-thumbnail-then-fallback={HEADSHOT_FALLBACK_URL}
-      data-thumbnail-current-fallback={UNCOMMITTED_BADGE_URL}
+      data-thumbnail-then-fallback={thenSilhouetteUrl}
+      data-thumbnail-current-fallback={committedLogoFallbackUrl}
       data-stat-gp={gp}
       data-stat-avg={statValue(p.avg)}
       data-stat-obp={statValue(p.obp)}
