@@ -2156,23 +2156,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     the same trim on the fly -- the figure (not empty
                     canvas) fills its box either way. */}
                 <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${firstName(slide.title)} cutout`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
-                {/* "Then vs now" -- a cutout from the current/most-recent
-                    action photo (players/back/, run through the same
-                    background-removal pipeline into players/back-cutouts/).
-                    Per direct feedback: about half the HS cutout's
-                    height, a little to the right of it and in front of
-                    it, at every width -- shown alongside the big HS
-                    cutout above, never instead of it (see the
-                    .zt-person-now CSS rules). Also trimmed via
-                    /api/cutout. Falls back to the headshot cutout
-                    (players/now/, background removed into
-                    players/now-cutouts/) when a player has no "back"
-                    photo -- e.g. a pro whose flip card back is still
-                    blank -- via SmartImage's own srcs-then-src fallback
-                    chain (the same mechanism season slides use for their
-                    YaTi placeholder), not a second image element. Only
-                    renders nothing if NEITHER exists. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('back', playerId), apiCutoutUrl('back', playerId), webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={2} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
+                {/* "Then vs now" uses the current headshot only. A
+                    flip-card-back action photo belongs exclusively on the
+                    back of the card and must not leak into the profile
+                    anchor slide. */}
+                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={1} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
               </Fragment>
             );
           }
@@ -2600,7 +2588,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* A cutout (.zt-story-cut) keeps the plain .zt-person placement - the
            YaTi cartoon's: bottom pinned to the bottom of the slide, full
            height. A whole photo (no cutout yet) sits above the rail instead. */
-        .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:30px; height:calc(100% - 44px); }
+        .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:20px; height:calc(100% - 34px); }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
            headline's). */
@@ -3136,6 +3124,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           /* Headshot fallback flush against the headline column's real
              left edge (58% here -- see the doubled-box note above). */
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
+          /* Whole timeline/story photos stand directly on the mobile
+             timeline rail instead of floating above it. This path is
+             shared by Story photos and Connect & Contribute yearly hero
+             uploads, so both land in the same place. */
+          .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:8px; height:calc(100% - 22px); }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28cqw,120px)) -- at that width a wide pose was
              width-limited to well under the row's height. */
