@@ -97,7 +97,21 @@ export async function POST(req: NextRequest) {
         return fail('Pick the player, or type his name and pick his high school.');
       }
     }
-    if (!/^\d+$/.test(hsid)) return fail('Pick the high school.');
+    if (purpose === 'team_logo') {
+      const { rows: teamRows } = await query<{ teamid: string; current_team_name: string | null }>(
+        `SELECT teamid::text, current_team_name
+           FROM teamid_universe_mapping
+          WHERE teamid::text = $1
+            AND COALESCE(current_team_name, '') <> ''
+            AND UPPER(COALESCE(level_label, '')) <> 'HIGH SCHOOL'
+          LIMIT 1`,
+        [teamId]
+      );
+      if (!teamRows[0]) return fail('That college or pro team was not found.', 404);
+      hsid = '';
+    } else if (!/^\d+$/.test(hsid)) {
+      return fail('Pick the high school.');
+    }
 
     if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT) {
       return fail("You've sent a lot today. Thank you! Please send the rest tomorrow.", 429);
