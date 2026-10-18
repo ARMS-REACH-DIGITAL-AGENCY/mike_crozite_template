@@ -20,6 +20,10 @@ import {
 
 type Mode = 'name' | 'school' | 'team';
 
+function escapeTeamText(value: unknown) {
+  return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+
 type Props =
   | { mode?: 'player'; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
   | { mode: 'school'; onSchool: (s: ContributeSchool) => void; onPlayer?: never; onTeam?: never }
@@ -81,9 +85,12 @@ export default function ContributeSearch(props: Props) {
               const level = String(t.level || t.levelLabel || t.level_label || '').trim();
               const org = String(t.orgName || t.currentOrgOrConferenceName || t.current_org_or_conference_name || '').trim();
               const logo = String(t.logoUrl || '').trim() || `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(teamId)}.png`;
-              return `<button type="button" class="yat-search-card yat-search-team-entity-card" data-team-id="${teamId}" data-team-name="${name.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}" data-team-level="${level.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}" data-team-org="${org.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;')}" style="width:100%;text-align:left">
-                <img src="${logo}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='/img/yatstats-logo-circle.png';this.onerror=null" />
-                <span class="yat-search-player-text-link"><strong>${name}</strong>${level ? `<small>${level}</small>` : ''}${org ? `<small>${org}</small>` : ''}</span>
+              const safeName = escapeTeamText(name);
+              const safeLevel = escapeTeamText(level);
+              const safeOrg = escapeTeamText(org);
+              return `<button type="button" class="yat-search-card yat-search-team-entity-card" data-team-id="${escapeTeamText(teamId)}" data-team-name="${safeName}" data-team-level="${safeLevel}" data-team-org="${safeOrg}" style="width:100%;text-align:left">
+                <img src="${escapeTeamText(logo)}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='/img/yatstats-logo-circle.png';this.onerror=null" />
+                <span class="yat-search-player-text-link"><strong>${safeName}</strong>${level ? `<small>${safeLevel}</small>` : ''}${org ? `<small>${safeOrg}</small>` : ''}</span>
               </button>`;
             }).join('')}</div>` : '<div class="yat-search-empty">No college or pro team matches.</div>';
           } else {
