@@ -9,10 +9,9 @@ import { headers } from "next/headers";
 import {
   getSchoolByHsid,
   getActiveRosterByHsid,
-  getAllTimeRosterByHsid,
+  getSchoolSharedRosterData,
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
-  getFlipCardFrontStageByHsid,
   getPlayerById,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
@@ -455,18 +454,14 @@ export default async function SchoolPage({
       .map((override) => override.sourceHsid)
   ));
 
-  const [activeRosterResult, allTimeRosterResult, flipFrontStageResult, tributeSourceRosterResults] = await Promise.all([
+  const [activeRosterResult, sharedRosters, tributeSourceRosterResults] = await Promise.all([
     getActiveRosterByHsid(resolvedHsid).catch((error) => {
       console.error("getActiveRosterByHsid failed", { resolvedHsid, error });
       return [];
     }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error("getAllTimeRosterByHsid failed", { resolvedHsid, error });
-      return [];
-    }),
-    getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
-      console.error("getFlipCardFrontStageByHsid failed", { resolvedHsid, error });
-      return [];
+    getSchoolSharedRosterData(resolvedHsid).catch((error) => {
+      console.error("getSchoolSharedRosterData failed", { resolvedHsid, error });
+      return { allTimeRoster: [], flipCardStage: [] };
     }),
     Promise.all(
       tributeSourceHsids.map((sourceHsid) =>
@@ -477,6 +472,8 @@ export default async function SchoolPage({
       )
     ),
   ]);
+  const allTimeRosterResult = sharedRosters.allTimeRoster;
+  const flipFrontStageResult = sharedRosters.flipCardStage;
 
   const activeRosterRows = asRows(activeRosterResult);
   const allTimeRosterRows = asRows(allTimeRosterResult);
