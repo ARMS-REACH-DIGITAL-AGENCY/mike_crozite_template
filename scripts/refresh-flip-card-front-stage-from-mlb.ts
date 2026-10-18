@@ -106,13 +106,46 @@ function classifyDeparture(description: string | null | undefined): "RETIRED" | 
   return null;
 }
 
-// TBC-safe-ingest creates baseline cards for every new player in player_hsids.
-// The MLB workflow must be able to do the same thing on its own, though: roster
-// discovery can run hours before the next TBC ingest, and every later MLB step
-// is an UPDATE. Joining through player_hsids preserves the TBC identity guard -
-// identities held by player_hsid_exclusion never reach this insert.
-async function ensureLatestMatchedPlayersInStage(): Promise<{ created: number; eligible: number }> {
-  const { rows } = await pool.query<{ created: string; eligible: string }>(`
+// TBC-safe-ingest normally creates baseline cards first. MLB roster discovery can
+// arrive before that twice-daily job, so this is a guarded fallback - not a
+// "no match => create a card" rule.
+//
+// A card is eligible only when MLB has already resolved the roster identity to
+// a YAT?STATS/TBC playerid, that playerid resolves through player_hsids to a
+// real school, and no stage row exists. Before inserting we repeat the same
+// identity guard used by tbc-safe-ingest: an existing TBC crosswalk or a
+// same-name YAT-only card at the same school is quarantined instead of created.
+// This closes the timing window where MLB could run before TBC had written the
+// player_hsid_exclusion row.
+//
+// Every successful automatic baseline is stamped in source_notes so operations
+// can notify Pete and audit exactly which cards were created automatically.
+type MlbBaselineHeldPlayer = {
+  tbc_playerid: string;
+  hsid: string;
+  name: string;
+  reason: "crosswalk" | "same_name_yat_card";
+  matched_playerid: string;
+};
+
+type MlbBaselineCreatedPlayer = {
+  playerid: string;
+  hsid: string;
+  name: string;
+};
+
+async function ensureLatestMatchedPlayersInStage(): Promise<{
+  created: number;
+  eligible: number;
+  createdPlayers: MlbBaselineCreatedPlayer[];
+  held: MlbBaselineHeldPlayer[];
+}> {
+  const { rows } = await pool.query<{
+    created: string;
+    eligible: string;
+    created_players: MlbBaselineCreatedPlayer[];
+    held: MlbBaselineHeldPlayer[];
+  }>(`
     WITH latest_completed_run AS (
       SELECT run_id
       FROM public.source_ingest_runs
@@ -144,28 +177,121 @@ async function ensureLatestMatchedPlayersInStage(): Promise<{ created: number; e
         AND ph.hsid IS NOT NULL
       ORDER BY m.playerid, ph.hsid::text
     ),
+    checked AS MATERIALIZED (
+      SELECT c.*,
+        (
+          SELECT m.playerid
+          FROM public.player_source_map m
+          WHERE m.source = 'tbc'
+            AND m.source_player_id = c.playerid::text
+            AND COALESCE(m.match_method, '') <> 'rejected_bad_identity_match'
+          LIMIT 1
+        ) AS crosswalk_playerid,
+        (
+          SELECT e.playerid::text
+          FROM public.flip_card_front_stage e
+          WHERE e.hsid::text = c.hsid
+            AND e.playerid::text <> c.playerid::text
+            AND regexp_replace(lower(COALESCE(c.lastname, '')), '[^a-z]', '', 'g') <> ''
+            AND regexp_replace(lower(COALESCE(e.first_name, '')), '[^a-z]', '', 'g')
+              = regexp_replace(lower(COALESCE(c.firstname, '')), '[^a-z]', '', 'g')
+            AND regexp_replace(lower(COALESCE(e.last_name, '')), '[^a-z]', '', 'g')
+              = regexp_replace(lower(COALESCE(c.lastname, '')), '[^a-z]', '', 'g')
+            AND NOT EXISTS (
+              SELECT 1 FROM public.tbc_players_raw tt WHERE tt.playerid::text = e.playerid::text
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM public.player_source_map r
+              WHERE r.source = 'tbc'
+                AND r.source_player_id = c.playerid::text
+                AND r.playerid = e.playerid::text
+                AND r.match_method = 'rejected_bad_identity_match'
+            )
+          LIMIT 1
+        ) AS yat_match_playerid
+      FROM candidates c
+    ),
+    excluded AS (
+      INSERT INTO public.player_hsid_exclusion (playerid, hsid, reason, source)
+      SELECT
+        playerid::text,
+        hsid,
+        'Held for identity review before MLB auto-baseline: ' ||
+          CASE
+            WHEN crosswalk_playerid IS NOT NULL THEN 'crosswalk names ' || crosswalk_playerid
+            ELSE 'same name as ' || yat_match_playerid || ' at this school'
+          END,
+        'mlb_auto_baseline_identity_guard'
+      FROM checked
+      WHERE crosswalk_playerid IS NOT NULL
+         OR yat_match_playerid IS NOT NULL
+      ON CONFLICT DO NOTHING
+      RETURNING playerid
+    ),
     inserted AS (
       INSERT INTO public.flip_card_front_stage (
-        playerid, hsid, display_name, first_name, last_name
+        playerid,
+        hsid,
+        display_name,
+        first_name,
+        last_name,
+        source_notes,
+        stage_updated_at
       )
       SELECT
         playerid,
         hsid,
         TRIM(COALESCE(firstname, '') || ' ' || COALESCE(lastname, '')),
         firstname,
-        lastname
-      FROM candidates
+        lastname,
+        'AUTO_BASELINE:mlb_roster_sync',
+        NOW()
+      FROM checked
+      WHERE crosswalk_playerid IS NULL
+        AND yat_match_playerid IS NULL
       ON CONFLICT (playerid) DO NOTHING
-      RETURNING playerid
+      RETURNING playerid, hsid, display_name
     )
     SELECT
       (SELECT COUNT(*)::text FROM inserted) AS created,
-      (SELECT COUNT(*)::text FROM candidates) AS eligible
+      (SELECT COUNT(*)::text FROM candidates) AS eligible,
+      COALESCE(
+        (
+          SELECT json_agg(json_build_object(
+            'playerid', playerid::text,
+            'hsid', hsid::text,
+            'name', display_name
+          ) ORDER BY hsid::text, display_name, playerid::text)
+          FROM inserted
+        ),
+        '[]'::json
+      ) AS created_players,
+      COALESCE(
+        (
+          SELECT json_agg(json_build_object(
+            'tbc_playerid', playerid::text,
+            'hsid', hsid,
+            'name', TRIM(COALESCE(firstname, '') || ' ' || COALESCE(lastname, '')),
+            'reason', CASE
+              WHEN crosswalk_playerid IS NOT NULL THEN 'crosswalk'
+              ELSE 'same_name_yat_card'
+            END,
+            'matched_playerid', COALESCE(crosswalk_playerid, yat_match_playerid)
+          ) ORDER BY hsid, lastname, firstname)
+          FROM checked
+          WHERE crosswalk_playerid IS NOT NULL
+             OR yat_match_playerid IS NOT NULL
+        ),
+        '[]'::json
+      ) AS held
   `);
 
   return {
     created: Number(rows[0]?.created ?? 0),
     eligible: Number(rows[0]?.eligible ?? 0),
+    createdPlayers: rows[0]?.created_players ?? [],
+    held: rows[0]?.held ?? [],
   };
 }
 
@@ -990,8 +1116,23 @@ async function main() {
     const baseline = await ensureLatestMatchedPlayersInStage();
     const mappings = await ensureCurrentProTeamMappings();
     console.log(
-      `MLB stage baseline: ${baseline.created} new rows from ${baseline.eligible} currently missing matched cards`
+      `MLB stage baseline: ${baseline.created} new rows from ${baseline.eligible} currently missing matched cards; ` +
+        `${baseline.held.length} held for identity review`
     );
+    if (baseline.createdPlayers.length > 0) {
+      console.log("AUTO_FLIP_CARD_CREATED " + JSON.stringify({
+        source: "mlb_roster_sync",
+        count: baseline.createdPlayers.length,
+        players: baseline.createdPlayers,
+      }));
+    }
+    if (baseline.held.length > 0) {
+      console.warn("AUTO_FLIP_CARD_HELD " + JSON.stringify({
+        source: "mlb_roster_sync",
+        count: baseline.held.length,
+        players: baseline.held,
+      }));
+    }
     console.log(
       `Team-id mapping refresh: ${mappings.exactInserted} exact additions, ${mappings.aliasInserted} verified aliases, ` +
         `${mappings.unresolved.length} current source teams still unresolved`
