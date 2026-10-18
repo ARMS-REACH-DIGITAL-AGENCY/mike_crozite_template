@@ -26,6 +26,7 @@ import {
   PHOTO_TYPES,
   type ContributePlayer,
   type ContributeSchool,
+  type ContributeTeam,
   type Crop,
   type PhotoPurpose,
   type Season,
@@ -78,6 +79,7 @@ export default function ContributePhotoFlow({
   // League, a travel team...).
   const [other, setOther] = useState<{ year: number | ''; team: string }>({ year: '', team: '' });
   const [teamId, setTeamId] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState<ContributeTeam | null>(null);
   const [school, setSchool] = useState<ContributeSchool | null>(hubSchool);
   // 5. Placement
   const [landscape, setLandscape] = useState(false);
@@ -125,6 +127,7 @@ export default function ContributePhotoFlow({
   const loadSeasons = useCallback((p: ContributePlayer | null) => {
     const request = ++seasonRequest.current;
     setSeasons(null); setInfo(null); setSeasonKey(''); setTeamId('');
+    if (purpose !== 'team_logo') setSelectedTeam(null);
     if (!p?.playerId) return;
     fetch(`/api/contribute/seasons?playerId=${encodeURIComponent(p.playerId)}`)
       .then((res) => res.json())
@@ -177,6 +180,7 @@ export default function ContributePhotoFlow({
   const choosePurpose = (id: PhotoPurpose) => {
     setPurpose(id);
     setShowPurposePicker(false);
+    if (id !== 'team_logo') { setSelectedTeam(null); setTeamId(''); }
     setCrop(null);
     setLandscape(false);
     setError('');
@@ -207,8 +211,8 @@ export default function ContributePhotoFlow({
   const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop]);
   const approved = approvedSig === sig;
   const ready = !problem();
-  const submissionHsid = String(type?.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim();
-  const validSubmissionHsid = /^\d+$/.test(submissionHsid);
+  const submissionHsid = String(type?.id === 'team_logo' ? '' : type?.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim();
+  const validSubmissionHsid = type?.id === 'team_logo' || /^\d+$/.test(submissionHsid);
 
   const send = async () => {
     if (!file || !type) return;
@@ -272,7 +276,7 @@ export default function ContributePhotoFlow({
   const startOver = () => {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null); setPreview(''); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
-    setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setLandscape(false); setApprovedSig('');
+    setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setSelectedTeam(null); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
   };
 
@@ -409,10 +413,25 @@ export default function ContributePhotoFlow({
                 <button type="button" className="ycd-link ycd-small" onClick={() => setSchool(null)}>Change school</button>
               </div>
             ) : <ContributeSearch mode="school" onSchool={setSchool} />
+          ) : pick === 'team' ? (
+            selectedTeam ? (
+              <div className="ycd-chosen-wrap">
+                <div className="ycd-chosen">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={selectedTeam.logoUrl || `${S3}/teams/${selectedTeam.teamId}.png`} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
+                  <span className="ycd-chosen-text">
+                    <b>{selectedTeam.name}</b>
+                    <small>{[selectedTeam.level, selectedTeam.orgName].filter(Boolean).join(' · ')}</small>
+                  </span>
+                </div>
+                <button type="button" className="ycd-link ycd-small" onClick={() => { setSelectedTeam(null); setTeamId(''); }}>Change team</button>
+              </div>
+            ) : (
+              <ContributeSearch mode="team" onTeam={(team) => { setSelectedTeam(team); setTeamId(team.teamId); }} />
+            )
           ) : (
             <>
-              {/* Players: everyone in it (the first is the main one). For a
-                  team, a player who played there lists his teams. */}
+              {/* Players: everyone in it (the first is the main one). */}
               {tagged.length ? (
                 <div className="ypf-tags">
                   {tagged.map((t, i) => (
@@ -425,27 +444,11 @@ export default function ContributePhotoFlow({
                   ))}
                 </div>
               ) : null}
-              {pick === 'team' && !tagged.length ? <div className="ycd-muted ycd-small">Search a player who played for the team, and we&apos;ll list his teams.</div> : null}
-              {!tagged.length || (adding && pick === 'player') ? (
+              {!tagged.length || adding ? (
                 <ContributeSearch onPlayer={addTag} />
-              ) : pick === 'player' ? (
+              ) : (
                 <button type="button" className="ycd-link ycd-small" onClick={() => setAdding(true)}>+ Tag someone else in the picture</button>
-              ) : null}
-              {pick === 'team' && main ? (
-                !seasons ? <div className="ycd-muted ycd-small">Loading his teams…</div>
-                  : !teams.length ? <div className="ycd-muted ycd-small">We don&apos;t have his college or pro teams yet.</div>
-                  : (
-                    <div className="ypf-teams">
-                      {teams.map(([id, name]) => (
-                        <button type="button" key={id} className={`ypf-team${teamId === id ? ' is-on' : ''}`} onClick={() => setTeamId(id)}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={`${S3}/teams/${id}.png`} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
-                          <span>{name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )
-              ) : null}
+              )}
             </>
           )}
 
@@ -515,7 +518,7 @@ export default function ContributePhotoFlow({
                   crop={aspect ? crop : null}
                   landscape={landscape}
                   season={type.asks === 'season' ? season : current}
-                  teamName={type.asks === 'team' ? teams.find(([id]) => id === teamId)?.[1] || '' : ''}
+                  teamName={type.asks === 'team' ? selectedTeam?.name || teams.find(([id]) => id === teamId)?.[1] || '' : ''}
                   teamId={type.asks === 'team' ? teamId : ''}
                   tagged={tagged.map((t) => t.displayName)}
                   player={proofPlayer}
