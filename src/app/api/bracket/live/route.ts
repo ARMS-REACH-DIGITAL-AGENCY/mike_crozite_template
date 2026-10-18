@@ -57,7 +57,8 @@ const pitOf = (s: Record<string, unknown>) => [
 const text = (v: unknown) => String(v ?? '').trim();
 const isHighSchool = (r: StageRow) => [r.level_label, r.display_level_label].some((v) => /^(HIGH SCHOOL|HS)$/i.test(text(v)));
 // A game that is over (or will not be played).
-const isDone = (status: unknown) => /^(final|game over|completed|postponed|cancelled|canceled|suspended)/i.test(text(status));
+// "Not Necessary": a postseason game never played (the series ended first).
+const isDone = (status: unknown) => /^(final|game over|completed|postponed|cancelled|canceled|suspended|not necessary)/i.test(text(status));
 // Under way or over: anything but a game still waiting for its first pitch.
 const isStarted = (status: unknown) => isDone(status) || (text(status) !== '' && !/^(scheduled|pre-game|pregame|warmup|delayed start)/i.test(text(status)));
 const isFinal = (status: unknown) => /^(final|game over|completed)/i.test(text(status));
