@@ -239,6 +239,21 @@ export async function GET(req: NextRequest) {
       microsite_url: derivedUrls.get(String(r.hsid || '')) || r.microsite_url || (/^[1-9][0-9]*$/.test(String(r.hsid || '')) ? `https://${r.hsid}.yatstats.com` : null),
       bracket_eligible: Boolean(r.bracket_seeding),
     }));
+    // Never direct two different HSIDs to the same named hostname.
+    // A numeric school domain is always an unambiguous, working fallback.
+    const owners = new Map<string, Set<string>>();
+    for (const school of programs) {
+      const url = String(school.microsite_url || '').trim().toLowerCase().replace(/\\/+$/, '');
+      if (!url) continue;
+      if (!owners.has(url)) owners.set(url, new Set());
+      owners.get(url)!.add(String(school.hsid || ''));
+    }
+    for (const school of programs) {
+      const url = String(school.microsite_url || '').trim().toLowerCase().replace(/\\/+$/, '');
+      if (owners.get(url)?.size && owners.get(url)!.size > 1 && /^[1-9][0-9]*$/.test(String(school.hsid || ''))) {
+        school.microsite_url = `https://${school.hsid}.yatstats.com`;
+      }
+    }
     return NextResponse.json(
       { programs },
       { status: 200, headers: { ...cors, "Cache-Control": "no-store" } }
