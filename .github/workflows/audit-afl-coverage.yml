@@ -1,0 +1,34 @@
+name: Audit AFL coverage
+
+# Read-only: which Arizona Fall League players are in our universe, and
+# whether their AFL game lines are all in player_game_logs.
+
+on:
+  push:
+    paths:
+      - "scripts/audit-afl-coverage.ts"
+      - "scripts/sync-mlb-player-gamelogs.ts"
+      - ".github/workflows/audit-afl-coverage.yml"
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Also look up a player by name (e.g. hansell)"
+        default: "hansell"
+      sync_player:
+        description: "Dry-run the game log sync for one MLB person id (saves nothing)"
+        default: "700985"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save pg tsx
+      - run: npx tsx scripts/audit-afl-coverage.ts --season 2026 --name "${{ inputs.name || 'hansell' }}"
+      - name: Dry-run the game log sync for one player
+        run: npx tsx scripts/sync-mlb-player-gamelogs.ts --season 2026 --player "${{ inputs.sync_player || '700985' }}" --dry-run

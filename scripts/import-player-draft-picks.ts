@@ -37,6 +37,7 @@
 // Env: DATABASE_URL.
 
 import { Pool } from "pg";
+import { currentFranchiseSql } from "../src/lib/mlbFranchise";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -171,7 +172,7 @@ const WANT = `
     FROM player_draft_picks d
     LEFT JOIN LATERAL (
       SELECT u.teamid::text AS teamid FROM teamid_universe_mapping u
-       WHERE u.level_label = 'MLB' AND lower(u.current_team_name) = lower(d.draft_team_name)
+       WHERE u.level_label = 'MLB' AND lower(u.current_team_name) = ${currentFranchiseSql('d.draft_team_name')}
        ORDER BY u.teamid LIMIT 1
     ) t ON true
     LEFT JOIN LATERAL (

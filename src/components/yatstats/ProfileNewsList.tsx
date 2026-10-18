@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import SortToggle, { type SortDir } from "./SortToggle";
 import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
@@ -19,6 +19,9 @@ export type ProfileNewsStory = {
   imageUrl: string | null;
   newsworthiness: string;
   tease: string | null;
+  /** Populated by the school-wide Alumni News feed; absent on one-player profiles. */
+  playerId?: string | null;
+  playerName?: string | null;
 };
 
 const noSubscribe = () => () => {};
@@ -47,12 +50,14 @@ export default function ProfileNewsList({
   firstName,
   playerId,
   playerName,
+  schoolWide = false,
 }: {
   stories: ProfileNewsStory[];
   firstName: string;
   playerId: string;
   // Bolded in each story's copy; not linked - this is his profile already.
   playerName: string;
+  schoolWide?: boolean;
 }) {
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
@@ -88,15 +93,16 @@ export default function ProfileNewsList({
         <div className="pp-news-tools">
           <SortToggle dir={sort} onChange={setSort} />
         </div>
-        {sorted.map((story) => (
+        {sorted.map((story,index) => (
+          <Fragment key={story.uuid}>
           <button
             type="button"
-            key={story.uuid}
             className="pp-news-teaser"
             onClick={() => { setOpenUuid(story.uuid); track("news_open", { uuid: story.uuid }); }}
           >
             <div className="pp-news-label">
               {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}
+              {schoolWide && story.playerName ? " · "+story.playerName.toUpperCase() : ""}
             </div>
             <div className="pp-news-row">
               {/* Our own photo of the player, silhouette behind it. */}
@@ -104,11 +110,11 @@ export default function ProfileNewsList({
                 className="pp-news-thumb pp-news-thumb-photo"
                 style={{ backgroundImage: `url('${PLAYER_SILHOUETTE_URL}')` }}
               >
-                <CardPhoto srcs={getNewsPhotoSrcs(playerId, story.imageUrl)} className="pp-news-thumb-img" />
+                <CardPhoto srcs={getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl)} className="pp-news-thumb-img" />
               </div>
               <div className="pp-news-copy">
                 <div className="pp-news-title">{stripHtml(story.title) || "Alumni news"}</div>
-                {story.tease ? <div className="pp-news-body">{markPlayerName(stripHtml(story.tease), playerName)}</div> : null}
+                {story.tease ? <div className="pp-news-body">{markPlayerName(stripHtml(story.tease), story.playerName || playerName)}</div> : null}
                 <div className="pp-news-footer">
                   {(story.source || "News").toUpperCase()}
                   {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
@@ -116,6 +122,10 @@ export default function ProfileNewsList({
               </div>
             </div>
           </button>
+          {schoolWide && index === Math.min(sorted.length - 1, 1) ? (
+            <div className="yp-news-mobile-ad" aria-label="Title Sponsor advertisement space"><span>TITLE SPONSOR</span><strong>ADVERTISING ROW</strong><small>Reserved sponsor creative</small></div>
+          ) : null}
+          </Fragment>
         ))}
       </div>
 
@@ -143,6 +153,12 @@ export default function ProfileNewsList({
       </ProfileContentDrawer>
 
       <style>{`
+        .yp-news-mobile-ad {display:none;}
+        @media(max-width:740px) {
+          .yp-news-mobile-ad {display:flex;min-height:77px;align-items:center;justify-content:space-around;gap:12px;padding:10px;margin:6px 0 12px;border:1px dashed var(--pp-news-muted);background:var(--pp-news-card-bg);color:var(--pp-news-title);text-align:center;}
+          .yp-news-mobile-ad span,.yp-news-mobile-ad small {font:700 10px/1.3 var(--yat-font-compact);color:var(--pp-news-muted);}
+          .yp-news-mobile-ad strong {font:800 19px/1.1 var(--yat-font-compact);}
+        }
         .pp-news-feed{
           --pp-news-card-bg:rgba(255,255,255,.055);
           --pp-news-card-border:rgba(255,255,255,.14);

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
+import { getPlayerHeadshotSources } from '@/lib/playerImage';
+import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
 
 type Key = 'active' | 'alltime' | 'current' | 'news';
 const galleries = new Set<Key>(['active', 'alltime', 'current']);
 const groups = ['filterStatus','filterLevels','filterOrgs','filterGradClass','filterRosterYears'];
-const rank: Record<string,number> = {'MLB':1,'TRIPLE-A':2,'DOUBLE-A':3,'HIGH-A':4,'LOW-A':5,'ROOKIE':6,'INDY':7,"INT'L":8,'NCAA-D1':9,'NCAA-D2':10,'NCAA-D3':11,'NAIA':12,'JUCO':13,'HIGH SCHOOL':14};
+const rank: Record<string,number> = {'MLB':1,'TRIPLE-A':2,'DOUBLE-A':3,'HIGH-A':4,'LOW-A':5,'ROOKIE':6,'INDY':7,"INT'L":8,'NCAA-D1':9,'NCAA-D2':10,'NCAA-D3':11,'NCAA':9,'NAIA':12,'JUCO':13,'HIGH SCHOOL':14};
 const NOW_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now';
 
 function currentKey(): Key {
@@ -43,6 +45,7 @@ function cloneUniverse(){
     const have=new Set(cards(k).map(c=>c.dataset.playerid));
     source.forEach((card,id)=>{
       if(have.has(id))return;
+      if(k==='active'&&card.dataset.has2026Stats!=='true')return;
       const node=card.parentElement?.matches('[data-player-card-wrap="true"]')?card.parentElement.cloneNode(true):card.cloneNode(true);
       (node as HTMLElement).setAttribute('data-universe-clone','true');
       g.appendChild(node);
@@ -66,7 +69,7 @@ function filterUniverse(){
   const selected={status:checked('filterStatus'),level:checked('filterLevels'),org:checked('filterOrgs'),grad:checked('filterGradClass'),years:checked('filterRosterYears')};
   cards(k).forEach(card=>{
     const roster=(card.dataset.rosteryears||'').split(',').map(x=>x.toUpperCase());
-    const yes=(!name||(card.dataset.name||'').toLowerCase().includes(name))&&(!selected.status.length||selected.status.includes(status(card)))&&(!selected.level.length||selected.level.includes(level(card)))&&(!selected.org.length||selected.org.includes((card.dataset.org||'').toUpperCase()))&&(!selected.grad.length||selected.grad.includes((card.dataset.gradclass||'').toUpperCase()))&&(!selected.years.length||roster.some(y=>selected.years.includes(y)));
+    const yes=(k!=='active'||card.dataset.has2026Stats==='true')&&(!name||(card.dataset.name||'').toLowerCase().includes(name))&&(!selected.status.length||selected.status.includes(status(card)))&&(!selected.level.length||selected.level.includes(level(card)))&&(!selected.org.length||selected.org.includes((card.dataset.org||'').toUpperCase()))&&(!selected.grad.length||selected.grad.includes((card.dataset.gradclass||'').toUpperCase()))&&(!selected.years.length||roster.some(y=>selected.years.includes(y)));
     setVisible(card,yes);
   });
   if(k!=='alltime') sortVisible(k); mirrorRow3(k);
@@ -78,7 +81,7 @@ function preset(k:Key){
   if(!galleries.has(k))return;
   clearFilters();
   if(k==='active'){
-    document.querySelectorAll<HTMLInputElement>('#filterStatus input[type="checkbox"]:not([data-select-all])').forEach(x=>x.checked=x.value.toUpperCase()!=='RETIRED');
+    document.querySelectorAll<HTMLInputElement>('#filterStatus input[type="checkbox"]:not([data-select-all])').forEach(x=>x.checked=true);
     document.querySelectorAll<HTMLInputElement>('#filterLevels input[type="checkbox"]:not([data-select-all])').forEach(x=>x.checked=x.value.toUpperCase()!=='HIGH SCHOOL');
   }
   if(k==='alltime'){
@@ -100,8 +103,11 @@ function mirrorRow3(k:Key){
     const id=card.dataset.playerid||'';
     const a=document.createElement('a');
     a.href='#'; a.className='gallery-slot gallery-slot-link'; a.dataset.playerid=id; a.title=card.dataset.name||'';
-    const safeId=encodeURIComponent(id);
-    a.innerHTML=`<div class="gallery-slot-media"><img class="gallery-slot-img" src="https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now-cutouts/${safeId}.png" onerror="this.onerror=null;this.src='/img/headshot-silhouette.png'" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay">${last(card).toUpperCase()}</div></div>`;
+    a.setAttribute('aria-label',card.dataset.name||'');
+    a.innerHTML='<div class="gallery-slot-media"><img class="gallery-slot-img" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay"></div></div>';
+    const image=a.querySelector<HTMLImageElement>('.gallery-slot-img');
+    if(image){image.src=getPlayerHeadshotSources(id,card.dataset.thumbnailNow)[0];syncPlayerHeadshot(image,id,card.dataset.thumbnailNow);}
+    a.querySelector('.gallery-slot-name-overlay')!.textContent=last(card).toUpperCase();
     inner.appendChild(a);
   });
 }
