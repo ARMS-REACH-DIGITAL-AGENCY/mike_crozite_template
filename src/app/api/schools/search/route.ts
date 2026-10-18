@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ACTIVE_GALLERY_STATUSES } from "@/lib/galleryStatuses";
-import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";
+import { canonicalSchoolUrls, PLAYER_LINKED_SCHOOLS_CTE } from "@/lib/schoolDirectoryRouting";
 export const runtime = "nodejs";
 
 function buildCorsHeaders(req: NextRequest) {
@@ -40,9 +40,51 @@ function stateFromQuery(q: string): string | null {
   return code.length === 2 && STATE_CODES.has(code) ? code : null;
 }
 
+// Keep every existing directory row and its curated metadata. Add player-linked
+// master schools only when neither their ID nor an existing unassigned directory
+// identity is present. Some school_success rows have a null HSID; GET resolves
+// those IDs below, so adding the same master school here would show it twice.
+// Eligibility is materialized once from the same normalized player-school links
+// as the hostname resolver, rather than re-running player_hsids for each school.
+const SCHOOL_SEARCH_DIRECTORY_CTES = `
+  ${PLAYER_LINKED_SCHOOLS_CTE},
+  unassigned_directory_identities AS MATERIALIZED (
+    SELECT DISTINCT LOWER(BTRIM(hsname)) AS name_key,
+           LOWER(BTRIM(COALESCE(NULLIF(cityname, ''), SPLIT_PART(hslocation, ',', 1)))) AS city_key,
+           LOWER(BTRIM(regionid)) AS region_key
+      FROM public.school_success
+     WHERE hsid IS NULL
+  ),
+  school_directory AS (
+    SELECT s.hsid, s.hsname, s.high_school, s.cityname, s.hslocation, s.regionid,
+           s.yatstats_national_rank, s.yatstats_state_rank,
+           s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url, s.bracket_seeding
+      FROM public.school_success s
+    UNION ALL
+    SELECT t.hsid, t.hsname, t.hsname AS high_school, t.cityname, t.hslocation,
+           UPPER(BTRIM(t.regionid)) AS regionid,
+           NULL AS yatstats_national_rank, NULL AS yatstats_state_rank,
+           NULL AS mlb, NULL AS atnla, NULL AS drafted_hs, NULL AS drafted,
+           NULL AS microsite_url, NULL AS bracket_seeding
+      FROM public.tbc_schools_raw t
+      JOIN player_linked_schools p ON p.hsid = t.hsid
+     WHERE NOT EXISTS (SELECT 1 FROM public.school_success s WHERE s.hsid = t.hsid)
+       AND NOT EXISTS (
+         SELECT 1 FROM unassigned_directory_identities s
+          WHERE s.name_key = LOWER(BTRIM(t.hsname))
+            AND s.city_key = LOWER(BTRIM(t.cityname))
+            AND s.region_key = LOWER(BTRIM(t.regionid))
+       )
+  )`;
+
 async function schoolsInState(state: string, qRaw: string) {
   const { rows } = await query(
-    `WITH counts AS (
+    `WITH ${SCHOOL_SEARCH_DIRECTORY_CTES},
+     matching_schools AS MATERIALIZED (
+       SELECT * FROM school_directory s
+        WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
+     ),
+     counts AS (
        SELECT f.hsid,
               COUNT(DISTINCT f.playerid) FILTER (
                 WHERE COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($3::text[])
@@ -51,15 +93,14 @@ async function schoolsInState(state: string, qRaw: string) {
                 WHERE UPPER(COALESCE(TRIM(f.level_label), '')) NOT IN ('HIGH SCHOOL', 'HS')
               )::int AS all_time
          FROM flip_card_front_stage f
-         JOIN school_success s ON s.hsid::text = f.hsid AND (s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2)
+         JOIN matching_schools s ON s.hsid::text = f.hsid
         GROUP BY f.hsid
      )
      SELECT s.hsid, s.hsname, s.cityname, s.hslocation, s.regionid, s.yatstats_national_rank, s.yatstats_state_rank,
             COALESCE(c.current_aa, 0) AS current_aa, COALESCE(c.all_time, 0) AS all_time,
             s.mlb, s.atnla, s.drafted_hs, s.drafted, s.microsite_url, s.bracket_seeding
-       FROM school_success s
+       FROM matching_schools s
        LEFT JOIN counts c ON c.hsid = s.hsid::text
-      WHERE s.regionid = $1 OR s.hsname ILIKE $2 OR s.high_school ILIKE $2
       ORDER BY (s.hsname ILIKE $2 OR s.high_school ILIKE $2) DESC,
                COALESCE(c.current_aa, 0) DESC,
                COALESCE(c.all_time, 0) DESC,
@@ -94,9 +135,8 @@ export async function GET(req: NextRequest) {
     const stateRaw = (searchParams.get("state") || "").trim().toUpperCase();
     const cityRaw = (searchParams.get("city") || "").trim();
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "25", 10), 1), 50);
-    // IMPORTANT: correct table name
-    const TABLE = "school_success";
     const sql = `
+      WITH ${SCHOOL_SEARCH_DIRECTORY_CTES}
       SELECT
         hsid,
         hsname,
@@ -118,7 +158,7 @@ export async function GET(req: NextRequest) {
         drafted,
         microsite_url,
         bracket_seeding
-      FROM ${TABLE}
+      FROM school_directory school_success
       WHERE
         ($1::text = '' OR (
           hsname ILIKE $2 OR
@@ -172,20 +212,19 @@ export async function GET(req: NextRequest) {
       const matches = canonicalIds.get(key);
       return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
     });
-    // URL-ONLY ENRICHMENT START. Never filter, reorder, cap or append results here.
-    // Keep the production query and alumni counts unchanged; only activate links.
+    // Resolve URLs for every canonical ID, including rows with a stored URL.
+    // The shared resolver also repairs malformed or multiply claimed legacy
+    // values. URL enrichment never filters, reorders or caps the query results.
     let derivedUrls = new Map<string, string>();
     try {
       derivedUrls = await canonicalSchoolUrls(
-        resolvedRows.filter((r: any) => !String(r.microsite_url || '').trim())
-          .map((r: any) => String(r.hsid || '')),
+        resolvedRows.map((r: any) => String(r.hsid || '')),
         (sql, params = []) => query(sql, params),
       );
     } catch (error) {
       // A URL lookup failure must not erase a successful search result list.
       console.warn('[school-search] URL enrichment failed; preserving search results', error);
     }
-    // URL-ONLY ENRICHMENT END.
     const programs = resolvedRows.map((r: any) => ({
       hsid: r.hsid ?? null,
       hsname: r.hsname ?? null,

@@ -3,7 +3,7 @@
 //
 // Priority:
 //   1. school.microsite_url  — e.g. "https://hamilton.yatstats.com"
-//   2. Fallback              — "https://yatstats.com/{resolvedHsid}"
+//   2. Fallback              — "https://{resolvedHsid}.yatstats.com"
 
 export function getCanonicalBaseUrl(
   school: Record<string, unknown> | null | undefined,
@@ -14,5 +14,5 @@ export function getCanonicalBaseUrl(
     // Strip trailing slash for consistent URL construction
     return microsite.replace(/\/$/, "");
   }
-  return `https://yatstats.com/${resolvedHsid}`;
+  return `https://${resolvedHsid}.yatstats.com`;
 }
