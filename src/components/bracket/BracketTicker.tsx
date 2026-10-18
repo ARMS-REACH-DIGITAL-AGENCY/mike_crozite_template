@@ -16,6 +16,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Doto } from 'next/font/google';
 import { selectRegionSponsor } from '@/lib/sponsorCampaigns';
 import { type GameRow, type Index, LBT_ROUNDS, loadIndex, previewDate, shortName, weekOfDate } from './gallery';
+import { liveBoard, notUnderWay } from './schoolSeason';
 
 // The scoreboard's dot-matrix type, the same Doto as the site footer's ticker.
 const dots = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
@@ -29,22 +30,39 @@ type Item = { key: string; tag: string; home: string; away: string; h: number; a
 // label, and the right-hand box (small word over a big number/code).
 type Group = { region: number; label: string; boxK: string; boxV: string; items: Item[] };
 
+// "MON FEB 1" from 2027-02-01.
+function startsOn(iso: string) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', '').toUpperCase();
+}
+
 function tickerGroups(index: Index, asof: string): Group[] {
   // Before the season the crawl is Round 1's games (Week 1), 0-0 until the
   // opening day - always scrolling, with each region's sponsor.
   const week = Math.max(1, weekOfDate(index, asof));
   const last = index.weeks.length;
-  const w = Math.min(week, last); // after the season: the Fantasy World Series
+  let w = Math.min(week, last); // after the season: the Fantasy World Series
   const opening = asof < index.weeks[0][0] ? startsOn(index.weeks[0][0]) : '';
+  // Monday morning the crawl stays on last week's finals until every one of
+  // the new week's games is under way (BOT 1) - a row of 0-0 TOP 1s says
+  // nothing.
+  const weekGames = [
+    ...index.rounds.flatMap((r) => r.series.flatMap((s) => s[7])),
+    ...index.lbt.map((x) => x.game), ...index.gf,
+  ].filter((g) => g[1] === w);
+  const holdLast = w > 1 && week <= last && weekGames.some(notUnderWay);
+  if (holdLast) w -= 1;
   // Days of the week with stats in: those before today (all 7 once it's over).
-  const done = week > last ? 7 : Array.from({ length: 7 }, (_, d) => {
+  const done = week > last || holdLast ? 7 : Array.from({ length: 7 }, (_, d) => {
     const t = Date.parse(`${index.weeks[w - 1][0]}T00:00:00Z`) + d * 86400000;
     return new Date(t).toISOString().slice(0, 10);
   }).filter((d) => d < asof).length;
   const groups = new Map<string, Group>();
   const add = (g: GameRow, region: number, label: string, box: [string, string], tag: string) => {
+    // A live game reads exactly as its scoreboard does ("TOP 2", its runs).
+    const lv = liveBoard(g);
     let h = 0, a = 0;
-    g[5].forEach((v, i) => {
+    if (lv) [h, a] = lv.runs;
+    else g[5].forEach((v, i) => {
       const inning = Math.floor(i / 2);
       if (done === 7 || inning < done) { if (i % 2 === 0) h += v; else a += v; }
     });
@@ -56,7 +74,7 @@ function tickerGroups(index: Index, asof: string): Group[] {
       home: shortName(index.schools[g[2]]?.[0] || '').toUpperCase(),
       away: shortName(index.schools[g[3]]?.[0] || '').toUpperCase(),
       h, a,
-      status: opening || (done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : 'LIVE'),
+      status: lv ? lv.status : opening || (done === 7 ? 'FINAL' : done === 0 ? 'STARTS MON' : 'LIVE'),
       lead: h > a ? 1 : a > h ? 2 : 0,
     });
   };
@@ -74,11 +92,6 @@ function tickerGroups(index: Index, asof: string): Group[] {
   }
   for (const g of index.gf) if (g[1] === w) add(g, 0, 'THE FANTASY WORLD SERIES', ['STAGE', 'WS'], '');
   return [...groups.values()].sort((x, y) => (x.region || 99) - (y.region || 99));
-}
-
-// "MON FEB 1" from 2027-02-01.
-function startsOn(iso: string) {
-  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', '').toUpperCase();
 }
 
 export default function BracketTicker({ hsid }: { hsid: string }) {

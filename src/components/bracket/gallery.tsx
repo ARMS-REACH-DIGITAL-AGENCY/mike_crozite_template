@@ -22,6 +22,7 @@
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
+import { applyLive, liveBoxes } from './liveSeason';
 import { inActionToday } from './inAction';
 import { TOURNAMENT_2027, tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { ScoringRulesPanel } from './BracketRules';
@@ -52,8 +53,11 @@ export type LbGame = [id: number, week: number, home: number, away: number, deci
 // ... then his club's W-L that week (inning 9). The final optional flag marks
 // a deterministic simulated W-L used only when the 2026 source record is absent.
 export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?, (0 | 1)?];
-export type SideBox = { p: PlayerRow[]; wl: [number, number] };
-export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox };
+// days: live boxes carry each day's real lines (the drawer's M-Su tabs).
+export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?: PlayerRow[][] };
+// f (live boxes): is each inning's [offensive, pitching] run settled yet;
+// 1-8, then the W-L inning. Unsettled cells show who leads, but no run.
+export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
   display_name?: string | null;
@@ -80,7 +84,13 @@ export const SCT = 'Season Championship Tournament';
 export const WORLD_SERIES = 'Fantasy World Series';
 export const WORLD_SERIES_FULL = 'YAT?STATS High School Alumni Fantasy World Series';
 export const TIE_NOTE: Record<string, string> = {
+  // The bracket lab's 2026 simulation still records its old coin-flip tiebreak.
   coin: "Tied after 9 and after all available player tiebreakers · commissioner coin flip (+1 run)",
+  cross: "Tied after 9 and the head-to-head matchups · won hitter vs pitcher, the closer to league average (+1 run)",
+  runDiff: "Tied after every extra inning · won on the clubs' better run differential (+1 run)",
+  fans: "Tied after every extra inning and even run differentials · won on the bigger fan base (+1 run)",
+  commissioner: "Tied after every extra inning, even run differentials and even fan bases · the commissioner's decision (+1 run)",
+  'commissioner-pending': "Tied after every extra inning · awaiting the commissioner's decision",
 };
 // 'players-2': the tie went down to each school's #2 hitter and #2 pitcher
 export function tieNote(decidedBy: string) {
@@ -96,9 +106,12 @@ export function tieNote(decidedBy: string) {
 // school's bracket is the 2027 season, with nothing played yet.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
-  if (!simulatedSeason) return Promise.resolve({} as Record<string, GameBox>);
   if (!boxCache.has(file)) {
-    boxCache.set(file, fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+    // The bracket lab: the 2026 simulation's box scores. A school's
+    // bracket: every round's boxes come from the live lines.
+    boxCache.set(file, simulatedSeason
+      ? fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
+      : liveBoxes());
   }
   return boxCache.get(file)!;
 }
@@ -486,7 +499,8 @@ export function loadIndex({ simulation = false }: { simulation?: boolean } = {})
         idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
         return idx;
       }
-      return blankSeason(idx);
+      // The 2027 season, scored from live lines once its weeks start.
+      return applyLive(blankSeason(idx), simulationAsOf());
     });
     indexPromise.catch(() => { indexPromise = null; });
   }
@@ -1312,7 +1326,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     loadFavoritePlayers().then((f) => { if (live) setFavs(f); });
     return () => { live = false; };
   }, [drawerMode]);
-  const viewPlayers = statDay === 'week' ? (mine?.p || []) : dailyRosterRows(mine?.p || [], week, statDay);
+  const viewPlayers = statDay === 'week' ? (mine?.p || [])
+    : rawMine?.days ? rawMine.days[statDay] || [] : dailyRosterRows(mine?.p || [], week, statDay);
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
@@ -1342,7 +1357,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const player = (p: PlayerRow) => (
     <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
   );
-  const wlCell = (p: PlayerRow) => statDay === 'week' ? (p[8] ? `${p[8][0]}-${p[8][1]}` : '0-0') : '—';
+  // A day's W-L shows when the box has one (live: the club's result that day).
+  const wlCell = (p: PlayerRow) => p[8] ? `${p[8][0]}-${p[8][1]}` : statDay === 'week' ? '0-0' : '—';
+  const dayWl = statDay !== 'week' && viewPlayers.some((p) => p[8]) ? sumRosterWl(viewPlayers) : null;
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
   const batCols: SortCol[] = [
@@ -1380,6 +1397,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   ];
   const wlText = (x: [number, number]) => `${x[0]}-${x[1]}`;
   const teamWl = wlText(wl);
+  const shownTeamWl = statDay === 'week' ? teamWl : dayWl ? `${dayWl[0]}-${dayWl[1]}` : '—';
   const teamWhip = teamPit[0] ? ((teamPit[5] || 0) + (teamPit[2] || 0)) / (teamPit[0] / 3) : 0;
   const teamKbb = teamPit[2] ? (teamPit[4] || 0) / teamPit[2] : (teamPit[4] || 0);
   const teamFipWeight = pitchers.reduce((s, p) => s + (pit(p)[0] || 0), 0);
@@ -1398,8 +1416,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const awayWl = me === 0 ? owl : wl;
   const homeWp = pctNum(homeWl[0], homeWl[1]);
   const awayWp = pctNum(awayWl[0], awayWl[1]);
+  // Live: a run counts only once settled; until then the cell shows the lead.
+  const settledAt = (inning: number, idx: number) => !boxForView?.f || Boolean(boxForView.f[inning]?.[idx < 2 ? 0 : 1]);
+  const cellClass = (inning: number, idx: number, mine: number | null | undefined, theirs: number | null | undefined, higher: boolean) => {
+    const better = wonCell(mine, theirs, higher);
+    return better ? (settledAt(inning, idx) ? 'won' : 'lead') : '';
+  };
   const correctedInnings = [...innings];
-  if (drawerMode && correctedInnings.length >= 18) {
+  if (drawerMode && correctedInnings.length >= 18 && settledAt(8, 0)) {
     correctedInnings[16] = (homeWp ?? 0) > (awayWp ?? 0) ? 1 : 0;
     correctedInnings[17] = (awayWp ?? 0) > (homeWp ?? 0) ? 1 : 0;
   }
@@ -1422,10 +1446,13 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
     const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
       const d = boxForView?.d?.[i];
-      // An inning not yet in shows a faint OPS+ / FIP- until its number is.
-      const complete = d?.[idx] != null;
+      const complete = Boolean(d && settledAt(i, idx));
+      // The day being played: the school's number so far, in a yellow ring
+      // (not the full yellow of a won cell) until the day goes final.
+      const inPlay = !complete && d?.[idx] != null;
       const placeholder = higher ? 'OPS+' : 'FIP-';
-      return <span key={i} className={`bl-tb-cell ${complete ? wonCell(d?.[idx], d?.[opp], higher) : 'placeholder'}`}>{complete ? fmtStat(d?.[idx]) : placeholder}</span>;
+      const cls = complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher) : inPlay ? 'in-play' : 'placeholder';
+      return <span key={i} className={`bl-tb-cell ${cls}`}>{complete || inPlay ? fmtStat(d?.[idx]) : placeholder}</span>;
     });
     const nameCell = (
       <>
@@ -1448,7 +1475,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <span className="bl-tb-wlabel">W%</span>
         <span className="bl-tb-label" aria-hidden="true" />
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
-        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? ' won' : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
+        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? (settledAt(8, 0) ? ' won' : ' lead') : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
         <span className="bl-tb-label" aria-hidden="true" />
       </div>
     );
@@ -1564,12 +1591,12 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               pitchers' clubs), and the school's W-L - every alumnus once -
               is the Team total at the bottom. */}
           <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
-            total={[teamDayMetric(me), statDay === 'week' ? wlText(sumRosterWl(batters)) : '—', ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={[teamDayMetric(me), wlText(sumRosterWl(batters)), ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
-            grand={pitCols.map((c) => (c.key === 'wl' ? (statDay === 'week' ? teamWl : '—') : ''))}
+            grand={pitCols.map((c) => (c.key === 'wl' ? shownTeamWl : ''))}
             total={[
               teamDayMetric(2 + me),
-              statDay === 'week' ? wlText(sumRosterWl(pitchers)) : '—',
+              wlText(sumRosterWl(pitchers)),
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
               teamPit[6] || 0,
@@ -1936,8 +1963,9 @@ export function Styles() {
       .bl-tb-name.switch:hover { box-shadow:inset 0 0 0 1px rgba(255,211,79,.6); }
       .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
-      .bl-tb-cell.na { color:#718379; }
-      .bl-tb-cell.placeholder { color:rgba(220,239,225,.10); opacity:.3; font-size:8px; font-weight:500; letter-spacing:-.02em; }
+      .bl-tb-cell.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
+      .bl-tb-cell.in-play { box-shadow: inset 0 0 0 2px #f3c735; }
+      .bl-tb-cell.na { color:#718379; }\n       .bl-tb-cell.placeholder { color:rgba(220,239,225,.10); opacity:.3; font-size:8px; font-weight:500; letter-spacing:-.02em; }
       .bl-tb-wlabel { display:grid; place-items:center; color:#fff; font:700 11px/1 Oswald,sans-serif; letter-spacing:.02em; }
       .bl-tb-label { display:grid; place-items:center; color:#ffd34f; font:700 10px/1 Oswald,sans-serif; white-space:nowrap; }
       table.bl-box tr.fav td { font-weight:800; color:#fff; }

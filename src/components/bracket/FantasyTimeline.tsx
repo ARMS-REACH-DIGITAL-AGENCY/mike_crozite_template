@@ -1,16 +1,19 @@
 'use client';
 
 // src/components/bracket/FantasyTimeline.tsx
-// One hero slide per bracket ROUND (not per week). Each round slide grows as
-// its three weekly games are played, then remains as the permanent round
-// recap. The bottom R1-R10 dock and this hero therefore speak the same
-// language: one button = one round = one slide.
+// One hero slide per bracket ROUND. The timeline under it has a dot for
+// every week (34): a big one where each round and postseason stage starts,
+// small ones for a round's second and third weeks. Picking a week shows its
+// stories - every inning as it posts (1st-7th, the 8th's week totals, the
+// 9th's W-L) and then the final's recap - dissolving from one to the next,
+// and they stay there for the rest of the season.
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
-import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
+import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
+import { type DayStory, weekStories } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BallparkScene from './BallparkScene';
 
@@ -76,7 +79,15 @@ type RoundSlide = {
   firstWeek: number;
   lastWeek: number;
   complete: boolean;
+  stories: Record<number, (DayStory & { label: string })[]>; // each week's stories, in order
+  defaultWeek: number; // the week the slide opens on
 };
+
+type Story = DayStory & { label: string };
+// How long each story shows before dissolving into the next: a game in
+// progress 10s, a finished one 6s.
+const LIVE_STORY_MS = 10_000;
+const FINAL_STORY_MS = 6_000;
 
 function scoreFor(card: WeekCard, me: number): [number, number] | null {
   if (!card.game || card.state !== 'final') return null;
@@ -87,7 +98,7 @@ function scoreFor(card: WeekCard, me: number): [number, number] | null {
 function starHeadline(star: Star | undefined, round: number, done: number, wins: number, losses: number) {
   if (!star) {
     if (!done) return `ROUND ${round}`;
-    if (done < 3) return `ROUND ${round} IN PROGRESS`;
+    if (done < 3) return `GAME ${done + 1} UP NEXT`;
     if (wins >= 2) return `ROUND ${round} WON`;
     if (losses >= 2) return `ROUND ${round} COMPLETE`;
     return `ROUND ${round}`;
@@ -107,18 +118,28 @@ function starHeadline(star: Star | undefined, round: number, done: number, wins:
   return `${surname} DELIVERS`;
 }
 
-function buildSummary(index: Index, slide: Omit<RoundSlide, 'summary' | 'title' | 'heroIdentity'>, me: number, stars: Record<number, Star>) {
+function buildSummary(index: Index, slide: Omit<RoundSlide, 'summary' | 'title' | 'heroIdentity' | 'stories' | 'defaultWeek'>, me: number, stars: Record<number, Star>) {
   const schoolName = shortName(index.schools[me]?.[0] || 'This school');
   const oppName = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || '') : '';
   if (!slide.done.length) {
     return `${schoolName} begins Round ${slide.round} in weeks ${slide.firstWeek}-${slide.lastWeek}. Each weekly game adds to the three-game series and the Most Runs Scored race.`;
   }
-  const record = `${slide.wins}-${slide.losses}`;
-  const finalWord = slide.complete ? 'finished' : 'stands';
   const names = slide.done.map((c) => stars[c.week]?.[0]).filter(Boolean);
   const notable = [...new Set(names)].slice(0, 3);
   const starText = notable.length ? ` Alumni of the Week so far: ${notable.join(', ')}.` : '';
-  return `${schoolName} ${finalWord} Round ${slide.round} ${record}${oppName ? ` against ${oppName}` : ''}.${starText}`;
+  return `${seriesSentence(slide, schoolName, oppName)}${starText}`;
+}
+
+// Where the series stands, in a sentence: "Cardinal Newman leads the series
+// 1-0.", "The series is tied 1-1.", "Hamilton wins the series 2-1 and
+// advances."
+function seriesSentence(slide: { done: WeekCard[]; wins: number; losses: number; complete: boolean }, schoolName: string, opponentName: string) {
+  if (!slide.done.length) return '';
+  const { wins: w, losses: l } = slide;
+  if (w >= 2) return `${schoolName} wins the series ${w}-${l} and advances.`;
+  if (l >= 2) return `${opponentName || 'The opponent'} wins the series ${l}-${w} and advances.`;
+  if (w === l) return `The series is tied ${w}-${l}.`;
+  return w > l ? `${schoolName} leads the series ${w}-${l}.` : `${opponentName || 'The opponent'} leads the series ${l}-${w}.`;
 }
 
 function seriesStatus(slide: RoundSlide, schoolName: string, opponentName: string) {
@@ -133,12 +154,27 @@ function seriesStatus(slide: RoundSlide, schoolName: string, opponentName: strin
   return `${opponentName.toUpperCase()} LEADS SERIES ${slide.losses}-${slide.wins}`;
 }
 
-function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; me: number; onTap: () => void }) {
+function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSlide; me: number; week: number; onTap: () => void }) {
   const schoolName = shortName(index.schools[me]?.[0] || '');
+  // The week's stories, newest first, then round and round.
+  const list = slide.stories[week] || [];
+  const live = slide.cards.find((c) => c.week === week)?.state === 'live';
+  const [turn, setTurn] = useState({ key: '', i: 0 });
+  const listKey = `${week}:${list.length}`;
+  const i = turn.key === listKey ? turn.i : Math.max(0, list.length - 1);
+  useEffect(() => {
+    if (list.length < 2) return;
+    const t = window.setTimeout(() => setTurn({ key: listKey, i: (i + 1) % list.length }), live ? LIVE_STORY_MS : FINAL_STORY_MS);
+    return () => window.clearTimeout(t);
+  }, [i, listKey, list.length, live]);
+  const day: Story | undefined = list[i];
+  const title = day?.title || slide.title;
+  const summary = day?.summary || slide.summary;
   const wonRound = slide.complete && slide.wins >= 2;
   const seriesLabel = slide.done.length ? `${schoolName} ${wonRound ? 'Wins' : slide.complete ? 'Finishes' : 'Leads'} (${slide.wins}-${slide.losses})` : 'Series not started';
   const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
-  const status = seriesStatus(slide, schoolName, oppLabel);
+  const series = seriesStatus(slide, schoolName, oppLabel);
+  const status = day ? `${series} · ${day.label}` : series;
 
   return (
     <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
@@ -146,15 +182,27 @@ function Slide({ index, slide, me, onTap }: { index: Index; slide: RoundSlide; m
       aria-label={`Round ${slide.round}. ${seriesLabel}`}>
       {slide.opponent ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : null}
       <span className="yft-grad" aria-hidden="true" />
-      {slide.heroStar
+      {day?.hero
+        ? <Fallback key={day.hero.id} className="yft-person" srcs={currentPlayerImages(day.hero.id)} alt={day.hero.name} />
+        : slide.heroStar
         ? <Fallback className="yft-person" srcs={currentPlayerImages(slide.heroStar[5], slide.heroIdentity?.headshotUrl)} alt={slide.heroStar[0]} />
         : <Fallback className="yft-person" srcs={[YATI_HEROES[(slide.round || 1) % YATI_HEROES.length]]} alt="YaTi" />}
 
-      <div className="yft-story">
+      <div className="yft-story yft-fade" key={`${listKey}:${i}`}>
         <span className="yft-status">{status}</span>
-        <strong className="yft-title">{slide.title}</strong>
-        <p>{slide.summary}</p>
-        {slide.heroStar ? (
+        <strong className={`yft-title${title.length > 20 ? ' long' : ''}`}>{title}</strong>
+        <p>{summary}</p>
+        {list.length > 1 ? <span className="yft-dots" aria-hidden="true">{list.map((_, k) => <i key={k} className={k === i ? 'on' : ''} />)}</span> : null}
+        {day?.shouts.length ? (
+          <span className="yft-shouts">
+            {day.shouts.map((x) => (
+              <a key={x.kind} className="yft-star" href={`/${me}/player/${encodeURIComponent(x.id)}`} onClick={(e) => e.stopPropagation()}
+                title={`${x.name}: ${x.line}`}>
+                ★ {x.kind === 'bat' ? 'Top OPS+' : 'Top FIP-'} {x.name} {x.value} <span>({x.line})</span>
+              </a>
+            ))}
+          </span>
+        ) : !day && slide.heroStar ? (
           <a className="yft-star" href={`/${me}/player/${encodeURIComponent(slide.heroStar[5])}`} onClick={(e) => e.stopPropagation()}>
             ★ {starLine(slide.heroStar, slide.heroIdentity)}
           </a>
@@ -264,7 +312,10 @@ export default function FantasyTimeline() {
   const [data, setData] = useState<{ index: Index; lb: LbGame[]; asof: string } | null>(null);
   const [stars, setStars] = useState<Record<number, Star>>({});
   const [identities, setIdentities] = useState<Record<string, CurrentPlayerIdentity>>({});
+  const [boxes, setBoxes] = useState<Record<string, Record<string, GameBox>>>({});
   const [active, setActive] = useState(0);
+  // The week picked on each round's slide (round -> week); unset = its default.
+  const [weekSel, setWeekSel] = useState<Record<number, number>>({});
   const trackRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -274,7 +325,7 @@ export default function FantasyTimeline() {
   }, []);
 
   const cards = useMemo(() => (data ? schoolSeason(data.index, data.lb, me, data.asof) : []), [data, me]);
-  const cal = data ? calendar(data.index, data.asof) : null;
+  const cal = useMemo(() => (data ? calendar(data.index, data.asof) : null), [data]);
   const region = data?.index.schools[me]?.[1];
 
   useEffect(() => {
@@ -283,6 +334,17 @@ export default function FantasyTimeline() {
     loadStars(region).then((all) => { if (!cancelled) setStars(all[me] || {}); });
     return () => { cancelled = true; };
   }, [region, me]);
+
+  // The box scores of the weeks under way or played (the daily stories).
+  const boxFiles = useMemo(() => [...new Set(cards.filter((c) => c.game && c.file && c.days > 0).map((c) => c.file!))].join(','), [cards]);
+  useEffect(() => {
+    if (!boxFiles) return;
+    let cancelled = false;
+    const files = boxFiles.split(',');
+    Promise.all(files.map((f) => loadBoxes(f).catch(() => ({} as Record<string, GameBox>))))
+      .then((all) => { if (!cancelled) setBoxes(Object.fromEntries(files.map((f, i) => [f, all[i]]))); });
+    return () => { cancelled = true; };
+  }, [boxFiles]);
 
   useEffect(() => {
     const ids = Object.values(stars).map((s) => s[5]);
@@ -306,14 +368,35 @@ export default function FantasyTimeline() {
       const heroWeek = [...done].reverse().find((c) => stars[c.week])?.week;
       const heroStar = heroWeek ? stars[heroWeek] : undefined;
       const base = { round, cards: list, done, wins, losses, opponent, heroStar, firstWeek, lastWeek, complete: done.length === 3 };
+      // Every week's stories. The slide opens on the week the page leads
+      // with (Monday morning: last week's final), else the latest with news.
+      const lead = cal ? leadWeek(cards, cal.week) : 0;
+      const schoolName = shortName(data.index.schools[me]?.[0] || '');
+      const oppName = opponent ? shortName(data.index.schools[opponent]?.[0] || '') : '';
+      const stories: Record<number, Story[]> = {};
+      list.forEach((c, k) => {
+        if (!c.game || !c.file || !c.days || c.week > Math.max(lead, firstWeek)) return;
+        // The series as it stood after this game, for its recap.
+        const upTo = done.filter((x) => x.week <= c.week);
+        const after = { done: upTo, wins: upTo.filter((x) => x.game?.[6] === me).length, losses: upTo.filter((x) => x.game?.[6] != null && x.game?.[6] !== me).length, complete: upTo.length === 3 };
+        const box = boxes[c.file]?.[String(c.game[0])];
+        stories[c.week] = weekStories(data.index, c.game, box, me, k + 1, seriesSentence(after, schoolName, oppName), c.state === 'final')
+          .map((x) => ({ ...x, label: `Game ${k + 1} · ${x.day}` }));
+      });
+      const withNews = list.filter((c) => stories[c.week]?.length).map((c) => c.week);
+      const defaultWeek = lead >= firstWeek && lead <= lastWeek ? lead : withNews[withNews.length - 1] || firstWeek;
+      const latest = stories[defaultWeek] || [];
+      const day = latest[latest.length - 1];
       return {
         ...base,
-        title: starHeadline(heroStar, round, done.length, wins, losses),
-        summary: buildSummary(data.index, base, me, stars),
+        stories,
+        defaultWeek,
+        title: day?.title || starHeadline(heroStar, round, done.length, wins, losses),
+        summary: day?.summary || buildSummary(data.index, base, me, stars),
         heroIdentity: heroStar ? identities[heroStar[5]] : undefined,
       };
     });
-  }, [cards, data, identities, me, stars]);
+  }, [boxes, cal, cards, data, identities, me, stars]);
 
   const go = useCallback((i: number, smooth = true) => {
     const el = trackRef.current;
@@ -332,10 +415,17 @@ export default function FantasyTimeline() {
 
   useEffect(()=>{
     if(!rounds.length)return;
-    const initial:FantasyStageKey=nav.stageKey||stageKeyForWeek(Math.max(1,Math.min(34,cal?.week||1)));
+    const initial:FantasyStageKey=nav.stageKey||stageKeyForWeek(Math.max(1,Math.min(34,cal?leadWeek(cards,cal.week):1)));
     const i=Math.max(0,stageKeys.indexOf(initial));
     requestAnimationFrame(()=>{go(i,false);setActive(i);if(!nav.stageKey)selectStage(initial);});
   },[rounds.length,cal?.week,go]);
+
+  // A game picked on the scoreboard shows that week's stories here too.
+  useEffect(()=>{
+    const w=nav.focusWeek;
+    if(!nav.focusSeq||!w||w>30)return;
+    setWeekSel((x)=>({...x,[Math.ceil(w/3)]:w}));
+  },[nav.focusSeq,nav.focusWeek]);
 
   useEffect(()=>{
     if(!nav.stageKey)return;
@@ -359,9 +449,10 @@ export default function FantasyTimeline() {
       <BallparkScene />
       <div className="yft-track" ref={trackRef} onScroll={onScroll}>
         {rounds.map((r)=>{
-          const focus=r.cards.find(c=>c.week===cal?.week)||[...r.done].reverse()[0]||r.cards[0];
+          const focus=r.cards.find(c=>c.week===(cal?leadWeek(cards,cal.week):0))||[...r.done].reverse()[0]||r.cards[0];
           const key=`r${r.round}` as FantasyStageKey;
-          return <Slide key={key} index={data.index} slide={r} me={me} onTap={()=>{selectStage(key);if(focus)focusWeek(focus.week);}}/>;
+          const week=weekSel[r.round]??r.defaultWeek;
+          return <Slide key={key} index={data.index} slide={r} me={me} week={week} onTap={()=>{selectStage(key);focusWeek(week||focus?.week||r.firstWeek);}}/>;
         })}
         {postStages.map((s)=>{
           const stageKnown=(cal?.final||0)>=s.week-1;
@@ -380,12 +471,19 @@ export default function FantasyTimeline() {
 
       <div className="yft-rail" aria-label="Season timeline">
         <span className="yft-rail-track" aria-hidden="true"/>
-        {stageKeys.map((key,i)=>{
+        {Array.from({length:34},(_,k)=>{
+          // One dot per week: big where a round or postseason stage starts
+          // (R1 = week 1, R2 = week 4 ...), small for a round's 2nd and 3rd.
+          const w=k+1;
+          const i=w<=30?Math.ceil(w/3)-1:10+(w-31);
+          const key=stageKeys[i];
+          const big=w>30||(w-1)%3===0;
           const label=i<10?`R${i+1}`:i===10?'C1':i===11?'C2':i===12?'CG':'YWS';
           const r=i<10?rounds[i]:null;
-          const cls=`${r?.complete&&r.wins>=2?' W':r?.complete&&r.losses>=2?' L':''}${i===active?' on':''}${key===stageKeyForWeek(cal?.week||1)?' now':''}`;
-          return <button key={key} type="button" className={`yft-tick${cls}`} style={{left:`${(i/(stageKeys.length-1))*100}%`}}
-            onClick={()=>{selectStage(key);go(i);}} aria-label={key}><span className="yft-tick-label">{label}</span></button>;
+          const picked=i===active&&(!r||(weekSel[r.round]??r.defaultWeek)===w);
+          const cls=`${big?'':' wk'}${big&&r?.complete&&r.wins>=2?' W':big&&r?.complete&&r.losses>=2?' L':''}${picked?' on':''}${w===(cal?.week||0)?' now':''}`;
+          return <button key={w} type="button" className={`yft-tick${cls}`} style={{left:`${(k/33)*100}%`}}
+            onClick={()=>{selectStage(key);go(i);if(r)setWeekSel((x)=>({...x,[r.round]:w}));focusWeek(w);}} aria-label={`Week ${w}`}>{big?<span className="yft-tick-label">{label}</span>:null}</button>;
         })}
       </div>
       <style jsx global>{`
@@ -416,6 +514,10 @@ export default function FantasyTimeline() {
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
         .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.78); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-title.long { font-size:clamp(22px,2.6vw,34px); }
+        .yft-shouts { display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; margin-top:6px; }
+        .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
+        .yft-shouts .yft-star span { color:rgba(255,255,255,.62); text-transform:none; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
         .yft-series { position:absolute; z-index:2; right:1.2%; top:8px; bottom:40px; width:16%; min-width:150px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; text-align:left; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
@@ -447,6 +549,15 @@ export default function FantasyTimeline() {
         .yft-tick.W::before { background:#78c988; }
         .yft-tick.L::before { background:#d46f66; }
         .yft-tick.on::before,.yft-tick.now::before { box-shadow:0 0 0 2px rgba(213,180,74,.72); }
+        .yft-tick.wk { width:10px; margin-left:-5px; }
+        .yft-tick.wk::before { left:3px; top:5px; width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,.38); }
+        .yft-tick.wk.on::before, .yft-tick.wk.now::before { background:#d5b44a; box-shadow:0 0 0 2px rgba(213,180,74,.45); }
+        .yft-fade { animation:yft-fade .7s ease-out; }
+        @keyframes yft-fade { from { opacity:0; } }
+        @media (prefers-reduced-motion: reduce) { .yft-fade { animation:none; } }
+        .yft-dots { display:flex; gap:4px; margin-top:6px; }
+        .yft-dots i { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.3); }
+        .yft-dots i.on { background:#d5b44a; }
         .yft-tick-label { position:absolute; left:50%; top:16px; transform:translateX(-50%); color:rgba(255,255,255,.62); font:700 13px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; }
         .yft-tick:hover .yft-tick-label { color:#fff; }
         .yft-tick.on .yft-tick-label { color:#d5b44a; }
@@ -463,7 +574,15 @@ export default function FantasyTimeline() {
           .yft-story { left:5%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
+          .yft-title.long { font-size:13px; }
+          .yft-shouts { margin-top:2px; column-gap:6px; row-gap:1px; }
+          .yft-shouts .yft-star span { display:none; }
+          .yft-story:has(.yft-shouts) p { -webkit-line-clamp:4; }
           .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
+          .yft-dots { gap:3px; margin-top:2px; }
+          .yft-dots i { width:3px; height:3px; }
+          .yft-tick.wk { width:8px; margin-left:-4px; }
+          .yft-tick.wk::before { left:2px; top:5px; width:3px; height:3px; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-series { right:1%; top:4px; bottom:27px; width:21%; min-width:0; justify-content:center; }
           .yft-series-games { margin-top:0; gap:5px; }

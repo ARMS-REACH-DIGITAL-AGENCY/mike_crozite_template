@@ -176,10 +176,14 @@ export function ScoringRules() {
       <section>
         <h4>Tiebreakers · extra innings</h4>
         <ol>
-          <li>If the score is tied after inning 9, <b>inning 10</b> is Tiebreaker #1: each school&apos;s #1 hitter (OPS+) and #1 pitcher (FIP-) are compared head-to-head, one run for each winning comparison.</li>
-          <li>If inning 10 is tied, <b>inning 11</b> is Tiebreaker #2 using the #2 hitter and #2 pitcher. Inning 12 uses the #3 pair, and so on. Every tiebreak is shown on the scoreboard as its own inning.</li>
-          <li>The ladder continues only while both schools can supply the next required hitter and pitcher. There is no league-average substitute in extra innings.</li>
-          <li>Only if the teams are still tied when the next complete player pair is unavailable does the commissioner&apos;s deterministic coin flip apply. The flip winner receives <b>one additional run</b>, so a completed game never displays a tied final score.</li>
+          <li>If the score is tied after inning 9, the game goes to <b>extra innings</b>, player against player. <b>Inning 10</b>: each school&apos;s #1 hitter (best OPS+ for the week) against the other&apos;s, and each school&apos;s #1 pitcher (best FIP-) against the other&apos;s. Each matchup won is one run.</li>
+          <li>Whichever matchup both schools can supply is played. If neither school has a pitcher, the hitters still decide the inning, and the other way around.</li>
+          <li>In extra innings nobody has to beat league average: the better number wins the run, even if both are below 100.</li>
+          <li>If inning 10 is still tied, <b>inning 11</b> uses the #2 hitters and #2 pitchers, inning 12 the #3s, and so on, while either matchup can be made. Every extra inning is shown on the scoreboard.</li>
+          <li>When those matchups run out with the game still tied, the next extra innings are <b>hitter vs pitcher</b>, using the players who couldn&apos;t be matched up head to head: each school&apos;s next hitter against the other school&apos;s next pitcher, inning by inning, until those run out. The run goes to whichever player is closer to, or further above, league average: OPS+ minus 100 for the hitter, 100 minus FIP- for the pitcher. A hitter at 70 OPS+ (30 below average) beats a pitcher at 140 FIP- (40 below). If every player was already matched head to head, hitter vs pitcher starts again from each school&apos;s best.</li>
+          <li>Still tied, or nobody left to compare (a school with no one in action that week): the better <b>run differential</b> wins - the runs the alumni&apos;s real clubs scored minus the runs they allowed that week, counted for each alumnus the same way as the W-L inning. One run.</li>
+          <li>Run differentials even too: the school with the <b>bigger fan base</b> wins - the most registered YAT?STATS fans when the game went final (4 a.m. Monday). One run.</li>
+          <li>Fan bases even as well: the <b>commissioner decides</b> the game. His decision is worth one run, so a decided game never ends tied.</li>
         </ol>
       </section>
     </>
