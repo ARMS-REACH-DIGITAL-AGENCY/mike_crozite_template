@@ -381,7 +381,6 @@ export default function ContributePhotoFlow({
                 aria-checked={pick === k}
                 className={pick === k ? 'is-on' : ''}
                 disabled={pickFor !== k}
-                onClick={() => {}}
               >
                 {k === 'player' ? 'Player' : k === 'school' ? 'School' : 'Team'}
               </button>
