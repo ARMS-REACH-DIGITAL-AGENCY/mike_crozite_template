@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
         `SELECT t.hsid, t.hsname, t.cityname, t.hslocation, t.regionid,
                 NULL::int AS yatstats_national_rank,
                 NULL::text AS yatstats_state_rank,
-                0::int AS current_aa, NULL::int AS mlb,
+                NULL::int AS current_aa, NULL::int AS mlb,
                 NULL::int AS atnla, NULL::int AS drafted_hs, NULL::int AS drafted,
                 NULL::text AS microsite_url, FALSE AS bracket_eligible
            FROM public.tbc_schools_raw t
@@ -189,6 +189,29 @@ export async function GET(req: NextRequest) {
       const matches = canonicalIds.get(key);
       return { ...row, hsid: matches?.size === 1 ? Array.from(matches)[0] : null };
     });
+    // The bounded state search selects school rows first, without a costly
+    // statewide alumni aggregation. Count only the returned school IDs,
+    // including TBC-only schools that were added to the result list.
+    const countIds = Array.from(new Set(resolvedRows
+      .filter((school: any) => school.current_aa == null)
+      .map((school: any) => String(school.hsid || '').trim())
+      .filter((id: string) => /^[0-9]+$/.test(id))));
+    const activeCounts = new Map<string, number>();
+    if (countIds.length) {
+      const { rows: countRows } = await query(
+        `SELECT f.hsid::text AS hsid,
+                COUNT(DISTINCT f.playerid) FILTER (
+                  WHERE COALESCE(NULLIF(UPPER(TRIM(f.status_label)), ''), 'UNKNOWN') = ANY($2::text[])
+                )::int AS current_aa
+           FROM flip_card_front_stage f
+          WHERE f.hsid = ANY($1::text[])
+          GROUP BY f.hsid`,
+        [countIds, [...ACTIVE_GALLERY_STATUSES]]
+      );
+      for (const row of countRows) {
+        activeCounts.set(String(row.hsid), Number(row.current_aa) || 0);
+      }
+    }
     const derivedUrls = await canonicalSchoolUrls(
       resolvedRows.map((r: any) => String(r.hsid || '')),
       (sql, params = []) => query(sql, params),
@@ -200,7 +223,7 @@ export async function GET(req: NextRequest) {
       regionid: r.regionid ?? null,
       yatstats_national_rank: r.yatstats_national_rank ?? null,
       yatstats_state_rank: r.yatstats_state_rank ?? null,
-      current_aa: r.current_aa ?? null,
+      current_aa: r.current_aa ?? activeCounts.get(String(r.hsid || '')) ?? 0,
       mlb: r.mlb ?? null,
       atnla: r.atnla ?? null,
       drafted_hs: r.drafted_hs ?? null,
