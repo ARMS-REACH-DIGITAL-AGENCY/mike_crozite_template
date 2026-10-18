@@ -224,12 +224,21 @@ async function SchoolShell({
     }),
     getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
-  const activePlayerIds = activeSummary.playerIds;
-  const activePlayerIdSet = new Set(activePlayerIds);
+  // Keep current-season evidence for stat badges only. Active Alumni
+  // membership itself is the owner-approved status preset, shared with the
+  // gallery and Row 3.
+  const activeStatsPlayerIdSet = new Set(activeSummary.playerIds);
 
   const stageRows = (Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : []).filter(
     (p) => !isRetiredAtHighSchoolLevel(p)
   );
+  const activeAlumniRows = stageRows.filter((p) =>
+    ACTIVE_GALLERY_STATUSES.includes(normalizeStatusLabel(p.status_label || p.status))
+    && !isHighSchoolStripPlayer(p)
+  );
+  const activeAlumniPlayerIds = Array.from(new Set(
+    activeAlumniRows.map((p) => String(p.playerid || '').trim()).filter(Boolean)
+  ));
   const allTimeRosterRows = Array.isArray(rawAllTimeRoster) ? (rawAllTimeRoster as Record<string, unknown>[]) : [];
   const currentRosterRows = stageRows.filter((p) => isHighSchoolStripPlayer(p));
   const collegeCommitCount = currentRosterRows.filter(
@@ -248,7 +257,7 @@ async function SchoolShell({
     : null;
 
   const schoolMeta = {
-    activeAlumni: activePlayerIds.length,
+    activeAlumni: activeAlumniPlayerIds.length,
     activeStatsPending: activeSummary.statsPending,
 
     mlb:
@@ -345,7 +354,7 @@ async function SchoolShell({
       name: `${String(p.first_name || p.firstname || '')} ${String(p.last_name || p.lastname || '')}`.trim(),
       ...stripImages,
       status,
-      has2026Stats: activePlayerIdSet.has(playerId),
+      has2026Stats: activeStatsPlayerIdSet.has(playerId),
     };
   });
 
