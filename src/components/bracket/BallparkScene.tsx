@@ -1,16 +1,20 @@
-// The hero's backdrop, drawn in code (no photos to license or load), above
-// the scoreboards rather than a whole ballpark. Dark theme: a night sky with
-// a light tower blazing in the center. Light theme: a day sky with soft,
-// wispy clouds.
-// Both are always in the page; the theme picks which one shows (see .ybp-*
-// in FantasyTimeline).
+// The Fantasy tab's backdrop, drawn in code (no photos to license or load):
+// one picture behind rows 1, 2 and 3 together, the way the player profile's
+// photo bleeds up behind the header (Pete, Oct 19). Dark theme: a night sky
+// with one light tower, its lamps up in row 1 between the icons and the
+// logo, so row 3's story has no lights behind it. Light theme: a day sky
+// with soft, wispy clouds. Both are always in the page; the theme picks
+// which one shows (see .ybp-* below and in FantasyTimeline).
 
 const W = 1600;
-const H = 200;
+// Rows 1 + 2 + 3 on a desktop (36 + 56 + 200): the scene is drawn for the
+// whole stack and anchored to its top, so the lamps stay in row 1.
+const H = 292;
 
 // A light standard seen from the field: a lattice mast from the bottom edge
-// up to a bank of lamps, with the glow it throws into the night.
-function Tower({ x, top, w, h = H, ids = 'ybp' }: { x: number; top: number; w: number; h?: number; ids?: string }) {
+// up to a bank of lamps, with the glow it throws into the night. fade: the
+// mast fades into the dark on its way down.
+function Tower({ x, top, w, h = H, ids = 'ybp', fade = false }: { x: number; top: number; w: number; h?: number; ids?: string; fade?: boolean }) {
   const rows = 4;
   const cols = Math.round(w / 8);
   const bankH = rows * 6 + 4;
@@ -18,7 +22,15 @@ function Tower({ x, top, w, h = H, ids = 'ybp' }: { x: number; top: number; w: n
   return (
     <g>
       <ellipse cx={mid} cy={top + bankH / 2} rx={w * 2.4} ry={w * 1.3} fill={`url(#${ids}-glow)`} />
-      <g stroke="#1b1f2b" strokeWidth="1.3" fill="none" opacity=".9">
+      {fade ? (
+        <defs>
+          <linearGradient id={`${ids}-mast`} gradientUnits="userSpaceOnUse" x1="0" y1={top + bankH} x2="0" y2={h}>
+            <stop offset="0" stopColor="#1b1f2b" />
+            <stop offset="1" stopColor="#1b1f2b" stopOpacity=".25" />
+          </linearGradient>
+        </defs>
+      ) : null}
+      <g stroke={fade ? `url(#${ids}-mast)` : '#1b1f2b'} strokeWidth="1.3" fill="none" opacity=".9">
         <path d={`M${mid - 9} ${top + bankH} L${mid - 14} ${h} M${mid + 9} ${top + bankH} L${mid + 14} ${h}`} />
         {Array.from({ length: 8 }, (_, i) => {
           const y1 = top + bankH + (i * (h - top - bankH)) / 8;
@@ -81,25 +93,40 @@ export function BallparkLights({ className }: { className?: string }) {
   );
 }
 
+// The scene is fixed to the top of the window and as tall as rows 1-3 (2px
+// over for row 2's borders), painted behind row 3's content (z-index -1 in
+// row 3's stacking context, as the profile's photo is); rows 1 and 2 go see-
+// through over it (FantasyTimeline). The shade darkens both sides from top
+// to bottom - the icons, school name and story on the left, the logo and
+// the series on the right - and leaves the center open for the tower.
 const BALLPARK_CSS = `
-.ybp { position:absolute; inset:0; z-index:0; pointer-events:none; }
+.ybp { position:fixed; z-index:-1; top:0; left:0; right:0; height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + 202px); overflow:hidden; pointer-events:none; background:#020308; }
 .ybp svg { display:block; }
+.ybp-shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(2,3,8,.82) 0%,rgba(2,3,8,.74) 32%,rgba(2,3,8,.4) 50%,rgba(2,3,8,.3) 62%,rgba(2,3,8,.6) 80%,rgba(2,3,8,.72) 100%); }
 .ybp-day { display:none; }
 body.light-theme .ybp-day { display:inline; }
 body.light-theme .ybp-night { display:none; }
+body.light-theme .ybp { background:#1d64c4; }
+body.light-theme .ybp-shade { background:linear-gradient(90deg,rgba(6,28,58,.82) 0%,rgba(6,28,58,.74) 32%,rgba(6,28,58,.45) 50%,rgba(6,28,58,.35) 62%,rgba(6,28,58,.62) 80%,rgba(6,28,58,.72) 100%); }
+/* The lamps sit in row 1's open middle, between the icons and the logo. A
+   phone has less room there: a smaller tower, nudged toward the logo side
+   of the gap. A wide screen has the menu across row 1's middle: the lamps
+   drop into row 2, whose middle is open. (User units: the scene is drawn
+   1600 wide, the tower's top center at 800, 4.) */
+.ybp-tower { transform-box:view-box; transform-origin:800px 4px; }
+@media (max-width:640px) { .ybp-tower { transform:translateX(30px) scale(.8); } }
+@media (min-width:1181px) { .ybp-tower { transform:translateY(48px); } }
 .ybp-clouds { animation:ybp-drift 80s linear infinite alternate; }
 @keyframes ybp-drift { from { transform:translateX(-30px); } to { transform:translateX(40px); } }
 @media (prefers-reduced-motion: reduce) { .ybp-clouds { animation:none; } }
-.yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:#050505; }
-@media (max-width:760px) { .yft-hero { height:118px; min-height:118px; } }
+.yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:transparent; }
+@media (max-width:760px) { .yft-hero { height:118px; min-height:118px; } .ybp { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + 120px); } }
 `;
 
 export default function BallparkScene() {
   // One tower, dead center (the viewBox center stays at the screen's center
-  // at any width), its lamps up top, above the headline: the sides stay dark
-  // for the story and the scoreboard (Pete, Oct 19 - the side towers blazed
-  // right behind the words).
-  const towers = [{ x: W / 2 - 70, top: 6, w: 140 }];
+  // at any width), its lamps in row 1 between the icons and the logo.
+  const towers = [{ x: W / 2 - 60, top: 4, w: 120 }];
   return (
     <div className="ybp" aria-hidden="true">
       {/* The scene's own rules ship with it, so the first frame is already
@@ -124,26 +151,30 @@ export default function BallparkScene() {
           </filter>
         </defs>
 
-        {/* NIGHT: a dark sky and the light towers */}
+        {/* NIGHT: a dark sky and the light tower */}
         <g className="ybp-night">
           <rect width={W} height={H} fill="url(#ybp-night-sky)" />
-          {towers.map((t, i) => <Tower key={i} {...t} />)}
+          <g className="ybp-tower">{towers.map((t, i) => <Tower key={i} {...t} fade />)}</g>
         </g>
 
-        {/* DAY: the sky and wispy clouds */}
+        {/* DAY: the sky and wispy clouds, from row 1 down */}
         <g className="ybp-day">
           <rect width={W} height={H} fill="url(#ybp-day-sky)" />
           <g className="ybp-clouds">
-            <Wisp x={180} y={58} w={170} />
-            <Wisp x={560} y={34} w={120} o={0.65} />
-            <Wisp x={880} y={74} w={210} o={0.75} />
-            <Wisp x={1240} y={44} w={150} />
-            <Wisp x={1520} y={86} w={130} o={0.7} />
-            <Wisp x={380} y={120} w={140} o={0.55} />
-            <Wisp x={1090} y={138} w={180} o={0.5} />
+            <Wisp x={180} y={40} w={170} />
+            <Wisp x={560} y={22} w={120} o={0.65} />
+            <Wisp x={880} y={64} w={210} o={0.75} />
+            <Wisp x={1240} y={30} w={150} />
+            <Wisp x={1520} y={84} w={130} o={0.7} />
+            <Wisp x={380} y={128} w={140} o={0.55} />
+            <Wisp x={1090} y={150} w={180} o={0.5} />
+            <Wisp x={700} y={206} w={190} o={0.45} />
+            <Wisp x={1380} y={232} w={150} o={0.4} />
+            <Wisp x={150} y={250} w={160} o={0.4} />
           </g>
         </g>
       </svg>
+      <div className="ybp-shade" />
     </div>
   );
 }

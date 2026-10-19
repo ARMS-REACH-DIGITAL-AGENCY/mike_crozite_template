@@ -181,7 +181,6 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } }}
       aria-label={`Round ${slide.round}. ${seriesLabel}`}>
       {slide.opponent ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : null}
-      <span className="yft-grad" aria-hidden="true" />
       {day?.hero
         ? <Fallback key={day.hero.id} className="yft-person" srcs={currentPlayerImages(day.hero.id)} alt={day.hero.name} />
         : slide.heroStar
@@ -276,7 +275,6 @@ function PostSlide({ index, games, week, label, title, showScores, championName,
     <div className="yft-slide yft-post-slide" role="button" tabIndex={0} onClick={onTap}
       onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onTap();}}}
       aria-label={title}>
-      <span className="yft-grad" aria-hidden="true"/>
       <div className="yft-story">
         <span className="yft-status">{status}</span>
         <strong className="yft-title">{story?.headline || title}</strong>
@@ -490,19 +488,31 @@ export default function FantasyTimeline() {
         /* Keep Fantasy in the exact player-profile Career Path Timeline box.
            We are swapping content, not changing the page geometry. */
         .yat-row3-shell:has(.yft-hero) { height:200px !important; min-height:200px !important; overflow:hidden !important; }
-        .yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:#050505; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
+        .yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:transparent; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
         .yft-track { display:flex; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
         .yft-track::-webkit-scrollbar { display:none; }
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
         .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         /* The ballpark behind the slides (BallparkScene): a night game in the
-           dark theme (one light tower, in the center), a day game in the
-           light one. A scrim darkens the sides - the story on the left, the
-           scoreboard on the right - and lets the center light through; every
-           word gets a dark outline so it reads over the glow too. */
+           dark theme (one light tower, its lamps in row 1), a day game in
+           the light one, as one picture behind rows 1, 2 and 3 - the way
+           the player profile's photo bleeds up behind the header. Its shade
+           darkens both sides top to bottom and lets the center light
+           through; every word gets a dark outline so it reads over the glow
+           too. */
         .yft-track { position:relative; z-index:1; }
-        .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(2,3,8,.82) 0%,rgba(2,3,8,.74) 32%,rgba(2,3,8,.4) 50%,rgba(2,3,8,.3) 62%,rgba(2,3,8,.6) 80%,rgba(2,3,8,.72) 100%); }
-        body.light-theme .yft-grad { background:linear-gradient(90deg,rgba(6,28,58,.82) 0%,rgba(6,28,58,.74) 32%,rgba(6,28,58,.45) 50%,rgba(6,28,58,.35) 62%,rgba(6,28,58,.62) 80%,rgba(6,28,58,.72) 100%); }
+        /* Rows 1 and 2 go see-through over it on the Fantasy tab (only it
+           has .yft-hero), and keep their light icons, logo and school name
+           in the light theme too: the sky behind them is dark or deep blue,
+           never the theme's white. Same pins as the profile's .pp-hero-row
+           (ZoomableCareerTimeline). */
+        body:has(.yft-hero) .yat-row1-shell, body:has(.yft-hero) .yat-row1-shell .yat-topbar,
+        body:has(.yft-hero) .yat-row2-shell, body:has(.yft-hero) .yat-row2-shell .yat-schoolrow { background:transparent !important; }
+        body:has(.yft-hero) .yat-row2-shell { border-color:transparent !important; }
+        body:has(.yft-hero) .yat-row1-shell { --fg:#f2f2f2; --logo-filter:invert(1); }
+        body:has(.yft-hero) .yat-row2-shell { --fg:#f2f2f2; --muted:#c4c4c4; }
+        body:has(.yft-hero) .yat-row2-shell .yat-schooltext .big1, body:has(.yft-hero) .yat-row2-shell .yat-schooltext .big2 { color:var(--fg); }
+        body:has(.yft-hero) .yat-topnav-item, body:has(.yft-hero) .yat-schooltext { text-shadow:0 0 2px #000,0 0 3px #000; }
         .yft-status, .yft-story p, .yft-star, .yft-series { text-shadow:0 0 2px #000,0 0 3px #000,0 1px 3px rgba(0,0,0,.9); }
         .yft-title { -webkit-text-stroke:1px #000; paint-order:stroke fill; text-shadow:0 0 3px #000,0 2px 4px rgba(0,0,0,.9); }
         .yft-person { position:absolute; z-index:1; left:64%; bottom:30px; width:18%; height:calc(100% - 38px); object-fit:contain; object-position:bottom center; pointer-events:none; }
