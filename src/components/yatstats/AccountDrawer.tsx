@@ -212,8 +212,9 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   return (
     <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
       <div
-        role="tablist"
-        aria-label="Account access"
+        className={signedIn ? 'yat-account-drawer-header yat-account-header-signed' : 'yat-account-drawer-header'}
+        role={signedIn ? 'group' : 'tablist'}
+        aria-label={signedIn ? 'Account' : 'Account access'}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -222,9 +223,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           gap: 0,
         }}
       >
-        {signedIn ? (
-          <span style={{ flex: 1 }} />
-        ) : (
+        {signedIn ? null : (
           <>
             <button
               type="button"
@@ -302,6 +301,32 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         #drawerAccount{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerAccount #acctTabJoin,#drawerAccount #acctTabLogin{font:800 13px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;}
         #drawerAccount #closeAccount{color:var(--ink)!important;}
+        /* Signed-in identity begins at the top of the drawer, using the
+           former empty JOIN / LOG IN strip. The close button stays usable. */
+        #drawerAccount .yat-account-header-signed {
+          position:static!important;
+          height:0!important;
+          min-height:0!important;
+          flex:0 0 0!important;
+          padding:0!important;
+          overflow:visible!important;
+          border:0!important;
+        }
+        #drawerAccount .yat-account-header-signed #closeAccount {
+          position:absolute!important;
+          top:8px!important;
+          right:9px!important;
+          width:36px!important;
+          height:36px!important;
+          border:0!important;
+          border-radius:6px!important;
+          background:transparent!important;
+          z-index:5!important;
+        }
+        #drawerAccount .yat-account-header-signed #closeAccount:hover,
+        #drawerAccount .yat-account-header-signed #closeAccount:focus-visible {
+          background:var(--line)!important;
+        }
       `}</style>
     </aside>
   );
