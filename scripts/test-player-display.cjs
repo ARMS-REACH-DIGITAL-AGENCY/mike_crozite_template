@@ -186,8 +186,8 @@ test('Transaction-owned departures still outrank stale current fields and retain
 
 test('Level aliases are consistent, and generic career NCAA remains generic with no current affiliation claim', () => {
   for (const [raw, expected] of [
-    ['AAA', 'TRIPLE-A'], [' aa ', 'DOUBLE-A'], ['A-', 'LOW-A'], ['Single-A', 'LOW-A'],
-    ['A+', 'HIGH-A'], ['Rk', 'ROOKIE'], ['NJCAA', 'JUCO'], ['D2', 'NCAA-D2'],
+    ['AAA', 'TRIPLE-A'], [' aa ', 'DOUBLE-A'], ['A-', 'SINGLE-A'], ['Single-A', 'SINGLE-A'], ['LOW-A', 'SINGLE-A'],
+    ['A+', 'HIGH-A'], ['Rk', 'ROOKIE'], ['NJCAA', 'NJCAA'], ['JUCO', 'NJCAA'], ['Intl', 'INTERNATIONAL'], ['D2', 'NCAA-D2'],
     ['NCAA', 'NCAA'], ['ncaa', 'NCAA'], ['TRIPLE-A (40-MAN)', 'TRIPLE-A'],
   ]) assert.equal(normalizePlayerLevel(raw), expected);
   const career = resolvePlayerDisplay({ career_highlevel: 'NCAA' });
@@ -198,7 +198,7 @@ test('Level aliases are consistent, and generic career NCAA remains generic with
   assert.equal(resolvePlayerDisplay({ level: 'MLB', display_level_label: 'AA' }).levelLabel, 'DOUBLE-A');
   assert.equal(resolvePlayerDisplay({ level_label: 'AAA', display_level_label: 'UNKNOWN' }).levelLabel, 'TRIPLE-A');
   assert.equal(levelLabel('NCAA'), 'NCAA');
-  assert.ok(LEVEL_RANK.NCAA > LEVEL_RANK["INT'L"] && LEVEL_RANK.NCAA < LEVEL_RANK.NAIA);
+  assert.ok(LEVEL_RANK.NCAA > LEVEL_RANK.INTERNATIONAL && LEVEL_RANK.NCAA < LEVEL_RANK.NAIA);
 });
 
 test('Recorded baseline metadata for an explicitly retired player renders its previous team without a transaction', () => {
