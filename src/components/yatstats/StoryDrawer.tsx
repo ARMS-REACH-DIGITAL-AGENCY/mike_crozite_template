@@ -449,9 +449,10 @@ export default function StoryDrawer() {
   return createPortal(
     <aside className="yat-drawer yat-drawer-right yat-story-drawer" id="drawerStory" aria-label="Add a story" aria-hidden={!open}>
       <div className="ysd-header">
-        <div>
-          <div className="ysd-kicker">Add a story</div>
-          <h3 className="ysd-title">to {playerName}&apos;s Career Timeline</h3>
+        <div className="ysd-header-main">
+          <h3 className="ysd-title"><i className="ri-image-add-line" aria-hidden="true" /><span>SHARE A STORY</span></h3>
+          {signedIn && <p className="ysd-hello"><span className="ysd-hello-account">{fanFirstName} · Fan</span><span className="ysd-hello-school">Posting to {playerName}&apos;s Career Timeline</span></p>}
+          {!signedIn && <p className="ysd-hello"><span className="ysd-hello-school">Post to {playerName}&apos;s Career Timeline</span></p>}
         </div>
         <button type="button" className="yat-icon-btn ysd-close" onClick={close} aria-label="Close">
           <i className="ri-close-line" />
@@ -481,7 +482,7 @@ export default function StoryDrawer() {
           </div>
         ) : (
           <>
-            <div className="ysd-poster">Hi {fanFirstName}!</div>
+
 
             <div className="ysd-field">
               <div className="ysd-label">Photos <span className="ysd-muted">({photos.length}/{MAX_PHOTOS})</span></div>
@@ -622,6 +623,25 @@ export default function StoryDrawer() {
       </div>
 
       <style jsx global>{`
+        /* Match the existing monochrome Contribute drawer: same title hierarchy,
+           fan context, compact labels and rectangular fields. */
+        #drawerStory.yat-story-drawer { width:min(100vw,680px)!important;max-width:680px!important; }
+        #drawerStory .ysd-header {padding:12px 14px 10px!important;align-items:flex-start;gap:12px;}
+        #drawerStory .ysd-header-main {min-width:0;flex:1;}
+        #drawerStory .ysd-header .ysd-title {display:flex!important;align-items:center;gap:10px;margin:0!important;font:800 clamp(20px,5vw,24px)/1.16 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;text-transform:uppercase;}
+        #drawerStory .ysd-header .ysd-title i {display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:rgba(128,128,128,.14);font-size:21px;}
+        #drawerStory .ysd-hello {display:flex;flex-direction:column;gap:3px;margin:11px 0 0;color:var(--ink);font:400 13px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-hello-account {font-weight:800;}
+        #drawerStory .ysd-hello-school {color:var(--muted);overflow-wrap:anywhere;}
+        #drawerStory .ysd-body {gap:13px;padding:12px 14px 28px!important;}
+        #drawerStory .ysd-field {gap:7px;}
+        #drawerStory .ysd-label {font:800 15px/1.22 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.02em;}
+        #drawerStory .ysd-photo-add {border-radius:6px;background:rgba(128,128,128,.08);}
+        #drawerStory .ysd-photo-add:hover {background:rgba(128,128,128,.18);}
+        #drawerStory select,#drawerStory textarea,#drawerStory input[type="search"] {border:1px solid var(--line);border-radius:6px;background:rgba(128,128,128,.10);padding:10px 11px;}
+        #drawerStory .ysd-btn {border-radius:6px;}
+        #drawerStory .ysd-approve {border-radius:6px;}
+        @media(max-width:779px){#drawerStory.yat-story-drawer{width:100vw!important;max-width:100vw!important;}}
         .ysd-as { display:flex; align-items:center; gap:8px; margin:12px 0 0; font:500 13px/1.35 var(--yat-font-ui, Archivo, Arial, sans-serif); cursor:pointer; }
         .ysd-as input { width: 18px; height: 18px; accent-color: #2e8b5f; }
         #drawerStory .ysd-review { gap:12px; min-width:0; }
@@ -681,6 +701,25 @@ export default function StoryDrawer() {
         .ysd-btn:disabled { opacity: .6; cursor: wait; }
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font:800 19px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
+        /* Match the existing monochrome Contribute drawer: same title hierarchy,
+           fan context, compact labels and rectangular fields. */
+        #drawerStory.yat-story-drawer { width:min(100vw,680px)!important;max-width:680px!important; }
+        #drawerStory .ysd-header {padding:12px 14px 10px!important;align-items:flex-start;gap:12px;}
+        #drawerStory .ysd-header-main {min-width:0;flex:1;}
+        #drawerStory .ysd-header .ysd-title {display:flex!important;align-items:center;gap:10px;margin:0!important;font:800 clamp(20px,5vw,24px)/1.16 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;text-transform:uppercase;}
+        #drawerStory .ysd-header .ysd-title i {display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:rgba(128,128,128,.14);font-size:21px;}
+        #drawerStory .ysd-hello {display:flex;flex-direction:column;gap:3px;margin:11px 0 0;color:var(--ink);font:400 13px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-hello-account {font-weight:800;}
+        #drawerStory .ysd-hello-school {color:var(--muted);overflow-wrap:anywhere;}
+        #drawerStory .ysd-body {gap:13px;padding:12px 14px 28px!important;}
+        #drawerStory .ysd-field {gap:7px;}
+        #drawerStory .ysd-label {font:800 15px/1.22 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.02em;}
+        #drawerStory .ysd-photo-add {border-radius:6px;background:rgba(128,128,128,.08);}
+        #drawerStory .ysd-photo-add:hover {background:rgba(128,128,128,.18);}
+        #drawerStory select,#drawerStory textarea,#drawerStory input[type="search"] {border:1px solid var(--line);border-radius:6px;background:rgba(128,128,128,.10);padding:10px 11px;}
+        #drawerStory .ysd-btn {border-radius:6px;}
+        #drawerStory .ysd-approve {border-radius:6px;}
+        @media(max-width:779px){#drawerStory.yat-story-drawer{width:100vw!important;max-width:100vw!important;}}
       `}</style>
     </aside>,
     document.body
