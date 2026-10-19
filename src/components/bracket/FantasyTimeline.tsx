@@ -13,7 +13,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { type DayStory, weekStories } from './dayStory';
+import { type DayShout, type DayStory, weekHero, weekStories } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BallparkScene from './BallparkScene';
 
@@ -175,13 +175,18 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
   const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
   const series = seriesStatus(slide, schoolName, oppLabel);
   const status = day ? `${series} · ${day.label}` : series;
+  const games = slide.cards.map((card) => {
+    const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
+    return { card, score: scoreFor(card, me), oppName: opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD', matchupKnown: Boolean(opp) };
+  });
+  // The scores' column sits two spaces past the longest school name.
+  const nameCh = Math.max(schoolName.length, ...games.map((x) => x.oppName.length));
 
   return (
     <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } }}
       aria-label={`Round ${slide.round}. ${seriesLabel}`}>
       {slide.opponent ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : null}
-      <span className="yft-grad" aria-hidden="true" />
       {day?.hero
         ? <Fallback key={day.hero.id} className="yft-person" srcs={currentPlayerImages(day.hero.id)} alt={day.hero.name} />
         : slide.heroStar
@@ -209,13 +214,9 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
         ) : null}
       </div>
 
-      <aside className="yft-series" aria-label={`Round ${slide.round} series`}>
+      <aside className="yft-series" aria-label={`Round ${slide.round} series`} style={{ '--yft-name-ch': nameCh } as React.CSSProperties}>
         <div className="yft-series-games">
-          {slide.cards.map((card, i) => {
-            const score = scoreFor(card, me);
-            const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
-            const oppName = opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD';
-            const matchupKnown = Boolean(opp);
+          {games.map(({ card, score, oppName, matchupKnown }, i) => {
             return (
               <div key={card.week} className="yft-series-game">
                 <small>G{i + 1}</small>
@@ -276,13 +277,13 @@ function PostSlide({ index, games, week, label, title, showScores, championName,
     <div className="yft-slide yft-post-slide" role="button" tabIndex={0} onClick={onTap}
       onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onTap();}}}
       aria-label={title}>
-      <span className="yft-grad" aria-hidden="true"/>
       <div className="yft-story">
         <span className="yft-status">{status}</span>
         <strong className="yft-title">{story?.headline || title}</strong>
         <p>{story?.summary || (games.length ? 'Every fan can follow the complete field here.' : 'This stage is set when the prior stage is complete.')}</p>
       </div>
-      <aside className="yft-series yft-post-scores" aria-label={`${title} scores`}>
+      <aside className="yft-series yft-post-scores" aria-label={`${title} scores`}
+        style={{ '--yft-name-ch': Math.max(0, ...games.flatMap((g) => [g[2], g[3]].map((h) => shortName(index.schools[h]?.[0] || 'Home').length))) } as React.CSSProperties}>
         <div className="yft-series-games">
           {games.length ? games.map((g,i)=>{
             const [hr,ar]=runsOf(g[5]);
@@ -356,6 +357,19 @@ export default function FantasyTimeline() {
 
   const rounds = useMemo<RoundSlide[]>(() => {
     if (!data) return [];
+    // The picture for a story with no shout-out of its own (Pete: the guys
+    // who played well, not YaTi): the school's best line of that week, else
+    // its latest best before it, else the opponent's best that week. YaTi
+    // only when nobody in the game has played.
+    const pictures: Record<number, DayShout | undefined> = {};
+    let latest: DayShout | undefined;
+    for (const c of [...cards].sort((a, b) => a.week - b.week)) {
+      if (!c.game || !c.file) continue;
+      const box = boxes[c.file]?.[String(c.game[0])];
+      const mine = weekHero(c.game, box, me);
+      latest = mine || latest;
+      pictures[c.week] = latest || weekHero(c.game, box, c.game[2] === me ? c.game[3] : c.game[2]);
+    }
     return Array.from({ length: 10 }, (_, i) => {
       const round = i + 1;
       const firstWeek = i * 3 + 1;
@@ -381,7 +395,7 @@ export default function FantasyTimeline() {
         const after = { done: upTo, wins: upTo.filter((x) => x.game?.[6] === me).length, losses: upTo.filter((x) => x.game?.[6] != null && x.game?.[6] !== me).length, complete: upTo.length === 3 };
         const box = boxes[c.file]?.[String(c.game[0])];
         stories[c.week] = weekStories(data.index, c.game, box, me, k + 1, seriesSentence(after, schoolName, oppName), c.state === 'final')
-          .map((x) => ({ ...x, label: `Game ${k + 1} · ${x.day}` }));
+          .map((x) => ({ ...x, hero: x.hero || pictures[c.week], label: `Game ${k + 1} · ${x.day}` }));
       });
       const withNews = list.filter((c) => stories[c.week]?.length).map((c) => c.week);
       const defaultWeek = lead >= firstWeek && lead <= lastWeek ? lead : withNews[withNews.length - 1] || firstWeek;
@@ -489,45 +503,77 @@ export default function FantasyTimeline() {
       <style jsx global>{`
         /* Keep Fantasy in the exact player-profile Career Path Timeline box.
            We are swapping content, not changing the page geometry. */
-        .yat-row3-shell:has(.yft-hero) { height:200px !important; min-height:200px !important; overflow:hidden !important; }
-        .yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:#050505; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
-        .yft-track { display:flex; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
+        .yat-row3-shell:has(.yft-hero) { height:200px !important; min-height:200px !important; overflow:visible !important; }
+        /* --yft-up: rows 1 and 2 (row 2's borders too). The slides reach up
+           behind them (see .yft-track), so a slide's picture can rise out of
+           row 3 like a card laid over the page; everything else in a slide
+           sits that far down, in row 3. */
+        .yft-hero { --yft-up:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + 2px); position:relative; height:200px; min-height:200px; overflow:visible; background:transparent; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
+        .yft-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
         .yft-track::-webkit-scrollbar { display:none; }
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
-        .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
+        .yft-ghost { position:absolute; left:3%; top:calc(var(--yft-up) + (100% - var(--yft-up)) / 2); width:33%; height:calc((100% - var(--yft-up)) * .92); transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         /* The ballpark behind the slides (BallparkScene): a night game in the
-           dark theme, a day game in the light one. A scrim darkens just the
-           band the words sit on, so the scene shows at both ends and the
-           words still pop. */
-        .yft-track { position:relative; z-index:1; }
-        .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.25) 22%,rgba(4,5,12,.72) 38%,rgba(4,5,12,.72) 60%,rgba(0,0,0,.45) 78%,rgba(0,0,0,.4) 100%); }
-        body.light-theme .yft-grad { background:linear-gradient(90deg,rgba(6,28,58,0) 0%,rgba(6,28,58,.25) 22%,rgba(6,28,58,.72) 38%,rgba(6,28,58,.72) 60%,rgba(6,28,58,.5) 78%,rgba(6,28,58,.45) 100%); }
-        .yft-title, .yft-status, .yft-story p, .yft-series { text-shadow:0 1px 3px rgba(0,0,0,.65); }
-        .yft-person { position:absolute; z-index:1; left:64%; bottom:30px; width:18%; height:calc(100% - 38px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+           dark theme (one light tower, its lamps in row 1), a day game in
+           the light one, as one picture behind rows 1, 2 and 3 - the way
+           the player profile's photo bleeds up behind the header. Its shade
+           darkens both sides top to bottom and lets the center light
+           through; every word gets a dark outline so it reads over the glow
+           too. */
+        /* The track (the slides) runs from the top of the page to the bottom of
+           row 3, under rows 1 and 2, which are see-through and stay on top. */
+        .yft-track { position:absolute; z-index:1; left:0; right:0; bottom:0; top:calc(-1 * var(--yft-up)); }
+        /* Rows 1 and 2 go see-through over it on the Fantasy tab (only it
+           has .yft-hero), and keep their light icons, logo and school name
+           in the light theme too: the sky behind them is dark or deep blue,
+           never the theme's white. Same pins as the profile's .pp-hero-row
+           (ZoomableCareerTimeline). */
+        body:has(.yft-hero) .yat-row1-shell, body:has(.yft-hero) .yat-row1-shell .yat-topbar,
+        body:has(.yft-hero) .yat-row2-shell, body:has(.yft-hero) .yat-row2-shell .yat-schoolrow { background:transparent !important; }
+        body:has(.yft-hero) .yat-row2-shell { border-color:transparent !important; }
+        body:has(.yft-hero) .yat-row1-shell { --fg:#f2f2f2; --logo-filter:invert(1); }
+        body:has(.yft-hero) .yat-row2-shell { --fg:#f2f2f2; --muted:#c4c4c4; }
+        body:has(.yft-hero) .yat-row2-shell .yat-schooltext .big1, body:has(.yft-hero) .yat-row2-shell .yat-schooltext .big2 { color:var(--fg); }
+        body:has(.yft-hero) .yat-topnav-item, body:has(.yft-hero) .yat-schooltext { text-shadow:0 0 2px #000,0 0 3px #000; }
+        .yft-status, .yft-story p, .yft-star, .yft-series { text-shadow:0 0 2px #000,0 0 3px #000,0 1px 3px rgba(0,0,0,.9); }
+        .yft-title { -webkit-text-stroke:1px #000; paint-order:stroke fill; text-shadow:0 0 3px #000,0 2px 4px rgba(0,0,0,.9); }
+        /* The slide's picture: a 5x7 card's place (Pete's mockup, Oct 19) from the
+           timeline's R6 tick to its R10, just right of row 2's school name and
+           just left of the series, from just under row 1 down to the bottom
+           of row 3; the timeline prints over it. A cutout or a headshot sits
+           on its bottom edge. */
+        .yft-person { position:absolute; z-index:1; left:calc(3% + 94% * 15 / 33); width:calc(94% * 12 / 33 + 6px); top:calc(var(--row1-h, 36px) + 4px); height:calc(100% - var(--row1-h, 36px) - 4px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
         .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
         .yft-left-meta.yft-post-corner b span:first-child { text-transform:none; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
-        .yft-story { position:absolute; z-index:2; left:5%; right:36%; top:8px; bottom:40px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
+        /* The story starts at the top of the box (eyebrow, then the headline,
+           then the story, with room between them) in a blocked column that
+           stops short of the center light. */
+        .yft-story { position:absolute; z-index:2; left:5%; width:47%; top:calc(var(--yft-up) + 4px); bottom:40px; display:flex; flex-direction:column; justify-content:flex-start; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
-        .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
-        .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
-        .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.78); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-status { color:var(--gold,#d5b44a); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
+        .yft-title { margin:9px 0 19px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
+        .yft-story p { margin:0; color:#fff; font:400 13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
         .yft-title.long { font-size:clamp(22px,2.6vw,34px); }
         .yft-shouts { display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; margin-top:6px; }
         .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
         .yft-shouts .yft-star span { color:rgba(255,255,255,.62); text-transform:none; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
-        .yft-series { position:absolute; z-index:2; right:1.2%; top:8px; bottom:40px; width:16%; min-width:150px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; text-align:left; }
+        /* The series, in the story's typeface: each score in a column two
+           spaces past the longest school name (--yft-name-ch, set from the
+           names), so it reads as a box score. Its games spread from level
+           with the headline to about level with the story's last line. */
+        .yft-series { position:absolute; z-index:2; right:3%; top:calc(var(--yft-up) + 26px); bottom:68px; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; text-align:left; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
         .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
-        .yft-series-games { margin-top:0; width:100%; display:grid; gap:9px; }
-        .yft-series-game { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px; align-items:center; color:rgba(255,255,255,.78); font:500 11.5px/1.18 Oswald,sans-serif; }
-        .yft-series-game small { color:var(--gold,#d5b44a); font:700 9px/1 Oswald,sans-serif; text-align:left; padding:0; }
+        .yft-series-games { margin-top:0; height:100%; display:grid; align-content:space-between; gap:4px; }
+        .yft-series-game { display:grid; grid-template-columns:auto auto; gap:1ch; align-items:center; color:rgba(255,255,255,.78); font:500 12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-series-game small { color:var(--gold,#d5b44a); font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace; text-align:left; padding:0; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
         .yft-scorelines { display:grid; gap:1px; min-width:0; }
-        .yft-scoreline { display:grid; grid-template-columns:minmax(0,1fr) 22px; column-gap:10px; align-items:baseline; min-width:0; }
+        .yft-scoreline { display:grid; grid-template-columns:min(calc(var(--yft-name-ch, 10) * 1ch), 22ch) 2ch; column-gap:2ch; align-items:baseline; min-width:0; }
         .yft-scoreline b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.78); font-weight:500; }
         .yft-scoreline.home b { color:#fff; font-weight:700; }
         .yft-scoreline i { font-style:normal; text-align:right; color:#fff; font-variant-numeric:tabular-nums; }
@@ -566,31 +612,38 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:58%; width:18%; height:calc(100% - 23px); bottom:19px; object-position:bottom center; }
+          .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 4px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px); }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
           .yft-left-meta span { font-size:6px; }
-          .yft-story { left:5%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
+          /* Blocked under the school name: the column ends about where row
+             2's "FANTASY BRACKET TOURNEY" does. */
+          .yft-story { left:5%; width:170px; top:calc(var(--yft-up) + 2px); bottom:22px; padding:0 4px; justify-content:flex-start; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
+          .yft-title { margin:2px 0 8px; font-size:16px; line-height:.94; }
           .yft-title.long { font-size:13px; }
           .yft-shouts { margin-top:2px; column-gap:6px; row-gap:1px; }
           .yft-shouts .yft-star span { display:none; }
-          .yft-story:has(.yft-shouts) p { -webkit-line-clamp:4; }
-          .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
-          .yft-dots { gap:3px; margin-top:2px; }
+          .yft-story:has(.yft-shouts) p { -webkit-line-clamp:6; }
+          /* A two-line headline leaves room for five. */
+          .yft-story:has(.yft-title.long) p { -webkit-line-clamp:5; }
+          .yft-story p { flex-shrink:0; font-size:7px; line-height:1.16; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+          /* No room for the story's dots under six lines on a phone. */
+          .yft-dots { display:none; }
           .yft-dots i { width:3px; height:3px; }
           .yft-tick.wk { width:8px; margin-left:-4px; }
           .yft-tick.wk::before { left:2px; top:5px; width:3px; height:3px; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:1%; top:4px; bottom:27px; width:21%; min-width:0; justify-content:center; }
+          /* Right of the card, never over it: from just past the R10 tick to the
+             edge, the names cut short only if they can't fit. */
+          .yft-series { left:calc(4% + 92% * 27 / 33 + 8px); right:1%; top:calc(var(--yft-up) + 10px); bottom:34px; }
           .yft-series-games { margin-top:0; gap:5px; }
-          .yft-series-game { grid-template-columns:auto minmax(0,1fr); gap:3px; font-size:8.2px; line-height:1.10; }
-          .yft-scoreline { grid-template-columns:minmax(0,1fr) 14px; column-gap:6px; }
+          .yft-series-game { grid-template-columns:auto minmax(0,1fr); gap:2px; font-size:6.5px; line-height:1.2; }
+          .yft-scoreline { grid-template-columns:minmax(0, calc(var(--yft-name-ch, 10) * 1ch)) auto; }
           .yft-post-scores .yft-series-games { gap:4px; }
-          .yft-post-scores .yft-series-game { font-size:7.2px; line-height:1.08; }
-          .yft-series-game small { font-size:6.4px; line-height:1; text-align:left; padding:0; }
+          .yft-post-scores .yft-series-game { font-size:6.5px; line-height:1.1; }
+          .yft-series-game small { font-size:5px; line-height:1; text-align:left; padding:0; }
           .yft-raffle-cta { left:2.5%; top:calc((100% - 23px) / 2); bottom:auto; width:112px; height:78px; transform:translateY(-50%); }
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }
           .yft-raffle-note { left:28px; bottom:4px; width:78px; font-size:10.5px; line-height:.92; letter-spacing:-.045em; -webkit-text-stroke:.6px #000; }
@@ -600,6 +653,10 @@ export default function FantasyTimeline() {
           .yft-tick { width:10px; height:10px; margin-left:-5px; top:1px; }
           .yft-tick::before { left:3px; top:2px; width:4px; height:6px; }
           .yft-tick-label { display:block; top:11px; font-size:9px; letter-spacing:0; color:rgba(255,255,255,.62); }
+        }
+        @media (max-width:640px) {
+          /* A phone's row 2 is smaller: "TOURNEY" ends about 160px in. */
+          .yft-story { width:146px; }
         }
       `}</style>
     </section>

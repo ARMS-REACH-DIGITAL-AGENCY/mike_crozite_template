@@ -168,6 +168,19 @@ export function dayStory(index: Index, g: GameRow, box: GameBox | undefined, me:
   return null;
 }
 
+// School me's best line of game g's week so far - the hitter furthest above
+// league average (OPS+) or the pitcher furthest below it (FIP-) - for the
+// picture of a story with no shout-out of its own. undefined if none of its
+// alumni has a line yet.
+export function weekHero(g: GameRow, box: GameBox | undefined, me: number): DayShout | undefined {
+  const rows = (g[2] === me ? box?.h : box?.a)?.p || [];
+  const bats = rows.filter((p) => Array.isArray(p[4]) && p[4][0] > 0 && p[6] !== null)
+    .map((p): [number, DayShout] => [Number(p[6]) - 100, { id: p[0], name: p[1], kind: 'bat', value: Number(p[6]), line: batLine(p[4] as number[]) }]);
+  const pits = rows.filter((p) => Array.isArray(p[5]) && p[5].slice(0, 5).some((v) => v > 0) && p[7] !== null)
+    .map((p): [number, DayShout] => [100 - Number(p[7]), { id: p[0], name: p[1], kind: 'pit', value: Number(p[7]), line: pitLine(p[5] as number[]) }]);
+  return [...bats, ...pits].sort((a, b) => b[0] - a[0])[0]?.[1];
+}
+
 // A week's stories in order, for the hero to rotate through: every settled
 // inning (1st-9th), then the recap once the game is final.
 export function weekStories(index: Index, g: GameRow, box: GameBox | undefined, me: number, gameNo: number, series: string, final: boolean): DayStory[] {
