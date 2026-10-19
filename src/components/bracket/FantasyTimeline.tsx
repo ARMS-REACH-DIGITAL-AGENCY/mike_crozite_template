@@ -541,8 +541,16 @@ export default function FantasyTimeline() {
            timeline's R6 tick to its R10, just right of row 2's school name and
            just left of the series, from just under row 1 down to the bottom
            of row 3; the timeline prints over it. A cutout or a headshot sits
-           on its bottom edge. */
-        .yft-person { position:absolute; z-index:1; left:calc(3% + 94% * 15 / 33); width:calc(94% * 12 / 33 + 6px); top:calc(var(--row1-h, 36px) + 4px); height:calc(100% - var(--row1-h, 36px) - 4px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+           on its bottom edge, and dissolves into the bottom of row 3
+           instead of ending on a hard line across the timeline (Pete,
+           Oct 19). */
+        .yft-person { position:absolute; z-index:1; left:calc(3% + 94% * 15 / 33); width:calc(94% * 12 / 33 + 6px); top:calc(var(--row1-h, 36px) + 4px); height:calc(100% - var(--row1-h, 36px) - 4px); object-fit:contain; object-position:bottom center; pointer-events:none;
+          --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 72px), rgba(0,0,0,.35) calc(100% - 28px), transparent calc(100% - 4px));
+          -webkit-mask-image:var(--yft-dissolve); mask-image:var(--yft-dissolve); }
+        /* A fade to black (deep blue in the day theme) along the bottom of
+           row 3, under the timeline and over the slides. */
+        .yft-hero::after { content:''; position:absolute; z-index:6; left:0; right:0; bottom:0; height:60px; background:linear-gradient(to bottom, rgba(2,3,8,0), rgba(2,3,8,.85)); pointer-events:none; }
+        body.light-theme .yft-hero::after { background:linear-gradient(to bottom, rgba(6,28,58,0), rgba(6,28,58,.8)); }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
         .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
@@ -588,15 +596,18 @@ export default function FantasyTimeline() {
         .yft-nav.prev { left:0; }
         .yft-nav.next { right:0; }
         .yft-rail { position:absolute; left:3%; right:3%; bottom:4px; height:34px; z-index:7; }
-        .yft-rail-track { position:absolute; left:0; right:0; top:8px; height:2px; background:rgba(255,255,255,.18); }
+        /* The timeline reads over anything behind it: a thin white edge on
+           each round's mark, a dark halo on the line, the dots and the
+           labels. */
+        .yft-rail-track { position:absolute; left:0; right:0; top:8px; height:2px; background:rgba(255,255,255,.3); box-shadow:0 0 0 1px rgba(0,0,0,.45); }
         .yft-tick { position:absolute; top:1px; width:14px; height:14px; margin-left:-7px; padding:0; border:0; background:transparent; cursor:pointer; }
         .yft-tick:disabled { cursor:default; }
-        .yft-tick::before { content:''; position:absolute; left:4px; top:3px; width:6px; height:8px; border-radius:1px; background:rgba(255,255,255,.42); }
+        .yft-tick::before { content:''; position:absolute; left:4px; top:3px; width:6px; height:8px; border-radius:1px; background:rgba(255,255,255,.42); box-shadow:0 0 0 1px rgba(255,255,255,.75), 0 0 3px rgba(0,0,0,.9); }
         .yft-tick.W::before { background:#78c988; }
         .yft-tick.L::before { background:#d46f66; }
-        .yft-tick.on::before,.yft-tick.now::before { box-shadow:0 0 0 2px rgba(213,180,74,.72); }
+        .yft-tick.on::before,.yft-tick.now::before { box-shadow:0 0 0 1px #fff, 0 0 0 3px rgba(213,180,74,.85), 0 0 4px rgba(0,0,0,.9); }
         .yft-tick.wk { width:10px; margin-left:-5px; }
-        .yft-tick.wk::before { left:3px; top:5px; width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,.38); }
+        .yft-tick.wk::before { left:3px; top:5px; width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,.5); box-shadow:0 0 0 1px rgba(0,0,0,.55); }
         .yft-tick.wk.on::before, .yft-tick.wk.now::before { background:#d5b44a; box-shadow:0 0 0 2px rgba(213,180,74,.45); }
         .yft-fade { animation:yft-fade .7s ease-out; }
         @keyframes yft-fade { from { opacity:0; } }
@@ -604,7 +615,7 @@ export default function FantasyTimeline() {
         .yft-dots { display:flex; gap:4px; margin-top:6px; }
         .yft-dots i { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.3); }
         .yft-dots i.on { background:#d5b44a; }
-        .yft-tick-label { position:absolute; left:50%; top:16px; transform:translateX(-50%); color:rgba(255,255,255,.62); font:700 13px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; }
+        .yft-tick-label { position:absolute; left:50%; top:16px; transform:translateX(-50%); color:rgba(255,255,255,.82); font:700 13px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; text-shadow:0 0 2px #000, 0 0 3px #000, 0 1px 2px rgba(0,0,0,.9); }
         .yft-tick:hover .yft-tick-label { color:#fff; }
         .yft-tick.on .yft-tick-label { color:#d5b44a; }
 
@@ -612,7 +623,9 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 4px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px); }
+          .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 4px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px);
+            --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 46px), rgba(0,0,0,.35) calc(100% - 18px), transparent calc(100% - 2px)); }
+          .yft-hero::after { height:40px; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
@@ -652,7 +665,7 @@ export default function FantasyTimeline() {
           .yft-rail-track { top:6px; height:1px; }
           .yft-tick { width:10px; height:10px; margin-left:-5px; top:1px; }
           .yft-tick::before { left:3px; top:2px; width:4px; height:6px; }
-          .yft-tick-label { display:block; top:11px; font-size:9px; letter-spacing:0; color:rgba(255,255,255,.62); }
+          .yft-tick-label { display:block; top:11px; font-size:9px; letter-spacing:0; color:rgba(255,255,255,.82); }
         }
         @media (max-width:640px) {
           /* A phone's row 2 is smaller: "TOURNEY" ends about 160px in. */
