@@ -13,7 +13,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { type DayStory, weekStories } from './dayStory';
+import { type DayStory, weekHero, weekStories } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BallparkScene from './BallparkScene';
 
@@ -381,8 +381,11 @@ export default function FantasyTimeline() {
         const upTo = done.filter((x) => x.week <= c.week);
         const after = { done: upTo, wins: upTo.filter((x) => x.game?.[6] === me).length, losses: upTo.filter((x) => x.game?.[6] != null && x.game?.[6] !== me).length, complete: upTo.length === 3 };
         const box = boxes[c.file]?.[String(c.game[0])];
+        // A story with no shout-out of its own shows the school's best line
+        // of the week (Pete: the guys who played well, not YaTi).
+        const best = weekHero(c.game, box, me);
         stories[c.week] = weekStories(data.index, c.game, box, me, k + 1, seriesSentence(after, schoolName, oppName), c.state === 'final')
-          .map((x) => ({ ...x, label: `Game ${k + 1} · ${x.day}` }));
+          .map((x) => ({ ...x, hero: x.hero || best, label: `Game ${k + 1} · ${x.day}` }));
       });
       const withNews = list.filter((c) => stories[c.week]?.length).map((c) => c.week);
       const defaultWeek = lead >= firstWeek && lead <= lastWeek ? lead : withNews[withNews.length - 1] || firstWeek;
@@ -548,13 +551,14 @@ export default function FantasyTimeline() {
         .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
         .yft-shouts .yft-star span { color:rgba(255,255,255,.62); text-transform:none; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
-        /* The series, at the top of the box in the story's typeface: each
-           score in a column two spaces past the longest school name
-           (--yft-name-ch, set from the names), so it reads as a box score. */
-        .yft-series { position:absolute; z-index:2; right:3%; top:calc(var(--yft-up) + 6px); display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; text-align:left; }
+        /* The series, in the story's typeface: each score in a column two
+           spaces past the longest school name (--yft-name-ch, set from the
+           names), so it reads as a box score. Its games spread from level
+           with the headline to about level with the story's last line. */
+        .yft-series { position:absolute; z-index:2; right:3%; top:calc(var(--yft-up) + 26px); bottom:68px; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; text-align:left; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
         .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
-        .yft-series-games { margin-top:0; display:grid; gap:10px; }
+        .yft-series-games { margin-top:0; height:100%; display:grid; align-content:space-between; gap:4px; }
         .yft-series-game { display:grid; grid-template-columns:auto auto; gap:1ch; align-items:center; color:rgba(255,255,255,.78); font:500 12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; }
         .yft-series-game small { color:var(--gold,#d5b44a); font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace; text-align:left; padding:0; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
@@ -598,7 +602,7 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 6px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px); }
+          .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 4px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px); }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
@@ -621,13 +625,15 @@ export default function FantasyTimeline() {
           .yft-tick.wk { width:8px; margin-left:-4px; }
           .yft-tick.wk::before { left:2px; top:5px; width:3px; height:3px; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:6%; top:calc(var(--yft-up) + 3px); }
+          /* Right of the card, never over it: from just past the R10 tick to the
+             edge, the names cut short only if they can't fit. */
+          .yft-series { left:calc(4% + 92% * 27 / 33 + 8px); right:1%; top:calc(var(--yft-up) + 10px); bottom:34px; }
           .yft-series-games { margin-top:0; gap:5px; }
-          .yft-series-game { font-size:8px; line-height:1.2; }
-          .yft-scoreline { grid-template-columns:min(calc(var(--yft-name-ch, 10) * 1ch), 16ch) 2ch; }
+          .yft-series-game { grid-template-columns:auto minmax(0,1fr); gap:2px; font-size:6.5px; line-height:1.2; }
+          .yft-scoreline { grid-template-columns:minmax(0, calc(var(--yft-name-ch, 10) * 1ch)) auto; }
           .yft-post-scores .yft-series-games { gap:4px; }
-          .yft-post-scores .yft-series-game { font-size:8px; line-height:1.1; }
-          .yft-series-game small { font-size:6.4px; line-height:1; text-align:left; padding:0; }
+          .yft-post-scores .yft-series-game { font-size:6.5px; line-height:1.1; }
+          .yft-series-game small { font-size:5px; line-height:1; text-align:left; padding:0; }
           .yft-raffle-cta { left:2.5%; top:calc((100% - 23px) / 2); bottom:auto; width:112px; height:78px; transform:translateY(-50%); }
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }
           .yft-raffle-note { left:28px; bottom:4px; width:78px; font-size:10.5px; line-height:.92; letter-spacing:-.045em; -webkit-text-stroke:.6px #000; }
