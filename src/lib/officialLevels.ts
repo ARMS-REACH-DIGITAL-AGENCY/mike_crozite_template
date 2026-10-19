@@ -30,6 +30,8 @@ export const LEVEL_FIXES: Record<string, string> = {
 };
 
 // The level columns the weekly check rewrites. Everything the site reads.
+// Never teamid_universe_mapping: it is the canonical team table (Pete's own
+// research) and is only read, never written, by code.
 // A source's own raw files (fan submissions, college schedule landings, the
 // 150-team reference exports) are only reported, never rewritten.
 export const LEVEL_FIX_TARGETS: { table: string; column: string; stamp?: string }[] = [
@@ -39,7 +41,6 @@ export const LEVEL_FIX_TARGETS: { table: string; column: string; stamp?: string 
   { table: 'flip_card_front_stage', column: 'previous_level_label', stamp: 'updated_at' },
   { table: 'flip_card_front_stage', column: 'committed_level_label', stamp: 'updated_at' },
   { table: 'flip_card_front_stage', column: 'current_team_level', stamp: 'updated_at' },
-  { table: 'teamid_universe_mapping', column: 'level_label' },
   { table: 'player_team_stints', column: 'level' },
   { table: 'team_schedules', column: 'level' },
   { table: 'teams', column: 'level' },
