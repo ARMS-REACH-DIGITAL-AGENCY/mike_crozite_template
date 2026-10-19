@@ -50,7 +50,7 @@ const CONTRIBUTIONS: DeskCard[] = [
   { id: 'cc-action', eyebrow: 'CURRENT SEASON · FLIP CARD BACK', title: 'Current Action Photo', instruction: 'Action photo from the current season for the back of the alumni flip card.', thumb: 'back', action: 'UPLOAD ACTION PHOTO', detail: { tab: 'photo', photoType: 'back_hero' }, help: 'back_hero' },
   { id: 'cc-timeline', eyebrow: 'PAST SEASONS · CAREER PATH', title: 'Career Path Year Photo', instruction: 'A bust or action photo representing that specific career year on the timeline — NOT a fan memory post.', thumb: 'timeline', action: 'UPLOAD CAREER PHOTO', detail: { tab: 'photo', photoType: 'timeline_hero' }, help: 'timeline_hero' },
   { id: 'cc-logo', eyebrow: 'SCHOOL / CURRENT TEAM', title: 'School or Current Team Logo', instruction: 'Provide a missing or corrected high school crest or current team logo.', thumb: 'logos', action: 'UPLOAD TEAM LOGO', detail: { tab: 'photo', photoType: 'school_logo' }, help: 'school_logo' },
-  { id: 'cc-tip', eyebrow: 'ACTIVE ALUMNI NEWS', title: 'Active Player News Tip', instruction: 'Paste a published link to a real player story, award, signing or call-up.', thumb: 'news', action: 'SEND NEWS LINK', detail: { tab: 'tip' } },
+  { id: 'cc-tip', eyebrow: 'ACTIVE ALUMNI · NEWS & VIDEO', title: 'Clips & Tips', instruction: 'Share a published news story, highlight clip, interview, social post, award, signing or call-up about an alumni player.', thumb: 'news', action: 'SEND CLIP OR TIP', detail: { tab: 'tip' } },
   { id: 'cc-data', eyebrow: 'PLAYER DETAILS', title: 'Player Information Updates', instruction: 'Help correct player information, school details or playing history.', thumb: 'data', action: 'SUBMIT CORRECTION', detail: { tab: 'data' } },
 ];
 
