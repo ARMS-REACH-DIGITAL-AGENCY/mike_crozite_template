@@ -348,6 +348,9 @@ export default async function ProfilePage({ params }: Props) {
       return (
         lv.includes("NCAA") ||
         lv === "JUCO" ||
+        lv === "NJCAA" ||
+        lv === "CCCAA" ||
+        lv === "NWAC" ||
         lv.includes("COLLEGE") ||
         lv === "NAIA"
       );

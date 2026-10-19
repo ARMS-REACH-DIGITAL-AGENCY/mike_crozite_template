@@ -30,7 +30,7 @@ const SPORT_LEVELS: Record<number, string> = {
   11: "TRIPLE-A",
   12: "DOUBLE-A",
   13: "HIGH-A",
-  14: "LOW-A",
+  14: "SINGLE-A",
   16: "ROOKIE",
 };
 
@@ -246,6 +246,7 @@ const REFRESH_NEXT_GAMES_SQL = `
   'A+',
   'A',
   'LOW-A',
+  'SINGLE-A',
   'ROOKIE',
   'ACL',
   'FCL'

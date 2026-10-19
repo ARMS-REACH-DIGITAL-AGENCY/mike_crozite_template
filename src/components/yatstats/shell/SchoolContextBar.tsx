@@ -1,7 +1,7 @@
 // src/components/yatstats/shell/SchoolContextBar.tsx
 'use client';
 
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { highSchoolTeamLabel } from '@/lib/playerUtils';
 import { SchoolContext } from '@/context/SchoolContext';
@@ -9,6 +9,8 @@ import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
+import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
+import { openStoryDrawer } from '@/lib/storyDrawer';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
@@ -22,9 +24,22 @@ function joinSchoolUrl(base: string, suffix = ''): string {
   return cleanBase ? `${cleanBase}${suffix}` : suffix || '/';
 }
 
-function playerFlipCardHref(playerSchoolUrl: string | undefined, playerHsid: string, playerId: string): string {
+function playerFlipCardHref(
+  playerSchoolUrl: string | undefined,
+  playerHsid: string,
+  playerId: string,
+  statusLabel?: string,
+  levelLabel?: string,
+): string {
   const base = playerSchoolUrl || `/${encodeURIComponent(playerHsid)}`;
-  return joinSchoolUrl(base, `?view=active&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`);
+  const status = String(statusLabel || '').trim().toUpperCase();
+  const level = String(levelLabel || '').trim().toUpperCase();
+  const view = isActiveGalleryStatus(status)
+    ? 'active'
+    : (level === 'HIGH SCHOOL' || level === 'HS' || status === 'COMMIT' || status === 'UNCOMMITTED')
+      ? 'current'
+      : 'alltime';
+  return joinSchoolUrl(base, `?view=${view}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`);
 }
 
 function getVisibleGallerySection(): HTMLElement | null {
@@ -101,6 +116,7 @@ export default function SchoolContextBar({
   const [allCardsFlipped, setAllCardsFlipped] = useState(false);
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
+  const storyOpenOwner = useMemo(() => Symbol(`profile-story-open:${profilePlayerId || 'none'}`), [profilePlayerId]);
   const slugDerivedName = playerRouteMatch?.[2]
     ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : '';
@@ -172,12 +188,30 @@ export default function SchoolContextBar({
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isPlayerProfile && profilePlayerId && resolvedPlayerHsid && (
-          <a href={playerFlipCardHref(resolvedPlayerSchoolUrl, resolvedPlayerHsid, profilePlayerId)} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+          <a href={playerFlipCardHref(
+              resolvedPlayerSchoolUrl,
+              resolvedPlayerHsid,
+              profilePlayerId,
+              playerProfile?.statusLabel,
+              playerProfile?.levelLabel,
+            )} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
             <FlipCardIcon size={20} />
           </a>
         )}
         {isPlayerProfile && profilePlayerId && (
-          <FavoriteButton playerId={profilePlayerId} playerName={resolvedPlayerName} playerHsid={resolvedPlayerHsid} />
+          <>
+            <FavoriteButton variant="star" playerId={profilePlayerId} playerName={resolvedPlayerName} playerHsid={resolvedPlayerHsid} />
+            <button
+              type="button"
+              className="yat-profile-memory-cta"
+              aria-label={`Share a memory about ${resolvedPlayerName || 'this player'}`}
+              title="Share a memory"
+              onClick={() => openStoryDrawer({ playerId: profilePlayerId, year: null }, storyOpenOwner)}
+            >
+              <i className="ri-upload-cloud-2-line" aria-hidden="true" />
+              <span>Share a memory</span>
+            </button>
+          </>
         )}
         {isGallery && (
           <>
@@ -190,6 +224,22 @@ export default function SchoolContextBar({
           </>
         )}
       </div>
+      <style jsx>{`
+        .yat-profile-memory-cta {
+          display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px;
+          border:1px solid rgba(255,255,255,.22); border-radius:999px;
+          background:rgba(0,0,0,.18); color:inherit; cursor:pointer;
+          font:700 10px/1 Oswald,sans-serif; letter-spacing:.07em; text-transform:uppercase;
+          white-space:nowrap; transition:border-color .18s ease,background .18s ease,transform .18s ease;
+        }
+        .yat-profile-memory-cta:hover { border-color:rgba(255,178,28,.58); background:rgba(255,178,28,.08); }
+        .yat-profile-memory-cta:active { transform:translateY(1px); }
+        .yat-profile-memory-cta i { color:#ffb21c; font-size:16px; line-height:1; }
+        @media (max-width:620px) {
+          .yat-profile-memory-cta { width:32px; padding:0; justify-content:center; }
+          .yat-profile-memory-cta span { display:none; }
+        }
+      `}</style>
     </div>
   );
 }
