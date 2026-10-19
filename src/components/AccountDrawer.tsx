@@ -679,7 +679,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         plan,
       });
 
-      // Promo code entered on the join form? The gold Superfan CTA sets
+      // Promo code entered on the join form? The Superfan CTA sets
       // pending_superfan; the Fan CTA clears it. A code typed with the Fan
       // button is ignored (normal Fan signup). With the Superfan button, a
       // valid code grants free Superfan immediately (no Stripe). An invalid
@@ -903,7 +903,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   display: 'inline-block',
                   padding: '8px 14px',
-                  background: '#b8860b',
+                  background: 'var(--fg)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '6px',
@@ -923,7 +923,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             <div
               style={{
                 background: 'rgba(128,128,128,.08)',
-                border: '1px solid rgba(255,215,0,.4)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '10px 12px',
                 marginBottom: '16px',
