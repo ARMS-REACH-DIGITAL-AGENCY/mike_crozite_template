@@ -285,11 +285,11 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   }));
 
   return (
-    <section className="yp-school-news" aria-label="Active Alumni News">
+    <section className={`yp-school-news${playerFilter ? ' has-player-filter' : ''}`} aria-label="Active Alumni News">
       {playerFilter ? (
         <div className="yat-news-filter-bar">
-          <span>SHOWING NEWS FOR <strong>{filteredName.toUpperCase()}</strong></span>
-          <button type="button" onClick={clearFilter}>SHOW ALL <i className="ri-close-line" /></button>
+          <span className="yat-news-filter-label" title={`Showing news for ${filteredName}`}>SHOWING NEWS FOR <strong>{filteredName.toUpperCase()}</strong></span>
+          <button type="button" onClick={clearFilter} aria-label="Show news for all players">SHOW ALL <i className="ri-close-line" aria-hidden="true" /></button>
         </div>
       ) : null}
       <div className="yp-school-news-layout">
@@ -317,6 +317,59 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;
           color:var(--fg);background:var(--bg);min-height:60vh;
         }
+        /* The news toolbar sticks below the three shared sticky site rows.
+           Its offset includes this filter strip only when a headshot is selected. */
+        .yp-school-news { --yp-news-filter-h:0px; }
+        .yp-school-news.has-player-filter { --yp-news-filter-h:30px; }
+        .yp-school-news .yat-news-filter-bar {
+          position:sticky;
+          top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px));
+          z-index:17;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:8px;
+          width:100%;
+          min-width:0;
+          height:30px;
+          margin:0 0 4px;
+          padding:0 3px;
+          background:var(--bg);
+          color:var(--fg);
+          border:0;
+          box-shadow:none;
+        }
+        .yp-school-news .yat-news-filter-label {
+          flex:1 1 auto;
+          min-width:0;
+          display:block;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          color:var(--fg);
+          font:600 clamp(9px,2.5vw,11px)/1.15 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:0;
+          text-transform:uppercase;
+        }
+        .yp-school-news .yat-news-filter-label strong {font-weight:800;}
+        .yp-school-news .yat-news-filter-bar button {
+          display:inline-flex;
+          flex:0 0 auto;
+          align-items:center;
+          justify-content:center;
+          gap:5px;
+          margin:0;
+          padding:3px 4px;
+          border:0;
+          border-radius:4px;
+          background:transparent;
+          color:var(--fg);
+          font:700 10px/1.15 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:0;
+          white-space:nowrap;
+          cursor:pointer;
+        }
+        .yp-school-news .yat-news-filter-bar button:is(:hover,:focus-visible) {background:var(--line);}
         .yp-school-news-layout {
           display:grid;grid-template-columns:minmax(0,1fr) clamp(225px,24vw,325px);
           align-items:start;gap:20px;min-width:0;
