@@ -383,7 +383,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-text: rgba(255,255,255,.88);
           --ysf-muted: rgba(255,255,255,.55);
           --ysf-strong: rgba(255,255,255,.95);
-          --ysf-when: var(--gold, #ffc107);
+          --ysf-when: rgba(255,255,255,.92);
           padding: 10px 10px 20px;
         }
         body.light-theme .ysf {
@@ -395,36 +395,38 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-text: rgba(31,25,18,.86);
           --ysf-muted: rgba(31,25,18,.55);
           --ysf-strong: rgba(31,25,18,.94);
-          --ysf-when: #b78600;
+          --ysf-when: rgba(31,25,18,.92);
         }
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
         .ysf-tools-fill { flex: 1; }
         .ysf-share-memory-btn {
-          flex:0 1 310px; display:inline-flex; align-items:center; justify-content:flex-start; gap:10px;
-          min-height:46px; padding:7px 14px; border:1px solid rgba(255,255,255,.34); border-radius:8px;
-          background:rgba(255,255,255,.025); color:#fff; cursor:pointer; text-align:left;
-          font:700 12px/1.18 var(--yat-font-ui,Arial,sans-serif); letter-spacing:.015em; text-transform:uppercase;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+          flex:1 1 auto; display:inline-flex; align-items:center; justify-content:flex-start; gap:8px;
+          min-height:42px; padding:6px 10px; border:1px solid rgba(255,255,255,.28); border-radius:7px;
+          background:rgba(255,255,255,.02); color:#fff; cursor:pointer; text-align:left;
+          font:700 11px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.01em; text-transform:uppercase;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
           transition:background .16s ease,border-color .16s ease,opacity .16s ease;
         }
         .ysf-share-memory-btn:hover,.ysf-share-memory-btn:focus-visible { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.62); outline:none; }
-        .ysf-share-memory-btn i { flex:none; color:#fff; font-size:28px; line-height:1; font-weight:400; }
+        .ysf-share-memory-btn i { flex:none; color:#fff; font-size:20px; line-height:1; font-weight:400; }
         .ysf-share-memory-btn span { display:block; min-width:0; }
 
 
         /* Teammates: opens the drawer. Same height and frame as the sort. */
-        .ysf-tm-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 700 16px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
-        .ysf-tm-btn i { font-size: 17px; color: var(--ysf-when); }
-        .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color: var(--ysf-when); }
-        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 999px; background: var(--ysf-when); color: #111; font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
-        @media (max-width: 620px) {
-          .ysf-tools { flex-wrap:wrap; align-items:stretch; }
-          .ysf-share-memory-btn { flex:1 1 calc(100% - 150px); min-width:190px; min-height:48px; padding:7px 10px; font-size:11px; }
-          .ysf-share-memory-btn i { font-size:27px; }
-          .ysf-tm-btn { flex:0 0 auto; padding:0 9px; font-size:14px; }
-          .ysf-search { order:3; flex:1 1 100%; }
+        .ysf-tm-btn { flex:none; display:inline-flex; align-items:center; gap:6px; min-height:42px; padding:0 10px; border:1px solid var(--ysf-card-border); border-radius:7px; background:var(--ysf-card-bg); color:var(--ysf-strong); font:700 11px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.01em; text-transform:uppercase; cursor:pointer; }
+        .ysf-tm-btn i { font-size:20px; color:var(--ysf-strong); }
+        .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color:rgba(255,255,255,.56); }
+        .ysf-tm-count { min-width:22px; padding:3px 6px; border-radius:999px; background:rgba(255,255,255,.9); color:#111; font:700 11px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); text-align:center; letter-spacing:0; }
+        @media (max-width:620px) {
+          .ysf-tools { display:grid; grid-template-columns:minmax(0,1fr) auto 38px; gap:7px; align-items:stretch; }
+          .ysf-share-memory-btn { grid-column:1; grid-row:1; min-width:0; min-height:42px; padding:6px 9px; font-size:10px; }
+          .ysf-share-memory-btn span { display:block; line-height:1.18; }
+          .ysf-share-memory-btn i { font-size:20px; }
+          .ysf-tm-btn { grid-column:2 / 4; grid-row:1; min-height:42px; padding:0 9px; font-size:10px; }
+          .ysf-search { grid-column:1 / 3; grid-row:2; min-height:38px; }
+          .ysf-tools :global(.yst) { grid-column:3; grid-row:2; width:38px; min-height:38px; }
         }
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
         .ysf-feed-posts { gap: 16px; max-width: 760px; margin: 0 auto; }
