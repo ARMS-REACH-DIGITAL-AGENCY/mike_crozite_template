@@ -13,7 +13,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { type DayStory, weekHero, weekStories } from './dayStory';
+import { type DayShout, type DayStory, weekHero, weekStories } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BallparkScene from './BallparkScene';
 
@@ -357,6 +357,19 @@ export default function FantasyTimeline() {
 
   const rounds = useMemo<RoundSlide[]>(() => {
     if (!data) return [];
+    // The picture for a story with no shout-out of its own (Pete: the guys
+    // who played well, not YaTi): the school's best line of that week, else
+    // its latest best before it, else the opponent's best that week. YaTi
+    // only when nobody in the game has played.
+    const pictures: Record<number, DayShout | undefined> = {};
+    let latest: DayShout | undefined;
+    for (const c of [...cards].sort((a, b) => a.week - b.week)) {
+      if (!c.game || !c.file) continue;
+      const box = boxes[c.file]?.[String(c.game[0])];
+      const mine = weekHero(c.game, box, me);
+      latest = mine || latest;
+      pictures[c.week] = latest || weekHero(c.game, box, c.game[2] === me ? c.game[3] : c.game[2]);
+    }
     return Array.from({ length: 10 }, (_, i) => {
       const round = i + 1;
       const firstWeek = i * 3 + 1;
@@ -381,11 +394,8 @@ export default function FantasyTimeline() {
         const upTo = done.filter((x) => x.week <= c.week);
         const after = { done: upTo, wins: upTo.filter((x) => x.game?.[6] === me).length, losses: upTo.filter((x) => x.game?.[6] != null && x.game?.[6] !== me).length, complete: upTo.length === 3 };
         const box = boxes[c.file]?.[String(c.game[0])];
-        // A story with no shout-out of its own shows the school's best line
-        // of the week (Pete: the guys who played well, not YaTi).
-        const best = weekHero(c.game, box, me);
         stories[c.week] = weekStories(data.index, c.game, box, me, k + 1, seriesSentence(after, schoolName, oppName), c.state === 'final')
-          .map((x) => ({ ...x, hero: x.hero || best, label: `Game ${k + 1} · ${x.day}` }));
+          .map((x) => ({ ...x, hero: x.hero || pictures[c.week], label: `Game ${k + 1} · ${x.day}` }));
       });
       const withNews = list.filter((c) => stories[c.week]?.length).map((c) => c.week);
       const defaultWeek = lead >= firstWeek && lead <= lastWeek ? lead : withNews[withNews.length - 1] || firstWeek;
