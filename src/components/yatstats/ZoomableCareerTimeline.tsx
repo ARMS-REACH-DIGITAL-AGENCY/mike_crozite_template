@@ -41,8 +41,8 @@ const ROW_H_MOBILE = 150;
 // native size and uniformly scaled to fit the upload drawer.
 export const CAREER_TIMELINE_PREVIEW_WIDTH = 384;
 export const CAREER_TIMELINE_PREVIEW_HEIGHT = ROW_H_MOBILE;
-const TIMELINE_YELLOW = '#ffb21c';
-const DRAFT_GOLD = '#d6b253';
+const TIMELINE_YELLOW = '#e7e7e7';
+const DRAFT_GOLD = '#d8d8d8';
 // Same asset the corporate hero and this component's own HS anchor slide
 // have always pointed at (audience-site.js's BG) -- one canonical
 // background image, not a separate copy.
@@ -2779,7 +2779,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            feedback: "I want it all yellow except for the little red
            dots." Keeps the glow the old scroll-driven fill used to carry,
            just applied to the full-width track instead of a partial one. */
-        .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 6px rgba(255,178,28,.55); }
+        .zt-rail-track { position:absolute; left:0; right:0; top:50%; height:2.5px; transform:translateY(-50%); border-radius:1px; background:${TIMELINE_YELLOW}; box-shadow:0 0 5px rgba(255,255,255,.22); }
         /* Every tick red now, not just the birth-year one -- per direct
            feedback. */
         /* 4px, not 6px -- per direct feedback, smaller dots. */
@@ -2811,7 +2811,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 8px; background:#040506; border-radius:4px; color:${TIMELINE_YELLOW}; font:700 17px/24px "Bebas Neue",Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
         .zt-rail-months .zt-rail-track { left:${RAIL_MONTH_START}px; }
         .zt-rail-month { position:absolute; top:50%; width:5px; height:5px; margin-left:-2.5px; transform:translateY(-50%); border-radius:50%; background:#e5342a; animation:zt-rail-in .25s ease both; }
-        .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_YELLOW}; }
+        .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.55); }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
         .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_YELLOW}; }
         .zt-rail-story { position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%); display:grid; place-items:center; width:22px; height:22px; padding:0; border:1px solid rgba(255,178,28,.72); border-radius:50%; background:rgba(5,6,7,.92); color:${TIMELINE_YELLOW}; overflow:visible; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.45); }
