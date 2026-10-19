@@ -633,51 +633,50 @@ export default function StoryDrawer() {
         /* The generic drawer rail has a 360px !important cap. Preserve this
            form's approved 440px layout regardless of style injection order. */
         #drawerStory.yat-story-drawer { width:min(94vw,440px)!important; max-width:440px!important; font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
-        .ysd-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 16px 10px; border-bottom: 1px solid var(--line); }
+        .ysd-header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:14px 14px 10px; border-bottom:1px solid var(--line); }
         /* The YAT?STATS crest screened back behind the header, the same as
            the News reader drawer (ProfileContentDrawer): large at 15%
            opacity, bleeding off the right edge. */
         .ysd-header { position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; }
         .ysd-header::before { content: ""; position: absolute; z-index: -1; top: 50%; right: -14%; width: 62%; aspect-ratio: 1637/1281; transform: translateY(-50%); background: url("/img/ys-crest.png") center/contain no-repeat; opacity: .15; pointer-events: none; }
         body.light-theme .ysd-header::before { filter: invert(1); opacity: .09; }
-        /* Use the same two-font hierarchy as Connect & Contribute: Archivo for
-           interface copy/titles, Barlow Condensed for compact section labels.
-           Preserve existing gold CTA and 8px-rounded fields. */
-        .ysd-kicker { color:#FFD700; font:700 13px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.07em; text-transform:uppercase; }
-        body.light-theme .ysd-kicker { color: #9a6f00; }
-        #drawerStory .ysd-title { margin:6px 0 0 !important; padding:0 !important; font:800 20px/1.12 var(--yat-font-ui, Archivo, Arial, sans-serif) !important; letter-spacing:-.025em!important; }
+        /* Match the current monochrome drawer system: neutral hierarchy,
+           compact fields and one interface font. */
+        .ysd-kicker { color:var(--muted); font:700 11px/1.1 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.05em; text-transform:uppercase; }
+        body.light-theme .ysd-kicker { color:var(--muted); }
+        #drawerStory .ysd-title { margin:4px 0 0 !important; padding:0 !important; font:800 18px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif) !important; letter-spacing:-.02em!important; }
         .ysd-close { position: static !important; flex: none; }
-        .ysd-body { flex-shrink:0; display:flex; flex-direction:column; gap:16px; padding:14px 16px 28px; font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
+        .ysd-body { flex-shrink:0; display:flex; flex-direction:column; gap:12px; padding:12px 14px 24px; font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
         .ysd-muted { opacity: .65; }
         .ysd-small { font:400 12px/1.4 var(--yat-font-ui, Archivo, Arial, sans-serif); margin-top:6px; }
         .ysd-poster { font:800 18px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
         .ysd-field { display: flex; flex-direction: column; gap: 6px; }
-        .ysd-label { font:700 14px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.06em; text-transform:uppercase; }
+        .ysd-label { font:700 12px/1.1 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.03em; text-transform:uppercase; }
         .ysd-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
         #drawerStory select, #drawerStory textarea, #drawerStory input[type="search"] {
-          width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.06);
-          color:var(--ink); padding:10px 12px; font:400 14px/1.45 var(--yat-font-ui, Archivo, Arial, sans-serif);
+          width:100%; border:1px solid var(--line); border-radius:6px; background:rgba(255,255,255,.035);
+          color:var(--ink); padding:9px 10px; font:400 13px/1.4 var(--yat-font-ui, Archivo, Arial, sans-serif);
         }
         body.light-theme #drawerStory input[type="search"] { background: rgba(0,0,0,.06); }
         .yat-story-drawer textarea { resize: vertical; min-height: 140px; }
         .ysd-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .ysd-photo, .ysd-photo-add { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+        .ysd-photo, .ysd-photo-add { position:relative; aspect-ratio:1; border-radius:6px; overflow:hidden; border:1px solid var(--line); }
         .ysd-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .ysd-photo button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
         .ysd-photo-add { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:transparent; color:inherit; cursor:pointer; font:800 11px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.01em; text-transform:uppercase; }
         .ysd-photo-add i { font-size: 22px; }
         .ysd-photo-add:disabled { opacity:.6; cursor:wait; }
         .ysd-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-        .ysd-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:999px; background:rgba(255,215,0,.14); border:1px solid rgba(255,215,0,.6); font:600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); }
+        .ysd-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 9px; border-radius:999px; background:rgba(255,255,255,.055); border:1px solid var(--line); font:600 11px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); }
         .ysd-tag button { border: 0; background: none; color: inherit; font-size: 15px; cursor: pointer; }
         .ysd-results.yat-gs-results { max-height: none; overflow: visible; }
         .ysd-results .yat-gs-result { width: 100%; text-align: left; font: inherit; }
         .ysd-results .yat-gs-result:is(:hover,:focus-visible) { background:var(--line); border-radius:4px; }
         .ysd-error { color: #ff6b6b; font-size: 13px; }
         .ysd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ysd-btn { min-height:42px; padding:0 18px; border-radius:8px; border:1px solid #FFD700; background:transparent; color:#FFD700; font:800 12px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
-        .ysd-btn-primary { background: #FFD700; color: #000; }
-        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: #9a6f00; color: #9a6f00; }
+        .ysd-btn { min-height:38px; padding:0 14px; border-radius:6px; border:1px solid rgba(255,255,255,.28); background:transparent; color:var(--ink); font:700 11px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
+        .ysd-btn-primary { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color:var(--line); color:var(--ink); }
         .ysd-btn:disabled { opacity: .6; cursor: wait; }
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font:800 19px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
