@@ -551,8 +551,7 @@ export default function ContributeDrawer() {
                     <p className="ycd-memories">
                       * Looking to add personal memories of {firstName}? We encourage you to post those moments on{' '}
                       {info.name || player.displayName}&apos;s profile page, on his Career Path Timeline. Stories there let you
-                      tell what happened and let others like, comment, share and tag. Just click the Polaroid icon at the bottom
-                      left of his timeline. <a href={`${info.profileUrl}#ppTab-upload`}>Go to {info.name || player.displayName}&apos;s profile page</a>
+                      tell what happened and let others like, comment, share and tag. Use the Share a Story button on his profile. <a href={`${info.profileUrl}#ppTab-upload`}>Go to {info.name || player.displayName}&apos;s profile page</a>
                     </p>
                   ) : null}
                 </>
