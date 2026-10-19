@@ -150,20 +150,6 @@ function buildEmailHtml(tx: TransactionRow, recipient: RecipientRow): string {
     </div>`;
 }
 
-async function ensureHealthRow() {
-  await query(`
-    create table if not exists public.ingest_job_health (
-      job_name text primary key,
-      last_success_at timestamptz,
-      last_failure_at timestamptz,
-      consecutive_failures integer not null default 0,
-      last_error text,
-      last_result jsonb,
-      updated_at timestamptz not null default now()
-    )
-  `);
-}
-
 async function getRecipients(playerId: string): Promise<RecipientRow[]> {
   const { rows } = await query<RecipientRow>(`
     SELECT DISTINCT ON (lower(trim(up.email)))
@@ -327,8 +313,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  await ensureHealthRow();
-
+  // ingest_job_health is provisioned by database migrations. Cron jobs must
+  // never attempt schema DDL with the restricted runtime database role.
   try {
     const { rows: stateRows } = await query(
       `SELECT last_result FROM public.ingest_job_health WHERE job_name = $1`,
