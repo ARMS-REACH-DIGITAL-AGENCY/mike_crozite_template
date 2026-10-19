@@ -299,6 +299,12 @@ async function SchoolShell({
 
   // The same statuses on every school, in the same order (src/lib/galleryStatuses.ts).
   const statusFilterOptions = GALLERY_STATUS_OPTIONS;
+  // Keep the original ordered status values: COACH begins the second column.
+  const statusCoachIndex = statusFilterOptions.indexOf('COACH');
+  const graduationClassOptions = [
+    '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
+  ];
+  const rosterYearOptions = Array.from({length:29}, (_, i) => String(2027 - i));
   const stripStageMap = new Map(
     stageRows.map((p) => [String(p.playerid), p])
   );
@@ -457,7 +463,7 @@ async function SchoolShell({
 
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
         <div
-          className="yat-drawer-header"
+          className="yat-drawer-header yat-filter-drawer-header"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -485,7 +491,7 @@ async function SchoolShell({
           </div>
         </div>
 
-        <div className="yat-drawer-content" id="filters">
+        <div className="yat-drawer-content yat-filter-body" id="filters">
           {/* "My Favorites": shown to everyone, so visitors see what
               registering gets them. FavoritesFilter marks the reader's
               favorites at this school (data-fav="true" on their cards, which
@@ -507,12 +513,22 @@ async function SchoolShell({
               <label className="yat-filter-select-all">
                 <input type="checkbox" data-select-all="filterStatus" /> Select All
               </label>
-
-              {statusFilterOptions.map((s) => (
-                <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                <div className="yat-filter-column">
+                  {statusFilterOptions.slice(0,statusCoachIndex).map((s) => (
+                    <label key={s}>
+                      <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
+                    </label>
+                  ))}
+                </div>
+                <div className="yat-filter-column">
+                  {statusFilterOptions.slice(statusCoachIndex).map((s) => (
+                    <label key={s}>
+                      <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </details>
 
@@ -534,13 +550,13 @@ async function SchoolShell({
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" /> Select All</label>
-              {[
-                '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
-              ].map((year) => (
-                <label key={year}>
-                  <input type="checkbox" value={year} /> {year}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {[graduationClassOptions.slice(0,Math.ceil(graduationClassOptions.length/2)),graduationClassOptions.slice(Math.ceil(graduationClassOptions.length/2))].map((years,i) => (
+                  <div className="yat-filter-column" key={i}>
+                    {years.map((year) => <label key={year}><input type="checkbox" value={year} /> {year}</label>)}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 
@@ -548,11 +564,13 @@ async function SchoolShell({
             <summary>By Roster Year</summary>
             <div className="yat-filter-options" id="filterRosterYears">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
-              {Array.from({length: 29}, (_, i) => String(2027 - i)).map((yr) => (
-                <label key={yr}>
-                  <input type="checkbox" value={yr} /> {yr}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {[rosterYearOptions.slice(0,Math.ceil(rosterYearOptions.length/2)),rosterYearOptions.slice(Math.ceil(rosterYearOptions.length/2))].map((years,i) => (
+                  <div className="yat-filter-column" key={i}>
+                    {years.map((yr) => <label key={yr}><input type="checkbox" value={yr} /> {yr}</label>)}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 
