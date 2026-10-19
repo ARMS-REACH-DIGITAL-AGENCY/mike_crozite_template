@@ -300,8 +300,16 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
       <AccountDrawerContent subdomain={subdomain} />
       <style jsx global>{`
         #drawerAccount{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
-        #drawerAccount #acctTabJoin,#drawerAccount #acctTabLogin{font:800 13px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;}
+        #drawerAccount #acctTabJoin,#drawerAccount #acctTabLogin{font:700 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.02em!important;text-transform:uppercase;}
         #drawerAccount #closeAccount{color:var(--ink)!important;}
+        #drawerAccount{background:var(--bg)!important;color:var(--ink)!important;}
+        #drawerAccount [role="tablist"]{min-height:42px!important;background:var(--bg)!important;border-bottom-color:var(--line)!important;}
+        #drawerAccount #acctTabJoin,#drawerAccount #acctTabLogin{padding:10px 4px!important;}
+        #drawerAccount #closeAccount{width:42px!important;height:42px!important;}
+        #drawerAccount input{border-radius:5px!important;background:rgba(127,127,127,.08)!important;border-color:var(--line)!important;}
+        #drawerAccount button{border-radius:5px!important;}
+        #drawerAccount a{color:inherit;}
+        #drawerAccount .yat-account-content{background:var(--bg)!important;}
         #drawerAccount [role="tab"]{text-transform:uppercase!important;}
         #drawerAccount{--gold:var(--ink)!important;}
         #drawerAccount .yat-account-content{--gold:var(--ink)!important;}
