@@ -29,4 +29,29 @@ assert.match(timeline,/left:calc\(58% - 24px - 800px\)/,'Mobile photo clears cop
 assert.match(timeline,/left:calc\(51% - 24px - 800px\)/,'560-740px photo clears copy');
 assert.match(teamApi,/nextOffset/,'Team search returns continuation token');
 assert.match(search,/loadNextTeamPage/,'Live search scrolls all pages');
+
+// One master preview, one Contribute visual system: protect all six profile tabs.
+const teammateDrawer = read('src/components/yatstats/TeammatesList.tsx');
+const profileCleanup = read('src/components/yatstats/ProfileFunZoneCleanupStyles.tsx');
+const stats = read('src/components/yatstats/ProfileStatsInjector.tsx');
+const schedules = read('src/components/yatstats/PlayerScheduleTable.tsx');
+const footer = read('src/components/yatstats/ProfileFunZoneStabilizer.tsx');
+const account = read('src/components/AccountDrawer.tsx');
+const page = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
+assert.match(teammateDrawer,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'Teammates directory must keep both columns');
+assert.match(teammateDrawer,/\.ytm-title \{[^\n]*font:800 20px[^\n]*--yat-font-ui/,'Teammates heading must stay Archivo');
+assert.doesNotMatch(teammateDrawer,/Bebas Neue|Oswald|#ffc107/,'Teammates legacy heading or yellow forbidden');
+assert.match(profileCleanup,/Approved clean Stats table: no zebra stripes/,'Stats flat styling is not optional');
+assert.doesNotMatch(profileCleanup,/#d2b45c|#eadfbf|#d9c68e|#f7f1e4|#e5c569|#f1d891/,'Stats cleanup cannot restore golden shading');
+assert.doesNotMatch(stats,/--psi-total-bg: rgba\(214, 178, 83|--psi-head-bg-a: #eadfbf/,'Stats total and headers stay monochrome');
+assert.match(stats,/--psi-cell-bg-alt: #101010/,'Dark Stats rows have one neutral surface');
+assert.match(stats,/--psi-cell-bg-alt: #fff/,'Light Stats rows have one neutral surface');
+assert.doesNotMatch(schedules,/Oswald|rgba\(214,178,83/,'Game Log header and tags cannot restore old font or gold border');
+assert.doesNotMatch(footer,/#ffb238|#ff7a1a|#d2b45c/,'Bottom tabs keep neutral accents');
+assert.doesNotMatch(page,/Bebas Neue|Oswald/,'All player tab content remains Archivo');
+assert.doesNotMatch(timeline,/Bebas Neue|Oswald|#ffb21c|#d6b253/,'Timeline controls remain monochrome');
+assert.doesNotMatch(account,/Bebas Neue|Oswald/,'Login/Account typography stays Archivo');
+assert.match(stories,/className="ysf-tm-btn"/,'Teammate icon remains beside search');
+console.log('Contribute monochrome styles, flat Stats/Schedules and player tabs regression checks passed');
+
 console.log('Profile Stories/Timeline/Global Search regression checks passed');
