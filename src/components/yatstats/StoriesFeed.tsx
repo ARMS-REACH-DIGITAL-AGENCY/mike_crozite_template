@@ -421,7 +421,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-tools { display:flex; gap:6px; align-items:center; margin:0 auto 10px; max-width:760px; min-width:0; }
         /* Search and sort stay pinned at the top of the tab while you scroll. */
         .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
-        .ysf-search { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
+        .ysf-search { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 0; border-radius: 6px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
         .ysf-search input { flex:1; min-width:0; height:40px; min-height:40px; border:0; background:transparent; color:var(--ysf-strong); font:400 14px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); outline:none; }
         .ysf-search { height:42px; min-height:42px; }
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }

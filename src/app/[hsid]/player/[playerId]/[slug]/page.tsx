@@ -1129,7 +1129,7 @@ export default async function ProfilePage({ params }: Props) {
         }
         .pp-mc-val {
           display: block;
-          font: 700 clamp(14px, 2.2vw, 22px)/1 "Bebas Neue", sans-serif;
+          font: 700 clamp(14px, 2.2vw, 22px)/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .04em;
           color: var(--fg, #f4f4f4);
           white-space: nowrap;
@@ -1139,7 +1139,7 @@ export default async function ProfilePage({ params }: Props) {
         }
         .pp-mc-lbl {
           display: block;
-          font: 300 9px/1.1 Oswald, sans-serif;
+          font: 300 9px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .12em;
           text-transform: uppercase;
           color: rgba(255,255,255,.7);
@@ -1220,7 +1220,7 @@ export default async function ProfilePage({ params }: Props) {
           align-items: center;
           gap: 3px;
           padding: 10px 4px 8px;
-          font: 600 8px/1 Oswald, sans-serif;
+          font: 600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .08em;
           text-transform: uppercase;
           color: var(--muted, #888);
@@ -1231,12 +1231,12 @@ export default async function ProfilePage({ params }: Props) {
         .pp-fz-tab i { font-size: 16px; }
         .pp-fz-tab:hover {
           color: var(--fg, #f0f0f0);
-          border-top-color: var(--accent, #c8a96e);
+          border-top-color: var(--fg, #dedede);
         }
         /* Default active tab (Stats) — shown when no hash is targeted */
         .pp-fz-tab-default {
           color: var(--fg, #f0f0f0);
-          border-top-color: var(--accent, #c8a96e);
+          border-top-color: var(--fg, #dedede);
         }
         /* When any non-stats tab is targeted, remove active style from default STATS tab */
         body:has(#ppTab-schedule:target) .pp-fz-tab-default,
@@ -1255,7 +1255,7 @@ export default async function ProfilePage({ params }: Props) {
         body:has(#ppTab-connect:target) a[href="#ppTab-connect"],
         body:has(#ppTab-upload:target) a[href="#ppTab-upload"] {
           color: var(--fg, #f0f0f0);
-          border-top-color: var(--accent, #c8a96e);
+          border-top-color: var(--fg, #dedede);
         }
 
         /* Tab panels — all hidden by default; :target shows the targeted one */
@@ -1295,7 +1295,7 @@ export default async function ProfilePage({ params }: Props) {
           color: var(--fg, #f0f0f0);
           text-align: center;
           padding: 5px 8px;
-          font: 700 10px "Bebas Neue", sans-serif;
+          font: 700 10px var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .08em;
           border-radius: 4px;
           margin-bottom: 6px;
@@ -1315,13 +1315,13 @@ export default async function ProfilePage({ params }: Props) {
           gap: 2px;
         }
         .pp-stat-label {
-          font: 600 8px/1 Oswald, sans-serif;
+          font: 600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .08em;
           text-transform: uppercase;
           color: var(--muted, #888);
         }
         .pp-stat-val {
-          font: 700 15px/1 "Bebas Neue", sans-serif;
+          font: 700 15px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color: var(--fg, #f0f0f0);
         }
 
@@ -1334,11 +1334,11 @@ export default async function ProfilePage({ params }: Props) {
         .pp-season-table {
           width: 100%;
           border-collapse: collapse;
-          font: 400 10px/1.4 Oswald, sans-serif;
+          font: 400 10px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);
           min-width: 480px;
         }
         .pp-season-table th {
-          font: 600 8px/1 Oswald, sans-serif;
+          font: 600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .1em;
           text-transform: uppercase;
           color: var(--muted, #888);
@@ -1364,13 +1364,13 @@ export default async function ProfilePage({ params }: Props) {
 
         /* Social */
         .pp-social-tag {
-          font: 700 20px/1 "Bebas Neue", sans-serif;
+          font: 800 20px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .06em;
-          color: var(--accent, #c8a96e);
+          color: var(--fg, #dedede);
           margin-bottom: 4px;
         }
         .pp-social-sub {
-          font: 400 11px/1.4 Oswald, sans-serif;
+          font: 400 11px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color: var(--muted, #888);
           margin-bottom: 12px;
         }
@@ -1383,7 +1383,7 @@ export default async function ProfilePage({ params }: Props) {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font: 400 12px/1 Oswald, sans-serif;
+          font: 400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color: var(--fg, #f0f0f0);
           text-decoration: none;
           padding: 8px 12px;
@@ -1409,7 +1409,7 @@ export default async function ProfilePage({ params }: Props) {
           opacity: .4;
         }
         .pp-fz-placeholder p {
-          font: 400 11px/1.5 Oswald, sans-serif;
+          font: 400 11px/1.5 var(--yat-font-ui,Archivo,Arial,sans-serif);
           max-width: 240px;
         }
       `}</style>

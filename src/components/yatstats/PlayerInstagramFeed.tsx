@@ -172,8 +172,8 @@ export default function PlayerInstagramFeed({ playerId, firstName }: { playerId:
       )}
       <style>{`
         .pp-ig-feed { width:100%; margin:0 0 14px; }
-        .pp-ig-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0 0 8px; font:600 12px/1.2 Oswald,sans-serif; color:var(--fg,#f0f0f0); }
-        .pp-ig-head a { font:500 11px/1.2 Oswald,sans-serif; color:var(--accent,#c8a96e); text-decoration:none; white-space:nowrap; }
+        .pp-ig-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0 0 8px; font:600 12px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--fg,#f0f0f0); }
+        .pp-ig-head a { font:500 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--fg,#ddd); text-decoration:none; white-space:nowrap; }
         .pp-ig-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px; }
         @media (min-width:700px){ .pp-ig-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
         .pp-ig-tile { position:relative; display:block; aspect-ratio:1/1; overflow:hidden; background:rgba(128,128,128,.15); border:0; padding:0; margin:0; cursor:pointer; }
@@ -185,7 +185,7 @@ export default function PlayerInstagramFeed({ playerId, firstName }: { playerId:
         .pp-ig-nav { position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border:0; border-radius:50%; background:rgba(255,255,255,.14); color:#fff; font-size:30px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
         .pp-ig-nav.prev { left:8px; }
         .pp-ig-nav.next { right:8px; }
-        .pp-ig-count { position:absolute; bottom:14px; left:0; right:0; text-align:center; color:rgba(255,255,255,.75); font:500 12px/1 Oswald,sans-serif; letter-spacing:.06em; }
+        .pp-ig-count { position:absolute; bottom:14px; left:0; right:0; text-align:center; color:rgba(255,255,255,.75); font:500 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.06em; }
         @media (max-width:600px){
           .pp-ig-viewer { padding:56px 0 40px; }
           .pp-ig-frame { width:100%; border-radius:0; }
