@@ -47,11 +47,24 @@ assert.doesNotMatch(stats,/--psi-total-bg: rgba\(214, 178, 83|--psi-head-bg-a: #
 assert.match(stats,/--psi-cell-bg-alt: #101010/,'Dark Stats rows have one neutral surface');
 assert.match(stats,/--psi-cell-bg-alt: #fff/,'Light Stats rows have one neutral surface');
 assert.doesNotMatch(schedules,/Oswald|rgba\(214,178,83/,'Game Log header and tags cannot restore old font or gold border');
-assert.doesNotMatch(footer,/#ffb238|#ff7a1a|#d2b45c/,'Bottom tabs keep neutral accents');
+assert.match(footer,/#ffb238/,'Restore original illuminated orange ticker icons');
+assert.match(footer,/#ff7a1a/,'Restore original orange Doto labels');
+assert.match(footer,/#d2b45c/,'Restore ticker active underline');
 assert.doesNotMatch(page,/Bebas Neue|Oswald/,'All player tab content remains Archivo');
-assert.doesNotMatch(timeline,/Bebas Neue|Oswald|#ffb21c|#d6b253/,'Timeline controls remain monochrome');
+assert.doesNotMatch(timeline,/Bebas Neue|Oswald|#d6b253/,'Timeline typography stays Archivo; no bronze gold');
+assert.match(timeline,/const TIMELINE_ACCENT = '#ffb21c';/,'Approved orange-gold accent remains');
+for (const cls of ['.zt-kick {','.zt-rail-track {','.zt-persist-status {','.zt-persist-classof {']) {
+  const rule = timeline.slice(timeline.indexOf(cls),timeline.indexOf('}',timeline.indexOf(cls)));
+  assert.match(rule,/color:\$\{TIMELINE_ACCENT\}|background:\$\{TIMELINE_ACCENT\}/,'Accent still applied to '+cls);
+}
 assert.doesNotMatch(account,/Bebas Neue|Oswald/,'Login/Account typography stays Archivo');
 assert.match(stories,/className="ysf-tm-btn"/,'Teammate icon remains beside search');
+const newsReader = read('src/components/yatstats/ProfileContentDrawer.tsx');
+const newsList = read('src/components/yatstats/ProfileNewsList.tsx');
+assert.doesNotMatch(newsReader,/Bebas Neue|Oswald|#ffc107|#9a6f00|#f4efe5|#fffdf8|#e9e1d3/,'News reader has no legacy font or cream/gold');
+assert.match(newsReader,/font:800 20px\/1\.17 var\(--yat-font-ui,Archivo,Arial,sans-serif\)/,'News drawer title uses Archivo');
+assert.match(newsList,/\.pp-news-reader-copy\{font-family:var\(--yat-font-ui,Archivo,Arial,sans-serif\)\}/,'Full-story body uses Archivo; news cards unchanged');
+console.log('Approved selective orange accents + neutral Archivo News reader regression checks passed');
 console.log('Contribute monochrome styles, flat Stats/Schedules and player tabs regression checks passed');
 
 console.log('Profile Stories/Timeline/Global Search regression checks passed');

@@ -299,7 +299,7 @@ export default function ProfileNewsList({
 
         .pp-news-reader-copy{
           margin:0 0 16px;
-          font:400 18px/1.62 var(--yat-news-font,Georgia,serif);
+          font:400 15px/1.6 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color:var(--yat-content-drawer-copy,rgba(255,255,255,.94));
         }
         .pp-news-modal-why{
@@ -330,13 +330,13 @@ export default function ProfileNewsList({
           .pp-news-thumb{width:96px;height:68px}
           .pp-news-title{font-size:16px}
           .pp-news-body{font-size:12px}
-          .pp-news-reader-copy{font-size:14px;line-height:1.65}
+          .pp-news-reader-copy{font-size:14px;line-height:1.55}
         }
 
         /* Story copy in the shared news font (globals.css), and never
            smaller than 12px on a phone. */
-        .pp-news-body,
-        .pp-news-reader-copy{font-family:var(--yat-news-font)}
+        .pp-news-body{font-family:var(--yat-news-font)}
+        .pp-news-reader-copy{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)}
         .pp-news-body{font-size:13px;line-height:1.4}
         .pp-news-thumb-photo{position:relative;overflow:hidden;background-position:center;background-size:cover}
         .pp-news-thumb-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}

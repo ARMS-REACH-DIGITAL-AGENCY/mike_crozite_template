@@ -196,29 +196,29 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     body .pp-fz-dock .pp-fz-tab span { display:block !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; font:700 11px/1 var(--ticker-date-doto), monospace !important; letter-spacing:0 !important; text-transform:none !important; }
     body .pp-fz-dock .pp-fz-tab:hover { color:#fff !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active { color:#fff !important; }
-    body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; position:absolute !important; left:22% !important; right:22% !important; top:0 !important; height:3px !important; border-radius:0 0 2px 2px; background:#c2c2c2 !important; }
-    body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i { color:#c2c2c2 !important; }
-    /* Preserve the Fun Zone dock's approved LED-dot layout but use monochrome light instead of amber. */
+    body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; position:absolute !important; left:22% !important; right:22% !important; top:0 !important; height:3px !important; border-radius:0 0 2px 2px; background:#d2b45c !important; }
+    body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i { color:#d2b45c !important; }
+    /* Stationary Fantasy ticker-style dot matrix and illuminated amber Fun Zone controls. */
     body .pp-fz-dock {
-      background-color:#090909 !important;
-      background-image:radial-gradient(rgba(255,255,255,.045) 1px, transparent 1.4px) !important;
+      background-color:#070503 !important;
+      background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px) !important;
       background-size:4px 4px !important;
-      border-top-color:rgba(255,255,255,.10) !important;
+      border-top-color:#1d1408 !important;
     }
     body .pp-fz-dock .pp-fz-tab,
     body .pp-fz-dock .pp-fz-tab:hover,
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active {
-      color:#c9c9c9 !important;
-      text-shadow:0 0 3px rgba(210,210,210,.5);
+      color:#ff7a1a !important;
+      text-shadow:0 0 3px rgba(255,110,20,.5);
     }
     body .pp-fz-dock .pp-fz-tab i,
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i {
-      color:#e0e0e0 !important;
-      filter:drop-shadow(0 0 2px rgba(210,210,210,.48));
+      color:#ffb238 !important;
+      filter:drop-shadow(0 0 2px rgba(255,170,40,.48));
     }
-    /* Doto 700 labels with neutral monochrome accents. */
+    /* Exact ticker date treatment: Doto 700, 11px, #ff7a1a. */
     body .pp-fz-dock .pp-fz-tab span {
-      color:#c9c9c9 !important;
+      color:#ff7a1a !important;
       font-family:var(--ticker-date-doto), monospace !important;
       font-size:11px !important;
       font-weight:700 !important;
@@ -228,7 +228,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       background:none !important;
       -webkit-text-fill-color:currentColor !important;
       filter:none !important;
-      text-shadow:0 0 3px rgba(210,210,210,.9) !important;
+      text-shadow:0 0 3px rgba(255,110,20,.9) !important;
     }
     /* LED icon artwork: render actual illuminated pixel dots INSIDE each
        Remixicon glyph, instead of placing a solid icon above the ticker. */
@@ -239,13 +239,13 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     }
     body .pp-fz-dock .pp-fz-tab i::before {
       color:transparent !important;
-      background-image:radial-gradient(circle, #e0e0e0 0 45%, rgba(210,210,210,.28) 54%, transparent 73%) !important;
+      background-image:radial-gradient(circle, #ffb238 0 45%, rgba(255,178,56,.28) 54%, transparent 73%) !important;
       background-size:3px 3px !important;
       background-repeat:repeat !important;
       -webkit-background-clip:text !important;
       background-clip:text !important;
       -webkit-text-fill-color:transparent !important;
-      filter:drop-shadow(0 0 2px rgba(210,210,210,.55)) !important;
+      filter:drop-shadow(0 0 2px rgba(255,166,39,.55)) !important;
     }
     /* Apply the exact Doto font class directly, never inherit Archivo/Oswald.
        Allow the complete label to show rather than truncating Game Log/Connect. */
