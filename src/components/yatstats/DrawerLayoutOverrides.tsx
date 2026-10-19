@@ -148,6 +148,19 @@ export default function DrawerLayoutOverrides() {
          in both site themes; the rest of the navigation stays monochrome. */
       #drawerLeft { --yat-bracket-accent: #ffb21c; }
       body.light-theme #drawerLeft { --yat-bracket-accent: #ffb21c; }
+      /* A hairline black stroke keeps scoreboard yellow visible on white drawers. */
+      #drawerLeft .yat-scoreboard-word,
+      #drawerLeft .yat-drawer-fantasy-copy,
+      #drawerLeft .yat-drawer-fantasy-copy span,
+      #drawerLeft .yat-drawer-fantasy-copy strong,
+      #drawerLeft .yat-fantasy-countdown-date,
+      #drawerLeft .yat-fantasy-countdown-number {
+        color:#ffb21c;
+        -webkit-text-stroke:.35px #111;
+        paint-order:stroke fill;
+      }
+      #drawerLeft .yat-nav-faqs {color:var(--ink);font-weight:700;-webkit-text-stroke:0;}
+      #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span .yat-scoreboard-word {color:#ffb21c!important;}
       #drawerLeft .yat-bracket-symbol { display: block; width: 24px; height: 24px; flex: none; background-color: currentColor; -webkit-mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 8px 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; font-size: clamp(9px, 2.8vw, 12px); line-height: 1.15; }
