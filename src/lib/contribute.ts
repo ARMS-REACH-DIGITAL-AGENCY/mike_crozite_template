@@ -226,7 +226,7 @@ export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
   { id: 'video', icon: 'ri-video-chat-line', label: 'VIDEO MESSAGE', short: 'VIDEO MESSAGE', blurb: 'YAT-A-BOY player video exchange — coming soon.', section: 'sec-video' },
   { id: 'photo', tab: 'photo', icon: 'ri-upload-cloud-2-line', label: 'PHOTO UPLOADS', short: 'PHOTO UPLOADS', blurb: 'High school, headshots, action pics, yearly pics, and team logos.', section: 'cc-photo' },
   { id: 'data', tab: 'data', icon: 'ri-bar-chart-2-line', label: 'ADD PLAYER INFO', short: 'ADD PLAYER INFO', blurb: 'Correct a player or add a missing next-level alumnus.', section: 'cc-data' },
-  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'SHARE NEWS TIP', short: 'SHARE NEWS TIP', blurb: 'Send a published player news link.', section: 'cc-tip' },
+  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'CLIPS & TIPS', short: 'CLIPS & TIPS', blurb: 'Send player news, video, or social media links.', section: 'cc-tip' },
 ]
 
 // What a sponsorship inquiry is about (the portal's Partner Program form).
