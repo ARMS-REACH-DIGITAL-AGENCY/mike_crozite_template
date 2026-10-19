@@ -61,8 +61,9 @@ MAX_TEAMS = int(os.environ.get("MAX_TEAMS") or 0)
 ONLY_TEAMIDS = {t.strip() for t in (os.environ.get("ONLY_TEAMIDS") or "").split(",") if t.strip()}
 REPORT_PATH = os.environ.get("REPORT_PATH", "team-logo-report.csv")
 
-# "PRO" was TBC's word for any pro team; since Oct 2026 those rows carry the
-# official level (INDY and INTERNATIONAL included), so all are kept here.
+# "PRO" is not a level: a placeholder put on teams imported from
+# tbc_pro_teams_map_raw, which has no level column. Those teams carry their
+# real level once looked up (INDY and INTERNATIONAL included), so all are kept.
 PRO_LEVELS = ("PRO", "MLB", "TRIPLE-A", "DOUBLE-A", "HIGH-A", "SINGLE-A", "LOW-A", "ROOKIE", "RK", "AAA", "AA", "A+", "INDY", "INTERNATIONAL")
 # MLB, Triple-A, Double-A, High-A, Single-A, Short Season A, Rookie, Rookie Advanced.
 SPORT_IDS = "1,11,12,13,14,15,16,5442"

@@ -5,8 +5,10 @@
 //
 // JUCO is not a level (Pete, Oct 19): JUCO is NJCAA, period. CCCAA and NWAC
 // are their own levels, not kinds of JUCO. Not in the alias list on purpose:
-// generic NCAA (TBC's career level, which doesn't say the division) and PRO (TBC's word for any pro team: MLB, an affiliate, Indy ball or a
-// foreign league). The check reports those instead.
+// generic NCAA (TBC's career level, which doesn't say the division) and PRO
+// (a placeholder put on teams imported from tbc_pro_teams_map_raw, which has
+// no level; the real level comes from the team's season on the Baseball Cube).
+// The check reports those instead.
 
 export const OFFICIAL_LEVELS = [
   'MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'SINGLE-A', 'ROOKIE', 'INDY', 'INTERNATIONAL',
