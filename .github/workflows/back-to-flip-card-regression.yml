@@ -1,0 +1,27 @@
+name: Back To Flip Card Regression
+on:
+  pull_request:
+    branches: [Easter-NEWS]
+    paths:
+      - 'src/app/[hsid]/layout.tsx'
+      - 'src/components/yatstats/SharedShell.tsx'
+      - 'src/components/yatstats/shell/SchoolContextBar.tsx'
+      - 'src/lib/profileFlipCardRouting.ts'
+      - 'scripts/test-profile-flip-card-return.mjs'
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - 'src/app/[hsid]/layout.tsx'
+      - 'src/components/yatstats/SharedShell.tsx'
+      - 'src/components/yatstats/shell/SchoolContextBar.tsx'
+      - 'src/lib/profileFlipCardRouting.ts'
+      - 'scripts/test-profile-flip-card-return.mjs'
+jobs:
+  verify-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --experimental-strip-types scripts/test-profile-flip-card-return.mjs
