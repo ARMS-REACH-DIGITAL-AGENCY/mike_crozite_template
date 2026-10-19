@@ -70,7 +70,7 @@ function PasswordInput({
           top: '50%',
           transform: 'translateY(-50%)',
           background: 'none',
-          border: '1px solid var(--line)',
+          border: 'none',
           color: 'var(--muted)',
           cursor: 'pointer',
           padding: '4px',
@@ -905,7 +905,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   padding: '8px 14px',
                   background: 'rgba(127,127,127,.12)',
                   color: 'var(--ink)',
-                  border: 'none',
+                  border: '1px solid var(--line)',
                   borderRadius: '6px',
                   fontSize: '12px',
                   fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
@@ -1499,7 +1499,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
         #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
         #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
-        #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}        #drawerAccount .yat-account-content section[aria-label="World Series Tickets Raffle"]{border-radius:5px!important;}
+        #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerAccount .yat-account-content section[aria-label="World Series Tickets Raffle"]{border-radius:5px!important;}
         #drawerAccount .yat-account-content table{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
         #drawerAccount .yat-account-content th{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;font-weight:700!important;letter-spacing:.02em!important;}
 
