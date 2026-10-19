@@ -884,7 +884,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     <>
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
         <div className="yat-drawer-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
-          <h3 className="yat-favorite-title" style={{ margin: 0 }}>Favorites</h3>
+          <h3 className="yat-favorite-title" style={{ margin: 0 }}>FAVORITES</h3>
           <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
             {hasUser && (
               <>
@@ -996,9 +996,9 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           margin: 0 !important;
           padding: 0 !important;
           color: var(--fg);
-          font: 800 clamp(20px, 2vw, 24px)/1.18 var(--yat-font-ui, Archivo, Arial, sans-serif) !important;
+          font: 800 21px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif) !important;
           letter-spacing: -.025em !important;
-          text-transform: none;
+          text-transform: uppercase;
         }
 
         #drawerFavorites .yat-favorite-header-icons {
