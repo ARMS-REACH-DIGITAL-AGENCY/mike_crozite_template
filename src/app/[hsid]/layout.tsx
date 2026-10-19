@@ -306,6 +306,12 @@ async function SchoolShell({
     '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
   ];
   const rosterYearOptions = Array.from({length:29}, (_, i) => String(2027 - i));
+  // NCAA without a D1/D2/D3 classification is source data requiring enrichment,
+  // not a selectable competition level.
+  const levelFilterColumns = [
+    ['MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL'],
+    ['NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'],
+  ];
   const stripStageMap = new Map(
     stageRows.map((p) => [String(p.playerid), p])
   );
@@ -537,13 +543,15 @@ async function SchoolShell({
             <summary>By Level</summary>
             <div className="yat-filter-options" id="filterLevels">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
-              {[
-                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL',
-              ].map((l) => (
-                <label key={l}>
-                  <input type="checkbox" value={l} /> {l}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {levelFilterColumns.map((levels,index) => (
+                  <div key={index} className="yat-filter-column">
+                    {levels.map((level) => (
+                      <label key={level}><input type="checkbox" value={level} /> {level}</label>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 
