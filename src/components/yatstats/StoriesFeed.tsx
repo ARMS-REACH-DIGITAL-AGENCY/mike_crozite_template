@@ -346,12 +346,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
             <i className="ri-upload-cloud-2-line" aria-hidden="true" />
             <span>SHARE A STORY ON {firstName.toUpperCase()}&#39;S TIMELINE</span>
           </button>
-          {teammatesTotal > 0 ? (
-            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)}
-              aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`}>
-              <i className="ri-team-line" aria-hidden="true" /><span className="ysf-tm-count">{teammatesTotal}</span>
-            </button>
-          ) : <span aria-hidden="true" />}
+
         </div>
         <div className="ysf-tool-row ysf-tool-row-search">
           <label className="ysf-search">
@@ -359,6 +354,12 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
             <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
           </label>
           <div className="ysf-sort"><SortToggle dir={sort} onChange={setSort} compact /></div>
+          {teammatesTotal > 0 && (
+            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)}
+              aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`}>
+              <i className="ri-team-line" aria-hidden="true" /><span className="ysf-tm-count">{teammatesTotal}</span>
+            </button>
+          )}
         </div>
       </div>
       <div className="ysf-main">{body}</div>
@@ -399,18 +400,21 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
-        .ysf-tools { display:flex;flex-direction:column;gap:3px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:6px 0 5px;min-width:0;background:var(--psi-page-bg,#070707); }
-        .ysf-tool-row { display:grid;grid-template-columns:minmax(0,3fr) minmax(58px,1fr);align-items:center;gap:5px;min-width:0; }
-        .ysf-add-btn { display:flex;align-items:center;justify-content:center;gap:5px;width:100%;height:25px;padding:0 7px;border:0;border-radius:999px;background:var(--ysf-card-bg);color:var(--ysf-strong);font:800 clamp(9px,2.4vw,12px)/1 var(--yat-font-ui,Archivo,Arial,sans-serif);cursor:pointer;min-width:0; }
-        .ysf-add-btn span { white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0; }
-        .ysf-add-btn i { flex:none;font-size:15px; }
-        .ysf-tm-btn { display:flex;align-items:center;justify-content:center;gap:4px;height:25px;border:0;border-radius:999px;padding:0 5px;background:var(--ysf-card-bg);color:var(--ysf-strong);cursor:pointer; }
-        .ysf-tm-btn i { font-size:15px; }
+        .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
+        .ysf-tool-row { display:flex;align-items:stretch;min-width:0; }
+        .ysf-tool-row-search { display:grid;grid-template-columns:minmax(0,1fr) 38px auto;gap:6px;align-items:center; }
+        .ysf-add-btn { display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:43px;padding:7px 10px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.045));box-shadow:inset 0 1px rgba(255,255,255,.14),0 3px 12px rgba(0,0,0,.16);color:var(--ysf-strong);font:800 clamp(10px,2.6vw,14px)/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);cursor:pointer;min-width:0;letter-spacing:.015em; }
+        .ysf-add-btn:hover,.ysf-add-btn:focus-visible { background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.08)); }
+        .ysf-add-btn span { white-space:normal;text-align:center;min-width:0; }
+        .ysf-add-btn i { flex:none;font-size:21px; }
+        .ysf-tm-btn { display:flex;align-items:center;justify-content:center;gap:5px;min-width:68px;height:32px;border:0;border-radius:6px;padding:0 7px;background:var(--ysf-card-bg);color:var(--ysf-strong);cursor:pointer; }
+        .ysf-tm-btn i { font-size:17px; }
         .ysf-tm-count { border:0;padding:0;font:800 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);color:inherit; }
-        .ysf-search { display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:27px;padding:0 8px;border:0;border-radius:6px;background:var(--ysf-card-bg);color:var(--ysf-muted); }
-        .ysf-search input { width:100%;min-width:0;height:26px;border:0;outline:0;background:transparent;color:var(--ysf-strong);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); }
-        .ysf-sort { display:flex;align-items:center;justify-content:flex-end;width:100%;padding-right:3px; }
-        @media(max-width:410px){.ysf-add-btn{font-size:9px;padding:0 4px;gap:3px}}
+        .ysf-search { display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:32px;padding:0 8px;border:0;border-radius:6px;background:var(--ysf-card-bg);color:var(--ysf-muted); }
+        .ysf-search input { width:100%;min-width:0;height:30px;border:0;outline:0;background:transparent;color:var(--ysf-strong);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .ysf-sort { display:flex;align-items:center;justify-content:center;width:38px;min-width:0;background:var(--ysf-card-bg);border-radius:6px; }
+        .ysf-sort button { border-radius:6px !important; }
+        @media(max-width:410px){.ysf-add-btn{font-size:10px;padding:7px 6px;gap:6px}.ysf-tm-btn{min-width:60px}}
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
