@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     const parsedLimit = Number.parseInt(searchParams.get("limit") || "40", 10);
     const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 75) : 40;
     const parsedOffset = Number.parseInt(searchParams.get("offset") || "0", 10);
-    const offset = Number.isFinite(parsedOffset) ? Math.min(Math.max(parsedOffset, 0), 100000) : 0;
+    const offset = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
 
     if (!qRaw) {
       return NextResponse.json({ teams: [], hasMore: false, nextOffset: null }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });
