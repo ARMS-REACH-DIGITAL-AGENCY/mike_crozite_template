@@ -884,7 +884,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     <>
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
         <div className="yat-drawer-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
-          <h3 style={{ margin: 0 }}>FAVORITES</h3>
+          <h3 className="yat-favorite-title" style={{ margin: 0 }}>Favorites</h3>
           <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
             {hasUser && (
               <>
@@ -991,6 +991,16 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           letter-spacing: .03em;
         }
 
+        /* Typography is identical to Global Search; leave drawer geometry and imagery unchanged. */
+        #drawerFavorites .yat-favorite-title {
+          margin: 0 !important;
+          padding: 0 !important;
+          color: var(--fg);
+          font: 800 clamp(20px, 2vw, 24px)/1.18 var(--yat-font-ui, Archivo, Arial, sans-serif) !important;
+          letter-spacing: -.025em !important;
+          text-transform: none;
+        }
+
         #drawerFavorites .yat-favorite-header-icons {
           display: flex;
           align-items: center;
@@ -1014,9 +1024,9 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           border-radius: 999px;
           background: transparent;
           color: var(--ink);
-          font: 400 11px/1 var(--yat-font-ui, Archivo, Arial, sans-serif);
-          letter-spacing: .02em;
-          text-transform: uppercase;
+          font: 600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif);
+          letter-spacing: 0;
+          text-transform: none;
           white-space: nowrap;
           cursor: pointer;
         }
@@ -1080,20 +1090,24 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-text-link strong {
-          font: 900 14px/1.05 var(--yat-font-ui, Archivo, Arial, sans-serif);
-          text-transform: uppercase;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          color: var(--fg);
+          font: 800 14px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif);
+          letter-spacing: -.02em;
+          text-transform: none;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: clip;
+          overflow-wrap: anywhere;
         }
 
         #drawerFavorites .yat-favorite-text-link small {
           color: var(--muted);
-          font: 400 10px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif);
-          text-transform: uppercase;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font: 500 11px/1.25 var(--yat-font-compact, "Barlow Condensed", sans-serif);
+          text-transform: none;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: clip;
+          overflow-wrap: anywhere;
         }
 
         #drawerFavorites .yat-favorite-flip-link {
@@ -1127,8 +1141,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {
-          color: var(--ink, #a0a0a0);
-          opacity: .85;
+          color: var(--muted);
+          opacity: 1;
         }
 
         #drawerFavorites .yat-favorite-heart-btn:hover {
