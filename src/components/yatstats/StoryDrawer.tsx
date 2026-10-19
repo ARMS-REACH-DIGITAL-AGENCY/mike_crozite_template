@@ -676,8 +676,8 @@ export default function StoryDrawer() {
         .ysd-error { color: #ff6b6b; font-size: 13px; }
         .ysd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .ysd-btn { min-height:42px; padding:0 18px; border-radius:8px; border:1px solid var(--ink); background:transparent; color:var(--ink); font:800 12px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
-        .ysd-btn-primary { background: var(--ink); color: var(--paper, #fff); }
-        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: #444444; color: #444444; }
+        .ysd-btn-primary { background: var(--fg); color: var(--bg); }
+        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: var(--ink); color: var(--ink); }
         .ysd-btn:disabled { opacity: .6; cursor: wait; }
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font:800 19px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
