@@ -919,7 +919,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   // /player/[playerId]/[slug] segment rather than ever showing "him"/"his"
   // in its place.
   const pathname = usePathname();
-  const profileHsid = pathname?.match(/^\/([^/]+)\/player\//)?.[1] || '';
+  const routeHsid = pathname?.match(/^\/([^/]+)\/player\//)?.[1] || '';
   const storyOpenOwner = useMemo(() => Symbol(`story-open:${playerId}:${pathname}`), [playerId, pathname]);
   // Cancel an undelivered click when its originating timeline leaves or
   // changes player/path, including navigation through a non-player page.
@@ -968,6 +968,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!years.length) return null;
     return { start: Math.min(...years), end: Math.max(...years), retired: /RETIRED/.test(status) };
   }, [identityMeta?.statusLabel, identityMeta?.rosterYears, player?.statusLabel]);
+  const profileHsid = String(identityMeta?.hsid || school?.hsid || routeHsid || '').trim();
+
   const flipCardView = isActiveGalleryStatus(String(identityMeta?.statusLabel || player?.statusLabel || ''))
     ? 'active'
     : /^(HIGH SCHOOL|HS)$/.test(String(identityMeta?.levelLabel || player?.levelLabel || '').trim().toUpperCase())
