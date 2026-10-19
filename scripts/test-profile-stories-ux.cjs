@@ -91,7 +91,8 @@ assert.match(interactionStrip,/readPlayersFromVisibleBlockFive\('active', player
 assert.ok(interactionStrip.indexOf("const visible = document.querySelector<HTMLElement>('.yat-section.visible');") < interactionStrip.indexOf("const hash = window.location.hash || '';"), 'Visible tab is canonical');
 assert.match(stories,/SHARE A STORY ON \{firstName.toUpperCase\(\)\}/,'Story CTA text includes player');
 assert.match(stories,/ysf-tool-row-search/,'Two compact toolbar rows');
-assert.match(sort,/\.yst-compact \{[^\n]*border:0;/,'Borderless Stories sort');
+const sortToggle = read('src/components/yatstats/SortToggle.tsx');
+assert.match(sortToggle,/\.yst-compact \{[^\n]*border:0;/,'Borderless Stories sort');
 assert.match(newsList,/\.pp-news-title\{font-size:14px;line-height:1.26\}/,'Mobile news headline compact');
 console.log('News membership, two-row Story controls and centered arrows passed');
 console.log('Profile Stories/Timeline/Global Search regression checks passed');
