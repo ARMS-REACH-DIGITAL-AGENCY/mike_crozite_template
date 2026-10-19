@@ -346,6 +346,8 @@ export default function ProfileNewsList({
         .pp-news-modal-profile{
           display:inline-flex;align-items:center;gap:7px;max-width:100%;
           color:#ffb21c; /* Same bright scoreboard yellow as the timeline. */
+          -webkit-text-stroke:.35px #111;
+          paint-order:stroke fill;
           text-decoration:none;
           font:700 12px/1.3 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           letter-spacing:0;
