@@ -175,6 +175,12 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
   const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
   const series = seriesStatus(slide, schoolName, oppLabel);
   const status = day ? `${series} · ${day.label}` : series;
+  const games = slide.cards.map((card) => {
+    const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
+    return { card, score: scoreFor(card, me), oppName: opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD', matchupKnown: Boolean(opp) };
+  });
+  // The scores' column sits two spaces past the longest school name.
+  const nameCh = Math.max(schoolName.length, ...games.map((x) => x.oppName.length));
 
   return (
     <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
@@ -208,13 +214,9 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
         ) : null}
       </div>
 
-      <aside className="yft-series" aria-label={`Round ${slide.round} series`}>
+      <aside className="yft-series" aria-label={`Round ${slide.round} series`} style={{ '--yft-name-ch': nameCh } as React.CSSProperties}>
         <div className="yft-series-games">
-          {slide.cards.map((card, i) => {
-            const score = scoreFor(card, me);
-            const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
-            const oppName = opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD';
-            const matchupKnown = Boolean(opp);
+          {games.map(({ card, score, oppName, matchupKnown }, i) => {
             return (
               <div key={card.week} className="yft-series-game">
                 <small>G{i + 1}</small>
@@ -280,7 +282,8 @@ function PostSlide({ index, games, week, label, title, showScores, championName,
         <strong className="yft-title">{story?.headline || title}</strong>
         <p>{story?.summary || (games.length ? 'Every fan can follow the complete field here.' : 'This stage is set when the prior stage is complete.')}</p>
       </div>
-      <aside className="yft-series yft-post-scores" aria-label={`${title} scores`}>
+      <aside className="yft-series yft-post-scores" aria-label={`${title} scores`}
+        style={{ '--yft-name-ch': Math.max(0, ...games.flatMap((g) => [g[2], g[3]].map((h) => shortName(index.schools[h]?.[0] || 'Home').length))) } as React.CSSProperties}>
         <div className="yft-series-games">
           {games.length ? games.map((g,i)=>{
             const [hr,ar]=runsOf(g[5]);
@@ -515,31 +518,37 @@ export default function FantasyTimeline() {
         body:has(.yft-hero) .yat-topnav-item, body:has(.yft-hero) .yat-schooltext { text-shadow:0 0 2px #000,0 0 3px #000; }
         .yft-status, .yft-story p, .yft-star, .yft-series { text-shadow:0 0 2px #000,0 0 3px #000,0 1px 3px rgba(0,0,0,.9); }
         .yft-title { -webkit-text-stroke:1px #000; paint-order:stroke fill; text-shadow:0 0 3px #000,0 2px 4px rgba(0,0,0,.9); }
-        .yft-person { position:absolute; z-index:1; left:64%; bottom:30px; width:18%; height:calc(100% - 38px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+        .yft-person { position:absolute; z-index:1; left:51%; top:0; width:20%; height:calc(100% - 14px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
         .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
         .yft-left-meta.yft-post-corner b span:first-child { text-transform:none; }
         .yft-left-meta span { font:500 10px/1.1 system-ui,sans-serif; color:rgba(255,255,255,.78); }
-        .yft-story { position:absolute; z-index:2; left:5%; right:36%; top:8px; bottom:40px; display:flex; flex-direction:column; justify-content:center; min-width:0; padding:0 14px; }
+        /* The story starts at the top of the box (eyebrow, then the headline,
+           then the story, with room between them) in a blocked column that
+           stops short of the center light. */
+        .yft-story { position:absolute; z-index:2; left:5%; width:42%; top:4px; bottom:40px; display:flex; flex-direction:column; justify-content:flex-start; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
-        .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
-        .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
-        .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.94); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-status { color:var(--gold,#d5b44a); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
+        .yft-title { margin:9px 0 9px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
+        .yft-story p { margin:0; color:#fff; font:400 13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
         .yft-title.long { font-size:clamp(22px,2.6vw,34px); }
         .yft-shouts { display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; margin-top:6px; }
         .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
         .yft-shouts .yft-star span { color:rgba(255,255,255,.62); text-transform:none; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
-        .yft-series { position:absolute; z-index:2; right:1.2%; top:8px; bottom:40px; width:16%; min-width:150px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; text-align:left; }
+        /* The series, at the top of the box in the story's typeface: each
+           score in a column two spaces past the longest school name
+           (--yft-name-ch, set from the names), so it reads as a box score. */
+        .yft-series { position:absolute; z-index:2; right:1.2%; top:6px; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; text-align:left; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
         .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
-        .yft-series-games { margin-top:0; width:100%; display:grid; gap:9px; }
-        .yft-series-game { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px; align-items:center; color:rgba(255,255,255,.78); font:500 11.5px/1.18 Oswald,sans-serif; }
-        .yft-series-game small { color:var(--gold,#d5b44a); font:700 9px/1 Oswald,sans-serif; text-align:left; padding:0; }
+        .yft-series-games { margin-top:0; display:grid; gap:10px; }
+        .yft-series-game { display:grid; grid-template-columns:auto auto; gap:1ch; align-items:center; color:rgba(255,255,255,.78); font:500 12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-series-game small { color:var(--gold,#d5b44a); font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace; text-align:left; padding:0; }
         .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
         .yft-scorelines { display:grid; gap:1px; min-width:0; }
-        .yft-scoreline { display:grid; grid-template-columns:minmax(0,1fr) 22px; column-gap:10px; align-items:baseline; min-width:0; }
+        .yft-scoreline { display:grid; grid-template-columns:min(calc(var(--yft-name-ch, 10) * 1ch), 22ch) 2ch; column-gap:2ch; align-items:baseline; min-width:0; }
         .yft-scoreline b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.78); font-weight:500; }
         .yft-scoreline.home b { color:#fff; font-weight:700; }
         .yft-scoreline i { font-style:normal; text-align:right; color:#fff; font-variant-numeric:tabular-nums; }
@@ -578,30 +587,33 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:58%; width:18%; height:calc(100% - 23px); bottom:19px; object-position:bottom center; }
+          .yft-person { left:38%; width:24%; top:0; height:calc(100% - 10px); object-position:bottom center; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
           .yft-left-meta span { font-size:6px; }
-          .yft-story { left:5%; right:42%; top:4px; bottom:27px; padding:0 4px; justify-content:center; }
+          /* Blocked under the school name: the column ends about where row
+             2's "FANTASY BRACKET TOURNEY" does. */
+          .yft-story { left:5%; width:170px; top:2px; bottom:22px; padding:0 4px; justify-content:flex-start; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
           .yft-title.long { font-size:13px; }
           .yft-shouts { margin-top:2px; column-gap:6px; row-gap:1px; }
           .yft-shouts .yft-star span { display:none; }
-          .yft-story:has(.yft-shouts) p { -webkit-line-clamp:4; }
-          .yft-story p { font-size:7px; line-height:1.14; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
-          .yft-dots { gap:3px; margin-top:2px; }
+          .yft-story:has(.yft-shouts) p { -webkit-line-clamp:6; }
+          .yft-story p { flex-shrink:0; font-size:7px; line-height:1.16; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+          /* No room for the story's dots under six lines on a phone. */
+          .yft-dots { display:none; }
           .yft-dots i { width:3px; height:3px; }
           .yft-tick.wk { width:8px; margin-left:-4px; }
           .yft-tick.wk::before { left:2px; top:5px; width:3px; height:3px; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:1%; top:4px; bottom:27px; width:21%; min-width:0; justify-content:center; }
+          .yft-series { right:1.5%; top:3px; }
           .yft-series-games { margin-top:0; gap:5px; }
-          .yft-series-game { grid-template-columns:auto minmax(0,1fr); gap:3px; font-size:8.2px; line-height:1.10; }
-          .yft-scoreline { grid-template-columns:minmax(0,1fr) 14px; column-gap:6px; }
+          .yft-series-game { font-size:7px; line-height:1.2; }
+          .yft-scoreline { grid-template-columns:min(calc(var(--yft-name-ch, 10) * 1ch), 16ch) 2ch; }
           .yft-post-scores .yft-series-games { gap:4px; }
-          .yft-post-scores .yft-series-game { font-size:7.2px; line-height:1.08; }
+          .yft-post-scores .yft-series-game { font-size:7px; line-height:1.1; }
           .yft-series-game small { font-size:6.4px; line-height:1; text-align:left; padding:0; }
           .yft-raffle-cta { left:2.5%; top:calc((100% - 23px) / 2); bottom:auto; width:112px; height:78px; transform:translateY(-50%); }
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }
@@ -612,6 +624,10 @@ export default function FantasyTimeline() {
           .yft-tick { width:10px; height:10px; margin-left:-5px; top:1px; }
           .yft-tick::before { left:3px; top:2px; width:4px; height:6px; }
           .yft-tick-label { display:block; top:11px; font-size:9px; letter-spacing:0; color:rgba(255,255,255,.62); }
+        }
+        @media (max-width:640px) {
+          /* A phone's row 2 is smaller: "TOURNEY" ends about 160px in. */
+          .yft-story { width:146px; }
         }
       `}</style>
     </section>
