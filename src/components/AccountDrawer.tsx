@@ -935,6 +935,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
 
           {isSuperfan && (
             <div
+              className="yat-account-superfan"
               style={{
                 background: 'rgba(128,128,128,.08)',
                 border: '1px solid var(--line)',
@@ -1492,14 +1493,15 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
       {/* Account styles must survive sign-in, when both password fields unmount. */}
       <style jsx global>{`
         #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
-        #drawerAccount .yat-account-signed-in{padding:18px 20px 28px!important;min-width:0;}
-        #drawerAccount .yat-account-identity{margin:6px 0 18px!important;padding:0 2px 17px;border-bottom:1px solid var(--line);}
-        #drawerAccount .yat-account-identity p:first-child{margin:0 0 6px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
-        #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
-        #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
+        #drawerAccount .yat-account-signed-in{padding:9px 16px 16px!important;min-width:0;}
+        #drawerAccount .yat-account-identity{margin:0 0 7px!important;padding:2px 40px 5px 2px!important;border-bottom:0!important;}
+        #drawerAccount .yat-account-identity p:first-child{margin:0 0 4px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
+        #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
+        #drawerAccount .yat-account-superfan{padding:8px 10px!important;margin-bottom:3px!important;border:0!important;background:var(--line)!important;}
+        #drawerAccount .yat-account-signout{margin-top:4px!important;margin-bottom:0!important;min-height:44px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
         #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
         #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
-        @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:14px 16px 25px!important;}#drawerAccount .yat-account-identity{margin-top:2px!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
+        @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:8px 14px 14px!important;}#drawerAccount .yat-account-identity{margin-top:0!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
       `}</style>
     </div>
   );
