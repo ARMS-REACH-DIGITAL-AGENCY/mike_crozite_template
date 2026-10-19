@@ -81,7 +81,7 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
         </div>
       </div>
       {order === 'az' ? (
-        <ul>
+        <ul className="ytm-list">
           {alphabetical.map((t) => (
             <li key={`${t.playerId}-${t.year}-${t.team}`} title={`${t.team}, ${t.year}`}>
               <Name t={t} /> <span className="ytm-yr">&rsquo;{String(t.year).slice(-2)}</span>
@@ -92,7 +92,7 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
         bySeason.map((g) => (
           <section key={`${g.year}-${g.team}`} className="ytm-group">
             <div className="ytm-head"><span className="ytm-head-yr">{g.year}</span> {g.team}</div>
-            <ul>
+            <ul className="ytm-list">
               {g.list.map((t) => (
                 <li key={t.playerId}><Name t={t} /></li>
               ))}
@@ -103,29 +103,26 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
       {/* Only players already on the platform can be listed for now. */}
       <p className="ytm-note">*Only Next-Level Alumni from the participating 1025 high school baseball programs are currently listed on the platform.</p>
       <style jsx>{`
-        .ytm { min-width: 0; color: var(--ytm-text, rgba(255,255,255,.88)); font: 400 15px/1.5 var(--yat-font-ui, system-ui, sans-serif); }
-        .ytm-sticky { position: sticky; top: 0; z-index: 2; padding: 0 0 10px; background: var(--ytm-bg, #0b0b0b); }
-        .ytm-note { margin: 18px 0 0; color: var(--ytm-muted, rgba(255,255,255,.55)); font: 400 11px/1.4 var(--yat-font-ui, system-ui, sans-serif); }
-        .ytm-title { margin: 0 0 10px; color: var(--ytm-accent, #ffc107); font: 700 22px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .01em; text-transform: uppercase; }
-        .ytm-title { margin-bottom: 4px; font-size: 28px; }
-        .ytm-sub { margin: 0 0 12px; color: var(--ytm-muted, rgba(255,255,255,.55)); font: 600 12px/1.2 var(--yat-font-ui, system-ui, sans-serif); letter-spacing: .04em; text-transform: uppercase; }
-        .ytm-sub b { color: var(--ytm-strong, #fff); }
-        .ytm-brand { white-space: nowrap; }
-        .ytm-sort { display: flex; gap: 6px; }
-        .ytm-sort button { flex: 1; min-height: 34px; padding: 0 10px; border: 1px solid var(--ytm-border, rgba(255,255,255,.16)); border-radius: 6px; background: transparent; color: var(--ytm-muted, rgba(255,255,255,.6)); font: 700 15px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
-        .ytm-sort button.on { border-color: var(--ytm-accent, #ffc107); color: var(--ytm-accent, #ffc107); }
-        .ytm-group { margin: 0 0 16px; }
-        .ytm-head { padding: 0 0 4px; margin-bottom: 4px; border-bottom: 1px solid var(--ytm-border, rgba(255,255,255,.16)); color: var(--ytm-strong, #fff); font: 700 16px/1.2 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .02em; text-transform: uppercase; overflow-wrap: anywhere; }
-        .ytm-head-yr { color: var(--ytm-accent, #ffc107); }
-        ul { margin: 4px 0 0; padding: 0; list-style: none; }
-        li { padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        /* Name is a child component and does not inherit this styled-jsx
-           scope class. Keep its approved link treatment inside .ytm while
-           explicitly reaching the child's rendered elements. */
-        .ytm :global(a.ytm-name) { display: inline-block; padding: 4px 0; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 3px; }
-        .ytm :global(a.ytm-name:hover), .ytm :global(a.ytm-name:focus-visible), .ytm :global(a.ytm-name:active) { color: var(--ytm-accent, #ffc107); text-decoration-color: currentColor; }
-        .ytm :global(.ytm-plain) { color: var(--ytm-muted, rgba(255,255,255,.55)); }
-        .ytm-yr { color: var(--ytm-accent, #ffc107); font-size: 13px; }
+        /* Contribute standard: compact Archivo and a dense two-column directory. */
+        .ytm { min-width:0;color:var(--ytm-text,#eee);font:400 12.5px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .ytm-sticky { position:sticky;top:0;z-index:2;padding:0 34px 10px 0;background:var(--ytm-bg,#111); }
+        .ytm-title { margin:0 0 4px;color:var(--ytm-strong,#fff);font:800 20px/1.14 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em; }
+        .ytm-sub { margin:0 0 10px;color:var(--ytm-muted,#aaa);font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .ytm-sub b { font-weight:800;color:var(--ytm-strong,#fff); }
+        .ytm-brand { white-space:nowrap; }
+        .ytm-sort { display:flex;align-items:center;gap:4px; }
+        .ytm-sort button { flex:0 0 auto;min-height:30px;padding:0 12px;border:0;border-radius:5px;background:transparent;color:var(--ytm-muted,#aaa);font:700 11px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);cursor:pointer; }
+        .ytm-sort button.on { background:rgba(128,128,128,.22);color:var(--ytm-strong,#fff); }
+        .ytm-group { margin:10px 0 12px; }
+        .ytm-head { margin:0 0 5px;padding:0;border:0;color:var(--ytm-strong,#fff);font:800 12px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.01em;overflow-wrap:anywhere; }
+        .ytm-head-yr { color:var(--ytm-muted,#aaa); }
+        .ytm-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 12px;margin:4px 0 0;padding:0;list-style:none; }
+        .ytm-list li { display:flex;align-items:center;gap:4px;min-width:0;padding:0;overflow:hidden;white-space:nowrap; }
+        .ytm :global(a.ytm-name),.ytm :global(.ytm-plain) { display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 0;color:inherit;text-decoration:none; }
+        .ytm :global(a.ytm-name:hover),.ytm :global(a.ytm-name:focus-visible) { text-decoration:underline;text-underline-offset:2px; }
+        .ytm :global(.ytm-plain) { color:var(--ytm-muted,#aaa); }
+        .ytm-yr { flex:none;color:var(--ytm-muted,#aaa);font:600 10px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .ytm-note { margin:12px 0 0;color:var(--ytm-muted,#aaa);font:400 10.5px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
       `}</style>
     </aside>
   );

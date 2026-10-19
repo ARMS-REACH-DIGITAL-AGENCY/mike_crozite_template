@@ -848,7 +848,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   fontSize: '14px',
                   color: 'var(--fg)',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.05em',
                   marginBottom: '4px',
                 }}
@@ -875,7 +875,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   fontSize: '14px',
                   color: '#16a34a',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.05em',
                   marginBottom: '6px',
                 }}
@@ -908,7 +908,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '12px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.06em',
                   cursor: superfanLaunching ? 'not-allowed' : 'pointer',
                   opacity: superfanLaunching ? 0.6 : 1,
@@ -933,7 +933,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   fontSize: '13px',
                   color: 'var(--fg)',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.06em',
                 }}
               >
@@ -950,7 +950,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               style={{
                 fontSize: '18px',
                 marginBottom: '10px',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 letterSpacing: '.05em',
               }}
             >
@@ -977,7 +977,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '14px',
                   letterSpacing: '.08em',
                   cursor: 'pointer',
@@ -1034,7 +1034,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                         color: '#fff',
                         border: 'none',
                         borderRadius: '8px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         fontSize: '13px',
                         letterSpacing: '.06em',
                         cursor: promoBusy ? 'not-allowed' : 'pointer',
@@ -1060,7 +1060,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               color: 'var(--bg)',
               border: 'none',
               borderRadius: '8px',
-              fontFamily: '"Bebas Neue", Oswald, sans-serif',
+              fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
               fontSize: '14px',
               letterSpacing: '.08em',
               cursor: 'pointer',
@@ -1140,7 +1140,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '14px',
                   letterSpacing: '.08em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1222,7 +1222,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '13px',
                   letterSpacing: '.07em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1266,7 +1266,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '13px',
                   letterSpacing: '.07em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1304,7 +1304,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             <div
               style={{
                 color: 'var(--fg)',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '18px',
                 lineHeight: 1,
                 letterSpacing: '.07em',
@@ -1340,7 +1340,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'left',
                         fontSize: '10px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.06em',
                         paddingBottom: '6px',
                         color: 'var(--fg)',
@@ -1353,7 +1353,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
                         color: 'var(--muted)',
@@ -1366,7 +1366,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
                         color: 'var(--fg)',
@@ -1381,7 +1381,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
                         color: 'var(--fg)',
@@ -1455,13 +1455,15 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                     style={{
                       marginTop: '8px',
                       background: '#171717',
-                      color: '#000',
+                      color: '#fff',
                       border: 'none',
-                      borderRadius: '6px',
-                      padding: '5px 12px',
-                      fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                      fontSize: '13px',
-                      letterSpacing: '.06em',
+                      borderRadius: '8px',
+                      minHeight: '40px',
+                       padding: '0 14px',
+                      fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                      fontSize: '12px',
+                       fontWeight: 800,
+                      letterSpacing: '.01em',
                       cursor: 'pointer',
                     }}
                   >

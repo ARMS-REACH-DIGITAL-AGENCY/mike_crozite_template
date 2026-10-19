@@ -922,7 +922,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           ) : !hasUser ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="yat-favorite-empty">Sign up or log in to favorite players. Your signup microsite becomes your Home School.</div>
-              <button type="button" onClick={() => openAccountDrawer('register')} style={{ padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--fg)', color: 'var(--bg)', font: '700 12px Oswald, sans-serif', textTransform: 'uppercase', cursor: 'pointer' }}>
+              <button type="button" onClick={() => openAccountDrawer('register')} style={{ padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--fg)', color: 'var(--bg)', font: '700 12px var(--yat-font-ui, Archivo, Arial, sans-serif)', textTransform: 'uppercase', cursor: 'pointer' }}>
                 Sign Up / Log In
               </button>
             </div>
@@ -953,7 +953,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           padding: 16px;
           text-align: center;
           color: var(--muted);
-          font: 400 13px/1.4 Oswald, sans-serif;
+          font: 400 13px/1.4 var(--yat-font-ui, Archivo, Arial, sans-serif);
           text-transform: uppercase;
         }
 
@@ -980,7 +980,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         #drawerFavorites .yat-favorite-empty,
         #drawerFavorites .yat-favorite-lock-message {
           color: var(--muted);
-          font: 400 13px/1.45 Oswald, sans-serif;
+          font: 400 13px/1.45 var(--yat-font-ui, Archivo, Arial, sans-serif);
           letter-spacing: 0;
         }
 
@@ -1014,7 +1014,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           border-radius: 999px;
           background: transparent;
           color: var(--ink);
-          font: 400 11px/1 Oswald, sans-serif;
+          font: 400 11px/1 var(--yat-font-ui, Archivo, Arial, sans-serif);
           letter-spacing: .02em;
           text-transform: uppercase;
           white-space: nowrap;
@@ -1080,7 +1080,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-text-link strong {
-          font: 900 14px/1.05 Oswald, sans-serif;
+          font: 900 14px/1.05 var(--yat-font-ui, Archivo, Arial, sans-serif);
           text-transform: uppercase;
           white-space: nowrap;
           overflow: hidden;
@@ -1089,7 +1089,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
         #drawerFavorites .yat-favorite-text-link small {
           color: var(--muted);
-          font: 400 10px/1.15 Oswald, sans-serif;
+          font: 400 10px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif);
           text-transform: uppercase;
           white-space: nowrap;
           overflow: hidden;
