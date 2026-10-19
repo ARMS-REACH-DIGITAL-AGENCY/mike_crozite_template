@@ -11,8 +11,9 @@
   NJCAA, CCCAA, NWAC, HIGH SCHOOL - in data, code and in what you write to
   Pete (never "Triple-A", "AAA", "Low-A", "JUCO"). JUCO is NJCAA; CCCAA and
   NWAC are separate levels.
-- **`teamid_universe_mapping` is canonical:** Pete's own research. Read it,
-  never write to it (no scripts, no fixes, no seeding). Report what looks
-  wrong and let Pete decide.
+- **`teamid_universe_mapping` is canonical:** Pete's own research. No
+  scripts, no seeding, no automated writes. Correcting an obvious error (a
+  level not spelled the official way) is fine; anything else, report it and
+  let Pete decide.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
