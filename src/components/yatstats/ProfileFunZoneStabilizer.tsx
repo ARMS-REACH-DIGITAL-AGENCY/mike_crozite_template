@@ -184,6 +184,28 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
       #playerFunZone .pp-fz-tab span { font-size:7px !important; letter-spacing:.03em !important; }
     }
 
+    /* Phones/tablets — including browser "desktop site" mode — must use the
+       document's own vertical scroll. A viewport-height inner scroller can
+       retain the landscape height after rotation and trap the Stories toolbar
+       underneath the sticky header. Coarse-pointer devices therefore expand
+       the active panel naturally and only keep the bottom dock fixed. */
+    @media (pointer:coarse) {
+      body #playerFunZone {
+        height:auto !important;
+        min-height:0 !important;
+        overflow:visible !important;
+      }
+      body #playerFunZone > .pp-fz-panel,
+      body #playerFunZone > .pp-fz-panel.pp-fz-panel-active {
+        position:relative !important;
+        inset:auto !important;
+        min-height:0 !important;
+        overflow:visible !important;
+        overscroll-behavior:auto !important;
+        padding-bottom:calc(var(--pp-dock-h) + 14px) !important;
+      }
+    }
+
     /* The pinned icon row (see DOCK_TABS). The Fun Zone keeps the same
        space free at its bottom (--profile-tabs-h), which the dock covers. */
     :root { --pp-dock-h:var(--yat-dock-h,62px); }
