@@ -72,9 +72,9 @@ export async function GET(req: NextRequest) {
     const { rows: mismatches } = await query<CardRow>(TEAM_LEVEL_MISMATCH_SQL, [official]);
     const result = { ok: true, dry, fixed, fixedTotal, scan, activeCards: cards.length, mismatches: mismatches.length };
 
-    // Email only when something changed or an active player needs a
-    // decision; a clean week stays quiet.
-    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0) {
+    // Email when something changed, an active player needs a decision, or
+    // any table still holds an unofficial level; a clean week stays quiet.
+    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || scan.length > 0) {
       const contactId = await findOrCreateGhlContact(REPORT_EMAIL, "Pete", "DeLuca", undefined, "YAT?STATS Operations");
       if (contactId) {
         const fixedRows = Object.entries(fixed).map(([k, n]) => [esc(k), String(n)]);
