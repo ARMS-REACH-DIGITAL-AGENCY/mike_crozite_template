@@ -22,8 +22,10 @@ assert.match(timeline,/webCutoutUrl\('back', playerId\)/,'Secondary image prefer
 assert.match(timeline,/players\/back-card\//,'Falls back to actual card-back action photo');
 assert.match(timeline,/players\/back\//,'Falls back to original action photo');
 assert.match(timeline,/fallbackAt=\{4\}/,'Headshot only after 4 back photo sources');
-assert.match(timeline,/\.zt-nav \{ position:absolute; z-index:7; top:50%; bottom:auto;/,'Arrows inside slide');
-assert.match(timeline,/\.zt-nav \{ top:50%; bottom:auto; \}/,'Arrows not moved back to rail on phones');
+assert.match(timeline,/\.zt-nav \{ position:absolute; z-index:7; top:68%; bottom:auto;/,'Arrows float in lower half of slide');
+assert.match(timeline,/\.zt-nav \{ top:69%; bottom:auto;/,'Arrows remain inside slide on phones');
+assert.match(timeline,/\.zt-rail \{ position:absolute; z-index:6; left:12px; right:12px;/,'Rail spans width with small insets');
+assert.match(timeline,/\.zt-nav \{[^\n]*border:0;[^\n]*background:transparent;/,'Arrows have no frame or opaque fill');
 assert.match(timeline,/left:calc\(32% - 24px - 800px\)/,'Tablet/medium photo clears copy');
 assert.match(timeline,/left:calc\(58% - 24px - 800px\)/,'Mobile photo clears copy');
 assert.match(timeline,/left:calc\(51% - 24px - 800px\)/,'560-740px photo clears copy');
