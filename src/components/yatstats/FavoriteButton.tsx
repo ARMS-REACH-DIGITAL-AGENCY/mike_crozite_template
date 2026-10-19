@@ -249,6 +249,7 @@ export default function FavoriteButton({
       ) : (
       <button
         id="btnFanFav"
+        className={isFavorited ? 'yat-profile-fav is-favorited' : 'yat-profile-fav'}
         onClick={handleClick}
         disabled={isLoading}
         aria-label={isFavorited ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
@@ -261,7 +262,7 @@ export default function FavoriteButton({
           background: 'transparent',
           border: '0',
           borderRadius: '0',
-          color: '#ffb238',
+          color: 'inherit',
           font: '700 11px/1 Oswald, sans-serif',
           letterSpacing: '.1em',
           textTransform: 'uppercase',
@@ -279,6 +280,13 @@ export default function FavoriteButton({
         {isFavorited ? 'FAVORITED' : 'FAVORITE'}
       </button>
       )}
+
+      <style jsx global>{`
+        #btnFanFav.yat-profile-fav:not(.is-favorited) {color:#fff!important;}
+        body.light-theme #btnFanFav.yat-profile-fav:not(.is-favorited) {color:#111!important;}
+        #btnFanFav.yat-profile-fav.is-favorited {color:#ffb21c!important;}
+        body.light-theme #btnFanFav.yat-profile-fav.is-favorited {color:#a77412!important;}
+      `}</style>
 
       {/* On the page, not inside the button's parent: a flip card's 3D
           transform would otherwise trap the "fixed" toast inside the card. */}
