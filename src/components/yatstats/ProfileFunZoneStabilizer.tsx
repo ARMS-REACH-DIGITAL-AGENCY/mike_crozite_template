@@ -49,8 +49,8 @@ function normalizeHash(value?: string | null) {
 }
 
 // The Stories tab (#ppTab-upload) is filled by StoriesFeed. The old upload
-// form this file used to inject there is gone: stories are added only from
-// the Polaroid on the Career Path Timeline (StoryDrawer).
+// form this file used to inject there is gone: stories are added through
+// the Share a Story CTA (StoryDrawer).
 
 // The tab last shown, so switching tabs is reported once (the page view
 // already carries the tab the profile opened on).
