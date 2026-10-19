@@ -836,8 +836,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           {superfanLaunching && (
             <div
               style={{
-                background: 'rgba(255,215,0,.1)',
-                border: '1px solid #FFD700',
+                background: 'rgba(128,128,128,.08)',
+                border: '1px solid #171717',
                 borderRadius: '8px',
                 padding: '16px',
                 marginBottom: '16px',
@@ -847,7 +847,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#FFD700',
+                  color: '#171717',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
                   letterSpacing: '.05em',
                   marginBottom: '4px',
@@ -922,7 +922,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           {isSuperfan && (
             <div
               style={{
-                background: 'rgba(255,215,0,.1)',
+                background: 'rgba(128,128,128,.08)',
                 border: '1px solid rgba(255,215,0,.4)',
                 borderRadius: '8px',
                 padding: '10px 12px',
@@ -932,7 +932,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '13px',
-                  color: '#FFD700',
+                  color: '#171717',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
                   letterSpacing: '.06em',
                 }}
@@ -973,7 +973,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '12px',
-                  background: '#FFD700',
+                  background: '#171717',
                   color: '#000',
                   border: 'none',
                   borderRadius: '8px',
@@ -1238,7 +1238,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   type="text"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="Enter Superfan promo code, then tap the gold button — FREE!"
+                  placeholder="Enter Superfan promo code, then select the membership button"
                   aria-label="Superfan promo code"
                   style={{
                     width: '100%',
@@ -1262,7 +1262,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: '#FFD700',
+                  background: '#171717',
                   color: '#000',
                   border: 'none',
                   borderRadius: '8px',
@@ -1303,7 +1303,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           >
             <div
               style={{
-                color: '#FFD24A',
+                color: '#444444',
                 fontFamily: '"Bebas Neue", Oswald, sans-serif',
                 fontSize: '18px',
                 lineHeight: 1,
@@ -1384,7 +1384,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                         fontFamily: '"Bebas Neue", Oswald, sans-serif',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
-                        color: '#FFD700',
+                        color: '#171717',
                         width: '22%',
                       }}
                     >
@@ -1410,7 +1410,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       <td style={{ padding: '5px 4px 5px 0', color: 'var(--muted)' }}>{feat}</td>
                       <td style={{ textAlign: 'center', color: 'var(--muted)' }}>{v}</td>
                       <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{f}</td>
-                      <td style={{ textAlign: 'center', color: '#FFD700' }}>{s}</td>
+                      <td style={{ textAlign: 'center', color: '#171717' }}>{s}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1451,9 +1451,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   <br />
                   <button
                     type="button"
+                    onClick={() => { window.location.assign("https://yatstats.com"); }}
                     style={{
                       marginTop: '8px',
-                      background: '#FFD700',
+                      background: '#171717',
                       color: '#000',
                       border: 'none',
                       borderRadius: '6px',
