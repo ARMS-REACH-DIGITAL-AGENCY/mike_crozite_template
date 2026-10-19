@@ -1166,6 +1166,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
         #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {color:#c8a96e;}
         body.light-theme #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {color:#805600;}
+        #drawerFavorites .yat-favorite-heart-btn {color:#ffb21c;}
+        body.light-theme #drawerFavorites .yat-favorite-heart-btn {color:#a77412;}
         #drawerFavorites .yat-favorite-heart-btn[aria-disabled="true"] {
           opacity: .5;
           cursor: wait;
