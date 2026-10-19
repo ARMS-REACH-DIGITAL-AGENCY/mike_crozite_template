@@ -919,6 +919,20 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </div>
           )}
 
+          <div className="yat-account-identity" style={{ marginBottom: '10px' }}>
+            <p
+              style={{
+                fontSize: '18px',
+                marginBottom: '10px',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                letterSpacing: '.05em',
+              }}
+            >
+              Hi, {displayName || 'Fan'}!
+            </p>
+            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveEmail}</p>
+          </div>
+
           {isSuperfan && (
             <div
               style={{
@@ -926,7 +940,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '10px 12px',
-                marginBottom: '16px',
+                marginBottom: '10px',
               }}
             >
               <p
@@ -944,20 +958,6 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </p>
             </div>
           )}
-
-          <div className="yat-account-identity" style={{ marginBottom: '20px' }}>
-            <p
-              style={{
-                fontSize: '18px',
-                marginBottom: '10px',
-                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
-                letterSpacing: '.05em',
-              }}
-            >
-              Hi, {displayName || 'Fan'}!
-            </p>
-            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveEmail}</p>
-          </div>
 
           {/* First thing after joining or logging in: the ways to connect
               and contribute. Sign Out sits at the bottom. */}
@@ -1054,7 +1054,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             onClick={handleSignOut}
             style={{
               width: '100%',
-              marginTop: '18px',
+              marginTop: '9px',
               padding: '12px',
               background: 'var(--fg)',
               color: 'var(--bg)',
