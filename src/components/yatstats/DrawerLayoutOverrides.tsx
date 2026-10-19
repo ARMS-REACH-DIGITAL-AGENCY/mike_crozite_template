@@ -626,6 +626,39 @@ export default function DrawerLayoutOverrides() {
         border-radius:6px;
       }
 
+      /* Side drawers own their scroll region: the last control stays reachable
+         above the fixed footer without a large artificial blank area. */
+      #drawerFilters, #drawerAccount, #drawerFavorites{
+        min-height:0!important;
+        overflow:hidden!important;
+      }
+      #drawerFilters > .yat-filter-body,
+      #drawerAccount > .yat-account-content,
+      #drawerFavorites > .yat-drawer-content{
+        box-sizing:border-box!important;
+        flex:1 1 auto!important;
+        min-height:0!important;
+        overflow-y:auto!important;
+        overscroll-behavior-y:contain!important;
+        -webkit-overflow-scrolling:touch;
+        padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px))!important;
+        scroll-padding-bottom:18px;
+      }
+      #drawerFilters #filterName{scroll-margin-bottom:22px;}
+      #drawerFilters #filterGradClass label,
+      #drawerFilters #filterRosterYears label{padding-top:3px!important;padding-bottom:3px!important;}
+      /* Mobile side-panel bottoms respect the actual full footer stack,
+         including the scoreboard ticker, rather than only the compact nav. */
+      @media(max-width:779px){
+        body.drawer-right-open #drawerFilters,
+        body.drawer-account-open #drawerAccount,
+        body.drawer-favorites-open #drawerFavorites,
+        body.drawer-sort-open #drawerSort,
+        body.drawer-left-open #drawerLeft{
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;
+          height:auto!important;
+        }
+      }
       /* Mobile navigation uses the same visual rhythm as the Connect &
          Contribute list: compact Archivo labels, no rules, rounded grey
          selection. Reserve scrolling room above the fixed ticker/footer. */
