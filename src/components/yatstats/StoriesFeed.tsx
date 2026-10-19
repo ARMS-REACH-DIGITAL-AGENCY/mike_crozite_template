@@ -94,7 +94,7 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px 22px calc(28px + env(safe-area-inset-bottom)); }
         body.light-theme .ytd-panel {
           --ytm-bg: #fbf8f2; --ytm-text: rgba(31,25,18,.88); --ytm-muted: rgba(31,25,18,.55); --ytm-strong: rgba(31,25,18,.95);
-          --ytm-border: rgba(53,43,30,.18); --ytm-accent: #9a6f00;
+          --ytm-border: rgba(53,43,30,.18); --ytm-accent: #555;
         }
         .ytd-close { position: absolute; top: 14px; right: 14px; z-index: 3; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--ytm-muted); font-size: 22px; cursor: pointer; }
         .ytd-close:hover { color: var(--ytm-strong); }
