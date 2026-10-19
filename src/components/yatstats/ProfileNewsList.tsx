@@ -105,7 +105,7 @@ export default function ProfileNewsList({
     <>
       <div className="pp-news-feed" aria-label={`${firstName}'s news stories`}>
         <div className="pp-news-tools">
-          <SortToggle dir={sort} onChange={setSort} />
+          <span className="pp-news-sort"><SortToggle dir={sort} onChange={setSort} compact /></span>
           <label className="pp-news-search">
             <i className="ri-search-line" aria-hidden="true" />
             <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search news" aria-label="Search news" />
@@ -223,18 +223,24 @@ export default function ProfileNewsList({
         .pp-news-tools{
           position:sticky;
           top:0;
-          z-index:6;
-          display:flex;
-          justify-content:flex-end;
+          z-index:16;
+          display:grid;
+          grid-template-columns:38px minmax(0,1fr);
+          align-items:center;
           gap:6px;
-          margin:-10px 0 0;
-          padding:8px 0 6px;
-          /* The school News row does not define --psi-page-bg; follow the
-             actual site theme instead of falling back to hard black. */
+          margin:0;
+          padding:7px 0 8px;
           background:var(--bg,#0c0c0c);
         }
-        .pp-news-search{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:42px;padding:0 12px;border:1px solid var(--pp-news-card-border);border-radius:8px;background:var(--pp-news-card-bg);color:var(--pp-news-muted);}
-        .pp-news-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--pp-news-title);font:400 14px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        .pp-news-sort{display:flex;align-items:center;justify-content:center;width:38px;min-width:0;height:32px;border-radius:6px;background:var(--pp-news-card-bg);}
+        .pp-news-sort button{border-radius:6px!important;}
+        .pp-news-search{display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:32px;min-height:32px;padding:0 8px;border:0;border-radius:6px;background:var(--pp-news-card-bg);color:var(--pp-news-muted);}
+        .pp-news-search input{width:100%;min-width:0;height:30px;border:0;outline:0;background:transparent;color:var(--pp-news-title);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        /* On school Alumni News pages the three global header rows and
+           the optional selected-player strip remain above this toolbar. */
+        #sec-news .pp-news-tools{
+          top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + var(--yp-news-filter-h,0px));
+        }
         .pp-news-no-results{padding:18px 0;text-align:center;color:var(--pp-news-muted);font:400 14px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         .pp-news-teaser{
           appearance:none;
