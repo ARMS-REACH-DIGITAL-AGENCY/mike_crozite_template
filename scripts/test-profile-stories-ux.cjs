@@ -1,0 +1,32 @@
+'use strict';
+// Prevent independent preview branches from accidentally reverting the
+// owner-approved player profile controls and Career Timeline anchor pair.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = p => fs.readFileSync(path.join(root, p), 'utf8');
+const stories = read('src/components/yatstats/StoriesFeed.tsx');
+const bar = read('src/components/yatstats/shell/SchoolContextBar.tsx');
+const timeline = read('src/components/yatstats/ZoomableCareerTimeline.tsx');
+const search = read('src/components/yatstats/SearchDrawerTabs.tsx');
+const teamApi = read('src/app/api/teams/search/route.ts');
+const jsx = stories.slice(stories.indexOf('<div className="ysf-tools"'), stories.indexOf('<div className="ysf-main">'));
+const positions = ['<SortToggle', 'className="ysf-add-btn"', 'className="ysf-search"', 'className="ysf-tm-btn"'].map(s => jsx.indexOf(s));
+assert.ok(positions.every((n,i) => n >= 0 && (i === 0 || n > positions[i-1])), 'Sort, Add Story, Search, icon + count in one toolbar');
+assert.match(jsx,/openStoryDrawer\(\{ playerId, year: null \}, storyOpenOwner\)/,'Story toolbar opens real player-scoped upload drawer');
+assert.doesNotMatch(jsx,/>\s*Teammates\s*</i,'No visible Teammates label');
+assert.doesNotMatch(bar,/yat-profile-memory-cta|openStoryDrawer/,'Upload CTA does not return to school header');
+assert.match(timeline,/webCutoutUrl\('then', playerId\)/,'Primary HS front cutout retained');
+assert.match(timeline,/webCutoutUrl\('back', playerId\)/,'Secondary image prefers action cutout');
+assert.match(timeline,/players\/back-card\//,'Falls back to actual card-back action photo');
+assert.match(timeline,/players\/back\//,'Falls back to original action photo');
+assert.match(timeline,/fallbackAt=\{4\}/,'Headshot only after 4 back photo sources');
+assert.match(timeline,/\.zt-nav \{ position:absolute; z-index:7; top:50%; bottom:auto;/,'Arrows inside slide');
+assert.match(timeline,/\.zt-nav \{ top:50%; bottom:auto; \}/,'Arrows not moved back to rail on phones');
+assert.match(timeline,/left:calc\(32% - 24px - 800px\)/,'Tablet/medium photo clears copy');
+assert.match(timeline,/left:calc\(58% - 24px - 800px\)/,'Mobile photo clears copy');
+assert.match(timeline,/left:calc\(51% - 24px - 800px\)/,'560-740px photo clears copy');
+assert.match(teamApi,/nextOffset/,'Team search returns continuation token');
+assert.match(search,/loadNextTeamPage/,'Live search scrolls all pages');
+console.log('Profile Stories/Timeline/Global Search regression checks passed');

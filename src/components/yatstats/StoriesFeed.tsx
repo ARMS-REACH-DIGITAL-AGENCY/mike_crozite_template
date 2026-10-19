@@ -8,14 +8,14 @@
 //   Desktop: each story as a full post right here - photos, Like · Comment ·
 //            Share, the latest comments and a comment box - so there's
 //            nothing to open to join in (a photo still opens large).
-// Uploading happens only from the Polaroid on the Career Path Timeline
-// (StoryDrawer), never here.
-// His teammates are a drawer from the right, opened by the Teammates button
-// beside the search, so the stories get the whole width.
+// Story publishing is triggered by the compact Add Story control beside sort
+// and search. The same StoryDrawer handles upload from the Career Timeline.
+// Teammates are accessible by the icon + count only (no visible word label).
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
+import { openStoryDrawer, cancelPendingStoryDrawerOpen } from '@/lib/storyDrawer';
 import SortToggle from '@/components/yatstats/SortToggle';
 import TeammatesList, { teammateCount, useTeammates, type TeammateSeason } from '@/components/yatstats/TeammatesList';
 import StoryViewer, { AlbumStrip, StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
@@ -110,6 +110,8 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
 
 export default function StoriesFeed({ playerId, playerName }: { playerId: string; playerName: string }) {
   const firstName = (playerName || '').split(' ')[0] || 'this player';
+  const storyOpenOwner = useMemo(() => Symbol(`story-toolbar:${playerId}`), [playerId]);
+  useEffect(() => () => cancelPendingStoryDrawerOpen(storyOpenOwner), [storyOpenOwner]);
   const me = useFanMe();
   const [stories, setStories] = useState<Story[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -335,25 +337,30 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   return (
     <div className="ysf">
-      {/* Search and sort (once there are stories), and his teammates. */}
-      {(stories?.length || teammatesTotal > 0) ? (
-        <div className="ysf-tools">
-          {stories?.length ? (
-            <>
-              <SortToggle dir={sort} onChange={setSort} />
-              <label className="ysf-search">
-                <i className="ri-search-line" aria-hidden="true" />
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
-              </label>
-            </>
-          ) : <span className="ysf-tools-fill" />}
-          {teammatesTotal > 0 ? (
-            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`}>
-              <i className="ri-team-line" aria-hidden="true" /> <span className="ysf-tm-count">{teammatesTotal}</span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {/* One toolbar above the posts, including when no stories exist yet. */}
+      <div className="ysf-tools" role="toolbar" aria-label={`Stories about ${playerName || 'this player'}`}>
+        <SortToggle dir={sort} onChange={setSort} />
+        <button
+          type="button"
+          className="ysf-add-btn"
+          onClick={() => openStoryDrawer({ playerId, year: null }, storyOpenOwner)}
+          aria-label={`Add a story to ${firstName}'s Career Path Timeline`}
+          title={`Add a story to ${firstName}'s Career Path Timeline`}
+        >
+          <i className="ri-upload-cloud-2-line" aria-hidden="true" />
+          <span>ADD STORY</span>
+        </button>
+        <label className="ysf-search">
+          <i className="ri-search-line" aria-hidden="true" />
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
+        </label>
+        {teammatesTotal > 0 ? (
+          <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`} title={`View ${teammatesTotal} teammates`}>
+            <i className="ri-team-line" aria-hidden="true" />
+            <span className="ysf-tm-count">{teammatesTotal}</span>
+          </button>
+        ) : null}
+      </div>
       <div className="ysf-main">{body}</div>
       {teammatesOpen && typeof document !== 'undefined' ? <TeammatesDrawer rows={teammates} onClose={closeTeammates} /> : null}
 
@@ -392,22 +399,31 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
-        .ysf-tools-fill { flex: 1; }
-        /* Teammates: opens the drawer. Same height and frame as the sort. */
-        .ysf-tm-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 700 16px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
-        .ysf-tm-btn i { font-size: 17px; color: var(--ysf-when); }
-        .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color: var(--ysf-when); }
-        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 6px; background: transparent; color: var(--ysf-strong); border: 1px solid var(--ysf-card-border); font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
-        @media (max-width: 420px) {
-          .ysf-tm-btn { padding: 0 9px; font-size: 14px; }
+        /* Every control is 42px high and uses the Contribute page's typography. */
+        .ysf-add-btn { flex:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; height:42px; min-height:42px; padding:0 9px; border:1px solid var(--ysf-card-border); border-radius:8px; background:var(--ysf-card-bg); color:var(--ysf-strong); font:800 10px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.005em; white-space:nowrap; cursor:pointer; }
+        .ysf-add-btn i { font-size:17px; line-height:1; color:inherit; }
+        .ysf-add-btn:is(:hover,:focus-visible) { border-color:var(--ysf-strong); outline-offset:2px; }
+        /* An icon + count, not the word "Teammates": leave room for search. */
+        .ysf-tm-btn { flex:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; height:42px; min-height:42px; padding:0 8px; border:1px solid var(--ysf-card-border); border-radius:8px; background:var(--ysf-card-bg); color:var(--ysf-strong); font:700 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); cursor:pointer; }
+        .ysf-tm-btn i { font-size:18px; color:var(--ysf-strong); }
+        .ysf-tm-btn:is(:hover,[aria-expanded="true"]) { border-color:var(--ysf-strong); }
+        .ysf-tm-count { min-width:22px; padding:3px 5px; border-radius:5px; background:transparent; color:var(--ysf-strong); border:1px solid var(--ysf-card-border); font:700 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); text-align:center; }
+        @media (max-width:420px) {
+          .ysf-tools { gap:5px; }
+          .ysf-add-btn { gap:4px; padding:0 6px; font-size:9px; }
+          .ysf-tm-btn { gap:4px; padding:0 6px; }
+          .ysf-tm-count { padding:3px 4px; }
+          .ysf-search { padding:0 7px; gap:5px; }
+          .ysf-search input { font-size:12px; }
         }
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
         .ysf-feed-posts { gap: 16px; max-width: 760px; margin: 0 auto; }
-        .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 760px; }
+        .ysf-tools { display:flex; gap:6px; align-items:center; margin:0 auto 10px; max-width:760px; min-width:0; }
         /* Search and sort stay pinned at the top of the tab while you scroll. */
         .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
         .ysf-search { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
-        .ysf-search input { flex: 1; min-width: 0; min-height: 40px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 var(--yat-font-ui, Arial, sans-serif); outline: none; }
+        .ysf-search input { flex:1; min-width:0; height:40px; min-height:40px; border:0; background:transparent; color:var(--ysf-strong); font:400 14px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); outline:none; }
+        .ysf-search { height:42px; min-height:42px; }
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }

@@ -1,0 +1,29 @@
+name: Player Profile UX Regression
+on:
+  pull_request:
+    branches: [Easter-NEWS]
+    paths:
+      - 'src/components/yatstats/StoriesFeed.tsx'
+      - 'src/components/yatstats/shell/SchoolContextBar.tsx'
+      - 'src/components/yatstats/ZoomableCareerTimeline.tsx'
+      - 'src/components/yatstats/SearchDrawerTabs.tsx'
+      - 'src/app/api/teams/search/route.ts'
+      - 'scripts/test-profile-stories-ux.cjs'
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - 'src/components/yatstats/StoriesFeed.tsx'
+      - 'src/components/yatstats/shell/SchoolContextBar.tsx'
+      - 'src/components/yatstats/ZoomableCareerTimeline.tsx'
+      - 'src/components/yatstats/SearchDrawerTabs.tsx'
+      - 'src/app/api/teams/search/route.ts'
+      - 'scripts/test-profile-stories-ux.cjs'
+jobs:
+  profile-ux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node scripts/test-profile-stories-ux.cjs

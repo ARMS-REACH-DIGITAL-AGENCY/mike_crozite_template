@@ -553,6 +553,11 @@ export default function SearchDrawerTabs() {
     const cacheLifetimeMs = 30_000;
     const cacheLimit = 24;
     const debounceMs = 90;
+    // Page the Current Team results without changing the existing live search.
+    let nextTeamOffset: number | null = null;
+    let loadingTeamPage = false;
+    let teamPageObserver: IntersectionObserver | null = null;
+    const pageSize = 75;
     const status = document.createElement('div');
     status.className = 'yat-search-status';
     status.setAttribute('role', 'status');
@@ -576,6 +581,10 @@ export default function SearchDrawerTabs() {
       timer = null;
       controller?.abort();
       controller = null;
+      teamPageObserver?.disconnect();
+      teamPageObserver = null;
+      nextTeamOffset = null;
+      loadingTeamPage = false;
       return requestId;
     }
 
@@ -606,6 +615,55 @@ export default function SearchDrawerTabs() {
       return response.json();
     }
 
+    function installTeamPageTrigger() {
+      teamPageObserver?.disconnect();
+      teamPageObserver = null;
+      // A visible button is the accessibility and IntersectionObserver fallback.
+      const button = results.querySelector<HTMLButtonElement>('.yat-search-load-more');
+      if (!button || nextTeamOffset === null) return;
+      if (typeof IntersectionObserver !== 'undefined') {
+        teamPageObserver = new IntersectionObserver((entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) void loadNextTeamPage();
+        }, { rootMargin: '260px 0px' });
+        teamPageObserver.observe(button);
+      }
+    }
+
+    async function loadNextTeamPage() {
+      if (mode !== 'team' || nextTeamOffset === null || loadingTeamPage || !intendedKey || disposed) return;
+      const id = requestId;
+      const q = input.value.trim();
+      if (searchKey('team', q) !== intendedKey) return;
+      const offset = nextTeamOffset;
+      loadingTeamPage = true;
+      teamPageObserver?.disconnect();
+      teamPageObserver = null;
+      const button = results.querySelector<HTMLButtonElement>('.yat-search-load-more');
+      if (button) { button.disabled = true; button.textContent = 'Loading more teams…'; }
+      const pageController = new AbortController();
+      controller = pageController;
+      try {
+        const data = await loadSearch(`/api/teams/search?q=${encodeURIComponent(q)}&limit=${pageSize}&offset=${offset}`, pageController.signal);
+        if (!isCurrent(id) || pageController.signal.aborted || mode !== 'team') return;
+        const rows = Array.isArray(data.teams) ? data.teams : [];
+        const markup = renderTeamRows(rows, '');
+        button?.remove();
+        if (markup) results.insertAdjacentHTML('beforeend', markup);
+        nextTeamOffset = data.hasMore && Number.isFinite(data.nextOffset) && data.nextOffset > offset ? data.nextOffset : null;
+        if (nextTeamOffset !== null) {
+          results.insertAdjacentHTML('beforeend', '<button type="button" class="yat-search-load-more">Load more teams</button>');
+        }
+        void hydrateFavoriteButtons(results);
+      } catch {
+        if (!isCurrent(id) || pageController.signal.aborted) return;
+        if (button) { button.disabled = false; button.textContent = 'Retry loading more teams'; }
+      } finally {
+        if (controller === pageController) controller = null;
+        loadingTeamPage = false;
+        if (isCurrent(id)) installTeamPageTrigger();
+      }
+    }
+
     function renderData(searchMode: SearchMode, data: any) {
       if (searchMode === 'school') {
         results.innerHTML = renderSchoolRows(Array.isArray(data.programs) ? data.programs : [], 'No school matches.', true, false, { globalSearch: true });
@@ -613,8 +671,13 @@ export default function SearchDrawerTabs() {
         results.innerHTML = searchMode === 'name'
           ? renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.')
           : renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
+        nextTeamOffset = searchMode === 'team' && data.hasMore && Number.isFinite(data.nextOffset) ? data.nextOffset : null;
+        if (nextTeamOffset !== null) {
+          results.insertAdjacentHTML('beforeend', '<button type="button" class="yat-search-load-more">Load more teams</button>');
+        }
         void hydrateFavoriteButtons(results);
       }
+      installTeamPageTrigger();
       phase = 'ready';
       setStatus();
     }
@@ -720,6 +783,8 @@ export default function SearchDrawerTabs() {
     modeButtons.forEach((button) => button.addEventListener('click', onModeClick, true));
 
     const onResultsClick = (event: Event) => {
+      const more = (event.target as HTMLElement)?.closest('.yat-search-load-more');
+      if (more) { event.preventDefault(); void loadNextTeamPage(); return; }
       const button = (event.target as HTMLElement)?.closest('.yat-search-fav-btn') as HTMLElement | null;
       if (!button || button.hasAttribute('aria-disabled')) return;
       event.preventDefault();
@@ -779,6 +844,7 @@ export default function SearchDrawerTabs() {
       disposed = true;
       invalidateSearch();
       cache.clear();
+      teamPageObserver?.disconnect();
       drawer.removeEventListener('input', scheduleSearch, true);
       drawer.removeEventListener('keyup', scheduleSearch, true);
       drawer.removeEventListener('search', scheduleSearch, true);
@@ -799,6 +865,8 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 var(--yat-font-ui); padding: 8px 0; }
       #drawerLeft .yat-search-status { color: var(--muted); font: 400 12px/1.4 var(--yat-font-ui); padding: 4px 0; overflow-wrap: anywhere; }
       #drawerLeft .yat-search-status[hidden] { display: none; }
+      #drawerLeft .yat-search-load-more { display:block; width:100%; min-height:42px; margin:12px 0 20px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--fg); font:600 13px/1.3 var(--yat-font-ui); cursor:pointer; }
+      #drawerLeft .yat-search-load-more:disabled { opacity:.6; cursor:wait; }
       :is(#drawerLeft, #drawerContribute) .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
       :is(#drawerLeft, #drawerContribute) .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
       :is(#drawerLeft, #drawerContribute) .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }

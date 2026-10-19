@@ -431,9 +431,10 @@ const REVEAL_KEYFRAMES: Record<Reveal, Keyframe[]> = {
 
 function SmartImage({ src, srcs, alt, className, style, reveal, hold = false, revealDelay = 0, onSettled, fallbackAt = 1 }: {
   src?: string; srcs?: string[]; alt: string; className?: string; style?: CSSProperties;
-  // Index of the first source that counts as a fallback for data-fallback
-  // (default: anything after the first). The pro image lists the action
-  // shot twice (S3 web file, then /api/cutout) before the headshot.
+  // Index of the first source that counts as a fallback for data-fallback.
+  // The anchor's secondary image tries FOUR back-card action-photo sources
+  // (web cutout, API cutout, back-card WebP, original JPG); only after all
+  // four fail may a headshot appear.
   fallbackAt?: number;
   // Set only for the anchor slide's first appearance (always rendered
   // client-side, after the timeline's data fetches, so onLoad reliably
@@ -2122,13 +2123,32 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     (then-web/), falling back to /api/cutout, which does
                     the same trim on the fly -- the figure (not empty
                     canvas) fills its box either way. */}
-                <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${firstName(slide.title)} cutout`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
-                {/* "Then vs now" uses the current headshot only. A
-                    flip-card-back action photo belongs exclusively on the
-                    back of the card and must not leak into the profile
-                    anchor slide. */}
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[webCutoutUrl('then', playerId), apiCutoutUrl('then', playerId), `${S3_BASE}/players/then-card/${encodeURIComponent(playerId)}.webp`]} src={`${S3_BASE}/players/then/${encodeURIComponent(playerId)}.jpg`} alt={`${firstName(slide.title)} high school front-card image`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
+                {/* The SMALL overlapping action photo is the actual flip-card
+                    BACK, not the player's headshot. Prefer its transparent
+                    cutout; if cutout processing is missing, use the same
+                    back-card image as the flip card itself. Only when every
+                    back-card source is absent fall back to the headshot.
+                    Keep the existing CSS class for layout compatibility. */}
                 {!coachTenure && (
-                  <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={1} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
+                  <SmartImage
+                    className="zt-person zt-person-now"
+                    style={{ opacity }}
+                    srcs={[
+                      webCutoutUrl('back', playerId),
+                      apiCutoutUrl('back', playerId),
+                      `${S3_BASE}/players/back-card/${encodeURIComponent(playerId)}.webp`,
+                      `${S3_BASE}/players/back/${encodeURIComponent(playerId)}.jpg`,
+                      webCutoutUrl('now', playerId),
+                    ]}
+                    src={apiCutoutUrl('now', playerId)}
+                    fallbackAt={4}
+                    alt={`${firstName(slide.title)} back-card action photo`}
+                    reveal={introDone ? undefined : 'right'}
+                    hold={!hsSettled}
+                    revealDelay={introDone ? 0 : 280}
+                    onSettled={handleProSettled}
+                  />
                 )}
               </Fragment>
             );
@@ -2753,13 +2773,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            gap -- an opaque year chip painted over both the fill and the
            track -- rather than lighting a mark up
            gold. */
-        /* bottom:10px, staying level with .zt-rail's own bottom:14px. */
-        .zt-nav { position:absolute; z-index:7; bottom:10px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
+        /* Arrows float midway INSIDE the career slide, separate from the
+           timeline rail. Never position them on the rail in mobile CSS. */
+        .zt-nav { position:absolute; z-index:7; top:50%; bottom:auto; transform:translateY(-50%); width:30px; height:34px; border-radius:6px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.38); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:19px; }
         .zt-nav:disabled { opacity:.3; cursor:default; }
-        /* Moved from stacked next to zt-nav-next (right:30px) over to the
-           far left edge -- per direct feedback, the rail should sit
-           between the two arrows, not have both of them clustered at one
-           end of it. Mirrors zt-nav-next's own right:6px inset. */
+        /* Edge placement stays symmetric; navigation is no longer part
+           of the bottom-year-rail control group. */
         .zt-nav-prev { left:6px; right:auto; }
         .zt-nav-next { right:6px; }
         /* bottom raised to 20px (was 4px) -- per direct feedback, moving
@@ -2972,7 +2991,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              later in the stylesheet than the desktop .zt-person-now rule,
              so without these the pro image inherited that ~130-200px width
              and its box ended up entirely off the left edge of the row. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(32% + 20px - 800px); width:800px; object-position:right bottom; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 24px - 800px); width:800px; object-position:right bottom; }
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px); }
           .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30cqw,240px)); width:clamp(170px,30cqw,240px); }
           .zt-logo-layer { width:50%; right:-12%; }
@@ -3085,7 +3104,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              marks materially easier to read without widening their year
              slots or letting them collide with neighboring seasons. */
           .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
-          .zt-nav { bottom:0; }
+          .zt-nav { top:50%; bottom:auto; }
           .zt-rail-tick-boundary { bottom:6px; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
@@ -3160,7 +3179,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
             left:clamp(113px,19cqw,153px);width:clamp(170px,30cqw,220px);
           }
           .zt-person-stack :global(.zt-person-now) {
-            left:calc(51% + 12px - 800px);width:800px;height:48%;bottom:8px;
+            left:calc(51% - 24px - 800px);width:800px;height:48%;bottom:8px;
             object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) {
