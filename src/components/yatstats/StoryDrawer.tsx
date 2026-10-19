@@ -200,7 +200,7 @@ export default function StoryDrawer() {
     setStatus({ kind: 'idle' });
   }, [replacePhotos]);
 
-  // Open from the Polaroid, with the year of the slide the fan is on.
+  // Open from Share a Story, with the year of the slide the fan is on when supplied.
   useEffect(() => {
     const onOpen = (event: Event) => {
       const detail = (event as CustomEvent<StoryDrawerOpenDetail>).detail || {};
