@@ -198,6 +198,26 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active { color:#fff !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; position:absolute !important; left:22% !important; right:22% !important; top:0 !important; height:3px !important; border-radius:0 0 2px 2px; background:#d2b45c !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active i { color:#d2b45c !important; }
+    /* Phones can report desktop CSS widths while rotated or while Chrome's
+       "Desktop site" mode is enabled. Never trap vertical page scrolling in
+       a viewport-sized inner panel on a coarse pointer device. */
+    @media (pointer:coarse) {
+      #playerFunZone {
+        height:auto !important;
+        min-height:0 !important;
+        overflow:visible !important;
+      }
+      #playerFunZone > .pp-fz-panel,
+      #playerFunZone > .pp-fz-panel.pp-fz-panel-active {
+        position:relative !important;
+        inset:auto !important;
+        overflow:visible !important;
+        overscroll-behavior:auto !important;
+        min-height:0 !important;
+        padding-bottom:calc(var(--pp-dock-h) + 12px) !important;
+      }
+      #playerFunZone .pp-fz-tabs-shell { display:none !important; }
+    }
     /* Stationary Fantasy ticker-style dot matrix and illuminated amber Fun Zone controls. */
     body .pp-fz-dock {
       background-color:#070503 !important;
