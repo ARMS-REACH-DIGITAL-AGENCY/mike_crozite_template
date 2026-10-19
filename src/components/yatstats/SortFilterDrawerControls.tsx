@@ -258,7 +258,7 @@ function installSortDrawer() {
     sortGroup.id = 'yatSortControls';
     sortGroup.className = 'yat-sort-group';
     const careerLevelButtons = CAREER_LEVELS.map((l) => `<button type="button" class="yat-sort-level-btn" data-yat-career-level="${l.key}" aria-pressed="false">${l.label}</button>`).join('');
-    sortGroup.innerHTML = `<div class="yat-sort-controls"><div class="yat-sort-scope-switch"><button type="button" class="yat-sort-scope-label active" data-yat-sort-scope="season">2026 Season</button><button type="button" id="yatSortScopeSwitch" class="yat-sort-switch" role="switch" aria-checked="false" aria-label="Sort by career stats"><span class="yat-sort-switch-knob"></span></button><button type="button" class="yat-sort-scope-label" data-yat-sort-scope="career">Career</button></div><div class="yat-sort-career-levels" role="group" aria-label="Career level" hidden>${careerLevelButtons}</div><div class="yat-sort-columns"><div class="yat-sort-column"><div class="yat-sort-column-title">Batting</div><div class="yat-sort-options yat-sort-options-batting">${battingMetrics.map(metricOption).join('')}</div></div><div class="yat-sort-column"><div class="yat-sort-column-title">Pitching</div><div class="yat-sort-options yat-sort-options-pitching">${pitchingMetrics.map(metricOption).join('')}</div></div></div><button type="button" id="yatSortReset" class="yat-sort-reset">Reset Sort</button><div id="yatSortStatus" class="yat-sort-status">Default roster order.</div></div>`;
+    sortGroup.innerHTML = `<div class="yat-sort-controls"><div class="yat-sort-scope-switch"><button type="button" class="yat-sort-scope-label active" data-yat-sort-scope="season">2026 Season</button><button type="button" id="yatSortScopeSwitch" class="yat-sort-switch" role="switch" aria-checked="false" aria-label="Sort by career stats"><span class="yat-sort-switch-knob"></span></button><button type="button" class="yat-sort-scope-label" data-yat-sort-scope="career">Career</button></div><div class="yat-sort-career-levels" role="group" aria-label="Career level" hidden>${careerLevelButtons}</div><div class="yat-sort-columns"><div class="yat-sort-column"><div class="yat-sort-column-title">Batting</div><div class="yat-sort-options yat-sort-options-batting">${battingMetrics.map(metricOption).join('')}</div></div><div class="yat-sort-column"><div class="yat-sort-column-title">Pitching</div><div class="yat-sort-options yat-sort-options-pitching">${pitchingMetrics.map(metricOption).join('')}</div></div></div></div>`;
     sortHost.appendChild(sortGroup);
   }
   const root = getSortRoot();
@@ -315,7 +315,128 @@ function installSortDrawer() {
 
 export default function SortFilterDrawerControls() {
   useEffect(() => { installSortDrawer(); }, []);
-  return <><aside className="yat-drawer yat-drawer-right yat-sort-drawer" id="drawerSort"><div className="yat-drawer-header yat-sort-drawer-header"><h3>SORT</h3><button className="yat-icon-btn" id="closeSort" aria-label="Close sort"><i className="ri-close-line" /></button></div><div className="yat-drawer-content" id="sortControls" /></aside><style jsx global>{`
+  return <><aside className="yat-drawer yat-drawer-right yat-sort-drawer" id="drawerSort"><div className="yat-drawer-header yat-sort-drawer-header"><h3>SORT</h3><button className="yat-icon-btn" id="closeSort" aria-label="Close sort"><i className="ri-close-line" /></button></div><div className="yat-drawer-content yat-sort-scroll" id="sortControls" /><div className="yat-sort-actions"><button type="button" id="yatSortReset" className="yat-sort-reset">Reset Sort</button><div id="yatSortStatus" className="yat-sort-status" role="status" aria-live="polite">Default roster order.</div></div></aside><style jsx global>{`
     #drawerSort{transform:translateX(100%);transition:transform .22s ease}body.drawer-sort-open #drawerSort{transform:translateX(0)!important}body.drawer-sort-open .yat-drawer-mask{display:none!important;opacity:0!important;pointer-events:none!important}.yat-sort-drawer-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.yat-sort-drawer-header h3{margin:0}.yat-sort-group{border-bottom:1px solid var(--line);margin-bottom:8px;padding-bottom:10px}.yat-sort-controls{display:flex;flex-direction:column;gap:10px;padding-top:10px}.yat-sort-scope-switch{display:flex;align-items:center;justify-content:center;gap:10px}.yat-sort-scope-label{padding:4px 2px;border:0;background:none;color:var(--muted);font:700 12px/1 Oswald,sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}.yat-sort-scope-label.active{color:#d8b85f}.yat-sort-switch{position:relative;flex:0 0 auto;width:46px;height:24px;padding:0;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.1);cursor:pointer;transition:background .18s ease}.yat-sort-switch-knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#d8b85f;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}.yat-sort-switch[aria-checked="true"] .yat-sort-switch-knob{transform:translateX(22px)}.yat-sort-switch:focus-visible,.yat-sort-scope-label:focus-visible,.yat-sort-level-btn:focus-visible{outline:2px solid #d8b85f;outline-offset:2px}.yat-sort-career-levels{display:flex;justify-content:center;gap:6px}.yat-sort-career-levels[hidden]{display:none}.yat-sort-level-btn{min-height:26px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.04);color:var(--ink);font:600 11px/1 Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}.yat-sort-level-btn.active{background:#d8b85f;border-color:#d8b85f;color:#111}.yat-sort-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start}.yat-sort-column-title{margin:0 0 5px;color:var(--muted);font:600 11px Oswald,sans-serif;letter-spacing:.06em;text-transform:uppercase}.yat-sort-options{display:grid;grid-template-columns:1fr;gap:5px}.yat-sort-options label{display:flex;align-items:center;gap:6px;min-height:30px;border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.04);padding:5px 7px;color:var(--ink);font:400 12px Oswald,sans-serif;text-transform:uppercase;cursor:pointer}.yat-sort-short{flex:0 0 auto;font-weight:700;letter-spacing:.04em}.yat-sort-options input:checked+.yat-sort-short{color:#ffd166}.yat-sort-reset{min-height:32px;border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.08);color:var(--fg);font:400 12px Oswald,sans-serif;text-transform:uppercase;cursor:pointer}.yat-sort-status{color:var(--muted);font:400 11px/1.35 Oswald,sans-serif;letter-spacing:.03em}@media (min-width:780px){body.drawer-sort-open #drawerSort{top:calc(var(--row1-h) + var(--row2-h))!important;bottom:var(--footerH)!important;height:auto!important;z-index:64!important}body.drawer-sort-open .yat-row3-shell,body.drawer-sort-open .yat-row4-shell,body.drawer-sort-open .yat-row5-shell,body.drawer-sort-open .yat-row6-shell{margin-right:var(--yat-side-drawer-w,360px)!important}body.drawer-left-open.drawer-sort-open .yat-row3-shell,body.drawer-left-open.drawer-sort-open .yat-row4-shell,body.drawer-left-open.drawer-sort-open .yat-row5-shell,body.drawer-left-open.drawer-sort-open .yat-row6-shell{margin-left:var(--yat-side-drawer-w,360px)!important;margin-right:var(--yat-side-drawer-w,360px)!important}body.drawer-sort-open .yat-grid{grid-template-columns:repeat(auto-fill,min(100%,264px))!important;justify-content:center}}@media (max-width:779px){body.drawer-sort-open .yat-drawer-mask{display:block!important;opacity:1!important;pointer-events:auto!important}}
+
+    /* Mobile Sort: a viewport-bound drawer with independently scrolling options.
+       Reset and the current sort description stay above the site's fixed footer. */
+    #drawerSort {
+      display:flex!important;
+      flex-direction:column!important;
+      overflow:hidden!important;
+    }
+    #drawerSort .yat-sort-drawer-header {
+      flex:0 0 auto!important;
+      min-height:45px!important;
+      padding:8px 13px!important;
+      border-bottom:0!important;
+    }
+    #drawerSort .yat-sort-drawer-header h3 {
+      margin:0!important;
+      padding:0!important;
+      font:800 21px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;
+      letter-spacing:-.025em!important;
+    }
+    #drawerSort #sortControls {
+      flex:1 1 auto!important;
+      min-height:0!important;
+      padding:4px 12px 8px!important;
+      gap:0!important;
+      overflow-x:hidden!important;
+      overflow-y:auto!important;
+      overscroll-behavior-y:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    #drawerSort #yatSortControls {
+      margin:0!important;
+      padding:0!important;
+      border:0!important;
+    }
+    #drawerSort .yat-sort-controls {
+      gap:6px;
+      padding:2px 0 0;
+    }
+    #drawerSort .yat-sort-scope-switch {gap:8px;}
+    #drawerSort .yat-sort-scope-label {
+      font:800 11px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);
+      letter-spacing:0;
+    }
+    #drawerSort .yat-sort-switch{width:42px;height:22px;}
+    #drawerSort .yat-sort-switch-knob{width:16px;height:16px;}
+    #drawerSort .yat-sort-switch[aria-checked="true"] .yat-sort-switch-knob{transform:translateX(20px);}
+    #drawerSort .yat-sort-career-levels {gap:4px;flex-wrap:wrap;}
+    #drawerSort .yat-sort-level-btn {min-height:26px;padding:0 9px;font-size:11px;}
+    #drawerSort .yat-sort-columns {
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      align-items:start;
+      gap:9px;
+    }
+    #drawerSort .yat-sort-column {min-width:0;}
+    #drawerSort .yat-sort-column-title {
+      margin:0 0 4px;
+      font:700 11px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);
+      letter-spacing:.02em;
+    }
+    #drawerSort .yat-sort-options {gap:3px;}
+    #drawerSort .yat-sort-options label {
+      box-sizing:border-box;
+      min-height:29px;
+      gap:6px;
+      padding:4px 6px;
+      border:0;
+      border-radius:5px;
+      background:rgba(128,128,128,.08);
+      font:600 11px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);
+    }
+    #drawerSort .yat-sort-options label:has(input:checked) {
+      background:var(--line);
+      box-shadow:inset 0 0 0 1px var(--muted);
+    }
+    #drawerSort .yat-sort-options input {
+      flex:0 0 auto;
+      width:16px;
+      height:16px;
+      margin:0;
+      accent-color:var(--fg);
+    }
+    #drawerSort .yat-sort-short {letter-spacing:0;}
+    #drawerSort .yat-sort-actions {
+      flex:0 0 auto;
+      display:grid;
+      grid-template-columns: minmax(90px,auto) minmax(0,1fr);
+      align-items:center;
+      column-gap:10px;
+      padding:6px 12px 8px;
+      background:rgba(6,6,6,.90);
+      border-top:1px solid var(--line);
+    }
+    body.light-theme #drawerSort .yat-sort-actions {background:rgba(244,244,244,.95);}
+    #drawerSort .yat-sort-reset {
+      box-sizing:border-box;
+      min-height:34px;
+      padding:6px 10px;
+      border:1px solid var(--line);
+      border-radius:6px;
+      background:var(--line);
+      color:var(--ink);
+      font:800 11px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
+      white-space:nowrap;
+    }
+    #drawerSort .yat-sort-reset:focus-visible {outline:2px solid var(--fg);outline-offset:2px;}
+    #drawerSort .yat-sort-status {
+      min-width:0;
+      max-height:3.5em;
+      overflow-y:auto;
+      font:400 10px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);
+      letter-spacing:0;
+    }
+    @media(max-width:779px){
+      #drawerSort .yat-sort-drawer-header {min-height:41px!important;padding:5px 12px!important;}
+      #drawerSort #sortControls {padding:1px 11px 5px!important;}
+      #drawerSort .yat-sort-controls {gap:5px;}
+      #drawerSort .yat-sort-options label {min-height:27px;padding:3px 5px;}
+      #drawerSort .yat-sort-options {gap:2px;}
+      #drawerSort .yat-sort-actions {padding:5px 11px 7px;}
+    }
   `}</style></>;
 }
