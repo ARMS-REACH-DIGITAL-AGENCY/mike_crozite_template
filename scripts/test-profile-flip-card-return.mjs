@@ -21,4 +21,16 @@ assert.match(shell, /profileActivePlayerIds=\{profileActivePlayerIds\}/);
 assert.match(bar, /selectProfileGalleryView\(profilePlayerId, profileActivePlayerIds, profileCurrentPlayerIds\)/);
 assert.match(bar, /href=\{flipCardReturnHref\(/);
 assert.doesNotMatch(bar, /playerProfile\?\.statusLabel|playerFlipCardHref\(/);
-console.log('PASS Back to Flip Card: active, retired, high-school, and data plumbing.');
+// Profile return and Row-3 headshot clicks must land at the same card top.
+const gallery = read('src/components/yatstats/GalleryFilterController.tsx');
+const start = gallery.indexOf('function scrollToLinkedCard(');
+const end = gallery.indexOf('// Point the address at the player', start);
+assert.ok(start >= 0 && end > start, 'Locate linked-card scroll implementation');
+const linkedScroll = gallery.slice(start, end);
+assert.match(linkedScroll, /gallery-strip\[data-react-mirrors-row5="true"\]/);
+assert.match(linkedScroll, /getBoundingClientRect\(\)\.bottom/);
+assert.match(linkedScroll, /getBoundingClientRect\(\)\.top - targetY/);
+assert.match(linkedScroll, /Math\.max\(0, rowBottom\) \+ 8/);
+assert.match(linkedScroll, /window\.scrollBy\(\{ top: delta, behavior: 'instant' \}\)/);
+assert.doesNotMatch(linkedScroll, /scrollIntoView/, 'Do not viewport-center a tall card behind the sticky row');
+console.log('PASS Back to Flip Card: destinations and sticky-row card alignment.');

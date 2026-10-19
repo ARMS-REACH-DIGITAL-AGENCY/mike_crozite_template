@@ -6,6 +6,7 @@ on:
       - 'src/app/[hsid]/layout.tsx'
       - 'src/components/yatstats/SharedShell.tsx'
       - 'src/components/yatstats/shell/SchoolContextBar.tsx'
+      - 'src/components/yatstats/GalleryFilterController.tsx'
       - 'src/lib/profileFlipCardRouting.ts'
       - 'scripts/test-profile-flip-card-return.mjs'
   push:
@@ -14,6 +15,7 @@ on:
       - 'src/app/[hsid]/layout.tsx'
       - 'src/components/yatstats/SharedShell.tsx'
       - 'src/components/yatstats/shell/SchoolContextBar.tsx'
+      - 'src/components/yatstats/GalleryFilterController.tsx'
       - 'src/lib/profileFlipCardRouting.ts'
       - 'scripts/test-profile-flip-card-return.mjs'
 jobs:
