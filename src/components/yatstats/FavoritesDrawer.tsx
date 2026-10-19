@@ -1149,6 +1149,23 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           color: #ffc665;
         }
 
+        /* Match the approved live Beau Brieske result typography. */
+        #drawerFavorites .yat-favorite-text-link strong {
+          font:800 15px/1.15 Oswald,sans-serif;
+          letter-spacing:0;
+          text-transform:uppercase;
+          white-space:normal;
+          overflow-wrap:anywhere;
+        }
+        #drawerFavorites .yat-favorite-text-link small {
+          font:400 11px/1.2 Oswald,sans-serif;
+          text-transform:uppercase;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+        #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {color:#c8a96e;}
+        body.light-theme #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {color:#805600;}
         #drawerFavorites .yat-favorite-heart-btn[aria-disabled="true"] {
           opacity: .5;
           cursor: wait;
