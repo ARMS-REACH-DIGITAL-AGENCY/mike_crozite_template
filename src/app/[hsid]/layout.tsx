@@ -299,8 +299,9 @@ async function SchoolShell({
 
   // The same statuses on every school, in the same order (src/lib/galleryStatuses.ts).
   const statusFilterOptions = GALLERY_STATUS_OPTIONS;
-  // Keep the original ordered status values: COACH begins the second column.
-  const statusCoachIndex = statusFilterOptions.indexOf('COACH');
+  // Keep filter checkbox values and their order. Start the second column
+  // with REASSIGNED TO MINORS, as requested for the mobile layout.
+  const statusSecondColumnIndex = statusFilterOptions.indexOf('REASSIGNED TO MINORS');
   const graduationClassOptions = [
     '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
   ];
@@ -515,14 +516,14 @@ async function SchoolShell({
               </label>
               <div className="yat-filter-columns">
                 <div className="yat-filter-column">
-                  {statusFilterOptions.slice(0,statusCoachIndex).map((s) => (
+                  {statusFilterOptions.slice(0,statusSecondColumnIndex).map((s) => (
                     <label key={s}>
                       <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
                     </label>
                   ))}
                 </div>
                 <div className="yat-filter-column">
-                  {statusFilterOptions.slice(statusCoachIndex).map((s) => (
+                  {statusFilterOptions.slice(statusSecondColumnIndex).map((s) => (
                     <label key={s}>
                       <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
                     </label>
