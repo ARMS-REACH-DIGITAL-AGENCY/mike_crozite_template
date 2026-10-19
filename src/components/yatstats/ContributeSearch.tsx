@@ -170,7 +170,7 @@ export default function ContributeSearch(props: Props) {
       </div>
       {!schoolOnly && !teamOnly && (
         <div className="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
-          {([['name', 'Player Name'], ['school', 'High School'], ['team', 'Current Team']] as [Mode, string][]).map(([m, label]) => (
+          {([['name', 'PLAYER NAME'], ['school', 'HIGH SCHOOL'], ['team', 'CURRENT TEAM']] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} className={`yat-search-mode-btn${mode === m ? ' active' : ''}`} onClick={() => { setMode(m); setRosterOf(null); }}>{label}</button>
           ))}
         </div>
