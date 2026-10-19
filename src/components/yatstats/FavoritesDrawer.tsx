@@ -1119,7 +1119,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           padding: 0;
           border: none;
           background: transparent;
-          color: var(--ink, #a0a0a0);
+          color: #ffb238;
           font-size: 16px;
           line-height: 1;
           cursor: pointer;
@@ -1132,7 +1132,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-heart-btn:hover {
-          color: #ddd;
+          color: #ffc665;
         }
 
         #drawerFavorites .yat-favorite-heart-btn[aria-disabled="true"] {
