@@ -9,10 +9,12 @@ import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
-import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
+import { flipCardReturnHref, selectProfileGalleryView } from '@/lib/profileFlipCardRouting';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
+  profileActivePlayerIds: string[];
+  profileCurrentPlayerIds: string[];
   isGallery: boolean;
   isNews: boolean;
   activeSection: string;
@@ -21,24 +23,6 @@ interface SchoolContextBarProps {
 function joinSchoolUrl(base: string, suffix = ''): string {
   const cleanBase = String(base || '').replace(/\/$/, '');
   return cleanBase ? `${cleanBase}${suffix}` : suffix || '/';
-}
-
-function playerFlipCardHref(
-  playerSchoolUrl: string | undefined,
-  playerHsid: string,
-  playerId: string,
-  statusLabel?: string,
-  levelLabel?: string,
-): string {
-  const base = playerSchoolUrl || `/${encodeURIComponent(playerHsid)}`;
-  const status = String(statusLabel || '').trim().toUpperCase();
-  const level = String(levelLabel || '').trim().toUpperCase();
-  const view = isActiveGalleryStatus(status)
-    ? 'active'
-    : (level === 'HIGH SCHOOL' || level === 'HS' || status === 'COMMIT' || status === 'UNCOMMITTED')
-      ? 'current'
-      : 'alltime';
-  return joinSchoolUrl(base, `?view=${view}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`);
 }
 
 function getVisibleGallerySection(): HTMLElement | null {
@@ -105,6 +89,8 @@ const SECTION_LABELS: Record<string, string> = {
 
 export default function SchoolContextBar({
   isPlayerProfile,
+  profileActivePlayerIds,
+  profileCurrentPlayerIds,
   isGallery,
   isNews,
   activeSection,
@@ -121,6 +107,9 @@ export default function SchoolContextBar({
   const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
   const resolvedPlayerHsid = playerProfile?.playerHsid || schoolData?.hsid || '';
   const resolvedPlayerSchoolUrl = playerProfile?.playerSchoolUrl;
+  // The header sits above the nested PlayerProfileContext provider, so
+  // playerProfile.statusLabel is inaccessible here. Trust school membership.
+  const galleryView = selectProfileGalleryView(profilePlayerId, profileActivePlayerIds, profileCurrentPlayerIds);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('yat-theme') === 'light' ? 'light' : 'dark';
@@ -186,12 +175,11 @@ export default function SchoolContextBar({
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
         {isPlayerProfile && profilePlayerId && resolvedPlayerHsid && (
-          <a href={playerFlipCardHref(
+          <a href={flipCardReturnHref(
               resolvedPlayerSchoolUrl,
               resolvedPlayerHsid,
               profilePlayerId,
-              playerProfile?.statusLabel,
-              playerProfile?.levelLabel,
+              galleryView,
             )} className="yat-icon-btn" aria-label="Back to Flip Card" title="Back to Flip Card" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
             <FlipCardIcon size={20} />
           </a>

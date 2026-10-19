@@ -102,6 +102,8 @@ export default function SharedShell({
   children,
   hsid,
   players = [],
+  profileActivePlayerIds = [],
+  profileCurrentPlayerIds = [],
   teamSeasonResults = [],
   schoolMeta,
   row3Content,
@@ -112,6 +114,8 @@ export default function SharedShell({
   children: ReactNode;
   hsid: string;
   players?: StripPlayer[];
+  profileActivePlayerIds?: string[];
+  profileCurrentPlayerIds?: string[];
   teamSeasonResults?: TeamSeasonResult[];
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
@@ -218,6 +222,8 @@ export default function SharedShell({
       <div className={`yat-row2-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <SchoolContextBar
           isPlayerProfile={isPlayerProfile}
+          profileActivePlayerIds={profileActivePlayerIds}
+          profileCurrentPlayerIds={profileCurrentPlayerIds}
           isGallery={isGallery}
           isNews={isNews}
           activeSection={activeSection}

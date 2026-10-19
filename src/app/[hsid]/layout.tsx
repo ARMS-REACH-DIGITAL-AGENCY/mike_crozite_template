@@ -366,6 +366,8 @@ async function SchoolShell({
       <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
+        profileActivePlayerIds={activeAlumniPlayerIds}
+        profileCurrentPlayerIds={currentRosterRows.map((player) => String(player.playerid))}
         teamSeasonResults={teamSeasonResults}
         schoolMeta={schoolMeta}
         initialTeamYear={initialTeamYear}
