@@ -296,7 +296,7 @@ export async function addNoteToGHLContact(contactId: string, body: string): Prom
  * Send an email to a contact through GoHighLevel (Conversations), from the
  * location's default sender. Returns false when it couldn't be sent.
  */
-export async function sendGHLEmail(contactId: string, subject: string, html: string): Promise<boolean> {
+export async function sendGHLEmail(contactId: string, subject: string, html: string, emailFrom?: string): Promise<boolean> {
   const apiKey = getGHLApiKey();
   if (!apiKey) return false;
   try {
@@ -308,7 +308,7 @@ export async function sendGHLEmail(contactId: string, subject: string, html: str
         "Authorization": `Bearer ${apiKey}`,
         "Version": "2021-04-15",
       },
-      body: JSON.stringify({ type: "Email", contactId, subject, html }),
+      body: JSON.stringify({ type: "Email", contactId, subject, html, ...(emailFrom ? { emailFrom } : {}) }),
     });
     if (!response.ok) console.error("sendGHLEmail failed:", response.status, (await response.text()).slice(0, 300));
     return response.ok;
