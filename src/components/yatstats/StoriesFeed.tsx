@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
+import { openStoryDrawer } from '@/lib/storyDrawer';
 import SortToggle from '@/components/yatstats/SortToggle';
 import TeammatesList, { teammateCount, useTeammates, type TeammateSeason } from '@/components/yatstats/TeammatesList';
 import StoryViewer, { AlbumStrip, StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
@@ -123,6 +124,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const teammates = useTeammates(playerId);
   const teammatesTotal = teammateCount(teammates);
   const [teammatesOpen, setTeammatesOpen] = useState(false);
+  const storyOpenOwner = useMemo(() => Symbol(`stories-feed-open:${playerId}`), [playerId]);
   const closeTeammates = useCallback(() => setTeammatesOpen(false), []);
   const openStory = stories?.find((s) => s.id === openId) || null;
   // A shared link (?story=<id>) opens that story once the list is in.
@@ -266,7 +268,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     body = (
       <div className="ysf-empty">
         <strong>No stories yet.</strong>
-        <span>Tap the Polaroid on {firstName}&apos;s Career Timeline above to add the first one.</span>
+        <span>Share the first memory on {firstName}&apos;s Career Path Timeline.</span>
       </div>
     );
   } else {
@@ -335,25 +337,32 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   return (
     <div className="ysf">
-      {/* Search and sort (once there are stories), and his teammates. */}
-      {(stories?.length || teammatesTotal > 0) ? (
-        <div className="ysf-tools">
-          {stories?.length ? (
-            <>
-              <label className="ysf-search">
-                <i className="ri-search-line" aria-hidden="true" />
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
-              </label>
-              <SortToggle dir={sort} onChange={setSort} />
-            </>
-          ) : <span className="ysf-tools-fill" />}
-          {teammatesTotal > 0 ? (
-            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen}>
-              <i className="ri-team-line" aria-hidden="true" /> Teammates <span className="ysf-tm-count">{teammatesTotal}</span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Primary contribution CTA + story tools + teammates. */}
+      <div className="ysf-tools">
+        <button
+          type="button"
+          className="ysf-share-memory-btn"
+          onClick={() => openStoryDrawer({ playerId, year: null }, storyOpenOwner)}
+          aria-label={`Share a story on ${firstName}'s Career Path Timeline`}
+        >
+          <i className="ri-upload-cloud-2-line" aria-hidden="true" />
+          <span>Share a story on {firstName}&apos;s<br className="ysf-share-break" /> Career Path Timeline</span>
+        </button>
+        {stories?.length ? (
+          <>
+            <label className="ysf-search">
+              <i className="ri-search-line" aria-hidden="true" />
+              <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
+            </label>
+            <SortToggle dir={sort} onChange={setSort} />
+          </>
+        ) : <span className="ysf-tools-fill" />}
+        {teammatesTotal > 0 ? (
+          <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen}>
+            <i className="ri-team-line" aria-hidden="true" /> Teammates <span className="ysf-tm-count">{teammatesTotal}</span>
+          </button>
+        ) : null}
+      </div>
       <div className="ysf-main">{body}</div>
       {teammatesOpen && typeof document !== 'undefined' ? <TeammatesDrawer rows={teammates} onClose={closeTeammates} /> : null}
 
@@ -393,13 +402,30 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
         .ysf-tools-fill { flex: 1; }
+        .ysf-share-memory-btn {
+          flex:0 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:10px;
+          min-height:46px; padding:7px 14px; border:1px solid rgba(255,255,255,.34); border-radius:8px;
+          background:rgba(255,255,255,.025); color:#fff; cursor:pointer; text-align:left;
+          font:700 12px/1.18 var(--yat-font-ui,Arial,sans-serif); letter-spacing:.015em; text-transform:uppercase;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.05); transition:background .16s ease,border-color .16s ease;
+        }
+        .ysf-share-memory-btn:hover,.ysf-share-memory-btn:focus-visible { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.62); outline:none; }
+        .ysf-share-memory-btn i { flex:none; color:#fff; font-size:28px; line-height:1; font-weight:400; }
+        .ysf-share-memory-btn span { display:block; white-space:nowrap; }
+        .ysf-share-break { display:none; }
+
         /* Teammates: opens the drawer. Same height and frame as the sort. */
         .ysf-tm-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 700 16px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
-        .ysf-tm-btn i { font-size: 17px; color: var(--ysf-when); }
-        .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color: var(--ysf-when); }
-        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 999px; background: var(--ysf-when); color: #111; font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
-        @media (max-width: 420px) {
-          .ysf-tm-btn { padding: 0 9px; font-size: 14px; }
+        .ysf-tm-btn i { font-size: 17px; color: var(--ysf-strong); }
+        .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color: rgba(255,255,255,.58); }
+        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 999px; background: rgba(255,255,255,.92); color: #111; font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
+        @media (max-width: 520px) {
+          .ysf-tools { align-items:stretch; }
+          .ysf-share-memory-btn { flex:1 1 auto; min-width:0; padding:7px 10px; }
+          .ysf-share-memory-btn span { white-space:normal; font-size:11px; }
+          .ysf-share-break { display:initial; }
+          .ysf-share-memory-btn i { font-size:26px; }
+          .ysf-tm-btn { padding:0 9px; font-size:14px; }
         }
         .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
         .ysf-feed-posts { gap: 16px; max-width: 760px; margin: 0 auto; }
