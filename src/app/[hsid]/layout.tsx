@@ -473,7 +473,7 @@ async function SchoolShell({
             borderBottom: '1px solid var(--line)',
           }}
         >
-          <h3 style={{ margin: 0 }}>SORT &amp; FILTER</h3>
+          <h3 style={{ margin: 0 }}>FILTER</h3>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
