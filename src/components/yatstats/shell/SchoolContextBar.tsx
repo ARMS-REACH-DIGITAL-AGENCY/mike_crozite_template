@@ -1,13 +1,12 @@
 // src/components/yatstats/shell/SchoolContextBar.tsx
 'use client';
 
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { highSchoolTeamLabel } from '@/lib/playerUtils';
 import { SchoolContext } from '@/context/SchoolContext';
 import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
-import { openStoryDrawer } from '@/lib/storyDrawer';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
@@ -95,11 +94,9 @@ export default function SchoolContextBar({
   const [allCardsFlipped, setAllCardsFlipped] = useState(false);
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
-  const storyOpenOwner = useMemo(() => Symbol(`profile-story-open:${profilePlayerId || 'none'}`), [profilePlayerId]);
   const slugDerivedName = playerRouteMatch?.[2]
     ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : '';
-  const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
   const resolvedPlayerSchoolUrl = playerProfile?.playerSchoolUrl;
 
   useEffect(() => {
@@ -165,18 +162,6 @@ export default function SchoolContextBar({
         <div id="yatSectionLabel" className="big2">{getPageLabel()}</div>
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {isPlayerProfile && profilePlayerId && (
-          <button
-            type="button"
-            className="yat-profile-story-cta"
-            aria-label={`Share a story on ${resolvedPlayerName || 'this player'}'s Career Path Timeline`}
-            title="Share a story"
-            onClick={() => openStoryDrawer({ playerId: profilePlayerId, year: null }, storyOpenOwner)}
-          >
-            <i className="ri-upload-cloud-2-line" aria-hidden="true" />
-            <span>Share a story<span className="yat-profile-story-name"> on {resolvedPlayerName ? resolvedPlayerName.split(' ')[0] : 'this player'}&apos;s Career Path</span></span>
-          </button>
-        )}
         {isGallery && (
           <>
             <button id="flipAllCards" className="yat-icon-btn" aria-label={allCardsFlipped ? 'Flip all cards to front' : 'Flip all cards to stats'} aria-pressed={allCardsFlipped} title={allCardsFlipped ? 'Flip all cards to front' : 'Flip all cards to stats'} onClick={handleFlipAll} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
@@ -189,28 +174,7 @@ export default function SchoolContextBar({
         )}
       </div>
 
-      <style jsx>{`
-        .yat-profile-story-cta {
-          display:inline-flex; align-items:center; justify-content:center; gap:8px;
-          min-height:42px; max-width:190px; padding:6px 11px;
-          border:1px solid rgba(255,255,255,.34); border-radius:7px;
-          background:rgba(0,0,0,.16); color:#fff; cursor:pointer;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
-          font:700 10px/1.15 var(--yat-font-ui,Arial,sans-serif);
-          letter-spacing:.025em; text-transform:uppercase; text-align:left;
-          transition:background .16s ease,border-color .16s ease,opacity .16s ease;
-        }
-        .yat-profile-story-cta:hover,.yat-profile-story-cta:focus-visible {
-          background:rgba(255,255,255,.065); border-color:rgba(255,255,255,.65); outline:none;
-        }
-        .yat-profile-story-cta i { flex:none; color:#fff; font-size:24px; line-height:1; font-weight:400; }
-        .yat-profile-story-cta span { display:block; }
-        @media (max-width:620px) {
-          .yat-profile-story-cta { width:138px; max-width:138px; min-height:46px; padding:6px 8px; gap:7px; font-size:9px; line-height:1.2; }
-          .yat-profile-story-cta i { font-size:22px; }
-          .yat-profile-story-name { display:block !important; }
-        }
-      `}</style>
+
     </div>
   );
 }
