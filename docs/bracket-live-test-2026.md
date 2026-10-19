@@ -109,6 +109,11 @@ Add a dated line for each milestone.
 - 2026-10-19 (later): the Fantasy tab's picture now dissolves at the bottom
   and the timeline is outlined; Pete asked for it on the test brackets too
   (a `TEST-ONLY:` merge of `ccr-0ad18095-umgndf`, as before).
+- 2026-10-19 (later): Pete OK'd both. PR #453 merged `ccr-0ad18095-umgndf`
+  into `Easter-NEWS`: the Fantasy tab look is live, and so is the nightly
+  Alumni Daily (`/api/cron/fan-daily-pilot`, midnight Arizona, test1-6 and
+  pcdaction@gmail.com) with `YATSTATS_SENDING_DOMAIN_VERIFIED=true` set in
+  production.
 - Note for anyone replaying the brackets: `/api/bracket/live` takes at most
   64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
