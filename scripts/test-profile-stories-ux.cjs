@@ -12,8 +12,8 @@ const timeline = read('src/components/yatstats/ZoomableCareerTimeline.tsx');
 const search = read('src/components/yatstats/SearchDrawerTabs.tsx');
 const teamApi = read('src/app/api/teams/search/route.ts');
 const jsx = stories.slice(stories.indexOf('<div className="ysf-tools"'), stories.indexOf('<div className="ysf-main">'));
-const positions = ['<SortToggle', 'className="ysf-add-btn"', 'className="ysf-search"', 'className="ysf-tm-btn"'].map(s => jsx.indexOf(s));
-assert.ok(positions.every((n,i) => n >= 0 && (i === 0 || n > positions[i-1])), 'Sort, Add Story, Search, icon + count in one toolbar');
+const positions = ['className="ysf-add-btn"', 'className="ysf-tm-btn"', 'className="ysf-search"', '<SortToggle'].map(s => jsx.indexOf(s));
+assert.ok(positions.every((n,i) => n >= 0 && (i === 0 || n > positions[i-1])), 'Story toolbar has Add Story, Teammates, Search, then Sort');
 assert.match(jsx,/openStoryDrawer\(\{ playerId, year: null \}, storyOpenOwner\)/,'Story toolbar opens real player-scoped upload drawer');
 assert.doesNotMatch(jsx,/>\s*Teammates\s*</i,'No visible Teammates label');
 assert.doesNotMatch(bar,/yat-profile-memory-cta|openStoryDrawer/,'Upload CTA does not return to school header');
@@ -22,8 +22,8 @@ assert.match(timeline,/webCutoutUrl\('back', playerId\)/,'Secondary image prefer
 assert.match(timeline,/players\/back-card\//,'Falls back to actual card-back action photo');
 assert.match(timeline,/players\/back\//,'Falls back to original action photo');
 assert.match(timeline,/fallbackAt=\{4\}/,'Headshot only after 4 back photo sources');
-assert.match(timeline,/\.zt-nav \{ position:absolute; z-index:7; top:68%; bottom:auto;/,'Arrows float in lower half of slide');
-assert.match(timeline,/\.zt-nav \{ top:69%; bottom:auto;/,'Arrows remain inside slide on phones');
+assert.match(timeline,/\.zt-nav \{ position:absolute; z-index:7; top:50%; bottom:auto;/,'Arrows float in lower half of slide');
+assert.match(timeline,/\.zt-nav \{ top:50%; bottom:auto;/,'Arrows remain inside slide on phones');
 assert.match(timeline,/\.zt-rail \{ position:absolute; z-index:6; left:12px; right:12px;/,'Rail spans width with small insets');
 assert.match(timeline,/\.zt-nav \{[^\n]*border:0;[^\n]*background:transparent;/,'Arrows have no frame or opaque fill');
 assert.match(timeline,/left:calc\(32% - 24px - 800px\)/,'Tablet/medium photo clears copy');
@@ -86,4 +86,12 @@ assert.match(newsList,/\.pp-news-reader-copy\{font-family:var\(--yat-font-ui,Arc
 console.log('Approved selective orange accents + neutral Archivo News reader regression checks passed');
 console.log('Contribute monochrome styles, flat Stats/Schedules and player tabs regression checks passed');
 
+const interactionStrip=read('src/components/yatstats/shell/InteractionStrip.tsx');
+assert.match(interactionStrip,/readPlayersFromVisibleBlockFive\('active', playersById\)/,'News row uses active gallery cards');
+assert.ok(interactionStrip.indexOf("const visible = document.querySelector<HTMLElement>('.yat-section.visible');") < interactionStrip.indexOf("const hash = window.location.hash || '';"), 'Visible tab is canonical');
+assert.match(stories,/SHARE A STORY ON \{firstName.toUpperCase\(\)\}/,'Story CTA text includes player');
+assert.match(stories,/ysf-tool-row-search/,'Two compact toolbar rows');
+assert.match(sort,/\.yst-compact \{[^\n]*border:0;/,'Borderless Stories sort');
+assert.match(newsList,/\.pp-news-title\{font-size:14px;line-height:1.26\}/,'Mobile news headline compact');
+console.log('News membership, two-row Story controls and centered arrows passed');
 console.log('Profile Stories/Timeline/Global Search regression checks passed');

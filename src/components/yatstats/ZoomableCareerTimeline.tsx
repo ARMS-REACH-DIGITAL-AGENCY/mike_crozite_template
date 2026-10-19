@@ -2777,7 +2777,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            gold. */
         /* Arrows float midway INSIDE the career slide, separate from the
            timeline rail. Never position them on the rail in mobile CSS. */
-        .zt-nav { position:absolute; z-index:7; top:68%; bottom:auto; transform:translateY(-50%); width:42px; height:46px; border:0; border-radius:0; background:transparent; color:rgba(255,255,255,.58); display:grid; place-items:center; cursor:pointer; font-size:30px; text-shadow:0 1px 5px rgba(0,0,0,.65); }
+        .zt-nav { position:absolute; z-index:7; top:50%; bottom:auto; transform:translateY(-50%); width:50px; height:52px; border:0; border-radius:0; background:transparent; color:rgba(255,255,255,.38); display:grid; place-items:center; cursor:pointer; font-size:38px; text-shadow:0 1px 5px rgba(0,0,0,.65); }
         .zt-nav:hover, .zt-nav:focus-visible { color:rgba(255,255,255,.9); }
         .zt-nav:disabled { opacity:.22; cursor:default; }
         /* Edge placement stays symmetric; navigation is no longer part
@@ -3107,7 +3107,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              marks materially easier to read without widening their year
              slots or letting them collide with neighboring seasons. */
           .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
-          .zt-nav { top:69%; bottom:auto; width:38px; height:44px; font-size:29px; }
+          .zt-nav { top:50%; bottom:auto; width:48px; height:50px; font-size:35px; }
           .zt-rail-tick-boundary { bottom:6px; right:9px; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width

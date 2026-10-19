@@ -7,12 +7,12 @@
 
 export type SortDir = 'newest' | 'oldest';
 
-export default function SortToggle({ dir, onChange }: { dir: SortDir; onChange: (dir: SortDir) => void }) {
+export default function SortToggle({ dir, onChange, compact = false }: { dir: SortDir; onChange: (dir: SortDir) => void; compact?: boolean }) {
   const next = dir === 'newest' ? 'oldest' : 'newest';
   return (
     <button
       type="button"
-      className="yst"
+      className={compact ? "yst yst-compact" : "yst"}
       onClick={() => onChange(next)}
       aria-label={dir === 'newest' ? 'Newest first. Tap for oldest first.' : 'Oldest first. Tap for newest first.'}
       title={dir === 'newest' ? 'Newest first' : 'Oldest first'}
@@ -21,10 +21,12 @@ export default function SortToggle({ dir, onChange }: { dir: SortDir; onChange: 
       <span className={dir === 'newest' ? 'yst-on' : ''} aria-hidden="true">▼</span>
       <style jsx>{`
         .yst { flex: none; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 42px; min-height: 42px; padding: 0; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; background: rgba(255,255,255,.055); color: rgba(255,255,255,.7); font-size: 10px; line-height: 1; cursor: pointer; }
+        .yst-compact { width:36px;min-height:27px;height:27px;border:0;background:transparent;border-radius:0;font-size:11px; }
         .yst span { opacity: .3; }
         .yst .yst-on { opacity: 1; color: #fff; }
         :global(body.light-theme) .yst { border-color: rgba(0,0,0,.16); background: rgba(255,255,255,.52); color: rgba(0,0,0,.7); }
         :global(body.light-theme) .yst .yst-on { color: #111; }
+        :global(body.light-theme) .yst-compact { border:0;background:transparent; }
       `}</style>
     </button>
   );

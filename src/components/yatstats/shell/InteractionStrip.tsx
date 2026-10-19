@@ -95,11 +95,11 @@ function isHighSchoolStatus(value?: string | null): boolean {
 function getCurrentSection(): string {
   if (typeof window === 'undefined' || typeof document === 'undefined') return 'active';
 
-  const hash = window.location.hash || '';
-  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '') || 'active';
-
+  // Actual visible tab outranks the address hash during navigation.
   const visible = document.querySelector<HTMLElement>('.yat-section.visible');
   if (visible?.id?.startsWith('sec-')) return visible.id.replace(/^sec-/, '') || 'active';
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '') || 'active';
 
   return 'active';
 }
@@ -309,14 +309,12 @@ export default function InteractionStrip({
         // first so client-side navigation doesn't depend on a news-only list
         // that may not be populated until a full refresh.
         const nextPlayers = section === 'news'
-          ? fallbackPlayersForSection('active', players)
+          ? readPlayersFromVisibleBlockFive('active', playersById)
           : PLAYER_GALLERY_SECTIONS.has(section)
             ? readPlayersFromVisibleBlockFive(section, playersById)
             : fallbackPlayersForSection(section, players);
 
-        const resolvedPlayers = nextPlayers.length
-          ? nextPlayers
-          : fallbackPlayersForSection(section, players);
+        const resolvedPlayers = nextPlayers.length ? nextPlayers : fallbackPlayersForSection(section === 'news' ? 'active' : section, players);
 
         setSectionPlayers((current) =>
           playerSignature(current) === playerSignature(resolvedPlayers) ? current : resolvedPlayers

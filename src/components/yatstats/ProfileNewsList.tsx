@@ -188,7 +188,7 @@ export default function ProfileNewsList({
         }
         body.light-theme .pp-news-feed{
           --pp-news-card-bg:rgba(255,255,255,.52);
-          --pp-news-card-border:rgba(0,0,0,.16);
+          --pp-news-card-border:rgba(0,0,0,.11);
           --pp-news-card-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 3px rgba(72,54,30,.08);
           --pp-news-thumb-bg:rgba(0,0,0,.04);
           --pp-news-thumb-border:rgba(0,0,0,.14);
@@ -206,6 +206,7 @@ export default function ProfileNewsList({
           z-index:6;
           display:flex;
           justify-content:flex-end;
+          gap:6px;
           margin:-10px 0 0;
           padding:8px 0 6px;
           background:var(--psi-page-bg,#070707);
@@ -219,9 +220,9 @@ export default function ProfileNewsList({
           display:flex;
           flex-direction:column;
           align-items:stretch;
-          gap:8px;
+          gap:7px;
           min-width:0;
-          padding:14px 0;
+          padding:10px 0;
           text-align:left;
           cursor:pointer;
           border:0;
@@ -247,8 +248,8 @@ export default function ProfileNewsList({
         .pp-news-thumb{
           display:block;
           flex:0 0 auto;
-          width:112px;
-          height:76px;
+          width:100px;
+          height:72px;
           object-fit:cover;
           border-radius:6px;
           border:1px solid var(--pp-news-thumb-border);
@@ -278,7 +279,7 @@ export default function ProfileNewsList({
         }
         .pp-news-title{
           margin-top:-.08em;
-          font:800 17px/1.2 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          font:800 14px/1.26 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           letter-spacing:-.02em;
           color:var(--pp-news-title);
         }
@@ -327,8 +328,8 @@ export default function ProfileNewsList({
           }
           .pp-news-teaser{gap:7px;padding:12px 0}
           .pp-news-row{gap:8px}
-          .pp-news-thumb{width:96px;height:68px}
-          .pp-news-title{font-size:16px}
+          .pp-news-thumb{width:90px;height:66px}
+          .pp-news-title{font-size:14px;line-height:1.26}
           .pp-news-body{font-size:12px}
           .pp-news-reader-copy{font-size:14px;line-height:1.55}
         }

@@ -337,29 +337,29 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   return (
     <div className="ysf">
-      {/* One toolbar above the posts, including when no stories exist yet. */}
+      {/* Two compact toolbar rows: wide contribution action above wide search. */}
       <div className="ysf-tools" role="toolbar" aria-label={`Stories about ${playerName || 'this player'}`}>
-        <SortToggle dir={sort} onChange={setSort} />
-        <button
-          type="button"
-          className="ysf-add-btn"
-          onClick={() => openStoryDrawer({ playerId, year: null }, storyOpenOwner)}
-          aria-label={`Add a story to ${firstName}'s Career Path Timeline`}
-          title={`Add a story to ${firstName}'s Career Path Timeline`}
-        >
-          <i className="ri-upload-cloud-2-line" aria-hidden="true" />
-          <span>ADD STORY</span>
-        </button>
-        <label className="ysf-search">
-          <i className="ri-search-line" aria-hidden="true" />
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
-        </label>
-        {teammatesTotal > 0 ? (
-          <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`} title={`View ${teammatesTotal} teammates`}>
-            <i className="ri-team-line" aria-hidden="true" />
-            <span className="ysf-tm-count">{teammatesTotal}</span>
+        <div className="ysf-tool-row">
+          <button type="button" className="ysf-add-btn"
+            onClick={() => openStoryDrawer({ playerId, year: null }, storyOpenOwner)}
+            aria-label={`Share a story on ${firstName}'s timeline`}>
+            <i className="ri-upload-cloud-2-line" aria-hidden="true" />
+            <span>SHARE A STORY ON {firstName.toUpperCase()}&#39;S TIMELINE</span>
           </button>
-        ) : null}
+          {teammatesTotal > 0 ? (
+            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)}
+              aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`}>
+              <i className="ri-team-line" aria-hidden="true" /><span className="ysf-tm-count">{teammatesTotal}</span>
+            </button>
+          ) : <span aria-hidden="true" />}
+        </div>
+        <div className="ysf-tool-row ysf-tool-row-search">
+          <label className="ysf-search">
+            <i className="ri-search-line" aria-hidden="true" />
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
+          </label>
+          <div className="ysf-sort"><SortToggle dir={sort} onChange={setSort} compact /></div>
+        </div>
       </div>
       <div className="ysf-main">{body}</div>
       {teammatesOpen && typeof document !== 'undefined' ? <TeammatesDrawer rows={teammates} onClose={closeTeammates} /> : null}
@@ -399,31 +399,18 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
-        /* Every control is 42px high and uses the Contribute page's typography. */
-        .ysf-add-btn { flex:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; height:42px; min-height:42px; padding:0 9px; border:1px solid var(--ysf-card-border); border-radius:8px; background:var(--ysf-card-bg); color:var(--ysf-strong); font:800 10px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.005em; white-space:nowrap; cursor:pointer; }
-        .ysf-add-btn i { font-size:17px; line-height:1; color:inherit; }
-        .ysf-add-btn:is(:hover,:focus-visible) { border-color:var(--ysf-strong); outline-offset:2px; }
-        /* An icon + count, not the word "Teammates": leave room for search. */
-        .ysf-tm-btn { flex:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; height:42px; min-height:42px; padding:0 8px; border:1px solid var(--ysf-card-border); border-radius:8px; background:var(--ysf-card-bg); color:var(--ysf-strong); font:700 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); cursor:pointer; }
-        .ysf-tm-btn i { font-size:18px; color:var(--ysf-strong); }
-        .ysf-tm-btn:is(:hover,[aria-expanded="true"]) { border-color:var(--ysf-strong); }
-        .ysf-tm-count { min-width:22px; padding:3px 5px; border-radius:5px; background:transparent; color:var(--ysf-strong); border:1px solid var(--ysf-card-border); font:700 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); text-align:center; }
-        @media (max-width:420px) {
-          .ysf-tools { gap:5px; }
-          .ysf-add-btn { gap:4px; padding:0 6px; font-size:9px; }
-          .ysf-tm-btn { gap:4px; padding:0 6px; }
-          .ysf-tm-count { padding:3px 4px; }
-          .ysf-search { padding:0 7px; gap:5px; }
-          .ysf-search input { font-size:12px; }
-        }
-        .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
-        .ysf-feed-posts { gap: 16px; max-width: 760px; margin: 0 auto; }
-        .ysf-tools { display:flex; gap:6px; align-items:center; margin:0 auto 10px; max-width:760px; min-width:0; }
-        /* Search and sort stay pinned at the top of the tab while you scroll. */
-        .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
-        .ysf-search { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 0; border-radius: 6px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
-        .ysf-search input { flex:1; min-width:0; height:40px; min-height:40px; border:0; background:transparent; color:var(--ysf-strong); font:400 14px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); outline:none; }
-        .ysf-search { height:42px; min-height:42px; }
+        .ysf-tools { display:flex;flex-direction:column;gap:3px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:6px 0 5px;min-width:0;background:var(--psi-page-bg,#070707); }
+        .ysf-tool-row { display:grid;grid-template-columns:minmax(0,3fr) minmax(58px,1fr);align-items:center;gap:5px;min-width:0; }
+        .ysf-add-btn { display:flex;align-items:center;justify-content:center;gap:5px;width:100%;height:25px;padding:0 7px;border:0;border-radius:999px;background:var(--ysf-card-bg);color:var(--ysf-strong);font:800 clamp(9px,2.4vw,12px)/1 var(--yat-font-ui,Archivo,Arial,sans-serif);cursor:pointer;min-width:0; }
+        .ysf-add-btn span { white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0; }
+        .ysf-add-btn i { flex:none;font-size:15px; }
+        .ysf-tm-btn { display:flex;align-items:center;justify-content:center;gap:4px;height:25px;border:0;border-radius:999px;padding:0 5px;background:var(--ysf-card-bg);color:var(--ysf-strong);cursor:pointer; }
+        .ysf-tm-btn i { font-size:15px; }
+        .ysf-tm-count { border:0;padding:0;font:800 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);color:inherit; }
+        .ysf-search { display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:27px;padding:0 8px;border:0;border-radius:6px;background:var(--ysf-card-bg);color:var(--ysf-muted); }
+        .ysf-search input { width:100%;min-width:0;height:26px;border:0;outline:0;background:transparent;color:var(--ysf-strong);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .ysf-sort { display:flex;align-items:center;justify-content:flex-end;width:100%;padding-right:3px; }
+        @media(max-width:410px){.ysf-add-btn{font-size:9px;padding:0 4px;gap:3px}}
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
