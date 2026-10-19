@@ -1293,7 +1293,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </p>
           )}
 
-          <section
+          {activeTab === "signin" && <section
+            className="yat-raffle-section"
             aria-label="World Series Tickets Raffle"
             style={{
               margin: '14px 15px 4px',
@@ -1323,9 +1324,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
               <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
             </p>
-          </section>
+          </section>}
 
-          <div style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
+          <div className="yat-account-comparison" style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
             <div
               style={{
                 padding: '16px',
@@ -1418,7 +1419,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </table>
             </div>
 
-            <div
+            <div className="yat-account-tour"
               style={{
                 borderTop: '1px solid var(--line)',
                 padding: '16px',
@@ -1430,7 +1431,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             >
               <div style={{ flexShrink: 0 }}>
                 <img
-                  src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"
+                  src="/img/yati-placeholders/yati-catcher-back.png"
                   alt="YaTi mascot"
                   style={{ width: '80px', objectFit: 'contain', display: 'block' }}
                 />
@@ -1493,6 +1494,15 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
       {/* Account styles must survive sign-in, when both password fields unmount. */}
       <style jsx global>{`
         #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
+        #drawerAccount .yat-raffle-section > div:first-child{font:800 clamp(12px,3.05vw,18px)/1.1 Oswald,sans-serif!important;letter-spacing:-.01em!important;text-transform:uppercase;white-space:nowrap;}
+        #drawerAccount .yat-account-comparison{display:flex;flex-direction:column;margin-top:4px!important;border-top:0!important;}
+        #drawerAccount .yat-account-tour{order:-1;padding:8px 10px!important;gap:8px!important;align-items:center!important;border-top:0!important;background:transparent!important;}
+        #drawerAccount .yat-account-tour img{width:56px!important;max-height:105px;object-fit:contain!important;}
+        #drawerAccount .yat-account-tour > div:last-child > div{padding:8px 10px!important;font-size:11px!important;line-height:1.35!important;}
+        #drawerAccount .yat-account-tour button{min-height:34px!important;margin-top:5px!important;padding:0 10px!important;}
+        #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
+        @media(max-width:779px){#drawerAccount .yat-account-tour img{width:48px!important;}}
+
         #drawerAccount .yat-account-signed-in{padding:9px 16px 16px!important;min-width:0;}
         #drawerAccount .yat-account-identity{margin:0 0 7px!important;padding:2px 40px 5px 2px!important;border-bottom:0!important;}
         #drawerAccount .yat-account-identity p:first-child{margin:0 0 4px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
