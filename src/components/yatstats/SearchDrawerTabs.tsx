@@ -532,9 +532,9 @@ export default function SearchDrawerTabs() {
       tabs.className = 'yat-search-mode-tabs';
       tabs.innerHTML = `
         <div class="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
-          <button type="button" class="yat-search-mode-btn active" data-search-mode="name">Player Name</button>
-          <button type="button" class="yat-search-mode-btn" data-search-mode="school">High School</button>
-          <button type="button" class="yat-search-mode-btn" data-search-mode="team">Current Team</button>
+          <button type="button" class="yat-search-mode-btn active" data-search-mode="name">PLAYER NAME</button>
+          <button type="button" class="yat-search-mode-btn" data-search-mode="school">HIGH SCHOOL</button>
+          <button type="button" class="yat-search-mode-btn" data-search-mode="team">CURRENT TEAM</button>
         </div>
       `;
       input.closest('.yat-gs-input-wrap')?.insertAdjacentElement('afterend', tabs);
