@@ -543,10 +543,13 @@ export default function YatStyles() {
       .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
       .yat-card-fav-slot{position:absolute;top:8px;right:8px;z-index:4}
-      .yat-card-fav{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:6px;background:rgba(0,0,0,.35);color:#ffb238;font-size:18px;line-height:1;cursor:pointer;backdrop-filter:blur(2px)}
+      .yat-card-fav{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:6px;background:rgba(0,0,0,.35);color:#fff;font-size:18px;line-height:1;cursor:pointer;backdrop-filter:blur(2px)}
       .yat-card-fav:hover{color:#ffc665;background:rgba(0,0,0,.5)}
-      .yat-card-fav.on{color:#ffb238;background:rgba(0,0,0,.5)}
+      .yat-card-fav.on{color:#ffb21c;background:rgba(0,0,0,.5)}
       .yat-card-fav:disabled{opacity:.6;cursor:wait}
+      body.light-theme .yat-card-fav:not(.on){color:#111;background:rgba(255,255,255,.72)}
+      body.light-theme .yat-card-fav.on{color:#a77412;background:rgba(255,255,255,.72)}
+
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
       /* Soft watercolor washes, no repeating-line grain. Kept strictly inside card photos. */
