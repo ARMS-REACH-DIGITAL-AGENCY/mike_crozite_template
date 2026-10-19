@@ -1062,6 +1062,12 @@ export default function SearchDrawerTabs() {
       :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn {width:26px;color:var(--muted);}
       :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#ffb238;}
       body.light-theme :is(#drawerLeft, #drawerContribute) .yat-search-player-result {background:rgba(0,0,0,.035);}
+      /* Theme-aware states: outlined/empty until saved; saved amber on
+         dark backgrounds and deeper gold on light backgrounds. */
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn:not(.is-favorited) {color:#111;}
+      body:not(.light-theme) :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn:not(.is-favorited) {color:#f2f2f2;}
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#ffb21c;}
+      body.light-theme :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#a77412;}
 
     `}</style>
   );
