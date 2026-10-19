@@ -197,7 +197,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           <button id="theme-toggle" className="yat-icon-btn" aria-label="Toggle light/dark theme">
             <i className="ri-sun-line" />
           </button>
-          <button id="openFavorites" className="yat-icon-btn" aria-label="Open favorites" title="Open favorites" onClick={(event) => { event.preventDefault(); event.stopPropagation(); requestFavoritesDrawer(); }}>
+          <button id="openFavorites" style={{ color: '#ffb238', border: 'none', borderRadius: 0, background: 'transparent', boxShadow: 'none' }} className="yat-icon-btn" aria-label="Open favorites" title="Open favorites" onClick={(event) => { event.preventDefault(); event.stopPropagation(); requestFavoritesDrawer(); }}>
             <i className="ri-heart-line" />
           </button>
           <button id="openSearch" className="yat-icon-btn" aria-label="Open global search" title="Open global search" onClick={(event) => { event.preventDefault(); event.stopPropagation(); showLeftSearchDrawer(); }}>
