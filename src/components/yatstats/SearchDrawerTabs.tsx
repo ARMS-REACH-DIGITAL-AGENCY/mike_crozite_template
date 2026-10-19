@@ -1013,6 +1013,56 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-player-result a:focus-visible,
       #drawerLeft .yat-search-school-bracket-link:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; border-radius: 4px; }
       body.light-theme #drawerLeft .yat-search-school-bracket-link { color: var(--muted); }
+
+      /* Approved result reference: Beau Brieske in production Favorites.
+         Match its condensed player typography, bordered cards and gold school
+         location in every search context, without touching API or interaction. */
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-list { gap:6px; }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result {
+        min-height:64px;
+        padding:8px 10px;
+        border:1px solid var(--line);
+        border-radius:10px;
+        background:rgba(255,255,255,.045);
+        box-shadow:none;
+        grid-template-columns:26px 46px minmax(0,1fr) 40px;
+        column-gap:10px;
+      }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link {gap:3px;}
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link strong {
+        font:800 15px/1.15 Oswald, sans-serif;
+        letter-spacing:0;
+        text-transform:uppercase;
+        color:var(--fg);
+        white-space:normal;
+        overflow-wrap:anywhere;
+      }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small {
+        font:400 11px/1.2 Oswald, sans-serif;
+        text-transform:uppercase;
+        color:var(--muted);
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line {
+        color:#c8a96e;
+        opacity:1;
+        font:400 11px/1.2 Oswald, sans-serif;
+        text-transform:uppercase;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+      body.light-theme :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line {
+        color:#805600;
+      }
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-player-headshot {width:46px;height:46px;}
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-player-hs-logo {width:34px;height:34px;}
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn {width:26px;color:var(--muted);}
+      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#ffb238;}
+      body.light-theme :is(#drawerLeft, #drawerContribute) .yat-search-player-result {background:rgba(0,0,0,.035);}
+
     `}</style>
   );
 }
