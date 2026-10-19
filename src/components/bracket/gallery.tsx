@@ -172,7 +172,7 @@ export const shortName = (name: string) => name
   .replace(/\s+Prep School$/i, ' Prep')
   .trim();
 export const LEVEL: Record<string, string> = {
-  MLB: 'MLB', 'TRIPLE-A': 'AAA', 'DOUBLE-A': 'AA', 'HIGH-A': 'A+', 'LOW-A': 'A', ROOKIE: 'RK', SPRING: 'ST',
+  MLB: 'MLB', 'TRIPLE-A': 'AAA', 'DOUBLE-A': 'AA', 'HIGH-A': 'A+', 'SINGLE-A': 'A', 'LOW-A': 'A', ROOKIE: 'RK', SPRING: 'ST',
   'NCAA-D1': 'D1', 'NCAA-D2': 'D2', 'NCAA-D3': 'D3', NAIA: 'NAIA', JUCO: 'JUCO',
 };
 export const lvl = (l: string) => l.split('/').map((x) => LEVEL[x] || x).join('/');

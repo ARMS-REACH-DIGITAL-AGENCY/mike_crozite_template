@@ -79,7 +79,7 @@ const END_TYPES = /released|retired|free agency|contract terminated/i;
 const ORG_TYPES = /signed|trade|claimed|purchased|acquired/i;
 // Levels a team must have to be matched by name: MLB and its affiliates
 // (not generic "PRO" teams, which include national and foreign-league teams).
-const AFFILIATE_LEVELS = new Set(["MLB", "TRIPLE-A", "DOUBLE-A", "HIGH-A", "LOW-A", "ROOKIE", "AAA", "AA", "A+", "RK"]);
+const AFFILIATE_LEVELS = new Set(["MLB", "TRIPLE-A", "DOUBLE-A", "HIGH-A", "SINGLE-A", "LOW-A", "ROOKIE", "AAA", "AA", "A+", "RK"]);
 const COLLEGE_LEVELS = "NCAA|NAIA|NJCAA|CCCAA|NWAC";
 // A signing/trade to an MLB club that isn't followed by an assignment or a
 // game within this many days is a stint with the MLB club itself.
