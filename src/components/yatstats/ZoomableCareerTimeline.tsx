@@ -7,9 +7,6 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
 import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
 import { isCareerYearSlide, storyYearSlideIndex, withCareerMemoryYears } from '@/lib/careerTimelinePlacement';
-import FavoriteButton from '@/components/yatstats/FavoriteButton';
-import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
-import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -919,7 +916,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   // /player/[playerId]/[slug] segment rather than ever showing "him"/"his"
   // in its place.
   const pathname = usePathname();
-  const routeHsid = pathname?.match(/^\/([^/]+)\/player\//)?.[1] || '';
   const storyOpenOwner = useMemo(() => Symbol(`story-open:${playerId}:${pathname}`), [playerId, pathname]);
   // Cancel an undelivered click when its originating timeline leaves or
   // changes player/path, including navigation through a non-player page.
@@ -968,18 +964,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!years.length) return null;
     return { start: Math.min(...years), end: Math.max(...years), retired: /RETIRED/.test(status) };
   }, [identityMeta?.statusLabel, identityMeta?.rosterYears, player?.statusLabel]);
-  const profileHsid = String(identityMeta?.hsid || school?.hsid || routeHsid || '').trim();
-
-  const flipCardView = isActiveGalleryStatus(String(identityMeta?.statusLabel || player?.statusLabel || ''))
-    ? 'active'
-    : /^(HIGH SCHOOL|HS)$/.test(String(identityMeta?.levelLabel || player?.levelLabel || '').trim().toUpperCase())
-      || ['COMMIT', 'UNCOMMITTED'].includes(String(identityMeta?.statusLabel || player?.statusLabel || '').trim().toUpperCase())
-      ? 'current'
-      : 'alltime';
-  const flipCardHref = profileHsid
-    ? `/${encodeURIComponent(profileHsid)}?view=${flipCardView}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`
-    : `/?view=${flipCardView}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`;
-
   // Position moved off this line and onto the end of batsThrowsHw below --
   // per direct feedback, this line is level + status only now (e.g.
   // "NCAA-D1 - ACTIVE"), not "position - level - status" like the flip
@@ -2036,14 +2020,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           </div>
         </div>
       )}
-      {!isPreview && (
-        <div className="zt-profile-utility" aria-label="Player profile actions">
-          <a href={flipCardHref} className="zt-profile-utility-btn" aria-label="Back to Flip Card" title="Back to Flip Card">
-            <FlipCardIcon size={22} />
-          </a>
-          <FavoriteButton variant="bare" playerId={playerId} playerName={resolvedPlayerName} playerHsid={profileHsid} />
-        </div>
-      )}
       {!isPreview && !isPhone && (
         <div className="zt-rail-mode-toggle" role="group" aria-label="Timeline scale">
           <button type="button" className={railMode === 'years' ? 'is-on' : ''} aria-pressed={railMode === 'years'} onClick={() => setRailMode('years')}>Years</button>
@@ -2686,10 +2662,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            gold like .zt-persist-status, since it's now read as part of
            this identity block rather than a caption written on a photo. */
         .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
-        .zt-profile-utility { position:absolute; z-index:9; left:var(--x-logo-left); bottom:34px; display:flex; align-items:center; gap:8px; }
-        .zt-profile-utility-btn { display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; background:transparent; color:#fff; text-decoration:none; opacity:.9; cursor:pointer; }
-        .zt-profile-utility-btn:hover,.zt-profile-utility-btn:focus-visible { opacity:1; outline:none; }
-        .zt-rail-mode-toggle { position:absolute; z-index:8; left:calc(var(--x-logo-left) + 78px); bottom:29px; top:auto; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.22); border-radius:999px; background:rgba(6,7,8,.48); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.18); }
+        .zt-rail-mode-toggle { position:absolute; z-index:8; left:var(--x-logo-left); bottom:20px; top:auto; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.22); border-radius:999px; background:rgba(6,7,8,.48); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.18); }
         .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
         .zt-rail-mode-toggle button.is-on { background:rgba(255,255,255,.1); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
         /* Starts past the photo, closer to the ghosted logo's left edge
@@ -2852,9 +2825,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; transform:scale(1.12); transform-origin:center bottom; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
         /* Draft pennant: a gold flag on a short pole, standing on the rail
            (above the tick, clear of the year chip) and inline on the slide. */
-        .zt-pennant { position:absolute; left:50%; bottom:calc(100% + 8px); width:1px; height:13px; margin-left:-0.5px; background:${DRAFT_GOLD}; z-index:3; pointer-events:auto; }
+        .zt-pennant { position:absolute; left:50%; bottom:calc(100% + 2px); width:1px; height:13px; margin-left:-0.5px; background:${DRAFT_GOLD}; z-index:3; pointer-events:auto; }
         .zt-pennant::after { content:''; position:absolute; top:0; left:1px; border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:9px solid ${DRAFT_GOLD}; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
-        .zt-rail-month .zt-pennant { bottom:calc(100% + 3px); }
+        .zt-rail-month .zt-pennant { bottom:calc(100% + 1px); }
         .zt-rail-month.has-story .zt-pennant { left:calc(50% + 17px); }
         .zt-pennant-inline { position:relative; left:auto; bottom:auto; display:inline-block; margin:0 12px 0 0; vertical-align:-2px; }
         .zt-drafted { display:block; margin:0 0 6px; color:${DRAFT_GOLD}; font:700 10px/1.2 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
@@ -3056,8 +3029,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           /* Headshot fallback flush against the headline column's real
              left edge (58% here -- see the doubled-box note above). */
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
-          .zt-profile-utility { left:10px; bottom:34px; gap:4px; }
-          .zt-profile-utility-btn { width:30px; height:30px; }
           .zt-nav { width:42px; height:76px; font-size:30px; opacity:.42; }
 
           /* Whole timeline/story photos stand directly on the mobile
