@@ -8,8 +8,8 @@
 //   Desktop: each story as a full post right here - photos, Like · Comment ·
 //            Share, the latest comments and a comment box - so there's
 //            nothing to open to join in (a photo still opens large).
-// Uploading happens only from the Polaroid on the Career Path Timeline
-// (StoryDrawer), never here.
+// Uploading happens from the Share a Story CTA on the Career Path Timeline
+// (StoryDrawer), never from an individual feed card.
 // His teammates are a drawer from the right, opened by the Teammates button
 // beside the search, so the stories get the whole width.
 
