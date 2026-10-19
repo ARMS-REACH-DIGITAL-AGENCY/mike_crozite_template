@@ -7,6 +7,9 @@ import { highSchoolTeamLabel } from '@/lib/playerUtils';
 import { SchoolContext } from '@/context/SchoolContext';
 import { PlayerProfileContext } from '@/context/PlayerProfileContext';
 import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
+import FavoriteButton from '@/components/yatstats/FavoriteButton';
+import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
+import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
@@ -18,6 +21,24 @@ interface SchoolContextBarProps {
 function joinSchoolUrl(base: string, suffix = ''): string {
   const cleanBase = String(base || '').replace(/\/$/, '');
   return cleanBase ? `${cleanBase}${suffix}` : suffix || '/';
+}
+
+function playerFlipCardHref(
+  playerSchoolUrl: string | undefined,
+  playerHsid: string,
+  playerId: string,
+  statusLabel?: string,
+  levelLabel?: string,
+): string {
+  const base = playerSchoolUrl || `/${encodeURIComponent(playerHsid)}`;
+  const status = String(statusLabel || '').trim().toUpperCase();
+  const level = String(levelLabel || '').trim().toUpperCase();
+  const view = isActiveGalleryStatus(status)
+    ? 'active'
+    : (level === 'HIGH SCHOOL' || level === 'HS' || status === 'COMMIT' || status === 'UNCOMMITTED')
+      ? 'current'
+      : 'alltime';
+  return joinSchoolUrl(base, `?view=${view}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`);
 }
 
 function getVisibleGallerySection(): HTMLElement | null {
@@ -98,6 +119,8 @@ export default function SchoolContextBar({
     ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : '';
   const resolvedPlayerSchoolUrl = playerProfile?.playerSchoolUrl;
+  const resolvedPlayerName = playerProfile?.playerName || slugDerivedName;
+  const resolvedPlayerHsid = playerProfile?.playerHsid || schoolData?.hsid || '';
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('yat-theme') === 'light' ? 'light' : 'dark';
@@ -161,7 +184,26 @@ export default function SchoolContextBar({
         <div className="big1">{schoolData?.hsName || '...'}</div>
         <div id="yatSectionLabel" className="big2">{getPageLabel()}</div>
       </div>
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="yat-row2-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {isPlayerProfile && profilePlayerId && resolvedPlayerHsid ? (
+          <>
+            <a
+              href={playerFlipCardHref(
+                resolvedPlayerSchoolUrl,
+                resolvedPlayerHsid,
+                profilePlayerId,
+                playerProfile?.statusLabel,
+                playerProfile?.levelLabel,
+              )}
+              className="yat-profile-icon-bare"
+              aria-label="Back to Flip Card"
+              title="Back to Flip Card"
+            >
+              <FlipCardIcon size={20} />
+            </a>
+            <FavoriteButton variant="bare" playerId={profilePlayerId} playerName={resolvedPlayerName} playerHsid={resolvedPlayerHsid} />
+          </>
+        ) : null}
         {isGallery && (
           <>
             <button id="flipAllCards" className="yat-icon-btn" aria-label={allCardsFlipped ? 'Flip all cards to front' : 'Flip all cards to stats'} aria-pressed={allCardsFlipped} title={allCardsFlipped ? 'Flip all cards to front' : 'Flip all cards to stats'} onClick={handleFlipAll} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
@@ -175,6 +217,18 @@ export default function SchoolContextBar({
       </div>
 
 
+      <style jsx>{`
+        .yat-profile-icon-bare {
+          display:grid; place-items:center; width:32px; height:32px; padding:0;
+          border:0; background:transparent; color:#fff; text-decoration:none;
+          opacity:.9; cursor:pointer;
+        }
+        .yat-profile-icon-bare:hover,.yat-profile-icon-bare:focus-visible { opacity:1; outline:none; }
+        @media (max-width:620px) {
+          .yat-row2-actions { gap:4px !important; }
+          .yat-profile-icon-bare { width:30px; height:30px; }
+        }
+      `}</style>
     </div>
   );
 }
