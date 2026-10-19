@@ -145,7 +145,7 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav { padding-right:12px; }
       /* Exact rail/status color: TIMELINE_YELLOW in ZoomableCareerTimeline. */
-      #drawerLeft { --yat-bracket-accent: #ffb21c; }
+      #drawerLeft { --yat-bracket-accent: #c5c5c5; }
       body.light-theme #drawerLeft { --yat-bracket-accent: #8a5a00; }
       #drawerLeft .yat-bracket-symbol { display: block; width: 24px; height: 24px; flex: none; background-color: currentColor; -webkit-mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; mask: url('/img/nav/fantasy-bracket.png') center / contain no-repeat; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { padding: 8px 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: none; color: var(--yat-bracket-accent); }
@@ -153,11 +153,11 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-drawer-fantasy-copy > span { display: block; white-space: nowrap; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight { gap: 7px; }
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-fantasy-countdown { display: flex; flex: 0 0 clamp(104px, 32vw, 124px); width: clamp(104px, 32vw, 124px); margin-left: auto; padding: 5px 6px 6px; flex-direction: column; gap: 4px; border: 0; border-radius: 5px; background: linear-gradient(145deg, #286343, #1c4f34); color: #fff; letter-spacing: normal; word-spacing: normal; text-transform: uppercase; }
-      #drawerLeft .yat-fantasy-countdown-date { display: block; text-align: center; color: #ffb21c; font: 700 12px/1.05 Caveat, "Segoe Print", cursive; letter-spacing: 0; text-transform: none; }
+      #drawerLeft .yat-fantasy-countdown-date { display: block; text-align: center; color: #c5c5c5; font: 700 12px/1.05 Caveat, "Segoe Print", cursive; letter-spacing: 0; text-transform: none; }
       #drawerLeft .yat-fantasy-countdown-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
       #drawerLeft .yat-fantasy-countdown-cell { display: flex; min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; text-align: center; }
-      #drawerLeft .yat-fantasy-countdown-unit { color: #fff; font: 600 7px/1 Oswald, sans-serif; letter-spacing: .025em; }
-      #drawerLeft .yat-fantasy-countdown-number { display: block; padding: 4px 1px 3px; border: 0; border-radius: 4px; background: linear-gradient(180deg, #071c0e, #102f1b); box-shadow: inset 0 2px 5px rgba(0,0,0,.45); color: #ffb21c; font: 700 19px/1 Oswald, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.035em; text-shadow: 0 1px 1px #000; }
+      #drawerLeft .yat-fantasy-countdown-unit { color: #fff; font: 700 7px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing: .025em; }
+      #drawerLeft .yat-fantasy-countdown-number { display: block; padding: 4px 1px 3px; border: 0; border-radius: 4px; background: linear-gradient(180deg, #071c0e, #102f1b); box-shadow: inset 0 2px 5px rgba(0,0,0,.45); color: #c5c5c5; font: 800 19px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); font-variant-numeric: tabular-nums; letter-spacing: -.035em; text-shadow: 0 1px 1px #000; }
       /* Treat the fantasy destination as a regular menu title, with a compact side countdown. */
       #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight > .yat-drawer-fantasy-copy {
         font-family: var(--yat-font-compact), "Barlow Condensed", sans-serif;
