@@ -181,7 +181,7 @@ export default function ProfileNewsList({
           --pp-news-label:#bcbcbc;
           display:flex;
           flex-direction:column;
-          gap:0;
+          gap:8px;
           padding:8px 12px calc(var(--profile-tabs-h,68px) + 16px);
           min-height:100%;
           min-width:0;
@@ -222,13 +222,12 @@ export default function ProfileNewsList({
           align-items:stretch;
           gap:7px;
           min-width:0;
-          padding:10px 0;
+          padding:9px 10px;
           text-align:left;
           cursor:pointer;
-          border:0;
-          border-bottom:1px solid var(--pp-news-card-border);
-          border-radius:0;
-          background:transparent;
+          border:1px solid var(--pp-news-card-border);
+          border-radius:8px;
+          background:var(--pp-news-card-bg);
           box-shadow:none;
           color:var(--pp-news-title);
           transition:border-color .15s ease,background .15s ease,transform .15s ease;
@@ -326,7 +325,7 @@ export default function ProfileNewsList({
             padding-left:8px;
             padding-right:8px;
           }
-          .pp-news-teaser{gap:7px;padding:12px 0}
+          .pp-news-teaser{gap:7px;padding:9px 10px}
           .pp-news-row{gap:8px}
           .pp-news-thumb{width:90px;height:66px}
           .pp-news-title{font-size:14px;line-height:1.26}
