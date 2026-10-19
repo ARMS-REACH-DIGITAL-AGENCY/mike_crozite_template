@@ -13,6 +13,19 @@ export default function ProfileStatsFinalOverrides() {
         }
       }
 
+      /* Match the compact, legible Game Log typography without changing data or sizing. */
+      #playerFunZone #ppTab-stats .psi-table th,
+      #playerFunZone #ppTab-stats .psi-table td {
+        font-family:var(--yat-font-ui,Archivo,Arial,sans-serif) !important;
+        font-size:9.5px !important;
+        line-height:1.15 !important;
+        letter-spacing:0 !important;
+      }
+      #playerFunZone #ppTab-stats .psi-table th {
+        font-size:9px !important;
+        font-weight:800 !important;
+      }
+
       /* Center the stats table/card inside the FunZone stats panel. */
       #playerFunZone #ppTab-stats {
         text-align: center !important;
