@@ -1633,13 +1633,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
 
   const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
   const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
-  // Not on phones, and not on the anchor (the opening screen keeps the
-  // years; the grad year's months are on its own slide just before it).
   const activeSlide = model.slides[activeIndex];
-  // The draft slide keeps the years too: it's one day, not a year.
+  // Years/Months is an explicit user control. When Months is selected,
+  // show the twelve months for whatever year is currently on screen,
+  // including the opening anchor/class year and draft-year slides.
   const monthRailYear = preview && ready && previewTargetIndex >= 0
     ? preview.year
-    : railMode === 'months' && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft'
+    : railMode === 'months' && ready && !isPhone && activeSlide
       ? activeSlide.year
       : null;
   const previewStatus: CareerTimelinePreviewState['status'] = !previewValid || previewContextError ? 'error'
@@ -2689,7 +2689,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-profile-utility { position:absolute; z-index:9; left:var(--x-logo-left); bottom:34px; display:flex; align-items:center; gap:8px; }
         .zt-profile-utility-btn { display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; background:transparent; color:#fff; text-decoration:none; opacity:.9; cursor:pointer; }
         .zt-profile-utility-btn:hover,.zt-profile-utility-btn:focus-visible { opacity:1; outline:none; }
-        .zt-rail-mode-toggle { position:absolute; z-index:8; left:calc(var(--x-logo-left) + 78px); bottom:36px; top:auto; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.22); border-radius:999px; background:rgba(6,7,8,.48); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.18); }
+        .zt-rail-mode-toggle { position:absolute; z-index:8; left:calc(var(--x-logo-left) + 78px); bottom:29px; top:auto; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.22); border-radius:999px; background:rgba(6,7,8,.48); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.18); }
         .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
         .zt-rail-mode-toggle button.is-on { background:rgba(255,255,255,.1); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
         /* Starts past the photo, closer to the ghosted logo's left edge
