@@ -102,6 +102,10 @@ Add a dated line for each milestone.
   ballpark scene behind rows 1-3, the splash's three towers, the 5x7 card
   picture, the box-score series, the players who played well as the
   picture). Still waiting on Pete's OK for `Easter-NEWS`.
+- 2026-10-19 (later): Pete ruled the nine tied Week 2 games: each goes to
+  the school that lost Game 1, so those series are tied 1-1. Recorded in
+  `COMMISSIONER_DECISIONS` as a `TEST-ONLY:` commit on all six test branches
+  (test games only; nothing for `Easter-NEWS`).
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
   for every school in the field (16 on a test branch, 1,024 live). It must
   be scoped to a region/bracket and cached server-side before opening day.
