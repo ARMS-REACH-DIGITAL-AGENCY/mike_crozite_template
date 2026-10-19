@@ -169,6 +169,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     const card = document.getElementById(`story-${id}`);
     if (!card) return;
     pendingFocus.current = null;
+    // The story feed is its own scroll container in the profile Fun Zone.
+    // Scroll the actual card into view after the Stories tab becomes active.
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     card.classList.add('ysf-card-focus');
     window.setTimeout(() => card.classList.remove('ysf-card-focus'), 2400);
@@ -178,8 +180,13 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   useEffect(() => {
     const onPosted = () => load();
     const onFocus = (event: Event) => {
-      pendingFocus.current = String((event as CustomEvent<{ id?: string }>).detail?.id || '') || null;
-      tryFocus();
+      const requested = String((event as CustomEvent<{ id?: string }>).detail?.id || '');
+      if (!requested) return;
+      // Clear a prior text filter, otherwise a valid timeline memory might
+      // be invisible even though its story is loaded.
+      setSearch('');
+      pendingFocus.current = requested;
+      requestAnimationFrame(() => tryFocus());
     };
     window.addEventListener(STORY_POSTED_EVENT, onPosted);
     window.addEventListener('yat:story-focus', onFocus);
@@ -197,7 +204,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   useEffect(() => {
     tryFocus();
-  }, [stories, tryFocus]);
+  }, [stories, visible, tryFocus]);
 
   const updateStory = useCallback((next: Story) => {
     setStories((list) => (list ? list.map((s) => (s.id === next.id ? next : s)) : list));
