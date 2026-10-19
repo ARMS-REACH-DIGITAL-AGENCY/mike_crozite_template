@@ -85,7 +85,7 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-mask { position: absolute; inset: 0; width: 100%; border: 0; padding: 0; background: rgba(0,0,0,.6); cursor: pointer; animation: ytd-fade .2s ease; }
         .ytd-panel {
           --ytm-bg: #0b0b0b; --ytm-text: rgba(255,255,255,.88); --ytm-muted: rgba(255,255,255,.55); --ytm-strong: #fff;
-          --ytm-border: rgba(255,255,255,.16); --ytm-accent: var(--gold, #ffc107);
+          --ytm-border: rgba(255,255,255,.16); --ytm-accent: rgba(255,255,255,.92);
           position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 88vw); overflow: hidden;
           background: var(--ytm-bg); border-left: 1px solid var(--ytm-border);
           box-shadow: -12px 0 32px rgba(0,0,0,.45); animation: ytd-in .24s cubic-bezier(.2,.8,.2,1);
@@ -95,7 +95,7 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px 22px calc(28px + env(safe-area-inset-bottom)); }
         body.light-theme .ytd-panel {
           --ytm-bg: #fbf8f2; --ytm-text: rgba(31,25,18,.88); --ytm-muted: rgba(31,25,18,.55); --ytm-strong: rgba(31,25,18,.95);
-          --ytm-border: rgba(53,43,30,.18); --ytm-accent: #9a6f00;
+          --ytm-border: rgba(53,43,30,.18); --ytm-accent: rgba(31,25,18,.9);
         }
         .ytd-close { position: absolute; top: 14px; right: 14px; z-index: 3; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--ytm-muted); font-size: 22px; cursor: pointer; }
         .ytd-close:hover { color: var(--ytm-strong); }
@@ -461,9 +461,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-actions button i { font-size: 15px; }
         .ysf-card-actions button:hover { color: var(--ysf-strong); }
         .ysf-card-actions .ysf-liked { color: var(--ysf-when); }
-        .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #FFD700; border: 1px solid rgba(255,215,0,.5); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-        .ysf-card:hover { border-color: var(--gold, #ffc107); }
-        .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
+        .ysf-toast { position:fixed; left:50%; bottom:calc(var(--footerH,66px) + var(--pp-dock-h,58px) + 12px); transform:translateX(-50%); z-index:70; max-width:calc(100vw - 32px); padding:10px 16px; border-radius:999px; background:#111; color:#f4f4f4; border:1px solid rgba(255,255,255,.28); font:400 13px/1.3 var(--yat-font-ui,Arial,sans-serif); box-shadow:0 8px 24px rgba(0,0,0,.4); }
+        .ysf-card:hover { border-color:rgba(255,255,255,.32); }
+        .ysf-card-focus { border-color:rgba(255,255,255,.55); box-shadow:0 0 0 2px rgba(255,255,255,.16); }
         /* Same type as the News cards' eyebrow (.pp-news-label). */
         .ysf-card-when { color: var(--ysf-when); font: 700 9px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
         .ysf-card-row { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
