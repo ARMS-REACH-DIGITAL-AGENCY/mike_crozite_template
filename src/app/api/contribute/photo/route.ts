@@ -9,8 +9,9 @@
 //                   fractions), landscape (a 7x5 timeline image), note,
 //                   pageUrl, idToken?
 //
-// The photo is cropped and stored in staging and saved to media_upload as
-// 'pending'. It reaches the site only when a reviewer approves it.
+// The photo is cropped, safety-checked, and published in the same request.
+// media_upload starts as 'pending' only as a durable transaction state; every
+// family-safe image is promoted immediately and exits pending before return.
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
@@ -24,12 +25,11 @@ import {
   notifyContributor,
   photoLinkPath,
   assetUrl,
-  existingPublishedTarget,
   promoteUpload,
   stagePhoto,
   uploadCategory,
 } from '@/lib/contributeServer';
-import { moderatePhoto } from '@/lib/contributeModeration';
+import { CONTRIBUTE_MODERATION_POLICY_VERSION, moderatePhoto } from '@/lib/contributeModeration';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 
 export const runtime = 'nodejs';
@@ -97,7 +97,21 @@ export async function POST(req: NextRequest) {
         return fail('Pick the player, or type his name and pick his high school.');
       }
     }
-    if (!/^\d+$/.test(hsid)) return fail('Pick the high school.');
+    if (purpose === 'team_logo') {
+      const { rows: teamRows } = await query<{ teamid: string; current_team_name: string | null }>(
+        `SELECT teamid::text, current_team_name
+           FROM teamid_universe_mapping
+          WHERE teamid::text = $1
+            AND COALESCE(current_team_name, '') <> ''
+            AND UPPER(COALESCE(level_label, '')) <> 'HIGH SCHOOL'
+          LIMIT 1`,
+        [teamId]
+      );
+      if (!teamRows[0]) return fail('That college or pro team was not found.', 404);
+      hsid = '';
+    } else if (!/^\d+$/.test(hsid)) {
+      return fail('Pick the high school.');
+    }
 
     if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT) {
       return fail("You've sent a lot today. Thank you! Please send the rest tomorrow.", 429);
@@ -157,6 +171,7 @@ export async function POST(req: NextRequest) {
       description: verdict.description,
       reason: verdict.reason_for_fan,
       checked_at: new Date().toISOString(),
+      policy_version: CONTRIBUTE_MODERATION_POLICY_VERSION,
     } : null;
     const { rows: recordable } = await query<{ id: string }>(
       `UPDATE media_upload SET description = $2 WHERE id = $1 RETURNING id::text AS id`,
@@ -183,23 +198,28 @@ export async function POST(req: NextRequest) {
         // A photo for a player who isn't on the site yet can't be placed.
         if (type.needsPlayer && !PLAYER_ID.test(playerId)) throw new Error('no player on the site');
         const upload = { id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason };
-        // Distinct photos for a year coexist. Exact reuploads are kept in
-        // staging but never added to the rotation twice.
+        // Exact reuploads do not need a second S3 copy, but they are still
+        // resolved as approved rather than being stranded in pending.
         const { rows: duplicates } = await query<{ id: string }>(
           `SELECT id::text FROM media_upload
             WHERE id <> $1 AND playerid = $2 AND purpose = $3 AND date_taken = $4::date
-              AND sha256 = $5 AND status IN ('pending','approved')
+              AND sha256 = $5 AND status = 'approved'
             ORDER BY uploaded_at ASC LIMIT 1`,
           [id, playerId, purpose, `${year}-01-01`, staged.sha256]
         );
-        if (duplicates.length) throw new Error('duplicate image; keep existing upload');
-        const occupied = await existingPublishedTarget(upload);
-        // Preserve existing card art; publish distinct approved photo to the timeline.
-        const appendTimeline = Boolean(occupied && purpose !== 'school_logo' && purpose !== 'team_logo');
-        if (occupied && !appendTimeline) throw new Error('logo identity requires review');
-        publishedAssets = await promoteUpload(appendTimeline ? { ...upload, purpose: 'timeline_hero' } : upload);
-        status = 'approved';
-        message = "Approved! It's on the site now.";
+        if (duplicates.length) {
+          status = 'approved';
+          message = "That photo is already on the site.";
+        } else {
+          // The selected destination is authoritative. Safe uploads replace
+          // single-image slots immediately; timeline photos remain additive.
+          // "Other Photo" with a tagged player becomes a normal timeline photo
+          // so it has a public destination instead of an invisible holding bin.
+          const publishPurpose = purpose === 'other_photo' && PLAYER_ID.test(playerId) ? 'timeline_hero' : purpose;
+          publishedAssets = await promoteUpload({ ...upload, purpose: publishPurpose });
+          status = 'approved';
+          message = "Approved! It's on the site now.";
+        }
       } catch (error) {
         console.error('[contribute/photo] promote failed', error);
       }

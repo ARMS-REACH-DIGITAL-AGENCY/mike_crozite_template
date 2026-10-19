@@ -85,6 +85,10 @@ export const ACTIVE_GALLERY_STATUSES: readonly string[] = [
   'RESTRICTED LIST',
   'SUSPENDED',
   'TEMPORARILY INACTIVE LIST',
+  // A sourced free-agent transaction means he is between clubs, not retired.
+  // Keep him visible with the current alumni until either he signs again or
+  // the one-year free-agent aging rule moves him to RETIRED.
+  'FREE AGENT',
   'RED SHIRT',
   'REDSHIRT-MEDICAL',
 ];

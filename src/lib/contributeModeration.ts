@@ -1,11 +1,13 @@
 // src/lib/contributeModeration.ts
 // Automatic review of a fan's photo, the moment it's sent: Claude looks at
 // the staged (cropped) photo with what the fan said it is, and decides.
-//   approve -> it goes on the site right away (promoteUpload)
-//   reject  -> it doesn't, and the fan is told why
-//   review  -> Claude isn't sure; it waits in /contribute-review for a person
-// Without ANTHROPIC_API_KEY nothing is decided automatically: every photo
-// waits for a person, the same as 'review'.
+//   approve -> every family-safe image goes on the site right away
+//   reject  -> clearly unsafe family content never publishes
+//   review  -> reserved only for genuine safety uncertainty
+// Visual quality, exact pose, season fit, multiple people, watermarks and
+// placement quality are metadata, never reasons to strand a safe photo.
+// Without ANTHROPIC_API_KEY nothing is decided automatically: the upload
+// stays recoverable until the safety check is available.
 import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
@@ -28,6 +30,7 @@ const Verdict = z.object({
   description: z.string(),
 });
 export type ModerationVerdict = z.infer<typeof Verdict>;
+export const CONTRIBUTE_MODERATION_POLICY_VERSION = 2;
 
 const WHAT_IT_SHOULD_BE: Record<PhotoPurpose, string> = {
   flip_card: 'a photo of one baseball player from his high school years, ideally in uniform (a portrait, cropped 5x7)',
@@ -39,14 +42,17 @@ const WHAT_IT_SHOULD_BE: Record<PhotoPurpose, string> = {
   team_logo: "a college or professional baseball team's logo (a graphic, not a photo of people)",
 };
 
-const SYSTEM = `You review photos that fans send to YAT?STATS, a site that follows high school baseball alumni through college and pro ball. Photos you approve go on the site immediately, where families and kids see them, so be careful, but don't reject good photos for small things.
+const SYSTEM = `You are the safety gate for fan photo uploads to YAT?STATS, a family baseball site. The product rule is social-post speed: if an image is safe for a family audience, it should publish immediately.
 
-Decide:
-- "reject" if the photo is inappropriate for a family audience, has a visible photographer/stock watermark, is clearly not what the fan said it is, or is too blurry, dark or tiny to use. Also reject screenshots of social posts, memes, and photos that are mostly text.
-- "approve" if it is appropriate, has no watermark, is usable, and clearly matches what it should be.
-- "review" if you can't tell (for example, it's unclear whether it fits the type, or the image is borderline).
+Your decision is about SAFETY, not art direction or placement quality.
 
-Don't try to identify who the person is from their face; judge only the kind of photo. A jersey or cap from another team is fine. reason_for_fan is shown to the fan only when you reject: one short, friendly sentence saying what to fix.`;
+- "reject" only when the image is clearly inappropriate for a family audience: nudity or sexual content, graphic violence or gore, hateful/extremist content, illegal drug use, or an obscene/abusive gesture.
+- "review" only when you genuinely cannot determine whether the image is safe.
+- "approve" every image that is family-safe, even when it is blurry, low resolution, oddly cropped, has multiple people, is not an ideal action pose, appears to be from a different season/team, contains text, is a screenshot, has a watermark, or is an imperfect match for the selected placement.
+
+Still fill in matches_type, watermark and quality_ok accurately. Those fields are informational and must NOT cause a safe image to be rejected or held.
+
+Do not try to identify a person from their face. reason_for_fan is only for a true safety rejection. description should briefly describe the image and any quality/type concerns without turning those concerns into a hold.`;
 
 let client: Anthropic | null = null;
 
@@ -99,10 +105,11 @@ export async function moderatePhoto(opts: {
       });
       return null;
     }
-    // The code, not the model, has the last word on the hard rules.
-    if (!verdict.appropriate || verdict.watermark) return { ...verdict, decision: 'reject' };
-    if (verdict.decision === 'approve' && (!verdict.matches_type || !verdict.quality_ok)) return { ...verdict, decision: 'review' };
-    return verdict;
+    // The code, not the model, enforces the product contract:
+    // family-safe photos publish. Type/quality/watermark flags are metadata.
+    if (verdict.appropriate) return { ...verdict, decision: 'approve', reason_for_fan: '' };
+    if (verdict.decision === 'review') return verdict;
+    return { ...verdict, decision: 'reject' };
   } catch (error) {
     if (error instanceof Anthropic.RateLimitError) console.error('[contribute] moderation rate limited');
     else if (error instanceof Anthropic.APIError) console.error('[contribute] moderation API error', error.status, error.message);

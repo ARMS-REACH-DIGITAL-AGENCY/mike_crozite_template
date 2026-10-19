@@ -205,14 +205,16 @@ function normalizeLevel(value: unknown) {
   if (raw.includes('TRIPLE') || raw === 'AAA') return 'Triple-A';
   if (raw.includes('DOUBLE') || raw === 'AA') return 'Double-A';
   if (raw.includes('HIGH') || raw === 'A+') return 'High-A';
-  if (raw.includes('LOW') || raw === 'A') return 'A Ball';
+  if (raw.includes('SINGLE') || raw.includes('LOW') || raw === 'A') return 'SINGLE-A';
   if (raw.includes('ROOKIE') || raw === 'RK') return 'Rookie';
   if (raw.includes('INDY') || raw.includes('INDEPENDENT')) return 'INDY';
   if (raw.includes('NAIA')) return 'NAIA';
   if (raw.includes('NCAA-D1')) return 'NCAA-D1';
   if (raw.includes('NCAA-D2')) return 'NCAA-D2';
   if (raw.includes('NCAA-D3')) return 'NCAA-D3';
-  if (raw.includes('NJCAA') || raw.includes('JUCO')) return 'JUCO';
+  if (raw.includes('CCCAA')) return 'CCCAA';
+  if (raw.includes('NWAC')) return 'NWAC';
+  if (raw.includes('NJCAA') || raw.includes('JUCO')) return 'NJCAA';
   return raw;
 }
 
@@ -667,7 +669,7 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 // the YaTi cartoon stands), the rest lined up to its right behind the quote,
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
-type HeroPhoto = { web: string; cutout: string | null; source: string | null };
+type HeroPhoto = { web: string; cutout: string | null; source: string | null; storyId?: string | null };
 type RailStory = { id: string; thumb: string | null; draft?: boolean };
 
 export type CareerTimelinePreviewState = {
@@ -736,7 +738,7 @@ const requestedCutouts = new Set<string>();
 // cartoon - bottom pinned to the bottom of the slide, full height. Until a
 // cutout exists it shows the whole photo (sitting above the rail) and asks
 // the server to make one, so the next visit gets the cutout.
-function StoryHeroImg({ photo, className, style, alt, readOnly = false }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string; readOnly?: boolean }) {
+function StoryHeroImg({ photo, className, style, alt, readOnly = false, onOpenStory }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string; readOnly?: boolean; onOpenStory?: (id: string) => void }) {
   const canCut = Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
   const [cutFailed, setCutFailed] = useState(false);
   const useCut = canCut && !cutFailed;
@@ -755,12 +757,22 @@ function StoryHeroImg({ photo, className, style, alt, readOnly = false }: { phot
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={`${className}${useCut ? ' zt-story-cut' : ''}`}
+      className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
       style={style}
       src={useCut ? photo.cutout || photo.web : photo.web}
       alt={alt}
       loading="eager"
       decoding="async"
+      role={photo.storyId && !readOnly ? 'button' : undefined}
+      tabIndex={photo.storyId && !readOnly ? 0 : undefined}
+      aria-label={photo.storyId && !readOnly ? `${alt}. Open this memory` : undefined}
+      onClick={photo.storyId && !readOnly ? (event) => { event.stopPropagation(); onOpenStory?.(photo.storyId!); } : undefined}
+      onKeyDown={photo.storyId && !readOnly ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpenStory?.(photo.storyId!);
+        }
+      } : undefined}
       onError={onError}
     />
   );
@@ -770,10 +782,10 @@ function StoryHeroImg({ photo, className, style, alt, readOnly = false }: { phot
 // the YaTi cartoon stands), the rest lined up to its right behind the quote,
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
-function StoryHeroStrip({ photos, tick, alt, readOnly = false }: { photos: HeroPhoto[]; tick: number; alt: string; readOnly?: boolean }) {
+function StoryHeroStrip({ photos, tick, alt, readOnly = false, onOpenStory }: { photos: HeroPhoto[]; tick: number; alt: string; readOnly?: boolean; onOpenStory?: (id: string) => void }) {
   const n = photos.length;
   if (n === 1) {
-    return <StoryHeroImg photo={photos[0]} className="zt-person zt-person-story zt-story-hero-img" alt={alt} readOnly={readOnly} />;
+    return <StoryHeroImg photo={photos[0]} className="zt-person zt-person-story zt-story-hero-img" alt={alt} readOnly={readOnly} onOpenStory={onOpenStory} />;
   }
   const current = tick % n;
   const previous = (current - 1 + n) % n;
@@ -792,11 +804,12 @@ function StoryHeroStrip({ photos, tick, alt, readOnly = false }: { photos: HeroP
             style={{ '--slot': slot } as CSSProperties}
             alt={slot === 0 ? alt : ''}
             readOnly={readOnly}
+            onOpenStory={onOpenStory}
           />
         );
       })}
       {tick > 0 && (
-        <StoryHeroImg key={`leaving-${tick}`} photo={photos[previous]} className="zt-person zt-person-story zt-story-leaving" alt="" readOnly={readOnly} />
+        <StoryHeroImg key={`leaving-${tick}`} photo={photos[previous]} className="zt-person zt-person-story zt-story-leaving" alt="" readOnly={readOnly} onOpenStory={onOpenStory} />
       )}
     </>
   );
@@ -995,6 +1008,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   // turns into that year's JAN-DEC. Any movement turns it straight back
   // into years; nothing changes mid-slide.
   const [railSettled, setRailSettled] = useState(false);
+  const [railMode, setRailMode] = useState<'years' | 'months'>('years');
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedRef = useRef(false);
 
@@ -1091,14 +1105,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
             // Photos fans added in replies are more of the same moment.
             const heroes = [...(story.photos || []), ...(story.commentPhotos || [])];
             for (const photo of heroes) {
-              if (photo.web && !photo.logo) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null });
+              if (photo.web && !photo.logo) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null, storyId: story.id });
             }
           }
           // Photo-only contributions share the existing five-second Story
           // rotation but remain independent of Story/Memory records.
           type TimelinePhoto = { id: string; year: number; web: string | null; cutout: string | null; source: string | null };
           for (const image of (Array.isArray(data.timelinePhotos) ? data.timelinePhotos : []) as TimelinePhoto[]) {
-            if (image.year && image.web) (byYear[image.year] ||= []).push({ web: image.web, cutout: image.cutout, source: image.source });
+            if (image.year && image.web) (byYear[image.year] ||= []).push({ web: image.web, cutout: image.cutout, source: image.source, storyId: null });
           }
           setPublishedPhotosByYear(byYear);
           setPublishedStoriesByMonth(byMonth);
@@ -1115,11 +1129,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!isPreview) {
       window.addEventListener('yat:story-posted', load);
       window.addEventListener('yat:story-comment-photos', load);
+      window.addEventListener('yat:contribute-photo-published', load);
     }
     return () => {
       cancelled = true;
       window.removeEventListener('yat:story-posted', load);
       window.removeEventListener('yat:story-comment-photos', load);
+      window.removeEventListener('yat:contribute-photo-published', load);
     };
   }, [playerId, isPreview]);
 
@@ -1133,7 +1149,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     return {
       ...publishedPhotosByYear,
       [preview.year]: [
-        ...ordered.map((photo) => ({ web: photo.url, cutout: null, source: null })),
+        ...ordered.map((photo) => ({ web: photo.url, cutout: null, source: null, storyId: 'local-story-preview' })),
         ...(publishedPhotosByYear[preview.year] || []),
       ],
     };
@@ -1607,7 +1623,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   // The draft slide keeps the years too: it's one day, not a year.
   const monthRailYear = preview && ready && previewTargetIndex >= 0
     ? preview.year
-    : railSettled && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft' ? activeSlide.year : null;
+    : railMode === 'months' && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft'
+      ? activeSlide.year
+      : null;
   const previewStatus: CareerTimelinePreviewState['status'] = !previewValid || previewContextError ? 'error'
     : ready && previewScale > 0 && positionedRevision === preview?.revision && activeSlide?.year === preview?.year && isCareerYearSlide(activeSlide)
       && Math.abs(scrollProgress - activeIndex) < 0.01 ? 'ready' : 'loading';
@@ -2002,61 +2020,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           </div>
         </div>
       )}
-      {/* Polaroid + CTA text, side by side (Polaroid left, text right) --
-          per direct feedback, moved to sit directly under the metadata
-          block's own Class Of line (a fixed top offset approximating that
-          block's natural height, same approach .zt-moment-cta's own top
-          already uses elsewhere in this file), freeing up the rail below
-          to run all the way to the frame's own left edge instead of
-          stopping short to clear this row. Kept as its own sibling here,
-          not nested inside .zt-moment-cta, so its z-index:8 keeps
-          comparing directly against .zt-person-stack's 4 instead of being
-          capped by .zt-moment-cta's own stacking context (that div is
-          position:absolute + z-index:3, which forms one). */}
-      {/* The only way to add a story: opens the Story drawer (StoryDrawer,
-          mounted on the profile page) with the year of the slide the fan is
-          looking at. Inline pointer-events overrides the stack's own
-          pointer-events:none in the style block below. */}
-      <button
-        type="button"
-        className="zt-polaroid-stack"
-        disabled={isPreview || !timelineHydrated}
-        aria-label={`Add a memory to ${resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}'s Career Timeline`}
-        style={{ pointerEvents: isPreview ? 'none' : 'auto', cursor: isPreview ? 'default' : timelineHydrated ? 'pointer' : 'wait' }}
-        onClick={isPreview ? undefined : () => {
-          openStoryDrawer({ playerId, year: model.slides[activeIndex]?.year ?? null }, storyOpenOwner);
-        }}
-      >
-        {/* Class Of used to live written on this Polaroid's own bottom
-            border -- moved up into .zt-persist-id as its own gold line
-            instead (see above), so the Polaroid card itself now just says
-            what it's for. The old add-image icon is replaced with the word
-            itself, set in the same headline font (.zt-title's Oswald 700)
-            as everywhere else on this slide, and it inherits this whole
-            card's own -4deg rotation for free by sitting inside it, rather
-            than needing a second rotation of its own. */}
-        <span className="zt-moment-thumb">
-          <span className="zt-moment-thumb-frame">
-            {/* 3 lines now (was 2: "Click To" / "Upload"), per direct
-                feedback, one word per line. */}
-            <span className="zt-moment-thumb-upload">Click<br />to<br />Upload</span>
-          </span>
-        </span>
-        {/* Explicit breaks, not natural wrap -- per direct feedback with a
-            reference mockup showing exactly these line breaks, not
-            wherever the text happens to wrap at this box's width.
-            Rewrapped to 5 lines (was 3, same words: "Add a memory to X's
-            Career Timeline!") -- per direct feedback. One wording/size at
-            every breakpoint, same as before. */}
-        {/* "Timeline!" is its own span, not a plain 5th <br />-separated
-            line -- per direct feedback, desktop only should read "Career
-            Timeline!" on one line, while mobile keeps the 5-line wrap. The
-            span is display:inline (falls in right after "Career " on the
-            same line) at every width down through the 900px breakpoint,
-            then switched to display:block under the 620px override below,
-            which forces it back onto its own line there. */}
-        <span className="zt-polaroid-caption">Add a<br />memory<br />to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'his'}&apos;s<br />Career <span className="zt-polaroid-caption-timeline">Timeline!</span></span>
-      </button>
+      {!isPreview && !isPhone && (
+        <div className="zt-rail-mode-toggle" role="group" aria-label="Timeline scale">
+          <button type="button" className={railMode === 'years' ? 'is-on' : ''} aria-pressed={railMode === 'years'} onClick={() => setRailMode('years')}>Years</button>
+          <button type="button" className={railMode === 'months' ? 'is-on' : ''} aria-pressed={railMode === 'months'} onClick={() => setRailMode('months')}>Months</button>
+        </div>
+      )}
       {/* Hero visuals live in their own non-scrolling stack, one per slide
           -- they never move horizontally, only the copy track underneath
           does -- each opacity-driven by how close the continuous scroll
@@ -2154,23 +2123,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     the same trim on the fly -- the figure (not empty
                     canvas) fills its box either way. */}
                 <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${firstName(slide.title)} cutout`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
-                {/* "Then vs now" -- a cutout from the current/most-recent
-                    action photo (players/back/, run through the same
-                    background-removal pipeline into players/back-cutouts/).
-                    Per direct feedback: about half the HS cutout's
-                    height, a little to the right of it and in front of
-                    it, at every width -- shown alongside the big HS
-                    cutout above, never instead of it (see the
-                    .zt-person-now CSS rules). Also trimmed via
-                    /api/cutout. Falls back to the headshot cutout
-                    (players/now/, background removed into
-                    players/now-cutouts/) when a player has no "back"
-                    photo -- e.g. a pro whose flip card back is still
-                    blank -- via SmartImage's own srcs-then-src fallback
-                    chain (the same mechanism season slides use for their
-                    YaTi placeholder), not a second image element. Only
-                    renders nothing if NEITHER exists. */}
-                <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('back', playerId), apiCutoutUrl('back', playerId), webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={2} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
+                {/* "Then vs now" uses the current headshot only. A
+                    flip-card-back action photo belongs exclusively on the
+                    back of the card and must not leak into the profile
+                    anchor slide. */}
+                {!coachTenure && (
+                  <SmartImage className="zt-person zt-person-now" style={{ opacity }} srcs={[webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} fallbackAt={1} alt={`${firstName(slide.title)} today`} reveal={introDone ? undefined : 'right'} hold={!hsSettled} revealDelay={introDone ? 0 : 280} onSettled={handleProSettled} />
+                )}
               </Fragment>
             );
           }
@@ -2178,7 +2137,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           if (storyPhotos?.length) {
             return (
               <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
-                <StoryHeroStrip photos={storyPhotos} tick={isPreview ? 0 : heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} readOnly={isPreview} />
+                <StoryHeroStrip photos={storyPhotos} tick={isPreview ? 0 : heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} readOnly={isPreview} onOpenStory={showStoryInStoriesTab} />
               </span>
             );
           }
@@ -2325,13 +2284,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     <span className="zt-title">{copy.headline}</span>
                     {copy.line ? <span className="zt-bodycopy">{copy.line}</span> : null}
                     <span className="zt-bodycopy">Were you on the {slide.year} team? Share a memory from this season.</span>
-                    {memories.length > 0 && (
-                      <div className="zt-upload-actions">
-                        <button type="button" className="zt-comment-pill" tabIndex={isPreview ? -1 : undefined} aria-disabled={isPreview || undefined} onClick={isPreview ? undefined : (e) => { e.stopPropagation(); showStoryInStoriesTab(memories[0]); }}>
-                          {memories.length > 1 ? `${memories.length} memories` : 'Open the memory'} · Comment
-                        </button>
-                      </div>
-                    )}
+
                   </>
                 );
               })()}
@@ -2402,10 +2355,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                       )}
                       {stories.length > 0 && (isPreview ? (
                         <span className="zt-rail-story" role="img" aria-label={`${selected ? 'Your photo' : `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`} in ${label} ${monthRailYear}`}>
-                          {stories[0].thumb ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img className="zt-rail-story-thumb" src={stories[0].thumb} alt="" />
-                          ) : null}
+                          <i className="ri-chat-3-line" aria-hidden="true" />
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </span>
                       ) : (
@@ -2415,10 +2365,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                           onClick={() => showStoryInStoriesTab(stories[0].id)}
                           aria-label={`${stories.length} ${stories.length === 1 ? 'story' : 'stories'} from ${label} ${monthRailYear}`}
                         >
-                          {stories[0].thumb ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img className="zt-rail-story-thumb" src={stories[0].thumb} alt="" />
-                          ) : null}
+                          <i className="ri-chat-3-line" aria-hidden="true" />
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </button>
                       ))}
@@ -2528,6 +2475,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            .zt-person-stack for why this is a separate layer from
            .zt-visual-stack instead of just raising that whole stack. */
         .zt-person-stack { position:absolute; z-index:4; inset:0; overflow:hidden; pointer-events:none; }
+        .zt-person-stack :global(.zt-story-link) { pointer-events:auto; cursor:pointer; }
 
         /* z-index:5, not 2 -- .zt-copy's own z-index:6 (further down) is
            scoped INSIDE this stacking context (position:relative + z-index
@@ -2598,7 +2546,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* A cutout (.zt-story-cut) keeps the plain .zt-person placement - the
            YaTi cartoon's: bottom pinned to the bottom of the slide, full
            height. A whole photo (no cutout yet) sits above the rail instead. */
-        .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:30px; height:calc(100% - 44px); }
+        .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:20px; height:calc(100% - 34px); }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
            headline's). */
@@ -2714,62 +2662,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            gold like .zt-persist-status, since it's now read as part of
            this identity block rather than a caption written on a photo. */
         .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
-        /* Polaroid + CTA text, side by side (row, not the old column of
-           caption-above-arrow-above-Polaroid), sitting directly under the
-           metadata block above it -- same left inset as that block. top
-           is a fixed pixel estimate of that block's own height (name +
-           4 metadata lines + Class Of, top:4px start) plus a bit of
-           breathing room below it -- per direct feedback, this row was
-           sitting too close under the Class Of line above it.
-           align-items:flex-start, not flex-end -- per direct feedback,
-           the caption should start level with the Polaroid's own top
-           edge, not bottom-align with it (the caption is the shorter of
-           the two, so bottom-aligning left its first line sitting well
-           below the Polaroid's top). gap:4px, not 10px -- per direct
-           feedback, "push the text block closer to the Polaroid." */
-        .zt-polaroid-stack { position:absolute; z-index:8; left:var(--x-logo-left); top:94px; display:flex; flex-direction:row; align-items:flex-start; gap:4px; pointer-events:none; }
-        /* Native disabled state blocks clicks before React installs the
-           handler; reset only this button to preserve the approved art. */
-        .zt-polaroid-stack { appearance:none; margin:0; padding:0; border:0; border-radius:0; background:none; color:inherit; font:inherit; text-align:left; opacity:1; }
-        /* Handwritten-caption feel via Caveat (loaded in layout.tsx), not
-           Oswald -- reads as a personal note, not another line of the
-           same UI chrome type everywhere else on this slide. One wording
-           at every breakpoint now (was a separate, larger desktop-only
-           variant plus a smaller, differently-worded mobile-only one) --
-           per direct feedback, the mobile CTA belongs everywhere. Tilted
-           to match the Polaroid beside it (its own -4deg rotation lives on
-           .zt-moment-thumb, a sibling, not an ancestor, so this needs its
-           own transform rather than inheriting one) -- per direct
-           feedback, "rotate that text block just like Click to Upload." */
-        /* line-height tightened to 1.0 (was 1.1) -- per direct feedback,
-           the lines were sitting too far apart. transform-origin is left
-           top now, not left bottom -- matches .zt-polaroid-stack's own
-           align-items:flex-start above (this text's top edge is the fixed
-           point now, not its bottom). */
-        /* text-shadow strengthened into a full outline (8 directions) plus
-           its own drop shadow, not just a soft blur -- per direct
-           feedback, "add a shadow or outline... to make it pop." A soft
-           blur alone was already there for plain legibility (this caption
-           can land mid-photo, see .zt-polaroid-stack's own comment on
-           mobile overlap), but wasn't enough to make light cursive text
-           actually stand out against a busy background the way a solid
-           outline does. */
-        /* line-clamp raised to 5 (was 4) to match the 5-line wrap above --
-           otherwise the last line ("Timeline!") gets clipped. */
-        .zt-polaroid-caption { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:5; overflow:hidden; max-width:190px; color:#f7f7f5; font-family:"Caveat",cursive; font-weight:700; font-size:clamp(13px,1.7cqw,18px); line-height:1; text-shadow:-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 -1.5px 0 #000, 0 1.5px 0 #000, -1.5px 0 0 #000, 1.5px 0 0 #000, 0 3px 6px rgba(0,0,0,.7); transform:rotate(-4deg); transform-origin:left top; }
-        /* max-width raised from 150px so "Career Timeline!" has room to
-           sit on one line -- see the span itself, below. */
-        .zt-polaroid-caption-timeline { display:inline; }
-        .zt-moment-thumb { width:clamp(46px,6cqw,64px); aspect-ratio:6/7; background:#f4f1e6; border-radius:2px; padding:5px 5px 14px; box-shadow:0 6px 14px rgba(0,0,0,.4); transform:rotate(-4deg); }
-        .zt-moment-thumb-frame { display:flex; width:100%; height:100%; align-items:center; justify-content:center; background:#0c0c0c; border-radius:1px; }
-        /* Same headline font as .zt-title (Oswald 700, uppercase) -- reads
-           as this slide's own UI chrome, not a generic icon. Tilts along
-           with the rest of the card via .zt-moment-thumb's own
-           rotate(-4deg): no separate transform needed here. */
-        /* Bumped up (was clamp(5.5px,.9cqw,7px)) now that it's 3 short
-           one-word lines instead of 2 -- per direct feedback, larger. */
-        .zt-moment-thumb-upload { color:rgba(255,255,255,.6); font-family:Oswald,sans-serif; font-weight:700; font-size:clamp(7px,1.1cqw,9px); line-height:1.25; letter-spacing:.05em; text-align:center; text-transform:uppercase; }
-
+        .zt-rail-mode-toggle { position:absolute; z-index:8; left:var(--x-logo-left); top:88px; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(6,7,8,.62); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.22); }
+        .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+        .zt-rail-mode-toggle button.is-on { background:rgba(255,178,28,.14); color:${TIMELINE_YELLOW}; box-shadow:inset 0 0 0 1px rgba(255,178,28,.24); }
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
            matching the real corporate hero's proportions: kicker/headline/
@@ -2920,9 +2815,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_YELLOW}; }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
         .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_YELLOW}; }
-        .zt-rail-story { position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%); display:block; width:26px; height:26px; padding:0; border:1.5px solid ${TIMELINE_YELLOW}; border-radius:3px; background:#000; overflow:visible; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.5); }
+        .zt-rail-story { position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%); display:grid; place-items:center; width:22px; height:22px; padding:0; border:1px solid rgba(255,178,28,.72); border-radius:50%; background:rgba(5,6,7,.92); color:${TIMELINE_YELLOW}; overflow:visible; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.45); }
+         .zt-rail-story i { font-size:11px; line-height:1; }
         .zt-rail-story:hover { transform:translateX(-50%) scale(1.15); }
-        .zt-rail-story-thumb { display:block; width:100%; height:100%; object-fit:cover; border-radius:2px; }
+        .zt-rail-story-thumb { display:none; }
         .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_YELLOW}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         /* A season's logo standing on the rail, as wide as its dash. */
@@ -3134,6 +3030,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           /* Headshot fallback flush against the headline column's real
              left edge (58% here -- see the doubled-box note above). */
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
+          /* Whole timeline/story photos stand directly on the mobile
+             timeline rail instead of floating above it. This path is
+             shared by Story photos and Connect & Contribute yearly hero
+             uploads, so both land in the same place. */
+          .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:8px; height:calc(100% - 22px); }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28cqw,120px)) -- at that width a wide pose was
              width-limited to well under the row's height. */
@@ -3166,16 +3067,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              positions, not aware of each other), so the narrower this
              column stays, the less of it actually sits over that photo
              instead of the plain background. */
-          .zt-polaroid-caption { font-size:11px; line-height:.92; max-width:80px; }
           /* Desktop-only merge (see the base rule above) undone here --
              mobile keeps "Timeline!" on its own line, the 5-line wrap. */
-          .zt-polaroid-caption-timeline { display:block; }
           /* Recomputed for this breakpoint's smaller metadata block (see
              the font-size overrides just above), plus the same added
              breathing room as the desktop base rule. */
-          .zt-polaroid-stack { top:66px; }
-          .zt-moment-thumb { width:clamp(38px,14cqw,50px); }
-          .zt-moment-thumb-upload { font-size:clamp(6px,1.6cqw,7.5px); }
           /* No room for a year label at every tick once the rail itself is
              this compressed -- per direct feedback. */
           .zt-rail-tick-year { display:none; }

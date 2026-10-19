@@ -7,7 +7,7 @@ import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
 type Key = 'active' | 'alltime' | 'current' | 'news';
 const galleries = new Set<Key>(['active', 'alltime', 'current']);
 const groups = ['filterStatus','filterLevels','filterOrgs','filterGradClass','filterRosterYears'];
-const rank: Record<string,number> = {'MLB':1,'TRIPLE-A':2,'DOUBLE-A':3,'HIGH-A':4,'LOW-A':5,'ROOKIE':6,'INDY':7,"INT'L":8,'NCAA-D1':9,'NCAA-D2':10,'NCAA-D3':11,'NCAA':9,'NAIA':12,'JUCO':13,'HIGH SCHOOL':14};
+const rank: Record<string,number> = {'MLB':1,'TRIPLE-A':2,'DOUBLE-A':3,'HIGH-A':4,'SINGLE-A':5,'ROOKIE':6,'INDY':7,'INTERNATIONAL':8,'NCAA-D1':9,'NCAA-D2':10,'NCAA-D3':11,'NCAA':9,'NAIA':12,'NJCAA':13,'CCCAA':13,'NWAC':13,'HIGH SCHOOL':14};
 const NOW_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now';
 
 function currentKey(): Key {
@@ -23,7 +23,7 @@ function grid(k: Key){ return document.getElementById(`${k}-grid`); }
 function cards(k: Key){ return Array.from(grid(k)?.querySelectorAll<HTMLElement>('.yat-card[data-playerid]:not([data-superfan-synthetic="true"])') || []); }
 function wrapper(card: HTMLElement){ return card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card; }
 function level(card: HTMLElement){ return (card.dataset.level || '').trim().toUpperCase().replace(/\s+/g,'-'); }
-function levelRank(card: HTMLElement){ const raw=level(card); const normalized=raw.replace(/^NCAA-?D([123])$/,'NCAA-D$1').replace(/^AAA$/,'TRIPLE-A').replace(/^AA$/,'DOUBLE-A').replace(/^A\+$/,'HIGH-A').replace(/^A$/,'LOW-A').replace(/^HIGH-SCHOOL$/,'HIGH SCHOOL'); return rank[normalized] || 99; }
+function levelRank(card: HTMLElement){ const raw=level(card); const normalized=raw.replace(/^NCAA-?D([123])$/,'NCAA-D$1').replace(/^AAA$/,'TRIPLE-A').replace(/^AA$/,'DOUBLE-A').replace(/^A\+$/,'HIGH-A').replace(/^(A|LOW-A)$/,'SINGLE-A').replace(/^INT'L$/,'INTERNATIONAL').replace(/^JUCO$/,'NJCAA').replace(/^HIGH-SCHOOL$/,'HIGH SCHOOL'); return rank[normalized] || 99; }
 function status(card: HTMLElement){ return (card.dataset.status || '').toUpperCase(); }
 function rosterCount(card: HTMLElement){ return (card.dataset.rosteryears || '').split(',').filter(Boolean).length; }
 function grad(card: HTMLElement){ const n=Number(card.dataset.gradclass); return Number.isFinite(n)&&n>0?n:9999; }

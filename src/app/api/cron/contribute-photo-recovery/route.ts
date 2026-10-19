@@ -1,11 +1,11 @@
-// Recover uploads blocked before the media_upload RLS repair.
-// Vercel cron (CRON_SECRET) only. A bounded, idempotent, AI-gated batch;
-// no published image is overwritten and uncertain files remain in review.
+// Recover legacy pending uploads and retry interrupted publications.
+// Vercel cron (CRON_SECRET) only. A bounded, idempotent, safety-gated batch;
+// family-safe photos publish, genuine safety uncertainty remains in review.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { PHOTO_TYPES, PLAYER_ID, type PhotoPurpose } from '@/lib/contribute';
-import { assetUrl, existingPublishedTarget, promoteUpload, sha256ForStagedPhoto, type UploadRow } from '@/lib/contributeServer';
-import { moderatePhoto } from '@/lib/contributeModeration';
+import { assetUrl, promoteUpload, sha256ForStagedPhoto, type UploadRow } from '@/lib/contributeServer';
+import { CONTRIBUTE_MODERATION_POLICY_VERSION, moderatePhoto } from '@/lib/contributeModeration';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -18,7 +18,7 @@ type Details = {
   season?: { year?: number; team?: string; label?: string } | null;
   playerName?: string | null;
   currentSeason?: boolean;
-  moderation?: { decision?: string; checked_at?: string };
+  moderation?: { decision?: string; checked_at?: string; policy_version?: number };
   published_assets?: string[];
   [key: string]: unknown;
 };
@@ -33,19 +33,20 @@ function allowed(req: NextRequest) {
 export async function GET(req: NextRequest) {
   if (!allowed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
-    // Old uploads had no recorded AI outcome; a separate review verdict must
-    // not be retried continually. A lock avoids competing recovery requests.
+    // Old uploads and interrupted safety checks are retried. A genuine
+    // safety-review verdict under the current policy is left for a person.
     const { rows: pending } = await query<Pending>(
       `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time,
               description, uploaded_at, sha256
          FROM media_upload WHERE status = 'pending'
           AND s3_key LIKE 'staging/contribute/%'
           AND (COALESCE((description::jsonb->'moderation'->>'checked_at'), '') = ''
+            OR COALESCE((description::jsonb->'moderation'->>'policy_version')::int, 0) < $2
             OR (description::jsonb->'moderation'->>'decision' = 'approve'
                 AND COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(description::jsonb->'published_assets') = 'array'
                   THEN description::jsonb->'published_assets' ELSE '[]'::jsonb END), 0) = 0))
          ORDER BY uploaded_at ASC LIMIT $1`,
-      [BATCH]
+      [BATCH, CONTRIBUTE_MODERATION_POLICY_VERSION]
     );
     const results: { id: string; outcome: string; detail?: string }[] = [];
     for (const item of pending) {
@@ -64,10 +65,9 @@ export async function GET(req: NextRequest) {
           `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time,
                   description, uploaded_at, sha256 FROM media_upload
              WHERE id <> $1 AND playerid = $2 AND purpose = $3 AND date_taken = $4::date
-               AND status IN ('pending', 'approved')
-               AND (status = 'approved' OR uploaded_at < $5)
-             ORDER BY CASE WHEN status = 'approved' THEN 0 ELSE 1 END, uploaded_at ASC LIMIT 20`,
-          [item.id, item.playerid, item.purpose, item.date_taken, item.uploaded_at]
+               AND status = 'approved'
+             ORDER BY uploaded_at ASC LIMIT 20`,
+          [item.id, item.playerid, item.purpose, item.date_taken]
         );
         let duplicateId: string | null = null;
         for (const sibling of siblings) {
@@ -76,24 +76,19 @@ export async function GET(req: NextRequest) {
           if (otherHash === sha) { duplicateId = sibling.id; break; }
         }
         if (duplicateId) {
-          const moderation = { decision: 'review', checked_at: new Date().toISOString(), description: `Duplicate of submission ${duplicateId}; not republished.` };
-          await query('UPDATE media_upload SET description = $2 WHERE id = $1',
-            [item.id, JSON.stringify({ ...details, moderation })]);
-          results.push({ id: item.id, outcome: 'duplicate-held' });
+          const moderation = {
+            decision: 'approve',
+            checked_at: new Date().toISOString(),
+            policy_version: CONTRIBUTE_MODERATION_POLICY_VERSION,
+            description: `Duplicate of approved submission ${duplicateId}; already live.`,
+          };
+          await query("UPDATE media_upload SET status = 'approved', description = $2 WHERE id = $1",
+            [item.id, JSON.stringify({ ...details, moderation, duplicate_of: duplicateId, published_assets: [] })]);
+          results.push({ id: item.id, outcome: 'already-live' });
           continue;
         }
-        if (purpose === 'other_photo') {
-          const moderation = { decision: 'review', checked_at: new Date().toISOString(), description: 'Gallery-only photo: awaiting a public gallery placement.' };
-          await query('UPDATE media_upload SET description = $2 WHERE id = $1',
-            [item.id, JSON.stringify({ ...details, moderation })]);
-          results.push({ id: item.id, outcome: 'gallery-placement-held' });
-          continue;
-        }
-        const occupied = await existingPublishedTarget(item);
-        // An existing card image is not a reason to suppress a valid upload.
-        // Preserve it and add the new photo to the year-specific timeline.
-        const appendTimeline = Boolean(occupied && purpose !== 'school_logo' && purpose !== 'team_logo');
-        const verdict = details.moderation?.decision === 'approve' ? { decision: 'approve' as const, description: 'Previously AI approved; retrying publication.', reason_for_fan: '' } : await moderatePhoto({
+        const alreadyApprovedUnderCurrentPolicy = details.moderation?.decision === 'approve' && (details.moderation?.policy_version || 0) >= CONTRIBUTE_MODERATION_POLICY_VERSION;
+        const verdict = alreadyApprovedUnderCurrentPolicy ? { decision: 'approve' as const, description: 'Previously safety-approved; retrying publication.', reason_for_fan: '' } : await moderatePhoto({
           imageUrl: assetUrl(item.s3_key) || '',
           purpose,
           playerName: details.playerName,
@@ -101,13 +96,17 @@ export async function GET(req: NextRequest) {
           note: details.note
         });
         if (!verdict) {
-          const moderation = { decision: 'review', checked_at: new Date().toISOString(), description: 'Automatic moderation unavailable; no publication attempted.' };
+          // Keep policy_version below the current policy so the next cron run
+          // retries the safety service instead of turning an outage into a
+          // permanent human-review queue item.
+          const moderation = { decision: 'review', checked_at: new Date().toISOString(), policy_version: 0, description: 'Automatic safety check unavailable; retry automatically.' };
           await query('UPDATE media_upload SET description = $2 WHERE id = $1',
             [item.id, JSON.stringify({ ...details, moderation })]);
           results.push({ id: item.id, outcome: 'ai-unavailable-held' });
           continue;
         }
         const moderation = { decision: verdict.decision, checked_at: new Date().toISOString(),
+          policy_version: CONTRIBUTE_MODERATION_POLICY_VERSION,
           description: verdict.description, reason: verdict.reason_for_fan };
         if (verdict.decision === 'reject') {
           await query("UPDATE media_upload SET status = 'rejected', description = $2 WHERE id = $1",
@@ -122,7 +121,8 @@ export async function GET(req: NextRequest) {
           // completed upload never quietly overwrites another asset.
           await query('UPDATE media_upload SET description = $2 WHERE id = $1',
             [item.id, JSON.stringify({ ...details, moderation })]);
-          const written = await promoteUpload({ ...item, purpose: appendTimeline ? 'timeline_hero' : item.purpose, current_season: details.currentSeason });
+          const publishPurpose = item.purpose === 'other_photo' && PLAYER_ID.test(item.playerid) ? 'timeline_hero' : item.purpose;
+          const written = await promoteUpload({ ...item, purpose: publishPurpose, current_season: details.currentSeason });
           await query("UPDATE media_upload SET status = 'approved', description = $2 WHERE id = $1",
             [item.id, JSON.stringify({ ...details, moderation, published_assets: written })]);
           results.push({ id: item.id, outcome: 'published' });

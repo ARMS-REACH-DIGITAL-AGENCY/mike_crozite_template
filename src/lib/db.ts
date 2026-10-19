@@ -511,6 +511,9 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           WHEN 'D3'            THEN 11
           WHEN 'NAIA'          THEN 12
           WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
           ELSE 99
         END
     ),
@@ -686,6 +689,9 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           WHEN 'D3'            THEN 11
           WHEN 'NAIA'          THEN 12
           WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
           ELSE 99
         END
     ),
@@ -949,6 +955,9 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         WHEN 'D3'            THEN 11
         WHEN 'NAIA'          THEN 12
         WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
         WHEN 'JrCollege'     THEN 13
         WHEN 'NJCAA'         THEN 13
         WHEN 'HIGH SCHOOL'   THEN 14
@@ -1526,6 +1535,9 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         WHEN 'D3'            THEN 11
         WHEN 'NAIA'          THEN 12
         WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
         WHEN 'JrCollege'     THEN 13
         WHEN 'NJCAA'         THEN 13
         WHEN 'HIGH SCHOOL'   THEN 14
@@ -2318,27 +2330,24 @@ const FLIP_CARD_STAGE_SELECT = `
       -- Every alumnus we know of gets a card: one with no status yet is
       -- UNKNOWN (until someone tells us), never left off the page.
       COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
-      CASE level_label
+      -- Official levels only (Oct 18, 2026): every alias, any capitalisation.
+      CASE UPPER(TRIM(COALESCE(level_label, '')))
         WHEN 'AAA'           THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A'      THEN 'TRIPLE-A'
+        WHEN 'TRIPLE-A (40-MAN)' THEN 'TRIPLE-A'
         WHEN 'AA'            THEN 'DOUBLE-A'
         WHEN 'DOUBLE-A'      THEN 'DOUBLE-A'
-        WHEN 'High-A'        THEN 'HIGH-A'
         WHEN 'HIGH-A'        THEN 'HIGH-A'
         WHEN 'A+'            THEN 'HIGH-A'
-        WHEN 'Single-A'      THEN 'LOW-A'
-        WHEN 'LOW-A'         THEN 'LOW-A'
-        WHEN 'A'             THEN 'LOW-A'
-        WHEN 'A-'            THEN 'LOW-A'
-        WHEN 'Rk'            THEN 'ROOKIE'
+        WHEN 'SINGLE-A'      THEN 'SINGLE-A'
+        WHEN 'LOW-A'         THEN 'SINGLE-A'
+        WHEN 'A'             THEN 'SINGLE-A'
+        WHEN 'A-'            THEN 'SINGLE-A'
         WHEN 'RK'            THEN 'ROOKIE'
-        WHEN 'Rookie'        THEN 'ROOKIE'
         WHEN 'ROOKIE'        THEN 'ROOKIE'
-        WHEN 'INTL'          THEN 'INT''L'
-        WHEN 'Intl'          THEN 'INT''L'
-        WHEN 'INT''L'        THEN 'INT''L'
-        WHEN 'INTERNATIONAL' THEN 'INT''L'
-        WHEN 'Indy'          THEN 'INDY'
+        WHEN 'INTL'          THEN 'INTERNATIONAL'
+        WHEN 'INT''L'        THEN 'INTERNATIONAL'
+        WHEN 'INTERNATIONAL' THEN 'INTERNATIONAL'
         WHEN 'INDY'          THEN 'INDY'
         WHEN 'INDEPENDENT'   THEN 'INDY'
         WHEN 'NCAA-D1'       THEN 'NCAA-D1'
@@ -2349,12 +2358,15 @@ const FLIP_CARD_STAGE_SELECT = `
         WHEN 'NCAA-D3'       THEN 'NCAA-D3'
         WHEN 'D3'            THEN 'NCAA-D3'
         WHEN 'NAIA'          THEN 'NAIA'
-        WHEN 'JrCollege'     THEN 'JUCO'
-        WHEN 'JUCO'          THEN 'JUCO'
-        WHEN 'NJCAA'         THEN 'JUCO'
+        WHEN 'JRCOLLEGE'     THEN 'NJCAA'
+        WHEN 'JUCO'          THEN 'NJCAA'
+        WHEN 'NJCAA'         THEN 'NJCAA'
+        WHEN 'CCCAA'         THEN 'CCCAA'
+        WHEN 'NWAC'          THEN 'NWAC'
         WHEN 'HS'            THEN 'HIGH SCHOOL'
         WHEN 'HIGH SCHOOL'   THEN 'HIGH SCHOOL'
-        ELSE COALESCE(UPPER(level_label), '')
+        WHEN '-'             THEN ''
+        ELSE UPPER(TRIM(COALESCE(level_label, '')))
       END AS level_label
     FROM ${PLAYER_STAGE_IDENTITY_SOURCE} fs
     LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
