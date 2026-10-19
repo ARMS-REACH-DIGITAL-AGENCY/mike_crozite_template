@@ -7,6 +7,7 @@ import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
+import { toSlugFromDisplay } from "@/lib/slug";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -50,6 +51,7 @@ export default function ProfileNewsList({
   firstName,
   playerId,
   playerName,
+  hsid,
   schoolWide = false,
 }: {
   stories: ProfileNewsStory[];
@@ -57,6 +59,8 @@ export default function ProfileNewsList({
   playerId: string;
   // Bolded in each story's copy; not linked - this is his profile already.
   playerName: string;
+  /** The school owning this reader, for profile links on both news pages. */
+  hsid: string;
   schoolWide?: boolean;
 }) {
   const storyParam = useStoryParam();
@@ -69,6 +73,11 @@ export default function ProfileNewsList({
   }, [storyParam, stories]);
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
+  const relatedPlayerId = String(openStory?.playerId || playerId || '').trim();
+  const relatedPlayerName = String(openStory?.playerName || playerName || '').trim();
+  const playerProfileHref = openStory && relatedPlayerId && hsid
+    ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(relatedPlayerId)}${relatedPlayerName ? `/${toSlugFromDisplay(relatedPlayerName)}` : ''}`
+    : '';
 
   // Newest first by default; ▲▼ at the top flips it (same as Stories).
   const [sort, setSort] = useState<SortDir>("newest");
@@ -152,10 +161,21 @@ export default function ProfileNewsList({
         }
         footer={
           openStory ? (
-            <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-              Read the original story at {(openStory.source || "the source").toUpperCase()}
-              <i className="ri-external-link-line" />
-            </a>
+            <div className="pp-news-modal-actions">
+              {playerProfileHref ? (
+                <a className="pp-news-modal-profile" href={playerProfileHref}
+                  onClick={() => setOpenUuid("")}
+                  aria-label={`View ${relatedPlayerName || 'this player'}'s YAT?STATS profile`}>
+                  <i className="ri-user-line" aria-hidden="true" />
+                  <span>VIEW PLAYER PROFILE</span>
+                  <i className="ri-arrow-right-up-line" aria-hidden="true" />
+                </a>
+              ) : null}
+              <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
+                Read the original story at {(openStory.source || "the source").toUpperCase()}
+                <i className="ri-external-link-line" aria-hidden="true" />
+              </a>
+            </div>
           ) : null
         }
       >
@@ -209,7 +229,9 @@ export default function ProfileNewsList({
           gap:6px;
           margin:-10px 0 0;
           padding:8px 0 6px;
-          background:var(--psi-page-bg,#070707);
+          /* The school News row does not define --psi-page-bg; follow the
+             actual site theme instead of falling back to hard black. */
+          background:var(--bg,#0c0c0c);
         }
         .pp-news-search{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:42px;padding:0 12px;border:1px solid var(--pp-news-card-border);border-radius:8px;background:var(--pp-news-card-bg);color:var(--pp-news-muted);}
         .pp-news-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--pp-news-title);font:400 14px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
@@ -308,6 +330,16 @@ export default function ProfileNewsList({
           font-style:italic;
           color:var(--yat-content-drawer-muted,rgba(255,255,255,.72));
         }
+        .pp-news-modal-actions{display:flex;flex-direction:column;align-items:flex-start;gap:13px;min-width:0}
+        .pp-news-modal-profile{
+          display:inline-flex;align-items:center;gap:7px;max-width:100%;
+          color:var(--yat-content-drawer-fg,var(--pp-news-title));
+          text-decoration:none;
+          font:700 12px/1.3 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          letter-spacing:0;
+        }
+        .pp-news-modal-profile:hover,.pp-news-modal-profile:focus-visible{text-decoration:underline;text-underline-offset:3px}
+        .pp-news-modal-profile i{font-size:15px;flex:none}
         .pp-news-modal-source{
           display:inline-flex;
           align-items:center;

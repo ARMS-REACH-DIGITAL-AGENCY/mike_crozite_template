@@ -308,13 +308,18 @@ export default function InteractionStrip({
         // gallery, but as filters. Resolve its roster from the active gallery
         // first so client-side navigation doesn't depend on a news-only list
         // that may not be populated until a full refresh.
+        // News is a strict filter of the ACTIVE gallery, in ACTIVE DOM order.
+        // Never use a broad school / All-Time fallback for News headshots.
         const nextPlayers = section === 'news'
           ? readPlayersFromVisibleBlockFive('active', playersById)
+              .filter((player) => ACTIVE_GALLERY_STATUSES.includes(normalizeStatus(player.status)))
           : PLAYER_GALLERY_SECTIONS.has(section)
             ? readPlayersFromVisibleBlockFive(section, playersById)
             : fallbackPlayersForSection(section, players);
 
-        const resolvedPlayers = nextPlayers.length ? nextPlayers : fallbackPlayersForSection(section === 'news' ? 'active' : section, players);
+        const resolvedPlayers = section === 'news'
+          ? nextPlayers
+          : nextPlayers.length ? nextPlayers : fallbackPlayersForSection(section, players);
 
         setSectionPlayers((current) =>
           playerSignature(current) === playerSignature(resolvedPlayers) ? current : resolvedPlayers

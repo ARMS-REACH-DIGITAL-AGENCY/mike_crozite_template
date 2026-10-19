@@ -221,6 +221,11 @@ export default function DrawerLayoutOverrides() {
       .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner > [data-playerid][data-row3-mirror-visible="true"] {
         display: block !important;
       }
+      /* News row uses only validated Active Alumni headshots, even if a
+         client-side redraw temporarily restores old All-Time nodes. */
+      .gallery-strip[data-active-section="news"][data-react-mirrors-row5="true"] .gallery-strip-inner > [data-playerid]:not([data-news-active-eligible="true"]) {
+        display: none !important;
+      }
 
       /* Block 2 should behave like Block 1: full-width rail, not centered/max-width, and never pushed by drawers. */
       .yat-row2-shell,

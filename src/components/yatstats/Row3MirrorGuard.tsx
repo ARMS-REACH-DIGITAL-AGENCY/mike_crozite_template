@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
+import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 import { getOriginalForCardCopy, getPlayerHeadshotSources, PLAYER_HEADSHOT_FALLBACK_URL } from '@/lib/playerImage';
 import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
 
@@ -85,6 +86,12 @@ function wireSyntheticSlot(slot: HTMLElement) {
     if (!playerId) return;
 
     const sectionKey = getVisibleSectionKey();
+    // Synthetic headshots do not have React's delegated News click handler.
+    if (sectionKey === 'news') {
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent('yat:news-player-filter', { detail: { playerId } }));
+      return;
+    }
     const section = document.getElementById(`sec-${sectionKey}`);
     const card = section?.querySelector<HTMLElement>(`.yat-card[data-playerid="${playerId}"]`);
     if (!card) return;
@@ -292,7 +299,11 @@ function syncRow3VisualOrderAndImages(): void {
   // to avoid touching.
   const visibleCards = Array.from(
     blockFiveSection.querySelectorAll<HTMLElement>('.yat-card[data-playerid]')
-  ).filter(isCardVisible);
+  ).filter((card) =>
+    isCardVisible(card)
+    // Custom Active filters must never let RETIRED cards leak into News.
+    && (sectionKey !== 'news' || isActiveGalleryStatus(card.dataset.status))
+  );
 
   const visiblePlayerIds = visibleCards
     .map((card) => String(card.dataset.playerid || '').trim())
@@ -330,7 +341,12 @@ function syncRow3VisualOrderAndImages(): void {
     )
   ).forEach((slot) => {
     const playerId = String(slot.dataset.playerid || '').trim();
-    const shouldShow = visiblePlayerIdSet.has(playerId);
+    const shouldShow = visiblePlayerIdSet.has(playerId)
+      && (sectionKey !== 'news' || isActiveGalleryStatus(slot.dataset.status));
+
+    // A positive News status flag blocks late All-Time nodes from surfacing.
+    if (sectionKey === 'news' && shouldShow) slot.dataset.newsActiveEligible = 'true';
+    else delete slot.dataset.newsActiveEligible;
 
     slot.removeAttribute('data-default-hidden');
 

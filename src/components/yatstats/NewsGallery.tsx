@@ -303,7 +303,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
               <div className="yat-news-loading-text">{playerFilter ? 'NO STORIES FOR '+filteredName.toUpperCase() : 'NO ALUMNI NEWS YET'}</div>
             </div>
           ) : (
-            <ProfileNewsList stories={rows} firstName="school alumni" playerId="" playerName="" schoolWide />
+            <ProfileNewsList stories={rows} firstName="school alumni" playerId="" playerName="" hsid={hsid} schoolWide />
           )}
         </div>
         <aside className="yp-school-news-tower" aria-label="Title Sponsor desktop advertisement placement">

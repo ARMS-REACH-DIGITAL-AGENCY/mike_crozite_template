@@ -929,7 +929,7 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-news" className="pp-fz-panel">
           <div className="yp-profile-partner-columns">
             <div className="yp-profile-partner-body">
-              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} />
+              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} hsid={hsid} />
             </div>
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
