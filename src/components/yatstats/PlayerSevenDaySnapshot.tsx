@@ -192,7 +192,13 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
   const schedule = teamId
     ? await getTeamSchedule(teamId, 300, { from: addDays(today, -4), to: addDays(today, 4) })
     : [];
-  const hasSchedule = Boolean(teamId) && (schedule as ScheduleRow[]).length > 0;
+  // An empty seven-day window does not mean this team has no schedule.
+  // Check the season before deciding whether blank dates are verified off days.
+  // This also covers postseason-eliminated clubs such as the Mets in October.
+  const seasonEvidence = teamId && (schedule as ScheduleRow[]).length === 0
+    ? await getTeamSchedule(teamId, 1, { from: `${today.slice(0, 4)}-01-01`, to: `${today.slice(0, 4)}-12-31` })
+    : [];
+  const hasSchedule = Boolean(teamId) && ((schedule as ScheduleRow[]).length > 0 || seasonEvidence.length > 0);
 
   const scheduleByDate = new Map<string, ScheduleRow[]>();
   for (const row of schedule as ScheduleRow[]) {
@@ -298,40 +304,6 @@ export default async function PlayerSevenDaySnapshot({
   if (!playerId) return null;
 
   const { items, todayIso } = await getSevenDayWindow(playerId);
-  const hasAnyRealData = items.some((it) => it.kind !== 'unknown');
-
-  if (!hasAnyRealData) {
-    return (
-      <div className="yat-snap yat-snap-empty" aria-label="7-Day Snapshot - schedule and game log">
-        <div className="yat-snap-title">7-Day Snapshot</div>
-        <div className="yat-snap-empty-body">
-          <i className="ri-calendar-line" aria-hidden="true" />
-          <p>Schedule will appear here once available.</p>
-        </div>
-        <style>{`
-          .yat-snap-empty{ justify-content:center; align-items:center; }
-          .yat-snap-empty .yat-snap-title{ align-self:stretch; }
-          .yat-snap-empty-body{
-            flex:1;
-            min-height:0;
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            justify-content:center;
-            gap:clamp(3px,1.2cqi,7px);
-            color:#8a7c68;
-            text-align:center;
-          }
-          .yat-snap-empty-body i{ font-size:clamp(14px,5cqi,24px); }
-          .yat-snap-empty-body p{
-            margin:0;
-            font:400 clamp(6.5px,2.1cqi,9.5px)/1.3 Oswald,sans-serif;
-          }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
     <div className="yat-snap" aria-label="7-Day Snapshot - schedule and game log">
       <div className="yat-snap-title">7-Day Snapshot</div>
@@ -408,7 +380,7 @@ export default async function PlayerSevenDaySnapshot({
               ) : item.kind === 'offday' ? (
                 <div className="yat-snap-offday">Off Day</div>
               ) : (
-                <div className="yat-snap-offday yat-snap-unknown">--</div>
+                <div className="yat-snap-offday yat-snap-unknown">Schedule unavailable</div>
               )}
             </a>
           );
