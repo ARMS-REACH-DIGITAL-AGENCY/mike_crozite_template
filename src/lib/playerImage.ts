@@ -160,7 +160,7 @@ export function getPlayerHeadshotSources(playerId: string, headshotUrl?: string 
   const officialSources = official
     ? [headshot, getMlbHeadshotUrl(official[1], official[2] === '67' ? 'milb' : '67')]
     : [];
-  return [...new Set([designated, cutout, thumbnail, original, originalPng, ...officialSources, PLAYER_HEADSHOT_FALLBACK_URL].filter(Boolean))];
+  return [...new Set([designated, original, cutout, thumbnail, originalPng, ...officialSources, PLAYER_HEADSHOT_FALLBACK_URL].filter(Boolean))];
 }
 
 /**
