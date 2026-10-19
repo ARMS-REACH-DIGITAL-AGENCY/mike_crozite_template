@@ -642,9 +642,9 @@ export default function StoryDrawer() {
         body.light-theme .ysd-header::before { filter: invert(1); opacity: .09; }
         /* Use the same two-font hierarchy as Connect & Contribute: Archivo for
            interface copy/titles, Barlow Condensed for compact section labels.
-           Preserve existing gold CTA and 8px-rounded fields. */
-        .ysd-kicker { color:#FFD700; font:700 13px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.07em; text-transform:uppercase; }
-        body.light-theme .ysd-kicker { color: #9a6f00; }
+           Use Contribute monochrome CTA and 8px-rounded fields. */
+        .ysd-kicker { color:var(--ink); font:700 13px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.07em; text-transform:uppercase; }
+        body.light-theme .ysd-kicker { color: #444444; }
         #drawerStory .ysd-title { margin:6px 0 0 !important; padding:0 !important; font:800 20px/1.12 var(--yat-font-ui, Archivo, Arial, sans-serif) !important; letter-spacing:-.025em!important; }
         .ysd-close { position: static !important; flex: none; }
         .ysd-body { flex-shrink:0; display:flex; flex-direction:column; gap:16px; padding:14px 16px 28px; font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
@@ -668,16 +668,16 @@ export default function StoryDrawer() {
         .ysd-photo-add i { font-size: 22px; }
         .ysd-photo-add:disabled { opacity:.6; cursor:wait; }
         .ysd-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-        .ysd-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:999px; background:rgba(255,215,0,.14); border:1px solid rgba(255,215,0,.6); font:600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); }
+        .ysd-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:999px; background:rgba(128,128,128,.10); border:1px solid rgba(128,128,128,.30); font:600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); }
         .ysd-tag button { border: 0; background: none; color: inherit; font-size: 15px; cursor: pointer; }
         .ysd-results.yat-gs-results { max-height: none; overflow: visible; }
         .ysd-results .yat-gs-result { width: 100%; text-align: left; font: inherit; }
         .ysd-results .yat-gs-result:is(:hover,:focus-visible) { background:var(--line); border-radius:4px; }
         .ysd-error { color: #ff6b6b; font-size: 13px; }
         .ysd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ysd-btn { min-height:42px; padding:0 18px; border-radius:8px; border:1px solid #FFD700; background:transparent; color:#FFD700; font:800 12px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
-        .ysd-btn-primary { background: #FFD700; color: #000; }
-        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: #9a6f00; color: #9a6f00; }
+        .ysd-btn { min-height:42px; padding:0 18px; border-radius:8px; border:1px solid var(--ink); background:transparent; color:var(--ink); font:800 12px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
+        .ysd-btn-primary { background: var(--ink); color: var(--paper, #fff); }
+        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: #444444; color: #444444; }
         .ysd-btn:disabled { opacity: .6; cursor: wait; }
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font:800 19px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
