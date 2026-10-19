@@ -975,6 +975,13 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-card:is(:hover, :focus-within) { background: var(--line); color: var(--fg); }
       #drawerLeft .yat-search-card:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
       #drawerLeft .yat-search-school-identity { gap: 3px; }
+      /* School result names match the approved condensed, uppercase player names. */
+      #drawerLeft .yat-search-school-global-card .yat-search-school-identity strong,
+      #drawerLeft .yat-search-school-bracket-card .yat-search-school-identity strong {
+        font:800 16px/1.1 Oswald,sans-serif!important;
+        letter-spacing:0!important;
+        text-transform:uppercase!important;
+      }
       #drawerLeft .yat-search-school-identity strong,
       #drawerLeft .yat-search-player-text-link strong {
         color: var(--fg); font: 800 14px/1.2 var(--yat-font-ui);
