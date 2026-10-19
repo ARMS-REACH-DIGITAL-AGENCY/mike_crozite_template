@@ -1,5 +1,8 @@
 import crypto from 'crypto';
-import { query } from '@/lib/db';
+import { query as readQuery } from '@/lib/db';
+// Ingest writes go through the writer connection; the site's read-only
+// pool is used only by the player-profile reader below.
+import { writerQuery as query } from '@/lib/dbWriter';
 
 export type ExternalStatTeamConfig = {
   id?: number;
@@ -332,7 +335,7 @@ export async function getRecentExternalStatsForPlayer(playerId: string, limit = 
   // pass failed every player-season-stats request with "permission denied for
   // schema public" and the external stats never loaded. The ingest cron
   // creates the tables.
-  const { rows } = await query(
+  const { rows } = await readQuery(
     `select
        epgs.source_system,
        epgs.source_game_guid,

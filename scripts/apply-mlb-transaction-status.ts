@@ -95,9 +95,9 @@ async function lookupLevelForPlayerAtTeam(
          WHEN 'AA' THEN 'DOUBLE-A'
          WHEN 'DOUBLE-A' THEN 'DOUBLE-A'
          WHEN 'HIGH-A' THEN 'HIGH-A'
-         WHEN 'SINGLE-A' THEN 'LOW-A'
-         WHEN 'LOW-A' THEN 'LOW-A'
-         WHEN 'A' THEN 'LOW-A'
+         WHEN 'SINGLE-A' THEN 'SINGLE-A'
+         WHEN 'LOW-A' THEN 'SINGLE-A'
+         WHEN 'A' THEN 'SINGLE-A'
          WHEN 'ROOKIE' THEN 'ROOKIE'
          ELSE NULLIF(UPPER(COALESCE(raw.level, '')), '')
        END AS normalized_level
@@ -288,6 +288,34 @@ async function clearStaleDepartureFlags(
   return result.rowCount ?? 0;
 }
 
+
+async function retireStaleFreeAgents(): Promise<number> {
+  // Owner rule: a sourced FREE AGENT remains in Active Alumni for one year.
+  // If no newer MLB transaction has changed that status by then, treat the
+  // player as retired. The next real signing/assignment transaction still
+  // wins: clearStaleDepartureFlags() clears this transaction-owned status
+  // before this aging pass can see it.
+  const result = await pool.query(
+    `UPDATE public.flip_card_front_stage stage
+        SET team_affiliation_status = 'RETIRED',
+            status_label = 'RETIRED',
+            display_status_label = 'RETIRED',
+            stage_updated_at = NOW()
+      WHERE UPPER(TRIM(COALESCE(stage.team_affiliation_status, stage.status_label, ''))) = 'FREE AGENT'
+        AND stage.last_transaction_applied_at IS NOT NULL
+        AND stage.last_transaction_date IS NOT NULL
+        AND stage.last_transaction_date <= CURRENT_DATE - INTERVAL '1 year'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.player_transactions newer
+          WHERE newer.playerid::text = stage.playerid::text
+            AND newer.source = 'mlb_api'
+            AND newer.effective_date::date > stage.last_transaction_date
+        )`
+  );
+  return result.rowCount ?? 0;
+}
+
 async function main() {
   console.log("=== Apply MLB Transaction Status to Flip Cards ===");
   console.log(`Mode: ${dryRun ? "DRY RUN" : "LIVE"}`);
@@ -330,14 +358,17 @@ async function main() {
     }
 
     let cleared = 0;
+    let agedOut = 0;
     if (!dryRun) {
       cleared = await clearStaleDepartureFlags(nonDepartures);
+      agedOut = await retireStaleFreeAgents();
     }
 
     console.log("");
     console.log("=== Complete ===");
     console.log(`Flip cards updated: ${dryRun ? 0 : applied} (would update: ${applied})`);
     console.log(`Stale FREE AGENT/RETIRED flags cleared (player active again per latest transaction): ${cleared}`);
+    console.log(`FREE AGENT rows aged to RETIRED after one year with no newer MLB transaction: ${agedOut}`);
   } catch (err) {
     console.error("ERROR applying MLB transaction status:", err);
     process.exitCode = 1;

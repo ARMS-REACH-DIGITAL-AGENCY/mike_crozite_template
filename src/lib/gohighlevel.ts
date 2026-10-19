@@ -107,6 +107,9 @@ export async function createGHLContact(
       return {
         error: `GoHighLevel API error: ${response.status}`,
         message: responseData.message || responseData.msg || "Unknown error",
+        // A duplicate (the location allows one contact per email) names the
+        // existing contact: { meta: { contactId } }.
+        existingContactId: typeof responseData.meta?.contactId === "string" ? responseData.meta.contactId : undefined,
       };
     }
 
@@ -189,7 +192,10 @@ export async function lookupGHLContactByEmail(
   if (!apiKey || !locationId) return null;
 
   try {
-    const url = new URL("https://services.leadconnectorhq.com/contacts/search");
+    // GET /contacts/search reads "search" as a contact id (400 "Contact with
+    // id search not found"), so it never found anyone. The duplicate lookup
+    // is HighLevel's find-by-email.
+    const url = new URL("https://services.leadconnectorhq.com/contacts/search/duplicate");
     url.searchParams.set("email", email);
     url.searchParams.set("locationId", locationId);
 
@@ -204,13 +210,12 @@ export async function lookupGHLContactByEmail(
 
     if (!response.ok) return null;
 
+    // { contact: { id, email, ... } } when one exists, else { contact: null }.
     const data = await response.json() as {
-      contacts?: Array<{ id: string; email?: string }>;
+      contact?: { id?: string; email?: string } | null;
     };
-    const match = data.contacts?.find(
-      (c) => c.email?.toLowerCase() === email.toLowerCase()
-    );
-    return match?.id ?? null;
+    const match = data.contact;
+    return match?.id && match.email?.toLowerCase() === email.toLowerCase() ? match.id : null;
   } catch {
     return null;
   }
@@ -247,6 +252,7 @@ export async function findOrCreateGhlContact(
   );
 
   if ("error" in result) {
+    if (typeof result.existingContactId === "string") return result.existingContactId;
     console.error("findOrCreateGhlContact: failed to create contact", result);
     return null;
   }

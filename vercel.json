@@ -37,6 +37,14 @@
     {
       "path": "/api/cron/flip-card-auto-create-alerts",
       "schedule": "7 * * * *"
+    },
+    {
+      "path": "/api/cron/mlb-transaction-alerts",
+      "schedule": "10,25,40,55 * * * *"
+    },
+    {
+      "path": "/api/cron/level-qc",
+      "schedule": "7 15 * * 1"
     }
   ]
 }

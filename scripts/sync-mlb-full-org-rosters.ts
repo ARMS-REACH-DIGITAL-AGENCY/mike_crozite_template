@@ -131,6 +131,17 @@ type LevelLabel =
   | "Rookie"
   | "Unknown";
 
+// What the raw roster table stores: the official YAT?STATS level names.
+const OFFICIAL_LEVEL: Record<LevelLabel, string> = {
+  MLB: "MLB",
+  AAA: "TRIPLE-A",
+  AA: "DOUBLE-A",
+  "High-A": "HIGH-A",
+  "Single-A": "SINGLE-A",
+  Rookie: "ROOKIE",
+  Unknown: "Unknown",
+};
+
 interface TeamInfo {
   id: number;
   name: string;
@@ -615,7 +626,7 @@ async function insertMlbOrgRosterRawBatch(runId: string, rows: RawRowArgs[]): Pr
       String(args.assignedTeamId),
       args.assignedTeamName,
       args.rosterStatus,
-      args.level,
+      OFFICIAL_LEVEL[args.level],
       JSON.stringify(args.entry),
     ];
     const base = params.length;

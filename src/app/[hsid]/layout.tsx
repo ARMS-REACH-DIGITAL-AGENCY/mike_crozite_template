@@ -519,7 +519,7 @@ async function SchoolShell({
             <div className="yat-filter-options" id="filterLevels">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
               {[
-                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','LOW-A','ROOKIE','INDY',"INT'L",'NCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','JUCO','HIGH SCHOOL',
+                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL',
               ].map((l) => (
                 <label key={l}>
                   <input type="checkbox" value={l} /> {l}
