@@ -1499,6 +1499,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
         #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
         #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
+        #drawerAccount .yat-account-content :is(p,span,label,a,th,td,strong,small,h1,h2,h3,h4){font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
+
         #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerAccount .yat-account-content section[aria-label="World Series Tickets Raffle"]{border-radius:5px!important;}
         #drawerAccount .yat-account-content table{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
