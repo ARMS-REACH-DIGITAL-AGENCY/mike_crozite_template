@@ -72,10 +72,15 @@ export default function ProfileNewsList({
 
   // Newest first by default; ▲▼ at the top flips it (same as Stories).
   const [sort, setSort] = useState<SortDir>("newest");
+  const [search, setSearch] = useState("");
   const sorted = useMemo(() => {
     const time = (s: ProfileNewsStory) => (s.publishedAt ? new Date(s.publishedAt).getTime() || 0 : 0);
-    return stories.slice().sort((a, b) => (sort === "newest" ? time(b) - time(a) : time(a) - time(b)));
-  }, [stories, sort]);
+    const q = search.trim().toLocaleLowerCase();
+    return stories
+      .filter((story) => !q || [story.title, story.tease, story.recap, story.source, story.playerName, story.whyLocal]
+        .some((value) => stripHtml(value).toLocaleLowerCase().includes(q)))
+      .sort((a, b) => (sort === "newest" ? time(b) - time(a) : time(a) - time(b)));
+  }, [stories, sort, search]);
 
 
   if (stories.length === 0) {
@@ -92,7 +97,12 @@ export default function ProfileNewsList({
       <div className="pp-news-feed" aria-label={`${firstName}'s news stories`}>
         <div className="pp-news-tools">
           <SortToggle dir={sort} onChange={setSort} />
+          <label className="pp-news-search">
+            <i className="ri-search-line" aria-hidden="true" />
+            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search news" aria-label="Search news" />
+          </label>
         </div>
+        {sorted.length === 0 ? <p className="pp-news-no-results" role="status">No news matches “{search.trim()}”.</p> : null}
         {sorted.map((story,index) => (
           <Fragment key={story.uuid}>
           <button
@@ -168,7 +178,7 @@ export default function ProfileNewsList({
           --pp-news-title:rgba(255,255,255,.95);
           --pp-news-body:rgba(255,255,255,.78);
           --pp-news-muted:rgba(255,255,255,.52);
-          --pp-news-label:var(--gold,#ffc107);
+          --pp-news-label:#bcbcbc;
           display:flex;
           flex-direction:column;
           gap:0;
@@ -178,14 +188,14 @@ export default function ProfileNewsList({
         }
         body.light-theme .pp-news-feed{
           --pp-news-card-bg:rgba(255,255,255,.52);
-          --pp-news-card-border:rgba(53,43,30,.18);
+          --pp-news-card-border:rgba(0,0,0,.16);
           --pp-news-card-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 3px rgba(72,54,30,.08);
-          --pp-news-thumb-bg:rgba(53,43,30,.05);
-          --pp-news-thumb-border:rgba(53,43,30,.17);
+          --pp-news-thumb-bg:rgba(0,0,0,.04);
+          --pp-news-thumb-border:rgba(0,0,0,.14);
           --pp-news-title:rgba(31,25,18,.94);
           --pp-news-body:rgba(31,25,18,.78);
           --pp-news-muted:rgba(31,25,18,.52);
-          --pp-news-label:#b78600;
+          --pp-news-label:#555;
         }
         /* The eyebrow on its own line at the top left; under it the photo
            and the headline side by side, their tops level. */
@@ -200,6 +210,9 @@ export default function ProfileNewsList({
           padding:8px 0 6px;
           background:var(--psi-page-bg,#070707);
         }
+        .pp-news-search{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:42px;padding:0 12px;border:1px solid var(--pp-news-card-border);border-radius:8px;background:var(--pp-news-card-bg);color:var(--pp-news-muted);}
+        .pp-news-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--pp-news-title);font:400 14px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        .pp-news-no-results{padding:18px 0;text-align:center;color:var(--pp-news-muted);font:400 14px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         .pp-news-teaser{
           appearance:none;
           width:100%;
@@ -220,7 +233,7 @@ export default function ProfileNewsList({
           transition:border-color .15s ease,background .15s ease,transform .15s ease;
         }
         .pp-news-teaser:hover{
-          border-color:var(--gold,#ffc107);
+          border-color:var(--pp-news-title);
         }
         .pp-news-teaser:active{
           transform:scale(.997);
@@ -299,7 +312,7 @@ export default function ProfileNewsList({
           display:inline-flex;
           align-items:center;
           gap:7px;
-          color:var(--gold,#ffc107);
+          color:var(--pp-news-title);
           text-decoration:none;
           font:600 12px/1.25 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           letter-spacing:0;
@@ -327,7 +340,7 @@ export default function ProfileNewsList({
         .pp-news-body{font-size:13px;line-height:1.4}
         .pp-news-thumb-photo{position:relative;overflow:hidden;background-position:center;background-size:cover}
         .pp-news-thumb-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-        body.light-theme .pp-news-modal-source{color:#9a6f00}
+        body.light-theme .pp-news-modal-source{color:#555}
         @media(max-width:640px){
           .pp-news-body{font-size:12px}
         }
