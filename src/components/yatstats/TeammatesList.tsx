@@ -104,7 +104,7 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
       <p className="ytm-note">*Only Next-Level Alumni from the participating 1025 high school baseball programs are currently listed on the platform.</p>
       <style jsx>{`
         /* Contribute standard: compact Archivo and a dense two-column directory. */
-        .ytm { min-width:0;color:var(--ytm-text,#eee);font:400 12.5px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .ytm { min-width:0;color:var(--ytm-text,#eee);font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .ytm-sticky { position:sticky;top:0;z-index:2;padding:0 34px 10px 0;background:var(--ytm-bg,#111); }
         .ytm-title { margin:0 0 4px;color:var(--ytm-strong,#fff);font:800 20px/1.14 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em; }
         .ytm-sub { margin:0 0 10px;color:var(--ytm-muted,#aaa);font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
@@ -116,9 +116,11 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
         .ytm-group { margin:10px 0 12px; }
         .ytm-head { margin:0 0 5px;padding:0;border:0;color:var(--ytm-strong,#fff);font:800 12px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.01em;overflow-wrap:anywhere; }
         .ytm-head-yr { color:var(--ytm-muted,#aaa); }
-        .ytm-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 12px;margin:4px 0 0;padding:0;list-style:none; }
-        .ytm-list li { display:flex;align-items:center;gap:4px;min-width:0;padding:0;overflow:hidden;white-space:nowrap; }
+        .ytm-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px 10px;margin:4px 0 0;padding:0;list-style:none; }
+        .ytm-list li { display:flex;align-items:center;gap:4px;min-width:0;padding:4px 6px;overflow:hidden;white-space:nowrap;border-radius:4px; }
         .ytm :global(a.ytm-name),.ytm :global(.ytm-plain) { display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 0;color:inherit;text-decoration:none; }
+        .ytm-list li:nth-child(4n + 1),.ytm-list li:nth-child(4n + 2) { background:rgba(128,128,128,.075); }
+        .ytm-list li:hover,.ytm-list li:focus-within { background:rgba(128,128,128,.24); }
         .ytm :global(a.ytm-name:hover),.ytm :global(a.ytm-name:focus-visible) { text-decoration:underline;text-underline-offset:2px; }
         .ytm :global(.ytm-plain) { color:var(--ytm-muted,#aaa); }
         .ytm-yr { flex:none;color:var(--ytm-muted,#aaa);font:600 10px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif); }
