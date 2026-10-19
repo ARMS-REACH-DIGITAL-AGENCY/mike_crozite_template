@@ -483,15 +483,6 @@ async function SchoolShell({
           <h3 style={{ margin: 0 }}>FILTER</h3>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              id="filtersReset"
-              className="yat-icon-btn"
-              aria-label="Reset filters"
-              title="Reset filters"
-            >
-              <i className="ri-restart-line" />
-            </button>
-
             <button className="yat-icon-btn" id="closeFilters" aria-label="Close filters">
               <i className="ri-close-line" />
             </button>
