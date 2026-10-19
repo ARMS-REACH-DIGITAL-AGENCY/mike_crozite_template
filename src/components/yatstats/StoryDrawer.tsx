@@ -1,8 +1,8 @@
 'use client';
 
 // src/components/yatstats/StoryDrawer.tsx
-// "Add a Story" drawer on the player profile page. The only way in is the
-// Polaroid on the Career Path Timeline, which fires 'yat:story-drawer-open'
+// "Add a Story" drawer on the player profile page. The Share a Story CTA
+// fires 'yat:story-drawer-open'
 // with the year of the slide the fan is looking at. The drawer slides in
 // from the right like the site's other drawers (body.drawer-story-open).
 //
