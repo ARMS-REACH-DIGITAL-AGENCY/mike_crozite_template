@@ -162,6 +162,10 @@ export default function ProfileNewsList({
         footer={
           openStory ? (
             <div className="pp-news-modal-actions">
+              <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
+                Read the original story at {(openStory.source || "the source").toUpperCase()}
+                <i className="ri-external-link-line" aria-hidden="true" />
+              </a>
               {playerProfileHref ? (
                 <a className="pp-news-modal-profile" href={playerProfileHref}
                   onClick={() => setOpenUuid("")}
@@ -171,10 +175,6 @@ export default function ProfileNewsList({
                   <i className="ri-arrow-right-up-line" aria-hidden="true" />
                 </a>
               ) : null}
-              <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-                Read the original story at {(openStory.source || "the source").toUpperCase()}
-                <i className="ri-external-link-line" aria-hidden="true" />
-              </a>
             </div>
           ) : null
         }
@@ -229,7 +229,9 @@ export default function ProfileNewsList({
           align-items:center;
           gap:6px;
           margin:0;
-          padding:7px 0 8px;
+          padding:3px 0 5px;
+          /* The sticky controls must fully mask scrolling news cards in
+             both monochrome themes; translucent card surfaces are separate. */
           background:var(--bg,#0c0c0c);
         }
         .pp-news-sort{display:flex;align-items:center;justify-content:center;width:38px;min-width:0;height:32px;border-radius:6px;background:var(--pp-news-card-bg);}
@@ -239,7 +241,11 @@ export default function ProfileNewsList({
         /* On school Alumni News pages the three global header rows and
            the optional selected-player strip remain above this toolbar. */
         #sec-news .pp-news-tools{
-          top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + var(--yp-news-filter-h,0px));
+          top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + var(--yp-news-filter-h,0px) - 1px);
+          background:var(--bg,#0c0c0c);
+          /* Fill the transparent band between the player rail and sticky
+             controls so newspaper cards never show through while scrolling. */
+          box-shadow:0 -26px 0 0 var(--bg,#0c0c0c);
         }
         .pp-news-no-results{padding:18px 0;text-align:center;color:var(--pp-news-muted);font:400 14px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         .pp-news-teaser{
@@ -339,12 +345,16 @@ export default function ProfileNewsList({
         .pp-news-modal-actions{display:flex;flex-direction:column;align-items:flex-start;gap:13px;min-width:0}
         .pp-news-modal-profile{
           display:inline-flex;align-items:center;gap:7px;max-width:100%;
-          color:var(--yat-content-drawer-fg,var(--pp-news-title));
+          color:#ffb21c; /* Same bright scoreboard yellow as the timeline. */
           text-decoration:none;
           font:700 12px/1.3 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           letter-spacing:0;
         }
-        .pp-news-modal-profile:hover,.pp-news-modal-profile:focus-visible{text-decoration:underline;text-underline-offset:3px}
+        .pp-news-modal-profile:hover,.pp-news-modal-profile:focus-visible{
+          color:#ffcb5f;
+          text-decoration:underline;
+          text-underline-offset:3px;
+        }
         .pp-news-modal-profile i{font-size:15px;flex:none}
         .pp-news-modal-source{
           display:inline-flex;
