@@ -87,6 +87,15 @@ Add a dated line for each milestone.
   field. Fix: MLB's "Not Necessary" postseason games now count as over.
   Prepared for the six test branches: a `TEST-ONLY:` merge of the current
   `Easter-NEWS` (#376-#437, clean) plus that fix - waiting on Pete's OK.
+- 2026-10-19: Pete OK'd it. Each test branch got the `TEST-ONLY:` merge of
+  `Easter-NEWS` (through #450), then one `PIPELINE:` recap fix (also on
+  `ccr-0ad18095-umgndf` for `Easter-NEWS`). Weeks 1-2 replayed against the
+  live feed: no random coin flips. Nine Week 2 games are tied after every
+  tiebreaker and wait on the commissioner (`COMMISSIONER_DECISIONS` in
+  `src/lib/bracket/commissioner.ts`): eight with nobody in action on either
+  side, one (bracket 3, JSerra Catholic @ Mission Viejo) where only JSerra's
+  Austin Hedges batted (0-for-1, HBP) and both schools' alumni are on
+  Cleveland (same W-L and run differential).
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
   for every school in the field (16 on a test branch, 1,024 live). It must
   be scoped to a region/bracket and cached server-side before opening day.
