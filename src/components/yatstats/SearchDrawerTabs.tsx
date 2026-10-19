@@ -1022,6 +1022,25 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-school-bracket-link:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; border-radius: 4px; }
       body.light-theme #drawerLeft .yat-search-school-bracket-link { color: var(--muted); }
 
+      /* School searches use the exact result cards and uppercase condensed
+         typography already approved for Player and Current Team. */
+      #drawerLeft .yat-search-school-list{gap:6px!important;}
+      #drawerLeft .yat-search-school-list .yat-search-school-global-card{
+        border:1px solid var(--line)!important;
+        border-radius:10px!important;
+        background:rgba(255,255,255,.045)!important;
+        min-height:64px!important;
+        padding:8px 10px!important;
+        box-shadow:none!important;
+      }
+      body.light-theme #drawerLeft .yat-search-school-list .yat-search-school-global-card{background:rgba(0,0,0,.035)!important;}
+      #drawerLeft .yat-search-school-list .yat-search-school-identity strong{
+        font:800 15px/1.15 Oswald,sans-serif!important;
+        text-transform:uppercase!important;
+        letter-spacing:0!important;
+        white-space:normal!important;
+        overflow-wrap:anywhere!important;
+      }
       /* Approved result reference: Beau Brieske in production Favorites.
          Match its condensed player typography, bordered cards and gold school
          location in every search context, without touching API or interaction. */
