@@ -61,6 +61,28 @@ export default function DrawerLayoutOverrides() {
     return () => { document.removeEventListener('click', closeLeftDrawer, true); document.removeEventListener('click', closeOnDestination, true); };
   }, []);
 
+  // Read the visible fixed footer stack rather than guessing its height.
+  // The scoreboard ticker can extend above the smaller navigation footer.
+  useEffect(() => {
+    const updateClearance = () => {
+      const footer = document.querySelector<HTMLElement>('.yat-footer');
+      if (!footer) return;
+      const bounds = footer.getBoundingClientRect();
+      const clearance = Math.max(0, Math.ceil(window.innerHeight - bounds.top));
+      document.documentElement.style.setProperty('--yat-drawer-clearance', clearance + 'px');
+    };
+    updateClearance();
+    window.addEventListener('resize', updateClearance);
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateClearance) : null;
+    const footer = document.querySelector<HTMLElement>('.yat-footer');
+    if (footer) observer?.observe(footer);
+    return () => {
+      window.removeEventListener('resize', updateClearance);
+      observer?.disconnect();
+      document.documentElement.style.removeProperty('--yat-drawer-clearance');
+    };
+  }, []);
+
   /* Match the Connect & Contribute selection highlight without changing the
      existing navigation, drawer opening, or section routing behavior. */
   useEffect(() => {
