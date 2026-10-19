@@ -519,7 +519,7 @@ export default function SearchDrawerTabs() {
     const input = searchInput;
     const results = searchResults;
 
-    if (title) title.textContent = 'Search the YAT?STATS Database';
+    if (title) title.textContent = 'SEARCH THE YAT?STATS DATABASE';
     if (sub) sub.textContent = "Browse by the player's name, the high school he attended, or by his current college or professional team";
     input.placeholder = 'Search by name, school, or team...';
 
@@ -724,7 +724,7 @@ export default function SearchDrawerTabs() {
       if (!q) {
         phase = 'idle';
         setStatus();
-        results.innerHTML = '<div class="yat-search-empty">Start typing to search.</div>';
+        results.innerHTML = '';
         return;
       }
 
@@ -949,8 +949,8 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-left-search-content { --yat-search-positive: #00e08a; color: var(--fg); font-family: var(--yat-font-ui); }
       body.light-theme #drawerLeft .yat-left-search-content { --yat-search-positive: #08784c; }
       #drawerLeft .yat-left-search-content .yat-search-drawer-title {
-        font: 800 clamp(20px, 2vw, 24px)/1.18 var(--yat-font-ui);
-        letter-spacing: -.025em; text-transform: none; color: var(--fg);
+        font: 800 clamp(13px, 3.4vw, 23px)/1.05 Oswald,sans-serif;
+        letter-spacing: -.025em; text-transform: uppercase; white-space:nowrap; color: var(--fg);
       }
       #drawerLeft .yat-left-search-content .yat-search-drawer-sub { line-height: 1.45; }
       #drawerLeft .yat-gs-input { min-height: 42px; border-radius: 6px; background: var(--card-bg); border-color: var(--line); }
@@ -960,6 +960,7 @@ export default function SearchDrawerTabs() {
       #drawerLeft .yat-search-mode-btn:is(:hover, :focus-visible),
       #drawerLeft .yat-search-mode-btn.active { background: var(--line); color: var(--fg); box-shadow: none; }
       #drawerLeft .yat-search-mode-btn.active { font-weight: 800; }
+      #drawerLeft .yat-search-mode-btn {font:800 clamp(10px,2.7vw,14px)/1.1 Oswald,sans-serif!important;text-transform:uppercase!important;letter-spacing:.015em!important;white-space:nowrap;}
       #drawerLeft .yat-search-mode-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
       #drawerLeft .yat-search-section-label {
         margin: 16px 6px 5px; color: var(--muted); font: 600 11px/1.2 var(--yat-font-compact);
