@@ -106,6 +106,11 @@ Add a dated line for each milestone.
   the school that lost Game 1, so those series are tied 1-1. Recorded in
   `COMMISSIONER_DECISIONS` as a `TEST-ONLY:` commit on all six test branches
   (test games only; nothing for `Easter-NEWS`).
+- 2026-10-19 (later): the Fantasy tab's picture now dissolves at the bottom
+  and the timeline is outlined; Pete asked for it on the test brackets too
+  (a `TEST-ONLY:` merge of `ccr-0ad18095-umgndf`, as before).
+- Note for anyone replaying the brackets: `/api/bracket/live` takes at most
+  64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
   for every school in the field (16 on a test branch, 1,024 live). It must
   be scoped to a region/bracket and cached server-side before opening day.
