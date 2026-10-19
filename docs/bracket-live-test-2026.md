@@ -87,6 +87,30 @@ Add a dated line for each milestone.
   field. Fix: MLB's "Not Necessary" postseason games now count as over.
   Prepared for the six test branches: a `TEST-ONLY:` merge of the current
   `Easter-NEWS` (#376-#437, clean) plus that fix - waiting on Pete's OK.
+- 2026-10-19: Pete OK'd it. Each test branch got the `TEST-ONLY:` merge of
+  `Easter-NEWS` (through #450), then one `PIPELINE:` recap fix (also on
+  `ccr-0ad18095-umgndf` for `Easter-NEWS`). Weeks 1-2 replayed against the
+  live feed: no random coin flips. Nine Week 2 games are tied after every
+  tiebreaker and wait on the commissioner (`COMMISSIONER_DECISIONS` in
+  `src/lib/bracket/commissioner.ts`): eight with nobody in action on either
+  side, one (bracket 3, JSerra Catholic @ Mission Viejo) where only JSerra's
+  Austin Hedges batted (0-for-1, HBP) and both schools' alumni are on
+  Cleveland (same W-L and run differential).
+- 2026-10-19 (later): Pete asked for the Fantasy tab's new look on the test
+  brackets too, to see it with real stories - an exception to rule 3. Each
+  test branch got a `TEST-ONLY:` merge of `ccr-0ad18095-umgndf` (the
+  ballpark scene behind rows 1-3, the splash's three towers, the 5x7 card
+  picture, the box-score series, the players who played well as the
+  picture). Still waiting on Pete's OK for `Easter-NEWS`.
+- 2026-10-19 (later): Pete ruled the nine tied Week 2 games: each goes to
+  the school that lost Game 1, so those series are tied 1-1. Recorded in
+  `COMMISSIONER_DECISIONS` as a `TEST-ONLY:` commit on all six test branches
+  (test games only; nothing for `Easter-NEWS`).
+- 2026-10-19 (later): the Fantasy tab's picture now dissolves at the bottom
+  and the timeline is outlined; Pete asked for it on the test brackets too
+  (a `TEST-ONLY:` merge of `ccr-0ad18095-umgndf`, as before).
+- Note for anyone replaying the brackets: `/api/bracket/live` takes at most
+  64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
   for every school in the field (16 on a test branch, 1,024 live). It must
   be scoped to a region/bracket and cached server-side before opening day.
