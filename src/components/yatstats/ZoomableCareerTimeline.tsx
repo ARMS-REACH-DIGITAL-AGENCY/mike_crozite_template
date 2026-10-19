@@ -2703,13 +2703,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            block past 1400px instead of stretching wider on an ultra-wide
            screen. Below 1400px this has no effect; the existing left%/
            right% math already produces a narrower box there. */
-        .zt-copy { position:absolute; z-index:6; left:var(--hero-copy-left); right:5%; max-width:854px; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:14px; background:transparent; }
+        .zt-copy { position:absolute; z-index:6; left:var(--hero-copy-left); right:5%; max-width:854px; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:flex-start; padding-top:9px; background:transparent; }
         .zt-kick, .zt-title, .zt-bodycopy { min-width:0; }
         /* font-weight:400, matching the (now-leveled) metadata block --
            was 600, reading as too blocky/heavy next to it, per direct
            feedback. */
-        .zt-kick { display:block; margin:0 0 4px; color:${TIMELINE_ACCENT}; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
-        .zt-title { display:block; width:100%; margin:0 0 5px; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-kick { display:block; margin:0 0 5px; color:${TIMELINE_ACCENT}; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
+        .zt-title { display:block; width:100%; margin:0 0 4px; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         /* .zt-season added alongside anchor/lifeyear here -- same class of
            gap as the .zt-copy positioning fix a pass ago: left out of a
            shared rule, fell back to the base .zt-title's nowrap+ellipsis
@@ -2777,8 +2777,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            gold. */
         /* Arrows float midway INSIDE the career slide, separate from the
            timeline rail. Never position them on the rail in mobile CSS. */
-        .zt-nav { position:absolute; z-index:7; top:50%; bottom:auto; transform:translateY(-50%); width:30px; height:34px; border-radius:6px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.38); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:19px; }
-        .zt-nav:disabled { opacity:.3; cursor:default; }
+        .zt-nav { position:absolute; z-index:7; top:68%; bottom:auto; transform:translateY(-50%); width:42px; height:46px; border:0; border-radius:0; background:transparent; color:rgba(255,255,255,.58); display:grid; place-items:center; cursor:pointer; font-size:30px; text-shadow:0 1px 5px rgba(0,0,0,.65); }
+        .zt-nav:hover, .zt-nav:focus-visible { color:rgba(255,255,255,.9); }
+        .zt-nav:disabled { opacity:.22; cursor:default; }
         /* Edge placement stays symmetric; navigation is no longer part
            of the bottom-year-rail control group. */
         .zt-nav-prev { left:6px; right:auto; }
@@ -2797,7 +2798,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            than crowding either. bottom:14px, not flush against the frame's
            own bottom edge -- per direct feedback, a little padding below
            the tick-year labels reads better than none at all. */
-        .zt-rail { position:absolute; z-index:6; left:34px; right:44px; bottom:14px; height:12px; }
+        .zt-rail { position:absolute; z-index:6; left:12px; right:12px; bottom:14px; height:12px; }
         /* Solid gold the whole way now, not gray-before/gold-after-grad-
            year (that two-tone .zt-rail-fill overlay is gone) -- per direct
            feedback: "I want it all yellow except for the little red
@@ -2816,7 +2817,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            height, right sits in the gap between the rail's own right
            edge and .zt-nav-next beside it. Not a button, so no hover/
            active state to style. */
-        .zt-rail-tick-boundary { top:auto; bottom:18px; left:auto; right:36px; margin-left:0; transform:none; cursor:default; }
+        .zt-rail-tick-boundary { top:auto; bottom:18px; left:auto; right:12px; margin-left:0; transform:none; cursor:default; }
         /* Sits just below each tick's own dot now (was above it), per
            direct feedback. Hidden on the active tick itself so it doesn't
            double up with .zt-rail-year's own bigger, bold, draggable
@@ -2997,8 +2998,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px); }
           .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30cqw,240px)); width:clamp(170px,30cqw,240px); }
           .zt-logo-layer { width:50%; right:-12%; }
-          .zt-copy { left:32%; right:5%; bottom:20px; }
-          .zt-title { font-size:clamp(15px,3.4cqw,22px); }
+          .zt-copy { left:32%; right:5%; bottom:20px; padding-top:7px; }
+          .zt-title { font-size:clamp(14px,3.2cqw,20px); }
           .zt-bodycopy { font-size:clamp(10px,2cqw,13px); }
         }
         @media (max-width:620px) {
@@ -3100,14 +3101,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              (the tick-year labels are hidden here -- rule right above),
              so it can sit right at the very bottom of the section instead
              of the desktop base rule's 8px -- per direct feedback. */
-          .zt-rail { bottom:2px; }
+          .zt-rail { left:9px; right:9px; bottom:2px; }
           /* Phones have the year labels hidden, leaving more vertical room
              above the rail than desktop. Use that space to make the team
              marks materially easier to read without widening their year
              slots or letting them collide with neighboring seasons. */
           .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
-          .zt-nav { top:50%; bottom:auto; }
-          .zt-rail-tick-boundary { bottom:6px; }
+          .zt-nav { top:69%; bottom:auto; width:38px; height:44px; font-size:29px; }
+          .zt-rail-tick-boundary { bottom:6px; right:9px; }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
              screen still gives each one real room, matching how much
@@ -3144,16 +3145,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              expressed as left+width rather than right, because this slide
              is 200% wide, so "right" would measure from an edge that's
              off-screen. */
-          .zt-copy { left:29%; right:auto; width:19%; bottom:14px; justify-content:flex-start; padding-top:10px; }
+          .zt-copy { left:29%; right:auto; width:19%; bottom:14px; justify-content:flex-start; padding-top:4px; }
           /* A touch smaller than the general .zt-bodycopy floor so the
              now-shorter anchor line ("Stay connected to X on his
              baseball journey...") has the best chance of actually
              fitting on one line in this narrow column, not just
              getting cut off by the single-line ellipsis. */
           .zt-anchor .zt-bodycopy { font-size:clamp(8px,2cqw,10px); }
-          .zt-kick { font-size:7px; margin-bottom:3px; }
+          .zt-kick { font-size:7px; margin-bottom:4px; }
           .zt-drafted { font-size:7px; margin-bottom:3px; }
-          .zt-title { font-size:clamp(13px,4.2cqw,17px); margin-bottom:3px; }
+          .zt-title { font-size:clamp(12px,3.8cqw,15px); margin-bottom:4px; line-height:1.04; }
           /* Give the anchor headline just enough mobile width for "NEITHER"
              to stay with the graduation line above instead of orphaning at
              the start of the next line. Other slide copy widths stay put. */
@@ -3167,10 +3168,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            keep small-phone (below 560px) extended-swipe treatment. */
         @container career-timeline (min-width:560px) and (max-width:740px) {
           .zt-slide {flex:0 0 100%;width:100%;min-width:100%;}
-          .zt-copy {left:51%;right:4%;width:auto;bottom:17px;padding-top:10px;}
+          .zt-copy {left:51%;right:4%;width:auto;bottom:17px;padding-top:6px;}
           .zt-anchor .zt-copy {left:51%;right:4%;width:auto;}
           .zt-kick {font-size:9px;}
-          .zt-title {font-size:clamp(17px,2.9cqw,22px);line-height:1.05;}
+          .zt-title {font-size:clamp(16px,2.7cqw,20px);line-height:1.05;}
           .zt-bodycopy {font-size:clamp(10px,1.7cqw,12px);}
           .zt-anchor .zt-bodycopy {font-size:10px;}
           .zt-person-stack :global(.zt-person) {
