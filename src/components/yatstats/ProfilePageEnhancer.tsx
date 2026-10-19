@@ -324,6 +324,12 @@ export default function ProfilePageEnhancer({ meta }: { meta: ProfileMeta }) {
       .glu-actions button:disabled { opacity: .55; cursor: wait; }
       .glu-actions span { color: rgba(255,255,255,.7); font: 700 12px/1.35 system-ui, sans-serif; }
       @media (max-width: 760px) { .yp-meta-strip { padding: 6px 8px; } .yp-meta-team { font-size: 13px; } .yp-meta-sub { font-size: 8px; } .glu-panel { grid-template-columns: 1fr; padding-top: 16px; } .glu-form { grid-template-columns: 1fr; } }
+      @media (pointer:coarse) {
+        #playerFunZone { overflow:visible !important; }
+        #playerFunZone > .pp-fz-panel.pp-fz-panel-active,
+        .pp-funzone > .pp-fz-panel.pp-fz-panel-active,
+        .pp-fz-panel.pp-fz-panel-active { overflow:visible !important; }
+      }
     `}</style>
   );
 }
