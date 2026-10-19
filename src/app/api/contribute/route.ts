@@ -85,8 +85,7 @@ export async function POST(req: NextRequest) {
         'FREE AGENT','COACH','UNKNOWN'
       ].includes(String(submitted.status_label))) return fail('Choose a valid status.');
       if (submitted.level_label && ![
-        'HIGH SCHOOL','JUCO','NJCAA','CCCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NCAA',
-        'Rookie','Low-A','High-A','SINGLE-A','Double-A','Triple-A','MLB','INDY','INTERNATIONAL','RETIRED'
+        'HIGH SCHOOL','NJCAA','CCCAA','NWAC','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','ROOKIE','SINGLE-A','HIGH-A','DOUBLE-A','TRIPLE-A','MLB','INDY','INTERNATIONAL','RETIRED'
       ].includes(String(submitted.level_label))) return fail('Choose a valid level.');
       const isNew=!playerId;
       if (isNew) {

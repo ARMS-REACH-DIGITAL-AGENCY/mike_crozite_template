@@ -80,3 +80,13 @@ Add a dated line for each milestone.
 - Known open items: scoring needs the per-level baselines (adjusted mode);
   Sunday-night games must count on Sunday (the feed has stamped at least one
   as Monday).
+- 2026-10-18 (end of week 2): Pete asked for both lines together. The 25
+  `PIPELINE:` commits were ported by file (not cherry-picked: they import
+  `testSeason.ts` and collide with the blank 2027 season) onto branch
+  `ccr-0ad18095-umgndf` off `Easter-NEWS`, keeping Feb 1 and the 1,024
+  field. Fix: MLB's "Not Necessary" postseason games now count as over.
+  Prepared for the six test branches: a `TEST-ONLY:` merge of the current
+  `Easter-NEWS` (#376-#437, clean) plus that fix - waiting on Pete's OK.
+- Before Feb 1: `/api/bracket/live` is one uncached request per page load
+  for every school in the field (16 on a test branch, 1,024 live). It must
+  be scoped to a region/bracket and cached server-side before opening day.

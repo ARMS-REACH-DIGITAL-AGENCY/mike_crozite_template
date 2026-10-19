@@ -204,7 +204,7 @@ function normalizeLevel(value: unknown, row?: Row) {
   if (raw.includes('TRIPLE') || raw === 'AAA') return 'AAA';
   if (raw.includes('DOUBLE') || raw === 'AA') return 'AA';
   if (raw === 'A+' || raw.includes('HIGH-A') || raw.includes('HIGH A')) return 'A+';
-  if (raw === 'A' || raw.includes('LOW-A') || raw.includes('LOW A')) return 'A';
+  if (raw === 'A' || raw.includes('SINGLE-A') || raw.includes('SINGLE A') || raw.includes('LOW-A') || raw.includes('LOW A')) return 'A';
   if (raw.includes('ROOKIE') || raw === 'RK') return 'RK';
   if (raw.includes('NCAA-D1') || raw.includes('NCAA D1') || raw.includes('DIVISION I')) return 'NCAA-D1';
   if (raw.includes('NCAA-D2') || raw.includes('NCAA D2') || raw.includes('DIVISION II')) return 'NCAA-D2';

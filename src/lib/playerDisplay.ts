@@ -9,14 +9,16 @@ function text(value: unknown): string {
 const LEVEL_ALIASES: Record<string, string> = {
   AAA: 'TRIPLE-A', AA: 'DOUBLE-A',
   'A+': 'HIGH-A', 'HIGH A': 'HIGH-A',
-  A: 'LOW-A', 'A-': 'LOW-A', 'SINGLE-A': 'LOW-A', 'LOW A': 'LOW-A',
+  // Official levels only (Oct 18, 2026): Single-A is MLB's name for the
+  // old Low-A, International is spelled out, JUCO is NJCAA.
+  A: 'SINGLE-A', 'A-': 'SINGLE-A', 'LOW-A': 'SINGLE-A', 'LOW A': 'SINGLE-A', 'SINGLE A': 'SINGLE-A',
   RK: 'ROOKIE',
-  INTL: "INT'L", INTERNATIONAL: "INT'L",
+  INTL: 'INTERNATIONAL', "INT'L": 'INTERNATIONAL',
   INDEPENDENT: 'INDY',
   D1: 'NCAA-D1', 'NCAA D1': 'NCAA-D1',
   D2: 'NCAA-D2', 'NCAA D2': 'NCAA-D2',
   D3: 'NCAA-D3', 'NCAA D3': 'NCAA-D3',
-  JRCOLLEGE: 'JUCO', NJCAA: 'JUCO',
+  JRCOLLEGE: 'NJCAA', JUCO: 'NJCAA',
   HS: 'HIGH SCHOOL',
 };
 

@@ -128,9 +128,9 @@ function matchesGraduatingClass(value: string, selected: string[]): boolean {
 // Sort the actual filtered grid here, not in a separate event listener.
 // The year badge sets data-alltime-team-year-filter before applyFilters runs.
 const LEVEL_ORDER: Record<string, number> = {
-  MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'LOW-A': 5,
-  ROOKIE: 6, INDY: 7, "INT'L": 8, NCAA: 9, 'NCAA-D1': 9, 'NCAA-D2': 10,
-  'NCAA-D3': 11, NAIA: 12, JUCO: 13, 'HIGH SCHOOL': 14,
+  MLB: 1, 'TRIPLE-A': 2, 'DOUBLE-A': 3, 'HIGH-A': 4, 'SINGLE-A': 5,
+  ROOKIE: 6, INDY: 7, INTERNATIONAL: 8, NCAA: 9, 'NCAA-D1': 9, 'NCAA-D2': 10,
+  'NCAA-D3': 11, NAIA: 12, NJCAA: 13, CCCAA: 13, NWAC: 13, 'HIGH SCHOOL': 14,
 };
 function sortFilteredAllTime(section: HTMLElement) {
   const grid = section.querySelector<HTMLElement>('#alltime-grid');
@@ -141,7 +141,8 @@ function sortFilteredAllTime(section: HTMLElement) {
     const level = normalize(card.dataset.level).replace(/\s+/g, '-')
       .replace(/^NCAA-?D([123])$/, 'NCAA-D$1')
       .replace(/^AAA$/, 'TRIPLE-A').replace(/^AA$/, 'DOUBLE-A')
-      .replace(/^A\+$/, 'HIGH-A').replace(/^A$/, 'LOW-A')
+      .replace(/^A\+$/, 'HIGH-A').replace(/^(A|LOW-A)$/, 'SINGLE-A')
+      .replace(/^INT'L$/, 'INTERNATIONAL').replace(/^JUCO$/, 'NJCAA')
       .replace(/^HIGH-SCHOOL$/, 'HIGH SCHOOL');
     return LEVEL_ORDER[level] ?? 99;
   };

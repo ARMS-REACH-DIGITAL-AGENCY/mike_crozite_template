@@ -25,7 +25,7 @@ const SPOTS: Record<PhotoPurpose, (p: ProofPlayer, s: Season | null) => string[]
     : [`${first(p.name)}'s headshot in Row 3 of the galleries`, 'His profile page, Global Search and Favorites', 'Alumni News stories about him'],
   back_hero: (p) => [`The back of ${first(p.name)}'s flip card`, 'His profile page'],
   timeline_hero: (p, s) => [`The ${s?.year || ''} slide of ${first(p.name)}'s Career Path Timeline, on his profile page`.replace('The  slide', 'A slide')],
-  other_photo: () => ['Kept for the YAT?STATS team, who will place it where it fits best'],
+  other_photo: (p, s) => [`The ${s?.year || ''} slide of ${first(p.name)}'s Career Path Timeline, on his profile page`.replace('The  slide', 'A slide')],
   school_logo: (p) => [`The school crest in Row 2 of every page of ${p.schoolName || 'the school'}'s hub`, 'Global Search, Favorites and flip cards from this school'],
   team_logo: () => ["The team's logo on flip cards, in Global Search and on the Career Path Timeline of everyone who played there"],
 };

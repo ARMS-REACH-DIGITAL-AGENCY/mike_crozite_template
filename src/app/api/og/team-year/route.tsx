@@ -16,12 +16,12 @@ const size = { width: 1200, height: 630 };
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
 // Highest level first, so the strip leads with the big leaguers.
-const LEVEL_ORDER = ['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'LOW-A', 'ROOKIE', 'INDY', "INT'L", 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'JUCO'];
+const LEVEL_ORDER = ['MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'SINGLE-A', 'ROOKIE', 'INDY', 'INTERNATIONAL', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'CCCAA', 'NWAC'];
 const levelRank = (level: string) => {
   const i = LEVEL_ORDER.indexOf(level);
   return i === -1 ? LEVEL_ORDER.length : i;
 };
-const SHORT_LEVEL: Record<string, string> = { 'TRIPLE-A': 'AAA', 'DOUBLE-A': 'AA', 'HIGH-A': 'A+', 'LOW-A': 'A', 'NCAA-D1': 'D1', 'NCAA-D2': 'D2', 'NCAA-D3': 'D3' };
+const SHORT_LEVEL: Record<string, string> = { 'TRIPLE-A': 'AAA', 'DOUBLE-A': 'AA', 'HIGH-A': 'A+', 'SINGLE-A': 'A', 'NCAA-D1': 'D1', 'NCAA-D2': 'D2', 'NCAA-D3': 'D3' };
 
 // Only photos that exist go in (a missing image would fail the whole card).
 async function exists(url: string): Promise<boolean> {

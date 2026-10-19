@@ -15,7 +15,7 @@ const EMPTY:Fields = {
 };
 const YEARS = Array.from({ length: 115 }, (_,i)=>String(new Date().getFullYear()+1-i));
 const STATUS = ['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT','COACH','UNKNOWN'];
-const LEVEL = ['HIGH SCHOOL','JUCO','NJCAA','CCCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NCAA','Rookie','Low-A','High-A','SINGLE-A','Double-A','Triple-A','MLB','INDY','INTERNATIONAL','RETIRED'];
+const LEVEL = ['HIGH SCHOOL','NJCAA','CCCAA','NWAC','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','ROOKIE','SINGLE-A','HIGH-A','DOUBLE-A','TRIPLE-A','MLB','INDY','INTERNATIONAL','RETIRED'];
 const POSITION = ['P','C','1B','2B','3B','SS','IF','OF','LF','CF','RF','UT','DH','P-OF','IF-OF'];
 const ACCOUNTS = ['facebook','instagram','x','tiktok','linkedin'] as const;
 const clean = (s:unknown)=>String(s ?? '').trim();
