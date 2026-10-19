@@ -2586,7 +2586,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            line (bottom:14px + half its 12px height). NOT the fan-upload
            thumbnail size -- that's a separate thing. Renders nothing (see
            SmartImage) if a player has neither cutout yet. */
-        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) + 24px - 800px); width:800px; bottom:20px; height:55%; object-position:right bottom; }
+        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - 24px - 800px); width:800px; bottom:20px; height:55%; object-position:right bottom; }
         /* Headshot fallback (no flip-card-back photo, so SmartImage fell
            back to the headshot cutout -- data-fallback="true"): per direct
            feedback, flush against the vertical line the headline column
@@ -3026,7 +3026,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              900px rule: this breakpoint's .zt-person rule (left:24%, a
              ~100px width, object-position:left bottom) would otherwise win
              and put the pro image's box ~575px off the left edge. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(58% + 16px - 800px); width:800px; height:48%; bottom:8px; object-position:right bottom; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(58% - 24px - 800px); width:800px; height:48%; bottom:8px; object-position:right bottom; }
           /* Headshot fallback flush against the headline column's real
              left edge (58% here -- see the doubled-box note above). */
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
