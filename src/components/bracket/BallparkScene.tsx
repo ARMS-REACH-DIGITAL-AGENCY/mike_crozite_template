@@ -96,16 +96,17 @@ body.light-theme .ybp-night { display:none; }
 
 export default function BallparkScene() {
   // One tower, dead center (the viewBox center stays at the screen's center
-  // at any width): the sides stay dark for the story and the scoreboard
-  // (Pete, Oct 19 - the side towers blazed right behind the words).
-  const towers = [{ x: W / 2 - 80, top: 30, w: 160 }];
+  // at any width), its lamps up top, above the headline: the sides stay dark
+  // for the story and the scoreboard (Pete, Oct 19 - the side towers blazed
+  // right behind the words).
+  const towers = [{ x: W / 2 - 70, top: 6, w: 140 }];
   return (
     <div className="ybp" aria-hidden="true">
       {/* The scene's own rules ship with it, so the first frame is already
           right - before the hero's data (and its stylesheet) arrive, the
           day sky used to flash over the night game in the dark theme. */}
       <style>{BALLPARK_CSS}</style>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMin slice" width="100%" height="100%">
         <defs>
           <linearGradient id="ybp-night-sky" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="#020308" />
