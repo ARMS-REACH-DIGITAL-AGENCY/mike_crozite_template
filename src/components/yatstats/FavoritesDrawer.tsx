@@ -973,7 +973,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         .yat-cross-school-card-error a {
-          color: #ffd166;
+          color: #a0a0a0;
           text-decoration: underline;
         }
 
@@ -985,7 +985,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-lock-message {
-          color: #ffd166;
+          color: #a0a0a0;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: .03em;
@@ -999,8 +999,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-header-icons .yat-icon-btn.active {
-          color: var(--accent, #c8a96e);
-          background: rgba(200,169,110,.15);
+          color: var(--ink, #a0a0a0);
+          background: rgba(128,128,128,.12);
         }
 
         #drawerFavorites .yat-favorite-sort-chip {
@@ -1119,7 +1119,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           padding: 0;
           border: none;
           background: transparent;
-          color: var(--accent, #c8a96e);
+          color: var(--ink, #a0a0a0);
           font-size: 16px;
           line-height: 1;
           cursor: pointer;
@@ -1127,12 +1127,12 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {
-          color: var(--accent, #c8a96e);
+          color: var(--ink, #a0a0a0);
           opacity: .85;
         }
 
         #drawerFavorites .yat-favorite-heart-btn:hover {
-          color: #e8c98a;
+          color: #ddd;
         }
 
         #drawerFavorites .yat-favorite-heart-btn[aria-disabled="true"] {
