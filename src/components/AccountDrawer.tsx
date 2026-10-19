@@ -847,7 +847,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#171717',
+                  color: 'var(--fg)',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
                   letterSpacing: '.05em',
                   marginBottom: '4px',
@@ -932,7 +932,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '13px',
-                  color: '#171717',
+                  color: 'var(--fg)',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
                   letterSpacing: '.06em',
                 }}
@@ -973,8 +973,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '12px',
-                  background: '#171717',
-                  color: '#000',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
@@ -1262,8 +1262,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: '#171717',
-                  color: '#000',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
                   fontFamily: '"Bebas Neue", Oswald, sans-serif',
@@ -1297,13 +1297,13 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             style={{
               margin: '14px 15px 4px',
               padding: '14px 15px',
-              border: '1px solid rgba(255, 210, 74, .35)',
-              background: 'rgba(255, 210, 74, .055)',
+              border: '1px solid var(--line)',
+              background: 'transparent',
             }}
           >
             <div
               style={{
-                color: '#444444',
+                color: 'var(--fg)',
                 fontFamily: '"Bebas Neue", Oswald, sans-serif',
                 fontSize: '18px',
                 lineHeight: 1,
@@ -1384,7 +1384,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                         fontFamily: '"Bebas Neue", Oswald, sans-serif',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
-                        color: '#171717',
+                        color: 'var(--fg)',
                         width: '22%',
                       }}
                     >
@@ -1410,7 +1410,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       <td style={{ padding: '5px 4px 5px 0', color: 'var(--muted)' }}>{feat}</td>
                       <td style={{ textAlign: 'center', color: 'var(--muted)' }}>{v}</td>
                       <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{f}</td>
-                      <td style={{ textAlign: 'center', color: '#171717' }}>{s}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{s}</td>
                     </tr>
                   ))}
                 </tbody>
