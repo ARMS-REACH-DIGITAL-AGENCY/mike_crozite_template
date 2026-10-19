@@ -240,8 +240,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 cursor: 'pointer',
                 background: 'transparent',
                 border: 'none',
-                borderBottom: activeTab === 'register' ? '2px solid var(--gold)' : '2px solid transparent',
-                color: activeTab === 'register' ? 'var(--gold)' : 'var(--fg)',
+                borderBottom: activeTab === 'register' ? '2px solid var(--ink)' : '2px solid transparent',
+                color: activeTab === 'register' ? 'var(--ink)' : 'var(--muted)',
                 fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '15px',
                 letterSpacing: '.06em',
@@ -264,8 +264,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 cursor: 'pointer',
                 background: 'transparent',
                 border: 'none',
-                borderBottom: activeTab === 'signin' ? '2px solid var(--gold)' : '2px solid transparent',
-                color: activeTab === 'signin' ? 'var(--gold)' : 'var(--muted)',
+                borderBottom: activeTab === 'signin' ? '2px solid var(--ink)' : '2px solid transparent',
+                color: activeTab === 'signin' ? 'var(--ink)' : 'var(--muted)',
                 fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '15px',
                 letterSpacing: '.06em',
@@ -302,6 +302,10 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         #drawerAccount{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerAccount #acctTabJoin,#drawerAccount #acctTabLogin{font:800 13px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;}
         #drawerAccount #closeAccount{color:var(--ink)!important;}
+        #drawerAccount [role="tab"]{text-transform:uppercase!important;}
+        #drawerAccount{--gold:var(--ink)!important;}
+        #drawerAccount .yat-account-content{--gold:var(--ink)!important;}
+        #drawerAccount button:focus-visible,#drawerAccount input:focus-visible{outline:1px solid var(--ink)!important;outline-offset:1px!important;}
       `}</style>
     </aside>
   );
