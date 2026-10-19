@@ -24,7 +24,7 @@ export default function ProfileStatsStyles() {
         width: 100%;
         max-width: none;
         margin: 0 auto 12px;
-        border: 1px solid #b8a55b;
+        border: 1px solid #a0a0a0;
         background: #e8e8e8;
         box-shadow: none;
       }
@@ -36,7 +36,7 @@ export default function ProfileStatsStyles() {
         justify-content: space-between;
         padding: 6px 8px 5px;
         border-bottom: 1px solid #9b9b9b;
-        background: #f5efad;
+        background: #e8e8e8;
         color: #111;
         font-size: 0;
       }
@@ -51,7 +51,7 @@ export default function ProfileStatsStyles() {
 
       #playerFunZone #ppTab-stats .pp-stats-bar::after {
         content: "YAT?STATS Data View";
-        color: #0a49c7;
+        color: #333;
         font: 700 12px/1 Arial, sans-serif;
         letter-spacing: 0;
         text-decoration: underline;
@@ -83,7 +83,7 @@ export default function ProfileStatsStyles() {
         z-index: 2;
         padding: 3px 5px;
         border: 1px solid #111;
-        background: #626262;
+        background: #2b2b2b;
         color: #fff;
         font: 800 12px/1 Arial, Helvetica, sans-serif;
         letter-spacing: 0;
@@ -106,11 +106,11 @@ export default function ProfileStatsStyles() {
       }
 
       #playerFunZone #ppTab-stats .pp-season-table tbody tr:nth-child(even) td {
-        background: #dcdcdc;
+        background: #efefef;
       }
 
       #playerFunZone #ppTab-stats .pp-season-table tbody tr:hover td {
-        background: #d8edf5;
+        background: #dedede;
         color: #000;
       }
 
@@ -124,12 +124,12 @@ export default function ProfileStatsStyles() {
         max-width: 260px;
         overflow: hidden;
         text-overflow: ellipsis;
-        color: #0645ad;
+        color: #333;
         text-decoration: underline;
       }
 
       #playerFunZone #ppTab-stats .pp-season-table tbody td:nth-child(3) {
-        color: #0645ad;
+        color: #333;
         font-size: 12px;
         letter-spacing: 0;
         text-transform: none;
@@ -142,7 +142,7 @@ export default function ProfileStatsStyles() {
 
       #playerFunZone #ppTab-stats .pp-season-table tbody td.num:nth-child(4),
       #playerFunZone #ppTab-stats .pp-season-table tbody td.num:nth-child(8) {
-        background: rgba(159, 211, 222, .55);
+        background: rgba(128,128,128,.09);
       }
 
       #playerFunZone #ppTab-stats .pp-fz-placeholder {
