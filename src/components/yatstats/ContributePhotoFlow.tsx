@@ -551,7 +551,7 @@ export default function ContributePhotoFlow({
       {main && info?.profileUrl ? (
         <p className="ycd-memories">
           * Looking to add personal memories of {main.displayName.split(' ')[0]}? Post them on his profile page, on his Career Path
-          Timeline: click the Polaroid icon at the bottom left of his timeline. Stories there let you tell what happened, and let
+          Timeline: use the Share a Story button on his profile. Stories there let you tell what happened, and let
           others like, comment, share and tag. <a href={`${info.profileUrl}#ppTab-upload`}>Go to {info.name}&apos;s profile page</a>
         </p>
       ) : null}
