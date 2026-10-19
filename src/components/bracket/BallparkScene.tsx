@@ -1,6 +1,7 @@
 // The hero's backdrop, drawn in code (no photos to license or load), above
 // the scoreboards rather than a whole ballpark. Dark theme: a night sky with
-// the light towers blazing. Light theme: a day sky with soft, wispy clouds.
+// a light tower blazing in the center. Light theme: a day sky with soft,
+// wispy clouds.
 // Both are always in the page; the theme picks which one shows (see .ybp-*
 // in FantasyTimeline).
 
@@ -94,7 +95,10 @@ body.light-theme .ybp-night { display:none; }
 `;
 
 export default function BallparkScene() {
-  const towers = [{ x: 90, top: 46, w: 120 }, { x: 470, top: 30, w: 150 }, { x: 1030, top: 34, w: 150 }, { x: 1420, top: 50, w: 120 }];
+  // One tower, dead center (the viewBox center stays at the screen's center
+  // at any width): the sides stay dark for the story and the scoreboard
+  // (Pete, Oct 19 - the side towers blazed right behind the words).
+  const towers = [{ x: W / 2 - 80, top: 30, w: 160 }];
   return (
     <div className="ybp" aria-hidden="true">
       {/* The scene's own rules ship with it, so the first frame is already

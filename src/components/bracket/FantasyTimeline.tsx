@@ -496,13 +496,15 @@ export default function FantasyTimeline() {
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
         .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         /* The ballpark behind the slides (BallparkScene): a night game in the
-           dark theme, a day game in the light one. A scrim darkens just the
-           band the words sit on, so the scene shows at both ends and the
-           words still pop. */
+           dark theme (one light tower, in the center), a day game in the
+           light one. A scrim darkens the sides - the story on the left, the
+           scoreboard on the right - and lets the center light through; every
+           word gets a dark outline so it reads over the glow too. */
         .yft-track { position:relative; z-index:1; }
-        .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.25) 22%,rgba(4,5,12,.72) 38%,rgba(4,5,12,.72) 60%,rgba(0,0,0,.45) 78%,rgba(0,0,0,.4) 100%); }
-        body.light-theme .yft-grad { background:linear-gradient(90deg,rgba(6,28,58,0) 0%,rgba(6,28,58,.25) 22%,rgba(6,28,58,.72) 38%,rgba(6,28,58,.72) 60%,rgba(6,28,58,.5) 78%,rgba(6,28,58,.45) 100%); }
-        .yft-title, .yft-status, .yft-story p, .yft-series { text-shadow:0 1px 3px rgba(0,0,0,.65); }
+        .yft-grad { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(2,3,8,.82) 0%,rgba(2,3,8,.74) 32%,rgba(2,3,8,.4) 50%,rgba(2,3,8,.3) 62%,rgba(2,3,8,.6) 80%,rgba(2,3,8,.72) 100%); }
+        body.light-theme .yft-grad { background:linear-gradient(90deg,rgba(6,28,58,.82) 0%,rgba(6,28,58,.74) 32%,rgba(6,28,58,.45) 50%,rgba(6,28,58,.35) 62%,rgba(6,28,58,.62) 80%,rgba(6,28,58,.72) 100%); }
+        .yft-status, .yft-story p, .yft-star, .yft-series { text-shadow:0 0 2px #000,0 0 3px #000,0 1px 3px rgba(0,0,0,.9); }
+        .yft-title { -webkit-text-stroke:1px #000; paint-order:stroke fill; text-shadow:0 0 3px #000,0 2px 4px rgba(0,0,0,.9); }
         .yft-person { position:absolute; z-index:1; left:64%; bottom:30px; width:18%; height:calc(100% - 38px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
@@ -513,7 +515,7 @@ export default function FantasyTimeline() {
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:rgba(255,255,255,.86); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:7px 0 5px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
-        .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.78); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-story p { margin:0; max-width:780px; color:rgba(255,255,255,.94); font:400 13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; }
         .yft-title.long { font-size:clamp(22px,2.6vw,34px); }
         .yft-shouts { display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; margin-top:6px; }
         .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
