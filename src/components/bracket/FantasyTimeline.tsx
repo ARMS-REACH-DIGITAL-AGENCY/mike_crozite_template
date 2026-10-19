@@ -490,12 +490,16 @@ export default function FantasyTimeline() {
       <style jsx global>{`
         /* Keep Fantasy in the exact player-profile Career Path Timeline box.
            We are swapping content, not changing the page geometry. */
-        .yat-row3-shell:has(.yft-hero) { height:200px !important; min-height:200px !important; overflow:hidden !important; }
-        .yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:transparent; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
-        .yft-track { display:flex; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
+        .yat-row3-shell:has(.yft-hero) { height:200px !important; min-height:200px !important; overflow:visible !important; }
+        /* --yft-up: rows 1 and 2 (row 2's borders too). The slides reach up
+           behind them (see .yft-track), so a slide's picture can rise out of
+           row 3 like a card laid over the page; everything else in a slide
+           sits that far down, in row 3. */
+        .yft-hero { --yft-up:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + 2px); position:relative; height:200px; min-height:200px; overflow:visible; background:transparent; color:#fff; border-bottom:1px solid rgba(255,255,255,.08); }
+        .yft-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; overscroll-behavior-x:contain; }
         .yft-track::-webkit-scrollbar { display:none; }
         .yft-slide { position:relative; flex:0 0 100%; height:100%; scroll-snap-align:start; overflow:hidden; cursor:pointer; }
-        .yft-ghost { position:absolute; left:3%; top:50%; width:33%; height:92%; transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
+        .yft-ghost { position:absolute; left:3%; top:calc(var(--yft-up) + (100% - var(--yft-up)) / 2); width:33%; height:calc((100% - var(--yft-up)) * .92); transform:translateY(-50%); opacity:.09; object-fit:contain; pointer-events:none; }
         /* The ballpark behind the slides (BallparkScene): a night game in the
            dark theme (one light tower, its lamps in row 1), a day game in
            the light one, as one picture behind rows 1, 2 and 3 - the way
@@ -503,7 +507,9 @@ export default function FantasyTimeline() {
            darkens both sides top to bottom and lets the center light
            through; every word gets a dark outline so it reads over the glow
            too. */
-        .yft-track { position:relative; z-index:1; }
+        /* The track (the slides) runs from the top of the page to the bottom of
+           row 3, under rows 1 and 2, which are see-through and stay on top. */
+        .yft-track { position:absolute; z-index:1; left:0; right:0; bottom:0; top:calc(-1 * var(--yft-up)); }
         /* Rows 1 and 2 go see-through over it on the Fantasy tab (only it
            has .yft-hero), and keep their light icons, logo and school name
            in the light theme too: the sky behind them is dark or deep blue,
@@ -518,7 +524,12 @@ export default function FantasyTimeline() {
         body:has(.yft-hero) .yat-topnav-item, body:has(.yft-hero) .yat-schooltext { text-shadow:0 0 2px #000,0 0 3px #000; }
         .yft-status, .yft-story p, .yft-star, .yft-series { text-shadow:0 0 2px #000,0 0 3px #000,0 1px 3px rgba(0,0,0,.9); }
         .yft-title { -webkit-text-stroke:1px #000; paint-order:stroke fill; text-shadow:0 0 3px #000,0 2px 4px rgba(0,0,0,.9); }
-        .yft-person { position:absolute; z-index:1; left:51%; top:0; width:20%; height:calc(100% - 14px); object-fit:contain; object-position:bottom center; pointer-events:none; }
+        /* The slide's picture: a 5x7 card's place (Pete's mockup, Oct 19) from the
+           timeline's R6 tick to its R10, just right of row 2's school name and
+           just left of the series, from just under row 1 down to the bottom
+           of row 3; the timeline prints over it. A cutout or a headshot sits
+           on its bottom edge. */
+        .yft-person { position:absolute; z-index:1; left:calc(3% + 94% * 15 / 33); width:calc(94% * 12 / 33 + 6px); top:calc(var(--row1-h, 36px) + 4px); height:calc(100% - var(--row1-h, 36px) - 4px); object-fit:contain; object-position:bottom center; pointer-events:none; }
         .yft-left-meta { position:absolute; left:2.5%; top:12px; z-index:2; display:flex; flex-direction:column; gap:2px; color:#fff; }
         .yft-left-meta b { font:700 16px/1 Oswald,sans-serif; }
         .yft-left-meta.yft-post-corner b { display:flex; flex-direction:column; gap:1px; font-size:15px; line-height:.98; }
@@ -527,11 +538,11 @@ export default function FantasyTimeline() {
         /* The story starts at the top of the box (eyebrow, then the headline,
            then the story, with room between them) in a blocked column that
            stops short of the center light. */
-        .yft-story { position:absolute; z-index:2; left:5%; width:42%; top:4px; bottom:40px; display:flex; flex-direction:column; justify-content:flex-start; min-width:0; padding:0 14px; }
+        .yft-story { position:absolute; z-index:2; left:5%; width:47%; top:calc(var(--yft-up) + 4px); bottom:40px; display:flex; flex-direction:column; justify-content:flex-start; min-width:0; padding:0 14px; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:var(--gold,#d5b44a); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
-        .yft-title { margin:9px 0 9px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
-        .yft-story p { margin:0; color:#fff; font:400 13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .yft-title { margin:9px 0 19px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
+        .yft-story p { margin:0; color:#fff; font:400 13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
         .yft-title.long { font-size:clamp(22px,2.6vw,34px); }
         .yft-shouts { display:flex; flex-wrap:wrap; column-gap:14px; row-gap:2px; margin-top:6px; }
         .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
@@ -540,7 +551,7 @@ export default function FantasyTimeline() {
         /* The series, at the top of the box in the story's typeface: each
            score in a column two spaces past the longest school name
            (--yft-name-ch, set from the names), so it reads as a box score. */
-        .yft-series { position:absolute; z-index:2; right:1.2%; top:6px; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; text-align:left; }
+        .yft-series { position:absolute; z-index:2; right:3%; top:calc(var(--yft-up) + 6px); display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; text-align:left; }
         .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
         .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
         .yft-series-games { margin-top:0; display:grid; gap:10px; }
@@ -587,20 +598,22 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:38%; width:24%; top:0; height:calc(100% - 10px); object-position:bottom center; }
+          .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 6px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px); }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
           .yft-left-meta b { font-size:10px; }
           .yft-left-meta span { font-size:6px; }
           /* Blocked under the school name: the column ends about where row
              2's "FANTASY BRACKET TOURNEY" does. */
-          .yft-story { left:5%; width:170px; top:2px; bottom:22px; padding:0 4px; justify-content:flex-start; }
+          .yft-story { left:5%; width:170px; top:calc(var(--yft-up) + 2px); bottom:22px; padding:0 4px; justify-content:flex-start; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-title { margin:2px 0 2px; font-size:16px; line-height:.94; }
+          .yft-title { margin:2px 0 8px; font-size:16px; line-height:.94; }
           .yft-title.long { font-size:13px; }
           .yft-shouts { margin-top:2px; column-gap:6px; row-gap:1px; }
           .yft-shouts .yft-star span { display:none; }
           .yft-story:has(.yft-shouts) p { -webkit-line-clamp:6; }
+          /* A two-line headline leaves room for five. */
+          .yft-story:has(.yft-title.long) p { -webkit-line-clamp:5; }
           .yft-story p { flex-shrink:0; font-size:7px; line-height:1.16; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
           /* No room for the story's dots under six lines on a phone. */
           .yft-dots { display:none; }
@@ -608,12 +621,12 @@ export default function FantasyTimeline() {
           .yft-tick.wk { width:8px; margin-left:-4px; }
           .yft-tick.wk::before { left:2px; top:5px; width:3px; height:3px; }
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-          .yft-series { right:1.5%; top:3px; }
+          .yft-series { right:6%; top:calc(var(--yft-up) + 3px); }
           .yft-series-games { margin-top:0; gap:5px; }
-          .yft-series-game { font-size:7px; line-height:1.2; }
+          .yft-series-game { font-size:8px; line-height:1.2; }
           .yft-scoreline { grid-template-columns:min(calc(var(--yft-name-ch, 10) * 1ch), 16ch) 2ch; }
           .yft-post-scores .yft-series-games { gap:4px; }
-          .yft-post-scores .yft-series-game { font-size:7px; line-height:1.1; }
+          .yft-post-scores .yft-series-game { font-size:8px; line-height:1.1; }
           .yft-series-game small { font-size:6.4px; line-height:1; text-align:left; padding:0; }
           .yft-raffle-cta { left:2.5%; top:calc((100% - 23px) / 2); bottom:auto; width:112px; height:78px; transform:translateY(-50%); }
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }

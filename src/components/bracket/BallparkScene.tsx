@@ -122,7 +122,7 @@ body.light-theme .ybp-lights { display:none; }
 .ybp-clouds { animation:ybp-drift 80s linear infinite alternate; }
 @keyframes ybp-drift { from { transform:translateX(-30px); } to { transform:translateX(40px); } }
 @media (prefers-reduced-motion: reduce) { .ybp-clouds { animation:none; } }
-.yft-hero { position:relative; height:200px; min-height:200px; overflow:hidden; background:transparent; }
+.yft-hero { position:relative; height:200px; min-height:200px; overflow:visible; background:transparent; }
 @media (max-width:760px) { .yft-hero { height:118px; min-height:118px; } .ybp { height:calc(var(--row1-h, 36px) + var(--row2-h, 54px) + 120px); } }
 `;
 
