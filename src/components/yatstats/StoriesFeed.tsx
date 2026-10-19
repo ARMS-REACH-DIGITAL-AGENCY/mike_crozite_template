@@ -345,7 +345,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           aria-label={`Share a story on ${firstName}'s Career Path Timeline`}
         >
           <i className="ri-upload-cloud-2-line" aria-hidden="true" />
-          <span>Share a story on {firstName}&apos;s Career Path Timeline</span>
+          <span>Share a story on {firstName}&apos;s <br className="ysf-share-break" />Career Path Timeline</span>
         </button>
         {stories?.length ? (
           <>
