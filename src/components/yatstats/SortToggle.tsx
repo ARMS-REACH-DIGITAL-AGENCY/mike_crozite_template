@@ -22,9 +22,9 @@ export default function SortToggle({ dir, onChange }: { dir: SortDir; onChange: 
       <style jsx>{`
         .yst { flex: none; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 38px; min-height: 38px; padding: 0; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; background: rgba(255,255,255,.055); color: rgba(255,255,255,.7); font-size: 10px; line-height: 1; cursor: pointer; }
         .yst span { opacity: .3; }
-        .yst .yst-on { opacity: 1; color: #FFD700; }
+        .yst .yst-on { opacity:1; color:#fff; }
         :global(body.light-theme) .yst { border-color: rgba(53,43,30,.18); background: rgba(255,255,255,.52); color: rgba(31,25,18,.7); }
-        :global(body.light-theme) .yst .yst-on { color: #9a6f00; }
+        :global(body.light-theme) .yst .yst-on { color:rgba(31,25,18,.94); }
       `}</style>
     </button>
   );
