@@ -142,7 +142,7 @@ export default function ProfileStatsStyles() {
 
       #playerFunZone #ppTab-stats .pp-season-table tbody td.num:nth-child(4),
       #playerFunZone #ppTab-stats .pp-season-table tbody td.num:nth-child(8) {
-        background: rgba(128,128,128,.09);
+        background:inherit;
       }
 
       #playerFunZone #ppTab-stats .pp-fz-placeholder {

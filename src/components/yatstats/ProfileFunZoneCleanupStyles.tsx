@@ -14,7 +14,7 @@ export default function ProfileFunZoneCleanupStyles() {
       .pp-row-4,
       [data-profile-row="4"] {
         background: #070707 !important;
-        color: #f4f0e6 !important;
+        color: #eee !important;
       }
 
       .yp-meta-strip {
@@ -24,19 +24,19 @@ export default function ProfileFunZoneCleanupStyles() {
         gap: 8px !important;
         min-height: 40px !important;
         padding: 5px 13px !important;
-        color: #f4f0e6 !important;
+        color: #eee !important;
         text-transform: uppercase !important;
       }
 
       .yp-meta-team,
       .yp-meta-sub {
-        color: #f4f0e6 !important;
+        color: #eee !important;
         opacity: 1 !important;
         text-shadow: none !important;
       }
 
       .yp-meta-team {
-        font: 900 15px/1 Oswald, Arial, sans-serif !important;
+        font: 800 15px/1 var(--yat-font-ui,Archivo,Arial,sans-serif) !important;
         letter-spacing: .05em !important;
         white-space: nowrap !important;
         overflow: hidden !important;
@@ -44,7 +44,7 @@ export default function ProfileFunZoneCleanupStyles() {
       }
 
       .yp-meta-sub {
-        font: 700 9px/1.1 Oswald, Arial, sans-serif !important;
+        font: 700 9px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif) !important;
         letter-spacing: .10em !important;
         color: rgba(244,240,230,.78) !important;
       }
@@ -94,7 +94,7 @@ export default function ProfileFunZoneCleanupStyles() {
         margin: 0 !important;
         padding: 2px 6px !important;
         background: #070707 !important;
-        color: #f4f0e6 !important;
+        color: #eee !important;
       }
 
       #playerFunZone > .pp-fz-panel.pp-fz-panel-active,
@@ -178,11 +178,11 @@ export default function ProfileFunZoneCleanupStyles() {
         right: 18% !important;
         top: 0 !important;
         height: 2px !important;
-        background: #d2b45c !important;
+        background: #bfbfbf !important;
       }
 
       #playerFunZone .pp-fz-tab i { font-size: 19px !important; line-height: 1 !important; margin: 0 !important; padding: 0 !important; }
-      #playerFunZone .pp-fz-tab span { font: 900 8px/1 Oswald, Arial, sans-serif !important; letter-spacing: .035em !important; text-transform: uppercase !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      #playerFunZone .pp-fz-tab span { font: 800 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif) !important; letter-spacing: .035em !important; text-transform: uppercase !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
 
       /* Stats pane: only the table wrapper scrolls. This is required for freeze panes. */
       #playerFunZone #ppTab-stats {
@@ -298,7 +298,7 @@ export default function ProfileFunZoneCleanupStyles() {
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] {
         background: #101010 !important;
-        color: #f4f0e6 !important;
+        color: #eee !important;
         box-shadow: none !important;
       }
 
@@ -306,7 +306,7 @@ export default function ProfileFunZoneCleanupStyles() {
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
-        background: #171717 !important;
+        background: #101010 !important;
       }
 
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
@@ -323,7 +323,7 @@ export default function ProfileFunZoneCleanupStyles() {
       body.light-theme #playerFunZone,
       html.light-theme #playerFunZone > .pp-fz-panel,
       body.light-theme #playerFunZone > .pp-fz-panel,
-      html.light-theme #playerFunZone [id^="ppTab-"] { background: #f6f0e4 !important; color: #17130b !important; }
+      html.light-theme #playerFunZone [id^="ppTab-"] { background: #f4f4f4 !important; color: #171717 !important; }
       html.light-theme .yat-row4-shell,
       body.light-theme .yat-row4-shell,
       html.light-theme .yat-row4-shell #playerCareerStrip,
@@ -337,15 +337,15 @@ export default function ProfileFunZoneCleanupStyles() {
       html.light-theme .pp-row-4,
       body.light-theme .pp-row-4,
       html.light-theme [data-profile-row="4"],
-      body.light-theme [data-profile-row="4"] { background: #f6f0e4 !important; color: #17130b !important; }
+      body.light-theme [data-profile-row="4"] { background: #f4f4f4 !important; color: #171717 !important; }
       html.light-theme .yp-meta-team,
       body.light-theme .yp-meta-team,
       html.light-theme .yp-meta-sub,
-      body.light-theme .yp-meta-sub { color: #17130b !important; opacity: 1 !important; text-shadow: none !important; }
+      body.light-theme .yp-meta-sub { color: #171717 !important; opacity: 1 !important; text-shadow: none !important; }
       html.light-theme #playerFunZone .pp-fz-tabs-shell,
       body.light-theme #playerFunZone .pp-fz-tabs-shell,
       html.light-theme #playerFunZone .pp-fz-tabs,
-      body.light-theme #playerFunZone .pp-fz-tabs { background: #fffdf8 !important; color: #17130b !important; border-top-color: rgba(74,54,10,.22) !important; box-shadow: 0 -4px 10px rgba(74,54,10,.08) !important; }
+      body.light-theme #playerFunZone .pp-fz-tabs { background: #fff !important; color: #171717 !important; border-top-color: rgba(0,0,0,.10) !important; box-shadow: 0 -4px 10px rgba(0,0,0,.08) !important; }
       html.light-theme #playerFunZone .pp-fz-tab,
       body.light-theme #playerFunZone .pp-fz-tab,
       html.light-theme #playerFunZone .pp-fz-tab i,
@@ -355,41 +355,80 @@ export default function ProfileFunZoneCleanupStyles() {
       html.light-theme #playerFunZone #ppTab-upload,
       body.light-theme #playerFunZone #ppTab-upload,
       html.light-theme #playerFunZone #ppTab-upload *,
-      body.light-theme #playerFunZone #ppTab-upload * { color: #17130b !important; text-shadow: none !important; opacity: 1 !important; }
+      body.light-theme #playerFunZone #ppTab-upload * { color: #171717 !important; text-shadow: none !important; opacity: 1 !important; }
       html.light-theme #playerFunZone #ppTab-upload input,
       body.light-theme #playerFunZone #ppTab-upload input,
       html.light-theme #playerFunZone #ppTab-upload textarea,
       body.light-theme #playerFunZone #ppTab-upload textarea,
       html.light-theme #playerFunZone #ppTab-upload select,
-      body.light-theme #playerFunZone #ppTab-upload select { background: #fffdf8 !important; color: #17130b !important; border-color: rgba(74,54,10,.35) !important; }
+      body.light-theme #playerFunZone #ppTab-upload select { background: #fff !important; color: #171717 !important; border-color: rgba(0,0,0,.16) !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-card,
       body.light-theme #playerFunZone #ppTab-stats .psi-card,
       html.light-theme #playerFunZone #ppTab-stats .psi-table-wrap,
       body.light-theme #playerFunZone #ppTab-stats .psi-table-wrap,
-      html.light-theme #playerFunZone #ppTab-stats .psi-shell { background: #fffdf8 !important; color: #17130b !important; }
+      html.light-theme #playerFunZone #ppTab-stats .psi-shell { background: #fff !important; color: #171717 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table thead th,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table thead th { background: linear-gradient(180deg, #eadfbf, #d9c68e) !important; color: #17130b !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table thead th { background: #e7e7e7 !important; color: #171717 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td { background: #ffffff !important; color: #2b2415 !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td { background: #ffffff !important; color: #282828 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td { background: #f7f1e4 !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td { background: #fff !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td,
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td { background: #eee2c7 !important; color: #17130b !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td { background: rgba(0,0,0,.05) !important; color: #171717 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
       body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="year"],
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] { background: #ffffff !important; color: #2b2415 !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] { background: #ffffff !important; color: #282828 !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
       body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
       html.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
-      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background: #f7f1e4 !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] { background: #fff !important; }
       html.light-theme #playerFunZone #ppTab-stats .psi-total-row td,
       body.light-theme #playerFunZone #ppTab-stats .psi-total-row td,
       html.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="year"],
       body.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="year"],
       html.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="team"],
-      body.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="team"] { background: linear-gradient(180deg, #e5c569, #f1d891) !important; color: #181109 !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-total-row td[data-key="team"] { background: #e1e1e1 !important; color: #181818 !important; }
 
+      /* Approved clean Stats table: no zebra stripes, shaded columns or gold totals.
+         Solid backgrounds on sticky YEAR and TEAM prevent bleed-through while scrolling. */
+      #playerFunZone #ppTab-stats .psi-table tbody tr td,
+      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td,
+      #playerFunZone #ppTab-stats .psi-table tbody td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table tbody td[data-key="team"],
+      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
+        background:#101010 !important;
+        background-image:none !important;
+        box-shadow:none !important;
+      }
+      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td,
+      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] {
+        background:#222 !important;
+      }
+      #playerFunZone #ppTab-stats .psi-table tfoot td,
+      #playerFunZone #ppTab-stats .psi-table tfoot td[data-key="year"],
+      #playerFunZone #ppTab-stats .psi-table tfoot td[data-key="team"] {
+        background:#272727 !important;
+        color:#fff !important;
+      }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr td,
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td,
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody td[data-key="year"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody td[data-key="team"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
+        background:#fff !important;
+        color:#222 !important;
+        background-image:none !important;
+      }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td,
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="year"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tbody tr:hover td[data-key="team"] { background:#eee !important; }
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tfoot td,
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tfoot td[data-key="year"],
+      body.light-theme #playerFunZone #ppTab-stats .psi-table tfoot td[data-key="team"] { background:#e8e8e8 !important;color:#111 !important; }
       @media (max-width: 760px) {
         .pp-funzone-outer { height: calc(100dvh - var(--row1-h,34px) - var(--row2-h,48px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,76px)) !important; min-height: 320px !important; }
         #playerFunZone { --profile-tabs-h: 46px !important; --stats-year-col-w: 42px !important; }

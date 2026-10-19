@@ -239,14 +239,14 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
           overflow: auto;
           border: 1px solid var(--psi-border, rgba(255,255,255,.18));
           background: var(--psi-panel-bg, #080808);
-          box-shadow: 0 14px 32px rgba(0,0,0,.22);
+          box-shadow:none;
         }
         .pst-table{
           width: max-content;
           min-width: 100%;
           border-collapse: separate;
           border-spacing: 0;
-          font: 500 9.5px/1.05 Oswald, Arial, sans-serif;
+          font: 500 9.5px/1.05 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color: var(--psi-text, #f4f0e6);
         }
         .pst-table thead th{
@@ -270,7 +270,7 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
           background: transparent;
           color: inherit;
           padding: 4px 3px;
-          font: 900 9px/1 Oswald, Arial, sans-serif;
+          font: 800 9px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .04em;
           text-transform: uppercase;
           cursor: pointer;
@@ -289,24 +289,24 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
           white-space: nowrap;
           font-variant-numeric: tabular-nums;
         }
-        .pst-table tbody tr:nth-child(even) td{ background: var(--psi-cell-bg-alt, rgba(255,255,255,.065)); }
+        .pst-table tbody tr:nth-child(even) td{ background:var(--psi-cell-bg); }
         .pst-table tbody tr:hover td{ background: var(--psi-cell-hover, rgba(255,255,255,.12)); color: var(--psi-text, #f4f0e6); }
         .pst-table td.pst-date, .pst-table td.pst-opp{ text-align: left; color: var(--psi-text, #f4f0e6); }
         .pst-table td.pst-res{ text-align: center; }
         /* DATE stays put while the stat columns scroll sideways (like YEAR). */
-        .pst-table th.pst-date, .pst-table td.pst-date{ position: sticky; left: 0; z-index: 6; box-shadow: 4px 0 10px rgba(0,0,0,.18); }
+        .pst-table th.pst-date, .pst-table td.pst-date{ position: sticky; left: 0; z-index: 6; box-shadow:none; }
         .pst-table th.pst-date{ z-index: 10; }
         .pst-table td.pst-date{ background: var(--psi-cell-bg, #161616); }
-        .pst-table tbody tr:nth-child(even) td.pst-date{ background: var(--psi-cell-bg-alt, #1b1b1b); }
-        .pst-row-today td{ background: rgba(128,128,128,.13) !important; }
+        .pst-table tbody tr:nth-child(even) td.pst-date{ background:var(--psi-cell-bg); }
+        .pst-row-today td{ font-weight:700; }
         .pst-opponent{ display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-        .pst-tag{ padding: 1px 3px; border: 1px solid rgba(214,178,83,.7); color: #b0b0b0; font: 700 7px/1 Oswald, Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .pst-tag{ padding: 1px 3px; border: 1px solid rgba(128,128,128,.24); color: #b0b0b0; font: 700 7px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing: .06em; text-transform: uppercase; }
         .pst-table td.pst-dnp{ text-align: left; font-style: italic; color: var(--psi-muted-text, rgba(255,255,255,.84)); opacity: .7; }
         .pst-table tr.pst-row-move td{
           padding: 4px 3px;
           text-align: left;
           background: rgba(128,128,128,.10);
-          border-bottom: 1px solid rgba(214,178,83,.45);
+          border-bottom: 1px solid rgba(128,128,128,.20);
           color: var(--psi-text, #f4f0e6);
         }
         .pst-move{ position: sticky; left: 3px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
@@ -317,14 +317,14 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
           background: var(--psi-cell-bg, rgba(255,255,255,.035));
           color: var(--psi-muted-text, rgba(255,255,255,.84));
           padding: 3px 8px;
-          font: 700 10px/1 Oswald, Arial, sans-serif;
+          font: 700 10px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .04em;
           cursor: pointer;
         }
         .pst-season.is-active{
           background: var(--psi-head-bg-a, #202020);
           color: var(--psi-text, #f4f0e6);
-          border-color: rgba(214,178,83,.7);
+          border-color: rgba(128,128,128,.24);
         }
         .pst-opponent-logo{ width: 11px; height: 11px; object-fit: contain; flex-shrink: 0; }
         .pp-result-w{ color: #2ecc71; font-weight: 700; }

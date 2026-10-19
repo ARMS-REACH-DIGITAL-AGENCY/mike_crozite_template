@@ -142,7 +142,7 @@ export default function ProfileStatsFinalOverrides() {
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
-        background-color: #171717 !important;
+        background-color: #101010 !important;
         background-image: none !important;
       }
 
