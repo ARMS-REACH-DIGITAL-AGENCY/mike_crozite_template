@@ -7,6 +7,9 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
 import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
 import { isCareerYearSlide, storyYearSlideIndex, withCareerMemoryYears } from '@/lib/careerTimelinePlacement';
+import FavoriteButton from '@/components/yatstats/FavoriteButton';
+import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
+import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -916,6 +919,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   // /player/[playerId]/[slug] segment rather than ever showing "him"/"his"
   // in its place.
   const pathname = usePathname();
+  const profileHsid = pathname?.match(/^\/([^/]+)\/player\//)?.[1] || '';
   const storyOpenOwner = useMemo(() => Symbol(`story-open:${playerId}:${pathname}`), [playerId, pathname]);
   // Cancel an undelivered click when its originating timeline leaves or
   // changes player/path, including navigation through a non-player page.
@@ -964,6 +968,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!years.length) return null;
     return { start: Math.min(...years), end: Math.max(...years), retired: /RETIRED/.test(status) };
   }, [identityMeta?.statusLabel, identityMeta?.rosterYears, player?.statusLabel]);
+  const flipCardView = isActiveGalleryStatus(String(identityMeta?.statusLabel || player?.statusLabel || ''))
+    ? 'active'
+    : /^(HIGH SCHOOL|HS)$/.test(String(identityMeta?.levelLabel || player?.levelLabel || '').trim().toUpperCase())
+      || ['COMMIT', 'UNCOMMITTED'].includes(String(identityMeta?.statusLabel || player?.statusLabel || '').trim().toUpperCase())
+      ? 'current'
+      : 'alltime';
+  const flipCardHref = profileHsid
+    ? `/${encodeURIComponent(profileHsid)}?view=${flipCardView}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`
+    : `/?view=${flipCardView}&player=${encodeURIComponent(playerId)}#player-${encodeURIComponent(playerId)}`;
+
   // Position moved off this line and onto the end of batsThrowsHw below --
   // per direct feedback, this line is level + status only now (e.g.
   // "NCAA-D1 - ACTIVE"), not "position - level - status" like the flip
@@ -2020,6 +2034,14 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           </div>
         </div>
       )}
+      {!isPreview && (
+        <div className="zt-profile-utility" aria-label="Player profile actions">
+          <a href={flipCardHref} className="zt-profile-utility-btn" aria-label="Back to Flip Card" title="Back to Flip Card">
+            <FlipCardIcon size={22} />
+          </a>
+          <FavoriteButton variant="bare" playerId={playerId} playerName={resolvedPlayerName} playerHsid={profileHsid} />
+        </div>
+      )}
       {!isPreview && !isPhone && (
         <div className="zt-rail-mode-toggle" role="group" aria-label="Timeline scale">
           <button type="button" className={railMode === 'years' ? 'is-on' : ''} aria-pressed={railMode === 'years'} onClick={() => setRailMode('years')}>Years</button>
@@ -2662,9 +2684,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            gold like .zt-persist-status, since it's now read as part of
            this identity block rather than a caption written on a photo. */
         .zt-persist-classof { display:block; color:${TIMELINE_YELLOW}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
-        .zt-rail-mode-toggle { position:absolute; z-index:8; left:var(--x-logo-left); top:88px; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(6,7,8,.62); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.22); }
+        .zt-profile-utility { position:absolute; z-index:9; left:var(--x-logo-left); bottom:34px; display:flex; align-items:center; gap:8px; }
+        .zt-profile-utility-btn { display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; background:transparent; color:#fff; text-decoration:none; opacity:.9; cursor:pointer; }
+        .zt-profile-utility-btn:hover,.zt-profile-utility-btn:focus-visible { opacity:1; outline:none; }
+        .zt-rail-mode-toggle { position:absolute; z-index:8; left:calc(var(--x-logo-left) + 78px); bottom:36px; top:auto; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.22); border-radius:999px; background:rgba(6,7,8,.48); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.18); }
         .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
-        .zt-rail-mode-toggle button.is-on { background:rgba(255,178,28,.14); color:${TIMELINE_YELLOW}; box-shadow:inset 0 0 0 1px rgba(255,178,28,.24); }
+        .zt-rail-mode-toggle button.is-on { background:rgba(255,255,255,.1); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
            matching the real corporate hero's proportions: kicker/headline/
@@ -2754,14 +2779,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            track -- rather than lighting a mark up
            gold. */
         /* bottom:10px, staying level with .zt-rail's own bottom:14px. */
-        .zt-nav { position:absolute; z-index:7; bottom:10px; top:auto; transform:none; width:20px; height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.32); background:rgba(0,0,0,.4); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:13px; }
-        .zt-nav:disabled { opacity:.3; cursor:default; }
-        /* Moved from stacked next to zt-nav-next (right:30px) over to the
-           far left edge -- per direct feedback, the rail should sit
-           between the two arrows, not have both of them clustered at one
-           end of it. Mirrors zt-nav-next's own right:6px inset. */
-        .zt-nav-prev { left:6px; right:auto; }
-        .zt-nav-next { right:6px; }
+        .zt-nav { position:absolute; z-index:8; top:50%; bottom:auto; transform:translateY(-50%); width:38px; height:64px; border:0; border-radius:0; background:linear-gradient(90deg,rgba(0,0,0,.28),rgba(0,0,0,.04)); color:#fff; display:grid; place-items:center; cursor:pointer; font-size:28px; opacity:.48; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+        .zt-nav:hover,.zt-nav:focus-visible,.zt-nav:active { opacity:.92; outline:none; }
+        .zt-nav:disabled { opacity:.14; cursor:default; }
+        .zt-nav-prev { left:0; right:auto; }
+        .zt-nav-next { right:0; background:linear-gradient(270deg,rgba(0,0,0,.28),rgba(0,0,0,.04)); }
         /* bottom raised to 20px (was 4px) -- per direct feedback, moving
            the per-tick year labels to sit below each dot (see
            .zt-rail-tick-year below) meant they were landing right at, and
@@ -2776,7 +2798,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            than crowding either. bottom:14px, not flush against the frame's
            own bottom edge -- per direct feedback, a little padding below
            the tick-year labels reads better than none at all. */
-        .zt-rail { position:absolute; z-index:6; left:34px; right:44px; bottom:14px; height:12px; }
+        .zt-rail { position:absolute; z-index:6; left:14px; right:14px; bottom:14px; height:20px; }
         /* Solid gold the whole way now, not gray-before/gold-after-grad-
            year (that two-tone .zt-rail-fill overlay is gone) -- per direct
            feedback: "I want it all yellow except for the little red
@@ -2786,8 +2808,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* Every tick red now, not just the birth-year one -- per direct
            feedback. */
         /* 4px, not 6px -- per direct feedback, smaller dots. */
-        .zt-rail-tick { position:absolute; top:50%; width:4px; height:4px; margin-left:-2px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:#e5342a; cursor:pointer; }
-        .zt-rail-tick.active { background:transparent; cursor:default; }
+        .zt-rail-tick { position:absolute; top:50%; width:22px; height:22px; margin-left:-11px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:transparent; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+        .zt-rail-tick::after { content:''; position:absolute; left:50%; top:50%; width:5px; height:5px; transform:translate(-50%,-50%); border-radius:50%; background:#e5342a; box-shadow:0 0 0 1px rgba(0,0,0,.22); }
+        .zt-rail-tick:hover::after,.zt-rail-tick:focus-visible::after { width:7px; height:7px; }
+        .zt-rail-tick.active::after { opacity:0; }
         /* Sits outside .zt-rail (see its own JSX comment), so top:50%/
            margin-left from the base rule above -- both relative to
            .zt-rail's own box -- are overridden here against the outer
@@ -2795,7 +2819,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            height, right sits in the gap between the rail's own right
            edge and .zt-nav-next beside it. Not a button, so no hover/
            active state to style. */
-        .zt-rail-tick-boundary { top:auto; bottom:18px; left:auto; right:36px; margin-left:0; transform:none; cursor:default; }
+        .zt-rail-tick-boundary { top:auto; bottom:22px; left:auto; right:8px; margin-left:0; transform:none; cursor:default; }
         /* Sits just below each tick's own dot now (was above it), per
            direct feedback. Hidden on the active tick itself so it doesn't
            double up with .zt-rail-year's own bigger, bold, draggable
@@ -3030,6 +3054,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           /* Headshot fallback flush against the headline column's real
              left edge (58% here -- see the doubled-box note above). */
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
+          .zt-profile-utility { left:10px; bottom:34px; gap:4px; }
+          .zt-profile-utility-btn { width:30px; height:30px; }
+          .zt-nav { width:42px; height:76px; font-size:30px; opacity:.42; }
+
           /* Whole timeline/story photos stand directly on the mobile
              timeline rail instead of floating above it. This path is
              shared by Story photos and Connect & Contribute yearly hero
