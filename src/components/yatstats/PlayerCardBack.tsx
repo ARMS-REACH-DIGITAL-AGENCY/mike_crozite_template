@@ -91,8 +91,8 @@ function normalizeBucketFamily(value: unknown): string {
   const raw = asText(value).toUpperCase();
 
   if (raw.includes("MLB") || raw.includes("MAJOR")) return "MLB";
-  if (raw.includes("MILB") || raw.includes("MINOR") || raw.includes("TRIPLE") || raw.includes("DOUBLE") || raw.includes("HIGH-A") || raw.includes("LOW-A") || raw.includes("ROOKIE")) return "MiLB";
-  if (raw.includes("COLLEGE") || raw.includes("NCAA") || raw.includes("NAIA") || raw.includes("JUCO") || raw.includes("NJCAA")) return "College";
+  if (raw.includes("MILB") || raw.includes("MINOR") || raw.includes("TRIPLE") || raw.includes("DOUBLE") || raw.includes("HIGH-A") || raw.includes("SINGLE-A") || raw.includes("LOW-A") || raw.includes("ROOKIE")) return "MiLB";
+  if (raw.includes("COLLEGE") || raw.includes("NCAA") || raw.includes("NAIA") || raw.includes("JUCO") || raw.includes("NJCAA") || raw.includes("CCCAA") || raw.includes("NWAC")) return "College";
 
   const cleaned = raw
     .replace(/2026/g, "")
