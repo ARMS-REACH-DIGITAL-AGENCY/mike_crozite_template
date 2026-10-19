@@ -248,7 +248,7 @@ function buildGame(source, input) {
     away_team_id: null,
     away_team_name: awayTeamName || null,
     venue_name: input.venueName || null,
-    level: 'JUCO',
+    level: 'NJCAA', // NJCAA Region 1 (Arizona); JUCO is not a level
     home_score: null,
     away_score: null,
     schedule_url: source.schedule_url,

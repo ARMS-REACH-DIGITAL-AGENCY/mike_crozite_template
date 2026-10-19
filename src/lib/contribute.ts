@@ -25,6 +25,18 @@ export type ContributePlayer = {
 
 export type ContributeSchool = { hsid: string; name: string; location?: string };
 
+export type ContributeTeam = {
+  teamId: string;
+  name: string;
+  shortName?: string;
+  nickname?: string;
+  orgName?: string;
+  orgAbbrev?: string;
+  level?: string;
+  location?: string;
+  logoUrl?: string;
+};
+
 // One season of a player's career, as /api/contribute/seasons returns it.
 // Every year of a player's life a photo can belong to, newest first: the
 // seasons we have (from his stats), and every other year back to his birth
@@ -130,8 +142,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'school_logo',
-    prefix: 'SCHOOL / CURRENT TEAM',
-    label: 'School or Current Team Logo',
+    prefix: 'HIGH SCHOOL',
+    label: 'High School Logo / Crest',
     aspects: null,
     asks: 'school',
     needsPlayer: false,
@@ -139,8 +151,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'team_logo',
-    prefix: 'SCHOOL / CURRENT TEAM',
-    label: 'School or Current Team Logo',
+    prefix: 'COLLEGE / PRO TEAM',
+    label: 'College or Pro Team Logo',
     aspects: null,
     asks: 'team',
     needsPlayer: false,
@@ -152,8 +164,8 @@ export const PHOTO_TYPES: PhotoType[] = [
     label: 'Other Photo',
     aspects: null,
     asks: 'season',
-    needsPlayer: false,
-    spec: "Something else? Send it and tell us about it below. We'll place it where it fits best.",
+    needsPlayer: true,
+    spec: "Another photo from a player's selected year. It publishes immediately to that player's Career Path Timeline.",
   },
 ];
 
