@@ -836,8 +836,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           {superfanLaunching && (
             <div
               style={{
-                background: 'rgba(255,215,0,.1)',
-                border: '1px solid #FFD700',
+                background: 'rgba(255,255,255,.035)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '16px',
                 marginBottom: '16px',
@@ -847,8 +847,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#FFD700',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  color: 'var(--fg)',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.05em',
                   marginBottom: '4px',
                 }}
@@ -875,7 +875,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   fontSize: '14px',
                   color: '#16a34a',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.05em',
                   marginBottom: '6px',
                 }}
@@ -908,7 +908,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '12px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.06em',
                   cursor: superfanLaunching ? 'not-allowed' : 'pointer',
                   opacity: superfanLaunching ? 0.6 : 1,
@@ -922,8 +922,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           {isSuperfan && (
             <div
               style={{
-                background: 'rgba(255,215,0,.1)',
-                border: '1px solid rgba(255,215,0,.4)',
+                background: 'rgba(255,255,255,.035)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '10px 12px',
                 marginBottom: '16px',
@@ -932,8 +932,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '13px',
-                  color: '#FFD700',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  color: 'var(--fg)',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.06em',
                 }}
               >
@@ -950,7 +950,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               style={{
                 fontSize: '18px',
                 marginBottom: '10px',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 letterSpacing: '.05em',
               }}
             >
@@ -973,11 +973,11 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '12px',
-                  background: '#FFD700',
-                  color: '#000',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '14px',
                   letterSpacing: '.08em',
                   cursor: 'pointer',
@@ -1034,7 +1034,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                         color: '#fff',
                         border: 'none',
                         borderRadius: '8px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         fontSize: '13px',
                         letterSpacing: '.06em',
                         cursor: promoBusy ? 'not-allowed' : 'pointer',
@@ -1060,7 +1060,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               color: 'var(--bg)',
               border: 'none',
               borderRadius: '8px',
-              fontFamily: '"Bebas Neue", Oswald, sans-serif',
+              fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
               fontSize: '14px',
               letterSpacing: '.08em',
               cursor: 'pointer',
@@ -1140,7 +1140,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '14px',
                   letterSpacing: '.08em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1222,7 +1222,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '13px',
                   letterSpacing: '.07em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1238,7 +1238,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   type="text"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="Enter Superfan promo code, then tap the gold button — FREE!"
+                  placeholder="Enter Superfan promo code"
                   aria-label="Superfan promo code"
                   style={{
                     width: '100%',
@@ -1262,11 +1262,11 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: '#FFD700',
-                  color: '#000',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '13px',
                   letterSpacing: '.07em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1297,14 +1297,14 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             style={{
               margin: '14px 15px 4px',
               padding: '14px 15px',
-              border: '1px solid rgba(255, 210, 74, .35)',
-              background: 'rgba(255, 210, 74, .055)',
+              border: '1px solid rgba(255,255,255,.16)',
+              background: 'rgba(255,255,255,.035)',
             }}
           >
             <div
               style={{
-                color: '#FFD24A',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                color: 'var(--fg)',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '18px',
                 lineHeight: 1,
                 letterSpacing: '.07em',
@@ -1340,7 +1340,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'left',
                         fontSize: '10px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.06em',
                         paddingBottom: '6px',
                         color: 'var(--fg)',
@@ -1353,7 +1353,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
                         color: 'var(--muted)',
@@ -1366,7 +1366,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
                         color: 'var(--fg)',
@@ -1381,10 +1381,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
-                        color: '#FFD700',
+                        color: 'var(--fg)',
                         width: '22%',
                       }}
                     >
@@ -1410,7 +1410,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       <td style={{ padding: '5px 4px 5px 0', color: 'var(--muted)' }}>{feat}</td>
                       <td style={{ textAlign: 'center', color: 'var(--muted)' }}>{v}</td>
                       <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{f}</td>
-                      <td style={{ textAlign: 'center', color: '#FFD700' }}>{s}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{s}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1439,7 +1439,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 <div
                   style={{
                     background: '#fff',
-                    color: '#000',
+                    color: 'var(--bg)',
                     borderRadius: '12px',
                     padding: '10px 12px',
                     fontSize: '12px',
@@ -1449,23 +1449,27 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 >
                   Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
                   <br />
-                  <button
-                    type="button"
+                  <a
+                    href="https://yatstats.com/"
                     style={{
                       marginTop: '8px',
-                      background: '#FFD700',
-                      color: '#000',
-                      border: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      minHeight: '34px',
+                      background: 'transparent',
+                      color: '#111',
+                      border: '1px solid rgba(17,17,17,.28)',
                       borderRadius: '6px',
-                      padding: '5px 12px',
-                      fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                      fontSize: '13px',
-                      letterSpacing: '.06em',
-                      cursor: 'pointer',
+                      padding: '0 12px',
+                      fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      letterSpacing: '.02em',
+                      textDecoration: 'none',
                     }}
                   >
-                    LET&apos;S GO!!
-                  </button>
+                    TAKE THE TOUR
+                  </a>
 
                   <span
                     style={{
@@ -1496,6 +1500,12 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
         #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
         #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerAccount .yat-account-content form{padding:12px 14px!important;}
+        #drawerAccount .yat-account-content form input{min-height:40px!important;padding:8px 10px!important;border-radius:6px!important;background:rgba(255,255,255,.035)!important;border-color:var(--line)!important;font-size:13px!important;}
+        #drawerAccount .yat-account-content form button[type="submit"]{min-height:40px!important;padding:0 12px!important;border-radius:6px!important;font:700 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.02em!important;}
+        #drawerAccount table{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
+        #drawerAccount section[aria-label="World Series Tickets Raffle"]{border-color:var(--line)!important;background:rgba(255,255,255,.025)!important;}
+        #drawerAccount section[aria-label="World Series Tickets Raffle"]>div{color:var(--ink)!important;font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;font-size:13px!important;font-weight:800!important;letter-spacing:.02em!important;}
         @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:14px 16px 25px!important;}#drawerAccount .yat-account-identity{margin-top:2px!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
       `}</style>
     </div>
