@@ -82,7 +82,7 @@ export default function FavoriteButton({
   playerName,
   playerHsid,
   variant = 'pill',
-}: FavoriteButtonProps & { variant?: 'pill' | 'star' }) {
+}: FavoriteButtonProps & { variant?: 'pill' | 'star' | 'bare' }) {
   const schoolData = useContext(SchoolContext);
   const displayName = playerName || playerId;
 
@@ -243,6 +243,32 @@ export default function FavoriteButton({
           aria-label={isFavorited ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
           aria-pressed={isFavorited}
           title={isFavorited ? 'Favorited' : 'Favorite'}
+        >
+          <i className={isFavorited ? 'ri-heart-fill' : 'ri-heart-line'} aria-hidden="true" />
+        </button>
+      ) : variant === 'bare' ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleClick(); }}
+          disabled={isLoading}
+          aria-label={isFavorited ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
+          aria-pressed={isFavorited}
+          title={isFavorited ? 'Favorited' : 'Favorite'}
+          style={{
+            appearance: 'none',
+            border: 0,
+            background: 'transparent',
+            color: '#fff',
+            width: '32px',
+            height: '32px',
+            padding: 0,
+            display: 'grid',
+            placeItems: 'center',
+            cursor: isLoading ? 'wait' : 'pointer',
+            opacity: isLoading ? 0.55 : 0.9,
+            fontSize: '22px',
+            lineHeight: 1,
+          }}
         >
           <i className={isFavorited ? 'ri-heart-fill' : 'ri-heart-line'} aria-hidden="true" />
         </button>
