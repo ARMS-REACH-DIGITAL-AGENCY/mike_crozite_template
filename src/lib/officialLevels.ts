@@ -3,11 +3,9 @@
 // rewritten to them without a person looking. Used by the weekly level check
 // (src/app/api/cron/level-qc) and the one-time cleanups it was born from.
 //
-// JUCO is not a level (Pete, Oct 19): it is NJCAA, or CCCAA / NWAC when the
-// player's college is one of those (JUCO_BY_TEAM_SQL runs first and takes the
-// college's level from teamid_universe_mapping). Not in the alias list on
-// purpose: generic NCAA (TBC's career level, which doesn't say the division)
-// and PRO (TBC's word for any pro team: MLB, an affiliate, Indy ball or a
+// JUCO is not a level (Pete, Oct 19): JUCO is NJCAA, period. CCCAA and NWAC
+// are their own levels, not kinds of JUCO. Not in the alias list on purpose:
+// generic NCAA (TBC's career level, which doesn't say the division) and PRO (TBC's word for any pro team: MLB, an affiliate, Indy ball or a
 // foreign league). The check reports those instead.
 
 export const OFFICIAL_LEVELS = [
@@ -53,24 +51,6 @@ export const LEVEL_FIX_TARGETS: { table: string; column: string; stamp?: string 
   { table: 'hamilton_all_time_import_stage', column: 'display_level_label' },
   { table: 'hamilton_all_time_import_stage', column: 'current_team_level' },
 ];
-
-// JUCO on a card becomes the level of the player's college when the team
-// cross-check knows it (CCCAA, NWAC or NJCAA); the alias pass then turns any
-// JUCO left into NJCAA. Returns the cards it changed.
-export const JUCO_BY_TEAM_SQL = `
-  WITH changed AS (
-    UPDATE public.flip_card_front_stage f
-       SET level_label = CASE WHEN UPPER(TRIM(f.level_label)) = 'JUCO' THEN m.level_label ELSE f.level_label END,
-           display_level_label = CASE WHEN UPPER(TRIM(f.display_level_label)) = 'JUCO' THEN m.level_label ELSE f.display_level_label END,
-           current_level_label = CASE WHEN UPPER(TRIM(f.current_level_label)) = 'JUCO' THEN m.level_label ELSE f.current_level_label END,
-           updated_at = now()
-      FROM public.teamid_universe_mapping m
-     WHERE m.teamid = f.current_teamid::text
-       AND m.level_label IN ('NJCAA', 'CCCAA', 'NWAC')
-       AND 'JUCO' IN (UPPER(TRIM(f.level_label)), UPPER(TRIM(f.display_level_label)), UPPER(TRIM(f.current_level_label)))
-    RETURNING 1
-  )
-  SELECT count(*)::int AS fixed FROM changed`;
 
 const ident = (name: string) => `"${name.replace(/"/g, '""')}"`;
 

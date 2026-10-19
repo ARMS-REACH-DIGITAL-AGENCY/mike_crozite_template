@@ -4,7 +4,6 @@ import { writerQuery as query } from "@/lib/dbWriter";
 import { findOrCreateGhlContact, sendGHLEmail } from "@/lib/gohighlevel";
 import {
   ACTIVE_CARD_LEFTOVERS_SQL,
-  JUCO_BY_TEAM_SQL,
   LEVEL_FIX_TARGETS,
   LEVEL_SCAN_SQL,
   OFFICIAL_LEVELS,
@@ -15,9 +14,8 @@ import {
 // Weekly level spot check (Pete, Oct 18-19, 2026: only the official levels
 // are used, anywhere in the database). Every Monday it:
 //   1. rewrites known aliases and wrong capitalisation to the official level
-//      (AAA -> TRIPLE-A, LOW-A -> SINGLE-A, Rk -> ROOKIE, JUCO -> NJCAA, or
-//      CCCAA / NWAC when the player's college is one) in every level column
-//      the site reads (LEVEL_FIX_TARGETS);
+//      (AAA -> TRIPLE-A, LOW-A -> SINGLE-A, Rk -> ROOKIE, JUCO -> NJCAA) in
+//      every level column the site reads (LEVEL_FIX_TARGETS);
 //   2. scans every level column of every table for values that still aren't
 //      official, so a new one is caught the week it shows up;
 //   3. lists active players whose card isn't official (generic NCAA ...)
@@ -56,8 +54,6 @@ export async function GET(req: NextRequest) {
   try {
     const fixed: Record<string, number> = {};
     if (!dry) {
-      const { rows: juco } = await query<{ fixed: number }>(JUCO_BY_TEAM_SQL);
-      if (juco[0]?.fixed) fixed["flip_card_front_stage JUCO -> college level"] = juco[0].fixed;
       for (const target of LEVEL_FIX_TARGETS) {
         try {
           const { rows } = await query<{ fixed: number }>(levelFixSql(target));

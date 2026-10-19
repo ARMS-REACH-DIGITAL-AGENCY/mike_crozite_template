@@ -127,7 +127,7 @@ export function ScoringRules() {
 
       <section>
         <h4>League averages by level ({LEVEL_AVERAGES_SEASON} season)</h4>
-        <p className="ybr-note">What 100 means at each level: the {LEVEL_AVERAGES_SEASON} totals of every alumnus in our database at that level (NJCAA, CCCAA and NWAC share one junior-college average). They&apos;re locked for the season, so a number never moves mid-season. A level&apos;s league FIP equals its ERA; the FIP constant is what makes that true.</p>
+        <p className="ybr-note">What 100 means at each level: the {LEVEL_AVERAGES_SEASON} totals of every alumnus in our database at that level (NJCAA, CCCAA and NWAC players are measured against one combined average). They&apos;re locked for the season, so a number never moves mid-season. A level&apos;s league FIP equals its ERA; the FIP constant is what makes that true.</p>
         <div className="ybr-scroll">
           <table className="ybr-avg">
             <thead>
