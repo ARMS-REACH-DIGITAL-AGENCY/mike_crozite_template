@@ -84,7 +84,7 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-mask { position: absolute; inset: 0; width: 100%; border: 0; padding: 0; background: rgba(0,0,0,.6); cursor: pointer; animation: ytd-fade .2s ease; }
         .ytd-panel {
           --ytm-bg: #0b0b0b; --ytm-text: rgba(255,255,255,.88); --ytm-muted: rgba(255,255,255,.55); --ytm-strong: #fff;
-          --ytm-border: rgba(255,255,255,.16); --ytm-accent: var(--gold, #ffc107);
+          --ytm-border: rgba(255,255,255,.16); --ytm-accent: #a0a0a0;
           position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 88vw); overflow: hidden;
           background: var(--ytm-bg); border-left: 1px solid var(--ytm-border);
           box-shadow: -12px 0 32px rgba(0,0,0,.45); animation: ytd-in .24s cubic-bezier(.2,.8,.2,1);
@@ -340,16 +340,16 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         <div className="ysf-tools">
           {stories?.length ? (
             <>
+              <SortToggle dir={sort} onChange={setSort} />
               <label className="ysf-search">
                 <i className="ri-search-line" aria-hidden="true" />
                 <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
               </label>
-              <SortToggle dir={sort} onChange={setSort} />
             </>
           ) : <span className="ysf-tools-fill" />}
           {teammatesTotal > 0 ? (
-            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen}>
-              <i className="ri-team-line" aria-hidden="true" /> Teammates <span className="ysf-tm-count">{teammatesTotal}</span>
+            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`}>
+              <i className="ri-team-line" aria-hidden="true" /> <span className="ysf-tm-count">{teammatesTotal}</span>
             </button>
           ) : null}
         </div>
@@ -375,7 +375,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-text: rgba(255,255,255,.88);
           --ysf-muted: rgba(255,255,255,.55);
           --ysf-strong: rgba(255,255,255,.95);
-          --ysf-when: var(--gold, #ffc107);
+          --ysf-when: #bcbcbc;
           padding: 10px 10px 20px;
         }
         body.light-theme .ysf {
@@ -387,17 +387,17 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-text: rgba(31,25,18,.86);
           --ysf-muted: rgba(31,25,18,.55);
           --ysf-strong: rgba(31,25,18,.94);
-          --ysf-when: #b78600;
+          --ysf-when: #555;
         }
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
         .ysf-tools-fill { flex: 1; }
         /* Teammates: opens the drawer. Same height and frame as the sort. */
-        .ysf-tm-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 700 16px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
+        .ysf-tm-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 700 16px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
         .ysf-tm-btn i { font-size: 17px; color: var(--ysf-when); }
         .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color: var(--ysf-when); }
-        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 999px; background: var(--ysf-when); color: #111; font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
+        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 6px; background: transparent; color: var(--ysf-strong); border: 1px solid var(--ysf-card-border); font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
         @media (max-width: 420px) {
           .ysf-tm-btn { padding: 0 9px; font-size: 14px; }
         }
@@ -406,8 +406,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 760px; }
         /* Search and sort stay pinned at the top of the tab while you scroll. */
         .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
-        .ysf-search { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
-        .ysf-search input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 var(--yat-font-ui, Arial, sans-serif); outline: none; }
+        .ysf-search { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
+        .ysf-search input { flex: 1; min-width: 0; min-height: 40px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 var(--yat-font-ui, Arial, sans-serif); outline: none; }
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -432,9 +432,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-actions button i { font-size: 15px; }
         .ysf-card-actions button:hover { color: var(--ysf-strong); }
         .ysf-card-actions .ysf-liked { color: var(--ysf-when); }
-        .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #FFD700; border: 1px solid rgba(255,215,0,.5); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-        .ysf-card:hover { border-color: var(--gold, #ffc107); }
-        .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
+        .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #fff; border: 1px solid rgba(255,255,255,.26); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+        .ysf-card:hover { border-color: var(--ysf-strong); }
+        .ysf-card-focus { border-color: var(--ysf-strong); box-shadow: 0 0 0 2px var(--ysf-strong); }
         /* Same type as the News cards' eyebrow (.pp-news-label). */
         .ysf-card-when { color: var(--ysf-when); font: 700 9px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
         .ysf-card-row { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
