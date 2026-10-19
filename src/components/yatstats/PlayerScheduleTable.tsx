@@ -256,7 +256,7 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
           padding: 0;
           border-right: 1px solid var(--psi-border, rgba(255,255,255,.18));
           border-bottom: 1px solid var(--psi-border, rgba(255,255,255,.18));
-          background: linear-gradient(180deg, var(--psi-head-bg-a, #202020), var(--psi-head-bg-b, #101010));
+          background: var(--psi-head-bg-a, #202020);
           color: var(--psi-text, #f4f0e6);
           white-space: nowrap;
         }
@@ -296,16 +296,16 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
         /* DATE stays put while the stat columns scroll sideways (like YEAR). */
         .pst-table th.pst-date, .pst-table td.pst-date{ position: sticky; left: 0; z-index: 6; box-shadow: 4px 0 10px rgba(0,0,0,.18); }
         .pst-table th.pst-date{ z-index: 10; }
-        .pst-table td.pst-date{ background: linear-gradient(var(--psi-cell-bg, rgba(255,255,255,.035)), var(--psi-cell-bg, rgba(255,255,255,.035))), var(--psi-panel-bg, #080808); }
-        .pst-table tbody tr:nth-child(even) td.pst-date{ background: linear-gradient(var(--psi-cell-bg-alt, rgba(255,255,255,.065)), var(--psi-cell-bg-alt, rgba(255,255,255,.065))), var(--psi-panel-bg, #080808); }
-        .pst-row-today td{ background: rgba(214,178,83,.22) !important; }
+        .pst-table td.pst-date{ background: var(--psi-cell-bg, #161616); }
+        .pst-table tbody tr:nth-child(even) td.pst-date{ background: var(--psi-cell-bg-alt, #1b1b1b); }
+        .pst-row-today td{ background: rgba(128,128,128,.13) !important; }
         .pst-opponent{ display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-        .pst-tag{ padding: 1px 3px; border: 1px solid rgba(214,178,83,.7); color: #d6b253; font: 700 7px/1 Oswald, Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+        .pst-tag{ padding: 1px 3px; border: 1px solid rgba(214,178,83,.7); color: #b0b0b0; font: 700 7px/1 Oswald, Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
         .pst-table td.pst-dnp{ text-align: left; font-style: italic; color: var(--psi-muted-text, rgba(255,255,255,.84)); opacity: .7; }
         .pst-table tr.pst-row-move td{
           padding: 4px 3px;
           text-align: left;
-          background: rgba(214,178,83,.14);
+          background: rgba(128,128,128,.10);
           border-bottom: 1px solid rgba(214,178,83,.45);
           color: var(--psi-text, #f4f0e6);
         }
@@ -322,7 +322,7 @@ export default function PlayerScheduleTable({ rows, statHeaders, todayIso, defau
           cursor: pointer;
         }
         .pst-season.is-active{
-          background: linear-gradient(180deg, var(--psi-head-bg-a, #202020), var(--psi-head-bg-b, #101010));
+          background: var(--psi-head-bg-a, #202020);
           color: var(--psi-text, #f4f0e6);
           border-color: rgba(214,178,83,.7);
         }
