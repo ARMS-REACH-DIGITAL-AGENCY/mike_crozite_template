@@ -204,7 +204,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   useEffect(() => {
     tryFocus();
-  }, [stories, visible, tryFocus]);
+  }, [stories, search, tryFocus]);
 
   const updateStory = useCallback((next: Story) => {
     setStories((list) => (list ? list.map((s) => (s.id === next.id ? next : s)) : list));
