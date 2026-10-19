@@ -266,7 +266,7 @@ export default function FavoriteButton({
             placeItems: 'center',
             cursor: isLoading ? 'wait' : 'pointer',
             opacity: isLoading ? 0.55 : 0.9,
-            fontSize: '22px',
+            fontSize: '20px',
             lineHeight: 1,
           }}
         >
