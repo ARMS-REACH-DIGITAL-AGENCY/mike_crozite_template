@@ -106,26 +106,25 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
         .ytm { min-width: 0; color: var(--ytm-text, rgba(255,255,255,.88)); font: 400 15px/1.5 var(--yat-font-ui, system-ui, sans-serif); }
         .ytm-sticky { position: sticky; top: 0; z-index: 2; padding: 0 0 10px; background: var(--ytm-bg, #0b0b0b); }
         .ytm-note { margin: 18px 0 0; color: var(--ytm-muted, rgba(255,255,255,.55)); font: 400 11px/1.4 var(--yat-font-ui, system-ui, sans-serif); }
-        .ytm-title { margin: 0 0 10px; color: var(--ytm-accent, #ffc107); font: 700 22px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .01em; text-transform: uppercase; }
-        .ytm-title { margin-bottom: 4px; font-size: 28px; }
-        .ytm-sub { margin: 0 0 12px; color: var(--ytm-muted, rgba(255,255,255,.55)); font: 600 12px/1.2 var(--yat-font-ui, system-ui, sans-serif); letter-spacing: .04em; text-transform: uppercase; }
+        .ytm-title { margin:0 0 4px; color:var(--ytm-strong,#fff); font:800 20px/1.05 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:-.015em; text-transform:uppercase; }
+        .ytm-sub { margin:0 0 12px; color:var(--ytm-muted,rgba(255,255,255,.55)); font:600 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.02em; text-transform:uppercase; }
         .ytm-sub b { color: var(--ytm-strong, #fff); }
         .ytm-brand { white-space: nowrap; }
         .ytm-sort { display: flex; gap: 6px; }
-        .ytm-sort button { flex: 1; min-height: 34px; padding: 0 10px; border: 1px solid var(--ytm-border, rgba(255,255,255,.16)); border-radius: 6px; background: transparent; color: var(--ytm-muted, rgba(255,255,255,.6)); font: 700 15px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
-        .ytm-sort button.on { border-color: var(--ytm-accent, #ffc107); color: var(--ytm-accent, #ffc107); }
+        .ytm-sort button { flex:1; min-height:34px; padding:0 10px; border:1px solid var(--ytm-border,rgba(255,255,255,.16)); border-radius:6px; background:transparent; color:var(--ytm-muted,rgba(255,255,255,.6)); font:700 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
+        .ytm-sort button.on { border-color:rgba(255,255,255,.62); color:var(--ytm-strong,#fff); background:rgba(255,255,255,.05); }
         .ytm-group { margin: 0 0 16px; }
-        .ytm-head { padding: 0 0 4px; margin-bottom: 4px; border-bottom: 1px solid var(--ytm-border, rgba(255,255,255,.16)); color: var(--ytm-strong, #fff); font: 700 16px/1.2 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .02em; text-transform: uppercase; overflow-wrap: anywhere; }
-        .ytm-head-yr { color: var(--ytm-accent, #ffc107); }
+        .ytm-head { padding:0 0 4px; margin-bottom:4px; border-bottom:1px solid var(--ytm-border,rgba(255,255,255,.16)); color:var(--ytm-strong,#fff); font:700 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; }
+        .ytm-head-yr { color:var(--ytm-strong,#fff); }
         ul { margin: 4px 0 0; padding: 0; list-style: none; }
         li { padding: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         /* Name is a child component and does not inherit this styled-jsx
            scope class. Keep its approved link treatment inside .ytm while
            explicitly reaching the child's rendered elements. */
         .ytm :global(a.ytm-name) { display: inline-block; padding: 4px 0; color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 3px; }
-        .ytm :global(a.ytm-name:hover), .ytm :global(a.ytm-name:focus-visible), .ytm :global(a.ytm-name:active) { color: var(--ytm-accent, #ffc107); text-decoration-color: currentColor; }
+        .ytm :global(a.ytm-name:hover), .ytm :global(a.ytm-name:focus-visible), .ytm :global(a.ytm-name:active) { color:var(--ytm-strong,#fff); text-decoration-color:currentColor; }
         .ytm :global(.ytm-plain) { color: var(--ytm-muted, rgba(255,255,255,.55)); }
-        .ytm-yr { color: var(--ytm-accent, #ffc107); font-size: 13px; }
+        .ytm-yr { color:var(--ytm-muted,rgba(255,255,255,.55)); font-size:12px; }
       `}</style>
     </aside>
   );
