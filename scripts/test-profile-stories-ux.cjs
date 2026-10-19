@@ -54,7 +54,7 @@ assert.doesNotMatch(page,/Bebas Neue|Oswald/,'All player tab content remains Arc
 assert.doesNotMatch(timeline,/Bebas Neue|Oswald|#d6b253/,'Timeline typography stays Archivo; no bronze gold');
 assert.match(timeline,/const TIMELINE_ACCENT = '#ffb21c';/,'Approved orange-gold accent remains');
 for (const cls of ['.zt-kick {','.zt-rail-track {','.zt-persist-status {','.zt-persist-classof {']) {
-  const rule = timeline.slice(timeline.indexOf(cls),timeline.indexOf('}',timeline.indexOf(cls)));
+  const rule = timeline.slice(timeline.indexOf(cls)).split('\n',1)[0];
   assert.match(rule,/color:\$\{TIMELINE_ACCENT\}|background:\$\{TIMELINE_ACCENT\}/,'Accent still applied to '+cls);
 }
 assert.doesNotMatch(account,/Bebas Neue|Oswald/,'Login/Account typography stays Archivo');
