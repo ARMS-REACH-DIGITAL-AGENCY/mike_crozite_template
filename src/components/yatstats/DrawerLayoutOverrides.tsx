@@ -475,6 +475,142 @@ export default function DrawerLayoutOverrides() {
           z-index:2147483199!important;
         }
       }
+      /* Filter = the same clean, rule-free neutral Contribute form system.
+         Keep IDs and native checkbox inputs unchanged for gallery presets. */
+      #drawerFilters .yat-filter-drawer-header {
+        flex:0 0 auto;
+        min-height:46px;
+        padding:11px 16px 5px!important;
+        border-bottom:0!important;
+      }
+      #drawerFilters .yat-filter-drawer-header h3 {
+        padding:0!important;margin:0!important;
+        color:var(--ink);
+        font:800 21px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;
+        letter-spacing:-.025em!important;
+        text-transform:none;
+      }
+      #drawerFilters .yat-filter-body {
+        padding:4px 16px 22px;
+        gap:5px;
+      }
+      #drawerFilters .yat-filter-group {
+        border:0!important;
+        border-bottom:0!important;
+        margin:0;
+        padding:5px 0;
+      }
+      #drawerFilters .yat-filter-group summary {
+        display:flex;align-items:center;gap:7px;
+        padding:8px 0;
+        list-style:none;
+        cursor:pointer;
+        color:var(--ink);
+        font:800 12px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        text-transform:uppercase;
+        letter-spacing:.01em;
+      }
+      #drawerFilters .yat-filter-group summary::-webkit-details-marker {display:none;}
+      #drawerFilters .yat-filter-group summary::before {
+        content:'';
+        display:block;flex:0 0 6px;
+        width:6px;height:6px;
+        border-right:1.6px solid currentColor;
+        border-bottom:1.6px solid currentColor;
+        transform:rotate(-45deg);
+        transition:transform .15s ease;
+      }
+      #drawerFilters .yat-filter-group[open] summary::before {transform:rotate(45deg);}
+      #drawerFilters .yat-filter-group summary:focus-visible {outline:2px solid var(--fg);outline-offset:2px;border-radius:4px;}
+      #drawerFilters .yat-filter-options {
+        padding:3px 0 7px;
+        display:flex;
+        flex-direction:column;
+        gap:7px;
+        min-width:0;
+      }
+      #drawerFilters .yat-filter-columns {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        column-gap:12px;
+        align-items:start;
+        width:100%;
+      }
+      #drawerFilters .yat-filter-column {
+        min-width:0;
+        display:flex;
+        flex-direction:column;
+        gap:2px;
+      }
+      #drawerFilters .yat-filter-options label {
+        min-width:0;
+        display:flex;
+        align-items:flex-start;
+        gap:7px;
+        padding:5px 2px;
+        border-radius:5px;
+        color:var(--ink);
+        font:600 11px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        letter-spacing:-.005em;
+        text-transform:none;
+        overflow-wrap:anywhere;
+        cursor:pointer;
+      }
+      #drawerFilters .yat-filter-options label:hover {background:var(--line);}
+      #drawerFilters .yat-filter-options label.yat-filter-select-all {
+        font-weight:800;
+        padding:5px 2px 7px;
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"] {
+        -webkit-appearance:none;
+        appearance:none;
+        box-sizing:border-box;
+        display:inline-grid;
+        place-items:center;
+        flex:0 0 18px;
+        width:18px;height:18px;
+        margin:0;
+        border:1.5px solid var(--muted);
+        border-radius:5px;
+        background:transparent;
+        color:var(--bg);
+        cursor:pointer;
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:checked,
+      #drawerFilters .yat-filter-options input[type="checkbox"]:indeterminate {
+        background:var(--fg);
+        border-color:var(--fg);
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:checked::after {
+        content:'';
+        display:block;
+        width:5px;height:9px;
+        margin-top:-3px;
+        border-right:2px solid var(--bg);
+        border-bottom:2px solid var(--bg);
+        transform:rotate(45deg);
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:indeterminate::after {
+        content:'';
+        width:9px;height:2px;
+        background:var(--bg);
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:focus-visible {
+        outline:2px solid var(--fg);
+        outline-offset:3px;
+      }
+      #drawerFilters #filterFavsHint {
+        font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;
+        color:var(--muted);
+      }
+      #drawerFilters #filterName {
+        width:100%;
+        min-height:38px;
+        font:400 13px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        border:1px solid var(--line);
+        border-radius:6px;
+      }
+
       /* Mobile navigation uses the same visual rhythm as the Connect &
          Contribute list: compact Archivo labels, no rules, rounded grey
          selection. Reserve scrolling room above the fixed ticker/footer. */
