@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { selectProfileGalleryView, flipCardReturnHref } from '../src/lib/profileFlipCardRouting.ts';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
+const active = ['180827', '111', '300'];
+const current = ['77', '88'];
+const href = (id) => flipCardReturnHref(undefined, '5004', id, selectProfileGalleryView(id, active, current));
+assert.equal(href('180827'), '/5004?view=active&player=180827#player-180827');
+assert.equal(href('44019'), '/5004?view=alltime&player=44019#player-44019');
+assert.equal(href('77'), '/5004?view=current&player=77#player-77');
+assert.equal(flipCardReturnHref('https://hamilton.az.yatstats.com/5004/', '5004', '180827', 'active'),
+'https://hamilton.az.yatstats.com/5004?view=active&player=180827#player-180827');
+const layout = read('src/app/[hsid]/layout.tsx');
+const shell = read('src/components/yatstats/SharedShell.tsx');
+const bar = read('src/components/yatstats/shell/SchoolContextBar.tsx');
+assert.match(layout, /profileActivePlayerIds=\{activeAlumniPlayerIds\}/);
+assert.match(shell, /profileActivePlayerIds=\{profileActivePlayerIds\}/);
+assert.match(bar, /selectProfileGalleryView\(profilePlayerId, profileActivePlayerIds, profileCurrentPlayerIds\)/);
+assert.match(bar, /href=\{flipCardReturnHref\(/);
+assert.doesNotMatch(bar, /playerProfile\?\.statusLabel|playerFlipCardHref\(/);
+console.log('PASS Back to Flip Card: active, retired, high-school, and data plumbing.');
