@@ -477,6 +477,21 @@ export default function DrawerLayoutOverrides() {
       }
       /* Filter = the same clean, rule-free neutral Contribute form system.
          Keep IDs and native checkbox inputs unchanged for gallery presets. */
+      /* Keep Sort and Filter identical in opacity and theme. */
+      body #drawerSort, body #drawerFilters {
+        background:rgba(6,6,6,.70)!important;
+        backdrop-filter:blur(4px)!important;
+        -webkit-backdrop-filter:blur(4px)!important;
+      }
+      body.light-theme #drawerSort, body.light-theme #drawerFilters {
+        background:rgba(255,255,255,.76)!important;
+        backdrop-filter:blur(4px)!important;
+        -webkit-backdrop-filter:blur(4px)!important;
+      }
+      #drawerFilters #filterFavs label {
+        text-transform:uppercase!important;
+        font:600 11px/1.35 Oswald,sans-serif!important;
+      }
       #drawerFilters .yat-filter-drawer-header {
         flex:0 0 auto;
         min-height:46px;
