@@ -4,6 +4,13 @@
 
 import { TOURNAMENT_2027, bracketRoundWeeks } from '@/lib/bracket/tournamentCalendar';
 import { LEVEL_AVERAGES, LEVEL_AVERAGES_SEASON } from '@/lib/bracket/levelAverages';
+
+// The averages table's rows under their official YAT?STATS level names.
+const LEVEL_NAME: Record<string, string> = {
+  'Triple-A': 'TRIPLE-A', 'Double-A': 'DOUBLE-A', 'High-A': 'HIGH-A', 'Low-A': 'SINGLE-A',
+  Rookie: 'ROOKIE', Independent: 'INDY', 'NCAA D1': 'NCAA-D1', 'NCAA D2': 'NCAA-D2',
+  'NCAA D3': 'NCAA-D3', JUCO: 'NJCAA / CCCAA / NWAC',
+};
 import { useParams } from 'next/navigation';
 
 // The school's Connect & Contribute page (/<hsid>/connect-contribute).
@@ -108,7 +115,7 @@ export function ScoringRules() {
       <section>
         <h4>OPS+ and FIP-</h4>
         <ul>
-          <li>Every player is measured against the average for the level he plays at (MLB, Triple-A … college D1, JUCO), so a juco hitter and a big leaguer are compared fairly. 100 is league average.</li>
+          <li>Every player is measured against the average for the level he plays at (MLB, TRIPLE-A … NCAA-D1, NJCAA), so a junior-college hitter and a big leaguer are compared fairly. 100 is league average.</li>
           <li><b>OPS+</b> = 100 × (his OBP ÷ league OBP + his SLG ÷ league SLG − 1). 150 is 50% better than average; 50 is half as good.</li>
           <li><b>FIP-</b> = 100 × his FIP ÷ league FIP. FIP = (13 × HR + 3 × (BB + HBP) − 2 × K) ÷ IP + the level&apos;s FIP constant. Lower is better: 80 is 20% better than average.</li>
           <li>A school&apos;s OPS+ for a day or week is its hitters&apos; OPS+ averaged, weighted by plate appearances; its FIP- is its pitchers&apos; FIP- averaged, weighted by innings pitched. Every comparison is an average, so having more alumni never helps by itself.</li>
@@ -120,7 +127,7 @@ export function ScoringRules() {
 
       <section>
         <h4>League averages by level ({LEVEL_AVERAGES_SEASON} season)</h4>
-        <p className="ybr-note">What 100 means at each level: the {LEVEL_AVERAGES_SEASON} totals of every alumnus in our database at that level (NJCAA, CCCAA and NWAC together as JUCO). They&apos;re locked for the season, so a number never moves mid-season. A level&apos;s league FIP equals its ERA; the FIP constant is what makes that true.</p>
+        <p className="ybr-note">What 100 means at each level: the {LEVEL_AVERAGES_SEASON} totals of every alumnus in our database at that level (NJCAA, CCCAA and NWAC players are measured against one combined average). They&apos;re locked for the season, so a number never moves mid-season. A level&apos;s league FIP equals its ERA; the FIP constant is what makes that true.</p>
         <div className="ybr-scroll">
           <table className="ybr-avg">
             <thead>
@@ -129,7 +136,7 @@ export function ScoringRules() {
             <tbody>
               {LEVEL_AVERAGES.map((a) => (
                 <tr key={a.level}>
-                  <td>{a.level}</td>
+                  <td>{LEVEL_NAME[a.level] ?? a.level}</td>
                   <td>{rate(a.obp)}</td><td>{rate(a.slg)}</td><td>{rate(a.ops)}</td>
                   <td>{a.fip.toFixed(2)}</td><td>{a.cfip.toFixed(2)}</td>
                 </tr>
