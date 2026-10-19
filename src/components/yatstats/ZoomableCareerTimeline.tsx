@@ -2671,21 +2671,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            z-index (see above) is what makes that overflow land behind the
            hero cutout instead of on top of it. */
         .zt-persist-id { display:flex; flex-direction:column; gap:1px; }
-        .zt-persist-name { display:block; color:#fff; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:800; font-size:clamp(14px,2.4cqw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4cqw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
         /* All four metadata lines at the same (lighter) weight -- team
            and status were 600 while org and B-T-H-W were already 400,
            reading as inconsistently bold; leveled to 400 throughout per
            direct feedback that the block shouldn't be this heavy. */
-        .zt-persist-team { display:block; color:#f7f7f5; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:clamp(9px,1.3cqw,11.5px); line-height:1.15; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; }
-        .zt-persist-org { display:block; color:#aeb2b6; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:clamp(8px,1.05cqw,9.5px); line-height:1.15; text-transform:uppercase; white-space:nowrap; }
-        .zt-persist-status { display:block; color:${TIMELINE_ACCENT}; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:clamp(7.5px,1cqw,9px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
-        .zt-persist-bthw { display:block; color:#aeb2b6; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-team { display:block; color:#f7f7f5; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(9px,1.3cqw,11.5px); line-height:1.15; letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-org { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(8px,1.05cqw,9.5px); line-height:1.15; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-status { display:block; color:${TIMELINE_ACCENT}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7.5px,1cqw,9px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-bthw { display:block; color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
         /* Class Of, moved here from the Polaroid's own bottom border --
            gold like .zt-persist-status, since it's now read as part of
            this identity block rather than a caption written on a photo. */
-        .zt-persist-classof { display:block; color:${TIMELINE_ACCENT}; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-classof { display:block; color:${TIMELINE_ACCENT}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
         .zt-rail-mode-toggle { position:absolute; z-index:8; left:var(--x-logo-left); top:88px; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(6,7,8,.62); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.22); }
-        .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+        .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
         .zt-rail-mode-toggle button.is-on { background:rgba(160,160,160,.18); color:#fff; box-shadow:none; }
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -2708,8 +2708,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* font-weight:400, matching the (now-leveled) metadata block --
            was 600, reading as too blocky/heavy next to it, per direct
            feedback. */
-        .zt-kick { display:block; margin:0 0 5px; color:${TIMELINE_ACCENT}; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
-        .zt-title { display:block; width:100%; margin:0 0 4px; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .zt-kick { display:block; margin:0 0 5px; color:${TIMELINE_ACCENT}; font-family:Oswald,sans-serif; font-weight:400; font-size:10px; line-height:1.2; letter-spacing:.13em; text-transform:uppercase; }
+        .zt-title { display:block; width:100%; margin:0 0 4px; font-family:Oswald,sans-serif; font-weight:700; font-size:20px; line-height:1.08; letter-spacing:.005em; text-transform:uppercase; color:#f7f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         /* .zt-season added alongside anchor/lifeyear here -- same class of
            gap as the .zt-copy positioning fix a pass ago: left out of a
            shared rule, fell back to the base .zt-title's nowrap+ellipsis
@@ -2737,8 +2737,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            row under the heading. */
         .zt-bigstats { display:flex; flex-wrap:wrap; column-gap:clamp(10px,2.2cqw,20px); row-gap:4px; margin-top:2px; }
         .zt-bigstat { display:flex; flex-direction:column; gap:1px; }
-        .zt-bigstat-label { color:#aeb2b6; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:600; font-size:clamp(7px,.9cqw,8.5px); letter-spacing:.08em; text-transform:uppercase; }
-        .zt-bigstat-value { color:#f7f7f5; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); font-weight:700; font-size:clamp(17px,3.2cqw,25px); line-height:1; }
+        .zt-bigstat-label { color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9cqw,8.5px); letter-spacing:.08em; text-transform:uppercase; }
+        .zt-bigstat-value { color:#f7f7f5; font-family:"Bebas Neue",Oswald,sans-serif; font-weight:700; font-size:clamp(17px,3.2cqw,25px); line-height:1; }
         /* Anchor's own line is short enough by design to stay on the base
            rule's single line (white-space:nowrap + ellipsis) at every
            breakpoint, including mobile -- per direct feedback. Life-year
@@ -2752,10 +2752,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            same left/right column as every other slide kind. */
 
         .zt-upload-actions { display:flex; gap:6px; margin-top:6px; }
-        .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:24px; padding:0 9px; border:0; border-radius:6px; background:rgba(0,0,0,.35); color:${TIMELINE_YELLOW}; font:800 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.05em; cursor:pointer; }
+        .zt-yatzaboy { display:flex; align-items:center; gap:4px; height:24px; padding:0 9px; border:0; border-radius:6px; background:rgba(0,0,0,.35); color:${TIMELINE_YELLOW}; font:800 8px/1 Oswald,sans-serif; letter-spacing:.05em; cursor:pointer; }
         .zt-yatzaboy.active { background:#d0d0d0; color:#111; }
         .zt-yatzaboy b { font-size:9px; }
-        .zt-comment-pill { display:flex; align-items:center; gap:4px; height:24px; padding:0 8px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.35); color:#fff; font:700 9px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); cursor:pointer; }
+        .zt-comment-pill { display:flex; align-items:center; gap:4px; height:24px; padding:0 8px; border:1px solid rgba(255,255,255,.3); border-radius:999px; background:rgba(0,0,0,.35); color:#fff; font:700 9px/1 Oswald,sans-serif; cursor:pointer; }
 
         /* -- bottom chrome: a continuous progress rail plus a pair of
            square prev/next buttons at the bottom-right, matching the real
@@ -2831,17 +2831,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* Month rail (see monthRailYear). */
         /* The only thing on the month rail that says which year it is, so
            it's bigger than the scrubber chip. */
-        .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 8px; background:#040506; border-radius:4px; color:${TIMELINE_ACCENT}; font:700 17px/24px var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.05em; white-space:nowrap; }
+        .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 8px; background:#040506; border-radius:4px; color:${TIMELINE_ACCENT}; font:700 17px/24px "Bebas Neue",Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
         .zt-rail-months .zt-rail-track { left:${RAIL_MONTH_START}px; }
         .zt-rail-month { position:absolute; top:50%; width:5px; height:5px; margin-left:-2.5px; transform:translateY(-50%); border-radius:50%; background:#e5342a; animation:zt-rail-in .25s ease both; }
         .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_ACCENT}; }
-        .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
+        .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
         .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_ACCENT}; }
         .zt-rail-story { position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%); display:grid; place-items:center; width:22px; height:22px; padding:0; border:1px solid rgba(170,170,170,.72); border-radius:50%; background:rgba(5,6,7,.92); color:${TIMELINE_ACCENT}; overflow:visible; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.45); }
          .zt-rail-story i { font-size:11px; line-height:1; }
         .zt-rail-story:hover { transform:translateX(-50%) scale(1.15); }
         .zt-rail-story-thumb { display:none; }
-        .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_ACCENT}; color:#000; font:800 8px/13px var(--yat-font-ui,Archivo,Arial,sans-serif); text-align:center; }
+        .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_ACCENT}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         /* A season's logo standing on the rail, as wide as its dash. */
         .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
@@ -2853,10 +2853,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-rail-month .zt-pennant { bottom:calc(100% + 3px); }
         .zt-rail-month.has-story .zt-pennant { left:calc(50% + 17px); }
         .zt-pennant-inline { position:relative; left:auto; bottom:auto; display:inline-block; margin:0 12px 0 0; vertical-align:-2px; }
-        .zt-drafted { display:block; margin:0 0 6px; color:${DRAFT_GOLD}; font:700 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.12em; text-transform:uppercase; }
-        .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
+        .zt-drafted { display:block; margin:0 0 6px; color:${DRAFT_GOLD}; font:700 10px/1.2 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+        .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
         .zt-rail-tick.active .zt-rail-tick-year { display:none; }
-        .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_ACCENT}; font:700 10px/18px var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }
+        .zt-rail-year { position:absolute; top:50%; transform:translate(-50%,-50%); padding:0 6px; background:#040506; border-radius:3px; color:${TIMELINE_ACCENT}; font:700 10px/18px "Bebas Neue",Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; cursor:grab; touch-action:none; }
         .zt-rail-year:active { cursor:grabbing; }
 
         /* Height stays entirely local to this component's own row3/row4 --

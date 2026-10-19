@@ -53,7 +53,24 @@ assert.match(footer,/#ffb238/,'Restore original illuminated orange ticker icons'
 assert.match(footer,/#ff7a1a/,'Restore original orange Doto labels');
 assert.match(footer,/#d2b45c/,'Restore ticker active underline');
 assert.doesNotMatch(page,/Bebas Neue|Oswald/,'All player tab content remains Archivo');
-assert.doesNotMatch(timeline,/Bebas Neue|Oswald|#d6b253/,'Timeline typography stays Archivo; no bronze gold');
+// Intentional exception to the global Archivo standard: the Career Path Timeline
+// retains its original condensed type while all surrounding pages stay Archivo.
+assert.doesNotMatch(timeline,/#d6b253/,'No bronze-gold rail');
+const careerFontRule = (selector) => timeline.split('\n').find((line) =>
+  line.trim().startsWith(selector) && /(?:font-family|font):/.test(line)) || '';
+const careerDisplaySelectors = [".zt-persist-name {",".zt-persist-team {",".zt-persist-org {",".zt-persist-status {",".zt-persist-bthw {",".zt-persist-classof {",".zt-kick {",".zt-title {",".zt-bigstat-label {",".zt-bigstat-value {",".zt-drafted {",".zt-rail-mode-toggle button {",".zt-rail-monthyear {",".zt-rail-month-label {",".zt-rail-story-count {",".zt-rail-tick-year {",".zt-rail-year {",".zt-yatzaboy {",".zt-comment-pill {"];
+for (const selector of careerDisplaySelectors) {
+  assert.match(careerFontRule(selector),/Oswald|Bebas Neue/,
+    'Restore and preserve historical condensed career display font: '+selector);
+}
+assert.match(careerFontRule('.zt-persist-name {'),/font-family:Oswald,sans-serif/,
+  'Player name must use Oswald');
+assert.match(careerFontRule('.zt-title {'),/font-family:Oswald,sans-serif/,
+  'Hero headline must use Oswald');
+assert.match(careerFontRule('.zt-kick {'),/font-family:Oswald,sans-serif/,
+  'Eyebrow must use Oswald');
+assert.match(careerFontRule('.zt-bodycopy {'),/font-family:var\(--yat-font-ui,"Archivo"/,
+  'Supporting body copy stays Archivo as originally designed');
 assert.match(timeline,/const TIMELINE_ACCENT = '#ffb21c';/,'Approved orange-gold accent remains');
 for (const cls of ['.zt-kick {','.zt-rail-track {','.zt-persist-status {','.zt-persist-classof {']) {
   const rule = timeline.slice(timeline.indexOf(cls)).split('\n',1)[0];
