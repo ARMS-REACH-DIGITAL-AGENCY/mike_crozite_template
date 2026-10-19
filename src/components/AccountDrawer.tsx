@@ -1500,6 +1500,15 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
         #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
         #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerAccount .yat-account-content [style*="#FFD700"],
+        #drawerAccount .yat-account-content [style*="#FFD24A"],
+        #drawerAccount .yat-account-content [style*="#b8860b"]{color:var(--ink)!important;border-color:var(--line)!important;}
+        #drawerAccount .yat-account-content button[style*="#FFD700"],
+        #drawerAccount .yat-account-content button[style*="#b8860b"]{background:rgba(127,127,127,.12)!important;color:var(--ink)!important;border:1px solid var(--line)!important;}
+        #drawerAccount .yat-account-content section[aria-label="World Series Tickets Raffle"]{border-radius:5px!important;}
+        #drawerAccount .yat-account-content table{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
+        #drawerAccount .yat-account-content th{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;font-weight:700!important;letter-spacing:.02em!important;}
+
         #drawerAccount .yat-account-content form{padding:12px 14px!important;}
         #drawerAccount .yat-account-content form input{min-height:40px!important;padding:8px 10px!important;border-radius:6px!important;background:rgba(255,255,255,.035)!important;border-color:var(--line)!important;font-size:13px!important;}
         #drawerAccount .yat-account-content form button[type="submit"]{min-height:40px!important;padding:0 12px!important;border-radius:6px!important;font:700 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.02em!important;}
