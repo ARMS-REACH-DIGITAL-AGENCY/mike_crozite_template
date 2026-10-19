@@ -412,6 +412,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-share-memory-btn:hover,.ysf-share-memory-btn:focus-visible { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.62); outline:none; }
         .ysf-share-memory-btn i { flex:none; color:#fff; font-size:20px; line-height:1; font-weight:400; }
         .ysf-share-memory-btn span { display:block; min-width:0; }
+        .ysf-share-memory-btn .ysf-cta-break { display:inline; }
 
 
         /* Teammates: opens the drawer. Same height and frame as the sort. */
@@ -423,6 +424,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           .ysf-tools { display:grid; grid-template-columns:minmax(0,1fr) auto 38px; gap:7px; align-items:stretch; }
           .ysf-share-memory-btn { grid-column:1; grid-row:1; min-width:0; min-height:42px; padding:6px 9px; font-size:10px; }
           .ysf-share-memory-btn span { display:block; line-height:1.18; }
+          .ysf-share-memory-btn .ysf-cta-break { display:block; }
           .ysf-share-memory-btn i { font-size:20px; }
           .ysf-tm-btn { grid-column:2 / 4; grid-row:1; min-height:42px; padding:0 9px; font-size:10px; }
           .ysf-search { grid-column:1 / 3; grid-row:2; min-height:38px; }
