@@ -129,7 +129,7 @@ function FallClassicRaffle() {
   return (
 <section
             className="yat-raffle-section"
-            aria-label="Fall Classic Tickets Raffle"
+            aria-label="Fall Classic Tickets Sweepstakes"
             style={{
               margin: '14px 15px 4px',
               padding: '14px 15px',
@@ -147,18 +147,18 @@ function FallClassicRaffle() {
                 marginBottom: '5px',
               }}
             >
-              FALL CLASSIC TICKETS RAFFLE
+              FALL CLASSIC TICKETS SWEEPSTAKES
             </div>
             <p style={{ margin: '0 0 10px', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
-              Fans of the eventual 30-week Bracket Champion receive one raffle entry for each round they are registered.
-              Super Fans receive three entries for every round they hold Super Fan status (instead of one).
-              That means <strong style={{ color: '#fff' }}>10 entries for 10 Fan rounds or 30 entries for 10 Super Fan rounds</strong>.
-              Join in Round 10 and your school wins? You still earn an entry.
+              You must register as a YAT?STATS Fan or Super Fan to be included in the sweepstakes. Simply visiting does not enter you.
+              If your school wins the 30-week Bracket, registered Fans receive <strong style={{ color: '#fff' }}>1 entry per 3-week round (up to 10)</strong>.
+              Registered Super Fans receive <strong style={{ color: '#fff' }}>1 entry per eligible week, 3 per round (up to 30)</strong> instead of the Fan entry.
+              Join as a Fan in Round 10 and your school wins? You can still earn 1 entry.
             </p>
             <p style={{ margin: 0, color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
               Entries close <strong style={{ color: '#fff' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
               <strong style={{ color: '#fff' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
-              Each active alumnus from the eight regional postseason teams may also nominate one Lucky Fan for an entry.
+              Each active alumnus from the eight regional postseason teams may also nominate one Lucky Fan for an entry. Nominees must register to be eligible.
             </p>
             <p style={{ margin: '7px 0 0', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
               Prize: <strong style={{ color: '#fff' }}>four 2027 MLB World Series tickets</strong> for one game or two tickets each for two games,
