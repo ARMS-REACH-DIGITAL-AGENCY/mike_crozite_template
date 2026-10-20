@@ -1319,9 +1319,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               FALL CLASSIC TICKETS RAFFLE
             </div>
             <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
-              Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
-              <strong style={{ color: 'var(--fg)' }}> 20 regular-season entries + 1 postseason entry</strong>.
+              Register on your favorite high school alumni hub. If your school wins the 30-week bracket, each round
+              you were a registered Fan earns <strong style={{ color: 'var(--fg)' }}>one raffle entry (up to 10)</strong>.
+              Super Fans earn <strong style={{ color: 'var(--fg)' }}>three total entries per Super Fan round (up to 30 across 10 rounds)</strong>.
             </p>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
               Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
