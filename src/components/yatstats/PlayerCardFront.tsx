@@ -439,6 +439,10 @@ export default function PlayerCardFront({
         <CardPhoto srcs={photoSrcs} eager={eager} />
       </div>
       <div className="yat-shade" />
+      {/* Baseball-card treatment: the inset rule and transparent stacked
+          wordmark are decoration only, never interactive hit targets. */}
+      <div className="yat-front-print-frame" aria-hidden="true" />
+      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.png" alt="" aria-hidden="true" />
       {/* Favorite him right from the card (top-right corner). */}
       {imageId && (
         <div className="yat-card-fav-slot">
@@ -537,6 +541,27 @@ export default function PlayerCardFront({
         .yat-front-cq {
           container-type: inline-size;
           container-name: yat-front;
+        }
+        /* Hairline inset, just like a printed baseball card. Soft inner
+           highlight gives depth without obscuring the player photograph. */
+        /* The top corners are the transparent brand mark and the bare heart.
+           Four fading rules avoid a rigid rectangle or cluttered corners. */
+        .yat-front-print-frame {
+          position:absolute; z-index:2; pointer-events:none;
+          inset:clamp(7px,2.4cqi,10px);
+          border:0; box-shadow:none;
+          background:
+            linear-gradient(to right, transparent 0%, rgba(255,255,255,.70) 28%, rgba(255,255,255,.70) 78%, transparent 100%) top center / calc(100% - 112px) 1px no-repeat,
+            linear-gradient(to bottom, transparent 0%, rgba(255,255,255,.70) 23%, rgba(255,255,255,.70) 77%, transparent 100%) left center / 1px calc(100% - 72px) no-repeat,
+            linear-gradient(to bottom, transparent 0%, rgba(255,255,255,.70) 22%, rgba(255,255,255,.70) 77%, transparent 100%) right center / 1px calc(100% - 70px) no-repeat,
+            linear-gradient(to right, transparent, rgba(255,255,255,.58) 24%, rgba(255,255,255,.58) 76%, transparent) bottom center / calc(100% - 78px) 1px no-repeat;
+        }
+        .yat-front-brand-watermark {
+          position:absolute; z-index:3; pointer-events:none;
+          top:clamp(7px,2.4cqi,10px); left:clamp(7px,2.4cqi,10px);
+          width:clamp(35px,15.5cqi,57.5px); height:auto; max-height:38px;
+          object-fit:contain; object-position:left top;
+          opacity:.72; filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
         }
 
         .yat-front-content {

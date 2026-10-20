@@ -299,6 +299,19 @@ async function SchoolShell({
 
   // The same statuses on every school, in the same order (src/lib/galleryStatuses.ts).
   const statusFilterOptions = GALLERY_STATUS_OPTIONS;
+  // Keep filter checkbox values and their order. Start the second column
+  // with REASSIGNED TO MINORS, as requested for the mobile layout.
+  const statusSecondColumnIndex = statusFilterOptions.indexOf('REASSIGNED TO MINORS');
+  const graduationClassOptions = [
+    '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
+  ];
+  const rosterYearOptions = Array.from({length:29}, (_, i) => String(2027 - i));
+  // NCAA without a D1/D2/D3 classification is source data requiring enrichment,
+  // not a selectable competition level.
+  const levelFilterColumns = [
+    ['MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL'],
+    ['NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'],
+  ];
   const stripStageMap = new Map(
     stageRows.map((p) => [String(p.playerid), p])
   );
@@ -366,6 +379,8 @@ async function SchoolShell({
       <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
+        profileActivePlayerIds={activeAlumniPlayerIds}
+        profileCurrentPlayerIds={currentRosterRows.map((player) => String(player.playerid))}
         teamSeasonResults={teamSeasonResults}
         schoolMeta={schoolMeta}
         initialTeamYear={initialTeamYear}
@@ -414,9 +429,9 @@ async function SchoolShell({
             </a>
             <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" /><span>ACTIVE ALUMNI{' '}<strong>NEWS</strong></span></a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>{' '}&amp;{' '}<strong>CONTRIBUTE</strong>{' '}PORTAL</span></a>
-            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>{' '}PROGRAM</span></a>
+            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>&nbsp;PROGRAM</span></a>
             {/* Guided Tour comes before Alumni Fantasy in the navigation. */}
-            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-circle.png" alt="YAT?STATS" className="yat-nav-custom-icon yat-nav-tour-icon" /><span>GUIDED{' '}<strong>TOUR</strong></span></a>
+            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-stacked.png" alt="" className="yat-nav-custom-icon yat-nav-tour-icon yat-nav-tour-stacked" /><span><strong>GUIDED TOUR &amp; FAQs</strong></span></a>
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
               <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
@@ -455,7 +470,7 @@ async function SchoolShell({
 
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
         <div
-          className="yat-drawer-header"
+          className="yat-drawer-header yat-filter-drawer-header"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -465,25 +480,16 @@ async function SchoolShell({
             borderBottom: '1px solid var(--line)',
           }}
         >
-          <h3 style={{ margin: 0 }}>SORT &amp; FILTER</h3>
+          <h3 style={{ margin: 0 }}>FILTER</h3>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              id="filtersReset"
-              className="yat-icon-btn"
-              aria-label="Reset filters"
-              title="Reset filters"
-            >
-              <i className="ri-restart-line" />
-            </button>
-
             <button className="yat-icon-btn" id="closeFilters" aria-label="Close filters">
               <i className="ri-close-line" />
             </button>
           </div>
         </div>
 
-        <div className="yat-drawer-content" id="filters">
+        <div className="yat-drawer-content yat-filter-body" id="filters">
           {/* "My Favorites": shown to everyone, so visitors see what
               registering gets them. FavoritesFilter marks the reader's
               favorites at this school (data-fav="true" on their cards, which
@@ -505,12 +511,22 @@ async function SchoolShell({
               <label className="yat-filter-select-all">
                 <input type="checkbox" data-select-all="filterStatus" /> Select All
               </label>
-
-              {statusFilterOptions.map((s) => (
-                <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                <div className="yat-filter-column">
+                  {statusFilterOptions.slice(0,statusSecondColumnIndex).map((s) => (
+                    <label key={s}>
+                      <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
+                    </label>
+                  ))}
+                </div>
+                <div className="yat-filter-column">
+                  {statusFilterOptions.slice(statusSecondColumnIndex).map((s) => (
+                    <label key={s}>
+                      <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </details>
 
@@ -518,13 +534,15 @@ async function SchoolShell({
             <summary>By Level</summary>
             <div className="yat-filter-options" id="filterLevels">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
-              {[
-                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL',
-              ].map((l) => (
-                <label key={l}>
-                  <input type="checkbox" value={l} /> {l}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {levelFilterColumns.map((levels,index) => (
+                  <div key={index} className="yat-filter-column">
+                    {levels.map((level) => (
+                      <label key={level}><input type="checkbox" value={level} /> {level}</label>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 
@@ -532,13 +550,13 @@ async function SchoolShell({
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" /> Select All</label>
-              {[
-                '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
-              ].map((year) => (
-                <label key={year}>
-                  <input type="checkbox" value={year} /> {year}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {[graduationClassOptions.slice(0,Math.ceil(graduationClassOptions.length/2)),graduationClassOptions.slice(Math.ceil(graduationClassOptions.length/2))].map((years,i) => (
+                  <div className="yat-filter-column" key={i}>
+                    {years.map((year) => <label key={year}><input type="checkbox" value={year} /> {year}</label>)}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 
@@ -546,11 +564,13 @@ async function SchoolShell({
             <summary>By Roster Year</summary>
             <div className="yat-filter-options" id="filterRosterYears">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
-              {Array.from({length: 29}, (_, i) => String(2027 - i)).map((yr) => (
-                <label key={yr}>
-                  <input type="checkbox" value={yr} /> {yr}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {[rosterYearOptions.slice(0,Math.ceil(rosterYearOptions.length/2)),rosterYearOptions.slice(Math.ceil(rosterYearOptions.length/2))].map((years,i) => (
+                  <div className="yat-filter-column" key={i}>
+                    {years.map((yr) => <label key={yr}><input type="checkbox" value={yr} /> {yr}</label>)}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 

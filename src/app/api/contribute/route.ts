@@ -152,14 +152,15 @@ export async function POST(req: NextRequest) {
     if (kind === 'tip') {
       const url = text(body.url);
       const why = text(body.why, 2000);
-      if (!/^https?:\/\/\S+\.\S+/i.test(url)) return fail('Paste the link to the story.');
+      const isClip = /(?:youtube\.com|youtu\.be|instagram\.com|tiktok\.com|x\.com|twitter\.com|facebook\.com|fb\.watch|vimeo\.com)/i.test(url);
+      if (!/^https?:\/\/\S+\.\S+/i.test(url)) return fail('Paste the news, video, or social link.');
       await query(
         `INSERT INTO news_tip_queue (intake_source, sender_name, sender_contact_id, sender_role, raw_player_name,
                                      matched_playerid, matched_hsid, article_url, notes, status)
          VALUES ('fan_drawer', $1, $2, $3, $4, $5, $6, $7, $8, 'new')`,
-        [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, why || null]
+        [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, [isClip ? '[clip]' : '[news]', why].filter(Boolean).join(' ')]
       );
-      await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url } });
+      await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url, sourceType: isClip ? 'clip' : 'news' } });
       return NextResponse.json({ ok: true }, { status: 201 });
     }
 

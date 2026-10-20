@@ -171,7 +171,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
     #playerFunZone .pp-fz-tab { position:relative !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:2px !important; padding:3px 1px 2px !important; color:rgba(255,255,255,.72) !important; text-decoration:none !important; min-width:0 !important; }
     #playerFunZone .pp-fz-tab::before, #playerFunZone .pp-fz-tab::after, #playerFunZone .pp-fz-tab-default::before, #playerFunZone .pp-fz-tab-default::after { display:none !important; opacity:0 !important; }
     #playerFunZone .pp-fz-tab.pp-fz-tab-active { color:#fff !important; }
-    #playerFunZone .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; opacity:1 !important; position:absolute !important; left:18% !important; right:18% !important; top:0 !important; height:2px !important; background:#d2b45c !important; }
+    #playerFunZone .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; opacity:1 !important; position:absolute !important; left:18% !important; right:18% !important; top:0 !important; height:2px !important; background:#c2c2c2 !important; }
     #playerFunZone .pp-fz-tab i { font-size:20px !important; line-height:1 !important; }
     #playerFunZone .pp-fz-tab span { font:700 8px/1 var(--yat-font-ui,"Archivo",Arial,sans-serif) !important; letter-spacing:.01em !important; text-transform:none !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; max-width:100% !important; }
     @media (max-width:760px) {

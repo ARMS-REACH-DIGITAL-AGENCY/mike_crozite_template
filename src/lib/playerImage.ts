@@ -135,8 +135,8 @@ export function getMlbHeadshotUrl(mlbPlayerId: string, kind: '67' | 'milb' = '67
 
 /**
  * Current headshots for the player gallery, best first. The MLB importer
- * writes now/ before the separate cutout/WebP jobs run, so a missing derived
- * copy must not hide an already available headshot. These are all current
+ * writes now/ before the separate cutout/WebP jobs run. Prefer a finished
+ * transparent cutout when available, with thumbnail/original as fallbacks. These are all current
  * images of this player; HS card fronts and back-card action photos keep
  * their own image-role rules.
  */

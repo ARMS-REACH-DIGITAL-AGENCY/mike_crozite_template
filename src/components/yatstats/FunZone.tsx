@@ -724,6 +724,19 @@ export default function FunZone({
   scheduleSnapshot,
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
+  // Global flip-all navigation uses the same React state as local tab clicks.
+  // Merely toggling CSS classes would desynchronize CTA links and lazy panels.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const card = rootRef.current?.closest<HTMLElement>('.yat-card');
+    if (!card) return;
+    const onGlobalTab = (event: Event) => {
+      const next = (event as CustomEvent<{ tab?: TabId }>).detail?.tab;
+      if (next && TABS.some((tab) => tab.id === next)) setActiveTab(next);
+    };
+    card.addEventListener('yat:flip-all-tab', onGlobalTab);
+    return () => card.removeEventListener('yat:flip-all-tab', onGlobalTab);
+  }, []);
   const [activeStatsIndex, setActiveStatsIndex] = useState(0);
   // Swipe left/right on the card back to change tab (one listener for the
   // whole page, installed by whichever card mounts first).
@@ -781,7 +794,7 @@ export default function FunZone({
   void isAllTime;
 
   return (
-    <div className="fz-root">
+    <div ref={rootRef} className="fz-root">
       {/*
         1. CTA strip - YaTi (left) + speech bubble (right)
            flex-shrink:1 - yields padding before the content panel.

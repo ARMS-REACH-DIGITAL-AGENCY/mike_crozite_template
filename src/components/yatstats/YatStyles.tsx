@@ -542,11 +542,14 @@ export default function YatStyles() {
       .yat-card.is-flipped .yat-front{pointer-events:none}
       .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
-      .yat-card-fav-slot{position:absolute;top:8px;right:8px;z-index:4}
-      .yat-card-fav{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.35);border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:17px;line-height:1;cursor:pointer;backdrop-filter:blur(2px)}
-      .yat-card-fav:hover{border-color:var(--accent,#c8a96e);color:var(--accent,#c8a96e)}
-      .yat-card-fav.on{border-color:var(--accent,#c8a96e);color:var(--accent,#c8a96e);background:rgba(0,0,0,.6)}
+      .yat-card-fav-slot{position:absolute;top:5px;right:5px;z-index:4}
+      .yat-card-fav{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#fff;font-size:22px;line-height:1;cursor:pointer;backdrop-filter:none!important}
+      .yat-card-fav:hover{color:#ffc665;background:transparent!important}
+      .yat-card-fav.on{color:#ffb21c;background:transparent!important}
       .yat-card-fav:disabled{opacity:.6;cursor:wait}
+      body.light-theme .yat-card-fav:not(.on){color:#fff;background:transparent!important}
+      body.light-theme .yat-card-fav.on{color:#ffb21c;background:transparent!important}
+
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
       /* Soft watercolor washes, no repeating-line grain. Kept strictly inside card photos. */
@@ -817,7 +820,7 @@ export default function YatStyles() {
       .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:#020a13;border-top:1px solid rgba(255,255,255,.18);z-index:40;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
       /* Shared six-slot dock: same height and icon proportions as player Fun Zone. */
       :root{--yat-dock-h:var(--footerH);--yat-facts-h:32px}
-      .yat-visual-row4-gallery{padding-top:0}
+      .yat-visual-row4-gallery{padding-top:0;background:var(--bg);color:var(--fg)}
       .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
       .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui);display:flex;flex-direction:column}
       .yat-clubhouse-facts{box-sizing:border-box;flex:0 0 var(--yat-facts-h);min-height:0;background:var(--bg);display:flex;align-items:flex-end;gap:10px;padding:3px 12px 4px var(--yat-card-left-edge, clamp(74px,13vw,155px));border:0}

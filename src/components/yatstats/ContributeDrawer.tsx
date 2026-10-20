@@ -72,7 +72,7 @@ function ChosenPlayer({ player, onChange }: { player: ContributePlayer; onChange
       <div className="yat-search-card yat-search-player-result ycd-chosen-player">
         <span aria-hidden="true" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="yat-search-thumb yat-search-player-headshot" src={`${S3}/players/now/${encodeURIComponent(player.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
+        <img className="yat-search-thumb yat-search-player-headshot" src={player.headshotUrl || `${S3}/players/now/${encodeURIComponent(player.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
         <span className="yat-search-player-text-link">
           <strong>{player.displayName}</strong>
           {player.schoolName ? <small className="yat-search-hs-line">{player.schoolName}</small> : null}
@@ -376,7 +376,7 @@ export default function ContributeDrawer() {
     if (!signedIn) { pendingOpen.current = true; return openAccountDrawer('signin'); }
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
-      if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the link to the story.' });
+      if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
       return post({ kind: 'tip', url: tipUrl.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || '' });
     }
     if (!mp.name.trim()) return setStatus({ kind: 'error', text: "Type the player's name." });
@@ -664,12 +664,12 @@ export default function ContributeDrawer() {
                   <PlayerPicker value={player} onChange={choosePlayer} />
                 </div>
                 <div className="ycd-field">
-                  <label className="ycd-label" htmlFor="ycdTipUrl">Link to the story</label>
+                  <label className="ycd-label" htmlFor="ycdTipUrl"><i className="ri-newspaper-line" aria-hidden="true" /> <i className="ri-video-line" aria-hidden="true" /> News, video or social link</label>
                   <input id="ycdTipUrl" type="url" value={tipUrl} onChange={(e) => setTipUrl(e.target.value)} placeholder="https://" />
                 </div>
                 <div className="ycd-field">
                   <label className="ycd-label" htmlFor="ycdTipWhy">Why it matters (optional)</label>
-                  <textarea id="ycdTipWhy" rows={3} value={tipWhy} onChange={(e) => setTipWhy(e.target.value)} placeholder={`A milestone, a call-up, a great game by ${firstName}…`} />
+                  <textarea id="ycdTipWhy" rows={3} value={tipWhy} onChange={(e) => setTipWhy(e.target.value)} placeholder={`A milestone, a call-up, a great game or clip featuring ${firstName}…`} />
                 </div>
               </>
             )}

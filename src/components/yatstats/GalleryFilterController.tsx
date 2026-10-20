@@ -322,7 +322,18 @@ function scrollToLinkedCard(section: string, playerId: string) {
     const card = findCard(section, playerId);
     const shown = card && (card.closest<HTMLElement>('[data-player-card-wrap="true"]') || card).style.display !== 'none';
     if (!card || !shown) return;
-    card.scrollIntoView({ behavior: 'instant', block: 'center' });
+    // Match the Row 3 headshot click: the flip card's TOP lands exactly
+    // 8px below the rendered sticky portrait rail, at every screen width.
+    // Centering the card in the viewport clipped taller players' heads.
+    const rail = document.querySelector<HTMLElement>('.gallery-strip[data-react-mirrors-row5="true"]');
+    const row3 = document.querySelector<HTMLElement>('.yat-row3-shell');
+    const railBottom = rail?.getBoundingClientRect().bottom;
+    const rowBottom = railBottom != null && railBottom > 0
+      ? railBottom
+      : (row3?.getBoundingClientRect().bottom ?? 166);
+    const targetY = Math.max(0, rowBottom) + 8;
+    const delta = card.getBoundingClientRect().top - targetY;
+    if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
     if (!highlighted) {
       highlighted = true;
       card.animate?.(

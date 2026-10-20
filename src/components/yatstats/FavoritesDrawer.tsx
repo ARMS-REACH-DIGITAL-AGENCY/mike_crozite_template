@@ -884,7 +884,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     <>
       <aside className="yat-drawer yat-drawer-right" id="drawerFavorites" aria-label="Favorites drawer">
         <div className="yat-drawer-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
-          <h3 style={{ margin: 0 }}>FAVORITES</h3>
+          <h3 className="yat-favorite-title" style={{ margin: 0 }}>FAVORITES</h3>
           <div className="yat-favorite-header-icons" role="group" aria-label="Favorites view controls">
             {hasUser && (
               <>
@@ -922,7 +922,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           ) : !hasUser ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="yat-favorite-empty">Sign up or log in to favorite players. Your signup microsite becomes your Home School.</div>
-              <button type="button" onClick={() => openAccountDrawer('register')} style={{ padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--fg)', color: 'var(--bg)', font: '700 12px Oswald, sans-serif', textTransform: 'uppercase', cursor: 'pointer' }}>
+              <button type="button" onClick={() => openAccountDrawer('register')} style={{ padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--fg)', color: 'var(--bg)', font: '700 12px var(--yat-font-ui, Archivo, Arial, sans-serif)', textTransform: 'uppercase', cursor: 'pointer' }}>
                 Sign Up / Log In
               </button>
             </div>
@@ -953,7 +953,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           padding: 16px;
           text-align: center;
           color: var(--muted);
-          font: 400 13px/1.4 Oswald, sans-serif;
+          font: 400 13px/1.4 var(--yat-font-ui, Archivo, Arial, sans-serif);
           text-transform: uppercase;
         }
 
@@ -973,22 +973,32 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         .yat-cross-school-card-error a {
-          color: #ffd166;
+          color: #a0a0a0;
           text-decoration: underline;
         }
 
         #drawerFavorites .yat-favorite-empty,
         #drawerFavorites .yat-favorite-lock-message {
           color: var(--muted);
-          font: 400 13px/1.45 Oswald, sans-serif;
+          font: 400 13px/1.45 var(--yat-font-ui, Archivo, Arial, sans-serif);
           letter-spacing: 0;
         }
 
         #drawerFavorites .yat-favorite-lock-message {
-          color: #ffd166;
+          color: #a0a0a0;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: .03em;
+        }
+
+        /* Typography is identical to Global Search; leave drawer geometry and imagery unchanged. */
+        #drawerFavorites .yat-favorite-title {
+          margin: 0 !important;
+          padding: 0 !important;
+          color: var(--fg);
+          font: 800 21px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif) !important;
+          letter-spacing: -.025em !important;
+          text-transform: uppercase;
         }
 
         #drawerFavorites .yat-favorite-header-icons {
@@ -999,8 +1009,8 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-header-icons .yat-icon-btn.active {
-          color: var(--accent, #c8a96e);
-          background: rgba(200,169,110,.15);
+          color: var(--ink, #a0a0a0);
+          background: rgba(128,128,128,.12);
         }
 
         #drawerFavorites .yat-favorite-sort-chip {
@@ -1014,9 +1024,9 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           border-radius: 999px;
           background: transparent;
           color: var(--ink);
-          font: 400 11px/1 Oswald, sans-serif;
-          letter-spacing: .02em;
-          text-transform: uppercase;
+          font: 600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif);
+          letter-spacing: 0;
+          text-transform: none;
           white-space: nowrap;
           cursor: pointer;
         }
@@ -1080,20 +1090,24 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-text-link strong {
-          font: 900 14px/1.05 Oswald, sans-serif;
-          text-transform: uppercase;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          color: var(--fg);
+          font: 800 14px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif);
+          letter-spacing: -.02em;
+          text-transform: none;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: clip;
+          overflow-wrap: anywhere;
         }
 
         #drawerFavorites .yat-favorite-text-link small {
           color: var(--muted);
-          font: 400 10px/1.15 Oswald, sans-serif;
-          text-transform: uppercase;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font: 500 11px/1.25 var(--yat-font-compact, "Barlow Condensed", sans-serif);
+          text-transform: none;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: clip;
+          overflow-wrap: anywhere;
         }
 
         #drawerFavorites .yat-favorite-flip-link {
@@ -1119,7 +1133,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           padding: 0;
           border: none;
           background: transparent;
-          color: var(--accent, #c8a96e);
+          color: #ffb238;
           font-size: 16px;
           line-height: 1;
           cursor: pointer;
@@ -1127,14 +1141,33 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
         }
 
         #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {
-          color: var(--accent, #c8a96e);
-          opacity: .85;
+          color: var(--muted);
+          opacity: 1;
         }
 
         #drawerFavorites .yat-favorite-heart-btn:hover {
-          color: #e8c98a;
+          color: #ffc665;
         }
 
+        /* Match the approved live Beau Brieske result typography. */
+        #drawerFavorites .yat-favorite-text-link strong {
+          font:800 15px/1.15 Oswald,sans-serif;
+          letter-spacing:0;
+          text-transform:uppercase;
+          white-space:normal;
+          overflow-wrap:anywhere;
+        }
+        #drawerFavorites .yat-favorite-text-link small {
+          font:400 11px/1.2 Oswald,sans-serif;
+          text-transform:uppercase;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+        }
+        #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {color:#c8a96e;}
+        body.light-theme #drawerFavorites .yat-favorite-text-link small.yat-favorite-hs-line {color:#805600;}
+        #drawerFavorites .yat-favorite-heart-btn {color:#ffb21c;}
+        body.light-theme #drawerFavorites .yat-favorite-heart-btn {color:#a77412;}
         #drawerFavorites .yat-favorite-heart-btn[aria-disabled="true"] {
           opacity: .5;
           cursor: wait;

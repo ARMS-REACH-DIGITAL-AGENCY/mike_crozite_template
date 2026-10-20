@@ -679,7 +679,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         plan,
       });
 
-      // Promo code entered on the join form? The gold Superfan CTA sets
+      // Promo code entered on the join form? The Superfan CTA sets
       // pending_superfan; the Fan CTA clears it. A code typed with the Fan
       // button is ignored (normal Fan signup). With the Superfan button, a
       // valid code grants free Superfan immediately (no Stripe). An invalid
@@ -836,8 +836,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           {superfanLaunching && (
             <div
               style={{
-                background: 'rgba(255,215,0,.1)',
-                border: '1px solid #FFD700',
+                background: 'rgba(128,128,128,.08)',
+                border: '1px solid #171717',
                 borderRadius: '8px',
                 padding: '16px',
                 marginBottom: '16px',
@@ -847,8 +847,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#FFD700',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  color: 'var(--fg)',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.05em',
                   marginBottom: '4px',
                 }}
@@ -875,7 +875,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   fontSize: '14px',
                   color: '#16a34a',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.05em',
                   marginBottom: '6px',
                 }}
@@ -903,12 +903,12 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   display: 'inline-block',
                   padding: '8px 14px',
-                  background: '#b8860b',
+                  background: 'var(--fg)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '12px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.06em',
                   cursor: superfanLaunching ? 'not-allowed' : 'pointer',
                   opacity: superfanLaunching ? 0.6 : 1,
@@ -919,21 +919,36 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </div>
           )}
 
+          <div className="yat-account-identity" style={{ marginBottom: '10px' }}>
+            <p
+              style={{
+                fontSize: '18px',
+                marginBottom: '10px',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                letterSpacing: '.05em',
+              }}
+            >
+              Hi, {displayName || 'Fan'}!
+            </p>
+            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveEmail}</p>
+          </div>
+
           {isSuperfan && (
             <div
+              className="yat-account-superfan"
               style={{
-                background: 'rgba(255,215,0,.1)',
-                border: '1px solid rgba(255,215,0,.4)',
+                background: 'rgba(128,128,128,.08)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '10px 12px',
-                marginBottom: '16px',
+                marginBottom: '10px',
               }}
             >
               <p
                 style={{
                   fontSize: '13px',
-                  color: '#FFD700',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  color: 'var(--fg)',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.06em',
                 }}
               >
@@ -944,20 +959,6 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </p>
             </div>
           )}
-
-          <div className="yat-account-identity" style={{ marginBottom: '20px' }}>
-            <p
-              style={{
-                fontSize: '18px',
-                marginBottom: '10px',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                letterSpacing: '.05em',
-              }}
-            >
-              Hi, {displayName || 'Fan'}!
-            </p>
-            <p style={{ fontSize: '12px', color: 'var(--muted)' }}>{effectiveEmail}</p>
-          </div>
 
           {/* First thing after joining or logging in: the ways to connect
               and contribute. Sign Out sits at the bottom. */}
@@ -973,11 +974,11 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '12px',
-                  background: '#FFD700',
-                  color: '#000',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '14px',
                   letterSpacing: '.08em',
                   cursor: 'pointer',
@@ -1034,7 +1035,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                         color: '#fff',
                         border: 'none',
                         borderRadius: '8px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         fontSize: '13px',
                         letterSpacing: '.06em',
                         cursor: promoBusy ? 'not-allowed' : 'pointer',
@@ -1054,13 +1055,13 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             onClick={handleSignOut}
             style={{
               width: '100%',
-              marginTop: '18px',
+              marginTop: '9px',
               padding: '12px',
               background: 'var(--fg)',
               color: 'var(--bg)',
               border: 'none',
               borderRadius: '8px',
-              fontFamily: '"Bebas Neue", Oswald, sans-serif',
+              fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
               fontSize: '14px',
               letterSpacing: '.08em',
               cursor: 'pointer',
@@ -1140,7 +1141,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '14px',
                   letterSpacing: '.08em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1210,6 +1211,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </div>
 
               <button
+                className="yat-account-membership-cta"
                 type="submit"
                 name="intent"
                 value="fan"
@@ -1222,7 +1224,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '13px',
                   letterSpacing: '.07em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -1230,15 +1232,16 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   marginBottom: '8px',
                 }}
               >
-                {isLoading ? 'Creating Account...' : 'BECOME A FAN OF THIS SCHOOL — FREE'}
+                {isLoading ? 'Creating Account...' : 'BECOME A FAN — FREE'}
               </button>
 
               <div style={{ marginBottom: '10px' }}>
                 <input
+                  className="yat-account-promo-code"
                   type="text"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="Enter Superfan promo code, then tap the gold button — FREE!"
+                  placeholder="SUPER FAN PROMO CODE (OPTIONAL)"
                   aria-label="Superfan promo code"
                   style={{
                     width: '100%',
@@ -1254,6 +1257,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </div>
 
               <button
+                className="yat-account-membership-cta"
                 type="submit"
                 name="intent"
                 value="superfan"
@@ -1262,18 +1266,18 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 style={{
                   width: '100%',
                   padding: '11px',
-                  background: '#FFD700',
-                  color: '#000',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '8px',
-                  fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   fontSize: '13px',
                   letterSpacing: '.07em',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
                   opacity: isLoading ? 0.6 : 1,
                 }}
               >
-                {isLoading ? 'Setting Up...' : '⭐ BECOME A GLOBAL SUPER FAN — $2.99/mo'}
+                {isLoading ? 'Setting Up...' : 'BECOME A SUPER FAN — $2.99/MO'}
               </button>
             </form>
           )}
@@ -1292,26 +1296,27 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </p>
           )}
 
-          <section
-            aria-label="World Series Tickets Raffle"
+          {activeTab === "signin" && <section
+            className="yat-raffle-section"
+            aria-label="Fall Classic Tickets Raffle"
             style={{
               margin: '14px 15px 4px',
               padding: '14px 15px',
-              border: '1px solid rgba(255, 210, 74, .35)',
-              background: 'rgba(255, 210, 74, .055)',
+              border: '1px solid var(--line)',
+              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26)), url("/img/world-series-trophy-cta.png") 92% center / auto 94% no-repeat',
             }}
           >
             <div
               style={{
-                color: '#FFD24A',
-                fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                color: 'var(--fg)',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '18px',
                 lineHeight: 1,
                 letterSpacing: '.07em',
                 marginBottom: '5px',
               }}
             >
-              WORLD SERIES TICKETS RAFFLE
+              FALL CLASSIC TICKETS RAFFLE
             </div>
             <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
               Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
@@ -1322,9 +1327,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
               <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
             </p>
-          </section>
+          </section>}
 
-          <div style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
+          <div className="yat-account-comparison" style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
             <div
               style={{
                 padding: '16px',
@@ -1333,14 +1338,14 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 color: 'var(--muted)',
               }}
             >
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="yat-account-benefit-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     <th
                       style={{
                         textAlign: 'left',
                         fontSize: '10px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.06em',
                         paddingBottom: '6px',
                         color: 'var(--fg)',
@@ -1353,7 +1358,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
                         color: 'var(--muted)',
@@ -1366,31 +1371,27 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
                         color: 'var(--fg)',
                         width: '20%',
                       }}
                     >
-                      HOME
-                      <br />
-                      FAN
+                      HOME FAN
                     </th>
                     <th
                       style={{
                         textAlign: 'center',
                         fontSize: '9px',
-                        fontFamily: '"Bebas Neue", Oswald, sans-serif',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                         letterSpacing: '.04em',
                         paddingBottom: '6px',
-                        color: '#FFD700',
+                        color: 'var(--fg)',
                         width: '22%',
                       }}
                     >
-                      ⭐ SUPER
-                      <br />
-                      FAN
+                      SUPER FAN
                     </th>
                   </tr>
                 </thead>
@@ -1410,14 +1411,14 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       <td style={{ padding: '5px 4px 5px 0', color: 'var(--muted)' }}>{feat}</td>
                       <td style={{ textAlign: 'center', color: 'var(--muted)' }}>{v}</td>
                       <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{f}</td>
-                      <td style={{ textAlign: 'center', color: '#FFD700' }}>{s}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--fg)' }}>{s}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div
+            <div className="yat-account-tour"
               style={{
                 borderTop: '1px solid var(--line)',
                 padding: '16px',
@@ -1429,7 +1430,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             >
               <div style={{ flexShrink: 0 }}>
                 <img
-                  src="https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"
+                  src="/img/yati-placeholders/yati-running-field.webp"
                   alt="YaTi mascot"
                   style={{ width: '80px', objectFit: 'contain', display: 'block' }}
                 />
@@ -1449,18 +1450,35 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 >
                   Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
                   <br />
+                  <strong style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
+                  <div className="yat-tour-roles" aria-label="Choose a guided tour">
+                    {([
+                      ['coach','COACH'],
+                      ['player','PLAYER'],
+                      ['partner','PARTNER'],
+                      ['fan','FAN'],
+                    ] as const).map(([role,label]) => (
+                      <a key={role} className="yat-tour-role" href={`https://yatstats.com/?tour=${role}`} aria-label={`${label} guided tour`}>
+                        <img src={`https://raw.githubusercontent.com/ARMS-REACH-DIGITAL-AGENCY/armsreach/main/sites/yatstats/img/tour-${role}.jpg`} alt="" loading="lazy" />
+                        <span>{label}</span>
+                      </a>
+                    ))}
+                  </div>
                   <button
                     type="button"
+                    onClick={() => { window.location.assign("https://yatstats.com"); }}
                     style={{
                       marginTop: '8px',
-                      background: '#FFD700',
-                      color: '#000',
+                      background: '#171717',
+                      color: '#fff',
                       border: 'none',
-                      borderRadius: '6px',
-                      padding: '5px 12px',
-                      fontFamily: '"Bebas Neue", Oswald, sans-serif',
-                      fontSize: '13px',
-                      letterSpacing: '.06em',
+                      borderRadius: '8px',
+                      minHeight: '40px',
+                       padding: '0 14px',
+                      fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                      fontSize: '12px',
+                       fontWeight: 800,
+                      letterSpacing: '.01em',
                       cursor: 'pointer',
                     }}
                   >
@@ -1471,12 +1489,12 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                     style={{
                       position: 'absolute',
                       top: '12px',
-                      left: '-8px',
+                      right: '-8px',
                       width: 0,
                       height: 0,
                       borderTop: '8px solid transparent',
                       borderBottom: '8px solid transparent',
-                      borderRight: '8px solid #fff',
+                      borderLeft: '8px solid #fff',
                       display: 'block',
                     }}
                   />
@@ -1489,14 +1507,78 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
       {/* Account styles must survive sign-in, when both password fields unmount. */}
       <style jsx global>{`
         #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
-        #drawerAccount .yat-account-signed-in{padding:18px 20px 28px!important;min-width:0;}
-        #drawerAccount .yat-account-identity{margin:6px 0 18px!important;padding:0 2px 17px;border-bottom:1px solid var(--line);}
-        #drawerAccount .yat-account-identity p:first-child{margin:0 0 6px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
-        #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
-        #drawerAccount .yat-account-signout{min-height:45px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
+        #drawerAccount .yat-raffle-section > div:first-child{font:800 clamp(12px,3.05vw,18px)/1.1 Oswald,sans-serif!important;letter-spacing:-.01em!important;text-transform:uppercase;white-space:nowrap;}
+        #drawerAccount .yat-account-comparison{display:flex;flex-direction:column;margin-top:4px!important;border-top:0!important;}
+        #drawerAccount .yat-account-tour{order:0;padding:7px 10px 9px!important;gap:7px!important;align-items:center!important;border-top:0!important;background:transparent!important;}
+        #drawerAccount .yat-account-tour > div:first-child{order:2!important;flex:0 0 70px!important;}
+        #drawerAccount .yat-account-tour > div:last-child{order:1!important;flex:1 1 auto!important;min-width:0;}
+        #drawerAccount .yat-account-tour > div:last-child > div > span{right:-8px!important;left:auto!important;border-right:0!important;border-left:8px solid #fff!important;top:19px!important;}
+        #drawerAccount .yat-account-tour img{width:70px!important;max-height:112px;object-fit:contain!important;object-position:center!important;}
+        #drawerAccount .yat-account-tour > div:last-child > div{padding:8px 10px!important;font-size:11px!important;line-height:1.35!important;}
+        #drawerAccount .yat-account-tour button{min-height:34px!important;margin-top:5px!important;padding:0 10px!important;}
+        #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:9px;padding-top:8px;border-top:1px solid #d4d4d4;gap:0;}
+        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;gap:4px;padding:0 2px;color:#161616;text-decoration:none;font:700 clamp(8px,2.1vw,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);border-right:1px solid #ddd;}
+        #drawerAccount .yat-tour-role:last-child{border-right:0;}
+        #drawerAccount .yat-tour-role img{width:min(100%,43px)!important;height:43px!important;max-height:43px!important;object-fit:contain!important;mix-blend-mode:multiply;}
+        #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
+        #drawerAccount .yat-raffle-section{background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;background-size:auto 94%!important;background-position:right center!important;}
+        #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
+        #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
+        @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
+
+        /* 1:1 button/input heights and compact, legible membership offers. */
+        #drawerAccount .yat-account-membership-cta,
+        #drawerAccount .yat-account-promo-code{
+          box-sizing:border-box!important;
+          height:43px!important;min-height:43px!important;max-height:43px!important;
+          width:100%!important;border-radius:7px!important;
+          font:800 clamp(11px,2.9vw,13px)/1.1 Oswald,sans-serif!important;
+          letter-spacing:0!important;white-space:nowrap!important;
+        }
+        #drawerAccount .yat-account-membership-cta{
+          display:flex!important;align-items:center!important;justify-content:center!important;
+          padding:0 7px!important;text-transform:uppercase!important;
+        }
+        #drawerAccount .yat-account-promo-code{
+          display:block!important;font:500 12px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;
+          padding:0 12px!important;
+        }
+        /* Keep all six benefit features on one line. Give the check columns
+           just enough width for icons, instead of reserving 60% for them. */
+        #drawerAccount .yat-account-benefit-table{
+          table-layout:fixed!important;width:100%!important;border-collapse:collapse!important;
+        }
+        #drawerAccount .yat-account-benefit-table :is(th,td):first-child{
+          width:57%!important;
+          white-space:nowrap!important;
+          overflow:hidden!important;
+          text-overflow:clip!important;
+          font-family:Oswald,sans-serif!important;
+          letter-spacing:-.015em!important;
+        }
+        #drawerAccount .yat-account-benefit-table :is(th,td):not(:first-child){width:14.333%!important;}
+        #drawerAccount .yat-account-benefit-table th{
+          font:700 clamp(8px,2.25vw,10px)/1.15 Oswald,sans-serif!important;
+          white-space:nowrap!important;letter-spacing:0!important;
+          padding:0 0 6px!important;
+        }
+        #drawerAccount .yat-account-benefit-table td{
+          font:500 clamp(9px,2.7vw,11px)/1.3 Oswald,sans-serif!important;
+          padding:5px 0!important;
+        }
+        #drawerAccount .yat-account-benefit-table td:not(:first-child){
+          font:700 14px/1 Oswald,sans-serif!important;
+          text-align:center!important;
+        }
+        #drawerAccount .yat-account-signed-in{padding:9px 16px 16px!important;min-width:0;}
+        #drawerAccount .yat-account-identity{margin:0 0 7px!important;padding:2px 40px 5px 2px!important;border-bottom:0!important;}
+        #drawerAccount .yat-account-identity p:first-child{margin:0 0 4px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
+        #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
+        #drawerAccount .yat-account-superfan{padding:8px 10px!important;margin-bottom:3px!important;border:0!important;background:var(--line)!important;}
+        #drawerAccount .yat-account-signout{margin-top:4px!important;margin-bottom:0!important;min-height:44px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
         #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
         #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
-        @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:14px 16px 25px!important;}#drawerAccount .yat-account-identity{margin-top:2px!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
+        @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:8px 14px 14px!important;}#drawerAccount .yat-account-identity{margin-top:0!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
       `}</style>
     </div>
   );

@@ -8,14 +8,14 @@
 //   Desktop: each story as a full post right here - photos, Like · Comment ·
 //            Share, the latest comments and a comment box - so there's
 //            nothing to open to join in (a photo still opens large).
-// Uploading happens only from the Polaroid on the Career Path Timeline
-// (StoryDrawer), never here.
-// His teammates are a drawer from the right, opened by the Teammates button
-// beside the search, so the stories get the whole width.
+// Story publishing is triggered by the compact Add Story control beside sort
+// and search. The same StoryDrawer handles upload from the Career Timeline.
+// Teammates are accessible by the icon + count only (no visible word label).
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
+import { openStoryDrawer, cancelPendingStoryDrawerOpen } from '@/lib/storyDrawer';
 import SortToggle from '@/components/yatstats/SortToggle';
 import TeammatesList, { teammateCount, useTeammates, type TeammateSeason } from '@/components/yatstats/TeammatesList';
 import StoryViewer, { AlbumStrip, StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
@@ -58,18 +58,32 @@ function StoryPhotos({ story, onOpen }: { story: Story; onOpen: (index: number) 
 // Story cards spell the month out ("April 2003").
 const fullWhenLabel = (story: Story) => storyWhen(story);
 
-// The Teammates drawer: from the right, over the page; the mask, the X or
-// Escape closes it.
+// The Teammates drawer docks alongside the profile on wide screens and
+// becomes a dismissible modal only where the remaining page would be cramped.
 function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onClose: () => void }) {
+  const [docked, setDocked] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const breakpoint = window.matchMedia('(min-width: 1040px)');
+    const previousOverflow = document.body.style.overflow;
+    const update = () => {
+      setDocked(breakpoint.matches);
+      // A docked teammate directory must never block site scrolling.
+      document.body.style.overflow = breakpoint.matches ? previousOverflow : 'hidden';
+    };
+    document.body.classList.add('drawer-teammates-open');
     document.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    breakpoint.addEventListener('change', update);
+    update();
+    return () => {
+      document.body.classList.remove('drawer-teammates-open');
+      document.body.style.overflow = previousOverflow;
+      breakpoint.removeEventListener('change', update);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [onClose]);
   return createPortal(
-    <div className="ytd" role="dialog" aria-modal="true" aria-label="Teammates">
+    <div className="ytd" role="dialog" aria-modal={!docked} aria-label="Teammates">
       <button type="button" className="ytd-mask" aria-label="Close teammates" onClick={onClose} />
       <div className="ytd-panel">
         <button type="button" className="ytd-close" aria-label="Close" onClick={onClose}>
@@ -84,7 +98,7 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-mask { position: absolute; inset: 0; width: 100%; border: 0; padding: 0; background: rgba(0,0,0,.6); cursor: pointer; animation: ytd-fade .2s ease; }
         .ytd-panel {
           --ytm-bg: #0b0b0b; --ytm-text: rgba(255,255,255,.88); --ytm-muted: rgba(255,255,255,.55); --ytm-strong: #fff;
-          --ytm-border: rgba(255,255,255,.16); --ytm-accent: var(--gold, #ffc107);
+          --ytm-border: rgba(255,255,255,.16); --ytm-accent: #a0a0a0;
           position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 88vw); overflow: hidden;
           background: var(--ytm-bg); border-left: 1px solid var(--ytm-border);
           box-shadow: -12px 0 32px rgba(0,0,0,.45); animation: ytd-in .24s cubic-bezier(.2,.8,.2,1);
@@ -94,11 +108,34 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px 22px calc(28px + env(safe-area-inset-bottom)); }
         body.light-theme .ytd-panel {
           --ytm-bg: #fbf8f2; --ytm-text: rgba(31,25,18,.88); --ytm-muted: rgba(31,25,18,.55); --ytm-strong: rgba(31,25,18,.95);
-          --ytm-border: rgba(53,43,30,.18); --ytm-accent: #9a6f00;
+          --ytm-border: rgba(53,43,30,.18); --ytm-accent: #555;
         }
         .ytd-close { position: absolute; top: 14px; right: 14px; z-index: 3; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--ytm-muted); font-size: 22px; cursor: pointer; }
         .ytd-close:hover { color: var(--ytm-strong); }
         .ytd-panel .ytm-title { padding-right: 40px; }
+        /* Match the established 360px Contribute drawer: fixed beneath rows
+           1 and 2, clear of the footer, with rows 3-6 narrowing in tandem. */
+        @media (min-width: 1040px) {
+          body.drawer-teammates-open .yat-row3-shell,
+          body.drawer-teammates-open .yat-row4-shell,
+          body.drawer-teammates-open .yat-row5-shell,
+          body.drawer-teammates-open .yat-row6-shell {
+            margin-right: var(--yat-side-drawer-w,360px) !important;
+            transition: margin-right .22s ease;
+          }
+          .ytd { pointer-events:none; }
+          .ytd-mask { display:none; }
+          .ytd-panel {
+            top:calc(var(--row1-h,36px) + var(--row2-h,54px));
+            bottom:var(--yat-drawer-clearance,var(--footerH,66px));
+            width:var(--yat-side-drawer-w,360px);
+            height:auto;
+            box-shadow:none;
+            pointer-events:auto;
+            animation:none;
+          }
+          .ytd-scroll { padding-top:16px; }
+        }
         @keyframes ytd-in { from { transform: translateX(100%); } to { transform: none; } }
         @keyframes ytd-fade { from { opacity: 0; } to { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) { .ytd-panel, .ytd-mask { animation: none; } }
@@ -110,6 +147,8 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
 
 export default function StoriesFeed({ playerId, playerName }: { playerId: string; playerName: string }) {
   const firstName = (playerName || '').split(' ')[0] || 'this player';
+  const storyOpenOwner = useMemo(() => Symbol(`story-toolbar:${playerId}`), [playerId]);
+  useEffect(() => () => cancelPendingStoryDrawerOpen(storyOpenOwner), [storyOpenOwner]);
   const me = useFanMe();
   const [stories, setStories] = useState<Story[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -167,6 +206,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     const card = document.getElementById(`story-${id}`);
     if (!card) return;
     pendingFocus.current = null;
+    // The story feed is its own scroll container in the profile Fun Zone.
+    // Scroll the actual card into view after the Stories tab becomes active.
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     card.classList.add('ysf-card-focus');
     window.setTimeout(() => card.classList.remove('ysf-card-focus'), 2400);
@@ -176,8 +217,13 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   useEffect(() => {
     const onPosted = () => load();
     const onFocus = (event: Event) => {
-      pendingFocus.current = String((event as CustomEvent<{ id?: string }>).detail?.id || '') || null;
-      tryFocus();
+      const requested = String((event as CustomEvent<{ id?: string }>).detail?.id || '');
+      if (!requested) return;
+      // Clear a prior text filter, otherwise a valid timeline memory might
+      // be invisible even though its story is loaded.
+      setSearch('');
+      pendingFocus.current = requested;
+      requestAnimationFrame(() => tryFocus());
     };
     window.addEventListener(STORY_POSTED_EVENT, onPosted);
     window.addEventListener('yat:story-focus', onFocus);
@@ -195,7 +241,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   useEffect(() => {
     tryFocus();
-  }, [stories, tryFocus]);
+  }, [stories, search, tryFocus]);
 
   const updateStory = useCallback((next: Story) => {
     setStories((list) => (list ? list.map((s) => (s.id === next.id ? next : s)) : list));
@@ -335,25 +381,31 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
 
   return (
     <div className="ysf">
-      {/* Search and sort (once there are stories), and his teammates. */}
-      {(stories?.length || teammatesTotal > 0) ? (
-        <div className="ysf-tools">
-          {stories?.length ? (
-            <>
-              <label className="ysf-search">
-                <i className="ri-search-line" aria-hidden="true" />
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
-              </label>
-              <SortToggle dir={sort} onChange={setSort} />
-            </>
-          ) : <span className="ysf-tools-fill" />}
-          {teammatesTotal > 0 ? (
-            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)} aria-haspopup="dialog" aria-expanded={teammatesOpen}>
-              <i className="ri-team-line" aria-hidden="true" /> Teammates <span className="ysf-tm-count">{teammatesTotal}</span>
-            </button>
-          ) : null}
+      {/* Two compact toolbar rows: wide contribution action above wide search. */}
+      <div className="ysf-tools" role="toolbar" aria-label={`Stories about ${playerName || 'this player'}`}>
+        <div className="ysf-tool-row">
+          <button type="button" className="ysf-add-btn"
+            onClick={() => openStoryDrawer({ playerId, year: null }, storyOpenOwner)}
+            aria-label={`Share a story on ${firstName}'s timeline`}>
+            <i className="ri-upload-cloud-2-line" aria-hidden="true" />
+            <span>SHARE A STORY ON {firstName.toUpperCase()}&#39;S TIMELINE</span>
+          </button>
+
         </div>
-      ) : null}
+        <div className="ysf-tool-row ysf-tool-row-search">
+          <label className="ysf-search">
+            <i className="ri-search-line" aria-hidden="true" />
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
+          </label>
+          <div className="ysf-sort"><SortToggle dir={sort} onChange={setSort} compact /></div>
+          {teammatesTotal > 0 && (
+            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)}
+              aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`}>
+              <i className="ri-team-line" aria-hidden="true" /><span className="ysf-tm-count">{teammatesTotal}</span>
+            </button>
+          )}
+        </div>
+      </div>
       <div className="ysf-main">{body}</div>
       {teammatesOpen && typeof document !== 'undefined' ? <TeammatesDrawer rows={teammates} onClose={closeTeammates} /> : null}
 
@@ -375,7 +427,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-text: rgba(255,255,255,.88);
           --ysf-muted: rgba(255,255,255,.55);
           --ysf-strong: rgba(255,255,255,.95);
-          --ysf-when: var(--gold, #ffc107);
+          --ysf-when: #bcbcbc;
           padding: 10px 10px 20px;
         }
         body.light-theme .ysf {
@@ -387,27 +439,26 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           --ysf-text: rgba(31,25,18,.86);
           --ysf-muted: rgba(31,25,18,.55);
           --ysf-strong: rgba(31,25,18,.94);
-          --ysf-when: #b78600;
+          --ysf-when: #555;
         }
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
-        .ysf-tools-fill { flex: 1; }
-        /* Teammates: opens the drawer. Same height and frame as the sort. */
-        .ysf-tm-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-strong); font: 700 16px/1 var(--yat-font-compact, Oswald, sans-serif); letter-spacing: .03em; text-transform: uppercase; cursor: pointer; }
-        .ysf-tm-btn i { font-size: 17px; color: var(--ysf-when); }
-        .ysf-tm-btn:hover, .ysf-tm-btn[aria-expanded="true"] { border-color: var(--ysf-when); }
-        .ysf-tm-count { min-width: 22px; padding: 3px 6px; border-radius: 999px; background: var(--ysf-when); color: #111; font: 700 12px/1 var(--yat-font-ui, Arial, sans-serif); text-align: center; letter-spacing: 0; }
-        @media (max-width: 420px) {
-          .ysf-tm-btn { padding: 0 9px; font-size: 14px; }
-        }
-        .ysf-feed { display: flex; flex-direction: column; gap: 10px; }
-        .ysf-feed-posts { gap: 16px; max-width: 760px; margin: 0 auto; }
-        .ysf-tools { display: flex; gap: 8px; align-items: center; margin: 0 auto 10px; max-width: 760px; }
-        /* Search and sort stay pinned at the top of the tab while you scroll. */
-        .ysf-tools { position: sticky; top: 0; z-index: 6; margin-top: -10px; padding: 10px 0 8px; background: var(--psi-page-bg, #070707); }
-        .ysf-search { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 10px; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); color: var(--ysf-muted); }
-        .ysf-search input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: transparent; color: var(--ysf-strong); font: 400 14px/1 var(--yat-font-ui, Arial, sans-serif); outline: none; }
+        .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
+        .ysf-tool-row { display:flex;align-items:stretch;min-width:0; }
+        .ysf-tool-row-search { display:grid;grid-template-columns:minmax(0,1fr) 38px auto;gap:6px;align-items:center; }
+        .ysf-add-btn { display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:43px;padding:7px 10px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.045));box-shadow:inset 0 1px rgba(255,255,255,.14),0 3px 12px rgba(0,0,0,.16);color:var(--ysf-strong);font:800 clamp(10px,2.6vw,14px)/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);cursor:pointer;min-width:0;letter-spacing:.015em; }
+        .ysf-add-btn:hover,.ysf-add-btn:focus-visible { background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.08)); }
+        .ysf-add-btn span { white-space:normal;text-align:center;min-width:0; }
+        .ysf-add-btn i { flex:none;font-size:21px; }
+        .ysf-tm-btn { display:flex;align-items:center;justify-content:center;gap:5px;min-width:68px;height:32px;border:0;border-radius:6px;padding:0 7px;background:var(--ysf-card-bg);color:var(--ysf-strong);cursor:pointer; }
+        .ysf-tm-btn i { font-size:17px; }
+        .ysf-tm-count { border:0;padding:0;font:800 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);color:inherit; }
+        .ysf-search { display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:32px;padding:0 8px;border:0;border-radius:6px;background:var(--ysf-card-bg);color:var(--ysf-muted); }
+        .ysf-search input { width:100%;min-width:0;height:30px;border:0;outline:0;background:transparent;color:var(--ysf-strong);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .ysf-sort { display:flex;align-items:center;justify-content:center;width:38px;min-width:0;background:var(--ysf-card-bg);border-radius:6px; }
+        .ysf-sort button { border-radius:6px !important; }
+        @media(max-width:410px){.ysf-add-btn{font-size:10px;padding:7px 6px;gap:6px}.ysf-tm-btn{min-width:60px}}
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
         .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -432,9 +483,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-actions button i { font-size: 15px; }
         .ysf-card-actions button:hover { color: var(--ysf-strong); }
         .ysf-card-actions .ysf-liked { color: var(--ysf-when); }
-        .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #FFD700; border: 1px solid rgba(255,215,0,.5); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
-        .ysf-card:hover { border-color: var(--gold, #ffc107); }
-        .ysf-card-focus { border-color: var(--gold, #ffc107); box-shadow: 0 0 0 2px var(--gold, #ffc107); }
+        .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #fff; border: 1px solid rgba(255,255,255,.26); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+        .ysf-card:hover { border-color: var(--ysf-strong); }
+        .ysf-card-focus { border-color: var(--ysf-strong); box-shadow: 0 0 0 2px var(--ysf-strong); }
         /* Same type as the News cards' eyebrow (.pp-news-label). */
         .ysf-card-when { color: var(--ysf-when); font: 700 9px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
         .ysf-card-row { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
