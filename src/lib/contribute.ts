@@ -18,6 +18,7 @@ export type ContributeTab = 'photo' | 'data' | 'missing' | 'tip';
 export type ContributePlayer = {
   playerId: string;
   displayName: string;
+  headshotUrl?: string;
   schoolId?: string;
   schoolName?: string;
   crestUrl?: string;
