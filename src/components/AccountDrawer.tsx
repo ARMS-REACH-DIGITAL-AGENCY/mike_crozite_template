@@ -1463,12 +1463,12 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   <strong className="yat-tour-ask" style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
                   <div className="yat-tour-roles" aria-label="Choose a guided tour">
                     {([
-                      ['coach','COACH'],
-                      ['player','PLAYER'],
-                      ['partner','PARTNER'],
-                      ['fan','FAN'],
-                    ] as const).map(([role,label]) => (
-                      <a key={role} className="yat-tour-role" href={`https://yatstats.com/?tour=${role}`} aria-label={`${label} guided tour`}>
+                      ['coach','COACH','https://yatstats.com/programs/'],
+                      ['player','PLAYER','https://yatstats.com/players/'],
+                      ['partner','PARTNER','https://yatstats.com/partners/'],
+                      ['fan','FAN','https://yatstats.com/fans/'],
+                    ] as const).map(([role,label,href]) => (
+                      <a key={role} className="yat-tour-role" href={href} aria-label={`${label} guided tour`}>
                         <img src={`/img/tour-roles/${role}.png`} alt="" loading="lazy" />
                         <span>{label}</span>
                       </a>
@@ -1519,7 +1519,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-raffle-section p{color:#e5e5e5!important;}
         #drawerAccount .yat-raffle-section strong{color:#fff!important;}
         /* The World Series trophy: a large, faint watermark behind the raffle copy. */
-        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:0;top:-14%;bottom:-14%;right:-4%;width:72%;background:url("/img/world-series-trophy-cta.png") center / contain no-repeat;opacity:.13;pointer-events:none;}
+        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:0;top:11%;bottom:-9%;right:-3%;width:70%;background:url("/img/world-series-trophy-cta.png") center top / contain no-repeat;opacity:.26;-webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.45) 38%,#000 78%);mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.45) 38%,#000 78%);pointer-events:none;}
         #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
         #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
         @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
