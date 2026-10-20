@@ -145,6 +145,7 @@ export default function ContributeSearch(props: Props) {
         pick.current.onPlayer({
           playerId: d.playerId,
           displayName: d.playerName || '',
+          headshotUrl: d.headshotUrl || '',
           schoolId: d.schoolId || undefined,
           schoolName: d.schoolName || undefined,
         });
