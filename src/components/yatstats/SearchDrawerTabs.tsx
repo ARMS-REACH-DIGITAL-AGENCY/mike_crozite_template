@@ -452,7 +452,8 @@ export async function handleFavoriteButtonClick(button: HTMLElement) {
       try {
         sessionStorage.setItem('pending_superfan', '1');
       } catch {}
-      showSearchFavToast('Global favoriting requires a Superfan subscription. Upgrade in your account.', 'warn');
+      // The account drawer explains it above its Superfan button.
+      window.dispatchEvent(new CustomEvent('yat:superfan-ask', { detail: { playerName } }));
     }
     openAccountDrawer();
     return;

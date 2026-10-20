@@ -168,10 +168,8 @@ export default function FavoriteButton({
         try {
           sessionStorage.setItem('pending_superfan', '1');
         } catch {}
-        showToast(
-          'Global favoriting requires a Superfan subscription. Upgrade in your account.',
-          'warn'
-        );
+        // The account drawer explains it above its Superfan button.
+        window.dispatchEvent(new CustomEvent('yat:superfan-ask', { detail: { playerName: displayName } }));
         openAccountDrawer();
       }
       return;
