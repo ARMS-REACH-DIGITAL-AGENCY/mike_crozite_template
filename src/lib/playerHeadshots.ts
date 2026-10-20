@@ -91,6 +91,40 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
     }
   }
 
+  // If no canonical current portrait exists, search lists may display an
+  // explicitly approved season headshot. This is a visual fallback only;
+  // it does not rewrite the player's canonical HEADSHOT designation.
+  const missing = ids.filter((id) => !result.has(id));
+  if (missing.length) {
+    const archive = await query<{ playerid: string; description: string | null }>(
+      `SELECT DISTINCT ON (playerid) playerid::text AS playerid, description
+         FROM media_upload
+        WHERE playerid = ANY($1::text[])
+          AND purpose = 'headshot'
+          AND status = 'approved'
+        ORDER BY playerid, date_taken DESC NULLS LAST, uploaded_at DESC, id DESC`,
+      [missing],
+    ).catch((error) => {
+      console.error('Approved seasonal headshot fallback lookup failed', { error });
+      return { rows: [] as { playerid: string; description: string | null }[] };
+    });
+    for (const row of archive.rows) {
+      let parsed: { published_assets?: string[] } = {};
+      try { parsed = JSON.parse(row.description || '{}'); } catch {}
+      const key = (parsed.published_assets || []).find((asset) =>
+        /^players\/season-headshots\//.test(asset) && /\.(?:png|webp|jpe?g)$/i.test(asset),
+      );
+      const image = key ? storyAssetUrl(key) : null;
+      if (image && !result.has(String(row.playerid))) {
+        result.set(String(row.playerid), {
+          playerid: String(row.playerid),
+          image_url: image,
+          source: 'approved_photo',
+        });
+      }
+    }
+  }
+
   // Explicit HEADSHOT designation stays authoritative over every fallback.
   for (const [id, photo] of designated) {
     const image = String(photo?.image_url || '').trim();
