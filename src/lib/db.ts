@@ -85,12 +85,12 @@ const TRANSIENT_CONNECTION_ERROR = /connection terminated (?:due to connection t
 const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'EPIPE', '57P01', '57P02', '57P03', '08000', '08001', '08003', '08006']);
 const DB_SLOW_QUERY_MS = 3000;
 
-// Allow at most one retry for statement-shaped reads. WITH can contain data
-// modifications, and SELECT can call volatile functions or lock rows: do not
-// automatically replay those. Never retry INSERT/UPDATE/DELETE/DDL.
+// At most one retry for clearly read-only SELECT or WITH queries.
+// WITH can perform writes, so reject it if any DML/DDL token is present.
+// Never replay writes, row-locking SELECTs, or known side-effecting functions.
 function isRetryableRead(statement: string): boolean {
-  return /^\s*SELECT\b/i.test(statement) &&
-    !/\bFOR\s+(?:UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b|\b(?:nextval|setval|pg_advisory_\w*)\s*\(/i.test(statement);
+  if (!/^\s*(?:SELECT|WITH)\b/i.test(statement)) return false;
+  return !/\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL|DO|COPY|EXECUTE)\b|\bFOR\s+(?:UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b|\b(?:nextval|setval|pg_advisory_\w*)\s*\(/i.test(statement);
 }
 function isTransientDbError(error: unknown): boolean {
   const err = error as { code?: string; message?: string; cause?: { code?: string; message?: string } } | null;
