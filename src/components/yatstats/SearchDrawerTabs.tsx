@@ -150,7 +150,7 @@ export function renderPlayerRows(players: any[], emptyText: string) {
         const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
         const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
         return `
-          <div class="yat-search-card yat-search-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
+          <div class="yat-search-card yat-search-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-headshot-url="${esc(playerHeadshotUrl(p))}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
             ${favoriteButtonHtml(p, name)}
             <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
               ${playerHeadshotHtml(p)}
@@ -313,7 +313,7 @@ export function renderTeamRows(players: any[], emptyText: string) {
         const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
             const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
             return `
-              <div class="yat-search-card yat-search-team-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
+              <div class="yat-search-card yat-search-team-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-headshot-url="${esc(playerHeadshotUrl(p))}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
                 ${favoriteButtonHtml(p, name)}
                 <a class="yat-search-player-headshot-link" href="${esc(playerUrl(p))}" title="Open ${esc(name)} profile">
                   ${playerHeadshotHtml(p)}
