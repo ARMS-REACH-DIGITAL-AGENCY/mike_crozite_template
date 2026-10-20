@@ -27,53 +27,39 @@ const SECTION_BOOTSTRAP =
   "var x=function(){d.removeAttribute('data-yat-sec');};d.setAttribute('data-yat-sec',m[1]);" +
   "addEventListener('load',function(){setTimeout(x,4000);});setTimeout(x,20000);}}catch(e){}";
 
-// The school splash (SchoolSplash, sent by the school layout before any
-// roster loads). Two modes, decided per person before the first paint:
-// - full, for someone new to YAT?STATS: the logo slides in from the right,
-//   the crest from the left, then they shine; at least 1.6s;
-// - quick, for anyone back within 30 days (a yat_seen cookie shared by every
-//   school subdomain - a superfan hopping between favorites' schools): the
-//   same screen already lit, no minimum, and only if the page is still
-//   loading after 0.3s.
-// Either way it leaves with a flip, like a flip card: the splash on the
-// front, the school's hub on the back (a view transition between the two;
-// browsers without one flip the splash away). A short card-flip sound plays
-// when the browser allows it - usually only once the visitor has tapped.
-// ?splash=... in the address forces the full one (to show it off, or test).
-// Ready = 'yat:page-ready' (the gallery strip) or, on pages without a
-// gallery, the load event; never longer than 8s. The splash is driven
-// through one <style> in <head> (React leaves those alone), never by
-// touching the element; its rules start with "html " to outrank the
-// splash's own.
+// The school introduction is shown once per browser per 30 days, across all
+// yatstats.com school subdomains. Returning visitors never get the full
+// stadium screen (or its quick replica) on page-to-page navigation.
+// The full animation is kept for a first impression but does not block after
+// the hard ceiling; repeat navigation uses the destination directly.
+// ?splash=1 forces the introduction for manual QA.
 const SPLASH_BOOTSTRAP = `try{(function(){
-var d=document,h=location.hostname,seen=!/[?&]splash=/.test(location.search)&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
-var dom=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
-d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+dom;
+var d=document,h=location.hostname,force=/[?&]splash=/.test(location.search);
+var cookie=/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
+var seen=!force&&cookie;
+var domain=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
+d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+domain;
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
 var set=function(css){st.textContent=css;};
-var P='html #yatSplash';
-var QUICK=P+' *,'+P+' *::after{animation:none!important}'+P+' .yat-splash-logo img{animation:yatSplashGlow 2.4s ease-in-out infinite!important}';
-var RM=false;try{RM=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
-var EXIT=RM?P+'{opacity:0!important;pointer-events:none!important}':P+'{pointer-events:none!important;animation:yatSplashFlipAway .3s cubic-bezier(.55,0,1,.45) forwards!important}';
-var OFF=P+'{display:none!important}';
+var P='html #yatSplash',OFF=P+'{display:none!important;pointer-events:none!important}';
+if(seen){set(OFF);return;}
+var reduced=false;try{reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
 var FLIP='::view-transition{background:#000}::view-transition-group(root){animation-duration:.62s}::view-transition-old(root){animation:yatFlipOut .3s cubic-bezier(.55,0,1,.45) both}::view-transition-new(root){animation:yatFlipIn .32s cubic-bezier(0,.55,.45,1) .3s both}@keyframes yatFlipOut{to{transform:perspective(1400px) rotateY(90deg)}}@keyframes yatFlipIn{from{transform:perspective(1400px) rotateY(-90deg)}}';
-var sound=function(){try{var A=window.AudioContext||window.webkitAudioContext;if(!A)return;var c=new A();if(c.state!=='running'){c.close();return;}
-var n=c.sampleRate*.16|0,b=c.createBuffer(1,n,c.sampleRate),x=b.getChannelData(0);for(var i=0;i<n;i++)x[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
-var s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=b;f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(900,c.currentTime);f.frequency.exponentialRampToValueAtTime(3800,c.currentTime+.14);g.gain.value=.35;
-s.connect(f);f.connect(g);g.connect(c.destination);s.start();setTimeout(function(){c.close();},500);}catch(e){}};
+var exited=false,ready=false,minDuration=5100;
+var t0=Date.now();
 var flip=function(){
-if(!RM&&d.startViewTransition){sound();var v=d.createElement('style');v.textContent=FLIP;d.head.appendChild(v);
+if(exited)return;exited=true;
+if(!reduced&&d.startViewTransition){var v=d.createElement('style');v.textContent=FLIP;d.head.appendChild(v);
 try{d.startViewTransition(function(){set(OFF);}).finished.then(function(){v.remove();},function(){v.remove();});}catch(e){set(OFF);v.remove();}return;}
-if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},350);};
-var t0=Date.now(),ready=false,shown=!seen;
-if(seen){set(QUICK+P+'{opacity:0!important;pointer-events:none!important}');
-setTimeout(function(){if(!ready){shown=true;set(QUICK);}},300);}
-var lift=function(){if(ready)return;ready=true;
-if(!shown){set(OFF);return;}
-setTimeout(flip,seen?0:Math.max(0,1600-(Date.now()-t0)));};
+if(!reduced){set(P+'{pointer-events:none!important;animation:yatSplashFlipAway .3s cubic-bezier(.55,0,1,.45) forwards!important}');setTimeout(function(){set(OFF);},350);}
+else set(OFF);
+};
+var readyAt=0;
+var lift=function(){if(ready)return;ready=true;readyAt=Date.now();
+setTimeout(flip,reduced?0:Math.max(0,minDuration-(readyAt-t0)));};
 addEventListener('yat:page-ready',lift);
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
-setTimeout(lift,8000);
+setTimeout(flip,6500);
 })();}catch(e){}`;
 
 const SECTION_BOOTSTRAP_CSS =
