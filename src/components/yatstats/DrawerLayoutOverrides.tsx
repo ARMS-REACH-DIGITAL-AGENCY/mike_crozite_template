@@ -497,6 +497,44 @@ export default function DrawerLayoutOverrides() {
           z-index:2147483199!important;
         }
       }
+      /* Career Story uses Contribute's docked responsive geometry. */
+      #drawerStory.yat-story-drawer {
+        position:fixed!important;right:0!important;top:0!important;bottom:0!important;
+        height:100dvh!important;width:var(--yat-side-drawer-w)!important;
+        max-width:var(--yat-side-drawer-w)!important;box-sizing:border-box!important;
+        overflow-x:hidden!important;overflow-y:auto!important;
+        background:rgba(6,6,6,.80)!important;
+        backdrop-filter:blur(9px)!important;
+        -webkit-backdrop-filter:blur(9px)!important;
+        border-left:1px solid var(--line)!important;
+        transform:translateX(105%)!important;transition:transform .22s ease!important;
+        z-index:64!important;
+      }
+      body.light-theme #drawerStory.yat-story-drawer {background:rgba(255,255,255,.87)!important;}
+      body.drawer-story-open #drawerStory.yat-story-drawer {transform:translateX(0)!important;}
+      @media(min-width:780px) {
+        body.drawer-story-open {overflow-y:auto!important;}
+        body #drawerStory.yat-story-drawer {
+          top:calc(var(--row1-h) + var(--row2-h))!important;
+          bottom:var(--footerH)!important;height:auto!important;
+        }
+        body.drawer-story-open .yat-drawer-mask {display:none!important;opacity:0!important;pointer-events:none!important;}
+        body.drawer-story-open .yat-row3-shell,
+        body.drawer-story-open .yat-row4-shell,
+        body.drawer-story-open .yat-row5-shell,
+        body.drawer-story-open .yat-row6-shell {
+          margin-right:var(--yat-side-drawer-w)!important;transition:margin-right .22s ease;
+        }
+      }
+      @media(max-width:779px) {
+        body #drawerStory.yat-story-drawer {
+          top:0!important;bottom:0!important;height:100dvh!important;
+          width:100vw!important;max-width:100vw!important;z-index:2147483200!important;
+        }
+        body.drawer-story-open .yat-drawer-mask {
+          opacity:1!important;pointer-events:auto!important;z-index:2147483199!important;
+        }
+      }
       /* Filter = the same clean, rule-free neutral Contribute form system.
          Keep IDs and native checkbox inputs unchanged for gallery presets. */
       /* Keep Sort and Filter identical in opacity and theme. */
