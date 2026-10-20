@@ -150,13 +150,20 @@ function FallClassicRaffle() {
               FALL CLASSIC TICKETS RAFFLE
             </div>
             <p style={{ margin: '0 0 10px', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
-              Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
-              Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
-              <strong style={{ color: '#fff' }}> 20 regular-season entries + 1 postseason entry</strong>.
+              Fans of the eventual 30-week Bracket Champion receive one raffle entry for each round they are registered.
+              Super Fans receive three entries for every round they hold Super Fan status (instead of one).
+              That means <strong style={{ color: '#fff' }}>10 entries for 10 Fan rounds or 30 entries for 10 Super Fan rounds</strong>.
+              Join in Round 10 and your school wins? You still earn an entry.
             </p>
             <p style={{ margin: 0, color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
               Entries close <strong style={{ color: '#fff' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
               <strong style={{ color: '#fff' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
+              Each active alumnus from the eight regional postseason teams may also nominate one Lucky Fan for an entry.
+            </p>
+            <p style={{ margin: '7px 0 0', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
+              Prize: <strong style={{ color: '#fff' }}>four 2027 MLB World Series tickets</strong> for one game or two tickets each for two games,
+              plus one local hotel night. <strong style={{ color: '#fff' }}>Airfare not included.</strong>
+              Eligibility, no-purchase entry method and prize restrictions require published Official Rules.
             </p>
           </section>
   );
