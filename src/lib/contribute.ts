@@ -47,7 +47,7 @@ export function yearsOfHisLife(seasons: Season[], classOf: number | null, thisYe
   const birth = classOf ? classOf - 18 : null;
   const first = Math.min(birth ?? thisYear, ...seasons.map((s) => s.year));
   const out: Season[] = [];
-  for (let year = Math.max(thisYear, ...seasons.map((s) => s.year)); year >= first; year--) {
+  for (let year = Math.max(thisYear + 1, ...seasons.map((s) => s.year)); year >= first; year--) {
     const ofYear = seasons.filter((s) => s.year === year);
     if (ofYear.length) { out.push(...ofYear); continue; }
     if (birth === null) continue;
