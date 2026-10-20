@@ -781,6 +781,13 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(3px); }
+        /* The portrait nudge must not move a selected year plaque.
+           Keep 2017 level with 2016 and the other team-year badges. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-year-badge,
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-year-badge.is-active,
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-year-badge:focus-visible {
+          transform:translateY(0);
+        }
         /* Move the portrait and surname together using only the parent slot transform. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
           transform:none !important;
@@ -949,7 +956,7 @@ export default function InteractionStrip({
               <span className="alltime-sponsor-title"><span>PROUD</span><span>SPONSOR</span></span>
             </span>
           ) : (
-            <a className="alltime-sponsor-sign is-open" href="https://yatstats.com/partners/" aria-label="You can put it on the board! Yes! Sponsor this spot" title="Put your business here">
+            <a className="alltime-sponsor-sign is-open" href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" aria-label="You can put it on the board! Yes! Sponsor this spot" title="Put your business here">
               <span className="alltime-sponsor-board"><b>YOU CAN PUT</b><b>IT ON THE</b><b>BOARD!</b></span>
               <span className="alltime-sponsor-title"><span>YES!</span></span>
             </a>
