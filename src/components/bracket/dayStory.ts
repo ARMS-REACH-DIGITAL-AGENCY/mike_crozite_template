@@ -3,7 +3,7 @@
 // what it did to the score, and who did it in real life - with a shout-out
 // to the school's top OPS+ and top FIP- of the day. Once a game is over, its
 // recap: the final, how it was won and where the series stands.
-import { type GameBox, type GameRow, type Index, type PlayerRow, shortName } from './gallery';
+import { type GameBox, type GameRow, type Index, type PlayerRow, type SideBox, shortName } from './gallery';
 
 export type DayShout = { id: string; name: string; kind: 'bat' | 'pit'; value: number; line: string };
 export type DayStory = { day: string; title: string; summary: string; shouts: DayShout[]; hero?: DayShout };
@@ -71,6 +71,8 @@ function standouts(rows: PlayerRow[]) {
 // "a 104", "an 88", "an 11".
 const an = (n: number | string | null) => (/^8/.test(String(n)) || ['11', '18'].includes(String(n)) ? `an ${n}` : `a ${n}`);
 const joinAnd = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+// "Keller's", "The Woodlands'".
+const poss = (name: string) => (/s$/i.test(name) ? `${name}'` : `${name}'s`);
 
 // The story of one settled inning of game g (k: 0-6 = Monday-Sunday, 7 =
 // the 8th, the week's totals, 8 = the 9th, the clubs' W-L), told the way a
@@ -137,11 +139,15 @@ export function inningStory(index: Index, g: GameRow, box: GameBox | undefined, 
   let who: string;
   if (k === 8) {
     const [mw, ml] = mySide.wl || [0, 0], [tw, tl] = oppSide.wl || [0, 0];
-    who = `The 9th is the alumni's real clubs: ${school}'s went ${mw}-${ml} this week, ${opp}'s ${tw}-${tl}.`;
+    // A school whose alumni's clubs didn't play counts as .500 (the engine's rule).
+    const went = (w: number, l: number) => (w + l ? `went ${w}-${l}` : "didn't play, which counts as .500");
+    who = !(mw + ml + tw + tl) ? "The 9th is the alumni's real clubs: neither school's played this week."
+      : mw + ml && tw + tl ? `The 9th is the alumni's real clubs: ${poss(school)} went ${mw}-${ml} this week, ${poss(opp)} ${tw}-${tl}.`
+      : `The 9th is the alumni's real clubs this week: ${poss(school)} ${went(mw, ml)}; ${poss(opp)} ${went(tw, tl)}.`;
   } else {
     const wk = k === 7 && box.d?.[7]?.every((v) => v != null) ? box.d[7] : null;
     const totals = wk
-      ? `The 8th is the whole week: ${school} hit for ${an(wk[home ? 0 : 1])} OPS+ to ${opp}'s ${wk[home ? 1 : 0]}, and pitched to ${an(wk[home ? 2 : 3])} FIP- to ${wk[home ? 3 : 2]}. `
+      ? `The 8th is the whole week: ${school} hit for ${an(wk[home ? 0 : 1])} OPS+ to ${poss(opp)} ${wk[home ? 1 : 0]}, and pitched to ${an(wk[home ? 2 : 3])} FIP- to ${wk[home ? 3 : 2]}. `
       : '';
     const mineSay = standouts(myRows), theirSay = standouts(oppRows);
     who = totals + [
@@ -160,6 +166,19 @@ export function inningStory(index: Index, g: GameRow, box: GameBox | undefined, 
 export function dayStory(index: Index, g: GameRow, box: GameBox | undefined, me: number): DayStory | null {
   for (let k = 6; k >= 0; k--) if (box?.f?.[k]?.[0] && box.f[k]?.[1]) return inningStory(index, g, box, me, k);
   return null;
+}
+
+// School me's best line of game g's week so far - the hitter furthest above
+// league average (OPS+) or the pitcher furthest below it (FIP-) - for the
+// picture of a story with no shout-out of its own. undefined if none of its
+// alumni has a line yet.
+export function weekHero(g: GameRow, box: GameBox | undefined, me: number): DayShout | undefined {
+  const rows = (g[2] === me ? box?.h : box?.a)?.p || [];
+  const bats = rows.filter((p) => Array.isArray(p[4]) && p[4][0] > 0 && p[6] !== null)
+    .map((p): [number, DayShout] => [Number(p[6]) - 100, { id: p[0], name: p[1], kind: 'bat', value: Number(p[6]), line: batLine(p[4] as number[]) }]);
+  const pits = rows.filter((p) => Array.isArray(p[5]) && p[5].slice(0, 5).some((v) => v > 0) && p[7] !== null)
+    .map((p): [number, DayShout] => [100 - Number(p[7]), { id: p[0], name: p[1], kind: 'pit', value: Number(p[7]), line: pitLine(p[5] as number[]) }]);
+  return [...bats, ...pits].sort((a, b) => b[0] - a[0])[0]?.[1];
 }
 
 // A week's stories in order, for the hero to rotate through: every settled
@@ -186,8 +205,12 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
     let h0 = 0, a0 = 0;
     for (let k = 0; k < n; k++) { h0 += Number(runs[k * 2] || 0); a0 += Number(runs[k * 2 + 1] || 0); }
     const nm = (h: number) => shortName(index.schools[h]?.[0] || '');
+    // Nobody in action: no alumnus with a line and no club game.
+    const idle = (s?: SideBox) => !s || (!(s.wl[0] + s.wl[1]) && !s.p.some((p) => (Array.isArray(p[4]) && p[4][0] > 0) || (Array.isArray(p[5]) && p[5].slice(0, 5).some((v) => v > 0))));
     return { day: 'Final', title: "IT'S THE COMMISSIONER'S CALL", shouts: [],
-      summary: `${nm(g[3])} and ${nm(g[2])} finished Game ${gameNo} tied ${a0}-${h0}: after nine innings, every extra-inning matchup and even fan bases, nothing was left to compare. The commissioner will decide it.` };
+      summary: idle(box?.h) && idle(box?.a)
+        ? `${nm(g[3])} and ${nm(g[2])} finished Game ${gameNo} tied ${a0}-${h0}: neither school had an alumnus in action this week, so there was nothing to compare. The commissioner will decide it.`
+        : `${nm(g[3])} and ${nm(g[2])} finished Game ${gameNo} tied ${a0}-${h0}: after nine innings, every extra-inning matchup, even run differentials and even fan bases, nothing was left to compare. The commissioner will decide it.` };
   }
   if (!runs.length || g[6] == null) return null;
   const home = g[2] === me;
@@ -218,7 +241,7 @@ export function gameStory(index: Index, g: GameRow, box: GameBox | undefined, me
   const fanBase = g[4] === 'fans';
   const runDiff = g[4] === 'runDiff';
   const title = runDiff ? `${W.toUpperCase()} WINS IT ON RUN DIFFERENTIAL`
-    : fanBase ? `${W.toUpperCase()}'S FANS WIN IT`
+    : fanBase ? `${poss(W).toUpperCase()} FANS WIN IT`
     : flip ? `${W.toUpperCase()} WINS ON THE COMMISSIONER'S CALL`
     : cross ? `${W.toUpperCase()} WINS IT IN THE ${ORD(innings).toUpperCase()}`
     : walkOff ? `${W.toUpperCase()} WALKS IT OFF`
@@ -318,7 +341,7 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
         off && bat ? `${bat[1]}${club(bat[0])}, who went ${batProse(bat[4] as number[])} on ${DAYS[e.k]} (${bat[6]} OPS+)` : '',
         pit && arm ? `${arm[1]}${club(arm[0])}, who ${pitProse(arm[5] as number[])} on ${DAYS[e.k]} (${arm[7]} FIP-)` : '',
       ].filter(Boolean);
-      return parts.length ? `thanks to ${joinAnd(parts)}` : `on the strength of ${S}'s ${DAYS[e.k]}`;
+      return parts.length ? `thanks to ${joinAnd(parts)}` : `on the strength of ${poss(S)} ${DAYS[e.k]}`;
     }
     if (e.k === 7) {
       const d = box.d?.[7] || [];
@@ -331,7 +354,7 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
     }
     if (e.k === 8) {
       const [w1, l1] = side.wl || [0, 0], [w2, l2] = other.wl || [0, 0];
-      return `on the strength of its alumni's real clubs, which went ${w1}-${l1} this week to ${O}'s ${w2}-${l2}`;
+      return `on the strength of its alumni's real clubs, which went ${w1}-${l1} this week to ${poss(O)} ${w2}-${l2}`;
     }
     // Extra innings, ranked like the engine: Tiebreaker #1 matches hitters
     // and pitchers by rank (10th = #1s, 11th = #2s ...); once those run out,
@@ -349,16 +372,16 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
       const c = i - crossFrom;
       const m = { bat: mb[c], arm: ma[c] }, t = { bat: tb[c], arm: ta[c] };
       const bits = [
-        m.bat && t.arm && Number(m.bat[6]) - 100 > 100 - Number(t.arm[7]) ? `its hitter ${m.bat[1]} (${m.bat[6]} OPS+) came out closer to league average than ${O}'s pitcher ${t.arm[1]} (${t.arm[7]} FIP-)` : '',
-        m.arm && t.bat && 100 - Number(m.arm[7]) > Number(t.bat[6]) - 100 ? `its pitcher ${m.arm[1]} (${m.arm[7]} FIP-) came out closer to league average than ${O}'s hitter ${t.bat[1]} (${t.bat[6]} OPS+)` : '',
+        m.bat && t.arm && Number(m.bat[6]) - 100 > 100 - Number(t.arm[7]) ? `its hitter ${m.bat[1]} (${m.bat[6]} OPS+) came out closer to league average than ${poss(O)} pitcher ${t.arm[1]} (${t.arm[7]} FIP-)` : '',
+        m.arm && t.bat && 100 - Number(m.arm[7]) > Number(t.bat[6]) - 100 ? `its pitcher ${m.arm[1]} (${m.arm[7]} FIP-) came out closer to league average than ${poss(O)} hitter ${t.bat[1]} (${t.bat[6]} OPS+)` : '',
       ].filter(Boolean);
       return bits.length ? `in the hitter-vs-pitcher matchups, when ${joinAnd(bits)}` : 'in the hitter-vs-pitcher matchups';
     }
     const mine = { bat: mineR.bats[i], arm: mineR.arms[i] }, theirs = { bat: theirsR.bats[i], arm: theirsR.arms[i] };
     const rank = i === 0 ? 'top' : `No. ${i + 1}`;
     const vs = [
-      mine.bat && theirs.bat && Number(mine.bat[6]) > Number(theirs.bat[6]) ? `its ${rank} bat, ${mine.bat[1]} (${mine.bat[6]} OPS+), out-hit ${O}'s ${theirs.bat[1]} (${theirs.bat[6]})` : '',
-      mine.arm && theirs.arm && Number(mine.arm[7]) < Number(theirs.arm[7]) ? `its ${rank} arm, ${mine.arm[1]} (${mine.arm[7]} FIP-), outdueled ${O}'s ${theirs.arm[1]} (${theirs.arm[7]})` : '',
+      mine.bat && theirs.bat && Number(mine.bat[6]) > Number(theirs.bat[6]) ? `its ${rank} bat, ${mine.bat[1]} (${mine.bat[6]} OPS+), out-hit ${poss(O)} ${theirs.bat[1]} (${theirs.bat[6]})` : '',
+      mine.arm && theirs.arm && Number(mine.arm[7]) < Number(theirs.arm[7]) ? `its ${rank} arm, ${mine.arm[1]} (${mine.arm[7]} FIP-), outdueled ${poss(O)} ${theirs.arm[1]} (${theirs.arm[7]})` : '',
     ].filter(Boolean);
     return vs.length ? `when ${joinAnd(vs)}` : `in the tiebreaker, where each school's top hitter and pitcher go head to head`;
   };
@@ -370,7 +393,7 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
   if (g[4] === 'runDiff') {
     const wb = g[6] === g[2] ? box.h : box.a, lb = g[6] === g[2] ? box.a : box.h;
     const sign = (v: number | undefined) => (!v ? '0' : v > 0 ? `+${v}` : `${v}`);
-    lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on run differential. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it came down to the alumni's real clubs, which were a combined ${sign(wb?.rd)} for the week to ${L}'s ${sign(lb?.rd)}, and that run made it ${score}.`;
+    lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on run differential. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it came down to the alumni's real clubs, which were a combined ${sign(wb?.rd)} for the week to ${poss(L)} ${sign(lb?.rd)}, and that run made it ${score}.`;
   } else if (g[4] === 'fans') {
     lede = `${W} took Game ${opts.gameNo} of its Round 1 series against ${L} on the strength of its fans. Tied ${ls}-${ls} after nine innings and every extra-inning matchup, it went to the fan-base tiebreaker - the most registered YAT?STATS fans - and that run made it ${score}.`;
   } else if (g[4] === 'commissioner') {
@@ -400,7 +423,8 @@ export function gameArticle(index: Index, g: GameRow, box: GameBox | undefined, 
   };
   const shown = rest.slice(0, 5);
   const body = shown.map(say);
-  if (rest.length > 5) body.push(`The two combined for ${NUM[rest.slice(5).reduce((t, e) => t + e.n, 0)] || 'several'} more runs after that.`);
+  const more = rest.slice(5).reduce((t, e) => t + e.n, 0);
+  if (more) body.push(`The two combined for ${more === 1 ? 'one more run' : `${NUM[more] || more} more runs`} after that.`);
   const ninth = evs.filter((e) => e.k === 8);
   const after8 = evs.filter((e) => e.k <= 7);
   const w8 = after8.reduce((t, e) => t + (winnerEv(e) ? e.n : 0), 0), l8 = after8.reduce((t, e) => t + (winnerEv(e) ? 0 : e.n), 0);
