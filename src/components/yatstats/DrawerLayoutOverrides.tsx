@@ -214,6 +214,13 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-nav-custom-icon { width:24px; height:24px; min-width:24px; display:block; object-fit:contain; flex:none; mix-blend-mode:multiply; }
       body:not(.light-theme) #drawerLeft .yat-nav-custom-icon { filter:invert(1); mix-blend-mode:screen; }
       #drawerLeft .yat-nav-custom-icon.yat-nav-tour-icon { width:30px; height:30px; min-width:30px; margin-left:-3px; margin-right:-3px; }
+      /* The supplied stacked mark is already full artwork, not a monochrome
+         stencil. Preserve its colors and transparent edges in both themes. */
+      #drawerLeft .yat-nav-custom-icon.yat-nav-tour-stacked {
+        width:36px; height:36px; min-width:36px; margin:0 -3px 0 -6px;
+        object-fit:contain; filter:none !important; mix-blend-mode:normal !important;
+      }
+      #drawerLeft .yat-drawer-guided-tour > span { font-size:clamp(10px,2.7vw,12px); }
 
       #drawerLeft .yat-drawer-visiting-school > .yat-drawer-crest-thumb { display:none; }
       #drawerLeft .yat-left-search-content { padding-left:20px; padding-right:20px; }
