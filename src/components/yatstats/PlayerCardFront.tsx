@@ -442,11 +442,11 @@ export default function PlayerCardFront({
       {/* Baseball-card treatment: the inset rule and transparent stacked
           wordmark are decoration only, never interactive hit targets. */}
       <div className="yat-front-print-frame" aria-hidden="true" />
-      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked-card.png" alt="" aria-hidden="true" />
+      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.png" alt="" aria-hidden="true" />
       {/* Favorite him right from the card (top-right corner). */}
       {imageId && (
         <div className="yat-card-fav-slot">
-          <FavoriteButton variant="star" solid playerId={imageId} playerName={[first, last].filter(Boolean).join(" ") || imageId} playerHsid={hsid || asText(p.hsid)} />
+          <FavoriteButton variant="star" playerId={imageId} playerName={[first, last].filter(Boolean).join(" ") || imageId} playerHsid={hsid || asText(p.hsid)} />
         </div>
       )}
 
@@ -540,41 +540,47 @@ export default function PlayerCardFront({
         .yat-front-cq {
           container-type: inline-size;
           container-name: yat-front;
+          /* Corner geometry shared by the frame, the wordmark and the heart:
+             the frame inset and the wordmark's width. */
+          --yat-corner: clamp(7px,2.4cqi,10px);
+          --yat-logo-w: clamp(35px,15.5cqi,57.5px);
         }
-        /* Hairline inset, just like a printed baseball card. The rule only
-           breaks for the stacked wordmark (top left) and the heart (top
-           right): the sides run down to the bottom corners and the bottom
-           runs corner to corner, with the player copy kept inside it. */
+        /* Hairline inset, just like a printed baseball card: a full frame
+           that stops 6px short of the wordmark (top left) and the heart
+           (top right), with the player copy kept inside it. Stop points
+           follow the wordmark's letters (.966w wide, .548w down from the
+           frame top) and the heart outline (18.4 x 17px, see below). */
         .yat-front-print-frame {
           position:absolute; z-index:2; pointer-events:none;
-          inset:clamp(7px,2.4cqi,10px);
+          inset:var(--yat-corner);
           border:0; box-shadow:none;
           --yat-rule: rgba(255,255,255,.66);
           background:
-            linear-gradient(to right, transparent 0%, var(--yat-rule) 18%, var(--yat-rule) 82%, transparent 100%) top center / calc(100% - 112px) 1px no-repeat,
-            linear-gradient(to bottom, transparent 0, var(--yat-rule) 34px) left bottom / 1px calc(100% - 38px) no-repeat,
-            linear-gradient(to bottom, transparent 0, var(--yat-rule) 34px) right bottom / 1px calc(100% - 40px) no-repeat,
-            linear-gradient(var(--yat-rule), var(--yat-rule)) bottom center / 100% 1px no-repeat;
+            linear-gradient(var(--yat-rule), var(--yat-rule)) left calc(.966 * var(--yat-logo-w) + 6px) top 0 / calc(100% - .99 * var(--yat-logo-w) - 30.4px) 1px no-repeat,
+            linear-gradient(var(--yat-rule), var(--yat-rule)) left 0 top calc(.548 * var(--yat-logo-w) + 6px) / 1px calc(100% - .548 * var(--yat-logo-w) - 6px) no-repeat,
+            linear-gradient(var(--yat-rule), var(--yat-rule)) right 0 top calc(.024 * var(--yat-logo-w) + 23px) / 1px calc(100% - .024 * var(--yat-logo-w) - 23px) no-repeat,
+            linear-gradient(var(--yat-rule), var(--yat-rule)) left 0 bottom 0 / 100% 1px no-repeat;
         }
         /* A soft, warm "old print" grade on the player photograph only. */
         .yat-front-cq .yat-bg-photo {
           filter: sepia(.3) saturate(1.18) contrast(1.06) brightness(1.02);
         }
+        /* The PNG has more empty space above the letters than left of them
+           (186px vs 37px of 1536), so lift it .097w: the letters then sit
+           as far from the top edge as from the left. */
         .yat-front-brand-watermark {
           position:absolute; z-index:3; pointer-events:none;
-          top:clamp(7px,2.4cqi,10px); left:clamp(7px,2.4cqi,10px);
-          width:clamp(30px,12.5cqi,46px); height:auto; max-height:31px;
+          top:calc(var(--yat-corner) - .097 * var(--yat-logo-w)); left:var(--yat-corner);
+          width:var(--yat-logo-w); height:auto; max-height:38px;
           object-fit:contain; object-position:left top;
-          filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
+          opacity:.72; filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
         }
-        /* Corner heart: solid black with a white outline, orange once
-           favorited (FavoriteButton solid always draws the filled glyph). */
-        .yat-front-cq .yat-card-fav-slot .yat-card-fav:not(.on) { color:rgba(0,0,0,.86); }
-        .yat-front-cq .yat-card-fav-slot .yat-card-fav.on { color:#ffb21c; }
-        .yat-front-cq .yat-card-fav-slot .yat-card-fav {
-          text-shadow:1.5px 0 #fff,-1.5px 0 #fff,0 1.5px #fff,0 -1.5px #fff,
-            1.1px 1.1px #fff,-1.1px 1.1px #fff,1.1px -1.1px #fff,-1.1px -1.1px #fff,
-            0 2px 5px rgba(0,0,0,.45);
+        /* The heart outline sits 9.8px down and 8.8px in from its 36px
+           button's corner: place it as far from the top and right edges
+           as the wordmark's letters are from the top and left. */
+        .yat-front-cq .yat-card-fav-slot {
+          top:calc(var(--yat-corner) + .024 * var(--yat-logo-w) - 9.8px);
+          right:calc(var(--yat-corner) + .024 * var(--yat-logo-w) - 8.8px);
         }
 
         .yat-front-content {
