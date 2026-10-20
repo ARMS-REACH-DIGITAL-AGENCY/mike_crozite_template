@@ -621,7 +621,7 @@ export default function InteractionStrip({
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
-          position:absolute; left:27px; top:8px; transform:none; z-index:7;
+          position:absolute; left:19px; top:8px; transform:none; z-index:7;
           display:flex; flex-direction:column; justify-content:center; align-items:center;
           width:65px; height:42px; border:1px solid #c8c5b9; border-radius:2px;
           background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
@@ -634,7 +634,7 @@ export default function InteractionStrip({
           font:900 27px/1 Oswald,sans-serif;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-left:102px !important;
+          padding-left:90px !important;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -801,25 +801,24 @@ export default function InteractionStrip({
             flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
           }
         }
-        /* The All-Time row's sponsor sign, on the fence at the right, mirroring
-           the All-Time sign on the left. Keep one mask for both signs: each
-           reaches 92px from the rail edge (27px inset + 65px wide). Finish the
-           32px dissolve before that boundary, so years never pass under a sign.
-           The fixed signs are siblings of the masked scroller and stay opaque. */
+        /* Move both fixed signs out toward the rail edges: each reaches 84px
+           (19px inset + 65px wide). Reserve 90px for each, with a short
+           16px fade so more of the year plaques remain visible on mobile.
+           Fixed signs sit outside the masked scroller and stay opaque. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-right:102px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 92px,black 124px,black calc(100% - 124px),transparent calc(100% - 92px),transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 92px,black 124px,black calc(100% - 124px),transparent calc(100% - 92px),transparent 100%);
+          padding-right:90px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 84px,black 100px,black calc(100% - 100px),transparent calc(100% - 84px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 84px,black 100px,black calc(100% - 100px),transparent calc(100% - 84px),transparent 100%);
         }
-        /* The chevrons sit outside the signs, at the rail's outer edges
-           (5-23px), so they never cover a sign or a year badge. */
+        /* Bare chevrons sit flush with the outer edges, without dark-green boxes.
+           Keep the sign and arrow hit areas separate. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow {
-          z-index:8; top:50%; width:18px; height:32px; transform:translateY(-50%);
-          background:rgba(8,32,22,.82); color:#f4f1e9; opacity:.95;
-          border-radius:3px;
+          z-index:8; top:50%; width:18px; height:38px; transform:translateY(-50%);
+          background:transparent; border:0; box-shadow:none; border-radius:0; padding:0;
+          color:#f4f1e9; font-size:26px; text-shadow:0 1px 3px rgba(0,0,0,.75);
         }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.left { left:5px; }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:5px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.left { left:0; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:0; }
         /* Outfield foul pole: a fixed yellow upright at the absolute left
            fence edge, independent of the scrollable team-year badges. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"]::before {
@@ -827,7 +826,7 @@ export default function InteractionStrip({
           left:0; top:-4px; bottom:0; width:4px; background:#dfc24d;
           box-shadow:1px 0 1px rgba(0,0,0,.25);
         }
-        .alltime-sponsor-sign { position:absolute; right:27px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
+        .alltime-sponsor-sign { position:absolute; right:19px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
         .alltime-sponsor-board { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; padding:3px;
           border:1px solid #c8c5b9; border-radius:2px; background:#f4f1e9; color:#733648; box-shadow:0 1px 5px #0005; overflow:hidden; }
         .alltime-sponsor-board img { max-width:100%; max-height:100%; object-fit:contain; }
