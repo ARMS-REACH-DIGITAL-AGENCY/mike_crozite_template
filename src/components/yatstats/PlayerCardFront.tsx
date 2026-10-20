@@ -544,6 +544,8 @@ export default function PlayerCardFront({
              the frame inset and the wordmark's width. */
           --yat-corner: clamp(7px,2.4cqi,10px);
           --yat-logo-w: clamp(35px,15.5cqi,57.5px);
+          /* The wordmark sits this far up and left of the frame's corner. */
+          --yat-logo-out: 3px;
         }
         /* Hairline inset, just like a printed baseball card: a full frame
            with the player copy kept inside it. At the wordmark (top left)
@@ -557,8 +559,8 @@ export default function PlayerCardFront({
           border:0; box-shadow:none;
           --yat-rule: rgba(255,255,255,.66);
           background:
-            linear-gradient(to right, transparent 0, var(--yat-rule) calc(.168 * var(--yat-logo-w) + 4px)) left calc(.798 * var(--yat-logo-w) + 2px) top 0 / calc(100% - .798 * var(--yat-logo-w) - 2px) 1px no-repeat,
-            linear-gradient(to bottom, transparent 0, var(--yat-rule) calc(.09 * var(--yat-logo-w) + 4px)) left 0 top calc(.458 * var(--yat-logo-w) + 2px) / 1px calc(100% - .458 * var(--yat-logo-w) - 2px) no-repeat,
+            linear-gradient(to right, transparent 0, var(--yat-rule) calc(.168 * var(--yat-logo-w) + 4px)) left calc(.798 * var(--yat-logo-w) + 2px - var(--yat-logo-out)) top 0 / calc(100% - .798 * var(--yat-logo-w) - 2px + var(--yat-logo-out)) 1px no-repeat,
+            linear-gradient(to bottom, transparent 0, var(--yat-rule) calc(.09 * var(--yat-logo-w) + 4px)) left 0 top calc(.458 * var(--yat-logo-w) + 2px - var(--yat-logo-out)) / 1px calc(100% - .458 * var(--yat-logo-w) - 2px + var(--yat-logo-out)) no-repeat,
             linear-gradient(var(--yat-rule), var(--yat-rule)) right 0 top 0 / 1px 100% no-repeat,
             linear-gradient(var(--yat-rule), var(--yat-rule)) left 0 bottom 0 / 100% 1px no-repeat;
         }
@@ -567,7 +569,7 @@ export default function PlayerCardFront({
            as far from the top edge as from the left. */
         .yat-front-brand-watermark {
           position:absolute; z-index:3; pointer-events:none;
-          top:calc(var(--yat-corner) - .097 * var(--yat-logo-w)); left:var(--yat-corner);
+          top:calc(var(--yat-corner) - .097 * var(--yat-logo-w) - var(--yat-logo-out)); left:calc(var(--yat-corner) - var(--yat-logo-out));
           width:var(--yat-logo-w); height:auto; max-height:38px;
           object-fit:contain; object-position:left top;
           /* Outline only: no drop shadow, which bled into the thin letters
