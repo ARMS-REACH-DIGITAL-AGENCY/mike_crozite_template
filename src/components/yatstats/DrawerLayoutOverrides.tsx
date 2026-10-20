@@ -220,7 +220,7 @@ export default function DrawerLayoutOverrides() {
         width:36px; height:36px; min-width:36px; margin:0 -3px 0 -6px;
         object-fit:contain; filter:none !important; mix-blend-mode:normal !important;
       }
-      #drawerLeft .yat-drawer-guided-tour > span { font-size:clamp(10px,2.7vw,12px); }
+      #drawerLeft .yat-drawer-guided-tour > span { font-size:inherit!important; font-weight:inherit; line-height:inherit; }
 
       #drawerLeft .yat-drawer-visiting-school > .yat-drawer-crest-thumb { display:none; }
       #drawerLeft .yat-left-search-content { padding-left:20px; padding-right:20px; }
