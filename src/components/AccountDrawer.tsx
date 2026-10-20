@@ -124,6 +124,44 @@ function buildMicrositeUrl(
   return `https://yatstats.com/${homeHsid}`;
 }
 
+// The promotion is shared by the JOIN, LOG IN, and signed-in account views.
+function FallClassicRaffle() {
+  return (
+<section
+            className="yat-raffle-section"
+            aria-label="Fall Classic Tickets Raffle"
+            style={{
+              margin: '14px 15px 4px',
+              padding: '14px 15px',
+              border: '1px solid var(--line)',
+              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26))',
+            }}
+          >
+            <div
+              style={{
+                color: 'var(--fg)',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                fontSize: '18px',
+                lineHeight: 1,
+                letterSpacing: '.07em',
+                marginBottom: '5px',
+              }}
+            >
+              FALL CLASSIC TICKETS RAFFLE
+            </div>
+            <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
+              Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
+              Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
+              <strong style={{ color: 'var(--fg)' }}> 20 regular-season entries + 1 postseason entry</strong>.
+            </p>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
+              Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
+              <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
+            </p>
+          </section>
+  );
+}
+
 export default function AccountDrawerContent({ subdomain, initialTab }: AccountDrawerProps) {
   const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
     error: '#dc2626',
@@ -1050,6 +1088,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </>
           )}
 
+          {/* Show the raffle after contribution and membership actions. */}
+          <FallClassicRaffle />
+
           <button
             className="yat-account-signout"
             onClick={handleSignOut}
@@ -1296,38 +1337,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </p>
           )}
 
-          {activeTab === "signin" && <section
-            className="yat-raffle-section"
-            aria-label="Fall Classic Tickets Raffle"
-            style={{
-              margin: '14px 15px 4px',
-              padding: '14px 15px',
-              border: '1px solid var(--line)',
-              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26))',
-            }}
-          >
-            <div
-              style={{
-                color: 'var(--fg)',
-                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
-                fontSize: '18px',
-                lineHeight: 1,
-                letterSpacing: '.07em',
-                marginBottom: '5px',
-              }}
-            >
-              FALL CLASSIC TICKETS RAFFLE
-            </div>
-            <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
-              Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
-              <strong style={{ color: 'var(--fg)' }}> 20 regular-season entries + 1 postseason entry</strong>.
-            </p>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
-              <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
-            </p>
-          </section>}
+          <FallClassicRaffle />
 
           <div className="yat-account-comparison" style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
             <div
@@ -1503,6 +1513,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         /* Transparent LED cutouts sit straight on the white bubble. */
         #drawerAccount .yat-tour-roles .yat-tour-role img{width:auto!important;max-width:100%!important;height:34px!important;max-height:34px!important;object-fit:contain!important;}
         #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
+        #drawerAccount .yat-account-signed-in .yat-raffle-section{margin:12px 0!important;}
         #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;overflow:hidden;background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;}
         /* The World Series trophy: a large, faint watermark behind the raffle copy. */
         #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:-1;top:-14%;bottom:-14%;right:-4%;width:72%;background:url("/img/world-series-trophy-cta.png") center / contain no-repeat;opacity:.13;pointer-events:none;}
