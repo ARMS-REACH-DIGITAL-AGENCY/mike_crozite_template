@@ -46,20 +46,33 @@ export default function BracketRules() {
       <section>
         <h4>Season Championship Tournament (weeks 31–33)</h4>
         <ul>
-          <li>The Most Runs Scored Leaderboard ends after week 30. The top team in each of the 8 regions is reseeded into a 3-week single-elimination tournament. (If a region&apos;s top team is the Bracket Champion, the region sends its next school.)</li>
+          <li>After 30 weeks, the school with the most total runs in each of the 8 regions becomes its regional representative in a separate eight-team, single-elimination postseason. If the Bracket Champion leads its region, that region sends its next-highest-ranked school instead.</li>
         </ul>
         <table className="ybr-sched">
           <tbody>
-            <tr><td>Round 1</td><td>4 elimination games</td><td>Week 31</td></tr>
-            <tr><td>Round 2</td><td>2 elimination games</td><td>Week 32</td></tr>
-            <tr><td>Season Championship Game</td><td>Winner advances to YSWS</td><td>Week 33</td></tr>
+            <tr><td>Quarterfinals</td><td>8 teams → 4</td><td>Week 31</td></tr>
+            <tr><td>Semifinals</td><td>4 teams → 2</td><td>Week 32</td></tr>
+            <tr><td>Season Final</td><td>2 teams → 1 champion</td><td>Week 33</td></tr>
           </tbody>
         </table>
       </section>
 
       <section className="ybr-world-series">
         <h4>YAT?STATS<br />High School Alumni<br />Fantasy World Series</h4>
-        <p>Bracket Champ vs. Season Champ<br />Week #34</p>
+        <p>Week 34: the undefeated 30-week Bracket Champion plays the winner of the eight-team Season Championship Tournament.</p>
+      </section>
+
+      <section className="ybr-raffle" aria-labelledby="ybr-raffle-title">
+        <h4 id="ybr-raffle-title">World Series Tickets Raffle</h4>
+        <p>Fans of the 30-week Bracket Champion earn drawing entries round by round. Fans nominated by players on the eight regional postseason teams can also earn an entry.</p>
+        <ul>
+          <li><b>Fan: 1 entry per round.</b> Every round you are registered as a Fan of the eventual Bracket Champion earns you one entry. Join in Round 10 and your school wins? You still receive one entry. Follow that winning school as a Fan for all 10 rounds and you receive 10 entries.</li>
+          <li><b>Super Fan: 3 entries per round.</b> Each round you are a Super Fan of the eventual Bracket Champion counts as three entries for that round, instead of one. Super Fan for all 10 rounds means 30 entries. If your status changes, count each round at the status you held during that round.</li>
+          <li><b>Players nominate Lucky Fans.</b> Each active alumnus playing for one of the eight regional postseason schools may nominate one fan for one additional drawing entry, even if that fan&apos;s school did not win the main bracket. The eight teams are determined by regional run totals after week 30.</li>
+          <li><b>Entry deadline and drawing.</b> Eligible entries close at 11:59 p.m. on September 26, 2027. One winner will be drawn on October 3, 2027.</li>
+          <li><b>The prize.</b> Four tickets to the 2027 MLB World Series: either four tickets for one game or two tickets to each of two games, subject to availability; plus one night at a local hotel. <b>Airfare is not included.</b></li>
+        </ul>
+        <p className="ybr-note">Prize availability, winner verification, eligibility and other conditions are subject to the final Official Rules.</p>
       </section>
 
       <ScoringRules />
@@ -70,15 +83,6 @@ export default function BracketRules() {
           <li>Every school is on its region&apos;s leaderboard all season (weeks 1–30), ranked on total runs scored. Run differential breaks ties.</li>
           <li>Schools score in their bracket games while they&apos;re alive. Once eliminated, a school is paired with another eliminated school in its region for the next round and plays that same opponent in all three weekly games. A new opponent may be drawn for the following round.</li>
           <li>After week 30 each region&apos;s top team goes to the Season Championship Tournament. If it&apos;s the Bracket Champion, the region sends its next school.</li>
-        </ul>
-      </section>
-
-      <section>
-        <h4>Fans and the raffle</h4>
-        <ul>
-          <li>The bracket champion&apos;s registered fans are entered: one entry for each round they&apos;ve been registered (a fan since Round 1 has 10; one who joined before Round 10 has 1).</li>
-          <li>SuperFans get 3× the entries.</li>
-          <li>Before the Season Championship Tournament starts, each active alumnus of those 8 schools nominates one fan (one entry each).</li>
         </ul>
       </section>
 
@@ -214,27 +218,28 @@ function RulesStyles() {
   return (
     <>
       <style>{`
-        .ybr-rules { max-width:900px; margin:0 auto; display:grid; gap:14px; }
-        .ybr-rules section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 16px 6px; }
+        .ybr-rules { box-sizing:border-box; width:100%; max-width:900px; min-width:0; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr); gap:14px; }
+        .ybr-rules section { min-width:0; max-width:100%; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 16px 6px; overflow-wrap:break-word; }
         .ybr-rules h4 { margin:0 0 6px; font:500 14px/1.2 Oswald, sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--gold); }
         .ybr-rules .ybr-world-series { text-align:center; }
         .ybr-world-series p { margin:0 0 8px; color:var(--text); font-size:14px; line-height:1.5; }
         .ybr-rules ul, .ybr-rules ol { margin:0 0 8px; padding-left:20px; color:var(--text); font-size:14px; line-height:1.5; }
-        .ybr-rules li { margin:0 0 5px; }
+        .ybr-rules li { margin:0 0 5px; overflow-wrap:break-word; }
         .ybr-rules b { color:var(--gold); font-weight:600; }
-        .ybr-sched { width:100%; border-collapse:collapse; margin:0 0 10px; font-size:13.5px; color:var(--text); }
-        .ybr-sched td { padding:4px 8px; border-top:1px solid var(--line); }
+        .ybr-sched { width:100%; table-layout:fixed; border-collapse:collapse; margin:0 0 10px; font-size:13.5px; color:var(--text); }
+        .ybr-sched td { padding:4px 8px; vertical-align:top; overflow-wrap:anywhere; border-top:1px solid var(--line); }
         .ybr-sched td:first-child { color:var(--gold); font:500 13.5px/1.3 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; }
-        .ybr-sched td:last-child { color:var(--muted); white-space:nowrap; text-align:right; }
+        .ybr-sched td:last-child { color:var(--muted); white-space:normal; text-align:right; }
         .ybr-note { margin:0 0 8px; color:var(--muted); font-size:13px; line-height:1.45; }
-        .ybr-scroll { overflow-x:auto; margin:0 0 8px; }
-        .ybr-avg { width:100%; border-collapse:collapse; font-size:13px; color:var(--text); font-variant-numeric:tabular-nums; }
+        .ybr-scroll { min-width:0; max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; margin:0 0 8px; }
+        .ybr-avg { width:100%; min-width:420px; border-collapse:collapse; font-size:13px; color:var(--text); font-variant-numeric:tabular-nums; }
         .ybr-avg th { padding:4px 6px; color:var(--gold); font:500 12px/1.2 Oswald, sans-serif; letter-spacing:.06em; text-transform:uppercase; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line); }
         .ybr-avg td { padding:4px 6px; text-align:right; border-top:1px solid var(--line); white-space:nowrap; }
         .ybr-avg th:first-child, .ybr-avg td:first-child { text-align:left; }
         .ybr-avg td:first-child { font-weight:600; }
         /* In a stat drawer: the same rules, sized for the narrower column. */
         .ybr-panel { gap:10px; margin-top:8px; }
+        @media (max-width:600px) { .ybr-rules section { padding:10px 10px 6px; } .ybr-sched { font-size:12px; } .ybr-sched td { padding:4px 3px; } .ybr-sched td:first-child { font-size:12px; } }
         .ybr-panel section { padding:10px 12px 4px; }
         .ybr-panel h4 { font-size:13px; }
         .ybr-panel ul, .ybr-panel ol, .ybr-panel .ybr-sched { font-size:12.5px; }
