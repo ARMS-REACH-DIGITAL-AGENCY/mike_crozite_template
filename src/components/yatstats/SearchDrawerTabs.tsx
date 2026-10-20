@@ -859,36 +859,36 @@ export default function SearchDrawerTabs() {
 
   return (
     <style jsx global>{`
-      :is(#drawerLeft, #drawerContribute) .yat-search-mode-label { display: none !important; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn { min-height: 30px; padding: 5px 3px; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.04); color: var(--ink); font: 600 11px/1.2 var(--yat-font-ui); letter-spacing: 0; text-transform: none; cursor: pointer; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 var(--yat-font-ui); padding: 8px 0; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-mode-label { display: none !important; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0 12px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-mode-btn { min-height: 30px; padding: 5px 3px; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.04); color: var(--ink); font: 600 11px/1.2 var(--yat-font-ui); letter-spacing: 0; text-transform: none; cursor: pointer; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-mode-btn.active { background: rgba(255,255,255,.14); color: var(--fg); border-color: var(--fg) !important; box-shadow: inset 0 0 0 .5px var(--fg); }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-empty { color: var(--muted); font: 400 13px/1.4 var(--yat-font-ui); padding: 8px 0; }
       #drawerLeft .yat-search-status { color: var(--muted); font: 400 12px/1.4 var(--yat-font-ui); padding: 4px 0; overflow-wrap: anywhere; }
       #drawerLeft .yat-search-status[hidden] { display: none; }
       #drawerLeft .yat-search-load-more { display:block; width:100%; min-height:42px; margin:12px 0 20px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--fg); font:600 13px/1.3 var(--yat-font-ui); cursor:pointer; }
       #drawerLeft .yat-search-load-more:disabled { opacity:.6; cursor:wait; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-card { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.045); color: var(--ink); text-decoration: none; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-card:hover { color: var(--fg); background: rgba(255,255,255,.08); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 5px; flex: 0 0 auto; background: rgba(255,255,255,.08); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-thumb, :is(#drawerLeft, #drawerContribute) .yat-search-team-thumb { object-fit: contain; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-row-text { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-row-text strong { font: 700 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-card { padding: 8px 10px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-section-label { margin: 12px 0 8px; color: var(--muted); font: 800 10px/1 Oswald, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-state-label { color: var(--ink); font-size: 11px; letter-spacing: .16em; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-card-list { display: flex; flex-direction: column; gap: 6px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-card { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.045); color: var(--ink); text-decoration: none; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-card:hover { color: var(--fg); background: rgba(255,255,255,.08); }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 5px; flex: 0 0 auto; background: rgba(255,255,255,.08); }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-thumb, :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-team-thumb { object-fit: contain; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-row-text { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-row-text strong { font: 700 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-row-text small { color: var(--muted); font: 400 10px/1.2 Oswald, sans-serif; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link small.yat-search-hs-line { color: var(--accent, #c8a96e); opacity: .85; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-card { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-card { padding: 8px 10px; }
       #drawerLeft .yat-search-school-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr); align-items:center; gap: 10px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count strong { font: 800 22px/1 Oswald, sans-serif; color: #00e08a; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-active-count small { margin-top: 4px; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .05em; color: var(--muted); }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-active-count { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 34px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-active-count strong { font: 800 22px/1 Oswald, sans-serif; color: #00e08a; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-active-count small { margin-top: 4px; font: 600 8px/1 Oswald, sans-serif; letter-spacing: .05em; color: var(--muted); }
 
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; object-fit:contain; border-radius:0; background:transparent; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-topline { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 9px; width: 100%; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-crest-link { display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-card .yat-search-school-thumb { width: 48px; height: 48px; object-fit:contain; border-radius:0; background:transparent; }
       #drawerLeft .yat-search-school-bracket-card .yat-search-school-topline { grid-template-columns: 50px minmax(0, 1fr) 34px; gap: 8px; }
       #drawerLeft .yat-search-school-gallery-link { display: block; min-width: 0; color: inherit; text-decoration: none; }
       #drawerLeft .yat-search-school-identity { display:flex; flex-direction:column; gap:1px; min-width:0; width:100%; }
@@ -916,30 +916,30 @@ export default function SearchDrawerTabs() {
       #drawerLeft :is(.yat-search-school-gallery-link, .yat-search-school-gallery-crest-link):focus-visible { outline: none; }
       #drawerLeft .yat-search-school-gallery-link:focus-visible .yat-search-row-text strong { text-decoration: underline; text-underline-offset: 3px; }
       #drawerLeft .yat-search-school-gallery-crest-link:is(:hover, :focus-visible) .yat-search-school-thumb { filter: drop-shadow(0 0 4px var(--yat-bracket-accent)); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-badge.live { border-color: rgba(0,255,140,.55); color: #00ff8c; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-badge.candidate { border-color: rgba(255,209,102,.7); color: #ffd166; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; border-top: 1px solid var(--line); padding-top: 7px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats strong { color: var(--fg); font: 900 14px/1 Oswald, sans-serif; white-space: nowrap; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-school-stats small { color: var(--muted); font: 400 7px/1.1 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-team-group { margin: 12px 0 4px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-team-heading { display: grid; grid-template-columns: 52px minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-team-heading .yat-search-team-thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 0; background: transparent; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result { display: grid !important; grid-template-columns: 34px 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result a { color: inherit; text-decoration: none; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-headshot-link { display: flex; align-items: center; justify-content: center; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-headshot { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: rgba(0,0,0,.08); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link strong { font: 900 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small { color: var(--muted); font: 400 10px/1.15 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-flip-link { display: flex; align-items: center; justify-content: flex-end; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-hs-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 0; background: transparent; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: none; background: transparent; color: var(--muted); font-size: 19px; line-height: 1; cursor: pointer; flex: 0 0 auto; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn:hover { color: var(--accent, #c8a96e); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn.is-favorited { color: var(--accent, #c8a96e); }
-      :is(#drawerLeft, #drawerContribute) .yat-search-fav-btn[aria-disabled] { opacity: .5; cursor: wait; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-badge { border: 1px solid rgba(255,255,255,.18); border-radius: 5px; padding: 4px 6px; color: var(--muted); font: 700 8px/1 Oswald, sans-serif; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-badge.live { border-color: rgba(0,255,140,.55); color: #00ff8c; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-badge.candidate { border-color: rgba(255,209,102,.7); color: #ffd166; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; border-top: 1px solid var(--line); padding-top: 7px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-stats span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-stats strong { color: var(--fg); font: 900 14px/1 Oswald, sans-serif; white-space: nowrap; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-school-stats small { color: var(--muted); font: 400 7px/1.1 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-team-group { margin: 12px 0 4px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-team-heading { display: grid; grid-template-columns: 52px minmax(0,1fr); align-items: center; gap: 10px; margin-bottom: 7px; color: var(--fg); font: 800 12px/1.1 Oswald, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-team-heading .yat-search-team-thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 0; background: transparent; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-team-player-card { min-height: 52px; border-radius: 0; border-width: 0 0 1px; background: transparent; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result { display: grid !important; grid-template-columns: 34px 52px minmax(0, 1fr) 46px; align-items: center; column-gap: 10px; padding: 8px 10px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result a { color: inherit; text-decoration: none; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-headshot-link { display: flex; align-items: center; justify-content: center; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-headshot { width: 46px; height: 46px; object-fit: cover; border-radius: 4px; background: rgba(0,0,0,.08); }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link strong { font: 900 14px/1.05 Oswald, sans-serif; text-transform: uppercase; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link small { color: var(--muted); font: 400 10px/1.15 Oswald, sans-serif; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-flip-link { display: flex; align-items: center; justify-content: flex-end; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-hs-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 0; background: transparent; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-fav-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: none; background: transparent; color: var(--muted); font-size: 19px; line-height: 1; cursor: pointer; flex: 0 0 auto; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-fav-btn:hover { color: var(--accent, #c8a96e); }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-fav-btn.is-favorited { color: var(--accent, #c8a96e); }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-fav-btn[aria-disabled] { opacity: .5; cursor: wait; }
       .yat-search-fav-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--surface, #1a1a1a); border: 1px solid rgba(255,255,255,.2); padding: 10px 18px; border-radius: 8px; font: 700 12px/1.4 Oswald, sans-serif; letter-spacing: .06em; z-index: 9999; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.4); opacity: 0; transition: opacity .2s ease, transform .2s ease; }
       .yat-search-fav-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -1045,8 +1045,8 @@ export default function SearchDrawerTabs() {
       /* Approved result reference: Beau Brieske in production Favorites.
          Match its condensed player typography, bordered cards and gold school
          location in every search context, without touching API or interaction. */
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-list { gap:6px; }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result {
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-list { gap:6px; }
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result {
         min-height:64px;
         padding:8px 10px;
         border:1px solid var(--line);
@@ -1056,8 +1056,8 @@ export default function SearchDrawerTabs() {
         grid-template-columns:26px 46px minmax(0,1fr) 40px;
         column-gap:10px;
       }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link {gap:3px;}
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link strong {
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link {gap:3px;}
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link strong {
         font:800 15px/1.15 Oswald, sans-serif;
         letter-spacing:0;
         text-transform:uppercase;
@@ -1065,7 +1065,7 @@ export default function SearchDrawerTabs() {
         white-space:normal;
         overflow-wrap:anywhere;
       }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small {
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link small {
         font:400 11px/1.2 Oswald, sans-serif;
         text-transform:uppercase;
         color:var(--muted);
@@ -1073,7 +1073,7 @@ export default function SearchDrawerTabs() {
         overflow:hidden;
         text-overflow:ellipsis;
       }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line {
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link small.yat-search-hs-line {
         color:#c8a96e;
         opacity:1;
         font:400 11px/1.2 Oswald, sans-serif;
@@ -1082,20 +1082,20 @@ export default function SearchDrawerTabs() {
         overflow:hidden;
         text-overflow:ellipsis;
       }
-      body.light-theme :is(#drawerLeft, #drawerContribute) .yat-search-player-text-link small.yat-search-hs-line {
+      body.light-theme :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-text-link small.yat-search-hs-line {
         color:#805600;
       }
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-player-headshot {width:46px;height:46px;}
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-player-hs-logo {width:34px;height:34px;}
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn {width:26px;color:var(--muted);}
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#ffb238;}
-      body.light-theme :is(#drawerLeft, #drawerContribute) .yat-search-player-result {background:rgba(0,0,0,.035);}
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-player-headshot {width:46px;height:46px;}
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-player-hs-logo {width:34px;height:34px;}
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-fav-btn {width:26px;color:var(--muted);}
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#ffb238;}
+      body.light-theme :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result {background:rgba(0,0,0,.035);}
       /* Theme-aware states: outlined/empty until saved; saved amber on
          dark backgrounds and deeper gold on light backgrounds. */
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn:not(.is-favorited) {color:#111;}
-      body:not(.light-theme) :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn:not(.is-favorited) {color:#f2f2f2;}
-      :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#ffb21c;}
-      body.light-theme :is(#drawerLeft, #drawerContribute) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#a77412;}
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-fav-btn:not(.is-favorited) {color:#111;}
+      body:not(.light-theme) :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-fav-btn:not(.is-favorited) {color:#f2f2f2;}
+      :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#ffb21c;}
+      body.light-theme :is(#drawerLeft, #drawerContribute, #drawerStory) .yat-search-player-result .yat-search-fav-btn.is-favorited {color:#a77412;}
 
     `}</style>
   );
