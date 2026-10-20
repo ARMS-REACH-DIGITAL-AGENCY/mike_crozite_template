@@ -114,8 +114,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'headshot',
-    prefix: 'CURRENT SEASON · ROW 3',
-    label: 'Current Player Headshot',
+    prefix: 'OFFICIAL CURRENT YEAR HEADSHOT',
+    label: 'HOT BUTTON ROW',
     aspects: [5 / 7],
     guide: 'eyes',
     asks: 'season',
