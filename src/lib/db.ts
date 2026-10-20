@@ -89,8 +89,8 @@ const DB_SLOW_QUERY_MS = 3000;
 // modifications, and SELECT can call volatile functions or lock rows: do not
 // automatically replay those. Never retry INSERT/UPDATE/DELETE/DDL.
 function isRetryableRead(statement: string): boolean {
-  return /^\\s*SELECT\\b/i.test(statement) &&
-    !/\\bFOR\\s+(?:UPDATE|SHARE|NO\\s+KEY\\s+UPDATE|KEY\\s+SHARE)\\b|\\b(?:nextval|setval|pg_advisory_\\w*)\\s*\\(/i.test(statement);
+  return /^\s*SELECT\b/i.test(statement) &&
+    !/\bFOR\s+(?:UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b|\b(?:nextval|setval|pg_advisory_\w*)\s*\(/i.test(statement);
 }
 function isTransientDbError(error: unknown): boolean {
   const err = error as { code?: string; message?: string; cause?: { code?: string; message?: string } } | null;
