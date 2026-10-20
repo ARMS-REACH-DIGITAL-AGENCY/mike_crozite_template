@@ -40,6 +40,10 @@ const stats = read('src/components/yatstats/ProfileStatsInjector.tsx');
 const schedules = read('src/components/yatstats/PlayerScheduleTable.tsx');
 const footer = read('src/components/yatstats/ProfileFunZoneStabilizer.tsx');
 const account = read('src/components/AccountDrawer.tsx');
+assert.match(account,/function FallClassicRaffle\(\)/,'Fall Classic shared promotion exists');
+assert.equal((account.match(/<FallClassicRaffle \/>/g)||[]).length,2,'Fall Classic visible in both signed-out and signed-in account views');
+assert.doesNotMatch(account,/\{activeTab === "signin" && <section\s+className="yat-raffle-section"/,'Fall Classic must not be gated to Log In');
+
 const page = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
 assert.match(teammateDrawer,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'Teammates directory must keep both columns');
 assert.match(teammateDrawer,/\.ytm-title \{[^\n]*font:800 20px[^\n]*--yat-font-ui/,'Teammates heading must stay Archivo');
