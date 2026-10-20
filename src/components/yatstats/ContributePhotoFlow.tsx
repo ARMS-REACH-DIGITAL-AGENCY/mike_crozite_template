@@ -636,9 +636,13 @@ export default function ContributePhotoFlow({
 
         /* Compact neutral visual vocabulary shared by all photo destinations. */
         #drawerContribute .ypf-flow{gap:12px;font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        /* Capitalize headings consistently, whether opened from the portal or account drawer. */
+        #drawerContribute .ypf-flow .ypf-step > .ycd-label,
+        #drawerContribute .ypf-flow .ypf-sub > .ycd-label,
+        #drawerContribute .ypf-flow .ypf-done > .ycd-label{text-transform:uppercase;}
         #drawerContribute .ypf-selected-purpose{gap:5px 10px;padding:10px 12px;border-left:3px solid var(--fg);border-bottom:1px solid var(--line);background:var(--card-bg);}
         #drawerContribute .ypf-selected-kicker{color:var(--muted);font:700 11px/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);letter-spacing:.07em;}
-        #drawerContribute .ypf-selected-purpose strong{font:800 15px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em;}
+        #drawerContribute .ypf-selected-purpose strong{font:800 15px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em;text-transform:uppercase;}
         #drawerContribute .ypf-selected-purpose summary{font:500 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerContribute .ypf-step{gap:10px;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--card-bg);}
         #drawerContribute .ypf-drop{min-height:128px;gap:9px;padding:16px;border:1.5px dashed var(--muted);border-radius:10px;background:var(--line);color:var(--fg);}
@@ -648,7 +652,7 @@ export default function ContributePhotoFlow({
         #drawerContribute .ypf-type{gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;}
         #drawerContribute .ypf-type input,#drawerContribute .ypf-approve input{accent-color:var(--fg);}
         #drawerContribute .ypf-type span{gap:4px;}
-        #drawerContribute .ypf-type b{font:700 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ypf-type b{font:700 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);text-transform:uppercase;}
         #drawerContribute .ypf-type small{font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);opacity:1;}
         #drawerContribute .ypf-type.is-on,#drawerContribute .ypf-team.is-on,#drawerContribute .ypf-approve.is-on{border-color:var(--fg);background:var(--line);}
         #drawerContribute .ypf-approve{border:1px solid var(--line);border-radius:8px;padding:10px;}
