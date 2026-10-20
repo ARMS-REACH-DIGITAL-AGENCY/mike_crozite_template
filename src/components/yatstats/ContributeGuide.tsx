@@ -46,7 +46,7 @@ type SponsorCard = {
 
 const CONTRIBUTIONS: DeskCard[] = [
   { id: 'cc-photo', eyebrow: 'HIGH SCHOOL · FLIP CARD FRONT', title: 'High School Photo', instruction: 'Share a high school-era photo for the front of an alumnus\'s flip card.', thumb: 'front', action: 'UPLOAD HIGH SCHOOL PHOTO', detail: { tab: 'photo', photoType: 'flip_card' }, help: 'flip_card' },
-  { id: 'cc-headshot', eyebrow: 'CURRENT SEASON · ROW 3', title: 'Current Player Headshot', instruction: 'Current-year face-and-shoulders portrait with eyes aligned for the player gallery.', thumb: 'headshot', action: 'UPLOAD CURRENT HEADSHOT', detail: { tab: 'photo', photoType: 'headshot' }, help: 'headshot' },
+  { id: 'cc-headshot', eyebrow: 'HOT BUTTON ROW', title: 'OFFICIAL CURRENT YEAR HEADSHOT', instruction: 'Current-year face-and-shoulders portrait with eyes aligned for the player gallery.', thumb: 'headshot', action: 'UPLOAD CURRENT HEADSHOT', detail: { tab: 'photo', photoType: 'headshot' }, help: 'headshot' },
   { id: 'cc-action', eyebrow: 'CURRENT SEASON · FLIP CARD BACK', title: 'Current Action Photo', instruction: 'Action photo from the current season for the back of the alumni flip card.', thumb: 'back', action: 'UPLOAD ACTION PHOTO', detail: { tab: 'photo', photoType: 'back_hero' }, help: 'back_hero' },
   { id: 'cc-timeline', eyebrow: 'PAST SEASONS · CAREER PATH', title: 'Career Path Year Photo', instruction: 'A bust or action photo representing that specific career year on the timeline — NOT a fan memory post.', thumb: 'timeline', action: 'UPLOAD CAREER PHOTO', detail: { tab: 'photo', photoType: 'timeline_hero' }, help: 'timeline_hero' },
   { id: 'cc-logo', eyebrow: 'SCHOOL / CURRENT TEAM', title: 'School or Current Team Logo', instruction: 'Provide a missing or corrected high school crest or current team logo.', thumb: 'logos', action: 'UPLOAD TEAM LOGO', detail: { tab: 'photo', photoType: 'school_logo' }, help: 'school_logo' },
@@ -591,7 +591,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-image-button { display:block; appearance:none; background:none; padding:0; border:0; cursor:pointer; color:inherit; }
         .ccd-item-copy { display:flex; flex-direction:column; min-width:0; align-items:flex-start; }
         .ccd-eyebrow { color:var(--muted); font:500 11px/1.1 var(--yat-font-compact); letter-spacing:.07em; margin-bottom:3px; }
-        .ccd-title-button { display:block; padding:0; border:0; background:none; text-align:left; cursor:pointer; font:800 15px/1.15 var(--yat-font-ui); letter-spacing:-.02em; color:var(--fg); }
+        .ccd-title-button { display:block; padding:0; border:0; background:none; text-align:left; cursor:pointer; font:800 15px/1.15 var(--yat-font-ui); letter-spacing:-.02em; color:var(--fg); text-transform:uppercase; }
         .ccd-title-button:hover { text-decoration:underline; }
         .ccd-summary { margin-top:4px; font:400 12px/1.36 var(--yat-font-ui); color:var(--muted); }
         .ccd-item-actions { display:flex; flex-wrap:wrap; width:100%; min-width:0; justify-content:space-between; align-items:baseline; gap:8px; margin-top:7px; }
@@ -651,7 +651,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-preview { position:sticky; top:calc(var(--row1-h) + var(--row2-h) + var(--row3-h) + 4px); border:1px solid var(--line); border-radius:5px; background:var(--card-bg); padding:16px; }
         .ccd-preview-heading { padding:0 0 13px; }
         .ccd-preview-heading span { color:var(--muted); font:600 11px/1.2 var(--yat-font-compact); letter-spacing:.08em; }
-        .ccd-preview-heading h2 { margin:4px 0 4px; color:var(--fg); font:800 20px/1.15 var(--yat-font-ui); letter-spacing:-.01em; text-transform:none; }
+        .ccd-preview-heading h2 { margin:4px 0 4px; color:var(--fg); font:800 20px/1.15 var(--yat-font-ui); letter-spacing:-.01em; text-transform:uppercase; }
         .ccd-preview-heading p { color:var(--muted); font:400 12px/1.35 var(--yat-font-ui); }
         .ccd-preview-copy { padding:12px 0; color:var(--muted); font:400 12px/1.4 var(--yat-font-ui); }
         .ccd-preview-action { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--fg); border-radius:3px; background:var(--fg); color:var(--bg); padding:7px 10px; cursor:pointer; font:700 11px/1.2 var(--yat-font-ui); }
