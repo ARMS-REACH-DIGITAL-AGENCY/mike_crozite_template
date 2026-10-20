@@ -813,7 +813,23 @@ export default function InteractionStrip({
           -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
           mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
         }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:78px; }
+        /* The signs own the first/last 72px. Keep the chevrons in the
+           narrow channels between signs and season buttons, never over a
+           year badge or halfway outside the rail. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          z-index:8; top:50%; width:20px; height:32px; transform:translateY(-50%);
+          background:rgba(8,32,22,.82); color:#f4f1e9; opacity:.95;
+          border-radius:3px;
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.left { left:75px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:75px; }
+        /* Outfield foul pole: a fixed yellow upright at the absolute left
+           fence edge, independent of the scrollable team-year badges. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"]::before {
+          content:""; position:absolute; z-index:9; pointer-events:none;
+          left:0; top:-4px; bottom:0; width:4px; background:#dfc24d;
+          box-shadow:1px 0 1px rgba(0,0,0,.25);
+        }
         .alltime-sponsor-sign { position:absolute; right:7px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
         .alltime-sponsor-board { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; padding:3px;
           border:1px solid #c8c5b9; border-radius:2px; background:#f4f1e9; color:#733648; box-shadow:0 1px 5px #0005; overflow:hidden; }
