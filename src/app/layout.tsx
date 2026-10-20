@@ -27,24 +27,9 @@ const SECTION_BOOTSTRAP =
   "var x=function(){d.removeAttribute('data-yat-sec');};d.setAttribute('data-yat-sec',m[1]);" +
   "addEventListener('load',function(){setTimeout(x,4000);});setTimeout(x,20000);}}catch(e){}";
 
-// The school splash (SchoolSplash, sent by the school layout before any
-// roster loads). Two modes, decided per person before the first paint:
-// - full, for someone new to YAT?STATS: the logo slides in from the right,
-//   the crest from the left, then they shine; at least 1.6s;
-// - quick, for anyone back within 30 days (a yat_seen cookie shared by every
-//   school subdomain - a superfan hopping between favorites' schools): the
-//   same screen already lit, no minimum, and only if the page is still
-//   loading after 0.3s.
-// Either way it leaves with a flip, like a flip card: the splash on the
-// front, the school's hub on the back (a view transition between the two;
-// browsers without one flip the splash away). A short card-flip sound plays
-// when the browser allows it - usually only once the visitor has tapped.
-// ?splash=... in the address forces the full one (to show it off, or test).
-// Ready = 'yat:page-ready' (the gallery strip) or, on pages without a
-// gallery, the load event; never longer than 8s. The splash is driven
-// through one <style> in <head> (React leaves those alone), never by
-// touching the element; its rules start with "html " to outrank the
-// splash's own.
+// The school's full welcome splash appears once per visitor (30-day cookie).
+// Returning visitors never see it again while navigating, even when data is slow.
+// ?splash=... remains an explicit preview override for designers.
 const SPLASH_BOOTSTRAP = `try{(function(){
 var d=document,h=location.hostname,seen=!/[?&]splash=/.test(location.search)&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
 var dom=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
@@ -66,8 +51,9 @@ if(!RM&&d.startViewTransition){sound();var v=d.createElement('style');v.textCont
 try{d.startViewTransition(function(){set(OFF);}).finished.then(function(){v.remove();},function(){v.remove();});}catch(e){set(OFF);v.remove();}return;}
 if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},350);};
 var t0=Date.now(),ready=false,shown=!seen;
-if(seen){set(QUICK+P+'{opacity:0!important;pointer-events:none!important}');
-setTimeout(function(){if(!ready){shown=true;set(QUICK);}},300);}
+// Never resurrect the splash on returning visits. The previous 300ms
+// timer made every slower navigation look like another site entrance.
+if(seen){set(OFF);}
 var lift=function(){if(ready)return;ready=true;
 if(!shown){set(OFF);return;}
 setTimeout(flip,seen?0:Math.max(0,1600-(Date.now()-t0)));};

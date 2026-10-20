@@ -66,24 +66,50 @@ const pool = new Pool({
 const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
 const isRead = (text: string) => /^\s*(select|with)\b/i.test(text);
 
+// Connection-pool diagnostics. Do not log SQL text or bound parameters: both may
+// contain personal data. Only emit aggregate queue depths and duration on slow
+// queries or errors. A pool can be exhausted locally even with low Neon usage.
+const DB_SLOW_QUERY_MS = 3000;
+function poolSnapshot() {
+  return { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount };
+}
+
 // Generic query helper
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: any[] = []
 ): Promise<QueryResult<T>> {
+  const started = Date.now();
+  const initialPool = poolSnapshot();
   try {
-    return await pool.query<T>(text, params);
+    const result = await pool.query<T>(text, params);
+    const durationMs = Date.now() - started;
+    if (durationMs >= DB_SLOW_QUERY_MS || initialPool.waiting > 0) {
+      console.warn('[db-pool] slow query / pool queue', {
+        durationMs, initialPool, finalPool: poolSnapshot(),
+      });
+    }
+    return result;
   } catch (error) {
+    const durationMs = Date.now() - started;
+    console.error('[db-pool] query failure', {
+      durationMs, initialPool, finalPool: poolSnapshot(),
+      code: (error as { code?: string })?.code ?? null,
+      message: (error as Error)?.message,
+    });
     if (isRead(text) && PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''))) {
       console.warn('Database query retried after a parallel-worker error');
       try {
         return await pool.query<T>(text, params);
       } catch (retryError) {
-        console.error('Database query error:', retryError);
+        console.error('Database query retry failed:', {
+          code: (retryError as { code?: string })?.code ?? null,
+          message: (retryError as Error)?.message,
+          finalPool: poolSnapshot(),
+        });
         throw retryError;
       }
     }
-    console.error('Database query error:', error);
     throw error;
   }
 }
@@ -2385,6 +2411,19 @@ export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardF
   const sql = `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.playerid = $1 LIMIT 1`;
   const { rows } = await query(sql, [playerId]);
   return rows[0] || null;
+});
+
+// Share the same roster and flip-card database work between the school layout
+// and the homepage during a single React server render. Individually these
+// readers remain available to profile pages and other consumers. React cache
+// deduplicates the in-flight promise; persistent 10-minute caches remain the
+// responsibility of the underlying readers.
+export const getSchoolSharedRosterData = cache(async (hsid: string) => {
+  const [allTimeRoster, flipCardStage] = await Promise.all([
+    getAllTimeRosterByHsid(hsid),
+    getFlipCardFrontStageByHsid(hsid),
+  ]);
+  return { allTimeRoster, flipCardStage };
 });
 
 // ---------------------------------------------------------------------------

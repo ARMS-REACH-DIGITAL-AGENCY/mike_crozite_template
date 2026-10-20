@@ -10,13 +10,11 @@
 // The stadium lights across the top are the Fantasy Bracket's night-game
 // light towers (BallparkScene), steady, fading to black below.
 //
-// First visit (full): the logo and its line slide in fast from the right
-// while the crest and the school's name come in from the left; once the
-// logo settles it glints, a light sweeps across it, and it keeps a soft
-// glow. Back within 30 days (quick): the settled screen, and only if the
-// page is still loading after 0.3s.
+// First visit only: entrance animation is shown once per visitor within
+// the cookie's 30-day window. Later navigations keep the current page visible
+// while the next page loads; they never replay this full-screen welcome.
 //
-// The exit, every time (SPLASH_BOOTSTRAP runs it): the screen flips over
+// The exit on that first visit (SPLASH_BOOTSTRAP runs it): the screen flips over
 // the way the flip cards do, with the school's hub on the back.
 import type { CSSProperties } from 'react';
 import { BallparkLights } from '@/components/bracket/BallparkScene';
