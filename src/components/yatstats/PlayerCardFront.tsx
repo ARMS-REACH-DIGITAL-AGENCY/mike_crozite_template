@@ -546,19 +546,20 @@ export default function PlayerCardFront({
           --yat-logo-w: clamp(35px,15.5cqi,57.5px);
         }
         /* Hairline inset, just like a printed baseball card: a full frame
-           that stops 6px short of the wordmark (top left) and the heart
-           (top right), with the player copy kept inside it. Stop points
-           follow the wordmark's letters (.966w wide, .548w down from the
-           frame top) and the heart outline (18.4 x 17px, see below). */
+           with the player copy kept inside it. At the wordmark (top left)
+           the top and left rules fade to nothing just before its letters:
+           the top row "YAT?" ends at .798w, the wider "STATS" row at .966w,
+           and the letters end .458w below the frame top. The top right is
+           a plain corner with the heart tucked inside it. */
         .yat-front-print-frame {
           position:absolute; z-index:2; pointer-events:none;
           inset:var(--yat-corner);
           border:0; box-shadow:none;
           --yat-rule: rgba(255,255,255,.66);
           background:
-            linear-gradient(var(--yat-rule), var(--yat-rule)) left calc(.966 * var(--yat-logo-w) + 6px) top 0 / calc(100% - .99 * var(--yat-logo-w) - 30.4px) 1px no-repeat,
-            linear-gradient(var(--yat-rule), var(--yat-rule)) left 0 top calc(.548 * var(--yat-logo-w) + 6px) / 1px calc(100% - .548 * var(--yat-logo-w) - 6px) no-repeat,
-            linear-gradient(var(--yat-rule), var(--yat-rule)) right 0 top calc(.024 * var(--yat-logo-w) + 23px) / 1px calc(100% - .024 * var(--yat-logo-w) - 23px) no-repeat,
+            linear-gradient(to right, transparent 0, var(--yat-rule) calc(.168 * var(--yat-logo-w) + 4px)) left calc(.798 * var(--yat-logo-w) + 2px) top 0 / calc(100% - .798 * var(--yat-logo-w) - 2px) 1px no-repeat,
+            linear-gradient(to bottom, transparent 0, var(--yat-rule) calc(.09 * var(--yat-logo-w) + 4px)) left 0 top calc(.458 * var(--yat-logo-w) + 2px) / 1px calc(100% - .458 * var(--yat-logo-w) - 2px) no-repeat,
+            linear-gradient(var(--yat-rule), var(--yat-rule)) right 0 top 0 / 1px 100% no-repeat,
             linear-gradient(var(--yat-rule), var(--yat-rule)) left 0 bottom 0 / 100% 1px no-repeat;
         }
         /* The PNG has more empty space above the letters than left of them
@@ -572,12 +573,12 @@ export default function PlayerCardFront({
           /* Outline only: no drop shadow, which bled into the thin letters
              and read as a gray fill. */
         }
-        /* The heart outline sits 9.8px down and 8.8px in from its 36px
-           button's corner: place it as far from the top and right edges
-           as the wordmark's letters are from the top and left. */
+        /* The heart tucks into the frame's top-right corner, 4px inside both
+           rules (its outline sits 9.8px down and 8.8px in from its 36px
+           button's corner). */
         .yat-front-cq .yat-card-fav-slot {
-          top:calc(var(--yat-corner) + .024 * var(--yat-logo-w) - 9.8px);
-          right:calc(var(--yat-corner) + .024 * var(--yat-logo-w) - 8.8px);
+          top:calc(var(--yat-corner) - 5.8px);
+          right:calc(var(--yat-corner) - 4.8px);
         }
 
         .yat-front-content {
