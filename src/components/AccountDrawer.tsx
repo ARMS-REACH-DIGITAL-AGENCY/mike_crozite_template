@@ -1303,7 +1303,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               margin: '14px 15px 4px',
               padding: '14px 15px',
               border: '1px solid var(--line)',
-              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26)), url("/img/world-series-trophy-cta.png") 92% center / auto 94% no-repeat',
+              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26))',
             }}
           >
             <div
@@ -1503,7 +1503,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         /* Transparent LED cutouts sit straight on the white bubble. */
         #drawerAccount .yat-tour-roles .yat-tour-role img{width:auto!important;max-width:100%!important;height:34px!important;max-height:34px!important;object-fit:contain!important;}
         #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
-        #drawerAccount .yat-raffle-section{background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;background-size:auto 94%!important;background-position:right center!important;}
+        #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;overflow:hidden;background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;}
+        /* The World Series trophy: a large, faint watermark behind the raffle copy. */
+        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:-1;top:-14%;bottom:-14%;right:-4%;width:72%;background:url("/img/world-series-trophy-cta.png") center / contain no-repeat;opacity:.13;pointer-events:none;}
         #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
         #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
         @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
