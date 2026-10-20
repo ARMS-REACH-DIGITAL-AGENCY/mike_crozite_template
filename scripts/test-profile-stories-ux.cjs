@@ -51,6 +51,12 @@ for (const [role, path] of [['coach','programs'],['player','players'],['partner'
 }
 assert.match(account,/#drawerAccount \.yat-raffle-section::before\{[^}]*top:11%;[^}]*opacity:\.26;/,'Trophy remains lowered and more visible');
 
+assert.match(account,/className="yat-tour-role" href=\{href\} target="_blank" rel="noopener noreferrer"/,'All role links open a new tab without opener access');
+assert.match(account,/#drawerAccount \.yat-tour-roles\{[^}]*border:0!important;gap:5px;/,'Tour icons have no horizontal divider');
+assert.match(account,/#drawerAccount \.yat-tour-role\{[^}]*border:0!important;border-radius:9px;/,'Tour icons use borderless rounded tiles rather than vertical dividers');
+assert.match(account,/#drawerAccount \.yat-tour-roles \.yat-tour-role img\{[^}]*filter:brightness\(0\)!important;/,'Existing role artwork is rendered monochrome black');
+
+
 
 
 const page = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
