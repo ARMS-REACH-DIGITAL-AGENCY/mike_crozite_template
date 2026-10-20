@@ -429,9 +429,9 @@ async function SchoolShell({
             </a>
             <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" /><span>ACTIVE ALUMNI{' '}<strong>NEWS</strong></span></a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>{' '}&amp;{' '}<strong>CONTRIBUTE</strong>{' '}PORTAL</span></a>
-            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>{' '}PROGRAM</span></a>
+            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>&nbsp;PROGRAM</span></a>
             {/* Guided Tour comes before Alumni Fantasy in the navigation. */}
-            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-stacked.png" alt="" className="yat-nav-custom-icon yat-nav-tour-icon yat-nav-tour-stacked" /><span><strong>GUIDED TOUR &amp; FAQ&apos;S</strong></span></a>
+            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-stacked.png" alt="" className="yat-nav-custom-icon yat-nav-tour-icon yat-nav-tour-stacked" /><span><strong>GUIDED TOUR &amp; FAQs</strong></span></a>
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
               <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
