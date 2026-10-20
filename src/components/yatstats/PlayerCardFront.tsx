@@ -561,10 +561,6 @@ export default function PlayerCardFront({
             linear-gradient(var(--yat-rule), var(--yat-rule)) right 0 top calc(.024 * var(--yat-logo-w) + 23px) / 1px calc(100% - .024 * var(--yat-logo-w) - 23px) no-repeat,
             linear-gradient(var(--yat-rule), var(--yat-rule)) left 0 bottom 0 / 100% 1px no-repeat;
         }
-        /* A soft, warm "old print" grade on the player photograph only. */
-        .yat-front-cq .yat-bg-photo {
-          filter: sepia(.3) saturate(1.18) contrast(1.06) brightness(1.02);
-        }
         /* The PNG has more empty space above the letters than left of them
            (186px vs 37px of 1536), so lift it .097w: the letters then sit
            as far from the top edge as from the left. */
@@ -573,7 +569,8 @@ export default function PlayerCardFront({
           top:calc(var(--yat-corner) - .097 * var(--yat-logo-w)); left:var(--yat-corner);
           width:var(--yat-logo-w); height:auto; max-height:38px;
           object-fit:contain; object-position:left top;
-          opacity:.72; filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
+          /* Outline only: no drop shadow, which bled into the thin letters
+             and read as a gray fill. */
         }
         /* The heart outline sits 9.8px down and 8.8px in from its 36px
            button's corner: place it as far from the top and right edges
