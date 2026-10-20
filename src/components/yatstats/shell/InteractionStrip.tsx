@@ -427,7 +427,21 @@ export default function InteractionStrip({
   const handleAllTimeResetClick = () => {
     setSelectedRosterYear(null);
     syncTeamParam('');
+    scrollRef.current?.scrollTo({ left: 0, behavior: 'instant' });
     window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: '', reset: true } }));
+  };
+
+  // Center a team year inside its horizontal rail only. scrollIntoView also
+  // moves the document vertically and could land the page below Mike Woods.
+  const centerYearInRail = (year: string) => {
+    const rail = scrollRef.current;
+    const badge = rail?.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`);
+    if (!rail || !badge) return;
+    const left = rail.scrollLeft
+      + badge.getBoundingClientRect().left
+      - rail.getBoundingClientRect().left
+      - (rail.clientWidth - badge.clientWidth) / 2;
+    rail.scrollTo({ left: Math.max(0, left), behavior: 'instant' });
   };
 
   // A shared team link (?team=2017) opens the All-Time list; the gallery's
@@ -456,7 +470,7 @@ export default function InteractionStrip({
     const year = new URLSearchParams(window.location.search).get('team') || '';
     if (ALL_TIME_TEAM_YEARS.includes(year)) {
       if (window.location.hash !== '#sec-alltime') history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-alltime`);
-      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+      window.requestAnimationFrame(() => centerYearInRail(year));
     }
     ready();
     const onYear = (event: Event) => {
@@ -465,7 +479,7 @@ export default function InteractionStrip({
       setSelectedRosterYear(picked || null);
       if (picked) {
         window.requestAnimationFrame(() => {
-          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+          centerYearInRail(picked);
         });
       }
     };
@@ -621,20 +635,23 @@ export default function InteractionStrip({
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
-          position:absolute; left:19px; top:8px; transform:none; z-index:7;
+          position:absolute; left:18px; top:12px; transform:none; z-index:7;
           display:flex; flex-direction:column; justify-content:center; align-items:center;
-          width:65px; height:42px; border:1px solid #c8c5b9; border-radius:2px;
+          width:58px; height:34px; border:1px solid #c8c5b9; border-radius:2px;
           background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          position:absolute; top:49px; left:0; width:100%; color:#e2c34b; display:flex; flex-direction:column; align-items:stretch; font:800 8px/1 Oswald,sans-serif; letter-spacing:0; text-align:center; white-space:nowrap;
+          position:absolute; top:40px; left:-6px; width:calc(100% + 12px);
+          color:#e2c34b; display:flex; flex-direction:column; align-items:center;
+          font:800 9px/1.05 Oswald,sans-serif; letter-spacing:0; text-align:center;
+          white-space:nowrap; pointer-events:none;
         }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child { font-size:15px; line-height:1; letter-spacing:.5px; transform:scaleX(1.1); transform-origin:center; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child { font-size:9px; line-height:1.05; letter-spacing:0; transform:none; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-count {
-          font:900 27px/1 Oswald,sans-serif;
+          font:900 23px/1 Oswald,sans-serif;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-left:90px !important;
+          padding-left:74px !important;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -743,13 +760,13 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-champions {
           font-size:10px; letter-spacing:-.55px;
         }
-        /* The fixed sign's three-line descriptor: ALL-TIME / NEXT-LEVEL / LIST. */
+        /* Two compact lines below the smaller 162 sign: match the plaque records. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          top:43px; line-height:.95; gap:0;
+          top:40px; line-height:1.05; gap:1px;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span,
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child {
-          font-size:10.5px; transform:none; letter-spacing:.1px;
+          font-size:9px; line-height:1.05; transform:none; letter-spacing:0;
         }
         /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
@@ -801,14 +818,14 @@ export default function InteractionStrip({
             flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
           }
         }
-        /* Move both fixed signs out toward the rail edges: each reaches 84px
-           (19px inset + 65px wide). Reserve 90px for each, with a short
-           16px fade so more of the year plaques remain visible on mobile.
-           Fixed signs sit outside the masked scroller and stay opaque. */
+        /* Compact bookend signs finish at 76px from each outer edge.
+           Start the first year at 80px on a 360px phone, preserving room
+           for three 64px plaques with two 3px gaps before the right sign.
+           Fade off-scroll years underneath the fixed signs, not page black. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-right:90px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 84px,black 100px,black calc(100% - 100px),transparent calc(100% - 84px),transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 84px,black 100px,black calc(100% - 100px),transparent calc(100% - 84px),transparent 100%);
+          padding-right:74px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 64px,black 73px,black calc(100% - 80px),transparent calc(100% - 71px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 64px,black 73px,black calc(100% - 80px),transparent calc(100% - 71px),transparent 100%);
         }
         /* Bare chevrons sit flush with the outer edges, without dark-green boxes.
            Keep the sign and arrow hit areas separate. */
@@ -826,19 +843,19 @@ export default function InteractionStrip({
           left:0; top:-4px; bottom:0; width:4px; background:#dfc24d;
           box-shadow:1px 0 1px rgba(0,0,0,.25);
         }
-        .alltime-sponsor-sign { position:absolute; right:19px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
+        .alltime-sponsor-sign { position:absolute; right:18px; top:12px; z-index:7; width:58px; height:34px; display:block; color:inherit; text-decoration:none; }
         .alltime-sponsor-board { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; padding:3px;
           border:1px solid #c8c5b9; border-radius:2px; background:#f4f1e9; color:#733648; box-shadow:0 1px 5px #0005; overflow:hidden; }
         .alltime-sponsor-board img { max-width:100%; max-height:100%; object-fit:contain; }
         .alltime-sponsor-board b { font:900 12px/1.05 Oswald,sans-serif; letter-spacing:.2px; }
         .alltime-sponsor-sign.is-open .alltime-sponsor-board { border-style:dashed; border-color:#733648; }
         .alltime-sponsor-sign.is-open:hover .alltime-sponsor-board { background:#fffbe9; }
-        .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
+        .alltime-sponsor-title { position:absolute; top:42px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
         /* Open spot: "You can put it on the board! ... YES!" */
-        .alltime-sponsor-sign.is-open .alltime-sponsor-board b { font-size:10px; line-height:1.08; letter-spacing:0; }
-        .alltime-sponsor-sign.is-open .alltime-sponsor-title { top:43px; }
-        .alltime-sponsor-sign.is-open .alltime-sponsor-title span:first-child { font:900 23px/1 Oswald,sans-serif; letter-spacing:.3px; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-board b { font-size:8px; line-height:1.05; letter-spacing:0; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-title { top:42px; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-title span:first-child { font:900 19px/1 Oswald,sans-serif; letter-spacing:.2px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
         /* Row 3's existing 60px circular portrait and 9px Oswald caption.
            Clip the portrait's lower 60px INSIDE the ring; extend only the
@@ -921,7 +938,7 @@ export default function InteractionStrip({
           <button type="button" className="alltime-distance-marker" onClick={handleAllTimeResetClick}
             aria-label={`Show All-Time List, ${allTimeCount} alumni`} title="Show all-time alumni">
             <strong className="alltime-distance-count">{allTimeCount}</strong>
-            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT-LEVEL</span><span>LIST</span></span>
+            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT-LEVEL LIST</span></span>
           </button>
         )}
         {showPlayerStrip && activeSection === 'alltime' && (
