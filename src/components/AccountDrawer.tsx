@@ -133,13 +133,13 @@ function FallClassicRaffle() {
             style={{
               margin: '14px 15px 4px',
               padding: '14px 15px',
-              border: '1px solid var(--line)',
-              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26))',
+              border: '1px solid #525252',
+              background: 'linear-gradient(105deg, #080808 0%, #202020 100%)',
             }}
           >
             <div
               style={{
-                color: 'var(--fg)',
+                color: '#fff',
                 fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '18px',
                 lineHeight: 1,
@@ -149,14 +149,14 @@ function FallClassicRaffle() {
             >
               FALL CLASSIC TICKETS RAFFLE
             </div>
-            <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
+            <p style={{ margin: '0 0 10px', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
               Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
               Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
-              <strong style={{ color: 'var(--fg)' }}> 20 regular-season entries + 1 postseason entry</strong>.
+              <strong style={{ color: '#fff' }}> 20 regular-season entries + 1 postseason entry</strong>.
             </p>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
-              <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
+            <p style={{ margin: 0, color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
+              Entries close <strong style={{ color: '#fff' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
+              <strong style={{ color: '#fff' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
             </p>
           </section>
   );
@@ -1514,9 +1514,12 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-tour-roles .yat-tour-role img{width:auto!important;max-width:100%!important;height:34px!important;max-height:34px!important;object-fit:contain!important;}
         #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
         #drawerAccount .yat-account-signed-in .yat-raffle-section{margin:12px 0!important;}
-        #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;overflow:hidden;background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;}
+        #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;box-sizing:border-box;display:block!important;flex:0 0 auto!important;flex-shrink:0!important;min-height:max-content!important;height:auto!important;max-height:none!important;align-self:stretch!important;overflow:hidden;background-color:#111!important;background-blend-mode:normal!important;color:#fff!important;}
+        #drawerAccount .yat-raffle-section > :is(div,p){position:relative;z-index:1;}
+        #drawerAccount .yat-raffle-section p{color:#e5e5e5!important;}
+        #drawerAccount .yat-raffle-section strong{color:#fff!important;}
         /* The World Series trophy: a large, faint watermark behind the raffle copy. */
-        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:-1;top:-14%;bottom:-14%;right:-4%;width:72%;background:url("/img/world-series-trophy-cta.png") center / contain no-repeat;opacity:.13;pointer-events:none;}
+        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:0;top:-14%;bottom:-14%;right:-4%;width:72%;background:url("/img/world-series-trophy-cta.png") center / contain no-repeat;opacity:.13;pointer-events:none;}
         #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
         #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
         @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
