@@ -621,7 +621,7 @@ export default function InteractionStrip({
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
-          position:absolute; left:7px; top:8px; transform:none; z-index:7;
+          position:absolute; left:27px; top:8px; transform:none; z-index:7;
           display:flex; flex-direction:column; justify-content:center; align-items:center;
           width:65px; height:42px; border:1px solid #c8c5b9; border-radius:2px;
           background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
@@ -634,7 +634,7 @@ export default function InteractionStrip({
           font:900 27px/1 Oswald,sans-serif;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-left:82px !important;
+          padding-left:102px !important;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -743,15 +743,13 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-champions {
           font-size:10px; letter-spacing:-.55px;
         }
-        /* The fixed sign's two-line descriptor ends at the same baseline as records. */
+        /* The fixed sign's three-line descriptor: ALL-TIME / NEXT-LEVEL / LIST. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          top:46px; line-height:1; gap:0;
+          top:43px; line-height:.95; gap:0;
         }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span,
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child {
-          font-size:12px; transform:none; letter-spacing:.1px;
-        }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:last-child {
-          font-size:8px; letter-spacing:-.2px;
+          font-size:10.5px; transform:none; letter-spacing:.1px;
         }
         /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
@@ -805,24 +803,23 @@ export default function InteractionStrip({
         }
         /* The All-Time row's sponsor sign, on the fence at the right, mirroring
            the All-Time sign on the left. Keep one mask for both signs: each
-           reaches 72px from the rail edge (7px inset + 65px wide). Finish the
+           reaches 92px from the rail edge (27px inset + 65px wide). Finish the
            32px dissolve before that boundary, so years never pass under a sign.
            The fixed signs are siblings of the masked scroller and stay opaque. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-right:82px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
+          padding-right:102px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 92px,black 124px,black calc(100% - 124px),transparent calc(100% - 92px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 92px,black 124px,black calc(100% - 124px),transparent calc(100% - 92px),transparent 100%);
         }
-        /* The signs own the first/last 72px. Keep the chevrons in the
-           narrow channels between signs and season buttons, never over a
-           year badge or halfway outside the rail. */
+        /* The chevrons sit outside the signs, at the rail's outer edges
+           (5-23px), so they never cover a sign or a year badge. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow {
-          z-index:8; top:50%; width:20px; height:32px; transform:translateY(-50%);
+          z-index:8; top:50%; width:18px; height:32px; transform:translateY(-50%);
           background:rgba(8,32,22,.82); color:#f4f1e9; opacity:.95;
           border-radius:3px;
         }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.left { left:75px; }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:75px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.left { left:5px; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:5px; }
         /* Outfield foul pole: a fixed yellow upright at the absolute left
            fence edge, independent of the scrollable team-year badges. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"]::before {
@@ -830,7 +827,7 @@ export default function InteractionStrip({
           left:0; top:-4px; bottom:0; width:4px; background:#dfc24d;
           box-shadow:1px 0 1px rgba(0,0,0,.25);
         }
-        .alltime-sponsor-sign { position:absolute; right:7px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
+        .alltime-sponsor-sign { position:absolute; right:27px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
         .alltime-sponsor-board { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; padding:3px;
           border:1px solid #c8c5b9; border-radius:2px; background:#f4f1e9; color:#733648; box-shadow:0 1px 5px #0005; overflow:hidden; }
         .alltime-sponsor-board img { max-width:100%; max-height:100%; object-fit:contain; }
@@ -839,6 +836,10 @@ export default function InteractionStrip({
         .alltime-sponsor-sign.is-open:hover .alltime-sponsor-board { background:#fffbe9; }
         .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
+        /* Open spot: "You can put it on the board! ... YES!" */
+        .alltime-sponsor-sign.is-open .alltime-sponsor-board b { font-size:10px; line-height:1.08; letter-spacing:0; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-title { top:43px; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-title span:first-child { font:900 23px/1 Oswald,sans-serif; letter-spacing:.3px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
         /* Row 3's existing 60px circular portrait and 9px Oswald caption.
            Clip the portrait's lower 60px INSIDE the ring; extend only the
@@ -921,7 +922,7 @@ export default function InteractionStrip({
           <button type="button" className="alltime-distance-marker" onClick={handleAllTimeResetClick}
             aria-label={`Show All-Time List, ${allTimeCount} alumni`} title="Show all-time alumni">
             <strong className="alltime-distance-count">{allTimeCount}</strong>
-            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT LEVEL LIST</span></span>
+            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT-LEVEL</span><span>LIST</span></span>
           </button>
         )}
         {showPlayerStrip && activeSection === 'alltime' && (
@@ -932,9 +933,9 @@ export default function InteractionStrip({
               <span className="alltime-sponsor-title"><span>PROUD</span><span>SPONSOR</span></span>
             </span>
           ) : (
-            <a className="alltime-sponsor-sign is-open" href={sponsorHsid ? contributeSectionHref(sponsorHsid, 'cc-fans') : '#'} aria-label="Sponsor this spot" title="Put your business here">
-              <span className="alltime-sponsor-board"><b>YOUR</b><b>BUSINESS</b></span>
-              <span className="alltime-sponsor-title"><span>SPONSOR</span><span>THIS SPOT</span></span>
+            <a className="alltime-sponsor-sign is-open" href={sponsorHsid ? contributeSectionHref(sponsorHsid, 'cc-fans') : '#'} aria-label="You can put it on the board! Yes! Sponsor this spot" title="Put your business here">
+              <span className="alltime-sponsor-board"><b>YOU CAN PUT</b><b>IT ON THE</b><b>BOARD!</b></span>
+              <span className="alltime-sponsor-title"><span>YES!</span></span>
             </a>
           )
         )}
