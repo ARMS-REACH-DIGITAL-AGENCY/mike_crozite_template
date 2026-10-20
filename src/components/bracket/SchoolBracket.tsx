@@ -1413,7 +1413,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* Above the site's floating buttons, so nothing covers the close button. */
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
         .yfp-drawer-wrap.row5 { bottom: calc(var(--footerH, 66px) + var(--yat-message-h, 36px)); background: transparent; } /* docked beside the game: never dim it */
-        .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
+        .bl.bl-embed.yfp-drawer { box-sizing:border-box; position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); max-width:100vw; min-width:0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
         .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }
         @keyframes yfp-in-r { from { transform: translateX(100%); } to { transform: none; } }
@@ -1435,7 +1435,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-head-line .yfp-drawer-location { color:#fff; font:inherit; overflow:hidden; text-overflow:ellipsis; }
         .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff; font:inherit; }
         .yfp-drawer-head-line button { width:24px; height:24px; border:0; color:#fff; font-size:13px; }
-        .yfp-drawer .ybr-rules { padding: 14px; }
+        /* Rule sections and scoring explanations must shrink with the drawer;
+           only the statistics tables may scroll sideways on small screens. */
+        .yfp-drawer .ybr-rules { box-sizing:border-box; width:100%; max-width:100%; min-width:0; padding:14px; }
+        .yfp-drawer .ybr-rules section { min-width:0; overflow-wrap:anywhere; }
+        .yfp-drawer .ybr-rules .ybr-scroll { max-width:100%; overflow-x:auto; }
 
         @media (max-width: 819px) {
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width: min(410px, 100vw); }
