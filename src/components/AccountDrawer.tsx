@@ -150,9 +150,9 @@ function FallClassicRaffle() {
               FALL CLASSIC TICKETS RAFFLE
             </div>
             <p style={{ margin: '0 0 10px', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
-              Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
-              Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
-              <strong style={{ color: '#fff' }}> 20 regular-season entries + 1 postseason entry</strong>.
+              Register on your favorite high school alumni hub. If your school wins the 30-week bracket, each round
+              you were a registered Fan earns <strong style={{ color: '#fff' }}>one raffle entry (up to 10)</strong>.
+              Super Fans earn <strong style={{ color: '#fff' }}>three total entries per Super Fan round (up to 30 across 10 rounds)</strong>.
             </p>
             <p style={{ margin: 0, color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
               Entries close <strong style={{ color: '#fff' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
