@@ -43,6 +43,10 @@ const account = read('src/components/AccountDrawer.tsx');
 assert.match(account,/function FallClassicRaffle\(\)/,'Fall Classic shared promotion exists');
 assert.equal((account.match(/<FallClassicRaffle \/>/g)||[]).length,2,'Fall Classic visible in both signed-out and signed-in account views');
 assert.doesNotMatch(account,/\{activeTab === "signin" && <section\s+className="yat-raffle-section"/,'Fall Classic must not be gated to Log In');
+assert.match(account,/#drawerAccount \.yat-raffle-section\{[^}]*flex-shrink:0!important;/,'Raffle must retain its natural height in scrolling drawer');
+assert.match(account,/#drawerAccount \.yat-raffle-section p\{color:#e5e5e5!important;\}/,'Raffle description retains readable light text in light mode');
+assert.match(account,/#drawerAccount \.yat-raffle-section strong\{color:#fff!important;\}/,'Raffle dates and entries have contrast');
+
 
 const page = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
 assert.match(teammateDrawer,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'Teammates directory must keep both columns');
