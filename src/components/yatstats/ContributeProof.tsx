@@ -20,9 +20,9 @@ export type ProofPlayer = { name: string; classOf: number | null; currentTeam: s
 // Every place the photo shows on the site, in the site's own words.
 const SPOTS: Record<PhotoPurpose, (p: ProofPlayer, s: Season | null) => string[]> = {
   flip_card: (p) => [`The front of ${first(p.name)}'s flip card, in the Active Alumni and All-Time galleries`, `The high school photo on his profile page`],
-  headshot: (p, s) => s && !s.current
+  headshot: (p, s) => s && !s.current && s.year < new Date().getFullYear()
     ? [`${first(p.name)}'s ${s.year} headshot, kept with his ${s.year} season on his Career Path Timeline`, 'His current headshot stays as it is']
-    : [`${first(p.name)}'s headshot in Row 3 of the galleries`, 'His profile page, Global Search and Favorites', 'Alumni News stories about him'],
+    : [`${first(p.name)}'s official current-year headshot in the Hot Button Row (interactive headshot slider)`, 'His profile page, Global Search and Favorites', 'Alumni News stories about him'],
   back_hero: (p) => [`The back of ${first(p.name)}'s flip card`, 'His profile page'],
   timeline_hero: (p, s) => [`The ${s?.year || ''} slide of ${first(p.name)}'s Career Path Timeline, on his profile page`.replace('The  slide', 'A slide')],
   other_photo: (p, s) => [`The ${s?.year || ''} slide of ${first(p.name)}'s Career Path Timeline, on his profile page`.replace('The  slide', 'A slide')],
@@ -254,7 +254,7 @@ export default function ContributeProof({
             Loading {player.name || 'the player'}&apos;s actual flip card…
           </div>
         )
-          : purpose === 'headshot' ? (season && !season.current ? <TimelineSlide src={src} crop={crop} p={player} s={season} landscape={false} /> : <Headshot src={src} crop={crop} p={player} />)
+          : purpose === 'headshot' ? (season && !season.current && season.year < new Date().getFullYear() ? <TimelineSlide src={src} crop={crop} p={player} s={season} landscape={false} /> : <Headshot src={src} crop={crop} p={player} />)
           : purpose === 'timeline_hero' ? <TimelineSlide src={src} crop={crop} p={player} s={season} landscape={landscape} />
           : purpose === 'school_logo' ? <SchoolCrest src={src} p={player} />
           : purpose === 'team_logo' ? <TeamLogo src={src} name={teamName} />
