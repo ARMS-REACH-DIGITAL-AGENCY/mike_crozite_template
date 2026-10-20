@@ -31,10 +31,8 @@ const SECTION_BOOTSTRAP =
 // roster loads). Two modes, decided per person before the first paint:
 // - full, for someone new to YAT?STATS: the logo slides in from the right,
 //   the crest from the left, then they shine; at least 1.6s;
-// - quick, for anyone back within 30 days (a yat_seen cookie shared by every
-//   school subdomain - a superfan hopping between favorites' schools): the
-//   same screen already lit, no minimum, and only if the page is still
-//   loading after 0.3s.
+// - no splash for anyone returning within 30 days (shared yat_seen cookie).
+//   Normal navigation waits for the destination without a takeover overlay.
 // Either way it leaves with a flip, like a flip card: the splash on the
 // front, the school's hub on the back (a view transition between the two;
 // browsers without one flip the splash away). A short card-flip sound plays
@@ -66,8 +64,8 @@ if(!RM&&d.startViewTransition){sound();var v=d.createElement('style');v.textCont
 try{d.startViewTransition(function(){set(OFF);}).finished.then(function(){v.remove();},function(){v.remove();});}catch(e){set(OFF);v.remove();}return;}
 if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},350);};
 var t0=Date.now(),ready=false,shown=!seen;
-if(seen){set(QUICK+P+'{opacity:0!important;pointer-events:none!important}');
-setTimeout(function(){if(!ready){shown=true;set(QUICK);}},300);}
+// Returning visitors must never re-show the opener as a loading overlay.
+if(seen){set(OFF);return;}
 var lift=function(){if(ready)return;ready=true;
 if(!shown){set(OFF);return;}
 setTimeout(flip,seen?0:Math.max(0,1600-(Date.now()-t0)));};
