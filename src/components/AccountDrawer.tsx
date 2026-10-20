@@ -1298,12 +1298,12 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
 
           {activeTab === "signin" && <section
             className="yat-raffle-section"
-            aria-label="World Series Tickets Raffle"
+            aria-label="Fall Classic Tickets Raffle"
             style={{
               margin: '14px 15px 4px',
               padding: '14px 15px',
               border: '1px solid var(--line)',
-              background: 'transparent',
+              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26)), url("/img/world-series-trophy-cta.png") 92% center / auto 94% no-repeat',
             }}
           >
             <div
@@ -1316,7 +1316,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 marginBottom: '5px',
               }}
             >
-              WORLD SERIES TICKETS RAFFLE
+              FALL CLASSIC TICKETS RAFFLE
             </div>
             <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
               Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
@@ -1450,6 +1450,20 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 >
                   Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
                   <br />
+                  <strong style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
+                  <div className="yat-tour-roles" aria-label="Choose a guided tour">
+                    {([
+                      ['coach','COACH'],
+                      ['player','PLAYER'],
+                      ['partner','PARTNER'],
+                      ['fan','FAN'],
+                    ] as const).map(([role,label]) => (
+                      <a key={role} className="yat-tour-role" href={`https://yatstats.com/?tour=${role}`} aria-label={`${label} guided tour`}>
+                        <img src={`https://raw.githubusercontent.com/ARMS-REACH-DIGITAL-AGENCY/armsreach/main/sites/yatstats/img/tour-${role}.jpg`} alt="" loading="lazy" />
+                        <span>{label}</span>
+                      </a>
+                    ))}
+                  </div>
                   <button
                     type="button"
                     onClick={() => { window.location.assign("https://yatstats.com"); }}
@@ -1502,6 +1516,13 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-tour img{width:70px!important;max-height:112px;object-fit:contain!important;object-position:center!important;}
         #drawerAccount .yat-account-tour > div:last-child > div{padding:8px 10px!important;font-size:11px!important;line-height:1.35!important;}
         #drawerAccount .yat-account-tour button{min-height:34px!important;margin-top:5px!important;padding:0 10px!important;}
+        #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:9px;padding-top:8px;border-top:1px solid #d4d4d4;gap:0;}
+        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;gap:4px;padding:0 2px;color:#161616;text-decoration:none;font:700 clamp(8px,2.1vw,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);border-right:1px solid #ddd;}
+        #drawerAccount .yat-tour-role:last-child{border-right:0;}
+        #drawerAccount .yat-tour-role img{width:min(100%,43px)!important;height:43px!important;max-height:43px!important;object-fit:contain!important;mix-blend-mode:multiply;}
+        #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
+        #drawerAccount .yat-raffle-section{background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;background-size:auto 94%!important;background-position:right center!important;}
+        #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
         #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
         @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
 
