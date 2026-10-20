@@ -442,7 +442,7 @@ export default function PlayerCardFront({
       {/* Baseball-card treatment: the inset rule and transparent stacked
           wordmark are decoration only, never interactive hit targets. */}
       <div className="yat-front-print-frame" aria-hidden="true" />
-      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.png" alt="" aria-hidden="true" />
+      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked-white.svg" alt="" aria-hidden="true" />
       {/* Favorite him right from the card (top-right corner). */}
       {imageId && (
         <div className="yat-card-fav-slot">
@@ -531,7 +531,6 @@ export default function PlayerCardFront({
               }}
             >
               <span>FLIP FOR STATS</span>
-              <span aria-hidden="true">&gt;</span>
             </span>
           </div>
         </div>
@@ -541,27 +540,47 @@ export default function PlayerCardFront({
         .yat-front-cq {
           container-type: inline-size;
           container-name: yat-front;
+          /* Corner geometry shared by the frame, the wordmark and the heart:
+             the frame inset and the wordmark's width. */
+          --yat-corner: clamp(7px,2.4cqi,10px);
+          --yat-logo-w: clamp(35px,15.5cqi,57.5px);
+          /* The wordmark sits this far up and left of the frame's corner. */
+          --yat-logo-out: 3px;
         }
-        /* Hairline inset, just like a printed baseball card. Soft inner
-           highlight gives depth without obscuring the player photograph. */
-        /* The top corners are the transparent brand mark and the bare heart.
-           Four fading rules avoid a rigid rectangle or cluttered corners. */
+        /* Hairline inset, just like a printed baseball card: a full frame
+           with the player copy kept inside it. At the wordmark (top left)
+           the top and left rules fade to nothing just before its letters:
+           the top row "YAT?" ends at .798w, the wider "STATS" row at .966w,
+           and the letters end .458w below the frame top. The top right is
+           a plain corner with the heart tucked inside it. */
         .yat-front-print-frame {
           position:absolute; z-index:2; pointer-events:none;
-          inset:clamp(7px,2.4cqi,10px);
+          inset:var(--yat-corner);
           border:0; box-shadow:none;
+          --yat-rule: rgba(255,255,255,.66);
           background:
-            linear-gradient(to right, transparent 0%, rgba(255,255,255,.70) 28%, rgba(255,255,255,.70) 78%, transparent 100%) top center / calc(100% - 112px) 1px no-repeat,
-            linear-gradient(to bottom, transparent 0%, rgba(255,255,255,.70) 23%, rgba(255,255,255,.70) 77%, transparent 100%) left center / 1px calc(100% - 72px) no-repeat,
-            linear-gradient(to bottom, transparent 0%, rgba(255,255,255,.70) 22%, rgba(255,255,255,.70) 77%, transparent 100%) right center / 1px calc(100% - 70px) no-repeat,
-            linear-gradient(to right, transparent, rgba(255,255,255,.58) 24%, rgba(255,255,255,.58) 76%, transparent) bottom center / calc(100% - 78px) 1px no-repeat;
+            linear-gradient(to right, transparent 0, var(--yat-rule) calc(.168 * var(--yat-logo-w) + 4px)) left calc(.798 * var(--yat-logo-w) + 2px - var(--yat-logo-out)) top 0 / calc(100% - .798 * var(--yat-logo-w) - 2px + var(--yat-logo-out)) 1px no-repeat,
+            linear-gradient(to bottom, transparent 0, var(--yat-rule) calc(.09 * var(--yat-logo-w) + 4px)) left 0 top calc(.458 * var(--yat-logo-w) + 2px - var(--yat-logo-out)) / 1px calc(100% - .458 * var(--yat-logo-w) - 2px + var(--yat-logo-out)) no-repeat,
+            linear-gradient(var(--yat-rule), var(--yat-rule)) right 0 top 0 / 1px 100% no-repeat,
+            linear-gradient(var(--yat-rule), var(--yat-rule)) left 0 bottom 0 / 100% 1px no-repeat;
         }
+        /* The PNG has more empty space above the letters than left of them
+           (186px vs 37px of 1536), so lift it .097w: the letters then sit
+           as far from the top edge as from the left. */
         .yat-front-brand-watermark {
           position:absolute; z-index:3; pointer-events:none;
-          top:clamp(7px,2.4cqi,10px); left:clamp(7px,2.4cqi,10px);
-          width:clamp(35px,15.5cqi,57.5px); height:auto; max-height:38px;
+          top:calc(var(--yat-corner) - .097 * var(--yat-logo-w) - var(--yat-logo-out)); left:calc(var(--yat-corner) - var(--yat-logo-out));
+          width:var(--yat-logo-w); height:auto; max-height:38px;
           object-fit:contain; object-position:left top;
-          opacity:.72; filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
+          /* Outline only: no drop shadow, which bled into the thin letters
+             and read as a gray fill. */
+        }
+        /* The heart tucks into the frame's top-right corner, 4px inside both
+           rules (its outline sits 9.8px down and 8.8px in from its 36px
+           button's corner). */
+        .yat-front-cq .yat-card-fav-slot {
+          top:calc(var(--yat-corner) - 5.8px);
+          right:calc(var(--yat-corner) - 4.8px);
         }
 
         .yat-front-content {
@@ -569,7 +588,8 @@ export default function PlayerCardFront({
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
-          padding: clamp(9px, 4.5cqi, 14px) clamp(8px, 3.8cqi, 12px) clamp(8px, 3.8cqi, 12px);
+          /* Sides and bottom clear the frame rule (inset 7-10px) by a hair. */
+          padding: clamp(9px, 4.5cqi, 14px) clamp(13px, 5.4cqi, 18px) clamp(13px, 5.4cqi, 18px);
         }
 
         .yat-front-bottom-row {
@@ -708,7 +728,7 @@ export default function PlayerCardFront({
         .yat-front-flip-button {
           display: inline-flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: center;
           gap: clamp(5px, 2cqi, 8px);
           min-height: clamp(20px, 8cqi, 24px);
           padding: 0 clamp(7px, 3cqi, 10px);
@@ -761,7 +781,7 @@ export default function PlayerCardFront({
 
         @container yat-front (max-width: 190px) {
           .yat-front-content {
-            padding: 8px 7px 8px;
+            padding: 8px 12px 12px;
           }
 
           .yat-front-bottom-row {
