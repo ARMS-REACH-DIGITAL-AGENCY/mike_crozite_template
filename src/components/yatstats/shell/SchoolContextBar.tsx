@@ -98,7 +98,12 @@ export default function SchoolContextBar({
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
-  const [allCardsFlipped, setAllCardsFlipped] = useState(false);
+  // Cycle: front -> Stats -> Game Log -> News -> Social -> Connect ->
+  // Stories -> front -> idle click -> Stats. Idle is an intentional
+  // extra click after returning to the front to avoid overshooting.
+  const FLIP_ALL_TABS = ['stats', 'schedule', 'news', 'social', 'connect', 'upload'] as const;
+  const [flipAllStep, setFlipAllStep] = useState(0);
+  const allCardsFlipped = flipAllStep >= 1 && flipAllStep <= FLIP_ALL_TABS.length;
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const slugDerivedName = playerRouteMatch?.[2]
@@ -158,9 +163,25 @@ export default function SchoolContextBar({
     event.preventDefault();
     event.stopPropagation();
 
-    const nextState = !allCardsFlipped;
-    getVisibleGalleryCards().forEach((card) => card.classList.toggle('is-flipped', nextState));
-    setAllCardsFlipped(nextState);
+    // Steps 1-6 show the back and advance through all six tabs.
+    // Step 7 returns to the front. Step 8 is a no-op safety click.
+    const nextStep = flipAllStep >= 8 ? 1 : flipAllStep + 1;
+    if (nextStep !== 8) {
+      const onBack = nextStep >= 1 && nextStep <= FLIP_ALL_TABS.length;
+      const tab = onBack ? FLIP_ALL_TABS[nextStep - 1] : null;
+      getVisibleGalleryCards().forEach((card) => {
+        if (tab) {
+          card.dispatchEvent(new CustomEvent('yat:flip-all-tab', { detail: { tab } }));
+          // Cross-school favorites are inserted as unhydrated HTML.
+          // Their Fun Zone tabs are driven by the delegated click listener.
+          if (!card.querySelector('[data-reactroot]') && card.dataset.superfanSynthetic === 'true') {
+            card.querySelector<HTMLElement>(`.fz-tab-btn[data-fz-tab="${tab}"]`)?.click();
+          }
+        }
+        card.classList.toggle('is-flipped', onBack);
+      });
+    }
+    setFlipAllStep(nextStep);
   };
 
   return (
@@ -189,7 +210,7 @@ export default function SchoolContextBar({
         )}
         {isGallery && (
           <>
-            <button id="flipAllCards" className="yat-icon-btn" aria-label={allCardsFlipped ? 'Flip all cards to front' : 'Flip all cards to stats'} aria-pressed={allCardsFlipped} title={allCardsFlipped ? 'Flip all cards to front' : 'Flip all cards to stats'} onClick={handleFlipAll} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
+            <button id="flipAllCards" className="yat-icon-btn" aria-label={flipAllStep === 7 ? 'Pause before flipping all cards again' : flipAllStep === 8 || flipAllStep === 0 ? 'Flip all cards to Stats' : flipAllStep === 6 ? 'Return all cards to front' : `Show all cards: ${FLIP_ALL_TABS[flipAllStep] === 'schedule' ? 'Game Log' : FLIP_ALL_TABS[flipAllStep] === 'upload' ? 'Stories' : FLIP_ALL_TABS[flipAllStep] || 'Stats'}`} aria-pressed={allCardsFlipped} title={flipAllStep === 7 ? 'Safety pause (no change)' : 'Cycle all flip cards through Fun Zone tabs'} onClick={handleFlipAll} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
               <img data-flip-all-icon="true" src="/img/flip-all-icon.review.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block', transform: allCardsFlipped ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }} />
             </button>
             <button id="openSort" className="yat-icon-btn" aria-label="Open sort"><i className="ri-sort-desc" /></button>
