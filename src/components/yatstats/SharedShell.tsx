@@ -188,6 +188,18 @@ export default function SharedShell({
     document.addEventListener('click', onTabTap, true);
 
     syncSection();
+
+    // A section hash can trigger native document scroll restoration on mobile.
+    // For the All-Time list, the default landing is always the first card.
+    // Preserve intentional player deep links (?player=... / #player-...).
+    const resetAllTimeLanding = () => {
+      const hash = window.location.hash;
+      if (hash !== '#sec-alltime' || new URLSearchParams(window.location.search).has('player')) return;
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    };
+    window.requestAnimationFrame(() => window.requestAnimationFrame(resetAllTimeLanding));
+    window.addEventListener('yat:page-ready', resetAllTimeLanding, { once: true });
+
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
     window.addEventListener('yat:section-changed', syncSection);
@@ -201,6 +213,7 @@ export default function SharedShell({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(switchTimer);
       document.removeEventListener('click', onTabTap, true);
+      window.removeEventListener('yat:page-ready', resetAllTimeLanding);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
       window.removeEventListener('yat:section-changed', syncSection);
