@@ -12,8 +12,9 @@ const timeline = read('src/components/yatstats/ZoomableCareerTimeline.tsx');
 const search = read('src/components/yatstats/SearchDrawerTabs.tsx');
 const teamApi = read('src/app/api/teams/search/route.ts');
 const jsx = stories.slice(stories.indexOf('<div className="ysf-tools"'), stories.indexOf('<div className="ysf-main">'));
-const positions = ['className="ysf-add-btn"', 'className="ysf-tm-btn"', 'className="ysf-search"', '<SortToggle'].map(s => jsx.indexOf(s));
-assert.ok(positions.every((n,i) => n >= 0 && (i === 0 || n > positions[i-1])), 'Story toolbar has Add Story, Teammates, Search, then Sort');
+// Order since 63a9f953 (Oct 19): the Add Story button, then search, sort and teammates.
+const positions = ['className="ysf-add-btn"', 'className="ysf-search"', '<SortToggle', 'className="ysf-tm-btn"'].map(s => jsx.indexOf(s));
+assert.ok(positions.every((n,i) => n >= 0 && (i === 0 || n > positions[i-1])), 'Story toolbar has Add Story, Search, Sort, then Teammates');
 assert.match(jsx,/openStoryDrawer\(\{ playerId, year: null \}, storyOpenOwner\)/,'Story toolbar opens real player-scoped upload drawer');
 assert.doesNotMatch(jsx,/>\s*Teammates\s*</i,'No visible Teammates label');
 assert.doesNotMatch(bar,/yat-profile-memory-cta|openStoryDrawer/,'Upload CTA does not return to school header');
@@ -76,7 +77,10 @@ for (const cls of ['.zt-kick {','.zt-rail-track {','.zt-persist-status {','.zt-p
   const rule = timeline.slice(timeline.indexOf(cls)).split('\n',1)[0];
   assert.match(rule,/color:\$\{TIMELINE_ACCENT\}|background:\$\{TIMELINE_ACCENT\}/,'Accent still applied to '+cls);
 }
-assert.doesNotMatch(account,/Bebas Neue|Oswald/,'Login/Account typography stays Archivo');
+// The raffle heading, promo code and benefit table are condensed Oswald on
+// purpose (a08e85d9, 14589e5f); everything else in the drawer stays Archivo.
+const accountUi = account.replace(/#drawerAccount \.yat-(?:raffle-section > div:first-child|account-promo-code|account-benefit-table)[^{]*\{[^}]*\}/g, '');
+assert.doesNotMatch(accountUi,/Bebas Neue|Oswald/,'Login/Account typography stays Archivo');
 assert.match(stories,/className="ysf-tm-btn"/,'Teammate icon remains beside search');
 const newsReader = read('src/components/yatstats/ProfileContentDrawer.tsx');
 const newsList = read('src/components/yatstats/ProfileNewsList.tsx');
