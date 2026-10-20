@@ -442,7 +442,7 @@ export default function PlayerCardFront({
       {/* Baseball-card treatment: the inset rule and transparent stacked
           wordmark are decoration only, never interactive hit targets. */}
       <div className="yat-front-print-frame" aria-hidden="true" />
-      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.png" alt="" aria-hidden="true" />
+      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked-white.png" alt="" aria-hidden="true" />
       {/* Favorite him right from the card (top-right corner). */}
       {imageId && (
         <div className="yat-card-fav-slot">
