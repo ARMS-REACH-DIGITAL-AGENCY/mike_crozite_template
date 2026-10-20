@@ -1430,8 +1430,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
 
             <div className="yat-account-tour"
               style={{
-                borderTop: '1px solid var(--line)',
-                padding: '16px',
+                borderTop: 'none',
+                padding: '12px',
                 display: 'flex',
                 alignItems: 'flex-end',
                 gap: '12px',
@@ -1461,19 +1461,19 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
                   <br />
                   <strong className="yat-tour-ask" style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
-                  <div className="yat-tour-roles" aria-label="Choose a guided tour">
+                  <nav className="yat-tour-roles" aria-label="Choose a guided tour">
                     {([
                       ['coach','COACH','https://yatstats.com/programs/'],
                       ['player','PLAYER','https://yatstats.com/players/'],
                       ['partner','PARTNER','https://yatstats.com/partners/'],
                       ['fan','FAN','https://yatstats.com/fans/'],
                     ] as const).map(([role,label,href]) => (
-                      <a key={role} className="yat-tour-role" href={href} aria-label={`${label} guided tour`}>
-                        <img src={`/img/tour-roles/${role}.png`} alt="" loading="lazy" />
+                      <a key={role} className="yat-tour-role" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${label} guided tour (opens in a new tab)`}>
+                        <img src={`/img/tour-roles/${role}.png`} alt="" aria-hidden="true" loading="lazy" />
                         <span>{label}</span>
                       </a>
                     ))}
-                  </div>
+                  </nav>
 
                   <span
                     style={{
@@ -1499,20 +1499,21 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
         #drawerAccount .yat-raffle-section > div:first-child{font:800 clamp(12px,3.05vw,18px)/1.1 Oswald,sans-serif!important;letter-spacing:-.01em!important;text-transform:uppercase;white-space:nowrap;}
         #drawerAccount .yat-account-comparison{display:flex;flex-direction:column;margin-top:4px!important;border-top:0!important;}
-        #drawerAccount .yat-account-tour{order:0;padding:7px 10px 9px!important;gap:7px!important;align-items:center!important;border-top:0!important;background:transparent!important;}
+        #drawerAccount .yat-account-tour{order:0;padding:10px 10px 13px!important;gap:8px!important;align-items:center!important;border-top:0!important;background:transparent!important;}
         #drawerAccount .yat-account-tour > div:first-child{order:2!important;flex:0 0 70px!important;}
         #drawerAccount .yat-account-tour > div:last-child{order:1!important;flex:1 1 auto!important;min-width:0;}
         #drawerAccount .yat-account-tour > div:last-child > div > span{right:-8px!important;left:auto!important;border-right:0!important;border-left:8px solid #fff!important;top:19px!important;}
         #drawerAccount .yat-account-tour img{width:70px!important;max-height:112px;object-fit:contain!important;object-position:center!important;}
-        #drawerAccount .yat-account-tour > div:last-child > div{padding:8px 10px!important;font-size:11px!important;line-height:1.35!important;container-type:inline-size;}
+        #drawerAccount .yat-account-tour > div:last-child > div{padding:11px 11px 10px!important;font-size:12px!important;line-height:1.4!important;border-radius:15px!important;box-shadow:0 6px 22px rgba(0,0,0,.16);container-type:inline-size;}
         /* One line in the bubble at any phone width (the line is ~17.6em wide). */
         #drawerAccount .yat-tour-ask{font-size:min(1em,5.6cqi);white-space:normal;}
-        #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:9px;padding-top:8px;border-top:1px solid #d4d4d4;gap:0;}
-        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;gap:5px;padding:0 2px;color:#161616;text-decoration:none;font:500 clamp(9px,2.5vw,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);border-right:1px solid #ddd;}
-        #drawerAccount .yat-tour-role:last-child{border-right:0;}
-        /* Transparent LED cutouts sit straight on the white bubble. */
-        #drawerAccount .yat-tour-roles .yat-tour-role img{width:auto!important;max-width:100%!important;height:34px!important;max-height:34px!important;object-fit:contain!important;}
-        #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
+        #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px;padding:0;border:0!important;gap:5px;}
+        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:68px;gap:4px;padding:7px 1px 5px;background:#f3f3f3;color:#111;text-decoration:none;font:700 clamp(9px,2.55vw,11px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);border:0!important;border-radius:9px;transition:background-color .15s ease,transform .15s ease;}
+        #drawerAccount .yat-tour-role span{white-space:nowrap;}
+        /* Keep the original transparent role artwork, but render the LED marks as clean black icons. */
+        #drawerAccount .yat-tour-roles .yat-tour-role img{width:34px!important;max-width:calc(100% - 4px)!important;height:34px!important;max-height:34px!important;object-fit:contain!important;filter:brightness(0)!important;opacity:.9;}
+        #drawerAccount .yat-tour-role:hover{background:#e8e8e8;color:#111;transform:translateY(-1px);text-decoration:none;}
+        #drawerAccount .yat-tour-role:focus-visible{background:#e8e8e8;outline:2px solid #555;outline-offset:2px;}
         #drawerAccount .yat-account-signed-in .yat-raffle-section{margin:12px 0!important;}
         #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;box-sizing:border-box;display:block!important;flex:0 0 auto!important;flex-shrink:0!important;min-height:max-content!important;height:auto!important;max-height:none!important;align-self:stretch!important;overflow:hidden;background-color:#111!important;background-blend-mode:normal!important;color:#fff!important;}
         #drawerAccount .yat-raffle-section > :is(div,p){position:relative;z-index:1;}
