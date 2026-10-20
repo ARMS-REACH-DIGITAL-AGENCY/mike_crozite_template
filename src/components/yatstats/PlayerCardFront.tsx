@@ -442,11 +442,11 @@ export default function PlayerCardFront({
       {/* Baseball-card treatment: the inset rule and transparent stacked
           wordmark are decoration only, never interactive hit targets. */}
       <div className="yat-front-print-frame" aria-hidden="true" />
-      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.png" alt="" aria-hidden="true" />
+      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked-card.png" alt="" aria-hidden="true" />
       {/* Favorite him right from the card (top-right corner). */}
       {imageId && (
         <div className="yat-card-fav-slot">
-          <FavoriteButton variant="star" playerId={imageId} playerName={[first, last].filter(Boolean).join(" ") || imageId} playerHsid={hsid || asText(p.hsid)} />
+          <FavoriteButton variant="star" solid playerId={imageId} playerName={[first, last].filter(Boolean).join(" ") || imageId} playerHsid={hsid || asText(p.hsid)} />
         </div>
       )}
 
@@ -531,7 +531,6 @@ export default function PlayerCardFront({
               }}
             >
               <span>FLIP FOR STATS</span>
-              <span aria-hidden="true">&gt;</span>
             </span>
           </div>
         </div>
@@ -542,26 +541,40 @@ export default function PlayerCardFront({
           container-type: inline-size;
           container-name: yat-front;
         }
-        /* Hairline inset, just like a printed baseball card. Soft inner
-           highlight gives depth without obscuring the player photograph. */
-        /* The top corners are the transparent brand mark and the bare heart.
-           Four fading rules avoid a rigid rectangle or cluttered corners. */
+        /* Hairline inset, just like a printed baseball card. The rule only
+           breaks for the stacked wordmark (top left) and the heart (top
+           right): the sides run down to the bottom corners and the bottom
+           runs corner to corner, with the player copy kept inside it. */
         .yat-front-print-frame {
           position:absolute; z-index:2; pointer-events:none;
           inset:clamp(7px,2.4cqi,10px);
           border:0; box-shadow:none;
+          --yat-rule: rgba(255,255,255,.66);
           background:
-            linear-gradient(to right, transparent 0%, rgba(255,255,255,.70) 28%, rgba(255,255,255,.70) 78%, transparent 100%) top center / calc(100% - 112px) 1px no-repeat,
-            linear-gradient(to bottom, transparent 0%, rgba(255,255,255,.70) 23%, rgba(255,255,255,.70) 77%, transparent 100%) left center / 1px calc(100% - 72px) no-repeat,
-            linear-gradient(to bottom, transparent 0%, rgba(255,255,255,.70) 22%, rgba(255,255,255,.70) 77%, transparent 100%) right center / 1px calc(100% - 70px) no-repeat,
-            linear-gradient(to right, transparent, rgba(255,255,255,.58) 24%, rgba(255,255,255,.58) 76%, transparent) bottom center / calc(100% - 78px) 1px no-repeat;
+            linear-gradient(to right, transparent 0%, var(--yat-rule) 18%, var(--yat-rule) 82%, transparent 100%) top center / calc(100% - 112px) 1px no-repeat,
+            linear-gradient(to bottom, transparent 0, var(--yat-rule) 34px) left bottom / 1px calc(100% - 38px) no-repeat,
+            linear-gradient(to bottom, transparent 0, var(--yat-rule) 34px) right bottom / 1px calc(100% - 40px) no-repeat,
+            linear-gradient(var(--yat-rule), var(--yat-rule)) bottom center / 100% 1px no-repeat;
+        }
+        /* A soft, warm "old print" grade on the player photograph only. */
+        .yat-front-cq .yat-bg-photo {
+          filter: sepia(.3) saturate(1.18) contrast(1.06) brightness(1.02);
         }
         .yat-front-brand-watermark {
           position:absolute; z-index:3; pointer-events:none;
           top:clamp(7px,2.4cqi,10px); left:clamp(7px,2.4cqi,10px);
-          width:clamp(35px,15.5cqi,57.5px); height:auto; max-height:38px;
+          width:clamp(30px,12.5cqi,46px); height:auto; max-height:31px;
           object-fit:contain; object-position:left top;
-          opacity:.72; filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
+          filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
+        }
+        /* Corner heart: solid black with a white outline, orange once
+           favorited (FavoriteButton solid always draws the filled glyph). */
+        .yat-front-cq .yat-card-fav-slot .yat-card-fav:not(.on) { color:rgba(0,0,0,.86); }
+        .yat-front-cq .yat-card-fav-slot .yat-card-fav.on { color:#ffb21c; }
+        .yat-front-cq .yat-card-fav-slot .yat-card-fav {
+          text-shadow:1.5px 0 #fff,-1.5px 0 #fff,0 1.5px #fff,0 -1.5px #fff,
+            1.1px 1.1px #fff,-1.1px 1.1px #fff,1.1px -1.1px #fff,-1.1px -1.1px #fff,
+            0 2px 5px rgba(0,0,0,.45);
         }
 
         .yat-front-content {
@@ -569,7 +582,8 @@ export default function PlayerCardFront({
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
-          padding: clamp(9px, 4.5cqi, 14px) clamp(8px, 3.8cqi, 12px) clamp(8px, 3.8cqi, 12px);
+          /* Sides and bottom clear the frame rule (inset 7-10px) by a hair. */
+          padding: clamp(9px, 4.5cqi, 14px) clamp(13px, 5.4cqi, 18px) clamp(13px, 5.4cqi, 18px);
         }
 
         .yat-front-bottom-row {
@@ -708,7 +722,7 @@ export default function PlayerCardFront({
         .yat-front-flip-button {
           display: inline-flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: center;
           gap: clamp(5px, 2cqi, 8px);
           min-height: clamp(20px, 8cqi, 24px);
           padding: 0 clamp(7px, 3cqi, 10px);
@@ -761,7 +775,7 @@ export default function PlayerCardFront({
 
         @container yat-front (max-width: 190px) {
           .yat-front-content {
-            padding: 8px 7px 8px;
+            padding: 8px 12px 12px;
           }
 
           .yat-front-bottom-row {

@@ -82,7 +82,8 @@ export default function FavoriteButton({
   playerName,
   playerHsid,
   variant = 'pill',
-}: FavoriteButtonProps & { variant?: 'pill' | 'star' }) {
+  solid = false,
+}: FavoriteButtonProps & { variant?: 'pill' | 'star'; /** Star only: always the filled heart (the card styles it). */ solid?: boolean }) {
   const schoolData = useContext(SchoolContext);
   const displayName = playerName || playerId;
 
@@ -244,7 +245,7 @@ export default function FavoriteButton({
           aria-pressed={isFavorited}
           title={isFavorited ? 'Favorited' : 'Favorite'}
         >
-          <i className={isFavorited ? 'ri-heart-fill' : 'ri-heart-line'} aria-hidden="true" />
+          <i className={isFavorited || solid ? 'ri-heart-fill' : 'ri-heart-line'} aria-hidden="true" />
         </button>
       ) : (
       <button
