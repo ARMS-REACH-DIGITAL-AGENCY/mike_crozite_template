@@ -139,7 +139,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         <p>But don&apos;t fret if your favorite Active Alumni didn&apos;t win the bracket tournament. If you are a current fan of the 8 Regional Champions listed above, you may possibly still have a chance to win. Every Active Alumni from the 8 Regional Winners will each be personally selecting 1 <b>LuckyFan</b> that will have their name added to the pool of potential winners. Good Luck!</p>
       </>}
       onOpen={()=>setDrawer({
-        title:'World Series raffle entries',
+        title:'World Series sweepstakes entries',
         kicker:`${championSchool} · ${championLocation}`,
         rows:bracketFans,
         note:'Eligible fan entries will appear here as they are earned and verified.'
@@ -303,10 +303,10 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
           </>}
       {bracketChampionKnown ? <InfoCard kicker="BRACKET CHAMPION · BYE" title={championName}
         body="Waiting for the winner of this Championship Game. The winner advances to the YAT?STATS World Series." /> : null}
-      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
-        body="Registered fans of the Bracket Champion whose names will be entered in the World Series tickets raffle."
+      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS SWEEPSTAKES" title="Bracket Champion fans"
+        body="Registered fans of the Bracket Champion whose names will be entered in the World Series tickets sweepstakes."
         rows={bracketFans}
-        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans})} /> : null}
+        onOpen={()=>setDrawer({title:'World Series sweepstakes entries',kicker:`${championName} registered fans`,rows:bracketFans})} /> : null}
     </>;
   } else {
     const g=stageKnown(34) ? (index.gf.find((x)=>x[1]===34) || index.gf[0]) : null;
@@ -320,10 +320,10 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         body="Every Active Alumni from each of the eight Regional Champions personally selects one LuckyFan for the World Series ticket drawing."
         rows={topFans}
         onOpen={()=>setDrawer({title:'Regional LuckyFan selections',kicker:'One selection per Active Alumni',rows:topFans,note:'Blank slots fill only when each Active Alumni makes a verified LuckyFan selection.'})} /> : null}
-      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS RAFFLE" title="Bracket Champion fans"
-        body="The Bracket Champion fan list stays visible through the final World Series week."
+      {bracketChampionKnown ? <InfoCard kicker="WORLD SERIES TICKETS SWEEPSTAKES" title="Bracket Champion fans"
+        body="Registered Bracket Champion fan entries stay visible through the final World Series week."
         rows={bracketFans}
-        onOpen={()=>setDrawer({title:'World Series raffle entries',kicker:`${championName} registered fans`,rows:bracketFans,note:'All entries must be submitted by 11:59 PM September 26, 2027.'})} /> : null}
+        onOpen={()=>setDrawer({title:'World Series sweepstakes entries',kicker:`${championName} registered fans`,rows:bracketFans,note:'All entries must be submitted by 11:59 PM September 26, 2027.'})} /> : null}
     </>;
   }
 
