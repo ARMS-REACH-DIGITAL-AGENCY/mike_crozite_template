@@ -439,6 +439,10 @@ export default function PlayerCardFront({
         <CardPhoto srcs={photoSrcs} eager={eager} />
       </div>
       <div className="yat-shade" />
+      {/* Baseball-card treatment: the inset rule and transparent stacked
+          wordmark are decoration only, never interactive hit targets. */}
+      <div className="yat-front-print-frame" aria-hidden="true" />
+      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.webp" alt="" aria-hidden="true" />
       {/* Favorite him right from the card (top-right corner). */}
       {imageId && (
         <div className="yat-card-fav-slot">
@@ -537,6 +541,22 @@ export default function PlayerCardFront({
         .yat-front-cq {
           container-type: inline-size;
           container-name: yat-front;
+        }
+        /* Hairline inset, just like a printed baseball card. Soft inner
+           highlight gives depth without obscuring the player photograph. */
+        .yat-front-print-frame {
+          position:absolute; z-index:2; pointer-events:none;
+          inset:clamp(6px,2.4cqi,9px);
+          border:1px solid rgba(255,255,255,.68);
+          box-shadow:inset 0 0 0 1px rgba(0,0,0,.10),0 0 0 1px rgba(0,0,0,.08);
+          border-radius:1px;
+        }
+        .yat-front-brand-watermark {
+          position:absolute; z-index:3; pointer-events:none;
+          top:clamp(10px,4cqi,15px); left:clamp(10px,4cqi,15px);
+          width:clamp(52px,26cqi,88px); height:auto; max-height:65px;
+          object-fit:contain; object-position:left top;
+          opacity:.54; filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));
         }
 
         .yat-front-content {
