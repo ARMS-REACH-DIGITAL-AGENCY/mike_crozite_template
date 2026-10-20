@@ -26,8 +26,7 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
   const [designated, contributed, identities] = await Promise.all([
     getBatchDesignatedPlayerImages(ids, 'HEADSHOT'),
     query<{ playerid: string; description: string | null }>(
-      `SELECT DISTINCT ON (playerid)
-              playerid::text AS playerid, description
+      `SELECT playerid::text AS playerid, description
          FROM media_upload
         WHERE playerid = ANY($1::text[])
           AND purpose = 'headshot'
@@ -72,7 +71,9 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
   // Historical headshots are season-specific career-path assets, not the
   // official current headshot. Never promote a year-labelled upload solely
   // because it is the newest approved headshot in media_upload.
+  const selectedCurrent = new Set<string>();
   for (const row of contributed.rows) {
+    if (selectedCurrent.has(String(row.playerid))) continue;
     let parsed: { currentSeason?: boolean; published_assets?: string[] } = {};
     try { parsed = JSON.parse(row.description || '{}'); } catch {}
     if (parsed.currentSeason !== true) continue;
@@ -81,6 +82,7 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
     );
     const image = key ? storyAssetUrl(key) : null;
     if (image) {
+      selectedCurrent.add(String(row.playerid));
       result.set(String(row.playerid), {
         playerid: String(row.playerid),
         image_url: image,
