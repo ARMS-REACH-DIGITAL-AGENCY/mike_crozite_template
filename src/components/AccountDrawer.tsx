@@ -124,6 +124,44 @@ function buildMicrositeUrl(
   return `https://yatstats.com/${homeHsid}`;
 }
 
+// The promotion is shared by the JOIN, LOG IN, and signed-in account views.
+function FallClassicRaffle() {
+  return (
+<section
+            className="yat-raffle-section"
+            aria-label="Fall Classic Tickets Raffle"
+            style={{
+              margin: '14px 15px 4px',
+              padding: '14px 15px',
+              border: '1px solid #525252',
+              background: 'linear-gradient(105deg, #080808 0%, #202020 100%)',
+            }}
+          >
+            <div
+              style={{
+                color: '#fff',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                fontSize: '18px',
+                lineHeight: 1,
+                letterSpacing: '.07em',
+                marginBottom: '5px',
+              }}
+            >
+              FALL CLASSIC TICKETS RAFFLE
+            </div>
+            <p style={{ margin: '0 0 10px', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
+              Register on your favorite high school alumni hub. If your school wins the 30-week bracket, each round
+              you were a registered Fan earns <strong style={{ color: '#fff' }}>one raffle entry (up to 10)</strong>.
+              Super Fans earn <strong style={{ color: '#fff' }}>three total entries per Super Fan round (up to 30 across 10 rounds)</strong>.
+            </p>
+            <p style={{ margin: 0, color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
+              Entries close <strong style={{ color: '#fff' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
+              <strong style={{ color: '#fff' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
+            </p>
+          </section>
+  );
+}
+
 export default function AccountDrawerContent({ subdomain, initialTab }: AccountDrawerProps) {
   const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
     error: '#dc2626',
@@ -1050,6 +1088,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </>
           )}
 
+          {/* Show the raffle after contribution and membership actions. */}
+          <FallClassicRaffle />
+
           <button
             className="yat-account-signout"
             onClick={handleSignOut}
@@ -1296,38 +1337,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </p>
           )}
 
-          {activeTab === "signin" && <section
-            className="yat-raffle-section"
-            aria-label="Fall Classic Tickets Raffle"
-            style={{
-              margin: '14px 15px 4px',
-              padding: '14px 15px',
-              border: '1px solid var(--line)',
-              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26))',
-            }}
-          >
-            <div
-              style={{
-                color: 'var(--fg)',
-                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
-                fontSize: '18px',
-                lineHeight: 1,
-                letterSpacing: '.07em',
-                marginBottom: '5px',
-              }}
-            >
-              FALL CLASSIC TICKETS RAFFLE
-            </div>
-            <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Register on your favorite high school alumni hub. Fans earn one entry for every regular-season round they are registered.
-              Super Fans earn one additional entry for every round they are a Super Fan. A Super Fan since Round 1 can have
-              <strong style={{ color: 'var(--fg)' }}> 20 regular-season entries + 1 postseason entry</strong>.
-            </p>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
-              <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
-            </p>
-          </section>}
+          <FallClassicRaffle />
 
           <div className="yat-account-comparison" style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
             <div
@@ -1420,8 +1430,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
 
             <div className="yat-account-tour"
               style={{
-                borderTop: '1px solid var(--line)',
-                padding: '16px',
+                borderTop: 'none',
+                padding: '12px',
                 display: 'flex',
                 alignItems: 'flex-end',
                 gap: '12px',
@@ -1451,19 +1461,19 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
                   <br />
                   <strong className="yat-tour-ask" style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
-                  <div className="yat-tour-roles" aria-label="Choose a guided tour">
+                  <nav className="yat-tour-roles" aria-label="Choose a guided tour">
                     {([
-                      ['coach','COACH'],
-                      ['player','PLAYER'],
-                      ['partner','PARTNER'],
-                      ['fan','FAN'],
-                    ] as const).map(([role,label]) => (
-                      <a key={role} className="yat-tour-role" href={`https://yatstats.com/?tour=${role}`} aria-label={`${label} guided tour`}>
-                        <img src={`/img/tour-roles/${role}.png`} alt="" loading="lazy" />
+                      ['coach','COACH','https://yatstats.com/programs/'],
+                      ['player','PLAYER','https://yatstats.com/players/'],
+                      ['partner','PARTNER','https://yatstats.com/partners/'],
+                      ['fan','FAN','https://yatstats.com/fans/'],
+                    ] as const).map(([role,label,href]) => (
+                      <a key={role} className="yat-tour-role" href={href} target="_blank" rel="noopener noreferrer" aria-label={`${label} guided tour (opens in a new tab)`}>
+                        <img src={`/img/tour-roles/${role}.png`} alt="" aria-hidden="true" loading="lazy" />
                         <span>{label}</span>
                       </a>
                     ))}
-                  </div>
+                  </nav>
 
                   <span
                     style={{
@@ -1489,23 +1499,28 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-content{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);padding:0!important;gap:0!important;}
         #drawerAccount .yat-raffle-section > div:first-child{font:800 clamp(12px,3.05vw,18px)/1.1 Oswald,sans-serif!important;letter-spacing:-.01em!important;text-transform:uppercase;white-space:nowrap;}
         #drawerAccount .yat-account-comparison{display:flex;flex-direction:column;margin-top:4px!important;border-top:0!important;}
-        #drawerAccount .yat-account-tour{order:0;padding:7px 10px 9px!important;gap:7px!important;align-items:center!important;border-top:0!important;background:transparent!important;}
+        #drawerAccount .yat-account-tour{order:0;padding:10px 10px 13px!important;gap:8px!important;align-items:center!important;border-top:0!important;background:transparent!important;}
         #drawerAccount .yat-account-tour > div:first-child{order:2!important;flex:0 0 70px!important;}
         #drawerAccount .yat-account-tour > div:last-child{order:1!important;flex:1 1 auto!important;min-width:0;}
         #drawerAccount .yat-account-tour > div:last-child > div > span{right:-8px!important;left:auto!important;border-right:0!important;border-left:8px solid #fff!important;top:19px!important;}
         #drawerAccount .yat-account-tour img{width:70px!important;max-height:112px;object-fit:contain!important;object-position:center!important;}
-        #drawerAccount .yat-account-tour > div:last-child > div{padding:8px 10px!important;font-size:11px!important;line-height:1.35!important;container-type:inline-size;}
+        #drawerAccount .yat-account-tour > div:last-child > div{padding:11px 11px 10px!important;font-size:12px!important;line-height:1.4!important;border-radius:15px!important;box-shadow:0 6px 22px rgba(0,0,0,.16);container-type:inline-size;}
         /* One line in the bubble at any phone width (the line is ~17.6em wide). */
         #drawerAccount .yat-tour-ask{font-size:min(1em,5.6cqi);white-space:normal;}
-        #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:9px;padding-top:8px;border-top:1px solid #d4d4d4;gap:0;}
-        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;gap:5px;padding:0 2px;color:#161616;text-decoration:none;font:500 clamp(9px,2.5vw,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);border-right:1px solid #ddd;}
-        #drawerAccount .yat-tour-role:last-child{border-right:0;}
-        /* Transparent LED cutouts sit straight on the white bubble. */
-        #drawerAccount .yat-tour-roles .yat-tour-role img{width:auto!important;max-width:100%!important;height:34px!important;max-height:34px!important;object-fit:contain!important;}
-        #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
-        #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;overflow:hidden;background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;}
+        #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px;padding:0;border:0!important;gap:5px;}
+        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:68px;gap:4px;padding:7px 1px 5px;background:#f3f3f3;color:#111;text-decoration:none;font:700 clamp(9px,2.55vw,11px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);border:0!important;border-radius:9px;transition:background-color .15s ease,transform .15s ease;}
+        #drawerAccount .yat-tour-role span{white-space:nowrap;}
+        /* Keep the original transparent role artwork, but render the LED marks as clean black icons. */
+        #drawerAccount .yat-tour-roles .yat-tour-role img{width:34px!important;max-width:calc(100% - 4px)!important;height:34px!important;max-height:34px!important;object-fit:contain!important;filter:brightness(0)!important;opacity:.9;}
+        #drawerAccount .yat-tour-role:hover{background:#e8e8e8;color:#111;transform:translateY(-1px);text-decoration:none;}
+        #drawerAccount .yat-tour-role:focus-visible{background:#e8e8e8;outline:2px solid #555;outline-offset:2px;}
+        #drawerAccount .yat-account-signed-in .yat-raffle-section{margin:12px 0!important;}
+        #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;box-sizing:border-box;display:block!important;flex:0 0 auto!important;flex-shrink:0!important;min-height:max-content!important;height:auto!important;max-height:none!important;align-self:stretch!important;overflow:hidden;background-color:#111!important;background-blend-mode:normal!important;color:#fff!important;}
+        #drawerAccount .yat-raffle-section > :is(div,p){position:relative;z-index:1;}
+        #drawerAccount .yat-raffle-section p{color:#e5e5e5!important;}
+        #drawerAccount .yat-raffle-section strong{color:#fff!important;}
         /* The World Series trophy: a large, faint watermark behind the raffle copy. */
-        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:-1;top:-14%;bottom:-14%;right:-4%;width:72%;background:url("/img/world-series-trophy-cta.png") center / contain no-repeat;opacity:.13;pointer-events:none;}
+        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:0;top:11%;bottom:-9%;right:-3%;width:70%;background:url("/img/world-series-trophy-cta.png") center top / contain no-repeat;opacity:.26;-webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.45) 38%,#000 78%);mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.45) 38%,#000 78%);pointer-events:none;}
         #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
         #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
         @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
