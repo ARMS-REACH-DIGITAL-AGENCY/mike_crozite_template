@@ -63,7 +63,7 @@ const SPLASH_CSS = `
 #yatSplash .yat-splash-compliments{min-height:1em}
 #yatSplash .yat-splash-examples{font-size:clamp(9px,2.1vw,12px);letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.72)}
 #yatSplash .yat-splash-showcase-frame{position:absolute;inset:0;border:1px solid rgba(255,255,255,.24);border-radius:11px;overflow:hidden;background:#fdfdfd;box-shadow:0 8px 22px rgba(0,0,0,.5)}
-#yatSplash .yat-splash-sponsor-sample{position:absolute;inset:0;background:url('/img/splash-sponsor-showcase.webp') center 0/100% 900% no-repeat;opacity:0;animation:yatSplashSponsorFrame .44s linear both}
+#yatSplash .yat-splash-sponsor-sample{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px 14px;color:#172031;font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);font-size:clamp(15px,3.9vw,25px);font-weight:900;letter-spacing:-.035em;line-height:1.05;text-align:center;background:#fdfdfd;opacity:0;animation:yatSplashSponsorFrame .44s linear both}
 #yatSplash .yat-splash-partner-cta{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;padding:8px 13px;text-align:center;text-decoration:none;color:#fff;background:linear-gradient(135deg,#141414,#252525 55%,#111);border:1px solid rgba(255,190,57,.75);border-radius:11px;box-shadow:0 0 22px rgba(255,178,28,.16);opacity:0;visibility:hidden;animation:yatSplashSponsorCta .35s ease-out 4.81s both;pointer-events:none}
 #yatSplash .yat-splash-partner-cta span{font-size:clamp(9px,2.2vw,11px);letter-spacing:.12em;line-height:1.2}
 #yatSplash .yat-splash-partner-cta strong{font-size:clamp(12px,3.1vw,17px);font-weight:800;line-height:1.14;letter-spacing:.02em;text-transform:uppercase}
@@ -156,10 +156,10 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
                     className="yat-splash-sponsor-sample"
                     title={name}
                     style={{
-                      backgroundPosition: `center ${(index / (SPONSOR_SHOWCASE.length - 1)) * 100}%`,
+                      color: index % 3 === 0 ? '#153d72' : index % 3 === 1 ? '#333333' : '#9d3f12',
                       animationDelay: `${0.75 + index * 0.44}s`,
                     }}
-                  />
+                  >{name}</span>
                 ))}
               </div>
               <a className="yat-splash-partner-cta" href="https://yatstats.com/partners/" aria-label={`Inquire about becoming a ${schoolName} YAT?STATS partner`}>
