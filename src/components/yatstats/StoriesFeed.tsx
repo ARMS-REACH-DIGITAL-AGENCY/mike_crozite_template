@@ -58,18 +58,32 @@ function StoryPhotos({ story, onOpen }: { story: Story; onOpen: (index: number) 
 // Story cards spell the month out ("April 2003").
 const fullWhenLabel = (story: Story) => storyWhen(story);
 
-// The Teammates drawer: from the right, over the page; the mask, the X or
-// Escape closes it.
+// The Teammates drawer docks alongside the profile on wide screens and
+// becomes a dismissible modal only where the remaining page would be cramped.
 function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onClose: () => void }) {
+  const [docked, setDocked] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const breakpoint = window.matchMedia('(min-width: 1040px)');
+    const previousOverflow = document.body.style.overflow;
+    const update = () => {
+      setDocked(breakpoint.matches);
+      // A docked teammate directory must never block site scrolling.
+      document.body.style.overflow = breakpoint.matches ? previousOverflow : 'hidden';
+    };
+    document.body.classList.add('drawer-teammates-open');
     document.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; };
+    breakpoint.addEventListener('change', update);
+    update();
+    return () => {
+      document.body.classList.remove('drawer-teammates-open');
+      document.body.style.overflow = previousOverflow;
+      breakpoint.removeEventListener('change', update);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [onClose]);
   return createPortal(
-    <div className="ytd" role="dialog" aria-modal="true" aria-label="Teammates">
+    <div className="ytd" role="dialog" aria-modal={!docked} aria-label="Teammates">
       <button type="button" className="ytd-mask" aria-label="Close teammates" onClick={onClose} />
       <div className="ytd-panel">
         <button type="button" className="ytd-close" aria-label="Close" onClick={onClose}>
@@ -99,6 +113,29 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         .ytd-close { position: absolute; top: 14px; right: 14px; z-index: 3; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--ytm-muted); font-size: 22px; cursor: pointer; }
         .ytd-close:hover { color: var(--ytm-strong); }
         .ytd-panel .ytm-title { padding-right: 40px; }
+        /* Match the established 360px Contribute drawer: fixed beneath rows
+           1 and 2, clear of the footer, with rows 3-6 narrowing in tandem. */
+        @media (min-width: 1040px) {
+          body.drawer-teammates-open .yat-row3-shell,
+          body.drawer-teammates-open .yat-row4-shell,
+          body.drawer-teammates-open .yat-row5-shell,
+          body.drawer-teammates-open .yat-row6-shell {
+            margin-right: var(--yat-side-drawer-w,360px) !important;
+            transition: margin-right .22s ease;
+          }
+          .ytd { pointer-events:none; }
+          .ytd-mask { display:none; }
+          .ytd-panel {
+            top:calc(var(--row1-h,36px) + var(--row2-h,54px));
+            bottom:var(--yat-drawer-clearance,var(--footerH,66px));
+            width:var(--yat-side-drawer-w,360px);
+            height:auto;
+            box-shadow:none;
+            pointer-events:auto;
+            animation:none;
+          }
+          .ytd-scroll { padding-top:16px; }
+        }
         @keyframes ytd-in { from { transform: translateX(100%); } to { transform: none; } }
         @keyframes ytd-fade { from { opacity: 0; } to { opacity: 1; } }
         @media (prefers-reduced-motion: reduce) { .ytd-panel, .ytd-mask { animation: none; } }
