@@ -28,7 +28,8 @@ const YAT_LOGO = '/img/yatstats-wordmark-white.png';
 
 const SPLASH_CSS = `
 #yatSplash{position:fixed;inset:0;z-index:2147483000;overflow:hidden;background:#000;opacity:1;transition:opacity .25s ease-out;--yat-splash-w:min(50vw,400px);color:#fff;font-family:var(--yat-font-ui,'Archivo'),'Montserrat',Arial,Helvetica,sans-serif}
-#yatSplash .yat-splash-place{position:absolute;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
+#yatSplash .yat-splash-field{position:absolute;left:0;right:0;bottom:0;height:clamp(160px,20vh,320px);pointer-events:none;background:url("/img/career-path-default.webp") center 58%/cover no-repeat;-webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.08) 8%,rgba(0,0,0,.55) 42%,#000 76%);mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.08) 8%,rgba(0,0,0,.55) 42%,#000 76%)}
+#yatSplash .yat-splash-place{position:absolute;z-index:1;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
 #yatSplash .yat-splash-place-lockup{top:28%;width:var(--yat-splash-w)}
 #yatSplash .yat-splash-place-credit{top:71%;width:min(92vw,560px)}
 #yatSplash p{margin:0}
@@ -82,6 +83,8 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
   return (
     <div id="yatSplash" aria-hidden="true" suppressHydrationWarning>
       <style dangerouslySetInnerHTML={{ __html: SPLASH_CSS }} />
+      {/* Reuse the player-profile field, blending its top edge into black. */}
+      <div className="yat-splash-field" />
       <BallparkLights className="yat-splash-lights" />
       <div className="yat-splash-place yat-splash-place-lockup">
         <span className="yat-splash-glow" />
