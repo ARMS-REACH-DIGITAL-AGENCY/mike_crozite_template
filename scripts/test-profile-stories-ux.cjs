@@ -46,6 +46,11 @@ assert.doesNotMatch(account,/\{activeTab === "signin" && <section\s+className="y
 assert.match(account,/#drawerAccount \.yat-raffle-section\{[^}]*flex-shrink:0!important;/,'Raffle must retain its natural height in scrolling drawer');
 assert.match(account,/#drawerAccount \.yat-raffle-section p\{color:#e5e5e5!important;\}/,'Raffle description retains readable light text in light mode');
 assert.match(account,/#drawerAccount \.yat-raffle-section strong\{color:#fff!important;\}/,'Raffle dates and entries have contrast');
+for (const [role, path] of [['coach','programs'],['player','players'],['partner','partners'],['fan','fans']]) {
+  assert.match(account,new RegExp("\\['"+role+"','[^']+','https://yatstats.com/"+path+"/'\\]"),'Guided tour '+role+' links to its correct destination');
+}
+assert.match(account,/#drawerAccount \.yat-raffle-section::before\{[^}]*top:11%;[^}]*opacity:\.26;/,'Trophy remains lowered and more visible');
+
 
 
 const page = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
