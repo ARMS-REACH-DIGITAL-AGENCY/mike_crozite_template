@@ -1450,7 +1450,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 >
                   Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
                   <br />
-                  <strong style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
+                  <strong className="yat-tour-ask" style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
                   <div className="yat-tour-roles" aria-label="Choose a guided tour">
                     {([
                       ['coach','COACH'],
@@ -1459,31 +1459,11 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                       ['fan','FAN'],
                     ] as const).map(([role,label]) => (
                       <a key={role} className="yat-tour-role" href={`https://yatstats.com/?tour=${role}`} aria-label={`${label} guided tour`}>
-                        <img src={`https://raw.githubusercontent.com/ARMS-REACH-DIGITAL-AGENCY/armsreach/main/sites/yatstats/img/tour-${role}.jpg`} alt="" loading="lazy" />
+                        <img src={`/img/tour-roles/${role}.png`} alt="" loading="lazy" />
                         <span>{label}</span>
                       </a>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => { window.location.assign("https://yatstats.com"); }}
-                    style={{
-                      marginTop: '8px',
-                      background: '#171717',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      minHeight: '40px',
-                       padding: '0 14px',
-                      fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
-                      fontSize: '12px',
-                       fontWeight: 800,
-                      letterSpacing: '.01em',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    LET&apos;S GO!!
-                  </button>
 
                   <span
                     style={{
@@ -1514,12 +1494,14 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-tour > div:last-child{order:1!important;flex:1 1 auto!important;min-width:0;}
         #drawerAccount .yat-account-tour > div:last-child > div > span{right:-8px!important;left:auto!important;border-right:0!important;border-left:8px solid #fff!important;top:19px!important;}
         #drawerAccount .yat-account-tour img{width:70px!important;max-height:112px;object-fit:contain!important;object-position:center!important;}
-        #drawerAccount .yat-account-tour > div:last-child > div{padding:8px 10px!important;font-size:11px!important;line-height:1.35!important;}
-        #drawerAccount .yat-account-tour button{min-height:34px!important;margin-top:5px!important;padding:0 10px!important;}
+        #drawerAccount .yat-account-tour > div:last-child > div{padding:8px 10px!important;font-size:11px!important;line-height:1.35!important;container-type:inline-size;}
+        /* One line in the bubble at any phone width (the line is ~17.6em wide). */
+        #drawerAccount .yat-tour-ask{font-size:min(1em,5.6cqi);white-space:normal;}
         #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:9px;padding-top:8px;border-top:1px solid #d4d4d4;gap:0;}
-        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;gap:4px;padding:0 2px;color:#161616;text-decoration:none;font:700 clamp(8px,2.1vw,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);border-right:1px solid #ddd;}
+        #drawerAccount .yat-tour-role{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;gap:5px;padding:0 2px;color:#161616;text-decoration:none;font:500 clamp(9px,2.5vw,11px)/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);border-right:1px solid #ddd;}
         #drawerAccount .yat-tour-role:last-child{border-right:0;}
-        #drawerAccount .yat-tour-role img{width:min(100%,43px)!important;height:43px!important;max-height:43px!important;object-fit:contain!important;mix-blend-mode:multiply;}
+        /* Transparent LED cutouts sit straight on the white bubble. */
+        #drawerAccount .yat-tour-roles .yat-tour-role img{width:auto!important;max-width:100%!important;height:34px!important;max-height:34px!important;object-fit:contain!important;}
         #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
         #drawerAccount .yat-raffle-section{background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;background-size:auto 94%!important;background-position:right center!important;}
         #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
