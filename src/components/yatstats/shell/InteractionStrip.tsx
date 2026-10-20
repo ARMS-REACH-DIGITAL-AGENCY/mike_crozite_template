@@ -743,13 +743,15 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-champions {
           font-size:10px; letter-spacing:-.55px;
         }
-        /* The fixed sign's three-line descriptor: ALL-TIME / NEXT-LEVEL / LIST. */
+        /* The fixed sign's three-line descriptor: ALL-TIME / NEXT-LEVEL / LIST.
+           Tight enough that LIST still clears the strip's bottom when the
+           phone's text size is turned up. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          top:43px; line-height:.95; gap:0;
+          top:42px; line-height:.9; gap:0;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span,
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child {
-          font-size:10.5px; transform:none; letter-spacing:.1px;
+          font-size:10px; line-height:.9; transform:none; letter-spacing:.1px;
         }
         /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
