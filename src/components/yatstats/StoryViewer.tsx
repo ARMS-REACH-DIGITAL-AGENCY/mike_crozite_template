@@ -240,6 +240,7 @@ export function StoryThread({
   variant,
   media,
   focusComment = false,
+  onCommentOpen,
 }: {
   story: Story;
   playerId: string;
@@ -247,6 +248,7 @@ export function StoryThread({
   onDeleted: (id: string) => void;
   // Opened from a card's Comment button: put the cursor in the comment box.
   focusComment?: boolean;
+  onCommentOpen?: () => void;
   // 'modal': the right-hand side of the big view (scrolls; comment box
   // pinned at the bottom). 'inline': a full post in the Stories tab.
   variant: 'modal' | 'inline';
@@ -528,7 +530,7 @@ export function StoryThread({
         <button type="button" className={story.likedByMe ? 'ysv-liked' : ''} onClick={toggleLike} aria-pressed={Boolean(story.likedByMe)}>
           <i className={story.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like
         </button>
-        <button type="button" onClick={() => (me ? composerRef.current?.focus() : openSignIn())}>
+        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus(); else openSignIn(); }}>
           <i className="ri-chat-3-line" /> Comment
         </button>
         <button type="button" onClick={share}>
@@ -609,7 +611,7 @@ export function StoryThread({
                 rows={1}
                 value={draft}
                 placeholder={`Were you there? Add your photos or a comment as ${myName || 'you'}`}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => { setDraft(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${Math.min(e.target.scrollHeight, 112)}px`; }}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); } }}
               />
             </div>
@@ -772,6 +774,7 @@ export default function StoryViewer({
   // The story's photos and everyone's reply photos, one carousel.
   const album = momentAlbum(story);
   const [photoIndex, setPhotoIndex] = useState(Math.min(initialPhoto, Math.max(0, album.length - 1)));
+  const [commentMode, setCommentMode] = useState(focusComment);
   const photo = album[photoIndex];
 
   useEffect(() => {
@@ -787,7 +790,7 @@ export default function StoryViewer({
 
   return createPortal(
     <div className="ysv" role="dialog" aria-modal="true" aria-label="Story" onClick={onClose}>
-      <div className="ysv-card" onClick={(e) => e.stopPropagation()}>
+      <div className={`ysv-card${commentMode ? " ysv-comment-mode" : ""}`} onClick={(e) => e.stopPropagation()}>
         <button type="button" className="ysv-close" onClick={onClose} aria-label="Close"><i className="ri-close-line" /></button>
         <div className={`ysv-photo${photo?.logo ? ' ysv-photo-logo' : ''}`}>
           {photo?.full ? (
@@ -803,7 +806,7 @@ export default function StoryViewer({
           )}
           <PhotoTools story={story} photo={photo} />
         </div>
-        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={focusComment} />
+        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={commentMode} onCommentOpen={() => setCommentMode(true)} />
       </div>
       <StoryStyles />
     </div>,
@@ -831,11 +834,13 @@ export function StoryStyles() {
       .ysv { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.82); }
       .ysv-card { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); width: min(1100px, 100%); height: min(760px, calc(100dvh - 32px)); background: #0d0d0d; color: var(--ysv-fg); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; overflow: hidden; }
       .ysv-close { position: absolute; top: 8px; right: 8px; z-index: 3; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 20px; cursor: pointer; }
-      .ysv-photo { position: relative; display: flex; align-items: center; justify-content: center; background: #000; min-height: 0; }
+      .ysv-photo { position: relative; display: flex; align-items: flex-start; justify-content: center; background: #000; min-height: 0; }
       .ysv-photo img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
       .ysv-photo-logo { background: #f4f1ea; }
       .ysv-photo-logo img { max-width: min(70%, 420px); max-height: 70%; }
-      .ysv-avatar-crest { object-fit: contain; background: #111; padding: 3px; }
+      .ysv-avatar-crest { object-fit: contain; background: #fff; padding: 3px; filter:grayscale(1); }
+      body.light-theme .ysv-post .ysv-avatar:not(.ysv-avatar-sm) {background:#111;color:#fff;}
+      body.light-theme .ysv-post .ysv-avatar-crest {background:#111;filter:grayscale(1) invert(1);}
       .ysv-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
       .ysv-nav:disabled { opacity: .25; cursor: default; }
       .ysv-nav-prev { left: 8px; }
@@ -858,7 +863,7 @@ export function StoryStyles() {
       .ysv-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 8px; }
       .ysv-card .ysv-head { padding-right: 36px; }
       .ysv-head { display: flex; align-items: flex-start; gap: 10px; }
-      .ysv-avatar { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ysv-gold); color: #000; font: 400 17px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; }
+      .ysv-avatar { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #fff; color: #000; font: 400 17px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; }
       .ysv-avatar-sm { width: 32px; height: 32px; font-size: 14px; background: var(--ysv-avatar-sm-bg); color: var(--ysv-fg); }
       .ysv-who { flex: 1; min-width: 0; }
       .ysv-byline { font: 400 15px/1.3 system-ui, sans-serif; color: var(--ysv-text); }
@@ -912,7 +917,9 @@ export function StoryStyles() {
       .ysv-composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--ysv-line); }
       .ysv-composer .ysv-avatar-sm { align-self: center; }
       .ysv-compose-box { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-      .ysv-composer textarea { flex: 1; resize: none; max-height: 120px; border-radius: 20px; padding: 10px 14px; }
+      .ysv-composer textarea { flex:1;resize:vertical;min-height:40px;max-height:112px;overflow-y:auto;border-radius:12px;padding:10px 14px;box-sizing:border-box; }
+      .ysv-side .ysv-composer {min-width:0;}
+      .ysv-side .ysv-compose-box {min-width:0;}
       .ysv-picked { display: flex; flex-wrap: wrap; gap: 6px; }
       .ysv-picked span { position: relative; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; background: var(--ysv-bubble); }
       .ysv-picked img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -934,6 +941,9 @@ export function StoryStyles() {
         .ysv { padding: 0; align-items: stretch; }
         .ysv-card { grid-template-columns: 1fr; grid-template-rows: minmax(0, 42dvh) minmax(0, 1fr); width: 100%; height: 100dvh; border-radius: 0; border: 0; }
         .ysv-side { border-left: 0; border-top: 1px solid var(--ysv-line); }
+        .ysv-card.ysv-comment-mode {grid-template-rows:minmax(0,1fr);}
+        .ysv-comment-mode > .ysv-photo {display:none;}
+        .ysv-card .ysv-composer {padding-bottom:max(12px,env(safe-area-inset-bottom));}
       }
     `}</style>
   );
