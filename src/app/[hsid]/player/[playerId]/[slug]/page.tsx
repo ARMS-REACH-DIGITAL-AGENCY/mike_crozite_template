@@ -11,6 +11,8 @@
 import {
   findPlayersBySlug,
   getPlayerById,
+  getSchoolByHsid,
+  getSchoolByUrl,
   getPlayerBattingStats,
   getPlayerPitchingStats,
   getPlayerCareerBatting,
@@ -26,6 +28,8 @@ import {
   query,
 } from "@/lib/db";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { playerProfileShareInfo, playerShareOrigin } from "@/lib/playerProfileShare";
 import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
@@ -41,6 +45,39 @@ type Props = {
   }>;
 };
 
+// Ordinary profile URLs must have their own preview. Previously this page
+// returned {}, so the school-level title/crest was all a text app could see.
+async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: string): Promise<Metadata> {
+  const h = await headers();
+  const origin = playerShareOrigin(h.get('x-forwarded-host') || h.get('host') || '', h.get('x-forwarded-proto') || 'https');
+  const [player, byIdSchool] = await Promise.all([
+    getPlayerById(playerId).catch(() => null),
+    /^\d+$/.test(hsid) ? getSchoolByHsid(hsid).catch(() => null) : Promise.resolve(null),
+  ]);
+  const school = byIdSchool || await getSchoolByUrl(origin).catch(() => null);
+  const resolvedHsid = String(school?.hsid || hsid);
+  const playerName = [player?.firstname || player?.first_name, player?.lastname || player?.last_name]
+    .filter(Boolean).join(' ').trim() || slug.replace(/-/g, ' ');
+  const info = playerProfileShareInfo({
+    origin, hsid: resolvedHsid, playerId, slug, playerName,
+    schoolName: String(school?.hsname || player?.high_school || ''),
+  });
+  return {
+    title: info.title,
+    description: info.description,
+    alternates: { canonical: info.url },
+    openGraph: {
+      type: 'profile', siteName: 'YAT?STATS', url: info.url,
+      title: info.title, description: info.description,
+      images: [{ url: info.image, width: 1200, height: 630, alt: playerName + ' baseball career timeline' }],
+    },
+    twitter: {
+      card: 'summary_large_image', title: info.title, description: info.description,
+      images: [info.image],
+    },
+  };
+}
+
 const SHARE_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 // A shared story link (?story=<id>, from the Share button) previews as that
@@ -50,10 +87,10 @@ export async function generateMetadata({
   params,
   searchParams,
 }: Props & { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
-  const { playerId } = await params;
+  const { hsid, playerId, slug } = await params;
   const storyParam = (await searchParams)?.story;
   const storyId = typeof storyParam === 'string' && /^\d{1,18}$/.test(storyParam) ? storyParam : null;
-  if (!storyId) return {};
+  if (!storyId) return defaultPlayerShareMetadata(hsid, playerId, slug);
   try {
     const { rows } = await query<{
       caption: string | null; contributor_name: string | null; photo_taken_date: string | null; photo_taken_year: number | null;
@@ -69,7 +106,7 @@ export async function generateMetadata({
       [storyId, String(playerId)]
     );
     const r = rows[0];
-    if (!r) return {};
+    if (!r) return defaultPlayerShareMetadata(hsid, playerId, slug);
     const month = r.photo_taken_date ? Number(r.photo_taken_date.slice(5, 7)) : 0;
     const when = [month ? SHARE_MONTHS[month - 1] : '', r.photo_taken_year || ''].filter(Boolean).join(' ');
     const player = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Player';
@@ -86,7 +123,7 @@ export async function generateMetadata({
     };
   } catch (error) {
     console.error('[stories] share preview failed', error);
-    return {};
+    return defaultPlayerShareMetadata(hsid, playerId, slug);
   }
 }
 
