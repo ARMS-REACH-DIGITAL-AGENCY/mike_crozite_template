@@ -442,7 +442,7 @@ export default function PlayerCardFront({
       {/* Baseball-card treatment: the inset rule and transparent stacked
           wordmark are decoration only, never interactive hit targets. */}
       <div className="yat-front-print-frame" aria-hidden="true" />
-      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.webp" alt="" aria-hidden="true" />
+      <img className="yat-front-brand-watermark" src="/img/yatstats-logo-stacked.png" alt="" aria-hidden="true" />
       {/* Favorite him right from the card (top-right corner). */}
       {imageId && (
         <div className="yat-card-fav-slot">
@@ -559,7 +559,7 @@ export default function PlayerCardFront({
         .yat-front-brand-watermark {
           position:absolute; z-index:3; pointer-events:none;
           top:clamp(7px,2.4cqi,10px); left:clamp(7px,2.4cqi,10px);
-          width:clamp(70px,31cqi,115px); height:auto; max-height:76px;
+          width:clamp(35px,15.5cqi,57.5px); height:auto; max-height:38px;
           object-fit:contain; object-position:left top;
           opacity:.72; filter:drop-shadow(0 1px 2px rgba(0,0,0,.48));
         }
