@@ -72,7 +72,7 @@ function ChosenPlayer({ player, onChange }: { player: ContributePlayer; onChange
       <div className="yat-search-card yat-search-player-result ycd-chosen-player">
         <span aria-hidden="true" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="yat-search-thumb yat-search-player-headshot" src={`${S3}/players/now/${encodeURIComponent(player.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
+        <img className="yat-search-thumb yat-search-player-headshot" src={player.headshotUrl || `${S3}/players/now/${encodeURIComponent(player.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
         <span className="yat-search-player-text-link">
           <strong>{player.displayName}</strong>
           {player.schoolName ? <small className="yat-search-hs-line">{player.schoolName}</small> : null}
