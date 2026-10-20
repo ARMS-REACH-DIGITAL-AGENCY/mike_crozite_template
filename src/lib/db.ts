@@ -54,37 +54,100 @@ const pool = new Pool({
   // PG_POOL_MAX remains available for deliberate capacity tuning.
   max: Number(process.env.PG_POOL_MAX || 3),
   idleTimeoutMillis: 10000,
+  // Give idle sockets time to retire and recycle connections periodically.
+  // This works without adding a dependency to the frozen production lockfile.
+  allowExitOnIdle: true,
+  maxLifetimeSeconds: 600,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
   // Allow cold compute starts and short pool queues without turning
   // transient contention into false "school not found" results.
   connectionTimeoutMillis: 15000,
   ssl: { rejectUnauthorized: false },
 });
 
-// A read that failed only because the database couldn't start a parallel
-// worker for it (a momentary resource limit on the compute) - safe to run
-// again once.
-const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
-const isRead = (text: string) => /^\s*(select|with)\b/i.test(text);
+// An idle client can disconnect when a serverless instance is suspended or
+// a pooled backend is recycled. Without this listener, node-postgres emits an
+// uncaught error and may terminate the whole process.
+function poolSnapshot() {
+  return { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount };
+}
+pool.on('error', (error) => {
+  console.error('[db-pool] idle client disconnected', {
+    code: (error as NodeJS.ErrnoException).code ?? null,
+    message: error.message,
+    pool: poolSnapshot(),
+  });
+});
 
-// Generic query helper
+const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
+const TRANSIENT_CONNECTION_ERROR = /connection terminated (?:due to connection timeout|unexpectedly)|timeout exceeded when trying to connect|connection ended unexpectedly|connection reset by peer|socket hang up|terminating connection due to administrator command/i;
+const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'EPIPE', '57P01', '57P02', '57P03', '08000', '08001', '08003', '08006']);
+const DB_SLOW_QUERY_MS = 3000;
+
+// Allow at most one retry for statement-shaped reads. WITH can contain data
+// modifications, and SELECT can call volatile functions or lock rows: do not
+// automatically replay those. Never retry INSERT/UPDATE/DELETE/DDL.
+function isRetryableRead(statement: string): boolean {
+  return /^\\s*SELECT\\b/i.test(statement) &&
+    !/\\bFOR\\s+(?:UPDATE|SHARE|NO\\s+KEY\\s+UPDATE|KEY\\s+SHARE)\\b|\\b(?:nextval|setval|pg_advisory_\\w*)\\s*\\(/i.test(statement);
+}
+function isTransientDbError(error: unknown): boolean {
+  const err = error as { code?: string; message?: string; cause?: { code?: string; message?: string } } | null;
+  if (!err) return false;
+  return TRANSIENT_CONNECTION_CODES.has(String(err.code || '')) ||
+    TRANSIENT_CONNECTION_CODES.has(String(err.cause?.code || '')) ||
+    TRANSIENT_CONNECTION_ERROR.test([err.message, err.cause?.message].filter(Boolean).join(' '));
+}
+
+// Only aggregate pool counts and durations are logged. Neither SQL text nor
+// parameters (which may include personal data) are included in the diagnostics.
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: any[] = []
 ): Promise<QueryResult<T>> {
+  const startedAt = Date.now();
+  const atStart = poolSnapshot();
   try {
-    return await pool.query<T>(text, params);
-  } catch (error) {
-    if (isRead(text) && PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''))) {
-      console.warn('Database query retried after a parallel-worker error');
-      try {
-        return await pool.query<T>(text, params);
-      } catch (retryError) {
-        console.error('Database query error:', retryError);
-        throw retryError;
-      }
+    const result = await pool.query<T>(text, params);
+    if (Date.now() - startedAt >= DB_SLOW_QUERY_MS || atStart.waiting > 0) {
+      console.warn('[db-pool] slow query or local queue', {
+        durationMs: Date.now() - startedAt,
+        initialPool: atStart,
+        finalPool: poolSnapshot(),
+      });
     }
-    console.error('Database query error:', error);
-    throw error;
+    return result;
+  } catch (error) {
+    const transient = isTransientDbError(error);
+    const parallelWorker = PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''));
+    const shouldRetry = isRetryableRead(text) && (transient || parallelWorker);
+    console.error('[db-pool] query failure', {
+      durationMs: Date.now() - startedAt,
+      code: (error as { code?: string })?.code ?? null,
+      initialPool: atStart,
+      finalPool: poolSnapshot(),
+      retrying: shouldRetry,
+      failureType: transient ? 'connection' : parallelWorker ? 'parallel-worker' : 'other',
+    });
+    if (!shouldRetry) throw error;
+    // A single bounded retry allows a fresh connection after a dropped socket.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    try {
+      const result = await pool.query<T>(text, params);
+      console.warn('[db-pool] read recovered on retry', {
+        durationMs: Date.now() - startedAt,
+        finalPool: poolSnapshot(),
+      });
+      return result;
+    } catch (retryError) {
+      console.error('[db-pool] read retry failed', {
+        durationMs: Date.now() - startedAt,
+        code: (retryError as { code?: string })?.code ?? null,
+        finalPool: poolSnapshot(),
+      });
+      throw retryError;
+    }
   }
 }
 
