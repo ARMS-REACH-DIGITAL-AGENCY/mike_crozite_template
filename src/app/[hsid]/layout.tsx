@@ -170,14 +170,20 @@ export default async function HsidLayout({
   }
 
   const splashHsid = String(school.hsid ?? hsid);
+  // Avoid even rendering the splash, its stadium light SVG, logo images or
+  // animations on repeat visits. Works across school subdomains via yat_seen.
+  // A manual ?splash=1 preview still forces the original introduction.
+  const seenSplash = /(?:^|;\s*)yat_seen=1(?:;|$)/.test(headersList.get('cookie') || '');
+  const forceSplash = headersList.get('x-yat-force-splash') === '1';
+  const showSplash = forceSplash || !seenSplash;
   return (
     <>
-      <SchoolSplash
+      {showSplash && <SchoolSplash
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
         partner={getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
-      />
+      />}
       <Suspense fallback={null}>
         <SchoolShell hsid={hsid} school={school}>{children}</SchoolShell>
       </Suspense>
