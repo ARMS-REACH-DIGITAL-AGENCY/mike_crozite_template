@@ -187,7 +187,7 @@ export default async function HsidLayout({
         partner={getSplashSponsor(splashHsid) ?? getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
       />}
       <Suspense fallback={null}>
-        <SchoolShell hsid={hsid} school={school}>{children}</SchoolShell>
+        <SchoolShell hsid={hsid} school={school} enableSplashCutouts={showSplash}>{children}</SchoolShell>
       </Suspense>
     </>
   );
@@ -197,10 +197,12 @@ async function SchoolShell({
   children,
   hsid,
   school,
+  enableSplashCutouts,
 }: {
   children: ReactNode;
   hsid: string;
   school: Record<string, unknown>;
+  enableSplashCutouts: boolean;
 }) {
   const headersList = await headers();
   const resolvedHsid = String(school.hsid ?? hsid);
@@ -342,6 +344,17 @@ async function SchoolShell({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
+  // The splash reuses these school roster IDs rather than adding a DB call.
+  const splashPlayerIds = enableSplashCutouts
+    ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id))))
+    : [];
+  if (enableSplashCutouts) {
+    for (let i = splashPlayerIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [splashPlayerIds[i], splashPlayerIds[j]] = [splashPlayerIds[j], splashPlayerIds[i]];
+    }
+    splashPlayerIds.length = Math.min(splashPlayerIds.length, 40);
+  }
   const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
@@ -383,6 +396,11 @@ async function SchoolShell({
     <SchoolContextProvider schoolData={schoolData}>
       <AnalyticsSchool hsid={String(resolvedHsid)} hsname={schoolName || ''} />
       <YatStyles />
+      {enableSplashCutouts && splashPlayerIds.length > 0 && (
+        <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
+          __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" + JSON.stringify(splashPlayerIds) + "}));",
+        }} />
+      )}
 
       <SharedShell
         hsid={resolvedHsid}

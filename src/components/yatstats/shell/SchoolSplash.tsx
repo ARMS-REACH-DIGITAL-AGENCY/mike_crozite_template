@@ -2,8 +2,7 @@
 // soft glow - the school's crest, its name, the YAT?STATS logo and "Alumni
 // Baseball Online Community", the two lines of words set to the logo's
 // width; and lower down "compliments of", a space for the title partner's
-// logo, the partner's name ("(Participating Partner Needed)" until there is
-// one) and the school's city. Server-rendered so it is the very first
+// logo, optional partner name, and the school's city. Server-rendered so it is the very first
 // paint; whether it shows at all, and when it leaves, is SPLASH_BOOTSTRAP's
 // call (app/layout.tsx).
 //
@@ -13,8 +12,7 @@
 // First visit (full): the logo and its line slide in fast from the right
 // while the crest and the school's name come in from the left; once the
 // logo settles it glints, a light sweeps across it, and it keeps a soft
-// glow. Back within 30 days (quick): the settled screen, and only if the
-// page is still loading after 0.3s.
+// glow. Returning visitors do not see this opener during normal navigation.
 //
 // The exit, every time (SPLASH_BOOTSTRAP runs it): the screen flips over
 // the way the flip cards do, with the school's hub on the back.
@@ -39,6 +37,12 @@ const SPLASH_CSS = `
   -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.22) 8%,rgba(0,0,0,.8) 22%,#000 36%);
   mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.22) 8%,rgba(0,0,0,.8) 22%,#000 36%);
 }
+
+/* High-school anchor cutouts rotate above the supplied field artwork. */
+#yatSplash .yat-splash-player{position:absolute;z-index:1;left:54%;bottom:0;transform:translateX(-50%);width:min(42vw,330px);height:clamp(145px,26vh,330px);opacity:0;transition:opacity .35s ease;pointer-events:none}
+#yatSplash .yat-splash-player.is-visible{opacity:1}
+#yatSplash .yat-splash-player img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
+@media(max-width:600px){#yatSplash .yat-splash-player{left:56%;width:min(43vw,215px);height:clamp(135px,22vh,255px)}}
 #yatSplash .yat-splash-continue{position:absolute;z-index:5;left:50%;bottom:clamp(20px,5vh,52px);transform:translateX(-50%);background:rgba(24,24,24,.85);border:1px solid rgba(255,255,255,.65);border-radius:4px;padding:11px 24px;color:#fff;font:700 13px/1 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.09em;cursor:pointer;text-transform:uppercase;white-space:nowrap}
 #yatSplash .yat-splash-continue:hover{background:#303030}
 #yatSplash .yat-splash-place{position:absolute;z-index:1;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
@@ -84,6 +88,9 @@ function fit(){var w=logo.getBoundingClientRect().width;if(!w)return;var tag=s.q
 fit();if(!logo.complete)logo.addEventListener('load',fit);
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);window.addEventListener('resize',fit);})();`;
 
+// Uses IDs from the school's already loaded roster. No extra DB requests.
+const ROTATE_SPLASH_PLAYERS = "(function(){\n  var splash=document.getElementById('yatSplash'), holder=document.getElementById('yatSplashPlayer');\n  if(!splash||!holder)return;\n  var picture=holder.querySelector('img'), ids=[], cursor=0, last='', busy=false, timer=null, started=false;\n  var base='https://yatstats-assets.s3.us-west-2.amazonaws.com/players/';\n  function active(){return getComputedStyle(splash).display!=='none';}\n  function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),x=a[i];a[i]=a[j];a[j]=x;}return a;}\n  function stop(){if(timer){clearInterval(timer);timer=null;}}\n  function present(url,id){\n    if(!active()){busy=false;stop();return;}\n    function show(){picture.src=url;holder.classList.add('is-visible');last=id;busy=false;}\n    if(holder.classList.contains('is-visible')){holder.classList.remove('is-visible');setTimeout(show,370);}\n    else show();\n  }\n  function next(){\n    if(busy||!ids.length)return;\n    if(!active()){stop();return;}\n    busy=true;\n    var attempts=0;\n    function attempt(){\n      if(!active()){busy=false;stop();return;}\n      if(++attempts>Math.min(ids.length,6)){busy=false;return;}\n      if(cursor>=ids.length){shuffle(ids);cursor=0;}\n      var id=ids[cursor++];\n      if(id===last&&ids.length>1){attempt();return;}\n      var sources=[base+'then-web/'+id+'.webp',base+'then-cutouts/'+id+'.png'];\n      function probe(which){\n        if(which>=sources.length){attempt();return;}\n        var image=new Image();\n        image.onload=function(){present(sources[which],id);};\n        image.onerror=function(){probe(which+1);};\n        image.src=sources[which];\n      }\n      probe(0);\n    }\n    attempt();\n  }\n  document.addEventListener('yat:splash-players',function(event){\n    if(started||!active())return;\n    var pool=event.detail;\n    if(!Array.isArray(pool))return;\n    ids=shuffle(pool.filter(function(id){return typeof id==='string'&&/^\\d+$/.test(id);}));\n    if(!ids.length)return;\n    started=true;\n    next();\n    if(!matchMedia('(prefers-reduced-motion: reduce)').matches){\n      timer=setInterval(next,3800);\n    }\n  },{once:true});\n})();";
+
 // A light sweep across one image, masked to its shape.
 function shine(src: string, delay: string): CSSProperties {
   return { ['--yat-shine-mask' as string]: `url("${src}")`, ['--yat-shine-delay' as string]: delay } as CSSProperties;
@@ -97,6 +104,7 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
       <style dangerouslySetInnerHTML={{ __html: SPLASH_CSS }} />
       {/* Reuse the player-profile field, blending its top edge into black. */}
       <div className="yat-splash-field" />
+      <div className="yat-splash-player" id="yatSplashPlayer" aria-hidden="true"><img alt="" /></div>
       <BallparkLights className="yat-splash-lights" />
       <div className="yat-splash-place yat-splash-place-lockup">
         <span className="yat-splash-glow" />
@@ -123,11 +131,12 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
             <img className="yat-splash-partner" src={partner.logoUrl} alt={partner.name} fetchPriority="high" />
           ) : null}
         </div>
-        <p className="yat-splash-partner-name">{partner ? partner.name : '(Participating Partner Needed)'}</p>
+        {partner?.name ? <p className="yat-splash-partner-name">{partner.name}</p> : null}
         {location ? <p className="yat-splash-city">{location}</p> : null}
       </div>
       {previewMode && <button type="button" className="yat-splash-continue">Enter YAT?STATS →</button>}
       <script dangerouslySetInnerHTML={{ __html: FIT_WORDS }} />
+      <script dangerouslySetInnerHTML={{ __html: ROTATE_SPLASH_PLAYERS }} />
     </div>
   );
 }
