@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
         // hint on the existing Story entity (not a third content type).
         // Use the generic archive asset contract; never a school/player ID.
         timelineOnly: !draft && (r.photos || []).some((photo) =>
-          /^team-cards\\/[^/]+\\/\\d{4}\\.(?:jpe?g|png|webp)$/i.test(photo.full)
+          /^team-cards\/[^/]+\/\d{4}\.(?:jpe?g|png|webp)$/i.test(photo.full)
         ),
       };
     });
