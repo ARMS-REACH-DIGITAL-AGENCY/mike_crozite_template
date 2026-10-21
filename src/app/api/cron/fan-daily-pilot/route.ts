@@ -4,7 +4,7 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=300;
 const recipients=['test1@yatstats.com','test2@yatstats.com','test3@yatstats.com','test4@yatstats.com','test5@yatstats.com','test6@yatstats.com','pcdaction@gmail.com'];
-/** Midnight in Arizona is always 07:00 UTC; use the prior Phoenix calendar date. */
+/** Runs at 4:00 AM Arizona (11:00 UTC, no DST), an hour after the 3:00 AM Baseball Cube ingest; reports the prior Phoenix calendar date. */
 export async function GET(request:NextRequest){
  const secret=process.env.CRON_SECRET;
  if(!secret||request.headers.get('authorization')!=='Bearer '+secret)
