@@ -48,3 +48,17 @@ COMMENT ON TABLE public.sponsor_brands IS
   'Reusable sponsor identity/logo: one brand can sponsor unlimited school splashes.';
 COMMENT ON TABLE public.school_splash_sponsorships IS
   'Per-HSID splash sponsor assignments. Highest priority, then newest active campaign wins; optionally linked to sponsor_orders.';
+
+-- Read-only dashboard/reporting surface for ARMS and the partner commerce app.
+-- No purchaser names/emails or secret checkout fields are exposed.
+CREATE OR REPLACE VIEW public.v_school_splash_sponsor_assignments AS
+SELECT a.id AS assignment_id, a.hsid, a.sponsor_id,
+       b.slug AS sponsor_slug, b.name AS sponsor_name,
+       b.logo_url, b.website_url, a.sponsor_order_id,
+       a.status, a.priority, a.starts_at, a.ends_at, a.source,
+       a.created_at, a.updated_at,
+       (a.status = 'active' AND b.is_active
+         AND a.starts_at <= now()
+         AND (a.ends_at IS NULL OR a.ends_at > now())) AS serving_now
+FROM public.school_splash_sponsorships a
+JOIN public.sponsor_brands b ON b.id = a.sponsor_id;
