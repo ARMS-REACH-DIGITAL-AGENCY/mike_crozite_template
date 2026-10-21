@@ -156,6 +156,14 @@ export async function GET(req: NextRequest) {
         // Posted by YAT?STATS itself (Draft Day, or a reviewer posting as
         // YAT?STATS): the crest instead of a fan's initials.
         official: draft || r.contributor_role === OFFICIAL_ROLE,
+        // Archived program championship card imports are displayed as
+        // clickable memories directly ON the career timeline, not repeated
+        // as separate rectangular cards beneath it. This is only a display
+        // hint on the existing Story entity (not a third content type).
+        // Use the generic archive asset contract; never a school/player ID.
+        timelineOnly: !draft && (r.photos || []).some((photo) =>
+          /^team-cards\\/[^/]+\\/\\d{4}\\.(?:jpe?g|png|webp)$/i.test(photo.full)
+        ),
       };
     });
 
