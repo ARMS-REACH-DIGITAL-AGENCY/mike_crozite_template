@@ -63,12 +63,12 @@ export default function BracketRules() {
       </section>
 
       <section className="ybr-raffle" aria-labelledby="ybr-raffle-title">
-        <h4 id="ybr-raffle-title">World Series Tickets Raffle</h4>
-        <p>Fans of the 30-week Bracket Champion earn drawing entries round by round. Fans nominated by players on the eight regional postseason teams can also earn an entry.</p>
+        <h4 id="ybr-raffle-title">World Series Tickets Sweepstakes</h4>
+        <p>Visitors must register as a YAT?STATS Fan or Super Fan to be included in the sweepstakes. Browsing a school page does not create an entry. Registered fans of the 30-week Bracket Champion earn entries through participation; players on the eight regional postseason teams may also nominate eligible fans.</p>
         <ul>
-          <li><b>Fan: 1 entry per round.</b> Every round you are registered as a Fan of the eventual Bracket Champion earns you one entry. Join in Round 10 and your school wins? You still receive one entry. Follow that winning school as a Fan for all 10 rounds and you receive 10 entries.</li>
-          <li><b>Super Fan: 3 entries per round.</b> Each round you are a Super Fan of the eventual Bracket Champion counts as three entries for that round, instead of one. Super Fan for all 10 rounds means 30 entries. If your status changes, count each round at the status you held during that round.</li>
-          <li><b>Players nominate Lucky Fans.</b> Each active alumnus playing for one of the eight regional postseason schools may nominate one fan for one additional drawing entry, even if that fan&apos;s school did not win the main bracket. The eight teams are determined by regional run totals after week 30.</li>
+          <li><b>Registered Fan: 1 entry per 3-week round.</b> Every round you are registered as a Fan of the eventual Bracket Champion earns you one entry. Join in Round 10 and your school wins? You still earn one entry. Stay registered as a Fan for all 10 rounds and you earn 10 entries.</li>
+          <li><b>Registered Super Fan: 1 entry per eligible week, up to 3 per round.</b> Each round has three weeks. As a Super Fan of the eventual Bracket Champion, you earn one entry for each week you hold Super Fan status, rather than the regular Fan entry for that round. Remain a Super Fan for all 30 weeks (10 rounds) and you earn 30 entries. Membership changes during a round affect the weeks eligible for Super Fan entries; the maximum is three total entries per round.</li>
+          <li><b>Players nominate Lucky Fans.</b> Each active alumnus playing for one of the eight regional postseason schools may nominate one fan for one additional drawing entry, even if that fan&apos;s school did not win the main bracket. The nominee must register as a Fan or Super Fan to be included in the sweepstakes. The eight teams are determined by regional run totals after week 30.</li>
           <li><b>Entry deadline and drawing.</b> Eligible entries close at 11:59 p.m. on September 26, 2027. One winner will be drawn on October 3, 2027.</li>
           <li><b>The prize.</b> Four tickets to the 2027 MLB World Series: either four tickets for one game or two tickets to each of two games, subject to availability; plus one night at a local hotel. <b>Airfare is not included.</b></li>
         </ul>
