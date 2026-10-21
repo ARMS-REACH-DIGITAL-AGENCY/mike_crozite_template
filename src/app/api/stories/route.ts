@@ -179,10 +179,16 @@ export async function GET(req: NextRequest) {
       const all = Array.isArray(info.published_assets) ? info.published_assets : [];
       const full = all.find((key) => typeof key === 'string' && key.startsWith('players/season-photos/') && key.endsWith('_' + upload.id + '.jpg'));
       if (!full) return [];
-      const cutout = all.find((key) => typeof key === 'string' && key.startsWith('players/season-cutouts/') && key.endsWith('_' + upload.id + '.png'));
+      const recordedCutout = all.find((key) => typeof key === 'string' && key.startsWith('players/season-cutouts/') && key.endsWith('_' + upload.id + '.png'));
+      // The hourly job may finish after approval, so published_assets often
+      // lists only the JPG even though its cutout exists. Use the immutable
+      // official photo key to derive the matching transparent PNG location.
+      const expectedCutout = full
+        .replace(/^players\/season-photos\//, 'players/season-cutouts/')
+        .replace(/\.jpg$/i, '.png');
       const year = new Date(upload.date_taken).getUTCFullYear();
       if (!Number.isInteger(year)) return [];
-      return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: cutout ? storyAssetUrl(cutout) : null, source: null }];
+      return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: storyAssetUrl(recordedCutout || expectedCutout), source: null }];
     });
     return NextResponse.json({ stories, timelinePhotos }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
