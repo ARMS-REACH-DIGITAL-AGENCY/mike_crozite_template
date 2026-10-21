@@ -74,6 +74,7 @@ jobs:
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/then/
           YATSTATS_S3_OUTPUT_PREFIX: players/then-cutouts/
+          INCLUDE_SOURCE_PNG: "true"
         run: python scripts/process-player-cutouts-s3.py
 
       - name: Flip-card back action photo (players/back -> players/back-cutouts)
@@ -97,4 +98,5 @@ jobs:
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/season-photos/
           YATSTATS_S3_OUTPUT_PREFIX: players/season-cutouts/
+          INCLUDE_SOURCE_PNG: "true"
         run: python scripts/process-player-cutouts-s3.py
