@@ -75,5 +75,5 @@ export const config = {
   // subdomain's route, or it 404s since no /<school>/embed/... route
   // exists. Confirmed live: this was silently breaking every cross-school
   // favorite card fetch from a real subdomain, 100% of the time.
-  matcher: ["/((?!api|embed|_next|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest).*)"],
+  matcher: ["/((?!api|g/|embed|_next|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest).*)"],
 };
