@@ -49,6 +49,10 @@
     {
       "path": "/api/cron/fan-daily-pilot",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/contribution-publish",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
