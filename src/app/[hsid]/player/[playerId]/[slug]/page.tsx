@@ -236,6 +236,8 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const safePlayerId = String(playerId);
+  // Hamilton's school Instagram account is displayed on current coach Greg Bordes's profile.
+  const isHamiltonCoachInstagramProfile = hsid === '5004' && safePlayerId === 'YAT000073';
 
   const playerNewsFullName = [player.firstname, player.lastname]
     .map((value: unknown) => String(value || "").trim())
@@ -980,7 +982,11 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-social" className="pp-fz-panel">
           <div className="pp-social-tag">#YATABOY</div>
           <div className="pp-social-sub">Show some love for {firstName}!</div>
-          <PlayerInstagramFeed playerId={safePlayerId} firstName={firstName} />
+          <PlayerInstagramFeed
+            playerId={safePlayerId}
+            firstName={firstName}
+            schoolFeed={isHamiltonCoachInstagramProfile ? { hsid: '5004', name: 'Hamilton Baseball' } : undefined}
+          />
           <div className="pp-social-links">
             {xHandle && (
               <a
@@ -1002,7 +1008,7 @@ export default async function ProfilePage({ params }: Props) {
                 <i className="ri-instagram-line" /> @{igHandle}
               </a>
             )}
-            {!xHandle && !igHandle && (
+            {!xHandle && !igHandle && !isHamiltonCoachInstagramProfile && (
               <div className="pp-fz-placeholder">
                 <i className="ri-share-line pp-ph-icon" />
                 <p>Social links will appear here once available.</p>

@@ -19,7 +19,10 @@ type Post = {
   handle?: string | null;
 };
 
-export default function PlayerInstagramFeed({ playerId, firstName }: { playerId: string; firstName: string }) {
+type SchoolFeed = { hsid: string; name: string };
+
+export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }: { playerId: string; firstName: string; schoolFeed?: SchoolFeed }) {
+  const schoolHsid = schoolFeed?.hsid;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -32,7 +35,7 @@ export default function PlayerInstagramFeed({ playerId, firstName }: { playerId:
     const load = () => {
       if (done) return;
       done = true;
-      fetch(`/api/social/player/${encodeURIComponent(playerId)}`)
+      fetch(schoolHsid ? `/api/social/school/${encodeURIComponent(schoolHsid)}` : `/api/social/player/${encodeURIComponent(playerId)}`)
         .then((r) => (r.ok ? r.json() : { posts: [] }))
         .then((d) => setPosts(Array.isArray(d?.posts) ? d.posts : []))
         .catch(() => setPosts([]));
@@ -47,7 +50,7 @@ export default function PlayerInstagramFeed({ playerId, firstName }: { playerId:
     });
     io.observe(el);
     return () => io.disconnect();
-  }, [playerId]);
+  }, [playerId, schoolHsid]);
 
   const handle = posts?.[0]?.handle || '';
   const count = posts?.length || 0;
@@ -81,7 +84,7 @@ export default function PlayerInstagramFeed({ playerId, firstName }: { playerId:
         <>
           <div className="pp-ig-head">
             <span>
-              <i className="ri-instagram-line" /> {firstName ? `${firstName} on Instagram` : 'On Instagram'}
+              <i className="ri-instagram-line" /> {schoolFeed ? `${schoolFeed.name} on Instagram` : firstName ? `${firstName} on Instagram` : 'On Instagram'}
             </span>
             {handle && (
               <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer">
