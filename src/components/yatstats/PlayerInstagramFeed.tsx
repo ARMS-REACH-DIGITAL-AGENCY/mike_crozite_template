@@ -84,7 +84,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
         <>
           <div className="pp-ig-head">
             <span>
-              <i className="ri-instagram-line" /> {firstName ? `${firstName} on Instagram` : 'On Instagram'}
+              <i className="ri-instagram-line" /> {schoolFeed ? `${schoolFeed.name} on Instagram` : firstName ? `${firstName} on Instagram` : 'On Instagram'}
             </span>
             {handle && (
               <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer">
