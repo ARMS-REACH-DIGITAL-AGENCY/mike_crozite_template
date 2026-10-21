@@ -341,7 +341,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                   onDeleted={removeStory}
                   media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
                 />
-                {index === Math.min(1, list.length - 1) ? sponsorCard : null}
+                {index === (list.length <= 2 ? 0 : 1) ? sponsorCard : null}
               </Fragment>
             ))}
           </div>
@@ -382,7 +382,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                     </button>
                   </div>
                   </div>
-                  {index === Math.min(1, list.length - 1) ? sponsorCard : null}
+                  {index === (list.length <= 2 ? 0 : 1) ? sponsorCard : null}
                 </Fragment>
               );
             })}
@@ -419,7 +419,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           )}
         </div>
       </div>
-      <div className="ysf-main">{body}</div>
+      <div className="ysf-main">{body}
+        <div className="ysf-bottom-scroll-clearance" aria-hidden="true" />
+      </div>
       {teammatesOpen && typeof document !== 'undefined' ? <TeammatesDrawer rows={teammates} onClose={closeTeammates} /> : null}
 
       {openStory && typeof document !== 'undefined' && (
@@ -457,6 +459,11 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
+        /* The scroll viewport ends at the fixed profile dock. This physical
+           spacer (not just scroll-padding) guarantees the final advertiser
+           and interaction row can be scrolled fully above the footer. */
+        .ysf-bottom-scroll-clearance { display:block; height:calc(var(--pp-dock-h,62px) + 88px + env(safe-area-inset-bottom)); width:100%; flex:none; pointer-events:none; }
+
         .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
         .ysf-tool-row { display:flex;align-items:stretch;min-width:0; }
         .ysf-tool-row-search { display:grid;grid-template-columns:minmax(0,1fr) 38px auto;gap:6px;align-items:center; }
