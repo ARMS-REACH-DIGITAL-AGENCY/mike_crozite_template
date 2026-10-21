@@ -366,6 +366,14 @@ async function SchoolShell({
       splashPlayerDetails[id] = { name, team };
     }
   }
+  // Data-derived display names may contain markup characters. Escape them
+  // before embedding JSON in an inline <script> so it cannot close the tag.
+  const splashRosterJson = JSON.stringify({
+    active: splashActiveIds,
+    other: splashOtherIds,
+    details: splashPlayerDetails,
+  }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+
   const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
@@ -410,7 +418,7 @@ async function SchoolShell({
       {enableSplashCutouts && (splashActiveIds.length > 0 || splashOtherIds.length > 0) && (
         <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
           __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" +
-            JSON.stringify({ active: splashActiveIds, other: splashOtherIds, details: splashPlayerDetails }) + "}));",
+            splashRosterJson + "}));",
         }} />
       )}
 
