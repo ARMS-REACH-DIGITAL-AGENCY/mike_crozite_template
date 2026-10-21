@@ -125,6 +125,50 @@ function buildMicrositeUrl(
   return `https://yatstats.com/${homeHsid}`;
 }
 
+function FallClassicRaffle() {
+  return (
+<section
+            className="yat-raffle-section"
+            aria-label="Fall Classic Tickets Sweepstakes"
+            style={{
+              margin: '14px 15px 4px',
+              padding: '14px 15px',
+              border: '1px solid #525252',
+              background: 'linear-gradient(105deg, #080808 0%, #202020 100%)',
+            }}
+          >
+            <div
+              style={{
+                color: '#fff',
+                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                fontSize: '18px',
+                lineHeight: 1,
+                letterSpacing: '.07em',
+                marginBottom: '5px',
+              }}
+            >
+              FALL CLASSIC TICKETS SWEEPSTAKES
+            </div>
+            <p style={{ margin: '0 0 10px', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
+              You must register as a YAT?STATS Fan or Super Fan to be included in the sweepstakes. Simply visiting does not enter you.
+              If your school wins the 30-week Bracket, registered Fans receive <strong style={{ color: '#fff' }}>1 entry per 3-week round (up to 10)</strong>.
+              Registered Super Fans receive <strong style={{ color: '#fff' }}>1 entry per eligible week, 3 per round (up to 30)</strong> instead of the Fan entry.
+              Join as a Fan in Round 10 and your school wins? You can still earn 1 entry.
+            </p>
+            <p style={{ margin: 0, color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
+              Entries close <strong style={{ color: '#fff' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
+              <strong style={{ color: '#fff' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
+              Each active alumnus from the eight regional postseason teams may also nominate one Lucky Fan for an entry. Nominees must register to be eligible.
+            </p>
+            <p style={{ margin: '7px 0 0', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
+              Prize: <strong style={{ color: '#fff' }}>four 2027 MLB World Series tickets</strong> for one game or two tickets each for two games,
+              plus one local hotel night. <strong style={{ color: '#fff' }}>Airfare not included.</strong>
+              Eligibility, no-purchase entry method and prize restrictions require published Official Rules.
+            </p>
+          </section>
+  );
+}
+
 export default function AccountDrawerContent({ subdomain, initialTab }: AccountDrawerProps) {
   const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
     error: '#dc2626',
@@ -1051,6 +1095,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </>
           )}
 
+          {/* Keep the promotion and guided tour visible to signed-in Fans too. */}
+          <FallClassicRaffle />
+          <GuidedTourArtwork />
+
           <button
             className="yat-account-signout"
             onClick={handleSignOut}
@@ -1297,38 +1345,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
             </p>
           )}
 
-          {activeTab === "signin" && <section
-            className="yat-raffle-section"
-            aria-label="Fall Classic Tickets Raffle"
-            style={{
-              margin: '14px 15px 4px',
-              padding: '14px 15px',
-              border: '1px solid var(--line)',
-              background: 'linear-gradient(90deg,rgba(0,0,0,.82),rgba(0,0,0,.26))',
-            }}
-          >
-            <div
-              style={{
-                color: 'var(--fg)',
-                fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
-                fontSize: '18px',
-                lineHeight: 1,
-                letterSpacing: '.07em',
-                marginBottom: '5px',
-              }}
-            >
-              FALL CLASSIC TICKETS RAFFLE
-            </div>
-            <p style={{ margin: '0 0 10px', color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Register on your favorite high school alumni hub. If your school wins the 30-week bracket, each round
-              you were a registered Fan earns <strong style={{ color: 'var(--fg)' }}>one raffle entry (up to 10)</strong>.
-              Super Fans earn <strong style={{ color: 'var(--fg)' }}>three total entries per Super Fan round (up to 30 across 10 rounds)</strong>.
-            </p>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '11px', lineHeight: 1.45 }}>
-              Entries close <strong style={{ color: 'var(--fg)' }}>11:59 PM September 26, 2027</strong>. The winner will be drawn on
-              <strong style={{ color: 'var(--fg)' }}> October 3, 2027</strong>, with the drawing planned to stream LIVE on yatstats.com.
-            </p>
-          </section>}
+          <FallClassicRaffle />
 
           <div className="yat-account-comparison" style={{ borderTop: '1px solid var(--line)', marginTop: '14px' }}>
             <div
@@ -1442,9 +1459,13 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         /* Transparent LED cutouts sit straight on the white bubble. */
         #drawerAccount .yat-tour-roles .yat-tour-role img{width:auto!important;max-width:100%!important;height:34px!important;max-height:34px!important;object-fit:contain!important;}
         #drawerAccount .yat-tour-role:hover,#drawerAccount .yat-tour-role:focus-visible{color:#bd630b;text-decoration:underline;}
-        #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;overflow:hidden;background-color:rgba(0,0,0,.28)!important;background-blend-mode:normal!important;}
-        /* The World Series trophy: a large, faint watermark behind the raffle copy. */
-        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:-1;top:-14%;bottom:-14%;right:-4%;width:72%;background:url("/img/world-series-trophy-cta.png") center / contain no-repeat;opacity:.13;pointer-events:none;}
+        #drawerAccount .yat-account-signed-in .yat-raffle-section{margin:12px 0!important;}
+        #drawerAccount .yat-raffle-section{position:relative;isolation:isolate;box-sizing:border-box;display:block!important;flex-shrink:0!important;min-height:max-content!important;height:auto!important;overflow:hidden;background-color:#111!important;background-blend-mode:normal!important;color:#fff!important;}
+        #drawerAccount .yat-raffle-section > :is(div,p){position:relative;z-index:1;}
+        #drawerAccount .yat-raffle-section p{color:#e5e5e5!important;}
+        #drawerAccount .yat-raffle-section strong{color:#fff!important;}
+        /* Trophy watermark remains behind the readable Sweepstakes text. */
+        #drawerAccount .yat-raffle-section::before{content:"";position:absolute;z-index:0;top:11%;bottom:-9%;right:-3%;width:70%;background:url("/img/world-series-trophy-cta.png") center top / contain no-repeat;opacity:.26;-webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.45) 38%,#000 78%);mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.45) 38%,#000 78%);pointer-events:none;}
         #drawerAccount .yat-account-benefit-table :is(th,td):first-child{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;}
         #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
         @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
