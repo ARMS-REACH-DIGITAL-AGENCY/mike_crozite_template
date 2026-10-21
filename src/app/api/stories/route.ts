@@ -179,10 +179,20 @@ export async function GET(req: NextRequest) {
       const all = Array.isArray(info.published_assets) ? info.published_assets : [];
       const full = all.find((key) => typeof key === 'string' && key.startsWith('players/season-photos/') && key.endsWith('_' + upload.id + '.jpg'));
       if (!full) return [];
-      const cutout = all.find((key) => typeof key === 'string' && key.startsWith('players/season-cutouts/') && key.endsWith('_' + upload.id + '.png'));
+      const recordedCutout = all.find((key) => typeof key === 'string' && key.startsWith('players/season-cutouts/') && key.endsWith('_' + upload.id + '.png'));
+      // Approved annual timeline photos are published first; background
+      // removal may finish later in the hourly S3 cutout workflow. The
+      // published_assets snapshot is therefore often missing the transparent
+      // PNG even when it already exists at the canonical matching key.
+      // Derive that key from the immutable published original, not a stale
+      // approval-time list. StoryHeroImg falls back to the original JPG if
+      // the cutout is not ready yet; fan story/memory photos are untouched.
+      const expectedCutout = full
+        .replace(/^players\/season-photos\//, 'players/season-cutouts/')
+        .replace(/\.jpg$/i, '.png');
       const year = new Date(upload.date_taken).getUTCFullYear();
       if (!Number.isInteger(year)) return [];
-      return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: cutout ? storyAssetUrl(cutout) : null, source: null }];
+      return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: storyAssetUrl(recordedCutout || expectedCutout), source: null }];
     });
     return NextResponse.json({ stories, timelinePhotos }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
