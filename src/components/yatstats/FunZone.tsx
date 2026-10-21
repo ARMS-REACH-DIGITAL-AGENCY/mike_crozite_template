@@ -737,14 +737,15 @@ export default function FunZone({
     scheduleRequested.current = true;
     const controller = new AbortController();
     setScheduleLoading(true);
-    fetch(`/card-game-log/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}&slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
+    fetch(`/api/card-game-log/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}&slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error('Schedule unavailable'); return response.text(); })
       .then((html) => {
         const parsed = new DOMParser().parseFromString(html, 'text/html');
         const snapshot = parsed.querySelector('.yat-snap');
         if (!snapshot) throw new Error('Schedule markup missing');
-        const style = snapshot.nextElementSibling?.tagName === 'STYLE' ? snapshot.nextElementSibling.outerHTML : '';
-        setLoadedSchedule(snapshot.outerHTML + style);
+        const style = snapshot.querySelector('style')?.outerHTML || (snapshot.nextElementSibling?.tagName === 'STYLE' ? snapshot.nextElementSibling.outerHTML : '');
+        setScheduleError(false);
+        setLoadedSchedule(snapshot.outerHTML + (snapshot.querySelector('style') ? '' : style));
       })
       .catch(() => { setScheduleError(true); scheduleRequested.current = false; })
       .finally(() => setScheduleLoading(false));
