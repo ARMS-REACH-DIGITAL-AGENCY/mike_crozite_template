@@ -236,6 +236,8 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const safePlayerId = String(playerId);
+  // Hamilton's school Instagram account is displayed on current coach Greg Bordes's profile.
+  const isHamiltonCoachInstagramProfile = hsid === '5004' && safePlayerId === 'YAT000073';
 
   const playerNewsFullName = [player.firstname, player.lastname]
     .map((value: unknown) => String(value || "").trim())
