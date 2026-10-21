@@ -631,7 +631,7 @@ export function StoryThread({
             </button>
           </>
         ) : (
-          <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to add your photos or a comment</button>
+          <button type="button" className="ysv-signin" onClick={openSignIn}>TO ADD A STORY TO {story.players.find((player) => player.isPrimary)?.name || story.players[0]?.name || "THIS PLAYER"}&#39;S TIMELINE YOU MUST BE SIGNED IN</button>
         )}
       </div>
       {lightbox && <PhotoLightbox photos={lightbox.photos} start={lightbox.index} story={story} onClose={() => setLightbox(null)} />}
@@ -930,7 +930,7 @@ export function StoryStyles() {
       .ysv-composer > button:disabled { opacity: .4; cursor: default; }
       .ysv-spin { display: inline-block; animation: ysv-spin 0.9s linear infinite; }
       @keyframes ysv-spin { to { transform: rotate(360deg); } }
-      .ysv-signin { flex: 1; min-height: 42px; border-radius: 20px; border: 1px solid var(--ysv-gold); background: transparent; color: var(--ysv-gold-text); font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; cursor: pointer; }
+      .ysv-signin { flex:1; min-height:42px; padding:10px 14px; border-radius:5px; border:1px solid #777; background:#919191; color:#111; font:700 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.025em; text-transform:uppercase; cursor:pointer; } .ysv-signin:hover,.ysv-signin:focus-visible { background:#aaa; border-color:#aaa; }
       /* A full post in the Stories tab (desktop). */
       .ysv-post { color: var(--ysv-fg); border: 1px solid var(--ysf-card-border, var(--ysv-line)); border-radius: 10px; background: var(--ysf-card-bg, rgba(255,255,255,.04)); box-shadow: var(--ysf-card-shadow, none); overflow: hidden; }
       .ysv-post-pad { padding: 14px 16px 0; }
