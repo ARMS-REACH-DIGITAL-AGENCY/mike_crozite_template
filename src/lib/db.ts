@@ -1047,7 +1047,9 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 }
 
 export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-2026-evidence', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
-  const sql = buildActiveRosterSql('ph.hsid = $1', 'TRUE');
+  // All returned rows belong to school_players; filter raw season inputs first.
+  // This avoids aggregating every team's 2026 stats on each school cache miss.
+  const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text IN (SELECT playerid::text FROM school_players)');
   const { rows } = await query(sql, [hsid]);
   return rows;
 }));
