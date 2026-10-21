@@ -13,9 +13,11 @@ import type { User } from 'firebase/auth';
 import { track } from '@/lib/analytics';
 import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
 import GuidedTourArtwork from '@/components/yatstats/GuidedTourArtwork';
+import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent, schoolSmsTopic } from '@/lib/fanConsent';
 
 interface AccountDrawerProps {
   subdomain: string;
+  schoolName?: string;
   initialTab?: 'signin' | 'register';
 }
 
@@ -169,7 +171,7 @@ function FallClassicRaffle() {
   );
 }
 
-export default function AccountDrawerContent({ subdomain, initialTab }: AccountDrawerProps) {
+export default function AccountDrawerContent({ subdomain, schoolName, initialTab }: AccountDrawerProps) {
   const MSG_COLOR: Record<'error' | 'success' | 'info', string> = {
     error: '#dc2626',
     success: '#16a34a',
@@ -682,6 +684,13 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         (e.currentTarget.elements.namedItem('registerLastName') as HTMLInputElement)?.value?.trim() ||
         '';
 
+      const phone = (e.currentTarget.elements.namedItem('registerPhone') as HTMLInputElement)?.value?.trim() || '';
+      const smsInformational = (e.currentTarget.elements.namedItem('smsInformational') as HTMLInputElement)?.checked === true;
+      const smsPromotional = (e.currentTarget.elements.namedItem('smsPromotional') as HTMLInputElement)?.checked === true;
+      if ((smsInformational || smsPromotional) && !/^\+?1?[2-9]\d{2}[2-9]\d{6}$/.test(phone.replace(/[\s().-]/g, ''))) {
+        setMessage('Enter a valid US mobile number to receive text updates.');
+        setMessageType('error'); setIsLoading(false); return;
+      }
       if (!firstName || !lastName) {
         setMessage('First name and last name are required.');
         setMessageType('error');
@@ -710,6 +719,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           firstName,
           lastName,
           subdomain,
+          phone, smsInformational, smsPromotional,
+          disclosureVersion: FAN_CONSENT_VERSION,
+          idToken: await cred.user.getIdToken(),
+          sourceUrl: window.location.href,
         }),
       });
 
@@ -1315,6 +1328,16 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 />
               </div>
 
+              <div style={{ marginBottom: '8px' }}>
+                <input name="registerPhone" type="tel" autoComplete="tel" placeholder="Mobile phone (optional)" aria-label="Mobile phone (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'rgba(255, 255, 255, .06)', color: 'var(--ink)', fontSize: '13px' }} />
+              </div>
+              <fieldset style={{ border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', margin: '0 0 10px' }}>
+                <legend style={{ fontSize: '12px', fontWeight: 700 }}>{schoolSmsTopic(schoolName)} powered by YAT?STATS</legend>
+                <label style={{ display: 'flex', gap: '8px', fontSize: '12px', marginBottom: '10px', lineHeight: 1.4 }}><input type="checkbox" name="smsInformational" defaultChecked={false} style={{ flexShrink: 0 }} />{fanInformationalConsent(schoolName)}</label>
+                <label style={{ display: 'flex', gap: '8px', fontSize: '12px', marginBottom: '10px', lineHeight: 1.4 }}><input type="checkbox" name="smsPromotional" defaultChecked={false} style={{ flexShrink: 0 }} />{fanPromotionalConsent(schoolName)}</label>
+                <p style={{ fontSize: '11px', lineHeight: 1.45, margin: 0 }}>{FAN_SMS_DISCLOSURE}</p>
+                <p style={{ fontSize: '11px', margin: '8px 0 0' }}><a href="https://yatstats.com/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> · <a href="https://yatstats.com/terms-and-conditions" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a></p>
+              </fieldset>
               <div style={{ marginBottom: '10px' }}>
                 <PasswordInput name="registerPassword" placeholder="Password" />
               </div>
