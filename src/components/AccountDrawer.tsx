@@ -185,6 +185,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
   const [displayName, setDisplayName] = useState('');
   const [signInEmail, setSignInEmail] = useState('');
   const [favConfirm, setFavConfirm] = useState('');
+  // A fan tried to favorite a player from another school (yat:superfan-ask).
+  const [superfanAsk, setSuperfanAsk] = useState('');
   const [superfanLaunching, setSuperfanLaunching] = useState(false);
   const [isSuperfan, setIsSuperfan] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
@@ -288,6 +290,23 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
 
     window.addEventListener('yat:acct-tab', handleTabSwitch);
     return () => window.removeEventListener('yat:acct-tab', handleTabSwitch);
+  }, []);
+
+  // The Superfan ask shows while the drawer is open and clears once it closes.
+  useEffect(() => {
+    const handleAsk = (e: Event) => {
+      const name = (e as CustomEvent<{ playerName?: string }>).detail?.playerName;
+      setSuperfanAsk(name || 'That player');
+    };
+    const observer = new MutationObserver(() => {
+      if (!document.body.classList.contains('drawer-account-open')) setSuperfanAsk('');
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('yat:superfan-ask', handleAsk);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('yat:superfan-ask', handleAsk);
+    };
   }, []);
 
   useEffect(() => {
@@ -910,8 +929,8 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
           {favConfirm && !isSuperfan && (
             <div
               style={{
-                background: 'rgba(22,163,74,.12)',
-                border: '1px solid #16a34a',
+                background: 'rgba(128,128,128,.08)',
+                border: '1px solid var(--line)',
                 borderRadius: '8px',
                 padding: '12px',
                 marginBottom: '16px',
@@ -920,7 +939,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               <p
                 style={{
                   fontSize: '14px',
-                  color: '#16a34a',
+                  color: 'var(--fg)',
                   fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                   letterSpacing: '.05em',
                   marginBottom: '6px',
@@ -950,7 +969,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   display: 'inline-block',
                   padding: '8px 14px',
                   background: 'var(--fg)',
-                  color: '#fff',
+                  color: 'var(--bg)',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '12px',
@@ -1012,6 +1031,46 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
 
           {!isSuperfan && !superfanLaunching && (
             <>
+              {superfanAsk && (
+                <div
+                  className="yat-superfan-ask"
+                  role="status"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    gap: '10px',
+                    background: 'rgba(128,128,128,.08)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '10px 12px 10px 8px',
+                    marginBottom: '10px',
+                  }}
+                >
+                  <img
+                    src="/img/yati-placeholders/yati-thinking.webp"
+                    alt=""
+                    aria-hidden="true"
+                    style={{ width: '56px', flex: '0 0 56px', objectFit: 'contain', display: 'block' }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        color: 'var(--fg)',
+                        fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      Great pick! {superfanAsk} plays for another school.
+                    </p>
+                    <p style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5, marginTop: '4px' }}>
+                      Following players from any school is a Superfan perk. Upgrade below and you also get
+                      the All-Schools favorites filter and an extra Fall Classic raffle entry every round.
+                    </p>
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() =>

@@ -332,6 +332,8 @@ function scrollToLinkedCard(section: string, playerId: string) {
       ? railBottom
       : (row3?.getBoundingClientRect().bottom ?? 166);
     const targetY = Math.max(0, rowBottom) + 8;
+    // The browser's own #player- jump lands here too (YatStyles' scroll margin).
+    document.documentElement.style.setProperty('--yat-sticky-bottom', `${Math.max(0, rowBottom)}px`);
     const delta = card.getBoundingClientRect().top - targetY;
     if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: 'instant' });
     if (!highlighted) {

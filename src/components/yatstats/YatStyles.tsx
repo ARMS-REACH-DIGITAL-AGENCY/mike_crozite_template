@@ -80,10 +80,17 @@ export default function YatStyles() {
         z-index:40;
       }
 
-     /* Player anchors are the card's actual top edge. The old 190px
-        scroll margin displaced them beneath the sticky portrait rail. */
-      [id^="player-"]{
-        scroll-margin-top: 0;
+     /* Where the browser's own jump to a #player- link (or a scrollIntoView)
+        puts a card: just below the sticky rows, never under them. The script
+        that aims linked cards sets --yat-sticky-bottom to the rail's measured
+        bottom; until then the row heights stand in for it. With 0 here, a
+        link opened on a phone whose aiming was cut short (a touch while the
+        page loaded) left the card's top hidden behind rows 1-3. The tab
+        sections get the same margin: the page swaps a player link's address
+        to #sec-{tab}, and the browser may jump to that instead. */
+      [id^="player-"],
+      .yat-section{
+        scroll-margin-top: calc(var(--yat-sticky-bottom, calc(var(--row1-h) + var(--row2-h) + var(--row3-h))) + 8px);
       }
 
       /* ───────── ROW 1 / DESKTOP TOP NAV ───────── */

@@ -425,7 +425,7 @@ export default function StoryDrawer() {
     <aside className="yat-drawer yat-drawer-right yat-story-drawer" id="drawerStory" aria-label="Add a story" aria-hidden={!open}>
       <div className="ysd-header">
         <div className="ysd-header-main">
-          <h3 className="ysd-title"><i className="ri-image-add-line" aria-hidden="true" /><span>SHARE A STORY</span></h3>
+          <h3 className="ysd-title"><i className="ri-image-add-line" aria-hidden="true" /><span>Share a Story</span></h3>
           {signedIn && <p className="ysd-hello"><span className="ysd-hello-account">{fanFirstName}</span><span className="ysd-hello-school">Posting to {playerName}&apos;s Career Timeline</span></p>}
           {!signedIn && <p className="ysd-hello"><span className="ysd-hello-school">Post to {playerName}&apos;s Career Timeline</span></p>}
         </div>
@@ -470,9 +470,10 @@ export default function StoryDrawer() {
                   </div>
                 ))}
                 {photos.length < MAX_PHOTOS && (
-                  <button type="button" className="ysd-photo-add" onClick={() => fileInput.current?.click()} disabled={preparingPhotos || posting}>
+                  <button type="button" className={`ysd-photo-add${photos.length ? '' : ' is-empty'}`} onClick={() => fileInput.current?.click()} disabled={preparingPhotos || posting}>
                     <i className="ri-image-add-line" aria-hidden="true" />
                     <span>UPLOAD +</span>
+                    {photos.length ? null : <small>Up to {MAX_PHOTOS} photos from your phone or computer</small>}
                   </button>
                 )}
               </div>
@@ -631,30 +632,44 @@ export default function StoryDrawer() {
         .ysd-btn:disabled { opacity: .6; cursor: wait; }
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font:800 19px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
-        /* Match the existing monochrome Contribute drawer: same title hierarchy,
-           fan context, compact labels and rectangular fields. */
+        /* The same look as the Connect & Contribute photo form (#drawerContribute
+           .ycd-* and .ypf-*): title-case header with a round icon, every step in
+           a card with a numbered badge, a dashed upload box, 8px fields and
+           buttons. The questions and behavior are unchanged. */
         #drawerStory.yat-story-drawer { width:var(--yat-side-drawer-w)!important;max-width:var(--yat-side-drawer-w)!important; }
-        #drawerStory .ysd-header {padding:12px 14px 10px!important;align-items:flex-start;gap:12px;}
+        #drawerStory .ysd-header {padding:16px 20px 14px!important;align-items:flex-start;gap:10px;}
         #drawerStory .ysd-header-main {min-width:0;flex:1;}
-        #drawerStory .ysd-header .ysd-title {display:flex!important;align-items:center;gap:10px;margin:0!important;font:800 clamp(20px,5vw,24px)/1.16 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.025em!important;text-transform:uppercase;}
-        #drawerStory .ysd-header .ysd-title i {display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:rgba(128,128,128,.14);font-size:21px;}
-        #drawerStory .ysd-hello {display:flex;flex-direction:column;gap:3px;margin:11px 0 0;color:var(--ink);font:400 13px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);}
-        #drawerStory .ysd-hello-account {font-weight:800;}
-        #drawerStory .ysd-hello-school {color:var(--muted);overflow-wrap:anywhere;}
-        #drawerStory .ysd-body {gap:13px;padding:12px 14px 28px!important;}
-        #drawerStory .ysd-field {gap:7px;}
-        #drawerStory .ysd-step {display:inline-grid;place-items:center;vertical-align:middle;margin-right:7px;width:26px;height:26px;border-radius:6px;background:var(--fg);color:var(--bg);font:800 14px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-header .ysd-title {display:flex!important;align-items:center;gap:11px;min-width:0;margin:0!important;font:800 clamp(18px,3.5vw,22px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;text-transform:none;overflow-wrap:anywhere;}
+        #drawerStory .ysd-header .ysd-title i {display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;margin:0;border-radius:50%;border:1px solid var(--line);background:var(--card-bg);color:var(--fg);font-size:20px;}
+        #drawerStory .ysd-hello {display:flex;flex-direction:column;gap:2px;margin:8px 0 0;color:var(--muted);font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-hello-account {font-weight:700;color:var(--fg);}
+        #drawerStory .ysd-hello-school {overflow-wrap:anywhere;}
+        #drawerStory .ysd-body {gap:12px;padding:14px 20px 30px!important;font:400 13px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-field {gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--card-bg);}
+        #drawerStory .ysd-label {display:flex;align-items:center;gap:6px;min-width:0;font:800 14px/1.22 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.02em;}
+        #drawerStory .ysd-label .ysd-muted {font-weight:400;color:var(--muted);opacity:1;}
+        #drawerStory .ysd-step {display:inline-grid;place-items:center;flex:0 0 auto;margin:0;min-width:22px;height:22px;padding:0 5px;border:1px solid var(--line);border-radius:5px;background:var(--fg);color:var(--bg);font:800 11px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerStory .ycs .yat-gs-input-wrap input.yat-gs-input {padding:10px 34px 10px 43px!important;}
         #drawerStory .ycs .yat-gs-input-icon {left:13px!important;right:auto!important;}
-        #drawerStory .ycs .yat-search-mode-buttons button {font-family:var(--yat-font-compact,"Barlow Condensed",sans-serif)!important;font-weight:700;text-transform:uppercase;}
-        #drawerStory .ysd-photo-add {min-height:98px;}
-        #drawerStory .ysd-label {font:800 15px/1.22 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.02em;}
-        #drawerStory .ysd-photo-add {border-radius:6px;background:rgba(128,128,128,.08);}
-        #drawerStory .ysd-photo-add:hover {background:rgba(128,128,128,.18);}
-        #drawerStory select,#drawerStory textarea,#drawerStory input[type="search"] {border:1px solid var(--line);border-radius:6px;background:rgba(128,128,128,.10);padding:10px 11px;}
-        #drawerStory .ysd-btn {border-radius:6px;}
-        #drawerStory .ysd-approve {border-radius:6px;}
-        @media(max-width:779px){#drawerStory.yat-story-drawer{width:100vw!important;max-width:100vw!important;}}
+        #drawerStory .ysd-photo-add {gap:6px;border:1.5px dashed var(--muted);border-radius:10px;background:var(--line);color:var(--fg);}
+        #drawerStory .ysd-photo-add:hover {background:rgba(128,128,128,.22);}
+        #drawerStory .ysd-photo-add i {font-size:24px;color:var(--fg);}
+        #drawerStory .ysd-photo-add span {font:800 12px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.02em;}
+        #drawerStory .ysd-photo-add.is-empty {grid-column:1 / -1;aspect-ratio:auto;min-height:128px;gap:9px;padding:16px;}
+        #drawerStory .ysd-photo-add.is-empty i {font-size:28px;}
+        #drawerStory .ysd-photo-add.is-empty span {font-size:13px;}
+        #drawerStory .ysd-photo-add small {font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);text-transform:none;letter-spacing:0;}
+        #drawerStory :is(select,textarea),#drawerStory input[type="search"] {min-height:40px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--card-bg);color:var(--fg);font:400 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-btn {min-height:40px;padding:9px 15px;border:1px solid var(--line);border-radius:8px;background:var(--card-bg);color:var(--fg);font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.02em;text-transform:none;}
+        #drawerStory .ysd-btn-primary {background:var(--fg);color:var(--bg);border-color:var(--fg);}
+        #drawerStory .ysd-approve {border-radius:8px;}
+        @media(max-width:779px){
+          #drawerStory.yat-story-drawer{width:100vw!important;max-width:100vw!important;}
+          #drawerStory .ysd-header{padding:15px 16px 12px!important;}
+          #drawerStory .ysd-header .ysd-title{font-size:20px!important;}
+          #drawerStory .ysd-header .ysd-title i{width:34px;height:34px;flex-basis:34px;font-size:18px;}
+          #drawerStory .ysd-body{padding:12px 16px 25px!important;}
+        }
       `}</style>
     </aside>,
     document.body
