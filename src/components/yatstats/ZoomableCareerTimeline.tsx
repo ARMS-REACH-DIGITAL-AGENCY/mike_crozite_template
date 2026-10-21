@@ -1629,6 +1629,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     : railMode === 'months' && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft'
       ? activeSlide.year
       : null;
+  // The closing January 1st after the last screen (futureYear + 1).
+  const showRailBoundary = !isPreview && !monthRailYear;
   const previewStatus: CareerTimelinePreviewState['status'] = !previewValid || previewContextError ? 'error'
     : ready && previewScale > 0 && positionedRevision === preview?.revision && activeSlide?.year === preview?.year && isCareerYearSlide(activeSlide)
       && Math.abs(scrollProgress - activeIndex) < 0.01 ? 'ready' : 'loading';
@@ -2353,12 +2355,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
               doesn't open a screen of its own -- plain span, not a button,
               and outside .zt-rail entirely so it doesn't need to fit into
               that div's own index-based tick spacing. */}
-          {!isPreview && !monthRailYear && (
+          {showRailBoundary && (
             <span className="zt-rail-tick zt-rail-tick-boundary" aria-hidden="true">
               <span className="zt-rail-tick-year">{String(model.futureYear + 1).slice(-2)}</span>
             </span>
           )}
-          <div className={`zt-rail${monthRailYear ? ' zt-rail-months' : ''}`} ref={railRef}>
+          {/* With the closing point showing, the rail stops one tick-step short
+              of it, so that point reads as one more January 1st (e.g. 28 after
+              27) instead of landing on the last tick. */}
+          <div
+            className={`zt-rail${monthRailYear ? ' zt-rail-months' : ''}${showRailBoundary ? ' zt-rail-has-boundary' : ''}`}
+            ref={railRef}
+            style={showRailBoundary ? ({ '--zt-steps': model.slides.length - 1 } as CSSProperties) : undefined}
+          >
             <span className="zt-rail-track" aria-hidden="true" />
             {monthRailYear ? (
               <>
@@ -2816,8 +2825,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            frame instead: bottom matches .zt-rail's own bottom+half its
            height, right sits in the gap between the rail's own right
            edge and .zt-nav-next beside it. Not a button, so no hover/
-           active state to style. */
-        .zt-rail-tick-boundary { top:auto; bottom:18px; left:auto; right:12px; margin-left:0; transform:none; cursor:default; }
+           active state to style. z-index above the rail's own 6 (its gold
+           track runs under this dot) and above the hero layers, which
+           otherwise painted over both the dot and its year. */
+        .zt-rail-tick-boundary { z-index:7; top:auto; bottom:18px; left:auto; right:12px; margin-left:0; transform:none; cursor:default; }
+        /* The rail ends one tick-step before that closing point (k steps
+           of the rail plus this one share the 24px-inset width), and the
+           gold track runs on through to it. */
+        .zt-rail.zt-rail-has-boundary { right:calc(12px + (100% - 24px) / (var(--zt-steps) + 1)); }
+        .zt-rail.zt-rail-has-boundary .zt-rail-track { right:calc(-100% / var(--zt-steps)); }
         /* Sits just below each tick's own dot now (was above it), per
            direct feedback. Hidden on the active tick itself so it doesn't
            double up with .zt-rail-year's own bigger, bold, draggable
@@ -3109,6 +3125,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
           .zt-nav { top:50%; bottom:auto; width:48px; height:50px; font-size:35px; }
           .zt-rail-tick-boundary { bottom:6px; right:9px; }
+          .zt-rail.zt-rail-has-boundary { right:calc(9px + (100% - 18px) / (var(--zt-steps) + 1)); }
           /* Each slide is 200% of the viewport here, not 100% -- doubling
              the physical scroll distance between moments so a phone-width
              screen still gives each one real room, matching how much

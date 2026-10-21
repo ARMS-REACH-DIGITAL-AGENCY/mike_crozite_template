@@ -48,7 +48,7 @@
     },
     {
       "path": "/api/cron/fan-daily-pilot",
-      "schedule": "0 7 * * *"
+      "schedule": "0 11 * * *"
     },
     {
       "path": "/api/cron/contribution-publish",

@@ -114,6 +114,10 @@ Add a dated line for each milestone.
   Alumni Daily (`/api/cron/fan-daily-pilot`, midnight Arizona, test1-6 and
   pcdaction@gmail.com) with `YATSTATS_SENDING_DOMAIN_VERIFIED=true` set in
   production.
+- 2026-10-21: the Alumni Daily's first two nights (Oct 20, 21) sent nothing:
+  the app role had no access to `alumni_daily_email_delivery` (granted Oct
+  21, `migrations/20261021_...`). Pete moved it to 4:00 AM Arizona (11:00
+  UTC), an hour after the 3:00 AM Baseball Cube ingest.
 - Note for anyone replaying the brackets: `/api/bracket/live` takes at most
   64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
