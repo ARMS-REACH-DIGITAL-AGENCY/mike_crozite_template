@@ -494,8 +494,9 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
       if (data && data.success) {
         setFavConfirm(pName);
         window.dispatchEvent(
-          new CustomEvent('yat-auth-success', { detail: { contactId, playerId: pid } })
+          new CustomEvent('yat-auth-success', { detail: { contactId, playerId: pid, favoriteSaved: true } })
         );
+        window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
       }
     } catch {}
   };
