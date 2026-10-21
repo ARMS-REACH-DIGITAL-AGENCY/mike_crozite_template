@@ -2602,6 +2602,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            YaTi cartoon's: bottom pinned to the bottom of the slide, full
            height. A whole photo (no cutout yet) sits above the rail instead. */
         .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:20px; height:calc(100% - 34px); }
+         .zt-person-stack :global(.zt-person.zt-annual-hero) { bottom:-4% !important; height:104% !important; object-fit:contain; }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
            headline's). */
@@ -2717,8 +2718,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            gold like .zt-persist-status, since it's now read as part of
            this identity block rather than a caption written on a photo. */
         .zt-persist-classof { display:block; color:${TIMELINE_ACCENT}; font-family:Oswald,sans-serif; font-weight:400; font-size:clamp(7px,.95cqw,8.5px); line-height:1.15; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
-        .zt-rail-mode-toggle { position:absolute; z-index:8; left:var(--x-logo-left); top:88px; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(6,7,8,.62); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.22); }
-        .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:999px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
+        .zt-rail-mode-toggle { position:absolute; z-index:8; left:12px; bottom:49px; display:inline-flex; align-items:center; padding:2px; border:1px solid rgba(255,255,255,.24); border-radius:4px; background:rgba(6,7,8,.62); backdrop-filter:blur(8px); box-shadow:0 5px 14px rgba(0,0,0,.22); }
+        .zt-rail-mode-toggle button { appearance:none; border:0; border-radius:3px; background:transparent; color:rgba(255,255,255,.58); padding:4px 8px; font:700 8px/1 Oswald,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
         .zt-rail-mode-toggle button.is-on { background:rgba(160,160,160,.18); color:#fff; box-shadow:none; }
         /* Starts past the photo, closer to the ghosted logo's left edge
            (the logo is faint enough that text stays legible over it) --
@@ -2841,7 +2842,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* Every tick red now, not just the birth-year one -- per direct
            feedback. */
         /* 4px, not 6px -- per direct feedback, smaller dots. */
-        .zt-rail-tick { position:absolute; top:50%; width:4px; height:4px; margin-left:-2px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:#e5342a; cursor:pointer; }
+        .zt-rail-tick { position:absolute; top:50%; width:8px; height:8px; margin-left:-4px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:#fff; cursor:pointer; }
         .zt-rail-tick.active { background:transparent; cursor:default; }
         /* Sits outside .zt-rail (see its own JSX comment), so top:50%/
            margin-left from the base rule above -- both relative to
@@ -2873,14 +2874,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            it's bigger than the scrubber chip. */
         .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 8px; background:#040506; border-radius:4px; color:${TIMELINE_ACCENT}; font:700 17px/24px "Bebas Neue",Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
         .zt-rail-months .zt-rail-track { left:${RAIL_MONTH_START}px; }
-        .zt-rail-month { position:absolute; top:50%; width:5px; height:5px; margin-left:-2.5px; transform:translateY(-50%); border-radius:50%; background:#e5342a; animation:zt-rail-in .25s ease both; }
-        .zt-rail-month.has-story { width:7px; height:7px; margin-left:-3.5px; background:#fff; box-shadow:0 0 0 2px ${TIMELINE_ACCENT}; }
+        .zt-rail-month { position:absolute; top:50%; width:8px; height:8px; margin-left:-4px; transform:translateY(-50%); border-radius:50%; background:#fff; animation:zt-rail-in .25s ease both; }
+        .zt-rail-month.has-story { width:16px; height:16px; margin-left:-8px; background:#fff; box-shadow:0 0 0 1px rgba(255,255,255,.25); }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
         .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_ACCENT}; }
-        .zt-rail-story { position:absolute; left:50%; bottom:calc(100% + 7px); transform:translateX(-50%); display:grid; place-items:center; width:22px; height:22px; padding:0; border:1px solid rgba(170,170,170,.72); border-radius:50%; background:rgba(5,6,7,.92); color:${TIMELINE_ACCENT}; overflow:visible; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.45); }
+        .zt-rail-story { position:absolute; z-index:2; left:50%; top:50%; transform:translate(-50%,-50%); display:grid; place-items:center; width:19px; height:19px; padding:0; border:1px solid #fff; border-radius:50%; background:#fff; color:#f7c62d; overflow:visible; cursor:pointer; box-shadow:0 1px 6px rgba(0,0,0,.4); }
          .zt-rail-story i { font-size:11px; line-height:1; }
-        .zt-rail-story:hover { transform:translateX(-50%) scale(1.15); }
-        .zt-rail-story-thumb { display:none; }
+        .zt-rail-story:hover { transform:translate(-50%,-50%) scale(1.13); }
+        .zt-rail-star { font-size:15px; line-height:1; color:#ffd02f; -webkit-text-stroke:.55px #d83328; text-shadow:none; }
+         .zt-rail-story-thumb { display:none; }
         .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_ACCENT}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         /* A season's logo standing on the rail, as wide as its dash. */
@@ -2891,7 +2893,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-pennant { position:absolute; left:50%; bottom:calc(100% + 8px); width:1px; height:13px; margin-left:-0.5px; background:${DRAFT_GOLD}; z-index:3; pointer-events:auto; }
         .zt-pennant::after { content:''; position:absolute; top:0; left:1px; border-top:4px solid transparent; border-bottom:4px solid transparent; border-left:9px solid ${DRAFT_GOLD}; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
         .zt-rail-month .zt-pennant { bottom:calc(100% + 3px); }
-        .zt-rail-month.has-story .zt-pennant { left:calc(50% + 17px); }
+        .zt-rail-month.has-story .zt-pennant { left:calc(50% + 14px); }
         .zt-pennant-inline { position:relative; left:auto; bottom:auto; display:inline-block; margin:0 12px 0 0; vertical-align:-2px; }
         .zt-drafted { display:block; margin:0 0 6px; color:${DRAFT_GOLD}; font:700 10px/1.2 Oswald,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
         .zt-rail-tick-year { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:3px; color:rgba(255,255,255,.55); font:600 8px/1 Oswald,sans-serif; letter-spacing:.02em; white-space:nowrap; pointer-events:none; }
@@ -3261,7 +3263,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-story-preview .zt-rail-month.is-preview-selected { background:${TIMELINE_ACCENT}; box-shadow:0 0 0 3px rgba(170,170,170,.35); }
         .zt-story-preview .zt-rail-month.is-preview-selected .zt-rail-month-label { display:block; top:50%; margin-top:0; transform:translate(-50%,-50%); padding:0 2px; border-radius:2px; color:#fff; background:#040506; font-weight:700; line-height:12px; }
         .zt-story-preview .zt-rail-story { cursor:default; }
-        .zt-story-preview .zt-rail-story:hover { transform:translateX(-50%); }
+        .zt-story-preview .zt-rail-story:hover { transform:translate(-50%,-50%); }
       `}</style>
     </section>
     </div>
