@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import { query } from '@/lib/db';
 
+// Neon Players compute is in US East; keep the cache miss close to it.
+export const runtime = 'nodejs';
+export const preferredRegion = 'iad1';
+
 // Only one small indexed lookup per school per cache window, not per page hit.
 // This GET only returns public sponsor branding. Writes belong to authenticated
 // commerce/admin integrations, never the public splash endpoint.

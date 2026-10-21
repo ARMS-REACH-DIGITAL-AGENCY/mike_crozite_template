@@ -41,7 +41,7 @@ const SPLASH_CSS = `
 /* Lift the player into the foreground while the bottom swoosh passes in front. */
 #yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:clamp(35px,5.5vh,78px);transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:0;transition:opacity .35s ease;pointer-events:none}
 #yatSplash .yat-splash-player.is-visible{opacity:1}
-#yatSplash .yat-splash-swoosh-foreground{position:absolute;inset:auto 0 0;height:clamp(160px,20vh,320px);background:url('/img/splash-field-reference.webp') center bottom/100% 100% no-repeat;clip-path:polygon(0 75%,100% 85%,100% 100%,0 100%);opacity:.65;pointer-events:none;z-index:2}
+#yatSplash .yat-splash-swoosh-foreground{position:absolute;inset:auto 0 0;height:clamp(160px,20vh,320px);background:url('/img/splash-field-reference.webp') center bottom/100% 100% no-repeat;clip-path:polygon(0 75%,100% 85%,100% 100%,0 100%);opacity:.8;mix-blend-mode:screen;pointer-events:none;z-index:2}
 #yatSplash .yat-splash-player-caption{position:absolute;right:-20%;bottom:0;text-align:right;color:rgba(255,255,255,.83);font-size:clamp(8px,.8vw,10px);font-weight:500;letter-spacing:.015em;line-height:1.2;text-shadow:0 1px 4px #000;max-width:150px}
 #yatSplash .yat-splash-player-caption span{display:block}
 #yatSplash .yat-splash-player img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
