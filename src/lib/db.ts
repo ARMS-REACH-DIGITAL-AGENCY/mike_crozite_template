@@ -38,10 +38,14 @@ import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
 // 3-connection pools dry. These numbers change with the nightly imports,
 // not by the minute. Failures aren't kept: the next view retries.
 const SCHOOL_DATA_TTL_SECONDS = 600;
-function keptAcrossRequests<T>(name: string, load: (key: string) => Promise<T>): (key: string) => Promise<T> {
+// Active-season stats and historical career aggregates change with data imports,
+// not each fan visit. Keep these expensive results longer than presentation data.
+const ACTIVE_ROSTER_TTL_SECONDS = 1800;
+const ALL_TIME_ROSTER_TTL_SECONDS = 3600;
+function keptAcrossRequests<T>(name: string, load: (key: string) => Promise<T>, ttlSeconds = SCHOOL_DATA_TTL_SECONDS): (key: string) => Promise<T> {
   return (key: string) =>
     unstable_cache(() => load(key), ['school-data', name, String(key)], {
-      revalidate: SCHOOL_DATA_TTL_SECONDS,
+      revalidate: ttlSeconds,
       tags: ['school-data', `school-data:${key}`],
     })();
 }
@@ -1052,7 +1056,7 @@ export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterBy
   const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text IN (SELECT playerid::text FROM school_players)');
   const { rows } = await query(sql, [hsid]);
   return rows;
-}));
+}, ACTIVE_ROSTER_TTL_SECONDS));
 
 // Each player's latest season usage, for telling pitchers from batters by
 // what they actually did rather than the listed position alone (a "UT" who
@@ -1628,7 +1632,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-}));
+}, ALL_TIME_ROSTER_TTL_SECONDS));
 
 export interface PlayerSlugMatch {
   playerid: string;
