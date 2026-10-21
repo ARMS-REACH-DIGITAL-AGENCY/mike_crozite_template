@@ -137,6 +137,19 @@ export default function AccountDrawer({ subdomain, schoolName }: AccountDrawerPr
   // Signed in: no JOIN / LOG IN tabs, just the close button.
   const [signedIn, setSignedIn] = useState(false);
 
+  // Public review/registration deep link: one shared entry point for every
+  // school's real JOIN form. No duplicate form or hardcoded school details.
+  // Example: /5004?join=1 (the carrier can verify consent without logging in).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('join') !== '1') return;
+    setActiveTab('register');
+    document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-favorites-open');
+    document.body.classList.add('drawer-account-open', 'drawer-open');
+    const drawer = document.getElementById('drawerAccount');
+    drawer?.classList.add('open', 'is-open', 'active');
+  }, []);
+
   useEffect(() => {
     // Other drawers open a specific account form through the same event.
     const onAccountTab = (event: Event) => {
