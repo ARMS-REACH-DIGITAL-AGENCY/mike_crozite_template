@@ -103,7 +103,7 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
      if(dup.rows.length){
        await query("UPDATE missing_player_submission SET processed_status='needs_review',error_message='Potential existing player; resolve identity first' WHERE id=$1",[item.id]);outcome.review++;continue;
      }
-     const playerid='YAT'+(BigInt('0x'+item.id.replace(/-/g,'').slice(0,15)) % 1000000000000000n).toString().padStart(15,'0');
+     const playerid='YAT'+(BigInt('0x'+item.id.replace(/-/g,'').slice(0,15)) % BigInt('1000000000000000')).toString().padStart(15,'0');
      const status=String(fields.status_label||'UNKNOWN').slice(0,40);
      const level=String(fields.level_label||'HIGH SCHOOL').slice(0,40);
      const position=String(fields.position||'').slice(0,20)||null;
