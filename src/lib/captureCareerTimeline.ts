@@ -33,7 +33,7 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
       if (!strip) return;
       // Freeze animation, remove navigation arrows; never touch the live page.
       const style = document.createElement('style');
-      style.textContent = `#playerCareerImages *{animation:none!important;transition:none!important}
+      style.textContent = `#playerCareerImages{height:590px!important;min-height:590px!important}\n      .zt-timeline-host,.zt-native-viewport,.yat-profile-career-strip{height:590px!important;min-height:590px!important}\n      #playerCareerImages *{animation:none!important;transition:none!important}
       #playerCareerImages .zt-arrow,#playerCareerImages .zt-prev,#playerCareerImages .zt-next{display:none!important}`;
       document.head.appendChild(style);
       const images = [...strip.querySelectorAll('img')] as HTMLImageElement[];
