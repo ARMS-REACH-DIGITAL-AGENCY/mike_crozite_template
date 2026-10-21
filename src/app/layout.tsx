@@ -30,7 +30,7 @@ const SECTION_BOOTSTRAP =
 // The school splash (SchoolSplash, sent by the school layout before any
 // roster loads). Two modes, decided per person before the first paint:
 // - full, for someone new to YAT?STATS: the logo slides in from the right,
-//   the crest from the left, then they shine; at least 1.6s;
+//   the crest from the left, then they shine; sponsor enters after 2.2s;\n//   allow at least 4.9s for the brand-and-sponsor sequence;
 // - no splash for anyone returning within 30 days (shared yat_seen cookie).
 //   Normal navigation waits for the destination without a takeover overlay.
 // On exit the splash slides right, revealing the already-loaded school
@@ -62,12 +62,12 @@ var flip=function(){
 if(!RM&&d.startViewTransition){sound();var v=d.createElement('style');v.textContent=FLIP;d.head.appendChild(v);
 try{d.startViewTransition(function(){set(OFF);}).finished.then(function(){v.remove();},function(){v.remove();});}catch(e){set(OFF);v.remove();}return;}
 if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},600);};
-var t0=Date.now(),ready=false,shown=!seen;
+var t0=Date.now(),ready=false,shown=!seen;\n// Brand sequence: YAT?STATS holds the spotlight, then sponsor appears.\nvar sponsorTimer=setTimeout(function(){var splash=d.getElementById('yatSplash');if(splash)splash.classList.add('yat-sponsor-reveal');},2200);
 // Returning visitors must never re-show the opener as a loading overlay.
 if(seen){set(OFF);return;}
 var lift=function(){if(forced||ready)return;ready=true;
 if(!shown){set(OFF);return;}
-setTimeout(flip,seen?0:Math.max(0,1600-(Date.now()-t0)));};
+setTimeout(flip,Math.max(0,4900-(Date.now()-t0)));};
 if(forced){addEventListener('click',function(e){var el=e.target;if(el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){flip();}});return;}
 addEventListener('yat:page-ready',lift);
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
