@@ -4,7 +4,7 @@ export const FAN_CONSENT_VERSION = 'yatstats-sms-v1-2026-10-21';
 
 export function schoolSmsTopic(schoolName?: string | null): string {
   const value = String(schoolName || '').trim();
-  return value ? value.toUpperCase() + ' BASEBALL' : 'MY HOME SCHOOL BASEBALL';
+  return value ? value.replace(/\s+(?:HIGH\s+SCHOOL|HS)$/i, '').trim().toUpperCase() + ' BASEBALL' : 'MY HOME SCHOOL BASEBALL';
 }
 
 export function fanInformationalConsent(schoolName?: string | null): string {
