@@ -241,6 +241,7 @@ export function StoryThread({
   media,
   focusComment = false,
   onCommentOpen,
+  onSignIn,
 }: {
   story: Story;
   playerId: string;
@@ -249,6 +250,8 @@ export function StoryThread({
   // Opened from a card's Comment button: put the cursor in the comment box.
   focusComment?: boolean;
   onCommentOpen?: () => void;
+  // Modal sign-in closes the blocking StoryViewer before opening the account rail.
+  onSignIn?: () => void;
   // 'modal': the right-hand side of the big view (scrolls; comment box
   // pinned at the bottom). 'inline': a full post in the Stories tab.
   variant: 'modal' | 'inline';
@@ -256,6 +259,7 @@ export function StoryThread({
   media?: ReactNode;
 }) {
   const me = useFanMe();
+  const requestSignIn = onSignIn || openSignIn;
   const [comments, setComments] = useState<StoryComment[] | null>(null);
   const [showAll, setShowAll] = useState(variant === 'modal');
   const [draft, setDraft] = useState('');
@@ -307,7 +311,7 @@ export function StoryThread({
   }, []);
 
   const needConfirm = (action: () => void) => {
-    if (!me) return openSignIn();
+    if (!me) return requestSignIn();
     setRetry(() => action);
   };
 
@@ -357,7 +361,7 @@ export function StoryThread({
     const text = draft.trim();
     const photos = pickedRef.current;
     if ((!text && photos.length === 0) || busy) return;
-    if (!me) return openSignIn();
+    if (!me) return requestSignIn();
     setBusy('comment');
     try {
       let body: string | FormData = JSON.stringify({ text });
@@ -530,7 +534,7 @@ export function StoryThread({
         <button type="button" className={story.likedByMe ? 'ysv-liked' : ''} onClick={toggleLike} aria-pressed={Boolean(story.likedByMe)}>
           <i className={story.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like
         </button>
-        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus(); else openSignIn(); }}>
+        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus(); else requestSignIn(); }}>
           <i className="ri-chat-3-line" /> Comment
         </button>
         <button type="button" onClick={share}>
@@ -631,7 +635,7 @@ export function StoryThread({
             </button>
           </>
         ) : (
-          <button type="button" className="ysv-signin" onClick={openSignIn}>TO ADD A STORY TO {story.players.find((player) => player.isPrimary)?.name || story.players[0]?.name || "THIS PLAYER"}&#39;S TIMELINE YOU MUST BE SIGNED IN</button>
+          <button type="button" className="ysv-signin" onClick={requestSignIn}>TO ADD A STORY TO {story.players.find((player) => player.isPrimary)?.name || story.players[0]?.name || "THIS PLAYER"}&#39;S TIMELINE YOU MUST BE SIGNED IN</button>
         )}
       </div>
       {lightbox && <PhotoLightbox photos={lightbox.photos} start={lightbox.index} story={story} onClose={() => setLightbox(null)} />}
@@ -806,7 +810,7 @@ export default function StoryViewer({
           )}
           <PhotoTools story={story} photo={photo} />
         </div>
-        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={commentMode} onCommentOpen={() => setCommentMode(true)} />
+        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={commentMode} onCommentOpen={() => setCommentMode(true)} onSignIn={() => { onClose(); window.setTimeout(openSignIn, 0); }} />
       </div>
       <StoryStyles />
     </div>,
