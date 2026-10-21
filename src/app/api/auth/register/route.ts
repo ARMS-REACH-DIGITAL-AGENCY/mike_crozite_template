@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact } from "@/lib/gohighlevel";
+import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
 import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
 import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent } from "@/lib/fanConsent";
-import { getGHLApiKey } from "@/lib/gohighlevel";
 
 export const runtime = "nodejs";
 
@@ -191,10 +190,26 @@ export async function POST(request: NextRequest) {
     // Save evidence before permitting any contact to enter an SMS workflow.
     // No inference from membership, registration, or a provided phone number.
     if (hasSmsConsent && phoneE164) {
-      const sourceUrl = String(body.sourceUrl || "").slice(0, 2048);
+      // Keep the auditable form URL without arbitrary share tokens, fantasy
+      // state, or other personal information in query strings.
+      let sourceUrl = "";
       let sourceHost = "";
-      try { sourceHost = new URL(sourceUrl).hostname.toLowerCase(); } catch {}
-      if (!sourceHost.endsWith(".yatstats.com") && sourceHost !== "yatstats.com" && !sourceHost.endsWith(".vercel.app")) {
+      try {
+        const form = new URL(String(body.sourceUrl || "").slice(0, 2048));
+        sourceHost = form.hostname.toLowerCase();
+        if (form.protocol !== "https:") throw new Error("HTTPS required");
+        const browserOrigin = request.headers.get("origin");
+        if (browserOrigin && new URL(browserOrigin).origin !== form.origin) {
+          throw new Error("Form source does not match request origin");
+        }
+        const joinSuffix = form.searchParams.get("join") === "1" ? "?join=1" : "";
+        sourceUrl = form.origin + form.pathname + joinSuffix;
+      } catch {
+        return NextResponse.json({ error: "Invalid SMS consent source" }, { status: 400 });
+      }
+      const isBrandDomain = sourceHost === "yatstats.com" || sourceHost.endsWith(".yatstats.com");
+      const isPreview = process.env.VERCEL_ENV !== "production" && sourceHost.endsWith(".vercel.app");
+      if (!isBrandDomain && !isPreview) {
         return NextResponse.json({ error: "Invalid SMS consent source" }, { status: 400 });
       }
       await query(`INSERT INTO fan_sms_consent_events
@@ -208,18 +223,14 @@ export async function POST(request: NextRequest) {
           FAN_SMS_DISCLOSURE, sourceUrl, request.headers.get("user-agent") || ""
         ]);
       if (profile.arms_contact_id) {
-        const apiKey = getGHLApiKey();
-        if (apiKey) {
-          // PATCH only the phone, without resetting existing tags or SMS opt-out/DND.
-          const update = await fetch("https://services.leadconnectorhq.com/contacts/" +
-            encodeURIComponent(profile.arms_contact_id), {
-            method: "PUT", headers: {
-              Authorization: "Bearer " + apiKey,
-              "Content-Type": "application/json", Version: "2021-07-28"
-            }, body: JSON.stringify({ phone: phoneE164 })
-          });
-          if (!update.ok) console.error("[sms-consent] Contact phone update failed", update.status);
-        }
+        // Non-fatal: Firebase account registration must not fail because of a
+        // transient ARMS API outage. SMS workflows must filter using the
+        // category-specific tags AND honor HighLevel's native DND/STOP.
+        const synced = await syncYatstatsSmsConsent(profile.arms_contact_id, phoneE164, {
+          informational: smsInformational,
+          promotional: smsPromotional,
+        });
+        if (!synced) console.error("[sms-consent] Consent saved locally; ARMS phone/tag sync pending");
       }
     }
 
