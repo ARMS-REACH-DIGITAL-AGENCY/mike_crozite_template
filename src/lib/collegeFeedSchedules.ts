@@ -5,8 +5,11 @@
 // unlike the HTML schedule page). Games carry a stable UID; teams are names
 // only, so they reach a card only through college_feed_teams once Pete has
 // approved which of our teamids each feed name is. Nothing here guesses a team.
+//
+// NCAA-D1 has no league feed; College Baseball Insider posts each team's
+// schedule as it comes out (see CBI below).
 
-export type FeedSource = 'naia' | 'cccaa' | 'nwac';
+export type FeedSource = 'naia' | 'cccaa' | 'nwac' | 'cbi';
 
 export const COLLEGE_FEEDS: { source: FeedSource; level: string; timeZone: string; url: (season: string) => string }[] = [
   { source: 'naia', level: 'NAIA', timeZone: 'America/Chicago', url: (s) => `https://naiastats.prestosports.com/sports/bsb/${s}/schedule?print=ical` },
@@ -22,11 +25,17 @@ export function collegeSeasonKey(now: Date = new Date()): string {
   return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
 }
 
+/** The spring a season key ends in: "2026-27" -> 2027. */
+export function collegeSeasonYear(season: string): number {
+  return Number(season.slice(0, 4)) + 1;
+}
+
 export type FeedGame = {
   uid: string;
   startsAt: string | null; // ISO instant; null when the feed lists a date only
   gameDate: string;        // YYYY-MM-DD, local to the league
   timeTba: boolean;
+  localTime: string | null; // the time as printed, local to the park, when there is no instant
   awayName: string;
   homeName: string;
   neutral: boolean;        // "A vs. B": neutral site (or home not given)
@@ -114,6 +123,7 @@ export function parseCollegeFeed(ics: string, timeZone: string): FeedGame[] {
       startsAt,
       gameDate,
       timeTba: !startsAt,
+      localTime: null,
       awayName: cut.away,
       homeName: cut.home,
       neutral: cut.neutral,
@@ -125,4 +135,112 @@ export function parseCollegeFeed(ics: string, timeZone: string): FeedGame[] {
     });
   });
   return games;
+}
+
+// College Baseball Insider (collegebaseballinsider.com, WordPress) posts one
+// schedule per NCAA-D1 team, "2027 Arizona Baseball Schedule", one game a line:
+//   2/19 Arizona vs. Oklahoma (Globe Life Field, Arlington, Texas) 3 pm
+//   3/19 * Arizona @ Baylor                  (* = conference game)
+//   4/30 * Virginia @ Miami (Fla.)
+//   3/23 Utah @ Salt Lake Bees (exhibition) 6:30 pm
+//   3/20 Brown @ Bryant DH 12 pm             (DH = two games that day)
+// "vs." is a neutral site. Dates carry no year and times no time zone, so a
+// game keeps its calendar date and the time as printed. A game is in both
+// teams' posts; its uid is built from the date and teams so the two dedupe.
+export const CBI = {
+  source: 'cbi' as const,
+  level: 'NCAA-D1',
+  postsUrl: (seasonYear: number, page: number) =>
+    `https://collegebaseballinsider.com/wp-json/wp/v2/posts?search=${seasonYear}%20baseball%20schedule&per_page=100&page=${page}&_fields=slug,modified_gmt,content`,
+  isTeamPost: (slug: string, seasonYear: number) =>
+    new RegExp(`^${seasonYear}-(?!college-baseball-team-schedules$).+-baseball-schedule$`).test(slug),
+};
+
+const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+function decodeHtml(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+    if (e[0] !== '#') return ENTITIES[e.toLowerCase()] ?? m;
+    const n = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+    return Number.isFinite(n) ? String.fromCodePoint(n) : m;
+  });
+}
+
+function postLines(html: string): string[] {
+  const text = decodeHtml(html.replace(/<br\s*\/?>|<\/p>|<\/li>/gi, '\n').replace(/<[^>]+>/g, ''));
+  return text.replace(/[\u2018\u2019]/g, "'").split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+const CBI_LINE = /^(\d{1,2})\/(\d{1,2}) (\* ?)?(.+?) (@|vs\.?) (.+)$/;
+const CBI_TIME = / (\d{1,2}(?::\d{2})? ?[ap]\.?m\.?|TBA|TBD)$/i;
+const CBI_TRAILING_PARENS = / ?\(([^()]*)\)$/;
+
+/** Parse one CBI team post. Lines that aren't a game (headings, notes) are counted, not guessed at. */
+export function parseCbiPost(html: string, seasonYear: number, modifiedAt: string | null): { games: FeedGame[]; skipped: number } {
+  const games: FeedGame[] = [];
+  const repeats = new Map<string, number>();
+  let skipped = 0;
+  for (const line of postLines(html)) {
+    const m = line.match(CBI_LINE);
+    const month = m ? Number(m[1]) : 0, day = m ? Number(m[2]) : 0;
+    if (!m || month < 1 || month > 12 || day < 1 || day > 31) { skipped++; continue; }
+    let home = m[6];
+    const time = home.match(CBI_TIME);
+    if (time) home = home.slice(0, time.index);
+    const doubleheader = / DH$/i.test(home);
+    if (doubleheader) home = home.slice(0, -3);
+    // Trailing parentheses: "(exhibition)" is a note, "(Truist Park)" or
+    // "(Jacksonville, Fla.)" a site, and a one-word "(Fla.)" or "(Ohio)" is
+    // part of the team's name.
+    const notes = m[3] ? ['Conference'] : [];
+    if (doubleheader) notes.push('Doubleheader');
+    let location: string | null = null;
+    for (let p = home.match(CBI_TRAILING_PARENS); p; p = home.match(CBI_TRAILING_PARENS)) {
+      const inner = p[1].trim();
+      if (/^[a-z]/.test(inner)) notes.push(inner[0].toUpperCase() + inner.slice(1));
+      else if (/[ ,]/.test(inner)) location = location ?? inner;
+      else break;
+      home = home.slice(0, p.index).trim();
+    }
+    const away = m[4].trim(), neutral = m[5] !== '@';
+    if (!away || !home) { skipped++; continue; }
+    const gameDate = `${month >= 7 ? seasonYear - 1 : seasonYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const key = `${gameDate}|${neutral ? [away, home].sort().join('|') : `${away}|${home}`}`;
+    const printed = time && !/^TB[AD]$/i.test(time[1]) ? time[1] : null;
+    for (let k = 0; k < (doubleheader ? 2 : 1); k++) {
+      const n = (repeats.get(key) || 0) + 1;
+      repeats.set(key, n);
+      games.push({
+        uid: `${key}|${n}`,
+        startsAt: null,
+        gameDate,
+        timeTba: !(printed && k === 0),
+        localTime: k === 0 ? printed : null, // a doubleheader's time is the first game's
+        awayName: away,
+        homeName: home,
+        neutral,
+        location,
+        result: null,
+        notes: notes.length ? notes.join(', ') : null,
+        cancelled: false,
+        modifiedAt,
+      });
+    }
+  }
+  return { games, skipped };
+}
+
+/** One game per uid across all posts. Each team's post may print what the
+ *  other leaves out (a start time, the site), so the copies fill each other in. */
+export function mergeCbiGames(games: FeedGame[]): FeedGame[] {
+  const byUid = new Map<string, FeedGame>();
+  for (const g of games) {
+    const had = byUid.get(g.uid);
+    if (!had) { byUid.set(g.uid, { ...g }); continue; }
+    if (!had.localTime && g.localTime) { had.localTime = g.localTime; had.timeTba = false; }
+    had.location = had.location ?? g.location;
+    had.notes = had.notes ?? g.notes;
+    if (g.modifiedAt && (!had.modifiedAt || g.modifiedAt > had.modifiedAt)) had.modifiedAt = g.modifiedAt;
+  }
+  return [...byUid.values()];
 }
