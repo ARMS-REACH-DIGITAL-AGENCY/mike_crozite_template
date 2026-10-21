@@ -35,6 +35,10 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.searchParams.get('splash') === 'partner') requestHeaders.set('x-yat-splash', 'partner');
   else requestHeaders.delete('x-yat-splash');
 
+  // Server layouts do not receive searchParams; retain explicit QA forcing.
+  if (request.nextUrl.searchParams.has('splash')) requestHeaders.set('x-yat-force-splash', '1');
+  else requestHeaders.delete('x-yat-force-splash');
+
   const path = request.nextUrl.pathname;
   const host = request.headers.get('host') || request.nextUrl.hostname;
   // Only school hostnames are rewritten; homepage, global APIs and assets
