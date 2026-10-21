@@ -91,6 +91,8 @@ function emptyStripImageMap(): StripImageMap {
 }
 
 export const runtime = 'nodejs';
+// All school pages and player tabs share this DB-backed server render.
+export const preferredRegion = 'iad1';
 
 export async function generateMetadata({
   params,
