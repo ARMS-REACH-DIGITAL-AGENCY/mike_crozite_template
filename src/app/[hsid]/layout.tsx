@@ -354,6 +354,18 @@ async function SchoolShell({
   const splashOtherIds = enableSplashCutouts
     ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id) && !splashActiveIdSet.has(id))))
     : [];
+  // Source the selected splash player's identity/team from this same
+  // normalized school stage roster; no player-specific lookup or hardcode.
+  const splashPlayerDetails: Record<string, { name: string; team: string }> = {};
+  if (enableSplashCutouts) {
+    for (const row of [...activeAlumniRows, ...allStripRows]) {
+      const id = String(row.playerid || '').trim();
+      if (!/^\\d+$/.test(id) || splashPlayerDetails[id]) continue;
+      const name = String(row.display_name || `${String(row.first_name || row.firstname || '')} ${String(row.last_name || row.lastname || '')}`).trim();
+      const team = String(row.current_team_name || '').trim();
+      splashPlayerDetails[id] = { name, team };
+    }
+  }
   const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
@@ -398,7 +410,7 @@ async function SchoolShell({
       {enableSplashCutouts && (splashActiveIds.length > 0 || splashOtherIds.length > 0) && (
         <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
           __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" +
-            JSON.stringify({ active: splashActiveIds, other: splashOtherIds }) + "}));",
+            JSON.stringify({ active: splashActiveIds, other: splashOtherIds, details: splashPlayerDetails }) + "}));",
         }} />
       )}
 
