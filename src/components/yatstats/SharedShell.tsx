@@ -200,9 +200,18 @@ export default function SharedShell({
     window.requestAnimationFrame(() => window.requestAnimationFrame(resetAllTimeLanding));
     window.addEventListener('yat:page-ready', resetAllTimeLanding, { once: true });
 
-    window.addEventListener('hashchange', syncSection);
-    window.addEventListener('popstate', syncSection);
-    window.addEventListener('yat:section-changed', syncSection);
+    // Switching galleries changes the hash without navigating to a new page.
+    // Browsers (especially mobile) otherwise keep the old gallery's scroll
+    // offset, landing halfway down the All-Time cards instead of at Coach Woods.
+    const onSectionNavigation = () => {
+      syncSection();
+      if (window.location.hash === '#sec-alltime') {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resetAllTimeLanding));
+      }
+    };
+    window.addEventListener('hashchange', onSectionNavigation);
+    window.addEventListener('popstate', onSectionNavigation);
+    window.addEventListener('yat:section-changed', onSectionNavigation);
 
     const observer = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -214,9 +223,9 @@ export default function SharedShell({
       window.clearTimeout(switchTimer);
       document.removeEventListener('click', onTabTap, true);
       window.removeEventListener('yat:page-ready', resetAllTimeLanding);
-      window.removeEventListener('hashchange', syncSection);
-      window.removeEventListener('popstate', syncSection);
-      window.removeEventListener('yat:section-changed', syncSection);
+      window.removeEventListener('hashchange', onSectionNavigation);
+      window.removeEventListener('popstate', onSectionNavigation);
+      window.removeEventListener('yat:section-changed', onSectionNavigation);
       observer.disconnect();
     };
   }, [isPlayerProfile, pathname]);
