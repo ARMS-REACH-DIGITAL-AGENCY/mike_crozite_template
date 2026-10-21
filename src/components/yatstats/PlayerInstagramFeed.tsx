@@ -174,7 +174,53 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
                   loading="eager"
                 />
               ) : (
-                // esli      <style>{`
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={current.id}
+                  src={current.thumbnail_url}
+                  alt={current.caption ? current.caption.slice(0, 140) : 'Instagram post photo'}
+                />
+              )}
+            </div>
+            <div className="pp-ig-post-details">
+              {hasInteractiveMedia && (
+                <button
+                  type="button"
+                  className="pp-ig-embed-toggle"
+                  onClick={() => setShowInstagramEmbed((shown) => !shown)}
+                >
+                  <i className={showInstagramEmbed ? 'ri-image-line' : current.media_type === 'video' ? 'ri-play-circle-line' : 'ri-stack-line'} aria-hidden="true" />
+                  {showInstagramEmbed ? 'VIEW UNCROPPED PHOTO' : current.media_type === 'video' ? 'PLAY REEL' : 'VIEW CAROUSEL'}
+                </button>
+              )}
+              {!showInstagramEmbed && current.caption && (
+                <p className="pp-ig-caption">{current.caption}</p>
+              )}
+              {!showInstagramEmbed && publishedDate && (
+                <time dateTime={current.published_at || undefined} className="pp-ig-post-date">{publishedDate}</time>
+              )}
+            </div>
+          </div>
+          <button type="button" className="pp-ig-close" aria-label="Close" onClick={() => setOpen(null)}>
+            <i className="ri-close-line" />
+          </button>
+          {count > 1 && (
+            <>
+              <button type="button" className="pp-ig-nav prev" aria-label="Previous post" onClick={() => step(-1)}>
+                <i className="ri-arrow-left-s-line" />
+              </button>
+              <button type="button" className="pp-ig-nav next" aria-label="Next post" onClick={() => step(1)}>
+                <i className="ri-arrow-right-s-line" />
+              </button>
+            </>
+          )}
+          <div className="pp-ig-count">
+            {(open ?? 0) + 1} / {count}
+          </div>
+        </div>,
+        document.body
+      )}
+      <style>{`
         .pp-ig-feed { width:100%; margin:0 0 14px; }
         .pp-ig-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 6px; font:600 12px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--fg,#f0f0f0); }
         .pp-ig-head span { min-width:0; }
