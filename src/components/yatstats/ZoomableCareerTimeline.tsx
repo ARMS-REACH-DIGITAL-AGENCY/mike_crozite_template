@@ -6,6 +6,7 @@ import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
 import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
+import StoryViewer, { type Story } from '@/components/yatstats/StoryViewer';
 import { isCareerYearSlide, storyYearSlideIndex, withCareerMemoryYears } from '@/lib/careerTimelinePlacement';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -722,14 +723,7 @@ function draftLine(pick: DraftPick) {
 // right after the year, and December has a full stretch before the end.
 const RAIL_MONTH_START = 64;
 
-// A month-rail thumbnail: opens the Stories tab on that story.
-function showStoryInStoriesTab(id: string) {
-  track('timeline_story_open', { moment_id: id });
-  history.replaceState(null, '', `${window.location.pathname}${window.location.search}#ppTab-upload`);
-  window.dispatchEvent(new HashChangeEvent('hashchange'));
-  window.dispatchEvent(new CustomEvent('yat:story-focus', { detail: { id } }));
-  document.getElementById('playerFunZone')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+// Timeline story markers open the existing viewer in place without navigating to the feed.
 
 // Cutouts that aren't there (yet) this page view, and ones already asked
 // for - shared by every image so a missing cutout is requested once.
@@ -760,9 +754,9 @@ function StoryHeroImg({ photo, className, style, alt, readOnly = false, onOpenSt
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
+      className={`${className}${useCut ? ' zt-story-cut' : ''}${!photo.storyId ? ' zt-annual-hero' : ''}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
       style={style}
-      src={useCut ? photo.cutout || photo.web : photo.web}
+      src={useCut ? photo.cutout || photo.web : photo.storyId ? photo.web : YATI_PLACEHOLDERS[0]}
       alt={alt}
       loading="eager"
       decoding="async"
@@ -1074,11 +1068,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   const [publishedStoriesByMonth, setPublishedStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
   // year -> its stories' ids (a coach year's "open the memory" button).
   const [storyIdsByYear, setStoryIdsByYear] = useState<Record<number, string[]>>({});
+  const [timelineStories, setTimelineStories] = useState<Story[]>([]);
+  const [timelineOpenStoryId, setTimelineOpenStoryId] = useState<string | null>(null);
+  const openTimelineStory = (id: string) => {
+    track('timeline_story_open', { moment_id: id });
+    setTimelineOpenStoryId(id);
+  };
   const [storiesLoad, setStoriesLoad] = useState<TimelineLoad>({ key: '', status: 'loading' });
   useEffect(() => {
     setPublishedPhotosByYear({});
     setPublishedStoriesByMonth({});
     setStoryIdsByYear({});
+    setTimelineStories([]);
+    setTimelineOpenStoryId(null);
     setStoriesLoad({ key: playerId, status: 'loading' });
     if (!playerId) return;
     let cancelled = false;
@@ -1120,6 +1122,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           setPublishedPhotosByYear(byYear);
           setPublishedStoriesByMonth(byMonth);
           setStoryIdsByYear(idsByYear);
+          setTimelineStories(data.stories as Story[]);
           setStoriesLoad({ key: playerId, status: 'ready' });
         })
         .catch((error) => {
@@ -2108,7 +2111,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           photos, not a cutout) also stays behind -- there's no transparent
           silhouette to read text through, so raising it would just hide
           the copy outright instead of overlaying it. */}
-      <div className="zt-person-stack" aria-hidden="true">
+      <div className="zt-person-stack">
         {ready && model.slides.map((slide, i) => {
           const opacity = clamp(1 - 4 * Math.abs(scrollProgress - i), 0, 1);
           if (opacity <= 0) return null;
@@ -2161,7 +2164,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           if (storyPhotos?.length) {
             return (
               <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
-                <StoryHeroStrip photos={storyPhotos} tick={isPreview ? 0 : heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} readOnly={isPreview} onOpenStory={showStoryInStoriesTab} />
+                <StoryHeroStrip photos={storyPhotos} tick={isPreview ? 0 : heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} readOnly={isPreview} onOpenStory={openTimelineStory} />
               </span>
             );
           }
@@ -2386,17 +2389,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                       )}
                       {stories.length > 0 && (isPreview ? (
                         <span className="zt-rail-story" role="img" aria-label={`${selected ? 'Your photo' : `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`} in ${label} ${monthRailYear}`}>
-                          <i className="ri-chat-3-line" aria-hidden="true" />
+                          <span className="zt-rail-star" aria-hidden="true">★</span>
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </span>
                       ) : (
                         <button
                           type="button"
                           className="zt-rail-story"
-                          onClick={() => showStoryInStoriesTab(stories[0].id)}
+                          onClick={() => openTimelineStory(stories[0].id)}
                           aria-label={`${stories.length} ${stories.length === 1 ? 'story' : 'stories'} from ${label} ${monthRailYear}`}
                         >
-                          <i className="ri-chat-3-line" aria-hidden="true" />
+                          <span className="zt-rail-star" aria-hidden="true">★</span>
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </button>
                       ))}
@@ -2458,6 +2461,27 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           </div>
         </>
       )}
+
+      {!isPreview && timelineOpenStoryId && (() => {
+        const selectedStory = timelineStories.find((story) => story.id === timelineOpenStoryId);
+        return selectedStory ? (
+          <StoryViewer
+            key={selectedStory.id}
+            story={selectedStory}
+            playerId={playerId}
+            onClose={() => setTimelineOpenStoryId(null)}
+            onChange={(updated) => {
+              setTimelineStories((stories) => stories.map((story) => story.id === updated.id ? updated : story));
+              window.dispatchEvent(new Event('yat:story-comment-photos'));
+            }}
+            onDeleted={(id) => {
+              setTimelineStories((stories) => stories.filter((story) => story.id !== id));
+              setTimelineOpenStoryId(null);
+              window.dispatchEvent(new Event('yat:story-posted'));
+            }}
+          />
+        ) : null;
+      })()}
 
       <style jsx>{`
         /* Same left edge row 1's hamburger/logo sit at (.yat-topbar:
