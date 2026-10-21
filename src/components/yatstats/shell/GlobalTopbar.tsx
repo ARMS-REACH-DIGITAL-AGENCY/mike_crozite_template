@@ -461,7 +461,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
              that base rule and would have silently overridden it whenever
              drawers were docked. */
         }
-        @media (max-width: 1239px) {
+        @media (max-width: 779px) {
           body.yat-desktop-docked-drawers .yat-row2-shell,
           body.yat-desktop-docked-drawers .yat-row3-shell,
           body.yat-desktop-docked-drawers .yat-row4-shell,
