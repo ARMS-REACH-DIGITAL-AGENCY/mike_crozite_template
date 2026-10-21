@@ -12,6 +12,7 @@ import {
 import type { User } from 'firebase/auth';
 import { track } from '@/lib/analytics';
 import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
+import GuidedTourArtwork from '@/components/yatstats/GuidedTourArtwork';
 
 interface AccountDrawerProps {
   subdomain: string;
@@ -1418,69 +1419,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </table>
             </div>
 
-            <div className="yat-account-tour"
-              style={{
-                borderTop: '1px solid var(--line)',
-                padding: '16px',
-                display: 'flex',
-                alignItems: 'flex-end',
-                gap: '12px',
-                background: 'rgba(255,255,255,.03)',
-              }}
-            >
-              <div style={{ flexShrink: 0 }}>
-                <img
-                  src="/img/yati-placeholders/yati-running-field.webp"
-                  alt="YaTi mascot"
-                  style={{ width: '80px', objectFit: 'contain', display: 'block' }}
-                />
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    background: '#fff',
-                    color: '#000',
-                    borderRadius: '12px',
-                    padding: '10px 12px',
-                    fontSize: '12px',
-                    lineHeight: '1.5',
-                    position: 'relative',
-                  }}
-                >
-                  Welcome to YAT?STATS! I would love to give you a quick tour of our platform.
-                  <br />
-                  <strong className="yat-tour-ask" style={{display:'block',marginTop:'4px'}}>Select your role in the baseball world.</strong>
-                  <div className="yat-tour-roles" aria-label="Choose a guided tour">
-                    {([
-                      ['coach','COACH'],
-                      ['player','PLAYER'],
-                      ['partner','PARTNER'],
-                      ['fan','FAN'],
-                    ] as const).map(([role,label]) => (
-                      <a key={role} className="yat-tour-role" href={`https://yatstats.com/?tour=${role}`} aria-label={`${label} guided tour`}>
-                        <img src={`/img/tour-roles/${role}.png`} alt="" loading="lazy" />
-                        <span>{label}</span>
-                      </a>
-                    ))}
-                  </div>
-
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '-8px',
-                      width: 0,
-                      height: 0,
-                      borderTop: '8px solid transparent',
-                      borderBottom: '8px solid transparent',
-                      borderLeft: '8px solid #fff',
-                      display: 'block',
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+            <GuidedTourArtwork />
           </div>
         </>
       )}
