@@ -236,8 +236,24 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const safePlayerId = String(playerId);
-  // Hamilton's school Instagram account is displayed on current coach Greg Bordes's profile.
-  const isHamiltonCoachInstagramProfile = hsid === '5004' && safePlayerId === 'YAT000073';
+  // A coach profile may show the school's official Instagram account.
+  // Resolve ownership by player role, requested school and an active school
+  // source; never identify a profile by its player ID or hardcode a school.
+  const coachAtSchool = String(player.status_label || '').trim().toUpperCase() === 'COACH'
+    && String(player.hsid || '') === String(hsid);
+  const schoolInstagramFeed: { hsid: string; name: string } | undefined = coachAtSchool
+    ? await query<{ school_name: string | null }>(
+        `SELECT NULLIF(TRIM(t.hsname), '') AS school_name
+           FROM public.social_sources s
+           LEFT JOIN public.tbc_schools_raw t ON t.hsid::text = s.hsid
+          WHERE s.hsid = $1 AND s.owner_type = 'school'
+            AND s.platform = 'instagram' AND s.status = 'active'
+          LIMIT 1`,
+        [String(hsid)],
+      ).then(({ rows }) => rows.length
+        ? { hsid: String(hsid), name: rows[0].school_name || 'School Baseball' }
+        : undefined).catch(() => undefined)
+    : undefined;
 
   const playerNewsFullName = [player.firstname, player.lastname]
     .map((value: unknown) => String(value || "").trim())
@@ -980,22 +996,20 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-social" className="pp-fz-panel">
-          {!isHamiltonCoachInstagramProfile && (
-            <>
-              <div className="pp-social-tag">#YATABOY</div>
-              <div className="pp-social-sub">Show some love for {firstName}!</div>
-            </>
-          )}
+          {/* All player feeds use the same ordering as the approved Hamilton
+              coach view: Instagram first, compact #YATABOY signoff below.
+              Previously only Greg Bordes received this layout, leaving
+              Roch Cholowsky and other players with a large header above
+              their feed. With no posts, the empty feed hides itself and
+              the signoff still remains available. */}
           <PlayerInstagramFeed
             playerId={safePlayerId}
             firstName={firstName}
-            schoolFeed={isHamiltonCoachInstagramProfile ? { hsid: '5004', name: 'Hamilton Baseball' } : undefined}
+            schoolFeed={schoolInstagramFeed}
           />
-          {isHamiltonCoachInstagramProfile && (
-            <div className="pp-ig-school-signoff">
-              <span>#YATABOY</span> <span>Show some love for {firstName}!</span>
-            </div>
-          )}
+          <div className="pp-social-signoff">
+            <span>#YATABOY</span> <span>Show some love for {firstName}!</span>
+          </div>
           <div className="pp-social-links">
             {xHandle && (
               <a
@@ -1017,7 +1031,7 @@ export default async function ProfilePage({ params }: Props) {
                 <i className="ri-instagram-line" /> @{igHandle}
               </a>
             )}
-            {!xHandle && !igHandle && !isHamiltonCoachInstagramProfile && (
+            {!xHandle && !igHandle && !schoolInstagramFeed && (
               <div className="pp-fz-placeholder">
                 <i className="ri-share-line pp-ph-icon" />
                 <p>Social links will appear here once available.</p>
@@ -1426,8 +1440,8 @@ export default async function ProfilePage({ params }: Props) {
           color: var(--muted, #888);
           margin-bottom: 12px;
         }
-        .pp-ig-school-signoff { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin:3px 0 12px; font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--muted,#888); }
-        .pp-ig-school-signoff span:first-child { font-weight:800; letter-spacing:.045em; color:var(--fg,#dedede); }
+        .pp-social-signoff { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin:3px 0 12px; font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--muted,#888); }
+        .pp-social-signoff span:first-child { font-weight:800; letter-spacing:.045em; color:var(--fg,#dedede); }
         .pp-social-links {
           display: flex;
           flex-direction: column;

@@ -41,6 +41,15 @@ const schedules = read('src/components/yatstats/PlayerScheduleTable.tsx');
 const footer = read('src/components/yatstats/ProfileFunZoneStabilizer.tsx');
 const account = read('src/components/AccountDrawer.tsx');
 const page = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
+// The approved Instagram-first layout applies to all profiles, not only
+// Hamilton's coach. The prominent legacy header must not precede the feed.
+const socialPanel = page.slice(page.indexOf('<div id="ppTab-social"'), page.indexOf('className="pp-social-links"'));
+assert.ok(socialPanel.indexOf('<PlayerInstagramFeed') >= 0 && socialPanel.indexOf('className="pp-social-signoff"') > socialPanel.indexOf('<PlayerInstagramFeed'), 'Every player profile shows Instagram before the #YATABOY signoff');
+assert.doesNotMatch(socialPanel,/pp-social-tag|pp-social-sub|pp-ig-school-signoff/,'No legacy player-only header or coach-only signoff');
+assert.doesNotMatch(page,/isHamiltonCoachInstagramProfile|safePlayerId === 'YAT000073'|hsid === '5004'/,'School social sources cannot be hardcoded to one player or school');
+assert.match(page,/const coachAtSchool =/,'School-owned social feed selects coach role');
+assert.match(page,/s.owner_type = 'school'/,'School-owned social feed resolves active sources from the database');
+
 assert.match(teammateDrawer,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'Teammates directory must keep both columns');
 assert.match(teammateDrawer,/\.ytm-title \{[^\n]*font:800 20px[^\n]*--yat-font-ui/,'Teammates heading must stay Archivo');
 assert.doesNotMatch(teammateDrawer,/Bebas Neue|Oswald|#ffc107/,'Teammates legacy heading or yellow forbidden');
