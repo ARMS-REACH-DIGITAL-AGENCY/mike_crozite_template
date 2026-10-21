@@ -35,7 +35,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
     const load = () => {
       if (done) return;
       done = true;
-      fetch(`/api/social/player/${encodeURIComponent(playerId)}`)
+      fetch(schoolHsid ? `/api/social/school/${encodeURIComponent(schoolHsid)}` : `/api/social/player/${encodeURIComponent(playerId)}`)
         .then((r) => (r.ok ? r.json() : { posts: [] }))
         .then((d) => setPosts(Array.isArray(d?.posts) ? d.posts : []))
         .catch(() => setPosts([]));
