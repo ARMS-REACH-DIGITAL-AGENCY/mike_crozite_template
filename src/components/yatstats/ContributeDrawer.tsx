@@ -166,7 +166,9 @@ export default function ContributeDrawer() {
   // included, when the fan just signed in from it).
   const show = useCallback(() => {
     setOpen(true);
-    document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open');
+    document.body.classList.remove('drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open');
+    // On genuinely wide screens a left navigation/search rail may remain docked.
+    if (window.innerWidth < 1600) document.body.classList.remove('drawer-left-open', 'yat-left-search-mode');
     document.body.classList.add('drawer-contribute-open', 'drawer-open');
     const account = document.getElementById('drawerAccount');
     account?.classList.remove('open', 'is-open', 'active');
