@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { track } from '@/lib/analytics';
+import { loadFavoriteIds } from './FavoriteButton';
 
 type SearchMode = 'name' | 'school' | 'team';
 
@@ -412,16 +413,19 @@ export async function hydrateFavoriteButtons(container: HTMLElement) {
   if (!buttons.length) return;
 
   const user = readYatUser();
-  if (!user?.uid) return;
+  if (!user?.uid) {
+    buttons.forEach((button) => setFavButtonState(button, false));
+    return;
+  }
 
   try {
-    const data = await fetchJson(`/api/favorites?uid=${encodeURIComponent(user.uid)}&scope=button`);
-    const ids: string[] = Array.isArray(data?.playerIds) ? data.playerIds.map(String) : [];
+    const ids = await loadFavoriteIds(user.uid);
+    if (readYatUser()?.uid !== user.uid) return;
     buttons.forEach((button) => {
-      if (ids.includes(String(button.dataset.favPlayerId))) setFavButtonState(button, true);
+      if (button.isConnected) setFavButtonState(button, ids.has(String(button.dataset.favPlayerId)));
     });
   } catch {
-    // Leave buttons in their default (unfavorited) state on failure.
+    // Do not erase previously confirmed hearts on a transient API failure.
   }
 }
 
@@ -805,6 +809,12 @@ export default function SearchDrawerTabs() {
         .forEach((button) => setFavButtonState(button, true));
     };
     window.addEventListener('yat-auth-success', onAuthSuccess);
+    // Keep already-rendered search results current even when the user
+    // signs in, signs out or changes a favorite somewhere else.
+    const refreshHearts = () => { window.setTimeout(() => { if (!disposed) void hydrateFavoriteButtons(results); }, 0); };
+    window.addEventListener('yat-auth-success', refreshHearts);
+    window.addEventListener('yat-sign-out', refreshHearts);
+    window.addEventListener('yat-favorites-changed', refreshHearts);
 
     // Handle the crest handoff once at mount, rather than recursively entering
     // an empty search whenever the fan clears the input.
@@ -851,6 +861,9 @@ export default function SearchDrawerTabs() {
       modeButtons.forEach((button) => button.removeEventListener('click', onModeClick, true));
       results.removeEventListener('click', onResultsClick);
       window.removeEventListener('yat-auth-success', onAuthSuccess);
+      window.removeEventListener('yat-auth-success', refreshHearts);
+      window.removeEventListener('yat-sign-out', refreshHearts);
+      window.removeEventListener('yat-favorites-changed', refreshHearts);
       results.removeAttribute('aria-busy');
       status.remove();
     };
