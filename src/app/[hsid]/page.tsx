@@ -205,6 +205,13 @@ async function resolveSchool(hsid: string, host: string): Promise<Row | null> {
   try {
     const isNumericHsid = /^\d+$/.test(hsid);
     const requestedSchool = isNumericHsid ? await getSchoolByHsid(hsid) : null;
+    // The Edge middleware has already validated and rewritten named school
+    // domains to their HSID. Avoid repeating the expensive hostname lookup.
+    // Retain host resolution for non-rewritten paths and cross-hub URLs.
+    const headersList = await headers();
+    const isValidatedRewrite = headersList.get('x-yat-internal-school-rewrite') === '1'
+      && headersList.get('x-yat-resolved-host-hsid') === hsid;
+    if (isValidatedRewrite && requestedSchool) return requestedSchool as Row;
     const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
 
     // A numeric school ID in the URL is an explicit cross-hub navigation.
