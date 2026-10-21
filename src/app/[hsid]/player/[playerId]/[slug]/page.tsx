@@ -1158,6 +1158,36 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone .yp-profile-ad small {max-width:33%;font-size:9px;}
         }
 
+        /* Docked right rails consume 360px. Keep the Stories feed readable,
+           turn the partner tower into its existing in-feed placement. */
+        @media (min-width:780px) {
+          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone #ppTab-upload .yp-profile-partner-columns {
+            grid-template-columns:minmax(0,1fr)!important;
+            max-width:780px!important;
+          }
+          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone #ppTab-upload .yp-profile-ad {
+            display:none!important;
+          }
+        }
+        /* A second impression of the same sponsor inventory inside Stories.
+           It replaces the tower only when the tower cannot fit. */
+        #playerFunZone #ppTab-upload .yp-stories-feed-ad { display:none; }
+        @media (min-width:780px) {
+          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone #ppTab-upload .yp-stories-feed-ad { display:flex; }
+        }
+        @media (max-width:740px) {
+          #playerFunZone #ppTab-upload .yp-stories-feed-ad { display:flex; }
+          #playerFunZone #ppTab-upload .yp-profile-ad { display:none!important; }
+        }
+        #playerFunZone #ppTab-upload .yp-stories-feed-ad {
+          box-sizing:border-box;flex-direction:column;align-items:center;justify-content:center;
+          gap:5px;min-height:130px;width:100%;padding:15px;
+          border:1px solid rgba(255,255,255,.25);border-radius:6px;
+          background:rgba(255,255,255,.045);color:inherit;text-align:center;
+          font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);
+        }
+        #playerFunZone #ppTab-upload .yp-stories-feed-ad strong {font-size:17px;line-height:1.1;}
+        #playerFunZone #ppTab-upload .yp-stories-feed-ad small {font-size:11px;opacity:.7;}
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
