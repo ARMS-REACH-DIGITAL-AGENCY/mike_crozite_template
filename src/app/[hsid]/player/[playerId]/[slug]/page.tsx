@@ -982,7 +982,11 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-social" className="pp-fz-panel">
           <div className="pp-social-tag">#YATABOY</div>
           <div className="pp-social-sub">Show some love for {firstName}!</div>
-          <PlayerInstagramFeed playerId={safePlayerId} firstName={firstName} />
+          <PlayerInstagramFeed
+            playerId={safePlayerId}
+            firstName={firstName}
+            schoolFeed={isHamiltonCoachInstagramProfile ? { hsid: '5004', name: 'Hamilton Baseball' } : undefined}
+          />
           <div className="pp-social-links">
             {xHandle && (
               <a
