@@ -28,7 +28,25 @@ const YAT_LOGO = '/img/yatstats-wordmark-white.png';
 
 const SPLASH_CSS = `
 #yatSplash{position:fixed;inset:0;z-index:2147483000;overflow:hidden;background:#000;opacity:1;transition:opacity .25s ease-out;--yat-splash-w:min(50vw,400px);color:#fff;font-family:var(--yat-font-ui,'Archivo'),'Montserrat',Arial,Helvetica,sans-serif}
-#yatSplash .yat-splash-field{position:absolute;left:0;right:0;bottom:0;height:clamp(160px,20vh,320px);pointer-events:none;background:url("/img/career-path-default.webp") center 58%/cover no-repeat;-webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.08) 8%,rgba(0,0,0,.55) 42%,#000 76%);mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.08) 8%,rgba(0,0,0,.55) 42%,#000 76%)}
+/* Full-width field from Pete's reference: gold timeline swoosh and a faint crest at right. */
+#yatSplash .yat-splash-field{
+  position:absolute;left:0;right:0;bottom:0;
+  height:clamp(180px,20vh,320px);
+  overflow:hidden;pointer-events:none;
+  background:url("/img/career-path-default.png") center bottom/100% 100% no-repeat;
+}
+/* Blend only the top edge into the black page; leave the field and the right edge clear. */
+#yatSplash .yat-splash-field::before{
+  content:"";position:absolute;inset:0;z-index:1;
+  background:linear-gradient(to bottom,#000 0%,rgba(0,0,0,.6) 10%,rgba(0,0,0,.12) 24%,transparent 38%);
+}
+/* This YAT?STATS round crest is in the supplied reference, not in career-path-default. */
+#yatSplash .yat-splash-field::after{
+  content:"";position:absolute;z-index:2;right:-10px;bottom:clamp(12px,2vh,30px);
+  width:clamp(130px,24vw,205px);aspect-ratio:1;
+  background:url("/img/yatstats-logo-circle.png") center/contain no-repeat;
+  opacity:.13;
+}
  #yatSplash .yat-splash-continue{position:absolute;z-index:5;left:50%;bottom:clamp(20px,5vh,52px);transform:translateX(-50%);background:rgba(24,24,24,.85);border:1px solid rgba(255,255,255,.65);border-radius:4px;padding:11px 24px;color:#fff;font:700 13px/1 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.09em;cursor:pointer;text-transform:uppercase;white-space:nowrap}
 #yatSplash .yat-splash-continue:hover{background:#303030}
 #yatSplash .yat-splash-place{position:absolute;z-index:1;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
