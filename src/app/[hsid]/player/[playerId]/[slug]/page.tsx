@@ -1008,7 +1008,7 @@ export default async function ProfilePage({ params }: Props) {
                 <i className="ri-instagram-line" /> @{igHandle}
               </a>
             )}
-            {!xHandle && !igHandle && (
+            {!xHandle && !igHandle && !isHamiltonCoachInstagramProfile && (
               <div className="pp-fz-placeholder">
                 <i className="ri-share-line pp-ph-icon" />
                 <p>Social links will appear here once available.</p>
