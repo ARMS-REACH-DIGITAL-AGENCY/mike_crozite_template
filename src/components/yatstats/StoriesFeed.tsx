@@ -307,7 +307,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner advertising placement">
       <span>PLAYER PROFILE PARTNER</span>
       <strong>ADVERTISER PLACEMENT</strong>
-      <small>Reserved for partner creative · Stories feed</small>
+      <small>300 × 250 PX · IN-FEED SPONSOR CARD</small>
     </aside>
   );
 
