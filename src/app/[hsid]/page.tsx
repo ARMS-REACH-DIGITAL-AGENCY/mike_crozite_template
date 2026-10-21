@@ -609,7 +609,7 @@ export default async function SchoolPage({
                       : 'none',
                   }}
                 >
-                  <PlayerCard
+                  <PlayerCard deferScheduleSnapshot
                     key={`active-${playerId}`}
                     player={p}
                     resolvedHsid={resolvedHsid}
@@ -640,7 +640,7 @@ export default async function SchoolPage({
             allTimeCards.map(({ player: p, onTeam }, i) => {
               const playerId = String(p.playerid);
               const card = (
-                <PlayerCard
+                <PlayerCard deferScheduleSnapshot
                   key={`alltime-${playerId}`}
                   player={p}
                   resolvedHsid={resolvedHsid}
@@ -687,7 +687,7 @@ export default async function SchoolPage({
             currentTeamRoster.map((p) => {
               const playerId = String(p.playerid);
               return (
-                <PlayerCard
+                <PlayerCard deferScheduleSnapshot
                   key={`current-${playerId}`}
                   player={p}
                   resolvedHsid={resolvedHsid}
