@@ -2438,6 +2438,37 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                 {slide.kind === 'draft' && <span className="zt-pennant" aria-hidden="true" />}
               </button>
             ))}
+            {/* Published memories are first-class YEAR rail content, just
+                like the month-rail stars. This path is identical for fans,
+                YAT?STATS publishers, and tagged players: one story ID from
+                /api/stories, one viewer, no duplicate database objects.
+                The active year shows the memory photo as a compact card
+                standing ON the gold rail; other years show star markers. */}
+            {!isPreview && model.slides.map((slide, index) => {
+              if (model.slides.findIndex((candidate) => candidate.year === slide.year) !== index) return null;
+              const ids = storyIdsByYear[slide.year] || [];
+              if (!ids.length) return null;
+              const memory = timelineStories.find((story) => story.id === ids[0]);
+              const cover = memory?.photos?.[0]?.thumb || memory?.photos?.[0]?.web;
+              const active = slide.year === model.slides[activeIndex]?.year;
+              return (
+                <button
+                  key={`memory-${slide.year}`}
+                  type="button"
+                  className={`zt-rail-year-memory${active && cover ? ' is-card' : ''}`}
+                  style={{ left: `clamp(25px, ${(index / Math.max(1, model.slides.length - 1)) * 100}%, calc(100% - 25px))` }}
+                  onClick={() => openTimelineStory(ids[0])}
+                  aria-label={`Open ${ids.length} ${ids.length === 1 ? 'story' : 'stories'} from ${slide.year} on the career timeline`}
+                  title={`${slide.year}: ${ids.length} timeline ${ids.length === 1 ? 'memory' : 'memories'}`}
+                >
+                  {active && cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={cover} alt="" loading="lazy" decoding="async" />
+                  ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
+                  {ids.length > 1 && <span className="zt-rail-story-count">{ids.length}</span>}
+                </button>
+              );
+            })}
             <span
               className="zt-rail-year"
               style={{ left: `${railProgress * 100}%` }}
@@ -2883,6 +2914,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-rail-star { font-size:15px; line-height:1; color:#ffd02f; -webkit-text-stroke:.55px #d83328; text-shadow:none; }
          .zt-rail-story-thumb { display:none; }
         .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_ACCENT}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
+        /* Compact published-memory card stands directly ON its year tick;
+           this is not the hero cutout layer below the rail. */
+        .zt-rail-year-memory { position:absolute; z-index:9; top:50%; transform:translate(-50%,-50%); width:17px; height:17px; padding:0; display:grid;place-items:center; border:1px solid white; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.5); overflow:visible; }
+        .zt-rail-year-memory.is-card { top:auto; bottom:calc(50% + 5px); transform:translateX(-50%); width:44px; height:54px; background:#141414; border:2px solid #fff; border-radius:3px; }
+        .zt-rail-year-memory :global(img) { width:100%; height:100%; display:block; object-fit:contain; background:#121212; }
+        .zt-rail-year-memory:not(.is-card):hover { transform:translate(-50%,-50%) scale(1.13); }
+        .zt-rail-year-memory.is-card:hover { filter:brightness(1.16); }
+        @media(max-width:620px) { .zt-rail-year-memory.is-card { width:34px; height:42px; } }
+
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         /* A season's logo standing on the rail, as wide as its dash. */
         .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
