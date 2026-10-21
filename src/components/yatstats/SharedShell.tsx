@@ -156,12 +156,27 @@ export default function SharedShell({
     if (isPlayerProfile) return;
 
     let frame = 0;
+    let lastVisibleSection = readRequestedSection();
+    const resetAllTimeLanding = () => {
+      const params = new URLSearchParams(window.location.search);
+      // A linked player intentionally opens at that card; do not override it.
+      if (readRequestedSection() !== 'alltime' || params.has('player') || window.location.hash.startsWith('#player-')) return;
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    };
     const syncSection = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         const requestedSection = readRequestedSection();
+        const enteringAllTime = requestedSection === 'alltime' && lastVisibleSection !== 'alltime';
+        lastVisibleSection = requestedSection;
         applyVisibleSection(requestedSection);
         setActiveSection(requestedSection);
+        // Switching tabs preserves the prior document scroll offset on mobile.
+        // Reset at the switch, then after React swaps the sticky header/rail.
+        if (enteringAllTime) {
+          resetAllTimeLanding();
+          window.requestAnimationFrame(() => window.requestAnimationFrame(resetAllTimeLanding));
+        }
         // The section is applied: drop the first-paint mark set in
         // app/layout.tsx (after React has rendered rows 3-4 for it).
         window.requestAnimationFrame(() => {
@@ -188,6 +203,11 @@ export default function SharedShell({
     document.addEventListener('click', onTabTap, true);
 
     syncSection();
+
+    // Also handle direct All-Time loads and browser scroll restoration.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(resetAllTimeLanding));
+    window.addEventListener('yat:page-ready', resetAllTimeLanding, { once: true });
+
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
     window.addEventListener('yat:section-changed', syncSection);
@@ -201,6 +221,7 @@ export default function SharedShell({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(switchTimer);
       document.removeEventListener('click', onTabTap, true);
+      window.removeEventListener('yat:page-ready', resetAllTimeLanding);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
       window.removeEventListener('yat:section-changed', syncSection);

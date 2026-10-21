@@ -45,6 +45,7 @@ import YatTourBridge from '@/components/yatstats/YatTourBridge';
 import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
 import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
 import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
+import { getSplashSponsor } from '@/lib/splashSponsors';
 import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -170,16 +171,24 @@ export default async function HsidLayout({
   }
 
   const splashHsid = String(school.hsid ?? hsid);
+  // Avoid even rendering the splash, its stadium light SVG, logo images or
+  // animations on repeat visits. Works across school subdomains via yat_seen.
+  // A manual ?splash=1 preview still forces the original introduction.
+  const seenSplash = /(?:^|;\s*)yat_seen=1(?:;|$)/.test(headersList.get('cookie') || '');
+  const forceSplash = headersList.get('x-yat-force-splash') === '1';
+  const showSplash = forceSplash || !seenSplash;
   return (
     <>
-      <SchoolSplash
+      {showSplash && <SchoolSplash
+        previewMode={forceSplash}
+        schoolId={splashHsid}
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
-        partner={getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
-      />
+        partner={getSplashSponsor(splashHsid) ?? getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
+      />}
       <Suspense fallback={null}>
-        <SchoolShell hsid={hsid} school={school}>{children}</SchoolShell>
+        <SchoolShell hsid={hsid} school={school} enableSplashCutouts={showSplash}>{children}</SchoolShell>
       </Suspense>
     </>
   );
@@ -189,10 +198,12 @@ async function SchoolShell({
   children,
   hsid,
   school,
+  enableSplashCutouts,
 }: {
   children: ReactNode;
   hsid: string;
   school: Record<string, unknown>;
+  enableSplashCutouts: boolean;
 }) {
   const headersList = await headers();
   const resolvedHsid = String(school.hsid ?? hsid);
@@ -334,6 +345,15 @@ async function SchoolShell({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
+  // Favor active alumni; only fall back to other alumni when no usable
+  // high-school cutout exists. All IDs come from already fetched roster rows.
+  const splashActiveIds = enableSplashCutouts
+    ? Array.from(new Set(activeAlumniPlayerIds.filter((id) => /^\d+$/.test(id))))
+    : [];
+  const splashActiveIdSet = new Set(splashActiveIds);
+  const splashOtherIds = enableSplashCutouts
+    ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id) && !splashActiveIdSet.has(id))))
+    : [];
   const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
@@ -375,6 +395,12 @@ async function SchoolShell({
     <SchoolContextProvider schoolData={schoolData}>
       <AnalyticsSchool hsid={String(resolvedHsid)} hsname={schoolName || ''} />
       <YatStyles />
+      {enableSplashCutouts && (splashActiveIds.length > 0 || splashOtherIds.length > 0) && (
+        <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
+          __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" +
+            JSON.stringify({ active: splashActiveIds, other: splashOtherIds }) + "}));",
+        }} />
+      )}
 
       <SharedShell
         hsid={resolvedHsid}

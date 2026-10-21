@@ -786,7 +786,7 @@ export default function ContributeDrawer() {
         }
         #drawerContribute .ycd-header{padding:16px 20px 14px;gap:10px;align-items:flex-start;}
         #drawerContribute .ycd-header::before{opacity:.04;}
-        #drawerContribute .ycd-title{display:flex;align-items:center;gap:11px;min-width:0;font:800 clamp(18px,3.5vw,22px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;overflow-wrap:anywhere;}
+        #drawerContribute .ycd-title{display:flex;align-items:center;gap:11px;min-width:0;font:800 clamp(18px,3.5vw,22px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;overflow-wrap:anywhere;text-transform:uppercase;}
         #drawerContribute .ycd-title i{flex:0 0 38px;width:38px;height:38px;margin:0;border-radius:50%;background:var(--card-bg);border:1px solid var(--line);color:var(--fg);font-size:20px;vertical-align:middle;}
         #drawerContribute .ycd-close{margin-top:3px;color:var(--fg);}
         #drawerContribute .ycd-hello{display:flex;flex-direction:column;gap:2px;margin:8px 0 0;font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);}

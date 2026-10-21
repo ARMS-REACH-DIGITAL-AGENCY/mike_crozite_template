@@ -52,40 +52,117 @@ const pool = new Pool({
   // instance, not per deployment. Keep each instance's connection footprint
   // small to avoid exhausting the shared Neon compute under burst traffic.
   // PG_POOL_MAX remains available for deliberate capacity tuning.
-  max: Number(process.env.PG_POOL_MAX || 3),
+  max: Number(process.env.PG_POOL_MAX || 8),
   idleTimeoutMillis: 10000,
+  // Give idle sockets time to retire and recycle connections periodically.
+  // This works without adding a dependency to the frozen production lockfile.
+  allowExitOnIdle: true,
+  maxLifetimeSeconds: 600,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
   // Allow cold compute starts and short pool queues without turning
   // transient contention into false "school not found" results.
   connectionTimeoutMillis: 15000,
   ssl: { rejectUnauthorized: false },
 });
 
-// A read that failed only because the database couldn't start a parallel
-// worker for it (a momentary resource limit on the compute) - safe to run
-// again once.
-const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
-const isRead = (text: string) => /^\s*(select|with)\b/i.test(text);
+// An idle client can disconnect when a serverless instance is suspended or
+// a pooled backend is recycled. Without this listener, node-postgres emits an
+// uncaught error and may terminate the whole process.
+function poolSnapshot() {
+  return { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount };
+}
+pool.on('error', (error) => {
+  console.error('[db-pool] idle client disconnected', {
+    code: (error as NodeJS.ErrnoException).code ?? null,
+    message: error.message,
+    pool: poolSnapshot(),
+  });
+});
 
-// Generic query helper
+const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
+const TRANSIENT_CONNECTION_ERROR = /connection terminated (?:due to connection timeout|unexpectedly)|timeout exceeded when trying to connect|connection ended unexpectedly|connection reset by peer|socket hang up|terminating connection due to administrator command/i;
+const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'EPIPE', '57P01', '57P02', '57P03', '08000', '08001', '08003', '08006']);
+const DB_SLOW_QUERY_MS = 3000;
+
+// At most one retry for clearly read-only SELECT or WITH queries.
+// WITH can perform writes, so reject it if any DML/DDL token is present.
+// Never replay writes, row-locking SELECTs, or known side-effecting functions.
+function isRetryableRead(statement: string): boolean {
+  if (!/^\s*(?:SELECT|WITH)\b/i.test(statement)) return false;
+  return !/\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL|DO|COPY|EXECUTE)\b|\bFOR\s+(?:UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b|\b(?:nextval|setval|pg_advisory_\w*)\s*\(/i.test(statement);
+}
+function isTransientDbError(error: unknown): boolean {
+  const err = error as { code?: string; message?: string; cause?: { code?: string; message?: string } } | null;
+  if (!err) return false;
+  return TRANSIENT_CONNECTION_CODES.has(String(err.code || '')) ||
+    TRANSIENT_CONNECTION_CODES.has(String(err.cause?.code || '')) ||
+    TRANSIENT_CONNECTION_ERROR.test([err.message, err.cause?.message].filter(Boolean).join(' '));
+}
+
+// Only aggregate pool counts and durations are logged. Neither SQL text nor
+// parameters (which may include personal data) are included in the diagnostics.
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: any[] = []
 ): Promise<QueryResult<T>> {
+  const startedAt = Date.now();
+  const atStart = poolSnapshot();
   try {
-    return await pool.query<T>(text, params);
-  } catch (error) {
-    if (isRead(text) && PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''))) {
-      console.warn('Database query retried after a parallel-worker error');
-      try {
-        return await pool.query<T>(text, params);
-      } catch (retryError) {
-        console.error('Database query error:', retryError);
-        throw retryError;
-      }
+    const result = await pool.query<T>(text, params);
+    // A queued request that finished promptly is not an overload warning.
+    // Report only genuinely slow operations, or sustained local queue pressure.
+    if (Date.now() - startedAt >= DB_SLOW_QUERY_MS || (atStart.waiting >= 10 && Date.now() - startedAt >= 500)) {
+      console.warn('[db-pool] slow query or local queue', {
+        durationMs: Date.now() - startedAt,
+        initialPool: atStart,
+        finalPool: poolSnapshot(),
+      });
     }
-    console.error('Database query error:', error);
-    throw error;
+    return result;
+  } catch (error) {
+    const transient = isTransientDbError(error);
+    const parallelWorker = PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''));
+    const shouldRetry = isRetryableRead(text) && (transient || parallelWorker);
+    console.error('[db-pool] query failure', {
+      durationMs: Date.now() - startedAt,
+      code: (error as { code?: string })?.code ?? null,
+      initialPool: atStart,
+      finalPool: poolSnapshot(),
+      retrying: shouldRetry,
+      failureType: transient ? 'connection' : parallelWorker ? 'parallel-worker' : 'other',
+    });
+    if (!shouldRetry) throw error;
+    // A single bounded retry allows a fresh connection after a dropped socket.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    try {
+      const result = await pool.query<T>(text, params);
+      console.warn('[db-pool] read recovered on retry', {
+        durationMs: Date.now() - startedAt,
+        finalPool: poolSnapshot(),
+      });
+      return result;
+    } catch (retryError) {
+      console.error('[db-pool] read retry failed', {
+        durationMs: Date.now() - startedAt,
+        code: (retryError as { code?: string })?.code ?? null,
+        finalPool: poolSnapshot(),
+      });
+      throw retryError;
+    }
   }
+}
+
+// Most profile traffic re-reads the same four season/career reports. Cache
+// their successful rows for five minutes across requests and server instances.
+// Keep catch/fallback logic outside this helper so a transient failure is
+// never cached as an empty stats report.
+async function cachedPlayerStatRows(bucket: string, playerId: string, sql: string): Promise<any[]> {
+  return unstable_cache(
+    async () => (await query(sql, [playerId])).rows,
+    ['player-stat-rows-v1', bucket, playerId],
+    { revalidate: 300, tags: ['player-stats', `player-stats:${playerId}`] },
+  )();
 }
 
 // ---------------------------------------------------------------------------
@@ -300,7 +377,7 @@ export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeaso
   }));
 });
 
-export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
+export const getSchoolByHsid = cache(keptAcrossRequests('getSchoolByHsid', async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
@@ -320,9 +397,9 @@ export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string
     [hsid],
   );
   return raw[0] || null;
-});
+}));
 
-export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: string) {
+export const getSchoolByUrl = cache(keptAcrossRequests('getSchoolByUrl', async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
   if (!hostOnly || !httpsUrl) return null;
   const candidates = Array.from(new Set([httpsUrl, hostOnly]));
@@ -338,7 +415,7 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
   const hsid = await resolveSchoolHsidFromHost(hostOnly,
     (sql, params = []) => query(sql, params));
   return hsid ? getSchoolByHsid(hsid) : null;
-});
+}));
 
 // ---------------------------------------------------------------------------
 // ACTIVE ROSTER - players with 2026 stats (homepage)
@@ -1613,7 +1690,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     ORDER BY b.year ASC, b.teamid ASC
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('batting-seasons', playerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerBattingStats failed:', error);
@@ -1645,7 +1722,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     ORDER BY p.year ASC, p.teamid ASC
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('pitching-seasons', playerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerPitchingStats failed:', error);
@@ -1688,7 +1765,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
     WHERE playerid::text = $1
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('career-batting', playerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerBatting failed:', error);
@@ -1822,7 +1899,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
     WHERE playerid::text = $1
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('career-pitching', playerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerPitching failed:', error);

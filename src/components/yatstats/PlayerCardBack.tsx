@@ -184,9 +184,10 @@ interface PlayerCardBackProps {
   schoolName?: string | null;
   /** School location (school_success.hslocation), for FunZone's share message. */
   schoolLocation?: string | null;
+  deferScheduleSnapshot?: boolean;
 }
 
-export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, shareBaseUrl, schoolName, schoolLocation }: PlayerCardBackProps) {
+export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, shareBaseUrl, schoolName, schoolLocation, deferScheduleSnapshot = false }: PlayerCardBackProps) {
   const isPitcher = p.is_pitcher === true;
   const draft = parseDraft(p.draft_info as string | null);
   const imageId = String(p.playerid || "");
@@ -292,9 +293,10 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
             schoolLocation={schoolLocation}
-            scheduleSnapshot={
+            scheduleSnapshot={deferScheduleSnapshot ? undefined :
               <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
             }
+            lazySchedulePlayerId={deferScheduleSnapshot ? imageId : undefined}
           />
         </div>
       </div>
