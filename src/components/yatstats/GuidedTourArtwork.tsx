@@ -15,19 +15,22 @@ const ROLE_LINKS = [
 ] as const;
 
 export default function GuidedTourArtwork() {
-  const [imageLoaded, setImageLoaded] = useState(false);
+  // Render the uploaded PNG by default. Waiting for onLoad before making the
+  // image visible can strand SSR/hydrated browsers on the fallback after the
+  // image loads before React installs its load listener.
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <section className="yat-approved-tour" aria-label="YAT?STATS guided tour">
-      <div className="yat-approved-tour-visual" style={{ display: imageLoaded ? 'block' : 'none' }}>
+      <div className="yat-approved-tour-visual" style={{ display: imageFailed ? 'none' : 'block' }}>
         <img
           src={GUIDED_TOUR_IMAGE}
           width={1408}
           height={1056}
           alt="Welcome to YAT?STATS! Choose your role in the baseball world: Coach, Player, Partner, or Fan."
           loading="eager"
-          onLoad={() => setImageLoaded(true)}
-          onError={() => setImageLoaded(false)}
+          onLoad={() => setImageFailed(false)}
+          onError={() => setImageFailed(true)}
         />
         <nav aria-label="Choose your role to open the YAT?STATS guided tour">
           {ROLE_LINKS.map(({ role, href, left, top, width, height }) => (
@@ -52,8 +55,8 @@ export default function GuidedTourArtwork() {
         </nav>
       </div>
 
-      {/* Preserve four usable links until the image has been uploaded to GitHub. */}
-      {!imageLoaded && (
+      {/* Only fall back if the approved image fails to load. */}
+      {imageFailed && (
         <div className="yat-approved-tour-fallback">
           <p>Welcome to YAT?STATS! I would love to give you a quick tour of our platform.</p>
           <strong>Select your role in the baseball world.</strong>
