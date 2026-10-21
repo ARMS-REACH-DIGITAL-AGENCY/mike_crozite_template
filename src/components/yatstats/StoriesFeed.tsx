@@ -303,6 +303,14 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     return list;
   }, [stories, search, sort]);
 
+  const sponsorCard = (
+    <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner advertising placement">
+      <span>PLAYER PROFILE PARTNER</span>
+      <strong>ADVERTISER PLACEMENT</strong>
+      <small>Reserved for partner creative · Stories feed</small>
+    </aside>
+  );
+
   let body: React.ReactNode;
   if (failed) {
     body = <div className="ysf-empty">Stories couldn&apos;t load right now. Please try again later.</div>;
@@ -334,6 +342,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                 media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
               />
             ))}
+            {sponsorCard}
           </div>
         ) : (
           <div className="ysf-feed">
@@ -373,6 +382,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                 </div>
               );
             })}
+            {sponsorCard}
           </div>
         )}
       </>
