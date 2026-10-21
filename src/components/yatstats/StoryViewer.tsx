@@ -29,6 +29,9 @@ export type Story = {
   kind?: 'story' | 'draft';
   // Posted by YAT?STATS itself (Draft Day, or a reviewer posting as it).
   official?: boolean;
+  // Existing Story published directly on the career timeline, e.g. an
+  // imported championship program card. Still accessible in StoryViewer.
+  timelineOnly?: boolean;
   story: string;
   author: string;
   date: string | null;
