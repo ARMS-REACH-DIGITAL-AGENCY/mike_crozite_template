@@ -6,6 +6,7 @@ import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 
 interface AccountDrawerProps {
   subdomain: string;
+  schoolName?: string;
 }
 
 type AccountTab = 'signin' | 'register';
@@ -131,10 +132,23 @@ function applyHomeIdentity(identity: HomeIdentity) {
   } catch {}
 }
 
-export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
+export default function AccountDrawer({ subdomain, schoolName }: AccountDrawerProps) {
   const [activeTab, setActiveTab] = useState<AccountTab>('register');
   // Signed in: no JOIN / LOG IN tabs, just the close button.
   const [signedIn, setSignedIn] = useState(false);
+
+  // Public review/registration deep link: one shared entry point for every
+  // school's real JOIN form. No duplicate form or hardcoded school details.
+  // Example: /5004?join=1 (the carrier can verify consent without logging in).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('join') !== '1') return;
+    setActiveTab('register');
+    document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-favorites-open');
+    document.body.classList.add('drawer-account-open', 'drawer-open');
+    const drawer = document.getElementById('drawerAccount');
+    drawer?.classList.add('open', 'is-open', 'active');
+  }, []);
 
   useEffect(() => {
     // Other drawers open a specific account form through the same event.
@@ -296,7 +310,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         </button>
       </div>
 
-      <AccountDrawerContent subdomain={subdomain} />
+      <AccountDrawerContent subdomain={subdomain} schoolName={schoolName} />
       <style jsx global>{`
         #drawerAccount{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerAccount #acctTabJoin,#drawerAccount #acctTabLogin{font:800 13px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;}
