@@ -182,6 +182,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'error' | 'success' | 'info'>('info');
   const [activeTab, setActiveTab] = useState<'signin' | 'register'>(initialTab ?? 'register');
+  const [tourGraphicLoaded, setTourGraphicLoaded] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [signInEmail, setSignInEmail] = useState('');
   const [favConfirm, setFavConfirm] = useState('');
@@ -1435,7 +1436,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
               </table>
             </div>
 
-            <div className="yat-account-tour"
+            <div className={`yat-account-tour${tourGraphicLoaded ? ' yat-tour-art-visible' : ''}`}
               style={{
                 borderTop: 'none',
                 padding: '12px',
@@ -1497,6 +1498,36 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                   />
                 </div>
               </div>
+              {/* The complete approved artwork takes over once its single image
+                  asset has been added to GitHub. Until then, the existing
+                  accessible four-tile callout remains visible and functional. */}
+              <div className="yat-tour-composite" aria-hidden={!tourGraphicLoaded}>
+                <img
+                  src="/img/yatstats-guided-tour-roles.webp"
+                  alt="Welcome to YAT?STATS! Select your role in the baseball world."
+                  loading="lazy"
+                  onLoad={() => setTourGraphicLoaded(true)}
+                  onError={() => setTourGraphicLoaded(false)}
+                />
+                <nav aria-label="Choose a guided tour">
+                  {([
+                    ['COACH', 'https://yatstats.com/programs/'],
+                    ['PLAYER', 'https://yatstats.com/players/'],
+                    ['PARTNER', 'https://yatstats.com/partners/'],
+                    ['FAN', 'https://yatstats.com/fans/'],
+                  ] as const).map(([label, href], i) => (
+                    <a
+                      key={label}
+                      className="yat-tour-composite-link"
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${label} guided tour (opens in a new tab)`}
+                      style={{ left: `${4.4 + i * 15.55}%` }}
+                    />
+                  ))}
+                </nav>
+              </div>
             </div>
           </div>
         </>
@@ -1508,10 +1539,10 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-comparison{display:flex;flex-direction:column;margin-top:4px!important;border-top:0!important;}
         #drawerAccount .yat-account-tour{order:0;padding:10px 10px 13px!important;gap:8px!important;align-items:center!important;border-top:0!important;background:transparent!important;}
         #drawerAccount .yat-account-tour > div:first-child{order:2!important;flex:0 0 70px!important;}
-        #drawerAccount .yat-account-tour > div:last-child{order:1!important;flex:1 1 auto!important;min-width:0;}
-        #drawerAccount .yat-account-tour > div:last-child > div > span{right:-8px!important;left:auto!important;border-right:0!important;border-left:8px solid #fff!important;top:19px!important;}
+        #drawerAccount .yat-account-tour > div:nth-child(2){order:1!important;flex:1 1 auto!important;min-width:0;}
+        #drawerAccount .yat-account-tour > div:nth-child(2) > div > span{right:-8px!important;left:auto!important;border-right:0!important;border-left:8px solid #fff!important;top:19px!important;}
         #drawerAccount .yat-account-tour img{width:70px!important;max-height:112px;object-fit:contain!important;object-position:center!important;}
-        #drawerAccount .yat-account-tour > div:last-child > div{padding:11px 11px 10px!important;font-size:12px!important;line-height:1.4!important;border-radius:15px!important;box-shadow:0 6px 22px rgba(0,0,0,.16);container-type:inline-size;}
+        #drawerAccount .yat-account-tour > div:nth-child(2) > div{padding:11px 11px 10px!important;font-size:12px!important;line-height:1.4!important;border-radius:15px!important;box-shadow:0 6px 22px rgba(0,0,0,.16);container-type:inline-size;}
         /* One line in the bubble at any phone width (the line is ~17.6em wide). */
         #drawerAccount .yat-tour-ask{font-size:min(1em,5.6cqi);white-space:normal;}
         #drawerAccount .yat-tour-roles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px;padding:0;border:0!important;gap:5px;}
@@ -1532,6 +1563,30 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
         #drawerAccount .yat-account-comparison > div:first-child{padding:8px 12px!important;}
         @media(max-width:779px){#drawerAccount .yat-account-tour img{width:70px!important;}}
 
+        /* Approved composite artwork: the baked-in four role tiles are each
+           an independent accessible link, mapped to the original image geometry.
+           All 4 open the public role landing pages in new tabs. */
+        #drawerAccount .yat-account-tour > .yat-tour-composite{display:none!important;}
+        #drawerAccount .yat-account-tour.yat-tour-art-visible{display:block!important;padding:4px 0 8px!important;}
+        #drawerAccount .yat-account-tour.yat-tour-art-visible > div:nth-child(-n+2){display:none!important;}
+        #drawerAccount .yat-account-tour.yat-tour-art-visible > .yat-tour-composite{
+          display:block!important;position:relative!important;width:100%!important;max-width:100%!important;
+          min-width:0!important;overflow:hidden!important;
+        }
+        #drawerAccount .yat-account-tour .yat-tour-composite > img{
+          display:block;width:100%!important;max-width:100%!important;height:auto!important;
+          max-height:none!important;object-fit:contain!important;
+        }
+        #drawerAccount .yat-account-tour .yat-tour-composite > nav{position:absolute;inset:0;pointer-events:none;}
+        #drawerAccount .yat-account-tour .yat-tour-composite-link{
+          position:absolute;top:46.5%;width:14.9%;height:28%;display:block;pointer-events:auto;
+          border:2px solid transparent;border-radius:12px;
+          cursor:pointer;outline-offset:2px;-webkit-tap-highlight-color:rgba(255,180,50,.3);
+        }
+        #drawerAccount .yat-account-tour .yat-tour-composite-link:focus-visible{
+          outline:3px solid #d97706;outline-offset:1px;background:rgba(255,170,0,.09);
+        }
+        #drawerAccount .yat-account-tour .yat-tour-composite-link:hover{background:rgba(255,170,0,.1);}
         /* 1:1 button/input heights and compact, legible membership offers. */
         #drawerAccount .yat-account-membership-cta,
         #drawerAccount .yat-account-promo-code{
