@@ -15,6 +15,7 @@ Upload **one logo per sponsor**, not one logo per school. Example:
 The new normalized tables in the **Players Neon database** are:
 - `public.sponsor_brands` — reusable brand, slug, display name, logo path and optional website.
 - `public.school_splash_sponsorships` — maps sponsor to numeric school `hsid`, optional `sponsor_orders.id`, priority, start/end dates and campaign status.
+- `public.v_school_splash_sponsor_assignments` — reporting view with each campaign, logo, school, order ID and current serving status for dashboards/ARMS.
 
 For a preview sponsor, first upload the artwork to `public/img/splash-sponsors/brands/`, commit it and wait for a preview deployment. Then use an authorized database interface (SQL or partner commerce webhook) to create the brand and assign it to one or more schools.
 
@@ -49,6 +50,8 @@ WHERE NOT EXISTS (
 Note: the second statement avoids creating duplicate active campaigns for the same sponsor and school. To reassign a different sponsor, pause or end the old campaign first (or use an explicit higher priority). The resolver chooses **one** active sponsor by descending priority, most recent starts_at, then id. Expired, paused or inactive sponsors never serve.
 
 To see the full splash even after the 30-day first-visit cookie is set, open the school URL with `?splash=1`. In forced preview mode the Enter button still controls exit.
+
+Example reporting query: `SELECT * FROM public.v_school_splash_sponsor_assignments WHERE hsid = '5004';`
 
 The sponsor endpoint is `/api/splash-sponsor/<hsid>`, cached for approximately two minutes. The public endpoint is GET-only and does not allow assignment writes. The authenticated partner commerce dashboard or ARMS webhook can maintain assignments using server-only credentials. Do not expose Neon or Stripe secrets in browser-side code.
 
