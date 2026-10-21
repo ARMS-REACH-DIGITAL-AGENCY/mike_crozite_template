@@ -44,7 +44,7 @@ const SECTION_BOOTSTRAP =
 // touching the element; its rules start with "html " to outrank the
 // splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
-var d=document,h=location.hostname,seen=!/[?&]splash=/.test(location.search)&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
+var d=document,h=location.hostname,forced=/[?&]splash=/.test(location.search),seen=!forced&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
 var dom=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
 d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+dom;
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
@@ -66,9 +66,10 @@ if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},350);}
 var t0=Date.now(),ready=false,shown=!seen;
 // Returning visitors must never re-show the opener as a loading overlay.
 if(seen){set(OFF);return;}
-var lift=function(){if(ready)return;ready=true;
+var lift=function(){if(forced||ready)return;ready=true;
 if(!shown){set(OFF);return;}
 setTimeout(flip,seen?0:Math.max(0,1600-(Date.now()-t0)));};
+if(forced){addEventListener('click',function(e){var el=e.target;if(el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){flip();}});return;}
 addEventListener('yat:page-ready',lift);
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);

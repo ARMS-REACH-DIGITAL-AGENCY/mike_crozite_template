@@ -180,6 +180,7 @@ export default async function HsidLayout({
   return (
     <>
       {showSplash && <SchoolSplash
+        previewMode={forceSplash}
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}

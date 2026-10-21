@@ -29,6 +29,8 @@ const YAT_LOGO = '/img/yatstats-wordmark-white.png';
 const SPLASH_CSS = `
 #yatSplash{position:fixed;inset:0;z-index:2147483000;overflow:hidden;background:#000;opacity:1;transition:opacity .25s ease-out;--yat-splash-w:min(50vw,400px);color:#fff;font-family:var(--yat-font-ui,'Archivo'),'Montserrat',Arial,Helvetica,sans-serif}
 #yatSplash .yat-splash-field{position:absolute;left:0;right:0;bottom:0;height:clamp(160px,20vh,320px);pointer-events:none;background:url("/img/career-path-default.webp") center 58%/cover no-repeat;-webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.08) 8%,rgba(0,0,0,.55) 42%,#000 76%);mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.08) 8%,rgba(0,0,0,.55) 42%,#000 76%)}
+ #yatSplash .yat-splash-continue{position:absolute;z-index:5;left:50%;bottom:clamp(20px,5vh,52px);transform:translateX(-50%);background:rgba(24,24,24,.85);border:1px solid rgba(255,255,255,.65);border-radius:4px;padding:11px 24px;color:#fff;font:700 13px/1 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.09em;cursor:pointer;text-transform:uppercase;white-space:nowrap}
+#yatSplash .yat-splash-continue:hover{background:#303030}
 #yatSplash .yat-splash-place{position:absolute;z-index:1;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
 #yatSplash .yat-splash-place-lockup{top:28%;width:var(--yat-splash-w)}
 #yatSplash .yat-splash-place-credit{top:71%;width:min(92vw,560px)}
@@ -77,8 +79,8 @@ function shine(src: string, delay: string): CSSProperties {
   return { ['--yat-shine-mask' as string]: `url("${src}")`, ['--yat-shine-delay' as string]: delay } as CSSProperties;
 }
 
-export default function SchoolSplash({ crestUrl, schoolName, location = '', partner = null }: {
-  crestUrl: string; schoolName: string; location?: string; partner?: TitlePartner | null;
+export default function SchoolSplash({ crestUrl, schoolName, location = '', partner = null, previewMode = false }: {
+  crestUrl: string; schoolName: string; location?: string; partner?: TitlePartner | null; previewMode?: boolean;
 }) {
   return (
     <div id="yatSplash" aria-hidden="true" suppressHydrationWarning>
@@ -114,6 +116,7 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
         <p className="yat-splash-partner-name">{partner ? partner.name : '(Participating Partner Needed)'}</p>
         {location ? <p className="yat-splash-city">{location}</p> : null}
       </div>
+      {previewMode && <button type="button" className="yat-splash-continue">Enter YAT?STATS →</button>}
       <script dangerouslySetInnerHTML={{ __html: FIT_WORDS }} />
     </div>
   );
