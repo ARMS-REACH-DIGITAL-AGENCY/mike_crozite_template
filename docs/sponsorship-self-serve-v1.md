@@ -14,10 +14,10 @@ Scope: every school hub/player profile through shared templates, without hardcod
 ## Standard ad contracts (v1)
 | Placement type | Display contract | Asset recommendation | Behavior |
 |:--|:--|:--|:--|
-| Player profile News/Connect/Stories desktop tower | 300x600 CSS px | 600x1200 WebP/JPG/PNG | One creative; fixed size; image `object-fit:contain`; no nonuniform scaling |
+| Player profile News/Connect/Stories desktop tower | Nominal 300x600 CSS px; actual display shrinks uniformly to fit the space beneath the career timeline | 600x1200 WebP/JPG/PNG | Stationary alongside independent scrolling Stories/News; image `object-fit:contain` and no cropping |
 | Schoolwide Alumni News desktop tower | 300x600 CSS px | 600x1200 WebP/JPG/PNG | Same contract |
-| Player Stories in-feed / narrow layout | 300x250 proportions | 600x500 WebP/JPG/PNG | Slot centers within available width, scales down uniformly; never crop |
-| Schoolwide Alumni News in-feed | 300x250 proportions | 600x500 | Same |
+| Player Stories in-feed / narrow layout | Full available story-card width; card height flexes with copy and layout | 600x500 WebP/JPG/PNG | Creative contained/letterboxed, not stretched; same width as surrounding stories, inserted after first two stories |
+| Schoolwide Alumni News in-feed | Responsive feed width | 600x500 | Same ratio-preserving containment, no cropping |
 | School hub footer | 66 CSS px tall | See `sponsor-banner-specifications.md` | Existing independent 2-variant contract |
 
 Sponsor delivery: **two** creatives for tower + in-feed, OR logo+headline+body+CTA automatically composed into two templates and proofed before publication. Keep text/logo/CTA >=5% from canvas edges, validate image dimensions, accept only owned/licensed rights, display with exact aspect ratio. For ads requiring <300px CSS width, scale uniformly or choose the smaller in-feed template; do not `object-fit:cover` completed artwork. CTA clickable wrapper URL is metadata, not embedded in image. Provide visual proof at desktop, tablet-with-docked-drawer, and phone breakpoints.
@@ -70,8 +70,8 @@ Track exclusivity and finite inventory with school_id + product_type + optional 
 5. **Scale:** multi-school inventory, weighted rotation, self-serve creative generator, local sponsor referrals, player Connect split payouts and school portals.
 
 ## Acceptance gates
-- No content taller than 600px stretches the tower; no ad variant causes page overflow.
-- Completed image stays completely visible without cropping at any screen size.
+- Player tower never exceeds visible FunZone height, scales uniformly beneath career strip, and stays stationary while the neighboring feed scrolls; no ad variant causes overflow.
+- Completed image stays completely visible without cropping at any screen size; in-feed card always matches the width of its story feed and keeps the artwork's aspect ratio.
 - Open account/favorites/contribute drawer never dims or intercepts the remaining Stories feed on docked-capable screens.
 - Never deliver stale/unpaid/unapproved campaigns as paid sponsor inventory.
 - A single view never generates repeated DB lookups or impression spam.
