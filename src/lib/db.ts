@@ -110,7 +110,9 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
   const atStart = poolSnapshot();
   try {
     const result = await pool.query<T>(text, params);
-    if (Date.now() - startedAt >= DB_SLOW_QUERY_MS || atStart.waiting > 0) {
+    // A queued request that finished promptly is not an overload warning.
+    // Report only genuinely slow operations, or sustained local queue pressure.
+    if (Date.now() - startedAt >= DB_SLOW_QUERY_MS || (atStart.waiting >= 10 && Date.now() - startedAt >= 500)) {
       console.warn('[db-pool] slow query or local queue', {
         durationMs: Date.now() - startedAt,
         initialPool: atStart,
