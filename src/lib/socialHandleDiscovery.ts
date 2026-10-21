@@ -72,7 +72,8 @@ export async function discoverSocialHandles(maxPosts=200): Promise<Result> {
         let linked = accounts.has(lower);
         let added = false;
         const candidate = choosePlayer(handle,roster.get(post.hsid) || []);
-        const year = candidate.playerid ? Number(rosterYear.get(candidate.playerid)) : NaN;
+        const graduation = candidate.playerid ? rosterYear.get(candidate.playerid) : null;
+        const year = graduation && /^\\d{4}$/.test(graduation) ? Number(graduation) : NaN;
         // Official-school tag + exact full name + graduated at least three
         // calendar years ago. Ambiguous and current students remain candidates.
         if (!linked && candidate.playerid && candidate.match==='exact-full-name' &&
