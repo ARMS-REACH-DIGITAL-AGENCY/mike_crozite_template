@@ -185,11 +185,15 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         const shared = pendingOpen.current;
         pendingOpen.current = null;
         if (shared && list.some((s) => s.id === shared)) {
-          if (window.matchMedia(DESKTOP_QUERY).matches) {
-            pendingFocus.current = shared;
-          } else {
+          // An archived championship card lives on the timeline rather
+          // than repeating in the lower feed. Its existing shared URL must
+          // still open the original story, not scroll toward a hidden card.
+          const linked = list.find((s) => s.id === shared);
+          if (linked?.timelineOnly || !window.matchMedia(DESKTOP_QUERY).matches) {
             setOpenPhoto(0);
             setOpenId(shared);
+          } else {
+            pendingFocus.current = shared;
           }
         }
       })
@@ -294,11 +298,15 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const visible = useMemo(() => {
     if (!stories) return stories;
     const q = search.trim().toLowerCase();
+    // Imported championship cards are on the year/month rail, including
+    // every tagged player's timeline. Do not show a second copy below the
+    // rail. Regular fan and official posts remain in the Stories feed.
+    const feedStories = stories.filter((s) => !s.timelineOnly);
     const list = q
-      ? stories.filter((s) =>
+      ? feedStories.filter((s) =>
           [s.story, s.author, storyWhen(s), ...s.players.map((p) => p.name)].join(' ').toLowerCase().includes(q)
         )
-      : stories.slice();
+      : feedStories.slice();
     list.sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : sortKey(a) > sortKey(b) ? 1 : 0) * (sort === 'newest' ? -1 : 1));
     return list;
   }, [stories, search, sort]);
@@ -328,7 +336,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     body = (
       <>
         {list.length === 0 ? (
-          <div className="ysf-empty">No stories match “{search.trim()}”.</div>
+          <>
+            <div className="ysf-empty">{search.trim() ? `No feed stories match “${search.trim()}”.` : 'Championship memory cards are on the Career Path Timeline above. Select a marked year or month to open one.'}</div>
+            {!search.trim() && sponsorCard}
+          </>
         ) : isDesktop ? (
           <div className="ysf-feed ysf-feed-posts">
             {list.map((s, index) => (
