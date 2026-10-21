@@ -78,6 +78,7 @@ interface FunZoneProps {
    * Component, only receive one as already-rendered children/a prop.
    */
   scheduleSnapshot?: ReactNode;
+  lazySchedulePlayerId?: string;
 }
 
 interface NewsTease {
@@ -722,8 +723,33 @@ export default function FunZone({
   schoolName,
   schoolLocation,
   scheduleSnapshot,
+  lazySchedulePlayerId,
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
+  const [loadedSchedule, setLoadedSchedule] = useState<string | null>(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState(false);
+  const scheduleRequested = useRef(false);
+  useEffect(() => {
+    if (activeTab !== 'schedule' || !lazySchedulePlayerId || scheduleSnapshot || scheduleRequested.current) return;
+    const card = rootRef.current?.closest<HTMLElement>('.yat-card');
+    if (!card?.classList.contains('is-flipped')) return;
+    scheduleRequested.current = true;
+    const controller = new AbortController();
+    setScheduleLoading(true);
+    fetch(`/card-game-log/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}&slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
+      .then((response) => { if (!response.ok) throw new Error('Schedule unavailable'); return response.text(); })
+      .then((html) => {
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        const snapshot = parsed.querySelector('.yat-snap');
+        if (!snapshot) throw new Error('Schedule markup missing');
+        const style = snapshot.nextElementSibling?.tagName === 'STYLE' ? snapshot.nextElementSibling.outerHTML : '';
+        setLoadedSchedule(snapshot.outerHTML + style);
+      })
+      .catch(() => { setScheduleError(true); scheduleRequested.current = false; })
+      .finally(() => setScheduleLoading(false));
+    return () => controller.abort();
+  }, [activeTab, lazySchedulePlayerId, scheduleSnapshot]);
   // Global flip-all navigation uses the same React state as local tab clicks.
   // Merely toggling CSS classes would desynchronize CTA links and lazy panels.
   const rootRef = useRef<HTMLDivElement>(null);
@@ -817,7 +843,10 @@ export default function FunZone({
         className={`fz-panel${activeTab === "schedule" ? " fz-panel-active" : ""}`}
         data-fz-tab="schedule"
       >
-        <SchedulePanel scheduleSnapshot={scheduleSnapshot} />
+        {lazySchedulePlayerId ? (
+          loadedSchedule ? <div dangerouslySetInnerHTML={{ __html: loadedSchedule }} /> :
+          <div className="fz-placeholder"><i className="ri-calendar-line fz-ph-icon" /><div className="fz-ph-text">{scheduleLoading ? 'Loading game log…' : scheduleError ? 'Game log unavailable. Open the player profile.' : 'Open Game Log to load the schedule.'}</div></div>
+        ) : <SchedulePanel scheduleSnapshot={scheduleSnapshot} />}
       </div>
       <div
         className={`fz-panel${activeTab === "stats" ? " fz-panel-active" : ""}`}
