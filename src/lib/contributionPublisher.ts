@@ -23,11 +23,17 @@ async function processCorrection(t:Tip):Promise<boolean> {
  const requestedPosition = typeof fields.position==='string' ? fields.position.trim().toUpperCase() : '';
  const player = t.matched_playerid ? await stage(t.matched_playerid) : null;
  if (!player || (t.matched_hsid && player.hsid!==t.matched_hsid)) return false;
+ // Never partially publish a correction when other fields conflict or need human review.
+ const keys=Object.keys(fields).filter(k=>fields[k]!==null && fields[k]!==undefined && String(fields[k]).trim());
+ if(keys.some(k=>!['class_of','position','instagram','x'].includes(k)))return false;
+ if(requestedYear && player.class_of && player.class_of!==requestedYear)return false;
+ if(requestedPosition && player.position && player.position!==requestedPosition)return false;
+ if(requestedPosition && !/^[A-Z0-9 -]{1,12}$/.test(requestedPosition))return false;
  // Verified legacy data cannot be replaced by unverified fan input.
  if(requestedYear && (!player.class_of || player.class_of===requestedYear)) {
    await query('UPDATE flip_card_front_stage SET class_of=$2,updated_at=now() WHERE playerid=$1 AND (class_of IS NULL OR class_of=$2)',[player.playerid,requestedYear]);
  }
- if(requestedPosition && /^[A-Z0-9 -]{1,12}$/.test(requestedPosition) && (!player.position || player.position===requestedPosition)) {
+ if(requestedPosition && (!player.position || player.position===requestedPosition)) {
    await query('UPDATE flip_card_front_stage SET position=$2,updated_at=now() WHERE playerid=$1 AND (position IS NULL OR position=$2)',[player.playerid,requestedPosition]);
  }
  for(const platform of ['instagram','x'] as const){
@@ -42,10 +48,6 @@ async function processCorrection(t:Tip):Promise<boolean> {
      await query("INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status) VALUES ($1,$2,'player',$3,$4,'public','active') ON CONFLICT (platform,handle) DO NOTHING",[platform,name,player.hsid,player.playerid]);
    }
  }
- const keys=Object.keys(fields).filter(k=>fields[k]!==null && fields[k]!==undefined && String(fields[k]).trim());
- if(keys.some(k=>!['class_of','position','instagram','x'].includes(k)))return false;
- if(requestedYear && player.class_of && player.class_of!==requestedYear)return false;
- if(requestedPosition && player.position && player.position!==requestedPosition)return false;
  return keys.length>0 || Boolean(oldGrad && requestedYear);
 }
 async function processTip(t:Tip):Promise<boolean> {
