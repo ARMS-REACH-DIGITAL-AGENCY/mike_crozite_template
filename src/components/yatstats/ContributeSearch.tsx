@@ -195,6 +195,12 @@ export default function ContributeSearch(props: Props) {
           z-index:1; font-size:18px; pointer-events:none; opacity:.8;
         }
         .ycs-results { max-height: none !important; overflow: visible !important; }
+        /* Contribute school picker renders crest + identity, without the active-alumni
+           counter used by Global Search. Override the shared two-column grid
+           (whose second column is only 54px wide) so names get the remaining space. */
+        #drawerContribute .ycs .yat-search-school-topline {
+          grid-template-columns: 50px minmax(0, 1fr);
+        }
         .ycs-back { align-self: flex-start; margin: 4px 0; border: 0; background: none; padding: 0; color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
         .ycs .yat-search-player-result, .ycs .yat-search-school-card, .ycs .yat-search-team-entity-card { cursor: pointer; }
         .ycs .yat-search-team-entity-card { display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:10px;border:1px solid var(--line);background:transparent;color:inherit;padding:8px 10px;border-radius:8px; }
