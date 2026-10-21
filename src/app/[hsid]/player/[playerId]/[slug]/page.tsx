@@ -32,6 +32,7 @@ import { headers } from "next/headers";
 import { playerProfileShareInfo, playerShareOrigin } from "@/lib/playerProfileShare";
 import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
@@ -339,6 +340,7 @@ export default async function ProfilePage({ params }: Props) {
   const previousOrgOrConferenceName = String(transactionStatus?.previous_org_or_conference_name || "").trim();
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
+  const isRetiredAlumnus = /\\bRETIRED\\b/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
   const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
 
   // flip_card_front_stage.current_team_source_team_id is the reconciled,
@@ -818,9 +820,11 @@ export default async function ProfilePage({ params }: Props) {
         <div className="pp-funzone-outer">
         <section className="pp-funzone" id="playerFunZone">
 
-        {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
+        {/* ── GAME LOG for active players; alumni update for retired players ── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
-          {scheduleTableRows.length > 0 ? (
+          {isRetiredAlumnus ? (
+            <WhereYatProfilePanel playerId={safePlayerId} hsid={hsid} name={displayName} />
+          ) : scheduleTableRows.length > 0 ? (
             <PlayerScheduleTable
               rows={scheduleTableRows}
               statHeaders={statHeaders}
