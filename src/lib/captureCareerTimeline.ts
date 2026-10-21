@@ -44,7 +44,7 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
     });
     const target = await page.$('#playerCareerImages');
     if (!target) throw new Error('Timeline crop target missing');
-    const screenshot = await target.screenshot({ type: 'png' }) as Buffer;
+    const screenshot = Buffer.from(await target.screenshot({ type: 'png' }));
     const bounds = await sharp(screenshot).metadata();
     if (!bounds.width || !bounds.height) throw new Error('Empty timeline screenshot');
     // Keep proportions exactly; no vertical stretch and no graphics redrawn.
