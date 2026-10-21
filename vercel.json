@@ -51,6 +51,10 @@
       "schedule": "0 11 * * *"
     },
     {
+      "path": "/api/cron/college-feed-schedules",
+      "schedule": "40 10 * * *"
+    },
+    {
       "path": "/api/cron/contribution-publish",
       "schedule": "*/10 * * * *"
     }
