@@ -38,11 +38,11 @@ const SPLASH_CSS = `
   mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.22) 8%,rgba(0,0,0,.8) 22%,#000 36%);
 }
 
-/* High-school anchor cutouts rotate above the supplied field artwork. */
-#yatSplash .yat-splash-player{position:absolute;z-index:1;left:54%;bottom:0;transform:translateX(-50%);width:min(42vw,330px);height:clamp(145px,26vh,330px);opacity:0;transition:opacity .35s ease;pointer-events:none}
+/* One high-school cutout per splash visit. The field and gold line stay visible. */
+#yatSplash .yat-splash-player{position:absolute;z-index:1;left:45%;bottom:0;transform:translateX(-50%);width:min(36vw,290px);height:clamp(125px,22vh,285px);opacity:0;transition:opacity .35s ease;pointer-events:none}
 #yatSplash .yat-splash-player.is-visible{opacity:1}
 #yatSplash .yat-splash-player img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
-@media(max-width:600px){#yatSplash .yat-splash-player{left:56%;width:min(43vw,215px);height:clamp(135px,22vh,255px)}}
+@media(max-width:600px){#yatSplash .yat-splash-player{left:44%;width:min(37vw,190px);height:clamp(115px,19vh,225px)}}
 #yatSplash .yat-splash-continue{position:absolute;z-index:5;left:50%;bottom:clamp(20px,5vh,52px);transform:translateX(-50%);background:rgba(24,24,24,.85);border:1px solid rgba(255,255,255,.65);border-radius:4px;padding:11px 24px;color:#fff;font:700 13px/1 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.09em;cursor:pointer;text-transform:uppercase;white-space:nowrap}
 #yatSplash .yat-splash-continue:hover{background:#303030}
 #yatSplash .yat-splash-place{position:absolute;z-index:1;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
@@ -63,7 +63,7 @@ const SPLASH_CSS = `
 #yatSplash .yat-splash-partner-slot{display:flex;align-items:center;justify-content:center;height:clamp(38px,5.5vh,64px);margin:clamp(4px,1vh,10px) 0}
 #yatSplash .yat-splash-partner{display:block;max-height:100%;max-width:min(60vw,320px);width:auto}
 #yatSplash .yat-splash-partner-name{font-weight:600;text-transform:uppercase}
-#yatSplash .yat-splash-city{font-weight:500}
+#yatSplash .yat-splash-city{margin-top:2px!important;font-size:clamp(9px,1.3vw,11px);font-weight:400;line-height:1.2;letter-spacing:.02em;color:rgba(255,255,255,.8)}
 #yatSplash .yat-splash-lights{position:absolute;left:50%;top:0;width:min(100%,760px);height:clamp(150px,30vh,280px);transform:translateX(-50%);-webkit-mask:linear-gradient(#000 35%,transparent),linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);-webkit-mask-composite:source-in;mask:linear-gradient(#000 35%,transparent),linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-composite:intersect;animation:yatSplashFadeIn .4s ease-out both}
 @media (max-width:760px){#yatSplash .yat-splash-lights{-webkit-mask:linear-gradient(#000 35%,transparent);mask:linear-gradient(#000 35%,transparent)}}
 #yatSplash .yat-splash-shine{position:relative;display:block;line-height:0}
@@ -74,7 +74,7 @@ const SPLASH_CSS = `
 @keyframes yatSplashGlint{0%{filter:brightness(1)}35%{filter:brightness(1.35) drop-shadow(0 0 20px rgba(255,255,255,.65))}100%{filter:brightness(1) drop-shadow(0 0 12px rgba(255,255,255,.25))}}
 @keyframes yatSplashGlow{0%,100%{filter:drop-shadow(0 0 12px rgba(255,255,255,.25))}50%{filter:drop-shadow(0 0 24px rgba(255,255,255,.42))}}
 @keyframes yatSplashShine{to{background-position:10% 0}}
-@keyframes yatSplashFlipAway{to{transform:perspective(1400px) rotateY(90deg)}}
+@keyframes yatSplashSlideAway{to{transform:translate3d(105%,0,0)}}
 @media (prefers-reduced-motion:reduce){#yatSplash *,#yatSplash *::after{animation:none!important}}
 `;
 
@@ -89,22 +89,23 @@ fit();if(!logo.complete)logo.addEventListener('load',fit);
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);window.addEventListener('resize',fit);})();`;
 
 // Uses IDs from the school's already loaded roster. No extra DB requests.
-const ROTATE_SPLASH_PLAYERS = "(function(){\n  var splash=document.getElementById('yatSplash'), holder=document.getElementById('yatSplashPlayer');\n  if(!splash||!holder)return;\n  var picture=holder.querySelector('img'), ids=[], cursor=0, last='', busy=false, timer=null, started=false;\n  var base='https://yatstats-assets.s3.us-west-2.amazonaws.com/players/';\n  function active(){return getComputedStyle(splash).display!=='none';}\n  function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),x=a[i];a[i]=a[j];a[j]=x;}return a;}\n  function stop(){if(timer){clearInterval(timer);timer=null;}}\n  function present(url,id){\n    if(!active()){busy=false;stop();return;}\n    function show(){picture.src=url;holder.classList.add('is-visible');last=id;busy=false;}\n    if(holder.classList.contains('is-visible')){holder.classList.remove('is-visible');setTimeout(show,370);}\n    else show();\n  }\n  function next(){\n    if(busy||!ids.length)return;\n    if(!active()){stop();return;}\n    busy=true;\n    var attempts=0;\n    function attempt(){\n      if(!active()){busy=false;stop();return;}\n      if(++attempts>Math.min(ids.length,6)){busy=false;return;}\n      if(cursor>=ids.length){shuffle(ids);cursor=0;}\n      var id=ids[cursor++];\n      if(id===last&&ids.length>1){attempt();return;}\n      var sources=[base+'then-web/'+id+'.webp',base+'then-cutouts/'+id+'.png'];\n      function probe(which){\n        if(which>=sources.length){attempt();return;}\n        var image=new Image();\n        image.onload=function(){present(sources[which],id);};\n        image.onerror=function(){probe(which+1);};\n        image.src=sources[which];\n      }\n      probe(0);\n    }\n    attempt();\n  }\n  document.addEventListener('yat:splash-players',function(event){\n    if(started||!active())return;\n    var pool=event.detail;\n    if(!Array.isArray(pool))return;\n    ids=shuffle(pool.filter(function(id){return typeof id==='string'&&/^\\d+$/.test(id);}));\n    if(!ids.length)return;\n    started=true;\n    next();\n    if(!matchMedia('(prefers-reduced-motion: reduce)').matches){\n      timer=setInterval(next,3800);\n    }\n  },{once:true});\n})();";
+// Pick one active alumnus per splash, reusing the already-fetched roster; no timers.
+const ROTATE_SPLASH_PLAYERS = "(function(){\n  var splash=document.getElementById('yatSplash');\n  var holder=document.getElementById('yatSplashPlayer');\n  if(!splash||!holder)return;\n  var picture=holder.querySelector('img');\n  var base='https://yatstats-assets.s3.us-west-2.amazonaws.com/players/';\n  var started=false;\n  var key='yat_splash_last_player_'+(holder.getAttribute('data-school')||'default');\n  function visible(){return getComputedStyle(splash).display!=='none';}\n  function shuffle(items){\n    for(var i=items.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),x=items[i];items[i]=items[j];items[j]=x;}\n    return items;\n  }\n  function filterIds(items){\n    if(!Array.isArray(items))return [];\n    return Array.from(new Set(items.filter(function(id){return typeof id==='string'&&/^\\d+$/.test(id);})));\n  }\n  document.addEventListener('yat:splash-players',function(event){\n    if(started||!visible())return;\n    started=true;\n    var payload=event.detail||{};\n    var activeIds=filterIds(payload.active);\n    var activeSet=new Set(activeIds);\n    var otherIds=filterIds(payload.other).filter(function(id){return !activeSet.has(id);});\n    var previous='';\n    try{previous=localStorage.getItem(key)||'';}catch(e){}\n    function ordered(list){\n      var choices=shuffle(list.slice());\n      if(choices.length>1&&previous){choices=choices.filter(function(id){return id!==previous;}).concat(choices.filter(function(id){return id===previous;}));}\n      return choices;\n    }\n    function tryPool(pool,limit,onExhausted){\n      var choices=ordered(pool),index=0,attempts=0;\n      function next(){\n        if(!visible())return;\n        if(index>=choices.length||attempts>=limit){onExhausted();return;}\n        attempts++;\n        var id=choices[index++];\n        var sources=[base+'then-web/'+id+'.webp',base+'then-cutouts/'+id+'.png'];\n        function probe(n){\n          if(!visible())return;\n          if(n>=sources.length){next();return;}\n          var img=new Image();\n          img.onload=function(){\n            if(!visible())return;\n            picture.src=sources[n];\n            holder.classList.add('is-visible');\n            try{localStorage.setItem(key,id);}catch(e){}\n            // Exactly one successful image for this splash. No interval or swap.\n          };\n          img.onerror=function(){probe(n+1);};\n          img.src=sources[n];\n        }\n        probe(0);\n      }\n      next();\n    }\n    tryPool(activeIds,12,function(){\n      // Fallback only when this school has no usable active-alumni cutout.\n      tryPool(otherIds,6,function(){});\n    });\n  },{once:true});\n})();";
 
 // A light sweep across one image, masked to its shape.
 function shine(src: string, delay: string): CSSProperties {
   return { ['--yat-shine-mask' as string]: `url("${src}")`, ['--yat-shine-delay' as string]: delay } as CSSProperties;
 }
 
-export default function SchoolSplash({ crestUrl, schoolName, location = '', partner = null, previewMode = false }: {
-  crestUrl: string; schoolName: string; location?: string; partner?: TitlePartner | null; previewMode?: boolean;
+export default function SchoolSplash({ crestUrl, schoolName, location = '', partner = null, previewMode = false, schoolId = '' }: {
+  crestUrl: string; schoolName: string; location?: string; partner?: TitlePartner | null; previewMode?: boolean; schoolId?: string;
 }) {
   return (
     <div id="yatSplash" aria-hidden="true" suppressHydrationWarning>
       <style dangerouslySetInnerHTML={{ __html: SPLASH_CSS }} />
       {/* Reuse the player-profile field, blending its top edge into black. */}
       <div className="yat-splash-field" />
-      <div className="yat-splash-player" id="yatSplashPlayer" aria-hidden="true"><img alt="" /></div>
+      <div className="yat-splash-player" id="yatSplashPlayer" data-school={schoolId} aria-hidden="true"><img alt="" /></div>
       <BallparkLights className="yat-splash-lights" />
       <div className="yat-splash-place yat-splash-place-lockup">
         <span className="yat-splash-glow" />
@@ -121,6 +122,7 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
             <img src={YAT_LOGO} alt="" fetchPriority="high" />
           </div>
           <p className="yat-splash-tag"><span className="yat-splash-fit">Alumni Baseball Online Community</span></p>
+          {location ? <p className="yat-splash-city">{location}</p> : null}
         </div>
       </div>
       <div className="yat-splash-place yat-splash-place-credit yat-splash-credit">
@@ -132,7 +134,6 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
           ) : null}
         </div>
         {partner?.name ? <p className="yat-splash-partner-name">{partner.name}</p> : null}
-        {location ? <p className="yat-splash-city">{location}</p> : null}
       </div>
       {previewMode && <button type="button" className="yat-splash-continue">Enter YAT?STATS →</button>}
       <script dangerouslySetInnerHTML={{ __html: FIT_WORDS }} />

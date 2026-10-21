@@ -33,9 +33,8 @@ const SECTION_BOOTSTRAP =
 //   the crest from the left, then they shine; at least 1.6s;
 // - no splash for anyone returning within 30 days (shared yat_seen cookie).
 //   Normal navigation waits for the destination without a takeover overlay.
-// Either way it leaves with a flip, like a flip card: the splash on the
-// front, the school's hub on the back (a view transition between the two;
-// browsers without one flip the splash away). A short card-flip sound plays
+// On exit the splash slides right, revealing the already-loaded school
+// home page underneath. A short transition sound plays
 // when the browser allows it - usually only once the visitor has tapped.
 // ?splash=... in the address forces the full one (to show it off, or test).
 // Ready = 'yat:page-ready' (the gallery strip) or, on pages without a
@@ -52,9 +51,9 @@ var set=function(css){st.textContent=css;};
 var P='html #yatSplash';
 var QUICK=P+' *,'+P+' *::after{animation:none!important}'+P+' .yat-splash-logo img{animation:yatSplashGlow 2.4s ease-in-out infinite!important}';
 var RM=false;try{RM=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
-var EXIT=RM?P+'{opacity:0!important;pointer-events:none!important}':P+'{pointer-events:none!important;animation:yatSplashFlipAway .3s cubic-bezier(.55,0,1,.45) forwards!important}';
+var EXIT=RM?P+'{opacity:0!important;pointer-events:none!important}':P+'{pointer-events:none!important;animation:yatSplashSlideAway .55s cubic-bezier(.3,.75,.2,1) forwards!important}';
 var OFF=P+'{display:none!important}';
-var FLIP='::view-transition{background:#000}::view-transition-group(root){animation-duration:.62s}::view-transition-old(root){animation:yatFlipOut .3s cubic-bezier(.55,0,1,.45) both}::view-transition-new(root){animation:yatFlipIn .32s cubic-bezier(0,.55,.45,1) .3s both}@keyframes yatFlipOut{to{transform:perspective(1400px) rotateY(90deg)}}@keyframes yatFlipIn{from{transform:perspective(1400px) rotateY(-90deg)}}';
+var FLIP='::view-transition{background:#000}::view-transition-old(root){animation:yatSplashExitRight .55s cubic-bezier(.3,.75,.2,1) both}::view-transition-new(root){animation:none}@keyframes yatSplashExitRight{to{transform:translateX(105%)}}';
 var sound=function(){try{var A=window.AudioContext||window.webkitAudioContext;if(!A)return;var c=new A();if(c.state!=='running'){c.close();return;}
 var n=c.sampleRate*.16|0,b=c.createBuffer(1,n,c.sampleRate),x=b.getChannelData(0);for(var i=0;i<n;i++)x[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
 var s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=b;f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(900,c.currentTime);f.frequency.exponentialRampToValueAtTime(3800,c.currentTime+.14);g.gain.value=.35;
@@ -62,7 +61,7 @@ s.connect(f);f.connect(g);g.connect(c.destination);s.start();setTimeout(function
 var flip=function(){
 if(!RM&&d.startViewTransition){sound();var v=d.createElement('style');v.textContent=FLIP;d.head.appendChild(v);
 try{d.startViewTransition(function(){set(OFF);}).finished.then(function(){v.remove();},function(){v.remove();});}catch(e){set(OFF);v.remove();}return;}
-if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},350);};
+if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},600);};
 var t0=Date.now(),ready=false,shown=!seen;
 // Returning visitors must never re-show the opener as a loading overlay.
 if(seen){set(OFF);return;}

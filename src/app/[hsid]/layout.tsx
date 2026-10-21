@@ -181,6 +181,7 @@ export default async function HsidLayout({
     <>
       {showSplash && <SchoolSplash
         previewMode={forceSplash}
+        schoolId={splashHsid}
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
@@ -344,17 +345,15 @@ async function SchoolShell({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
-  // The splash reuses these school roster IDs rather than adding a DB call.
-  const splashPlayerIds = enableSplashCutouts
-    ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id))))
+  // Favor active alumni; only fall back to other alumni when no usable
+  // high-school cutout exists. All IDs come from already fetched roster rows.
+  const splashActiveIds = enableSplashCutouts
+    ? Array.from(new Set(activeAlumniPlayerIds.filter((id) => /^\d+$/.test(id))))
     : [];
-  if (enableSplashCutouts) {
-    for (let i = splashPlayerIds.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [splashPlayerIds[i], splashPlayerIds[j]] = [splashPlayerIds[j], splashPlayerIds[i]];
-    }
-    splashPlayerIds.length = Math.min(splashPlayerIds.length, 40);
-  }
+  const splashActiveIdSet = new Set(splashActiveIds);
+  const splashOtherIds = enableSplashCutouts
+    ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id) && !splashActiveIdSet.has(id))))
+    : [];
   const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
@@ -396,9 +395,10 @@ async function SchoolShell({
     <SchoolContextProvider schoolData={schoolData}>
       <AnalyticsSchool hsid={String(resolvedHsid)} hsname={schoolName || ''} />
       <YatStyles />
-      {enableSplashCutouts && splashPlayerIds.length > 0 && (
+      {enableSplashCutouts && (splashActiveIds.length > 0 || splashOtherIds.length > 0) && (
         <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
-          __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" + JSON.stringify(splashPlayerIds) + "}));",
+          __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" +
+            JSON.stringify({ active: splashActiveIds, other: splashOtherIds }) + "}));",
         }} />
       )}
 
