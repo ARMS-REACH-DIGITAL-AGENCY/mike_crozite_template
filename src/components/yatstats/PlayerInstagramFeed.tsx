@@ -53,7 +53,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
     return () => io.disconnect();
   }, [playerId, schoolHsid]);
 
-  const handle = posts?.[0]?.handle || '';
   const count = posts?.length || 0;
   const step = useCallback(
     (by: number) => {
@@ -94,11 +93,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
             <span>
               <i className="ri-instagram-line" /> {schoolFeed ? `${schoolFeed.name} on Instagram` : firstName ? `${firstName} on Instagram` : 'On Instagram'}
             </span>
-            {handle && (
-              <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer" title={`Follow @${handle} on Instagram`} aria-label={`Follow @${handle} on Instagram`}>
-                {schoolFeed ? 'FOLLOW' : `Follow @${handle}`}
-              </a>
-            )}
           </div>
           <div className="pp-ig-grid" role="list">
             {posts.map((p, i) => {
@@ -224,8 +218,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
         .pp-ig-feed { width:100%; margin:0 0 14px; }
         .pp-ig-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 6px; font:600 12px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--fg,#f0f0f0); }
         .pp-ig-head span { min-width:0; }
-        .pp-ig-head a { font:500 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--fg,#ddd); text-decoration:none; white-space:nowrap; flex-shrink:0; }
-        .pp-ig-head-school a { font-weight:800; font-size:10px; letter-spacing:.06em; border:1px solid currentColor; border-radius:4px; padding:5px 8px; }
         .pp-ig-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px; }
         @media (min-width:700px){ .pp-ig-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
         .pp-ig-tile { position:relative; display:block; aspect-ratio:3/4; overflow:hidden; background:rgba(128,128,128,.15); border:0; padding:0; margin:0; cursor:pointer; }
