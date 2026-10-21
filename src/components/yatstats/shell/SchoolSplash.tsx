@@ -148,7 +148,8 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
       <style dangerouslySetInnerHTML={{ __html: SPLASH_CSS }} />
       {/* Reuse the player-profile field, blending its top edge into black. */}
       <div className="yat-splash-field" />
-      <div className="yat-splash-player" id="yatSplashPlayer" data-school={schoolId} aria-hidden="true"><img alt="" /><div className="yat-splash-player-caption" /></div>\n      <div className="yat-splash-swoosh-foreground" aria-hidden="true" />
+      <div className="yat-splash-player" id="yatSplashPlayer" data-school={schoolId} aria-hidden="true"><img alt="" /><div className="yat-splash-player-caption" /></div>
+      <div className="yat-splash-swoosh-foreground" aria-hidden="true" />
       <BallparkLights className="yat-splash-lights" />
       <div className="yat-splash-place yat-splash-place-lockup">
         <span className="yat-splash-glow" />
