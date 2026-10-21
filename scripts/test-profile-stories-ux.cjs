@@ -18,6 +18,10 @@ assert.ok(positions.every((n,i) => n >= 0 && (i === 0 || n > positions[i-1])), '
 assert.match(jsx,/openStoryDrawer\(\{ playerId, year: null \}, storyOpenOwner\)/,'Story toolbar opens real player-scoped upload drawer');
 assert.doesNotMatch(jsx,/>\s*Teammates\s*</i,'No visible Teammates label');
 assert.doesNotMatch(bar,/yat-profile-memory-cta|openStoryDrawer/,'Upload CTA does not return to school header');
+const storyApi = read('src/app/api/stories/route.ts');
+assert.match(storyApi, /const expectedCutout = full/, 'Approved annual images derive their canonical transparent cutout after publishing');
+assert.match(storyApi, /cutout: storyAssetUrl\(recordedCutout \|\| expectedCutout\)/, 'Annual cutouts remain visible when approval metadata did not include them');
+assert.match(timeline, /src=\{useCut \? photo.cutout \|\| photo.web : photo.web\}/, 'Missing cutout keeps original photo fallback');
 assert.match(timeline,/webCutoutUrl\('then', playerId\)/,'Primary HS front cutout retained');
 assert.match(timeline,/webCutoutUrl\('back', playerId\)/,'Secondary image prefers action cutout');
 assert.match(timeline,/players\/back-card\//,'Falls back to actual card-back action photo');
