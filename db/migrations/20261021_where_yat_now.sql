@@ -1,4 +1,4 @@
--- WHERE YAT NOW THESE DAYS? Free alumni update submissions.
+-- WHERE YAT NOW? Free alumni update submissions.
 -- The submission, including optional photo, is private until review.
 CREATE TABLE IF NOT EXISTS public.alumni_where_yat_now (
   id bigserial PRIMARY KEY,
