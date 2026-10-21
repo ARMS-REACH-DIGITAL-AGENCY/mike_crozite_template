@@ -1505,7 +1505,7 @@ export default function AccountDrawerContent({ subdomain, initialTab }: AccountD
                 <img
                   src="/img/yatstats-guided-tour-roles.webp"
                   alt="Welcome to YAT?STATS! Select your role in the baseball world."
-                  loading="lazy"
+                  loading="eager"
                   onLoad={() => setTourGraphicLoaded(true)}
                   onError={() => setTourGraphicLoaded(false)}
                 />
