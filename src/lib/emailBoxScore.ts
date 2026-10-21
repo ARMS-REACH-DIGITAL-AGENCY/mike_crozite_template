@@ -79,50 +79,69 @@ const obp = (s: LedgerStats) => {
   return den ? (s.h + s.bb + s.hbp) / den : 0;
 };
 const slg = (s: LedgerStats) => s.ab ? (s.h + s.doubles + 2*s.triples + 3*s.hr)/s.ab : 0;
+// The Stat Ledger drawer's columns, less the ones the game logs can't fill
+// (OPS+, FIP-, FIP and club W-L were always an em dash here).
+const BAT_COLS = ['AB','H','2B','3B','HR','BB','HBP','SF','OBP','SLG','OPS'];
+const PIT_COLS = ['W-L','IP','H','R','ER','HR','BB','HBP','K','WHIP','K/BB'];
+const WIDE = new Set(['OBP','SLG','OPS','WHIP','K/BB','W-L','IP']);
 function batterCells(s: LedgerStats): string[] {
-  // OPS+ and club W-L are not in the recorded player game logs; never invent them.
-  return ['—','—',s.ab,s.h,s.doubles,s.triples,s.hr,s.bb,s.hbp,s.sf,rate(obp(s)),rate(slg(s)),rate(obp(s)+slg(s))].map(String);
+  return [s.ab,s.h,s.doubles,s.triples,s.hr,s.bb,s.hbp,s.sf,rate(obp(s)),rate(slg(s)),rate(obp(s)+slg(s))].map(String);
 }
 function pitcherCells(s: LedgerStats): string[] {
   const ip = s.outs/3;
   const whip = ip ? (s.h+s.bb)/ip : 0;
   const kbb = s.bb ? (s.k/s.bb) : 0;
-  // FIP- and FIP are absent from these individual real-game records.
-  return ['—',s.w+'-'+s.l,innings(s.outs),s.h,s.r,s.er,s.hr,s.bb,s.hbp,s.k,rate(whip),kbb.toFixed(2),'—'].map(String);
+  return [s.w+'-'+s.l,innings(s.outs),s.h,s.r,s.er,s.hr,s.bb,s.hbp,s.k,whip.toFixed(2),kbb.toFixed(2)].map(String);
 }
 function pitcherRole(p: LedgerPlayer) {
   return Boolean(p.is_pitcher) || /^(P|LHP|RHP|PITCHER)$/.test(String(p.position||'').trim().toUpperCase());
 }
-const headStyle='background:#006e47;color:#fff;font:bold 10px Arial,sans-serif;white-space:nowrap;text-align:right;padding:8px 3px;border-right:1px solid rgba(255,255,255,.12)';
-const cellStyle='color:#1d2822;font:11px Arial,sans-serif;white-space:nowrap;text-align:right;padding:7px 3px;border-bottom:1px solid #d9e2dc';
-function ledgerTable(label:'BATTERS'|'PITCHERS', players: LedgerPlayer[], logs: Map<string, LedgerGameLog[]>) {
-  const batting=label==='BATTERS';
-  const cols=batting
-    ? ['OPS+','W-L','AB','H','2B','3B','HR','BB','HBP','SF','OBP','SLG','OPS']
-    : ['FIP-','W-L','IP','H','R','ER','HR','BB','HBP','K','WHIP','K/BB','FIP'];
-  const entries=players.map(p=>({p,stats:aggregate(logs.get(String(p.playerid))||[],batting?'batting':'pitching')}));
-  const total=sum(entries.map(x=>x.stats));
-  const th=(val:string,first=false)=>'<th style="'+headStyle+(first?';text-align:left;min-width:134px':'')+'">'+htmlSafe(val)+'</th>';
-  const row=(values:string[],name:string,team:string,idx:number,bold=false)=>{
-    const bg=bold?'#e6f0e9':idx%2?'#ffffff':'#f5f8f5';
-    const nameTd='<td style="'+cellStyle+';text-align:left;white-space:normal;min-width:134px"><strong>'+htmlSafe(name)+'</strong>'+
-      (team?'<div style="font:9px Arial;color:#51675c">'+htmlSafe(team)+'</div>':'')+'</td>';
-    return '<tr style="background:'+bg+'">'+nameTd+values.map(v=>'<td style="'+cellStyle+'">'+htmlSafe(v)+'</td>').join('')+'</tr>';
+// The bracket game's Stat Ledger drawer in its light theme: white panel,
+// light green header rows with yellow labels and rounded ends, thin grey
+// rules, tabular numbers, every column narrow enough to fit a phone.
+const C = { page:'#f4f4f4', panel:'#ffffff', line:'#e1e4e8', text:'#121212', muted:'#5f6670', green:'#2e8b5f', yellow:'#ffd34f', dark:'#1f6b45' };
+const FONT = 'Arial,Helvetica,sans-serif';
+// Single quotes: these go inside style="..." attributes.
+const COND = "'Arial Narrow','Roboto Condensed',Arial,Helvetica,sans-serif";
+const pill = (text: string) => '<div style="margin:0 0 8px;padding:7px 10px 6px;border-radius:5px;background:'+C.green+';color:'+C.yellow+';font:700 13px/1.2 '+COND+';letter-spacing:.04em;text-transform:uppercase">'+text+'</div>';
+type Played = { p: LedgerPlayer; stats: LedgerStats };
+function ledgerTable(label:'BATTERS'|'PITCHERS', rows: Played[]) {
+  if (!rows.length) return '';
+  const batting = label === 'BATTERS';
+  const cols = batting ? BAT_COLS : PIT_COLS;
+  const th = (val: string, i: number) => {
+    const first = i === 0, last = i === cols.length;
+    const radius = first ? 'border-radius:5px 0 0 5px;' : last ? 'border-radius:0 5px 5px 0;' : '';
+    return '<th style="'+radius+'background:'+C.green+';color:'+C.yellow+';font:700 '+(first?'11':'9.5')+'px/1 '+COND+';padding:6px '+(first?'6px':'0')+';text-align:'+(first?'left':'center')+';white-space:nowrap'+(first?'':';width:'+(WIDE.has(val)?29:val==='HBP'?21:18)+'px')+'">'+htmlSafe(val)+'</th>';
   };
-  return '<div style="margin:12px 0 22px"><div style="background:#005735;color:#fff;font:bold 13px Arial;padding:9px 10px;letter-spacing:1px">'+label+'</div>'+
-    '<div style="width:100%;overflow-x:auto"><table role="table" cellspacing="0" cellpadding="0" width="100%" style="min-width:710px;border-collapse:collapse;table-layout:fixed">'+
-    '<thead><tr>'+th(label,true)+cols.map(c=>th(c)).join('')+'</tr></thead><tbody>'+
-    entries.map(({p,stats},i)=>row(batting?batterCells(stats):pitcherCells(stats),
-      String(p.display_name||p.name||p.playerid),String(p.current_team_name||''),i)).join('')+
-    row(batting?batterCells(total):pitcherCells(total),label+' TOTAL','',entries.length,true)+
-    '</tbody></table></div></div>';
+  const td = (v: string, bold: boolean) => '<td style="padding:6px 0;text-align:center;border-bottom:1px solid '+C.line+';color:'+C.text+';font:'+(bold?'700 ':'')+'11px/1.2 '+FONT+';white-space:nowrap">'+htmlSafe(v)+'</td>';
+  const nameTd = (name: string, team: string) => '<td style="padding:6px 4px 6px 6px;text-align:left;border-bottom:1px solid '+C.line+';color:'+C.text+'">'+
+    '<div style="font:700 12px/1.2 '+FONT+'">'+htmlSafe(name)+'</div>'+
+    (team ? '<div style="font:10px/1.25 '+FONT+';color:'+C.muted+'">'+htmlSafe(team)+'</div>' : '')+'</td>';
+  const cells = (st: LedgerStats) => batting ? batterCells(st) : pitcherCells(st);
+  const body = rows.map(({ p, stats }) => '<tr>'+nameTd(String(p.display_name||p.name||p.playerid).trim(), String(p.current_team_name||'').trim())+cells(stats).map((v) => td(v, false)).join('')+'</tr>').join('');
+  const total = rows.length > 1
+    ? '<tr>'+'<td style="padding:6px 4px 6px 6px;text-align:left;color:'+C.text+';font:700 11px/1.2 '+COND+';text-transform:uppercase">'+label+' total</td>'+cells(sum(rows.map((r) => r.stats))).map((v) => td(v, true)).join('')+'</tr>'
+    : '';
+  return '<table role="table" cellspacing="0" cellpadding="0" border="0" width="100%" style="width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;margin:0 0 14px;font-variant-numeric:tabular-nums">'+
+    '<thead><tr>'+[label, ...cols].map(th).join('')+'</tr></thead><tbody>'+body+total+'</tbody></table>';
 }
-function section(name:string,players:LedgerPlayer[],logs:Map<string,LedgerGameLog[]>) {
-  const bat=players.filter(p=>!pitcherRole(p)||p.is_two_way_2026);
-  const pit=players.filter(p=>pitcherRole(p)||p.is_two_way_2026);
-  return '<section style="margin:18px 0"><div style="background:#173e30;color:#fff;padding:12px 10px;font:bold 16px Arial,sans-serif">'+
-    htmlSafe(name)+' <span style="color:#e1c55b;font:12px Arial">('+players.length+' players)</span></div>'+
-    ledgerTable('BATTERS',bat,logs)+ledgerTable('PITCHERS',pit,logs)+'</section>';
+function section(title: string, players: LedgerPlayer[], logs: Map<string, LedgerGameLog[]>) {
+  const has = (p: LedgerPlayer, type: 'batting' | 'pitching') => (logs.get(String(p.playerid)) || []).some((l) => l.stat_type === type);
+  const lines = (type: 'batting' | 'pitching') => players
+    .filter((p) => has(p, type))
+    .map((p) => ({ p, stats: aggregate(logs.get(String(p.playerid)) || [], type) }));
+  const bat = lines('batting'), pit = lines('pitching');
+  // Everyone on the roster is still named: the ones without a game that day
+  // in one quiet line instead of a table of zeros.
+  const idle = players.filter((p) => !has(p, 'batting') && !has(p, 'pitching'))
+    .map((p) => String(p.display_name || p.name || p.playerid).trim()).filter(Boolean);
+  const none = !bat.length && !pit.length;
+  return '<div style="margin:0 0 22px">'+pill(title)+
+    (none ? '<div style="padding:4px 2px 10px;color:'+C.text+';font:13px/1.4 '+FONT+'">No games played.</div>' : '')+
+    ledgerTable('BATTERS', bat)+ledgerTable('PITCHERS', pit)+
+    (idle.length ? '<div style="padding:2px 2px 0;color:'+C.muted+';font:11px/1.45 '+FONT+'"><b style="color:'+C.text+'">No game:</b> '+idle.map(htmlSafe).join(', ')+'</div>' : '')+
+    '</div>';
 }
 export function renderAlumniStatsEmail(input:{
   date:string;schoolName:string;schoolLocation?:string;
@@ -134,17 +153,18 @@ export function renderAlumniStatsEmail(input:{
     indexed.set(id,[...(indexed.get(id)||[]),log]);
   }
   const dateLabel=new Date(input.date+'T12:00:00Z').toLocaleDateString('en-US',{timeZone:'UTC',weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  return '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>'+
-    '<body style="margin:0;padding:0;background:#f0f1ed">'+
-    '<div style="max-width:820px;margin:0 auto;background:#fff;color:#19241e;font-family:Arial,sans-serif">'+
-    '<div style="background:#151715;text-align:center;padding:20px 10px;color:#fff">'+
-    '<div style="font:bold 15px Georgia,serif;letter-spacing:2px">YAT?STATS</div>'+
-    '<h1 style="margin:6px 0;font:bold 25px Georgia,serif">THE ALUMNI DAILY</h1>'+
-    '<div style="font:12px Arial;color:#d5dfd8">'+htmlSafe(dateLabel)+'</div></div>'+
-    '<div style="padding:10px 12px 18px"><p style="font:12px Arial;margin:12px 0">REAL GAME STATS &bull; FULL ALUMNI ROSTER &bull; YOUR SUPER FAN FAVORITES</p>'+
-    section(input.schoolName+(input.schoolLocation?' | '+input.schoolLocation:''),input.home,indexed)+
-    (input.favorites.length?section('SUPER FAN CROSS-SCHOOL FAVORITES',input.favorites,indexed):'')+
-    '<p style="color:#56665b;font:11px Arial">Every roster member is shown even when no game was recorded (zeros). OPS+, FIP-, FIP and club W-L display an em dash when the official game-log source does not supply them. Pitcher W-L records are individual decisions.</p>'+
-    (input.schoolUrl?'<p style="font:12px Arial"><a style="color:#006e47" href="'+htmlSafe(input.schoolUrl)+'">View '+htmlSafe(input.schoolName)+' on YAT?STATS</a></p>':'')+
+  const school = input.schoolName+(input.schoolLocation?' | '+input.schoolLocation:'');
+  return '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head>'+
+    '<body style="margin:0;padding:0;background:'+C.page+'">'+
+    '<div style="max-width:600px;margin:0 auto;background:'+C.panel+';color:'+C.text+';font-family:'+FONT+'">'+
+    '<div style="padding:18px 12px 12px;border-bottom:3px solid '+C.green+'">'+
+    '<div style="font:700 12px/1 '+COND+';letter-spacing:.12em;color:'+C.dark+'">YAT?STATS</div>'+
+    '<div style="margin:5px 0 3px;font:700 24px/1.1 '+COND+';letter-spacing:.02em;color:'+C.text+'">THE ALUMNI DAILY</div>'+
+    '<div style="font:12px/1.3 '+FONT+';color:'+C.muted+'">'+htmlSafe(dateLabel)+'</div></div>'+
+    '<div style="padding:14px 8px 18px">'+
+    section(htmlSafe(school), input.home, indexed)+
+    (input.favorites.length ? section('Your favorites', input.favorites, indexed) : '')+
+    (input.schoolUrl ? '<div style="padding:4px 2px 0"><a href="'+htmlSafe(input.schoolUrl)+'" style="display:inline-block;padding:10px 14px;border-radius:5px;background:'+C.green+';color:'+C.yellow+';font:700 12px/1 '+COND+';letter-spacing:.05em;text-decoration:none;text-transform:uppercase">See '+htmlSafe(input.schoolName)+' on YAT?STATS</a></div>' : '')+
+    '<p style="margin:14px 2px 0;color:'+C.muted+';font:10px/1.4 '+FONT+'">Real game stats from yesterday&#39;s box scores. Pitcher W-L are individual decisions.</p>'+
     '</div></div></body></html>';
 }
