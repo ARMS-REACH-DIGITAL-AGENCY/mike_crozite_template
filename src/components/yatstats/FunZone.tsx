@@ -737,9 +737,14 @@ export default function FunZone({
     scheduleRequested.current = true;
     const controller = new AbortController();
     setScheduleLoading(true);
-    fetch(`/api/player-seven-day-snapshot/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}&slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
+    fetch(`/card-game-log/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}&slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error('Schedule unavailable'); return response.text(); })
-      .then((html) => setLoadedSchedule(html))
+      .then((html) => {
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        const snapshot = parsed.querySelector('.yat-snap');
+        if (!snapshot) throw new Error('Schedule markup missing');
+        setLoadedSchedule(snapshot.outerHTML);
+      })
       .catch(() => { setScheduleError(true); scheduleRequested.current = false; })
       .finally(() => setScheduleLoading(false));
     return () => controller.abort();
