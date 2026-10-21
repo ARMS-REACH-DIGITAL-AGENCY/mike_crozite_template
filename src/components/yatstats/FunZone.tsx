@@ -32,6 +32,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { installFunZoneSwipe } from "./funZoneSwipe";
+import { openWhereYatNow } from "./WhereYatNowDrawer";
 
 // Constants
 
@@ -725,13 +726,14 @@ export default function FunZone({
   scheduleSnapshot,
   lazySchedulePlayerId,
 }: FunZoneProps) {
+  const retiredPlayer = /\bRETIRED\b/i.test(String(player.status_label || player.status || ""));
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [loadedSchedule, setLoadedSchedule] = useState<string | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState(false);
   const scheduleRequested = useRef(false);
   useEffect(() => {
-    if (activeTab !== 'schedule' || !lazySchedulePlayerId || scheduleSnapshot || scheduleRequested.current) return;
+    if (activeTab !== 'schedule' || retiredPlayer || !lazySchedulePlayerId || scheduleSnapshot || scheduleRequested.current) return;
     const card = rootRef.current?.closest<HTMLElement>('.yat-card');
     if (!card?.classList.contains('is-flipped')) return;
     scheduleRequested.current = true;
@@ -814,7 +816,9 @@ export default function FunZone({
   // the script's own logic, but lets the browser jump straight to the card
   // via native same-page anchor behavior even before any JS has run.
   const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/?view=${isAllTime ? "alltime" : "active"}&player=${encodeURIComponent(imageId)}${slug ? `&name=${encodeURIComponent(slug)}` : ""}#player-${encodeURIComponent(imageId)}`;
-  const ctaText = getCta(activeTab, firstName);
+  const ctaText = retiredPlayer && activeTab === "schedule"
+    ? `Where YAT now these days, ${firstName}? Share a free alumni update.`
+    : getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
   void isPitcher;
@@ -826,7 +830,9 @@ export default function FunZone({
         1. CTA strip - YaTi (left) + speech bubble (right)
            flex-shrink:1 - yields padding before the content panel.
       */}
-      <YatiCta ctaText={ctaText} profileHref={profileHref} />
+      {retiredPlayer && activeTab === "schedule" ?
+        <div className="fz-cta-strip"><img src={YATI_MASCOT_URL} className="fz-yati-img" alt="" /><div className="fz-bubble">{ctaText}</div></div>
+        : <YatiCta ctaText={ctaText} profileHref={profileHref} />}
 
       {/*
         2. Content panels - flex:1 min-height:0
@@ -844,7 +850,16 @@ export default function FunZone({
         className={`fz-panel${activeTab === "schedule" ? " fz-panel-active" : ""}`}
         data-fz-tab="schedule"
       >
-        {lazySchedulePlayerId ? (
+        {retiredPlayer ? (
+          <div className="fz-where-yat" style={{ padding: '9px', textAlign: 'center', fontFamily: 'Oswald,sans-serif' }}>
+            <h3 style={{ fontSize: 'clamp(16px,5cqi,24px)', marginBottom: 9 }}>WHERE YAT NOW THESE DAYS?</h3>
+            <p style={{ fontSize: 'clamp(10px,3cqi,14px)', marginBottom: 12 }}>Tell former teammates, coaches and fans what life looks like after baseball.</p>
+            <button type="button" onClick={() => openWhereYatNow({playerId: imageId, hsid: resolvedHsid, name: displayName})}
+              style={{ background: '#145a3c', color: '#fff', border: 0, borderRadius: 3, padding: '8px 12px', fontWeight: 800, cursor: 'pointer' }}>
+              SHARE YOUR UPDATE →
+            </button>
+          </div>
+        ) : lazySchedulePlayerId ? (
           loadedSchedule ? <div dangerouslySetInnerHTML={{ __html: loadedSchedule }} /> :
           <div className="fz-placeholder"><i className="ri-calendar-line fz-ph-icon" /><div className="fz-ph-text">{scheduleLoading ? 'Loading game log…' : scheduleError ? 'Game log unavailable. Open the player profile.' : 'Open Game Log to load the schedule.'}</div></div>
         ) : <SchedulePanel scheduleSnapshot={scheduleSnapshot} />}
@@ -922,7 +937,7 @@ export default function FunZone({
             type="button"
           >
             <i className={tab.icon} aria-hidden="true" />
-            <span className="fz-tab-label">{tab.label}</span>
+            <span className="fz-tab-label">{retiredPlayer && tab.id === "schedule" ? "WHERE YAT?" : tab.label}</span>
           </button>
         ))}
       </nav>
