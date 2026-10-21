@@ -113,4 +113,7 @@ export async function fallbackPlayerProfileImage(hsid: string, playerId: string,
     {
       ...imageSize,
       headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400' },
-    },\n  );\n  return Buffer.from(await result.arrayBuffer());\n}\n
+    },
+  );
+  return Buffer.from(await result.arrayBuffer());
+}
