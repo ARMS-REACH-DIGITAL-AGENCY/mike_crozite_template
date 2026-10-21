@@ -365,19 +365,16 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                   <div className="ysf-card" id={`story-${s.id}`}>
                   <button type="button" className="ysf-card-open" onClick={() => show(s)} aria-label={`Open ${s.author}'s story from ${fullWhenLabel(s)}`}>
                     <span className="ysf-card-when">{fullWhenLabel(s)}</span>
-                    <span className="ysf-card-row">
-                      <span className={`ysf-card-photo${cover?.logo ? ' ysf-card-photo-logo' : ''}`}>
-                        {cover?.thumb || cover?.web ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
-                        ) : null}
-                        {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
+                    {cover?.full || cover?.web ? (
+                      <span className={`ysf-card-image${cover?.logo ? ' ysf-card-image-logo' : ''}`}>
+                        {/* The whole photograph is visible before its story at any width. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={cover.full || cover.web || ''} alt="" loading="lazy" decoding="async" />
+                        {s.photos.length > 1 && <span className="ysf-card-count">{s.photos.length} photos</span>}
                       </span>
-                      <span className="ysf-card-body">
-                        <span className="ysf-card-text">{s.story}</span>
-                        <span className="ysf-card-by">By {s.author}</span>
-                      </span>
-                    </span>
+                    ) : null}
+                    <span className="ysf-card-text">{s.story}</span>
+                    <span className="ysf-card-by">By {s.author}</span>
                   </button>
                   {/* Photos others added from the same moment. */}
                   <AlbumStrip story={s} onOpen={(i) => show(s, i)} />
@@ -491,16 +488,18 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-sort button { border-radius:6px !important; }
         @media(max-width:410px){.ysf-add-btn{font-size:10px;padding:7px 6px;gap:6px}.ysf-tm-btn{min-width:60px}}
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
-        .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
-        .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
-        .ysf-photos-1 .ysf-photos-item img { height: auto; max-height: 560px; object-fit: contain; margin: 0 auto; }
+        .ysf-photos-item { min-width:0; display:grid; place-items:center; padding:0; border:0; background:#101010; cursor:zoom-in; overflow:hidden; }
+        .ysf-photos-item img { display:block; width:auto; height:auto; max-width:100%; max-height:min(70dvh,760px); object-fit:contain; object-position:center; }
+        .ysf-photos-1 .ysf-photos-item { width:100%; min-height:0; }
+        .ysf-photos-1 .ysf-photos-item img { width:auto; height:auto; max-width:100%; max-height:min(75dvh,760px); object-fit:contain; margin:auto; }
         /* A Draft Day story's club logo: whole, on a light panel. */
         .ysf-photos-logo .ysf-photos-item { background: #f4f1ea; padding: 28px 0; }
         .ysf-photos-logo .ysf-photos-item img { max-height: 200px; }
         .ysf-photos-2 { grid-template-columns: 1fr 1fr; }
         .ysf-photos-2 .ysf-photos-item { aspect-ratio: 1; }
-        .ysf-photos-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 260px 200px; }
-        .ysf-photos-3 .ysf-photos-item:first-child { grid-column: 1 / -1; }
+        .ysf-photos-3 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .ysf-photos-3 .ysf-photos-item { aspect-ratio:4/3; }
+        .ysf-photos-3 .ysf-photos-item:first-child { grid-column:1 / -1; aspect-ratio:16/10; }
         .ysf-photos-4 { grid-template-columns: 1fr 1fr; }
         .ysf-photos-4 .ysf-photos-item { aspect-ratio: 4 / 3; }
         /* The date on its own line at the top left; under it the photo and
@@ -525,9 +524,14 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
         .ysf-card-photo-logo { background: #f4f1ea; }
         .ysf-card-photo-logo img { object-fit: contain; object-position: center; padding: 8px; box-sizing: border-box; }
+        .ysf-card-image { position:relative; display:grid; place-items:center; width:100%; min-width:0; max-height:70dvh; background:#101010; overflow:hidden; }
+        .ysf-card-image img { display:block; width:auto; height:auto; max-width:100%; max-height:70dvh; object-fit:contain; object-position:center; }
+        .ysf-card-image-logo { background:#f4f1ea; }
+        .ysf-card-image-logo img { max-height:220px; }
+
         .ysf-card-count { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 2px 0; text-align: center; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 var(--yat-font-ui, Arial, sans-serif); letter-spacing: .01em; text-transform: uppercase; }
         .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
-        .ysf-card-text { color: var(--ysf-text); font: 400 13px/1.4 var(--yat-news-font, Georgia, serif); margin-top: -.15em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+        .ysf-card-text { color:var(--ysf-text); font:400 13px/1.4 var(--yat-news-font,Georgia,serif); margin:6px 2px 2px; display:block; white-space:pre-line; overflow-wrap:anywhere; }
         .ysf-card-by { color: var(--ysf-muted); font: 600 10px/1.2 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; text-transform: uppercase; }
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
