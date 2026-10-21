@@ -1623,13 +1623,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
 
   const openMoment = openMomentId ? model.slides.find((slide) => slide.id === openMomentId) || null : null;
   const activeIndex = clamp(Math.round(scrollProgress), 0, Math.max(0, model.slides.length - 1));
-  // Not on phones, and not on the anchor (the opening screen keeps the
-  // years; the grad year's months are on its own slide just before it).
+  // The selected calendar year is available even on the opening anchor
+  // and draft slides. A visible Months control must work on every slide.
   const activeSlide = model.slides[activeIndex];
-  // The draft slide keeps the years too: it's one day, not a year.
   const monthRailYear = preview && ready && previewTargetIndex >= 0
     ? preview.year
-    : railMode === 'months' && ready && !isPhone && activeSlide && activeSlide.kind !== 'anchor' && activeSlide.kind !== 'draft'
+    : railMode === 'months' && ready && !isPhone && activeSlide
       ? activeSlide.year
       : null;
   // The closing January 1st after the last screen (futureYear + 1).
