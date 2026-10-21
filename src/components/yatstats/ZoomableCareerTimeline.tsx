@@ -2825,8 +2825,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            frame instead: bottom matches .zt-rail's own bottom+half its
            height, right sits in the gap between the rail's own right
            edge and .zt-nav-next beside it. Not a button, so no hover/
-           active state to style. */
-        .zt-rail-tick-boundary { top:auto; bottom:18px; left:auto; right:12px; margin-left:0; transform:none; cursor:default; }
+           active state to style. z-index above the rail's own 6 (its gold
+           track runs under this dot) and above the hero layers, which
+           otherwise painted over both the dot and its year. */
+        .zt-rail-tick-boundary { z-index:7; top:auto; bottom:18px; left:auto; right:12px; margin-left:0; transform:none; cursor:default; }
         /* The rail ends one tick-step before that closing point (k steps
            of the rail plus this one share the 24px-inset width), and the
            gold track runs on through to it. */
