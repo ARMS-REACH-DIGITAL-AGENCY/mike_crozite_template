@@ -236,8 +236,24 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const safePlayerId = String(playerId);
-  // Hamilton's school Instagram account is displayed on current coach Greg Bordes's profile.
-  const isHamiltonCoachInstagramProfile = hsid === '5004' && safePlayerId === 'YAT000073';
+  // A coach profile may show the school's official Instagram account.
+  // Resolve ownership by player role, requested school and an active school
+  // source; never identify a profile by its player ID or hardcode a school.
+  const coachAtSchool = String(player.status_label || '').trim().toUpperCase() === 'COACH'
+    && String(player.hsid || '') === String(hsid);
+  const schoolInstagramFeed: { hsid: string; name: string } | undefined = coachAtSchool
+    ? await query<{ school_name: string | null }>(
+        `SELECT NULLIF(TRIM(t.hsname), '') AS school_name
+           FROM public.social_sources s
+           LEFT JOIN public.tbc_schools_raw t ON t.hsid::text = s.hsid
+          WHERE s.hsid = $1 AND s.owner_type = 'school'
+            AND s.platform = 'instagram' AND s.status = 'active'
+          LIMIT 1`,
+        [String(hsid)],
+      ).then(({ rows }) => rows.length
+        ? { hsid: String(hsid), name: rows[0].school_name || 'School Baseball' }
+        : undefined).catch(() => undefined)
+    : undefined;
 
   const playerNewsFullName = [player.firstname, player.lastname]
     .map((value: unknown) => String(value || "").trim())
@@ -989,7 +1005,7 @@ export default async function ProfilePage({ params }: Props) {
           <PlayerInstagramFeed
             playerId={safePlayerId}
             firstName={firstName}
-            schoolFeed={isHamiltonCoachInstagramProfile ? { hsid: '5004', name: 'Hamilton Baseball' } : undefined}
+            schoolFeed={schoolInstagramFeed}
           />
           <div className="pp-social-signoff">
             <span>#YATABOY</span> <span>Show some love for {firstName}!</span>
@@ -1015,7 +1031,7 @@ export default async function ProfilePage({ params }: Props) {
                 <i className="ri-instagram-line" /> @{igHandle}
               </a>
             )}
-            {!xHandle && !igHandle && !isHamiltonCoachInstagramProfile && (
+            {!xHandle && !igHandle && !schoolInstagramFeed && (
               <div className="pp-fz-placeholder">
                 <i className="ri-share-line pp-ph-icon" />
                 <p>Social links will appear here once available.</p>
