@@ -176,8 +176,8 @@ export default function PlayerInstagramFeed({ playerId, firstName }: { playerId:
         .pp-ig-head a { font:500 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--fg,#ddd); text-decoration:none; white-space:nowrap; }
         .pp-ig-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px; }
         @media (min-width:700px){ .pp-ig-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
-        .pp-ig-tile { position:relative; display:block; aspect-ratio:1/1; overflow:hidden; background:rgba(128,128,128,.15); border:0; padding:0; margin:0; cursor:pointer; }
-        .pp-ig-tile img { width:100%; height:100%; object-fit:cover; display:block; }
+        .pp-ig-tile { position:relative; display:block; aspect-ratio:4/5; overflow:hidden; background:rgba(128,128,128,.15); border:0; padding:0; margin:0; cursor:pointer; }
+        .pp-ig-tile img { width:100%; height:100%; object-fit:contain; display:block; }
         .pp-ig-viewer { position:fixed; inset:0; z-index:10050; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.86); padding:48px 56px; }
         .pp-ig-frame { width:min(480px,100%); height:min(820px,100%); background:#fff; border-radius:8px; overflow:hidden; }
         .pp-ig-frame iframe { width:100%; height:100%; border:0; display:block; }
