@@ -30,7 +30,7 @@ const SECTION_BOOTSTRAP =
 // The school splash (SchoolSplash, sent by the school layout before any
 // roster loads). Two modes, decided per person before the first paint:
 // - full, for someone new to YAT?STATS: the logo slides in from the right,
-//   the crest from the left, then they shine; at least 1.6s;
+//   the crest from the left, then they shine; sponsor enters 2.2s after the splash mounts;\n//   allow at least 5.5s for the brand-and-sponsor sequence;
 // - no splash for anyone returning within 30 days (shared yat_seen cookie).
 //   Normal navigation waits for the destination without a takeover overlay.
 // On exit the splash slides right, revealing the already-loaded school
@@ -38,7 +38,7 @@ const SECTION_BOOTSTRAP =
 // when the browser allows it - usually only once the visitor has tapped.
 // ?splash=... in the address forces the full one (to show it off, or test).
 // Ready = 'yat:page-ready' (the gallery strip) or, on pages without a
-// gallery, the load event; never longer than 8s. The splash is driven
+// gallery, the load event; fallback readiness at 8s, finish by 9s\n// after the splash is mounted if the sponsor is slow. The splash is driven
 // through one <style> in <head> (React leaves those alone), never by
 // touching the element; its rules start with "html " to outrank the
 // splash's own.
@@ -62,13 +62,32 @@ var flip=function(){
 if(!RM&&d.startViewTransition){sound();var v=d.createElement('style');v.textContent=FLIP;d.head.appendChild(v);
 try{d.startViewTransition(function(){set(OFF);}).finished.then(function(){v.remove();},function(){v.remove();});}catch(e){set(OFF);v.remove();}return;}
 if(!RM)sound();set((seen?QUICK:'')+EXIT);setTimeout(function(){set(OFF);},600);};
-var t0=Date.now(),ready=false,shown=!seen;
+var t0=Date.now(),ready=false,shown=!seen,leaving=false;
 // Returning visitors must never re-show the opener as a loading overlay.
 if(seen){set(OFF);return;}
+// Measure the minimum display from the splash's first paint, NOT from
+// head/bootstrap execution: school data can stream in after the head.
+var tryExit=function(){
+ if(leaving)return;
+ var splash=d.getElementById('yatSplash'),now=Date.now();
+ if(!splash){
+  if(now-t0<12000){setTimeout(tryExit,250);return;}
+  set(OFF);return;
+ }
+ var mounted=Number(splash.getAttribute('data-yat-mounted-at'))||t0;
+ var sponsorAt=Number(splash.getAttribute('data-yat-sponsor-at'))||0;
+ // 2.2s logo-only, then enough time to read the sponsor. Never block
+ // beyond 9s after mount for a missing or slow sponsor image.
+ var earliest=Math.max(mounted+5500,sponsorAt?sponsorAt+2200:0);
+ var leaveAt=Math.min(earliest,mounted+9000);
+ if(now<leaveAt){setTimeout(tryExit,Math.min(350,leaveAt-now));return;}
+ leaving=true;flip();
+};
 var lift=function(){if(forced||ready)return;ready=true;
-if(!shown){set(OFF);return;}
-setTimeout(flip,seen?0:Math.max(0,1600-(Date.now()-t0)));};
-if(forced){addEventListener('click',function(e){var el=e.target;if(el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){flip();}});return;}
+ if(!shown){set(OFF);return;}
+ tryExit();
+};
+if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;flip();}});return;}
 addEventListener('yat:page-ready',lift);
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);

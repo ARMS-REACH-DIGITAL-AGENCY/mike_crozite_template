@@ -1,0 +1,3 @@
+# Drop one transparent sponsor logo per brand in this folder.
+# Format: lowercase-hyphenated-sponsor-slug.webp (or .png).
+# Associate with many school IDs using Neon sponsor_brands + school_splash_sponsorships.
