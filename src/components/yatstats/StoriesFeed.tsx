@@ -381,6 +381,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                       <i className="ri-share-forward-line" /> Share
                     </button>
                   </div>
+                  </div>
                   {index === Math.min(1, list.length - 1) ? sponsorCard : null}
                 </Fragment>
               );
