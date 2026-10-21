@@ -82,12 +82,12 @@ export default function WhereYatNowDrawer() {
   );
   return createPortal(
     <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 130000, background: 'rgba(0,0,0,.78)' }} onClick={close}>
-      <aside role="dialog" aria-modal="true" aria-label="Where YAT now these days alumni update"
+      <aside role="dialog" aria-modal="true" aria-label="WHERE YAT NOW? alumni update"
         onClick={(e) => e.stopPropagation()}
         style={{ marginLeft: 'auto', width: 'min(100%,490px)', height: '100dvh', overflowY: 'auto', background: '#f5f0e7', color: '#211b14', padding: '18px 20px 45px', boxShadow: '-8px 0 30px #0009', fontFamily: 'Arial,sans-serif' }}>
         <button type="button" onClick={close} aria-label="Close survey" style={{ float: 'right', fontSize: 28, border: 0, background: 'transparent', cursor: 'pointer' }}>×</button>
         <div style={{ color: '#9a732b', fontWeight: 800, fontSize: 12, letterSpacing: '.1em' }}>YAT?STATS · ALUMNI CONNECTION</div>
-        <h2 style={{ fontSize: 25, lineHeight: 1.1, margin: '12px 0' }}>WHERE YAT NOW THESE DAYS?</h2>
+        <h2 style={{ fontSize: 25, lineHeight: 1.1, margin: '12px 0' }}>WHERE YAT NOW?</h2>
         <p style={{ fontSize: 14, lineHeight: 1.5 }}>Help former teammates, coaches, and fans reconnect with {target.name}. This alumni update is free, and submissions are reviewed before appearing on the profile.</p>
         {success ? (
           <div role="status" style={{ marginTop: 30 }}>
