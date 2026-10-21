@@ -3,8 +3,9 @@
 // calendar (iCal) feeds. NAIA, CCCAA and NWAC all run on PrestoSports, which
 // publishes every game the league has entered as one feed (no 500-game cap,
 // unlike the HTML schedule page). Games carry a stable UID; teams are names
-// only, so they reach a card only through college_feed_teams once Pete has
-// approved which of our teamids each feed name is. Nothing here guesses a team.
+// only, so they reach a card only through college_feed_teams, where each feed
+// name is linked to one of our teamids by a lookup in Pete's own team table
+// (linkFeedTeams below) or by Pete. Nothing here guesses a team.
 //
 // NCAA-D1 has no league feed; College Baseball Insider posts each team's
 // schedule as it comes out (see CBI below).
@@ -243,4 +244,67 @@ export function mergeCbiGames(games: FeedGame[]): FeedGame[] {
     if (g.modifiedAt && (!had.modifiedAt || g.modifiedAt > had.modifiedAt)) had.modifiedAt = g.modifiedAt;
   }
   return [...byUid.values()];
+}
+
+// Linking a feed's team names to our teams (Pete, Oct 21 2026): a feed name
+// is one of our teams when it is that team's short name in
+// teamid_universe_mapping, at the feed's level, once both drop a state tag
+// ("Avila (MO)", "St. Francis (IL)") and the words College / University
+// (and their short forms: CC, Col, U). A state tag on the feed name must be
+// the team's own state. A link is made only when exactly one team fits and
+// no other name in the same feed reads the same way; everything else stays
+// unlinked and simply shows no schedule.
+
+const STATES: Record<string, string> = {};
+for (const [state, ...forms] of [
+  ['Alabama', 'al', 'ala'], ['Alaska', 'ak'], ['Arizona', 'az', 'ariz'], ['Arkansas', 'ar', 'ark'],
+  ['California', 'ca', 'cal', 'calif'], ['Colorado', 'co', 'colo'], ['Connecticut', 'ct', 'conn'],
+  ['Delaware', 'de', 'del'], ['DC', 'dc'], ['Florida', 'fl', 'fla'], ['Georgia', 'ga'], ['Hawaii', 'hi'],
+  ['Idaho', 'id'], ['Illinois', 'il', 'ill'], ['Indiana', 'in', 'ind'], ['Iowa', 'ia'], ['Kansas', 'ks', 'kan', 'kans'],
+  ['Kentucky', 'ky'], ['Louisiana', 'la'], ['Maine', 'me'], ['Maryland', 'md'], ['Massachusetts', 'ma', 'mass'],
+  ['Michigan', 'mi', 'mich'], ['Minnesota', 'mn', 'minn'], ['Mississippi', 'ms', 'miss'], ['Missouri', 'mo'],
+  ['Montana', 'mt', 'mont'], ['Nebraska', 'ne', 'neb', 'nebr'], ['Nevada', 'nv', 'nev'], ['New Hampshire', 'nh'],
+  ['New Jersey', 'nj'], ['New Mexico', 'nm'], ['New York', 'ny'], ['North Carolina', 'nc'], ['North Dakota', 'nd'],
+  ['Ohio', 'oh'], ['Oklahoma', 'ok', 'okla'], ['Oregon', 'or', 'ore'], ['Pennsylvania', 'pa'], ['Rhode Island', 'ri'],
+  ['South Carolina', 'sc'], ['South Dakota', 'sd'], ['Tennessee', 'tn', 'tenn'], ['Texas', 'tx', 'tex'], ['Utah', 'ut'],
+  ['Vermont', 'vt'], ['Virginia', 'va'], ['Washington', 'wa', 'wash'], ['West Virginia', 'wv', 'wva'],
+  ['Wisconsin', 'wi', 'wis', 'wisc'], ['Wyoming', 'wy', 'wyo'], ['British Columbia', 'bc'],
+]) for (const f of [state, ...forms]) STATES[f.toLowerCase().replace(/[. ]/g, '')] = state;
+
+/** "Fla." / "FL" / "Florida" -> "Florida"; null when it isn't a state. */
+export function stateName(v: string | null | undefined): string | null {
+  return v ? STATES[v.toLowerCase().replace(/[. ]/g, '')] ?? null : null;
+}
+
+const SCHOOL_WORDS = /\b(?:community college|junior college|college|university|col of|col|cc|u)\b\.?/g;
+
+/** A team name as compared: no state tag, no College / University, any case. */
+export function teamNameKey(name: string): { key: string; state: string | null } {
+  let n = name.trim(), state: string | null = null;
+  const tag = n.match(/\s*\(([^()]+)\)$/);
+  if (tag && stateName(tag[1])) { state = stateName(tag[1]); n = n.slice(0, tag.index); }
+  const key = n.toLowerCase().replace(SCHOOL_WORDS, ' ').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+  return { key, state };
+}
+
+/** Feed name -> teamid, for the names that link (see above). */
+export function linkFeedTeams(feedNames: string[], teams: { teamid: string; shortName: string; location: string | null }[]): Map<string, string> {
+  const byKey = new Map<string, { teamid: string; state: string | null }[]>();
+  for (const t of teams) {
+    const { key, state: tagged } = teamNameKey(t.shortName);
+    // The team's state: from its location ("Kansas City,Missouri"), else its own tag.
+    const state = stateName((t.location || '').split(',').pop()?.trim()) ?? tagged;
+    if (key) byKey.set(key, [...(byKey.get(key) || []), { teamid: t.teamid, state }]);
+  }
+  const feed = feedNames.map((name) => ({ name, ...teamNameKey(name) }));
+  const links = new Map<string, string>();
+  for (const f of feed) {
+    const sameKey = feed.filter((o) => o.key === f.key);
+    // Another name in this feed reads the same: "Bethel" beside "Bethel (KS)",
+    // or "Bethel (IN)" beside "Bethel (Ind.)". Only a state tag tells them apart.
+    if (sameKey.length > 1 && (!f.state || sameKey.some((o) => o !== f && o.state === f.state))) continue;
+    const fits = (byKey.get(f.key) || []).filter((t) => !f.state || t.state === f.state);
+    if (fits.length === 1) links.set(f.name, fits[0].teamid);
+  }
+  return links;
 }

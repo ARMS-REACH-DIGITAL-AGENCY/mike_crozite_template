@@ -6,9 +6,11 @@
 -- stable UID. Teams are the feed's names, as published.
 --
 -- college_feed_teams: each feed name seen, and which of our teamids it is.
--- teamid stays NULL until Pete approves the match (CLAUDE.md: never guess a
--- team, no fuzzy name matching). The nightly job only adds names; it never
--- sets teamid. Separate from teamid_universe_mapping, which stays Pete's own.
+-- The nightly job links a name only when it is, word for word, one team's
+-- short name in teamid_universe_mapping at the feed's level (ignoring a state
+-- tag and the words College / University; Pete, Oct 21 2026), and marks those
+-- rows note = 'auto: same short name'. Rows Pete sets (approved_at) are his.
+-- Separate from teamid_universe_mapping, which stays Pete's own (read only).
 
 CREATE TABLE IF NOT EXISTS public.college_feed_games (
   source           text        NOT NULL,          -- 'naia' | 'cccaa' | 'nwac'
@@ -35,7 +37,7 @@ CREATE INDEX IF NOT EXISTS college_feed_games_home_idx ON public.college_feed_ga
 CREATE TABLE IF NOT EXISTS public.college_feed_teams (
   source        text        NOT NULL,
   feed_name     text        NOT NULL,
-  teamid        text,                             -- set only once Pete approves
+  teamid        text,                             -- NULL until linked
   approved_at   timestamptz,
   note          text,
   first_seen_at timestamptz NOT NULL DEFAULT now(),

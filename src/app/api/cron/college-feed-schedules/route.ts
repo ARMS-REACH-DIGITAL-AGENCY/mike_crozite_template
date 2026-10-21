@@ -1,10 +1,10 @@
 // Nightly: load the NAIA, CCCAA and NWAC league schedule feeds and College
-// Baseball Insider's NCAA-D1 team posts into college_feed_games, and note
-// every team name they use in college_feed_teams (names only; Pete approves
-// which teamid each one is).
+// Baseball Insider's NCAA-D1 team posts into college_feed_games, note every
+// team name they use in college_feed_teams, and link each name to one of our
+// teams where Pete's team table gives exactly one match (linkFeedTeams).
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { CBI, COLLEGE_FEEDS, collegeSeasonKey, collegeSeasonYear, mergeCbiGames, parseCbiPost, parseCollegeFeed, type FeedGame } from '@/lib/collegeFeedSchedules';
+import { CBI, COLLEGE_FEEDS, collegeSeasonKey, collegeSeasonYear, linkFeedTeams, mergeCbiGames, parseCbiPost, parseCollegeFeed, type FeedGame } from '@/lib/collegeFeedSchedules';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,6 +81,37 @@ async function noteTeamNames(source: string, games: FeedGame[]) {
   );
 }
 
+const AUTO_LINK_NOTE = 'auto: same short name';
+
+// Re-links the source's names every night, so a fix in the team table carries
+// through. Leaves alone any name Pete has set himself (approved_at).
+async function linkTeams(source: string, level: string) {
+  const [teams, names] = await Promise.all([
+    query<{ teamid: string; short_name: string; location: string | null }>(
+      `SELECT m.teamid::text AS teamid, m.current_team_short_name AS short_name,
+              coalesce(nullif(btrim(t.locationlong), ''), m.locationlong) AS location
+         FROM public.teamid_universe_mapping m
+         LEFT JOIN public.tbc_college_teams_map_raw t ON t.teamid::text = m.teamid::text
+        WHERE m.level_label = $1 AND nullif(btrim(m.current_team_short_name), '') IS NOT NULL`,
+      [level],
+    ),
+    query<{ feed_name: string }>('SELECT feed_name FROM public.college_feed_teams WHERE source = $1', [source]),
+  ]);
+  const links = linkFeedTeams(
+    names.rows.map((r) => r.feed_name),
+    teams.rows.map((t) => ({ teamid: t.teamid, shortName: t.short_name, location: t.location })),
+  );
+  await query(
+    `UPDATE public.college_feed_teams c
+        SET teamid = d.teamid, note = CASE WHEN d.teamid IS NULL THEN NULL ELSE $3 END
+       FROM jsonb_to_recordset($2::jsonb) AS d(feed_name text, teamid text)
+      WHERE c.source = $1 AND c.feed_name = d.feed_name AND c.approved_at IS NULL
+        AND (c.teamid IS NULL OR c.note = $3) AND c.teamid IS DISTINCT FROM d.teamid`,
+    [source, JSON.stringify(names.rows.map((r) => ({ feed_name: r.feed_name, teamid: links.get(r.feed_name) ?? null }))), AUTO_LINK_NOTE],
+  );
+  return links.size;
+}
+
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get('authorization') !== 'Bearer ' + secret)
@@ -96,8 +127,9 @@ export async function GET(request: NextRequest) {
       const since = await dbNow();
       const loaded = await upsertGames(feed.source, season, games);
       await noteTeamNames(feed.source, games);
+      const linked = await linkTeams(feed.source, feed.level);
       const unlisted = loaded ? await markUnlisted(feed.source, season, since) : 0;
-      results.push({ source: feed.source, season, games: loaded, unlisted });
+      results.push({ source: feed.source, season, games: loaded, linked, unlisted });
     } catch (error) {
       results.push({ source: feed.source, season, error: String(error).slice(0, 160) });
     }
@@ -114,8 +146,9 @@ export async function GET(request: NextRequest) {
     const since = await dbNow();
     const loaded = await upsertGames(CBI.source, season, games);
     await noteTeamNames(CBI.source, games);
+    const linked = await linkTeams(CBI.source, CBI.level);
     const unlisted = loaded ? await markUnlisted(CBI.source, season, since) : 0;
-    results.push({ source: CBI.source, season, posts: posts.length, games: loaded, skippedLines: skipped, unlisted });
+    results.push({ source: CBI.source, season, posts: posts.length, games: loaded, skippedLines: skipped, linked, unlisted });
   } catch (error) {
     results.push({ source: CBI.source, season, error: String(error).slice(0, 160) });
   }
