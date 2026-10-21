@@ -5,6 +5,13 @@ import { query } from '@/lib/db';
 type Tip = { id: string; intake_source: string; matched_playerid: string | null; matched_hsid: string | null; raw_player_name: string | null; article_url: string; notes: string | null };
 type Missing = { id: string; hsid: string; player_name: string; grad_year: number | null; notes: string | null };
 type Outcome = { published: number; review: number; failed: number };
+// Track a completed queue record in the existing append-only audit log, avoiding
+// UPDATE privileges on the publicly writable intake table.
+async function markTip(t:Tip,status:'published'|'needs_review',reason:string) {
+ await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+ VALUES('system:contribution-publisher','contribute_processed',$1,$2,$3::jsonb)`,
+ [t.matched_playerid,t.matched_hsid,JSON.stringify({queue_id:t.id,status,reason})]);
+}
 const handle = (v: string) => v.trim().replace(/^@/, '').replace(/^https?:\/\/(?:www\.)?(?:instagram\.com|x\.com|twitter\.com)\//i,'').replace(/[/?#].*$/,'');
 const clip = (url: string) => /^https:\/\/(?:www\.)?(?:youtube\.com\/watch\?|youtube\.com\/shorts\/|youtu\.be\/|instagram\.com\/(?:p|reel)\/|facebook\.com\/|fb\.watch\/|milb\.com\/)/i.test(url);
 const hash = (s: string) => createHash('sha256').update(s).digest('hex').slice(0,32);
@@ -71,14 +78,14 @@ async function processTip(t:Tip):Promise<boolean> {
 export async function publishPendingContributions(limit=35):Promise<Outcome>{
  const outcome:Outcome={published:0,review:0,failed:0};
  const {rows}=await query<Tip>(`SELECT id::text,intake_source,matched_playerid,matched_hsid,raw_player_name,article_url,notes
- FROM news_tip_queue WHERE status='new' AND intake_source IN ('correction','fan_drawer','manual_seed')
+ FROM news_tip_queue q WHERE q.status='new' AND q.intake_source IN ('correction','fan_drawer','manual_seed') AND NOT EXISTS (SELECT 1 FROM fan_activity fa WHERE fa.action='contribute_processed' AND fa.details->>'queue_id'=q.id::text)
  ORDER BY submitted_at ASC LIMIT $1`,[limit]);
  for(const item of rows){
    try{
      const isCorrection=item.intake_source==='correction';
      const ok=isCorrection ? await processCorrection(item) : await processTip(item);
-     if(ok){await query("UPDATE news_tip_queue SET status='published',error_message=NULL WHERE id=$1 AND status='new'",[item.id]);outcome.published++;}
-     else{await query("UPDATE news_tip_queue SET status='needs_review',error_message='Conflicting/unsupported field or unverified destination' WHERE id=$1 AND status='new'",[item.id]);outcome.review++;}
+     if(ok){await markTip(item,'published','automatically processed');outcome.published++;}
+     else{await markTip(item,'needs_review','Conflicting/unsupported field or unverified destination');outcome.review++;}
    } catch(e){console.error('[contribution-publisher] tip failed',{id:item.id,error:String(e)});outcome.failed++;}
  }
  // New player submissions need a match check and a dedicated stable YAT ID.
@@ -96,7 +103,7 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
      if(dup.rows.length){
        await query("UPDATE missing_player_submission SET processed_status='needs_review',error_message='Potential existing player; resolve identity first' WHERE id=$1",[item.id]);outcome.review++;continue;
      }
-     const playerid='YATC'+item.id.replace(/-/g,'').slice(0,14).toUpperCase();
+     const playerid='YAT'+(BigInt('0x'+item.id.replace(/-/g,'').slice(0,15)) % 1000000000000000n).toString().padStart(15,'0');
      const status=String(fields.status_label||'UNKNOWN').slice(0,40);
      const level=String(fields.level_label||'HIGH SCHOOL').slice(0,40);
      const position=String(fields.position||'').slice(0,20)||null;
