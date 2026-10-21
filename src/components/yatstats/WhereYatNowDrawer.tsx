@@ -30,7 +30,17 @@ export default function WhereYatNowDrawer() {
       document.body.classList.add('drawer-open');
     };
     window.addEventListener(WHERE_YAT_OPEN, handler);
-    return () => window.removeEventListener(WHERE_YAT_OPEN, handler);
+    const onClick = (event: MouseEvent) => {
+      const element = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-where-yat-profile-player]');
+      if (!element) return;
+      event.preventDefault();
+      const playerId = element.dataset.whereYatProfilePlayer || '';
+      const hsid = element.dataset.whereYatProfileSchool || '';
+      const name = element.dataset.whereYatProfileName || 'this alumnus';
+      if (playerId && hsid) window.dispatchEvent(new CustomEvent(WHERE_YAT_OPEN, { detail: { playerId, hsid, name } }));
+    };
+    document.addEventListener('click', onClick);
+    return () => { window.removeEventListener(WHERE_YAT_OPEN, handler); document.removeEventListener("click", onClick); };
   }, []);
 
   const close = () => {
