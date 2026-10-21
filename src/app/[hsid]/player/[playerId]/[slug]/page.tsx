@@ -969,11 +969,14 @@ export default async function ProfilePage({ params }: Props) {
           <div className="yp-profile-partner-columns">
             <div className="yp-profile-partner-body">
               <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} hsid={hsid} />
+              <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
+                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>300 × 250 PX · IN-FEED SPONSOR CARD</small>
+              </aside>
             </div>
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+              <small>300 × 600 PX · STANDARD DESKTOP AD</small>
             </aside>
           </div>
         </div>
@@ -1037,11 +1040,14 @@ export default async function ProfilePage({ params }: Props) {
               </div>
               <p>Active and retired players can invite their fans to connect through personalized video messages.</p>
               <a className="yp-player-video-link" href={`/${hsid}/connect-contribute#cc-connect`}>LEARN ABOUT VIDEO EXCHANGES →</a>
+              <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
+                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>300 × 250 PX · IN-FEED SPONSOR CARD</small>
+              </aside>
             </div>
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+              <small>300 × 600 PX · STANDARD DESKTOP AD</small>
             </aside>
           </div>
         </div>
@@ -1055,7 +1061,7 @@ export default async function ProfilePage({ params }: Props) {
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+              <small>300 × 600 PX · STANDARD DESKTOP AD</small>
             </aside>
           </div>
         </div>
@@ -1078,7 +1084,7 @@ export default async function ProfilePage({ params }: Props) {
           width:min(100%,1290px)!important;
           max-width:1290px!important;
           margin:0 auto!important;
-          grid-template-columns:minmax(0,1fr) clamp(225px,25vw,325px)!important;
+          grid-template-columns:minmax(0,1fr) 300px!important;
           gap:20px!important;
           padding-inline:clamp(8px,2vw,25px);
         }
@@ -1118,7 +1124,7 @@ export default async function ProfilePage({ params }: Props) {
            Never restructure the stats/schedule panels or the timeline. */
         #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
           display:grid;grid-template-columns:minmax(0,1fr) clamp(165px,22vw,235px);
-          align-items:stretch;gap:12px;width:100%;height:100%;min-height:0;
+          align-items:start;gap:20px;width:100%;height:100%;min-height:0;
           background:inherit;
         }
         #playerFunZone .yp-profile-partner-body {
@@ -1158,6 +1164,65 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone .yp-profile-ad small {max-width:33%;font-size:9px;}
         }
 
+        /* Sponsor artwork has a contract, not a flexible container height.
+           A completed 600x1200 source displays at 300x600 with object-fit
+           contain. Keep the content column independently scrollable. */
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {
+          box-sizing:border-box;
+          width:300px!important;
+          max-width:300px!important;
+          height:600px!important;
+          min-height:600px!important;
+          max-height:600px!important;
+          flex:none!important;
+          align-self:start!important;
+          justify-self:end!important;
+          overflow:hidden;
+        }
+        #playerFunZone .yp-profile-ad :is(img,picture,video) {
+          display:block;
+          width:100%;
+          height:100%;
+          object-fit:contain;
+          object-position:center;
+        }
+        #playerFunZone .yp-profile-infeed-ad {display:none;}
+        #playerFunZone :is(.yp-profile-infeed-ad,.yp-stories-feed-ad) {
+          box-sizing:border-box;
+          width:min(100%,300px);
+          aspect-ratio:6/5;
+          min-height:0!important;
+          margin:16px auto;
+          padding:15px;
+          flex-direction:column;
+          align-items:center;
+          justify-content:center;
+          gap:9px;
+          border:1px dashed rgba(170,170,170,.65);
+          border-radius:5px;
+          background:rgba(255,255,255,.035);
+          color:inherit;
+          text-align:center;
+        }
+        #playerFunZone .yp-profile-infeed-ad strong {font:800 18px/1.1 var(--yat-font-compact,Oswald,sans-serif);}
+        #playerFunZone .yp-profile-infeed-ad small {font:600 10px/1.2 var(--yat-font-ui,Arial,sans-serif);opacity:.72;}
+        /* Switch the *placement*, not the creative's aspect ratio, when the
+           available page width shrinks or a persistent side drawer docks. */
+        @media (max-width:1080px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+            grid-template-columns:minmax(0,1fr)!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {display:none!important;}
+          #playerFunZone .yp-profile-infeed-ad,
+          #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
+        }
+        @media (min-width:780px) {
+          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+            grid-template-columns:minmax(0,1fr)!important;
+          }
+          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {display:none!important;}
+          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone .yp-profile-infeed-ad {display:flex!important;}
+        }
         /* Docked right rails consume 360px. Keep the Stories feed readable,
            turn the partner tower into its existing in-feed placement. */
         @media (min-width:780px) {
