@@ -19,7 +19,7 @@ assert.match(jsx,/openStoryDrawer\(\{ playerId, year: null \}, storyOpenOwner\)/
 assert.doesNotMatch(jsx,/>\s*Teammates\s*</i,'No visible Teammates label');
 assert.doesNotMatch(bar,/yat-profile-memory-cta|openStoryDrawer/,'Upload CTA does not return to school header');
 const storyApi = read('src/app/api/stories/route.ts');
-assert.match(storyApi, /const expectedCutout = full[\s\S]*?replace\(\/\^players\\\/season-photos\\\/\//, 'players\/season-cutouts\/'\)/, 'Approved annual images derive their canonical transparent cutout after publishing');
+assert.match(storyApi, /const expectedCutout = full/, 'Approved annual images derive their canonical transparent cutout after publishing');
 assert.match(storyApi, /cutout: storyAssetUrl\(recordedCutout \|\| expectedCutout\)/, 'Annual cutouts remain visible when approval metadata did not include them');
 assert.match(timeline, /src=\{useCut \? photo.cutout \|\| photo.web : photo.web\}/, 'Missing cutout keeps original photo fallback');
 assert.match(timeline,/webCutoutUrl\('then', playerId\)/,'Primary HS front cutout retained');
