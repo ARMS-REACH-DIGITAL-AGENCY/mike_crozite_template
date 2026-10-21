@@ -31,15 +31,22 @@ ON CONFLICT (slug) DO UPDATE
       website_url = EXCLUDED.website_url,
       updated_at = now();
 
+-- Change the school ID list to assign the SAME image to 1, 10 or 8,000 schools.
 INSERT INTO public.school_splash_sponsorships
   (hsid, sponsor_id, status, priority, source)
-SELECT '5004', id, 'active', 100, 'manual'
-FROM public.sponsor_brands
-WHERE slug = 'acme-auto-care'
-ON CONFLICT (hsid, sponsor_id, starts_at) DO NOTHING;
+SELECT schools.hsid, b.id, 'active', 100, 'manual'
+FROM (VALUES ('5004')) AS schools(hsid)
+JOIN public.sponsor_brands b ON b.slug = 'acme-auto-care'
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.school_splash_sponsorships existing
+  WHERE existing.hsid = schools.hsid
+    AND existing.sponsor_id = b.id
+    AND existing.status = 'active'
+    AND (existing.ends_at IS NULL OR existing.ends_at > now())
+);
 ```
 
-Note: the second statement inserts a new campaign; to reassign a current school sponsor, pause or end its earlier campaign first. The resolver chooses **one** active sponsor by descending priority, most recent starts_at, then id. Expired, paused or inactive sponsors never serve.
+Note: the second statement avoids creating duplicate active campaigns for the same sponsor and school. To reassign a different sponsor, pause or end the old campaign first (or use an explicit higher priority). The resolver chooses **one** active sponsor by descending priority, most recent starts_at, then id. Expired, paused or inactive sponsors never serve.
 
 To see the full splash even after the 30-day first-visit cookie is set, open the school URL with `?splash=1`. In forced preview mode the Enter button still controls exit.
 
