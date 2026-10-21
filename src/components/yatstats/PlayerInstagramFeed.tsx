@@ -19,7 +19,10 @@ type Post = {
   handle?: string | null;
 };
 
-export default function PlayerInstagramFeed({ playerId, firstName }: { playerId: string; firstName: string }) {
+type SchoolFeed = { hsid: string; name: string };
+
+export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }: { playerId: string; firstName: string; schoolFeed?: SchoolFeed }) {
+  const schoolHsid = schoolFeed?.hsid;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
