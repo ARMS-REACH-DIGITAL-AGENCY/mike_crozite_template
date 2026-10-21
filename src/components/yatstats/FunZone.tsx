@@ -817,7 +817,7 @@ export default function FunZone({
   // via native same-page anchor behavior even before any JS has run.
   const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/?view=${isAllTime ? "alltime" : "active"}&player=${encodeURIComponent(imageId)}${slug ? `&name=${encodeURIComponent(slug)}` : ""}#player-${encodeURIComponent(imageId)}`;
   const ctaText = retiredPlayer && activeTab === "schedule"
-    ? `Where YAT now these days, ${firstName}? Share a free alumni update.`
+    ? `Where YAT now, ${firstName}? Share a free alumni update.`
     : getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels
@@ -852,7 +852,7 @@ export default function FunZone({
       >
         {retiredPlayer ? (
           <div className="fz-where-yat" style={{ padding: '9px', textAlign: 'center', fontFamily: 'Oswald,sans-serif' }}>
-            <h3 style={{ fontSize: 'clamp(16px,5cqi,24px)', marginBottom: 9 }}>WHERE YAT NOW THESE DAYS?</h3>
+            <h3 style={{ fontSize: 'clamp(16px,5cqi,24px)', marginBottom: 9 }}>WHERE YAT NOW?</h3>
             <p style={{ fontSize: 'clamp(10px,3cqi,14px)', marginBottom: 12 }}>Tell former teammates, coaches and fans what life looks like after baseball.</p>
             <button type="button" onClick={() => openWhereYatNow({playerId: imageId, hsid: resolvedHsid, name: displayName})}
               style={{ background: '#145a3c', color: '#fff', border: 0, borderRadius: 3, padding: '8px 12px', fontWeight: 800, cursor: 'pointer' }}>
