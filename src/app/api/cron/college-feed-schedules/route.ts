@@ -4,7 +4,7 @@
 // teams where Pete's team table gives exactly one match (linkFeedTeams).
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { CBI, COLLEGE_FEEDS, collegeSeasonKey, collegeSeasonYear, linkFeedTeams, mergeCbiGames, parseCbiPost, parseCollegeFeed, type FeedGame } from '@/lib/collegeFeedSchedules';
+import { CBI, cbiPostTeam, COLLEGE_FEEDS, collegeSeasonKey, collegeSeasonYear, linkFeedTeams, mergeCbiGames, parseCbiPost, parseCollegeFeed, type FeedGame } from '@/lib/collegeFeedSchedules';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,7 +54,7 @@ async function dbNow(): Promise<Date> {
   return res.rows[0].now;
 }
 
-type CbiPost = { slug: string; modified_gmt?: string; content?: { rendered?: string } };
+type CbiPost = { slug: string; title?: { rendered?: string }; modified_gmt?: string; content?: { rendered?: string } };
 
 // Every team post for the season, across the WordPress API's pages.
 async function fetchCbiPosts(seasonYear: number): Promise<CbiPost[]> {
@@ -146,9 +146,17 @@ export async function GET(request: NextRequest) {
     const since = await dbNow();
     const loaded = await upsertGames(CBI.source, season, games);
     await noteTeamNames(CBI.source, games);
+    // Only teams with a post of their own have every game listed; the rest
+    // only show up as opponents (migrations/20261021_college_feed_games_cbi.sql).
+    const postTeams = posts.map((p) => cbiPostTeam(p.title?.rendered || '', seasonYear)).filter((n): n is string => Boolean(n));
+    await query(
+      `UPDATE public.college_feed_teams SET full_schedule = (feed_name = ANY($2::text[]))
+        WHERE source = $1 AND full_schedule IS DISTINCT FROM (feed_name = ANY($2::text[]))`,
+      [CBI.source, postTeams],
+    );
     const linked = await linkTeams(CBI.source, CBI.level);
     const unlisted = loaded ? await markUnlisted(CBI.source, season, since) : 0;
-    results.push({ source: CBI.source, season, posts: posts.length, games: loaded, skippedLines: skipped, linked, unlisted });
+    results.push({ source: CBI.source, season, posts: posts.length, fullSchedules: postTeams.length, games: loaded, skippedLines: skipped, linked, unlisted });
   } catch (error) {
     results.push({ source: CBI.source, season, error: String(error).slice(0, 160) });
   }

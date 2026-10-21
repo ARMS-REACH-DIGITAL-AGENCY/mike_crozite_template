@@ -1925,7 +1925,10 @@ export async function getTeamSchedule(
     // team_schedules). College teams' games live in college_schedule_games_raw,
     // a separate pipeline with no overlapping teamids, so it's unioned in here
     // rather than joined - this is the only reader that needs both sources
-    // reconciled into one shape.
+    // reconciled into one shape. The league feeds and College Baseball
+    // Insider (college_feed_games, loaded nightly by
+    // /api/cron/college-feed-schedules) add the teams linked to them in
+    // college_feed_teams, on dates college_schedule_games_raw doesn't cover.
     const { rows } = await query(
       `WITH combined AS (
          SELECT
@@ -1969,6 +1972,31 @@ export async function getTeamSchedule(
            NULL::text AS game_type
          FROM college_schedule_games_raw g
          WHERE g.teamid::text = $1
+
+         UNION ALL
+
+         SELECT
+           ft.teamid AS tbc_teamid,
+           ft.feed_name AS team_name,
+           f.game_date,
+           f.starts_at AS game_time_utc,
+           CASE WHEN f.result ILIKE 'final%' THEN 'Final' ELSE 'Scheduled' END AS status,
+           f.location AS venue_name,
+           f.home_name AS home_team_name,
+           f.away_name AS away_team_name,
+           CASE WHEN f.neutral THEN 'Neutral' WHEN f.home_name = ft.feed_name THEN 'Home' ELSE 'Away' END AS home_away,
+           CASE WHEN f.home_name = ft.feed_name THEN f.away_name ELSE f.home_name END AS opponent,
+           NULL::integer AS home_score,
+           NULL::integer AS away_score,
+           NULL::bigint AS game_pk,
+           NULL::integer AS home_team_id,
+           NULL::integer AS away_team_id,
+           -- Exhibitions and fall ball are left out like spring training.
+           CASE WHEN f.notes ~* '(exhibition|non-traditional|scrimmage)' THEN 'E' END AS game_type
+         FROM college_feed_teams ft
+         JOIN college_feed_games f ON f.source = ft.source AND ft.feed_name IN (f.home_name, f.away_name)
+         WHERE ft.teamid = $1 AND ft.full_schedule AND f.listed AND NOT f.cancelled
+           AND NOT EXISTS (SELECT 1 FROM college_schedule_games_raw r WHERE r.teamid::text = $1 AND r.game_date = f.game_date)
        )
        SELECT
          *,

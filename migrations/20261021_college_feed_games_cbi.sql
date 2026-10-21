@@ -10,3 +10,9 @@
 
 ALTER TABLE public.college_feed_games ADD COLUMN IF NOT EXISTS local_time text;
 ALTER TABLE public.college_feed_games ADD COLUMN IF NOT EXISTS listed boolean NOT NULL DEFAULT true;
+
+-- full_schedule (college_feed_teams): false for a CBI team that has no post of
+-- its own yet, whose games there are only the ones against teams that do.
+-- The Game Log shows a team's feed games only when it's true, so nobody sees
+-- a schedule with holes in it. League feeds list every member's games: true.
+ALTER TABLE public.college_feed_teams ADD COLUMN IF NOT EXISTS full_schedule boolean NOT NULL DEFAULT true;

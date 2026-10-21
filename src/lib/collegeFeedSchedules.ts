@@ -152,7 +152,7 @@ export const CBI = {
   source: 'cbi' as const,
   level: 'NCAA-D1',
   postsUrl: (seasonYear: number, page: number) =>
-    `https://collegebaseballinsider.com/wp-json/wp/v2/posts?search=${seasonYear}%20baseball%20schedule&per_page=100&page=${page}&_fields=slug,modified_gmt,content`,
+    `https://collegebaseballinsider.com/wp-json/wp/v2/posts?search=${seasonYear}%20baseball%20schedule&per_page=100&page=${page}&_fields=slug,title,modified_gmt,content`,
   isTeamPost: (slug: string, seasonYear: number) =>
     new RegExp(`^${seasonYear}-(?!college-baseball-team-schedules$).+-baseball-schedule$`).test(slug),
 };
@@ -170,6 +170,12 @@ function decodeHtml(s: string): string {
 function postLines(html: string): string[] {
   const text = decodeHtml(html.replace(/<br\s*\/?>|<\/p>|<\/li>/gi, '\n').replace(/<[^>]+>/g, ''));
   return text.replace(/[\u2018\u2019]/g, "'").split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+/** The team a post is for: "2027 Arizona Baseball Schedule" -> "Arizona" (the name its lines use). */
+export function cbiPostTeam(title: string, seasonYear: number): string | null {
+  const m = decodeHtml(title).replace(/[\u2018\u2019]/g, "'").trim().match(new RegExp(`^${seasonYear} (.+) Baseball Schedule$`, 'i'));
+  return m ? m[1].trim() : null;
 }
 
 const CBI_LINE = /^(\d{1,2})\/(\d{1,2}) (\* ?)?(.+?) (@|vs\.?) (.+)$/;
