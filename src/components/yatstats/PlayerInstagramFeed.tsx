@@ -50,7 +50,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
     });
     io.observe(el);
     return () => io.disconnect();
-  }, [playerId]);
+  }, [playerId, schoolHsid]);
 
   const handle = posts?.[0]?.handle || '';
   const count = posts?.length || 0;
