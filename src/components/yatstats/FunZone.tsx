@@ -737,7 +737,7 @@ export default function FunZone({
     scheduleRequested.current = true;
     const controller = new AbortController();
     setScheduleLoading(true);
-    fetch(`/api/player-seven-day-snapshot/${encodeURIComponent(lazySchedulePlayerId)}`, { signal: controller.signal })
+    fetch(`/api/player-seven-day-snapshot/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}&slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error('Schedule unavailable'); return response.text(); })
       .then((html) => setLoadedSchedule(html))
       .catch(() => { setScheduleError(true); scheduleRequested.current = false; })
