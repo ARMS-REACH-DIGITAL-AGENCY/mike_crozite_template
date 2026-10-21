@@ -970,13 +970,13 @@ export default async function ProfilePage({ params }: Props) {
             <div className="yp-profile-partner-body">
               <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} hsid={hsid} />
               <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
-                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>300 × 250 PX · IN-FEED SPONSOR CARD</small>
+                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>
             </div>
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>300 × 600 PX · STANDARD DESKTOP AD</small>
+              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
             </aside>
           </div>
         </div>
@@ -1041,13 +1041,13 @@ export default async function ProfilePage({ params }: Props) {
               <p>Active and retired players can invite their fans to connect through personalized video messages.</p>
               <a className="yp-player-video-link" href={`/${hsid}/connect-contribute#cc-connect`}>LEARN ABOUT VIDEO EXCHANGES →</a>
               <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
-                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>300 × 250 PX · IN-FEED SPONSOR CARD</small>
+                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>
             </div>
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>300 × 600 PX · STANDARD DESKTOP AD</small>
+              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
             </aside>
           </div>
         </div>
@@ -1061,7 +1061,7 @@ export default async function ProfilePage({ params }: Props) {
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>300 × 600 PX · STANDARD DESKTOP AD</small>
+              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
             </aside>
           </div>
         </div>
@@ -1164,95 +1164,123 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone .yp-profile-ad small {max-width:33%;font-size:9px;}
         }
 
-        /* Sponsor artwork has a contract, not a flexible container height.
-           A completed 600x1200 source displays at 300x600 with object-fit
-           contain. Keep the content column independently scrollable. */
+        /* The fixed career header occupies significant vertical space.
+           Measure the *remaining* FunZone, not the whole page. The player
+           feed is the ONLY scroll surface on desktop; the ad stays still. */
+        #playerFunZone { container: yat-profile-ads / inline-size; }
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload).pp-fz-panel-active {
+          overflow:hidden!important;
+        }
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+          display:grid!important;
+          grid-template-columns:minmax(0,1fr) 300px!important;
+          align-items:stretch!important;
+          height:100%!important;
+          max-height:100%!important;
+          min-height:0!important;
+          overflow:hidden!important;
+        }
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-body {
+          height:100%!important;
+          max-height:100%!important;
+          min-height:0!important;
+          overflow-y:auto!important;
+          overflow-x:hidden!important;
+          overscroll-behavior-y:contain;
+          scrollbar-width:thin;
+          -webkit-overflow-scrolling:touch;
+        }
+        /* A completed 300x600 creative scales UNIFORMLY to fit the panel.
+           Never stretch or crop the supplied source file. Its reserved grid
+           column is 300px wide, but the displayed artwork can be smaller. */
         #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {
           box-sizing:border-box;
-          width:300px!important;
+          width:auto!important;
+          min-width:0!important;
           max-width:300px!important;
-          height:600px!important;
-          min-height:600px!important;
-          max-height:600px!important;
-          flex:none!important;
+          aspect-ratio:1/2;
+          height:min(600px,calc(
+            100dvh - var(--row1-h,36px) - var(--row2-h,54px)
+            - var(--row3-h,100px) - var(--row4-h,56px)
+            - var(--pp-dock-h,62px) - 34px
+          ))!important;
+          min-height:0!important;
+          max-height:100%!important;
           align-self:start!important;
-          justify-self:end!important;
-          overflow:hidden;
+          justify-self:center!important;
+          position:sticky;
+          top:0;
+          flex:none!important;
+          overflow:hidden!important;
         }
         #playerFunZone .yp-profile-ad :is(img,picture,video) {
-          display:block;
-          width:100%;
-          height:100%;
-          object-fit:contain;
-          object-position:center;
+          display:block;width:100%;height:100%;
+          object-fit:contain;object-position:center;
         }
+        /* One sponsor card in the feed, same width as a story card. Its
+           300x250 source is letterboxed as needed, not cropped to fit. */
         #playerFunZone .yp-profile-infeed-ad {display:none;}
         #playerFunZone :is(.yp-profile-infeed-ad,.yp-stories-feed-ad) {
-          box-sizing:border-box;
-          width:min(100%,300px);
-          aspect-ratio:6/5;
-          min-height:0!important;
-          margin:16px auto;
-          padding:15px;
+          box-sizing:border-box!important;
           flex-direction:column;
-          align-items:center;
-          justify-content:center;
-          gap:9px;
+          align-items:center;justify-content:center;gap:9px;
+          width:100%!important;
+          max-width:none!important;
+          min-height:clamp(140px,23dvh,260px)!important;
+          height:auto!important;
+          aspect-ratio:auto!important;
+          padding:16px;
+          margin:12px 0 18px!important;
           border:1px dashed rgba(170,170,170,.65);
-          border-radius:5px;
-          background:rgba(255,255,255,.035);
-          color:inherit;
-          text-align:center;
+          border-radius:6px;
+          background:rgba(255,255,255,.045);
+          color:inherit;text-align:center;
+        }
+        #playerFunZone :is(.yp-profile-infeed-ad,.yp-stories-feed-ad) :is(img,picture,video) {
+          display:block;max-width:100%;max-height:100%;
+          width:auto;height:auto;object-fit:contain;
         }
         #playerFunZone .yp-profile-infeed-ad strong {font:800 18px/1.1 var(--yat-font-compact,Oswald,sans-serif);}
         #playerFunZone .yp-profile-infeed-ad small {font:600 10px/1.2 var(--yat-font-ui,Arial,sans-serif);opacity:.72;}
-        /* Switch the *placement*, not the creative's aspect ratio, when the
-           available page width shrinks or a persistent side drawer docks. */
-        @media (max-width:1080px) {
+        #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:none;}
+        /* Real container width captures the docked left/right rails as well
+           as resize. No forced dock just to make an ad fit. */
+        @container yat-profile-ads (max-width:1080px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload).pp-fz-panel-active {
+            overflow-y:auto!important;overflow-x:hidden!important;
+          }
           #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
-            grid-template-columns:minmax(0,1fr)!important;
+            display:block!important;
+            width:100%!important;max-width:100%!important;
+            height:auto!important;max-height:none!important;
+            overflow:visible!important;
+            padding-inline:0!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;
+            overflow:visible!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {
+            display:none!important;
+          }
+          #playerFunZone .yp-profile-infeed-ad,
+          #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
+        }
+        /* Fallback for browsers without container queries; phone layouts
+           always use panel scrolling, never a second nested scroll surface. */
+        @media (max-width:1080px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload).pp-fz-panel-active {overflow-y:auto!important;}
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+            display:block!important;height:auto!important;max-height:none!important;
+            overflow:visible!important;padding-inline:0!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;overflow:visible!important;
           }
           #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {display:none!important;}
           #playerFunZone .yp-profile-infeed-ad,
           #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
         }
-        @media (min-width:780px) {
-          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
-            grid-template-columns:minmax(0,1fr)!important;
-          }
-          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {display:none!important;}
-          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone .yp-profile-infeed-ad {display:flex!important;}
-        }
-        /* Docked right rails consume 360px. Keep the Stories feed readable,
-           turn the partner tower into its existing in-feed placement. */
-        @media (min-width:780px) {
-          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone #ppTab-upload .yp-profile-partner-columns {
-            grid-template-columns:minmax(0,1fr)!important;
-            max-width:780px!important;
-          }
-          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone #ppTab-upload .yp-profile-ad {
-            display:none!important;
-          }
-        }
-        /* A second impression of the same sponsor inventory inside Stories.
-           It replaces the tower only when the tower cannot fit. */
-        #playerFunZone #ppTab-upload .yp-stories-feed-ad { display:none; }
-        @media (min-width:780px) {
-          body:is(.drawer-account-open,.drawer-favorites-open,.drawer-right-open,.drawer-sort-open,.drawer-contribute-open,.drawer-story-open) #playerFunZone #ppTab-upload .yp-stories-feed-ad { display:flex; }
-        }
-        @media (max-width:740px) {
-          #playerFunZone #ppTab-upload .yp-stories-feed-ad { display:flex; }
-          #playerFunZone #ppTab-upload .yp-profile-ad { display:none!important; }
-        }
-        #playerFunZone #ppTab-upload .yp-stories-feed-ad {
-          box-sizing:border-box;flex-direction:column;align-items:center;justify-content:center;
-          gap:5px;min-height:130px;width:100%;padding:15px;
-          border:1px solid rgba(255,255,255,.25);border-radius:6px;
-          background:rgba(255,255,255,.045);color:inherit;text-align:center;
-          font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);
-        }
-        #playerFunZone #ppTab-upload .yp-stories-feed-ad strong {font-size:17px;line-height:1.1;}
-        #playerFunZone #ppTab-upload .yp-stories-feed-ad small {font-size:11px;opacity:.7;}
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
