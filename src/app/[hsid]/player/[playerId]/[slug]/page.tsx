@@ -980,22 +980,20 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-social" className="pp-fz-panel">
-          {!isHamiltonCoachInstagramProfile && (
-            <>
-              <div className="pp-social-tag">#YATABOY</div>
-              <div className="pp-social-sub">Show some love for {firstName}!</div>
-            </>
-          )}
+          {/* All player feeds use the same ordering as the approved Hamilton
+              coach view: Instagram first, compact #YATABOY signoff below.
+              Previously only Greg Bordes received this layout, leaving
+              Roch Cholowsky and other players with a large header above
+              their feed. With no posts, the empty feed hides itself and
+              the signoff still remains available. */}
           <PlayerInstagramFeed
             playerId={safePlayerId}
             firstName={firstName}
             schoolFeed={isHamiltonCoachInstagramProfile ? { hsid: '5004', name: 'Hamilton Baseball' } : undefined}
           />
-          {isHamiltonCoachInstagramProfile && (
-            <div className="pp-ig-school-signoff">
-              <span>#YATABOY</span> <span>Show some love for {firstName}!</span>
-            </div>
-          )}
+          <div className="pp-social-signoff">
+            <span>#YATABOY</span> <span>Show some love for {firstName}!</span>
+          </div>
           <div className="pp-social-links">
             {xHandle && (
               <a
@@ -1426,8 +1424,8 @@ export default async function ProfilePage({ params }: Props) {
           color: var(--muted, #888);
           margin-bottom: 12px;
         }
-        .pp-ig-school-signoff { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin:3px 0 12px; font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--muted,#888); }
-        .pp-ig-school-signoff span:first-child { font-weight:800; letter-spacing:.045em; color:var(--fg,#dedede); }
+        .pp-social-signoff { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin:3px 0 12px; font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--muted,#888); }
+        .pp-social-signoff span:first-child { font-weight:800; letter-spacing:.045em; color:var(--fg,#dedede); }
         .pp-social-links {
           display: flex;
           flex-direction: column;
