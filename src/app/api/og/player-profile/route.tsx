@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       try {
         await s3.send(new PutObjectCommand({
           Bucket: S3_BUCKET, Key: key, Body: png, ContentType: 'image/png',
-          CacheControl: 'public, max-age=86400', ACL: 'public-read',
+          CacheControl: 'public, max-age=86400',
         }));
       } catch (err) {
         // Cache writes must not prevent sharing.
