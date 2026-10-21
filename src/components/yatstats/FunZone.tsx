@@ -743,7 +743,8 @@ export default function FunZone({
         const parsed = new DOMParser().parseFromString(html, 'text/html');
         const snapshot = parsed.querySelector('.yat-snap');
         if (!snapshot) throw new Error('Schedule markup missing');
-        setLoadedSchedule(snapshot.outerHTML);
+        const style = snapshot.nextElementSibling?.tagName === 'STYLE' ? snapshot.nextElementSibling.outerHTML : '';
+        setLoadedSchedule(snapshot.outerHTML + style);
       })
       .catch(() => { setScheduleError(true); scheduleRequested.current = false; })
       .finally(() => setScheduleLoading(false));
