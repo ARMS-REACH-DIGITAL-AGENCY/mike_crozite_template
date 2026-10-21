@@ -109,6 +109,29 @@ export async function POST(req: NextRequest) {
           [who.name,who.uid,who.profile?.role||'fan',playerName||null,playerId,hsid,pageUrl||'',JSON.stringify(details)]
         );
       }
+      // A public Instagram handle is immediately registered for the existing
+      // Business Discovery sync. The submitted handle must not already belong
+      // to another player; all other profile fields keep their review rules.
+      let instagramState: 'queued' | 'registered' | 'needs_review' = 'queued';
+      if (!isNew && typeof submitted.instagram === 'string') {
+        const handle = String(submitted.instagram).trim().replace(/^@/,'')
+          .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
+        if (/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
+          const {rows: matches}=await query<{playerid:string|null}>(
+            'SELECT playerid FROM social_sources WHERE platform=$1 AND lower(handle)=lower($2) LIMIT 1',
+            ['instagram',handle]);
+          if (matches.length && matches[0].playerid !== playerId) {
+            instagramState='needs_review';
+          } else if (!matches.length) {
+            await query(`INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status)
+              VALUES('instagram',$1,'player',$2,$3,'business_discovery','active')
+              ON CONFLICT (platform,handle) DO NOTHING`,[handle,hsid,playerId]);
+            instagramState='registered';
+          } else {
+            instagramState='registered';
+          }
+        } else instagramState='needs_review';
+      }
       await logContribution(who,'contribute_profile',{playerid:playerId||null,hsid,pageUrl,details});
       try {
         const notify='newdata@yatstats.com';
@@ -121,7 +144,7 @@ export async function POST(req: NextRequest) {
             '<br/><b>Sender:</b> '+esc(who.email||who.name)+'</p><pre>'+esc(JSON.stringify(submitted,null,2))+'</pre>');
         }
       } catch(error) { console.error('[contribute/profile] owner notification failed',error); }
-      return NextResponse.json({ok:true,review:'pending'}, {status:201});
+      return NextResponse.json({ok:true,review:'pending',instagram:instagramState}, {status:201});
     }
 
     if (kind === 'data') {
