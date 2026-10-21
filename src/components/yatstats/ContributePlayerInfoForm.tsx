@@ -80,7 +80,7 @@ export default function ContributePlayerInfoForm({
           fields:player?changed:values,idToken:token||undefined,pageUrl:location.href})});
       const body=await res.json().catch(()=>({}));
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
-      setMessage('Received. Your requested additions have been logged for review.');
+      setMessage('Received. Your information is queued for automatic processing. Updates that need verification are held for review.');
       setInitial(values);
     }catch(e){setError(e instanceof Error?e.message:'Unable to send.');}finally{setSending(false);}
   }
@@ -154,7 +154,7 @@ export default function ContributePlayerInfoForm({
     <button type="button" className="ycd-btn ycd-btn-primary" disabled={sending||loading} onClick={submit}>
       {!signedIn?'Sign in to send':sending?'Sending…':'Submit player information'}
     </button>
-    <small className="ycd-muted">Submissions are logged for review before they change published player records.</small>
+    <small className="ycd-muted">Valid contributions publish automatically. Conflicting player details require verification.</small>
     <style jsx>{`
       .ycd-profile-fields{display:flex;flex-direction:column;gap:13px;}
       .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));max-height:175px;overflow-y:auto;gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
