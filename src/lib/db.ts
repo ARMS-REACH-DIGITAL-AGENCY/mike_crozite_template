@@ -52,7 +52,7 @@ const pool = new Pool({
   // instance, not per deployment. Keep each instance's connection footprint
   // small to avoid exhausting the shared Neon compute under burst traffic.
   // PG_POOL_MAX remains available for deliberate capacity tuning.
-  max: Number(process.env.PG_POOL_MAX || 3),
+  max: Number(process.env.PG_POOL_MAX || 8),
   idleTimeoutMillis: 10000,
   // Give idle sockets time to retire and recycle connections periodically.
   // This works without adding a dependency to the frozen production lockfile.
@@ -151,6 +151,18 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
       throw retryError;
     }
   }
+}
+
+// Most profile traffic re-reads the same four season/career reports. Cache
+// their successful rows for five minutes across requests and server instances.
+// Keep catch/fallback logic outside this helper so a transient failure is
+// never cached as an empty stats report.
+async function cachedPlayerStatRows(bucket: string, playerId: string, sql: string): Promise<any[]> {
+  return unstable_cache(
+    async () => (await query(sql, [playerId])).rows,
+    ['player-stat-rows-v1', bucket, playerId],
+    { revalidate: 300, tags: ['player-stats', `player-stats:${playerId}`] },
+  )();
 }
 
 // ---------------------------------------------------------------------------
@@ -365,7 +377,7 @@ export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeaso
   }));
 });
 
-export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
+export const getSchoolByHsid = cache(keptAcrossRequests('getSchoolByHsid', async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
@@ -385,9 +397,9 @@ export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string
     [hsid],
   );
   return raw[0] || null;
-});
+}));
 
-export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: string) {
+export const getSchoolByUrl = cache(keptAcrossRequests('getSchoolByUrl', async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
   if (!hostOnly || !httpsUrl) return null;
   const candidates = Array.from(new Set([httpsUrl, hostOnly]));
@@ -403,7 +415,7 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
   const hsid = await resolveSchoolHsidFromHost(hostOnly,
     (sql, params = []) => query(sql, params));
   return hsid ? getSchoolByHsid(hsid) : null;
-});
+}));
 
 // ---------------------------------------------------------------------------
 // ACTIVE ROSTER - players with 2026 stats (homepage)
@@ -1678,7 +1690,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     ORDER BY b.year ASC, b.teamid ASC
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('batting-seasons', playerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerBattingStats failed:', error);
@@ -1710,7 +1722,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     ORDER BY p.year ASC, p.teamid ASC
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('pitching-seasons', playerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerPitchingStats failed:', error);
@@ -1753,7 +1765,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
     WHERE playerid::text = $1
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('career-batting', playerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerBatting failed:', error);
@@ -1887,7 +1899,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
     WHERE playerid::text = $1
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('career-pitching', playerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerPitching failed:', error);
