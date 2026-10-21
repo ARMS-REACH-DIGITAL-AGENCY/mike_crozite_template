@@ -41,7 +41,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
   ] as const : [];
   return (
     <div style={{ maxWidth: 850, margin: 'auto', padding: '16px', fontFamily: 'Archivo,Arial,sans-serif', color: '#eee' }}>
-      <h2 style={{ fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW THESE DAYS?</h2>
+      <h2 style={{ fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
       {entry ? (
         <article style={{ background: '#181818', border: '1px solid #777', padding: 16, borderRadius: 6 }}>
           {entry.photo_key && <img src={storyAssetUrl(entry.photo_key) || ''} alt={name + ' recent alumni photo'} style={{ float: 'right', width: 'min(33%,185px)', margin: '0 0 12px 14px', borderRadius: 4 }} />}
