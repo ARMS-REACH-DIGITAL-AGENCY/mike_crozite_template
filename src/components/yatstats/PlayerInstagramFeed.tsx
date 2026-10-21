@@ -228,7 +228,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
         .pp-ig-head-school a { font-weight:800; font-size:10px; letter-spacing:.06em; border:1px solid currentColor; border-radius:4px; padding:5px 8px; }
         .pp-ig-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px; }
         @media (min-width:700px){ .pp-ig-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
-        .pp-ig-tile { position:relative; display:block; aspect-ratio:4/5; overflow:hidden; background:rgba(128,128,128,.15); border:0; padding:0; margin:0; cursor:pointer; }
+        .pp-ig-tile { position:relative; display:block; aspect-ratio:3/4; overflow:hidden; background:rgba(128,128,128,.15); border:0; padding:0; margin:0; cursor:pointer; }
         .pp-ig-tile img { width:100%; height:100%; object-fit:contain; display:block; }
         .pp-ig-viewer { position:fixed; inset:0; z-index:10050; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.92); padding:54px 56px 55px; }
         .pp-ig-frame { width:min(480px,100%); height:min(820px,calc(100vh - 112px)); height:min(820px,calc(100dvh - 112px)); display:flex; flex-direction:column; background:#121212; color:#f5f5f5; border-radius:8px; overflow:hidden; }
