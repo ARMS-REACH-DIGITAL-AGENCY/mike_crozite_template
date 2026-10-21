@@ -12,7 +12,7 @@
 // and search. The same StoryDrawer handles upload from the Career Timeline.
 // Teammates are accessible by the icon + count only (no visible word label).
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 import { openStoryDrawer, cancelPendingStoryDrawerOpen } from '@/lib/storyDrawer';
@@ -307,7 +307,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner advertising placement">
       <span>PLAYER PROFILE PARTNER</span>
       <strong>ADVERTISER PLACEMENT</strong>
-      <small>300 × 250 PX · IN-FEED SPONSOR CARD</small>
+      <small>SPONSOR CARD · SAME WIDTH AS STORIES</small>
     </aside>
   );
 
@@ -331,25 +331,27 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
           <div className="ysf-empty">No stories match “{search.trim()}”.</div>
         ) : isDesktop ? (
           <div className="ysf-feed ysf-feed-posts">
-            {list.map((s) => (
-              <StoryThread
-                key={s.id}
-                story={s}
-                playerId={playerId}
-                variant="inline"
-                onChange={updateStory}
-                onDeleted={removeStory}
-                media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
-              />
+            {list.map((s, index) => (
+              <Fragment key={s.id}>
+                <StoryThread
+                  story={s}
+                  playerId={playerId}
+                  variant="inline"
+                  onChange={updateStory}
+                  onDeleted={removeStory}
+                  media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
+                />
+                {index === Math.min(1, list.length - 1) ? sponsorCard : null}
+              </Fragment>
             ))}
-            {sponsorCard}
           </div>
         ) : (
           <div className="ysf-feed">
-            {list.map((s) => {
+            {list.map((s, index) => {
               const cover = s.photos[0];
               return (
-                <div className="ysf-card" id={`story-${s.id}`} key={s.id}>
+                <Fragment key={s.id}>
+                  <div className="ysf-card" id={`story-${s.id}`}>
                   <button type="button" className="ysf-card-open" onClick={() => show(s)} aria-label={`Open ${s.author}'s story from ${fullWhenLabel(s)}`}>
                     <span className="ysf-card-when">{fullWhenLabel(s)}</span>
                     <span className="ysf-card-row">
@@ -379,10 +381,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                       <i className="ri-share-forward-line" /> Share
                     </button>
                   </div>
-                </div>
+                  {index === Math.min(1, list.length - 1) ? sponsorCard : null}
+                </Fragment>
               );
             })}
-            {sponsorCard}
           </div>
         )}
       </>
