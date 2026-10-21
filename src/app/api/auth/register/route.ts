@@ -3,6 +3,9 @@ import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatsta
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
+import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
+import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent } from "@/lib/fanConsent";
+import { getGHLApiKey } from "@/lib/gohighlevel";
 
 export const runtime = "nodejs";
 
@@ -15,6 +18,12 @@ interface RegisterRequestBody {
   firstName?: string;
   lastName?: string;
   subdomain?: string;
+  phone?: string;
+  smsInformational?: boolean;
+  smsPromotional?: boolean;
+  disclosureVersion?: string;
+  idToken?: string;
+  sourceUrl?: string;
 }
 
 async function getSchoolByHsid(hsid: string) {
@@ -65,6 +74,23 @@ export async function POST(request: NextRequest) {
       { error: "uid and email are required" },
       { status: 400 }
     );
+  }
+
+  const smsInformational = body.smsInformational === true;
+  const smsPromotional = body.smsPromotional === true;
+  const phoneDigits = String(body.phone || "").replace(/\D/g, "");
+  const normalizedDigits = phoneDigits.length === 11 && phoneDigits.startsWith("1") ? phoneDigits.slice(1) : phoneDigits;
+  const phoneE164 = /^[2-9]\d{2}[2-9]\d{6}$/.test(normalizedDigits) ? "+1" + normalizedDigits : null;
+  const hasSmsConsent = smsInformational || smsPromotional;
+  if (hasSmsConsent && (!phoneE164 || body.disclosureVersion !== FAN_CONSENT_VERSION)) {
+    return NextResponse.json({ error: "Valid phone number and current SMS disclosure required" }, { status: 400 });
+  }
+  // Signed Firebase proof is mandatory for recording permission to send texts.
+  if (hasSmsConsent) {
+    const verified = await verifyFirebaseIdToken(String(body.idToken || ""));
+    if (!verified || verified.uid !== body.uid || verified.email.toLowerCase() !== body.email.toLowerCase()) {
+      return NextResponse.json({ error: "Cannot verify SMS consent identity" }, { status: 401 });
+    }
   }
 
   try {
@@ -160,6 +186,41 @@ export async function POST(request: NextRequest) {
         hsname: homeSchoolName,
         hslocation: homeSchoolLocation,
       });
+    }
+
+    // Save evidence before permitting any contact to enter an SMS workflow.
+    // No inference from membership, registration, or a provided phone number.
+    if (hasSmsConsent && phoneE164) {
+      const sourceUrl = String(body.sourceUrl || "").slice(0, 2048);
+      let sourceHost = "";
+      try { sourceHost = new URL(sourceUrl).hostname.toLowerCase(); } catch {}
+      if (!sourceHost.endsWith(".yatstats.com") && sourceHost !== "yatstats.com" && !sourceHost.endsWith(".vercel.app")) {
+        return NextResponse.json({ error: "Invalid SMS consent source" }, { status: 400 });
+      }
+      await query(`INSERT INTO fan_sms_consent_events
+        (firebase_uid, email, contact_id, home_hsid, school_name, phone_e164,
+         informational_opt_in, promotional_opt_in, disclosure_version, informational_disclosure,
+         promotional_disclosure, shared_disclosure, source_url, user_agent)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, [
+          body.uid, body.email, profile.arms_contact_id, profile.home_hsid,
+          homeSchoolName, phoneE164, smsInformational, smsPromotional, FAN_CONSENT_VERSION,
+          fanInformationalConsent(homeSchoolName), fanPromotionalConsent(homeSchoolName),
+          FAN_SMS_DISCLOSURE, sourceUrl, request.headers.get("user-agent") || ""
+        ]);
+      if (profile.arms_contact_id) {
+        const apiKey = getGHLApiKey();
+        if (apiKey) {
+          // PATCH only the phone, without resetting existing tags or SMS opt-out/DND.
+          const update = await fetch("https://services.leadconnectorhq.com/contacts/" +
+            encodeURIComponent(profile.arms_contact_id), {
+            method: "PUT", headers: {
+              Authorization: "Bearer " + apiKey,
+              "Content-Type": "application/json", Version: "2021-07-28"
+            }, body: JSON.stringify({ phone: phoneE164 })
+          });
+          if (!update.ok) console.error("[sms-consent] Contact phone update failed", update.status);
+        }
+      }
     }
 
     const superfan = isSuperfan(profile);
