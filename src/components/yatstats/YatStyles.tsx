@@ -541,9 +541,15 @@ export default function YatStyles() {
         inset:0;
         overflow:hidden;
         background:var(--card-bg);
-        box-shadow:0 4px 8px rgba(0,0,0,.2);
+        /* "Lifted" (Pete, Oct 21): in dark, a black shadow vanishes on the
+           black page, so a thin light edge and a faint glow lift the card. */
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 0 1px rgba(255,255,255,.14),0 0 18px rgba(255,255,255,.08);
         backface-visibility:hidden;
         -webkit-backface-visibility:hidden;
+      }
+      /* Light: a soft layered shadow, like a card lying on a table. */
+      body.light-theme .yat-face{
+        box-shadow:0 1px 2px rgba(0,0,0,.12),0 6px 14px rgba(0,0,0,.18),0 18px 36px rgba(0,0,0,.22);
       }
       .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
       .yat-card.is-flipped .yat-front{pointer-events:none}
