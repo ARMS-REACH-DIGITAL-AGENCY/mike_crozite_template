@@ -267,14 +267,6 @@ export function StoryThread({
   const [comments, setComments] = useState<StoryComment[] | null>(null);
   const [showAll, setShowAll] = useState(variant === 'modal');
   const [draft, setDraft] = useState('');
-  // Keep the composer readable while growing with wrapped and explicit lines.
-  // Beyond six lines the textarea scrolls without displacing the story viewer.
-  useEffect(() => {
-    const el = composerRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 154)}px`;
-  }, [draft]);
   const [busy, setBusy] = useState<'' | 'like' | 'comment' | 'save' | 'delete'>('');
   const [note, setNote] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -283,6 +275,14 @@ export function StoryThread({
   // once they've confirmed it's them (FanConfirm).
   const [retry, setRetry] = useState<null | (() => void)>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Keep the composer readable while growing with wrapped and explicit lines.
+  // Beyond six lines the textarea scrolls without displacing the story viewer.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 154)}px`;
+  }, [draft]);
   // Photos picked for the next comment, and a comment photo opened large.
   const [picked, setPicked] = useState<PickedPhoto[]>([]);
   const [lightbox, setLightbox] = useState<{ photos: StoryPhoto[]; index: number } | null>(null);
