@@ -65,17 +65,29 @@ export function openAccountDrawer() {
 let favoriteIds: { uid: string; ids: Promise<Set<string>> } | null = null;
 export function loadFavoriteIds(uid: string): Promise<Set<string>> {
   if (!favoriteIds || favoriteIds.uid !== uid) {
-    favoriteIds = {
-      uid,
-      ids: fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
-        .then((r) => r.json())
-        .then((data) => new Set<string>(Array.isArray(data?.playerIds) ? data.playerIds.map(String) : []))
-        .catch(() => new Set<string>()),
-    };
+    const ids = fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Favorites lookup failed');
+        const data = await response.json();
+        if (!data?.success || !Array.isArray(data.playerIds)) {
+          throw new Error('Invalid favorites response');
+        }
+        return new Set<string>(data.playerIds.map(String));
+      });
+    favoriteIds = { uid, ids };
+    // An intermittent API failure must not cache an empty favorites list
+    // for the rest of the visit. Subsequent refreshes can retry.
+    void ids.catch(() => { if (favoriteIds?.ids === ids) favoriteIds = null; });
   }
   return favoriteIds.ids;
 }
-if (typeof window !== 'undefined') window.addEventListener('yat-favorites-changed', () => { favoriteIds = null; });
+
+if (typeof window !== 'undefined') {
+  const clearFavoriteIds = () => { favoriteIds = null; };
+  window.addEventListener('yat-favorites-changed', clearFavoriteIds);
+  window.addEventListener('yat-auth-success', clearFavoriteIds);
+  window.addEventListener('yat-sign-out', clearFavoriteIds);
+}
 
 export default function FavoriteButton({
   playerId,
@@ -98,23 +110,46 @@ export default function FavoriteButton({
   }, []);
 
   useEffect(() => {
-    const user = readYatUser();
-    if (!user?.uid) {
-      setIsFavorited(false);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
     let live = true;
-    const sync = () => loadFavoriteIds(user.uid)
-      .then((ids) => { if (live) setIsFavorited(ids.has(String(playerId))); })
-      .finally(() => { if (live) setIsLoading(false); });
-    sync();
-    // Another button (or the drawer) changed a favorite: re-read.
-    const onChange = () => { window.setTimeout(sync, 0); };
+    let syncVersion = 0;
+    const sync = async () => {
+      const version = ++syncVersion;
+      // Read the user each time, not only on mount: many cards mount before
+      // AccountDrawer restores the session or the fan signs in.
+      const user = readYatUser();
+      if (!user?.uid) {
+        if (live) {
+          setIsFavorited(false);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const ids = await loadFavoriteIds(user.uid);
+        if (live && version === syncVersion && readYatUser()?.uid === user.uid) {
+          setIsFavorited(ids.has(String(playerId)));
+        }
+      } catch {
+        // Preserve the current state on a transient failure; do not show
+        // a saved favorite as removed just because its lookup failed.
+      } finally {
+        if (live && version === syncVersion) setIsLoading(false);
+      }
+    };
+
+    void sync();
+    const onChange = () => { window.setTimeout(() => { if (live) void sync(); }, 0); };
     window.addEventListener('yat-favorites-changed', onChange);
-    return () => { live = false; window.removeEventListener('yat-favorites-changed', onChange); };
+    window.addEventListener('yat-auth-success', onChange);
+    window.addEventListener('yat-sign-out', onChange);
+    return () => {
+      live = false;
+      window.removeEventListener('yat-favorites-changed', onChange);
+      window.removeEventListener('yat-auth-success', onChange);
+      window.removeEventListener('yat-sign-out', onChange);
+    };
   }, [playerId]);
 
   useEffect(() => {
@@ -131,7 +166,7 @@ export default function FavoriteButton({
       ) {
         setIsFavorited(true);
         showToast(`${displayName} added to your favorites`);
-        window.dispatchEvent(new CustomEvent('yat-favorites-changed'));
+        // AccountDrawer publishes yat-favorites-changed after the save.
       }
     };
     window.addEventListener('yat-auth-success', handler);

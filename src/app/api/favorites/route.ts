@@ -259,6 +259,17 @@ export async function GET(req: NextRequest) {
     const isSuperfan = isSuperfanProfile(profile);
     const homeHsid = profile?.home_hsid ? String(profile.home_hsid) : null;
 
+    // Heart controls only need IDs. Avoid the expensive player, stage and
+    // school-detail joins executed for the full Favorites drawer.
+    if (scope === "button") {
+      const favorites = await getFavorites(firebaseUid);
+      return NextResponse.json({
+        success: true,
+        playerIds: favorites.map((f) => String(f.playerid)),
+        scope,
+      });
+    }
+
     const favorites = await getFavorites(firebaseUid);
     const allPlayerIds = favorites.map((f) => String(f.playerid));
     const allFavoritePlayers = await getFavoriteDetails(firebaseUid, allPlayerIds);
