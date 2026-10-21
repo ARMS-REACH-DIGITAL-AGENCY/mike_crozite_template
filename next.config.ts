@@ -3,8 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/api/og/player-profile': [
-      './node_modules/@sparticuz/chromium/bin/**/*',
-      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**/*',
+      './chromium-bin/**/*',
     ],
   },
   images: {
