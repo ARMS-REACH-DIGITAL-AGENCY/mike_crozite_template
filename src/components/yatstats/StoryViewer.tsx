@@ -258,7 +258,8 @@ export function StoryThread({
   // 'modal': the right-hand side of the big view (scrolls; comment box
   // pinned at the bottom). 'inline': a full post in the Stories tab.
   variant: 'modal' | 'inline';
-  // Inline posts show their photos between the story and the Like bar.
+  // Inline posts show their complete responsive photos ABOVE the story text.
+  // Comments and reactions follow the text so long captions never bury images.
   media?: ReactNode;
 }) {
   const me = useFanMe();
@@ -266,6 +267,14 @@ export function StoryThread({
   const [comments, setComments] = useState<StoryComment[] | null>(null);
   const [showAll, setShowAll] = useState(variant === 'modal');
   const [draft, setDraft] = useState('');
+  // Keep the composer readable while growing with wrapped and explicit lines.
+  // Beyond six lines the textarea scrolls without displacing the story viewer.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 154)}px`;
+  }, [draft]);
   const [busy, setBusy] = useState<'' | 'like' | 'comment' | 'save' | 'delete'>('');
   const [note, setNote] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -615,10 +624,10 @@ export function StoryThread({
               )}
               <textarea
                 ref={composerRef}
-                rows={1}
+                rows={2}
                 value={draft}
                 placeholder={`Were you there? Add your photos or a comment as ${myName || 'you'}`}
-                onChange={(e) => { setDraft(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${Math.min(e.target.scrollHeight, 112)}px`; }}
+                onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); } }}
               />
             </div>
@@ -663,10 +672,11 @@ export function StoryThread({
     <article className="ysv-post" id={`story-${story.id}`}>
       <div className="ysv-post-pad">
         {header}
-        {body}
       </div>
+      {/* Render the full image first, above even very long story copy. */}
       {media}
-      <div className="ysv-post-pad">
+      <div className="ysv-post-pad ysv-post-content">
+        {body}
         {bar}
         {commentsBlock}
       </div>
@@ -924,7 +934,7 @@ export function StoryStyles() {
       .ysv-composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--ysv-line); }
       .ysv-composer .ysv-avatar-sm { align-self: center; }
       .ysv-compose-box { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-      .ysv-composer textarea { flex:1;resize:vertical;min-height:40px;max-height:112px;overflow-y:auto;border-radius:12px;padding:10px 14px;box-sizing:border-box; }
+      .ysv-composer textarea { flex:1;resize:vertical;min-height:52px;max-height:154px;overflow-y:auto;border-radius:6px;padding:10px 14px;box-sizing:border-box;line-height:1.45; }
       .ysv-side .ysv-composer {min-width:0;}
       .ysv-side .ysv-compose-box {min-width:0;}
       .ysv-picked { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -941,7 +951,8 @@ export function StoryStyles() {
       /* A full post in the Stories tab (desktop). */
       .ysv-post { color: var(--ysv-fg); border: 1px solid var(--ysf-card-border, var(--ysv-line)); border-radius: 10px; background: var(--ysf-card-bg, rgba(255,255,255,.04)); box-shadow: var(--ysf-card-shadow, none); overflow: hidden; }
       .ysv-post-pad { padding: 14px 16px 0; }
-      .ysv-post .ysv-post-pad + .ysv-post-pad { padding-top: 0; }
+      .ysv-post .ysv-post-content { padding-top:10px; }
+       .ysv-post .ysv-post-content .ysv-story { margin:0 0 14px; overflow-wrap:anywhere; }
       .ysv-post .ysv-composer { border-top: 0; padding-top: 4px; }
       .ysv-post .ysv-note, .ysv-post .ysv-confirm { margin-left: 16px; margin-right: 16px; padding-left: 0; padding-right: 0; }
       @media (max-width: 760px) {
