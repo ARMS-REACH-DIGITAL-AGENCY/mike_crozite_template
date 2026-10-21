@@ -1,5 +1,6 @@
 // Browser-only capture of the real Career Path Timeline.
 import sharp from 'sharp';
+import path from 'path';
 
 export async function captureCareerTimeline(input: { origin: string; hsid: string; playerId: string; slug: string }): Promise<Buffer> {
   const [{ default: chromium }, { default: puppeteer }] = await Promise.all([
@@ -8,7 +9,7 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
   ]);
   const browser = await puppeteer.launch({
     args: chromium.args,
-    executablePath: await chromium.executablePath(),
+    executablePath: await chromium.executablePath(path.join(process.cwd(), 'chromium-bin')),
     headless: true,
   });
   try {
