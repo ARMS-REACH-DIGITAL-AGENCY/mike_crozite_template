@@ -108,11 +108,10 @@ export default function ContributePhotoFlow({
     }
     let cancelled = false;
     setHeroLoadError('');
-    auth.authStateReady?.().then(async () => {
+    Promise.resolve(auth.authStateReady?.()).then(async () => {
       const token = await auth.currentUser?.getIdToken().catch(() => '');
-      if (!token) return;
       const res = await fetch(`/api/contribute/photo?playerId=${encodeURIComponent(main.playerId)}`, {
-        credentials:'include',headers:{Authorization:`Bearer ${token}`},cache:'no-store'
+        credentials:'include',headers:token ? {Authorization:`Bearer ${token}`} : {},cache:'no-store'
       });
       const data = await res.json().catch(() => ({}));
       if (cancelled) return;
@@ -192,11 +191,18 @@ export default function ContributePhotoFlow({
     if (p) setMain([p, ...tagged.filter((t) => t.playerId !== id)]);
   };
 
+  const editHero = (hero: ExistingHero) => {
+    if (!hero.imageUrl) { setError('The original image is not available. Contact a reviewer.'); return; }
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setEditingHeroId(hero.id);setFile(null);setPreview(hero.imageUrl);
+    setSeasonKey('other');setOther({year:hero.year,team:''});
+    setCrop(null);setNote('');setApprovedSig('');setError('');
+  };
   const pickFile = (files: FileList | null) => {
     const f = files?.[0];
     if (fileInput.current) fileInput.current.value = '';
     if (!f) return;
-    if (preview) URL.revokeObjectURL(preview);
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
     setFile(f);
     setPreview(URL.createObjectURL(f));
     setCrop(null);
@@ -325,7 +331,7 @@ export default function ContributePhotoFlow({
   };
 
   const startOver = () => {
-    if (preview) URL.revokeObjectURL(preview);
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
     setFile(null); setPreview(''); setEditingHeroId(null); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
     setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setSelectedTeam(null); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
@@ -401,10 +407,36 @@ export default function ContributePhotoFlow({
           <figcaption>EXAMPLE PLACEMENT · {type.label.toUpperCase()}</figcaption>
         </figure>
       ) : null}
+      {type?.id === 'timeline_hero' && signedIn && main && (
+        <section className="ypf-step">
+          <div className="ycd-label"><span className="ycd-step">EDIT</span> YOUR APPROVED YEARLY HERO PHOTOS</div>
+          <p className="ycd-muted ycd-small">One active image per player per year. Select your existing photo to correct the year or replace its picture.</p>
+          {heroLoadError && <div className="ycd-error">{heroLoadError}</div>}
+          <div className="ypf-hero-existing">
+            {existingHeroes.map((hero) => (
+              <button type="button" key={hero.id}
+                className={`ypf-hero-option${editingHeroId === hero.id ? ' is-on' : ''}`}
+                aria-pressed={editingHeroId === hero.id} onClick={() => editHero(hero)}>
+                {hero.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={hero.imageUrl} alt="" loading="lazy" />
+                ) : <i className="ri-image-line" aria-hidden="true" />}
+                <span><b>{hero.year}</b><small>{hero.active ? 'CURRENT · EDIT / REPLACE' : 'ARCHIVED · CORRECT YEAR'}</small></span>
+              </button>
+            ))}
+          </div>
+          {!existingHeroes.length && !heroLoadError && <p className="ycd-muted ycd-small">No previously approved yearly images on this player from your account.</p>}
+          {editingHeroId && (
+            <button type="button" className="ycd-link ycd-small" onClick={() => {
+              setEditingHeroId(null);setFile(null);setPreview('');setSeasonKey('');setApprovedSig('');
+            }}>Cancel correction / upload a new year</button>
+          )}
+        </section>
+      )}
       {/* 1. Upload + */}
       <section className="ypf-step">
         <div className="ycd-label"><span className="ycd-step">1</span> {type ? 'Upload ' + type.label : 'Upload Photo'}</div>
-        {!file ? (
+        {!file && !editingHeroId ? (
           <button type="button" className="ypf-drop" onClick={() => fileInput.current?.click()}>
             <i className="ri-image-add-line" aria-hidden="true" />
             <span>Upload +</span>
@@ -414,7 +446,7 @@ export default function ContributePhotoFlow({
           <div className="ypf-uploaded">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview} alt="" />
-            <button type="button" className="ycd-link ycd-small" onClick={() => fileInput.current?.click()}>Choose a different picture</button>
+            <button type="button" className="ycd-link ycd-small" onClick={() => fileInput.current?.click()}>{editingHeroId ? 'Replace this picture (optional)' : 'Choose a different picture'}</button>
           </div>
         )}
         <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => pickFile(e.target.files)} />
@@ -535,11 +567,11 @@ export default function ContributePhotoFlow({
       ) : null}
 
       {/* 4. Verify position, 5. Approve */}
-      {type && file ? (
+      {type && (file || editingHeroId) && preview ? (
         <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
           <section className="ypf-step">
             <div className="ycd-label"><span className="ycd-step">4</span> Verify position</div>
-            {aspect ? (
+            {aspect && (!editingHeroId || file) ? (
               <>
                 {type.aspects && type.aspects.length > 1 ? (
                   <div className="ycd-switch" role="radiogroup" aria-label="Orientation">
@@ -577,7 +609,7 @@ export default function ContributePhotoFlow({
                 />
                 <label className={`ypf-approve${approved ? ' is-on' : ''}`}>
                   <input type="checkbox" checked={approved} onChange={(e) => setApprovedSig(e.target.checked ? sig : '')} />
-                  <span>Looks right. This is where my photo goes.</span>
+                  <span>{editingHeroId ? 'I approve the updated year or replacement image.' : 'Looks right. This is where my photo goes.'}</span>
                 </label>
               </>
             ) : (
@@ -626,7 +658,13 @@ export default function ContributePhotoFlow({
         .ypf-step { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); min-width: 0; }
         .ypf-sub { margin-top: 6px; }
         .ypf-step-sm { font-size: 11px !important; }
-        .ypf-uploaded { display: flex; align-items: center; gap: 12px; }
+        .ypf-hero-existing{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:8px;margin:10px 0}
+         .ypf-hero-option{display:flex;align-items:center;gap:8px;min-width:0;padding:7px;border:1px solid var(--line);border-radius:5px;color:var(--fg);background:transparent;text-align:left;cursor:pointer}
+         .ypf-hero-option.is-on{border-color:var(--fg);background:var(--line)}
+         .ypf-hero-option img{display:block;width:48px;height:56px;object-fit:contain;background:#141414;flex:none}
+         .ypf-hero-option span{display:flex;flex-direction:column;gap:3px;min-width:0}
+         .ypf-hero-option small{font-size:9px;line-height:1.25}
+         .ypf-uploaded { display: flex; align-items: center; gap: 12px; }
         .ypf-uploaded img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
         .ypf-pick { align-self: flex-start; }
         .ypf-pick button:disabled { opacity: .35; cursor: default; }
