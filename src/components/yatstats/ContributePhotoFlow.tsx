@@ -592,6 +592,44 @@ export default function ContributePhotoFlow({
         </section>
       ) : null}
 
+      {/* Detect an existing active image before approving another annual hero.
+          The replacement action requires an explicit selection plus the
+          approval checkbox; moving is a separate year-correction workflow. */}
+      {type?.id === 'timeline_hero' && file && selectedHeroYear !== null && occupiedHero && (
+        <section className="ypf-step ypf-hero-conflict" role="alert" aria-live="polite">
+          <div className="ycd-label">YEAR {selectedHeroYear} ALREADY HAS A HERO IMAGE</div>
+          <p>A yearly hero image already exists for {main?.displayName || 'this player'} in {selectedHeroYear}. Are you sure you want to change it?</p>
+          <div className="ypf-hero-compare">
+            <figure>
+              {occupiedHero.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={occupiedHero.imageUrl} alt={`Current ${selectedHeroYear} yearly hero`} />
+              ) : <span>Current image unavailable</span>}
+              <figcaption>CURRENT HERO</figcaption>
+            </figure>
+            <figure>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview} alt={`Proposed ${selectedHeroYear} yearly hero`} />
+              <figcaption>PROPOSED HERO</figcaption>
+            </figure>
+          </div>
+          {occupiedHero.canEdit ? (
+            <>
+              <p><b>Would you like to move the current image to a different year, or replace it?</b></p>
+              <div className="ycd-actions ypf-hero-decisions">
+                <button type="button" className="ycd-btn" onClick={moveOccupiedHero}>MOVE CURRENT IMAGE</button>
+                <button type="button" className="ycd-btn" aria-pressed={replacingCurrentHero}
+                  onClick={replaceOccupiedHero}>{replacingCurrentHero ? 'REPLACE CURRENT — SELECTED' : 'REPLACE CURRENT IMAGE'}</button>
+              </div>
+              {replacingCurrentHero
+                ? <p className="ycd-muted ycd-small">The original image is preserved in the archive. Only an approved new image becomes the visible hero.</p>
+                : <p className="ycd-muted ycd-small">To move the current image, select an available destination year and approve that correction first. The replacement upload will not proceed automatically.</p>}
+            </>
+          ) : (
+            <p className="ycd-error">This year's image was submitted by another contributor. Only the original uploader or an authorized YAT?STATS reviewer may move or replace it.</p>
+          )}
+        </section>
+      )}
       {/* 4. Verify position, 5. Approve */}
       {type && (file || editingHeroId) && preview ? (
         <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
@@ -684,6 +722,14 @@ export default function ContributePhotoFlow({
         .ypf-step { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); min-width: 0; }
         .ypf-sub { margin-top: 6px; }
         .ypf-step-sm { font-size: 11px !important; }
+        .ypf-hero-conflict{border:1px solid var(--line);border-left:3px solid var(--fg);padding:12px;border-radius:5px}
+        .ypf-hero-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+        .ypf-hero-compare figure{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}
+        .ypf-hero-compare img{display:block;width:100%;height:auto;max-height:190px;object-fit:contain;background:#111}
+        .ypf-hero-compare figcaption{color:var(--fg);font-size:10px;font-weight:700;letter-spacing:.04em}
+        .ypf-hero-decisions{display:flex;gap:8px;flex-wrap:wrap}
+        .ypf-hero-decisions .ycd-btn{flex:1 1 190px}
+        .ypf-hero-decisions .ycd-btn[aria-pressed=true]{outline:2px solid var(--fg)}
         .ypf-hero-existing{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:8px;margin:10px 0}
          .ypf-hero-option{display:flex;align-items:center;gap:8px;min-width:0;padding:7px;border:1px solid var(--line);border-radius:5px;color:var(--fg);background:transparent;text-align:left;cursor:pointer}
          .ypf-hero-option.is-on{border-color:var(--fg);background:var(--line)}
