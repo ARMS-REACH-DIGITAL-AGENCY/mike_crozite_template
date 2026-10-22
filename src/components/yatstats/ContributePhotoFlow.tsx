@@ -42,6 +42,7 @@ type Stage = 'form' | 'sending' | 'done';
 type Pick = 'player' | 'school' | 'team';
 type Result = { outcome: 'approved' | 'rejected' | 'pending'; message: string; link?: string | null };
 type ExistingHero = { id:string; year:number; imageUrl:string | null; active:boolean; uploadedAt:string };
+type HeroSlot = ExistingHero & { canEdit:boolean };
 
 export default function ContributePhotoFlow({
   hubSchool,
@@ -95,6 +96,8 @@ export default function ContributePhotoFlow({
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [existingHeroes, setExistingHeroes] = useState<ExistingHero[]>([]);
+  const [occupiedYears, setOccupiedYears] = useState<HeroSlot[]>([]);
+  const [slotsReady, setSlotsReady] = useState(false);
   const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
   const editingHero = existingHeroes.find((hero) => hero.id === editingHeroId) || null;
   const [heroLoadError, setHeroLoadError] = useState('');
@@ -105,10 +108,10 @@ export default function ContributePhotoFlow({
   // available to a configured reviewer). No secret or account ID is exposed.
   useEffect(() => {
     if (!signedIn || purpose !== 'timeline_hero' || !main?.playerId) {
-      setExistingHeroes([]); setEditingHeroId(null); return;
+      setExistingHeroes([]); setOccupiedYears([]); setSlotsReady(false); setEditingHeroId(null); return;
     }
     let cancelled = false;
-    setHeroLoadError('');
+    setHeroLoadError(''); setSlotsReady(false); setOccupiedYears([]);
     Promise.resolve(auth.authStateReady?.()).then(async () => {
       const token = await auth.currentUser?.getIdToken().catch(() => '');
       const res = await fetch(`/api/contribute/photo?playerId=${encodeURIComponent(main.playerId)}`, {
@@ -116,9 +119,11 @@ export default function ContributePhotoFlow({
       });
       const data = await res.json().catch(() => ({}));
       if (cancelled) return;
-      if (!res.ok) { setHeroLoadError(data.error || 'Unable to load your previous yearly photos.'); return; }
+      if (!res.ok) { setHeroLoadError(data.error || 'Unable to check existing yearly photos.'); setSlotsReady(false); return; }
       setExistingHeroes(Array.isArray(data.heroes) ? data.heroes : []);
-    }).catch(() => { if (!cancelled) setHeroLoadError('Unable to load your previous yearly photos.'); });
+      setOccupiedYears(Array.isArray(data.slots) ? data.slots : []);
+      setSlotsReady(true);
+    }).catch(() => { if (!cancelled) { setHeroLoadError('Unable to check existing yearly photos.'); setSlotsReady(false); } });
     return () => { cancelled = true; };
   }, [signedIn,purpose,main?.playerId,heroRefresh]);
 
@@ -147,6 +152,9 @@ export default function ContributePhotoFlow({
     ? (other.year ? { key: 'other', year: Number(other.year), stage: 'other', team: other.team.trim(), level: '', label: 'Other', current: false } : null)
     : years?.find((s) => s.key === seasonKey) || null;
   const current = seasons?.find((s) => s.current) || null;
+  const selectedHeroYear = season?.year || null;
+  const occupiedHero = selectedHeroYear ? occupiedYears.find((item) => item.year === selectedHeroYear) || null : null;
+  const replacingCurrentHero = Boolean(occupiedHero && occupiedHero.id === editingHeroId && file);
   const aspect = type?.aspects ? (type.aspects.length > 1 && landscape ? type.aspects[1] : type.aspects[0]) : null;
   const pickFor: Pick = type?.asks === 'school' ? 'school' : type?.asks === 'team' ? 'team' : 'player';
   const pick: Pick = pickFor;
@@ -199,6 +207,18 @@ export default function ContributePhotoFlow({
     setSeasonKey('other');setOther({year:hero.year,team:''});
     setCrop(null);setNote('');setApprovedSig('');setError('');
   };
+  const replaceOccupiedHero = () => {
+    if (!occupiedHero?.canEdit || !file) return;
+    setEditingHeroId(occupiedHero.id);
+    setApprovedSig(''); setError('');
+  };
+  const moveOccupiedHero = () => {
+    if (!occupiedHero?.canEdit) return;
+    const hero = existingHeroes.find((item) => item.id === occupiedHero.id);
+    if (!hero) return setError('Only the original uploader or reviewer can move this image.');
+    editHero(hero);
+    setError('Choose another available year for the EXISTING photo and submit that correction. You can then upload your NEW photo into this year.');
+  };
   const pickFile = (files: FileList | null) => {
     const f = files?.[0];
     if (fileInput.current) fileInput.current.value = '';
@@ -236,10 +256,13 @@ export default function ContributePhotoFlow({
     if (type.needsPlayer && !main) return 'Select the player.';
     if ((type.id === 'timeline_hero' || type.id === 'headshot') && !season) return seasonKey === 'other' ? 'Pick the year.' : 'Pick the season.';
     if (type.id === 'timeline_hero') {
+      if (!slotsReady) return heroLoadError || 'Checking this player\'s existing yearly hero images.';
       const y = season?.year;
       if (editingHeroId && editingHero && !file && editingHero.year === y) return 'Select a different year, or choose a replacement photo.';
-      if (y && existingHeroes.some((hero) => hero.active && hero.year === y && hero.id !== editingHeroId))
-        return `A yearly hero already exists for ${y}. Edit or replace that year's photo instead.`;
+      if (occupiedHero && occupiedHero.id !== editingHeroId)
+        return occupiedHero.canEdit
+          ? `A yearly hero already exists for ${y}. Choose MOVE EXISTING or REPLACE EXISTING before approving.`
+          : `A yearly hero already exists for ${y}. Only its original uploader or a reviewer can move or replace it.`;
     }
     if (type.asks === 'team' && !teamId) return 'Pick the team.';
     if (type.asks === 'school' && !/^\d+$/.test(String(school?.hsid ?? '').trim())) return 'Select a high school from the search results.';
@@ -247,7 +270,7 @@ export default function ContributePhotoFlow({
   };
 
   // What the proof shows; approving it holds only while this stays the same.
-  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop, editingHeroId]);
+  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop, editingHeroId, occupiedHero?.id]);
   const approved = approvedSig === sig;
   const ready = !problem();
   const submissionHsid = String(type?.id === 'team_logo' ? '' : type?.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim();
