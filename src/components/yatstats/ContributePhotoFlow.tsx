@@ -377,7 +377,7 @@ export default function ContributePhotoFlow({
     if (!signedIn) return onSignIn();
     const p = problem();
     if (p) return setError(p);
-    if (!validSubmissionHsid) return setError('Select a high school from the search results.');
+    if (!validSubmissionHsid && !(editingHeroId && !file && type.id === 'timeline_hero')) return setError('Select a high school from the search results.');
     if (!approved) return setError('Check the proof and approve it first.');
     setStage('sending');
     setError('');
