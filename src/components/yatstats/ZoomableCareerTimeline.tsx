@@ -736,7 +736,8 @@ const requestedCutouts = new Set<string>();
 // cutout exists it shows the whole photo (sitting above the rail) and asks
 // the server to make one, so the next visit gets the cutout.
 function StoryHeroImg({ photo, className, style, alt, readOnly = false, onOpenStory }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string; readOnly?: boolean; onOpenStory?: (id: string) => void }) {
-  const canCut = Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
+  // Story photos keep the entire image; approved annual hero photos use cutouts.
+  const canCut = !photo.storyId && Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
   const [cutFailed, setCutFailed] = useState(false);
   const useCut = canCut && !cutFailed;
   const onError = () => {
@@ -754,7 +755,7 @@ function StoryHeroImg({ photo, className, style, alt, readOnly = false, onOpenSt
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={`${className}${useCut ? ' zt-story-cut' : ''}${!photo.storyId ? ' zt-annual-hero' : ''}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
+      className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId ? ' zt-timeline-memory' : ' zt-annual-hero'}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
       style={style}
       src={useCut ? photo.cutout || photo.web : photo.storyId ? photo.web : YATI_PLACEHOLDERS[0]}
       alt={alt}
@@ -2631,7 +2632,13 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* A cutout (.zt-story-cut) keeps the plain .zt-person placement - the
            YaTi cartoon's: bottom pinned to the bottom of the slide, full
            height. A whole photo (no cutout yet) sits above the rail instead. */
-        .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:20px; height:calc(100% - 34px); }
+        /* Keep complete published memory above gold rail (desktop rail at 20px).
+           Annual hero cutouts deliberately occupy a different layer. */
+        .zt-person-stack :global(.zt-person.zt-timeline-memory) {
+          bottom:34px !important; height:calc(100% - 42px) !important;
+          object-fit:contain; object-position:right bottom;
+          filter:drop-shadow(0 3px 8px rgba(0,0,0,.5));
+        }
          .zt-person-stack :global(.zt-person.zt-annual-hero) { bottom:-4% !important; height:104% !important; object-fit:contain; }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
@@ -2917,11 +2924,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* Compact published-memory card stands directly ON its year tick;
            this is not the hero cutout layer below the rail. */
         .zt-rail-year-memory { position:absolute; z-index:9; top:50%; transform:translate(-50%,-50%); width:17px; height:17px; padding:0; display:grid;place-items:center; border:1px solid white; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.5); overflow:visible; }
-        .zt-rail-year-memory.is-card { top:auto; bottom:calc(50% + 5px); transform:translateX(-50%); width:44px; height:54px; background:#141414; border:2px solid #fff; border-radius:3px; }
-        .zt-rail-year-memory :global(img) { width:100%; height:100%; display:block; object-fit:contain; background:#121212; }
+        /* Preserve natural portrait/landscape ratio, no colored frame. */
+        .zt-rail-year-memory.is-card {
+          top:auto; bottom:calc(50% + 9px); transform:translateX(-50%);
+          width:max-content; height:max-content; max-width:114px; padding:2px;
+          background:#121212; border:1px solid rgba(255,255,255,.65); border-radius:3px;
+        }
+        .zt-rail-year-memory.is-card :global(img) {
+          display:block; width:auto; height:auto; max-width:108px; max-height:64px;
+          object-fit:contain; object-position:center; background:transparent;
+        }
         .zt-rail-year-memory:not(.is-card):hover { transform:translate(-50%,-50%) scale(1.13); }
         .zt-rail-year-memory.is-card:hover { filter:brightness(1.16); }
-        @media(max-width:620px) { .zt-rail-year-memory.is-card { width:34px; height:42px; } }
+        @media(max-width:620px) {
+          .zt-rail-year-memory.is-card { max-width:84px; }
+          .zt-rail-year-memory.is-card :global(img) { max-width:78px; max-height:46px; }
+        }
 
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
         /* A season's logo standing on the rail, as wide as its dash. */
@@ -3137,7 +3155,11 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              timeline rail instead of floating above it. This path is
              shared by Story photos and Connect & Contribute yearly hero
              uploads, so both land in the same place. */
-          .zt-person-stack :global(.zt-person.zt-person-story:not(.zt-story-cut)) { bottom:8px; height:calc(100% - 22px); }
+          /* Gold line is 8px from bottom on mobile; stories end 14px above it. */
+           .zt-person-stack :global(.zt-person.zt-timeline-memory) {
+             bottom:22px !important; height:calc(100% - 30px) !important;
+             object-position:left bottom;
+           }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28cqw,120px)) -- at that width a wide pose was
              width-limited to well under the row's height. */
