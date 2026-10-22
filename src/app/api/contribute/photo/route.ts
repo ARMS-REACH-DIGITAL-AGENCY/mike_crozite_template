@@ -345,6 +345,32 @@ export async function POST(req: NextRequest) {
         // A photo for a player who isn't on the site yet can't be placed.
         if (type.needsPlayer && !PLAYER_ID.test(playerId)) throw new Error('no player on the site');
         const upload = { id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason };
+        // Moderation can take time. Recheck the slot just before publishing,
+        // rather than relying solely on the first read before processing.
+        if (purpose === 'timeline_hero') {
+          const { rows: latest } = await query<{ id:string }>(
+            `SELECT id::text FROM media_upload WHERE playerid=$1
+               AND purpose='timeline_hero' AND status='approved' AND date_taken=$2::date
+               AND ${ACTIVE_HERO} ORDER BY uploaded_at DESC,id DESC LIMIT 1`,
+            [playerId,`${year}-01-01`]
+          );
+          if (latest[0] && latest[0].id !== replaceUploadId) {
+            message = 'The yearly hero changed while your photo was being checked. Your new photo was held for review; the current hero was not replaced.';
+            throw new Error('annual hero year occupied during moderation');
+          }
+          if (replaceUploadId) {
+            const { rows: current } = await query<{id:string; year:string}>(
+              `SELECT id::text, date_taken::text AS year FROM media_upload
+               WHERE id=$1::uuid AND playerid=$2 AND purpose='timeline_hero'
+                 AND status='approved' AND ${ACTIVE_HERO} LIMIT 1`,
+              [replaceUploadId,playerId]
+            );
+            if (!current[0] || current[0].year.slice(0,10) !== `${year}-01-01`) {
+              message = 'The image being replaced has moved or changed. Your new upload was held for review; no existing image was changed.';
+              throw new Error('replacement slot changed during moderation');
+            }
+          }
+        }
         // Exact reuploads do not need a second S3 copy, but they are still
         // resolved as approved rather than being stranded in pending.
         const { rows: duplicates } = await query<{ id: string }>(
