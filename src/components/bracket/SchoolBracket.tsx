@@ -286,7 +286,7 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
       const hero = document.querySelector('.yat-row3-shell');
       const below = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
       const heroBottom = hero ? hero.getBoundingClientRect().bottom : 0;
-      setBox(window.matchMedia('(min-width: 900px)').matches && row5 ? { top: Math.max(below, heroBottom, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
+      setBox(window.matchMedia(`(min-width: ${DUAL_DRAWER_MIN_WIDTH}px)`).matches && row5 ? { top: Math.max(below, heroBottom, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
     };
     place();
     // The rows above settle after the drawer opens (images, fonts): re-place
@@ -673,7 +673,7 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
 
 // From this width both Stat Ledger drawers open together (about a third of
 // the screen each), leaving ~600px of game cards between them.
-const DUAL_DRAWER_MIN_WIDTH = 1240;
+const DUAL_DRAWER_MIN_WIDTH = 1560;
 // From this width the site's docked drawers (Search on the left, Favorites
 // on the right) open beside the Stat Ledgers instead of closing them: each
 // ledger moves in by the site drawer's width and the game narrows to fit.
@@ -1093,7 +1093,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            ad and the pinned round buttons - one round at a time, no page
            scrolling (like the profile's FunZone). */
         .yfp:has(.yfz) { padding: 0; }
-        .yfz { --yfz-dock-h:0px; position:relative; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,66px)); min-height:318px; max-height:none; overflow:hidden; }
+        .yfz { --yfz-dock-h:0px; container-type:inline-size; position:relative; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,66px)); min-height:318px; max-height:none; overflow:hidden; }
         .yfz-panel { position:absolute; inset:0 0 var(--yfz-dock-h) 0; display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:16px; padding:8px; }
         .yfz-panel.all { grid-template-columns: minmax(0, 1fr); }
         .yfz-panel > .yfp-lb { position: static; max-height: none; height: 100%; overflow-y: auto; }
@@ -1309,12 +1309,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-title i { margin:0 2px; }
           .yfp-lb-regions-k { letter-spacing:0; }
         }
-        /* From 820px, like the flip-card gallery: the game (up to 680px)
-           sits centered with no drawer, and when one opens it slides over
-           and sits right against it, shrinking only if the room left is
-           narrower than 680px; with both open (1240px and up) it fills all
-           the space between them, flush on both sides, and the board grows
-           with it. */
+        /* Between mobile and wide desktop, keep the 680px bracket centered
+           in the available content area. Stat Ledgers overlay rather than
+           consume their own 422px lanes in this range. */
         @media (min-width:820px) {
           .yfz-panel,
           body.yfp-dock-l .yfz-panel,
@@ -1323,14 +1320,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             padding-left:max(8px, calc((100% - 680px) / 2)); padding-right:max(8px, calc((100% - 680px) / 2));
             transition:padding-left .22s ease-out, padding-right .22s ease-out;
           }
-          body.yfp-dock-l .yfz-panel { padding-left:var(--yfp-dw); padding-right:max(8px, calc(100% - var(--yfp-dw) - 680px)); }
-          body.yfp-dock-r .yfz-panel { padding-right:var(--yfp-dw); padding-left:max(8px, calc(100% - var(--yfp-dw) - 680px)); }
-          body.yfp-dock-l.yfp-dock-r .yfz-panel { padding-left:var(--yfp-dw); padding-right:var(--yfp-dw); }
         }
-        /* Keep the central scoreboard and runs leaderboard the exact same
-           width/position with either, both, or neither Stat Ledger open.
-           Reserve both 422px ledger lanes on wide desktop even when closed. */
-        @media (min-width:1240px) {
+        /* Reserve both Stat Ledger lanes ONLY when the bracket's actual
+           available width can fit the 422px lanes plus a readable center.
+           A site account, filters, or favorites drawer reduces that width;
+           viewport-only breakpoints previously collapsed the bracket. */
+        @container (min-width:1560px) {
           .yfz-panel,
           body.yfp-dock-l .yfz-panel,
           body.yfp-dock-r .yfz-panel,
