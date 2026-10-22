@@ -128,6 +128,11 @@ export default function PageMessageStrip({
         ? <a href={active.cta_url} className="yat-page-message-copy">{active.message_text}{active.cta_label ? ` — ${active.cta_label}` : ''}</a>
         : <span className="yat-page-message-copy">{active.message_text}</span>)
         : <span className="yat-page-message-copy" />}
+      <div className="yat-page-message-legal" aria-label="Registered YAT?STATS business contact details">
+        <strong>Primary Source LLC dba YATSTATS</strong>
+        <span> · PO Box 11861, Chandler, AZ 85248</span>
+        <span> · <a href="tel:+14806282588">(480) 628-2588</a> · <a href="mailto:pete@yatstats.com">pete@yatstats.com</a></span>
+      </div>
     </div>
     <div className={`yat-page-message-count${onAllTime ? ' has-share' : ''}`} aria-live="polite" aria-label={teamAlumniCount !== null ? `${teamAlumniCount} ${teamYear} next level alumni` : activeStatsPending ? `${activeAlumni || 'No'} confirmed active alumni; 2026 coverage is incomplete, so the total is not yet known` : `${activeAlumni ?? 'Unknown'} active alumni`}>
       <strong>{teamAlumniCount ?? (activeStatsPending ? (activeAlumni ? `${activeAlumni}+` : '—') : activeAlumni ?? '—')}</strong>
@@ -143,11 +148,11 @@ export default function PageMessageStrip({
       ) : null}
     </div>
     <style jsx global>{`
-      .yat-page-message-strip{display:flex;align-items:center;position:relative;width:100%;min-width:0;height:var(--yat-message-h,36px);background:var(--bg,#fff);color:var(--fg,#111)}
+      .yat-page-message-strip{display:flex;align-items:center;position:relative;width:100%;min-width:0;height:var(--yat-facts-h,46px);background:var(--bg,#fff);color:var(--fg,#111)}
       .yat-page-message-hero-space{width:var(--yat-card-left-edge,clamp(64px,10vw,110px));height:100%;flex:none}
-      .yat-page-message-content{flex:1;min-width:0;display:flex;align-items:center;height:100%;padding:2px 6px 2px 0}
-      .yat-page-message-copy{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:100%;font:700 clamp(9px,1.1vw,13px)/1.12 Arial,sans-serif;letter-spacing:-.015em;color:inherit;text-decoration:none}
-      .yat-page-message-count{display:flex;align-items:stretch;justify-content:flex-end;gap:0;flex:none;margin:0 7px 0 3px;padding:2px;background:linear-gradient(135deg,#176c4d,#06402f);border:1px solid #25845e;border-radius:2px;box-shadow:inset 0 0 0 1px #052b21,0 1px 2px #0004;height:30px;box-sizing:border-box}
+      .yat-page-message-content{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;height:100%;padding:2px 6px 2px 0}
+      .yat-page-message-copy{display:-webkit-box;width:100%;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:100%;font:700 clamp(9px,1.1vw,13px)/1.12 Arial,sans-serif;letter-spacing:-.015em;color:inherit;text-decoration:none}
+      .yat-page-message-legal{font:500 clamp(8px,.8vw,10px)/1.12 Arial,sans-serif;max-width:100%;color:inherit;overflow-wrap:anywhere}\n      .yat-page-message-legal strong{font-weight:700}\n      .yat-page-message-legal a{color:inherit;text-decoration:underline;text-underline-offset:2px}\n      .yat-page-message-count{display:flex;align-items:stretch;justify-content:flex-end;gap:0;flex:none;margin:0 7px 0 3px;padding:2px;background:linear-gradient(135deg,#176c4d,#06402f);border:1px solid #25845e;border-radius:2px;box-shadow:inset 0 0 0 1px #052b21,0 1px 2px #0004;height:30px;box-sizing:border-box}
       .yat-page-message-count strong{display:flex;align-items:center;justify-content:center;min-width:36px;padding:0 5px;background:#042c20;border-radius:2px;font:900 clamp(17px,2.2vw,25px)/1 Arial,sans-serif;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000}
       .yat-page-message-count span{display:flex;align-items:center;padding:0 6px;font:900 clamp(7px,.75vw,10px)/1.1 Arial,sans-serif;color:#ffcb22;text-shadow:0 1px 1px #000}
       /* The share button: the count box's green, one step longer. */
@@ -158,8 +163,8 @@ export default function PageMessageStrip({
       .yat-page-message-share:focus-visible{outline:2px solid #ffcb22;outline-offset:-2px}
       @media(max-width:640px){
         .yat-page-message-hero-space{width:var(--yat-card-left-edge,clamp(55px,12vw,76px))}
-        .yat-page-message-content{padding:1px 3px 1px 0}
-        .yat-page-message-copy{font-size:clamp(8px,2vw,10px);line-height:1.1}
+        .yat-page-message-content{padding:1px 3px 1px 0;gap:1px}
+        .yat-page-message-copy{font-size:clamp(8px,2vw,10px);line-height:1.1}\n        .yat-page-message-legal{font-size:8px;line-height:1.13}
         .yat-page-message-count{margin:0 3px 0 2px;padding:2px;height:29px}
         .yat-page-message-count strong{font-size:clamp(16px,4vw,23px);min-width:32px;padding:0 4px}
         .yat-page-message-count span{font-size:7px;padding:0 4px}
