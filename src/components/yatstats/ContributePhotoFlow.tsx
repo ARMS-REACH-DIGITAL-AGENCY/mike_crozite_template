@@ -98,6 +98,7 @@ export default function ContributePhotoFlow({
   const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
   const editingHero = existingHeroes.find((hero) => hero.id === editingHeroId) || null;
   const [heroLoadError, setHeroLoadError] = useState('');
+  const [heroRefresh, setHeroRefresh] = useState(0);
 
   const main = tagged[0] || null;
   // Read only this contributor's own approved yearly hero uploads (or those
@@ -119,7 +120,7 @@ export default function ContributePhotoFlow({
       setExistingHeroes(Array.isArray(data.heroes) ? data.heroes : []);
     }).catch(() => { if (!cancelled) setHeroLoadError('Unable to load your previous yearly photos.'); });
     return () => { cancelled = true; };
-  }, [signedIn,purpose,main?.playerId]);
+  }, [signedIn,purpose,main?.playerId,heroRefresh]);
 
   const type = PHOTO_TYPES.find((t) => t.id === purpose) || null;
 
@@ -279,6 +280,7 @@ export default function ContributePhotoFlow({
         window.dispatchEvent(new CustomEvent('yat:contribute-photo-published',{
           detail:{playerId:main?.playerId || '',purpose:'timeline_hero',uploadId:editingHeroId}
         }));
+        setHeroRefresh((value) => value + 1);
         router.refresh(); setStage('done'); return;
       }
       const isLogo = type.id === 'school_logo' || type.id === 'team_logo';
@@ -322,6 +324,7 @@ export default function ContributePhotoFlow({
           detail: { playerId: main?.playerId || '', purpose: type.id, uploadId: body?.id || '' },
         }));
         router.refresh();
+        if (type.id === 'timeline_hero') setHeroRefresh((value) => value + 1);
       }
       setStage('done');
     } catch (e) {
