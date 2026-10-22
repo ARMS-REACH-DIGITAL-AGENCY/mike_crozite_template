@@ -13,11 +13,11 @@ If HighLevel cannot edit the rejected campaign's setup method, use its supported
 ## URLs to submit (check they are public and live first)
 
 - Brand website: **https://www.yatstats.com/** (matches the YAT?STATS ARMS location's website; verify the approved Brand Website entry before submission)
-- Opt-in form URL: **https://hamilton.az.yatstats.com/5004?join=1**
+- Opt-in form URL: **https://hamilton.az.yatstats.com/?join=1**
 - Privacy Policy: **https://yatstats.com/privacy-policy/**
 - Terms & Conditions: **https://yatstats.com/terms-and-conditions/**
 
-The `?join=1` parameter opens the **actual reusable school JOIN drawer** without a login. It does not create another form. Hamilton is one publicly verifiable example; the same shared template works for every school with one Home School per fan.
+The `?join=1` parameter on the school **root URL** opens the actual reusable school JOIN drawer without a login and bypasses the first-visit splash. The school homepage internally resolves its own Home School ID. It does not create another form. Hamilton is one publicly verifiable example; the same shared template works for every school with one Home School per fan.
 
 Take browser screenshots of the **real live deployed drawer** showing the phone field, both unchecked opt-in boxes, the STOP/HELP/frequency/data-rate disclosure, the policy links, and the submit button. If the form is not trivially verifiable in a private/incognito session, host the screenshots publicly and provide their URLs in the campaign's message-flow description.
 
@@ -29,7 +29,7 @@ Choose the use case appropriate to actual sending (Mixed if both promotional and
 
 ## How end-users opt in / Message Flow
 
-Visitors select their Home School on a YAT?STATS school microsite. On https://hamilton.az.yatstats.com/5004?join=1 the public JOIN drawer opens automatically, showing the fan registration form. Visitors provide their name and email address; a mobile telephone number is optional. Below the phone field are two **separate, unchecked, optional** consent checkboxes: (1) receive non-marketing YAT?STATS text messages about their Home School baseball player and community alerts, and (2) receive YAT?STATS promotional text messages related to that community. The disclosures beside the choices say message frequency varies, message and data rates may apply, reply STOP to unsubscribe, reply HELP for assistance, and that consent is not required to register or purchase. Privacy: https://yatstats.com/privacy-policy/ ; Terms: https://yatstats.com/terms-and-conditions/ . The site records the selected opt-in category, phone, date/time, Home School, consent wording/version and source. Account creation alone does not authorize SMS.
+Visitors select their Home School on a YAT?STATS school microsite. On https://hamilton.az.yatstats.com/?join=1 the public JOIN drawer opens automatically, showing the fan registration form. Visitors provide their name and email address; a mobile telephone number is optional. Below the phone field are two **separate, unchecked, optional** consent checkboxes: (1) receive non-marketing YAT?STATS text messages about their Home School baseball player and community alerts, and (2) receive YAT?STATS promotional text messages related to that community. The disclosures beside the choices say message frequency varies, message and data rates may apply, reply STOP to unsubscribe, reply HELP for assistance, and that consent is not required to register or purchase. Privacy: https://yatstats.com/privacy-policy/ ; Terms: https://yatstats.com/terms-and-conditions/ . The site records the selected opt-in category, phone, date/time, Home School, consent wording/version and source. Account creation alone does not authorize SMS.
 
 After the campaign is approved and the phone number is A2P Verified, a welcome/confirmation message containing the brand, message frequency, rates, HELP and STOP must be sent after verified enrollment. **Do not state that the welcome workflow is live until it is configured and verified.**
 

@@ -168,8 +168,9 @@ export default async function HsidLayout({
   const isPreview = host.includes('vercel.app') || host.includes('localhost');
   const pathname = headersList.get('x-pathname') || '';
   const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
+  const openJoin = headersList.get('x-yat-open-join') === '1';
   if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && !isHostRewrite && new RegExp(`^/${hsid}/?$`).test(pathname)) {
-    permanentRedirect(micrositeUrl.replace(/\/$/, ''));
+    permanentRedirect(micrositeUrl.replace(/\/$/, '') + (openJoin ? '/?join=1' : ''));
   }
 
   const splashHsid = String(school.hsid ?? hsid);
@@ -178,7 +179,7 @@ export default async function HsidLayout({
   // A manual ?splash=1 preview still forces the original introduction.
   const seenSplash = /(?:^|;\s*)yat_seen=1(?:;|$)/.test(headersList.get('cookie') || '');
   const forceSplash = headersList.get('x-yat-force-splash') === '1';
-  const showSplash = forceSplash || !seenSplash;
+  const showSplash = forceSplash || (!seenSplash && !openJoin);
   return (
     <>
       {showSplash && <SchoolSplash
