@@ -245,6 +245,7 @@ export function StoryThread({
   focusComment = false,
   onCommentOpen,
   onSignIn,
+  onOpenStory,
 }: {
   story: Story;
   playerId: string;
@@ -255,6 +256,8 @@ export function StoryThread({
   onCommentOpen?: () => void;
   // Modal sign-in closes the blocking StoryViewer before opening the account rail.
   onSignIn?: () => void;
+  // Selecting an inline post opens its existing full StoryViewer.
+  onOpenStory?: () => void;
   // 'modal': the right-hand side of the big view (scrolls; comment box
   // pinned at the bottom). 'inline': a full post in the Stories tab.
   variant: 'modal' | 'inline';
@@ -669,7 +672,22 @@ export function StoryThread({
   }
 
   return (
-    <article className="ysv-post" id={`story-${story.id}`}>
+    <article className="ysv-post" id={`story-${story.id}`}
+      role={onOpenStory ? 'group' : undefined}
+      tabIndex={onOpenStory ? 0 : undefined}
+      aria-label={onOpenStory ? `Story by ${story.author}. Press Enter to open the full memory` : undefined}
+      onClick={onOpenStory ? (event) => {
+        // Nested links and Like/Comment/Share/photo tools keep their actions.
+        if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [role="button"]')) return;
+        onOpenStory();
+      } : undefined}
+      onKeyDown={onOpenStory ? (event) => {
+        if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onOpenStory();
+        }
+      } : undefined}
+    >
       <div className="ysv-post-pad">
         {header}
       </div>
@@ -677,6 +695,12 @@ export function StoryThread({
       {media}
       <div className="ysv-post-pad ysv-post-content">
         {body}
+        {onOpenStory && !editing && (
+          <button type="button" className="ysv-open-memory" onClick={onOpenStory}
+            aria-label={`Open the full memory by ${story.author}`}>
+            VIEW FULL MEMORY <i className="ri-external-link-line" aria-hidden="true" />
+          </button>
+        )}
         {bar}
         {commentsBlock}
       </div>
@@ -896,6 +920,10 @@ export function StoryStyles() {
       .ysv-menu button:hover { background: var(--ysv-hover); }
       .ysv-menu .ysv-danger { color: #e05252; }
       .ysv-story { margin: 12px 0; color: var(--ysv-fg); font: 400 16px/1.6 var(--yat-news-font, Georgia, serif); white-space: pre-line; }
+      .ysv-post[tabindex="0"] { cursor:pointer; }
+      .ysv-post[tabindex="0"]:focus-visible { outline:2px solid var(--ysv-gold); outline-offset:2px; }
+      .ysv-open-memory { display:inline-flex; align-items:center; gap:5px; margin:0 0 12px; padding:6px 8px; border:1px solid var(--ysv-line); border-radius:4px; background:transparent; color:var(--ysv-text); font:700 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); cursor:pointer; }
+      .ysv-open-memory:hover,.ysv-open-memory:focus-visible { color:var(--ysv-fg); border-color:var(--ysv-text); }
       .ysv-edit { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
       .ysv-edit-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
       .ysv-edit select, .ysv-edit textarea, .ysv-composer textarea { width: 100%; border: 1px solid var(--ysv-input-border); border-radius: 8px; background: var(--ysv-input-bg); color: var(--ysv-fg); padding: 9px 12px; font: 400 14px/1.45 system-ui, sans-serif; }
