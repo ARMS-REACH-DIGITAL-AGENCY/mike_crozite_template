@@ -1119,6 +1119,28 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       JOIN tbc_players_raw tp
         ON ph.playerid::text = tp.playerid::text
       WHERE ph.hsid = $1
+
+      UNION ALL
+      -- First-party contributed players have a verified school identity
+      -- record but no legacy TBC player row. Include them in the All-Time
+      -- gallery without writing synthetic data into imported TBC tables.
+      SELECT
+        f.playerid,
+        f.first_name AS firstname,
+        f.last_name AS lastname,
+        f.level_label AS career_highlevel,
+        NULL::text AS height,
+        NULL::text AS weight,
+        NULL::text AS bats,
+        NULL::text AS throws,
+        f.position
+      FROM public.flip_card_front_stage f
+      WHERE f.hsid::text = $1::text
+        AND f.source_summary->>'source' = 'contribute'
+        AND NOT EXISTS (
+          SELECT 1 FROM public.tbc_players_raw tp
+          WHERE tp.playerid::text = f.playerid::text
+        )
     ),
 
     latest_batting_level AS (
