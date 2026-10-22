@@ -24,6 +24,10 @@ export async function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
+  // A2P/manual-signup reviewers and new fans must reach the actual JOIN drawer
+  // without the first-visit splash covering the permission form.
+  if (request.nextUrl.searchParams.get('join') === '1') requestHeaders.set('x-yat-open-join', '1');
+  else requestHeaders.delete('x-yat-open-join');
   // A shared team link (?team=2017): the layout renders rows 2-3 and the
   // count box for that team from the first byte (layouts get no
   // searchParams of their own).
