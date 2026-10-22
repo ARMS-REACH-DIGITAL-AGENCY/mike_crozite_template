@@ -190,12 +190,12 @@ export async function GET(req: NextRequest) {
     const timelinePhotos = timelineUploads.flatMap((upload) => {
       const candidateYear = new Date(upload.date_taken).getUTCFullYear();
       if (!Number.isInteger(candidateYear) || selectedYears.has(candidateYear)) return [];
-      selectedYears.add(candidateYear);
       let info: { published_assets?: string[] } = {};
       try { info = JSON.parse(upload.description || '{}'); } catch {}
       const all = Array.isArray(info.published_assets) ? info.published_assets : [];
       const full = all.find((key) => typeof key === 'string' && key.startsWith('players/season-photos/') && key.endsWith('_' + upload.id + '.jpg'));
       if (!full) return [];
+      selectedYears.add(candidateYear);
       const recordedCutout = all.find((key) => typeof key === 'string' && key.startsWith('players/season-cutouts/') && key.endsWith('_' + upload.id + '.png'));
       // The hourly job may finish after approval, so published_assets often
       // lists only the JPG even though its cutout exists. Use the immutable
