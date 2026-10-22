@@ -309,6 +309,15 @@ export default function SharedShell({
               ? <BracketTicker hsid={hsid} />
               : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
           </div>
+          {/* Permanent contact stays below either ticker, independent of announcements. */}
+          <div className="yat-footer-contact" role="region" aria-label="YAT?STATS business contact details; scroll horizontally to read all details" tabIndex={0}>
+            <address className="yat-footer-contact-line">
+              <strong>Primary Source LLC dba YATSTATS</strong>
+              {' · '}PO Box 11861, Chandler, AZ 85248{' · '}
+              <a href="tel:+19289282228">(928) 928-2228</a>
+              {' · '}<a href="mailto:info@yatstats.com">info@yatstats.com</a>
+            </address>
+          </div>
         </div>
         <style jsx global>{`
           .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:4px 18px;scrollbar-width:thin;background:var(--bg,#111)}
@@ -316,12 +325,19 @@ export default function SharedShell({
           .yat-section-anchor-strip button span{display:block;white-space:nowrap}
           .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible,.yat-section-anchor-strip button.is-active{border-color:var(--fg,#fff);color:var(--fg,#fff);background:var(--card-bg,#222)}
           .yat-section-anchor-strip button:focus-visible{outline:2px solid var(--fg,#fff);outline-offset:2px}
-          .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
-          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
-          @media(max-width:640px){.yat-unified-footer-art{width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px));height:calc(100% + 12px)}}
+          .yat-unified-footer{--yat-footer-art-width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));--yat-ticker-left:calc(var(--yat-footer-art-right,var(--yat-footer-art-width)) + 2px);--yat-ticker-fade:12px;width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
+          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:var(--yat-contact-h,24px);left:0;width:var(--yat-footer-art-width);height:calc(100% - var(--yat-contact-h,24px) + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
+          @media(max-width:640px){.yat-unified-footer{--yat-footer-art-width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px))}}
           .yat-unified-footer-ticker{flex:1;min-height:0;width:100%;position:relative}
           .yat-unified-footer-ticker .yat-clubhouse,.yat-unified-footer-ticker .ybt-footer-stack{height:100%;width:100%}
           .yat-unified-footer-ticker .yat-clubhouse-nav{height:100%}
+          .yat-footer-contact{flex:0 0 var(--yat-contact-h,24px);height:var(--yat-contact-h,24px);width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;background:#070503;color:#ffb238}
+          .yat-footer-contact::-webkit-scrollbar{display:none}
+          .yat-footer-contact-line{display:block;width:max-content;min-width:100%;margin:0;padding:2px 10px;font:500 11px/18px Arial,sans-serif;font-style:normal;text-align:center;white-space:nowrap}
+          .yat-footer-contact-line strong{font-weight:700}
+          .yat-footer-contact-line a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+          .yat-footer-contact:focus-visible{outline:1px solid #ffb238;outline-offset:-1px}
+          .yat-footer-contact-line a:focus-visible{outline:1px solid #ffb238;outline-offset:2px}
         `}</style>
       </footer>}
     </>
