@@ -21,6 +21,7 @@ import {
   NotAnImageError,
   contributionsToday,
   identifyContributor,
+  isReviewer,
   logContribution,
   notifyContributor,
   photoLinkPath,
@@ -39,6 +40,116 @@ export const maxDuration = 60;
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const text = (v: FormDataEntryValue | null, max = 500) => String(v ?? '').trim().slice(0, max);
+
+type HeroRecord = {
+  id: string; playerid: string; date_taken: string; description: string | null;
+  uploaded_at: string; status: string;
+};
+function heroDetails(row: Pick<HeroRecord, 'description'>): Record<string, unknown> {
+  try {
+    const value = JSON.parse(row.description || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  } catch { return {}; }
+}
+function heroOwner(details: Record<string, unknown>, uid: string): boolean {
+  const by = details.by;
+  return Boolean(by && typeof by === 'object' && (by as { uid?: string }).uid === uid);
+}
+function heroYearAllowed(year: number): boolean {
+  return Number.isInteger(year) && year >= 1900 && year <= new Date().getFullYear() + 1;
+}
+function heroAssets(details: Record<string, unknown>): string[] {
+  return Array.isArray(details.published_assets)
+    ? details.published_assets.filter((value): value is string => typeof value === 'string')
+    : [];
+}
+function heroFile(details: Record<string, unknown>, id: string): string | null {
+  return heroAssets(details).find((key) =>
+    key.startsWith('players/season-photos/') && key.endsWith('_' + id + '.jpg')
+  ) || null;
+}
+const ACTIVE_HERO = `COALESCE((CASE WHEN description IS NOT NULL AND left(description,1) = '{'
+    THEN description::jsonb ->> 'supersededBy' ELSE NULL END),'') = ''`;
+
+// Only the original contributor and configured reviewers can list or edit
+// their yearly heroes. Never trust an arbitrary client-supplied uploader UID.
+export async function GET(req: NextRequest) {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\\s+/i, '');
+  const who = await identifyContributor(req, bearer);
+  if (!who) return fail('Sign in to view your uploaded yearly photos.', 401);
+  const playerId = req.nextUrl.searchParams.get('playerId') || '';
+  if (!PLAYER_ID.test(playerId)) return fail('Choose a player.');
+  const { rows } = await query<HeroRecord>(
+    `SELECT id::text, playerid, date_taken::text, uploaded_at::text, status, description
+     FROM media_upload WHERE playerid=$1 AND purpose='timeline_hero'
+       AND status='approved' ORDER BY date_taken ASC, uploaded_at DESC, id DESC LIMIT 250`, [playerId]
+  );
+  const reviewer = isReviewer(who);
+  const allowed = rows.filter((row) => reviewer || heroOwner(heroDetails(row), who.uid));
+  const newestByYear = new Map<number, string>();
+  for (const row of rows) {
+    const year = Number(row.date_taken.slice(0,4));
+    if (!newestByYear.has(year) && !heroDetails(row).supersededBy && heroFile(heroDetails(row), row.id))
+      newestByYear.set(year, row.id);
+  }
+  return NextResponse.json({ heroes: allowed.map((row) => {
+    const details = heroDetails(row);
+    const year = Number(row.date_taken.slice(0,4));
+    const key = heroFile(details, row.id);
+    return {
+      id: row.id, year, active: newestByYear.get(year) === row.id,
+      imageUrl: key ? assetUrl(key) : null, uploadedAt: row.uploaded_at,
+    };
+  }) }, { headers: { 'Cache-Control':'no-store' } });
+}
+
+// Year correction needs NO reupload and preserves the original image and
+// its audit record. A conflicting active target is refused (never overwritten).
+export async function PATCH(req: NextRequest) {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\\s+/i, '');
+  const who = await identifyContributor(req, bearer);
+  if (!who) return fail('Please sign in to edit your photo.', 401);
+  let body: { uploadId?: string; year?: number };
+  try { body = await req.json(); } catch { return fail('Invalid edit request.'); }
+  const id = String(body.uploadId || '');
+  const year = Number(body.year);
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !heroYearAllowed(year)) return fail('Select a valid photo and year.');
+  const { rows } = await query<HeroRecord>(
+    `SELECT id::text, playerid, date_taken::text, uploaded_at::text, status, description
+     FROM media_upload WHERE id=$1::uuid AND purpose='timeline_hero' AND status='approved' LIMIT 1`, [id]
+  );
+  const record = rows[0];
+  if (!record) return fail('The approved photo was not found.', 404);
+  const details = heroDetails(record);
+  if (!heroOwner(details, who.uid) && !isReviewer(who)) return fail('Only the original uploader or a reviewer can correct this photo.', 403);
+  if (!heroFile(details, id)) return fail('The original published photo is unavailable. Contact a reviewer.', 409);
+  const oldYear = Number(record.date_taken.slice(0,4));
+  if (oldYear === year && !details.supersededBy) return fail('Select a different year to correct the photo.');
+  const corrected = { ...details, supersededBy: undefined,
+    season: { ...(details.season && typeof details.season === 'object' ? details.season : {}), year },
+    correctedAt: new Date().toISOString(), correctedBy: who.uid };
+  // Single guarded UPDATE avoids overwriting another year's accepted image
+  // or a concurrent edit of this row.
+  const { rows: updated } = await query<{ id: string }>(
+    `UPDATE media_upload m SET date_taken=$2::date,description=$3
+      WHERE m.id=$1::uuid AND m.date_taken=$4::date AND m.purpose='timeline_hero'
+        AND m.status='approved'
+        AND NOT EXISTS (
+          SELECT 1 FROM media_upload other
+           WHERE other.playerid=m.playerid AND other.id<>m.id
+             AND other.purpose='timeline_hero' AND other.status='approved'
+             AND other.date_taken=$2::date AND ${ACTIVE_HERO}
+        ) RETURNING m.id::text`,
+    [id, `${year}-01-01`, JSON.stringify(corrected), record.date_taken.slice(0,10)]
+  );
+  if (!updated.length) return fail('That year already has a hero, or the photo changed. Refresh and choose another year.', 409);
+  await logContribution(who,'contribute_photo_year_correction',{
+    playerid:record.playerid,hsid:null,pageUrl:req.nextUrl.href,
+    details:{upload_id:id,from_year:oldYear,to_year:year},
+  });
+  return NextResponse.json({ ok:true,id,year,status:'approved',message:'The yearly photo was moved to its corrected year.' },
+    {headers:{'Cache-Control':'no-store'}});
+}
 
 export async function POST(req: NextRequest) {
   let form: FormData;
