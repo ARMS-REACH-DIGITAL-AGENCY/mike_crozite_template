@@ -511,7 +511,7 @@ async function SchoolShell({
         </div>
       </aside>
 
-      <AccountDrawer subdomain={subdomain} />
+      <AccountDrawer subdomain={subdomain} schoolName={schoolName} />
       <FavoritesDrawer currentHsid={resolvedHsid} />
       {/* Connect & Contribute: one drawer for every entry point on the site. */}
       <ContributeDrawer />
