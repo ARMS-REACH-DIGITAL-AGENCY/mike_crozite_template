@@ -20,7 +20,7 @@ function Icon({ kind }: { kind: keyof typeof suppliedLedArt }) {
   return <img src={suppliedLedArt[kind]} width={34} height={34} alt="" aria-hidden="true" style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 0, flexShrink: 0 }} />;
 }
 export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number | null }) {
-  // Share the first flip-card's left edge with the Row 5 message and ticker fade.
+  // Share the first flip-card's left edge with the Row 5 message and artwork sizing.
   useEffect(() => {
     let frame = 0;
     const syncAlignment = () => {
@@ -97,14 +97,14 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         position:absolute;
         top:0;
         bottom:0;
-        left:var(--yat-card-left-edge, 94px);
+        left:var(--yat-ticker-left, 80px);
         right:0;
         width:auto;
         height:100%;
         overflow:hidden;
-        /* Clip the moving text at the card edge, then soften the reveal. */
-        -webkit-mask-image:linear-gradient(to right, transparent 0px, #000 32px, #000 calc(100% - 35px), transparent 100%);
-        mask-image:linear-gradient(to right, transparent 0px, #000 32px, #000 calc(100% - 35px), transparent 100%);
+        /* Fade only in the short space immediately beside YaTi's artwork. */
+        -webkit-mask-image:linear-gradient(to right, transparent 0px, #000 var(--yat-ticker-fade,12px), #000 calc(100% - 35px), transparent 100%);
+        mask-image:linear-gradient(to right, transparent 0px, #000 var(--yat-ticker-fade,12px), #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
         display:flex !important;

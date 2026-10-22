@@ -832,9 +832,10 @@ export default function YatStyles() {
       .yat-footer:has(.ybt-footer-stack){height:calc(var(--footerH) + 104px / 3);overflow:visible}
       .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:#020a13;border-top:1px solid rgba(255,255,255,.18);z-index:40;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
       /* Shared six-slot dock: same height and icon proportions as player Fun Zone. */
-      :root{--yat-dock-h:var(--footerH);--yat-facts-h:46px}
+      :root{--yat-dock-h:var(--footerH);--yat-facts-h:32px;--yat-contact-h:24px}
       .yat-visual-row4-gallery{padding-top:0;background:var(--bg);color:var(--fg)}
-      .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
+      body:has(.yat-clubhouse-footer){padding-bottom:calc(var(--yat-dock-h) + var(--yat-facts-h) + var(--yat-contact-h))}
+      .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h) + var(--yat-contact-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
       .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui);display:flex;flex-direction:column}
       .yat-clubhouse-facts{box-sizing:border-box;flex:0 0 var(--yat-facts-h);min-height:0;background:var(--bg);display:flex;align-items:flex-end;gap:10px;padding:3px 12px 4px var(--yat-card-left-edge, clamp(74px,13vw,155px));border:0}
       .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(64px,12vw,145px);height:calc(var(--yat-facts-h) + var(--yat-dock-h) - 2px);display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
@@ -851,7 +852,6 @@ export default function YatStyles() {
       .yat-clubhouse-nav svg{width:20px;height:20px;flex:none;stroke-width:1.8}
       .yat-clubhouse-nav small{font:700 clamp(9px,2.5vw,11px)/1 var(--yat-font-ui);letter-spacing:0}
       @media(max-width:640px){
-        :root{--yat-facts-h:62px}
         .yat-clubhouse-facts{padding:2px 6px 4px var(--yat-card-left-edge, 72px);gap:4px}
         .yat-clubhouse-hero{width:68px}
         .yat-clubhouse-message{gap:3px;align-items:center}
