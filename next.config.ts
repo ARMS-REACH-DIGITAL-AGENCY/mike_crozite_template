@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    '/api/og/player-profile': [
+      './chromium-bin/**/*',
+    ],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "yatstats-assets.s3.us-west-2.amazonaws.com" },
