@@ -24,7 +24,7 @@ import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
 import { applyLive, liveBoxes } from './liveSeason';
 import { inActionToday } from './inAction';
-import { TOURNAMENT_2027, tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
+import { toProductionTournamentIndex } from '@/lib/bracket/productionIndex';
 import { ScoringRulesPanel } from './BracketRules';
 
 export type SchoolRow = [name: string, region: number, seed: number];
@@ -500,31 +500,11 @@ export function loadIndex({ simulation = false }: { simulation?: boolean } = {})
         return idx;
       }
       // The 2027 season, scored from live lines once its weeks start.
-      return applyLive(blankSeason(idx), simulationAsOf());
+      return applyLive(toProductionTournamentIndex(idx), simulationAsOf());
     });
     indexPromise.catch(() => { indexPromise = null; });
   }
   return indexPromise;
-}
-// The 2027 season before a pitch is thrown (see loadIndex).
-function blankSeason(idx: any): Index {
-  idx.season = TOURNAMENT_2027.season;
-  idx.weeks = tournamentWeeks(TOURNAMENT_2027.start, idx.weeks.length);
-  idx.rounds = idx.rounds.map((round: Round) => {
-    const [a, b] = [idx.weeks[(round.r - 1) * 3]?.[0] || '', idx.weeks[round.r * 3 - 1]?.[1] || ''];
-    const series = round.r === 1
-      ? round.series.map((s) => {
-        const games = s[7].map((g): GameRow => [g[0], g[1], g[2], g[3], '', [], null]);
-        return [s[0], s[1], s[2], s[3], s[4], 0, [0, 0], games] as SeriesRow;
-      })
-      : [];
-    return { ...round, start: a, end: b, series };
-  });
-  idx.lbt = [];
-  idx.gf = [];
-  idx.lbLeaders = [];
-  idx.champion = 0; idx.lbChampion = 0; idx.grandChampion = 0;
-  return idx as Index;
 }
 // Shift an ISO date string by N days.
 function shiftDate(iso: string, days: number): string {

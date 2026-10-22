@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
-import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
+import { isRosterStatus } from '@/lib/galleryStatuses';
 
 // Live bracket lines: every game line (player_game_logs - the 10-minute MLB
 // feed plus the 4-hourly game-log sync, Arizona Fall League included) that a
@@ -92,7 +92,9 @@ export async function GET(req: NextRequest) {
         WHERE hsid::text = ANY($1)`,
       [hsids],
     );
-    const active = stage.filter((r) => isActiveGalleryStatus(r.status_label) && !isHighSchool(r));
+    // The scorer and /api/players/[hsid] must include the same population.
+    // Gallery-only free-agent/redshirt filters are not the fantasy roster.
+    const active = stage.filter((r) => isRosterStatus(r.status_label) && !isHighSchool(r));
     // Use season evidence before the stale display position. Braden Montgomery
     // is still labeled "P" in the stage table, but his 2026 evidence is
     // batting-only, so the live test bracket must not create zero pitching
