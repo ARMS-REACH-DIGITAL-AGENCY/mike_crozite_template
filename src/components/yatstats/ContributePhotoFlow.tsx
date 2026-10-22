@@ -523,7 +523,7 @@ export default function ContributePhotoFlow({
           ) : <ContributeSearch onPlayer={(selected) => setMain([selected])} />}
           {!signedIn && main && <button type="button" className="ycd-btn" onClick={onSignIn}>SIGN IN TO SEE EXISTING YEARLY HERO IMAGES</button>}
           {signedIn && main && !slotsReady && <p className="ycd-muted ycd-small" role="status">
-            {heroLoadError || 'Checking the player's yearly hero images…'}
+            {heroLoadError || "Checking this player's yearly hero images…"}
           </p>}
           {signedIn && main && slotsReady && <>
             <p role="status" className="ypf-hero-found">
