@@ -106,6 +106,12 @@ export default function ContributePhotoFlow({
   const editingHero = existingHeroes.find((hero) => hero.id === editingHeroId) || null;
   const [heroLoadError, setHeroLoadError] = useState('');
   const [heroRefresh, setHeroRefresh] = useState(0);
+  // Existing-year management starts with a player, not a file.
+  const [manageHeroMode, setManageHeroMode] = useState(false);
+  const [manageHeroAction, setManageHeroAction] = useState<'move'|'replace'|'archive'|null>(null);
+  const [archiveConfirmed, setArchiveConfirmed] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveNotice, setArchiveNotice] = useState('');
 
   const main = tagged[0] || null;
   // Read only this contributor's own approved yearly hero uploads (or those
@@ -190,6 +196,9 @@ export default function ContributePhotoFlow({
     const before = tagged[0]?.playerId;
     setTagged(list);
     if (list[0]?.playerId !== before) {
+      setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+      setFile(null);setPreview('');setApprovedSig('');
+      setOccupiedYears([]);setSlotsReady(false);setHeroLoadError('');
       loadSeasons(list[0] || null);
       if (list[0]?.schoolId) setSchool({ hsid: list[0].schoolId, name: list[0].schoolName || '' });
     }
@@ -209,7 +218,56 @@ export default function ContributePhotoFlow({
     if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
     setEditingHeroId(hero.id);setFile(null);setPreview(hero.imageUrl);
     setSeasonKey('other');setOther({year:hero.year,team:''});
-    setCrop(null);setNote('');setApprovedSig('');setError('');
+    setCrop(null);setNote('');setApprovedSig('');setError('');setArchiveConfirmed(false);
+  };
+  const startManagingHeroes = () => {
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setManageHeroMode(true);setPurpose('timeline_hero');setShowPurposePicker(false);
+    setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+    setFile(null);setPreview('');setApprovedSig('');setError('');
+  };
+  const startNewUpload = () => {
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(false);
+    setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+    setFile(null);setPreview('');setApprovedSig('');setError('');
+  };
+  const selectManagedHero = (slot: HeroSlot) => {
+    if (!slot.canEdit) {
+      setError('Only the original contributor or an authorized reviewer may edit this image.');
+      return;
+    }
+    const hero = existingHeroes.find((item) => item.id === slot.id);
+    if (!hero) {setError('This photo cannot be edited from your account. Contact a reviewer.');return;}
+    editHero(hero);setManageHeroAction(null);setHeroNotice('');
+  };
+  const archiveSelectedHero = async () => {
+    const slot = occupiedYears.find((item) => item.id === editingHeroId);
+    if (!slot?.canEdit || !archiveConfirmed || archiveBusy || !main) return;
+    setArchiveBusy(true);setError('');
+    try {
+      await auth.authStateReady?.();
+      const token = await auth.currentUser?.getIdToken().catch(() => '');
+      const res = await fetch('/api/contribute/photo', {
+        method:'DELETE',credentials:'include',
+        headers:{'Content-Type':'application/json',...(token ? {Authorization:`Bearer ${token}`} : {})},
+        body:JSON.stringify({uploadId:slot.id,playerId:main.playerId,year:slot.year,
+          confirm:'REMOVE FROM TIMELINE'}),
+      });
+      const response = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(response.error || 'The yearly hero could not be removed.');
+      setArchiveNotice(response.message || 'Image removed from the published timeline.');
+      setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+      setFile(null);setPreview('');setApprovedSig('');
+      setOccupiedYears((items) => items.filter((item) => item.id !== slot.id));
+      setExistingHeroes((items) => items.filter((item) => item.id !== slot.id));
+      setHeroRefresh((value) => value + 1);
+      window.dispatchEvent(new CustomEvent('yat:contribute-photo-published',{
+        detail:{playerId:main.playerId,purpose:'timeline_hero',uploadId:slot.id}
+      }));
+      router.refresh();
+    } catch (e) {setError(e instanceof Error ? e.message : 'Could not remove the image.');}
+    finally {setArchiveBusy(false);}
   };
   const replaceOccupiedHero = () => {
     if (!occupiedHero?.canEdit || !file) return;
@@ -304,11 +362,15 @@ export default function ContributePhotoFlow({
   const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop, editingHeroId, occupiedHero?.id]);
   const approved = approvedSig === sig;
   const ready = !problem();
+  const manageSelected = editingHeroId !== null && manageHeroMode;
+  const manageReadyForProof = !manageHeroMode ||
+    (manageSelected && (manageHeroAction === 'move' || (manageHeroAction === 'replace' && !!file)));
   const submissionHsid = String(type?.id === 'team_logo' ? '' : type?.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim();
   const validSubmissionHsid = type?.id === 'team_logo' || /^\d+$/.test(submissionHsid);
 
   const send = async () => {
     if ((!file && !editingHeroId) || !type) return;
+    if (manageHeroMode && !manageReadyForProof) return setError('Choose Move or Replace and approve the proof before saving.');
     if (!signedIn) return onSignIn();
     const p = problem();
     if (p) return setError(p);
