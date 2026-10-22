@@ -2451,7 +2451,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
               <button
                 type="button"
                 key={slide.id}
-                className={`zt-rail-tick${i === activeIndex ? ' active' : ''}`}
+                className={`zt-rail-tick${i === activeIndex ? ' active' : ''}${storyIdsByYear[slide.year]?.length ? ' has-memory' : ''}`}
                 style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%` }}
                 onClick={() => navigateToIndex(i)}
                 aria-label={`Slide ${i + 1}: ${slide.year}${slide.draft ? ` · ${draftLine(slide.draft)}` : ''}`}
@@ -2893,6 +2893,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         /* 4px, not 6px -- per direct feedback, smaller dots. */
         .zt-rail-tick { position:absolute; top:50%; width:8px; height:8px; margin-left:-4px; transform:translateY(-50%); border:0; border-radius:50%; padding:0; background:#fff; cursor:pointer; }
         .zt-rail-tick.active { background:transparent; cursor:default; }
+        /* The bare memory star replaces the regular white year dot. */
+        .zt-rail-tick.has-memory { background:transparent; }
         /* Sits outside .zt-rail (see its own JSX comment), so top:50%/
            margin-left from the base rule above -- both relative to
            .zt-rail's own box -- are overridden here against the outer
