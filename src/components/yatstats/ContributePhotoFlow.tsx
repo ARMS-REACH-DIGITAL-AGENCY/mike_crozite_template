@@ -41,6 +41,7 @@ type Info = { name: string; classOf: number | null; profileUrl: string | null };
 type Stage = 'form' | 'sending' | 'done';
 type Pick = 'player' | 'school' | 'team';
 type Result = { outcome: 'approved' | 'rejected' | 'pending'; message: string; link?: string | null };
+type ExistingHero = { id:string; year:number; imageUrl:string | null; active:boolean; uploadedAt:string };
 
 export default function ContributePhotoFlow({
   hubSchool,
@@ -93,8 +94,34 @@ export default function ContributePhotoFlow({
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [existingHeroes, setExistingHeroes] = useState<ExistingHero[]>([]);
+  const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
+  const editingHero = existingHeroes.find((hero) => hero.id === editingHeroId) || null;
+  const [heroLoadError, setHeroLoadError] = useState('');
 
   const main = tagged[0] || null;
+  // Read only this contributor's own approved yearly hero uploads (or those
+  // available to a configured reviewer). No secret or account ID is exposed.
+  useEffect(() => {
+    if (!signedIn || purpose !== 'timeline_hero' || !main?.playerId) {
+      setExistingHeroes([]); setEditingHeroId(null); return;
+    }
+    let cancelled = false;
+    setHeroLoadError('');
+    auth.authStateReady?.().then(async () => {
+      const token = await auth.currentUser?.getIdToken().catch(() => '');
+      if (!token) return;
+      const res = await fetch(`/api/contribute/photo?playerId=${encodeURIComponent(main.playerId)}`, {
+        credentials:'include',headers:{Authorization:`Bearer ${token}`},cache:'no-store'
+      });
+      const data = await res.json().catch(() => ({}));
+      if (cancelled) return;
+      if (!res.ok) { setHeroLoadError(data.error || 'Unable to load your previous yearly photos.'); return; }
+      setExistingHeroes(Array.isArray(data.heroes) ? data.heroes : []);
+    }).catch(() => { if (!cancelled) setHeroLoadError('Unable to load your previous yearly photos.'); });
+    return () => { cancelled = true; };
+  }, [signedIn,purpose,main?.playerId]);
+
   const type = PHOTO_TYPES.find((t) => t.id === purpose) || null;
 
   // Fetch only the selected player's published flip-card facts. The
@@ -197,24 +224,30 @@ export default function ContributePhotoFlow({
   };
 
   const problem = (): string | null => {
-    if (!file) return 'Upload the picture.';
+    if (!file && !editingHeroId) return 'Upload the picture.';
     if (!type) return 'Pick its purpose.';
     if (type.needsPlayer && !main) return 'Select the player.';
     if ((type.id === 'timeline_hero' || type.id === 'headshot') && !season) return seasonKey === 'other' ? 'Pick the year.' : 'Pick the season.';
+    if (type.id === 'timeline_hero') {
+      const y = season?.year;
+      if (editingHeroId && editingHero && !file && editingHero.year === y) return 'Select a different year, or choose a replacement photo.';
+      if (y && existingHeroes.some((hero) => hero.active && hero.year === y && hero.id !== editingHeroId))
+        return `A yearly hero already exists for ${y}. Edit or replace that year's photo instead.`;
+    }
     if (type.asks === 'team' && !teamId) return 'Pick the team.';
     if (type.asks === 'school' && !/^\d+$/.test(String(school?.hsid ?? '').trim())) return 'Select a high school from the search results.';
     return null;
   };
 
   // What the proof shows; approving it holds only while this stays the same.
-  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop]);
+  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop, editingHeroId]);
   const approved = approvedSig === sig;
   const ready = !problem();
   const submissionHsid = String(type?.id === 'team_logo' ? '' : type?.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim();
   const validSubmissionHsid = type?.id === 'team_logo' || /^\d+$/.test(submissionHsid);
 
   const send = async () => {
-    if (!file || !type) return;
+    if ((!file && !editingHeroId) || !type) return;
     if (!signedIn) return onSignIn();
     const p = problem();
     if (p) return setError(p);
@@ -225,14 +258,33 @@ export default function ContributePhotoFlow({
     try {
       await auth.authStateReady?.();
       const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+      // Correcting a year without changing the image never uploads,
+      // duplicates, recrops or alters the original approved artwork.
+      if (editingHeroId && !file && type.id === 'timeline_hero') {
+        const res = await fetch('/api/contribute/photo', {
+          method:'PATCH',credentials:'include',
+          headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+          body:JSON.stringify({uploadId:editingHeroId,year:yearToSend()}),
+        });
+        const response = await res.json().catch(() => ({}));
+        if (res.status === 401) { setStage('form'); setConfirm(true); return; }
+        if (!res.ok) throw new Error(response.error || 'The yearly photo could not be corrected.');
+        setResult({ outcome:'approved', message:response.message || 'Year corrected.' });
+        window.dispatchEvent(new CustomEvent('yat:contribute-photo-published',{
+          detail:{playerId:main?.playerId || '',purpose:'timeline_hero',uploadId:editingHeroId}
+        }));
+        router.refresh(); setStage('done'); return;
+      }
       const isLogo = type.id === 'school_logo' || type.id === 'team_logo';
       // Logos keep their transparency; phone photos are shrunk first (same
       // proportions, so the placement still lines up).
-      const blob = isLogo && file.size <= CONTRIBUTE_MAX_PHOTO_BYTES ? file : await shrinkPhoto(file);
+      const uploadFile = file!;
+      const blob = isLogo && uploadFile.size <= CONTRIBUTE_MAX_PHOTO_BYTES ? uploadFile : await shrinkPhoto(uploadFile);
       const form = new FormData();
       if (token) form.set('idToken', token);
-      form.set('photo', blob, file.name);
+      form.set('photo', blob, uploadFile.name);
       form.set('purpose', type.id);
+      if (type.id === 'timeline_hero' && editingHeroId) form.set('replaceUploadId',editingHeroId);
       form.set('year', String(yearToSend() || THIS_YEAR));
       form.set('playerId', type.id === 'school_logo' || type.id === 'team_logo' ? '' : main?.playerId || '');
       form.set('playerName', main?.displayName || '');
@@ -274,7 +326,7 @@ export default function ContributePhotoFlow({
 
   const startOver = () => {
     if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(''); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
+    setFile(null); setPreview(''); setEditingHeroId(null); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
     setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setSelectedTeam(null); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
   };
