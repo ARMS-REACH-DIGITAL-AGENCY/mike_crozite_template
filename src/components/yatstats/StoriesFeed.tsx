@@ -156,6 +156,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState<number | null>(null);
+  // A year selected on one player must not carry over when browsing another.
+  useEffect(() => setYearFilter(null), [playerId]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openPhoto, setOpenPhoto] = useState(0);
   const [openForComment, setOpenForComment] = useState(false);
