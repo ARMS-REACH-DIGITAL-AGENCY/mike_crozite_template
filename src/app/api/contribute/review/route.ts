@@ -41,10 +41,18 @@ export async function GET(req: NextRequest) {
           ORDER BY m.uploaded_at ASC LIMIT 100`
       ),
       query(
-        `SELECT id::text, submitted_at, intake_source, sender_name, raw_player_name, matched_playerid, matched_hsid,
-                article_url, notes, status
-           FROM news_tip_queue WHERE intake_source IN ('correction', 'fan_drawer')
-          ORDER BY submitted_at DESC LIMIT 100`
+        `SELECT q.id::text, q.submitted_at, q.intake_source, q.sender_name, q.raw_player_name, q.matched_playerid, q.matched_hsid,
+                q.article_url, q.notes, COALESCE(audit.status, q.status) AS status
+           FROM news_tip_queue q
+           LEFT JOIN LATERAL (
+             SELECT fa.details->>'status' AS status FROM fan_activity fa
+             WHERE fa.action = 'contribute_processed'
+               AND fa.firebase_uid = 'system:contribution-publisher'
+               AND fa.details->>'queue_id' = q.id::text
+             ORDER BY fa.created_at DESC LIMIT 1
+           ) audit ON true
+          WHERE q.intake_source IN ('correction', 'fan_drawer')
+          ORDER BY q.submitted_at DESC LIMIT 100`
       ),
       query(
         `SELECT p.id::text, p.created_at, p.hsid, p.player_name, p.grad_year, p.notes, s.hsname AS school_name
