@@ -112,6 +112,7 @@ export default function ContributePhotoFlow({
   const [archiveConfirmed, setArchiveConfirmed] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [archiveNotice, setArchiveNotice] = useState('');
+  const [archivedYear, setArchivedYear] = useState<number | null>(null);
 
   const main = tagged[0] || null;
   // Read only this contributor's own approved yearly hero uploads (or those
@@ -231,6 +232,7 @@ export default function ContributePhotoFlow({
     setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(false);
     setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
     setFile(null);setPreview('');setApprovedSig('');setError('');
+    if (archivedYear !== null) { setSeasonKey('other');setOther({year:archivedYear,team:''}); }
   };
   const selectManagedHero = (slot: HeroSlot) => {
     if (!slot.canEdit) {
@@ -257,6 +259,7 @@ export default function ContributePhotoFlow({
       const response = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(response.error || 'The yearly hero could not be removed.');
       setArchiveNotice(response.message || 'Image removed from the published timeline.');
+      setArchivedYear(slot.year);
       setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
       setFile(null);setPreview('');setApprovedSig('');
       setOccupiedYears((items) => items.filter((item) => item.id !== slot.id));
@@ -495,6 +498,123 @@ export default function ContributePhotoFlow({
 
   return (
     <div className="ypf-flow">
+      <section className="ypf-step ypf-hero-mode" aria-label="Yearly hero image actions">
+        <div className="ycd-label">YEARLY HERO IMAGES — CREATE OR CORRECT</div>
+        <div className="ycd-actions">
+          <button type="button" className={`ycd-btn${!manageHeroMode && purpose === 'timeline_hero' ? ' is-on' : ''}`}
+            aria-pressed={!manageHeroMode && purpose === 'timeline_hero'}
+            onClick={startNewUpload}>UPLOAD NEW YEARLY HERO</button>
+          <button type="button" className={`ycd-btn${manageHeroMode ? ' is-on' : ''}`}
+            aria-pressed={manageHeroMode} onClick={startManagingHeroes}>
+            MANAGE EXISTING YEARLY HERO — NO UPLOAD NEEDED
+          </button>
+        </div>
+        {manageHeroMode && <p className="ycd-muted ycd-small">Start by selecting a player. Existing approved yearly images and their years will appear automatically.</p>}
+      </section>
+      {manageHeroMode && (
+        <section className="ypf-step ypf-hero-manager">
+          <div className="ycd-label"><span className="ycd-step">1</span> WHICH PLAYER'S YEARLY HERO?</div>
+          {main ? (
+            <div className="ypf-hero-player">
+              <strong>{main.displayName}</strong>
+              <small>{main.schoolName || ''}</small>
+              <button type="button" className="ycd-link ycd-small" onClick={() => setMain([])}>CHANGE PLAYER</button>
+            </div>
+          ) : <ContributeSearch onPlayer={(selected) => setMain([selected])} />}
+          {!signedIn && main && <button type="button" className="ycd-btn" onClick={onSignIn}>SIGN IN TO SEE EXISTING YEARLY HERO IMAGES</button>}
+          {signedIn && main && !slotsReady && <p className="ycd-muted ycd-small" role="status">
+            {heroLoadError || 'Checking the player's yearly hero images…'}
+          </p>}
+          {signedIn && main && slotsReady && <>
+            <p role="status" className="ypf-hero-found">
+              {occupiedYears.length ? `${occupiedYears.length} EXISTING YEARLY HERO ${occupiedYears.length === 1 ? 'IMAGE' : 'IMAGES'} FOUND`
+                : 'NO EXISTING YEARLY HERO IMAGES FOUND'}
+            </p>
+            {occupiedYears.length > 0 && <div className="ypf-hero-existing" aria-label="Current yearly hero images">
+              {occupiedYears.map((slot) => (
+                <button type="button" key={slot.id}
+                  className={`ypf-hero-option${editingHeroId === slot.id ? ' is-on' : ''}`}
+                  disabled={!slot.canEdit} aria-pressed={editingHeroId === slot.id}
+                  onClick={() => selectManagedHero(slot)}>
+                  {slot.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={slot.imageUrl} alt={`Current ${slot.year} yearly hero`} loading="lazy" />
+                  ) : <i className="ri-image-line" aria-hidden="true" />}
+                  <span><b>{slot.year}</b><small>{slot.canEdit ? 'SELECT TO MANAGE' : 'REVIEWER APPROVAL REQUIRED'}</small></span>
+                </button>
+              ))}
+            </div>}
+            {occupiedYears.some((item) => !item.canEdit) && <p className="ycd-muted ycd-small">
+              An image submitted by someone else requires its original uploader or an authorized reviewer to move or remove it.
+            </p>}
+            {!occupiedYears.length && <button type="button" className="ycd-btn" onClick={startNewUpload}>UPLOAD THE FIRST YEARLY HERO</button>}
+          </>}
+        </section>
+      )}
+      {manageHeroMode && editingHeroId && occupiedYears.some((item) => item.id === editingHeroId) && (
+        <section className="ypf-step ypf-hero-actions">
+          <div className="ycd-label"><span className="ycd-step">2</span> WHAT SHOULD HAPPEN TO THIS IMAGE?</div>
+          <div className="ypf-hero-selected">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={editingHero?.imageUrl || ''} alt="Existing yearly hero" />
+            <div><b>Year {editingHero?.year}</b><small>Current approved image</small></div>
+          </div>
+          <div className="ycd-actions">
+            <button type="button" className="ycd-btn" aria-pressed={manageHeroAction === 'move'}
+              onClick={() => {setManageHeroAction('move');setFile(null);setPreview(editingHero?.imageUrl || '');setArchiveConfirmed(false);setApprovedSig('');}}>
+              MOVE IMAGE TO A DIFFERENT YEAR
+            </button>
+            <button type="button" className="ycd-btn" aria-pressed={manageHeroAction === 'replace'}
+              onClick={() => {setManageHeroAction('replace');setSeasonKey('other');setOther({year:editingHero?.year || '',team:''});setApprovedSig('');}}>
+              REPLACE WITH A NEW PHOTO
+            </button>
+            <button type="button" className="ycd-btn" aria-pressed={manageHeroAction === 'archive'}
+              onClick={() => {setManageHeroAction('archive');setArchiveConfirmed(false);setFile(null);setPreview(editingHero?.imageUrl || '');setApprovedSig('');}}>
+              REMOVE IMAGE FROM TIMELINE
+            </button>
+          </div>
+          {manageHeroAction === 'move' && <>
+            <label className="ycd-label" htmlFor="ypfManagedYear">MOVE THIS IMAGE TO AN AVAILABLE YEAR</label>
+            <select id="ypfManagedYear" className="ypf-managed-year" value={seasonKey === 'other' ? other.year : ''}
+              onChange={(event) => {setSeasonKey('other');setOther({year:event.target.value ? Number(event.target.value) : '',team:''});setApprovedSig('');}}>
+              <option value="">Choose a different year…</option>
+              {Array.from({length: THIS_YEAR + 2 - 1900},(_,i)=> THIS_YEAR+1-i)
+                .filter((year) => year !== editingHero?.year && !occupiedYears.some((item)=>item.year===year))
+                .map((year)=><option key={year} value={year}>{year}</option>)}
+            </select>
+            <p className="ycd-muted ycd-small">The original image will move to that year without reuploading. Review the proof and confirm below.</p>
+          </>}
+          {manageHeroAction === 'replace' && <>
+            <p className="ycd-muted ycd-small">Choose the replacement. The existing image stays published until the new photo is approved.</p>
+            <button type="button" className="ycd-btn" onClick={() => fileInput.current?.click()}>
+              {file ? 'CHOOSE ANOTHER REPLACEMENT PHOTO' : 'CHOOSE REPLACEMENT PHOTO'}
+            </button>
+            <input ref={fileInput} type="file" accept="image/*" hidden onChange={(event) => pickFile(event.target.files)} />
+            {file && <div className="ypf-hero-selected">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview} alt="Proposed replacement image" /><div><b>New image selected</b><small>Review the proof below</small></div>
+            </div>}
+          </>}
+          {manageHeroAction === 'archive' && <>
+            <p><b>Remove the {editingHero?.year} hero from the public timeline?</b> This frees that year's position for a replacement image.</p>
+            <p className="ycd-muted ycd-small">The original photo is preserved in the archive for recovery. It is not permanently deleted from storage.</p>
+            <label className="ypf-hero-archive-confirm">
+              <input type="checkbox" checked={archiveConfirmed} onChange={(event) => setArchiveConfirmed(event.target.checked)} />
+              I CONFIRM REMOVAL OF THIS IMAGE FROM THE PUBLIC TIMELINE
+            </label>
+            <button type="button" className="ycd-btn" disabled={!archiveConfirmed || archiveBusy}
+              onClick={() => void archiveSelectedHero()}>
+              {archiveBusy ? 'REMOVING IMAGE…' : 'CONFIRM REMOVE FROM TIMELINE'}
+            </button>
+          </>}
+          {error && <div className="ycd-error" role="alert">{error}</div>}
+        </section>
+      )}
+      {archiveNotice && manageHeroMode && <section className="ypf-step" role="status">
+        <p>{archiveNotice}</p>
+        <button type="button" className="ycd-btn" onClick={startNewUpload}>UPLOAD A REPLACEMENT HERO FOR {archivedYear || 'THIS YEAR'}</button>
+      </section>}
+      {!manageHeroMode && <>
       {/* Enter from a particular contribution card with its destination set.
           Changing the destination is optional and never a required step. */}
       {type && !showPurposePicker ? (
@@ -685,6 +805,7 @@ export default function ContributePhotoFlow({
         </section>
       ) : null}
 
+      </>}
       {/* Detect an existing active image before approving another annual hero.
           The replacement action requires an explicit selection plus the
           approval checkbox; moving is a separate year-correction workflow. */}
@@ -741,7 +862,7 @@ export default function ContributePhotoFlow({
       )}
       {heroNotice && <p className="ycd-muted ycd-small" role="status">{heroNotice}</p>}
       {/* 4. Verify position, 5. Approve */}
-      {type && (file || editingHeroId) && preview ? (
+      {type && (file || editingHeroId) && preview && manageReadyForProof ? (
         <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
           <section className="ypf-step">
             <div className="ycd-label"><span className="ycd-step">4</span> Verify position</div>
@@ -794,7 +915,7 @@ export default function ContributePhotoFlow({
       ) : null}
 
       {/* 6. Submit */}
-      <section className="ypf-step">
+      {(!manageHeroMode || manageReadyForProof) && <section className="ypf-step">
         <div className="ycd-label"><span className="ycd-step">6</span> Submit</div>
         {confirm ? <FanConfirm email={email} onConfirmed={() => { setConfirm(false); void send(); }} /> : null}
         {error ? <div className="ycd-error">{error}</div> : null}
@@ -803,8 +924,8 @@ export default function ContributePhotoFlow({
             {!signedIn ? 'Sign in to submit' : sending ? 'Checking your photo…' : 'Submit'}
           </button>
         </div>
-        <div className="ycd-muted ycd-small">Each photo is checked automatically when you submit it. Most go live right away.</div>
-      </section>
+        <div className="ycd-muted ycd-small">{manageHeroMode && manageHeroAction === 'move' ? 'The existing photo will be moved to the corrected year. Its image is preserved.' : 'Each photo is checked automatically when you submit it. Most go live right away.'}</div>
+      </section>}
 
       {main && info?.profileUrl ? (
         <p className="ycd-memories">
