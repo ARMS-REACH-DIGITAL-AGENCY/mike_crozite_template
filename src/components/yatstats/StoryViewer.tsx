@@ -581,7 +581,7 @@ export function StoryThread({
                   {c.photos.map((p, i) => (
                     <button type="button" key={i} onClick={() => setLightbox({ photos: c.photos || [], index: i })} aria-label="Open photo">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.thumb || p.web || p.full || ''} alt="" loading="lazy" />
+                      <img src={p.web || p.full || p.thumb || ''} alt="" loading="lazy" decoding="async" />
                     </button>
                   ))}
                 </div>
@@ -920,10 +920,26 @@ export function StoryStyles() {
       .ysv-comment-main { min-width: 0; }
       .ysv-bubble { display: inline-flex; flex-direction: column; gap: 2px; max-width: 100%; padding: 8px 12px; border-radius: 16px; background: var(--ysv-bubble); color: var(--ysv-fg); font: 400 14px/1.35 system-ui, sans-serif; overflow-wrap: anywhere; white-space: pre-line; }
       .ysv-bubble strong { font-size: 13px; }
-      .ysv-comment-photos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-      .ysv-comment-photos button { padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--ysv-bubble); cursor: zoom-in; }
-      .ysv-comment-photos img { display: block; width: 96px; height: 96px; object-fit: cover; }
-      .ysv-comment-photos button:only-child img { width: 200px; height: auto; max-height: 220px; }
+      /* Fan-submitted comment photos retain their entire shape, including
+         portrait baseball cards and landscape team photos. Never use a
+         cropped square thumbnail inside the comment thread. */
+      .ysv-comment-main { min-width:0; flex:1; }
+      .ysv-comment-photos { display:flex; flex-wrap:wrap; align-items:flex-start; gap:7px; margin-top:7px; min-width:0; max-width:100%; }
+      .ysv-comment-photos button {
+        display:flex; align-items:center; justify-content:center;
+        max-width:100%; min-width:0; padding:0; border:0;
+        border-radius:6px; background:var(--ysv-bubble);
+        cursor:zoom-in; overflow:hidden;
+      }
+      .ysv-comment-photos img {
+        display:block; width:auto; height:auto; max-width:min(100%,168px);
+        max-height:200px; object-fit:contain; object-position:center;
+      }
+      .ysv-comment-photos button:only-child { max-width:min(100%,320px); }
+      .ysv-comment-photos button:only-child img {
+        width:auto; height:auto; max-width:100%; max-height:min(48dvh,440px);
+        object-fit:contain;
+      }
       .ysv-lightbox { position: fixed; inset: 0; z-index: 10060; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.9); }
       .ysv-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
       .ysv-comment-meta { display: flex; gap: 12px; padding: 3px 12px 0; color: var(--ysv-muted); font: 700 12px/1 system-ui, sans-serif; }
