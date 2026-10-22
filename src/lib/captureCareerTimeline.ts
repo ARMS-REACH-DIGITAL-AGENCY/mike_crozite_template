@@ -52,6 +52,18 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
     await page.evaluate(async () => {
       document.getElementById('yatSplash')?.remove();
       await document.fonts.ready;
+      const strip = document.querySelector('#playerCareerImages') as HTMLElement | null;
+      const row = strip?.closest('.yat-row3-shell') as HTMLElement | null;
+      const outer = strip?.closest('.yat-profile-career-strip') as HTMLElement | null;
+      for (const el of [row, outer, strip]) {
+        el?.style.setProperty('height', '630px', 'important');
+        el?.style.setProperty('min-height', '630px', 'important');
+        el?.style.setProperty('max-height', '630px', 'important');
+      }
+      row?.style.setProperty('overflow', 'hidden', 'important');
+      for (const el of [strip?.closest('.zt-native-viewport'), strip?.closest('.zt-timeline-host')]) {
+        (el as HTMLElement | null)?.style.setProperty('height', '630px', 'important');
+      }
       const carousel = document.querySelector('#playerCareerImages .zt-carousel') as HTMLElement | null;
       const anchor = carousel?.querySelector('.zt-slide.zt-anchor') as HTMLElement | null;
       if (carousel && anchor) carousel.scrollTo({ left: anchor.offsetLeft, behavior: 'instant' });
