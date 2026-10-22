@@ -156,6 +156,53 @@ export async function PATCH(req: NextRequest) {
     {headers:{'Cache-Control':'no-store'}});
 }
 
+// "Delete" in the UI means REMOVE FROM THE PUBLISHED TIMELINE, not
+// permanently destroy a fan's S3 original. A reversible archive marker
+// preserves provenance and avoids accidental loss of a contribution.
+export async function DELETE(req: NextRequest) {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const who = await identifyContributor(req, bearer);
+  if (!who) return fail('Sign in before removing a yearly hero.', 401);
+  let payload: { uploadId?: string; playerId?: string; year?: number; confirm?: string };
+  try { payload = await req.json(); } catch { return fail('Invalid remove request.'); }
+  const id = String(payload.uploadId || '');
+  const playerId = String(payload.playerId || '');
+  const year = Number(payload.year);
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !PLAYER_ID.test(playerId) || !heroYearAllowed(year)
+      || payload.confirm !== 'REMOVE FROM TIMELINE')
+    return fail('Confirm the player, original year, and removal before continuing.');
+  const { rows } = await query<HeroRecord>(
+    `SELECT id::text,playerid,date_taken::text,uploaded_at::text,status,description
+       FROM media_upload WHERE id=$1::uuid AND playerid=$2 AND purpose='timeline_hero'
+         AND status='approved' LIMIT 1`, [id, playerId]
+  );
+  const record = rows[0];
+  if (!record) return fail('The approved hero could not be found.', 404);
+  const details = heroDetails(record);
+  if (!heroOwner(details, who.uid) && !isReviewer(who))
+    return fail('Only its original uploader or an authorized reviewer can remove the yearly hero.', 403);
+  if (details.supersededBy) return fail('This image is no longer the active yearly hero.', 409);
+  if (Number(record.date_taken.slice(0, 4)) !== year)
+    return fail('The assigned year changed. Refresh the form before removing the image.', 409);
+  const archived = { ...details, supersededBy: `archived:${id}`, archivedAt: new Date().toISOString(),
+    archivedBy: who.uid, archiveReason: 'Original uploader/reviewer removed yearly hero from display' };
+  const { rows: updated } = await query<{ id: string }>(
+    `UPDATE media_upload SET description=$3
+       WHERE id=$1::uuid AND playerid=$2 AND purpose='timeline_hero'
+         AND date_taken=$4::date AND status='approved' AND ${ACTIVE_HERO}
+       RETURNING id::text`,
+    [id,playerId,JSON.stringify(archived),`${year}-01-01`]
+  );
+  if (!updated.length) return fail('The image changed before removal. Refresh and try again.', 409);
+  await logContribution(who, 'contribute_photo_hero_archive', {
+    playerid:playerId,hsid:null,pageUrl:req.nextUrl.href,
+    details:{upload_id:id,year,mode:'archive_preserve_original'},
+  });
+  return NextResponse.json({ ok:true,id,year,archived:true,
+    message:`The ${year} hero image was removed from the public timeline. The original remains safely archived.` },
+    {headers:{'Cache-Control':'no-store'}});
+}
+
 export async function POST(req: NextRequest) {
   let form: FormData;
   try {
