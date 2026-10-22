@@ -101,7 +101,7 @@ export default function ReviewQueue() {
         {data.tips.map((t) => (
           <li key={t.id}>
             <b>{t.intake_source === 'correction' ? 'Correction' : 'News tip'}</b>
-            {t.raw_player_name ? ` · ${t.raw_player_name}` : ''} · <span className="ycr-muted">{t.sender_name || 'a fan'}, {when(t.submitted_at)}</span>
+            {t.raw_player_name ? ` · ${t.raw_player_name}` : ''} · <span className="ycr-muted">{t.sender_name || 'a fan'}, {when(t.submitted_at)}</span> · <span className="ycr-muted">{t.status === 'published' ? 'Published' : t.status === 'needs_review' ? 'Needs review' : 'New'}</span>
             {t.notes ? <div>{t.notes}</div> : null}
             {t.article_url ? <div><a href={t.article_url} target="_blank" rel="noopener noreferrer">{t.article_url}</a></div> : null}
           </li>
