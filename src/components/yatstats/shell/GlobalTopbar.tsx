@@ -23,13 +23,16 @@ const DOCKED_DRAWER_MIN_WIDTH = 1240;
    up on the next resize instead. */
 function showLeftNavigationDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open');
-  document.body.classList.remove('yat-left-search-mode', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  document.body.classList.remove('yat-left-search-mode');
+  // On wide screens preserve the independently docked right rail.
+  if (window.innerWidth < DOCKED_DRAWER_AUTO_WIDTH) document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
   updateDesktopDocking();
 }
 
 function showLeftSearchDrawer() {
   document.body.classList.add('drawer-left-open', 'drawer-open', 'yat-left-search-mode');
-  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
+  // Search on the left must not close a right-side drawer on wide displays.
+  if (window.innerWidth < DOCKED_DRAWER_AUTO_WIDTH) document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open');
   updateDesktopDocking();
 
   setTimeout(() => {
@@ -41,13 +44,15 @@ function showLeftSearchDrawer() {
 
 function openAccountDrawer() {
   document.body.classList.add('drawer-account-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-favorites-open');
+  if (window.innerWidth < DOCKED_DRAWER_AUTO_WIDTH) document.body.classList.remove('drawer-left-open', 'yat-left-search-mode');
   updateDesktopDocking();
 }
 
 function requestFavoritesDrawer() {
   document.body.classList.add('drawer-favorites-open', 'drawer-open');
-  document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+  document.body.classList.remove('drawer-sort-open', 'drawer-right-open', 'drawer-account-open');
+  if (window.innerWidth < DOCKED_DRAWER_AUTO_WIDTH) document.body.classList.remove('drawer-left-open', 'yat-left-search-mode');
   updateDesktopDocking();
   window.dispatchEvent(new CustomEvent('yat:open-favorites'));
 }
@@ -461,7 +466,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
              that base rule and would have silently overridden it whenever
              drawers were docked. */
         }
-        @media (max-width: 1239px) {
+        @media (max-width: 779px) {
           body.yat-desktop-docked-drawers .yat-row2-shell,
           body.yat-desktop-docked-drawers .yat-row3-shell,
           body.yat-desktop-docked-drawers .yat-row4-shell,

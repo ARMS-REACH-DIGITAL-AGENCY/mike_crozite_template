@@ -156,6 +156,14 @@ export async function GET(req: NextRequest) {
         // Posted by YAT?STATS itself (Draft Day, or a reviewer posting as
         // YAT?STATS): the crest instead of a fan's initials.
         official: draft || r.contributor_role === OFFICIAL_ROLE,
+        // Archived program championship card imports are displayed as
+        // clickable memories directly ON the career timeline, not repeated
+        // as separate rectangular cards beneath it. This is only a display
+        // hint on the existing Story entity (not a third content type).
+        // Use the generic archive asset contract; never a school/player ID.
+        timelineOnly: !draft && (r.photos || []).some((photo) =>
+          /^team-cards\/[^/]+\/\d{4}\.(?:jpe?g|png|webp)$/i.test(photo.full)
+        ),
       };
     });
 
@@ -168,17 +176,26 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT id::text, date_taken::text, s3_key, description
          FROM media_upload
-        WHERE playerid = $1 AND purpose IN ('timeline_hero', 'back_hero', 'flip_card', 'headshot') AND status = 'approved'
+        WHERE playerid = $1 AND purpose = 'timeline_hero' AND status = 'approved'
           AND s3_key LIKE 'staging/contribute/%'
-        ORDER BY date_taken ASC, uploaded_at ASC, id ASC LIMIT 100`,
+          AND COALESCE((CASE WHEN description IS NOT NULL AND left(description,1) = '{'
+             THEN description::jsonb ->> 'supersededBy' ELSE NULL END),'') = ''
+        ORDER BY date_taken ASC, uploaded_at DESC, id DESC LIMIT 500`,
       [playerId]
     );
+    // The database retains immutable historical uploads, but each player /
+    // calendar year has exactly ONE visible annual hero. Old duplicate
+    // approved uploads remain recoverable/editable, never rotated as heroes.
+    const selectedYears = new Set<number>();
     const timelinePhotos = timelineUploads.flatMap((upload) => {
+      const candidateYear = new Date(upload.date_taken).getUTCFullYear();
+      if (!Number.isInteger(candidateYear) || selectedYears.has(candidateYear)) return [];
       let info: { published_assets?: string[] } = {};
       try { info = JSON.parse(upload.description || '{}'); } catch {}
       const all = Array.isArray(info.published_assets) ? info.published_assets : [];
       const full = all.find((key) => typeof key === 'string' && key.startsWith('players/season-photos/') && key.endsWith('_' + upload.id + '.jpg'));
       if (!full) return [];
+      selectedYears.add(candidateYear);
       const recordedCutout = all.find((key) => typeof key === 'string' && key.startsWith('players/season-cutouts/') && key.endsWith('_' + upload.id + '.png'));
       // The hourly job may finish after approval, so published_assets often
       // lists only the JPG even though its cutout exists. Use the immutable

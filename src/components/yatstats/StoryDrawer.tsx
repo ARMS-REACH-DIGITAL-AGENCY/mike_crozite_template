@@ -29,6 +29,14 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const MAX_PHOTOS = 4;
 const MAX_TAGS = 20;
 const OTHER_DRAWER_CLASSES = ['drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-contribute-open'];
+const BOTH_DOCKS_MIN_WIDTH = 1600;
+// Navigation/search can stay docked on the left while a story editor is on the right.
+function conflictingDrawerOpen() {
+  return OTHER_DRAWER_CLASSES.some((name) =>
+    (name !== 'drawer-left-open' || window.innerWidth < BOTH_DOCKS_MIN_WIDTH) &&
+    document.body.classList.contains(name)
+  );
+}
 // A departing player layout must not close a newer layout's story portal.
 // This is client-only ownership of the currently visible drawer, not data.
 let activeStoryDrawerOwner: symbol | null = null;
@@ -175,7 +183,7 @@ export default function StoryDrawer() {
     if (!open) return;
     const sync = () => {
       const body = document.body;
-      if (activeStoryDrawerOwner !== drawerOwner || !body.classList.contains('drawer-story-open') || OTHER_DRAWER_CLASSES.some((name) => body.classList.contains(name))) close();
+      if (activeStoryDrawerOwner !== drawerOwner || !body.classList.contains('drawer-story-open') || conflictingDrawerOpen()) close();
     };
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -214,7 +222,11 @@ export default function StoryDrawer() {
       if (status.kind === 'done') resetForm();
       activeStoryDrawerOwner = drawerOwner;
       setOpen(true);
-      document.body.classList.remove(...OTHER_DRAWER_CLASSES, 'yat-left-search-mode');
+      if (window.innerWidth >= BOTH_DOCKS_MIN_WIDTH) {
+        document.body.classList.remove(...OTHER_DRAWER_CLASSES.filter((name) => name !== 'drawer-left-open'));
+      } else {
+        document.body.classList.remove(...OTHER_DRAWER_CLASSES, 'yat-left-search-mode');
+      }
       document.getElementById('drawerAccount')?.classList.remove('open', 'is-open', 'active');
       document.body.classList.add('drawer-story-open', 'drawer-open');
       setSessionLoading(true);

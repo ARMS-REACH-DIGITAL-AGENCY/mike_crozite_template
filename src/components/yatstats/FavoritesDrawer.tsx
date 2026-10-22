@@ -941,6 +941,10 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       <style jsx global>{`
         body.drawer-favorites-open #drawerFavorites { transform: translateX(0); }
         body.drawer-favorites-open .yat-drawer-mask { opacity: 1; pointer-events: auto; }
+        @media (min-width: 780px) {
+          body.drawer-favorites-open .yat-drawer-mask { display:none !important; opacity:0 !important; pointer-events:none !important; }
+          body.drawer-favorites-open { overflow-y:auto !important; }
+        }
 
         .yat-cross-school-card-loading,
         .yat-cross-school-card-error {

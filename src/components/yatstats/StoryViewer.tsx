@@ -29,6 +29,9 @@ export type Story = {
   kind?: 'story' | 'draft';
   // Posted by YAT?STATS itself (Draft Day, or a reviewer posting as it).
   official?: boolean;
+  // Existing Story published directly on the career timeline, e.g. an
+  // imported championship program card. Still accessible in StoryViewer.
+  timelineOnly?: boolean;
   story: string;
   author: string;
   date: string | null;
@@ -241,6 +244,8 @@ export function StoryThread({
   media,
   focusComment = false,
   onCommentOpen,
+  onSignIn,
+  onOpenStory,
 }: {
   story: Story;
   playerId: string;
@@ -249,13 +254,19 @@ export function StoryThread({
   // Opened from a card's Comment button: put the cursor in the comment box.
   focusComment?: boolean;
   onCommentOpen?: () => void;
+  // Modal sign-in closes the blocking StoryViewer before opening the account rail.
+  onSignIn?: () => void;
+  // Selecting an inline post opens its existing full StoryViewer.
+  onOpenStory?: () => void;
   // 'modal': the right-hand side of the big view (scrolls; comment box
   // pinned at the bottom). 'inline': a full post in the Stories tab.
   variant: 'modal' | 'inline';
-  // Inline posts show their photos between the story and the Like bar.
+  // Inline posts show their complete responsive photos ABOVE the story text.
+  // Comments and reactions follow the text so long captions never bury images.
   media?: ReactNode;
 }) {
   const me = useFanMe();
+  const requestSignIn = onSignIn || openSignIn;
   const [comments, setComments] = useState<StoryComment[] | null>(null);
   const [showAll, setShowAll] = useState(variant === 'modal');
   const [draft, setDraft] = useState('');
@@ -267,6 +278,14 @@ export function StoryThread({
   // once they've confirmed it's them (FanConfirm).
   const [retry, setRetry] = useState<null | (() => void)>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Keep the composer readable while growing with wrapped and explicit lines.
+  // Beyond six lines the textarea scrolls without displacing the story viewer.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 154)}px`;
+  }, [draft]);
   // Photos picked for the next comment, and a comment photo opened large.
   const [picked, setPicked] = useState<PickedPhoto[]>([]);
   const [lightbox, setLightbox] = useState<{ photos: StoryPhoto[]; index: number } | null>(null);
@@ -307,7 +326,7 @@ export function StoryThread({
   }, []);
 
   const needConfirm = (action: () => void) => {
-    if (!me) return openSignIn();
+    if (!me) return requestSignIn();
     setRetry(() => action);
   };
 
@@ -357,7 +376,7 @@ export function StoryThread({
     const text = draft.trim();
     const photos = pickedRef.current;
     if ((!text && photos.length === 0) || busy) return;
-    if (!me) return openSignIn();
+    if (!me) return requestSignIn();
     setBusy('comment');
     try {
       let body: string | FormData = JSON.stringify({ text });
@@ -530,7 +549,7 @@ export function StoryThread({
         <button type="button" className={story.likedByMe ? 'ysv-liked' : ''} onClick={toggleLike} aria-pressed={Boolean(story.likedByMe)}>
           <i className={story.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like
         </button>
-        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus(); else openSignIn(); }}>
+        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus(); else requestSignIn(); }}>
           <i className="ri-chat-3-line" /> Comment
         </button>
         <button type="button" onClick={share}>
@@ -565,7 +584,7 @@ export function StoryThread({
                   {c.photos.map((p, i) => (
                     <button type="button" key={i} onClick={() => setLightbox({ photos: c.photos || [], index: i })} aria-label="Open photo">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.thumb || p.web || p.full || ''} alt="" loading="lazy" />
+                      <img src={p.web || p.full || p.thumb || ''} alt="" loading="lazy" decoding="async" />
                     </button>
                   ))}
                 </div>
@@ -608,10 +627,10 @@ export function StoryThread({
               )}
               <textarea
                 ref={composerRef}
-                rows={1}
+                rows={2}
                 value={draft}
                 placeholder={`Were you there? Add your photos or a comment as ${myName || 'you'}`}
-                onChange={(e) => { setDraft(e.target.value); e.target.style.height = "auto"; e.target.style.height = `${Math.min(e.target.scrollHeight, 112)}px`; }}
+                onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); } }}
               />
             </div>
@@ -631,7 +650,7 @@ export function StoryThread({
             </button>
           </>
         ) : (
-          <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to add your photos or a comment</button>
+          <button type="button" className="ysv-signin" onClick={requestSignIn}>TO ADD A STORY TO {story.players.find((player) => player.isPrimary)?.name || story.players[0]?.name || "THIS PLAYER"}&#39;S TIMELINE YOU MUST BE SIGNED IN</button>
         )}
       </div>
       {lightbox && <PhotoLightbox photos={lightbox.photos} start={lightbox.index} story={story} onClose={() => setLightbox(null)} />}
@@ -653,13 +672,35 @@ export function StoryThread({
   }
 
   return (
-    <article className="ysv-post" id={`story-${story.id}`}>
+    <article className="ysv-post" id={`story-${story.id}`}
+      role={onOpenStory ? 'group' : undefined}
+      tabIndex={onOpenStory ? 0 : undefined}
+      aria-label={onOpenStory ? `Story by ${story.author}. Press Enter to open the full memory` : undefined}
+      onClick={onOpenStory ? (event) => {
+        // Nested links and Like/Comment/Share/photo tools keep their actions.
+        if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [role="button"]')) return;
+        onOpenStory();
+      } : undefined}
+      onKeyDown={onOpenStory ? (event) => {
+        if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onOpenStory();
+        }
+      } : undefined}
+    >
       <div className="ysv-post-pad">
         {header}
-        {body}
       </div>
+      {/* Render the full image first, above even very long story copy. */}
       {media}
-      <div className="ysv-post-pad">
+      <div className="ysv-post-pad ysv-post-content">
+        {body}
+        {onOpenStory && !editing && (
+          <button type="button" className="ysv-open-memory" onClick={onOpenStory}
+            aria-label={`Open the full memory by ${story.author}`}>
+            VIEW FULL MEMORY <i className="ri-external-link-line" aria-hidden="true" />
+          </button>
+        )}
         {bar}
         {commentsBlock}
       </div>
@@ -806,7 +847,7 @@ export default function StoryViewer({
           )}
           <PhotoTools story={story} photo={photo} />
         </div>
-        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={commentMode} onCommentOpen={() => setCommentMode(true)} />
+        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={commentMode} onCommentOpen={() => setCommentMode(true)} onSignIn={() => { onClose(); window.setTimeout(openSignIn, 0); }} />
       </div>
       <StoryStyles />
     </div>,
@@ -879,6 +920,10 @@ export function StoryStyles() {
       .ysv-menu button:hover { background: var(--ysv-hover); }
       .ysv-menu .ysv-danger { color: #e05252; }
       .ysv-story { margin: 12px 0; color: var(--ysv-fg); font: 400 16px/1.6 var(--yat-news-font, Georgia, serif); white-space: pre-line; }
+      .ysv-post[tabindex="0"] { cursor:pointer; }
+      .ysv-post[tabindex="0"]:focus-visible { outline:2px solid var(--ysv-gold); outline-offset:2px; }
+      .ysv-open-memory { display:inline-flex; align-items:center; gap:5px; margin:0 0 12px; padding:6px 8px; border:1px solid var(--ysv-line); border-radius:4px; background:transparent; color:var(--ysv-text); font:700 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); cursor:pointer; }
+      .ysv-open-memory:hover,.ysv-open-memory:focus-visible { color:var(--ysv-fg); border-color:var(--ysv-text); }
       .ysv-edit { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
       .ysv-edit-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
       .ysv-edit select, .ysv-edit textarea, .ysv-composer textarea { width: 100%; border: 1px solid var(--ysv-input-border); border-radius: 8px; background: var(--ysv-input-bg); color: var(--ysv-fg); padding: 9px 12px; font: 400 14px/1.45 system-ui, sans-serif; }
@@ -903,10 +948,26 @@ export function StoryStyles() {
       .ysv-comment-main { min-width: 0; }
       .ysv-bubble { display: inline-flex; flex-direction: column; gap: 2px; max-width: 100%; padding: 8px 12px; border-radius: 16px; background: var(--ysv-bubble); color: var(--ysv-fg); font: 400 14px/1.35 system-ui, sans-serif; overflow-wrap: anywhere; white-space: pre-line; }
       .ysv-bubble strong { font-size: 13px; }
-      .ysv-comment-photos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-      .ysv-comment-photos button { padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--ysv-bubble); cursor: zoom-in; }
-      .ysv-comment-photos img { display: block; width: 96px; height: 96px; object-fit: cover; }
-      .ysv-comment-photos button:only-child img { width: 200px; height: auto; max-height: 220px; }
+      /* Fan-submitted comment photos retain their entire shape, including
+         portrait baseball cards and landscape team photos. Never use a
+         cropped square thumbnail inside the comment thread. */
+      .ysv-comment-main { min-width:0; flex:1; }
+      .ysv-comment-photos { display:flex; flex-wrap:wrap; align-items:flex-start; gap:7px; margin-top:7px; min-width:0; max-width:100%; }
+      .ysv-comment-photos button {
+        display:flex; align-items:center; justify-content:center;
+        max-width:100%; min-width:0; padding:0; border:0;
+        border-radius:6px; background:var(--ysv-bubble);
+        cursor:zoom-in; overflow:hidden;
+      }
+      .ysv-comment-photos img {
+        display:block; width:auto; height:auto; max-width:min(100%,168px);
+        max-height:200px; object-fit:contain; object-position:center;
+      }
+      .ysv-comment-photos button:only-child { max-width:min(100%,320px); }
+      .ysv-comment-photos button:only-child img {
+        width:auto; height:auto; max-width:100%; max-height:min(48dvh,440px);
+        object-fit:contain;
+      }
       .ysv-lightbox { position: fixed; inset: 0; z-index: 10060; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.9); }
       .ysv-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
       .ysv-comment-meta { display: flex; gap: 12px; padding: 3px 12px 0; color: var(--ysv-muted); font: 700 12px/1 system-ui, sans-serif; }
@@ -917,7 +978,7 @@ export function StoryStyles() {
       .ysv-composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--ysv-line); }
       .ysv-composer .ysv-avatar-sm { align-self: center; }
       .ysv-compose-box { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-      .ysv-composer textarea { flex:1;resize:vertical;min-height:40px;max-height:112px;overflow-y:auto;border-radius:12px;padding:10px 14px;box-sizing:border-box; }
+      .ysv-composer textarea { flex:1;resize:vertical;min-height:52px;max-height:154px;overflow-y:auto;border-radius:6px;padding:10px 14px;box-sizing:border-box;line-height:1.45; }
       .ysv-side .ysv-composer {min-width:0;}
       .ysv-side .ysv-compose-box {min-width:0;}
       .ysv-picked { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -930,11 +991,12 @@ export function StoryStyles() {
       .ysv-composer > button:disabled { opacity: .4; cursor: default; }
       .ysv-spin { display: inline-block; animation: ysv-spin 0.9s linear infinite; }
       @keyframes ysv-spin { to { transform: rotate(360deg); } }
-      .ysv-signin { flex: 1; min-height: 42px; border-radius: 20px; border: 1px solid var(--ysv-gold); background: transparent; color: var(--ysv-gold-text); font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; cursor: pointer; }
+      .ysv-signin { flex:1; min-height:42px; padding:10px 14px; border-radius:5px; border:1px solid #777; background:#919191; color:#111; font:700 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.025em; text-transform:uppercase; cursor:pointer; } .ysv-signin:hover,.ysv-signin:focus-visible { background:#aaa; border-color:#aaa; }
       /* A full post in the Stories tab (desktop). */
       .ysv-post { color: var(--ysv-fg); border: 1px solid var(--ysf-card-border, var(--ysv-line)); border-radius: 10px; background: var(--ysf-card-bg, rgba(255,255,255,.04)); box-shadow: var(--ysf-card-shadow, none); overflow: hidden; }
       .ysv-post-pad { padding: 14px 16px 0; }
-      .ysv-post .ysv-post-pad + .ysv-post-pad { padding-top: 0; }
+      .ysv-post .ysv-post-content { padding-top:10px; }
+       .ysv-post .ysv-post-content .ysv-story { margin:0 0 14px; overflow-wrap:anywhere; }
       .ysv-post .ysv-composer { border-top: 0; padding-top: 4px; }
       .ysv-post .ysv-note, .ysv-post .ysv-confirm { margin-left: 16px; margin-right: 16px; padding-left: 0; padding-right: 0; }
       @media (max-width: 760px) {

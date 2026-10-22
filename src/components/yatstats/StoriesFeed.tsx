@@ -12,7 +12,7 @@
 // and search. The same StoryDrawer handles upload from the Career Timeline.
 // Teammates are accessible by the icon + count only (no visible word label).
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 import { openStoryDrawer, cancelPendingStoryDrawerOpen } from '@/lib/storyDrawer';
@@ -155,6 +155,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const isDesktop = useIsDesktop();
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const [search, setSearch] = useState('');
+  const [yearFilter, setYearFilter] = useState<number | null>(null);
+  // A year selected on one player must not carry over when browsing another.
+  useEffect(() => setYearFilter(null), [playerId]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openPhoto, setOpenPhoto] = useState(0);
   const [openForComment, setOpenForComment] = useState(false);
@@ -185,11 +188,15 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         const shared = pendingOpen.current;
         pendingOpen.current = null;
         if (shared && list.some((s) => s.id === shared)) {
-          if (window.matchMedia(DESKTOP_QUERY).matches) {
-            pendingFocus.current = shared;
-          } else {
+          // An archived championship card lives on the timeline rather
+          // than repeating in the lower feed. Its existing shared URL must
+          // still open the original story, not scroll toward a hidden card.
+          const linked = list.find((s) => s.id === shared);
+          if (linked?.timelineOnly || !window.matchMedia(DESKTOP_QUERY).matches) {
             setOpenPhoto(0);
             setOpenId(shared);
+          } else {
+            pendingFocus.current = shared;
           }
         }
       })
@@ -227,6 +234,20 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     };
     window.addEventListener(STORY_POSTED_EVENT, onPosted);
     window.addEventListener('yat:story-focus', onFocus);
+    const onTimelineYear = (event: Event) => {
+      const detail = (event as CustomEvent<{ playerId?: string; year?: number | null }>).detail;
+      if (!detail || detail.playerId !== playerId) return;
+      const year = detail.year;
+      setSearch('');
+      setYearFilter(typeof year === 'number' && Number.isInteger(year) ? year : null);
+      // The fixed Career Path / dock layout has a separate Stories scroll
+      // surface. Go to its beginning so the selected year's cards are visible.
+      requestAnimationFrame(() => {
+        const pane = document.querySelector('#ppTab-upload .yp-profile-partner-body');
+        if (pane instanceof HTMLElement) pane.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    };
+    window.addEventListener('yat:timeline-memory-year', onTimelineYear);
     // Who's viewing changed: reload so "liked by me" and the ⋯ menu on
     // your own stories are right.
     window.addEventListener('yat-auth-success', onPosted);
@@ -234,6 +255,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     return () => {
       window.removeEventListener(STORY_POSTED_EVENT, onPosted);
       window.removeEventListener('yat:story-focus', onFocus);
+      window.removeEventListener('yat:timeline-memory-year', onTimelineYear);
       window.removeEventListener('yat-auth-success', onPosted);
       window.removeEventListener('yat-sign-out', onPosted);
     };
@@ -294,14 +316,31 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const visible = useMemo(() => {
     if (!stories) return stories;
     const q = search.trim().toLowerCase();
+    // Imported championship cards are on the year/month rail, including
+    // every tagged player's timeline. Do not show a second copy below the
+    // rail. Regular fan and official posts remain in the Stories feed.
+    // Normal browse hides duplicate archive cards. Drilling into a year
+    // includes those same archived records, alongside ordinary fan stories:
+    // any card can now open its existing story viewer.
+    const feedStories = stories.filter((s) => yearFilter !== null
+      ? s.year === yearFilter
+      : !s.timelineOnly);
     const list = q
-      ? stories.filter((s) =>
+      ? feedStories.filter((s) =>
           [s.story, s.author, storyWhen(s), ...s.players.map((p) => p.name)].join(' ').toLowerCase().includes(q)
         )
-      : stories.slice();
+      : feedStories.slice();
     list.sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : sortKey(a) > sortKey(b) ? 1 : 0) * (sort === 'newest' ? -1 : 1));
     return list;
-  }, [stories, search, sort]);
+  }, [stories, search, sort, yearFilter]);
+
+  const sponsorCard = (
+    <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner advertising placement">
+      <span>PLAYER PROFILE PARTNER</span>
+      <strong>ADVERTISER PLACEMENT</strong>
+      <small>SPONSOR CARD · SAME WIDTH AS STORIES</small>
+    </aside>
+  );
 
   let body: React.ReactNode;
   if (failed) {
@@ -320,42 +359,49 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     body = (
       <>
         {list.length === 0 ? (
-          <div className="ysf-empty">No stories match “{search.trim()}”.</div>
+          <>
+            <div className="ysf-empty">{yearFilter != null
+              ? `No stories match ${yearFilter}${search.trim() ? ` and “${search.trim()}”` : ''}.`
+              : search.trim() ? `No feed stories match “${search.trim()}”.`
+              : 'Select a yellow star on the timeline above to explore its year and monthly memories.'}</div>
+            {!search.trim() && yearFilter == null && sponsorCard}
+          </>
         ) : isDesktop ? (
           <div className="ysf-feed ysf-feed-posts">
-            {list.map((s) => (
-              <StoryThread
-                key={s.id}
-                story={s}
-                playerId={playerId}
-                variant="inline"
-                onChange={updateStory}
-                onDeleted={removeStory}
-                media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
-              />
+            {list.map((s, index) => (
+              <Fragment key={s.id}>
+                <StoryThread
+                  story={s}
+                  playerId={playerId}
+                  variant="inline"
+                  onOpenStory={() => show(s)}
+                  onChange={updateStory}
+                  onDeleted={removeStory}
+                  media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
+                />
+                {index === (list.length <= 2 ? 0 : 1) ? sponsorCard : null}
+              </Fragment>
             ))}
           </div>
         ) : (
           <div className="ysf-feed">
-            {list.map((s) => {
+            {list.map((s, index) => {
               const cover = s.photos[0];
               return (
-                <div className="ysf-card" id={`story-${s.id}`} key={s.id}>
+                <Fragment key={s.id}>
+                  <div className="ysf-card" id={`story-${s.id}`}>
                   <button type="button" className="ysf-card-open" onClick={() => show(s)} aria-label={`Open ${s.author}'s story from ${fullWhenLabel(s)}`}>
                     <span className="ysf-card-when">{fullWhenLabel(s)}</span>
-                    <span className="ysf-card-row">
-                      <span className={`ysf-card-photo${cover?.logo ? ' ysf-card-photo-logo' : ''}`}>
-                        {cover?.thumb || cover?.web ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={cover.thumb || cover.web || ''} alt="" loading="lazy" decoding="async" />
-                        ) : null}
-                        {s.photos.length > 1 ? <span className="ysf-card-count">{s.photos.length} photos</span> : null}
+                    {cover?.full || cover?.web ? (
+                      <span className={`ysf-card-image${cover?.logo ? ' ysf-card-image-logo' : ''}`}>
+                        {/* The whole photograph is visible before its story at any width. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={cover.full || cover.web || ''} alt="" loading="lazy" decoding="async" />
+                        {s.photos.length > 1 && <span className="ysf-card-count">{s.photos.length} photos</span>}
                       </span>
-                      <span className="ysf-card-body">
-                        <span className="ysf-card-text">{s.story}</span>
-                        <span className="ysf-card-by">By {s.author}</span>
-                      </span>
-                    </span>
+                    ) : null}
+                    <span className="ysf-card-text">{s.story}</span>
+                    <span className="ysf-card-by">By {s.author}</span>
                   </button>
                   {/* Photos others added from the same moment. */}
                   <AlbumStrip story={s} onOpen={(i) => show(s, i)} />
@@ -370,7 +416,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                       <i className="ri-share-forward-line" /> Share
                     </button>
                   </div>
-                </div>
+                  </div>
+                  {index === (list.length <= 2 ? 0 : 1) ? sponsorCard : null}
+                </Fragment>
               );
             })}
           </div>
@@ -405,8 +453,16 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
             </button>
           )}
         </div>
+        {yearFilter !== null && (
+          <div className="ysf-active-year" role="status">
+            <span>{yearFilter} MEMORIES</span>
+            <button type="button" onClick={() => setYearFilter(null)} aria-label="Show stories from all years">SHOW ALL <i className="ri-close-line" aria-hidden="true" /></button>
+          </div>
+        )}
       </div>
-      <div className="ysf-main">{body}</div>
+      <div className="ysf-main">{body}
+        <div className="ysf-bottom-scroll-clearance" aria-hidden="true" />
+      </div>
       {teammatesOpen && typeof document !== 'undefined' ? <TeammatesDrawer rows={teammates} onClose={closeTeammates} /> : null}
 
       {openStory && typeof document !== 'undefined' && (
@@ -444,6 +500,11 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
+        /* The scroll viewport ends at the fixed profile dock. This physical
+           spacer (not just scroll-padding) guarantees the final advertiser
+           and interaction row can be scrolled fully above the footer. */
+        .ysf-bottom-scroll-clearance { display:block; height:calc(var(--pp-dock-h,62px) + 88px + env(safe-area-inset-bottom)); width:100%; flex:none; pointer-events:none; }
+
         .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
         .ysf-tool-row { display:flex;align-items:stretch;min-width:0; }
         .ysf-tool-row-search { display:grid;grid-template-columns:minmax(0,1fr) 38px auto;gap:6px;align-items:center; }
@@ -455,21 +516,26 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-tm-btn i { font-size:17px; }
         .ysf-tm-count { border:0;padding:0;font:800 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);color:inherit; }
         .ysf-search { display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:32px;padding:0 8px;border:0;border-radius:6px;background:var(--ysf-card-bg);color:var(--ysf-muted); }
+        .ysf-active-year { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 0; padding:6px 10px; border:1px solid var(--ysf-card-border); border-radius:4px; color:var(--ysf-strong); background:var(--ysf-card-bg); font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.05em; }
+        .ysf-active-year button { border:0; background:transparent; color:inherit; cursor:pointer; font:inherit; opacity:.8; }
+        .ysf-active-year button:hover { opacity:1; }
         .ysf-search input { width:100%;min-width:0;height:30px;border:0;outline:0;background:transparent;color:var(--ysf-strong);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .ysf-sort { display:flex;align-items:center;justify-content:center;width:38px;min-width:0;background:var(--ysf-card-bg);border-radius:6px; }
         .ysf-sort button { border-radius:6px !important; }
         @media(max-width:410px){.ysf-add-btn{font-size:10px;padding:7px 6px;gap:6px}.ysf-tm-btn{min-width:60px}}
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
-        .ysf-photos-item { display: block; padding: 0; border: 0; background: #000; cursor: zoom-in; overflow: hidden; }
-        .ysf-photos-item img { display: block; width: 100%; height: 100%; object-fit: cover; }
-        .ysf-photos-1 .ysf-photos-item img { height: auto; max-height: 560px; object-fit: contain; margin: 0 auto; }
+        .ysf-photos-item { min-width:0; display:grid; place-items:center; padding:0; border:0; background:#101010; cursor:zoom-in; overflow:hidden; }
+        .ysf-photos-item img { display:block; width:auto; height:auto; max-width:100%; max-height:min(70dvh,760px); object-fit:contain; object-position:center; }
+        .ysf-photos-1 .ysf-photos-item { width:100%; min-height:0; }
+        .ysf-photos-1 .ysf-photos-item img { width:auto; height:auto; max-width:100%; max-height:min(75dvh,760px); object-fit:contain; margin:auto; }
         /* A Draft Day story's club logo: whole, on a light panel. */
         .ysf-photos-logo .ysf-photos-item { background: #f4f1ea; padding: 28px 0; }
         .ysf-photos-logo .ysf-photos-item img { max-height: 200px; }
         .ysf-photos-2 { grid-template-columns: 1fr 1fr; }
         .ysf-photos-2 .ysf-photos-item { aspect-ratio: 1; }
-        .ysf-photos-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 260px 200px; }
-        .ysf-photos-3 .ysf-photos-item:first-child { grid-column: 1 / -1; }
+        .ysf-photos-3 { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .ysf-photos-3 .ysf-photos-item { aspect-ratio:4/3; }
+        .ysf-photos-3 .ysf-photos-item:first-child { grid-column:1 / -1; aspect-ratio:16/10; }
         .ysf-photos-4 { grid-template-columns: 1fr 1fr; }
         .ysf-photos-4 .ysf-photos-item { aspect-ratio: 4 / 3; }
         /* The date on its own line at the top left; under it the photo and
@@ -494,9 +560,14 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
         .ysf-card-photo-logo { background: #f4f1ea; }
         .ysf-card-photo-logo img { object-fit: contain; object-position: center; padding: 8px; box-sizing: border-box; }
+        .ysf-card-image { position:relative; display:grid; place-items:center; width:100%; min-width:0; max-height:70dvh; background:#101010; overflow:hidden; }
+        .ysf-card-image img { display:block; width:auto; height:auto; max-width:100%; max-height:70dvh; object-fit:contain; object-position:center; }
+        .ysf-card-image-logo { background:#f4f1ea; }
+        .ysf-card-image-logo img { max-height:220px; }
+
         .ysf-card-count { position: absolute; left: 3px; right: 3px; bottom: 3px; padding: 2px 0; text-align: center; border-radius: 999px; background: rgba(0,0,0,.7); color: #fff; font: 700 9px/1.3 var(--yat-font-ui, Arial, sans-serif); letter-spacing: .01em; text-transform: uppercase; }
         .ysf-card-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
-        .ysf-card-text { color: var(--ysf-text); font: 400 13px/1.4 var(--yat-news-font, Georgia, serif); margin-top: -.15em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+        .ysf-card-text { color:var(--ysf-text); font:400 13px/1.4 var(--yat-news-font,Georgia,serif); margin:6px 2px 2px; display:block; white-space:pre-line; overflow-wrap:anywhere; }
         .ysf-card-by { color: var(--ysf-muted); font: 600 10px/1.2 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; text-transform: uppercase; }
         @media (max-width: 760px) {
           .ysf { padding: 8px 8px 16px; }
