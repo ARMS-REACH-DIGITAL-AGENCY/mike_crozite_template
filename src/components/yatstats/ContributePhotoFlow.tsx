@@ -229,7 +229,7 @@ export default function ContributePhotoFlow({
   };
   const startNewUpload = () => {
     if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
-    setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(false);
+    setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(true);
     setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
     setFile(null);setPreview('');setApprovedSig('');setError('');
     if (archivedYear !== null) { setSeasonKey('other');setOther({year:archivedYear,team:''}); }
