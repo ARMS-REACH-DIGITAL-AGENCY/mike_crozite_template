@@ -286,7 +286,7 @@ function DrawerWrap({ onClose, children, dual = false, sides }: { onClose: () =>
       const hero = document.querySelector('.yat-row3-shell');
       const below = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
       const heroBottom = hero ? hero.getBoundingClientRect().bottom : 0;
-      setBox(window.matchMedia(`(min-width: ${DUAL_DRAWER_MIN_WIDTH}px)`).matches && row5 ? { top: Math.max(below, heroBottom, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
+      setBox(window.matchMedia('(min-width: 820px)').matches && row5 ? { top: Math.max(below, heroBottom, row5.getBoundingClientRect().top) } : { top: below, mobile: true });
     };
     place();
     // The rows above settle after the drawer opens (images, fonts): re-place
@@ -429,19 +429,6 @@ function DualTeamDrawers({ index, open, me, onClose }: { index: Index; open: Ope
       <TeamDrawerPanel index={index} open={{ card: open.card, side: 'h' }} me={me} onClose={onClose} />
     </DrawerWrap>
   );
-}
-
-// True while the window is at least `px` wide.
-function useMinWidth(px: number) {
-  const [ok, setOk] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${px}px)`);
-    const sync = () => setOk(mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  }, [px]);
-  return ok;
 }
 
 // The rules, in a drawer from the right.
@@ -671,8 +658,8 @@ function AllGames({ index, me, cal, onOpen }: { index: Index; me: number; cal: {
   );
 }
 
-// From this width both Stat Ledger drawers open together (about a third of
-// the screen each), leaving ~600px of game cards between them.
+// Open both Stat Ledgers only if the ACTUAL bracket area, after any site
+// drawer consumes its width, fits two full ledgers and the center game.
 const DUAL_DRAWER_MIN_WIDTH = 1560;
 // From this width the site's docked drawers (Search on the left, Favorites
 // on the right) open beside the Stat Ledgers instead of closing them: each
@@ -720,7 +707,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     return () => mo.disconnect();
   }, [open]);
-  const bothDrawers = useMinWidth(DUAL_DRAWER_MIN_WIDTH);
+  const [bothDrawers, setBothDrawers] = useState(false);
   // Desktop with Stat Ledgers open: the Most Runs leaderboard as a sheet
   // from the bottom, between the drawers (its column is hidden then).
   const [rules, setRules] = useState(false);
@@ -842,6 +829,27 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   // desktop, not the --row3-h guess) vary with the page.
   const yfzRef = useRef<HTMLDivElement | null>(null);
   const hasYfz = Boolean(index && lb && cal);
+  // The usable bracket width is not the viewport width when a site rail is
+  // docked. Measure the actual panel so a second Stat Ledger never overlaps it.
+  useLayoutEffect(() => {
+    const el = yfzRef.current;
+    if (!el) {
+      setBothDrawers(false);
+      return;
+    }
+    const sync = () => {
+      const canFit = el.getBoundingClientRect().width >= DUAL_DRAWER_MIN_WIDTH;
+      setBothDrawers((prev) => prev === canFit ? prev : canFit);
+    };
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    window.addEventListener('resize', sync);
+    sync();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, [hasYfz]);
   useLayoutEffect(() => {
     const el = yfzRef.current;
     if (!el) return;
@@ -1200,6 +1208,16 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           body.drawer-open.drawer-left-open .yfp-drawer-wrap.row5 { left:var(--yat-left-drawer-w, 290px); }
           body.drawer-open.drawer-favorites-open .yfp-drawer-wrap.row5 { right:var(--yat-right-drawer-w, 360px); }
         }
+        /* On phones, a Stat Ledger is a full-width pane. Move the game out
+           of its way rather than dimming and covering it with a modal mask.
+           Closing the ledger brings the game back into view. */
+        @media (max-width:819px) {
+          .yfz { transition:transform .22s ease-out; }
+          body.yfp-dock-l .yfz { transform:translateX(min(410px, 100vw)); }
+          body.yfp-dock-r .yfz { transform:translateX(calc(-1 * min(410px, 100vw))); }
+          .yfp-drawer-wrap { background:transparent; pointer-events:none; }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { pointer-events:auto; }
+        }
         /* The Rules pill: the flip cards' pill size. */
         .yfz-panel .yfp-lb-rules {
           display:inline-flex; align-items:center; justify-content:center; min-height:0; width:auto;
@@ -1309,9 +1327,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfz-panel .yfp-lb-title i { margin:0 2px; }
           .yfp-lb-regions-k { letter-spacing:0; }
         }
-        /* Between mobile and wide desktop, keep the 680px bracket centered
-           in the available content area. Stat Ledgers overlay rather than
-           consume their own 422px lanes in this range. */
+        /* Keep the center column readable, and move it away from whichever
+           Stat Ledger is open. One ledger docks at 820px and two dock only
+           when their real remaining width permits it. Never overlay a game. */
         @media (min-width:820px) {
           .yfz-panel,
           body.yfp-dock-l .yfz-panel,
@@ -1319,6 +1337,14 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             grid-template-columns:minmax(0,1fr); justify-content:stretch;
             padding-left:max(8px, calc((100% - 680px) / 2)); padding-right:max(8px, calc((100% - 680px) / 2));
             transition:padding-left .22s ease-out, padding-right .22s ease-out;
+          }
+          body.yfp-dock-l .yfz-panel {
+            padding-left:var(--yfp-dw);
+            padding-right:max(8px, calc(100% - var(--yfp-dw) - 680px));
+          }
+          body.yfp-dock-r .yfz-panel {
+            padding-right:var(--yfp-dw);
+            padding-left:max(8px, calc(100% - var(--yfp-dw) - 680px));
           }
         }
         /* Reserve both Stat Ledger lanes ONLY when the bracket's actual
@@ -1430,7 +1456,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-head-line .yfp-drawer-location { color:#fff; font:inherit; overflow:hidden; text-overflow:ellipsis; }
         .yfp-drawer-head-line .yfp-drawer-game { flex:none; margin:0; color:#fff; font:inherit; }
         .yfp-drawer-head-line button { width:24px; height:24px; border:0; color:#fff; font-size:13px; }
-        .yfp-drawer .ybr-rules { padding: 14px; }
+        .yfp-drawer .ybr-rules { box-sizing:border-box; width:100%; max-width:100%; min-width:0; padding:14px; overflow-wrap:anywhere; }
+        .yfp-drawer .ybr-rules section { box-sizing:border-box; width:100%; max-width:100%; min-width:0; }
+        .yfp-drawer .ybr-scroll { max-width:100%; overflow-x:auto; }
 
         @media (max-width: 819px) {
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width: min(410px, 100vw); }
