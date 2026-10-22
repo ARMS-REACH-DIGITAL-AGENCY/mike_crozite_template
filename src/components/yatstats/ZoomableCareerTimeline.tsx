@@ -1059,11 +1059,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (scrollRafRef.current != null) cancelAnimationFrame(scrollRafRef.current);
   }, []);
 
-  // Fan Stories (/api/stories, newest first): each year's photos become
-  // that year's hero image, in place of the YaTi cartoon. A Draft Day
-  // story's club logo isn't a hero (the draft slide already shows the
-  // logo behind him); photos fans add in its comments are. Reloaded when a
-  // fan posts from the drawer or adds photos in a comment.
+  // Only APPROVED yearly anchor contributions may occupy the hero.
+  // Fan/official Story photos are for MONTH rail thumbnails and full viewer,
+  // never a full-size hero. This separation applies to every player.
   const [publishedPhotosByYear, setPublishedPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
   // year -> month (1-12) -> that month's stories (for the month rail).
   const [publishedStoriesByMonth, setPublishedStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
@@ -1108,17 +1106,18 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
             if (month >= 1 && month <= 12) {
               ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, thumb: story.photos?.[0]?.thumb || story.photos?.[0]?.web || null });
             }
-            // Photos fans added in replies are more of the same moment.
-            const heroes = [...(story.photos || []), ...(story.commentPhotos || [])];
-            for (const photo of heroes) {
-              if (photo.web && !photo.logo) (byYear[story.year] ||= []).push({ web: photo.web, cutout: photo.cutout || null, source: photo.source || null, storyId: story.id });
-            }
+            // Never promote a fan Story image (including reply photos) into
+            // the hero asset list. All fan memories stay discoverable via
+            // year stars, dated month thumbnails and the Stories feed.
           }
-          // Photo-only contributions share the existing five-second Story
-          // rotation but remain independent of Story/Memory records.
+          // Exactly one approved yearly HERO image per player/year comes
+          // from the photo contribution API. The server selects the current
+          // active image for every year, even if old archives contain
+          // duplicate approved records.
           type TimelinePhoto = { id: string; year: number; web: string | null; cutout: string | null; source: string | null };
           for (const image of (Array.isArray(data.timelinePhotos) ? data.timelinePhotos : []) as TimelinePhoto[]) {
-            if (image.year && image.web) (byYear[image.year] ||= []).push({ web: image.web, cutout: image.cutout, source: image.source, storyId: null });
+            if (image.year && image.web && !byYear[image.year]?.length)
+              byYear[image.year] = [{ web: image.web, cutout: image.cutout, source: image.source, storyId: null }];
           }
           setPublishedPhotosByYear(byYear);
           setPublishedStoriesByMonth(byMonth);
@@ -1146,21 +1145,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     };
   }, [playerId, isPreview]);
 
-  // A draft has no server record: overlay its prepared browser images on
-  // the same year/month buckets as published Stories. The inspected photo
-  // leads the hero strip, and the published buckets remain untouched.
-  const storyPhotosByYear = useMemo(() => {
-    if (!preview?.photos.length) return publishedPhotosByYear;
-    const active = preview.photos.find((photo) => photo.id === preview.activePhotoId) || preview.photos[0];
-    const ordered = [active, ...preview.photos.filter((photo) => photo !== active)];
-    return {
-      ...publishedPhotosByYear,
-      [preview.year]: [
-        ...ordered.map((photo) => ({ web: photo.url, cutout: null, source: null, storyId: 'local-story-preview' })),
-        ...(publishedPhotosByYear[preview.year] || []),
-      ],
-    };
-  }, [publishedPhotosByYear, preview?.year, preview?.photos, preview?.activePhotoId]);
+  // Local story previews belong to the month rail only; hero images must
+  // come from the verified yearly photo-upload workflow.
+  const storyPhotosByYear = publishedPhotosByYear;
   const storiesByMonth = useMemo(() => {
     if (!preview?.photos.length || preview.month < 1 || preview.month > 12) return publishedStoriesByMonth;
     return {
@@ -2081,9 +2068,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                   area too, so this is a transparent window onto that one
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
-              {storyPhotosByYear[slide.year]?.length && (isCareerYearSlide(slide) || slide.kind === 'draft') ? (
-                <StoryMontage photos={storyPhotosByYear[slide.year].map((p) => p.web)} />
-              ) : null}
+              {/* Fan memories no longer replace the slide hero. Approved
+                  annual cutouts alone occupy the hero; keep the normal
+                  stadium/gradient atmosphere behind the text. */}
               <span className="zt-visual-gradient" aria-hidden="true" />
               {(slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && (
                 <span className="zt-logo-layer" aria-hidden="true">
