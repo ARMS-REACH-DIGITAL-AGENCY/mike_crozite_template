@@ -176,12 +176,21 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT id::text, date_taken::text, s3_key, description
          FROM media_upload
-        WHERE playerid = $1 AND purpose IN ('timeline_hero', 'back_hero', 'flip_card', 'headshot') AND status = 'approved'
+        WHERE playerid = $1 AND purpose = 'timeline_hero' AND status = 'approved'
           AND s3_key LIKE 'staging/contribute/%'
-        ORDER BY date_taken ASC, uploaded_at ASC, id ASC LIMIT 100`,
+          AND COALESCE((CASE WHEN description IS NOT NULL AND left(description,1) = '{'
+             THEN description::jsonb ->> 'supersededBy' ELSE NULL END),'') = ''
+        ORDER BY date_taken ASC, uploaded_at DESC, id DESC LIMIT 500`,
       [playerId]
     );
+    // The database retains immutable historical uploads, but each player /
+    // calendar year has exactly ONE visible annual hero. Old duplicate
+    // approved uploads remain recoverable/editable, never rotated as heroes.
+    const selectedYears = new Set<number>();
     const timelinePhotos = timelineUploads.flatMap((upload) => {
+      const candidateYear = new Date(upload.date_taken).getUTCFullYear();
+      if (!Number.isInteger(candidateYear) || selectedYears.has(candidateYear)) return [];
+      selectedYears.add(candidateYear);
       let info: { published_assets?: string[] } = {};
       try { info = JSON.parse(upload.description || '{}'); } catch {}
       const all = Array.isArray(info.published_assets) ? info.published_assets : [];
