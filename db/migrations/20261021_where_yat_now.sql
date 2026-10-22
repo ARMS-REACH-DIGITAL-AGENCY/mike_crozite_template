@@ -30,3 +30,7 @@ CREATE INDEX IF NOT EXISTS alumni_where_yat_now_player_approved
 CREATE INDEX IF NOT EXISTS alumni_where_yat_now_review_queue
   ON public.alumni_where_yat_now (created_at DESC)
   WHERE status='pending';
+
+-- Application database role (the pool connects as authenticator).
+GRANT SELECT, INSERT, UPDATE ON TABLE public.alumni_where_yat_now TO authenticator;
+GRANT USAGE ON SEQUENCE public.alumni_where_yat_now_id_seq TO authenticator;
