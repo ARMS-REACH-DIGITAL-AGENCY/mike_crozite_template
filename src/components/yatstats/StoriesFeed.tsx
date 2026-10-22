@@ -372,6 +372,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                   story={s}
                   playerId={playerId}
                   variant="inline"
+                  onOpenStory={() => show(s)}
                   onChange={updateStory}
                   onDeleted={removeStory}
                   media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
