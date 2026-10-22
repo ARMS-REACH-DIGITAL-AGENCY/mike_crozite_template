@@ -91,7 +91,7 @@ function goToTab(hash: string) {
   activate(hash);
 }
 
-export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }: { playerId: string; hsid: string; playerName: string }) {
+export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName, statusLabel = '' }: { playerId: string; hsid: string; playerName: string; statusLabel?: string }) {
   // False during the server render, true once in the browser (the dock
   // needs document.body).
   const dockReady = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -151,7 +151,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName }:
             {DOCK_TABS.map((tab) => (
               <a key={tab.id} href={`#${tab.id}`} className="pp-fz-tab">
                 <i className={tab.icon} aria-hidden="true" />
-                <span>{tab.label}</span>
+                <span>{tab.id === "ppTab-schedule" && /RETIRED/i.test(statusLabel) ? "WHERE YAT NOW?" : tab.label}</span>
               </a>
             ))}
           </nav>
