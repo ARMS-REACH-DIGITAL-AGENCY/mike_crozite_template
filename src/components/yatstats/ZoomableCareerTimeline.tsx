@@ -1629,7 +1629,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   const activeSlide = model.slides[activeIndex];
   const monthRailYear = preview && ready && previewTargetIndex >= 0
     ? preview.year
-    : railMode === 'months' && ready && !isPhone && activeSlide
+    : railMode === 'months' && ready && activeSlide
       ? activeSlide.year
       : null;
   // The closing January 1st after the last screen (futureYear + 1).
@@ -1756,6 +1756,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     // Clicking the already active year or a disabled boundary produces no
     // scroll event, so there is nothing else to settle in that case.
     if (requestedSlideRef.current == null) setRailSettled(true);
+  }
+  // Stars mean "there are memories in this year". They drill into the
+  // matching slide + month rail + year-filtered feed; they do NOT open a
+  // modal. The same event works for every profile/subdomain.
+  function selectMemoryYear(year: number, index: number) {
+    setRailMode('months');
+    navigateToIndex(index);
+    window.dispatchEvent(new CustomEvent('yat:timeline-memory-year', {
+      detail: { playerId, year },
+    }));
+  }
+  function clearMemoryYearFilter() {
+    window.dispatchEvent(new CustomEvent('yat:timeline-memory-year', {
+      detail: { playerId, year: null },
+    }));
   }
   function goPrev() { navigateToIndex((requestedSlideRef.current ?? Math.round(scrollProgress)) - 1); }
   function goNext() { navigateToIndex((requestedSlideRef.current ?? Math.round(scrollProgress)) + 1); }
@@ -2030,7 +2045,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
       )}
       {!isPreview && !isPhone && (
         <div className="zt-rail-mode-toggle" role="group" aria-label="Timeline scale">
-          <button type="button" className={railMode === 'years' ? 'is-on' : ''} aria-pressed={railMode === 'years'} onClick={() => setRailMode('years')}>Years</button>
+          <button type="button" className={railMode === 'years' ? 'is-on' : ''} aria-pressed={railMode === 'years'} onClick={() => { setRailMode('years'); clearMemoryYearFilter(); }}>Years</button>
           <button type="button" className={railMode === 'months' ? 'is-on' : ''} aria-pressed={railMode === 'months'} onClick={() => setRailMode('months')}>Months</button>
         </div>
       )}
@@ -2374,9 +2389,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
             <span className="zt-rail-track" aria-hidden="true" />
             {monthRailYear ? (
               <>
-                {/* The settled slide's year, then its twelve months. A month
-                    with stories gets a tiny photo that opens the story in
-                    the Stories tab. */}
+                {/* Month mode is the memory drill-down. Photos above each
+                    dated month are the buttons that open StoryViewer. */}
                 <span className="zt-rail-monthyear">{monthRailYear}</span>
                 {RAIL_MONTHS.map((label, m) => {
                   const stories = storiesByMonth[monthRailYear]?.[m + 1] || [];
@@ -2388,18 +2402,25 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                         <span className="zt-pennant" role="img" aria-label={draftLine(monthRailDraft)} title={draftLine(monthRailDraft)} />
                       )}
                       {stories.length > 0 && (isPreview ? (
-                        <span className="zt-rail-story" role="img" aria-label={`${selected ? 'Your photo' : `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`} in ${label} ${monthRailYear}`}>
-                          <span className="zt-rail-star" aria-hidden="true">★</span>
+                        <span className="zt-rail-month-memory" role="img" aria-label={`${selected ? 'Your photo' : `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`} in ${label} ${monthRailYear}`}>
+                          {stories[0].thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={stories[0].thumb} alt="" loading="lazy" decoding="async" />
+                          ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </span>
                       ) : (
                         <button
                           type="button"
-                          className="zt-rail-story"
+                          className="zt-rail-month-memory"
                           onClick={() => openTimelineStory(stories[0].id)}
-                          aria-label={`${stories.length} ${stories.length === 1 ? 'story' : 'stories'} from ${label} ${monthRailYear}`}
+                          aria-label={`Open ${stories.length} ${stories.length === 1 ? 'story' : 'stories'} from ${label} ${monthRailYear}`}
+                          title={`${label} ${monthRailYear}: open memory`}
                         >
-                          <span className="zt-rail-star" aria-hidden="true">★</span>
+                          {stories[0].thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={stories[0].thumb} alt="" loading="lazy" decoding="async" />
+                          ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </button>
                       ))}
@@ -2439,33 +2460,24 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                 {slide.kind === 'draft' && <span className="zt-pennant" aria-hidden="true" />}
               </button>
             ))}
-            {/* Published memories are first-class YEAR rail content, just
-                like the month-rail stars. This path is identical for fans,
-                YAT?STATS publishers, and tagged players: one story ID from
-                /api/stories, one viewer, no duplicate database objects.
-                The active year shows the memory photo as a compact card
-                standing ON the gold rail; other years show star markers. */}
+            {/* YEARS mode shows only discovery stars, including for
+                inactive years. Stars navigate to that year in MONTHS mode
+                and filter its feed; only month thumbnails open memories. */}
             {!isPreview && model.slides.map((slide, index) => {
               if (model.slides.findIndex((candidate) => candidate.year === slide.year) !== index) return null;
               const ids = storyIdsByYear[slide.year] || [];
               if (!ids.length) return null;
-              const memory = timelineStories.find((story) => story.id === ids[0]);
-              const cover = memory?.photos?.[0]?.thumb || memory?.photos?.[0]?.web;
-              const active = slide.year === model.slides[activeIndex]?.year;
               return (
                 <button
                   key={`memory-${slide.year}`}
                   type="button"
-                  className={`zt-rail-year-memory${active && cover ? ' is-card' : ''}`}
-                  style={{ left: `clamp(25px, ${(index / Math.max(1, model.slides.length - 1)) * 100}%, calc(100% - 25px))` }}
-                  onClick={() => openTimelineStory(ids[0])}
-                  aria-label={`Open ${ids.length} ${ids.length === 1 ? 'story' : 'stories'} from ${slide.year} on the career timeline`}
-                  title={`${slide.year}: ${ids.length} timeline ${ids.length === 1 ? 'memory' : 'memories'}`}
+                  className="zt-rail-year-memory"
+                  style={{ left: `clamp(14px, ${(index / Math.max(1, model.slides.length - 1)) * 100}%, calc(100% - 14px))` }}
+                  onClick={() => selectMemoryYear(slide.year, index)}
+                  aria-label={`Explore ${ids.length} ${ids.length === 1 ? 'story' : 'stories'} from ${slide.year}: open this year and show months`}
+                  title={`${slide.year}: ${ids.length} timeline ${ids.length === 1 ? 'memory' : 'memories'} — explore months`}
                 >
-                  {active && cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cover} alt="" loading="lazy" decoding="async" />
-                  ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
+                  <span className="zt-rail-star" aria-hidden="true">★</span>
                   {ids.length > 1 && <span className="zt-rail-story-count">{ids.length}</span>}
                 </button>
               );
@@ -2912,33 +2924,40 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-rail-monthyear { position:absolute; left:0; top:50%; transform:translateY(-50%); padding:0 8px; background:#040506; border-radius:4px; color:${TIMELINE_ACCENT}; font:700 17px/24px "Bebas Neue",Oswald,sans-serif; letter-spacing:.05em; white-space:nowrap; }
         .zt-rail-months .zt-rail-track { left:${RAIL_MONTH_START}px; }
         .zt-rail-month { position:absolute; top:50%; width:8px; height:8px; margin-left:-4px; transform:translateY(-50%); border-radius:50%; background:#fff; animation:zt-rail-in .25s ease both; }
-        .zt-rail-month.has-story { width:16px; height:16px; margin-left:-8px; background:#fff; box-shadow:0 0 0 1px rgba(255,255,255,.25); }
+        .zt-rail-month.has-story { width:8px; height:8px; margin-left:-4px; background:#fff; box-shadow:none; }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
         .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_ACCENT}; }
-        .zt-rail-story { position:absolute; z-index:2; left:50%; top:50%; transform:translate(-50%,-50%); display:grid; place-items:center; width:19px; height:19px; padding:0; border:1px solid #fff; border-radius:50%; background:#fff; color:#f7c62d; overflow:visible; cursor:pointer; box-shadow:0 1px 6px rgba(0,0,0,.4); }
-         .zt-rail-story i { font-size:11px; line-height:1; }
-        .zt-rail-story:hover { transform:translate(-50%,-50%) scale(1.13); }
-        .zt-rail-star { font-size:15px; line-height:1; color:#ffd02f; -webkit-text-stroke:.55px #d83328; text-shadow:none; }
-         .zt-rail-story-thumb { display:none; }
-        .zt-rail-story-count { position:absolute; top:-6px; right:-7px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_ACCENT}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; }
-        /* Compact published-memory card stands directly ON its year tick;
-           this is not the hero cutout layer below the rail. */
-        .zt-rail-year-memory { position:absolute; z-index:9; top:50%; transform:translate(-50%,-50%); width:17px; height:17px; padding:0; display:grid;place-items:center; border:1px solid white; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.5); overflow:visible; }
-        /* Preserve natural portrait/landscape ratio, no colored frame. */
-        .zt-rail-year-memory.is-card {
-          top:auto; bottom:calc(50% + 9px); transform:translateX(-50%);
-          width:max-content; height:max-content; max-width:114px; padding:2px;
-          background:#121212; border:1px solid rgba(255,255,255,.65); border-radius:3px;
+        /* MONTHS only: a real, aspect-preserved photograph above its tick.
+           No yellow square or circle. Full memory opens on click. */
+        .zt-rail-month-memory {
+          position:absolute; z-index:9; left:50%; bottom:calc(50% + 8px);
+          transform:translateX(-50%); display:flex; align-items:flex-end;
+          justify-content:center; width:max-content; height:max-content;
+          max-width:72px; padding:1px; border:0; border-radius:2px;
+          background:rgba(0,0,0,.55); color:#ffd02f; cursor:pointer;
+          filter:drop-shadow(0 2px 3px #000); overflow:visible;
         }
-        .zt-rail-year-memory.is-card :global(img) {
-          display:block; width:auto; height:auto; max-width:108px; max-height:64px;
-          object-fit:contain; object-position:center; background:transparent;
+        .zt-rail-month-memory :global(img) {
+          display:block; width:auto; height:auto; max-width:68px; max-height:54px;
+          object-fit:contain; object-position:center bottom; background:transparent;
         }
-        .zt-rail-year-memory:not(.is-card):hover { transform:translate(-50%,-50%) scale(1.13); }
-        .zt-rail-year-memory.is-card:hover { filter:brightness(1.16); }
+        .zt-rail-month-memory:hover { filter:drop-shadow(0 2px 4px #000) brightness(1.18); }
+        .zt-rail-star { font-size:18px; line-height:1; color:#ffd02f; -webkit-text-stroke:.55px #d83328; text-shadow:0 1px 2px #000; }
+        .zt-rail-story-count { position:absolute; top:-5px; right:-8px; min-width:13px; height:13px; padding:0 3px; border-radius:7px; background:${TIMELINE_ACCENT}; color:#000; font:800 8px/13px Oswald,sans-serif; text-align:center; pointer-events:none; }
+        /* YEARS only: a bare yellow star, no button circle, no thumbnail.
+           Visible on all years containing published memories. */
+        .zt-rail-year-memory {
+          position:absolute; z-index:9; top:50%; transform:translate(-50%,-50%);
+          width:26px; height:28px; display:grid; place-items:center;
+          padding:0; border:0; border-radius:0; background:transparent;
+          color:#ffd02f; box-shadow:none; cursor:pointer; overflow:visible;
+        }
+        .zt-rail-year-memory:hover { transform:translate(-50%,-50%) scale(1.16); }
         @media(max-width:620px) {
-          .zt-rail-year-memory.is-card { max-width:84px; }
-          .zt-rail-year-memory.is-card :global(img) { max-width:78px; max-height:46px; }
+          .zt-rail-month-memory { max-width:42px; bottom:calc(50% + 7px); }
+          .zt-rail-month-memory :global(img) { max-width:40px; max-height:42px; }
+          .zt-rail-year-memory { width:20px; height:24px; }
+          .zt-rail-year-memory .zt-rail-star { font-size:16px; }
         }
 
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
@@ -3323,8 +3342,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-story-preview .zt-rail-month-label { display:none; }
         .zt-story-preview .zt-rail-month.is-preview-selected { background:${TIMELINE_ACCENT}; box-shadow:0 0 0 3px rgba(170,170,170,.35); }
         .zt-story-preview .zt-rail-month.is-preview-selected .zt-rail-month-label { display:block; top:50%; margin-top:0; transform:translate(-50%,-50%); padding:0 2px; border-radius:2px; color:#fff; background:#040506; font-weight:700; line-height:12px; }
-        .zt-story-preview .zt-rail-story { cursor:default; }
-        .zt-story-preview .zt-rail-story:hover { transform:translate(-50%,-50%); }
+        .zt-story-preview .zt-rail-month-memory { cursor:default; }
+        .zt-story-preview .zt-rail-month-memory:hover { filter:none; }
       `}</style>
     </section>
     </div>
