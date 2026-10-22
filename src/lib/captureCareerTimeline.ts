@@ -14,7 +14,7 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
   });
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1536, height: 960, deviceScaleFactor: 2 });
+    await page.setViewport({ width: 1200, height: 960, deviceScaleFactor: 1 });
     await page.setCookie({ name: 'yat_seen', value: '1', url: input.origin });
     const url = new URL('/' + input.hsid + '/player/' + input.playerId + '/' + input.slug, input.origin);
     const result = await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 26000 });
@@ -27,30 +27,108 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
         && !!strip.querySelector('.zt-title')
         && !!strip.querySelector('.zt-person-then');
     }, { timeout: 21000, polling: 250 });
+
+    // Increase the ACTUAL timeline row and all of its ancestors together.
+    // The old implementation only increased #playerCareerImages. Its fixed
+    // 200px parent clipped the hero, exposing Stories and advertisements.
+    // This stylesheet runs in the offscreen screenshot browser ONLY.
+    await page.addStyleTag({ content: [
+      '.yat-row3-shell:has(.yat-profile-career-strip){height:630px!important;min-height:630px!important;overflow:hidden!important;}',
+      '.yat-row3-shell .yat-profile-career-strip,.zt-timeline-host,.zt-native-viewport{height:630px!important;min-height:630px!important;}',
+      '.zt-hero-bleed{height:calc(var(--row1-h,36px) + var(--row2-h,54px) + 630px)!important;}',
+      '#playerCareerImages{width:100%!important;height:630px!important;min-height:630px!important;overflow:hidden!important;--hero-copy-left:47%;--hero-rail-left:52%;background:#060708 url("/img/career-path-default.webp") 0% 48% / cover no-repeat!important;}',
+      '#playerCareerImages .zt-moment-cta,#playerCareerImages .zt-rail-mode-toggle{display:none!important;}',
+      '#playerCareerImages .zt-copy{bottom:78px!important;padding-top:28px!important;max-width:none!important;}',
+      '#playerCareerImages .zt-kick{font-size:22px!important;line-height:1.18!important;margin-bottom:14px!important;}',
+      '#playerCareerImages .zt-title{font-size:clamp(42px,4.5vw,56px)!important;line-height:1.04!important;white-space:normal!important;overflow:visible!important;margin-bottom:16px!important;}',
+      '#playerCareerImages .zt-bodycopy{font-size:24px!important;line-height:1.3!important;white-space:normal!important;}',
+      '#playerCareerImages .zt-person-stack .zt-person-then{width:clamp(300px,35vw,440px)!important;left:calc(var(--hero-copy-left) - 18px - clamp(300px,35vw,440px))!important;}',
+      '#playerCareerImages .zt-person-stack .zt-person-now{height:54%!important;bottom:16px!important;}',
+      '#playerCareerImages .zt-rail{bottom:24px!important;height:20px!important;}',
+      '#playerCareerImages .zt-rail-track{height:5px!important;}',
+      '#playerCareerImages .zt-rail-tick{width:12px!important;height:12px!important;margin-left:-6px!important;background:#df402b!important;}',
+      '#playerCareerImages *{animation:none!important;transition:none!important;}'
+    ].join('\n') });
     await page.evaluate(async () => {
-      await document.fonts.ready;
       document.getElementById('yatSplash')?.remove();
+      await document.fonts.ready;
       const strip = document.querySelector('#playerCareerImages') as HTMLElement | null;
-      if (!strip) return;
-      // Freeze animation, remove navigation arrows; never touch the live page.
-      const style = document.createElement('style');
-      style.textContent = `#playerCareerImages{height:590px!important;min-height:590px!important}\n      .zt-timeline-host,.zt-native-viewport,.yat-profile-career-strip{height:590px!important;min-height:590px!important}\n      #playerCareerImages *{animation:none!important;transition:none!important}
-      #playerCareerImages .zt-arrow,#playerCareerImages .zt-prev,#playerCareerImages .zt-next{display:none!important}`;
-      document.head.appendChild(style);
-      const images = [...strip.querySelectorAll('img')] as HTMLImageElement[];
-      await Promise.all(images.map(async img => {
-        if (img.complete) return;
-        await Promise.race([new Promise<void>(resolve => { img.addEventListener('load', () => resolve(), {once:true}); img.addEventListener('error', () => resolve(), {once:true}); }), new Promise<void>(resolve => setTimeout(resolve, 1800))]);
-      }));
+      const row = strip?.closest('.yat-row3-shell') as HTMLElement | null;
+      const outer = strip?.closest('.yat-profile-career-strip') as HTMLElement | null;
+      for (const el of [row, outer, strip]) {
+        el?.style.setProperty('height', '630px', 'important');
+        el?.style.setProperty('min-height', '630px', 'important');
+        el?.style.setProperty('max-height', '630px', 'important');
+      }
+      row?.style.setProperty('overflow', 'hidden', 'important');
+      for (const el of [strip?.closest('.zt-native-viewport'), strip?.closest('.zt-timeline-host')]) {
+        (el as HTMLElement | null)?.style.setProperty('height', '630px', 'important');
+      }
+      const carousel = document.querySelector('#playerCareerImages .zt-carousel') as HTMLElement | null;
+      const anchor = carousel?.querySelector('.zt-slide.zt-anchor') as HTMLElement | null;
+      if (carousel && anchor) carousel.scrollTo({ left: anchor.offsetLeft, behavior: 'instant' });
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    const measure = await page.evaluate(() => {
+      const e = document.querySelector('#playerCareerImages');
+      const parent = e?.closest('.yat-row3-shell');
+      const rail = e?.querySelector('.zt-rail');
+      const slide = e?.querySelector('.zt-slide.zt-anchor');
+      const carousel = e?.querySelector('.zt-carousel');
+      const rect = (node: Element | null | undefined) => node?.getBoundingClientRect().toJSON() || null;
+      return {
+        active: e?.getAttribute('data-active-kind'),
+        title: slide?.querySelector('.zt-title')?.textContent?.slice(0,120),
+        strip: rect(e), parent: rect(parent), rail: rect(rail),
+        slide: rect(slide), carousel: rect(carousel),
+        scrollLeft: carousel?.scrollLeft,
+      };
+    });
+    console.info('[player-share] screenshot geometry:', JSON.stringify(measure));
+    // Do not confuse an "active=anchor" state with a different slide that
+    // has not yet scrolled into view. This was producing "THE YEAR IT ALL
+    // BEGAN" instead of the graduation hero.
+    await page.waitForFunction(() => {
+      const strip = document.querySelector('#playerCareerImages');
+      const carousel = strip?.querySelector('.zt-carousel');
+      const anchor = carousel?.querySelector('.zt-slide.zt-anchor');
+      if (!strip || !carousel || !anchor || strip.getAttribute('data-active-kind') !== 'anchor') return false;
+      const box = strip.getBoundingClientRect();
+      const parent = strip.closest('.yat-row3-shell')?.getBoundingClientRect();
+      const slide = anchor.getBoundingClientRect();
+      const rail = strip.querySelector('.zt-rail')?.getBoundingClientRect();
+      const title = anchor.querySelector('.zt-title')?.textContent || '';
+      return box.height >= 629 && parent && parent.height >= 629
+        && slide.left >= box.left - 8 && slide.left <= box.left + 8
+        && rail && rail.top >= box.top && rail.bottom <= box.bottom + 4
+        && (title.includes("baseball player") || title.includes("Every player"));
+    }, { timeout: 14000, polling: 200 });
+    await page.evaluate(async () => {
+      const strip = document.querySelector('#playerCareerImages');
+      const images = [...(strip?.querySelectorAll('img') || [])] as HTMLImageElement[];
+      await Promise.all(images.map(img => img.complete ? Promise.resolve() : Promise.race([
+        new Promise<void>(resolve => {
+          img.addEventListener('load', () => resolve(), {once:true});
+          img.addEventListener('error', () => resolve(), {once:true});
+        }),
+        new Promise<void>(resolve => setTimeout(resolve, 1800)),
+      ])));
     });
     const target = await page.$('#playerCareerImages');
     if (!target) throw new Error('Timeline crop target missing');
-    const screenshot = Buffer.from(await target.screenshot({ type: 'png' }));
-    const bounds = await sharp(screenshot).metadata();
-    if (!bounds.width || !bounds.height) throw new Error('Empty timeline screenshot');
-    // Keep proportions exactly; no vertical stretch and no graphics redrawn.
-    // The OG canvas is 1200x630 and preserves the entire 1536px-wide hero.
-    return sharp(screenshot).resize(1200, 630, { fit: 'contain', background: '#080909' }).png().toBuffer();
+    const bounds = await target.boundingBox();
+    if (!bounds || Math.abs(bounds.width - 1200) > 8 || Math.abs(bounds.height - 630) > 8) {
+      throw new Error('Timeline crop geometry invalid: ' + JSON.stringify(bounds));
+    }
+    // Capture the actual composited pixels at the hero's rectangle.
+    // Neither the story feed nor ad placements can fall inside this clip.
+    const screenshot = Buffer.from(await page.screenshot({
+      type: 'png', clip: { x: bounds.x, y: bounds.y, width: 1200, height: 630 },
+      captureBeyondViewport: false,
+    }));
+    const meta = await sharp(screenshot).metadata();
+    if (meta.width !== 1200 || meta.height !== 630) throw new Error('Unexpected image crop dimensions');
+    return screenshot;
   } finally {
     await browser.close();
   }

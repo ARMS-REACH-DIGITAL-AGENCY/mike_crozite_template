@@ -15,7 +15,7 @@ const S3_BUCKET = process.env.YATSTATS_S3_BUCKET || process.env.S3_BUCKET || 'ya
 const S3_REGION = process.env.YATSTATS_AWS_REGION || process.env.AWS_REGION || 'us-west-2';
 const PLAYER_ID = /^[a-zA-Z0-9_-]{1,40}$/;
 const HS_ID = /^\d{1,20}$/;
-const CACHE_VERSION = 'timeline-v2';
+const CACHE_VERSION = 'timeline-v3-hero';
 const S3_ORIGIN = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
 function s3Client() {
