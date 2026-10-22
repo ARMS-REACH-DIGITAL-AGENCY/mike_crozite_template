@@ -358,7 +358,6 @@ export default async function ProfilePage({ params }: Props) {
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
   const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
-  const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
   const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
 
   // flip_card_front_stage.current_team_source_team_id is the reconciled,
