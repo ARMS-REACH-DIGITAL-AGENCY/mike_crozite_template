@@ -32,6 +32,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { installFunZoneSwipe } from "./funZoneSwipe";
+import SevenDaySnapshotView from "./SevenDaySnapshotView";
 
 // Constants
 
@@ -726,7 +727,7 @@ export default function FunZone({
   lazySchedulePlayerId,
 }: FunZoneProps) {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
-  const [loadedSchedule, setLoadedSchedule] = useState<string | null>(null);
+  const [loadedSchedule, setLoadedSchedule] = useState<{items:import('./PlayerSevenDaySnapshot').SnapshotItem[];todayIso:string}|null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState(false);
   const scheduleRequested = useRef(false);
@@ -737,14 +738,12 @@ export default function FunZone({
     scheduleRequested.current = true;
     const controller = new AbortController();
     setScheduleLoading(true);
-    fetch(`/card-game-log/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}&slug=${encodeURIComponent(slug)}`, { signal: controller.signal })
-      .then((response) => { if (!response.ok) throw new Error('Schedule unavailable'); return response.text(); })
-      .then((html) => {
-        const parsed = new DOMParser().parseFromString(html, 'text/html');
-        const snapshot = parsed.querySelector('.yat-snap');
-        if (!snapshot) throw new Error('Schedule markup missing');
-        const style = snapshot.nextElementSibling?.tagName === 'STYLE' ? snapshot.nextElementSibling.outerHTML : '';
-        setLoadedSchedule(snapshot.outerHTML + style);
+    fetch(`/api/card-game-log/${encodeURIComponent(lazySchedulePlayerId)}?hsid=${encodeURIComponent(resolvedHsid)}`, { signal: controller.signal })
+      .then(async response => { if (!response.ok) throw new Error('Game log unavailable'); return response.json(); })
+      .then((data) => {
+        if (!Array.isArray(data.items) || typeof data.todayIso !== 'string') throw new Error('Invalid game log');
+        setLoadedSchedule(data);
+        setScheduleError(false);
       })
       .catch(() => { setScheduleError(true); scheduleRequested.current = false; })
       .finally(() => setScheduleLoading(false));
@@ -844,7 +843,7 @@ export default function FunZone({
         data-fz-tab="schedule"
       >
         {lazySchedulePlayerId ? (
-          loadedSchedule ? <div dangerouslySetInnerHTML={{ __html: loadedSchedule }} /> :
+          loadedSchedule ? <SevenDaySnapshotView {...loadedSchedule} profileHref={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`} /> :
           <div className="fz-placeholder"><i className="ri-calendar-line fz-ph-icon" /><div className="fz-ph-text">{scheduleLoading ? 'Loading game log…' : scheduleError ? 'Game log unavailable. Open the player profile.' : 'Open Game Log to load the schedule.'}</div></div>
         ) : <SchedulePanel scheduleSnapshot={scheduleSnapshot} />}
       </div>
