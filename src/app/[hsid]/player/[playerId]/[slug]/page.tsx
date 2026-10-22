@@ -34,6 +34,7 @@ import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
+import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
@@ -356,6 +357,7 @@ export default async function ProfilePage({ params }: Props) {
   const previousOrgOrConferenceName = String(transactionStatus?.previous_org_or_conference_name || "").trim();
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
+  const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
   const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
   const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
 
