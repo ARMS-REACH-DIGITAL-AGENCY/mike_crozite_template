@@ -98,6 +98,10 @@ export default function ContributePhotoFlow({
   const [existingHeroes, setExistingHeroes] = useState<ExistingHero[]>([]);
   const [occupiedYears, setOccupiedYears] = useState<HeroSlot[]>([]);
   const [slotsReady, setSlotsReady] = useState(false);
+  const [moveHeroOpen, setMoveHeroOpen] = useState(false);
+  const [moveHeroYear, setMoveHeroYear] = useState<number | null>(null);
+  const [moveHeroBusy, setMoveHeroBusy] = useState(false);
+  const [heroNotice, setHeroNotice] = useState('');
   const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
   const editingHero = existingHeroes.find((hero) => hero.id === editingHeroId) || null;
   const [heroLoadError, setHeroLoadError] = useState('');
@@ -210,14 +214,41 @@ export default function ContributePhotoFlow({
   const replaceOccupiedHero = () => {
     if (!occupiedHero?.canEdit || !file) return;
     setEditingHeroId(occupiedHero.id);
-    setApprovedSig(''); setError('');
+    setMoveHeroOpen(false); setApprovedSig(''); setError('');
   };
   const moveOccupiedHero = () => {
     if (!occupiedHero?.canEdit) return;
-    const hero = existingHeroes.find((item) => item.id === occupiedHero.id);
-    if (!hero) return setError('Only the original uploader or reviewer can move this image.');
-    editHero(hero);
-    setError('Choose another available year for the EXISTING photo and submit that correction. You can then upload your NEW photo into this year.');
+    setMoveHeroYear(null); setMoveHeroOpen(true); setApprovedSig(''); setError(''); setHeroNotice('');
+  };
+  const confirmHeroMove = async () => {
+    const source = occupiedHero;
+    if (!source?.canEdit || !moveHeroYear || source.year === moveHeroYear ||
+        occupiedYears.some((slot) => slot.year === moveHeroYear)) {
+      setError('Choose another available year for the existing image.');
+      return;
+    }
+    setMoveHeroBusy(true); setError('');
+    try {
+      await auth.authStateReady?.();
+      const token = await auth.currentUser?.getIdToken().catch(() => '');
+      const res = await fetch('/api/contribute/photo', {
+        method:'PATCH',credentials:'include',
+        headers:{'Content-Type':'application/json',...(token ? {Authorization:`Bearer ${token}`} : {})},
+        body:JSON.stringify({uploadId:source.id,year:moveHeroYear}),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'The existing image could not be moved.');
+      setOccupiedYears((slots) => slots.map((slot) => slot.id === source.id ? {...slot,year:moveHeroYear} : slot));
+      setExistingHeroes((heroes) => heroes.map((hero) => hero.id === source.id ? {...hero,year:moveHeroYear} : hero));
+      setMoveHeroOpen(false); setMoveHeroYear(null);setApprovedSig('');
+      setHeroNotice(`The existing image was moved to ${moveHeroYear}. Your new photo is still selected for ${source.year}; review and approve it below.`);
+      window.dispatchEvent(new CustomEvent('yat:contribute-photo-published',{
+        detail:{playerId:main?.playerId || '',purpose:'timeline_hero',uploadId:source.id}
+      }));
+      router.refresh();
+      setHeroRefresh((value) => value + 1);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not move the existing photo.'); }
+    finally { setMoveHeroBusy(false); }
   };
   const pickFile = (files: FileList | null) => {
     const f = files?.[0];
@@ -623,13 +654,30 @@ export default function ContributePhotoFlow({
               </div>
               {replacingCurrentHero
                 ? <p className="ycd-muted ycd-small">The original image is preserved in the archive. Only an approved new image becomes the visible hero.</p>
-                : <p className="ycd-muted ycd-small">To move the current image, select an available destination year and approve that correction first. The replacement upload will not proceed automatically.</p>}
+                : <p className="ycd-muted ycd-small">Move the current image to a free year, or explicitly replace it. Your new photo stays selected while you move the current one.</p>}
+              {moveHeroOpen && (
+                <div className="ypf-move-year">
+                  <label className="ycd-label" htmlFor="ypfMoveYear">MOVE CURRENT IMAGE FROM {selectedHeroYear} TO:</label>
+                  <select id="ypfMoveYear" value={moveHeroYear ?? ''} onChange={(event) => setMoveHeroYear(event.target.value ? Number(event.target.value) : null)}>
+                    <option value="">Choose an available year…</option>
+                    {Array.from(new Set((years || []).map((item) => item.year)))
+                      .filter((year) => year !== selectedHeroYear && !occupiedYears.some((item) => item.year === year))
+                      .sort((a,b) => b-a)
+                      .map((year) => <option key={year} value={year}>{year}</option>)}
+                  </select>
+                  <button type="button" className="ycd-btn" onClick={() => void confirmHeroMove()} disabled={!moveHeroYear || moveHeroBusy}>
+                    {moveHeroBusy ? 'MOVING EXISTING IMAGE…' : 'CONFIRM MOVE TO SELECTED YEAR'}
+                  </button>
+                  <button type="button" className="ycd-link ycd-small" onClick={() => setMoveHeroOpen(false)} disabled={moveHeroBusy}>Cancel move</button>
+                </div>
+              )}
             </>
           ) : (
             <p className="ycd-error">This year's image was submitted by another contributor. Only the original uploader or an authorized YAT?STATS reviewer may move or replace it.</p>
           )}
         </section>
       )}
+      {heroNotice && <p className="ycd-muted ycd-small" role="status">{heroNotice}</p>}
       {/* 4. Verify position, 5. Approve */}
       {type && (file || editingHeroId) && preview ? (
         <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
@@ -722,6 +770,8 @@ export default function ContributePhotoFlow({
         .ypf-step { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); min-width: 0; }
         .ypf-sub { margin-top: 6px; }
         .ypf-step-sm { font-size: 11px !important; }
+        .ypf-move-year{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;padding:8px;border:1px solid var(--line);border-radius:4px}
+        .ypf-move-year select{min-width:155px;padding:9px;color:var(--fg);background:var(--bg,#171717);border:1px solid var(--line);border-radius:4px}
         .ypf-hero-conflict{border:1px solid var(--line);border-left:3px solid var(--fg);padding:12px;border-radius:5px}
         .ypf-hero-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
         .ypf-hero-compare figure{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}
