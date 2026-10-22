@@ -57,6 +57,22 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
       if (carousel && anchor) carousel.scrollTo({ left: anchor.offsetLeft, behavior: 'instant' });
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     });
+    const measure = await page.evaluate(() => {
+      const e = document.querySelector('#playerCareerImages');
+      const parent = e?.closest('.yat-row3-shell');
+      const rail = e?.querySelector('.zt-rail');
+      const slide = e?.querySelector('.zt-slide.zt-anchor');
+      const carousel = e?.querySelector('.zt-carousel');
+      const rect = (node: Element | null | undefined) => node?.getBoundingClientRect().toJSON() || null;
+      return {
+        active: e?.getAttribute('data-active-kind'),
+        title: slide?.querySelector('.zt-title')?.textContent?.slice(0,120),
+        strip: rect(e), parent: rect(parent), rail: rect(rail),
+        slide: rect(slide), carousel: rect(carousel),
+        scrollLeft: carousel?.scrollLeft,
+      };
+    });
+    console.info('[player-share] screenshot geometry:', JSON.stringify(measure));
     // Do not confuse an "active=anchor" state with a different slide that
     // has not yet scrolled into view. This was producing "THE YEAR IT ALL
     // BEGAN" instead of the graduation hero.
