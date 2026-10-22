@@ -955,6 +955,23 @@ export default function ContributePhotoFlow({
         .ypf-step-sm { font-size: 11px !important; }
         .ypf-move-year{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;padding:8px;border:1px solid var(--line);border-radius:4px}
         .ypf-move-year select{min-width:155px;padding:9px;color:var(--fg);background:var(--bg,#171717);border:1px solid var(--line);border-radius:4px}
+        .ypf-hero-mode .ycd-actions{display:flex;flex-wrap:wrap;gap:8px}
+        .ypf-hero-mode .ycd-btn{flex:1 1 210px}
+        .ypf-hero-mode .ycd-btn[aria-pressed=true],
+        .ypf-hero-actions .ycd-btn[aria-pressed=true]{border-color:var(--fg);background:var(--line)}
+        .ypf-hero-player{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:10px;border:1px solid var(--line);border-radius:5px}
+        .ypf-hero-player small{color:var(--fg);opacity:.7}
+        .ypf-hero-found{font:750 11px/1.2 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.06em}
+        .ypf-hero-option:disabled{cursor:not-allowed;opacity:.65}
+        .ypf-hero-selected{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:5px}
+        .ypf-hero-selected img{width:auto;height:auto;max-width:120px;max-height:140px;object-fit:contain;background:#111}
+        .ypf-hero-selected div{display:flex;flex-direction:column;gap:5px}
+        .ypf-hero-selected small{font-size:11px}
+        .ypf-hero-actions .ycd-actions{display:flex;gap:8px;flex-wrap:wrap}
+        .ypf-hero-actions .ycd-actions .ycd-btn{flex:1 1 165px}
+        .ypf-managed-year{display:block;width:100%;min-height:39px;padding:8px;border:1px solid var(--line);background:var(--sb-card-bg);color:var(--fg);border-radius:5px}
+        .ypf-hero-archive-confirm{display:flex;align-items:center;gap:10px;font-size:12px;cursor:pointer}
+        .ypf-hero-archive-confirm input{width:18px;height:18px}
         .ypf-hero-conflict{border:1px solid var(--line);border-left:3px solid var(--fg);padding:12px;border-radius:5px}
         .ypf-hero-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
         .ypf-hero-compare figure{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}
