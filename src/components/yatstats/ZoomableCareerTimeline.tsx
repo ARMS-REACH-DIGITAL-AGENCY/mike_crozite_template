@@ -2922,12 +2922,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           position:absolute; z-index:9; left:50%; bottom:calc(50% + 8px);
           transform:translateX(-50%); display:flex; align-items:flex-end;
           justify-content:center; width:max-content; height:max-content;
-          max-width:72px; padding:1px; border:0; border-radius:2px;
+          max-width:52px; padding:1px; border:0; border-radius:2px;
           background:rgba(0,0,0,.55); color:#ffd02f; cursor:pointer;
           filter:drop-shadow(0 2px 3px #000); overflow:visible;
         }
         .zt-rail-month-memory :global(img) {
-          display:block; width:auto; height:auto; max-width:68px; max-height:54px;
+          display:block; width:auto; height:auto; max-width:48px; max-height:38px;
           object-fit:contain; object-position:center bottom; background:transparent;
         }
         .zt-rail-month-memory:hover { filter:drop-shadow(0 2px 4px #000) brightness(1.18); }
@@ -2943,8 +2943,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         }
         .zt-rail-year-memory:hover { transform:translate(-50%,-50%) scale(1.16); }
         @media(max-width:620px) {
-          .zt-rail-month-memory { max-width:42px; bottom:calc(50% + 7px); }
-          .zt-rail-month-memory :global(img) { max-width:40px; max-height:42px; }
+          .zt-rail-month-memory { max-width:36px; bottom:calc(50% + 7px); }
+          .zt-rail-month-memory :global(img) { max-width:32px; max-height:32px; }
           .zt-rail-year-memory { width:20px; height:24px; }
           .zt-rail-year-memory .zt-rail-star { font-size:16px; }
         }
