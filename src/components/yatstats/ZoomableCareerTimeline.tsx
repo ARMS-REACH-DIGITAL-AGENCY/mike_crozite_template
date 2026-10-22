@@ -732,34 +732,36 @@ const RAIL_MONTH_START = 64;
 const missingCutouts = new Set<string>();
 const requestedCutouts = new Set<string>();
 
-// One fan photo in the hero spot. Uses the photo's cutout (background
-// knocked out, cropped to the people) placed exactly like the YaTi
-// cartoon - bottom pinned to the bottom of the slide, full height. Until a
-// cutout exists it shows the whole photo (sitting above the rail) and asks
-// the server to make one, so the next visit gets the cutout.
+// Approved annual hero: prefer transparent cutout; on a missing PNG show
+// the original approved JPG, preserving its aspect ratio. YaTi is only
+// the last fallback if BOTH the cutout and the original image fail.
 function StoryHeroImg({ photo, className, style, alt, readOnly = false, onOpenStory }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string; readOnly?: boolean; onOpenStory?: (id: string) => void }) {
   // Story photos keep the entire image; approved annual hero photos use cutouts.
   const canCut = !photo.storyId && Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
   const [cutFailed, setCutFailed] = useState(false);
+  const [originalFailed, setOriginalFailed] = useState(false);
   const useCut = canCut && !cutFailed;
   const onError = () => {
-    if (!useCut) return;
-    if (!readOnly) missingCutouts.add(photo.source || photo.cutout || '');
-    setCutFailed(true);
-    // Published contribution cutouts have no Story source key to regenerate.
-    // Fall back to the full photo rather than showing a broken image.
-    if (readOnly || !photo.source) return;
-    if (!requestedCutouts.has(photo.source)) {
-      requestedCutouts.add(photo.source);
-      fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
+    if (useCut) {
+      if (!readOnly) missingCutouts.add(photo.source || photo.cutout || '');
+      setCutFailed(true);
+      // Missing cutouts must never erase approved original photos.
+      if (readOnly || !photo.source) return;
+      if (!requestedCutouts.has(photo.source)) {
+        requestedCutouts.add(photo.source);
+        fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
+      }
+    } else if (!originalFailed) {
+      // YaTi appears only when the approved original is also unavailable.
+      setOriginalFailed(true);
     }
   };
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId ? ' zt-timeline-memory' : ' zt-annual-hero'}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
+      className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId ? ' zt-timeline-memory' : ' zt-annual-hero'}${!photo.storyId && !useCut && !originalFailed ? ' zt-annual-hero-photo' : ''}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
       style={style}
-      src={useCut ? photo.cutout || photo.web : photo.storyId ? photo.web : YATI_PLACEHOLDERS[0]}
+      src={originalFailed ? YATI_PLACEHOLDERS[0] : useCut ? photo.cutout || photo.web : photo.web}
       alt={alt}
       loading="eager"
       decoding="async"
@@ -2645,6 +2647,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           filter:drop-shadow(0 3px 8px rgba(0,0,0,.5));
         }
          .zt-person-stack :global(.zt-person.zt-annual-hero) { bottom:-4% !important; height:104% !important; object-fit:contain; }
+        /* Unprocessed/failed yearly cutout: show entire approved original
+           on the left, without cropping and clear of the timeline rail. */
+        .zt-person-stack :global(.zt-person.zt-annual-hero-photo) {
+          left:0 !important;
+          width:calc(var(--hero-copy-left) - 8px) !important;
+          height:calc(100% - 34px) !important;
+          bottom:34px !important;
+          object-fit:contain !important;
+          object-position:right bottom !important;
+          filter:none !important;
+        }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
            headline's). */
@@ -3194,6 +3207,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            .zt-person-stack :global(.zt-person.zt-timeline-memory) {
              bottom:22px !important; height:calc(100% - 30px) !important;
              object-position:left bottom;
+           }
+           .zt-person-stack :global(.zt-person.zt-annual-hero-photo) {
+             width:calc(58% - 8px) !important;
+             height:calc(100% - 22px) !important;
+             bottom:22px !important;
+             object-position:center bottom !important;
            }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28cqw,120px)) -- at that width a wide pose was
