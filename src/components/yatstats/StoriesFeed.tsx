@@ -155,6 +155,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const isDesktop = useIsDesktop();
   const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
   const [search, setSearch] = useState('');
+  const [yearFilter, setYearFilter] = useState<number | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openPhoto, setOpenPhoto] = useState(0);
   const [openForComment, setOpenForComment] = useState(false);
@@ -231,6 +232,20 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     };
     window.addEventListener(STORY_POSTED_EVENT, onPosted);
     window.addEventListener('yat:story-focus', onFocus);
+    const onTimelineYear = (event: Event) => {
+      const detail = (event as CustomEvent<{ playerId?: string; year?: number | null }>).detail;
+      if (!detail || detail.playerId !== playerId) return;
+      const year = detail.year;
+      setSearch('');
+      setYearFilter(typeof year === 'number' && Number.isInteger(year) ? year : null);
+      // The fixed Career Path / dock layout has a separate Stories scroll
+      // surface. Go to its beginning so the selected year's cards are visible.
+      requestAnimationFrame(() => {
+        const pane = document.querySelector('#ppTab-upload .yp-profile-partner-body');
+        if (pane instanceof HTMLElement) pane.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    };
+    window.addEventListener('yat:timeline-memory-year', onTimelineYear);
     // Who's viewing changed: reload so "liked by me" and the ⋯ menu on
     // your own stories are right.
     window.addEventListener('yat-auth-success', onPosted);
@@ -238,6 +253,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     return () => {
       window.removeEventListener(STORY_POSTED_EVENT, onPosted);
       window.removeEventListener('yat:story-focus', onFocus);
+      window.removeEventListener('yat:timeline-memory-year', onTimelineYear);
       window.removeEventListener('yat-auth-success', onPosted);
       window.removeEventListener('yat-sign-out', onPosted);
     };
@@ -301,7 +317,12 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
     // Imported championship cards are on the year/month rail, including
     // every tagged player's timeline. Do not show a second copy below the
     // rail. Regular fan and official posts remain in the Stories feed.
-    const feedStories = stories.filter((s) => !s.timelineOnly);
+    // Normal browse hides duplicate archive cards. Drilling into a year
+    // includes those same archived records, alongside ordinary fan stories:
+    // any card can now open its existing story viewer.
+    const feedStories = stories.filter((s) => yearFilter !== null
+      ? s.year === yearFilter
+      : !s.timelineOnly);
     const list = q
       ? feedStories.filter((s) =>
           [s.story, s.author, storyWhen(s), ...s.players.map((p) => p.name)].join(' ').toLowerCase().includes(q)
@@ -309,7 +330,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
       : feedStories.slice();
     list.sort((a, b) => (sortKey(a) < sortKey(b) ? -1 : sortKey(a) > sortKey(b) ? 1 : 0) * (sort === 'newest' ? -1 : 1));
     return list;
-  }, [stories, search, sort]);
+  }, [stories, search, sort, yearFilter]);
 
   const sponsorCard = (
     <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner advertising placement">
@@ -337,8 +358,11 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
       <>
         {list.length === 0 ? (
           <>
-            <div className="ysf-empty">{search.trim() ? `No feed stories match “${search.trim()}”.` : 'Championship memory cards are on the Career Path Timeline above. Select a marked year or month to open one.'}</div>
-            {!search.trim() && sponsorCard}
+            <div className="ysf-empty">{yearFilter != null
+              ? `No stories match ${yearFilter}${search.trim() ? ` and “${search.trim()}”` : ''}.`
+              : search.trim() ? `No feed stories match “${search.trim()}”.`
+              : 'Select a yellow star on the timeline above to explore its year and monthly memories.'}</div>
+            {!search.trim() && yearFilter == null && sponsorCard}
           </>
         ) : isDesktop ? (
           <div className="ysf-feed ysf-feed-posts">
@@ -426,6 +450,12 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
             </button>
           )}
         </div>
+        {yearFilter !== null && (
+          <div className="ysf-active-year" role="status">
+            <span>{yearFilter} MEMORIES</span>
+            <button type="button" onClick={() => setYearFilter(null)} aria-label="Show stories from all years">SHOW ALL <i className="ri-close-line" aria-hidden="true" /></button>
+          </div>
+        )}
       </div>
       <div className="ysf-main">{body}
         <div className="ysf-bottom-scroll-clearance" aria-hidden="true" />
@@ -483,6 +513,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-tm-btn i { font-size:17px; }
         .ysf-tm-count { border:0;padding:0;font:800 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);color:inherit; }
         .ysf-search { display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:32px;padding:0 8px;border:0;border-radius:6px;background:var(--ysf-card-bg);color:var(--ysf-muted); }
+        .ysf-active-year { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 0; padding:6px 10px; border:1px solid var(--ysf-card-border); border-radius:4px; color:var(--ysf-strong); background:var(--ysf-card-bg); font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.05em; }
+        .ysf-active-year button { border:0; background:transparent; color:inherit; cursor:pointer; font:inherit; opacity:.8; }
+        .ysf-active-year button:hover { opacity:1; }
         .ysf-search input { width:100%;min-width:0;height:30px;border:0;outline:0;background:transparent;color:var(--ysf-strong);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .ysf-sort { display:flex;align-items:center;justify-content:center;width:38px;min-width:0;background:var(--ysf-card-bg);border-radius:6px; }
         .ysf-sort button { border-radius:6px !important; }
