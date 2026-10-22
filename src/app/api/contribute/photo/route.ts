@@ -74,7 +74,7 @@ const ACTIVE_HERO = `COALESCE((CASE WHEN description IS NOT NULL AND left(descri
 // Only the original contributor and configured reviewers can list or edit
 // their yearly heroes. Never trust an arbitrary client-supplied uploader UID.
 export async function GET(req: NextRequest) {
-  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\\s+/i, '');
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   const who = await identifyContributor(req, bearer);
   if (!who) return fail('Sign in to view your uploaded yearly photos.', 401);
   const playerId = req.nextUrl.searchParams.get('playerId') || '';
@@ -92,21 +92,26 @@ export async function GET(req: NextRequest) {
     if (!newestByYear.has(year) && !heroDetails(row).supersededBy && heroFile(heroDetails(row), row.id))
       newestByYear.set(year, row.id);
   }
-  return NextResponse.json({ heroes: allowed.map((row) => {
+  const toPhoto = (row: HeroRecord) => {
     const details = heroDetails(row);
     const year = Number(row.date_taken.slice(0,4));
     const key = heroFile(details, row.id);
-    return {
-      id: row.id, year, active: newestByYear.get(year) === row.id,
-      imageUrl: key ? assetUrl(key) : null, uploadedAt: row.uploaded_at,
-    };
-  }) }, { headers: { 'Cache-Control':'no-store' } });
+    return { id: row.id, year, active: newestByYear.get(year) === row.id,
+      imageUrl: key ? assetUrl(key) : null, uploadedAt: row.uploaded_at };
+  };
+  // All signed-in contributors can see whether a year is occupied and
+  // preview the PUBLIC currently displayed image, regardless of who owns it.
+  // Neither another fan's identity nor their inactive upload data is shared.
+  const slots = rows.filter((row) => newestByYear.get(Number(row.date_taken.slice(0,4))) === row.id)
+    .map((row) => ({ ...toPhoto(row), canEdit: reviewer || heroOwner(heroDetails(row), who.uid) }));
+  return NextResponse.json({ heroes: allowed.map(toPhoto), slots },
+    { headers: { 'Cache-Control':'no-store' } });
 }
 
 // Year correction needs NO reupload and preserves the original image and
 // its audit record. A conflicting active target is refused (never overwritten).
 export async function PATCH(req: NextRequest) {
-  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\\s+/i, '');
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   const who = await identifyContributor(req, bearer);
   if (!who) return fail('Please sign in to edit your photo.', 401);
   let body: { uploadId?: string; year?: number };
