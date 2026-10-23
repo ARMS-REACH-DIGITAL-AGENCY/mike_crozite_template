@@ -261,7 +261,8 @@ async function SchoolShell({
     }
   }
   // Avoid a separate season-results lookup for schools without approved seasons.
-  const teamSeasonResults = schoolsWithSeasons.includes(String(resolvedHsid))
+  const approvedSeasonSchoolIds: ReadonlySet<string> = new Set<string>(schoolsWithSeasons);
+  const teamSeasonResults = approvedSeasonSchoolIds.has(String(resolvedHsid))
     ? await getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
         console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
         return [];
