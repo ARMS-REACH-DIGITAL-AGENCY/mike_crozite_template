@@ -731,19 +731,24 @@ export default function DrawerLayoutOverrides() {
          selection. Reserve scrolling room above the fixed ticker/footer. */
       @media (max-width:779px) {
         body.drawer-left-open #drawerLeft {
-          /* Keep the scroll viewport above the entire measured footer/ticker
-             stack. Using footerH alone leaves the last nav row visually
-             covered and falsely "at the bottom" when signed-in home-school
-             navigation adds another item. */
+          /* Keep the drawer above the measured full footer stack and let the
+             inner nav own scrolling. Two nested vertical scrollers can trap
+             the last menu row on mobile browsers. */
           bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;
           height:auto!important;
+          min-height:0!important;
+          overflow:hidden!important;
         }
         #drawerLeft .yat-left-nav-content {
-          flex:1 1 auto;
-          min-height:0;
-          overflow-y:auto;
+          flex:1 1 0!important;
+          min-height:0!important;
+          overflow-x:hidden!important;
+          overflow-y:auto!important;
           overscroll-behavior-y:contain;
-          padding:8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+          -webkit-overflow-scrolling:touch;
+          touch-action:pan-y;
+          padding:8px 12px calc(72px + env(safe-area-inset-bottom, 0px));
+          scroll-padding-bottom:72px;
           scrollbar-width:thin;
         }
         #drawerLeft .yat-left-nav-content .yat-drawer-nav {
