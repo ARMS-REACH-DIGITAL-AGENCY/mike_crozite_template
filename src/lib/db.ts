@@ -2532,6 +2532,7 @@ const FLIP_CARD_STAGE_SELECT = `
       tp.bats,
       tp.throws,
       COALESCE(NULLIF(BTRIM(fs.position), ''), NULLIF(BTRIM(tp.posit), '')) AS position,
+      hcl.highest_level,
       -- Every alumnus we know of gets a card: one with no status yet is
       -- UNKNOWN (until someone tells us), never left off the page.
       COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
@@ -2575,6 +2576,83 @@ const FLIP_CARD_STAGE_SELECT = `
       END AS level_label
     FROM ${PLAYER_STAGE_IDENTITY_SOURCE} fs
     LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
+    LEFT JOIN LATERAL (
+      SELECT ranked.normalized_level AS highest_level
+      FROM (
+        SELECT
+          CASE UPPER(TRIM(rows.raw_level))
+            WHEN 'MLB' THEN 'MLB'
+            WHEN 'TRIPLE-A' THEN 'TRIPLE-A'
+            WHEN 'AAA' THEN 'TRIPLE-A'
+            WHEN 'DOUBLE-A' THEN 'DOUBLE-A'
+            WHEN 'AA' THEN 'DOUBLE-A'
+            WHEN 'HIGH-A' THEN 'HIGH-A'
+            WHEN 'A+' THEN 'HIGH-A'
+            WHEN 'LOW-A' THEN 'SINGLE-A'
+            WHEN 'SINGLE-A' THEN 'SINGLE-A'
+            WHEN 'A' THEN 'SINGLE-A'
+            WHEN 'A-' THEN 'SINGLE-A'
+            WHEN 'ROOKIE' THEN 'ROOKIE'
+            WHEN 'RK' THEN 'ROOKIE'
+            WHEN 'INDY' THEN 'INDY'
+            WHEN 'INDEPENDENT' THEN 'INDY'
+            WHEN 'INTL' THEN 'INTERNATIONAL'
+            WHEN 'INT''L' THEN 'INTERNATIONAL'
+            WHEN 'INTERNATIONAL' THEN 'INTERNATIONAL'
+            WHEN 'NCAA-D1' THEN 'NCAA-D1'
+            WHEN 'D1' THEN 'NCAA-D1'
+            WHEN 'NCAA-D2' THEN 'NCAA-D2'
+            WHEN 'D2' THEN 'NCAA-D2'
+            WHEN 'NCAA-D3' THEN 'NCAA-D3'
+            WHEN 'D3' THEN 'NCAA-D3'
+            WHEN 'NAIA' THEN 'NAIA'
+            WHEN 'NJCAA' THEN 'NJCAA'
+            WHEN 'JUCO' THEN 'NJCAA'
+            WHEN 'JRCOLLEGE' THEN 'NJCAA'
+            WHEN 'CCCAA' THEN 'CCCAA'
+            WHEN 'NWAC' THEN 'NWAC'
+            WHEN 'HIGH SCHOOL' THEN 'HIGH SCHOOL'
+            WHEN 'HS' THEN 'HIGH SCHOOL'
+            ELSE NULL
+          END AS normalized_level,
+          CASE UPPER(TRIM(rows.raw_level))
+            WHEN 'MLB' THEN 1
+            WHEN 'TRIPLE-A' THEN 2 WHEN 'AAA' THEN 2
+            WHEN 'DOUBLE-A' THEN 3 WHEN 'AA' THEN 3
+            WHEN 'HIGH-A' THEN 4 WHEN 'A+' THEN 4
+            WHEN 'LOW-A' THEN 5 WHEN 'SINGLE-A' THEN 5 WHEN 'A' THEN 5 WHEN 'A-' THEN 5
+            WHEN 'ROOKIE' THEN 6 WHEN 'RK' THEN 6
+            WHEN 'INDY' THEN 7 WHEN 'INDEPENDENT' THEN 7
+            WHEN 'INTL' THEN 8 WHEN 'INT''L' THEN 8 WHEN 'INTERNATIONAL' THEN 8
+            WHEN 'NCAA-D1' THEN 9 WHEN 'D1' THEN 9
+            WHEN 'NCAA-D2' THEN 10 WHEN 'D2' THEN 10
+            WHEN 'NCAA-D3' THEN 11 WHEN 'D3' THEN 11
+            WHEN 'NAIA' THEN 12
+            WHEN 'NJCAA' THEN 13 WHEN 'JUCO' THEN 13 WHEN 'JRCOLLEGE' THEN 13
+            WHEN 'CCCAA' THEN 14
+            WHEN 'NWAC' THEN 15
+            WHEN 'HIGH SCHOOL' THEN 16 WHEN 'HS' THEN 16
+            ELSE 99
+          END AS level_rank
+        FROM (
+          SELECT COALESCE(u.level_label, b.highlevel) AS raw_level
+          FROM public.v_tbc_batting_all_seasons_resolved b
+          LEFT JOIN public.teamid_universe_mapping u ON u.teamid = b.teamid::text
+          WHERE b.playerid::text = fs.playerid::text
+
+          UNION ALL
+
+          SELECT COALESCE(u.level_label, p.highlevel)
+          FROM public.v_tbc_pitching_all_seasons_resolved p
+          LEFT JOIN public.teamid_universe_mapping u ON u.teamid = p.teamid::text
+          WHERE p.playerid::text = fs.playerid::text
+        ) rows
+      ) ranked
+      WHERE UPPER(COALESCE(fs.status_label, '')) LIKE 'RETIRED%'
+        AND ranked.normalized_level IS NOT NULL
+      ORDER BY ranked.level_rank
+      LIMIT 1
+    ) hcl ON TRUE
 `;
 
 export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-identity-20261018', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
