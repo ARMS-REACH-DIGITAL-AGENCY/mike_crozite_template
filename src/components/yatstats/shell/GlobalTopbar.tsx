@@ -258,7 +258,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
           letter-spacing:0 !important; text-transform:none !important;
         }
         #drawerLeft .yat-gs-input::placeholder { font:400 13px/1.35 var(--yat-font-ui); opacity:.8; }
-        #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--row2-h) - var(--footerH) - 170px); overflow: auto; }
+        #drawerLeft .yat-gs-results { max-height: calc(100vh - var(--row1-h) - var(--row2-h) - var(--yat-drawer-clearance, var(--footerH, 56px)) - 170px); overflow: auto; }
 
         #drawerFavorites { width: min(86vw, var(--yat-right-drawer-w)) !important; }
 
@@ -399,7 +399,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         body.drawer-account-open #drawerAccount,
         body.drawer-favorites-open #drawerFavorites {
           top: calc(var(--row1-h) + var(--row2-h)) !important;
-          bottom: var(--footerH) !important;
+          bottom: var(--yat-drawer-clearance, var(--footerH, 56px)) !important;
           height: auto !important;
           z-index: 64 !important;
           transform: translateX(0) !important;
@@ -410,7 +410,7 @@ export default function GlobalTopbar({ hsid }: { hsid: string }) {
         body.drawer-account-open .yat-drawer-mask,
         body.drawer-favorites-open .yat-drawer-mask {
           top: calc(var(--row1-h) + var(--row2-h)) !important;
-          bottom: var(--footerH) !important;
+          bottom: var(--yat-drawer-clearance, var(--footerH, 56px)) !important;
           height: auto !important;
           z-index: 63 !important;
         }
