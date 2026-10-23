@@ -360,12 +360,6 @@ export const getSchoolsWithApprovedTeamSeasons = keptAcrossRequests('schools-wit
   return rows.map((row) => String(row.hsid));
 }, 600);
 
-export async function getAvailableSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
-  if (!/^\\d+$/.test(hsid)) return [];
-  const knownSchools = await getSchoolsWithApprovedTeamSeasons('all');
-  return knownSchools.includes(hsid) ? getSchoolTeamSeasonResults(hsid) : [];
-}
-
 export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeasonResults', async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
   if (!/^\d+$/.test(hsid)) return [];
 
