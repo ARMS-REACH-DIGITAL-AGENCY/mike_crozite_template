@@ -47,7 +47,6 @@ export const LEVEL_FIX_TARGETS: { table: string; column: string; stamp?: string 
   { table: 'team_schedules', column: 'level' },
   { table: 'player_current_team', column: 'level' },
   { table: 'mlb_org_roster_raw', column: 'level' },
-  { table: 'tbc_to_mlb_team_map', column: 'level' },
   { table: 'news_articles', column: 'level_label' },
   { table: 'hamilton_all_time_import_stage', column: 'level_label' },
   { table: 'hamilton_all_time_import_stage', column: 'display_level_label' },
@@ -155,6 +154,8 @@ export const CANONICAL_STAGE_REPAIR_SQL = `
     JOIN public.teamid_universe_mapping u
       ON u.teamid = tim.tbc_teamid::text
     WHERE u.level_label IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE')
+      AND UPPER(COALESCE(f.status_label,'')) NOT IN ('FREE AGENT','RETIRED')
+      AND UPPER(COALESCE(f.team_affiliation_status,'')) NOT IN ('FREE AGENT','RETIRED')
     ORDER BY f.playerid, pct.last_verified DESC NULLS LAST
   ), targets AS (
     SELECT
@@ -175,7 +176,9 @@ export const CANONICAL_STAGE_REPAIR_SQL = `
          AND f.level_label = u.level_label
        )
      )
-    WHERE pm.playerid IS NOT NULL OR u.teamid IS NOT NULL
+    WHERE (pm.playerid IS NOT NULL OR u.teamid IS NOT NULL)
+      AND UPPER(COALESCE(f.status_label,'')) NOT IN ('FREE AGENT','RETIRED')
+      AND UPPER(COALESCE(f.team_affiliation_status,'')) NOT IN ('FREE AGENT','RETIRED')
   ), changed AS (
     UPDATE public.flip_card_front_stage f
        SET current_teamid = t.teamid,

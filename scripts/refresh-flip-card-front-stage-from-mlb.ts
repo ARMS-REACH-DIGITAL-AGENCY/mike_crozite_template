@@ -329,14 +329,9 @@ async function ensureCurrentProTeamMappings(): Promise<{
         AND NULLIF(BTRIM(raw.source_team_name), '') IS NOT NULL
     ),
     mapping_references AS (
-      SELECT LOWER(BTRIM(current_team)) AS team_key, teamid::text AS tbc_teamid
-      FROM public."150-pro_team_look_up_tbc_mlb"
-      WHERE NULLIF(BTRIM(current_team), '') IS NOT NULL
-        AND NULLIF(BTRIM(teamid), '') IS NOT NULL
-      UNION ALL
-      SELECT LOWER(BTRIM(teamname)) AS team_key, teamid::text AS tbc_teamid
-      FROM public.tbc_pro_teams_map_raw
-      WHERE NULLIF(BTRIM(teamname), '') IS NOT NULL
+      SELECT LOWER(BTRIM(current_team_name)) AS team_key, teamid::text AS tbc_teamid
+      FROM public.teamid_universe_mapping
+      WHERE NULLIF(BTRIM(current_team_name), '') IS NOT NULL
         AND NULLIF(BTRIM(teamid), '') IS NOT NULL
     ),
     unique_reference AS (
@@ -466,10 +461,10 @@ async function backfillMappedCurrentTeamIdentity(): Promise<{
     WITH org_ref AS (
       SELECT
         m.mlb_stats_api_id::text AS mlb_id,
-        NULLIF(BTRIM(MAX(l.organization)), '') AS organization
+        NULLIF(BTRIM(MAX(l.current_org_or_conference_name)), '') AS organization
       FROM public.team_id_map m
-      LEFT JOIN public."150-pro_team_look_up_tbc_mlb" l
-        ON l.teamid::text = m.tbc_teamid::text
+      LEFT JOIN public.teamid_universe_mapping l
+        ON l.teamid = m.tbc_teamid::text
       GROUP BY m.mlb_stats_api_id
     )
     UPDATE public.flip_card_front_stage f
