@@ -234,9 +234,11 @@ async function SchoolShell({
       console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
       return [];
     }),
-    getSchoolsWithApprovedTeamSeasons('all').catch((error) => {
+    getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
+      // On a temporary coverage-cache failure, fall back to the existing
+      // per-school lookup rather than silently hiding verified team plaques.
       console.error('getSchoolsWithApprovedTeamSeasons failed', { error });
-      return [];
+      return null;
     }),
     getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
@@ -261,8 +263,9 @@ async function SchoolShell({
     }
   }
   // Avoid a separate season-results lookup for schools without approved seasons.
-  const approvedSeasonSchoolIds: ReadonlySet<string> = new Set<string>(schoolsWithSeasons);
-  const teamSeasonResults = approvedSeasonSchoolIds.has(String(resolvedHsid))
+  const approvedSeasonSchoolIds: ReadonlySet<string> | null =
+    schoolsWithSeasons === null ? null : new Set<string>(schoolsWithSeasons);
+  const teamSeasonResults = (approvedSeasonSchoolIds === null || approvedSeasonSchoolIds.has(String(resolvedHsid)))
     ? await getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
         console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
         return [];
