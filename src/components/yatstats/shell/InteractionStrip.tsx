@@ -469,7 +469,7 @@ export default function InteractionStrip({
       window.setTimeout(send, 2000);
     }));
     const year = new URLSearchParams(window.location.search).get('team') || '';
-    if (ALL_TIME_TEAM_YEARS.includes(year)) {
+    if (teamYearOptions.includes(year)) {
       if (window.location.hash !== '#sec-alltime') history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-alltime`);
       window.requestAnimationFrame(() => centerYearInRail(year));
     }
