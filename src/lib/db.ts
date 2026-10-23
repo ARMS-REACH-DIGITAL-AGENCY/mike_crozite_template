@@ -1176,6 +1176,84 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
+    highest_career_level AS (
+      SELECT DISTINCT ON (career.playerid)
+        career.playerid,
+        career.normalized_level AS highest_level
+      FROM (
+        SELECT
+          rows.playerid,
+          CASE UPPER(TRIM(rows.raw_level))
+            WHEN 'MLB' THEN 'MLB'
+            WHEN 'TRIPLE-A' THEN 'TRIPLE-A'
+            WHEN 'AAA' THEN 'TRIPLE-A'
+            WHEN 'DOUBLE-A' THEN 'DOUBLE-A'
+            WHEN 'AA' THEN 'DOUBLE-A'
+            WHEN 'HIGH-A' THEN 'HIGH-A'
+            WHEN 'A+' THEN 'HIGH-A'
+            WHEN 'LOW-A' THEN 'SINGLE-A'
+            WHEN 'SINGLE-A' THEN 'SINGLE-A'
+            WHEN 'A' THEN 'SINGLE-A'
+            WHEN 'ROOKIE' THEN 'ROOKIE'
+            WHEN 'RK' THEN 'ROOKIE'
+            WHEN 'INDY' THEN 'INDY'
+            WHEN 'INDEPENDENT' THEN 'INDY'
+            WHEN 'INT''L' THEN 'INTERNATIONAL'
+            WHEN 'INTERNATIONAL' THEN 'INTERNATIONAL'
+            WHEN 'NCAA-D1' THEN 'NCAA-D1'
+            WHEN 'D1' THEN 'NCAA-D1'
+            WHEN 'NCAA-D2' THEN 'NCAA-D2'
+            WHEN 'D2' THEN 'NCAA-D2'
+            WHEN 'NCAA-D3' THEN 'NCAA-D3'
+            WHEN 'D3' THEN 'NCAA-D3'
+            WHEN 'NAIA' THEN 'NAIA'
+            WHEN 'NJCAA' THEN 'NJCAA'
+            WHEN 'JUCO' THEN 'NJCAA'
+            WHEN 'CCCAA' THEN 'CCCAA'
+            WHEN 'NWAC' THEN 'NWAC'
+            WHEN 'HIGH SCHOOL' THEN 'HIGH SCHOOL'
+            WHEN 'HS' THEN 'HIGH SCHOOL'
+            ELSE NULL
+          END AS normalized_level,
+          CASE UPPER(TRIM(rows.raw_level))
+            WHEN 'MLB' THEN 1
+            WHEN 'TRIPLE-A' THEN 2 WHEN 'AAA' THEN 2
+            WHEN 'DOUBLE-A' THEN 3 WHEN 'AA' THEN 3
+            WHEN 'HIGH-A' THEN 4 WHEN 'A+' THEN 4
+            WHEN 'LOW-A' THEN 5 WHEN 'SINGLE-A' THEN 5 WHEN 'A' THEN 5
+            WHEN 'ROOKIE' THEN 6 WHEN 'RK' THEN 6
+            WHEN 'INDY' THEN 7 WHEN 'INDEPENDENT' THEN 7
+            WHEN 'INT''L' THEN 8 WHEN 'INTERNATIONAL' THEN 8
+            WHEN 'NCAA-D1' THEN 9 WHEN 'D1' THEN 9
+            WHEN 'NCAA-D2' THEN 10 WHEN 'D2' THEN 10
+            WHEN 'NCAA-D3' THEN 11 WHEN 'D3' THEN 11
+            WHEN 'NAIA' THEN 12
+            WHEN 'NJCAA' THEN 13 WHEN 'JUCO' THEN 13
+            WHEN 'CCCAA' THEN 14
+            WHEN 'NWAC' THEN 15
+            WHEN 'HIGH SCHOOL' THEN 16 WHEN 'HS' THEN 16
+            ELSE 99
+          END AS level_rank
+        FROM (
+          SELECT b.playerid::text AS playerid,
+                 COALESCE(u.level_label, b.highlevel) AS raw_level
+          FROM public.v_tbc_batting_all_seasons_resolved b
+          LEFT JOIN public.teamid_universe_mapping u ON u.teamid=b.teamid::text
+          WHERE b.playerid::text IN (SELECT playerid::text FROM school_players)
+
+          UNION ALL
+
+          SELECT p.playerid::text,
+                 COALESCE(u.level_label, p.highlevel)
+          FROM public.v_tbc_pitching_all_seasons_resolved p
+          LEFT JOIN public.teamid_universe_mapping u ON u.teamid=p.teamid::text
+          WHERE p.playerid::text IN (SELECT playerid::text FROM school_players)
+        ) rows
+      ) career
+      WHERE career.normalized_level IS NOT NULL
+      ORDER BY career.playerid, career.level_rank
+    ),
+
     career_batting_by_bucket AS (
       SELECT
         playerid::text AS playerid,
@@ -1558,6 +1636,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
       sp.career_highlevel AS level,
+      hcl.highest_level,
       sp.height,
       sp.weight,
       sp.bats,
@@ -1619,6 +1698,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
     FROM school_players sp
     LEFT JOIN latest_batting_level  lbl ON sp.playerid::text = lbl.playerid
     LEFT JOIN latest_pitching_level lpl ON sp.playerid::text = lpl.playerid
+    LEFT JOIN highest_career_level  hcl ON sp.playerid::text = hcl.playerid
     LEFT JOIN career_batting        cb  ON sp.playerid::text = cb.playerid
     LEFT JOIN career_pitching       cp  ON sp.playerid::text = cp.playerid
     LEFT JOIN career_batting_buckets  cbb ON sp.playerid::text = cbb.playerid
