@@ -45,7 +45,7 @@
     },
     {
       "path": "/api/cron/level-qc",
-      "schedule": "7 15 * * 1"
+      "schedule": "7 15 * * *"
     },
     {
       "path": "/api/cron/fan-daily-pilot",
