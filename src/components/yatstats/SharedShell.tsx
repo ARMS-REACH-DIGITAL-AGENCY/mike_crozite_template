@@ -105,6 +105,7 @@ export default function SharedShell({
   profileActivePlayerIds = [],
   profileCurrentPlayerIds = [],
   teamSeasonResults = [],
+  teamYearOptions = [],
   schoolMeta,
   row3Content,
   row4Content,
@@ -117,6 +118,7 @@ export default function SharedShell({
   profileActivePlayerIds?: string[];
   profileCurrentPlayerIds?: string[];
   teamSeasonResults?: TeamSeasonResult[];
+  teamYearOptions?: string[];
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
   row4Content?: ReactNode;
@@ -290,6 +292,7 @@ export default function SharedShell({
                     isNews={isNews}
                     players={players}
                     teamSeasonResults={teamSeasonResults}
+                    teamYearOptions={teamYearOptions}
                     initialSection={initialSection}
                     initialTeamYear={teamYear}
                   />
