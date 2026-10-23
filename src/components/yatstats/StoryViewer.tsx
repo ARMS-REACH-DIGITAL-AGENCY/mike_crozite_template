@@ -127,7 +127,8 @@ export async function sharePhoto(story: Story, photo: StoryPhoto): Promise<strin
       const blob = await (await fetch(src, { mode: 'cors' })).blob();
       const file = new File([blob], `yatstats-${story.id}.${blob.type.includes('png') ? 'png' : 'jpg'}`, { type: blob.type || 'image/jpeg' });
       if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${story.author}'s story`, text: `${story.story.slice(0, 120)} ${shareUrlFor(story.id)}` });
+        // Share the photo and its destination without repeating the full caption in Messages.
+        await navigator.share({ files: [file], text: shareUrlFor(story.id) });
         logShare(story.id, 'photo');
         track('story_share', { moment_id: story.id, method: 'photo' });
         return null;
@@ -144,12 +145,13 @@ export async function sharePhoto(story: Story, photo: StoryPhoto): Promise<strin
 // (or null when the share sheet handled it / was cancelled).
 export async function shareStory(story: Story): Promise<string | null> {
   const url = shareUrlFor(story.id);
-  const title = `${story.author}'s story${story.year ? ` · ${storyWhen(story)}` : ''}`;
   let method = 'link';
   let message: string | null = null;
   try {
     if (navigator.share) {
-      await navigator.share({ title, text: story.story.slice(0, 140), url });
+      // Let the link's rich preview supply the title, short description and photo.
+      // Adding the story as text makes Google Messages put a long block ABOVE the image.
+      await navigator.share({ url });
       method = 'native';
     } else {
       await navigator.clipboard.writeText(url);
