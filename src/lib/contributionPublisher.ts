@@ -92,7 +92,7 @@ async function processCorrection(t:Tip):Promise<boolean> {
  if(requestedRosterYears && (!Array.isArray(player.roster_years) || player.roster_years.length===0)) {
    // Do not overwrite a roster added by someone else after the initial read.
    const updated=await query<{playerid:string}>(
-     'UPDATE flip_card_front_stage SET roster_years=$2::text[],updated_at=now() WHERE playerid=$1 AND (roster_years IS NULL OR cardinality(roster_years)=0) RETURNING playerid',
+     'UPDATE flip_card_front_stage SET roster_years=$2::text[],roster_years_count=cardinality($2::text[]),updated_at=now() WHERE playerid=$1 AND (roster_years IS NULL OR cardinality(roster_years)=0) RETURNING playerid',
      [player.playerid,requestedRosterYears]
    );
    if(updated.rows.length!==1)return false;
