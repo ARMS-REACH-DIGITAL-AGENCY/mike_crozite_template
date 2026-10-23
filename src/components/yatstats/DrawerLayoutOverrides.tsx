@@ -731,7 +731,11 @@ export default function DrawerLayoutOverrides() {
          selection. Reserve scrolling room above the fixed ticker/footer. */
       @media (max-width:779px) {
         body.drawer-left-open #drawerLeft {
-          bottom:var(--footerH, 88px)!important;
+          /* Keep the scroll viewport above the entire measured footer/ticker
+             stack. Using footerH alone leaves the last nav row visually
+             covered and falsely "at the bottom" when signed-in home-school
+             navigation adds another item. */
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;
           height:auto!important;
         }
         #drawerLeft .yat-left-nav-content {
