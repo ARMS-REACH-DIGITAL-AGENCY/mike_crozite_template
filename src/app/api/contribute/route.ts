@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       // Business Discovery sync. The submitted handle must not already belong
       // to another player; all other profile fields keep their review rules.
       let instagramState: 'queued' | 'registered' | 'needs_review' = 'queued';
-      if (!isNew && typeof submitted.instagram === 'string') {
+      if (process.env.VERCEL_ENV !== 'preview' && !isNew && typeof submitted.instagram === 'string') {
         const handle = String(submitted.instagram).trim().replace(/^@/,'')
           .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
         if (/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         ? await publishQueuedVarsityYears(contributionQueueId)
         : 'pending';
       await logContribution(who,'contribute_profile',{playerid:playerId||null,hsid,pageUrl,details});
-      try {
+      if (process.env.VERCEL_ENV !== 'preview') try {
         const notify='newdata@yatstats.com';
         const contact=await findOrCreateGhlContact(notify,'YATSTATS Data Review');
         if(contact){
