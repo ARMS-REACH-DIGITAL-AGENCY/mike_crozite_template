@@ -1,11 +1,11 @@
 import { CSSProperties } from "react";
 import { getPlayerThenCardUrl, getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
+import type { SponsorCardPublic } from "@/lib/partners/sponsorCardTypes";
 import CardPhoto from "./CardPhoto";
 import FavoriteButton from "./FavoriteButton";
 
-interface PlayerCardFrontProps {
-  player: Record<string, unknown>;
+type PlayerCardFrontProps = {
   frontImageUrl?: string | null;
   isAllTime?: boolean;
   /** When true, the grad class year is estimated (derived from TBC playyears), not verified by school. */
@@ -14,7 +14,10 @@ interface PlayerCardFrontProps {
   hsid?: string;
   /** One of a gallery's first cards: its photo loads with the page, not on scroll. */
   eager?: boolean;
-}
+} & (
+  | { player: Record<string, unknown>; sponsor?: never; onSponsorFlip?: never; sponsorFaceHidden?: never }
+  | { player?: never; sponsor: SponsorCardPublic; onSponsorFlip?: () => void; sponsorFaceHidden?: boolean }
+);
 
 function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -318,14 +321,17 @@ function formatTransactionDate(value: unknown): string {
 }
 
 export default function PlayerCardFront({
-  player: p,
+  player: p = {},
+  sponsor,
+  onSponsorFlip,
+  sponsorFaceHidden = false,
   frontImageUrl = null,
   gradClassEstimated = false,
   hsid = "",
   eager = false,
 }: PlayerCardFrontProps) {
-  const imageId = String(p.playerid || "");
-  const thenSilhouetteUrl = getThenSilhouetteUrl({
+  const imageId = sponsor ? "" : String(p.playerid || "");
+  const thenSilhouetteUrl = sponsor ? "" : getThenSilhouetteUrl({
     isPitcher: p.is_pitcher,
     position: p.position,
     bats: p.bats,
@@ -333,19 +339,30 @@ export default function PlayerCardFront({
   });
   // A designated photo is used as-is; otherwise the card-size copy of
   // players/then/{id}.jpg, falling back to the original (see CardPhoto).
-  const designatedPhotoUrl = normalizeImageUrl(frontImageUrl);
-  const photoSrcs = designatedPhotoUrl
+  const designatedPhotoUrl = normalizeImageUrl(sponsor ? sponsor.frontImageUrl : frontImageUrl);
+  const photoSrcs = sponsor ? [] : designatedPhotoUrl
     ? [designatedPhotoUrl]
     : [getPlayerThenCardUrl(imageId), getPlayerThenImageUrl(imageId)];
 
-  const { first, last } = formatNameParts(p);
+  const { first, last } = sponsor
+    ? { first: sponsor.firstName, last: sponsor.lastName }
+    : formatNameParts(p);
 
-  const classOf = asText(p.class_of);
-  const rosterYears = asTextArray(p.roster_years);
+  const classOf = sponsor ? sponsor.gradClass : asText(p.class_of);
+  const rosterYears = sponsor ? sponsor.varsityYears : asTextArray(p.roster_years);
 
-  const display = resolvePlayerDisplay(p);
+  // A sponsor uses the exact card front presentation, but is never resolved
+  // as a player, assigned a player image, or offered player-only actions.
+  const display = sponsor ? {
+    statusLabel: sponsor.statusLabel || "--",
+    levelLabel: "SPONSOR",
+    teamName: sponsor.currentTeam,
+    orgConferenceName: sponsor.organization,
+    isTransactionDeparture: false,
+    isSourcedDeparture: false,
+  } : resolvePlayerDisplay(p);
   const statusLabel = display.statusLabel;
-  const showFortyManPill = asBoolean(p.is_on_40man);
+  const showFortyManPill = !sponsor && asBoolean(p.is_on_40man);
   const visibleLevelLabel = display.levelLabel || "--";
   const fortyManOrgName = asText(p.forty_man_org_name);
   const fortyManOrgAbbr = asText(p.forty_man_org_abbr);
@@ -358,7 +375,7 @@ export default function PlayerCardFront({
   const displayOrgLine = display.orgConferenceName;
   const lastTransactionType = asText(p.last_transaction_type);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
-  const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
+  const statusPillLabel = sponsor ? statusLabel : formatCommitStatusLabel(p, statusLabel);
 
   // RETIRED is a status (shown via statusPillLabel above, alongside
   // ACTIVE/FREE AGENT) — it does NOT belong in this note slot. This slot
@@ -417,26 +434,29 @@ export default function PlayerCardFront({
     [nextGameTimeLocal, hsTimeZone].filter(Boolean).join(" | ") || "TBD";
 
   const showNextGameBlock =
+    !sponsor &&
     !isNonActiveStatus &&
     !!nextGameStatusLabel &&
     !!nextGameDate &&
     !!nextGameOpponent;
 
-  const accent = getAccentColor(p);
-  const accentBorder = getAccentBorderColor(p);
+  const accent = sponsor ? normalizeColor(sponsor.schoolColor1 || "") || "#8a1538" : getAccentColor(p);
+  const accentBorder = sponsor ? normalizeColor(sponsor.schoolColor2 || "") || "rgba(255,255,255,0.38)" : getAccentBorderColor(p);
 
   const chipStyle: CSSProperties = {
     width: "fit-content",
   };
 
   return (
-    <div className="yat-face yat-front yat-front-cq">
+    <div className={`yat-face yat-front yat-front-cq${sponsor ? " yat-sponsor-front" : ""}`} inert={sponsor && sponsorFaceHidden ? true : undefined} aria-hidden={sponsor && sponsorFaceHidden ? true : undefined}>
       {/* The silhouette is the background; the photo is a lazy <img> on
           top of it (see CardPhoto). It used to be a second background
           layer, which the browser downloaded for every card in the open
           tab whether it was on screen or not. */}
-      <div className="yat-bg" style={{ backgroundImage: `url('${thenSilhouetteUrl}')` }}>
-        <CardPhoto srcs={photoSrcs} eager={eager} />
+      <div className="yat-bg" style={thenSilhouetteUrl ? { backgroundImage: `url('${thenSilhouetteUrl}')` } : undefined}>
+        {sponsor ? (
+          designatedPhotoUrl ? <img className="yat-bg-photo" src={designatedPhotoUrl} alt={sponsor.frontImageAlt || `${first} ${last}`.trim() || sponsor.sponsorName} loading={eager ? "eager" : "lazy"} decoding="async" /> : null
+        ) : <CardPhoto srcs={photoSrcs} eager={eager} />}
       </div>
       <div className="yat-shade" />
       {/* Baseball-card treatment: the inset rule and transparent stacked
@@ -523,15 +543,21 @@ export default function PlayerCardFront({
               </div>
             )}
 
-            <span
+            {sponsor && onSponsorFlip ? <button
+              type="button"
+              className="yat-front-flip-button"
+              style={{ background: accent, border: `1px solid ${accentBorder}` }}
+              onClick={onSponsorFlip}
+              aria-label={`Show the back of ${sponsor.sponsorName || "this sponsor"}'s card`}
+            >FLIP FOR MORE</button> : <span
               className="yat-front-flip-button"
               style={{
                 background: accent,
                 border: `1px solid ${accentBorder}`,
               }}
             >
-              <span>FLIP FOR STATS</span>
-            </span>
+              <span>{sponsor ? "FLIP FOR MORE" : "FLIP FOR STATS"}</span>
+            </span>}
           </div>
         </div>
       </div>

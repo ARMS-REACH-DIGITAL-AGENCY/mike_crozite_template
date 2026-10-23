@@ -43,6 +43,7 @@ const SECTION_BOOTSTRAP =
 // touching the element; its rules start with "html " to outrank the
 // splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
+if(location.pathname==='/embed/sponsor-card/preview'||location.pathname==='/embed/sponsor-card/preview/')return;
 var d=document,h=location.hostname,forced=/[?&]splash=/.test(location.search),seen=!forced&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
 var dom=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
 d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+dom;

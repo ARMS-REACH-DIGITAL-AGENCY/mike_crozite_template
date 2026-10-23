@@ -26,6 +26,7 @@ import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
+import SponsorGalleryCards from "@/components/yatstats/SponsorGalleryCards";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
 import PartnerProgramPage from "@/components/yatstats/PartnerProgramPage";
@@ -592,6 +593,7 @@ export default async function SchoolPage({
     <>
       <section id="sec-active" className={`yat-section${teamYear ? '' : ' visible'}`}>
         <div className="yat-grid" id="active-grid">
+          <SponsorGalleryCards hsid={resolvedHsid} />
           {activeSortedRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No active alumni found" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
           ) : (
