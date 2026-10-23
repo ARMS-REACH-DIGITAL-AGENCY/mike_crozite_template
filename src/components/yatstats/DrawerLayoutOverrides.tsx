@@ -747,12 +747,12 @@ export default function DrawerLayoutOverrides() {
           overscroll-behavior-y:contain;
           -webkit-overflow-scrolling:touch;
           touch-action:pan-y;
-          padding:8px 12px calc(72px + env(safe-area-inset-bottom, 0px));
+          padding:5px 12px calc(72px + env(safe-area-inset-bottom, 0px));
           scroll-padding-bottom:72px;
           scrollbar-width:thin;
         }
         #drawerLeft .yat-left-nav-content .yat-drawer-nav {
-          gap:3px;
+          gap:2px;
           padding-right:0;
         }
         #drawerLeft .yat-left-nav-content .yat-drawer-nav-item {
@@ -760,8 +760,8 @@ export default function DrawerLayoutOverrides() {
           display:flex;
           align-items:center;
           flex:0 0 auto;
-          min-height:46px;
-          padding:7px 9px;
+          min-height:42px;
+          padding:5px 9px;
           gap:10px;
           border:0!important;
           border-bottom:0!important;
@@ -773,6 +773,9 @@ export default function DrawerLayoutOverrides() {
           letter-spacing:-.02em!important;
           word-spacing:normal!important;
           transition:background-color .12s ease;
+        }
+        #drawerLeft .yat-nav-custom-icon.yat-nav-tour-stacked {
+          width:30px; height:30px; min-width:30px; margin:0 -1px 0 -3px;
         }
         #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span {
           min-width:0;
@@ -797,8 +800,8 @@ export default function DrawerLayoutOverrides() {
         /* Retain the special tournament art and countdown, but give its row
            the same background highlight and compact typography. */
         #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight {
-          min-height:56px;
-          padding:7px 9px;
+          min-height:50px;
+          padding:5px 9px;
           border-radius:4px;
           background:transparent;
           color:var(--yat-bracket-accent);
