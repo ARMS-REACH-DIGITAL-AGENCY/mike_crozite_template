@@ -300,7 +300,7 @@ export default function DrawerLayoutOverrides() {
         body.drawer-account-open #drawerAccount,
         body.drawer-favorites-open #drawerFavorites {
           top: calc(var(--row1-h) + var(--row2-h)) !important;
-          bottom: var(--footerH) !important;
+          bottom: var(--yat-drawer-clearance, var(--footerH, 56px)) !important;
           height: auto !important;
           z-index: 64 !important;
           transform: translateX(0) !important;
@@ -477,7 +477,7 @@ export default function DrawerLayoutOverrides() {
         body.drawer-contribute-open {overflow-y:auto!important;}
         body #drawerContribute.yat-drawer {
           top:calc(var(--row1-h) + var(--row2-h))!important;
-          bottom:var(--footerH)!important;
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;
           height:auto!important;
         }
         body.drawer-contribute-open .yat-drawer-mask {
