@@ -56,6 +56,30 @@ export function mlbTeamLogoUrl(logoMap: Map<string, string>, mlbTeamId: unknown)
   return `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${teamid}.png`;
 }
 
+/** Resolve a schedule's canonical team id without confusing source ids with it. */
+export function resolveScheduleTeamId(
+  identity: {
+    current_teamid?: unknown;
+    current_team_source?: unknown;
+    current_team_source_team_id?: unknown;
+  } | null | undefined,
+  teamIdMap: Map<string, string>,
+  fallbackTeamId?: unknown
+): string | null {
+  const canonicalId = String(identity?.current_teamid ?? '').trim();
+  if (canonicalId) return canonicalId;
+  const source = String(identity?.current_team_source ?? '').trim().toLowerCase();
+  const rawId = String(identity?.current_team_source_team_id ?? '').trim();
+  const fallbackId = String(fallbackTeamId ?? '').trim() || null;
+  if (!rawId) return fallbackId;
+  if (source === 'mlb_api') return teamIdMap.get(rawId) || null;
+  // iScore uses its own team UUIDs. They are never canonical logo/schedule
+  // keys; the verified canonical field or a resolved team supplies that id.
+  if (source.includes('iscore')) return fallbackId;
+  // Preserve legacy college/HS and other established canonical-id sources.
+  return rawId;
+}
+
 // Raw MLB Stats API team id -> official 3-letter abbreviation. Fixed set of
 // 30 clubs, stable year to year - not worth a DB round trip or crosswalk
 // table for a lookup this small and static.

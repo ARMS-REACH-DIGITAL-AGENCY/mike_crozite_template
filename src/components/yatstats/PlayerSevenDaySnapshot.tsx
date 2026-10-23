@@ -1,8 +1,10 @@
 import SevenDaySnapshotView from './SevenDaySnapshotView';
 import { getPlayerGameLogs, getTeamSchedule, getFlipCardTransactionStatus, getTeamIdMap } from '@/lib/db';
-import { toISODate, mlbTeamLogoUrl, mlbTeamAbbreviation } from '@/lib/playerUtils';
+import { toISODate, mlbTeamLogoUrl, mlbTeamAbbreviation, resolveScheduleTeamId } from '@/lib/playerUtils';
+import { getTeamLogoUrl, getOriginalForCardCopy } from '@/lib/playerImage';
 
 type GameLogRow = {
+  source?: string | null;
   source_game_id?: string | null;
   game_date?: string | null;
   opponent_name?: string | null;
@@ -16,6 +18,7 @@ type ScheduleRow = {
   status?: string | null;
   venue_name?: string | null;
   opponent?: string | null;
+  opponent_teamid?: string | null;
   is_home?: boolean | null;
   home_away?: string | null;
   home_team_id?: number | null;
@@ -23,7 +26,10 @@ type ScheduleRow = {
   home_score?: number | null;
   away_score?: number | null;
   game_pk?: number | string | null;
+  schedule_source?: string | null;
+  source_game_id?: string | null;
   result?: string | null; // precomputed "W 6-3" / "L 2-5" / "T 4-4" from getTeamSchedule
+  tracks_player_lines?: boolean | null; // false: a schedule feed without complete individual game logs
 };
 
 type ResultClass = 'win' | 'loss' | 'tie' | 'live' | 'time' | 'ppd';
@@ -103,13 +109,18 @@ function buildGameSummary(
 ): GameSummary {
   const isHome = game.is_home === true || game.home_away === 'Home';
   const opponentRawId = isHome ? game.away_team_id : game.home_team_id;
-  const logoUrl = opponentRawId ? mlbTeamLogoUrl(teamIdMap, opponentRawId) : null;
+  const logoUrl = game.opponent_teamid
+    ? getOriginalForCardCopy(getTeamLogoUrl(game.opponent_teamid))
+    : opponentRawId ? mlbTeamLogoUrl(teamIdMap, opponentRawId) : null;
   const abbr = mlbTeamAbbreviation(opponentRawId);
   const opponentLabel = abbr || String(game.opponent || 'TBD').trim();
 
   const status = String(game.status || '').trim();
-  const gamePk = String(game.game_pk || '').trim();
-  const logRows = gamePk ? logsByGamePk.get(gamePk) : undefined;
+  const gamePk = String(game.source_game_id || game.game_pk || '').trim();
+  const source = String(game.schedule_source || '').trim();
+  const logRows = gamePk
+    ? logsByGamePk.get(gamePk)?.filter((row) => !source || row.source === source)
+    : undefined;
   const subLineFromLog = logRows && logRows.length
     ? logRows.map((r) => r.line_summary || '').filter(Boolean).join(' | ')
     : '';
@@ -144,10 +155,9 @@ function buildGameSummary(
     resultLine = formatGameTime(game.game_time_utc, timeZone);
   }
 
-  // A completed game (win/loss/tie) with no joined box-score line means the
-  // player was on the roster but didn't appear in it - a bench day, not a
-  // missing-data gap - so it's worth a label rather than reading as blank.
-  if ((resultClass === 'win' || resultClass === 'loss' || resultClass === 'tie') && !subLine) {
+  // Only a feed that tracks individual appearances can infer DNP from a
+  // missing line. Schedule-only feeds leave that gap unknown.
+  if (game.tracks_player_lines !== false && (resultClass === 'win' || resultClass === 'loss' || resultClass === 'tie') && !subLine) {
     subLine = 'DNP';
   }
 
@@ -173,20 +183,8 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
   const statusLabel = String((transactionStatus as any)?.status_label || '').trim().toUpperCase();
   const isActive = !statusLabel || statusLabel === 'ACTIVE';
 
-  // current_team_source_team_id is only a raw MLB Stats API id needing
-  // translation through teamIdMap when current_team_source is 'mlb_api'
-  // (a minor leaguer's own affiliate id, e.g. Somerset Patriots, works the
-  // same way as an MLB roster player's). The college/HS tbc_* pipelines
-  // store the already-correct tbc_teamid in this same field - translating
-  // that through a pro-only crosswalk would just fail to find it, which
-  // silently broke every college player's snapshot until this check existed.
-  const currentTeamSource = String((transactionStatus as any)?.current_team_source || '').trim();
-  const rawTeamId = String((transactionStatus as any)?.current_team_source_team_id || '').trim();
-  const teamId = rawTeamId
-    ? currentTeamSource === 'mlb_api'
-      ? teamIdMap.get(rawTeamId) || ''
-      : rawTeamId
-    : '';
+  // Use the same canonical/source resolution as the full profile schedule.
+  const teamId = resolveScheduleTeamId(transactionStatus, teamIdMap);
 
   // Only the week around today, so a team with next season's schedule loaded
   // too never pushes this week past getTeamSchedule's row limit.
