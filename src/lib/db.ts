@@ -351,6 +351,21 @@ export type SchoolTeamSeasonResult = {
   displayLine2: string | null;
 };
 
+// Shared across school requests: avoid a per-school season lookup when no
+// approved historical records exist. The list refreshes to discover new schools.
+export const getSchoolsWithApprovedTeamSeasons = keptAcrossRequests('schools-with-approved-team-seasons-v1', async function getSchoolsWithApprovedTeamSeasons(_key: string): Promise<string[]> {
+  const { rows } = await query<{ hsid: string }>(
+    "SELECT DISTINCT hsid FROM public.school_team_season_results WHERE status = 'approved'"
+  );
+  return rows.map((row) => String(row.hsid));
+}, 600);
+
+export async function getAvailableSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
+  if (!/^\\d+$/.test(hsid)) return [];
+  const knownSchools = await getSchoolsWithApprovedTeamSeasons('all');
+  return knownSchools.includes(hsid) ? getSchoolTeamSeasonResults(hsid) : [];
+}
+
 export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeasonResults', async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
   if (!/^\d+$/.test(hsid)) return [];
 
