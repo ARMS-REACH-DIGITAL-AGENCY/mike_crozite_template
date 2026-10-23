@@ -47,7 +47,6 @@ export const LEVEL_FIX_TARGETS: { table: string; column: string; stamp?: string 
   { table: 'team_schedules', column: 'level' },
   { table: 'player_current_team', column: 'level' },
   { table: 'mlb_org_roster_raw', column: 'level' },
-  { table: 'tbc_to_mlb_team_map', column: 'level' },
   { table: 'news_articles', column: 'level_label' },
   { table: 'hamilton_all_time_import_stage', column: 'level_label' },
   { table: 'hamilton_all_time_import_stage', column: 'display_level_label' },
