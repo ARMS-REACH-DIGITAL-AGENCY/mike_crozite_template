@@ -12,7 +12,7 @@ import {
   getActiveAlumniSummaryByHsid,
   getSchoolByUrl,
   getSchoolTeamSeasonResults,
-  getAllTimeRosterByHsid,
+  getSchoolShellRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
@@ -229,8 +229,8 @@ async function SchoolShell({
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
     }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
+    getSchoolShellRosterByHsid(resolvedHsid).catch((error) => {
+      console.error('getSchoolShellRosterByHsid failed', { resolvedHsid, error });
       return [];
     }),
     getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
@@ -320,7 +320,17 @@ async function SchoolShell({
   const graduationClassOptions = [
     '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
   ];
-  const rosterYearOptions = Array.from({length:29}, (_, i) => String(2027 - i));
+  const rosterYearOptions = Array.from(new Set(
+    [...stageRows, ...allTimeRosterRows].flatMap((p) => {
+      const raw = p.roster_years;
+      const values = Array.isArray(raw)
+        ? raw
+        : typeof raw === 'string'
+          ? raw.replace(/[{}\[\]]/g, '').split(',')
+          : [];
+      return values.map(String).map((year) => year.trim()).filter((year) => /^20\d{2}$|^19\d{2}$/.test(year));
+    }),
+  )).sort((a, b) => Number(b) - Number(a));
   // NCAA without a D1/D2/D3 classification is source data requiring enrichment,
   // not a selectable competition level.
   const levelFilterColumns = [
