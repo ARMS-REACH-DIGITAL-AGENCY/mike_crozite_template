@@ -113,8 +113,18 @@ export async function generateMetadata({
     const when = [month ? SHARE_MONTHS[month - 1] : '', r.photo_taken_year || ''].filter(Boolean).join(' ');
     const player = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Player';
     const title = when ? `${player} · ${when}` : player;
-    const text = String(r.caption || '').replace(/\s+/g, ' ').trim();
-    const description = `${text.length > 180 ? `${text.slice(0, 177)}…` : text}${r.contributor_name && r.contributor_name !== 'YAT?STATS' ? ` Shared by ${r.contributor_name} on YAT?STATS.` : ''}`;
+    // Keep the actual story untouched. Rich link previews need a concise
+    // teaser, not the full caption, hashtags, extra URLs or author boilerplate.
+    const text = String(r.caption || '')
+      .replace(/(?:https?:\/\/|www\.)\S+/gi, '')
+      .replace(/#[\p{L}\p{N}_]+/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const maxPreviewLength = 96;
+    const shortened = text.length > maxPreviewLength
+      ? text.slice(0, maxPreviewLength - 1).replace(/\s+\S*$/, '').replace(/[.,;:!\-]+$/, '') + '…'
+      : text;
+    const description = shortened || 'Explore this baseball memory on YAT?STATS.';
     const image = storyAssetUrl(r.s3_key);
     const images = image ? [{ url: image, ...(r.width && r.height ? { width: r.width, height: r.height } : {}), alt: title }] : undefined;
     return {
