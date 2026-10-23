@@ -20,12 +20,16 @@ export const metadata: Metadata = {
 
 const BOOTSTRAP_SECTIONS = ['news', 'alltime', 'current', 'fantasy', 'mentor', 'partner'];
 
+// The deep-linked section must stay pinned until SharedShell hydrates and
+// confirms the visible section. A load/elapsed-time cleanup could expose the
+// server's default Active gallery while slower school queries were still
+// streaming, making All-Time flash and then jump back to the home gallery.
+
 const SECTION_BOOTSTRAP =
   "try{var d=document.documentElement,m=(location.hash||'').match(/^#sec-([a-z]+)/);" +
   "if(/[?&]team=\\d{4}(?:&|$)/.test(location.search))m=[0,'alltime'];" +
   "if(m&&" + JSON.stringify(BOOTSTRAP_SECTIONS) + ".indexOf(m[1])!==-1){" +
-  "var x=function(){d.removeAttribute('data-yat-sec');};d.setAttribute('data-yat-sec',m[1]);" +
-  "addEventListener('load',function(){setTimeout(x,4000);});setTimeout(x,20000);}}catch(e){}";
+  "d.setAttribute('data-yat-sec',m[1]);}}catch(e){}";
 
 // The school splash (SchoolSplash, sent by the school layout before any
 // roster loads). Two modes, decided per person before the first paint:
