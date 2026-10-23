@@ -288,15 +288,15 @@ async function loadTransactions(
       f.current_team_name,
       f.current_org_or_conference_name,
       ss.microsite_url,
-      to_lookup.level AS to_team_level
+      to_lookup.level_label AS to_team_level
     FROM public.player_transactions pt
     LEFT JOIN public.flip_card_front_stage f ON f.playerid::text = pt.playerid::text
     LEFT JOIN public.tbc_players_raw p ON p.playerid::text = pt.playerid::text
     LEFT JOIN public.school_success ss ON ss.hsid::text = f.hsid::text
     LEFT JOIN public.team_id_map tim
       ON tim.mlb_stats_api_id::text = pt.payload->'toTeam'->>'id'
-    LEFT JOIN public."150-pro_team_look_up_tbc_mlb" to_lookup
-      ON to_lookup.teamid::text = tim.tbc_teamid::text
+    LEFT JOIN public.teamid_universe_mapping to_lookup
+      ON to_lookup.teamid = tim.tbc_teamid::text
     WHERE pt.source = 'mlb_api'
       AND (
         pt.created_at > $1::timestamptz
