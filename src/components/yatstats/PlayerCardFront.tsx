@@ -345,8 +345,10 @@ export default function PlayerCardFront({
 
   const display = resolvePlayerDisplay(p);
   const statusLabel = display.statusLabel;
-  const showFortyManPill = asBoolean(p.is_on_40man);
-  const visibleLevelLabel = display.levelLabel || "--";
+  const isRetired = /^RETIRED(?:\b|\s*-)/i.test(statusLabel);
+  const showFortyManPill = asBoolean(p.is_on_40man) && !isRetired;
+  const highestLevel = asText(p.highest_level);
+  const visibleLevelLabel = isRetired ? highestLevel : display.levelLabel;
   const fortyManOrgName = asText(p.forty_man_org_name);
   const fortyManOrgAbbr = asText(p.forty_man_org_abbr);
   const fortyManPillTitle = fortyManOrgName
@@ -354,8 +356,8 @@ export default function PlayerCardFront({
     : "MLB 40-man roster";
   const fortyManPillLabel = fortyManOrgAbbr ? `${fortyManOrgAbbr} 40-MAN` : "40-MAN";
 
-  const displayTeamName = display.teamName || "--";
-  const displayOrgLine = display.orgConferenceName;
+  const displayTeamName = isRetired ? "" : display.teamName;
+  const displayOrgLine = isRetired ? "" : display.orgConferenceName;
   const lastTransactionType = asText(p.last_transaction_type);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
   const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
@@ -458,9 +460,11 @@ export default function PlayerCardFront({
               <span>{last || ""}</span>
             </div>
 
-            <div className="yat-front-team-name">
-              {displayTeamName}
-            </div>
+            {displayTeamName && (
+              <div className="yat-front-team-name">
+                {displayTeamName}
+              </div>
+            )}
 
             {displayOrgLine && (
               <div className="yat-front-org-name">
@@ -479,9 +483,11 @@ export default function PlayerCardFront({
                 </span>
               )}
 
-              <span className="front-chip" style={chipStyle}>
-                {visibleLevelLabel}
-              </span>
+              {visibleLevelLabel && (
+                <span className="front-chip" style={chipStyle}>
+                  {isRetired ? `HIGHEST LEVEL: ${visibleLevelLabel}` : visibleLevelLabel}
+                </span>
+              )}
 
               {classOf && (
                 <span
