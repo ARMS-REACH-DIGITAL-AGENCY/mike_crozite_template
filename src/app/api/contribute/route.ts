@@ -11,6 +11,7 @@
 // reviewed it.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
@@ -71,8 +72,9 @@ export async function POST(req: NextRequest) {
         const value=raw[key];
         if (key === 'roster_years') {
           if (!Array.isArray(value)) continue;
-          const years=[...new Set(value.map(v=>text(v,4)).filter(v=>/^\\d{4}$/.test(v) && +v>=1900 && +v<=new Date().getFullYear()+1))].slice(0,25);
-          if (years.length) submitted[key]=years;
+          const years=normalizeSubmittedVarsityYears(value);
+          if (!years) return fail('Choose valid high-school varsity years.');
+          submitted[key]=years;
         } else if (typeof value === 'string' && value.trim()) {
           submitted[key]=text(value,key === 'current_team_name' ? 120 : 80);
         }
@@ -96,24 +98,26 @@ export async function POST(req: NextRequest) {
       } else if (!/^\d+$/.test(hsid)) return fail('Player school was not found.');
       const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
         by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
+      let contributionQueueId: string | null = null;
       if (isNew) {
         await query(
           `INSERT INTO missing_player_submission (hsid,player_name,grad_year,notes) VALUES ($1,$2,$3,$4)`,
           [hsid,playerName,submitted.class_of?Number(submitted.class_of):null,JSON.stringify(details)]
         );
       } else {
-        await query(
+        const queued=await query<{id:string}>(
           `INSERT INTO news_tip_queue (intake_source,sender_name,sender_contact_id,sender_role,raw_player_name,
                  matched_playerid,matched_hsid,article_url,notes,status)
-           VALUES ('correction',$1,$2,$3,$4,$5,$6,$7,$8,'new')`,
+           VALUES ('correction',$1,$2,$3,$4,$5,$6,$7,$8,'new') RETURNING id::text`,
           [who.name,who.uid,who.profile?.role||'fan',playerName||null,playerId,hsid,pageUrl||'',JSON.stringify(details)]
         );
+        contributionQueueId=queued.rows[0]?.id||null;
       }
       // A public Instagram handle is immediately registered for the existing
       // Business Discovery sync. The submitted handle must not already belong
       // to another player; all other profile fields keep their review rules.
       let instagramState: 'queued' | 'registered' | 'needs_review' = 'queued';
-      if (!isNew && typeof submitted.instagram === 'string') {
+      if (process.env.VERCEL_ENV !== 'preview' && !isNew && typeof submitted.instagram === 'string') {
         const handle = String(submitted.instagram).trim().replace(/^@/,'')
           .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
         if (/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
@@ -132,8 +136,12 @@ export async function POST(req: NextRequest) {
           }
         } else instagramState='needs_review';
       }
+      const varsityOnly=!isNew && Object.keys(submitted).length===1 && Array.isArray(submitted.roster_years);
+      const varsityPublication=varsityOnly && contributionQueueId
+        ? await publishQueuedVarsityYears(contributionQueueId)
+        : 'pending';
       await logContribution(who,'contribute_profile',{playerid:playerId||null,hsid,pageUrl,details});
-      try {
+      if (process.env.VERCEL_ENV !== 'preview') try {
         const notify='newdata@yatstats.com';
         const contact=await findOrCreateGhlContact(notify,'YATSTATS Data Review');
         if(contact){
@@ -144,7 +152,7 @@ export async function POST(req: NextRequest) {
             '<br/><b>Sender:</b> '+esc(who.email||who.name)+'</p><pre>'+esc(JSON.stringify(submitted,null,2))+'</pre>');
         }
       } catch(error) { console.error('[contribute/profile] owner notification failed',error); }
-      return NextResponse.json({ok:true,review:'pending',instagram:instagramState}, {status:201});
+      return NextResponse.json({ok:true,review:varsityPublication,instagram:instagramState}, {status:201});
     }
 
     if (kind === 'data') {

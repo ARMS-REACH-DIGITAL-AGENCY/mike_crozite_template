@@ -19,6 +19,15 @@ const LEVEL = ['HIGH SCHOOL','NJCAA','CCCAA','NWAC','NCAA-D1','NCAA-D2','NCAA-D3
 const POSITION = ['P','C','1B','2B','3B','SS','IF','OF','LF','CF','RF','UT','DH','P-OF','IF-OF'];
 const ACCOUNTS = ['facebook','instagram','x','tiktok','linkedin'] as const;
 const clean = (s:unknown)=>String(s ?? '').trim();
+// A team season is not a graduation year. Offer only the four high-school
+// seasons ending in the selected graduation year, never the full year list.
+function varsitySeasonOptions(classOf: string): string[] {
+  if (!/^\d{4}$/.test(classOf)) return [];
+  const year = Number(classOf);
+  if (year < 1900 || year > new Date().getFullYear()+1) return [];
+  return Array.from({ length: 4 }, (_, i) => String(year-i))
+    .filter(yearOption => Number(yearOption) >= 1900);
+}
 export default function ContributePlayerInfoForm({
   player, school, signedIn, onSignIn,
 }: {
@@ -64,6 +73,8 @@ export default function ContributePlayerInfoForm({
     setError(previous=>/high school|school id|school was not found/i.test(previous)?'':previous);
   },[school?.hsid,school?.name,school?.location,player?.schoolId]);
 
+  const varsityYears = varsitySeasonOptions(values.class_of);
+  const recordedYearsOutsideWindow = values.roster_years.filter(y=>!varsityYears.includes(y));
   const changed=Object.fromEntries(Object.entries(values).filter(([key,value])=>JSON.stringify(value)!==JSON.stringify(initial[key as keyof Fields])));
   async function submit() {
     setMessage('');setError('');
@@ -80,7 +91,11 @@ export default function ContributePlayerInfoForm({
           fields:player?changed:values,idToken:token||undefined,pageUrl:location.href})});
       const body=await res.json().catch(()=>({}));
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
-      setMessage('Received. Your information is queued for automatic processing. Updates that need verification are held for review.');
+      setMessage(body.review === 'published'
+        ? 'Varsity years saved. The school’s team-year filters will update on your next page refresh.'
+        : body.review === 'needs_review'
+          ? 'Received. These years need verification before appearing on the school page.'
+          : 'Received. Your information is queued for processing. Updates that need verification are held for review.');
       setInitial(values);
     }catch(e){setError(e instanceof Error?e.message:'Unable to send.');}finally{setSending(false);}
   }
@@ -113,15 +128,23 @@ export default function ContributePlayerInfoForm({
       </label>
     </div>
     <div className="ycd-field">
-      <span className="ycd-label">Years on high school varsity (select multiple)</span>
-      <button type="button" className="ycd-link" aria-expanded={expandedYears} onClick={()=>setExpandedYears(v=>!v)}>
-        {values.roster_years.length?values.roster_years.join(', '):'Choose varsity years'} {expandedYears?'▲':'▼'}
-      </button>
-      {expandedYears?<div className="ycd-profile-year-options">
-        {YEARS.filter(y=>!values.class_of||Number(y)<=Number(values.class_of)).map(y=>
-          <label key={y}><input type="checkbox" checked={values.roster_years.includes(y)}
-            onChange={e=>set('roster_years',e.target.checked?[...values.roster_years,y].sort():values.roster_years.filter(x=>x!==y))}/>{y}</label>)}
-      </div>:null}
+      <span className="ycd-label">Varsity team roster years (select every season played)</span>
+      {varsityYears.length ? (
+        <>
+          <button type="button" className="ycd-link" aria-expanded={expandedYears} onClick={()=>setExpandedYears(v=>!v)}>
+            {values.roster_years.length?values.roster_years.join(', '):'Choose varsity team years'} {expandedYears?'▲':'▼'}
+          </button>
+          <p className="ycd-muted ycd-small">Select the actual varsity seasons played, not just the graduation year.</p>
+          {expandedYears?<div className="ycd-profile-year-options">
+            {varsityYears.map(y=>
+              <label key={y}><input type="checkbox" checked={values.roster_years.includes(y)}
+                onChange={e=>set('roster_years',e.target.checked?[...values.roster_years,y].sort():values.roster_years.filter(x=>x!==y))}/>{y}</label>)}
+          </div>:null}
+          {recordedYearsOutsideWindow.length>0?
+            <p className="ycd-muted ycd-small">Previously recorded years outside this graduation-year window ({recordedYearsOutsideWindow.join(', ')}) are preserved. Verify the graduation year before submitting a correction.</p>
+          :null}
+        </>
+      ) : <p className="ycd-muted ycd-small">Choose the graduation year above to select up to four varsity seasons.</p>}
     </div>
     <div className="ycd-pair">
       <label className="ycd-field"><span className="ycd-label">Status</span>
@@ -157,8 +180,9 @@ export default function ContributePlayerInfoForm({
     <small className="ycd-muted">Valid contributions publish automatically. Conflicting player details require verification.</small>
     <style jsx>{`
       .ycd-profile-fields{display:flex;flex-direction:column;gap:13px;}
-      .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));max-height:175px;overflow-y:auto;gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
-      .ycd-profile-year-options label{display:flex;gap:5px;align-items:center}
+      .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
+      .ycd-profile-year-options label{display:flex;gap:7px;align-items:center}
+      .ycd-profile-year-options input[type="checkbox"]{width:24px;min-width:24px;height:24px}
       .ycd-profile-social{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
       .ycd-profile-social>b{grid-column:1/-1;font-size:13px}
       .ycd-profile-fields input,.ycd-profile-fields select{min-width:0;width:100%}

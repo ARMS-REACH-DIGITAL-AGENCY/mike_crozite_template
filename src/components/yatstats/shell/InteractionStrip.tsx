@@ -16,7 +16,6 @@ const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
   tip: 'ri-newspaper-line',
 };
 
-const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
@@ -54,6 +53,7 @@ type InteractionStripProps = {
   isNews?: boolean;
   players?: Player[];
   teamSeasonResults?: TeamSeasonResult[];
+  teamYearOptions?: string[];
   // The tab and team year the server rendered (a ?team=2017 link opens on
   // All-Time with 2017 picked). The first render must match the server's, so
   // the URL is read after mounting, never while rendering.
@@ -249,6 +249,7 @@ export default function InteractionStrip({
   isNews = false,
   players = [],
   teamSeasonResults = [],
+  teamYearOptions = [],
   initialSection = 'active',
   initialTeamYear = null,
 }: InteractionStripProps) {
@@ -468,7 +469,7 @@ export default function InteractionStrip({
       window.setTimeout(send, 2000);
     }));
     const year = new URLSearchParams(window.location.search).get('team') || '';
-    if (ALL_TIME_TEAM_YEARS.includes(year)) {
+    if (teamYearOptions.includes(year)) {
       if (window.location.hash !== '#sec-alltime') history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-alltime`);
       window.requestAnimationFrame(() => centerYearInRail(year));
     }
@@ -966,7 +967,7 @@ export default function InteractionStrip({
           {showPlayerStrip ? (
             activeSection === 'alltime' ? (
               <>
-                {ALL_TIME_TEAM_YEARS.map((year) => {
+                {teamYearOptions.map((year) => {
                   const isSelected = selectedRosterYear === year;
                   const stats = teamSeasonResultsByYear.get(year);
                   const displayLines = [stats?.displayLine1 || stats?.achievement || '', stats?.displayLine2 || stats?.seasonNote || ''];
