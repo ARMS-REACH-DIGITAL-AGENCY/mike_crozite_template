@@ -12,6 +12,7 @@ import {
   getActiveAlumniSummaryByHsid,
   getSchoolByUrl,
   getSchoolTeamSeasonResults,
+  getSchoolsWithApprovedTeamSeasons,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
@@ -224,7 +225,7 @@ async function SchoolShell({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  const [allStageRows, rawAllTimeRoster, teamSeasonResults, activeSummary] = await Promise.all([
+  const [allStageRows, rawAllTimeRoster, schoolsWithSeasons, activeSummary] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
@@ -233,8 +234,8 @@ async function SchoolShell({
       console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
       return [];
     }),
-    getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
-      console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
+    getSchoolsWithApprovedTeamSeasons('all').catch((error) => {
+      console.error('getSchoolsWithApprovedTeamSeasons failed', { error });
       return [];
     }),
     getActiveAlumniSummaryByHsid(resolvedHsid),
@@ -247,6 +248,29 @@ async function SchoolShell({
   const stageRows = (Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : []).filter(
     (p) => !isRetiredAtHighSchoolLevel(p)
   );
+  // Only explicit roster-year evidence counts; graduation dates alone do not.
+  const explicitRosterYears = new Set<string>();
+  for (const player of stageRows) {
+    const raw = player.roster_years;
+    if (!Array.isArray(raw)) continue;
+    for (const value of raw) {
+      for (const token of String(value).split(',')) {
+        const year = token.trim();
+        if (/^(19|20)\d{2}$/.test(year)) explicitRosterYears.add(year);
+      }
+    }
+  }
+  // Avoid a separate season-results lookup for schools without approved seasons.
+  const teamSeasonResults = schoolsWithSeasons.includes(String(resolvedHsid))
+    ? await getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
+        console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
+        return [];
+      })
+    : [];
+  const teamYearOptions = Array.from(new Set([
+    ...explicitRosterYears,
+    ...teamSeasonResults.map((result) => String(result.seasonYear)),
+  ])).sort((a, b) => Number(a) - Number(b));
   const activeAlumniRows = stageRows.filter((p) =>
     ACTIVE_GALLERY_STATUSES.includes(normalizeStatusLabel(p.status_label || p.status))
     && !isHighSchoolStripPlayer(p)
@@ -432,6 +456,7 @@ async function SchoolShell({
         profileActivePlayerIds={activeAlumniPlayerIds}
         profileCurrentPlayerIds={currentRosterRows.map((player) => String(player.playerid))}
         teamSeasonResults={teamSeasonResults}
+        teamYearOptions={teamYearOptions}
         schoolMeta={schoolMeta}
         initialTeamYear={initialTeamYear}
         initialTeamCount={initialTeamCount}
