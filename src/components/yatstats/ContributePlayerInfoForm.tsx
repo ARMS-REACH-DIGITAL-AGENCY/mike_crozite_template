@@ -80,7 +80,11 @@ export default function ContributePlayerInfoForm({
           fields:player?changed:values,idToken:token||undefined,pageUrl:location.href})});
       const body=await res.json().catch(()=>({}));
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
-      setMessage('Received. Your information is queued for automatic processing. Updates that need verification are held for review.');
+      setMessage(body.review === 'published'
+        ? 'Varsity years saved. The school’s team-year filters will update on your next page refresh.'
+        : body.review === 'needs_review'
+          ? 'Received. These years need verification before appearing on the school page.'
+          : 'Received. Your information is queued for processing. Updates that need verification are held for review.');
       setInitial(values);
     }catch(e){setError(e instanceof Error?e.message:'Unable to send.');}finally{setSending(false);}
   }
@@ -113,10 +117,11 @@ export default function ContributePlayerInfoForm({
       </label>
     </div>
     <div className="ycd-field">
-      <span className="ycd-label">Years on high school varsity (select multiple)</span>
+      <span className="ycd-label">Varsity team roster years (select every season played)</span>
       <button type="button" className="ycd-link" aria-expanded={expandedYears} onClick={()=>setExpandedYears(v=>!v)}>
-        {values.roster_years.length?values.roster_years.join(', '):'Choose varsity years'} {expandedYears?'▲':'▼'}
+        {values.roster_years.length?values.roster_years.join(', '):'Choose varsity team years'} {expandedYears?'▲':'▼'}
       </button>
+      <p className="ycd-muted ycd-small">These are actual varsity roster seasons, not the graduation year. Selecting a year can create that school's All-Time team filter once published.</p>
       {expandedYears?<div className="ycd-profile-year-options">
         {YEARS.filter(y=>!values.class_of||Number(y)<=Number(values.class_of)).map(y=>
           <label key={y}><input type="checkbox" checked={values.roster_years.includes(y)}
@@ -157,7 +162,7 @@ export default function ContributePlayerInfoForm({
     <small className="ycd-muted">Valid contributions publish automatically. Conflicting player details require verification.</small>
     <style jsx>{`
       .ycd-profile-fields{display:flex;flex-direction:column;gap:13px;}
-      .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));max-height:175px;overflow-y:auto;gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
+      .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));max-height:220px;overflow-y:auto;gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
       .ycd-profile-year-options label{display:flex;gap:5px;align-items:center}
       .ycd-profile-social{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
       .ycd-profile-social>b{grid-column:1/-1;font-size:13px}
