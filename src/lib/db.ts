@@ -351,6 +351,23 @@ export type SchoolTeamSeasonResult = {
   displayLine2: string | null;
 };
 
+// Lightweight player identities for the shared school shell. Do not calculate
+// career batting/pitching statistics merely to render navigation or player strips.
+// The All-Time gallery retains getAllTimeRosterByHsid for full career cards.
+export const getSchoolShellRosterByHsid = cache(keptAcrossRequests('getSchoolShellRosterByHsid-v1', async function getSchoolShellRosterByHsid(hsid: string): Promise<any[]> {
+  if (!/^\d+$/.test(hsid)) return [];
+  const { rows } = await query(
+    `SELECT ph.playerid::text AS playerid,
+            tp.firstname, tp.lastname,
+            tp.highlevel AS career_highlevel
+       FROM public.player_hsids ph
+       JOIN public.tbc_players_raw tp ON tp.playerid::text = ph.playerid::text
+      WHERE ph.hsid::text = $1`,
+    [hsid],
+  );
+  return rows;
+}, ALL_TIME_ROSTER_TTL_SECONDS));
+
 export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeasonResults', async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
   if (!/^\d+$/.test(hsid)) return [];
 
@@ -379,8 +396,7 @@ export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeaso
     displayLine1: row.display_line_1,
     displayLine2: row.display_line_2,
   }));
-});
-
+}, 21600);
 export const getSchoolByHsid = cache(keptAcrossRequests('getSchoolByHsid', async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
