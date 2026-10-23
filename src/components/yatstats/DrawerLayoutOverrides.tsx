@@ -161,7 +161,7 @@ export default function DrawerLayoutOverrides() {
       #drawerSort, #drawerFilters, #drawerFavorites, #drawerAccount { background:rgba(6,6,6,.70)!important; backdrop-filter:blur(4px)!important; -webkit-backdrop-filter:blur(4px)!important; }
       body.light-theme #drawerSort, body.light-theme #drawerFilters, body.light-theme #drawerFavorites, body.light-theme #drawerAccount { background:rgba(255,255,255,.76)!important; }
       @media (max-width: 779px) {
-        body.drawer-sort-open #drawerSort { top:calc(var(--row1-h) + var(--row2-h))!important; bottom:var(--footerH)!important; height:auto!important; z-index:64!important; } body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
+        body.drawer-sort-open #drawerSort { top:calc(var(--row1-h) + var(--row2-h))!important; bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important; height:auto!important; z-index:64!important; } body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item { display:flex; align-items:center; gap:10px; letter-spacing:normal !important; word-spacing:normal !important; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:normal; word-spacing:normal; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
@@ -523,7 +523,7 @@ export default function DrawerLayoutOverrides() {
         body.drawer-story-open {overflow-y:auto!important;}
         body #drawerStory.yat-story-drawer {
           top:calc(var(--row1-h) + var(--row2-h))!important;
-          bottom:var(--footerH)!important;height:auto!important;
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;height:auto!important;
         }
         body.drawer-story-open .yat-drawer-mask {display:none!important;opacity:0!important;pointer-events:none!important;}
         body.drawer-story-open .yat-row3-shell,
