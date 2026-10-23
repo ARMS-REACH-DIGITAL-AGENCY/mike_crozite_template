@@ -2129,27 +2129,15 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// MLB TEAM LOGO MAP - mlb_org_id (MLB Stats API team.id, e.g. 147 for the
-// Yankees) -> teamid (the actual S3 logo key: teams/{teamid}.png).
+// ---------------------------------------------------------------------------
+// MLB TEAM ID CROSSWALK
 //
-// NOT the same as teams.teamid/mlb_stats_api_id - that pairing looks like
-// the right crosswalk but does not match what's actually in S3 (verified:
-// teams.teamid=10 is labeled Minnesota Twins there, but teams/10.png in S3
-// is the Rockies). "150-pro_team_look_up_tbc_mlb".teamid is the one that's
-// actually verified against the real S3 files (10 -> Rockies, 14 -> Royals,
-// 28 -> Rays, all confirmed).
+// public.team_id_map is the provider-ID crosswalk between each team's own
+// MLB Stats API team id and the canonical TBC teamid. It is not an identity
+// authority: display team name, organization/conference, and level come from
+// public.teamid_universe_mapping after the canonical teamid is resolved.
 //
-// team_id_map, not "150-pro_team_look_up_tbc_mlb", is the crosswalk to use
-// for "what tbc_teamid is THIS raw MLB Stats API team id" at any level.
-// "150-pro_team_look_up_tbc_mlb".mlb_org_id is the PARENT organization's id,
-// shared by every affiliate (all Yankees levels carry mlb_org_id=147) - so
-// it can only ever resolve the raw id of the actual top-level MLB club
-// itself, never a minor-league affiliate's own distinct raw id (e.g.
-// Somerset Patriots' own raw id, not the Yankees'). team_id_map is instead
-// keyed 1:1 by each team's own real raw id (populated from team_schedules,
-// the full MLB+MiLB ingest - see scripts/sync_mlb_schedules.py), so the
-// same lookup resolves a schedule teamid or opponent logo correctly
-// whether the team is an MLB club or any of its minor-league affiliates.
+// The same crosswalk works for MLB clubs and affiliated minor-league teams.
 // ---------------------------------------------------------------------------
 // The whole table, on every player page: kept per server instance for 6
 // hours (it changes when the schedule sync adds teams, not by the minute).
