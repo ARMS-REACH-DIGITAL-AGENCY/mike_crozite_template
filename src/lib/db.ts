@@ -359,10 +359,7 @@ export const getSchoolShellRosterByHsid = cache(keptAcrossRequests('getSchoolShe
   const { rows } = await query(
     `SELECT ph.playerid::text AS playerid,
             tp.firstname, tp.lastname,
-            tp.highlevel AS career_highlevel,
-            NULL::text AS status_label,
-            NULL::text AS level_label,
-            NULL::text AS roster_years
+            tp.highlevel AS career_highlevel
        FROM public.player_hsids ph
        JOIN public.tbc_players_raw tp ON tp.playerid::text = ph.playerid::text
       WHERE ph.hsid::text = $1`,
