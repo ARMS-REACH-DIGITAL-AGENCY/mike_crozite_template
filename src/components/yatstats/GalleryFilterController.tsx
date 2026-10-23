@@ -216,6 +216,24 @@ function applyFilters(section: string) {
     displayTarget.style.display = show ? '' : 'none';
   });
 
+  // Sponsors are placements, not additions to the active-athlete roster.
+  // Their own alumni status is displayed on the front; the roster's ACTIVE
+  // status preset must not hide a sponsor who is now retired or a coach.
+  // Player-only selectors elsewhere keep counts, sorting and fantasy intact.
+  targetSection.querySelectorAll<HTMLElement>('.yat-card[data-sponsor-card="true"]').forEach(card => {
+    const name = String(card.dataset.name || '').toLowerCase();
+    const years = String(card.dataset.rosteryears || '').split(',').map(normalize).filter(Boolean);
+    const show = section === 'active'
+      && !favoritesOnly && !favoritesGallery.enabled
+      && (!nameFilter || name.includes(nameFilter))
+      && (!levels.length || levels.includes('SPONSOR'))
+      && (!organizations.length || organizations.includes(normalize(card.dataset.org)))
+      && matchesGraduatingClass(normalize(card.dataset.gradclass), gradClasses)
+      && (!rosterYears.length || years.some(year => rosterYears.includes(year)));
+    const displayTarget = card.closest<HTMLElement>('[data-sponsor-card-wrap="true"]') || card;
+    displayTarget.style.display = show ? '' : 'none';
+  });
+
   if (section === 'alltime') sortFilteredAllTime(targetSection);
 
   window.dispatchEvent(new CustomEvent('yat:gallery-filtered', { detail: { section } }));
@@ -495,6 +513,10 @@ export default function GalleryFilterController() {
       applyFilters(section);
     };
 
+    // The batched sponsor request can finish after the reader has already
+    // selected a level, name, or favorites view. Apply that current view.
+    const onSponsorCardsLoaded = () => applyFilters(getCurrentSection());
+
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
     document.addEventListener('click', syncSection, true);
@@ -503,6 +525,7 @@ export default function GalleryFilterController() {
     document.addEventListener('click', onClickCapture, true);
     window.addEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
     window.addEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
+    window.addEventListener('yat:sponsor-cards-loaded', onSponsorCardsLoaded);
 
     const sectionObserver = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -522,6 +545,7 @@ export default function GalleryFilterController() {
       document.removeEventListener('click', onClickCapture, true);
       window.removeEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
       window.removeEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
+      window.removeEventListener('yat:sponsor-cards-loaded', onSponsorCardsLoaded);
       sectionObserver.disconnect();
     };
   }, []);

@@ -1,4 +1,5 @@
 /* Offline regression tests: no network, messages, or database writes. */
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS loads the server TypeScript modules without a framework runtime. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -103,7 +104,8 @@ async function main() {
   await test('disabled approval holds delivery', async () => { queryImpl = async () => ({ rows: [{ enabled: false, approved_layout_version: version }] }); assert.equal((await approval.getTribuneApproval()).approved, false); });
   await test('wrong approved version holds delivery', async () => { queryImpl = async () => ({ rows: [{ enabled: true, approved_layout_version: 'older-version' }] }); assert.equal((await approval.getTribuneApproval()).reason, 'layout_version_mismatch'); });
   await test('unreadable control table holds delivery', async () => { queryImpl = async () => { throw Error('missing table'); }; assert.equal((await approval.getTribuneApproval()).reason, 'approval_unavailable'); });
-  await test('matching enabled version is approved', async () => { queryImpl = async () => ({ rows: [{ enabled: true, approved_layout_version: version }] }); assert.equal((await approval.getTribuneApproval()).approved, true); });
+  await test('matching version without a completed private cutover remains held', async () => { queryImpl = async () => ({ rows: [{ enabled: true, approved_layout_version: version, cutover_complete_at: null }] }); assert.equal((await approval.getTribuneApproval()).reason, 'cutover_incomplete'); });
+  await test('matching enabled version and completed cutover is approved', async () => { queryImpl = async () => ({ rows: [{ enabled: true, approved_layout_version: version, cutover_complete_at: '2026-10-26T10:00:00Z' }] }); assert.equal((await approval.getTribuneApproval()).approved, true); });
   await test('send readiness rejects preview, missing rules, missing archive, unavailable stats', () => {
     assert.deepEqual(approval.tribuneReadinessProblems(goodEdition), []);
     assert.ok(approval.tribuneReadinessProblems({ ...goodEdition, preview: true }).includes('preview_edition'));
@@ -160,9 +162,9 @@ async function main() {
   global.Date = class extends RealDate { constructor(...args) { super(...(args.length ? args : [fixedNow])); } static now() { return fixedNow; } };
   let approvalEnabled = false, subscribed = true, cadence = 'daily', claimCount = 1, built = 0, sends = 0, format = 'text', lastSend;
   queryImpl = async (sql) => {
-    if (sql.includes('FROM public.alumni_newsletter_control')) return { rows: [{ enabled: approvalEnabled, approved_layout_version: version }] };
-    if (sql.includes('FROM public.alumni_newsletter_preferences')) return { rows: [{ cadence, format, subscribed }] };
-    if (sql.includes('INSERT INTO public.alumni_daily_email_delivery')) return { rows: claimCount ? [{}] : [], rowCount: claimCount };
+    if (sql.includes('FROM tribune_private.alumni_newsletter_control')) return { rows: [{ enabled: approvalEnabled, approved_layout_version: version, cutover_complete_at: '2026-10-26T10:00:00Z' }] };
+    if (sql.includes('FROM tribune_private.alumni_newsletter_preferences')) return { rows: [{ cadence, format, subscribed }] };
+    if (sql.includes('INSERT INTO tribune_private.alumni_daily_email_delivery')) return { rows: claimCount ? [{}] : [], rowCount: claimCount };
     return { rows: [], rowCount: 1 };
   };
   const route = loader({

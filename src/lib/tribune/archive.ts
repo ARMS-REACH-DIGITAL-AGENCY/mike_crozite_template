@@ -51,7 +51,7 @@ export async function storeTribuneEdition(edition:TribuneEdition,firebaseUid:str
   const privateUrl=base.toString()+'?token='+encodeURIComponent(token);
   const prepared=structuredClone(edition);
   prepared.links={...prepared.links,web:privateUrl,text:privateUrl+'&format=text',share:publicUrl};
-  await query(`INSERT INTO public.alumni_newsletter_editions
+  await query(`INSERT INTO tribune_private.alumni_newsletter_editions
     (id,firebase_uid,school_id,report_start,report_end,edition,public_edition)
     VALUES($1::uuid,$2,$3,$4::date,$5::date,$6::jsonb,$7::jsonb)`,
     [id,firebaseUid,edition.school.id,edition.period.start,edition.period.end,JSON.stringify(prepared),JSON.stringify(publicTribuneEdition(prepared,publicUrl))]);
@@ -63,5 +63,5 @@ export async function readTribuneEdition(input:{token?:string|null;publicId?:str
   const id=publicId?(UUID.test(publicId)?publicId:null):verifyTribuneEditionToken(input.token||'');
   if(!id)return null;
   const column=publicId?'public_edition':'edition';
-  return (await query<{value:TribuneEdition}>(`SELECT ${column} AS value FROM public.alumni_newsletter_editions WHERE id=$1::uuid`,[id])).rows[0]?.value||null;
+  return (await query<{value:TribuneEdition}>(`SELECT ${column} AS value FROM tribune_private.alumni_newsletter_editions WHERE id=$1::uuid`,[id])).rows[0]?.value||null;
 }

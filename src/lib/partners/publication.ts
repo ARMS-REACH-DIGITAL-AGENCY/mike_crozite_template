@@ -88,7 +88,7 @@ const PUBLICATION_SQL = `
   SELECT settings.masthead, settings.official_rules_url, settings.sweepstakes_reminder, settings.postal_address,
     sponsor.*, note.*
   FROM (SELECT true AS singleton) anchor
-  LEFT JOIN public.tribune_publication_settings settings ON settings.id=anchor.singleton
+  LEFT JOIN tribune_private.tribune_publication_settings settings ON settings.id=anchor.singleton
   LEFT JOIN LATERAL (
     SELECT brand.id::text AS sponsor_id, brand.name AS sponsor_name, brand.logo_url AS sponsor_logo,
       creative.id::text AS creative_id, creative.revision AS creative_revision,
@@ -96,9 +96,9 @@ const PUBLICATION_SQL = `
       creative.image_url AS creative_image, creative.image_alt AS creative_alt,
       creative.destination_url AS creative_destination, creative.cta AS creative_cta,
       creative.acknowledgment AS creative_acknowledgment
-    FROM public.school_tribune_sponsorships placement
+    FROM tribune_private.school_tribune_sponsorships placement
     JOIN public.sponsor_brands brand ON brand.id=placement.sponsor_id AND brand.is_active=true
-    JOIN public.tribune_sponsor_creatives creative ON creative.sponsor_id=brand.id
+    JOIN tribune_private.tribune_sponsor_creatives creative ON creative.sponsor_id=brand.id
     WHERE placement.hsid=$1 AND placement.status='active'
       AND placement.starts_at<=$2::timestamptz AND (placement.ends_at IS NULL OR placement.ends_at>$2::timestamptz)
       AND creative.status='published' AND creative.approved_by IS NOT NULL AND creative.approved_at IS NOT NULL
@@ -116,7 +116,7 @@ const PUBLICATION_SQL = `
     SELECT message.id::text AS note_id, message.revision AS note_revision,
       message.message_text AS note_text, message.tribune_metadata AS note_metadata,
       message.image_url AS note_image, message.cta_label AS note_cta_label, message.cta_url AS note_cta_url
-    FROM public.site_message_campaigns message
+    FROM tribune_private.publisher_notes message
     WHERE message.page_key='tribune' AND message.status='published'
       AND (message.school_hsid::text=$1 OR message.school_hsid IS NULL)
       AND (message.starts_at IS NULL OR message.starts_at<=$2::timestamptz)

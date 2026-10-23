@@ -4,17 +4,18 @@ import { TRIBUNE_LAYOUT_VERSION, type TribuneEdition } from './types';
 
 export type TribuneApproval = {
   approved: boolean;
-  reason: 'approved' | 'awaiting_layout_approval' | 'layout_version_mismatch' | 'approval_unavailable';
+  reason: 'approved' | 'awaiting_layout_approval' | 'layout_version_mismatch' | 'approval_unavailable' | 'cutover_incomplete';
 };
 
 /** Missing schema, missing row, disabled control and version drift all hold mail. */
 export async function getTribuneApproval(): Promise<TribuneApproval> {
   try {
-    const row = (await query<{ enabled: boolean; approved_layout_version: string | null }>(
-      'SELECT enabled, approved_layout_version FROM public.alumni_newsletter_control WHERE singleton = true',
+    const row = (await query<{ enabled: boolean; approved_layout_version: string | null; cutover_complete_at: string | null }>(
+      'SELECT enabled, approved_layout_version, cutover_complete_at FROM tribune_private.alumni_newsletter_control WHERE singleton = true',
     )).rows[0];
     if (!row?.enabled || !row.approved_layout_version) return { approved: false, reason: 'awaiting_layout_approval' };
     if (row.approved_layout_version !== TRIBUNE_LAYOUT_VERSION) return { approved: false, reason: 'layout_version_mismatch' };
+    if (!row.cutover_complete_at) return { approved: false, reason: 'cutover_incomplete' };
     return { approved: true, reason: 'approved' };
   } catch {
     console.error('[tribune] Approval control could not be read; delivery held.');

@@ -77,7 +77,7 @@ export async function getTribunePreferences(firebaseUid: string): Promise<Tribun
   // Intentionally no inferred subscription: a missing row or table must not
   // silently enroll somebody. Pilot enrollment is a private operator action.
   const row = (await query<TribunePreferences>(
-    'SELECT cadence, format, subscribed FROM public.alumni_newsletter_preferences WHERE firebase_uid = $1', [firebaseUid],
+    'SELECT cadence, format, subscribed FROM tribune_private.alumni_newsletter_preferences WHERE firebase_uid = $1', [firebaseUid],
   )).rows[0];
   if (!row || !['daily', 'weekly'].includes(row.cadence) || !['html', 'text'].includes(row.format) || typeof row.subscribed !== 'boolean') return null;
   return row;
@@ -86,7 +86,7 @@ export async function getTribunePreferences(firebaseUid: string): Promise<Tribun
 export async function saveTribunePreferences(firebaseUid: string, preferences: TribunePreferences): Promise<void> {
   if (!['daily', 'weekly'].includes(preferences.cadence) || !['html', 'text'].includes(preferences.format) || typeof preferences.subscribed !== 'boolean') throw new Error('Invalid newsletter preferences');
   await query(
-    `INSERT INTO public.alumni_newsletter_preferences (firebase_uid, cadence, format, subscribed)
+    `INSERT INTO tribune_private.alumni_newsletter_preferences (firebase_uid, cadence, format, subscribed)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (firebase_uid) DO UPDATE SET cadence = EXCLUDED.cadence,
        format = EXCLUDED.format, subscribed = EXCLUDED.subscribed, updated_at = now()`,

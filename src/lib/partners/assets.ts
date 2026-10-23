@@ -8,7 +8,7 @@ import { assertPublisherAccess, assertSponsorAccess, PartnerAccessError, type Pa
 
 export const PARTNER_ASSET_MAX_BYTES = 3 * 1024 * 1024;
 export const PARTNER_ASSET_MAX_PIXELS = 24_000_000;
-export type PartnerAssetKind = 'logo' | 'ad' | 'masthead' | 'notice';
+export type PartnerAssetKind = 'logo' | 'ad' | 'masthead' | 'notice' | 'card_front' | 'card_banner' | 'card_full';
 export type PartnerAsset = {
   id: string;
   url: string;
@@ -19,8 +19,9 @@ export type PartnerAsset = {
 };
 
 export function parsePartnerAssetKind(value: unknown): PartnerAssetKind {
-  if (value === 'logo' || value === 'ad' || value === 'masthead' || value === 'notice') return value;
-  throw new PartnerAccessError(400, 'Choose a logo, ad, masthead, or publisher message image.');
+  if (value === 'logo' || value === 'ad' || value === 'masthead' || value === 'notice' ||
+      value === 'card_front' || value === 'card_banner' || value === 'card_full') return value;
+  throw new PartnerAccessError(400, 'Choose a logo, ad, sponsor card, masthead, or publisher message image.');
 }
 
 /** Mastheads and publisher message art are publication-wide, never sponsor-owned. */
@@ -128,7 +129,7 @@ export async function storePartnerAsset(access: PartnerAccess, input: {
   try {
     await putPublicAsset(key, normalized.body, normalized.contentType);
     await query(
-      `INSERT INTO public.partner_portal_assets
+      `INSERT INTO tribune_private.partner_portal_assets
          (id, sponsor_id, kind, url, width, height, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [id, sponsorId, input.kind, url, normalized.width, normalized.height, access.uid],

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       if (!latest?.subscribed) { result.push({ email, status: 'unsubscribed' }); continue; }
       if (latest.cadence !== period.cadence) { result.push({ email, status: 'preferences_changed' }); continue; }
       const claim = await query(
-        `INSERT INTO public.alumni_daily_email_delivery
+        `INSERT INTO tribune_private.alumni_daily_email_delivery
           (report_date,recipient_email,status,school_name,home_player_count,favorite_count,game_stat_count,template_version)
          VALUES ($1::date,$2,'sending',$3,$4,$5,$6,$7)
          ON CONFLICT (report_date,recipient_email) DO NOTHING RETURNING recipient_email`,
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       }
       const sent = await sendDailyPilotEmail(contactId, tribuneSubject(edition), renderTribuneHtml(edition), renderTribuneText(edition), latest.format);
       await query(
-        'UPDATE public.alumni_daily_email_delivery SET status=$3,error_detail=$4,updated_at=now() WHERE report_date=$1::date AND recipient_email=$2',
+        'UPDATE tribune_private.alumni_daily_email_delivery SET status=$3,error_detail=$4,updated_at=now() WHERE report_date=$1::date AND recipient_email=$2',
         [period.end, email, sent ? 'queued' : 'failed', sent ? null : 'HighLevel rejected or could not accept email'],
       );
       result.push({ email, status: sent ? 'queued' : 'send_failed', school, ...counts, period, format: latest.format });

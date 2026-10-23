@@ -23,7 +23,7 @@ export async function publicationPreview(access: PartnerAccess, body: Record<str
   let sponsor: TribuneSponsor | undefined = resolved.sponsor;
   if (body.creativeId) {
     const creative = await getCreative(access, String(body.creativeId));
-    const placement = (await query(`SELECT 1 FROM public.school_tribune_sponsorships WHERE hsid=$1 AND sponsor_id=$2::bigint AND status<>'cancelled' LIMIT 1`, [hsid, creative.sponsorId])).rows[0];
+    const placement = (await query(`SELECT 1 FROM tribune_private.school_tribune_sponsorships WHERE hsid=$1 AND sponsor_id=$2::bigint AND status<>'cancelled' LIMIT 1`, [hsid, creative.sponsorId])).rows[0];
     if (!placement || (creative.schoolIds.length && !creative.schoolIds.includes(hsid))) throw new PartnerAccessError(403, 'This advertisement does not target the selected school.');
     const brand = (await query<{ name: string; logo_url: string; is_active: boolean }>('SELECT name,logo_url,is_active FROM public.sponsor_brands WHERE id=$1::bigint', [creative.sponsorId])).rows[0];
     if (!brand) throw new PartnerAccessError(404, 'Sponsor not found.');
@@ -52,7 +52,7 @@ export async function publicationPreview(access: PartnerAccess, body: Record<str
     assertPublisherAccess(access);
     const draft = publicationInput.parse(body.publication);
     if (draft.masthead) {
-      const asset = (await query('SELECT 1 FROM public.partner_portal_assets WHERE url=$1 AND kind=\'masthead\' AND sponsor_id IS NULL', [draft.masthead.imageUrl])).rows[0];
+      const asset = (await query('SELECT 1 FROM tribune_private.partner_portal_assets WHERE url=$1 AND kind=\'masthead\' AND sponsor_id IS NULL', [draft.masthead.imageUrl])).rows[0];
       if (!asset) throw new PartnerAccessError(400, 'Upload the masthead before previewing it.');
     }
     settings = { ...resolved, masthead: draft.masthead || undefined, officialRulesUrl: draft.officialRulesUrl || undefined,

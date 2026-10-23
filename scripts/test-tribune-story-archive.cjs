@@ -1,4 +1,5 @@
 /* Offline checks: narrative fact boundary and private/public edition separation. */
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS loads the server TypeScript modules without a framework runtime. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -129,7 +130,7 @@ async function main() {
   });
   let stored;
   queryImpl = async (sql, params) => {
-    if (sql.startsWith('INSERT INTO public.alumni_newsletter_editions')) { stored = { id: params[0], uid: params[1], edition: JSON.parse(params[5]), publicEdition: JSON.parse(params[6]) }; return { rows: [], rowCount: 1 }; }
+    if (sql.startsWith('INSERT INTO tribune_private.alumni_newsletter_editions')) { stored = { id: params[0], uid: params[1], edition: JSON.parse(params[5]), publicEdition: JSON.parse(params[6]) }; return { rows: [], rowCount: 1 }; }
     return { rows: [{ value: sql.includes('SELECT public_edition') ? structuredClone(stored.publicEdition) : structuredClone(stored.edition) }] };
   };
   await test('archive stores the verified edition once and returns matching private/public links', async () => {

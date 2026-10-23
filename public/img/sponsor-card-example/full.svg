@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1120" viewBox="0 0 800 1120" role="img" aria-label="Fictional full-card sponsor artwork, with the complete border visible">
+  <rect width="800" height="1120" fill="#17382e"/>
+  <rect x="24" y="24" width="752" height="1072" rx="2" fill="none" stroke="#bd985b" stroke-width="3"/>
+  <rect x="38" y="38" width="724" height="1044" rx="2" fill="none" stroke="#bd985b" stroke-width="1" opacity=".55"/>
+  <circle cx="400" cy="307" r="128" fill="none" stroke="#bd985b" stroke-width="2"/>
+  <circle cx="400" cy="307" r="108" fill="none" stroke="#bd985b" stroke-width="1" opacity=".5"/>
+  <path d="m350 259 50 59 50-59m-50 59v60" stroke="#eee1bf" stroke-width="20" fill="none" stroke-linecap="square"/>
+  <text x="400" y="115" text-anchor="middle" fill="#d9bd7d" font-family="Arial,sans-serif" font-size="20" letter-spacing="5">EXAMPLE SPONSOR · YOUR BUSINESS</text>
+  <text x="400" y="542" text-anchor="middle" fill="#fff7e7" font-family="Georgia,serif" font-size="70">Your hometown.</text>
+  <text x="400" y="632" text-anchor="middle" fill="#fff7e7" font-family="Georgia,serif" font-size="70">Your community.</text>
+  <path d="M240 693h320" stroke="#bd985b" stroke-width="2"/>
+  <text x="400" y="773" text-anchor="middle" fill="#e6d4ad" font-family="Arial,sans-serif" font-size="25">A place for your complete creative.</text>
+  <text x="400" y="815" text-anchor="middle" fill="#e6d4ad" font-family="Arial,sans-serif" font-size="25">One image. Every detail preserved.</text>
+  <rect x="183" y="900" width="434" height="72" rx="2" fill="#e6d4ad"/>
+  <text x="400" y="946" text-anchor="middle" fill="#17382e" font-family="Arial,sans-serif" font-weight="700" font-size="24" letter-spacing="3">YOUR CALL TO ACTION</text>
+  <text x="400" y="1032" text-anchor="middle" fill="#c4b391" font-family="Arial,sans-serif" font-size="18" letter-spacing="3">FICTIONAL ARTWORK · LAYOUT PROOF ONLY</text>
+</svg>

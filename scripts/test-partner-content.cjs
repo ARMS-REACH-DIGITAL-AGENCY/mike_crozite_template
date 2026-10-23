@@ -143,10 +143,13 @@ const service = load('src/lib/partners/service.ts');
 const validation = load('src/lib/partners/validation.ts');
 const publication = load('src/lib/partners/publication.ts');
 const preview = load('src/lib/partners/preview.ts');
+const cards = load('src/lib/partners/sponsorCards.ts');
+const cardValidation = load('src/lib/partners/sponsorCardValidation.ts');
 const { PartnerAccessError } = load('src/lib/partners/access.ts');
 let passed = 0, currentTest = 'connect to isolated database', inTransaction = false, rollbackVerified = false, httpCleanupNeeded = false;
 let brandA, brandB, placementA, placementB, evergreenA, creativeB, draftClone, scheduledA, noteGlobal, noteSchool, publicationSettings;
 let schoolA, schoolB, logoA, logoB, adA, adB, masthead, noteImage;
+let frontA, frontB, bannerA, fullA, cardPlacementA, cardPlacementB, cardA, cardB, cardDraft;
 const createdNoteIds = [];
 const createdOrderIds = [];
 const manifestPath = path.join(os.tmpdir(), `yatstats-partner-test-${runId}.json`);
@@ -161,21 +164,26 @@ async function cleanHttpFixtures() {
   // The audit statement commits atomically with each service write, so it also
   // recovers IDs after a lost response. Only this run's synthetic actors match.
   const brands = (await client.query(`SELECT id::text FROM public.sponsor_brands WHERE id=ANY($1::bigint[])
-    OR id::text IN (SELECT entity_id FROM public.partner_portal_audit WHERE actor_uid=ANY($2::text[]) AND entity_type='brand')`,
+    OR id::text IN (SELECT entity_id FROM tribune_private.partner_portal_audit WHERE actor_uid=ANY($2::text[]) AND entity_type='brand')`,
   [[brandA?.id, brandB?.id].filter(Boolean), actors])).rows.map((row) => row.id);
-  const notes = (await client.query(`SELECT entity_id FROM public.partner_portal_audit
+  const notes = (await client.query(`SELECT entity_id FROM tribune_private.partner_portal_audit
     WHERE actor_uid=ANY($1::text[]) AND entity_type='note'`, [actors])).rows.map((row) => row.entity_id);
   await client.batch([
-    ['DELETE FROM public.school_tribune_sponsorships WHERE sponsor_id=ANY($1::bigint[])', [brands]],
-    ['DELETE FROM public.partner_sponsor_order_claims WHERE sponsor_id=ANY($1::bigint[]) OR created_by=ANY($2::text[])', [brands, actors]],
-    ['UPDATE public.tribune_sponsor_creatives SET previous_id=NULL WHERE sponsor_id=ANY($1::bigint[])', [brands]],
-    ['DELETE FROM public.tribune_sponsor_creatives WHERE sponsor_id=ANY($1::bigint[])', [brands]],
-    ['DELETE FROM public.site_message_campaigns WHERE id=ANY($1::bigint[])', [[...new Set([...notes, ...createdNoteIds])]]],
-    ['DELETE FROM public.tribune_publication_settings WHERE updated_by=$1', [publisher.uid]],
-    ['DELETE FROM public.partner_portal_assets WHERE created_by=$1 OR sponsor_id=ANY($2::bigint[])', [publisher.uid, brands]],
+    ['DELETE FROM tribune_private.partner_portal_memberships WHERE created_by=$1', [publisher.uid]],
+    ['UPDATE tribune_private.sponsor_flip_cards SET previous_id=NULL WHERE sponsor_id=ANY($1::bigint[])', [brands]],
+    ['DELETE FROM tribune_private.sponsor_flip_cards WHERE sponsor_id=ANY($1::bigint[])', [brands]],
+    ['DELETE FROM tribune_private.school_sponsor_card_placements WHERE sponsor_id=ANY($1::bigint[])', [brands]],
+    ['DELETE FROM public.school_splash_sponsorships WHERE sponsor_id=ANY($1::bigint[])', [brands]],
+    ['DELETE FROM tribune_private.school_tribune_sponsorships WHERE sponsor_id=ANY($1::bigint[])', [brands]],
+    ['DELETE FROM tribune_private.partner_sponsor_order_claims WHERE sponsor_id=ANY($1::bigint[]) OR created_by=ANY($2::text[])', [brands, actors]],
+    ['UPDATE tribune_private.tribune_sponsor_creatives SET previous_id=NULL WHERE sponsor_id=ANY($1::bigint[])', [brands]],
+    ['DELETE FROM tribune_private.tribune_sponsor_creatives WHERE sponsor_id=ANY($1::bigint[])', [brands]],
+    ['DELETE FROM tribune_private.publisher_notes WHERE id=ANY($1::bigint[])', [[...new Set([...notes, ...createdNoteIds])]]],
+    ['DELETE FROM tribune_private.tribune_publication_settings WHERE updated_by=$1', [publisher.uid]],
+    ['DELETE FROM tribune_private.partner_portal_assets WHERE created_by=$1 OR sponsor_id=ANY($2::bigint[])', [publisher.uid, brands]],
     ['DELETE FROM public.sponsor_orders WHERE id=ANY($1::bigint[]) OR purchaser_email=$2', [createdOrderIds, `fixture-buyer-${runId}@example.invalid`]],
     ['DELETE FROM public.sponsor_brands WHERE id=ANY($1::bigint[])', [brands]],
-    ['DELETE FROM public.partner_portal_audit WHERE actor_uid=ANY($1::text[])', [actors]],
+    ['DELETE FROM tribune_private.partner_portal_audit WHERE actor_uid=ANY($1::text[])', [actors]],
   ]);
   httpCleanupNeeded = false;
 }
@@ -203,7 +211,7 @@ async function rejectsStatus(fn, status) {
 async function asset(kind, sponsorId) {
   const id = randomUUID();
   const url = `https://assets.example.invalid/partner-tests/${runId}/${id}.png`;
-  await client.query(`INSERT INTO public.partner_portal_assets(id,sponsor_id,kind,url,width,height,created_by)
+  await client.query(`INSERT INTO tribune_private.partner_portal_assets(id,sponsor_id,kind,url,width,height,created_by)
     VALUES($1,$2,$3,$4,800,240,$5)`, [id, sponsorId, kind, url, publisher.uid]);
   return { id, url };
 }
@@ -220,6 +228,21 @@ function creative(sponsorId, schoolIds, extra = {}) {
 function placement(sponsorId, hsid, extra = {}) {
   return { sponsorId, hsid, sponsorOrderId: null, status: 'active', priority: 900,
     startsAt: '2020-01-01T00:00:00Z', endsAt: null, requiresApproval: true, ...extra };
+}
+
+function sponsorCard(sponsorId, schoolIds, extra = {}) {
+  return {
+    sponsorId, schoolIds, firstName: 'Fixture', lastName: 'Community Sponsor',
+    currentTeam: 'Example hometown business', organization: 'Example company', level: 'SPONSOR',
+    frontImageUrl: sponsorId === brandA.id ? frontA.url : frontB.url,
+    frontImageAlt: 'Fixture sponsor card portrait', backTemplate: 'banner_text',
+    headline: 'Fixture sponsor message', body: 'A fixture message supporting hometown baseball.',
+    startsAt: null, endsAt: null, ...extra,
+  };
+}
+
+async function publicCard(hsid, sponsorId, asOf = '2030-05-06T12:00:00Z') {
+  return (await cards.getPublicSponsorCards(hsid, new Date(asOf))).find(card => card.sponsorId === sponsorId);
 }
 
 function resolve(hsid, asOf = '2030-05-06T12:00:00Z', cadence = 'weekly') {
@@ -253,21 +276,21 @@ async function main() {
     assert.equal((await serviceQuery('SELECT current_user AS role')).rows[0].role, serviceRole);
     console.log('Application SQL uses the explicitly configured restricted role; fixtures and cleanup use only the test owner.');
   }
-  originalSettings = (await client.query('SELECT to_jsonb(settings) AS row FROM public.tribune_publication_settings settings ORDER BY id')).rows;
+  originalSettings = (await client.query('SELECT to_jsonb(settings) AS row FROM tribune_private.tribune_publication_settings settings ORDER BY id')).rows;
   if (useHttp) {
-    const notes = (await client.query("SELECT count(*)::int AS total FROM public.site_message_campaigns WHERE page_key='tribune'")).rows[0];
+    const notes = (await client.query("SELECT count(*)::int AS total FROM tribune_private.publisher_notes WHERE page_key='tribune'")).rows[0];
     assert.equal(originalSettings.length, 0, 'HTTP mode requires an isolated branch with no publication settings; existing records will not be changed.');
     assert.equal(notes.total, 0, 'HTTP mode requires an isolated branch with no Tribune notes; existing records will not be changed.');
     httpCleanupNeeded = true; saveManifest();
     console.log('HTTP mode: individual committed test queries; tracked fixtures are removed in final cleanup.');
   } else {
     // Isolate singleton/global content only inside this rollback-only transaction.
-    await client.query('DELETE FROM public.tribune_publication_settings');
-    await client.query("UPDATE public.site_message_campaigns SET status='draft' WHERE page_key='tribune'");
+    await client.query('DELETE FROM tribune_private.tribune_publication_settings');
+    await client.query("UPDATE tribune_private.publisher_notes SET status='draft' WHERE page_key='tribune'");
   }
   const schools = (await client.query(`SELECT hsid::text AS hsid,hsname FROM public.school_success s
     WHERE hsid::text ~ '^[1-9][0-9]{0,11}$' AND hsname IS NOT NULL
-      AND NOT EXISTS (SELECT 1 FROM public.school_tribune_sponsorships p WHERE p.hsid=s.hsid::text)
+      AND NOT EXISTS (SELECT 1 FROM tribune_private.school_tribune_sponsorships p WHERE p.hsid=s.hsid::text)
     ORDER BY hsid LIMIT 2`)).rows;
   assert.equal(schools.length, 2, 'The isolated database needs two real schools without existing Tribune placements.');
   [schoolA, schoolB] = schools.map((row) => row.hsid);
@@ -331,7 +354,7 @@ async function main() {
     evergreenA = (await service.saveCreative(publisher, { id: evergreenA.id, revision: evergreenA.revision, action: 'publish' })).creative;
     assert.equal(evergreenA.status, 'published');
     assert.equal((await resolve(schoolA)).sponsor.creativeId, evergreenA.id);
-    const saved = (await client.query('SELECT publisher_approved,approved_by FROM public.tribune_sponsor_creatives WHERE id=$1', [evergreenA.id])).rows[0];
+    const saved = (await client.query('SELECT publisher_approved,approved_by FROM tribune_private.tribune_sponsor_creatives WHERE id=$1', [evergreenA.id])).rows[0];
     assert.equal(saved.publisher_approved, true); assert.equal(saved.approved_by, publisher.uid);
   });
 
@@ -384,7 +407,7 @@ async function main() {
     assert.equal((await resolve(schoolB)).sponsor.creativeId, creativeB.id);
     const later = (await service.savePlacement(publisher, placement(brandB.id, schoolA, { priority: 1000, requiresApproval: true }))).placement;
     assert.notEqual((await resolve(schoolA)).sponsor.id, brandB.id);
-    const row = (await client.query('SELECT publisher_approved FROM public.tribune_sponsor_creatives WHERE id=$1', [creativeB.id])).rows[0];
+    const row = (await client.query('SELECT publisher_approved FROM tribune_private.tribune_sponsor_creatives WHERE id=$1', [creativeB.id])).rows[0];
     assert.equal(row.publisher_approved, false);
     const approvedCopy = (await service.saveCreative(publisher, { id: creativeB.id, revision: creativeB.revision, action: 'publish' })).creative;
     assert.notEqual(approvedCopy.id, creativeB.id);
@@ -485,17 +508,207 @@ async function main() {
     // reaches the atomic claim path after the earlier placement check is empty.
     await service.savePlacement(publisher, { ...active, sponsorOrderId: null });
     await rejectsStatus(() => service.savePlacement(publisher, placement(brandB.id, schoolA, { sponsorOrderId: order.id, status: 'paused' })), 409);
-    const claim = (await client.query('SELECT sponsor_id::text FROM public.partner_sponsor_order_claims WHERE order_id=$1', [order.id])).rows[0];
+    const claim = (await client.query('SELECT sponsor_id::text FROM tribune_private.partner_sponsor_order_claims WHERE order_id=$1', [order.id])).rows[0];
     assert.equal(claim.sponsor_id, brandA.id);
     const reused = (await service.savePlacement(publisher, placement(brandA.id, schoolA, { sponsorOrderId: order.id, status: 'paused' }))).placement;
     assert.equal(reused.sponsorId, brandA.id); assert.equal(reused.sponsorOrderId, order.id);
   });
 
   await test('service writes produce audit records tied to the verified fixture actor', async () => {
-    const actions = (await client.query('SELECT action,entity_type FROM public.partner_portal_audit WHERE actor_uid=$1', [publisher.uid])).rows;
+    const actions = (await client.query('SELECT action,entity_type FROM tribune_private.partner_portal_audit WHERE actor_uid=$1', [publisher.uid])).rows;
     assert.ok(actions.some((item) => item.entity_type === 'creative' && item.action === 'publish'));
     assert.ok(actions.some((item) => item.entity_type === 'publication' && item.action === 'save'));
     assert.ok(actions.some((item) => item.entity_type === 'note' && item.action === 'publish'));
+  });
+
+  await test('editing a membership updates that exact grant and revokes the former tuple', async () => {
+    const original = (await service.saveMembership(publisher, { uid: sponsorA.uid, sponsorId: brandA.id, role: 'sponsor', isActive: true })).membership;
+    assert.equal(original.revision, 1);
+    const changed = (await service.saveMembership(publisher, { ...original, uid: sponsorB.uid, sponsorId: brandB.id })).membership;
+    assert.equal(changed.id, original.id); assert.equal(changed.revision, 2);
+    assert.equal((await client.query('SELECT count(*)::int AS n FROM tribune_private.partner_portal_memberships WHERE firebase_uid=$1 AND sponsor_id=$2', [sponsorA.uid, brandA.id])).rows[0].n, 0);
+    await rejectsStatus(() => service.saveMembership(publisher, { ...original, isActive: false }), 409);
+    const latest = (await client.query('SELECT firebase_uid,sponsor_id::text,is_active,revision FROM tribune_private.partner_portal_memberships WHERE id=$1', [original.id])).rows[0];
+    assert.deepEqual(latest, { firebase_uid: sponsorB.uid, sponsor_id: brandB.id, is_active: true, revision: 2 });
+    await rejectsStatus(() => service.saveMembership(publisher, { uid: sponsorB.uid, sponsorId: brandB.id, role: 'sponsor', isActive: false }), 409);
+    const elevated = (await service.saveMembership(publisher, { ...changed, role: 'publisher', sponsorId: null })).membership;
+    assert.equal(elevated.id, original.id); assert.equal(elevated.revision, 3); assert.equal(elevated.sponsorId, null);
+    await rejectsStatus(() => service.saveMembership(sponsorA, { ...elevated, isActive: false }), 403);
+  });
+  await test('membership edits cannot remove or reassign the acting publisher grant', async () => {
+    const own = (await service.saveMembership(publisher, { uid: publisher.uid, role: 'publisher', sponsorId: null, isActive: true })).membership;
+    for (const changes of [{ isActive: false }, { uid: 'different-fixture-uid' }, { role: 'sponsor', sponsorId: brandA.id }]) {
+      await rejectsStatus(() => service.saveMembership(publisher, { ...own, ...changes }), 409);
+    }
+    await rejectsStatus(() => service.saveMembership(publisher, { ...own, id: '922337203685477580' }), 404);
+    await rejectsStatus(() => service.saveMembership(publisher, { uid: sponsorA.uid, role: 'sponsor', sponsorId: '922337203685477580', isActive: true }), 404);
+  });
+
+  await test('sponsor card level and images enforce their independent ownership boundary', async () => {
+    [frontA, frontB, bannerA, fullA] = await Promise.all([
+      asset('card_front', brandA.id), asset('card_front', brandB.id), asset('card_banner', brandA.id), asset('card_full', brandA.id),
+    ]);
+    const before = statements.length;
+    for (const level of ['MLB', 'COLLEGE', 'PLAYER', 'sponsor']) {
+      assert.equal(cardValidation.sponsorCardInput.safeParse(sponsorCard(brandA.id, [], { level })).success, false);
+      await assert.rejects(() => cards.saveSponsorCard(sponsorA, sponsorCard(brandA.id, [], { level })), error => error.name === 'ZodError');
+    }
+    assert.equal(statements.length, before, 'An invalid level must fail before a database statement.');
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, sponsorCard(brandB.id, [])), 403);
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, sponsorCard(brandA.id, [], { frontImageUrl: frontB.url })), 400);
+    await rejectsStatus(() => cards.saveSponsorCard(publisher, sponsorCard(brandA.id, [], { frontImageUrl: adA.url })), 400);
+    await rejectsStatus(() => cards.saveSponsorCard(publisher, sponsorCard(brandA.id, [], { fullImageUrl: frontA.url, fullImageAlt: 'Wrong asset kind' })), 400);
+    await rejectsStatus(() => cards.saveSponsorCard(publisher, sponsorCard(brandA.id, [], { frontImageUrl: 'https://external.example.invalid/mutable.png' })), 400);
+    cardA = (await cards.saveSponsorCard(sponsorA, sponsorCard(brandA.id, []))).card;
+    assert.equal(cardA.level, 'SPONSOR'); assert.equal(cardA.status, 'draft');
+    assert.equal((await client.query('SELECT level,content->>\'level\' AS content_level FROM tribune_private.sponsor_flip_cards WHERE id=$1', [cardA.id])).rows[0].content_level, 'SPONSOR');
+  });
+
+  await test('newsletter and splash sponsorships alone never entitle a title sponsor card', async () => {
+    await client.query(`INSERT INTO public.school_splash_sponsorships(hsid,sponsor_id,status,starts_at,source)
+      VALUES($1,$2,'active','2020-01-01T00:00:00Z','isolated-card-fixture')`, [schoolA, brandA.id]);
+    assert.ok((await service.dashboard(sponsorA, brandA.id)).placements.length > 0);
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, { ...cardA, action: 'submit' }), 409);
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, { ...cardA, schoolIds: [schoolA] }), 403);
+    await rejectsStatus(() => cards.sponsorCardPreview(sponsorA, { hsid: schoolA, cardId: cardA.id }), 403);
+    assert.equal(await publicCard(schoolA, brandA.id), undefined);
+  });
+
+  await test('publishers assign separate card placements and sponsor dashboard reads stay scoped', async () => {
+    await rejectsStatus(() => cards.saveSponsorCardPlacement(sponsorA, placement(brandA.id, schoolA)), 403);
+    await rejectsStatus(() => cards.saveSponsorCardPlacement(publisher, placement('922337203685477580', schoolA)), 404);
+    cardPlacementA = (await cards.saveSponsorCardPlacement(publisher, placement(brandA.id, schoolA))).placement;
+    cardPlacementB = (await cards.saveSponsorCardPlacement(publisher, placement(brandB.id, schoolB, { requiresApproval: false }))).placement;
+    cardA = (await cards.saveSponsorCard(sponsorA, { ...cardA, schoolIds: [schoolA], action: 'submit' })).card;
+    assert.equal(cardA.status, 'pending'); assert.equal(await publicCard(schoolA, brandA.id), undefined);
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, { ...cardA, action: 'publish' }), 403);
+    cardA = (await cards.saveSponsorCard(publisher, { ...cardA, action: 'publish' })).card;
+    cardB = (await cards.saveSponsorCard(sponsorB, sponsorCard(brandB.id, [], { action: 'submit' }))).card;
+    assert.equal(cardB.status, 'published');
+    const scoped = await cards.sponsorCardDashboard(sponsorA, brandA.id);
+    assert.deepEqual(scoped.cards.map(card => card.id), [cardA.id]);
+    assert.deepEqual(scoped.cardPlacements.map(item => item.id), [cardPlacementA.id]);
+    assert.deepEqual((await cards.sponsorCardDashboard(sponsorB, brandB.id)).cardPlacements.map(item => item.id), [cardPlacementB.id]);
+    await rejectsStatus(() => cards.sponsorCardDashboard(sponsorA, brandB.id), 403);
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, { ...cardB, headline: 'Cross-sponsor edit' }), 404);
+    await rejectsStatus(() => cards.sponsorCardPreview(sponsorA, { hsid: schoolB, cardId: cardB.id }), 404);
+    assert.equal((await publicCard(schoolA, brandA.id)).id, cardA.id);
+    assert.equal((await publicCard(schoolB, brandB.id)).id, cardB.id);
+    assert.equal(await publicCard(schoolB, brandA.id), undefined);
+  });
+
+  await test('a later review-required placement cannot inherit a self-approved card', async () => {
+    await cards.saveSponsorCardPlacement(publisher, placement(brandB.id, schoolA));
+    assert.equal(await publicCard(schoolA, brandB.id), undefined);
+    assert.equal((await publicCard(schoolB, brandB.id)).id, cardB.id);
+    assert.ok((await service.searchSchools(sponsorB, schoolA)).schools.some(school => school.hsid === schoolA));
+    const approved = (await cards.saveSponsorCard(publisher, { ...cardB, action: 'publish' })).card;
+    assert.notEqual(approved.id, cardB.id); assert.equal(approved.previousId, cardB.id);
+    assert.equal((await publicCard(schoolA, brandB.id)).id, approved.id);
+    assert.equal((await publicCard(schoolB, brandB.id)).id, approved.id);
+    cardB = approved;
+  });
+
+  await test('published card edits clone immutable copy and draft revisions reject stale saves', async () => {
+    const original = cardA;
+    cardDraft = (await cards.saveSponsorCard(sponsorA, { ...original, headline: 'Fixture revised card headline', action: 'save' })).card;
+    assert.notEqual(cardDraft.id, original.id); assert.equal(cardDraft.previousId, original.id); assert.equal(cardDraft.status, 'draft');
+    assert.equal((await publicCard(schoolA, brandA.id)).id, original.id);
+    const oldRevision = cardDraft.revision;
+    cardDraft = (await cards.saveSponsorCard(sponsorA, { ...cardDraft, body: 'A second fixture revision.' })).card;
+    assert.equal(cardDraft.revision, oldRevision + 1);
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, { ...cardDraft, revision: oldRevision, action: 'submit' }), 409);
+    const savedOriginal = (await client.query('SELECT status,revision,content FROM tribune_private.sponsor_flip_cards WHERE id=$1', [original.id])).rows[0];
+    assert.equal(savedOriginal.status, 'published'); assert.equal(savedOriginal.revision, original.revision);
+    assert.equal(savedOriginal.content.headline, original.headline);
+    cardA = (await cards.saveSponsorCard(publisher, { ...cardDraft, action: 'publish' })).card;
+    assert.equal((await publicCard(schoolA, brandA.id)).id, cardA.id);
+    await rejectsStatus(() => cards.saveSponsorCard(sponsorA, { ...cardA, action: 'archive' }), 403);
+  });
+
+  await test('all three card backs enforce readiness and preserve their distinct saved content', async () => {
+    for (const extra of [
+      { firstName: '', lastName: '' }, { frontImageUrl: '', frontImageAlt: '' },
+      { backTemplate: 'banner_text', headline: '' }, { backTemplate: 'share_promotion', body: '' },
+      { backTemplate: 'full_image', fullImageUrl: '', fullImageAlt: '' },
+    ]) await rejectsStatus(() => cards.saveSponsorCard(publisher, sponsorCard(brandA.id, [schoolA], { ...extra, action: 'publish' })), 400);
+    const templates = [
+      { backTemplate: 'banner_text', bannerImageUrl: bannerA.url, bannerImageAlt: 'Fixture banner', headline: 'Banner fixture headline', body: 'Banner fixture message.' },
+      { backTemplate: 'share_promotion', headline: 'Share fixture headline', body: 'Invite fellow alumni to follow this program.', ctaLabel: 'Share our program', ctaUrl: '' },
+      { backTemplate: 'full_image', fullImageUrl: fullA.url, fullImageAlt: 'Complete fixture card back', headline: '', body: '' },
+    ];
+    for (const template of templates) {
+      const saved = (await cards.saveSponsorCard(publisher, sponsorCard(brandA.id, [schoolA], { ...template, action: 'publish' }))).card;
+      const visible = await publicCard(schoolA, brandA.id);
+      assert.equal(visible.id, saved.id); assert.equal(visible.backTemplate, template.backTemplate);
+      assert.equal(visible.level, 'SPONSOR'); assert.equal('status' in visible, false); assert.equal('previousId' in visible, false);
+      if (template.backTemplate === 'share_promotion') assert.equal(visible.ctaUrl, `https://${schoolA}.yatstats.com/`);
+      if (template.backTemplate === 'full_image') assert.equal(visible.fullImageUrl, fullA.url);
+      cardA = saved;
+    }
+  });
+
+  await test('card version and placement dates use inclusive starts and exclusive ends', async () => {
+    const scheduled = (await cards.saveSponsorCard(publisher, { ...cardA, startsAt: '2030-05-06T12:00:00Z', endsAt: '2030-05-06T13:00:00Z', action: 'publish' })).card;
+    assert.equal((await publicCard(schoolA, brandA.id, '2030-05-06T11:59:59Z')).id, cardA.id);
+    assert.equal((await publicCard(schoolA, brandA.id, '2030-05-06T12:00:00Z')).id, scheduled.id);
+    assert.equal((await publicCard(schoolA, brandA.id, '2030-05-06T12:59:59Z')).id, scheduled.id);
+    assert.equal((await publicCard(schoolA, brandA.id, '2030-05-06T13:00:00Z')).id, cardA.id);
+    cardPlacementA = (await cards.saveSponsorCardPlacement(publisher, { ...cardPlacementA, startsAt: '2030-05-06T12:00:00Z', endsAt: '2030-05-06T13:00:00Z' })).placement;
+    assert.equal(await publicCard(schoolA, brandA.id, '2030-05-06T11:59:59Z'), undefined);
+    assert.equal((await publicCard(schoolA, brandA.id, '2030-05-06T12:00:00Z')).id, scheduled.id);
+    assert.equal(await publicCard(schoolA, brandA.id, '2030-05-06T13:00:00Z'), undefined);
+    cardPlacementA = (await cards.saveSponsorCardPlacement(publisher, { ...cardPlacementA, startsAt: '2020-01-01T00:00:00Z', endsAt: null })).placement;
+  });
+
+  await test('unpaid, refunded, expired, and inactive title placements stay out of the public gallery', async () => {
+    const order = (await client.query(`INSERT INTO public.sponsor_orders(sponsorship_type,hsid,status,purchaser_email)
+      VALUES('sponsor-card-test',$1,'pending',$2) RETURNING id::text`, [schoolA, `fixture-buyer-${runId}@example.invalid`])).rows[0];
+    createdOrderIds.push(order.id); saveManifest();
+    await rejectsStatus(() => cards.saveSponsorCardPlacement(publisher, placement(brandA.id, schoolA, { sponsorOrderId: order.id })), 409);
+    await rejectsStatus(() => cards.saveSponsorCardPlacement(publisher, placement(brandA.id, schoolB, { sponsorOrderId: order.id })), 400);
+    let paidPlacement = (await cards.saveSponsorCardPlacement(publisher, placement(brandA.id, schoolA, { sponsorOrderId: order.id, status: 'paused' }))).placement;
+    cardPlacementA = (await cards.saveSponsorCardPlacement(publisher, { ...cardPlacementA, status: 'paused' })).placement;
+    assert.equal(await publicCard(schoolA, brandA.id), undefined);
+    await client.query("UPDATE public.sponsor_orders SET status='paid' WHERE id=$1", [order.id]);
+    paidPlacement = (await cards.saveSponsorCardPlacement(publisher, { ...paidPlacement, status: 'active' })).placement;
+    assert.ok(await publicCard(schoolA, brandA.id));
+    await client.query("UPDATE public.sponsor_orders SET status='refunded' WHERE id=$1", [order.id]);
+    assert.equal(await publicCard(schoolA, brandA.id), undefined);
+    await client.query("UPDATE public.sponsor_orders SET status='paid' WHERE id=$1", [order.id]);
+    paidPlacement = (await cards.saveSponsorCardPlacement(publisher, { ...paidPlacement, endsAt: '2030-05-06T12:00:00Z' })).placement;
+    assert.equal(await publicCard(schoolA, brandA.id), undefined);
+    paidPlacement = (await cards.saveSponsorCardPlacement(publisher, { ...paidPlacement, endsAt: null })).placement;
+    brandA = (await service.saveBrand(publisher, { ...brandA, isActive: false })).brand;
+    assert.equal(await publicCard(schoolA, brandA.id), undefined);
+    brandA = (await service.saveBrand(publisher, { ...brandA, isActive: true })).brand;
+    assert.ok(await publicCard(schoolA, brandA.id));
+    // A saved claim survives detaching the order. Both card and newsletter
+    // reassignment must continue to reject another sponsor atomically.
+    paidPlacement = (await cards.saveSponsorCardPlacement(publisher, { ...paidPlacement, sponsorOrderId: null, status: 'paused' })).placement;
+    await rejectsStatus(() => cards.saveSponsorCardPlacement(publisher, placement(brandB.id, schoolA, { sponsorOrderId: order.id, status: 'paused' })), 409);
+    await rejectsStatus(() => service.savePlacement(publisher, placement(brandB.id, schoolA, { sponsorOrderId: order.id, status: 'paused' })), 409);
+    assert.equal((await client.query('SELECT sponsor_id::text FROM tribune_private.partner_sponsor_order_claims WHERE order_id=$1', [order.id])).rows[0].sponsor_id, brandA.id);
+    paidPlacement = (await cards.saveSponsorCardPlacement(publisher, { ...paidPlacement, sponsorOrderId: order.id })).placement;
+    assert.equal(paidPlacement.sponsorOrderId, order.id);
+    cardPlacementA = (await cards.saveSponsorCardPlacement(publisher, { ...cardPlacementA, status: 'active' })).placement;
+  });
+
+  await test('card preview reads saved versions without publishing, messaging, or cross-sponsor disclosure', async () => {
+    cardDraft = (await cards.saveSponsorCard(sponsorA, { ...cardA, backTemplate: 'banner_text', headline: 'Unpublished preview fixture', body: 'Private review message.', action: 'save' })).card;
+    const before = statements.length;
+    const rendered = await cards.sponsorCardPreview(sponsorA, { hsid: schoolA, cardId: cardDraft.id });
+    assert.equal(rendered.card.headline, cardDraft.headline); assert.equal(rendered.card.body, cardDraft.body);
+    assert.ok(rendered.warnings.some(warning => /draft|review proof/i.test(warning)));
+    assert.ok(rendered.warnings.some(warning => /publisher approval/i.test(warning)));
+    assert.ok(statements.slice(before).every(sql => /^\s*SELECT\b/i.test(sql)), 'Card preview must issue only SELECT statements.');
+    assert.equal((await client.query('SELECT status,revision FROM tribune_private.sponsor_flip_cards WHERE id=$1', [cardDraft.id])).rows[0].status, 'draft');
+    await rejectsStatus(() => cards.sponsorCardPreview(sponsorB, { hsid: schoolA, cardId: cardDraft.id }), 404);
+    await rejectsStatus(() => cards.sponsorCardPreview(sponsorA, { hsid: schoolB, cardId: cardDraft.id }), 403);
+    assert.ok([...loadedFiles].every(file => !/(alumniEmailSender|armsProfile|\/stripe\/|tribune\/story\.ts)/i.test(file)));
+    const audit = (await client.query("SELECT entity_type,action FROM tribune_private.partner_portal_audit WHERE actor_uid=$1 AND entity_type LIKE 'sponsor_card%'", [publisher.uid])).rows;
+    assert.ok(audit.some(row => row.entity_type === 'sponsor_card' && row.action === 'publish'));
+    assert.ok(audit.some(row => row.entity_type === 'sponsor_card_placement' && row.action === 'create'));
   });
 
   if (useHttp) await cleanHttpFixtures();
@@ -503,16 +716,20 @@ async function main() {
   currentTest = 'verify cleanup removed all fixture rows';
   const remaining = (await client.query(`SELECT
     (SELECT count(*) FROM public.sponsor_brands WHERE id=ANY($1::bigint[])) +
-    (SELECT count(*) FROM public.tribune_sponsor_creatives WHERE sponsor_id=ANY($1::bigint[])) +
-    (SELECT count(*) FROM public.school_tribune_sponsorships WHERE sponsor_id=ANY($1::bigint[])) +
-    (SELECT count(*) FROM public.site_message_campaigns WHERE id=ANY($2::bigint[])) +
-    (SELECT count(*) FROM public.partner_portal_assets WHERE created_by=$3) +
-    (SELECT count(*) FROM public.partner_portal_audit WHERE actor_uid=ANY($4::text[])) +
-    (SELECT count(*) FROM public.partner_sponsor_order_claims WHERE sponsor_id=ANY($1::bigint[])) +
+    (SELECT count(*) FROM tribune_private.tribune_sponsor_creatives WHERE sponsor_id=ANY($1::bigint[])) +
+    (SELECT count(*) FROM tribune_private.school_tribune_sponsorships WHERE sponsor_id=ANY($1::bigint[])) +
+    (SELECT count(*) FROM tribune_private.sponsor_flip_cards WHERE sponsor_id=ANY($1::bigint[])) +
+    (SELECT count(*) FROM tribune_private.school_sponsor_card_placements WHERE sponsor_id=ANY($1::bigint[])) +
+    (SELECT count(*) FROM public.school_splash_sponsorships WHERE sponsor_id=ANY($1::bigint[])) +
+    (SELECT count(*) FROM tribune_private.publisher_notes WHERE id=ANY($2::bigint[])) +
+    (SELECT count(*) FROM tribune_private.partner_portal_assets WHERE created_by=$3) +
+    (SELECT count(*) FROM tribune_private.partner_portal_audit WHERE actor_uid=ANY($4::text[])) +
+    (SELECT count(*) FROM tribune_private.partner_sponsor_order_claims WHERE sponsor_id=ANY($1::bigint[])) +
+    (SELECT count(*) FROM tribune_private.partner_portal_memberships WHERE created_by=$3) +
     (SELECT count(*) FROM public.sponsor_orders WHERE id=ANY($5::bigint[])) AS total`,
   [[brandA.id, brandB.id], createdNoteIds, publisher.uid, [publisher.uid, sponsorA.uid, sponsorB.uid], createdOrderIds])).rows[0];
   assert.equal(Number(remaining.total), 0);
-  assert.deepEqual((await client.query('SELECT to_jsonb(settings) AS row FROM public.tribune_publication_settings settings ORDER BY id')).rows, originalSettings);
+  assert.deepEqual((await client.query('SELECT to_jsonb(settings) AS row FROM tribune_private.tribune_publication_settings settings ORDER BY id')).rows, originalSettings);
   rollbackVerified = true;
   if (useHttp) fs.rmSync(manifestPath, { force: true });
   console.log(`${passed} PostgreSQL partner service integration checks passed; ${useHttp ? 'autocommit fixture cleanup' : 'rollback'} verified, no fixture rows remain.`);

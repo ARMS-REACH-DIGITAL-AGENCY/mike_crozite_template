@@ -26,7 +26,7 @@ function load(filename) {
       if (databaseUnavailable) throw Error('offline database failure');
       if (/partner_portal_memberships/.test(sql)) return { rows: memberships };
       if (/SELECT id FROM public.sponsor_brands/.test(sql)) return { rows: sponsorExists ? [{ id: params[0] }] : [] };
-      if (/INSERT INTO public.partner_portal_assets/.test(sql)) {
+      if (/INSERT INTO tribune_private.partner_portal_assets/.test(sql)) {
         if (failAssetInsert) throw Error('offline record failure');
         writes.push({ sql, params }); return { rows: [], rowCount: 1 };
       }
@@ -134,6 +134,15 @@ async function main() {
     }
     assert.throws(() => assets.assertPartnerAssetAccess(publisher, 'logo', null), hasStatus(400));
   });
+  await test('sponsor card artwork is explicitly typed and belongs only to its sponsor', () => {
+    for (const kind of ['card_front', 'card_banner', 'card_full']) {
+      assert.equal(assets.parsePartnerAssetKind(kind), kind);
+      assert.equal(assets.assertPartnerAssetAccess(sponsor, kind, '41'), '41');
+      assert.throws(() => assets.assertPartnerAssetAccess(sponsor, kind, '42'), hasStatus(403));
+      assert.throws(() => assets.assertPartnerAssetAccess(publisher, kind, null), hasStatus(400));
+    }
+    assert.throws(() => assets.parsePartnerAssetKind('card_original'), hasStatus(400));
+  });
   await test('public config contains only allowed Firebase browser fields and availability', async () => {
     process.env.FIREBASE_API_KEY = 'fixture-public-key'; process.env.FIREBASE_AUTH_DOMAIN = 'auth.example.invalid';
     process.env.PARTNER_PUBLISHER_UIDS = 'private-fixture-uid'; process.env.FIREBASE_PRIVATE_KEY = 'never-expose';
@@ -211,6 +220,17 @@ async function main() {
     const response = await upload.POST(request(form)); assert.equal(response.status, 201);
     assert.equal((await response.json()).asset.sponsorId, null); assert.equal(writes[0].params[6], publisher.uid);
     assert.match(uploads[0][0], /^partners\/publication\/notice\//);
+  });
+  await test('front, banner and full-card uploads retain normalized immutable ownership records', async () => {
+    for (const kind of ['card_front', 'card_banner', 'card_full']) {
+      const response = await upload.POST(request(imageForm(transparentPng, 'image/png', kind, '41')));
+      assert.equal(response.status, 201);
+      const { asset } = await response.json();
+      assert.equal(asset.kind, kind); assert.equal(asset.sponsorId, '41');
+      assert.equal(writes.at(-1).params[2], kind);
+      assert.match(uploads.at(-1)[0], new RegExp('^partners/sponsors/41/' + kind + '/'));
+      assert.equal((await sharp(uploads.at(-1)[1]).metadata()).hasAlpha, true);
+    }
   });
   await test('missing sponsor and failed image storage cannot create an asset record', async () => {
     sponsorExists = false;

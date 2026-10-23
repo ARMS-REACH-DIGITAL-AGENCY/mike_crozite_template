@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const optionalText = (max: number) => z.string().trim().max(max).default('');
+export const optionalText = (max: number) => z.string().trim().max(max).default('');
 export const partnerId = z.string().regex(/^[1-9][0-9]{0,17}$/, 'Choose a valid record.');
 export const schoolId = z.string().regex(/^[1-9][0-9]{0,17}$/, 'Choose a valid school.');
 export const cadence = z.enum(['both', 'daily', 'weekly']).default('both');
@@ -10,7 +10,7 @@ export const httpsLink = z.string().trim().max(2048).refine((value) => {
     return u.protocol === 'https:' && !u.username && !u.password && !/[\r\n]/.test(value);
   } catch { return false; }
 }, 'Use a complete HTTPS link.');
-const optionalLink = z.union([z.literal(''), httpsLink]).default('');
+export const optionalLink = z.union([z.literal(''), httpsLink]).default('');
 const instant = z.string().refine((s) => {
   const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(s);
   if (!parts || !Number.isFinite(Date.parse(s))) return false;
@@ -18,8 +18,8 @@ const instant = z.string().refine((s) => {
   const date = new Date(`${year}-${month}-${day}T12:00:00Z`);
   return date.toISOString().slice(0, 10) === `${year}-${month}-${day}` && Number(hour) < 24 && Number(minute) < 60 && Number(second || 0) < 60 && Number(offsetHour || 0) <= 14 && Number(offsetMinute || 0) < 60;
 }, 'Choose a valid date and time with a time zone.');
-const optionalInstant = z.union([instant, z.literal(''), z.null()]).optional().transform((v) => v || null);
-const schoolIds = z.array(schoolId).max(1000).default([]).transform((v) => [...new Set(v)]);
+export const optionalInstant = z.union([instant, z.literal(''), z.null()]).optional().transform((v) => v || null);
+export const schoolIds = z.array(schoolId).max(1000).default([]).transform((v) => [...new Set(v)]);
 export const creativeInput = z.object({
   sponsorId: partnerId,
   headline: z.string().trim().min(1, 'Add a headline.').max(120),

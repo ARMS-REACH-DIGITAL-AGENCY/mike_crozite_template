@@ -108,12 +108,13 @@ function boundarySql(sql) {
     ['sponsor_brands', 'brands', 'id bigint, name text, logo_url text, is_active boolean'],
     ['school_tribune_sponsorships', 'placements', 'id bigint, hsid text, sponsor_id bigint, status text, priority integer, starts_at timestamptz, ends_at timestamptz, requires_approval boolean'],
     ['tribune_sponsor_creatives', 'creatives', 'id bigint, sponsor_id bigint, revision integer, status text, headline text, body text, image_url text, image_alt text, destination_url text, cta text, acknowledgment text, starts_at timestamptz, ends_at timestamptz, evergreen boolean, school_ids text[], cadence text, approved_by text, approved_at timestamptz, publisher_approved boolean'],
-    ['site_message_campaigns', 'notes', 'id bigint, revision integer, page_key text, status text, school_hsid text, starts_at timestamptz, ends_at timestamptz, display_order integer, message_text text, tribune_metadata jsonb, image_url text, cta_label text, cta_url text'],
+    ['publisher_notes', 'notes', 'id bigint, revision integer, page_key text, status text, school_hsid text, starts_at timestamptz, ends_at timestamptz, display_order integer, message_text text, tribune_metadata jsonb, image_url text, cta_label text, cta_url text'],
   ];
   let selector = sql.replace(/\$1\b/g, 'case_input.hsid').replace(/\$2\b/g, 'case_input.as_of')
     .replace(/\$3\b/g, 'case_input.cadence').replace(/\$4\b/g, "to_char(case_input.as_of AT TIME ZONE 'America/Phoenix','YYYY-MM-DD')");
-  for (const [name] of tables) selector = selector.replaceAll('public.' + name, 'fixture_' + name);
+  for (const [name] of tables) selector = selector.replaceAll((name === 'sponsor_brands' ? 'public.' : 'tribune_private.') + name, 'fixture_' + name);
   assert.equal(selector.includes('public.'), false);
+  assert.equal(selector.includes('tribune_private.'), false);
   const sources = tables.map(([name, key, columns]) => `fixture_${name} AS (SELECT * FROM jsonb_to_recordset(case_input.fixture->'${key}') AS source(${columns}))`).join(',\n');
   const json = JSON.stringify(cases).replace(/'/g, "''");
   return `WITH cases AS (SELECT * FROM jsonb_to_recordset('${json}'::jsonb) AS source(name text, hsid text, cadence text, as_of timestamptz, fixture jsonb, expected_sponsor text, expected_creative text, expected_note text))

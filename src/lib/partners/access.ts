@@ -110,9 +110,12 @@ export async function requirePartnerAccess(request: Pick<Request, 'headers'>): P
   let memberships: PartnerMembership[];
   try {
     memberships = (await query<PartnerMembership>(
-      `SELECT sponsor_id::text, role, is_active
-         FROM public.partner_portal_memberships
-        WHERE firebase_uid = $1 AND is_active = true`,
+      `SELECT membership.sponsor_id::text, membership.role, membership.is_active
+         FROM tribune_private.partner_portal_memberships membership
+        WHERE membership.firebase_uid = $1 AND membership.is_active = true
+          AND (membership.role='publisher' OR EXISTS (
+            SELECT 1 FROM public.sponsor_brands brand WHERE brand.id=membership.sponsor_id
+          ))`,
       [identity.uid],
     )).rows;
   } catch {

@@ -1,9 +1,10 @@
--- Immutable browser/plain-text editions. Public copies omit personal follows
--- and recipient settings tokens. This migration does not enable delivery.
+-- Immutable private/public edition snapshots in isolated publication storage.
+-- No shared table definition, permission, policy, trigger or row is changed.
 BEGIN;
-CREATE TABLE IF NOT EXISTS public.alumni_newsletter_editions (
+CREATE SCHEMA IF NOT EXISTS tribune_private;
+CREATE TABLE IF NOT EXISTS tribune_private.alumni_newsletter_editions (
   id uuid PRIMARY KEY,
-  firebase_uid text NOT NULL REFERENCES public.user_profiles(firebase_uid),
+  firebase_uid text NOT NULL,
   school_id text NOT NULL,
   report_start date NOT NULL,
   report_end date NOT NULL,
@@ -12,15 +13,5 @@ CREATE TABLE IF NOT EXISTS public.alumni_newsletter_editions (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS alumni_newsletter_editions_school_period
-  ON public.alumni_newsletter_editions (school_id, report_end DESC);
-DO $$
-DECLARE login_role record;
-BEGIN
-  FOR login_role IN SELECT rolname FROM pg_roles
-    WHERE rolcanlogin AND has_table_privilege(rolname, 'public.user_favorites', 'INSERT')
-  LOOP
-    EXECUTE format('GRANT SELECT, INSERT ON public.alumni_newsletter_editions TO %I', login_role.rolname);
-  END LOOP;
-END;
-$$;
+  ON tribune_private.alumni_newsletter_editions (school_id, report_end DESC);
 COMMIT;

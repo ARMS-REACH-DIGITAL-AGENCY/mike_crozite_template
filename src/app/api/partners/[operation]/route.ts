@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { revalidateTag } from 'next/cache';
 import { PartnerAccessError, requirePartnerAccess } from '@/lib/partners/access';
 import { dashboard, saveBrand, saveCreative, saveMembership, saveNote, savePlacement, savePublication, searchSchools, searchSponsors } from '@/lib/partners/service';
 import { publicationPreview } from '@/lib/partners/preview';
 import { validationFields } from '@/lib/partners/validation';
+import { saveSponsorCard, saveSponsorCardPlacement, sponsorCardDashboard, sponsorCardPreview } from '@/lib/partners/sponsorCards';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +26,10 @@ export async function GET(request: NextRequest, context: Context) {
   try {
     const access = await requirePartnerAccess(request);
     const { operation } = await context.params;
-    if (operation === 'dashboard') return response(await dashboard(access, request.nextUrl.searchParams.get('sponsorId')));
+    if (operation === 'dashboard') {
+      const data = await dashboard(access, request.nextUrl.searchParams.get('sponsorId'));
+      return response({ ...data, ...await sponsorCardDashboard(access, data.selectedSponsorId) });
+    }
     if (operation === 'schools') return response(await searchSchools(access, request.nextUrl.searchParams.get('q') || ''));
     if (operation === 'sponsors') return response(await searchSponsors(access, request.nextUrl.searchParams.get('q') || ''));
     return response({ error: 'Not found.' }, 404);
@@ -51,9 +56,21 @@ export async function POST(request: NextRequest, context: Context) {
       body = parsed;
     } catch { return response({ error: 'The form could not be read. Refresh and try again.' }, 400); }
     const { operation } = await context.params;
-    const handlers = { creatives: saveCreative, brands: saveBrand, placements: savePlacement, notes: saveNote, publication: savePublication, memberships: saveMembership, preview: publicationPreview };
+    const handlers = { creatives: saveCreative, brands: saveBrand, placements: savePlacement, notes: saveNote, publication: savePublication,
+      memberships: saveMembership, preview: publicationPreview, cards: saveSponsorCard, 'card-placements': saveSponsorCardPlacement, 'card-preview': sponsorCardPreview };
     const handler = handlers[operation as keyof typeof handlers];
     if (!handler) return response({ error: 'Not found.' }, 404);
-    return response(await handler(access, body));
+    const result = await handler(access, body);
+    if (operation === 'card-preview') {
+      const local = process.env.NODE_ENV !== 'production' && ['localhost', '127.0.0.1', '[::1]'].includes(request.nextUrl.hostname);
+      const previewHost = process.env.VERCEL_ENV === 'preview' ? process.env.VERCEL_URL : '';
+      const origin = local ? request.nextUrl.origin : previewHost && /^[a-z0-9.-]+\.vercel\.app$/i.test(previewHost)
+        ? `https://${previewHost}` : 'https://mike-crozite-template.vercel.app';
+      return response({ ...result, previewUrl: new URL('/embed/sponsor-card/preview', origin).href });
+    }
+    if (operation === 'brands' || operation === 'card-placements' || (operation === 'cards' && ['submit', 'publish', 'archive'].includes(String(body.action)))) {
+      revalidateTag('partner-sponsor-cards', { expire: 0 });
+    }
+    return response(result);
   } catch (error) { return failure(error); }
 }

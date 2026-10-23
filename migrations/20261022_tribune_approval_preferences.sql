@@ -1,3 +1,6 @@
+-- HISTORICAL LEGACY HOLD: already applied before the isolated portal revision.
+-- Do not reapply this file as part of the new private-schema rollout. See
+-- docs/tribune-publisher-portal.md for the five current install migrations.
 -- Tribune release gate and recipient choices. Applying this migration PAUSES
 -- the legacy pilot immediately: its send claim has no template_version.
 -- No cron, delivery-domain setting, billing, or other messaging path is changed.
