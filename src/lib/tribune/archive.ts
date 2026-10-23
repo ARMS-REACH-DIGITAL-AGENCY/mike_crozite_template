@@ -1,5 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { query } from '@/lib/db';
+import { query } from '@/lib/tribune/db';
 import type { TribuneEdition } from './types';
 
 const PURPOSE = 'tribune-edition';
@@ -49,7 +49,8 @@ export async function storeTribuneEdition(edition:TribuneEdition,firebaseUid:str
   const publicUrl=base.toString()+'?public='+id;
   const token=createTribuneEditionToken(id);
   const privateUrl=base.toString()+'?token='+encodeURIComponent(token);
-  const prepared:TribuneEdition={...edition,links:{...edition.links,web:privateUrl,text:privateUrl+'&format=text',share:publicUrl}};
+  const prepared=structuredClone(edition);
+  prepared.links={...prepared.links,web:privateUrl,text:privateUrl+'&format=text',share:publicUrl};
   await query(`INSERT INTO public.alumni_newsletter_editions
     (id,firebase_uid,school_id,report_start,report_end,edition,public_edition)
     VALUES($1::uuid,$2,$3,$4::date,$5::date,$6::jsonb,$7::jsonb)`,

@@ -14,7 +14,9 @@ type Campaign = {
 export async function GET(request: NextRequest) {
   const page = request.nextUrl.searchParams.get('page')?.trim().toLowerCase() || '';
   const school = request.nextUrl.searchParams.get('school')?.trim() || '';
-  if (!/^[a-z][a-z0-9_-]{0,39}$/.test(page) || school.length > 100) {
+  // Tribune notes also have cadence, selected-school and issue-date rules.
+  // Only the edition resolver may publish that channel.
+  if (page === 'tribune' || !/^[a-z][a-z0-9_-]{0,39}$/.test(page) || school.length > 100) {
     return NextResponse.json({ error: 'Invalid page or school' }, { status: 400 });
   }
   try {

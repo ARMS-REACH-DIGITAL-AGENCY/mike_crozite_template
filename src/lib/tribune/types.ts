@@ -1,5 +1,7 @@
 /** One immutable edition feeds HTML, plain text, browser and delivery. */
 export const TRIBUNE_LAYOUT_VERSION = 'tribune-v1' as const;
+export const TRIBUNE_NAME = 'The YAT-A-BOY Tribune';
+export const TRIBUNE_TAGLINE = 'Dedicated to tell our fans, WHERE THEY YAT!\nThrough STORIES & STATS!';
 export const TRIBUNE_BYLINE = 'YaTi | Ai Clubby & All Around Cool Dude';
 export const BATTING_COLUMNS = ['OPS+', 'W-L', 'AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF', 'OBP', 'SLG', 'OPS'] as const;
 export const PITCHING_COLUMNS = ['FIP-', 'W-L', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'HBP', 'K', 'WHIP', 'K/BB', 'FIP'] as const;
@@ -36,9 +38,18 @@ export type TribuneStory = {
   /** Story may be generated only from the edition's facts. Never invent real plays/quotes. */
   source: 'ai' | 'facts' | 'preview';
 };
+/** Resolved publication assets are saved with the issue, never looked up during rendering. */
+export type TribuneMasthead = {
+  imageUrl: string; alt: string; includesTagline?: boolean; assetId?: string;
+};
+export type TribunePublisherNote = {
+  id: string; title: string; paragraphs: string[]; byline?: string;
+  imageUrl?: string; ctaLabel?: string; ctaUrl?: string; revision?: number;
+};
 export type TribuneSponsor = {
   id: string; name: string; label?: string; headline: string; body: string;
   url: string; imageUrl?: string; logoUrl?: string; cta: string;
+  imageAlt?: string; acknowledgment?: string; creativeId?: string; creativeVersion?: number;
 };
 export type TribuneEdition = {
   layoutVersion: typeof TRIBUNE_LAYOUT_VERSION;
@@ -48,6 +59,10 @@ export type TribuneEdition = {
   school: { id: string; name: string; nickname?: string; location: string; color?: string; logoUrl?: string };
   recipientTier: 'fan' | 'superfan';
   period: { cadence: 'daily' | 'weekly'; start: string; end: string; label: string };
+  /** Optional for editions archived before publication settings were introduced. */
+  masthead?: TribuneMasthead;
+  publisherNote?: TribunePublisherNote;
+  sweepstakesReminder?: string;
   matchup?: TribuneMatchup;
   story: TribuneStory;
   homeRoster: TribuneRoster;

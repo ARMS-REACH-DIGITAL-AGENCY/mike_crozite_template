@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["iad1"],
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --frozen-lockfile && cp -rL node_modules/@sparticuz/chromium/bin ./chromium-bin",
   "crons": [
     {
       "path": "/api/cron/tbc-safe-ingest",

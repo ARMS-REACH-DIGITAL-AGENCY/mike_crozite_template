@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query } from '@/lib/tribune/db';
 import { lookupGHLContactByEmail } from '@/lib/gohighlevel';
 import { sendDailyPilotEmail } from '@/lib/alumniEmailSender';
 import { buildTribuneEdition, getTribuneFan } from '@/lib/tribune/build';

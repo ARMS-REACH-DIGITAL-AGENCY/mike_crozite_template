@@ -16,7 +16,8 @@ function load(filename) {
   const mod = { exports: {} }; cache.set(filename, mod);
   const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const req = (id) => {
-    if (id === '@/lib/db') return { query: async (...args) => { queries.push(args); return queryImpl(...args); } };
+    if (id === '@/lib/db') throw new Error('Private editions must not use the shared database.');
+    if (id === '@/lib/tribune/db') return { query: async (...args) => { queries.push(args); return queryImpl(...args); } };
     if (id === '@anthropic-ai/sdk') return OfflineAnthropic;
     if (id.startsWith('@/')) return load(path.join(root, 'src', id.slice(2)) + '.ts');
     if (id.startsWith('.')) return load(path.resolve(path.dirname(filename), id) + '.ts');

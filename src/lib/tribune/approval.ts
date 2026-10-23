@@ -1,4 +1,4 @@
-import { query } from '@/lib/db';
+import { query } from '@/lib/tribune/db';
 import { TOURNAMENT_2027 } from '@/lib/bracket/tournamentCalendar';
 import { TRIBUNE_LAYOUT_VERSION, type TribuneEdition } from './types';
 

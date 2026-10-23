@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { GET as rosterGET } from '@/app/api/players/[hsid]/route';
-import { selectSponsorCampaign } from '@/lib/sponsorCampaigns';
+import { resolveTribunePublication } from '@/lib/partners/publication';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { TRIBUNE_LAYOUT_VERSION, type TribuneEdition, type TribuneSponsor } from './types';
+import { TRIBUNE_LAYOUT_VERSION, type TribuneEdition } from './types';
 import { tribunePreferenceLinks, type TribunePeriod } from './preferences';
 import { loadTribuneData, type TribuneRosterPlayer } from './tournament';
 import { createTribuneStory } from './story';
@@ -46,20 +46,6 @@ function schoolHub(hsid: string, supplied?: string | null): string {
   return `https://${hsid}.yatstats.com/`;
 }
 
-function newsletterSponsor(hsid: string, hub: string, now: Date): TribuneSponsor | undefined {
-  const enrolledId = process.env.TRIBUNE_NEWSLETTER_SPONSOR_ID;
-  if (!enrolledId) return undefined;
-  const campaign = selectSponsorCampaign(hsid, now);
-  if (!campaign || campaign.id !== enrolledId || !httpsUrl(campaign.destinationUrl)) return undefined;
-  return {
-    id: campaign.id, name: campaign.sponsorName, label: 'Paid advertisement',
-    headline: campaign.altText, body: `Thank you to ${campaign.sponsorName} for supporting this school’s stories and stats.`,
-    url: campaign.destinationUrl,
-    imageUrl: new URL(campaign.desktopImage, hub).toString(),
-    cta: 'Visit our sponsor',
-  };
-}
-
 /** One factual edition is rendered twice; its private settings links never enter share URLs. */
 export async function buildTribuneEdition(input: {
   request: NextRequest; fan: TribuneFan; period: TribunePeriod; preview: boolean;
@@ -92,9 +78,15 @@ export async function buildTribuneEdition(input: {
   )).rows.filter((player) => !homeIds.has(String(player.playerid))) : [];
   const data = await loadTribuneData({ request, hsid: fan.home_hsid, schoolName: school.hsname, schoolUrl: hub, period, extraFavorites: favorites, home });
   const now = new Date();
+  // Select dated school content once. The finished edition keeps this exact
+  // masthead, note and sponsor creative for HTML, text and archived copies.
+  const publication = structuredClone(await resolveTribunePublication({
+    hsid: fan.home_hsid, cadence: period.cadence,
+    periodStart: period.start, periodEnd: period.end, asOf: now,
+  }));
   let settings: { preferences: string; unsubscribe: string } | undefined;
   try { settings = tribunePreferenceLinks(hub, fan.firebase_uid); } catch { /* Missing secret remains a send-readiness failure. */ }
-  const postalAddress = process.env.TRIBUNE_POSTAL_ADDRESS?.trim();
+  const postalAddress = publication.postalAddress?.trim() || process.env.TRIBUNE_POSTAL_ADDRESS?.trim();
   const base: Omit<TribuneEdition, 'story'> = {
     layoutVersion: TRIBUNE_LAYOUT_VERSION,
     preview: input.preview,
@@ -103,11 +95,13 @@ export async function buildTribuneEdition(input: {
     school: { id: fan.home_hsid, name: school.hsname, location: school.hslocation || '', logoUrl: getSchoolCrestUrl(fan.home_hsid) },
     recipientTier: superfan ? 'superfan' : 'fan',
     period, matchup: data.matchup, homeRoster: data.homeRoster, follows: data.follows,
-    sponsor: newsletterSponsor(fan.home_hsid, hub, now),
+    masthead: publication.masthead, publisherNote: publication.publisherNote,
+    sweepstakesReminder: publication.sweepstakesReminder,
+    sponsor: publication.sponsor,
     links: {
       hub, tournament: hub + '#sec-fantasy', share: hub + '#sec-fantasy',
       ...settings,
-      officialRules: httpsUrl(process.env.TRIBUNE_OFFICIAL_RULES_URL),
+      officialRules: httpsUrl(publication.officialRulesUrl) || httpsUrl(process.env.TRIBUNE_OFFICIAL_RULES_URL),
       sponsorInquiry: 'https://yatstats.com/partners/',
     },
     sender: postalAddress ? { name: 'YAT?STATS', postalAddress } : undefined,

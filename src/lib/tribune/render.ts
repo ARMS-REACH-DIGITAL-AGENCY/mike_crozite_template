@@ -2,6 +2,8 @@ import {
   BATTING_COLUMNS,
   PITCHING_COLUMNS,
   TRIBUNE_BYLINE,
+  TRIBUNE_NAME,
+  TRIBUNE_TAGLINE,
   type TribuneEdition,
   type TribuneMatchup,
   type TribunePlayerRow,
@@ -96,6 +98,7 @@ function matchupNote(m: TribuneMatchup): string {
 }
 function sponsorCredit(e: TribuneEdition): string | undefined {
   if (!e.sponsor) return undefined;
+  if (e.sponsor.acknowledgment?.trim()) return e.sponsor.acknowledgment.trim();
   return `A tip of the cap to ${e.sponsor.name}. Their support helps keep these stories, stats and fantasy updates free for ${e.school.name} fans. Give them a little hometown love, too.`;
 }
 function proofNotice(e: TribuneEdition): { heading: string; body: string } | undefined {
@@ -114,6 +117,21 @@ function proofNotice(e: TribuneEdition): { heading: string; body: string } | und
 }
 function kicker(label: string, tint = C.green): string {
   return `<p style="margin:0 0 10px;color:${tint};font:700 10px ${SANS};line-height:1.4;letter-spacing:1.7px;text-transform:uppercase;">${esc(label)}</p>`;
+}
+function renderPublisherNote(e: TribuneEdition): string {
+  const note = e.publisherNote;
+  if (!note) return '';
+  const image = url(note.imageUrl);
+  const cta = url(note.ctaUrl);
+  const title = note.title.trim() || 'Publisher’s Note';
+  return `<tr><td class="pad" style="padding:24px 32px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid ${C.line};background:#fbfaf4;"><tr><td style="padding:21px 23px;">
+    ${kicker('FROM THE PUBLISHER')}
+    <h2 style="margin:0 0 12px;font:700 25px ${SERIF};line-height:1.25;">${esc(title)}</h2>
+    ${image ? `<img src="${esc(image)}" alt="${esc(title)}" width="666" style="display:block;width:100%;max-width:666px;height:auto;border:0;margin:0 0 16px;">` : ''}
+    ${note.paragraphs.map((paragraph, i) => `<p style="margin:${i ? '12px' : '0'} 0 0;font:15px ${SERIF};line-height:1.75;color:${C.ink};">${esc(paragraph).replace(/\r?\n/g, '<br>')}</p>`).join('')}
+    ${note.byline ? `<p style="margin:14px 0 0;font:700 11px ${SANS};line-height:1.7;color:${C.muted};">${esc(note.byline)}</p>` : ''}
+    ${note.ctaLabel && cta ? `<p style="margin:17px 0 0;">${button(note.ctaLabel, cta)}</p>` : ''}
+  </td></tr></table></td></tr>`;
 }
 
 function renderLineScore(m: TribuneMatchup): string {
@@ -182,20 +200,24 @@ function renderSponsor(e: TribuneEdition): string {
   if (!sponsor) return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="pad" style="padding:4px 32px 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.line};"><tr><td align="center" style="padding:24px 18px;">${kicker('ADVERTISEMENT · SPONSOR SPACE')}<p style="margin:0 0 8px;font:700 24px ${SERIF};">A little hometown support goes a long way.</p><p style="margin:0;font:12px ${SANS};line-height:1.7;color:${C.muted};">Reserved for this school’s sponsor: their message, logo and offer.${e.links.sponsorInquiry ? ` ${textLink('Support this school’s edition', e.links.sponsorInquiry)}.` : ''}</p></td></tr></table></td></tr></table>`;
   const logo = url(sponsor.logoUrl);
   const image = url(sponsor.imageUrl);
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="pad" style="padding:4px 32px 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.ink};"><tr><td style="padding:9px 17px;border-bottom:1px solid ${C.line};font:700 9px ${SANS};letter-spacing:1.5px;color:${C.muted};">ADVERTISEMENT &nbsp; / &nbsp; ${esc(sponsor.label ?? 'YOUR SCHOOL’S COMMUNITY PARTNER')}</td></tr>${image ? `<tr><td><img src="${esc(image)}" alt="${esc(sponsor.name)}" width="714" style="width:100%;height:auto;display:block;border:0;"></td></tr>` : ''}<tr><td style="padding:23px 24px;">${logo ? `<img src="${esc(logo)}" alt="${esc(sponsor.name)} logo" width="142" style="max-width:142px;width:142px;height:auto;display:block;margin:0 0 15px;">` : `<p style="margin:0 0 11px;color:${C.green};font:700 11px ${SANS};letter-spacing:1.4px;text-transform:uppercase;">${esc(sponsor.name)}</p>`}<h2 style="margin:0 0 10px;font:700 29px ${SERIF};line-height:1.15;">${esc(sponsor.headline)}</h2><p style="margin:0 0 18px;max-width:580px;font:14px ${SANS};line-height:1.75;color:${C.muted};">${esc(sponsor.body)}</p>${button(sponsor.cta, sponsor.url)}</td></tr></table></td></tr></table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="pad" style="padding:4px 32px 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.ink};"><tr><td style="padding:9px 17px;border-bottom:1px solid ${C.line};font:700 9px ${SANS};letter-spacing:1.5px;color:${C.muted};">ADVERTISEMENT &nbsp; / &nbsp; ${esc(sponsor.label ?? 'YOUR SCHOOL’S COMMUNITY PARTNER')}</td></tr>${image ? `<tr><td><img src="${esc(image)}" alt="${esc(sponsor.imageAlt?.trim() || sponsor.name)}" width="714" style="width:100%;height:auto;display:block;border:0;"></td></tr>` : ''}<tr><td style="padding:23px 24px;">${logo ? `<img src="${esc(logo)}" alt="${esc(sponsor.name)} logo" width="142" style="max-width:142px;width:142px;height:auto;display:block;margin:0 0 15px;">` : `<p style="margin:0 0 11px;color:${C.green};font:700 11px ${SANS};letter-spacing:1.4px;text-transform:uppercase;">${esc(sponsor.name)}</p>`}<h2 style="margin:0 0 10px;font:700 29px ${SERIF};line-height:1.15;">${esc(sponsor.headline)}</h2><p style="margin:0 0 18px;max-width:580px;font:14px ${SANS};line-height:1.75;color:${C.muted};">${esc(sponsor.body)}</p>${button(sponsor.cta, sponsor.url)}</td></tr></table></td></tr></table>`;
 }
 const SWEEPSTAKES_TEXT = 'Your school’s fantasy bracket is also a fan sweepstakes, with a chance to win a trip to the 2027 Fall Classic. Registration and entry requirements apply. Read the official rules for eligibility, deadlines, entry limits and prize details.';
 const SHARING_TEXT = 'Know an alum who still checks the box scores? Pass them the paper. Every new fan helps grow the school’s community and the value its sponsors can bring back to the program.';
+function sweepstakesText(e: TribuneEdition): string {
+  return e.sweepstakesReminder?.trim() || SWEEPSTAKES_TEXT;
+}
 
 export function tribuneSubject(e: TribuneEdition): string {
   const period = e.period.cadence === 'daily' ? 'daily' : 'weekly';
   const headline = e.story.headline.replace(/[\r\n]+/g, ' ').trim();
-  return `${e.preview ? '[DESIGN PROOF] ' : ''}The YAT-A-BOY Tribune | ${e.school.name} ${period} edition — ${headline}`.replace(/[\r\n]+/g, ' ');
+  return `${e.preview ? '[DESIGN PROOF] ' : ''}${TRIBUNE_NAME} | ${e.school.name} ${period} edition — ${headline}`.replace(/[\r\n]+/g, ' ');
 }
 
 /** Email-safe markup; tables stay complete even when a small-screen client needs the browser edition. */
 export function renderTribuneHtml(e: TribuneEdition): string {
   const proof = proofNotice(e);
+  const mastheadImage = url(e.masthead?.imageUrl);
   const schoolLogo = url(e.school.logoUrl);
   const schoolColor = color(e.school.color);
   const credit = sponsorCredit(e);
@@ -218,10 +240,11 @@ export function renderTribuneHtml(e: TribuneEdition): string {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;"><tr><td class="pad" style="padding:12px 32px 0;font:10px ${SANS};color:${C.muted};text-align:center;line-height:1.6;">${utility}</td></tr>
       <tr><td class="pad edition-top" align="center" style="padding:23px 32px 20px;">
         <p style="margin:0 0 7px;font:700 9px ${SANS};letter-spacing:2.4px;text-transform:uppercase;color:${schoolColor};">YOUR HOMETOWN. THEIR NEXT CHAPTER.</p>
-        <h1 class="masthead" style="margin:0;font:700 61px ${SERIF};line-height:.98;letter-spacing:-3px;color:${C.ink};"><span style="font-size:.38em;letter-spacing:-.5px;vertical-align:middle;">The</span> YAT-A-BOY<br><span class="masthead-sub" style="font-size:59px;letter-spacing:-2px;">Tribune</span></h1>
-        <p class="tagline" style="margin:14px 0 0;font:italic 14px ${SERIF};line-height:1.6;color:${C.muted};">Dedicated to tell our fans, <strong style="color:${C.ink};font-style:normal;">WHERE THEY YAT!</strong><br>Through <strong style="color:${C.ink};font-style:normal;">STORIES &amp; STATS!</strong></p>
+        <h1 class="masthead" style="margin:0;font:700 61px ${SERIF};line-height:.98;letter-spacing:-3px;color:${C.ink};">${mastheadImage ? `<img src="${esc(mastheadImage)}" alt="${esc(e.masthead?.alt?.trim() || TRIBUNE_NAME)}" width="714" style="display:block;width:100%;max-width:714px;height:auto;margin:0 auto;border:0;">` : `<span style="font-size:.38em;letter-spacing:-.5px;vertical-align:middle;">The</span> YAT-A-BOY<br><span class="masthead-sub" style="font-size:59px;letter-spacing:-2px;">Tribune</span>`}</h1>
+        ${mastheadImage && e.masthead?.includesTagline ? '' : `<p class="tagline" style="margin:14px 0 0;font:italic 14px ${SERIF};line-height:1.6;color:${C.muted};">Dedicated to tell our fans, <strong style="color:${C.ink};font-style:normal;">WHERE THEY YAT!</strong><br>Through <strong style="color:${C.ink};font-style:normal;">STORIES &amp; STATS!</strong></p>`}
       </td></tr>
       <tr><td class="pad" style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:3px solid ${C.ink};border-bottom:1px solid ${C.ink};"><tr><td class="edition-meta" style="padding:10px 0;font:700 10px ${SANS};line-height:1.6;letter-spacing:.4px;">${schoolLogo ? `<img src="${esc(schoolLogo)}" width="21" height="21" alt="" style="display:inline-block;vertical-align:middle;margin-right:7px;">` : ''}${esc(e.school.name.toUpperCase())}<br><span style="font-weight:400;letter-spacing:0;color:${C.muted};">${esc(e.school.location)}</span></td><td class="edition-meta" align="right" style="padding:10px 0;font:700 10px ${SANS};line-height:1.6;letter-spacing:.3px;">${esc(cadence.toUpperCase())} EDITION<br><span style="font-weight:400;color:${C.muted};">${esc(date(e.generatedAt, true))}</span></td></tr></table></td></tr>
+      ${renderPublisherNote(e)}
       <tr><td class="pad" style="padding:27px 32px 21px;">${kicker(e.matchup ? 'THE FANTASY DESK / REAL STATS. HOMETOWN PRIDE.' : 'THE ALUMNI DESK / REAL STATS. HOMETOWN PRIDE.')}
         <h2 class="headline" style="margin:0 0 13px;font:700 45px ${SERIF};line-height:1.07;letter-spacing:-1.8px;">${esc(e.story.headline)}</h2>
         <p style="margin:0;font:18px ${SERIF};line-height:1.5;color:${C.muted};">${esc(e.story.deck)}</p>
@@ -236,9 +259,9 @@ export function renderTribuneHtml(e: TribuneEdition): string {
     ${renderSponsor(e)}
     ${renderRoster(e.homeRoster, false, e)}
     ${follows}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="pad" style="padding:26px 32px 28px;background:${C.greenDark};color:#ffffff;">${kicker('THE ROAD TO THE 2027 FALL CLASSIC', C.gold)}<h2 style="margin:0 0 12px;font:700 31px ${SERIF};line-height:1.15;color:#ffffff;">Follow your alumni.<br>Dream about October.</h2><p style="margin:0 0 20px;font:14px ${SANS};line-height:1.8;color:#e0e7d8;">${esc(SWEEPSTAKES_TEXT)}</p>${rulesUrl ? `<a href="${esc(rulesUrl)}" style="display:inline-block;padding:12px 17px;background:${C.gold};color:${C.greenDark};font:700 11px ${SANS};text-decoration:none;">READ THE OFFICIAL RULES →</a>` : `<p style="margin:0;font:12px ${SANS};line-height:1.7;color:${C.gold};">The official rules link will be included before delivery.</p>`}</td></tr>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="pad" style="padding:26px 32px 28px;background:${C.greenDark};color:#ffffff;">${kicker('THE ROAD TO THE 2027 FALL CLASSIC', C.gold)}<h2 style="margin:0 0 12px;font:700 31px ${SERIF};line-height:1.15;color:#ffffff;">Follow your alumni.<br>Dream about October.</h2><p style="margin:0 0 20px;font:14px ${SANS};line-height:1.8;color:#e0e7d8;">${esc(sweepstakesText(e))}</p>${rulesUrl ? `<a href="${esc(rulesUrl)}" style="display:inline-block;padding:12px 17px;background:${C.gold};color:${C.greenDark};font:700 11px ${SANS};text-decoration:none;">READ THE OFFICIAL RULES →</a>` : `<p style="margin:0;font:12px ${SANS};line-height:1.7;color:${C.gold};">The official rules link will be included before delivery.</p>`}</td></tr>
       <tr><td class="pad" align="center" style="padding:30px 32px 29px;border-bottom:3px solid ${C.ink};">${kicker('PASS THE PAPER')}<h2 style="margin:0 0 12px;font:700 29px ${SERIF};line-height:1.2;">Good stories belong in good company.</h2><p style="margin:0 auto 19px;max-width:560px;font:15px ${SERIF};line-height:1.8;color:${C.muted};">${esc(SHARING_TEXT)}</p>${button('SHARE THE SCHOOL EDITION →', e.links.share, true)}<p style="margin:14px 0 0;font:11px ${SANS};line-height:1.7;color:${C.muted};">Invite another alumnus. Bring another fan home.</p></td></tr>
-      <tr><td class="pad" align="center" style="padding:22px 32px 27px;"><p style="margin:0 0 8px;font:700 18px ${SERIF};">The YAT-A-BOY Tribune</p><p style="margin:0 0 13px;font:11px ${SANS};line-height:1.8;color:${C.muted};">Your school. Your alumni. Their story keeps going.<br>${esc(cadence)} delivery · HTML and plain-text editions</p><p class="footer-links" style="margin:0;font:11px ${SANS};line-height:1.8;">${textLink('School community hub', e.links.hub)}${e.links.preferences ? ` &nbsp; / &nbsp; ${textLink('Choose daily / weekly / plain text', e.links.preferences)}` : e.preview ? ' &nbsp; / &nbsp; Delivery preferences available before launch' : ''}${e.links.unsubscribe ? ` &nbsp; / &nbsp; ${textLink('Unsubscribe', e.links.unsubscribe)}` : ''}</p>${e.sender ? `<p style="margin:13px 0 0;font:10px ${SANS};line-height:1.8;color:${C.muted};">${esc(e.sender.name)}<br>${esc(e.sender.postalAddress)}</p>` : e.preview ? `<p style="margin:13px 0 0;font:10px ${SANS};line-height:1.8;color:${C.muted};">Design proof. Sending details and personal preference links are added to the delivery edition.</p>` : ''}${notices}</td></tr></table>
+      <tr><td class="pad" align="center" style="padding:22px 32px 27px;"><p style="margin:0 0 8px;font:700 18px ${SERIF};">${esc(TRIBUNE_NAME)}</p><p style="margin:0 0 13px;font:11px ${SANS};line-height:1.8;color:${C.muted};">Your school. Your alumni. Their story keeps going.<br>${esc(cadence)} delivery · HTML and plain-text editions</p><p class="footer-links" style="margin:0;font:11px ${SANS};line-height:1.8;">${textLink('School community hub', e.links.hub)}${e.links.preferences ? ` &nbsp; / &nbsp; ${textLink('Choose daily / weekly / plain text', e.links.preferences)}` : e.preview ? ' &nbsp; / &nbsp; Delivery preferences available before launch' : ''}${e.links.unsubscribe ? ` &nbsp; / &nbsp; ${textLink('Unsubscribe', e.links.unsubscribe)}` : ''}</p>${e.sender ? `<p style="margin:13px 0 0;font:10px ${SANS};line-height:1.8;color:${C.muted};">${esc(e.sender.name)}<br>${esc(e.sender.postalAddress)}</p>` : e.preview ? `<p style="margin:13px 0 0;font:10px ${SANS};line-height:1.8;color:${C.muted};">Design proof. Sending details and personal preference links are added to the delivery edition.</p>` : ''}${notices}</td></tr></table>
   </td></tr></table><!--[if mso]></td></tr></table><![endif]-->
   </td></tr></table></body></html>`;
 }
@@ -246,6 +269,17 @@ export function renderTribuneHtml(e: TribuneEdition): string {
 function plainLink(label: string, destination?: string): string {
   const href = url(destination);
   return href ? `${label}: ${href}` : `${label}: available with the delivery edition`;
+}
+function plainPublisherNote(e: TribuneEdition): string {
+  const note = e.publisherNote;
+  if (!note) return '';
+  return [
+    `FROM THE PUBLISHER\n${note.title.trim() || 'Publisher’s Note'}`,
+    ...note.paragraphs,
+    note.byline,
+    note.ctaLabel && url(note.ctaUrl) ? plainLink(note.ctaLabel, note.ctaUrl) : undefined,
+    url(note.imageUrl) ? plainLink('Publisher’s Note image', note.imageUrl) : undefined,
+  ].filter(Boolean).join('\n\n');
 }
 function plainStats(table: TribuneStatsTable, otherSchools: boolean): string {
   const cols = columns(table);
@@ -292,9 +326,10 @@ export function renderTribuneText(e: TribuneEdition): string {
   const credit = sponsorCredit(e);
   const parts = [
     proof ? `${proof.heading}\n${proof.body}` : '',
-    'THE YAT-A-BOY TRIBUNE\nDedicated to tell our fans, WHERE THEY YAT!\nThrough STORIES & STATS!',
+    `${TRIBUNE_NAME.toUpperCase()}\n${TRIBUNE_TAGLINE}`,
     `${e.school.name} · ${e.school.location}\n${e.period.cadence === 'daily' ? 'Daily' : 'Weekly'} Edition · ${date(e.generatedAt, true)}\nAlumni production: ${e.period.label}`,
     [e.links.web ? plainLink('View in browser', e.links.web) : '', e.links.text ? plainLink('Plain-text edition', e.links.text) : 'This is the complete plain-text edition.'].filter(Boolean).join('\n'),
+    plainPublisherNote(e),
     `${e.story.headline}\n\n${e.story.deck}\n\nBy ${TRIBUNE_BYLINE}\n${e.story.source === 'preview' ? 'Illustrative fantasy sports column' : e.story.source === 'ai' ? 'AI-generated fantasy sports column, grounded in the recorded results' : 'Fantasy sports column from the recorded results'}`,
     plainMatchup(e.matchup),
     e.story.paragraphs.join('\n\n'),
@@ -303,9 +338,9 @@ export function renderTribuneText(e: TribuneEdition): string {
     e.sponsor ? `ADVERTISEMENT — ${e.sponsor.label ?? 'YOUR SCHOOL’S COMMUNITY PARTNER'}\n${e.sponsor.name}\n${e.sponsor.headline}\n\n${e.sponsor.body}\n${plainLink(e.sponsor.cta, e.sponsor.url)}` : `ADVERTISEMENT — SPONSOR SPACE\nA little hometown support goes a long way.\nReserved for this school’s sponsor: their message, logo and offer.${e.links.sponsorInquiry ? `\n${plainLink('Support this school’s edition', e.links.sponsorInquiry)}` : ''}`,
     plainRoster(e.homeRoster, false, e),
     e.recipientTier === 'superfan' && e.follows ? plainRoster(e.follows, true, e) : '',
-    `THE ROAD TO THE 2027 FALL CLASSIC\nFollow your alumni. Dream about October.\n\n${SWEEPSTAKES_TEXT}\n${e.links.officialRules ? plainLink('Official rules', e.links.officialRules) : 'The official rules link will be included before delivery.'}`,
+    `THE ROAD TO THE 2027 FALL CLASSIC\nFollow your alumni. Dream about October.\n\n${sweepstakesText(e)}\n${e.links.officialRules ? plainLink('Official rules', e.links.officialRules) : 'The official rules link will be included before delivery.'}`,
     `PASS THE PAPER\nGood stories belong in good company.\n\n${SHARING_TEXT}\n${plainLink('Share the school edition', e.links.share)}\nInvite another alumnus. Bring another fan home.`,
-    `THE YAT-A-BOY TRIBUNE\nYour school. Your alumni. Their story keeps going.\n${plainLink('School community hub', e.links.hub)}\n${e.links.preferences ? plainLink('Choose daily / weekly / plain text', e.links.preferences) : e.preview ? 'Delivery preferences available before launch.' : ''}${e.links.unsubscribe ? `\n${plainLink('Unsubscribe', e.links.unsubscribe)}` : ''}${e.sender ? `\n\n${e.sender.name}\n${e.sender.postalAddress}` : e.preview ? '\n\nDesign proof. Sending details and personal preference links are added to the delivery edition.' : ''}`,
+    `${TRIBUNE_NAME.toUpperCase()}\nYour school. Your alumni. Their story keeps going.\n${plainLink('School community hub', e.links.hub)}\n${e.links.preferences ? plainLink('Choose daily / weekly / plain text', e.links.preferences) : e.preview ? 'Delivery preferences available before launch.' : ''}${e.links.unsubscribe ? `\n${plainLink('Unsubscribe', e.links.unsubscribe)}` : ''}${e.sender ? `\n\n${e.sender.name}\n${e.sender.postalAddress}` : e.preview ? '\n\nDesign proof. Sending details and personal preference links are added to the delivery edition.' : ''}`,
     (e.notices ?? []).join('\n'),
   ];
   return parts.filter(Boolean).join('\n\n----------------------------------------\n\n') + '\n';

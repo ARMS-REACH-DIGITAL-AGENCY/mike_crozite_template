@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { query } from '@/lib/db';
+import { query } from '@/lib/tribune/db';
 
 export type TribuneCadence = 'daily' | 'weekly';
 export type TribuneFormat = 'html' | 'text';
