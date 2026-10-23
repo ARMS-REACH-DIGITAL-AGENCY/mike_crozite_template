@@ -35,7 +35,8 @@ import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/Pr
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
-import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
+import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
+import { getTeamLogoUrl, getOriginalForCardCopy } from "@/lib/playerImage";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
 type Props = {
@@ -359,32 +360,6 @@ export default async function ProfilePage({ params }: Props) {
   const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
   const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
 
-  // flip_card_front_stage.current_team_source_team_id is the reconciled,
-  // single source of truth for "current team" (kept accurate by the college
-  // and pro ingest pipelines alike) - it takes priority over both the dead
-  // v_player_current_team_resolved chain and a player's most recent stat-
-  // bearing season, which can point at a stale team after a transfer or a
-  // redshirt year with no season on record yet.
-  // current_team_source_team_id is the raw MLB Stats API team id (e.g. 147
-  // for the Yankees) when the source is mlb_api - NOT the tbc_teamid that
-  // v_team_schedule_feed/college_schedule_games_raw and this codebase's own
-  // team logos are keyed by (Yankees there is 20, not 147). Kept separately
-  // so the schedule fetch below can translate it; the other two fallbacks
-  // already return tbc-scheme ids.
-  const currentTeamSource = String((transactionStatus as any)?.current_team_source || "").trim();
-
-  const rawMlbTeamId = (transactionStatus as any)?.current_team_source_team_id
-    ? String((transactionStatus as any).current_team_source_team_id)
-    : null;
-
-  const currentTeamId = rawMlbTeamId
-    ? rawMlbTeamId
-    : resolvedCurrentTeam?.teamid
-      ? String(resolvedCurrentTeam.teamid)
-      : (mostRecentSeason as any)?.teamid
-        ? String((mostRecentSeason as any).teamid)
-        : null;
-
   // getTeamContext (removed) queried teams.organization/conference, columns
   // that table doesn't have, so it failed on every profile load and always
   // came back empty. Not re-pointed at teams.organization_name: that
@@ -452,20 +427,13 @@ export default async function ProfilePage({ params }: Props) {
     getPlayerTeamStints(safePlayerId),
   ]);
 
-  // current_team_source_team_id only needs translating through team_id_map
-  // when it's actually a raw MLB Stats API id, i.e. current_team_source is
-  // 'mlb_api' - team_id_map is keyed 1:1 by each pro team's own raw id at
-  // any level (MLB or any minor-league affiliate), so this resolves a
-  // minor leaguer's own affiliate team the same way it resolves an MLB
-  // roster player's team. The college/HS tbc_* pipelines store the
-  // already-correct tbc_teamid in this same field, so running THAT through
-  // team_id_map (a pro-only crosswalk) would just fail to find it - that
-  // silently broke every college player's schedule until this check existed.
-  const scheduleTeamId = rawMlbTeamId
-    ? currentTeamSource === "mlb_api"
-      ? teamIdMap.get(rawMlbTeamId) || null
-      : rawMlbTeamId
-    : currentTeamId;
+  // Prefer the reconciled canonical team id. The shared resolver translates
+  // MLB source ids and prevents iScore UUIDs from becoming schedule keys.
+  const scheduleTeamId = resolveScheduleTeamId(
+    transactionStatus,
+    teamIdMap,
+    resolvedCurrentTeam?.teamid || (mostRecentSeason as any)?.teamid
+  );
 
   // ── Game Log: every game his team played, stint by stint ──────────────────
   // player_team_stints says which team he was on and when (a trade, call-up,
@@ -525,14 +493,19 @@ export default async function ProfilePage({ params }: Props) {
   }
   // A two-way player can have a batting and a pitching row for one game:
   // prefer the one this page's columns show.
-  function takeGameLog(gamePk: unknown, date: string, preferredType: "batting" | "pitching"): any | undefined {
-    const pk = String(gamePk ?? "").trim();
-    const bucket = (pk ? logsByGamePk.get(pk) : logsByDate.get(date)) ?? [];
+  function takeGameLog(gamePk: unknown, date: string, preferredType: "batting" | "pitching", scheduleSource?: unknown, sourceGameId?: unknown): any | undefined {
+    const pk = String(sourceGameId ?? gamePk ?? "").trim();
+    const source = String(scheduleSource ?? "").trim();
+    // Legacy schedule rows can still match by date. A named feed must
+    // match its own source: an independent game cannot borrow an MLB line
+    // merely because the player has one on the same date or with the same id.
+    const bucket = ((pk ? logsByGamePk.get(pk) : logsByDate.get(date)) ?? [])
+      .filter((row) => !source || row.source === source);
     const open = bucket.filter((r) => !usedLogs.has(r));
     const log = open.find((r) => r.stat_type === preferredType) ?? open[0];
     if (log) {
       // Both of a two-way player's rows belong to this one game.
-      for (const r of bucket) if (String(r.source_game_id) === String(log.source_game_id)) usedLogs.add(r);
+      for (const r of bucket) if (r.source === log.source && String(r.source_game_id) === String(log.source_game_id)) usedLogs.add(r);
     }
     return log;
   }
@@ -762,7 +735,7 @@ export default async function ProfilePage({ params }: Props) {
       // Only MLB-fed games (with a game id): MLB keeps their status current,
       // while the college schedule scrape leaves past games "Scheduled".
       if (g.game_pk && d < todayIso && NEVER_PLAYED_STATUS.test(String(g.status || "").trim())) continue;
-      const log = takeGameLog(g.game_pk, d, preferredType);
+      const log = takeGameLog(g.game_pk, d, preferredType, g.schedule_source, g.source_game_id);
       const badge = resultBadge(g.result);
       const opponentMlbId = g.is_home ? g.away_team_id : g.home_team_id;
       const stats = statCells(log);
@@ -772,14 +745,16 @@ export default async function ProfilePage({ params }: Props) {
         season: Number(d.slice(0, 4)),
         dateLabel: formatDisplayDate(d) || d,
         opponent: g.opponent || g.away_team || "--",
-        logoUrl: mlbTeamLogoUrl(teamIdMap, opponentMlbId ?? log?.opponent_mlb_id),
+        logoUrl: g.opponent_teamid
+          ? getOriginalForCardCopy(getTeamLogoUrl(String(g.opponent_teamid)))
+          : mlbTeamLogoUrl(teamIdMap, opponentMlbId ?? log?.opponent_mlb_id),
         resultLetter: badge?.letter ?? null,
         resultClass: badge?.className ?? "",
         stats: stats ?? statHeaders.map(() => "-"),
         postseason: POSTSEASON_TYPES.has(String(g.game_type || "")),
-        // A finished game (before today, so the 4-hourly game log sync has
-        // caught up) with no line of his.
-        didNotPlay: !log && st.tracksLines && Boolean(badge) && d < todayIso,
+        // Infer absence only when this feed tracks individual appearances;
+        // a schedule-only source cannot tell us whether he played.
+        didNotPlay: !log && st.tracksLines && g.tracks_player_lines !== false && Boolean(badge) && d < todayIso,
       });
     }
   });
@@ -790,7 +765,7 @@ export default async function ProfilePage({ params }: Props) {
     if (usedLogs.has(log)) continue;
     const d = toISODate(log.game_date);
     if (!d) continue;
-    const sameGame = (gameLogs as any[]).filter((r) => String(r.source_game_id) === String(log.source_game_id));
+    const sameGame = (gameLogs as any[]).filter((r) => r.source === log.source && String(r.source_game_id) === String(log.source_game_id));
     const pick = sameGame.find((r) => r.stat_type === preferredType) ?? log;
     for (const r of sameGame) usedLogs.add(r);
     const win = String(pick.is_win ?? "").toLowerCase();

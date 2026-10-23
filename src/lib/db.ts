@@ -1951,9 +1951,9 @@ export async function getTeamSchedule(
   try {
     // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
     // team_schedules). College teams' games live in college_schedule_games_raw,
-    // a separate pipeline with no overlapping teamids, so it's unioned in here
-    // rather than joined - this is the only reader that needs both sources
-    // reconciled into one shape.
+    // a separate pipeline. Independent schedules use verified source-team
+    // mappings and retain their own game identities. Union the feeds into
+    // one display contract without mixing provider IDs or stat coverage.
     const { rows } = await query(
       `WITH combined AS (
          SELECT
@@ -1972,7 +1972,13 @@ export async function getTeamSchedule(
            game_pk,
            home_team_id,
            away_team_id,
-           (SELECT ts.game_type FROM team_schedules ts WHERE ts.game_pk = v_team_schedule_feed.game_pk) AS game_type
+           (SELECT ts.game_type FROM team_schedules ts WHERE ts.game_pk = v_team_schedule_feed.game_pk) AS game_type,
+           'mlb_api'::text AS schedule_source,
+           game_pk::text AS source_game_id,
+           NULL::text AS source_season_id,
+           NULL::text AS source_league_code,
+           true AS tracks_player_lines,
+           NULL::text AS opponent_teamid
          FROM v_team_schedule_feed
          WHERE tbc_teamid::text = $1
 
@@ -1994,9 +2000,26 @@ export async function getTeamSchedule(
            NULL::bigint AS game_pk,
            NULL::integer AS home_team_id,
            NULL::integer AS away_team_id,
-           NULL::text AS game_type
+           NULL::text AS game_type,
+           'college'::text AS schedule_source,
+           NULL::text AS source_game_id,
+           NULL::text AS source_season_id,
+           NULL::text AS source_league_code,
+           false AS tracks_player_lines,
+           NULL::text AS opponent_teamid
          FROM college_schedule_games_raw g
          WHERE g.teamid::text = $1
+
+         UNION ALL
+
+         SELECT
+           tbc_teamid, team_name, game_date, game_time_utc, status,
+           venue_name, home_team_name, away_team_name, home_away, opponent,
+           home_score, away_score, game_pk, home_team_id, away_team_id,
+           game_type, schedule_source, source_game_id, source_season_id,
+           source_league_code, tracks_player_lines, opponent_teamid
+         FROM public.v_indy_team_schedule_feed
+         WHERE tbc_teamid = $1
        )
        SELECT
          *,
@@ -2688,6 +2711,7 @@ export async function getFlipCardTransactionStatus(playerid: string): Promise<an
          current_team_name,
          current_team_source,
          current_team_source_team_id,
+         current_teamid,
          team_affiliation_status,
          last_transaction_type,
          previous_team_name,
