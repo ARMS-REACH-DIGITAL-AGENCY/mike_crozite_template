@@ -12,7 +12,7 @@
 //   player_hsids                 - links playerid -> hsid (high school)
 //   tbc_schools_raw              - high school info (hsid, hsname, colors, nickname) - NOT pro/college teams
 //   school_success               - per-school metadata (rank, counts, staging/microsite URLs, colors)
-//   teams                        - team_id -> team_name lookup; populated via scripts/import-teams.ts
+//   teamid_universe_mapping      - canonical team name / organization-conference / level lookup
 //
 // "Active" = player has batting or pitching stats from 2026
 // "All-time" = all players ever tagged to a school in player_hsids
@@ -1704,7 +1704,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     SELECT
       b.year,
       b.teamid,
-      COALESCE(t.team_name, b.teamid::text) AS team_name,
+      COALESCE(t.current_team_name, b.teamid::text) AS team_name,
       b.highlevel AS level,
       b.g, b.ab, b.r, b.h,
       b.dbl AS "2b", b.tpl AS "3b",
@@ -1712,8 +1712,8 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
       b.bavg AS avg, b.obp, b.slg, b.ops,
       b.draft_info
     FROM public.v_tbc_batting_all_seasons_resolved b
-    LEFT JOIN public.teams t
-      ON t.teamid::text = b.teamid::text
+    LEFT JOIN public.teamid_universe_mapping t
+      ON t.teamid = b.teamid::text
     WHERE b.playerid::text = $1
     ORDER BY b.year ASC, b.teamid ASC
   `;
@@ -1734,7 +1734,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     SELECT
       p.year,
       p.teamid,
-      COALESCE(t.team_name, p.teamid::text) AS team_name,
+      COALESCE(t.current_team_name, p.teamid::text) AS team_name,
       p.highlevel AS level,
       p.g, p.gs, p.w, p.l,
       p.sv AS saves, p.ip,
@@ -1744,8 +1744,8 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       p.so9 AS k9, p.so_bb AS kbb,
       p.draft_info
     FROM public.v_tbc_pitching_all_seasons_resolved p
-    LEFT JOIN public.teams t
-      ON t.teamid::text = p.teamid::text
+    LEFT JOIN public.teamid_universe_mapping t
+      ON t.teamid = p.teamid::text
     WHERE p.playerid::text = $1
     ORDER BY p.year ASC, p.teamid ASC
   `;
