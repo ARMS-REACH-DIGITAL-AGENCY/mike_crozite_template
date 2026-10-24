@@ -225,15 +225,23 @@ async function SchoolShell({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
+  // The universal school shell does not need career batting/pitching aggregates.
+  // Preserve the existing first-paint team-year count only for explicit ?team=YYYY
+  // deep links; ordinary school, player-profile and contribute routes use stage data.
+  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
+  const allTimeRosterForInitialTeam = initialTeamYear
+    ? getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
+        console.error('getAllTimeRosterByHsid failed for initial team-year link', { resolvedHsid, initialTeamYear, error });
+        return [];
+      })
+    : Promise.resolve([] as Record<string, unknown>[]);
+
   const [allStageRows, rawAllTimeRoster, schoolsWithSeasons, activeSummary] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
     }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
-      return [];
-    }),
+    allTimeRosterForInitialTeam,
     getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
       // On a temporary coverage-cache failure, fall back to the existing
       // per-school lookup rather than silently hiding verified team plaques.
@@ -291,7 +299,6 @@ async function SchoolShell({
 
   // A shared team link (?team=2017, passed on by src/middleware.ts): rows
   // 2-3 and the count box are rendered for that team from the first byte.
-  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
   const initialTeamCount = initialTeamYear
     ? teamYearCardCount([
         ...allTimeRosterRows.map((p) => ({ ...(stageRows.find((s) => String(s.playerid) === String(p.playerid)) || {}), ...p })),
