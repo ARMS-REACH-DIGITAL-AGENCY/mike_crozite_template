@@ -1717,7 +1717,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
       b.year,
       b.teamid,
       COALESCE(t.current_team_name, b.teamid::text) AS team_name,
-      b.highlevel AS level,
+      t.level_label AS level,
       b.g, b.ab, b.r, b.h,
       b.dbl AS "2b", b.tpl AS "3b",
       b.hr, b.rbi, b.sb, b.bb, b.so,
@@ -1747,7 +1747,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       p.year,
       p.teamid,
       COALESCE(t.current_team_name, p.teamid::text) AS team_name,
-      p.highlevel AS level,
+      t.level_label AS level,
       p.g, p.gs, p.w, p.l,
       p.sv AS saves, p.ip,
       p.h AS hits_allowed, p.er,
@@ -2613,6 +2613,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
         status_label: string | null;
         display_status_label: string | null;
         display_level_label: string | null;
+        highest_level_label: string | null;
         team_affiliation_status: string | null;
         current_team_source: string | null;
         last_transaction_type: string | null;
@@ -2633,6 +2634,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
            f.status_label,
            f.display_status_label,
            f.display_level_label,
+           f.highest_level_label,
            f.team_affiliation_status,
            f.current_team_source,
            f.last_transaction_type,
