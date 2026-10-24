@@ -367,7 +367,7 @@ export const getSchoolsWithApprovedTeamSeasons = keptAcrossRequests('schools-wit
 // years, and first-party contributed players; this lookup adds the TBC
 // school alumni who may not yet have staging records.
 export const getSchoolShellRosterByHsid = cache(keptAcrossRequests('getSchoolShellRosterByHsid-v1', async function getSchoolShellRosterByHsid(hsid: string): Promise<any[]> {
-  if (!/^\\d+$/.test(hsid)) return [];
+  if (!/^\d+$/.test(hsid)) return [];
   const { rows } = await query(
     `SELECT ph.playerid::text AS playerid,
             tp.firstname, tp.lastname,
