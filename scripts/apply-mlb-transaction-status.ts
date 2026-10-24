@@ -130,7 +130,9 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS team_affiliation_status text,
       ADD COLUMN IF NOT EXISTS previous_team_name text,
       ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
-      ADD COLUMN IF NOT EXISTS previous_level_label text
+      ADD COLUMN IF NOT EXISTS previous_level_label text,
+      ADD COLUMN IF NOT EXISTS highest_level_label text,
+      ADD COLUMN IF NOT EXISTS highest_level_checked_at timestamptz
   `);
 }
 
@@ -188,6 +190,16 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             team_affiliation_status = $5,
             status_label = $5,
             display_status_label = $5,
+            highest_level_label = CASE
+              WHEN $5 = 'RETIRED' AND highest_level_checked_at IS NULL
+              THEN public.compute_player_highest_level(playerid::text)
+              ELSE highest_level_label
+            END,
+            highest_level_checked_at = CASE
+              WHEN $5 = 'RETIRED' AND highest_level_checked_at IS NULL
+              THEN NOW()
+              ELSE highest_level_checked_at
+            END,
             -- previous_team_name/previous_org_or_conference_name/
             -- previous_level_label are the SAME columns the site's
             -- existing retired-player rows already use to show a "last
@@ -279,7 +291,9 @@ async function clearStaleDepartureFlags(
             display_status_label = NULL,
             previous_team_name = NULL,
             previous_org_or_conference_name = NULL,
-            previous_level_label = NULL
+            previous_level_label = NULL,
+            highest_level_label = NULL,
+            highest_level_checked_at = NULL
       WHERE playerid::text = ANY($1::text[])
         AND last_transaction_applied_at IS NOT NULL`,
     [playerIds]
@@ -300,6 +314,12 @@ async function retireStaleFreeAgents(): Promise<number> {
         SET team_affiliation_status = 'RETIRED',
             status_label = 'RETIRED',
             display_status_label = 'RETIRED',
+            highest_level_label = CASE
+              WHEN stage.highest_level_checked_at IS NULL
+              THEN public.compute_player_highest_level(stage.playerid::text)
+              ELSE stage.highest_level_label
+            END,
+            highest_level_checked_at = COALESCE(stage.highest_level_checked_at, NOW()),
             stage_updated_at = NOW()
       WHERE UPPER(TRIM(COALESCE(stage.team_affiliation_status, stage.status_label, ''))) = 'FREE AGENT'
         AND stage.last_transaction_applied_at IS NOT NULL
