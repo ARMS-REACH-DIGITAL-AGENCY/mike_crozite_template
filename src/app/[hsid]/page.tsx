@@ -23,7 +23,7 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 import { parseTeamYear, teamYearCardOrder } from "@/lib/teamYearShare";
 import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
-import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from "@/lib/galleryStatuses";
+import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS, isRetiredGalleryStatus } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
 import NewsGallery from "@/components/yatstats/NewsGallery";
@@ -500,14 +500,15 @@ export default async function SchoolPage({
   // enrich those cards when present; they do not decide whether a player is
   // Active. This keeps cards, filters, Row 3 and the footer tally identical.
   const activeStatsById = new Map(activeRosterRows.map((p) => [String(p.playerid), p]));
-  // Keep every status the Active filter offers in the DOM, but the
-  // owner-approved preset still controls first paint. This is especially
-  // important for RETIRED - COACH: the filter used to offer it while the
-  // server omitted those cards entirely, so selecting it could never show
-  // Mike Woods or another retired coach.
+  // Active Alumni is never a second historical gallery. Do not create
+  // retired cards here (even as hidden/filterable DOM nodes); they remain
+  // in the separate All-Time Next-Level roster, including retired coaches.
+  // Stage status changes dynamically change eligibility on cache refresh.
+  // Preserve existing non-retired gallery statuses and first-paint preset.
   const activeMerged: Row[] = stageRows
     .filter((p) => GALLERY_STATUS_OPTIONS.includes(String(p.status_label || p.status || '').trim().toUpperCase() as (typeof GALLERY_STATUS_OPTIONS)[number]))
-    .filter((p) => !isHighSchoolPlayer(p) || isRetiredCoachCard(p))
+    .filter((p) => !isRetiredGalleryStatus(p.status_label || p.status))
+    .filter((p) => !isHighSchoolPlayer(p))
     .map((stageRow) => {
       const id = String(stageRow.playerid);
       const statsRow = activeStatsById.get(id);
