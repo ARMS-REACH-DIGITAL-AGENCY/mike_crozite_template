@@ -500,14 +500,15 @@ export default async function SchoolPage({
   // enrich those cards when present; they do not decide whether a player is
   // Active. This keeps cards, filters, Row 3 and the footer tally identical.
   const activeStatsById = new Map(activeRosterRows.map((p) => [String(p.playerid), p]));
-  // Keep every status the Active filter offers in the DOM, but the
-  // owner-approved preset still controls first paint. This is especially
-  // important for RETIRED - COACH: the filter used to offer it while the
-  // server omitted those cards entirely, so selecting it could never show
-  // Mike Woods or another retired coach.
+  // Active Alumni is not a second All-Time gallery. The server must
+  // never create retired cards in this section, even hidden cards exposed
+  // later by the filter drawer. This follows the current staged status:
+  // ACTIVE <-> RETIRED <-> FREE AGENT moves players automatically as status
+  // data refreshes. Retired coaches remain available in All-Time.
   const activeMerged: Row[] = stageRows
     .filter((p) => GALLERY_STATUS_OPTIONS.includes(String(p.status_label || p.status || '').trim().toUpperCase() as (typeof GALLERY_STATUS_OPTIONS)[number]))
-    .filter((p) => !isHighSchoolPlayer(p) || isRetiredCoachCard(p))
+    .filter((p) => !String(p.status_label || p.status || '').trim().toUpperCase().startsWith('RETIRED'))
+    .filter((p) => !isHighSchoolPlayer(p))
     .map((stageRow) => {
       const id = String(stageRow.playerid);
       const statsRow = activeStatsById.get(id);
