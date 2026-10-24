@@ -360,28 +360,6 @@ export const getSchoolsWithApprovedTeamSeasons = keptAcrossRequests('schools-wit
   return rows.map((row) => String(row.hsid));
 }, 600);
 
-// The shared school header/row-3 roster strip only needs player identities.
-// In particular, visiting a player's career timeline must NOT calculate
-// every alumnus's career stats just to render the surrounding school shell.
-// Stage rows (loaded separately) provide statuses, current teams, roster
-// years, and first-party contributed players; this lookup adds the TBC
-// school alumni who may not yet have staging records.
-export const getSchoolShellRosterByHsid = cache(keptAcrossRequests('getSchoolShellRosterByHsid-v1', async function getSchoolShellRosterByHsid(hsid: string): Promise<any[]> {
-  if (!/^\d+$/.test(hsid)) return [];
-  const { rows } = await query(
-    `SELECT ph.playerid::text AS playerid,
-            tp.firstname, tp.lastname,
-            NULLIF(TRIM(COALESCE(tp.firstname, '') || ' ' || COALESCE(tp.lastname, '')), '') AS display_name,
-            tp.highlevel AS level,
-            tp.highlevel AS career_highlevel
-       FROM public.player_hsids ph
-       JOIN public.tbc_players_raw tp ON tp.playerid::text = ph.playerid::text
-      WHERE ph.hsid::text = $1`,
-    [hsid],
-  );
-  return rows;
-}, ALL_TIME_ROSTER_TTL_SECONDS));
-
 export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeasonResults', async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
   if (!/^\d+$/.test(hsid)) return [];
 
