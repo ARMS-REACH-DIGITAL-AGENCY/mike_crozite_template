@@ -1558,7 +1558,6 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       sp.lastname,
       COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
       sp.career_highlevel AS level,
-      fs.highest_level_label,
       sp.height,
       sp.weight,
       sp.bats,
