@@ -42,6 +42,7 @@ type TeamSeasonResult = {
   achievement: string;
   wins: number;
   losses: number;
+  ties?: number;
   seasonNote: string | null;
   displayLine1: string | null;
   displayLine2: string | null;
@@ -973,8 +974,9 @@ export default function InteractionStrip({
                   const displayLines = [stats?.displayLine1 || stats?.achievement || '', stats?.displayLine2 || stats?.seasonNote || ''];
                   const isChampion = /\bstate\s+champ(?:ion)?s?\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
                   const isRunnerUp = /\b(state\s+)?runner.up\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
+                  const record = stats ? `${stats.wins}-${stats.losses}${(stats.ties || 0) > 0 ? `-${stats.ties}` : ''}` : '';
                   const statsLabel = stats
-                    ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${stats.wins}-${stats.losses})`
+                    ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${record})`
                     : 'season stats not provided yet';
                   return (
                     <button
@@ -1007,7 +1009,7 @@ export default function InteractionStrip({
                           )}
                         </span>
                       </div>
-                      <span className="gallery-slot-name-overlay alltime-season-record" aria-hidden="true">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ""}</span>
+                      <span className="gallery-slot-name-overlay alltime-season-record" aria-hidden="true">{stats?.wins != null && stats?.losses != null ? `(${record})` : ""}</span>
                     </button>
                   );
                 })}
