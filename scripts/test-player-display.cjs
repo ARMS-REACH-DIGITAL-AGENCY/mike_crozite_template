@@ -119,7 +119,7 @@ const rosterDeparture = {
   team_affiliation_status: 'FREE AGENT', current_team_source: 'mlb_api',
   current_team_name: null, current_org_or_conference_name: null,
   previous_team_name: 'Iowa Cubs', previous_org_or_conference_name: 'Chicago Cubs',
-  level_label: 'AAA', last_transaction_type: null, last_transaction_applied_at: null,
+  level_label: 'AAA', highest_level_label: 'TRIPLE-A', last_transaction_type: null, last_transaction_applied_at: null,
 };
 const renderCard = player => renderToStaticMarkup(React.createElement(PlayerCard, { player, resolvedHsid: '3722' }));
 
