@@ -346,6 +346,7 @@ export type SchoolTeamSeasonResult = {
   achievement: string;
   wins: number;
   losses: number;
+  ties: number;
   seasonNote: string | null;
   displayLine1: string | null;
   displayLine2: string | null;
@@ -369,10 +370,11 @@ export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeaso
     wins: number;
     losses: number;
     season_note: string | null;
+    ties: number;
     display_line_1: string | null;
     display_line_2: string | null;
   }>(
-    `SELECT season_year, achievement, wins, losses, season_note, display_line_1, display_line_2
+    `SELECT season_year, achievement, wins, losses, ties, season_note, display_line_1, display_line_2
        FROM public.school_team_season_results
       WHERE hsid = $1 AND status = 'approved'
       ORDER BY season_year DESC`,
@@ -384,6 +386,7 @@ export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeaso
     achievement: row.achievement,
     wins: Number(row.wins),
     losses: Number(row.losses),
+    ties: Number(row.ties || 0),
     seasonNote: row.season_note,
     displayLine1: row.display_line_1,
     displayLine2: row.display_line_2,
