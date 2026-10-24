@@ -279,7 +279,7 @@ function firstName(full?: string) {
 
 // A season on a coach's timeline, as the school's All-Time year badge has
 // it (school_team_season_results): record, finish, the badge's two lines.
-type TeamSeason = { seasonYear: number; achievement: string; wins: number; losses: number; seasonNote: string | null; displayLine1: string | null; displayLine2: string | null };
+type TeamSeason = { seasonYear: number; achievement: string; wins: number; losses: number; ties?: number; seasonNote: string | null; displayLine1: string | null; displayLine2: string | null };
 
 // The season's headline and write-up: "2003: Hamilton wins the State
 // Championship" / "23-10 · State Champions".
@@ -287,7 +287,7 @@ function coachSeasonCopy(year: number, school: string, season?: TeamSeason | nul
   const name = school.replace(/\s+high\s+school$/i, '').trim() || 'The team';
   if (!season) return { headline: `The ${year} season`, line: '' };
   const a = String(season.achievement || '').trim();
-  const record = Number.isFinite(season.wins) && Number.isFinite(season.losses) ? `${season.wins}-${season.losses}` : '';
+  const record = Number.isFinite(season.wins) && Number.isFinite(season.losses) ? `${season.wins}-${season.losses}${(season.ties || 0) > 0 ? `-${season.ties}` : ''}` : '';
   const line = [record, a, season.seasonNote].filter(Boolean).join(' · ');
   const champs = /^(.*?)\s*State Champ/i.exec(a);
   const lost = /Lost (\w+) Round/i.exec(a);
