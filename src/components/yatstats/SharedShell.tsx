@@ -159,26 +159,29 @@ export default function SharedShell({
 
     let frame = 0;
     let lastVisibleSection = readRequestedSection();
+    let allTimeLandingReset = false;
     const resetAllTimeLanding = () => {
       const params = new URLSearchParams(window.location.search);
       // A linked player intentionally opens at that card; do not override it.
       if (readRequestedSection() !== 'alltime' || params.has('player') || window.location.hash.startsWith('#player-')) return;
+      // A single landing reset per visit: repeated page-ready / delayed frame
+      // callbacks used to pull the page upward again after users started reading.
+      if (allTimeLandingReset) return;
+      allTimeLandingReset = true;
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     };
     const syncSection = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         const requestedSection = readRequestedSection();
+        if (requestedSection !== 'alltime') allTimeLandingReset = false;
         const enteringAllTime = requestedSection === 'alltime' && lastVisibleSection !== 'alltime';
         lastVisibleSection = requestedSection;
         applyVisibleSection(requestedSection);
         setActiveSection(requestedSection);
         // Switching tabs preserves the prior document scroll offset on mobile.
         // Reset at the switch, then after React swaps the sticky header/rail.
-        if (enteringAllTime) {
-          resetAllTimeLanding();
-          window.requestAnimationFrame(() => window.requestAnimationFrame(resetAllTimeLanding));
-        }
+        if (enteringAllTime) window.requestAnimationFrame(resetAllTimeLanding);
         // The section is applied: drop the first-paint mark set in
         // app/layout.tsx (after React has rendered rows 3-4 for it).
         window.requestAnimationFrame(() => {
