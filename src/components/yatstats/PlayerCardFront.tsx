@@ -347,8 +347,7 @@ export default function PlayerCardFront({
   const statusLabel = display.statusLabel;
   const isRetired = /^RETIRED(?:\b|\s*-)/i.test(statusLabel);
   const showFortyManPill = asBoolean(p.is_on_40man) && !isRetired;
-  const highestLevel = asText(p.highest_level_label);
-  const visibleLevelLabel = isRetired ? highestLevel : display.levelLabel;
+  const visibleLevelLabel = display.levelLabel;
   const fortyManOrgName = asText(p.forty_man_org_name);
   const fortyManOrgAbbr = asText(p.forty_man_org_abbr);
   const fortyManPillTitle = fortyManOrgName

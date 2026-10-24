@@ -119,7 +119,7 @@ const rosterDeparture = {
   team_affiliation_status: 'FREE AGENT', current_team_source: 'mlb_api',
   current_team_name: null, current_org_or_conference_name: null,
   previous_team_name: 'Iowa Cubs', previous_org_or_conference_name: 'Chicago Cubs',
-  level_label: 'AAA', last_transaction_type: null, last_transaction_applied_at: null,
+  level_label: 'AAA', highest_level_label: 'TRIPLE-A', last_transaction_type: null, last_transaction_applied_at: null,
 };
 const renderCard = player => renderToStaticMarkup(React.createElement(PlayerCard, { player, resolvedHsid: '3722' }));
 
@@ -184,14 +184,14 @@ test('Transaction-owned departures still outrank stale current fields and retain
   assert.equal(display.isTransactionDeparture, true);
 });
 
-test('Level aliases are consistent, and generic career NCAA remains generic with no current affiliation claim', () => {
+test('Official level aliases never promote generic career NCAA to a team level', () => {
   for (const [raw, expected] of [
     ['AAA', 'TRIPLE-A'], [' aa ', 'DOUBLE-A'], ['A-', 'SINGLE-A'], ['Single-A', 'SINGLE-A'], ['LOW-A', 'SINGLE-A'],
     ['A+', 'HIGH-A'], ['Rk', 'ROOKIE'], ['NJCAA', 'NJCAA'], ['JUCO', 'NJCAA'], ['Intl', 'INTERNATIONAL'], ['D2', 'NCAA-D2'],
     ['NCAA', 'NCAA'], ['ncaa', 'NCAA'], ['TRIPLE-A (40-MAN)', 'TRIPLE-A'],
   ]) assert.equal(normalizePlayerLevel(raw), expected);
   const career = resolvePlayerDisplay({ career_highlevel: 'NCAA' });
-  assert.equal(career.levelLabel, 'NCAA');
+  assert.equal(career.levelLabel, '');
   assert.equal(career.statusLabel, 'UNKNOWN');
   assert.equal(career.teamName, '');
   assert.equal(career.orgConferenceName, '');
@@ -205,7 +205,8 @@ test('Recorded baseline metadata for an explicitly retired player renders its pr
   const player = { ...identity, status_label: 'RETIRED', display_status_label: 'RETIRED',
     team_affiliation_status: 'RETIRED', current_team_source: 'baseline_metadata',
     current_team_name: null, previous_team_name: 'Iowa Cubs',
-    previous_org_or_conference_name: 'Chicago Cubs', previous_level_label: 'AAA' };
+    previous_org_or_conference_name: 'Chicago Cubs', previous_level_label: 'AA',
+    highest_level_label: 'TRIPLE-A' };
   assert.equal(player.current_team_source, 'baseline_metadata');
   assert.equal(player.current_team_name, null);
   const display = resolvePlayerDisplay(player);
@@ -232,12 +233,12 @@ test('Card front, back and filter attributes all show the same roster departure 
   assert.doesNotMatch(html, /RELEASED|front-chip--departure-note/);
 });
 
-test('Blank-stage historical cards show UNKNOWN and generic NCAA consistently on both faces and filters', () => {
+test('Blank-stage historical cards do not invent retirement or show generic NCAA as a level', () => {
   const html = renderCard({ ...identity, level: 'NCAA', stat_year: 2005, status_label: null });
   assert.match(html, /data-status="UNKNOWN"/);
-  assert.match(html, /data-level="NCAA"/);
+  assert.match(html, /data-level=""/);
   assert.match(html, /title="UNKNOWN">UNKNOWN<\/span>/);
-  assert.match(html, /data-back-status-line="P - NCAA - UNKNOWN"/);
+  assert.match(html, /data-back-status-line="P - UNKNOWN"/);
   assert.doesNotMatch(html, /RETIRED|NCAA-D1/);
 });
 
@@ -295,7 +296,7 @@ test('Profile identity shows UNKNOWN for blank metadata rather than deriving ret
   databaseRow = { ...identity, status_label: null, display_status_label: null, career_highlevel: 'NCAA' };
   const profile = await getPlayerIdentityMeta(identity.playerid);
   assert.equal(profile.statusLabel, 'UNKNOWN');
-  assert.equal(profile.levelLabel, 'NCAA');
+  assert.equal(profile.levelLabel, '');
   assert.equal(profile.currentTeamName, '');
 });
 
@@ -306,6 +307,38 @@ test('Profile identity consumes the roster-departure provenance and agrees with 
   assert.equal(profile.currentTeamName, 'Iowa Cubs');
   assert.equal(profile.orgConferenceName, 'Chicago Cubs');
   assert.equal(profile.levelLabel, 'TRIPLE-A');
+});
+
+
+test('Retired highest level is the same saved field on front, back, filters and profile', async () => {
+  const retired = {
+    ...identity,
+    status_label: 'RETIRED', display_status_label: 'RETIRED',
+    level_label: 'NCAA-D1', display_level_label: 'NCAA-D1',
+    previous_level_label: 'DOUBLE-A', career_highlevel: 'AAA',
+    highest_level_label: 'TRIPLE-A',
+  };
+  const html = renderCard(retired);
+  assert.match(html, /HIGHEST LEVEL: TRIPLE-A/);
+  assert.match(html, /data-back-status-line="P - TRIPLE-A - RETIRED"/);
+  assert.match(html, /data-level="TRIPLE-A"/);
+  assert.doesNotMatch(html, /data-back-status-line="[^"]*NCAA-D1/);
+  databaseRow = retired;
+  const profile = await getPlayerIdentityMeta(identity.playerid);
+  assert.equal(profile.levelLabel, 'TRIPLE-A');
+  assert.equal(profile.statusLabel, 'RETIRED');
+});
+
+test('A missing retired career high never falls back to stale team level or raw career text', () => {
+  const retired = {
+    ...identity, status_label: 'RETIRED', display_status_label: 'RETIRED',
+    level_label: 'NCAA-D1', display_level_label: 'NCAA-D1',
+    career_highlevel: 'AAA', highest_level_label: null,
+  };
+  const html = renderCard(retired);
+  assert.match(html, /data-level=""/);
+  assert.match(html, /data-back-status-line="P - RETIRED"/);
+  assert.doesNotMatch(html, /HIGHEST LEVEL:|NCAA-D1/);
 });
 
 test('A profile database failure cannot manufacture a retirement status', async () => {
