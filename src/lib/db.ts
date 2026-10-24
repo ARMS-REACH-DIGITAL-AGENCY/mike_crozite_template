@@ -476,12 +476,17 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid::text AS playerid,
         year::text AS year,
-        highlevel::text AS highlevel,
+        canonical_level::text AS season_level,
         teamid::text AS teamid,
         g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so,
         draft_info,
         playyears
-      FROM tbc_batting_2026_season_raw
+      FROM (
+        SELECT raw_b.*, canonical.level_label AS canonical_level
+        FROM public.tbc_batting_2026_season_raw raw_b
+        LEFT JOIN public.teamid_universe_mapping canonical
+          ON canonical.teamid = raw_b.teamid::text
+      ) tbc_bat
       WHERE year = '2026' AND ${statsRowsFilter}
 
       UNION ALL
@@ -489,8 +494,8 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         yatstats_playerid::text AS playerid,
         season_year::text AS year,
-        'INDY'::text AS highlevel,
-        teamid::text AS teamid,
+        indy_map.level_label::text AS season_level,
+        indy_bat.teamid::text AS teamid,
         COALESCE(
           raw_stats #>> '{stats,GP}',
           raw_stats #>> '{stats,G}',
@@ -515,13 +520,15 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
           updated_at DESC
       ) indy_bat
+      LEFT JOIN public.teamid_universe_mapping indy_map
+        ON indy_map.teamid = indy_bat.teamid::text
     ),
 
     batting_2026_by_level AS (
       SELECT
         playerid::text AS playerid,
         MAX(year)      AS stat_year,
-        highlevel      AS bat_level,
+        season_level      AS bat_level,
         MAX(teamid)    AS teamid,
 
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS g,
@@ -539,7 +546,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         MAX(draft_info) AS draft_info,
         MAX(playyears)  AS playyears
       FROM batting_2026_rows
-      GROUP BY playerid::text, highlevel
+      GROUP BY playerid::text, season_level
     ),
 
     latest_batting AS (
@@ -615,7 +622,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid::text AS playerid,
         year::text AS year,
-        highlevel::text AS highlevel,
+        canonical_level::text AS season_level,
         teamid::text AS teamid,
         g::text AS g,
         gs::text AS gs,
@@ -630,7 +637,12 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         draft_info,
         playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
-      FROM tbc_pitching_2026_season_raw
+      FROM (
+        SELECT raw_p.*, canonical.level_label AS canonical_level
+        FROM public.tbc_pitching_2026_season_raw raw_p
+        LEFT JOIN public.teamid_universe_mapping canonical
+          ON canonical.teamid = raw_p.teamid::text
+      ) tbc_pitch
       WHERE year = '2026' AND ${statsRowsFilter}
 
       UNION ALL
@@ -638,8 +650,8 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         yatstats_playerid::text AS playerid,
         season_year::text AS year,
-        'INDY'::text AS highlevel,
-        teamid::text AS teamid,
+        indy_map.level_label::text AS season_level,
+        indy_pitch.teamid::text AS teamid,
         g::text,
         gs::text,
         w::text,
@@ -667,13 +679,15 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
           updated_at DESC
       ) indy_pitch
+      LEFT JOIN public.teamid_universe_mapping indy_map
+        ON indy_map.teamid = indy_pitch.teamid::text
     ),
 
     pitching_2026_by_level AS (
       SELECT
         playerid,
         MAX(year)   AS pitch_year,
-        highlevel   AS pit_level,
+        season_level   AS pit_level,
         MAX(teamid) AS pit_teamid,
 
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS pg,
@@ -703,7 +717,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         MAX(draft_info) AS pit_draft_info,
         MAX(playyears)  AS pit_playyears
       FROM pitching_2026_rows
-      GROUP BY playerid, highlevel
+      GROUP BY playerid, season_level
     ),
 
     latest_pitching AS (
@@ -794,11 +808,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid::text AS playerid,
         CASE
-          WHEN UPPER(COALESCE(highlevel::text, '')) IN ('INDY', 'INDEPENDENT') THEN 'indy'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
-            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          WHEN season_level = 'MLB' THEN 'mlb'
+          WHEN season_level IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN season_level = 'INDY' THEN 'indy'
+          WHEN season_level = 'INTERNATIONAL' THEN 'international'
+          WHEN season_level IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
           ELSE 'other'
         END AS bucket,
         year,
@@ -837,6 +851,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               WHEN 'mlb' THEN '2026 MLB BATTING'
               WHEN 'minors' THEN '2026 MINOR LEAGUE BATTING'
               WHEN 'indy' THEN '2026 INDY BATTING'
+              WHEN 'international' THEN '2026 INTERNATIONAL BATTING'
               WHEN 'college' THEN '2026 COLLEGE BATTING'
               ELSE '2026 BATTING'
             END,
@@ -859,7 +874,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               'g', g
             )
           )
-          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'college' THEN 4 ELSE 5 END
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
         ) AS season_batting_buckets
       FROM batting_2026_by_bucket
       GROUP BY playerid
@@ -869,11 +884,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid,
         CASE
-          WHEN UPPER(COALESCE(highlevel::text, '')) IN ('INDY', 'INDEPENDENT') THEN 'indy'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
-            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          WHEN season_level = 'MLB' THEN 'mlb'
+          WHEN season_level IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN season_level = 'INDY' THEN 'indy'
+          WHEN season_level = 'INTERNATIONAL' THEN 'international'
+          WHEN season_level IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
           ELSE 'other'
         END AS bucket,
         year,
@@ -921,6 +936,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               WHEN 'mlb' THEN '2026 MLB PITCHING'
               WHEN 'minors' THEN '2026 MINOR LEAGUE PITCHING'
               WHEN 'indy' THEN '2026 INDY PITCHING'
+              WHEN 'international' THEN '2026 INTERNATIONAL PITCHING'
               WHEN 'college' THEN '2026 COLLEGE PITCHING'
               ELSE '2026 PITCHING'
             END,
@@ -941,7 +957,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               'pg', pg
             )
           )
-          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'college' THEN 4 ELSE 5 END
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
         ) AS season_pitching_buckets
       FROM pitching_2026_by_bucket
       GROUP BY playerid
@@ -972,7 +988,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           THEN lp.pit_level
           ELSE lb.bat_level
         END,
-        sp.career_highlevel
+        NULL::text
       )                                     AS level,
       sp.height,
       sp.weight,
@@ -1024,7 +1040,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         CASE
           WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
           THEN lp.pit_level ELSE lb.bat_level
-        END, sp.career_highlevel)
+        END, NULL::text)
         WHEN 'MLB'           THEN 1
         WHEN 'TRIPLE-A'      THEN 2
         WHEN 'AAA'           THEN 2
