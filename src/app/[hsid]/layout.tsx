@@ -14,6 +14,7 @@ import {
   getSchoolTeamSeasonResults,
   getSchoolsWithApprovedTeamSeasons,
   getAllTimeRosterByHsid,
+  getSchoolShellRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
 } from '@/lib/db';
@@ -225,13 +226,21 @@ async function SchoolShell({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
+  // Team-year share links rely on the full career/varsity data to calculate
+  // their initial counts. Every other shell can render from lightweight
+  // identities plus canonical stage rows without the expensive career rollup.
+  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
+  const shellRoster = initialTeamYear
+    ? getAllTimeRosterByHsid(resolvedHsid)
+    : getSchoolShellRosterByHsid(resolvedHsid);
+
   const [allStageRows, rawAllTimeRoster, schoolsWithSeasons, activeSummary] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
     }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
+    shellRoster.catch((error) => {
+      console.error('school shell roster failed', { resolvedHsid, error });
       return [];
     }),
     getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
@@ -291,7 +300,6 @@ async function SchoolShell({
 
   // A shared team link (?team=2017, passed on by src/middleware.ts): rows
   // 2-3 and the count box are rendered for that team from the first byte.
-  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
   const initialTeamCount = initialTeamYear
     ? teamYearCardCount([
         ...allTimeRosterRows.map((p) => ({ ...(stageRows.find((s) => String(s.playerid) === String(p.playerid)) || {}), ...p })),
