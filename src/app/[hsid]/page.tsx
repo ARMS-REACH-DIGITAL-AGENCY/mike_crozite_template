@@ -487,7 +487,6 @@ export default async function SchoolPage({
 
   const activeRosterRows = asRows(activeRosterResult);
   const allTimeRosterRows = asRows(allTimeRosterResult);
-  const allTimeById = new Map(allTimeRosterRows.map((p) => [String(p.playerid), p]));
   const stageRows = asRows(flipFrontStageResult).filter((p) => !isRetiredAtHighSchoolLevel(p));
   const tributeSourceRows = tributeSourceRosterResults.flatMap((rows) => asRows(rows));
 
@@ -512,10 +511,9 @@ export default async function SchoolPage({
     .map((stageRow) => {
       const id = String(stageRow.playerid);
       const statsRow = activeStatsById.get(id);
-      const highestLevel = allTimeById.get(id)?.highest_level ?? stageRow.highest_level;
       return statsRow
-        ? { ...stageRow, ...statsRow, highest_level: highestLevel, status_label: stageRow.status_label, display_status_label: stageRow.display_status_label, has_2026_stats: true }
-        : { ...stageRow, highest_level: highestLevel, has_2026_stats: false, season_stats_pending: true };
+        ? { ...stageRow, ...statsRow, highest_level_label: stageRow.highest_level_label, status_label: stageRow.status_label, display_status_label: stageRow.display_status_label, has_2026_stats: true }
+        : { ...stageRow, has_2026_stats: false, season_stats_pending: true };
     });
 
   const allTimeSeenIds = new Set<string>();
