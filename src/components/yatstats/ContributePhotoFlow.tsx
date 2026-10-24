@@ -108,6 +108,8 @@ export default function ContributePhotoFlow({
   const [heroRefresh, setHeroRefresh] = useState(0);
   // Existing-year management starts with a player, not a file.
   const [manageHeroMode, setManageHeroMode] = useState(false);
+  const heroActionsRef = useRef<HTMLElement | null>(null);
+  const revealHeroActions = useRef(false);
   const [manageHeroAction, setManageHeroAction] = useState<'move'|'replace'|'archive'|null>(null);
   const [archiveConfirmed, setArchiveConfirmed] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
@@ -228,10 +230,14 @@ export default function ContributePhotoFlow({
     setFile(null);setPreview('');setApprovedSig('');setError('');
   };
   const startNewUpload = () => {
-    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    // A photo already chosen in Step 1 must survive selecting "Upload New".
+    // Only clear an old selection when leaving manage/edit mode.
+    const leavingExistingHero = manageHeroMode || editingHeroId !== null;
+    if (leavingExistingHero && preview.startsWith('blob:')) URL.revokeObjectURL(preview);
     setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(false);
     setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
-    setFile(null);setPreview('');setApprovedSig('');setError('');
+    if (leavingExistingHero) { setFile(null);setPreview('');setApprovedSig(''); }
+    setError('');
     if (archivedYear !== null) { setSeasonKey('other');setOther({year:archivedYear,team:''}); }
   };
   const selectManagedHero = (slot: HeroSlot) => {
@@ -323,6 +329,9 @@ export default function ContributePhotoFlow({
   };
 
   const choosePurpose = (id: PhotoPurpose) => {
+    // When the contributor chooses Career Path Year Photo from the purpose
+    // list, reveal its actions under Step 1 instead of leaving them above view.
+    if (id === 'timeline_hero' && purpose !== id) revealHeroActions.current = true;
     setPurpose(id);
     setShowPurposePicker(false);
     if (id !== 'team_logo') { setSelectedTeam(null); setTeamId(''); }
@@ -330,6 +339,11 @@ export default function ContributePhotoFlow({
     setLandscape(false);
     setError('');
   };
+  useEffect(() => {
+    if (purpose !== 'timeline_hero' || manageHeroMode || !revealHeroActions.current) return;
+    revealHeroActions.current = false;
+    heroActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [purpose, manageHeroMode]);
 
   // The teams the main player played for (for a team logo).
   const teams = Array.from(new Map((seasons || []).filter((s) => s.teamId && s.stage !== 'hs').map((s) => [s.teamId!, s.team])).entries());
@@ -457,6 +471,8 @@ export default function ContributePhotoFlow({
     setFile(null); setPreview(''); setEditingHeroId(null); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
     setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setSelectedTeam(null); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
+    setManageHeroMode(false); setManageHeroAction(null); setArchiveConfirmed(false);
+    setArchiveNotice(''); setArchivedYear(null); revealHeroActions.current = false;
   };
 
   // ---- Done --------------------------------------------------------------
@@ -498,19 +514,12 @@ export default function ContributePhotoFlow({
 
   return (
     <div className="ypf-flow">
-      <section className="ypf-step ypf-hero-mode" aria-label="Yearly hero image actions">
-        <div className="ycd-label">YEARLY HERO IMAGES — CREATE OR CORRECT</div>
-        <div className="ycd-actions">
-          <button type="button" className={`ycd-btn${!manageHeroMode && purpose === 'timeline_hero' ? ' is-on' : ''}`}
-            aria-pressed={!manageHeroMode && purpose === 'timeline_hero'}
-            onClick={startNewUpload}>UPLOAD NEW YEARLY HERO</button>
-          <button type="button" className={`ycd-btn${manageHeroMode ? ' is-on' : ''}`}
-            aria-pressed={manageHeroMode} onClick={startManagingHeroes}>
-            MANAGE EXISTING YEARLY HERO — NO UPLOAD NEEDED
-          </button>
+      {manageHeroMode && (
+        <div className="ypf-selected-purpose">
+          <div><span className="ypf-selected-kicker">CAREER PATH YEAR PHOTO</span><strong>MANAGE EXISTING YEARLY HERO</strong></div>
+          <button type="button" className="ycd-link ycd-small" onClick={startNewUpload}>Back to photo options</button>
         </div>
-        {manageHeroMode && <p className="ycd-muted ycd-small">Start by selecting a player. Existing approved yearly images and their years will appear automatically.</p>}
-      </section>
+      )}
       {manageHeroMode && (
         <section className="ypf-step ypf-hero-manager">
           <div className="ycd-label"><span className="ycd-step">1</span> WHICH PLAYER'S YEARLY HERO?</div>
@@ -690,6 +699,24 @@ export default function ContributePhotoFlow({
         )}
         <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => pickFile(e.target.files)} />
       </section>
+      {/* Only the Career Path Year Photo flow offers create/manage actions.
+          Keep these below Step 1, never at the top of the generic form or
+          inside Step 2's destination list. */}
+      {type?.id === 'timeline_hero' && (
+        <section ref={heroActionsRef} className="ypf-step ypf-hero-mode" aria-label="Yearly hero image actions">
+          <div className="ycd-label">YEARLY HERO IMAGES — CREATE OR CORRECT</div>
+          <div className="ycd-actions">
+            <button type="button" className={`ycd-btn${!manageHeroMode ? ' is-on' : ''}`}
+              aria-pressed={!manageHeroMode} onClick={startNewUpload}>
+              UPLOAD NEW YEARLY HERO
+            </button>
+            <button type="button" className="ycd-btn"
+              aria-pressed={false} onClick={startManagingHeroes}>
+              MANAGE EXISTING YEARLY HERO — NO UPLOAD NEEDED
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* The complete list of destinations only appears for generic uploads
           or when the contributor explicitly chooses to change the purpose. */}
