@@ -75,7 +75,7 @@ export default function ContributePhotoFlow({
   const seasonRequest = useRef(0);
   // 3. What it's for, 4. the season / team / school
   const [purpose, setPurpose] = useState<PhotoPurpose | null>(initialType || null);
-  const [showPurposePicker, setShowPurposePicker] = useState(!initialType);
+  const [showPurposePicker, setShowPurposePicker] = useState(!initialType || initialType === 'timeline_hero');
   const [seasonKey, setSeasonKey] = useState('');
   // "Other": a year and a team or league we don't have (the Arizona Fall
   // League, a travel team...).
@@ -229,7 +229,7 @@ export default function ContributePhotoFlow({
   };
   const startNewUpload = () => {
     if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
-    setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(false);
+    setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(true);
     setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
     setFile(null);setPreview('');setApprovedSig('');setError('');
     if (archivedYear !== null) { setSeasonKey('other');setOther({year:archivedYear,team:''}); }
@@ -324,7 +324,7 @@ export default function ContributePhotoFlow({
 
   const choosePurpose = (id: PhotoPurpose) => {
     setPurpose(id);
-    setShowPurposePicker(false);
+    setShowPurposePicker(id === 'timeline_hero');
     if (id !== 'team_logo') { setSelectedTeam(null); setTeamId(''); }
     setCrop(null);
     setLandscape(false);
@@ -495,10 +495,10 @@ export default function ContributePhotoFlow({
   };
   const needsSeason = Boolean(type?.asks === 'season' && main && pick === 'player');
   const sending = stage === 'sending';
-
-  return (
-    <div className="ypf-flow">
-      <section className="ypf-step ypf-hero-mode" aria-label="Yearly hero image actions">
+  // Contextual controls belong beneath the Career Path Year Photo radio
+  // option, not above the general photo contribution workflow.
+  const yearlyHeroActions = (
+<section className="ypf-step ypf-hero-mode" aria-label="Yearly hero image actions">
         <div className="ycd-label">YEARLY HERO IMAGES — CREATE OR CORRECT</div>
         <div className="ycd-actions">
           <button type="button" className={`ycd-btn${!manageHeroMode && purpose === 'timeline_hero' ? ' is-on' : ''}`}
@@ -511,6 +511,16 @@ export default function ContributePhotoFlow({
         </div>
         {manageHeroMode && <p className="ycd-muted ycd-small">Start by selecting a player. Existing approved yearly images and their years will appear automatically.</p>}
       </section>
+  );
+
+  return (
+    <div className="ypf-flow">
+      {manageHeroMode && (
+        <div className="ypf-selected-purpose">
+          <div><span className="ypf-selected-kicker">CAREER PATH YEAR PHOTO</span><strong>MANAGE EXISTING YEARLY HERO</strong></div>
+          <button type="button" className="ycd-link ycd-small" onClick={startNewUpload}>Back to photo options</button>
+        </div>
+      )}
       {manageHeroMode && (
         <section className="ypf-step ypf-hero-manager">
           <div className="ycd-label"><span className="ycd-step">1</span> WHICH PLAYER'S YEARLY HERO?</div>
@@ -697,10 +707,13 @@ export default function ContributePhotoFlow({
         <div className="ycd-label"><span className="ycd-step">2</span> Where will this image go?</div>
         <div className="ypf-types" role="radiogroup" aria-label="Purpose">
           {PHOTO_TYPES.map((t) => (
-            <label className={`ypf-type${purpose === t.id ? ' is-on' : ''}`} key={t.id}>
-              <input type="radio" name="ypf-type" checked={purpose === t.id} onChange={() => choosePurpose(t.id)} />
-              <span><b>{t.label}</b><small>{t.prefix}{t.id === 'team_logo' ? ' · COLLEGE OR PRO TEAM LOGO' : t.id === 'school_logo' ? ' · HIGH SCHOOL CREST' : ''}</small>{purpose === t.id ? <small>{t.spec}</small> : null}</span>
-            </label>
+            <div className="ypf-type-group" key={t.id}>
+              <label className={`ypf-type${purpose === t.id ? ' is-on' : ''}`}>
+                <input type="radio" name="ypf-type" checked={purpose === t.id} onChange={() => choosePurpose(t.id)} />
+                <span><b>{t.label}</b><small>{t.prefix}{t.id === 'team_logo' ? ' · COLLEGE OR PRO TEAM LOGO' : t.id === 'school_logo' ? ' · HIGH SCHOOL CREST' : ''}</small>{purpose === t.id ? <small>{t.spec}</small> : null}</span>
+              </label>
+              {t.id === 'timeline_hero' && purpose === 'timeline_hero' ? yearlyHeroActions : null}
+            </div>
           ))}
         </div>
       </section> : null}
@@ -1028,6 +1041,8 @@ export default function ContributePhotoFlow({
         .ypf-tag .ycd-link { font-size: 12px; }
         .ypf-tag-x { border: 0; background: none; color: inherit; font-size: 20px; cursor: pointer; opacity: .7; }
         .ypf-types { display: flex; flex-direction: column; gap: 6px; }
+        .ypf-type-group { display:flex; flex-direction:column; gap:6px; min-width:0; }
+        .ypf-type-group > .ypf-hero-mode { margin:0 0 4px 0; }
         .ypf-type { display: flex; gap: 10px; align-items: flex-start; padding: 7px 10px; border: 1px solid var(--sb-card-border); border-radius: 6px; cursor: pointer; font-size: 13px; }
         .ypf-type input { margin-top: 3px; accent-color: var(--sb-green-hi); }
         .ypf-type span { display: flex; flex-direction: column; gap: 4px; }
