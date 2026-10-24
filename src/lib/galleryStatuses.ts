@@ -98,6 +98,13 @@ export function normalizeGalleryStatus(value: unknown): string {
   return String(value ?? '').trim().toUpperCase() || 'UNKNOWN';
 }
 
+// A retired player (including RETIRED - COACH) belongs in All-Time, never
+// in the Active Alumni gallery's loaded card roster. Canonical status is
+// read from the current stage record at render time, not hardcoded by player.
+export function isRetiredGalleryStatus(value: unknown): boolean {
+  return /^RETIRED(?:$|\\b)/.test(normalizeGalleryStatus(value));
+}
+
 export function isActiveGalleryStatus(value: unknown): boolean {
   return ACTIVE_GALLERY_STATUSES.includes(normalizeGalleryStatus(value));
 }
