@@ -106,7 +106,7 @@ addEventListener('yat:page-ready',lift);
 // On player profiles, DOMContentLoaded is sufficient: waiting for every
 // third-party player photo on window.load makes a ready page feel stuck.
 // Galleries keep their own explicit yat:page-ready signal and fallback.
-if(/\/player\/[^/]+/.test(location.pathname)){
+if(location.pathname.indexOf('/player/')!==-1){
   addEventListener('DOMContentLoaded',function(){setTimeout(lift,250);});
 }
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
