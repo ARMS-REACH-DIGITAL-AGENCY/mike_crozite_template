@@ -50,13 +50,16 @@ const SECTION_BOOTSTRAP =
 // splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
 var d=document,forced=/[?&]splash=/.test(location.search),joining=/[?&]join=1(?:&|$)/.test(location.search);
-// Host-only: Hamilton's first visit must not suppress Perry's or another school.
-// On /5004-style preview routes, keep the same isolation by school ID.
-var seg=location.pathname.split('/')[1]||'',schoolPath=/^[1-9][0-9]*$/.test(seg)?seg:'';
+// Every school subdomain has its own host-only 30-day visit cookie.
+// On a shared preview domain, /5004 and /5005 get separate keyed cookies.
+// The permanent yatstats.com landing page is not a timed school splash.
+var hostname=location.hostname.toLowerCase(),liveSchool=hostname.endsWith('.yatstats.com')&&hostname!=='www.yatstats.com';
+var seg=location.pathname.split('/')[1]||'',schoolPath=!liveSchool&&/^[1-9][0-9]*$/.test(seg)?seg:'';
 var splashCookie=schoolPath?'yat_splash_seen_'+schoolPath:'yat_splash_seen';
 var seen=!forced&&(joining||d.cookie.split(';').some(function(value){return value.trim()===splashCookie+'=1';}));
 // Forced QA previews and JOIN deep links do not consume the first-visit intro.
-if(!forced&&!joining)d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';
+// Do not write a splash cookie on the static platform landing page.
+if(!forced&&!joining&&(liveSchool||schoolPath))d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
 var set=function(css){st.textContent=css;};
 var P='html #yatSplash';
