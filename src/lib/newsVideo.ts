@@ -45,8 +45,12 @@ export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | n
   }
 
   if (host === 'instagram.com' || host === 'm.instagram.com') {
-    return ['reel', 'p', 'tv'].includes(parts[0] || '') && Boolean(parts[1])
-      ? video('Instagram', null, null) : null;
+    // Reuse the same captioned Instagram embed URL used by PlayerInstagramFeed.
+    // Reject unrecognized paths/IDs; Instagram may still restrict some posts.
+    const type = parts[0] || '';
+    const id = parts[1] || '';
+    return ['reel', 'p', 'tv'].includes(type) && /^[A-Za-z0-9_-]{5,40}$/.test(id)
+      ? video('Instagram', 'https://www.instagram.com/' + type + '/' + id + '/embed/captioned/', null) : null;
   }
 
   if (host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
