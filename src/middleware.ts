@@ -45,6 +45,8 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const host = request.headers.get('host') || request.nextUrl.hostname;
+  // Preserve the original school hostname for the standalone replay page.
+  if (path === '/splash' && schoolHostnamePattern(host)) requestHeaders.set('x-yat-splash-school-host', host);
   // Only school hostnames are rewritten; homepage, global APIs and assets
   // remain untouched. The school ID in the internal URL is never guessed.
   const isSchoolPagePath = (
