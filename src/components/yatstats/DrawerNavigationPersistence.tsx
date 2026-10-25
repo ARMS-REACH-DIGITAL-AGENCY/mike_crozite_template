@@ -41,11 +41,6 @@ function applySavedTheme() {
 }
 
 function restoreDrawerState() {
-  // Touch navigation must not resurrect a docked desktop rail after changing tabs.
-  if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) {
-    document.body.classList.remove('drawer-left-open', 'drawer-sort-open', 'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open', 'yat-left-search-mode', 'yat-desktop-docked-drawers', 'drawer-open');
-    return;
-  }
   try {
     const saved = JSON.parse(sessionStorage.getItem(DRAWER_STATE_KEY) || 'null') as DrawerState | null;
     if (!saved) return;
@@ -150,7 +145,7 @@ export default function DrawerNavigationPersistence() {
         if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
 
         const isMobileLeftNav =
-          drawer.id === 'drawerLeft' && (isMobileNavigationViewport() || window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+          drawer.id === 'drawerLeft' && isMobileNavigationViewport();
 
         if (isMobileLeftNav) {
           showSectionWithoutClosing(tab);
