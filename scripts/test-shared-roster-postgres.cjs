@@ -43,10 +43,10 @@ CREATE TABLE public.player_team_override(playerid text);
 CREATE TABLE public.school_player_profile_submission_raw(approved_playerid text,is_reviewed boolean,is_verified boolean);
 CREATE TABLE public.tbc_batting_2026_season_raw(playerid text,year text,teamid text);
 CREATE TABLE public.tbc_pitching_2026_season_raw(playerid text,year text,teamid text);
-CREATE TABLE public.teamid_universe_mapping(teamid text PRIMARY KEY,current_team_name text,current_org_or_conference_name text,level_label text);
+CREATE TABLE public.teamid_universe_mapping(teamid text PRIMARY KEY,current_team_name text,current_org_or_conference_name text,level_label text,current_team_short_name text);
 CREATE TABLE public.tbc_players_raw(playerid text PRIMARY KEY,posit text,bats text,throws text);
 INSERT INTO public.teamid_universe_mapping VALUES
-('20588','Morehead State University','OVC','NCAA-D1'),('20106','Cal State Northridge','Big West','NCAA-D1');
+('20588','Morehead State University','OVC','NCAA-D1','Morehead State'),('20106','Cal State Northridge','Big West','NCAA-D1','CSUN');
 INSERT INTO public.flip_card_front_stage
 (playerid,hsid,first_name,last_name,status_label,display_status_label,level_label,display_level_label,committed_teamid,committed_team_name,current_team_name)
 VALUES
@@ -68,6 +68,8 @@ async function run(){
    assert.equal(school.filter(x=>x.status_label==='ACTIVE').length,1,'Active players retained');
    assert.equal(school.find(x=>x.playerid==='YAT000063').resolved_committed_team_name,'Morehead State University');
    assert.equal(school.find(x=>x.playerid==='YAT000055').resolved_committed_team_name,'Cal State Northridge');
+   assert.equal(school.find(x=>x.playerid==='YAT000063').resolved_committed_team_short_name,'Morehead State');
+   assert.equal(school.find(x=>x.playerid==='YAT000055').resolved_committed_team_short_name,'CSUN');
    assert.equal((await db.query(q.school,['9001'])).rows.length,1,'Other schools load');
    assert.equal((await db.query(q.player,['YAT000063'])).rows[0].resolved_committed_team_name,'Morehead State University');
    const bad=q.school.replace("COALESCE(fs.level_label, '')","COALESCE(level_label, '')");

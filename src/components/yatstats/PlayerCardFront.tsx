@@ -295,7 +295,8 @@ function normalizeImageUrl(value: string | null | undefined): string {
 function formatCommitStatusLabel(player: Record<string, unknown>, statusLabel: string): string {
   if (statusLabel.toUpperCase() !== "COMMIT") return statusLabel;
 
-  const committedTeamName = asText(player.committed_team_name)
+  const committedTeamName = asText(player.resolved_committed_team_short_name)
+    || asText(player.committed_team_name)
     || asText(player.resolved_committed_team_name);
 
   if (!committedTeamName) return statusLabel;
