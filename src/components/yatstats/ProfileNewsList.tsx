@@ -85,6 +85,17 @@ export default function ProfileNewsList({
   // Newest first by default; ▲▼ at the top flips it (same as Stories).
   const [sort, setSort] = useState<SortDir>("newest");
   const [search, setSearch] = useState("");
+  const [shareMessage, setShareMessage] = useState('');
+  const shareOpenedStory = async () => {
+    if (!openStory) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('story', openStory.uuid);
+    const link = url.toString();
+    try {
+      if (navigator.share) await navigator.share({ title: openStory.title, url: link });
+      else { await navigator.clipboard.writeText(link); setShareMessage('News link copied'); }
+    } catch { /* The visitor cancelled sharing. */ }
+  };
   const sorted = useMemo(() => {
     const time = (s: ProfileNewsStory) => (s.publishedAt ? new Date(s.publishedAt).getTime() || 0 : 0);
     const q = search.trim().toLocaleLowerCase();
@@ -171,6 +182,8 @@ export default function ProfileNewsList({
         footer={
           openStory ? (
             <div className="pp-news-modal-actions">
+              <button type="button" className="pp-news-share-button" onClick={shareOpenedStory}><i className="ri-share-forward-line" aria-hidden="true" /> SHARE</button>
+              {shareMessage ? <span role="status">{shareMessage}</span> : null}
               <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
                 {selectedVideo ? `Open video on ${selectedVideo.provider}` : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
                 <i className="ri-external-link-line" aria-hidden="true" />
@@ -193,6 +206,7 @@ export default function ProfileNewsList({
 
       <style>{`
         .yp-news-mobile-ad {display:none;}
+        .pp-news-share-button{display:inline-flex;gap:8px;align-items:center;background:transparent;border:1px solid currentColor;border-radius:5px;padding:9px 13px;color:var(--yat-content-drawer-fg);font:700 12px var(--yat-font-ui,Arial,sans-serif);cursor:pointer}
         .pp-news-video-label{display:inline-flex;align-items:center;gap:5px;font:800 11px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);color:#ffb21c}
         .pp-news-video-player{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:#000;overflow:hidden}
         .pp-news-video-player iframe{display:block;width:100%;height:100%;border:0}
