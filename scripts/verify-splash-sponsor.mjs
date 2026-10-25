@@ -51,6 +51,8 @@ assert.ok(featured['5004'].confirmedCutouts.every(id => featured['5004'].ids.inc
 assert.ok(featured['5004'].confirmedCutouts.includes('YAT000067'), 'preserve working Ben Ball cutout as fast fallback');
 assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'render approved IDs before DB roster loads');
 assert.match(splash, /data-confirmed-ids=\{confirmedCutoutIds\.join/, 'render confirmed cutout IDs before DB roster loads');
+assert.match(splash, /confirmedCutoutIds\.length \? ' is-visible'/, 'immediate visible server-rendered cutout');
+assert.match(splash, /then-cutouts\/\$\{encodeURIComponent\(confirmedCutoutIds\[0\]\)\}\.png/, 'render known-good image src without relying on JavaScript');
 assert.match(splash, /if\(staticIds\.length\)begin\(staticIds,staticConfirmed\)/, 'start curated splash image loading immediately');
 assert.match(school, /window\.__yatSplashRoster=/, 'save streamed roster event to prevent missed listeners');
 assert.match(school, /featuredPlayerIds=\{splashOverride\?\.ids \?\? \[\]\}/, 'pass generic school configuration to shared splash');
