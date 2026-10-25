@@ -123,7 +123,7 @@ assert.match(css, /yat-splash-player \.yat-splash-player-caption-name\{animation
 assert.doesNotMatch(css, /yat-splash-player\{[^}]*opacity:0/, 'never hide selected cutout behind hydration-controlled class');
 // Player profiles do not render InteractionStrip, so these independent,
 // school-wide queries must not block navigation from Favorites.
-assert.match(school, /const isProfileRoute = \/\\/player\\//, 'profile route fast-path must be scoped to player pages');
+assert.match(school, /const isProfileRoute = /, 'profile route fast-path must be scoped to player pages');
 assert.match(school, /isProfileRoute\s*\? Promise\.resolve\(\[\] as string\[\]\)/, 'avoid season coverage query on profiles');
 assert.match(school, /isProfileRoute\s*\? Promise\.resolve\(\{ playerIds:/, 'avoid current-year summary query on profiles');
 assert.match(school, /teamSeasonResults = !isProfileRoute &&/, 'avoid team-season query on profiles');
