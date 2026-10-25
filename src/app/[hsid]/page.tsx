@@ -414,7 +414,7 @@ export default async function SchoolPage({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ schoolState?: string; team?: string; view?: string }>;
+  searchParams: Promise<{ schoolState?: string; team?: string; view?: string; player?: string }>;
 }) {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -460,7 +460,7 @@ export default async function SchoolPage({
   // Only the active gallery is needed on a normal school landing. Preserve
   // first-paint All-Time records for explicit team-year deep links.
   const teamYear = parseTeamYear(qp.team);
-  const loadAllTime = Boolean(teamYear) || qp.view === "alltime";
+  const loadAllTime = Boolean(teamYear) || qp.view === "alltime" || Boolean(qp.player);
 
   const tributeSourceHsids = Array.from(new Set(
     TRIBUTE_STAT_OVERRIDES
