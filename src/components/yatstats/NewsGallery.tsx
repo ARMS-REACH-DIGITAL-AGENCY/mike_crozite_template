@@ -292,7 +292,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     const gradMatch = !newsFilters.classOf.length || newsFilters.classOf.some(choice => {
       if (choice === grad) return true;
       if (choice === 'PRE-1980') return Number(grad) > 0 && Number(grad) < 1980;
-      const range = choice.match(/^(\\d{4})-(\\d{4})$/);
+      const range = choice.match(/^(\d{4})-(\d{4})$/);
       return Boolean(range && Number(grad) >= Number(range[1]) && Number(grad) <= Number(range[2]));
     });
     if (!match(newsFilters.status,p.status) || !match(newsFilters.level,p.level) || !match(newsFilters.org,p.orgName)) return false;
