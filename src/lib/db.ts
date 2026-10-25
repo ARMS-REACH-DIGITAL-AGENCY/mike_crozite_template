@@ -2466,6 +2466,12 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // drifting into two resolvers for the same "truth" table.
 const FLIP_CARD_STAGE_SELECT = `
     SELECT fs.*,
+      -- Look up the canonical college name only for a COMMIT missing its
+      -- stored name (e.g. automatically published announcements). Reuse the
+      -- indexed teamid mapping in this same roster query: no extra page-load
+      -- round trips or per-player fetches.
+      COALESCE(NULLIF(BTRIM(fs.committed_team_name), ''), commit_map.current_team_name)
+        AS resolved_committed_team_name,
       -- Staging does not store bats/throws and often has NULL position.
       -- Pull the canonical TBC metadata so stage-only cards choose the right silhouette.
       tp.bats,
@@ -2514,9 +2520,13 @@ const FLIP_CARD_STAGE_SELECT = `
       END AS level_label
     FROM ${PLAYER_STAGE_IDENTITY_SOURCE} fs
     LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
+    LEFT JOIN public.teamid_universe_mapping commit_map
+      ON commit_map.teamid = fs.committed_teamid
+     AND NULLIF(BTRIM(fs.committed_team_name), '') IS NULL
+     AND UPPER(BTRIM(COALESCE(fs.status_label, ''))) = 'COMMIT'
 `;
 
-export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-identity-20261018', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-commit-name-20261025', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `WITH ${PLAYER_STAGE_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
