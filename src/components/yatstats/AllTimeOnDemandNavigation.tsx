@@ -13,7 +13,12 @@ export default function AllTimeOnDemandNavigation({ loaded }: { loaded: boolean 
   const router = useRouter();
 
   useEffect(() => {
-    if (loaded) return;
+    if (loaded) {
+      // The filter controller may have applied its All-Time preset before
+      // the deferred server response populated the card grid.
+      window.dispatchEvent(new Event('yat:alltime-gallery-loaded'));
+      return;
+    }
 
     const section = document.getElementById('sec-alltime');
     if (!section) return;
