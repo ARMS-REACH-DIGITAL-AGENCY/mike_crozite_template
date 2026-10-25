@@ -38,7 +38,7 @@ export default function NewsEngagement({uuid,hsid}:{uuid:string;hsid:string}){
      void fetch('/api/news/interact/'+encodeURIComponent(uuid),{
        method:'POST',credentials:'include',
        headers:{'Content-Type':'application/json',...(await authHeaders())},
-       body:JSON.stringify({action:'share',method:navigator.share?'native':'copy'})
+       body:JSON.stringify({action:'share',method:typeof navigator.share === 'function'?'native':'copy'})
      }).catch(()=>{});
    }catch{ /* Share was cancelled. */ }
  };
