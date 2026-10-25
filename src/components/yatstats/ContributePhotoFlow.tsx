@@ -200,7 +200,9 @@ export default function ContributePhotoFlow({
     setTagged(list);
     if (list[0]?.playerId !== before) {
       setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
-      setFile(null);setPreview('');setApprovedSig('');
+      // Choosing the player must never discard the photo selected in Step 1.
+      // The recipient changed, so only the previous proof approval expires.
+      setApprovedSig('');setCrop(null);
       setOccupiedYears([]);setSlotsReady(false);setHeroLoadError('');
       loadSeasons(list[0] || null);
       if (list[0]?.schoolId) setSchool({ hsid: list[0].schoolId, name: list[0].schoolName || '' });
@@ -423,7 +425,7 @@ export default function ContributePhotoFlow({
       const blob = isLogo && uploadFile.size <= CONTRIBUTE_MAX_PHOTO_BYTES ? uploadFile : await shrinkPhoto(uploadFile);
       const form = new FormData();
       if (token) form.set('idToken', token);
-      form.set('photo', blob, uploadFile.name);
+      form.set('photo', blob, blob.type === 'image/jpeg' ? uploadFile.name.replace(/\.[^.]+$/, '') + '.jpg' : uploadFile.name);
       form.set('purpose', type.id);
       if (type.id === 'timeline_hero' && editingHeroId) form.set('replaceUploadId',editingHeroId);
       form.set('year', String(yearToSend() || THIS_YEAR));
