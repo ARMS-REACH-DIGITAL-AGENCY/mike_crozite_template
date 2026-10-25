@@ -132,7 +132,11 @@ assert.match(school, /stripPlayers = \(isProfileRoute \? \[\] : allStripRows\)/,
 
 assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:3px;/, 'desktop cutout must rest on the lower field baseline');
 assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:3px;/, 'mobile cutout must rest on the marked field baseline');
-assert.match(root, /mounted\+5500/);
+assert.ok(root.includes("var minimumHold=noSponsor?3600:5500;"), 'skip empty sponsor read time but keep normal sponsored intro');
+assert.ok(root.includes("var earliest=Math.max(mounted+minimumHold"), 'sponsor-aware minimum hold used for exit');
+assert.ok(root.includes("addEventListener('DOMContentLoaded'"), 'profile splash must not wait for slow third-party images');
+assert.ok(splash.includes("data-yat-sponsor-state','none'"), 'record when no sponsor can be shown');
+assert.ok(splash.includes("data-yat-sponsor-state','pending'"), 'do not skip the paid sponsor while its image is loading');
 assert.ok(!root.includes('sponsorTimer='), 'sponsor timer must start from actual splash mount');
 assert.match(school, /splashRosterJson/);
 assert.match(school, /sortActivePlayers\(\[\.\.\.activeAlumniRows\]\)/, 'splash candidates must follow the Active Alumni gallery sort');
