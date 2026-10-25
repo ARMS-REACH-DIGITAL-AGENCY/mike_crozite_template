@@ -121,6 +121,15 @@ assert.match(splash, /function fitCaption\(caption\)/, 'long team names fit with
 assert.match(css, /yat-splash-player\{[^}]*opacity:1;pointer-events:none/, 'player wrapper must stay visible even if hydration resets is-visible class');
 assert.match(css, /yat-splash-player \.yat-splash-player-caption-name\{animation:yatSplashNameFlash/, 'name flash must not depend on hydration-prone is-visible class');
 assert.doesNotMatch(css, /yat-splash-player\{[^}]*opacity:0/, 'never hide selected cutout behind hydration-controlled class');
+
+// On Chrome Android an image with no src may draw an outlined empty box, even
+// with alt="". Keep the loaded cutout visible, but never display its empty
+// placeholder while a school is waiting for its first verified player image.
+assert.match(css, /yat-splash-player img:not\(\[src\]\)/, 'hide empty player image elements on splash');
+assert.match(css, /yat-splash-player img\[src=""\]/, 'hide empty src player images');
+assert.ok(splash.includes("picture.addEventListener('error'"), 'hide cutout if a previously valid image fails to render');
+assert.ok(splash.includes("picture.removeAttribute('src')"), 'clear failed image src to avoid broken image rectangle');
+
 // Player profiles do not render InteractionStrip, so these independent,
 // school-wide queries must not block navigation from Favorites.
 assert.match(school, /const isProfileRoute = /, 'profile route fast-path must be scoped to player pages');
