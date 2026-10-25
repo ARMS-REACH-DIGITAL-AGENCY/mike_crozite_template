@@ -103,6 +103,12 @@ var lift=function(){if(forced||ready)return;ready=true;
 };
 if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;flip();}});return;}
 addEventListener('yat:page-ready',lift);
+// On player profiles, DOMContentLoaded is sufficient: waiting for every
+// third-party player photo on window.load makes a ready page feel stuck.
+// Galleries keep their own explicit yat:page-ready signal and fallback.
+if(/\/player\/[^/]+/.test(location.pathname)){
+  addEventListener('DOMContentLoaded',function(){setTimeout(lift,250);});
+}
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);
 })();}catch(e){}`;
