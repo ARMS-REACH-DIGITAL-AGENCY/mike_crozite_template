@@ -30,9 +30,9 @@ export default function NewsEngagement({uuid,hsid}:{uuid:string;hsid:string}){
  const [shareMessage,setShareMessage]=useState('');
  const shareNews=async()=>{
    if(!me){openSignIn();return;}
-   const url=new URL(window.location.href);
+   // One canonical, article-specific short URL with server-generated Open Graph metadata.
+   const url=new URL('/n/'+encodeURIComponent(uuid),window.location.origin);
    const nativeShare = typeof navigator.share === 'function';
-   url.searchParams.set('story',uuid);
    try{
      if(nativeShare)await navigator.share({title:document.title,url:url.toString()});
      else{await navigator.clipboard.writeText(url.toString());setShareMessage('Link copied');}
