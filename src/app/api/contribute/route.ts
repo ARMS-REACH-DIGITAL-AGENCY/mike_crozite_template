@@ -95,6 +95,11 @@ export async function POST(req: NextRequest) {
         ? String(submitted.level_label || '').trim().toUpperCase() === 'HIGH SCHOOL'
         : selectedPlayerLevel === 'HIGH SCHOOL';
       const status = String(submitted.status_label || '').toUpperCase();
+      // A blank optional commitment field is not a commitment request when
+      // creating a missing player; preserve the existing new-player workflow.
+      if (isNew && submitted.committed_teamid === '' && status !== 'COMMIT') {
+        delete submitted.committed_teamid;
+      }
       const teamIdSpecified = Object.prototype.hasOwnProperty.call(submitted,'committed_teamid');
       const teamId = String(submitted.committed_teamid || '');
       if (submitted.status_label && !(isHighSchool
@@ -104,6 +109,9 @@ export async function POST(req: NextRequest) {
       }
       let commitTeamName:string|null=null;
       if (teamIdSpecified || status==='COMMIT' || status==='UNCOMMITTED') {
+        if (isNew && isHighSchool && status==='UNCOMMITTED' && !teamIdSpecified) {
+          // A missing high-school player may be added as UNCOMMITTED.
+        } else {
         if (!isHighSchool || isNew) return fail('Select an existing high-school player to announce a college commitment.');
         if (!teamIdSpecified || !['UNCOMMITTED','COMMIT'].includes(status)) {
           return fail('Choose the high-school status and college together.');
@@ -121,6 +129,7 @@ export async function POST(req: NextRequest) {
           );
           if(!colleges[0]) return fail('That team is not a recognized college program.');
           commitTeamName=colleges[0].current_team_name;
+        }
         }
       }
       if (submitted.level_label && ![

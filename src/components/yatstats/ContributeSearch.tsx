@@ -143,7 +143,7 @@ export default function ContributeSearch(props: Props) {
         return;
       }
       if (pick.current.mode !== 'school' && pick.current.mode !== 'team' && pick.current.mode !== 'college' && d.playerId) {
-        pick.current.onPlayer({
+        pick.current.onPlayer?.({
           playerId: d.playerId,
           displayName: d.playerName || '',
           headshotUrl: d.headshotUrl || '',

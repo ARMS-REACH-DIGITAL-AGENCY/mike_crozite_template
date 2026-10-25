@@ -184,7 +184,7 @@ export default function ContributePlayerInfoForm({
             {values.status_label&&!['COMMIT','UNCOMMITTED'].includes(values.status_label)
               ? <option value={values.status_label} disabled>{values.status_label} — select a high-school status</option>:null}
             <option value="UNCOMMITTED">UNCOMMITTED</option>
-            <option value="COMMIT">{selectedCommitTeam ? `${selectedCommitTeam.name} COMMIT` : 'COLLEGE COMMIT — choose a college below'}</option>
+            <option value="COMMIT" disabled={!player}>{selectedCommitTeam ? `${selectedCommitTeam.name} COMMIT` : 'COLLEGE COMMIT — choose a college below'}</option>
           </> : <>
             {values.status_label&&!STATUS.includes(values.status_label)?<option value={values.status_label}>{values.status_label}</option>:null}
             {STATUS.map(x=><option key={x} value={x}>{x}</option>)}
@@ -201,7 +201,7 @@ export default function ContributePlayerInfoForm({
     </div>
     {isHighSchoolPlayer ? <div className="ycd-field">
       <span className="ycd-label">College commitment</span>
-      {values.status_label==='COMMIT' ? (
+      {!player ? <p className="ycd-muted ycd-small">Add the missing player first; college commitments can be attached after the player exists.</p> : values.status_label==='COMMIT' ? (
         selectedCommitTeam && values.committed_teamid === selectedCommitTeam.teamId ? (
           <div className="ycd-chosen-wrap">
             <div className="ycd-chosen">
