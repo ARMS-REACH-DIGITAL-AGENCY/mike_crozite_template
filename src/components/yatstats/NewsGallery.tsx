@@ -420,20 +420,6 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
       </div>
       <style>{`
         .yat-news-load-more{display:block;margin:18px auto;padding:10px 18px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);cursor:pointer;font-weight:700}
-        /* A touch phone in browser 'Desktop site' mode must not retain a
-           hidden sponsor column or narrow the reading area. */
-        .yp-school-news {width:100%!important;max-width:none!important;box-sizing:border-box;}
-          .yp-school-news-layout{display:block!important;min-width:0;}
-          .yp-school-news-main{width:100%;min-width:0;}
-          .yp-school-news-tower{display:none!important;}
-          .yp-school-news-inline-ad{
-            display:flex;box-sizing:border-box;flex-direction:column;
-            justify-content:center;align-items:center;gap:9px;
-            aspect-ratio:6/5;width:min(100%,300px);margin:20px auto;padding:15px;
-            border:1px dashed #898989;border-radius:5px;
-            background:#181818;color:#fff;text-align:center;
-          }
-        }
         .yp-school-news {
           width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;container:yp-news / inline-size;
           color:var(--fg);background:var(--bg);min-height:60vh;
@@ -544,7 +530,13 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           .yp-school-news-tower{display:none}
           .yp-school-news-main .pp-news-feed{padding:0 2px 55px}
         }
-        @media (hover:none) and (pointer:coarse) {
+        @media (hover: none) and (pointer: coarse) {
+          #sec-news .yp-school-news{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box}
+          #sec-news .yp-school-news-layout{display:block!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important}
+          #sec-news .yp-school-news-main{min-width:0!important;width:100%!important}
+          #sec-news .yp-school-news-tower{display:none!important}
+          #sec-news .yp-school-news-inline-ad{display:flex!important}
+        }
         `}</style>
     </section>
   );
