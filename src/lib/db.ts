@@ -2479,9 +2479,9 @@ const FLIP_CARD_STAGE_SELECT = `
       COALESCE(NULLIF(BTRIM(fs.position), ''), NULLIF(BTRIM(tp.posit), '')) AS position,
       -- Every alumnus we know of gets a card: one with no status yet is
       -- UNKNOWN (until someone tells us), never left off the page.
-      COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
+      COALESCE(NULLIF(UPPER(TRIM(fs.status_label)), ''), 'UNKNOWN') AS status_label,
       -- Official levels only (Oct 18, 2026): every alias, any capitalisation.
-      CASE UPPER(TRIM(COALESCE(level_label, '')))
+      CASE UPPER(TRIM(COALESCE(fs.level_label, '')))
         WHEN 'AAA'           THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A'      THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A (40-MAN)' THEN 'TRIPLE-A'
@@ -2516,7 +2516,7 @@ const FLIP_CARD_STAGE_SELECT = `
         WHEN 'HS'            THEN 'HIGH SCHOOL'
         WHEN 'HIGH SCHOOL'   THEN 'HIGH SCHOOL'
         WHEN '-'             THEN ''
-        ELSE UPPER(TRIM(COALESCE(level_label, '')))
+        ELSE UPPER(TRIM(COALESCE(fs.level_label, '')))
       END AS level_label
     FROM ${PLAYER_STAGE_IDENTITY_SOURCE} fs
     LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
