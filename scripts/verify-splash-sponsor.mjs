@@ -95,9 +95,12 @@ assert.ok(root.includes("replayRoute=location.pathname==='/splash'"), 'head boot
 assert.ok(root.includes("if(replayRoute){d.cookie=splashCookie"), 'enter must mark school visited');
 assert.ok(root.includes("location.replace('/')"), 'enter must navigate to gallery');
 const middleware = readFileSync('src/middleware.ts', 'utf8');
-assert.ok(middleware.includes("path === '/splash'"), 'middleware must accept replay path');
 assert.ok(middleware.includes("request.nextUrl.pathname === '/splash'"), 'middleware must force replay SSR');
-assert.ok(middleware.includes("(path === '/' || path === '/splash')"), 'replay must internally render the school gallery');
+assert.ok(!middleware.includes("    path === '/splash' ||"), 'replay must bypass expensive middleware school-host rewrite');
+const dedicatedSplash = readFileSync('src/app/splash/page.tsx', 'utf8');
+assert.ok(dedicatedSplash.includes('export default async function SplashReplayPage'), 'standalone replay route must exist');
+assert.ok(dedicatedSplash.includes('previewMode'), 'standalone page must display enter button');
+assert.ok(dedicatedSplash.includes("getSchoolByUrl('https://' + host)"), 'replay must resolve school dynamically');
 
 console.log('[splash schools] per-school first-visit cookies, permanent platform landing, JOIN and forced replay verified');
 

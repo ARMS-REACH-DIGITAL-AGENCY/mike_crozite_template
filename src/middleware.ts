@@ -49,7 +49,6 @@ export async function middleware(request: NextRequest) {
   // remain untouched. The school ID in the internal URL is never guessed.
   const isSchoolPagePath = (
     path === '/' ||
-    path === '/splash' ||
     path.startsWith('/player/') ||
     path.startsWith('/connect-contribute') ||
     path.startsWith('/contribute-review')
