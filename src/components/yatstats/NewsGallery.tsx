@@ -312,7 +312,9 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     newsFilters.favoritesOnly
   );
   useEffect(() => {
-    if (hasNarrowing && hasMore && posts && !loadingMore && !pageError) void loadMore();
+    const linkedStory = new URLSearchParams(window.location.search).get('story');
+    const missingLinkedStory = Boolean(linkedStory && posts && !posts.some(post => post.uuid === linkedStory));
+    if ((hasNarrowing || missingLinkedStory) && hasMore && posts && !loadingMore && !pageError) void loadMore();
   }, [hasNarrowing, hasMore, posts, loadingMore, pageError, loadMore]);
 
   // Row 3 headshot clicks on the News tab (see InteractionStrip).
