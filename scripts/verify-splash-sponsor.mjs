@@ -38,6 +38,15 @@ assert.doesNotMatch(splash, /className="yat-splash-swoosh-foreground"/, 'no diag
 assert.doesNotMatch(css, /mix-blend-mode:screen/, 'no lightened seam from overlay blending');
 assert.equal(css.split('splash-field-reference.webp').length - 1, 1, 'field background image rendered exactly once');
 assert.match(splash, /logo\.naturalWidth/);
+// The caption is deliberately anchored low beside the player's feet rather
+// than growing upward into a multi-line text column on phones.
+assert.match(css, /yat-splash-player-caption\{[^}]*left:calc\(100% - 14px\);bottom:clamp\(12px,2\.1vh,28px\)/, 'desktop player caption stays low');
+assert.match(css, /yat-splash-player-caption\{left:calc\(100% - 30px\);right:auto;bottom:clamp\(8px,1\.25vh,16px\)/, 'phone player caption matches approved lower-left reference');
+assert.match(css, /yat-splash-player-caption-name\{font-weight:800;text-transform:uppercase/, 'player name stays small and uppercase');
+assert.match(css, /yatSplashNameFlash \.75s ease-out 1\.4s/, 'name glint follows YAT wordmark glint');
+assert.match(css, /@keyframes yatSplashNameFlash/, 'caption glint keyframes exist');
+assert.match(splash, /function fitCaption\(caption\)/, 'long team names fit without clipping');
+
 assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:3px;/, 'desktop cutout must rest on the lower field baseline');
 assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:3px;/, 'mobile cutout must rest on the marked field baseline');
 assert.match(root, /mounted\+5500/);
