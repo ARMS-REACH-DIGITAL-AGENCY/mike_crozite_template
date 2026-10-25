@@ -38,14 +38,14 @@ const SPLASH_CSS = `
   mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.22) 8%,rgba(0,0,0,.8) 22%,#000 36%);
 }
 
-/* Keep the cutout above the single field artwork; do not duplicate or clip the field background. */
-#yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:3px;transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:0;transition:opacity .35s ease;pointer-events:none}
+/* Keep the cutout above the single field artwork. Do not gate its visibility on a JS-added class: React hydration can restore the server class on streamed school pages, hiding a loaded cutout and its caption. A missing <img src> is inherently invisible. */
+#yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:3px;transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:1;pointer-events:none}
 #yatSplash .yat-splash-player.is-visible{opacity:1}
 #yatSplash .yat-splash-player-caption{position:absolute;left:calc(100% - 14px);bottom:clamp(12px,2.1vh,28px);text-align:left;color:rgba(255,255,255,.96);font-size:clamp(10px,.9vw,12px);font-weight:500;letter-spacing:.005em;line-height:1.14;text-shadow:0 2px 5px #000;max-width:min(55vw,360px);min-width:0;white-space:nowrap;pointer-events:none}
 #yatSplash .yat-splash-player-caption span{display:block}
 #yatSplash .yat-splash-player-caption-name{font-weight:800;text-transform:uppercase;transform-origin:left center}
 /* The YAT wordmark glint finishes at ~1.2s; let the player's name flash next. */
-#yatSplash .yat-splash-player.is-visible .yat-splash-player-caption-name{animation:yatSplashNameFlash .75s ease-out 1.4s both}
+#yatSplash .yat-splash-player .yat-splash-player-caption-name{animation:yatSplashNameFlash .75s ease-out 1.4s both}
 #yatSplash .yat-splash-player-caption-team{font-weight:500}
 #yatSplash .yat-splash-player img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
 @media(max-width:600px){#yatSplash .yat-splash-player{left:22%;bottom:3px;width:min(34vw,170px);height:clamp(115px,18vh,205px)}#yatSplash .yat-splash-player-caption{left:calc(100% - 30px);right:auto;bottom:clamp(8px,1.25vh,16px);font-size:clamp(9px,2.45vw,11px);max-width:calc(100vw - 34vw);min-width:0}}
