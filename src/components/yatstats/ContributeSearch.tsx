@@ -142,7 +142,7 @@ export default function ContributeSearch(props: Props) {
         else setRosterOf({ hsid: school.hsid, name: school.name });
         return;
       }
-      if (pick.current.mode !== 'school' && pick.current.mode !== 'team' && d.playerId) {
+      if (pick.current.mode !== 'school' && pick.current.mode !== 'team' && pick.current.mode !== 'college' && d.playerId) {
         pick.current.onPlayer({
           playerId: d.playerId,
           displayName: d.playerName || '',
