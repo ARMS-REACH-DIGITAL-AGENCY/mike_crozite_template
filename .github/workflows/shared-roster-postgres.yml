@@ -1,0 +1,49 @@
+name: Shared Roster SQL Regression
+on:
+  pull_request:
+    branches: [Easter-NEWS]
+  push:
+    branches: [Easter-NEWS]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shared-roster-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: yatstats_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d yatstats_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      YATSTATS_SQL_FIXTURE: isolated-local-postgres
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: test-only-password
+      PGDATABASE: yatstats_ci
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d682 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Check shared roster query at build time
+        run: node scripts/check-shared-roster-sql.cjs
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Execute actual shared SQL against isolated PostgreSQL
+        run: node scripts/test-shared-roster-postgres.cjs
