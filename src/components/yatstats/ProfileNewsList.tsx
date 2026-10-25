@@ -6,6 +6,7 @@ import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import NewsEngagement from "./NewsEngagement";
+import { openSignIn, useFanMe } from './StoryViewer';
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
 import { toSlugFromDisplay } from "@/lib/slug";
@@ -87,7 +88,9 @@ export default function ProfileNewsList({
   const [sort, setSort] = useState<SortDir>("newest");
   const [search, setSearch] = useState("");
   const [shareMessage, setShareMessage] = useState('');
+  const me=useFanMe();
   const shareOpenedStory = async () => {
+    if(!me){openSignIn();return;}
     if (!openStory) return;
     const url = new URL(window.location.href);
     url.searchParams.set('story', openStory.uuid);

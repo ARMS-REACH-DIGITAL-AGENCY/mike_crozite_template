@@ -61,6 +61,7 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
   const flash=(t:string)=>{setNote(t);window.setTimeout(()=>setNote(''),2200);};
 
   const toggleLike=async()=>{
+    if(!me)return openSignIn();
     if(busy)return;
     setBusy(true);
     const prev=liked,prevCount=likeCount;
@@ -75,6 +76,7 @@ export default function FantasyGameSocial({gameKey,title,subtitle,shareUrl,share
   };
 
   const share=async()=>{
+    if(!me)return openSignIn();
     let method='link';
     let shareLink=shareUrl;
     try{
