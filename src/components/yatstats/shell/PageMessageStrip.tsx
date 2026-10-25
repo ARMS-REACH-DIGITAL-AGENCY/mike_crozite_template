@@ -116,10 +116,34 @@ export default function PageMessageStrip({
   useEffect(() => {
     const element = document.querySelector<HTMLElement>('.yat-unified-footer');
     if (!element) return;
-    const image = active?.image_url || '';
-    if (image) element.style.setProperty('--yat-footer-campaign-image', `url("${image.replaceAll('"', '%22')}")`);
+    const imageUrl = active?.image_url || '';
+    if (imageUrl) element.style.setProperty('--yat-footer-campaign-image', `url("${imageUrl.replaceAll('"', '%22')}")`);
     else element.style.removeProperty('--yat-footer-campaign-image');
-    return () => { element.style.removeProperty('--yat-footer-campaign-image'); };
+
+    // background-size:contain can paint YaTi narrower than his element.
+    // Keep both ticker fades beside the painted artwork, including campaign images.
+    const art = element.querySelector<HTMLElement>('.yat-unified-footer-art');
+    const image = new Image();
+    let disposed = false;
+    const syncArtEdge = () => {
+      if (disposed || !art || !image.naturalWidth || !image.naturalHeight) return;
+      const rect = art.getBoundingClientRect();
+      const scale = Math.min(rect.width / image.naturalWidth, rect.height / image.naturalHeight);
+      const right = rect.left - element.getBoundingClientRect().left + image.naturalWidth * scale;
+      element.style.setProperty('--yat-footer-art-right', `${right}px`);
+    };
+    image.onload = syncArtEdge;
+    image.src = imageUrl || 'https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png';
+    const observer = new ResizeObserver(syncArtEdge);
+    if (art) observer.observe(art);
+    syncArtEdge();
+    return () => {
+      disposed = true;
+      image.onload = null;
+      observer.disconnect();
+      element.style.removeProperty('--yat-footer-campaign-image');
+      element.style.removeProperty('--yat-footer-art-right');
+    };
   }, [active?.image_url]);
   return <div className="yat-page-message-strip" aria-label="Community messages">
     <div className="yat-page-message-hero-space" aria-hidden="true" />
@@ -143,10 +167,10 @@ export default function PageMessageStrip({
       ) : null}
     </div>
     <style jsx global>{`
-      .yat-page-message-strip{display:flex;align-items:center;position:relative;width:100%;min-width:0;height:var(--yat-message-h,36px);background:var(--bg,#fff);color:var(--fg,#111)}
+      .yat-page-message-strip{display:flex;align-items:center;position:relative;flex:0 0 var(--yat-facts-h,32px);width:100%;min-width:0;height:var(--yat-facts-h,32px);background:var(--bg,#fff);color:var(--fg,#111)}
       .yat-page-message-hero-space{width:var(--yat-card-left-edge,clamp(64px,10vw,110px));height:100%;flex:none}
       .yat-page-message-content{flex:1;min-width:0;display:flex;align-items:center;height:100%;padding:2px 6px 2px 0}
-      .yat-page-message-copy{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:100%;font:700 clamp(9px,1.1vw,13px)/1.12 Arial,sans-serif;letter-spacing:-.015em;color:inherit;text-decoration:none}
+      .yat-page-message-copy{display:-webkit-box;width:100%;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-height:100%;font:700 clamp(9px,1.1vw,13px)/1.12 Arial,sans-serif;letter-spacing:-.015em;color:inherit;text-decoration:none}
       .yat-page-message-count{display:flex;align-items:stretch;justify-content:flex-end;gap:0;flex:none;margin:0 7px 0 3px;padding:2px;background:linear-gradient(135deg,#176c4d,#06402f);border:1px solid #25845e;border-radius:2px;box-shadow:inset 0 0 0 1px #052b21,0 1px 2px #0004;height:30px;box-sizing:border-box}
       .yat-page-message-count strong{display:flex;align-items:center;justify-content:center;min-width:36px;padding:0 5px;background:#042c20;border-radius:2px;font:900 clamp(17px,2.2vw,25px)/1 Arial,sans-serif;color:#fff;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000}
       .yat-page-message-count span{display:flex;align-items:center;padding:0 6px;font:900 clamp(7px,.75vw,10px)/1.1 Arial,sans-serif;color:#ffcb22;text-shadow:0 1px 1px #000}
@@ -158,7 +182,7 @@ export default function PageMessageStrip({
       .yat-page-message-share:focus-visible{outline:2px solid #ffcb22;outline-offset:-2px}
       @media(max-width:640px){
         .yat-page-message-hero-space{width:var(--yat-card-left-edge,clamp(55px,12vw,76px))}
-        .yat-page-message-content{padding:1px 3px 1px 0}
+        .yat-page-message-content{padding:1px 3px 0 0}
         .yat-page-message-copy{font-size:clamp(8px,2vw,10px);line-height:1.1}
         .yat-page-message-count{margin:0 3px 0 2px;padding:2px;height:29px}
         .yat-page-message-count strong{font-size:clamp(16px,4vw,23px);min-width:32px;padding:0 4px}

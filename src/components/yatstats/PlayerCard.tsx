@@ -44,6 +44,8 @@ interface PlayerCardProps {
   schoolName?: string | null;
   /** School location (school_success.hslocation), for FunZone's share message. */
   schoolLocation?: string | null;
+  /** Gallery cards defer the expensive 7-day schedule until the Game Log tab is opened. */
+  deferScheduleSnapshot?: boolean;
 }
 
 function statValue(value: unknown): string {
@@ -135,7 +137,7 @@ function imageText(value: unknown): string {
   return text;
 }
 
-export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, eager = false, shareBaseUrl = null, schoolName = null, schoolLocation = null }: PlayerCardProps) {
+export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = null, headshotUrl = null, isAllTime, eager = false, shareBaseUrl = null, schoolName = null, schoolLocation = null, deferScheduleSnapshot = false }: PlayerCardProps) {
   const display = resolvePlayerDisplay(p);
   const lvl = display.levelLabel;
   const gc = String(p.class_of || "").trim();
@@ -243,6 +245,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
             schoolLocation={schoolLocation}
+            deferScheduleSnapshot={deferScheduleSnapshot}
           />
         </div>
       </div>

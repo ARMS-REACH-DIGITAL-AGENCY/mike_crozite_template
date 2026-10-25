@@ -17,6 +17,7 @@ import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { auth } from '@/lib/firebase';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import StoryPreview, { type StoryPlacementState } from '@/components/yatstats/StoryPreview';
+import ContributeSearch from '@/components/yatstats/ContributeSearch';
 import { track } from '@/lib/analytics';
 import { copyStoryPhoto, createStoryUploadBody, prepareStoryPhoto, type StoryPhotoData } from '@/lib/storyPhotoUpload';
 import { STORY_DRAWER_OPEN_EVENT, takePendingStoryDrawerOpen, type StoryDrawerOpenDetail } from '@/lib/storyDrawer';
@@ -28,6 +29,14 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const MAX_PHOTOS = 4;
 const MAX_TAGS = 20;
 const OTHER_DRAWER_CLASSES = ['drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-contribute-open'];
+const BOTH_DOCKS_MIN_WIDTH = 1600;
+// Navigation/search can stay docked on the left while a story editor is on the right.
+function conflictingDrawerOpen() {
+  return OTHER_DRAWER_CLASSES.some((name) =>
+    (name !== 'drawer-left-open' || window.innerWidth < BOTH_DOCKS_MIN_WIDTH) &&
+    document.body.classList.contains(name)
+  );
+}
 // A departing player layout must not close a newer layout's story portal.
 // This is client-only ownership of the currently visible drawer, not data.
 let activeStoryDrawerOwner: symbol | null = null;
@@ -126,8 +135,6 @@ export default function StoryDrawer() {
     return () => { live = false; };
   }, [open]);
   const [tags, setTags] = useState<TagCandidate[]>([]);
-  const [tagQuery, setTagQuery] = useState('');
-  const [tagResults, setTagResults] = useState<TagCandidate[]>([]);
   const [status, setStatus] = useState<{ kind: 'idle' | 'posting' | 'error' | 'done'; text?: string; storyId?: string; confirm?: boolean }>({ kind: 'idle' });
   const fileInput = useRef<HTMLInputElement | null>(null);
   // Rendered straight into <body>: inside the profile page's containers a
@@ -176,7 +183,7 @@ export default function StoryDrawer() {
     if (!open) return;
     const sync = () => {
       const body = document.body;
-      if (activeStoryDrawerOwner !== drawerOwner || !body.classList.contains('drawer-story-open') || OTHER_DRAWER_CLASSES.some((name) => body.classList.contains(name))) close();
+      if (activeStoryDrawerOwner !== drawerOwner || !body.classList.contains('drawer-story-open') || conflictingDrawerOpen()) close();
     };
     const observer = new MutationObserver(sync);
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -195,8 +202,6 @@ export default function StoryDrawer() {
     photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.preview));
     replacePhotos([]);
     setTags([]);
-    setTagQuery('');
-    setTagResults([]);
     setStatus({ kind: 'idle' });
   }, [replacePhotos]);
 
@@ -213,11 +218,15 @@ export default function StoryDrawer() {
       // Keep the fan's own pick when they come back to a story in progress
       // (e.g. after signing in).
       const inProgress = status.kind !== 'done' && (story.trim() !== '' || photos.length > 0 || preparingPhotosRef.current);
-      if (!inProgress) setYear(Number.isInteger(slideYear) && slideYear > 1950 && slideYear <= thisYear + 1 ? slideYear : thisYear);
+      if (!inProgress) setYear(Number.isInteger(slideYear) && slideYear > 1950 && slideYear <= thisYear + 2 ? slideYear : thisYear);
       if (status.kind === 'done') resetForm();
       activeStoryDrawerOwner = drawerOwner;
       setOpen(true);
-      document.body.classList.remove(...OTHER_DRAWER_CLASSES, 'yat-left-search-mode');
+      if (window.innerWidth >= BOTH_DOCKS_MIN_WIDTH) {
+        document.body.classList.remove(...OTHER_DRAWER_CLASSES.filter((name) => name !== 'drawer-left-open'));
+      } else {
+        document.body.classList.remove(...OTHER_DRAWER_CLASSES, 'yat-left-search-mode');
+      }
       document.getElementById('drawerAccount')?.classList.remove('open', 'is-open', 'active');
       document.body.classList.add('drawer-story-open', 'drawer-open');
       setSessionLoading(true);
@@ -259,30 +268,10 @@ export default function StoryDrawer() {
     };
   }, [open, close]);
 
-  // Player search for tagging.
-  useEffect(() => {
-    const q = tagQuery.trim();
-    if (q.length < 2) {
-      setTagResults([]);
-      return;
-    }
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      fetch(`/api/players/search?q=${encodeURIComponent(q)}&limit=8`, { signal: controller.signal })
-        .then((res) => res.json())
-        .then((data) => setTagResults(Array.isArray(data?.players) ? data.players : []))
-        .catch(() => {});
-    }, 250);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [tagQuery]);
-
   const yearOptions = useMemo(() => {
     const thisYear = new Date().getFullYear();
     const list: number[] = [];
-    for (let y = thisYear + 1; y >= 1960; y--) list.push(y);
+    for (let y = thisYear + 2; y >= 1960; y--) list.push(y);
     return list;
   }, []);
 
@@ -338,8 +327,6 @@ export default function StoryDrawer() {
   const addTag = (candidate: TagCandidate) => {
     if (candidate.playerId === playerId) return;
     setTags((current) => (current.length >= MAX_TAGS || current.some((t) => t.playerId === candidate.playerId) ? current : [...current, candidate]));
-    setTagQuery('');
-    setTagResults([]);
   };
 
   const showInStories = (storyId?: string) => {
@@ -449,9 +436,10 @@ export default function StoryDrawer() {
   return createPortal(
     <aside className="yat-drawer yat-drawer-right yat-story-drawer" id="drawerStory" aria-label="Add a story" aria-hidden={!open}>
       <div className="ysd-header">
-        <div>
-          <div className="ysd-kicker">Add a story</div>
-          <h3 className="ysd-title">to {playerName}&apos;s Career Timeline</h3>
+        <div className="ysd-header-main">
+          <h3 className="ysd-title"><i className="ri-image-add-line" aria-hidden="true" /><span>Share a Story</span></h3>
+          {signedIn && <p className="ysd-hello"><span className="ysd-hello-account">{fanFirstName}</span><span className="ysd-hello-school">Posting to {playerName}&apos;s Career Timeline</span></p>}
+          {!signedIn && <p className="ysd-hello"><span className="ysd-hello-school">Post to {playerName}&apos;s Career Timeline</span></p>}
         </div>
         <button type="button" className="yat-icon-btn ysd-close" onClick={close} aria-label="Close">
           <i className="ri-close-line" />
@@ -481,10 +469,10 @@ export default function StoryDrawer() {
           </div>
         ) : (
           <>
-            <div className="ysd-poster">Hi {fanFirstName}!</div>
+
 
             <div className="ysd-field">
-              <div className="ysd-label">Photos <span className="ysd-muted">({photos.length}/{MAX_PHOTOS})</span></div>
+              <div className="ysd-label"><span className="ysd-step">1</span> Upload photos <span className="ysd-muted">({photos.length}/{MAX_PHOTOS})</span></div>
               <div className="ysd-photos" aria-busy={preparingPhotos}>
                 {photos.map((p) => (
                   <div className="ysd-photo" key={p.id}>
@@ -494,9 +482,10 @@ export default function StoryDrawer() {
                   </div>
                 ))}
                 {photos.length < MAX_PHOTOS && (
-                  <button type="button" className="ysd-photo-add" onClick={() => fileInput.current?.click()} disabled={preparingPhotos || posting}>
+                  <button type="button" className={`ysd-photo-add${photos.length ? '' : ' is-empty'}`} onClick={() => fileInput.current?.click()} disabled={preparingPhotos || posting}>
                     <i className="ri-image-add-line" aria-hidden="true" />
-                    <span>Add photo</span>
+                    <span>UPLOAD +</span>
+                    {photos.length ? null : <small>Up to {MAX_PHOTOS} photos from your phone or computer</small>}
                   </button>
                 )}
               </div>
@@ -505,8 +494,8 @@ export default function StoryDrawer() {
               {photoError ? <div className="ysd-error" role="alert">{photoError}</div> : null}
             </div>
 
-            <div className="ysd-field">
-              <label className="ysd-label" htmlFor="ysdTag">Anyone else in the photo? Tag players</label>
+            <section className="ysd-field">
+              <div className="ysd-label"><span className="ysd-step">2</span> Anyone else in the photo? Tag players</div>
               {tags.length > 0 && (
                 <div className="ysd-tags">
                   {tags.map((t) => (
@@ -517,38 +506,12 @@ export default function StoryDrawer() {
                   ))}
                 </div>
               )}
-              <input id="ysdTag" type="search" value={tagQuery} onChange={(e) => setTagQuery(e.target.value)} placeholder="Search players by name" autoComplete="off" disabled={posting || tags.length >= MAX_TAGS} />
+              {tags.length < MAX_TAGS && !posting ? <ContributeSearch onPlayer={addTag} /> : null}
               {tags.length >= MAX_TAGS ? <div className="ysd-muted ysd-small">Up to {MAX_TAGS} players can be tagged in a story.</div> : null}
-              {tagResults.length > 0 && (
-                <div className="ysd-results yat-gs-results" role="listbox" aria-label="Players">
-                  {tagResults.filter((r) => r.playerId !== playerId).map((r) => {
-                    const loc = [r.city, r.state].filter(Boolean).join(', ');
-                    const subtitle = [r.schoolName, loc].filter(Boolean).join(' - ');
-                    return (
-                      <button type="button" key={r.playerId} className="yat-gs-result yat-gs-player" role="option" aria-selected={false} onClick={() => addTag(r)} disabled={posting || tags.length >= MAX_TAGS}>
-                        <span className="yat-gs-result-top">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            className="yat-gs-result-crest"
-                            src={r.crestUrl || CREST_FALLBACK}
-                            alt=""
-                            loading="lazy"
-                            onError={(e) => { const img = e.currentTarget; if (!img.src.endsWith(CREST_FALLBACK)) img.src = CREST_FALLBACK; }}
-                          />
-                          <span className="yat-gs-result-info">
-                            <span className="yat-gs-result-name">{r.displayName}</span>
-                            {subtitle ? <span className="yat-gs-result-loc">{subtitle}</span> : null}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            </section>
 
             <div className="ysd-field">
-              <div className="ysd-label">When was this?</div>
+              <div className="ysd-label"><span className="ysd-step">3</span> When was this?</div>
               <div className="ysd-date">
                 <select ref={monthInput} value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label="Month" disabled={posting}>
                   <option value={0}>Month</option>
@@ -564,7 +527,7 @@ export default function StoryDrawer() {
             </div>
 
             <div className="ysd-field">
-              <label className="ysd-label" htmlFor="ysdStory">Tell the story</label>
+              <label className="ysd-label" htmlFor="ysdStory"><span className="ysd-step">4</span> Tell the story</label>
               <textarea
                 id="ysdStory"
                 rows={7}
@@ -584,7 +547,7 @@ export default function StoryDrawer() {
             ) : null}
 
             <section className="ysd-field ysd-review" aria-labelledby="ysdPreviewTitle">
-              <div className="ysd-label" id="ysdPreviewTitle">Preview &amp; approve</div>
+              <div className="ysd-label" id="ysdPreviewTitle"><span className="ysd-step">5</span> Preview &amp; approve</div>
               {previewReady ? (
                 <>
                   <StoryPreview
@@ -642,9 +605,9 @@ export default function StoryDrawer() {
         body.light-theme .ysd-header::before { filter: invert(1); opacity: .09; }
         /* Use the same two-font hierarchy as Connect & Contribute: Archivo for
            interface copy/titles, Barlow Condensed for compact section labels.
-           Preserve existing gold CTA and 8px-rounded fields. */
-        .ysd-kicker { color:#FFD700; font:700 13px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.07em; text-transform:uppercase; }
-        body.light-theme .ysd-kicker { color: #9a6f00; }
+           Use Contribute monochrome CTA and 8px-rounded fields. */
+        .ysd-kicker { color:var(--ink); font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.01em; }
+        body.light-theme .ysd-kicker { color: #444444; }
         #drawerStory .ysd-title { margin:6px 0 0 !important; padding:0 !important; font:800 20px/1.12 var(--yat-font-ui, Archivo, Arial, sans-serif) !important; letter-spacing:-.025em!important; }
         .ysd-close { position: static !important; flex: none; }
         .ysd-body { flex-shrink:0; display:flex; flex-direction:column; gap:16px; padding:14px 16px 28px; font-family:var(--yat-font-ui, Archivo, Arial, sans-serif); }
@@ -652,7 +615,7 @@ export default function StoryDrawer() {
         .ysd-small { font:400 12px/1.4 var(--yat-font-ui, Archivo, Arial, sans-serif); margin-top:6px; }
         .ysd-poster { font:800 18px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
         .ysd-field { display: flex; flex-direction: column; gap: 6px; }
-        .ysd-label { font:700 14px/1.1 var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); letter-spacing:.06em; text-transform:uppercase; }
+        .ysd-label { font:800 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:0; }
         .ysd-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
         #drawerStory select, #drawerStory textarea, #drawerStory input[type="search"] {
           width: 100%; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.06);
@@ -668,19 +631,57 @@ export default function StoryDrawer() {
         .ysd-photo-add i { font-size: 22px; }
         .ysd-photo-add:disabled { opacity:.6; cursor:wait; }
         .ysd-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-        .ysd-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:999px; background:rgba(255,215,0,.14); border:1px solid rgba(255,215,0,.6); font:600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); }
+        .ysd-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 6px 4px 10px; border-radius:999px; background:rgba(128,128,128,.10); border:1px solid rgba(128,128,128,.30); font:600 12px/1.2 var(--yat-font-ui, Archivo, Arial, sans-serif); }
         .ysd-tag button { border: 0; background: none; color: inherit; font-size: 15px; cursor: pointer; }
         .ysd-results.yat-gs-results { max-height: none; overflow: visible; }
         .ysd-results .yat-gs-result { width: 100%; text-align: left; font: inherit; }
         .ysd-results .yat-gs-result:is(:hover,:focus-visible) { background:var(--line); border-radius:4px; }
         .ysd-error { color: #ff6b6b; font-size: 13px; }
         .ysd-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .ysd-btn { min-height:42px; padding:0 18px; border-radius:8px; border:1px solid #FFD700; background:transparent; color:#FFD700; font:800 12px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
-        .ysd-btn-primary { background: #FFD700; color: #000; }
-        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: #9a6f00; color: #9a6f00; }
+        .ysd-btn { min-height:42px; padding:0 18px; border-radius:8px; border:0; background:var(--card-bg); color:var(--ink); font:800 12px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.02em; text-transform:uppercase; cursor:pointer; }
+        .ysd-btn-primary { background:var(--fg);color:var(--bg); }
+        body.light-theme .ysd-btn:not(.ysd-btn-primary) { border-color: var(--ink); color: var(--ink); }
         .ysd-btn:disabled { opacity: .6; cursor: wait; }
         .ysd-gate p, .ysd-done p { margin: 0 0 8px; line-height: 1.45; }
         .ysd-done-title { font:800 19px/1.15 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:-.025em; }
+        /* The same look as the Connect & Contribute photo form (#drawerContribute
+           .ycd-* and .ypf-*): title-case header with a round icon, every step in
+           a card with a numbered badge, a dashed upload box, 8px fields and
+           buttons. The questions and behavior are unchanged. */
+        #drawerStory.yat-story-drawer { width:var(--yat-side-drawer-w)!important;max-width:var(--yat-side-drawer-w)!important; }
+        #drawerStory .ysd-header {padding:16px 20px 14px!important;align-items:flex-start;gap:10px;}
+        #drawerStory .ysd-header-main {min-width:0;flex:1;}
+        #drawerStory .ysd-header .ysd-title {display:flex!important;align-items:center;gap:11px;min-width:0;margin:0!important;font:800 clamp(18px,3.5vw,22px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;text-transform:none;overflow-wrap:anywhere;}
+        #drawerStory .ysd-header .ysd-title i {display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;margin:0;border-radius:50%;border:1px solid var(--line);background:var(--card-bg);color:var(--fg);font-size:20px;}
+        #drawerStory .ysd-hello {display:flex;flex-direction:column;gap:2px;margin:8px 0 0;color:var(--muted);font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-hello-account {font-weight:700;color:var(--fg);}
+        #drawerStory .ysd-hello-school {overflow-wrap:anywhere;}
+        #drawerStory .ysd-body {gap:12px;padding:14px 20px 30px!important;font:400 13px/1.45 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-field {gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--card-bg);}
+        #drawerStory .ysd-label {display:flex;align-items:center;gap:6px;min-width:0;font:800 14px/1.22 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.02em;}
+        #drawerStory .ysd-label .ysd-muted {font-weight:400;color:var(--muted);opacity:1;}
+        #drawerStory .ysd-step {display:inline-grid;place-items:center;flex:0 0 auto;margin:0;min-width:22px;height:22px;padding:0 5px;border:1px solid var(--line);border-radius:5px;background:var(--fg);color:var(--bg);font:800 11px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ycs .yat-gs-input-wrap input.yat-gs-input {padding:10px 34px 10px 43px!important;}
+        #drawerStory .ycs .yat-gs-input-icon {left:13px!important;right:auto!important;}
+        #drawerStory .ysd-photo-add {gap:6px;border:1.5px dashed var(--muted);border-radius:10px;background:var(--line);color:var(--fg);}
+        #drawerStory .ysd-photo-add:hover {background:rgba(128,128,128,.22);}
+        #drawerStory .ysd-photo-add i {font-size:24px;color:var(--fg);}
+        #drawerStory .ysd-photo-add span {font:800 12px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.02em;}
+        #drawerStory .ysd-photo-add.is-empty {grid-column:1 / -1;aspect-ratio:auto;min-height:128px;gap:9px;padding:16px;}
+        #drawerStory .ysd-photo-add.is-empty i {font-size:28px;}
+        #drawerStory .ysd-photo-add.is-empty span {font-size:13px;}
+        #drawerStory .ysd-photo-add small {font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);text-transform:none;letter-spacing:0;}
+        #drawerStory :is(select,textarea),#drawerStory input[type="search"] {min-height:40px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--card-bg);color:var(--fg);font:400 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerStory .ysd-btn {min-height:40px;padding:9px 15px;border:1px solid var(--line);border-radius:8px;background:var(--card-bg);color:var(--fg);font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.02em;text-transform:none;}
+        #drawerStory .ysd-btn-primary {background:var(--fg);color:var(--bg);border-color:var(--fg);}
+        #drawerStory .ysd-approve {border-radius:8px;}
+        @media(max-width:779px){
+          #drawerStory.yat-story-drawer{width:100vw!important;max-width:100vw!important;}
+          #drawerStory .ysd-header{padding:15px 16px 12px!important;}
+          #drawerStory .ysd-header .ysd-title{font-size:20px!important;}
+          #drawerStory .ysd-header .ysd-title i{width:34px;height:34px;flex-basis:34px;font-size:18px;}
+          #drawerStory .ysd-body{padding:12px 16px 25px!important;}
+        }
       `}</style>
     </aside>,
     document.body

@@ -11,6 +11,8 @@
 import {
   findPlayersBySlug,
   getPlayerById,
+  getSchoolByHsid,
+  getSchoolByUrl,
   getPlayerBattingStats,
   getPlayerPitchingStats,
   getPlayerCareerBatting,
@@ -26,11 +28,15 @@ import {
   query,
 } from "@/lib/db";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { playerProfileShareInfo, playerShareOrigin } from "@/lib/playerProfileShare";
 import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
+import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
-import { mlbTeamLogoUrl, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
+import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
+import { getTeamLogoUrl, getOriginalForCardCopy } from "@/lib/playerImage";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
 type Props = {
@@ -41,6 +47,39 @@ type Props = {
   }>;
 };
 
+// Ordinary profile URLs must have their own preview. Previously this page
+// returned {}, so the school-level title/crest was all a text app could see.
+async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: string): Promise<Metadata> {
+  const h = await headers();
+  const origin = playerShareOrigin(h.get('x-forwarded-host') || h.get('host') || '', h.get('x-forwarded-proto') || 'https');
+  const [player, byIdSchool] = await Promise.all([
+    getPlayerById(playerId).catch(() => null),
+    /^\d+$/.test(hsid) ? getSchoolByHsid(hsid).catch(() => null) : Promise.resolve(null),
+  ]);
+  const school = byIdSchool || await getSchoolByUrl(origin).catch(() => null);
+  const resolvedHsid = String(school?.hsid || hsid);
+  const playerName = [player?.firstname || player?.first_name, player?.lastname || player?.last_name]
+    .filter(Boolean).join(' ').trim() || slug.replace(/-/g, ' ');
+  const info = playerProfileShareInfo({
+    origin, hsid: resolvedHsid, playerId, slug, playerName,
+    schoolName: String(school?.hsname || player?.high_school || ''),
+  });
+  return {
+    title: info.title,
+    description: info.description,
+    alternates: { canonical: info.url },
+    openGraph: {
+      type: 'profile', siteName: 'YAT?STATS', url: info.url,
+      title: info.title, description: info.description,
+      images: [{ url: info.image, width: 1200, height: 630, alt: playerName + ' baseball career timeline' }],
+    },
+    twitter: {
+      card: 'summary_large_image', title: info.title, description: info.description,
+      images: [info.image],
+    },
+  };
+}
+
 const SHARE_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 // A shared story link (?story=<id>, from the Share button) previews as that
@@ -50,10 +89,10 @@ export async function generateMetadata({
   params,
   searchParams,
 }: Props & { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
-  const { playerId } = await params;
+  const { hsid, playerId, slug } = await params;
   const storyParam = (await searchParams)?.story;
   const storyId = typeof storyParam === 'string' && /^\d{1,18}$/.test(storyParam) ? storyParam : null;
-  if (!storyId) return {};
+  if (!storyId) return defaultPlayerShareMetadata(hsid, playerId, slug);
   try {
     const { rows } = await query<{
       caption: string | null; contributor_name: string | null; photo_taken_date: string | null; photo_taken_year: number | null;
@@ -69,13 +108,23 @@ export async function generateMetadata({
       [storyId, String(playerId)]
     );
     const r = rows[0];
-    if (!r) return {};
+    if (!r) return defaultPlayerShareMetadata(hsid, playerId, slug);
     const month = r.photo_taken_date ? Number(r.photo_taken_date.slice(5, 7)) : 0;
     const when = [month ? SHARE_MONTHS[month - 1] : '', r.photo_taken_year || ''].filter(Boolean).join(' ');
     const player = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Player';
     const title = when ? `${player} · ${when}` : player;
-    const text = String(r.caption || '').replace(/\s+/g, ' ').trim();
-    const description = `${text.length > 180 ? `${text.slice(0, 177)}…` : text}${r.contributor_name && r.contributor_name !== 'YAT?STATS' ? ` Shared by ${r.contributor_name} on YAT?STATS.` : ''}`;
+    // Keep the actual story untouched. Rich link previews need a concise
+    // teaser, not the full caption, hashtags, extra URLs or author boilerplate.
+    const text = String(r.caption || '')
+      .replace(/(?:https?:\/\/|www\.)\S+/gi, '')
+      .replace(/#[\p{L}\p{N}_]+/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const maxPreviewLength = 96;
+    const shortened = text.length > maxPreviewLength
+      ? text.slice(0, maxPreviewLength - 1).replace(/\s+\S*$/, '').replace(/[.,;:!\-]+$/, '') + '…'
+      : text;
+    const description = shortened || 'Explore this baseball memory on YAT?STATS.';
     const image = storyAssetUrl(r.s3_key);
     const images = image ? [{ url: image, ...(r.width && r.height ? { width: r.width, height: r.height } : {}), alt: title }] : undefined;
     return {
@@ -86,7 +135,7 @@ export async function generateMetadata({
     };
   } catch (error) {
     console.error('[stories] share preview failed', error);
-    return {};
+    return defaultPlayerShareMetadata(hsid, playerId, slug);
   }
 }
 
@@ -199,6 +248,24 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const safePlayerId = String(playerId);
+  // A coach profile may show the school's official Instagram account.
+  // Resolve ownership by player role, requested school and an active school
+  // source; never identify a profile by its player ID or hardcode a school.
+  const coachAtSchool = String(player.status_label || '').trim().toUpperCase() === 'COACH'
+    && String(player.hsid || '') === String(hsid);
+  const schoolInstagramFeed: { hsid: string; name: string } | undefined = coachAtSchool
+    ? await query<{ school_name: string | null }>(
+        `SELECT NULLIF(TRIM(t.hsname), '') AS school_name
+           FROM public.social_sources s
+           LEFT JOIN public.tbc_schools_raw t ON t.hsid::text = s.hsid
+          WHERE s.hsid = $1 AND s.owner_type = 'school'
+            AND s.platform = 'instagram' AND s.status = 'active'
+          LIMIT 1`,
+        [String(hsid)],
+      ).then(({ rows }) => rows.length
+        ? { hsid: String(hsid), name: rows[0].school_name || 'School Baseball' }
+        : undefined).catch(() => undefined)
+    : undefined;
 
   const playerNewsFullName = [player.firstname, player.lastname]
     .map((value: unknown) => String(value || "").trim())
@@ -300,33 +367,8 @@ export default async function ProfilePage({ params }: Props) {
   const previousOrgOrConferenceName = String(transactionStatus?.previous_org_or_conference_name || "").trim();
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
+  const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
   const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
-
-  // flip_card_front_stage.current_team_source_team_id is the reconciled,
-  // single source of truth for "current team" (kept accurate by the college
-  // and pro ingest pipelines alike) - it takes priority over both the dead
-  // v_player_current_team_resolved chain and a player's most recent stat-
-  // bearing season, which can point at a stale team after a transfer or a
-  // redshirt year with no season on record yet.
-  // current_team_source_team_id is the raw MLB Stats API team id (e.g. 147
-  // for the Yankees) when the source is mlb_api - NOT the tbc_teamid that
-  // v_team_schedule_feed/college_schedule_games_raw and this codebase's own
-  // team logos are keyed by (Yankees there is 20, not 147). Kept separately
-  // so the schedule fetch below can translate it; the other two fallbacks
-  // already return tbc-scheme ids.
-  const currentTeamSource = String((transactionStatus as any)?.current_team_source || "").trim();
-
-  const rawMlbTeamId = (transactionStatus as any)?.current_team_source_team_id
-    ? String((transactionStatus as any).current_team_source_team_id)
-    : null;
-
-  const currentTeamId = rawMlbTeamId
-    ? rawMlbTeamId
-    : resolvedCurrentTeam?.teamid
-      ? String(resolvedCurrentTeam.teamid)
-      : (mostRecentSeason as any)?.teamid
-        ? String((mostRecentSeason as any).teamid)
-        : null;
 
   // getTeamContext (removed) queried teams.organization/conference, columns
   // that table doesn't have, so it failed on every profile load and always
@@ -395,20 +437,13 @@ export default async function ProfilePage({ params }: Props) {
     getPlayerTeamStints(safePlayerId),
   ]);
 
-  // current_team_source_team_id only needs translating through team_id_map
-  // when it's actually a raw MLB Stats API id, i.e. current_team_source is
-  // 'mlb_api' - team_id_map is keyed 1:1 by each pro team's own raw id at
-  // any level (MLB or any minor-league affiliate), so this resolves a
-  // minor leaguer's own affiliate team the same way it resolves an MLB
-  // roster player's team. The college/HS tbc_* pipelines store the
-  // already-correct tbc_teamid in this same field, so running THAT through
-  // team_id_map (a pro-only crosswalk) would just fail to find it - that
-  // silently broke every college player's schedule until this check existed.
-  const scheduleTeamId = rawMlbTeamId
-    ? currentTeamSource === "mlb_api"
-      ? teamIdMap.get(rawMlbTeamId) || null
-      : rawMlbTeamId
-    : currentTeamId;
+  // Prefer the reconciled canonical team id. The shared resolver translates
+  // MLB source ids and prevents iScore UUIDs from becoming schedule keys.
+  const scheduleTeamId = resolveScheduleTeamId(
+    transactionStatus,
+    teamIdMap,
+    resolvedCurrentTeam?.teamid || (mostRecentSeason as any)?.teamid
+  );
 
   // ── Game Log: every game his team played, stint by stint ──────────────────
   // player_team_stints says which team he was on and when (a trade, call-up,
@@ -468,14 +503,19 @@ export default async function ProfilePage({ params }: Props) {
   }
   // A two-way player can have a batting and a pitching row for one game:
   // prefer the one this page's columns show.
-  function takeGameLog(gamePk: unknown, date: string, preferredType: "batting" | "pitching"): any | undefined {
-    const pk = String(gamePk ?? "").trim();
-    const bucket = (pk ? logsByGamePk.get(pk) : logsByDate.get(date)) ?? [];
+  function takeGameLog(gamePk: unknown, date: string, preferredType: "batting" | "pitching", scheduleSource?: unknown, sourceGameId?: unknown): any | undefined {
+    const pk = String(sourceGameId ?? gamePk ?? "").trim();
+    const source = String(scheduleSource ?? "").trim();
+    // Legacy schedule rows can still match by date. A named feed must
+    // match its own source: an independent game cannot borrow an MLB line
+    // merely because the player has one on the same date or with the same id.
+    const bucket = ((pk ? logsByGamePk.get(pk) : logsByDate.get(date)) ?? [])
+      .filter((row) => !source || row.source === source);
     const open = bucket.filter((r) => !usedLogs.has(r));
     const log = open.find((r) => r.stat_type === preferredType) ?? open[0];
     if (log) {
       // Both of a two-way player's rows belong to this one game.
-      for (const r of bucket) if (String(r.source_game_id) === String(log.source_game_id)) usedLogs.add(r);
+      for (const r of bucket) if (r.source === log.source && String(r.source_game_id) === String(log.source_game_id)) usedLogs.add(r);
     }
     return log;
   }
@@ -705,7 +745,7 @@ export default async function ProfilePage({ params }: Props) {
       // Only MLB-fed games (with a game id): MLB keeps their status current,
       // while the college schedule scrape leaves past games "Scheduled".
       if (g.game_pk && d < todayIso && NEVER_PLAYED_STATUS.test(String(g.status || "").trim())) continue;
-      const log = takeGameLog(g.game_pk, d, preferredType);
+      const log = takeGameLog(g.game_pk, d, preferredType, g.schedule_source, g.source_game_id);
       const badge = resultBadge(g.result);
       const opponentMlbId = g.is_home ? g.away_team_id : g.home_team_id;
       const stats = statCells(log);
@@ -715,14 +755,16 @@ export default async function ProfilePage({ params }: Props) {
         season: Number(d.slice(0, 4)),
         dateLabel: formatDisplayDate(d) || d,
         opponent: g.opponent || g.away_team || "--",
-        logoUrl: mlbTeamLogoUrl(teamIdMap, opponentMlbId ?? log?.opponent_mlb_id),
+        logoUrl: g.opponent_teamid
+          ? getOriginalForCardCopy(getTeamLogoUrl(String(g.opponent_teamid)))
+          : mlbTeamLogoUrl(teamIdMap, opponentMlbId ?? log?.opponent_mlb_id),
         resultLetter: badge?.letter ?? null,
         resultClass: badge?.className ?? "",
         stats: stats ?? statHeaders.map(() => "-"),
         postseason: POSTSEASON_TYPES.has(String(g.game_type || "")),
-        // A finished game (before today, so the 4-hourly game log sync has
-        // caught up) with no line of his.
-        didNotPlay: !log && st.tracksLines && Boolean(badge) && d < todayIso,
+        // Infer absence only when this feed tracks individual appearances;
+        // a schedule-only source cannot tell us whether he played.
+        didNotPlay: !log && st.tracksLines && g.tracks_player_lines !== false && Boolean(badge) && d < todayIso,
       });
     }
   });
@@ -733,7 +775,7 @@ export default async function ProfilePage({ params }: Props) {
     if (usedLogs.has(log)) continue;
     const d = toISODate(log.game_date);
     if (!d) continue;
-    const sameGame = (gameLogs as any[]).filter((r) => String(r.source_game_id) === String(log.source_game_id));
+    const sameGame = (gameLogs as any[]).filter((r) => r.source === log.source && String(r.source_game_id) === String(log.source_game_id));
     const pick = sameGame.find((r) => r.stat_type === preferredType) ?? log;
     for (const r of sameGame) usedLogs.add(r);
     const win = String(pick.is_win ?? "").toLowerCase();
@@ -781,7 +823,9 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
-          {scheduleTableRows.length > 0 ? (
+          {isRetiredAlumnus ? (
+            <WhereYatProfilePanel playerId={safePlayerId} hsid={hsid} name={displayName} />
+          ) : scheduleTableRows.length > 0 ? (
             <PlayerScheduleTable
               rows={scheduleTableRows}
               statHeaders={statHeaders}
@@ -929,21 +973,35 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-news" className="pp-fz-panel">
           <div className="yp-profile-partner-columns">
             <div className="yp-profile-partner-body">
-              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} />
+              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} hsid={hsid} />
+              <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
+                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
+              </aside>
             </div>
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
             </aside>
           </div>
         </div>
 
         {/* ── SOCIAL tab ───────────────────────────────────────────────────── */}
         <div id="ppTab-social" className="pp-fz-panel">
-          <div className="pp-social-tag">#YATABOY</div>
-          <div className="pp-social-sub">Show some love for {firstName}!</div>
-          <PlayerInstagramFeed playerId={safePlayerId} firstName={firstName} />
+          {/* All player feeds use the same ordering as the approved Hamilton
+              coach view: Instagram first, compact #YATABOY signoff below.
+              Previously only Greg Bordes received this layout, leaving
+              Roch Cholowsky and other players with a large header above
+              their feed. With no posts, the empty feed hides itself and
+              the signoff still remains available. */}
+          <PlayerInstagramFeed
+            playerId={safePlayerId}
+            firstName={firstName}
+            schoolFeed={schoolInstagramFeed}
+          />
+          <div className="pp-social-signoff">
+            <span>#YATABOY</span> <span>Show some love for {firstName}!</span>
+          </div>
           <div className="pp-social-links">
             {xHandle && (
               <a
@@ -965,7 +1023,7 @@ export default async function ProfilePage({ params }: Props) {
                 <i className="ri-instagram-line" /> @{igHandle}
               </a>
             )}
-            {!xHandle && !igHandle && (
+            {!xHandle && !igHandle && !schoolInstagramFeed && (
               <div className="pp-fz-placeholder">
                 <i className="ri-share-line pp-ph-icon" />
                 <p>Social links will appear here once available.</p>
@@ -985,11 +1043,14 @@ export default async function ProfilePage({ params }: Props) {
               </div>
               <p>Active and retired players can invite their fans to connect through personalized video messages.</p>
               <a className="yp-player-video-link" href={`/${hsid}/connect-contribute#cc-connect`}>LEARN ABOUT VIDEO EXCHANGES →</a>
+              <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
+                <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
+              </aside>
             </div>
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
             </aside>
           </div>
         </div>
@@ -1003,7 +1064,7 @@ export default async function ProfilePage({ params }: Props) {
             <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
               <span>PLAYER PROFILE PARTNER</span>
               <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>Reserved for partner creative · desktop tower / mobile advertising row</small>
+              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
             </aside>
           </div>
         </div>
@@ -1026,7 +1087,7 @@ export default async function ProfilePage({ params }: Props) {
           width:min(100%,1290px)!important;
           max-width:1290px!important;
           margin:0 auto!important;
-          grid-template-columns:minmax(0,1fr) clamp(225px,25vw,325px)!important;
+          grid-template-columns:minmax(0,1fr) 300px!important;
           gap:20px!important;
           padding-inline:clamp(8px,2vw,25px);
         }
@@ -1066,7 +1127,7 @@ export default async function ProfilePage({ params }: Props) {
            Never restructure the stats/schedule panels or the timeline. */
         #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
           display:grid;grid-template-columns:minmax(0,1fr) clamp(165px,22vw,235px);
-          align-items:stretch;gap:12px;width:100%;height:100%;min-height:0;
+          align-items:start;gap:20px;width:100%;height:100%;min-height:0;
           background:inherit;
         }
         #playerFunZone .yp-profile-partner-body {
@@ -1106,6 +1167,123 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone .yp-profile-ad small {max-width:33%;font-size:9px;}
         }
 
+        /* The fixed career header occupies significant vertical space.
+           Measure the *remaining* FunZone, not the whole page. The player
+           feed is the ONLY scroll surface on desktop; the ad stays still. */
+        #playerFunZone { container: yat-profile-ads / inline-size; }
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload).pp-fz-panel-active {
+          overflow:hidden!important;
+        }
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+          display:grid!important;
+          grid-template-columns:minmax(0,1fr) 300px!important;
+          align-items:stretch!important;
+          height:100%!important;
+          max-height:100%!important;
+          min-height:0!important;
+          overflow:hidden!important;
+        }
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-body {
+          height:100%!important;
+          max-height:100%!important;
+          min-height:0!important;
+          overflow-y:auto!important;
+          overflow-x:hidden!important;
+          overscroll-behavior-y:contain;
+          scrollbar-width:thin;
+          -webkit-overflow-scrolling:touch;
+        }
+        /* A completed 300x600 creative scales UNIFORMLY to fit the panel.
+           Never stretch or crop the supplied source file. Its reserved grid
+           column is 300px wide, but the displayed artwork can be smaller. */
+        #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {
+          box-sizing:border-box;
+          width:auto!important;
+          min-width:0!important;
+          max-width:300px!important;
+          aspect-ratio:1/2;
+          height:min(600px,calc(
+            100dvh - var(--row1-h,36px) - var(--row2-h,54px)
+            - var(--row3-h,100px) - var(--row4-h,56px)
+            - var(--pp-dock-h,62px) - 34px
+          ))!important;
+          min-height:0!important;
+          max-height:100%!important;
+          align-self:start!important;
+          justify-self:center!important;
+          position:sticky;
+          top:0;
+          flex:none!important;
+          overflow:hidden!important;
+        }
+        #playerFunZone .yp-profile-ad :is(img,picture,video) {
+          display:block;width:100%;height:100%;
+          object-fit:contain;object-position:center;
+        }
+        /* One sponsor card in the feed, same width as a story card. Its
+           300x250 source is letterboxed as needed, not cropped to fit. */
+        #playerFunZone .yp-profile-infeed-ad {display:none;}
+        #playerFunZone :is(.yp-profile-infeed-ad,.yp-stories-feed-ad) {
+          box-sizing:border-box!important;
+          flex-direction:column;
+          align-items:center;justify-content:center;gap:9px;
+          width:100%!important;
+          max-width:none!important;
+          min-height:clamp(140px,23dvh,260px)!important;
+          height:auto!important;
+          aspect-ratio:auto!important;
+          padding:16px;
+          margin:12px 0 18px!important;
+          border:1px dashed rgba(170,170,170,.65);
+          border-radius:6px;
+          background:rgba(255,255,255,.045);
+          color:inherit;text-align:center;
+        }
+        #playerFunZone :is(.yp-profile-infeed-ad,.yp-stories-feed-ad) :is(img,picture,video) {
+          display:block;max-width:100%;max-height:100%;
+          width:auto;height:auto;object-fit:contain;
+        }
+        #playerFunZone .yp-profile-infeed-ad strong {font:800 18px/1.1 var(--yat-font-compact,Oswald,sans-serif);}
+        #playerFunZone .yp-profile-infeed-ad small {font:600 10px/1.2 var(--yat-font-ui,Arial,sans-serif);opacity:.72;}
+        #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:none;}
+        /* Real container width captures the docked left/right rails as well
+           as resize. No forced dock just to make an ad fit. */
+        @container yat-profile-ads (max-width:1080px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload).pp-fz-panel-active {
+            overflow-y:auto!important;overflow-x:hidden!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+            display:block!important;
+            width:100%!important;max-width:100%!important;
+            height:auto!important;max-height:none!important;
+            overflow:visible!important;
+            padding-inline:0!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;
+            overflow:visible!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {
+            display:none!important;
+          }
+          #playerFunZone .yp-profile-infeed-ad,
+          #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
+        }
+        /* Fallback for browsers without container queries; phone layouts
+           always use panel scrolling, never a second nested scroll surface. */
+        @media (max-width:1080px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload).pp-fz-panel-active {overflow-y:auto!important;}
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns {
+            display:block!important;height:auto!important;max-height:none!important;
+            overflow:visible!important;padding-inline:0!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;overflow:visible!important;
+          }
+          #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {display:none!important;}
+          #playerFunZone .yp-profile-infeed-ad,
+          #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
+        }
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
@@ -1129,7 +1307,7 @@ export default async function ProfilePage({ params }: Props) {
         }
         .pp-mc-val {
           display: block;
-          font: 700 clamp(14px, 2.2vw, 22px)/1 "Bebas Neue", sans-serif;
+          font: 700 clamp(14px, 2.2vw, 22px)/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .04em;
           color: var(--fg, #f4f4f4);
           white-space: nowrap;
@@ -1139,7 +1317,7 @@ export default async function ProfilePage({ params }: Props) {
         }
         .pp-mc-lbl {
           display: block;
-          font: 300 9px/1.1 Oswald, sans-serif;
+          font: 300 9px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .12em;
           text-transform: uppercase;
           color: rgba(255,255,255,.7);
@@ -1220,7 +1398,7 @@ export default async function ProfilePage({ params }: Props) {
           align-items: center;
           gap: 3px;
           padding: 10px 4px 8px;
-          font: 600 8px/1 Oswald, sans-serif;
+          font: 600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .08em;
           text-transform: uppercase;
           color: var(--muted, #888);
@@ -1231,12 +1409,12 @@ export default async function ProfilePage({ params }: Props) {
         .pp-fz-tab i { font-size: 16px; }
         .pp-fz-tab:hover {
           color: var(--fg, #f0f0f0);
-          border-top-color: var(--accent, #c8a96e);
+          border-top-color: var(--fg, #dedede);
         }
         /* Default active tab (Stats) — shown when no hash is targeted */
         .pp-fz-tab-default {
           color: var(--fg, #f0f0f0);
-          border-top-color: var(--accent, #c8a96e);
+          border-top-color: var(--fg, #dedede);
         }
         /* When any non-stats tab is targeted, remove active style from default STATS tab */
         body:has(#ppTab-schedule:target) .pp-fz-tab-default,
@@ -1255,7 +1433,7 @@ export default async function ProfilePage({ params }: Props) {
         body:has(#ppTab-connect:target) a[href="#ppTab-connect"],
         body:has(#ppTab-upload:target) a[href="#ppTab-upload"] {
           color: var(--fg, #f0f0f0);
-          border-top-color: var(--accent, #c8a96e);
+          border-top-color: var(--fg, #dedede);
         }
 
         /* Tab panels — all hidden by default; :target shows the targeted one */
@@ -1295,7 +1473,7 @@ export default async function ProfilePage({ params }: Props) {
           color: var(--fg, #f0f0f0);
           text-align: center;
           padding: 5px 8px;
-          font: 700 10px "Bebas Neue", sans-serif;
+          font: 700 10px var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .08em;
           border-radius: 4px;
           margin-bottom: 6px;
@@ -1315,13 +1493,13 @@ export default async function ProfilePage({ params }: Props) {
           gap: 2px;
         }
         .pp-stat-label {
-          font: 600 8px/1 Oswald, sans-serif;
+          font: 600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .08em;
           text-transform: uppercase;
           color: var(--muted, #888);
         }
         .pp-stat-val {
-          font: 700 15px/1 "Bebas Neue", sans-serif;
+          font: 700 15px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color: var(--fg, #f0f0f0);
         }
 
@@ -1334,11 +1512,11 @@ export default async function ProfilePage({ params }: Props) {
         .pp-season-table {
           width: 100%;
           border-collapse: collapse;
-          font: 400 10px/1.4 Oswald, sans-serif;
+          font: 400 10px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);
           min-width: 480px;
         }
         .pp-season-table th {
-          font: 600 8px/1 Oswald, sans-serif;
+          font: 600 8px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .1em;
           text-transform: uppercase;
           color: var(--muted, #888);
@@ -1364,16 +1542,18 @@ export default async function ProfilePage({ params }: Props) {
 
         /* Social */
         .pp-social-tag {
-          font: 700 20px/1 "Bebas Neue", sans-serif;
+          font: 800 20px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           letter-spacing: .06em;
-          color: var(--accent, #c8a96e);
+          color: var(--fg, #dedede);
           margin-bottom: 4px;
         }
         .pp-social-sub {
-          font: 400 11px/1.4 Oswald, sans-serif;
+          font: 400 11px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color: var(--muted, #888);
           margin-bottom: 12px;
         }
+        .pp-social-signoff { display:flex; align-items:baseline; flex-wrap:wrap; gap:6px 12px; margin:3px 0 12px; font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); color:var(--muted,#888); }
+        .pp-social-signoff span:first-child { font-weight:800; letter-spacing:.045em; color:var(--fg,#dedede); }
         .pp-social-links {
           display: flex;
           flex-direction: column;
@@ -1383,7 +1563,7 @@ export default async function ProfilePage({ params }: Props) {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font: 400 12px/1 Oswald, sans-serif;
+          font: 400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color: var(--fg, #f0f0f0);
           text-decoration: none;
           padding: 8px 12px;
@@ -1409,7 +1589,7 @@ export default async function ProfilePage({ params }: Props) {
           opacity: .4;
         }
         .pp-fz-placeholder p {
-          font: 400 11px/1.5 Oswald, sans-serif;
+          font: 400 11px/1.5 var(--yat-font-ui,Archivo,Arial,sans-serif);
           max-width: 240px;
         }
       `}</style>

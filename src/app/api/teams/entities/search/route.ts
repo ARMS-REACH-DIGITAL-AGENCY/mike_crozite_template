@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
 
 export const runtime = 'nodejs';
 
@@ -8,6 +9,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') || '').trim();
     const limit = Math.min(Math.max(Number(searchParams.get('limit') || 40), 1), 75);
+    const collegeOnly = searchParams.get('collegeOnly') === '1';
     if (!q) return NextResponse.json({ teams: [] }, { headers: { 'Cache-Control': 'no-store' } });
 
     const pattern = `%${q}%`;
@@ -27,6 +29,7 @@ export async function GET(req: NextRequest) {
          FROM teamid_universe_mapping
         WHERE COALESCE(current_team_name, '') <> ''
           AND UPPER(COALESCE(level_label, '')) <> 'HIGH SCHOOL'
+          AND ($6::boolean = false OR UPPER(COALESCE(level_label, '')) = ANY($7::text[]))
           AND (
             current_team_name ILIKE $1
             OR current_team_short_name ILIKE $1
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
           current_team_name,
           teamid
         LIMIT $5`,
-      [pattern, q, q, `${q}%`, limit]
+      [pattern, q, q, `${q}%`, limit, collegeOnly, [...COLLEGE_COMMIT_LEVELS]]
     );
 
     const teams = rows.map((r) => ({

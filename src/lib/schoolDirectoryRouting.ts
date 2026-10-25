@@ -59,6 +59,16 @@ export async function canonicalSchoolUrls(
       SELECT DISTINCT p.hsid
         FROM public.player_hsids p
        WHERE p.hsid = ANY($1::integer[])
+      UNION
+      -- First-party contributed players need a valid school hostname even
+      -- when they have no legacy TBC/player_hsids association yet.
+      SELECT DISTINCT t.hsid
+        FROM public.tbc_schools_raw t
+       WHERE t.hsid = ANY($1::integer[])
+         AND EXISTS (
+           SELECT 1 FROM public.flip_card_front_stage f
+            WHERE f.hsid = t.hsid::text
+         )
     ), name_counts AS MATERIALIZED (
       SELECT UPPER(other.regionid) AS region_key, ${otherSlug} AS name_slug,
              COUNT(*)::int AS same_state_name_count
@@ -119,7 +129,10 @@ export async function resolveSchoolHsidFromHost(
     const result = await run(
       `SELECT t.hsid::text AS hsid FROM public.tbc_schools_raw t
        WHERE t.hsid::text = $1
-         AND EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+         AND (
+           EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+           OR EXISTS (SELECT 1 FROM public.flip_card_front_stage f WHERE f.hsid = t.hsid::text)
+         )
        LIMIT 1`,
       [parsed.hsid],
     );
@@ -140,7 +153,10 @@ export async function resolveSchoolHsidFromHost(
        FROM public.tbc_schools_raw t
       WHERE UPPER(t.regionid) = $1
         AND (${slug} = $2 OR ${slug} || '-' || t.hsid::text = $2)
-        AND EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid=t.hsid)
+        AND (
+          EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
+          OR EXISTS (SELECT 1 FROM public.flip_card_front_stage f WHERE f.hsid = t.hsid::text)
+        )
       LIMIT 30`,
     [parsed.state, parsed.slug],
   );

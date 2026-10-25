@@ -31,7 +31,7 @@ export const LEVEL_FIXES: Record<string, string> = {
   HS: 'HIGH SCHOOL',
 };
 
-// The level columns the weekly check rewrites. Everything the site reads.
+// The level columns the daily check rewrites. Everything the site reads.
 // Never teamid_universe_mapping: it is the canonical team table (Pete's own
 // research) and is only read, never written, by code.
 // A source's own raw files (fan submissions, college schedule landings, the
@@ -45,10 +45,8 @@ export const LEVEL_FIX_TARGETS: { table: string; column: string; stamp?: string 
   { table: 'flip_card_front_stage', column: 'current_team_level', stamp: 'updated_at' },
   { table: 'player_team_stints', column: 'level' },
   { table: 'team_schedules', column: 'level' },
-  { table: 'teams', column: 'level' },
   { table: 'player_current_team', column: 'level' },
   { table: 'mlb_org_roster_raw', column: 'level' },
-  { table: 'tbc_to_mlb_team_map', column: 'level' },
   { table: 'news_articles', column: 'level_label' },
   { table: 'hamilton_all_time_import_stage', column: 'level_label' },
   { table: 'hamilton_all_time_import_stage', column: 'display_level_label' },
@@ -130,4 +128,98 @@ export const TEAM_LEVEL_MISMATCH_SQL = `
    WHERE (f.status_label ILIKE 'active%' OR f.status_label ILIKE 'current%')
      AND m.level_label = ANY($1::text[])
      AND f.display_level_label IS DISTINCT FROM m.level_label
+   ORDER BY f.display_name`;
+
+
+// Self-heal current Flip Card identity from the canonical team universe.
+// Priority:
+//   1. Current affiliated pro roster assignment -> provider crosswalk -> canonical Team ID.
+//   2. College / Indy / International current_teamid -> canonical Team ID.
+//   3. Pro rows whose stored level already agrees with that Team ID may have
+//      missing/stale display fields refreshed, but a conflicting pro level is
+//      never forced from a potentially stale current_teamid.
+export const CANONICAL_STAGE_REPAIR_SQL = `
+  WITH pro_map AS (
+    SELECT DISTINCT ON (f.playerid)
+      f.playerid,
+      u.teamid,
+      u.current_team_name,
+      u.current_org_or_conference_name,
+      u.level_label
+    FROM public.flip_card_front_stage f
+    JOIN public.player_current_team pct
+      ON pct.playerid = f.playerid AND pct.source = 'mlb_api'
+    JOIN public.team_id_map tim
+      ON tim.mlb_stats_api_id::text = pct.source_team_id::text
+    JOIN public.teamid_universe_mapping u
+      ON u.teamid = tim.tbc_teamid::text
+    WHERE u.level_label IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE')
+      AND UPPER(COALESCE(f.status_label,'')) NOT IN ('FREE AGENT','RETIRED')
+      AND UPPER(COALESCE(f.team_affiliation_status,'')) NOT IN ('FREE AGENT','RETIRED')
+    ORDER BY f.playerid, pct.last_verified DESC NULLS LAST
+  ), targets AS (
+    SELECT
+      f.playerid,
+      COALESCE(pm.teamid, u.teamid) AS teamid,
+      COALESCE(pm.current_team_name, u.current_team_name) AS team_name,
+      COALESCE(pm.current_org_or_conference_name, u.current_org_or_conference_name) AS org_name,
+      COALESCE(pm.level_label, u.level_label) AS level,
+      (pm.playerid IS NOT NULL) AS from_pro_roster
+    FROM public.flip_card_front_stage f
+    LEFT JOIN pro_map pm ON pm.playerid = f.playerid
+    LEFT JOIN public.teamid_universe_mapping u
+      ON u.teamid = f.current_teamid
+     AND (
+       u.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','INDY','INTERNATIONAL')
+       OR (
+         u.level_label IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE')
+         AND f.level_label = u.level_label
+       )
+     )
+    WHERE (pm.playerid IS NOT NULL OR u.teamid IS NOT NULL)
+      AND UPPER(COALESCE(f.status_label,'')) NOT IN ('FREE AGENT','RETIRED')
+      AND UPPER(COALESCE(f.team_affiliation_status,'')) NOT IN ('FREE AGENT','RETIRED')
+  ), changed AS (
+    UPDATE public.flip_card_front_stage f
+       SET current_teamid = t.teamid,
+           current_team_source_team_id = t.teamid,
+           current_team_name = t.team_name,
+           current_org_or_conference_name = t.org_name,
+           level_label = t.level,
+           display_level_label = t.level,
+           current_level_label = t.level,
+           current_team_level = t.level,
+           current_team_source = CASE WHEN t.from_pro_roster THEN 'mlb_api_canonical_teamid' ELSE f.current_team_source END,
+           current_team_last_verified = CASE WHEN t.from_pro_roster THEN now() ELSE f.current_team_last_verified END,
+           updated_at = now(),
+           stage_updated_at = now()
+      FROM targets t
+     WHERE f.playerid = t.playerid
+       AND (
+         f.current_teamid IS DISTINCT FROM t.teamid OR
+         f.current_team_name IS DISTINCT FROM t.team_name OR
+         f.current_org_or_conference_name IS DISTINCT FROM t.org_name OR
+         f.level_label IS DISTINCT FROM t.level OR
+         f.display_level_label IS DISTINCT FROM t.level OR
+         f.current_level_label IS DISTINCT FROM t.level OR
+         f.current_team_level IS DISTINCT FROM t.level
+       )
+    RETURNING f.playerid
+  )
+  SELECT count(*)::int AS fixed FROM changed`;
+
+export const CANONICAL_ACTIVE_STAGE_MISMATCH_SQL = `
+  SELECT f.playerid, f.display_name, f.current_teamid, f.current_team_name,
+         f.current_org_or_conference_name, f.level_label,
+         u.current_team_name AS canonical_team_name,
+         u.current_org_or_conference_name AS canonical_org_name,
+         u.level_label AS canonical_level
+    FROM public.flip_card_front_stage f
+    JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+   WHERE (f.status_label ILIKE 'active%' OR f.status_label ILIKE 'current%')
+     AND (
+       f.current_team_name IS DISTINCT FROM u.current_team_name OR
+       f.current_org_or_conference_name IS DISTINCT FROM u.current_org_or_conference_name OR
+       f.level_label IS DISTINCT FROM u.level_label
+     )
    ORDER BY f.display_name`;

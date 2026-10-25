@@ -13,6 +13,19 @@ export default function ProfileStatsFinalOverrides() {
         }
       }
 
+      /* Match the compact, legible Game Log typography without changing data or sizing. */
+      #playerFunZone #ppTab-stats .psi-table th,
+      #playerFunZone #ppTab-stats .psi-table td {
+        font-family:var(--yat-font-ui,Archivo,Arial,sans-serif) !important;
+        font-size:9.5px !important;
+        line-height:1.15 !important;
+        letter-spacing:0 !important;
+      }
+      #playerFunZone #ppTab-stats .psi-table th {
+        font-size:9px !important;
+        font-weight:800 !important;
+      }
+
       /* Center the stats table/card inside the FunZone stats panel. */
       #playerFunZone #ppTab-stats {
         text-align: center !important;
@@ -122,7 +135,7 @@ export default function ProfileStatsFinalOverrides() {
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table thead th.team,
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table thead th.team {
         background-color: #151515 !important;
-        background-image: linear-gradient(#202020, #101010) !important;
+        background-image: none !important;
         color: #f4f0e6 !important;
         opacity: 1 !important;
         z-index: 4000 !important;
@@ -133,7 +146,7 @@ export default function ProfileStatsFinalOverrides() {
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr td[data-key="team"] {
         background-color: #101010 !important;
-        background-image: linear-gradient(#101010, #101010) !important;
+        background-image: none !important;
         color: #f4f0e6 !important;
         opacity: 1 !important;
       }
@@ -142,16 +155,16 @@ export default function ProfileStatsFinalOverrides() {
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="year"],
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tbody tr:nth-child(even) td[data-key="team"] {
-        background-color: #171717 !important;
-        background-image: linear-gradient(#171717, #171717) !important;
+        background-color: #101010 !important;
+        background-image: none !important;
       }
 
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="year"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="year"],
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="team"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-level-total-row td[data-key="team"] {
-        background-color: #5b4718 !important;
-        background-image: linear-gradient(#5b4718, #5b4718) !important;
+        background-color: #252525 !important;
+        background-image: none !important;
         opacity: 1 !important;
       }
 
@@ -159,8 +172,8 @@ export default function ProfileStatsFinalOverrides() {
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-bucket-total-row td[data-key="year"],
       html:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-bucket-total-row td[data-key="team"],
       body:not(.light-theme) #playerFunZone #ppTab-stats .psi-table tfoot tr.psi-bucket-total-row td[data-key="team"] {
-        background-color: #27210f !important;
-        background-image: linear-gradient(#27210f, #27210f) !important;
+        background-color: #303030 !important;
+        background-image: none !important;
         opacity: 1 !important;
       }
     `}</style>

@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 
 const RAIL_MIN_WIDTH = 780;
-const BOTH_RAILS_MIN_WIDTH = 1180;
+// Two 360px rails must leave a practical, centered reading surface.
+const BOTH_RAILS_MIN_WIDTH = 1600;
 const DRAWER_STATE_KEY = 'yat-drawer-state';
 const THEME_KEY = 'yat-theme';
 

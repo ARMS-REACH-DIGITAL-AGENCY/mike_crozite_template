@@ -285,11 +285,11 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   }));
 
   return (
-    <section className="yp-school-news" aria-label="Active Alumni News">
+    <section className={`yp-school-news${playerFilter ? ' has-player-filter' : ''}`} aria-label="Active Alumni News">
       {playerFilter ? (
         <div className="yat-news-filter-bar">
-          <span>SHOWING NEWS FOR <strong>{filteredName.toUpperCase()}</strong></span>
-          <button type="button" onClick={clearFilter}>SHOW ALL <i className="ri-close-line" /></button>
+          <span className="yat-news-filter-label" title={`Showing news for ${filteredName}`}>SHOWING NEWS FOR <strong>{filteredName.toUpperCase()}</strong></span>
+          <button type="button" onClick={clearFilter} aria-label="Show news for all players">SHOW ALL <i className="ri-close-line" aria-hidden="true" /></button>
         </div>
       ) : null}
       <div className="yp-school-news-layout">
@@ -303,13 +303,18 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
               <div className="yat-news-loading-text">{playerFilter ? 'NO STORIES FOR '+filteredName.toUpperCase() : 'NO ALUMNI NEWS YET'}</div>
             </div>
           ) : (
-            <ProfileNewsList stories={rows} firstName="school alumni" playerId="" playerName="" schoolWide />
+            <ProfileNewsList stories={rows} firstName="school alumni" playerId="" playerName="" hsid={hsid} schoolWide />
           )}
+          <aside className="yp-school-news-inline-ad" aria-label="Title Sponsor in-feed advertisement placement">
+            <small>TITLE SPONSOR · ACTIVE ALUMNI NEWS</small>
+            <strong>ADVERTISING PLACEMENT</strong>
+            <span>300 × 250 PX · IN-FEED SPONSOR CARD</span>
+          </aside>
         </div>
         <aside className="yp-school-news-tower" aria-label="Title Sponsor desktop advertisement placement">
           <small>TITLE SPONSOR · ACTIVE ALUMNI NEWS</small>
           <strong>ADVERTISING<br />TOWER</strong>
-          <span>Reserved for sponsor creative</span>
+          <span>300 × 600 PX · STANDARD DESKTOP AD</span>
         </aside>
       </div>
       <style>{`
@@ -317,15 +322,68 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;
           color:var(--fg);background:var(--bg);min-height:60vh;
         }
+        /* The news toolbar sticks below the three shared sticky site rows.
+           Its offset includes this filter strip only when a headshot is selected. */
+        .yp-school-news { --yp-news-filter-h:0px; }
+        .yp-school-news.has-player-filter { --yp-news-filter-h:30px; }
+        .yp-school-news .yat-news-filter-bar {
+          position:sticky;
+          top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px));
+          z-index:17;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:8px;
+          width:100%;
+          min-width:0;
+          height:30px;
+          margin:0 0 4px;
+          padding:0 3px;
+          background:var(--bg);
+          color:var(--fg);
+          border:0;
+          box-shadow:none;
+        }
+        .yp-school-news .yat-news-filter-label {
+          flex:1 1 auto;
+          min-width:0;
+          display:block;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          color:var(--fg);
+          font:600 clamp(9px,2.5vw,11px)/1.15 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:0;
+          text-transform:uppercase;
+        }
+        .yp-school-news .yat-news-filter-label strong {font-weight:800;}
+        .yp-school-news .yat-news-filter-bar button {
+          display:inline-flex;
+          flex:0 0 auto;
+          align-items:center;
+          justify-content:center;
+          gap:5px;
+          margin:0;
+          padding:3px 4px;
+          border:0;
+          border-radius:4px;
+          background:transparent;
+          color:var(--fg);
+          font:700 10px/1.15 var(--yat-font-compact,"Barlow Condensed",sans-serif);
+          letter-spacing:0;
+          white-space:nowrap;
+          cursor:pointer;
+        }
+        .yp-school-news .yat-news-filter-bar button:is(:hover,:focus-visible) {background:var(--line);}
         .yp-school-news-layout {
-          display:grid;grid-template-columns:minmax(0,1fr) clamp(225px,24vw,325px);
+          display:grid;grid-template-columns:minmax(0,1fr) 300px;
           align-items:start;gap:20px;min-width:0;
         }
         .yp-school-news-main {min-width:0}
         .yp-school-news-main .pp-news-feed {padding:0 3px 40px}
         .yp-school-news-tower {
           display:flex;flex-direction:column;gap:14px;align-items:center;
-          justify-content:center;min-height:390px;padding:25px 14px;
+          justify-content:center;width:300px;height:600px;min-height:600px;max-height:600px;box-sizing:border-box;padding:25px 14px;
           position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + 14px);
           border:1px dashed #898989;border-radius:3px;
           background:#181818;color:#fff;text-align:center;
@@ -336,6 +394,28 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         .yp-school-news-tower strong {
           font:800 clamp(23px,2.2vw,34px)/1.1 var(--yat-font-compact,Oswald,sans-serif);
         }
+        /* Same fixed IAB half-page slot as player News / Connect / Stories.
+           Sponsor artwork must preserve its full aspect ratio, not crop. */
+        .yp-school-news-tower :is(img,picture,video) {
+          display:block;width:100%;height:100%;
+          object-fit:contain;object-position:center;
+        }
+        .yp-school-news-inline-ad {display:none;}
+        @media(max-width:1080px){
+          .yp-school-news-layout{display:block;}
+          .yp-school-news-tower{display:none;}
+          .yp-school-news-inline-ad{
+            display:flex;box-sizing:border-box;flex-direction:column;
+            justify-content:center;align-items:center;gap:9px;
+            aspect-ratio:6/5;width:min(100%,300px);margin:20px auto;padding:15px;
+            border:1px dashed #898989;border-radius:5px;
+            background:#181818;color:#fff;text-align:center;
+          }
+          .yp-school-news-inline-ad strong {font:800 18px/1.1 var(--yat-font-compact,Oswald,sans-serif);}
+          .yp-school-news-inline-ad :is(small,span){font:700 10px/1.25 var(--yat-font-ui,Arial,sans-serif);color:#dadada;}
+        }
+        body.light-theme .yp-school-news-inline-ad{background:#f0e6d1;color:#17130b;border-color:#8d7a5b;}
+        body.light-theme .yp-school-news-inline-ad :is(small,span){color:#3b3224;}
         body.light-theme .yp-school-news-tower {
           background:#f0e6d1;color:#17130b;border-color:#8d7a5b;
         }

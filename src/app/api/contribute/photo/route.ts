@@ -21,6 +21,7 @@ import {
   NotAnImageError,
   contributionsToday,
   identifyContributor,
+  isReviewer,
   logContribution,
   notifyContributor,
   photoLinkPath,
@@ -39,6 +40,168 @@ export const maxDuration = 60;
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const text = (v: FormDataEntryValue | null, max = 500) => String(v ?? '').trim().slice(0, max);
+
+type HeroRecord = {
+  id: string; playerid: string; date_taken: string; description: string | null;
+  uploaded_at: string; status: string;
+};
+function heroDetails(row: Pick<HeroRecord, 'description'>): Record<string, unknown> {
+  try {
+    const value = JSON.parse(row.description || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  } catch { return {}; }
+}
+function heroOwner(details: Record<string, unknown>, uid: string): boolean {
+  const by = details.by;
+  return Boolean(by && typeof by === 'object' && (by as { uid?: string }).uid === uid);
+}
+function heroYearAllowed(year: number): boolean {
+  return Number.isInteger(year) && year >= 1900 && year <= new Date().getFullYear() + 1;
+}
+function heroAssets(details: Record<string, unknown>): string[] {
+  return Array.isArray(details.published_assets)
+    ? details.published_assets.filter((value): value is string => typeof value === 'string')
+    : [];
+}
+function heroFile(details: Record<string, unknown>, id: string): string | null {
+  return heroAssets(details).find((key) =>
+    key.startsWith('players/season-photos/') && key.endsWith('_' + id + '.jpg')
+  ) || null;
+}
+const ACTIVE_HERO = `COALESCE((CASE WHEN description IS NOT NULL AND left(description,1) = '{'
+    THEN description::jsonb ->> 'supersededBy' ELSE NULL END),'') = ''`;
+
+// Only the original contributor and configured reviewers can list or edit
+// their yearly heroes. Never trust an arbitrary client-supplied uploader UID.
+export async function GET(req: NextRequest) {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const who = await identifyContributor(req, bearer);
+  if (!who) return fail('Sign in to view your uploaded yearly photos.', 401);
+  const playerId = req.nextUrl.searchParams.get('playerId') || '';
+  if (!PLAYER_ID.test(playerId)) return fail('Choose a player.');
+  const { rows } = await query<HeroRecord>(
+    `SELECT id::text, playerid, date_taken::text, uploaded_at::text, status, description
+     FROM media_upload WHERE playerid=$1 AND purpose='timeline_hero'
+       AND status='approved' ORDER BY date_taken ASC, uploaded_at DESC, id DESC LIMIT 250`, [playerId]
+  );
+  const reviewer = isReviewer(who);
+  const allowed = rows.filter((row) => reviewer || heroOwner(heroDetails(row), who.uid));
+  const newestByYear = new Map<number, string>();
+  for (const row of rows) {
+    const year = Number(row.date_taken.slice(0,4));
+    if (!newestByYear.has(year) && !heroDetails(row).supersededBy && heroFile(heroDetails(row), row.id))
+      newestByYear.set(year, row.id);
+  }
+  const toPhoto = (row: HeroRecord) => {
+    const details = heroDetails(row);
+    const year = Number(row.date_taken.slice(0,4));
+    const key = heroFile(details, row.id);
+    return { id: row.id, year, active: newestByYear.get(year) === row.id,
+      imageUrl: key ? assetUrl(key) : null, uploadedAt: row.uploaded_at };
+  };
+  // All signed-in contributors can see whether a year is occupied and
+  // preview the PUBLIC currently displayed image, regardless of who owns it.
+  // Neither another fan's identity nor their inactive upload data is shared.
+  const slots = rows.filter((row) => newestByYear.get(Number(row.date_taken.slice(0,4))) === row.id)
+    .map((row) => ({ ...toPhoto(row), canEdit: reviewer || heroOwner(heroDetails(row), who.uid) }));
+  return NextResponse.json({ heroes: allowed.map(toPhoto), slots },
+    { headers: { 'Cache-Control':'no-store' } });
+}
+
+// Year correction needs NO reupload and preserves the original image and
+// its audit record. A conflicting active target is refused (never overwritten).
+export async function PATCH(req: NextRequest) {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const who = await identifyContributor(req, bearer);
+  if (!who) return fail('Please sign in to edit your photo.', 401);
+  let body: { uploadId?: string; year?: number };
+  try { body = await req.json(); } catch { return fail('Invalid edit request.'); }
+  const id = String(body.uploadId || '');
+  const year = Number(body.year);
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !heroYearAllowed(year)) return fail('Select a valid photo and year.');
+  const { rows } = await query<HeroRecord>(
+    `SELECT id::text, playerid, date_taken::text, uploaded_at::text, status, description
+     FROM media_upload WHERE id=$1::uuid AND purpose='timeline_hero' AND status='approved' LIMIT 1`, [id]
+  );
+  const record = rows[0];
+  if (!record) return fail('The approved photo was not found.', 404);
+  const details = heroDetails(record);
+  if (!heroOwner(details, who.uid) && !isReviewer(who)) return fail('Only the original uploader or a reviewer can correct this photo.', 403);
+  if (!heroFile(details, id)) return fail('The original published photo is unavailable. Contact a reviewer.', 409);
+  const oldYear = Number(record.date_taken.slice(0,4));
+  if (oldYear === year && !details.supersededBy) return fail('Select a different year to correct the photo.');
+  const corrected = { ...details, supersededBy: undefined,
+    season: { ...(details.season && typeof details.season === 'object' ? details.season : {}), year },
+    correctedAt: new Date().toISOString(), correctedBy: who.uid };
+  // Single guarded UPDATE avoids overwriting another year's accepted image
+  // or a concurrent edit of this row.
+  const { rows: updated } = await query<{ id: string }>(
+    `UPDATE media_upload m SET date_taken=$2::date,description=$3
+      WHERE m.id=$1::uuid AND m.date_taken=$4::date AND m.purpose='timeline_hero'
+        AND m.status='approved'
+        AND NOT EXISTS (
+          SELECT 1 FROM media_upload other
+           WHERE other.playerid=m.playerid AND other.id<>m.id
+             AND other.purpose='timeline_hero' AND other.status='approved'
+             AND other.date_taken=$2::date AND ${ACTIVE_HERO}
+        ) RETURNING m.id::text`,
+    [id, `${year}-01-01`, JSON.stringify(corrected), record.date_taken.slice(0,10)]
+  );
+  if (!updated.length) return fail('That year already has a hero, or the photo changed. Refresh and choose another year.', 409);
+  await logContribution(who,'contribute_photo_year_correction',{
+    playerid:record.playerid,hsid:null,pageUrl:req.nextUrl.href,
+    details:{upload_id:id,from_year:oldYear,to_year:year},
+  });
+  return NextResponse.json({ ok:true,id,year,status:'approved',message:'The yearly photo was moved to its corrected year.' },
+    {headers:{'Cache-Control':'no-store'}});
+}
+
+// "Delete" in the UI means REMOVE FROM THE PUBLISHED TIMELINE, not
+// permanently destroy a fan's S3 original. A reversible archive marker
+// preserves provenance and avoids accidental loss of a contribution.
+export async function DELETE(req: NextRequest) {
+  const bearer = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const who = await identifyContributor(req, bearer);
+  if (!who) return fail('Sign in before removing a yearly hero.', 401);
+  let payload: { uploadId?: string; playerId?: string; year?: number; confirm?: string };
+  try { payload = await req.json(); } catch { return fail('Invalid remove request.'); }
+  const id = String(payload.uploadId || '');
+  const playerId = String(payload.playerId || '');
+  const year = Number(payload.year);
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !PLAYER_ID.test(playerId) || !heroYearAllowed(year)
+      || payload.confirm !== 'REMOVE FROM TIMELINE')
+    return fail('Confirm the player, original year, and removal before continuing.');
+  const { rows } = await query<HeroRecord>(
+    `SELECT id::text,playerid,date_taken::text,uploaded_at::text,status,description
+       FROM media_upload WHERE id=$1::uuid AND playerid=$2 AND purpose='timeline_hero'
+         AND status='approved' LIMIT 1`, [id, playerId]
+  );
+  const record = rows[0];
+  if (!record) return fail('The approved hero could not be found.', 404);
+  const details = heroDetails(record);
+  if (!heroOwner(details, who.uid) && !isReviewer(who))
+    return fail('Only its original uploader or an authorized reviewer can remove the yearly hero.', 403);
+  if (details.supersededBy) return fail('This image is no longer the active yearly hero.', 409);
+  if (Number(record.date_taken.slice(0, 4)) !== year)
+    return fail('The assigned year changed. Refresh the form before removing the image.', 409);
+  const archived = { ...details, supersededBy: `archived:${id}`, archivedAt: new Date().toISOString(),
+    archivedBy: who.uid, archiveReason: 'Original uploader/reviewer removed yearly hero from display' };
+  const { rows: updated } = await query<{ id: string }>(
+    `UPDATE media_upload SET description=$3
+       WHERE id=$1::uuid AND playerid=$2 AND purpose='timeline_hero'
+         AND date_taken=$4::date AND status='approved' AND ${ACTIVE_HERO}
+       RETURNING id::text`,
+    [id,playerId,JSON.stringify(archived),`${year}-01-01`]
+  );
+  if (!updated.length) return fail('The image changed before removal. Refresh and try again.', 409);
+  await logContribution(who, 'contribute_photo_hero_archive', {
+    playerid:playerId,hsid:null,pageUrl:req.nextUrl.href,
+    details:{upload_id:id,year,mode:'archive_preserve_original'},
+  });
+  return NextResponse.json({ ok:true,id,year,archived:true,
+    message:`The ${year} hero image was removed from the public timeline. The original remains safely archived.` },
+    {headers:{'Cache-Control':'no-store'}});
+}
 
 export async function POST(req: NextRequest) {
   let form: FormData;
@@ -80,6 +243,7 @@ export async function POST(req: NextRequest) {
   let hsid = text(form.get('hsid'), 20);
   const note = text(form.get('note'), 2000);
   const pageUrl = text(form.get('pageUrl'), 500) || null;
+  const replaceUploadId = purpose === 'timeline_hero' ? text(form.get('replaceUploadId'), 40) : '';
 
   try {
     if (type.needsPlayer || playerId) {
@@ -113,6 +277,35 @@ export async function POST(req: NextRequest) {
       return fail('Pick the high school.');
     }
 
+    // A yearly hero is a SINGLE active player/year slot. New submissions
+    // cannot silently overwrite it; the fan chooses an explicit existing
+    // upload to replace and must own that upload (reviewers can also edit).
+    if (purpose === 'timeline_hero') {
+      if (!PLAYER_ID.test(playerId)) return fail('Select a player before uploading an annual hero.');
+      let existingId: string | null = null;
+      if (replaceUploadId) {
+        if (!/^[0-9a-f-]{36}$/i.test(replaceUploadId)) return fail('Invalid replacement photo.');
+        const { rows: owners } = await query<HeroRecord>(
+          `SELECT id::text,playerid,date_taken::text,uploaded_at::text,status,description
+             FROM media_upload WHERE id=$1::uuid AND purpose='timeline_hero'
+               AND status='approved' LIMIT 1`, [replaceUploadId]
+        );
+        const record = owners[0];
+        if (!record || record.playerid !== playerId) return fail('The original yearly photo could not be found.',404);
+        if (!heroOwner(heroDetails(record),who.uid) && !isReviewer(who))
+          return fail('Only the original uploader or an authorized reviewer can replace a yearly photo.',403);
+        existingId = record.id;
+      }
+      const { rows: occupied } = await query<{ id:string }>(
+        `SELECT id::text FROM media_upload
+          WHERE playerid=$1 AND purpose='timeline_hero' AND status='approved'
+            AND date_taken=$2::date AND ${ACTIVE_HERO}
+          ORDER BY uploaded_at DESC,id DESC LIMIT 1`, [playerId,`${year}-01-01`]
+      );
+      if (occupied[0] && occupied[0].id !== existingId)
+        return fail(`A yearly hero already exists for ${year}. Choose Edit / Replace beside that photo in the Contribute form.`,409);
+    }
+
     if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT) {
       return fail("You've sent a lot today. Thank you! Please send the rest tomorrow.", 429);
     }
@@ -129,6 +322,7 @@ export async function POST(req: NextRequest) {
       playerName: playerName || null,
       by: { uid: who.uid, name: who.name, email: who.email || null },
       pageUrl,
+      replacesUploadId: replaceUploadId || undefined,
     };
     await query(
       `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description, team_at_time, sha256)
@@ -198,6 +392,32 @@ export async function POST(req: NextRequest) {
         // A photo for a player who isn't on the site yet can't be placed.
         if (type.needsPlayer && !PLAYER_ID.test(playerId)) throw new Error('no player on the site');
         const upload = { id, playerid: playerId, hsid, purpose, s3_key: staged.key, date_taken: `${year}-01-01`, team_at_time: teamId || null, current_season: currentSeason };
+        // Moderation can take time. Recheck the slot just before publishing,
+        // rather than relying solely on the first read before processing.
+        if (purpose === 'timeline_hero') {
+          const { rows: latest } = await query<{ id:string }>(
+            `SELECT id::text FROM media_upload WHERE playerid=$1
+               AND purpose='timeline_hero' AND status='approved' AND date_taken=$2::date
+               AND ${ACTIVE_HERO} ORDER BY uploaded_at DESC,id DESC LIMIT 1`,
+            [playerId,`${year}-01-01`]
+          );
+          if (latest[0] && latest[0].id !== replaceUploadId) {
+            message = 'The yearly hero changed while your photo was being checked. Your new photo was held for review; the current hero was not replaced.';
+            throw new Error('annual hero year occupied during moderation');
+          }
+          if (replaceUploadId) {
+            const { rows: current } = await query<{id:string; year:string}>(
+              `SELECT id::text, date_taken::text AS year FROM media_upload
+               WHERE id=$1::uuid AND playerid=$2 AND purpose='timeline_hero'
+                 AND status='approved' AND ${ACTIVE_HERO} LIMIT 1`,
+              [replaceUploadId,playerId]
+            );
+            if (!current[0] || current[0].year.slice(0,10) !== `${year}-01-01`) {
+              message = 'The image being replaced has moved or changed. Your new upload was held for review; no existing image was changed.';
+              throw new Error('replacement slot changed during moderation');
+            }
+          }
+        }
         // Exact reuploads do not need a second S3 copy, but they are still
         // resolved as approved rather than being stranded in pending.
         const { rows: duplicates } = await query<{ id: string }>(
@@ -207,7 +427,7 @@ export async function POST(req: NextRequest) {
             ORDER BY uploaded_at ASC LIMIT 1`,
           [id, playerId, purpose, `${year}-01-01`, staged.sha256]
         );
-        if (duplicates.length) {
+        if (duplicates.length && !replaceUploadId) {
           status = 'approved';
           message = "That photo is already on the site.";
         } else {
@@ -237,6 +457,19 @@ export async function POST(req: NextRequest) {
     // CRM/email is best effort; do it only after the moderation state is
     // persisted so a slow or misconfigured CRM cannot leave an approved
     // upload stuck as pending.
+    if (status === 'approved' && replaceUploadId && publishedAssets.length > 0) {
+      // Preserve the previous immutable file and metadata for audit/recovery,
+      // but take it out of the active annual-hero selection once the new
+      // replacement is durably approved. Failed moderation leaves it intact.
+      const { rows: prior } = await query<{description:string | null}>(
+        `SELECT description FROM media_upload WHERE id=$1::uuid AND playerid=$2
+           AND purpose='timeline_hero' AND status='approved'`,[replaceUploadId,playerId]
+      );
+      if (prior[0]) await query(
+        `UPDATE media_upload SET description=$2 WHERE id=$1::uuid`,
+        [replaceUploadId,JSON.stringify({...heroDetails(prior[0]),supersededBy:id})]
+      );
+    }
     if (status === 'approved') {
       await notifyContributor(details.by, 'posted', { purpose, playerId, playerName, hsid, year, pageUrl });
     }

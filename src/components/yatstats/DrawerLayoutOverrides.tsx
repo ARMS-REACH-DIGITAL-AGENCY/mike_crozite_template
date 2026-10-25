@@ -61,6 +61,28 @@ export default function DrawerLayoutOverrides() {
     return () => { document.removeEventListener('click', closeLeftDrawer, true); document.removeEventListener('click', closeOnDestination, true); };
   }, []);
 
+  // Read the visible fixed footer stack rather than guessing its height.
+  // The scoreboard ticker can extend above the smaller navigation footer.
+  useEffect(() => {
+    const updateClearance = () => {
+      const footer = document.querySelector<HTMLElement>('.yat-footer');
+      if (!footer) return;
+      const bounds = footer.getBoundingClientRect();
+      const clearance = Math.max(0, Math.ceil(window.innerHeight - bounds.top));
+      document.documentElement.style.setProperty('--yat-drawer-clearance', clearance + 'px');
+    };
+    updateClearance();
+    window.addEventListener('resize', updateClearance);
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateClearance) : null;
+    const footer = document.querySelector<HTMLElement>('.yat-footer');
+    if (footer) observer?.observe(footer);
+    return () => {
+      window.removeEventListener('resize', updateClearance);
+      observer?.disconnect();
+      document.documentElement.style.removeProperty('--yat-drawer-clearance');
+    };
+  }, []);
+
   /* Match the Connect & Contribute selection highlight without changing the
      existing navigation, drawer opening, or section routing behavior. */
   useEffect(() => {
@@ -139,7 +161,7 @@ export default function DrawerLayoutOverrides() {
       #drawerSort, #drawerFilters, #drawerFavorites, #drawerAccount { background:rgba(6,6,6,.70)!important; backdrop-filter:blur(4px)!important; -webkit-backdrop-filter:blur(4px)!important; }
       body.light-theme #drawerSort, body.light-theme #drawerFilters, body.light-theme #drawerFavorites, body.light-theme #drawerAccount { background:rgba(255,255,255,.76)!important; }
       @media (max-width: 779px) {
-        body.drawer-sort-open #drawerSort { top:calc(var(--row1-h) + var(--row2-h))!important; bottom:var(--footerH)!important; height:auto!important; z-index:64!important; } body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
+        body.drawer-sort-open #drawerSort { top:calc(var(--row1-h) + var(--row2-h))!important; bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important; height:auto!important; z-index:64!important; } body.yat-left-search-mode #drawerLeft { width: 100vw !important; max-width: 100vw !important; } }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item { display:flex; align-items:center; gap:10px; letter-spacing:normal !important; word-spacing:normal !important; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span { display:inline-block; letter-spacing:normal; word-spacing:normal; }
       #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span strong { margin-left:0; margin-right:0; }
@@ -192,6 +214,13 @@ export default function DrawerLayoutOverrides() {
       #drawerLeft .yat-nav-custom-icon { width:24px; height:24px; min-width:24px; display:block; object-fit:contain; flex:none; mix-blend-mode:multiply; }
       body:not(.light-theme) #drawerLeft .yat-nav-custom-icon { filter:invert(1); mix-blend-mode:screen; }
       #drawerLeft .yat-nav-custom-icon.yat-nav-tour-icon { width:30px; height:30px; min-width:30px; margin-left:-3px; margin-right:-3px; }
+      /* The supplied stacked mark is already full artwork, not a monochrome
+         stencil. Preserve its colors and transparent edges in both themes. */
+      #drawerLeft .yat-nav-custom-icon.yat-nav-tour-stacked {
+        width:36px; height:36px; min-width:36px; margin:0 -3px 0 -6px;
+        object-fit:contain; filter:none !important; mix-blend-mode:normal !important;
+      }
+      #drawerLeft .yat-drawer-guided-tour > span { font-size:inherit!important; font-weight:inherit; line-height:inherit; }
 
       #drawerLeft .yat-drawer-visiting-school > .yat-drawer-crest-thumb { display:none; }
       #drawerLeft .yat-left-search-content { padding-left:20px; padding-right:20px; }
@@ -220,6 +249,11 @@ export default function DrawerLayoutOverrides() {
 
       .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-inner > [data-playerid][data-row3-mirror-visible="true"] {
         display: block !important;
+      }
+      /* News row uses only validated Active Alumni headshots, even if a
+         client-side redraw temporarily restores old All-Time nodes. */
+      .gallery-strip[data-active-section="news"][data-react-mirrors-row5="true"] .gallery-strip-inner > [data-playerid]:not([data-news-active-eligible="true"]) {
+        display: none !important;
       }
 
       /* Block 2 should behave like Block 1: full-width rail, not centered/max-width, and never pushed by drawers. */
@@ -266,7 +300,7 @@ export default function DrawerLayoutOverrides() {
         body.drawer-account-open #drawerAccount,
         body.drawer-favorites-open #drawerFavorites {
           top: calc(var(--row1-h) + var(--row2-h)) !important;
-          bottom: var(--footerH) !important;
+          bottom: var(--yat-drawer-clearance, var(--footerH, 56px)) !important;
           height: auto !important;
           z-index: 64 !important;
           transform: translateX(0) !important;
@@ -443,7 +477,7 @@ export default function DrawerLayoutOverrides() {
         body.drawer-contribute-open {overflow-y:auto!important;}
         body #drawerContribute.yat-drawer {
           top:calc(var(--row1-h) + var(--row2-h))!important;
-          bottom:var(--footerH)!important;
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;
           height:auto!important;
         }
         body.drawer-contribute-open .yat-drawer-mask {
@@ -470,24 +504,255 @@ export default function DrawerLayoutOverrides() {
           z-index:2147483199!important;
         }
       }
+      /* Career Story uses Contribute's docked responsive geometry. */
+      #drawerStory.yat-story-drawer {
+        position:fixed!important;right:0!important;top:0!important;bottom:0!important;
+        height:100dvh!important;width:var(--yat-side-drawer-w)!important;
+        max-width:var(--yat-side-drawer-w)!important;box-sizing:border-box!important;
+        overflow-x:hidden!important;overflow-y:auto!important;
+        background:rgba(6,6,6,.80)!important;
+        backdrop-filter:blur(9px)!important;
+        -webkit-backdrop-filter:blur(9px)!important;
+        border-left:1px solid var(--line)!important;
+        transform:translateX(105%)!important;transition:transform .22s ease!important;
+        z-index:64!important;
+      }
+      body.light-theme #drawerStory.yat-story-drawer {background:rgba(255,255,255,.87)!important;}
+      body.drawer-story-open #drawerStory.yat-story-drawer {transform:translateX(0)!important;}
+      @media(min-width:780px) {
+        body.drawer-story-open {overflow-y:auto!important;}
+        body #drawerStory.yat-story-drawer {
+          top:calc(var(--row1-h) + var(--row2-h))!important;
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;height:auto!important;
+        }
+        body.drawer-story-open .yat-drawer-mask {display:none!important;opacity:0!important;pointer-events:none!important;}
+        body.drawer-story-open .yat-row3-shell,
+        body.drawer-story-open .yat-row4-shell,
+        body.drawer-story-open .yat-row5-shell,
+        body.drawer-story-open .yat-row6-shell {
+          margin-right:var(--yat-side-drawer-w)!important;transition:margin-right .22s ease;
+        }
+      }
+      @media(max-width:779px) {
+        body #drawerStory.yat-story-drawer {
+          top:0!important;bottom:0!important;height:100dvh!important;
+          width:100vw!important;max-width:100vw!important;z-index:2147483200!important;
+        }
+        body.drawer-story-open .yat-drawer-mask {
+          opacity:1!important;pointer-events:auto!important;z-index:2147483199!important;
+        }
+      }
+      /* Filter = the same clean, rule-free neutral Contribute form system.
+         Keep IDs and native checkbox inputs unchanged for gallery presets. */
+      /* Keep Sort and Filter identical in opacity and theme. */
+      body #drawerSort, body #drawerFilters {
+        background:rgba(6,6,6,.70)!important;
+        backdrop-filter:blur(4px)!important;
+        -webkit-backdrop-filter:blur(4px)!important;
+      }
+      body.light-theme #drawerSort, body.light-theme #drawerFilters {
+        background:rgba(255,255,255,.76)!important;
+        backdrop-filter:blur(4px)!important;
+        -webkit-backdrop-filter:blur(4px)!important;
+      }
+      #drawerFilters #filterFavs label {
+        text-transform:uppercase!important;
+        font:600 11px/1.35 Oswald,sans-serif!important;
+      }
+      #drawerFilters .yat-filter-drawer-header {
+        flex:0 0 auto;
+        min-height:46px;
+        padding:11px 16px 5px!important;
+        border-bottom:0!important;
+      }
+      #drawerFilters .yat-filter-drawer-header h3 {
+        padding:0!important;margin:0!important;
+        color:var(--ink);
+        font:800 21px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;
+        letter-spacing:-.025em!important;
+        text-transform:none;
+      }
+      #drawerFilters .yat-filter-body {
+        padding:4px 16px 22px;
+        gap:5px;
+      }
+      #drawerFilters .yat-filter-group {
+        border:0!important;
+        border-bottom:0!important;
+        margin:0;
+        padding:5px 0;
+      }
+      #drawerFilters .yat-filter-group summary {
+        display:flex;align-items:center;gap:7px;
+        padding:8px 0;
+        list-style:none;
+        cursor:pointer;
+        color:var(--ink);
+        font:800 12px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        text-transform:uppercase;
+        letter-spacing:.01em;
+      }
+      #drawerFilters .yat-filter-group summary::-webkit-details-marker {display:none;}
+      #drawerFilters .yat-filter-group summary::before {
+        content:'';
+        display:block;flex:0 0 6px;
+        width:6px;height:6px;
+        border-right:1.6px solid currentColor;
+        border-bottom:1.6px solid currentColor;
+        transform:rotate(-45deg);
+        transition:transform .15s ease;
+      }
+      #drawerFilters .yat-filter-group[open] summary::before {transform:rotate(45deg);}
+      #drawerFilters .yat-filter-group summary:focus-visible {outline:2px solid var(--fg);outline-offset:2px;border-radius:4px;}
+      #drawerFilters .yat-filter-options {
+        padding:3px 0 7px;
+        display:flex;
+        flex-direction:column;
+        gap:7px;
+        min-width:0;
+      }
+      #drawerFilters .yat-filter-columns {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        column-gap:12px;
+        align-items:start;
+        width:100%;
+      }
+      #drawerFilters .yat-filter-column {
+        min-width:0;
+        display:flex;
+        flex-direction:column;
+        gap:2px;
+      }
+      #drawerFilters .yat-filter-options label {
+        min-width:0;
+        display:flex;
+        align-items:flex-start;
+        gap:7px;
+        padding:5px 2px;
+        border-radius:5px;
+        color:var(--ink);
+        font:600 11px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        letter-spacing:-.005em;
+        text-transform:none;
+        overflow-wrap:anywhere;
+        cursor:pointer;
+      }
+      #drawerFilters .yat-filter-options label:hover {background:var(--line);}
+      #drawerFilters .yat-filter-options label.yat-filter-select-all {
+        font-weight:800;
+        padding:5px 2px 7px;
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"] {
+        -webkit-appearance:none;
+        appearance:none;
+        box-sizing:border-box;
+        display:inline-grid;
+        place-items:center;
+        flex:0 0 18px;
+        width:18px;height:18px;
+        margin:0;
+        border:1.5px solid var(--muted);
+        border-radius:5px;
+        background:transparent;
+        color:var(--bg);
+        cursor:pointer;
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:checked,
+      #drawerFilters .yat-filter-options input[type="checkbox"]:indeterminate {
+        background:var(--fg);
+        border-color:var(--fg);
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:checked::after {
+        content:'';
+        display:block;
+        width:5px;height:9px;
+        margin-top:-3px;
+        border-right:2px solid var(--bg);
+        border-bottom:2px solid var(--bg);
+        transform:rotate(45deg);
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:indeterminate::after {
+        content:'';
+        width:9px;height:2px;
+        background:var(--bg);
+      }
+      #drawerFilters .yat-filter-options input[type="checkbox"]:focus-visible {
+        outline:2px solid var(--fg);
+        outline-offset:3px;
+      }
+      #drawerFilters #filterFavsHint {
+        font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;
+        color:var(--muted);
+      }
+      #drawerFilters #filterName {
+        width:100%;
+        min-height:38px;
+        font:400 13px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);
+        border:1px solid var(--line);
+        border-radius:6px;
+      }
+
+      /* Side drawers own their scroll region: the last control stays reachable
+         above the fixed footer without a large artificial blank area. */
+      #drawerFilters, #drawerAccount, #drawerFavorites{
+        min-height:0!important;
+        overflow:hidden!important;
+      }
+      #drawerFilters > .yat-filter-body,
+      #drawerAccount > .yat-account-content,
+      #drawerFavorites > .yat-drawer-content{
+        box-sizing:border-box!important;
+        flex:1 1 auto!important;
+        min-height:0!important;
+        overflow-y:auto!important;
+        overscroll-behavior-y:contain!important;
+        -webkit-overflow-scrolling:touch;
+        padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px))!important;
+        scroll-padding-bottom:18px;
+      }
+      #drawerFilters #filterName{scroll-margin-bottom:22px;}
+      #drawerFilters #filterGradClass label,
+      #drawerFilters #filterRosterYears label{padding-top:3px!important;padding-bottom:3px!important;}
+      /* Mobile side-panel bottoms respect the actual full footer stack,
+         including the scoreboard ticker, rather than only the compact nav. */
+      @media(max-width:779px){
+        body.drawer-right-open #drawerFilters,
+        body.drawer-account-open #drawerAccount,
+        body.drawer-favorites-open #drawerFavorites,
+        body.drawer-sort-open #drawerSort,
+        body.drawer-left-open #drawerLeft{
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;
+          height:auto!important;
+        }
+      }
       /* Mobile navigation uses the same visual rhythm as the Connect &
          Contribute list: compact Archivo labels, no rules, rounded grey
          selection. Reserve scrolling room above the fixed ticker/footer. */
       @media (max-width:779px) {
         body.drawer-left-open #drawerLeft {
-          bottom:var(--footerH, 88px)!important;
+          /* Keep the drawer above the measured full footer stack and let the
+             inner nav own scrolling. Two nested vertical scrollers can trap
+             the last menu row on mobile browsers. */
+          bottom:var(--yat-drawer-clearance, var(--footerH, 56px))!important;
           height:auto!important;
+          min-height:0!important;
+          overflow:hidden!important;
         }
         #drawerLeft .yat-left-nav-content {
-          flex:1 1 auto;
-          min-height:0;
-          overflow-y:auto;
+          flex:1 1 0!important;
+          min-height:0!important;
+          overflow-x:hidden!important;
+          overflow-y:auto!important;
           overscroll-behavior-y:contain;
-          padding:8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+          -webkit-overflow-scrolling:touch;
+          touch-action:pan-y;
+          padding:5px 12px calc(72px + env(safe-area-inset-bottom, 0px));
+          scroll-padding-bottom:72px;
           scrollbar-width:thin;
         }
         #drawerLeft .yat-left-nav-content .yat-drawer-nav {
-          gap:3px;
+          gap:2px;
           padding-right:0;
         }
         #drawerLeft .yat-left-nav-content .yat-drawer-nav-item {
@@ -495,8 +760,8 @@ export default function DrawerLayoutOverrides() {
           display:flex;
           align-items:center;
           flex:0 0 auto;
-          min-height:46px;
-          padding:7px 9px;
+          min-height:42px;
+          padding:5px 9px;
           gap:10px;
           border:0!important;
           border-bottom:0!important;
@@ -508,6 +773,9 @@ export default function DrawerLayoutOverrides() {
           letter-spacing:-.02em!important;
           word-spacing:normal!important;
           transition:background-color .12s ease;
+        }
+        #drawerLeft .yat-nav-custom-icon.yat-nav-tour-stacked {
+          width:30px; height:30px; min-width:30px; margin:0 -1px 0 -3px;
         }
         #drawerLeft .yat-left-nav-content .yat-drawer-nav-item > span {
           min-width:0;
@@ -532,8 +800,8 @@ export default function DrawerLayoutOverrides() {
         /* Retain the special tournament art and countdown, but give its row
            the same background highlight and compact typography. */
         #drawerLeft .yat-left-nav-content .yat-drawer-fantasy-highlight {
-          min-height:56px;
-          padding:7px 9px;
+          min-height:50px;
+          padding:5px 9px;
           border-radius:4px;
           background:transparent;
           color:var(--yat-bracket-accent);

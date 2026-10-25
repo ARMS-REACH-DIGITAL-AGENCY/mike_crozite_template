@@ -85,6 +85,8 @@ export const SCT = 'Season Championship Tournament';
 export const WORLD_SERIES = 'Fantasy World Series';
 export const WORLD_SERIES_FULL = 'YAT?STATS High School Alumni Fantasy World Series';
 export const TIE_NOTE: Record<string, string> = {
+  // The bracket lab's 2026 simulation still records its old coin-flip tiebreak.
+  coin: "Tied after 9 and after all available player tiebreakers · commissioner coin flip (+1 run)",
   cross: "Tied after 9 and the head-to-head matchups · won hitter vs pitcher, the closer to league average (+1 run)",
   runDiff: "Tied after every extra inning · won on the clubs' better run differential (+1 run)",
   fans: "Tied after every extra inning and even run differentials · won on the bigger fan base (+1 run)",

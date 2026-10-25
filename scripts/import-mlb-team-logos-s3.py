@@ -9,10 +9,8 @@ hand-uploaded logos use. The hourly Build Web Cutouts job then makes the
 small teams-web/{teamid}.webp the site loads, like every other logo.
 
 Matching a TBC team id to an MLB id, exact names only:
-1. tbc_to_mlb_team_map rows with match_score = 1 (the table also holds
-   fuzzy guesses, e.g. an independent team matched to a Triple-A club; those
-   are ignored).
-2. Otherwise the team's name, compared letters-and-digits only, against
+1. team_id_map, the verified MLB Stats API id <-> TBC teamid crosswalk.
+2. Otherwise the canonical team's name, compared letters-and-digits only, against
    every affiliated team the Stats API lists for each season from 1990 on.
    A name used by more than one team id resolves to the most recent one.
    MLB only serves a franchise's current logo, so a team is matched only
@@ -86,8 +84,8 @@ def pro_teams(conn) -> list[dict]:
         UNION SELECT teamid FROM tbc_batting_2026_season_raw UNION SELECT teamid FROM tbc_pitching_2026_season_raw
       )
       SELECT u.teamid, m.current_team_name, m.level_label,
-             (SELECT x.mlb_stats_api_id FROM tbc_to_mlb_team_map x
-               WHERE x.tbc_teamid::text = u.teamid AND x.match_score >= 1 LIMIT 1) AS mlb_stats_api_id
+             (SELECT x.mlb_stats_api_id FROM team_id_map x
+               WHERE x.tbc_teamid::text = u.teamid LIMIT 1) AS mlb_stats_api_id
         FROM used u
         JOIN teamid_universe_mapping m ON m.teamid = u.teamid
        WHERE m.level_label = ANY(%s)
