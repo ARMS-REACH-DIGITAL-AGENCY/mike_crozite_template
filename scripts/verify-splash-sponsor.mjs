@@ -23,6 +23,74 @@ for (const name of ['FIT_WORDS', 'SPONSOR_LOOKUP']) {
 }
 new Script(templateBody(root, 'SPLASH_BOOTSTRAP'), { filename: 'SPLASH_BOOTSTRAP' });
 
+// Browser-level first-visit regression tests. Fake cookie storage respects
+// host-only vs Domain=.yatstats.com, so a platform-wide cookie regression
+// cannot silently suppress the intro on a second school's hostname.
+const splashBoot = new Script(templateBody(root, 'SPLASH_BOOTSTRAP'), { filename: 'SPLASH_BOOTSTRAP_COOKIE_TEST' });
+const hostCookies = new Map();
+const domainCookies = new Map([['yatstats.com', new Map([['yat_seen', '1']])]]);
+function splashVisit(hostname, pathname = '/', search = '') {
+  const own = hostCookies.get(hostname) || new Map();
+  hostCookies.set(hostname, own);
+  let wrote = false, style = null;
+  const doc = {
+    head: { appendChild(el) { style = el; } },
+    createElement() { return { textContent: '', id: '' }; },
+    getElementById() { return null; },
+  };
+  Object.defineProperty(doc, 'cookie', {
+    get() {
+      const vals = [...own.entries()];
+      for (const [domain, entries] of domainCookies) {
+        if (hostname === domain || hostname.endsWith('.' + domain)) vals.push(...entries);
+      }
+      return vals.map(([k, v]) => k + '=' + v).join('; ');
+    },
+    set(raw) {
+      wrote = true;
+      const parts = raw.split(';').map(x => x.trim());
+      const [key, value] = parts[0].split('=');
+      const domainAttr = parts.find(x => x.toLowerCase().startsWith('domain='));
+      if (domainAttr) {
+        const domain = domainAttr.split('=')[1].replace(/^\./, '');
+        if (!domainCookies.has(domain)) domainCookies.set(domain, new Map());
+        domainCookies.get(domain).set(key, value);
+      } else own.set(key, value);
+    },
+  });
+  splashBoot.runInNewContext({
+    document: doc,
+    location: { hostname, pathname, search },
+    matchMedia() { return { matches: false }; },
+    addEventListener() {},
+    setTimeout() { return 1; },
+    Date,
+  });
+  assert.ok(style, 'bootstrap must install a splash style state');
+  return { hidden: style.textContent.includes('display:none!important'), wrote };
+}
+assert.equal(splashVisit('hamilton.az.yatstats.com').hidden, false, 'Hamilton first visit opens');
+assert.equal(splashVisit('hamilton.az.yatstats.com').hidden, true, 'Hamilton return skips');
+assert.equal(splashVisit('perry.az.yatstats.com').hidden, false, 'Perry first visit opens even after Hamilton');
+assert.equal(splashVisit('perry.az.yatstats.com').hidden, true, 'Perry return skips');
+assert.equal(splashVisit('hamilton.az.yatstats.com', '/5004').hidden, true, 'a numeric route on the same school does not replay');
+assert.equal(splashVisit('preview.vercel.app', '/5004').hidden, false, 'preview 5004 first visit opens');
+assert.equal(splashVisit('preview.vercel.app', '/5005').hidden, false, 'preview 5005 first visit opens');
+assert.equal(splashVisit('preview.vercel.app', '/5004').hidden, true, 'preview 5004 return skips');
+assert.equal(splashVisit('perry.az.yatstats.com', '/', '?splash=1').hidden, false, 'explicit QA link forces replay');
+assert.equal(splashVisit('yatstats.com').wrote, false, 'permanent platform landing never sets a school splash cookie');
+assert.equal(splashVisit('www.yatstats.com').wrote, false, 'www landing never sets a school splash cookie');
+const join = splashVisit('brandnew.az.yatstats.com', '/', '?join=1');
+assert.equal(join.hidden, true, 'JOIN flow bypasses the intro');
+assert.equal(join.wrote, false, 'JOIN flow cannot consume first visit');
+assert.equal(splashVisit('brandnew.az.yatstats.com').hidden, false, 'after JOIN the school intro remains unconsumed');
+assert.match(school, /const liveSchoolHost =/, 'server must identify live school hosts');
+assert.match(school, /!liveSchoolHost &&/, 'numeric-route cookies are only for shared previews');
+assert.match(school, /yat_splash_seen_/, 'server must support per-HSID preview cookies');
+assert.doesNotMatch(school, /const seenSplash = .*yat_seen/, 'server must ignore the old platform-wide cookie');
+console.log('[splash schools] per-school first-visit cookies, permanent platform landing, JOIN and forced replay verified');
+
+
 const rotate = splash.match(/const ROTATE_SPLASH_PLAYERS = ("(?:\\.|[^"\\])*");/);
 assert.ok(rotate, 'missing rotating splash player script');
 new Script(runInNewContext(rotate[1]), { filename: 'ROTATE_SPLASH_PLAYERS' });
