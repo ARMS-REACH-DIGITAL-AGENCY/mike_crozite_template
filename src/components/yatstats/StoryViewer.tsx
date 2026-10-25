@@ -29,6 +29,9 @@ export type Story = {
   kind?: 'story' | 'draft';
   // Posted by YAT?STATS itself (Draft Day, or a reviewer posting as it).
   official?: boolean;
+  // Existing Story published directly on the career timeline, e.g. an
+  // imported championship program card. Still accessible in StoryViewer.
+  timelineOnly?: boolean;
   story: string;
   author: string;
   date: string | null;
@@ -124,7 +127,8 @@ export async function sharePhoto(story: Story, photo: StoryPhoto): Promise<strin
       const blob = await (await fetch(src, { mode: 'cors' })).blob();
       const file = new File([blob], `yatstats-${story.id}.${blob.type.includes('png') ? 'png' : 'jpg'}`, { type: blob.type || 'image/jpeg' });
       if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${story.author}'s story`, text: `${story.story.slice(0, 120)} ${shareUrlFor(story.id)}` });
+        // Share the photo and its destination without repeating the full caption in Messages.
+        await navigator.share({ files: [file], text: shareUrlFor(story.id) });
         logShare(story.id, 'photo');
         track('story_share', { moment_id: story.id, method: 'photo' });
         return null;
@@ -141,12 +145,13 @@ export async function sharePhoto(story: Story, photo: StoryPhoto): Promise<strin
 // (or null when the share sheet handled it / was cancelled).
 export async function shareStory(story: Story): Promise<string | null> {
   const url = shareUrlFor(story.id);
-  const title = `${story.author}'s story${story.year ? ` · ${storyWhen(story)}` : ''}`;
   let method = 'link';
   let message: string | null = null;
   try {
     if (navigator.share) {
-      await navigator.share({ title, text: story.story.slice(0, 140), url });
+      // Let the link's rich preview supply the title, short description and photo.
+      // Adding the story as text makes Google Messages put a long block ABOVE the image.
+      await navigator.share({ url });
       method = 'native';
     } else {
       await navigator.clipboard.writeText(url);
@@ -240,6 +245,9 @@ export function StoryThread({
   variant,
   media,
   focusComment = false,
+  onCommentOpen,
+  onSignIn,
+  onOpenStory,
 }: {
   story: Story;
   playerId: string;
@@ -247,13 +255,20 @@ export function StoryThread({
   onDeleted: (id: string) => void;
   // Opened from a card's Comment button: put the cursor in the comment box.
   focusComment?: boolean;
+  onCommentOpen?: () => void;
+  // Modal sign-in closes the blocking StoryViewer before opening the account rail.
+  onSignIn?: () => void;
+  // Selecting an inline post opens its existing full StoryViewer.
+  onOpenStory?: () => void;
   // 'modal': the right-hand side of the big view (scrolls; comment box
   // pinned at the bottom). 'inline': a full post in the Stories tab.
   variant: 'modal' | 'inline';
-  // Inline posts show their photos between the story and the Like bar.
+  // Inline posts show their complete responsive photos ABOVE the story text.
+  // Comments and reactions follow the text so long captions never bury images.
   media?: ReactNode;
 }) {
   const me = useFanMe();
+  const requestSignIn = onSignIn || openSignIn;
   const [comments, setComments] = useState<StoryComment[] | null>(null);
   const [showAll, setShowAll] = useState(variant === 'modal');
   const [draft, setDraft] = useState('');
@@ -265,6 +280,14 @@ export function StoryThread({
   // once they've confirmed it's them (FanConfirm).
   const [retry, setRetry] = useState<null | (() => void)>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  // Keep the composer readable while growing with wrapped and explicit lines.
+  // Beyond six lines the textarea scrolls without displacing the story viewer.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 154)}px`;
+  }, [draft]);
   // Photos picked for the next comment, and a comment photo opened large.
   const [picked, setPicked] = useState<PickedPhoto[]>([]);
   const [lightbox, setLightbox] = useState<{ photos: StoryPhoto[]; index: number } | null>(null);
@@ -305,7 +328,7 @@ export function StoryThread({
   }, []);
 
   const needConfirm = (action: () => void) => {
-    if (!me) return openSignIn();
+    if (!me) return requestSignIn();
     setRetry(() => action);
   };
 
@@ -355,7 +378,7 @@ export function StoryThread({
     const text = draft.trim();
     const photos = pickedRef.current;
     if ((!text && photos.length === 0) || busy) return;
-    if (!me) return openSignIn();
+    if (!me) return requestSignIn();
     setBusy('comment');
     try {
       let body: string | FormData = JSON.stringify({ text });
@@ -528,7 +551,7 @@ export function StoryThread({
         <button type="button" className={story.likedByMe ? 'ysv-liked' : ''} onClick={toggleLike} aria-pressed={Boolean(story.likedByMe)}>
           <i className={story.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like
         </button>
-        <button type="button" onClick={() => (me ? composerRef.current?.focus() : openSignIn())}>
+        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus(); else requestSignIn(); }}>
           <i className="ri-chat-3-line" /> Comment
         </button>
         <button type="button" onClick={share}>
@@ -563,7 +586,7 @@ export function StoryThread({
                   {c.photos.map((p, i) => (
                     <button type="button" key={i} onClick={() => setLightbox({ photos: c.photos || [], index: i })} aria-label="Open photo">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.thumb || p.web || p.full || ''} alt="" loading="lazy" />
+                      <img src={p.web || p.full || p.thumb || ''} alt="" loading="lazy" decoding="async" />
                     </button>
                   ))}
                 </div>
@@ -606,7 +629,7 @@ export function StoryThread({
               )}
               <textarea
                 ref={composerRef}
-                rows={1}
+                rows={2}
                 value={draft}
                 placeholder={`Were you there? Add your photos or a comment as ${myName || 'you'}`}
                 onChange={(e) => setDraft(e.target.value)}
@@ -629,7 +652,7 @@ export function StoryThread({
             </button>
           </>
         ) : (
-          <button type="button" className="ysv-signin" onClick={openSignIn}>Sign in to add your photos or a comment</button>
+          <button type="button" className="ysv-signin" onClick={requestSignIn}>TO ADD A STORY TO {story.players.find((player) => player.isPrimary)?.name || story.players[0]?.name || "THIS PLAYER"}&#39;S TIMELINE YOU MUST BE SIGNED IN</button>
         )}
       </div>
       {lightbox && <PhotoLightbox photos={lightbox.photos} start={lightbox.index} story={story} onClose={() => setLightbox(null)} />}
@@ -651,13 +674,35 @@ export function StoryThread({
   }
 
   return (
-    <article className="ysv-post" id={`story-${story.id}`}>
+    <article className="ysv-post" id={`story-${story.id}`}
+      role={onOpenStory ? 'group' : undefined}
+      tabIndex={onOpenStory ? 0 : undefined}
+      aria-label={onOpenStory ? `Story by ${story.author}. Press Enter to open the full memory` : undefined}
+      onClick={onOpenStory ? (event) => {
+        // Nested links and Like/Comment/Share/photo tools keep their actions.
+        if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [role="button"]')) return;
+        onOpenStory();
+      } : undefined}
+      onKeyDown={onOpenStory ? (event) => {
+        if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onOpenStory();
+        }
+      } : undefined}
+    >
       <div className="ysv-post-pad">
         {header}
-        {body}
       </div>
+      {/* Render the full image first, above even very long story copy. */}
       {media}
-      <div className="ysv-post-pad">
+      <div className="ysv-post-pad ysv-post-content">
+        {body}
+        {onOpenStory && !editing && (
+          <button type="button" className="ysv-open-memory" onClick={onOpenStory}
+            aria-label={`Open the full memory by ${story.author}`}>
+            VIEW FULL MEMORY <i className="ri-external-link-line" aria-hidden="true" />
+          </button>
+        )}
         {bar}
         {commentsBlock}
       </div>
@@ -772,6 +817,7 @@ export default function StoryViewer({
   // The story's photos and everyone's reply photos, one carousel.
   const album = momentAlbum(story);
   const [photoIndex, setPhotoIndex] = useState(Math.min(initialPhoto, Math.max(0, album.length - 1)));
+  const [commentMode, setCommentMode] = useState(focusComment);
   const photo = album[photoIndex];
 
   useEffect(() => {
@@ -787,7 +833,7 @@ export default function StoryViewer({
 
   return createPortal(
     <div className="ysv" role="dialog" aria-modal="true" aria-label="Story" onClick={onClose}>
-      <div className="ysv-card" onClick={(e) => e.stopPropagation()}>
+      <div className={`ysv-card${commentMode ? " ysv-comment-mode" : ""}`} onClick={(e) => e.stopPropagation()}>
         <button type="button" className="ysv-close" onClick={onClose} aria-label="Close"><i className="ri-close-line" /></button>
         <div className={`ysv-photo${photo?.logo ? ' ysv-photo-logo' : ''}`}>
           {photo?.full ? (
@@ -803,7 +849,7 @@ export default function StoryViewer({
           )}
           <PhotoTools story={story} photo={photo} />
         </div>
-        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={focusComment} />
+        <StoryThread story={story} playerId={playerId} onChange={onChange} onDeleted={onDeleted} variant="modal" focusComment={commentMode} onCommentOpen={() => setCommentMode(true)} onSignIn={() => { onClose(); window.setTimeout(openSignIn, 0); }} />
       </div>
       <StoryStyles />
     </div>,
@@ -831,11 +877,13 @@ export function StoryStyles() {
       .ysv { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.82); }
       .ysv-card { position: relative; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); width: min(1100px, 100%); height: min(760px, calc(100dvh - 32px)); background: #0d0d0d; color: var(--ysv-fg); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; overflow: hidden; }
       .ysv-close { position: absolute; top: 8px; right: 8px; z-index: 3; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 20px; cursor: pointer; }
-      .ysv-photo { position: relative; display: flex; align-items: center; justify-content: center; background: #000; min-height: 0; }
+      .ysv-photo { position: relative; display: flex; align-items: flex-start; justify-content: center; background: #000; min-height: 0; }
       .ysv-photo img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
       .ysv-photo-logo { background: #f4f1ea; }
       .ysv-photo-logo img { max-width: min(70%, 420px); max-height: 70%; }
-      .ysv-avatar-crest { object-fit: contain; background: #111; padding: 3px; }
+      .ysv-avatar-crest { object-fit: contain; background: #fff; padding: 3px; filter:grayscale(1); }
+      body.light-theme .ysv-post .ysv-avatar:not(.ysv-avatar-sm) {background:#111;color:#fff;}
+      body.light-theme .ysv-post .ysv-avatar-crest {background:#111;filter:grayscale(1) invert(1);}
       .ysv-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
       .ysv-nav:disabled { opacity: .25; cursor: default; }
       .ysv-nav-prev { left: 8px; }
@@ -858,7 +906,7 @@ export function StoryStyles() {
       .ysv-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 8px; }
       .ysv-card .ysv-head { padding-right: 36px; }
       .ysv-head { display: flex; align-items: flex-start; gap: 10px; }
-      .ysv-avatar { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--ysv-gold); color: #000; font: 400 17px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; }
+      .ysv-avatar { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #fff; color: #000; font: 400 17px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .04em; }
       .ysv-avatar-sm { width: 32px; height: 32px; font-size: 14px; background: var(--ysv-avatar-sm-bg); color: var(--ysv-fg); }
       .ysv-who { flex: 1; min-width: 0; }
       .ysv-byline { font: 400 15px/1.3 system-ui, sans-serif; color: var(--ysv-text); }
@@ -874,6 +922,10 @@ export function StoryStyles() {
       .ysv-menu button:hover { background: var(--ysv-hover); }
       .ysv-menu .ysv-danger { color: #e05252; }
       .ysv-story { margin: 12px 0; color: var(--ysv-fg); font: 400 16px/1.6 var(--yat-news-font, Georgia, serif); white-space: pre-line; }
+      .ysv-post[tabindex="0"] { cursor:pointer; }
+      .ysv-post[tabindex="0"]:focus-visible { outline:2px solid var(--ysv-gold); outline-offset:2px; }
+      .ysv-open-memory { display:inline-flex; align-items:center; gap:5px; margin:0 0 12px; padding:6px 8px; border:1px solid var(--ysv-line); border-radius:4px; background:transparent; color:var(--ysv-text); font:700 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); cursor:pointer; }
+      .ysv-open-memory:hover,.ysv-open-memory:focus-visible { color:var(--ysv-fg); border-color:var(--ysv-text); }
       .ysv-edit { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
       .ysv-edit-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
       .ysv-edit select, .ysv-edit textarea, .ysv-composer textarea { width: 100%; border: 1px solid var(--ysv-input-border); border-radius: 8px; background: var(--ysv-input-bg); color: var(--ysv-fg); padding: 9px 12px; font: 400 14px/1.45 system-ui, sans-serif; }
@@ -898,10 +950,26 @@ export function StoryStyles() {
       .ysv-comment-main { min-width: 0; }
       .ysv-bubble { display: inline-flex; flex-direction: column; gap: 2px; max-width: 100%; padding: 8px 12px; border-radius: 16px; background: var(--ysv-bubble); color: var(--ysv-fg); font: 400 14px/1.35 system-ui, sans-serif; overflow-wrap: anywhere; white-space: pre-line; }
       .ysv-bubble strong { font-size: 13px; }
-      .ysv-comment-photos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-      .ysv-comment-photos button { padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--ysv-bubble); cursor: zoom-in; }
-      .ysv-comment-photos img { display: block; width: 96px; height: 96px; object-fit: cover; }
-      .ysv-comment-photos button:only-child img { width: 200px; height: auto; max-height: 220px; }
+      /* Fan-submitted comment photos retain their entire shape, including
+         portrait baseball cards and landscape team photos. Never use a
+         cropped square thumbnail inside the comment thread. */
+      .ysv-comment-main { min-width:0; flex:1; }
+      .ysv-comment-photos { display:flex; flex-wrap:wrap; align-items:flex-start; gap:7px; margin-top:7px; min-width:0; max-width:100%; }
+      .ysv-comment-photos button {
+        display:flex; align-items:center; justify-content:center;
+        max-width:100%; min-width:0; padding:0; border:0;
+        border-radius:6px; background:var(--ysv-bubble);
+        cursor:zoom-in; overflow:hidden;
+      }
+      .ysv-comment-photos img {
+        display:block; width:auto; height:auto; max-width:min(100%,168px);
+        max-height:200px; object-fit:contain; object-position:center;
+      }
+      .ysv-comment-photos button:only-child { max-width:min(100%,320px); }
+      .ysv-comment-photos button:only-child img {
+        width:auto; height:auto; max-width:100%; max-height:min(48dvh,440px);
+        object-fit:contain;
+      }
       .ysv-lightbox { position: fixed; inset: 0; z-index: 10060; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.9); }
       .ysv-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
       .ysv-comment-meta { display: flex; gap: 12px; padding: 3px 12px 0; color: var(--ysv-muted); font: 700 12px/1 system-ui, sans-serif; }
@@ -912,7 +980,9 @@ export function StoryStyles() {
       .ysv-composer { display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--ysv-line); }
       .ysv-composer .ysv-avatar-sm { align-self: center; }
       .ysv-compose-box { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-      .ysv-composer textarea { flex: 1; resize: none; max-height: 120px; border-radius: 20px; padding: 10px 14px; }
+      .ysv-composer textarea { flex:1;resize:vertical;min-height:52px;max-height:154px;overflow-y:auto;border-radius:6px;padding:10px 14px;box-sizing:border-box;line-height:1.45; }
+      .ysv-side .ysv-composer {min-width:0;}
+      .ysv-side .ysv-compose-box {min-width:0;}
       .ysv-picked { display: flex; flex-wrap: wrap; gap: 6px; }
       .ysv-picked span { position: relative; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; background: var(--ysv-bubble); }
       .ysv-picked img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -923,17 +993,21 @@ export function StoryStyles() {
       .ysv-composer > button:disabled { opacity: .4; cursor: default; }
       .ysv-spin { display: inline-block; animation: ysv-spin 0.9s linear infinite; }
       @keyframes ysv-spin { to { transform: rotate(360deg); } }
-      .ysv-signin { flex: 1; min-height: 42px; border-radius: 20px; border: 1px solid var(--ysv-gold); background: transparent; color: var(--ysv-gold-text); font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; cursor: pointer; }
+      .ysv-signin { flex:1; min-height:42px; padding:10px 14px; border-radius:5px; border:1px solid #777; background:#919191; color:#111; font:700 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.025em; text-transform:uppercase; cursor:pointer; } .ysv-signin:hover,.ysv-signin:focus-visible { background:#aaa; border-color:#aaa; }
       /* A full post in the Stories tab (desktop). */
       .ysv-post { color: var(--ysv-fg); border: 1px solid var(--ysf-card-border, var(--ysv-line)); border-radius: 10px; background: var(--ysf-card-bg, rgba(255,255,255,.04)); box-shadow: var(--ysf-card-shadow, none); overflow: hidden; }
       .ysv-post-pad { padding: 14px 16px 0; }
-      .ysv-post .ysv-post-pad + .ysv-post-pad { padding-top: 0; }
+      .ysv-post .ysv-post-content { padding-top:10px; }
+       .ysv-post .ysv-post-content .ysv-story { margin:0 0 14px; overflow-wrap:anywhere; }
       .ysv-post .ysv-composer { border-top: 0; padding-top: 4px; }
       .ysv-post .ysv-note, .ysv-post .ysv-confirm { margin-left: 16px; margin-right: 16px; padding-left: 0; padding-right: 0; }
       @media (max-width: 760px) {
         .ysv { padding: 0; align-items: stretch; }
         .ysv-card { grid-template-columns: 1fr; grid-template-rows: minmax(0, 42dvh) minmax(0, 1fr); width: 100%; height: 100dvh; border-radius: 0; border: 0; }
         .ysv-side { border-left: 0; border-top: 1px solid var(--ysv-line); }
+        .ysv-card.ysv-comment-mode {grid-template-rows:minmax(0,1fr);}
+        .ysv-comment-mode > .ysv-photo {display:none;}
+        .ysv-card .ysv-composer {padding-bottom:max(12px,env(safe-area-inset-bottom));}
       }
     `}</style>
   );

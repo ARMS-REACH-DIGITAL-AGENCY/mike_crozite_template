@@ -41,6 +41,8 @@ type Info = { name: string; classOf: number | null; profileUrl: string | null };
 type Stage = 'form' | 'sending' | 'done';
 type Pick = 'player' | 'school' | 'team';
 type Result = { outcome: 'approved' | 'rejected' | 'pending'; message: string; link?: string | null };
+type ExistingHero = { id:string; year:number; imageUrl:string | null; active:boolean; uploadedAt:string };
+type HeroSlot = ExistingHero & { canEdit:boolean };
 
 export default function ContributePhotoFlow({
   hubSchool,
@@ -93,8 +95,51 @@ export default function ContributePhotoFlow({
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [existingHeroes, setExistingHeroes] = useState<ExistingHero[]>([]);
+  const [occupiedYears, setOccupiedYears] = useState<HeroSlot[]>([]);
+  const [slotsReady, setSlotsReady] = useState(false);
+  const [moveHeroOpen, setMoveHeroOpen] = useState(false);
+  const [moveHeroYear, setMoveHeroYear] = useState<number | null>(null);
+  const [moveHeroBusy, setMoveHeroBusy] = useState(false);
+  const [heroNotice, setHeroNotice] = useState('');
+  const [editingHeroId, setEditingHeroId] = useState<string | null>(null);
+  const editingHero = existingHeroes.find((hero) => hero.id === editingHeroId) || null;
+  const [heroLoadError, setHeroLoadError] = useState('');
+  const [heroRefresh, setHeroRefresh] = useState(0);
+  // Existing-year management starts with a player, not a file.
+  const [manageHeroMode, setManageHeroMode] = useState(false);
+  const heroActionsRef = useRef<HTMLElement | null>(null);
+  const revealHeroActions = useRef(false);
+  const [manageHeroAction, setManageHeroAction] = useState<'move'|'replace'|'archive'|null>(null);
+  const [archiveConfirmed, setArchiveConfirmed] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveNotice, setArchiveNotice] = useState('');
+  const [archivedYear, setArchivedYear] = useState<number | null>(null);
 
   const main = tagged[0] || null;
+  // Read only this contributor's own approved yearly hero uploads (or those
+  // available to a configured reviewer). No secret or account ID is exposed.
+  useEffect(() => {
+    if (!signedIn || purpose !== 'timeline_hero' || !main?.playerId) {
+      setExistingHeroes([]); setOccupiedYears([]); setSlotsReady(false); setEditingHeroId(null); return;
+    }
+    let cancelled = false;
+    setHeroLoadError(''); setSlotsReady(false); setOccupiedYears([]);
+    Promise.resolve(auth.authStateReady?.()).then(async () => {
+      const token = await auth.currentUser?.getIdToken().catch(() => '');
+      const res = await fetch(`/api/contribute/photo?playerId=${encodeURIComponent(main.playerId)}`, {
+        credentials:'include',headers:token ? {Authorization:`Bearer ${token}`} : {},cache:'no-store'
+      });
+      const data = await res.json().catch(() => ({}));
+      if (cancelled) return;
+      if (!res.ok) { setHeroLoadError(data.error || 'Unable to check existing yearly photos.'); setSlotsReady(false); return; }
+      setExistingHeroes(Array.isArray(data.heroes) ? data.heroes : []);
+      setOccupiedYears(Array.isArray(data.slots) ? data.slots : []);
+      setSlotsReady(true);
+    }).catch(() => { if (!cancelled) { setHeroLoadError('Unable to check existing yearly photos.'); setSlotsReady(false); } });
+    return () => { cancelled = true; };
+  }, [signedIn,purpose,main?.playerId,heroRefresh]);
+
   const type = PHOTO_TYPES.find((t) => t.id === purpose) || null;
 
   // Fetch only the selected player's published flip-card facts. The
@@ -120,6 +165,9 @@ export default function ContributePhotoFlow({
     ? (other.year ? { key: 'other', year: Number(other.year), stage: 'other', team: other.team.trim(), level: '', label: 'Other', current: false } : null)
     : years?.find((s) => s.key === seasonKey) || null;
   const current = seasons?.find((s) => s.current) || null;
+  const selectedHeroYear = season?.year || null;
+  const occupiedHero = selectedHeroYear ? occupiedYears.find((item) => item.year === selectedHeroYear) || null : null;
+  const replacingCurrentHero = Boolean(occupiedHero && occupiedHero.id === editingHeroId && file);
   const aspect = type?.aspects ? (type.aspects.length > 1 && landscape ? type.aspects[1] : type.aspects[0]) : null;
   const pickFor: Pick = type?.asks === 'school' ? 'school' : type?.asks === 'team' ? 'team' : 'player';
   const pick: Pick = pickFor;
@@ -151,6 +199,11 @@ export default function ContributePhotoFlow({
     const before = tagged[0]?.playerId;
     setTagged(list);
     if (list[0]?.playerId !== before) {
+      setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+      // Choosing the player must never discard the photo selected in Step 1.
+      // The recipient changed, so only the previous proof approval expires.
+      setApprovedSig('');setCrop(null);
+      setOccupiedYears([]);setSlotsReady(false);setHeroLoadError('');
       loadSeasons(list[0] || null);
       if (list[0]?.schoolId) setSchool({ hsid: list[0].schoolId, name: list[0].schoolName || '' });
     }
@@ -165,11 +218,112 @@ export default function ContributePhotoFlow({
     if (p) setMain([p, ...tagged.filter((t) => t.playerId !== id)]);
   };
 
+  const editHero = (hero: ExistingHero) => {
+    if (!hero.imageUrl) { setError('The original image is not available. Contact a reviewer.'); return; }
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setEditingHeroId(hero.id);setFile(null);setPreview(hero.imageUrl);
+    setSeasonKey('other');setOther({year:hero.year,team:''});
+    setCrop(null);setNote('');setApprovedSig('');setError('');setArchiveConfirmed(false);
+  };
+  const startManagingHeroes = () => {
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setManageHeroMode(true);setPurpose('timeline_hero');setShowPurposePicker(false);
+    setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+    setFile(null);setPreview('');setApprovedSig('');setError('');
+  };
+  const startNewUpload = () => {
+    // A photo already chosen in Step 1 must survive selecting "Upload New".
+    // Only clear an old selection when leaving manage/edit mode.
+    const leavingExistingHero = manageHeroMode || editingHeroId !== null;
+    if (leavingExistingHero && preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setManageHeroMode(false);setPurpose('timeline_hero');setShowPurposePicker(false);
+    setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+    if (leavingExistingHero) { setFile(null);setPreview('');setApprovedSig(''); }
+    setError('');
+    if (archivedYear !== null) { setSeasonKey('other');setOther({year:archivedYear,team:''}); }
+  };
+  const selectManagedHero = (slot: HeroSlot) => {
+    if (!slot.canEdit) {
+      setError('Only the original contributor or an authorized reviewer may edit this image.');
+      return;
+    }
+    const hero = existingHeroes.find((item) => item.id === slot.id);
+    if (!hero) {setError('This photo cannot be edited from your account. Contact a reviewer.');return;}
+    editHero(hero);setManageHeroAction(null);setHeroNotice('');
+  };
+  const archiveSelectedHero = async () => {
+    const slot = occupiedYears.find((item) => item.id === editingHeroId);
+    if (!slot?.canEdit || !archiveConfirmed || archiveBusy || !main) return;
+    setArchiveBusy(true);setError('');
+    try {
+      await auth.authStateReady?.();
+      const token = await auth.currentUser?.getIdToken().catch(() => '');
+      const res = await fetch('/api/contribute/photo', {
+        method:'DELETE',credentials:'include',
+        headers:{'Content-Type':'application/json',...(token ? {Authorization:`Bearer ${token}`} : {})},
+        body:JSON.stringify({uploadId:slot.id,playerId:main.playerId,year:slot.year,
+          confirm:'REMOVE FROM TIMELINE'}),
+      });
+      const response = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(response.error || 'The yearly hero could not be removed.');
+      setArchiveNotice(response.message || 'Image removed from the published timeline.');
+      setArchivedYear(slot.year);
+      setEditingHeroId(null);setManageHeroAction(null);setArchiveConfirmed(false);
+      setFile(null);setPreview('');setApprovedSig('');
+      setOccupiedYears((items) => items.filter((item) => item.id !== slot.id));
+      setExistingHeroes((items) => items.filter((item) => item.id !== slot.id));
+      setHeroRefresh((value) => value + 1);
+      window.dispatchEvent(new CustomEvent('yat:contribute-photo-published',{
+        detail:{playerId:main.playerId,purpose:'timeline_hero',uploadId:slot.id}
+      }));
+      router.refresh();
+    } catch (e) {setError(e instanceof Error ? e.message : 'Could not remove the image.');}
+    finally {setArchiveBusy(false);}
+  };
+  const replaceOccupiedHero = () => {
+    if (!occupiedHero?.canEdit || !file) return;
+    setEditingHeroId(occupiedHero.id);
+    setMoveHeroOpen(false); setApprovedSig(''); setError('');
+  };
+  const moveOccupiedHero = () => {
+    if (!occupiedHero?.canEdit) return;
+    setMoveHeroYear(null); setMoveHeroOpen(true); setApprovedSig(''); setError(''); setHeroNotice('');
+  };
+  const confirmHeroMove = async () => {
+    const source = occupiedHero;
+    if (!source?.canEdit || !moveHeroYear || source.year === moveHeroYear ||
+        occupiedYears.some((slot) => slot.year === moveHeroYear)) {
+      setError('Choose another available year for the existing image.');
+      return;
+    }
+    setMoveHeroBusy(true); setError('');
+    try {
+      await auth.authStateReady?.();
+      const token = await auth.currentUser?.getIdToken().catch(() => '');
+      const res = await fetch('/api/contribute/photo', {
+        method:'PATCH',credentials:'include',
+        headers:{'Content-Type':'application/json',...(token ? {Authorization:`Bearer ${token}`} : {})},
+        body:JSON.stringify({uploadId:source.id,year:moveHeroYear}),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'The existing image could not be moved.');
+      setOccupiedYears((slots) => slots.map((slot) => slot.id === source.id ? {...slot,year:moveHeroYear} : slot));
+      setExistingHeroes((heroes) => heroes.map((hero) => hero.id === source.id ? {...hero,year:moveHeroYear} : hero));
+      setMoveHeroOpen(false); setMoveHeroYear(null);setApprovedSig('');
+      setHeroNotice(`The existing image was moved to ${moveHeroYear}. Your new photo is still selected for ${source.year}; review and approve it below.`);
+      window.dispatchEvent(new CustomEvent('yat:contribute-photo-published',{
+        detail:{playerId:main?.playerId || '',purpose:'timeline_hero',uploadId:source.id}
+      }));
+      router.refresh();
+      setHeroRefresh((value) => value + 1);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not move the existing photo.'); }
+    finally { setMoveHeroBusy(false); }
+  };
   const pickFile = (files: FileList | null) => {
     const f = files?.[0];
     if (fileInput.current) fileInput.current.value = '';
     if (!f) return;
-    if (preview) URL.revokeObjectURL(preview);
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
     setFile(f);
     setPreview(URL.createObjectURL(f));
     setCrop(null);
@@ -177,6 +331,9 @@ export default function ContributePhotoFlow({
   };
 
   const choosePurpose = (id: PhotoPurpose) => {
+    // When the contributor chooses Career Path Year Photo from the purpose
+    // list, reveal its actions under Step 1 instead of leaving them above view.
+    if (id === 'timeline_hero' && purpose !== id) revealHeroActions.current = true;
     setPurpose(id);
     setShowPurposePicker(false);
     if (id !== 'team_logo') { setSelectedTeam(null); setTeamId(''); }
@@ -184,6 +341,11 @@ export default function ContributePhotoFlow({
     setLandscape(false);
     setError('');
   };
+  useEffect(() => {
+    if (purpose !== 'timeline_hero' || manageHeroMode || !revealHeroActions.current) return;
+    revealHeroActions.current = false;
+    heroActionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [purpose, manageHeroMode]);
 
   // The teams the main player played for (for a team logo).
   const teams = Array.from(new Map((seasons || []).filter((s) => s.teamId && s.stage !== 'hs').map((s) => [s.teamId!, s.team])).entries());
@@ -197,42 +359,75 @@ export default function ContributePhotoFlow({
   };
 
   const problem = (): string | null => {
-    if (!file) return 'Upload the picture.';
+    if (!file && !editingHeroId) return 'Upload the picture.';
     if (!type) return 'Pick its purpose.';
     if (type.needsPlayer && !main) return 'Select the player.';
     if ((type.id === 'timeline_hero' || type.id === 'headshot') && !season) return seasonKey === 'other' ? 'Pick the year.' : 'Pick the season.';
+    if (type.id === 'timeline_hero') {
+      if (!slotsReady) return heroLoadError || 'Checking this player\'s existing yearly hero images.';
+      const y = season?.year;
+      if (editingHeroId && editingHero && !file && editingHero.year === y) return 'Select a different year, or choose a replacement photo.';
+      if (occupiedHero && occupiedHero.id !== editingHeroId)
+        return occupiedHero.canEdit
+          ? `A yearly hero already exists for ${y}. Choose MOVE EXISTING or REPLACE EXISTING before approving.`
+          : `A yearly hero already exists for ${y}. Only its original uploader or a reviewer can move or replace it.`;
+    }
     if (type.asks === 'team' && !teamId) return 'Pick the team.';
     if (type.asks === 'school' && !/^\d+$/.test(String(school?.hsid ?? '').trim())) return 'Select a high school from the search results.';
     return null;
   };
 
   // What the proof shows; approving it holds only while this stays the same.
-  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop]);
+  const sig = JSON.stringify([preview, purpose, tagged.map((t) => t.playerId), seasonKey, other, teamId, school?.hsid, landscape, crop, editingHeroId, occupiedHero?.id]);
   const approved = approvedSig === sig;
   const ready = !problem();
+  const manageSelected = editingHeroId !== null && manageHeroMode;
+  const manageReadyForProof = !manageHeroMode ||
+    (manageSelected && (manageHeroAction === 'move' || (manageHeroAction === 'replace' && !!file)));
   const submissionHsid = String(type?.id === 'team_logo' ? '' : type?.id === 'school_logo' ? school?.hsid ?? '' : main?.schoolId || school?.hsid || hubSchool?.hsid || '').trim();
   const validSubmissionHsid = type?.id === 'team_logo' || /^\d+$/.test(submissionHsid);
 
   const send = async () => {
-    if (!file || !type) return;
+    if ((!file && !editingHeroId) || !type) return;
+    if (manageHeroMode && !manageReadyForProof) return setError('Choose Move or Replace and approve the proof before saving.');
     if (!signedIn) return onSignIn();
     const p = problem();
     if (p) return setError(p);
-    if (!validSubmissionHsid) return setError('Select a high school from the search results.');
+    if (!validSubmissionHsid && !(editingHeroId && !file && type.id === 'timeline_hero')) return setError('Select a high school from the search results.');
     if (!approved) return setError('Check the proof and approve it first.');
     setStage('sending');
     setError('');
     try {
       await auth.authStateReady?.();
       const token = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+      // Correcting a year without changing the image never uploads,
+      // duplicates, recrops or alters the original approved artwork.
+      if (editingHeroId && !file && type.id === 'timeline_hero') {
+        const res = await fetch('/api/contribute/photo', {
+          method:'PATCH',credentials:'include',
+          headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+          body:JSON.stringify({uploadId:editingHeroId,year:yearToSend()}),
+        });
+        const response = await res.json().catch(() => ({}));
+        if (res.status === 401) { setStage('form'); setConfirm(true); return; }
+        if (!res.ok) throw new Error(response.error || 'The yearly photo could not be corrected.');
+        setResult({ outcome:'approved', message:response.message || 'Year corrected.' });
+        window.dispatchEvent(new CustomEvent('yat:contribute-photo-published',{
+          detail:{playerId:main?.playerId || '',purpose:'timeline_hero',uploadId:editingHeroId}
+        }));
+        setHeroRefresh((value) => value + 1);
+        router.refresh(); setStage('done'); return;
+      }
       const isLogo = type.id === 'school_logo' || type.id === 'team_logo';
       // Logos keep their transparency; phone photos are shrunk first (same
       // proportions, so the placement still lines up).
-      const blob = isLogo && file.size <= CONTRIBUTE_MAX_PHOTO_BYTES ? file : await shrinkPhoto(file);
+      const uploadFile = file!;
+      const blob = isLogo && uploadFile.size <= CONTRIBUTE_MAX_PHOTO_BYTES ? uploadFile : await shrinkPhoto(uploadFile);
       const form = new FormData();
       if (token) form.set('idToken', token);
-      form.set('photo', blob, file.name);
+      form.set('photo', blob, blob.type === 'image/jpeg' ? uploadFile.name.replace(/\.[^.]+$/, '') + '.jpg' : uploadFile.name);
       form.set('purpose', type.id);
+      if (type.id === 'timeline_hero' && editingHeroId) form.set('replaceUploadId',editingHeroId);
       form.set('year', String(yearToSend() || THIS_YEAR));
       form.set('playerId', type.id === 'school_logo' || type.id === 'team_logo' ? '' : main?.playerId || '');
       form.set('playerName', main?.displayName || '');
@@ -264,6 +459,7 @@ export default function ContributePhotoFlow({
           detail: { playerId: main?.playerId || '', purpose: type.id, uploadId: body?.id || '' },
         }));
         router.refresh();
+        if (type.id === 'timeline_hero') setHeroRefresh((value) => value + 1);
       }
       setStage('done');
     } catch (e) {
@@ -273,10 +469,12 @@ export default function ContributePhotoFlow({
   };
 
   const startOver = () => {
-    if (preview) URL.revokeObjectURL(preview);
-    setFile(null); setPreview(''); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
+    if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+    setFile(null); setPreview(''); setEditingHeroId(null); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
     setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setSelectedTeam(null); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
+    setManageHeroMode(false); setManageHeroAction(null); setArchiveConfirmed(false);
+    setArchiveNotice(''); setArchivedYear(null); revealHeroActions.current = false;
   };
 
   // ---- Done --------------------------------------------------------------
@@ -318,6 +516,116 @@ export default function ContributePhotoFlow({
 
   return (
     <div className="ypf-flow">
+      {manageHeroMode && (
+        <div className="ypf-selected-purpose">
+          <div><span className="ypf-selected-kicker">CAREER PATH YEAR PHOTO</span><strong>MANAGE EXISTING YEARLY HERO</strong></div>
+          <button type="button" className="ycd-link ycd-small" onClick={startNewUpload}>Back to photo options</button>
+        </div>
+      )}
+      {manageHeroMode && (
+        <section className="ypf-step ypf-hero-manager">
+          <div className="ycd-label"><span className="ycd-step">1</span> WHICH PLAYER'S YEARLY HERO?</div>
+          {main ? (
+            <div className="ypf-hero-player">
+              <strong>{main.displayName}</strong>
+              <small>{main.schoolName || ''}</small>
+              <button type="button" className="ycd-link ycd-small" onClick={() => setMain([])}>CHANGE PLAYER</button>
+            </div>
+          ) : <ContributeSearch onPlayer={(selected) => setMain([selected])} />}
+          {!signedIn && main && <button type="button" className="ycd-btn" onClick={onSignIn}>SIGN IN TO SEE EXISTING YEARLY HERO IMAGES</button>}
+          {signedIn && main && !slotsReady && <p className="ycd-muted ycd-small" role="status">
+            {heroLoadError || "Checking this player's yearly hero images…"}
+          </p>}
+          {signedIn && main && slotsReady && <>
+            <p role="status" className="ypf-hero-found">
+              {occupiedYears.length ? `${occupiedYears.length} EXISTING YEARLY HERO ${occupiedYears.length === 1 ? 'IMAGE' : 'IMAGES'} FOUND`
+                : 'NO EXISTING YEARLY HERO IMAGES FOUND'}
+            </p>
+            {occupiedYears.length > 0 && <div className="ypf-hero-existing" aria-label="Current yearly hero images">
+              {occupiedYears.map((slot) => (
+                <button type="button" key={slot.id}
+                  className={`ypf-hero-option${editingHeroId === slot.id ? ' is-on' : ''}`}
+                  disabled={!slot.canEdit} aria-pressed={editingHeroId === slot.id}
+                  onClick={() => selectManagedHero(slot)}>
+                  {slot.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={slot.imageUrl} alt={`Current ${slot.year} yearly hero`} loading="lazy" />
+                  ) : <i className="ri-image-line" aria-hidden="true" />}
+                  <span><b>{slot.year}</b><small>{slot.canEdit ? 'SELECT TO MANAGE' : 'REVIEWER APPROVAL REQUIRED'}</small></span>
+                </button>
+              ))}
+            </div>}
+            {occupiedYears.some((item) => !item.canEdit) && <p className="ycd-muted ycd-small">
+              An image submitted by someone else requires its original uploader or an authorized reviewer to move or remove it.
+            </p>}
+            {!occupiedYears.length && <button type="button" className="ycd-btn" onClick={startNewUpload}>UPLOAD THE FIRST YEARLY HERO</button>}
+          </>}
+        </section>
+      )}
+      {manageHeroMode && editingHeroId && occupiedYears.some((item) => item.id === editingHeroId) && (
+        <section className="ypf-step ypf-hero-actions">
+          <div className="ycd-label"><span className="ycd-step">2</span> WHAT SHOULD HAPPEN TO THIS IMAGE?</div>
+          <div className="ypf-hero-selected">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={editingHero?.imageUrl || ''} alt="Existing yearly hero" />
+            <div><b>Year {editingHero?.year}</b><small>Current approved image</small></div>
+          </div>
+          <div className="ycd-actions">
+            <button type="button" className="ycd-btn" aria-pressed={manageHeroAction === 'move'}
+              onClick={() => {setManageHeroAction('move');setFile(null);setPreview(editingHero?.imageUrl || '');setArchiveConfirmed(false);setApprovedSig('');}}>
+              MOVE IMAGE TO A DIFFERENT YEAR
+            </button>
+            <button type="button" className="ycd-btn" aria-pressed={manageHeroAction === 'replace'}
+              onClick={() => {setManageHeroAction('replace');setSeasonKey('other');setOther({year:editingHero?.year || '',team:''});setApprovedSig('');}}>
+              REPLACE WITH A NEW PHOTO
+            </button>
+            <button type="button" className="ycd-btn" aria-pressed={manageHeroAction === 'archive'}
+              onClick={() => {setManageHeroAction('archive');setArchiveConfirmed(false);setFile(null);setPreview(editingHero?.imageUrl || '');setApprovedSig('');}}>
+              REMOVE IMAGE FROM TIMELINE
+            </button>
+          </div>
+          {manageHeroAction === 'move' && <>
+            <label className="ycd-label" htmlFor="ypfManagedYear">MOVE THIS IMAGE TO AN AVAILABLE YEAR</label>
+            <select id="ypfManagedYear" className="ypf-managed-year" value={seasonKey === 'other' ? other.year : ''}
+              onChange={(event) => {setSeasonKey('other');setOther({year:event.target.value ? Number(event.target.value) : '',team:''});setApprovedSig('');}}>
+              <option value="">Choose a different year…</option>
+              {Array.from({length: THIS_YEAR + 2 - 1900},(_,i)=> THIS_YEAR+1-i)
+                .filter((year) => year !== editingHero?.year && !occupiedYears.some((item)=>item.year===year))
+                .map((year)=><option key={year} value={year}>{year}</option>)}
+            </select>
+            <p className="ycd-muted ycd-small">The original image will move to that year without reuploading. Review the proof and confirm below.</p>
+          </>}
+          {manageHeroAction === 'replace' && <>
+            <p className="ycd-muted ycd-small">Choose the replacement. The existing image stays published until the new photo is approved.</p>
+            <button type="button" className="ycd-btn" onClick={() => fileInput.current?.click()}>
+              {file ? 'CHOOSE ANOTHER REPLACEMENT PHOTO' : 'CHOOSE REPLACEMENT PHOTO'}
+            </button>
+            <input ref={fileInput} type="file" accept="image/*" hidden onChange={(event) => pickFile(event.target.files)} />
+            {file && <div className="ypf-hero-selected">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview} alt="Proposed replacement image" /><div><b>New image selected</b><small>Review the proof below</small></div>
+            </div>}
+          </>}
+          {manageHeroAction === 'archive' && <>
+            <p><b>Remove the {editingHero?.year} hero from the public timeline?</b> This frees that year's position for a replacement image.</p>
+            <p className="ycd-muted ycd-small">The original photo is preserved in the archive for recovery. It is not permanently deleted from storage.</p>
+            <label className="ypf-hero-archive-confirm">
+              <input type="checkbox" checked={archiveConfirmed} onChange={(event) => setArchiveConfirmed(event.target.checked)} />
+              I CONFIRM REMOVAL OF THIS IMAGE FROM THE PUBLIC TIMELINE
+            </label>
+            <button type="button" className="ycd-btn" disabled={!archiveConfirmed || archiveBusy}
+              onClick={() => void archiveSelectedHero()}>
+              {archiveBusy ? 'REMOVING IMAGE…' : 'CONFIRM REMOVE FROM TIMELINE'}
+            </button>
+          </>}
+          {error && <div className="ycd-error" role="alert">{error}</div>}
+        </section>
+      )}
+      {archiveNotice && manageHeroMode && <section className="ypf-step" role="status">
+        <p>{archiveNotice}</p>
+        <button type="button" className="ycd-btn" onClick={startNewUpload}>UPLOAD A REPLACEMENT HERO FOR {archivedYear || 'THIS YEAR'}</button>
+      </section>}
+      {!manageHeroMode && <>
       {/* Enter from a particular contribution card with its destination set.
           Changing the destination is optional and never a required step. */}
       {type && !showPurposePicker ? (
@@ -349,10 +657,36 @@ export default function ContributePhotoFlow({
           <figcaption>EXAMPLE PLACEMENT · {type.label.toUpperCase()}</figcaption>
         </figure>
       ) : null}
+      {type?.id === 'timeline_hero' && signedIn && main && (
+        <section className="ypf-step">
+          <div className="ycd-label"><span className="ycd-step">EDIT</span> YOUR APPROVED YEARLY HERO PHOTOS</div>
+          <p className="ycd-muted ycd-small">One active image per player per year. Select your existing photo to correct the year or replace its picture.</p>
+          {heroLoadError && <div className="ycd-error">{heroLoadError}</div>}
+          <div className="ypf-hero-existing">
+            {existingHeroes.map((hero) => (
+              <button type="button" key={hero.id}
+                className={`ypf-hero-option${editingHeroId === hero.id ? ' is-on' : ''}`}
+                aria-pressed={editingHeroId === hero.id} onClick={() => editHero(hero)}>
+                {hero.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={hero.imageUrl} alt="" loading="lazy" />
+                ) : <i className="ri-image-line" aria-hidden="true" />}
+                <span><b>{hero.year}</b><small>{hero.active ? 'CURRENT · EDIT / REPLACE' : 'ARCHIVED · CORRECT YEAR'}</small></span>
+              </button>
+            ))}
+          </div>
+          {!existingHeroes.length && !heroLoadError && <p className="ycd-muted ycd-small">No previously approved yearly images on this player from your account.</p>}
+          {editingHeroId && (
+            <button type="button" className="ycd-link ycd-small" onClick={() => {
+              setEditingHeroId(null);setFile(null);setPreview('');setSeasonKey('');setApprovedSig('');
+            }}>Cancel correction / upload a new year</button>
+          )}
+        </section>
+      )}
       {/* 1. Upload + */}
       <section className="ypf-step">
         <div className="ycd-label"><span className="ycd-step">1</span> {type ? 'Upload ' + type.label : 'Upload Photo'}</div>
-        {!file ? (
+        {!file && !editingHeroId ? (
           <button type="button" className="ypf-drop" onClick={() => fileInput.current?.click()}>
             <i className="ri-image-add-line" aria-hidden="true" />
             <span>Upload +</span>
@@ -362,11 +696,29 @@ export default function ContributePhotoFlow({
           <div className="ypf-uploaded">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview} alt="" />
-            <button type="button" className="ycd-link ycd-small" onClick={() => fileInput.current?.click()}>Choose a different picture</button>
+            <button type="button" className="ycd-link ycd-small" onClick={() => fileInput.current?.click()}>{editingHeroId ? 'Replace this picture (optional)' : 'Choose a different picture'}</button>
           </div>
         )}
         <input ref={fileInput} type="file" accept="image/*" hidden onChange={(e) => pickFile(e.target.files)} />
       </section>
+      {/* Only the Career Path Year Photo flow offers create/manage actions.
+          Keep these below Step 1, never at the top of the generic form or
+          inside Step 2's destination list. */}
+      {type?.id === 'timeline_hero' && (
+        <section ref={heroActionsRef} className="ypf-step ypf-hero-mode" aria-label="Yearly hero image actions">
+          <div className="ycd-label">YEARLY HERO IMAGES — CREATE OR CORRECT</div>
+          <div className="ycd-actions">
+            <button type="button" className={`ycd-btn${!manageHeroMode ? ' is-on' : ''}`}
+              aria-pressed={!manageHeroMode} onClick={startNewUpload}>
+              UPLOAD NEW YEARLY HERO
+            </button>
+            <button type="button" className="ycd-btn"
+              aria-pressed={false} onClick={startManagingHeroes}>
+              MANAGE EXISTING YEARLY HERO — NO UPLOAD NEEDED
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* The complete list of destinations only appears for generic uploads
           or when the contributor explicitly chooses to change the purpose. */}
@@ -385,7 +737,7 @@ export default function ContributePhotoFlow({
       {/* 3. Select: Player | School | Team */}
       {type ? (
         <section className="ypf-step">
-          <div className="ycd-label"><span className="ycd-step">3</span> {pick === 'school' ? 'Select the school' : pick === 'team' ? 'Select the team' : 'Select the player'}</div>
+          <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 2 : 3}</span> {pick === 'school' ? 'Select the school' : pick === 'team' ? 'Select the team' : 'Select the player'}</div>
           <div className="ycd-switch ypf-pick" role="radiogroup" aria-label="Select">
             {(['player', 'school', 'team'] as Pick[]).map((k) => (
               <button
@@ -454,7 +806,7 @@ export default function ContributePhotoFlow({
           {/* 3a. The season, when it matters */}
           {needsSeason ? (
             <div className="ycd-field ypf-sub">
-              <div className="ycd-label"><span className="ycd-step ypf-step-sm">3a</span> Select season{type.id === 'other_photo' ? ' (if you know)' : ''}</div>
+              <div className="ycd-label"><span className="ycd-step ypf-step-sm">{!showPurposePicker && type ? "2a" : "3a"}</span> Select season{type.id === 'other_photo' ? ' (if you know)' : ''}</div>
               {!years ? <div className="ycd-muted ycd-small">Loading his seasons…</div>
                 : (
                   <div className="ycd-seasons" role="listbox" aria-label="Seasons">
@@ -482,12 +834,68 @@ export default function ContributePhotoFlow({
         </section>
       ) : null}
 
+      </>}
+      {/* Detect an existing active image before approving another annual hero.
+          The replacement action requires an explicit selection plus the
+          approval checkbox; moving is a separate year-correction workflow. */}
+      {type?.id === 'timeline_hero' && file && selectedHeroYear !== null && occupiedHero && (
+        <section className="ypf-step ypf-hero-conflict" role="alert" aria-live="polite">
+          <div className="ycd-label">YEAR {selectedHeroYear} ALREADY HAS A HERO IMAGE</div>
+          <p>A yearly hero image already exists for {main?.displayName || 'this player'} in {selectedHeroYear}. Are you sure you want to change it?</p>
+          <div className="ypf-hero-compare">
+            <figure>
+              {occupiedHero.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={occupiedHero.imageUrl} alt={`Current ${selectedHeroYear} yearly hero`} />
+              ) : <span>Current image unavailable</span>}
+              <figcaption>CURRENT HERO</figcaption>
+            </figure>
+            <figure>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={preview} alt={`Proposed ${selectedHeroYear} yearly hero`} />
+              <figcaption>PROPOSED HERO</figcaption>
+            </figure>
+          </div>
+          {occupiedHero.canEdit ? (
+            <>
+              <p><b>Would you like to move the current image to a different year, or replace it?</b></p>
+              <div className="ycd-actions ypf-hero-decisions">
+                <button type="button" className="ycd-btn" onClick={moveOccupiedHero}>MOVE CURRENT IMAGE</button>
+                <button type="button" className="ycd-btn" aria-pressed={replacingCurrentHero}
+                  onClick={replaceOccupiedHero}>{replacingCurrentHero ? 'REPLACE CURRENT — SELECTED' : 'REPLACE CURRENT IMAGE'}</button>
+              </div>
+              {replacingCurrentHero
+                ? <p className="ycd-muted ycd-small">The original image is preserved in the archive. Only an approved new image becomes the visible hero.</p>
+                : <p className="ycd-muted ycd-small">Move the current image to a free year, or explicitly replace it. Your new photo stays selected while you move the current one.</p>}
+              {moveHeroOpen && (
+                <div className="ypf-move-year">
+                  <label className="ycd-label" htmlFor="ypfMoveYear">MOVE CURRENT IMAGE FROM {selectedHeroYear} TO:</label>
+                  <select id="ypfMoveYear" value={moveHeroYear ?? ''} onChange={(event) => setMoveHeroYear(event.target.value ? Number(event.target.value) : null)}>
+                    <option value="">Choose an available year…</option>
+                    {Array.from(new Set((years || []).map((item) => item.year)))
+                      .filter((year) => year !== selectedHeroYear && !occupiedYears.some((item) => item.year === year))
+                      .sort((a,b) => b-a)
+                      .map((year) => <option key={year} value={year}>{year}</option>)}
+                  </select>
+                  <button type="button" className="ycd-btn" onClick={() => void confirmHeroMove()} disabled={!moveHeroYear || moveHeroBusy}>
+                    {moveHeroBusy ? 'MOVING EXISTING IMAGE…' : 'CONFIRM MOVE TO SELECTED YEAR'}
+                  </button>
+                  <button type="button" className="ycd-link ycd-small" onClick={() => setMoveHeroOpen(false)} disabled={moveHeroBusy}>Cancel move</button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="ycd-error">This year's image was submitted by another contributor. Only the original uploader or an authorized YAT?STATS reviewer may move or replace it.</p>
+          )}
+        </section>
+      )}
+      {heroNotice && <p className="ycd-muted ycd-small" role="status">{heroNotice}</p>}
       {/* 4. Verify position, 5. Approve */}
-      {type && file ? (
+      {type && (file || editingHeroId) && preview && manageReadyForProof ? (
         <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
           <section className="ypf-step">
-            <div className="ycd-label"><span className="ycd-step">4</span> Verify position</div>
-            {aspect ? (
+            <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 3 : 4}</span> Verify position</div>
+            {aspect && (!editingHeroId || file) ? (
               <>
                 {type.aspects && type.aspects.length > 1 ? (
                   <div className="ycd-switch" role="radiogroup" aria-label="Orientation">
@@ -508,7 +916,7 @@ export default function ContributePhotoFlow({
           </section>
 
           <section className="ypf-step">
-            <div className="ycd-label"><span className="ycd-step">5</span> Approve</div>
+            <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 4 : 5}</span> Approve</div>
             {ready ? (
               <>
                 <ContributeProof
@@ -525,7 +933,7 @@ export default function ContributePhotoFlow({
                 />
                 <label className={`ypf-approve${approved ? ' is-on' : ''}`}>
                   <input type="checkbox" checked={approved} onChange={(e) => setApprovedSig(e.target.checked ? sig : '')} />
-                  <span>Looks right. This is where my photo goes.</span>
+                  <span>{editingHeroId ? 'I approve the updated year or replacement image.' : 'Looks right. This is where my photo goes.'}</span>
                 </label>
               </>
             ) : (
@@ -536,8 +944,8 @@ export default function ContributePhotoFlow({
       ) : null}
 
       {/* 6. Submit */}
-      <section className="ypf-step">
-        <div className="ycd-label"><span className="ycd-step">6</span> Submit</div>
+      {(!manageHeroMode || manageReadyForProof) && <section className="ypf-step">
+        <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 5 : 6}</span> Submit</div>
         {confirm ? <FanConfirm email={email} onConfirmed={() => { setConfirm(false); void send(); }} /> : null}
         {error ? <div className="ycd-error">{error}</div> : null}
         <div className="ycd-actions">
@@ -545,8 +953,8 @@ export default function ContributePhotoFlow({
             {!signedIn ? 'Sign in to submit' : sending ? 'Checking your photo…' : 'Submit'}
           </button>
         </div>
-        <div className="ycd-muted ycd-small">Each photo is checked automatically when you submit it. Most go live right away.</div>
-      </section>
+        <div className="ycd-muted ycd-small">{manageHeroMode && manageHeroAction === 'move' ? 'The existing photo will be moved to the corrected year. Its image is preserved.' : 'Each photo is checked automatically when you submit it. Most go live right away.'}</div>
+      </section>}
 
       {main && info?.profileUrl ? (
         <p className="ycd-memories">
@@ -574,7 +982,40 @@ export default function ContributePhotoFlow({
         .ypf-step { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--sb-card-border); border-radius: 7px; background: var(--sb-card-bg); min-width: 0; }
         .ypf-sub { margin-top: 6px; }
         .ypf-step-sm { font-size: 11px !important; }
-        .ypf-uploaded { display: flex; align-items: center; gap: 12px; }
+        .ypf-move-year{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;padding:8px;border:1px solid var(--line);border-radius:4px}
+        .ypf-move-year select{min-width:155px;padding:9px;color:var(--fg);background:var(--bg,#171717);border:1px solid var(--line);border-radius:4px}
+        .ypf-hero-mode .ycd-actions{display:flex;flex-wrap:wrap;gap:8px}
+        .ypf-hero-mode .ycd-btn{flex:1 1 210px}
+        .ypf-hero-mode .ycd-btn[aria-pressed=true],
+        .ypf-hero-actions .ycd-btn[aria-pressed=true]{border-color:var(--fg);background:var(--line)}
+        .ypf-hero-player{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:10px;border:1px solid var(--line);border-radius:5px}
+        .ypf-hero-player small{color:var(--fg);opacity:.7}
+        .ypf-hero-found{font:750 11px/1.2 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.06em}
+        .ypf-hero-option:disabled{cursor:not-allowed;opacity:.65}
+        .ypf-hero-selected{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--line);border-radius:5px}
+        .ypf-hero-selected img{width:auto;height:auto;max-width:120px;max-height:140px;object-fit:contain;background:#111}
+        .ypf-hero-selected div{display:flex;flex-direction:column;gap:5px}
+        .ypf-hero-selected small{font-size:11px}
+        .ypf-hero-actions .ycd-actions{display:flex;gap:8px;flex-wrap:wrap}
+        .ypf-hero-actions .ycd-actions .ycd-btn{flex:1 1 165px}
+        .ypf-managed-year{display:block;width:100%;min-height:39px;padding:8px;border:1px solid var(--line);background:var(--sb-card-bg);color:var(--fg);border-radius:5px}
+        .ypf-hero-archive-confirm{display:flex;align-items:center;gap:10px;font-size:12px;cursor:pointer}
+        .ypf-hero-archive-confirm input{width:18px;height:18px}
+        .ypf-hero-conflict{border:1px solid var(--line);border-left:3px solid var(--fg);padding:12px;border-radius:5px}
+        .ypf-hero-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+        .ypf-hero-compare figure{margin:0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px}
+        .ypf-hero-compare img{display:block;width:100%;height:auto;max-height:190px;object-fit:contain;background:#111}
+        .ypf-hero-compare figcaption{color:var(--fg);font-size:10px;font-weight:700;letter-spacing:.04em}
+        .ypf-hero-decisions{display:flex;gap:8px;flex-wrap:wrap}
+        .ypf-hero-decisions .ycd-btn{flex:1 1 190px}
+        .ypf-hero-decisions .ycd-btn[aria-pressed=true]{outline:2px solid var(--fg)}
+        .ypf-hero-existing{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:8px;margin:10px 0}
+         .ypf-hero-option{display:flex;align-items:center;gap:8px;min-width:0;padding:7px;border:1px solid var(--line);border-radius:5px;color:var(--fg);background:transparent;text-align:left;cursor:pointer}
+         .ypf-hero-option.is-on{border-color:var(--fg);background:var(--line)}
+         .ypf-hero-option img{display:block;width:48px;height:56px;object-fit:contain;background:#141414;flex:none}
+         .ypf-hero-option span{display:flex;flex-direction:column;gap:3px;min-width:0}
+         .ypf-hero-option small{font-size:9px;line-height:1.25}
+         .ypf-uploaded { display: flex; align-items: center; gap: 12px; }
         .ypf-uploaded img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
         .ypf-pick { align-self: flex-start; }
         .ypf-pick button:disabled { opacity: .35; cursor: default; }
@@ -636,9 +1077,13 @@ export default function ContributePhotoFlow({
 
         /* Compact neutral visual vocabulary shared by all photo destinations. */
         #drawerContribute .ypf-flow{gap:12px;font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        /* Capitalize headings consistently, whether opened from the portal or account drawer. */
+        #drawerContribute .ypf-flow .ypf-step > .ycd-label,
+        #drawerContribute .ypf-flow .ypf-sub > .ycd-label,
+        #drawerContribute .ypf-flow .ypf-done > .ycd-label{text-transform:uppercase;}
         #drawerContribute .ypf-selected-purpose{gap:5px 10px;padding:10px 12px;border-left:3px solid var(--fg);border-bottom:1px solid var(--line);background:var(--card-bg);}
         #drawerContribute .ypf-selected-kicker{color:var(--muted);font:700 11px/1.1 var(--yat-font-compact,"Barlow Condensed",sans-serif);letter-spacing:.07em;}
-        #drawerContribute .ypf-selected-purpose strong{font:800 15px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em;}
+        #drawerContribute .ypf-selected-purpose strong{font:800 15px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em;text-transform:uppercase;}
         #drawerContribute .ypf-selected-purpose summary{font:500 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerContribute .ypf-step{gap:10px;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--card-bg);}
         #drawerContribute .ypf-drop{min-height:128px;gap:9px;padding:16px;border:1.5px dashed var(--muted);border-radius:10px;background:var(--line);color:var(--fg);}
@@ -648,7 +1093,7 @@ export default function ContributePhotoFlow({
         #drawerContribute .ypf-type{gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;}
         #drawerContribute .ypf-type input,#drawerContribute .ypf-approve input{accent-color:var(--fg);}
         #drawerContribute .ypf-type span{gap:4px;}
-        #drawerContribute .ypf-type b{font:700 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        #drawerContribute .ypf-type b{font:700 13px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);text-transform:uppercase;}
         #drawerContribute .ypf-type small{font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);opacity:1;}
         #drawerContribute .ypf-type.is-on,#drawerContribute .ypf-team.is-on,#drawerContribute .ypf-approve.is-on{border-color:var(--fg);background:var(--line);}
         #drawerContribute .ypf-approve{border:1px solid var(--line);border-radius:8px;padding:10px;}

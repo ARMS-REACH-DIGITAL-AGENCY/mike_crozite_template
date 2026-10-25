@@ -80,10 +80,17 @@ export default function YatStyles() {
         z-index:40;
       }
 
-     /* Player anchors are the card's actual top edge. The old 190px
-        scroll margin displaced them beneath the sticky portrait rail. */
-      [id^="player-"]{
-        scroll-margin-top: 0;
+     /* Where the browser's own jump to a #player- link (or a scrollIntoView)
+        puts a card: just below the sticky rows, never under them. The script
+        that aims linked cards sets --yat-sticky-bottom to the rail's measured
+        bottom; until then the row heights stand in for it. With 0 here, a
+        link opened on a phone whose aiming was cut short (a touch while the
+        page loaded) left the card's top hidden behind rows 1-3. The tab
+        sections get the same margin: the page swaps a player link's address
+        to #sec-{tab}, and the browser may jump to that instead. */
+      [id^="player-"],
+      .yat-section{
+        scroll-margin-top: calc(var(--yat-sticky-bottom, calc(var(--row1-h) + var(--row2-h) + var(--row3-h))) + 8px);
       }
 
       /* ───────── ROW 1 / DESKTOP TOP NAV ───────── */
@@ -534,19 +541,28 @@ export default function YatStyles() {
         inset:0;
         overflow:hidden;
         background:var(--card-bg);
-        box-shadow:0 4px 8px rgba(0,0,0,.2);
+        /* "Lifted" (Pete, Oct 21): in dark, a black shadow vanishes on the
+           black page, so a thin light edge and a faint glow lift the card. */
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 0 1px rgba(255,255,255,.14),0 0 18px rgba(255,255,255,.08);
         backface-visibility:hidden;
         -webkit-backface-visibility:hidden;
+      }
+      /* Light: a soft layered shadow, like a card lying on a table. */
+      body.light-theme .yat-face{
+        box-shadow:0 1px 2px rgba(0,0,0,.12),0 6px 14px rgba(0,0,0,.18),0 18px 36px rgba(0,0,0,.22);
       }
       .yat-card:not(.is-flipped) .yat-back{pointer-events:none}
       .yat-card.is-flipped .yat-front{pointer-events:none}
       .yat-card .yat-back a,.yat-card .yat-back button{pointer-events:auto}
       .yat-face.yat-front{display:flex;flex-direction:column;justify-content:flex-end}
-      .yat-card-fav-slot{position:absolute;top:8px;right:8px;z-index:4}
-      .yat-card-fav{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.35);border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:17px;line-height:1;cursor:pointer;backdrop-filter:blur(2px)}
-      .yat-card-fav:hover{border-color:var(--accent,#c8a96e);color:var(--accent,#c8a96e)}
-      .yat-card-fav.on{border-color:var(--accent,#c8a96e);color:var(--accent,#c8a96e);background:rgba(0,0,0,.6)}
+      .yat-card-fav-slot{position:absolute;top:5px;right:5px;z-index:4}
+      .yat-card-fav{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#fff;font-size:22px;line-height:1;cursor:pointer;backdrop-filter:none!important}
+      .yat-card-fav:hover{color:#ffc665;background:transparent!important}
+      .yat-card-fav.on{color:#ffb21c;background:transparent!important}
       .yat-card-fav:disabled{opacity:.6;cursor:wait}
+      body.light-theme .yat-card-fav:not(.on){color:#fff;background:transparent!important}
+      body.light-theme .yat-card-fav.on{color:#ffb21c;background:transparent!important}
+
       .yat-bg{position:absolute;inset:0;background:#111 center/cover no-repeat}
       .yat-bg-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
       /* Soft watercolor washes, no repeating-line grain. Kept strictly inside card photos. */
@@ -816,9 +832,10 @@ export default function YatStyles() {
       .yat-footer:has(.ybt-footer-stack){height:calc(var(--footerH) + 104px / 3);overflow:visible}
       .yat-footer{position:fixed;left:0;right:0;bottom:0;height:var(--footerH);background:#020a13;border-top:1px solid rgba(255,255,255,.18);z-index:40;padding:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
       /* Shared six-slot dock: same height and icon proportions as player Fun Zone. */
-      :root{--yat-dock-h:var(--footerH);--yat-facts-h:32px}
-      .yat-visual-row4-gallery{padding-top:0}
-      .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
+      :root{--yat-dock-h:var(--footerH);--yat-facts-h:32px;--yat-contact-h:14px}
+      .yat-visual-row4-gallery{padding-top:0;background:var(--bg);color:var(--fg)}
+      body:has(.yat-clubhouse-footer){padding-bottom:calc(var(--yat-dock-h) + var(--yat-facts-h) + var(--yat-contact-h))}
+      .yat-footer.yat-clubhouse-footer{height:calc(var(--yat-dock-h) + var(--yat-facts-h) + var(--yat-contact-h));overflow:visible;display:block;background:#070707;border:0;z-index:48}
       .yat-clubhouse{position:relative;width:100%;height:100%;color:var(--fg);font-family:var(--yat-font-ui);display:flex;flex-direction:column}
       .yat-clubhouse-facts{box-sizing:border-box;flex:0 0 var(--yat-facts-h);min-height:0;background:var(--bg);display:flex;align-items:flex-end;gap:10px;padding:3px 12px 4px var(--yat-card-left-edge, clamp(74px,13vw,155px));border:0}
       .yat-clubhouse-hero{position:absolute;left:3px;bottom:0;width:clamp(64px,12vw,145px);height:calc(var(--yat-facts-h) + var(--yat-dock-h) - 2px);display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:3}
@@ -835,7 +852,6 @@ export default function YatStyles() {
       .yat-clubhouse-nav svg{width:20px;height:20px;flex:none;stroke-width:1.8}
       .yat-clubhouse-nav small{font:700 clamp(9px,2.5vw,11px)/1 var(--yat-font-ui);letter-spacing:0}
       @media(max-width:640px){
-        :root{--yat-facts-h:calc(104px / 3)}
         .yat-clubhouse-facts{padding:2px 6px 4px var(--yat-card-left-edge, 72px);gap:4px}
         .yat-clubhouse-hero{width:68px}
         .yat-clubhouse-message{gap:3px;align-items:center}

@@ -75,7 +75,7 @@ export async function logContribution(
   ).catch((error) => console.error('[contribute] activity log failed', error));
   // Best effort: never holds up the fan.
   const contactId = c.profile?.arms_contact_id;
-  if (contactId) addTagToGHLContact(contactId, 'contributor').catch(() => {});
+  if (contactId && process.env.VERCEL_ENV !== 'preview') addTagToGHLContact(contactId, 'contributor').catch(() => {});
 }
 
 // ---------------------------------------------------------------------------

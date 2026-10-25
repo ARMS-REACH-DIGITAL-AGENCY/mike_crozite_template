@@ -414,3 +414,51 @@ export async function syncYatstatsContact(
     return false;
   }
 }
+
+
+/**
+ * Tag a YAT?STATS fan's *specific* SMS permissions after server-side consent
+ * evidence has been written. No marketing consent is inferred from a phone
+ * number or an informational opt-in. Preserve other tags and existing DND.
+ *
+ * These tags are eligibility filters only. SMS workflows must ALSO honor
+ * native HighLevel SMS DND/STOP suppression and the registered use case.
+ */
+export async function syncYatstatsSmsConsent(
+  contactId: string,
+  phoneE164: string,
+  consents: { informational: boolean; promotional: boolean }
+): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey || !contactId || !phoneE164) return false;
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Version: '2021-07-28',
+  };
+  const url = `https://services.leadconnectorhq.com/contacts/${encodeURIComponent(contactId)}`;
+  try {
+    const read = await fetch(url, { headers, cache: 'no-store' });
+    if (!read.ok) {
+      console.error('[sms-consent] ARMS contact read failed', read.status);
+      return false;
+    }
+    const current = (await read.json()) as { contact?: { tags?: string[] } };
+    const tags = new Set((current.contact?.tags || []).filter((tag): tag is string => typeof tag === 'string'));
+    if (consents.informational) tags.add('yatstats:sms-info-opt-in');
+    if (consents.promotional) tags.add('yatstats:sms-promo-opt-in');
+    const update = await fetch(url, {
+      method: 'PUT', headers, cache: 'no-store',
+      body: JSON.stringify({ phone: phoneE164, tags: [...tags] }),
+    });
+    if (!update.ok) {
+      console.error('[sms-consent] ARMS consent tags and phone update failed', update.status);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('[sms-consent] ARMS contact sync unavailable', error instanceof Error ? error.message : error);
+    return false;
+  }
+}

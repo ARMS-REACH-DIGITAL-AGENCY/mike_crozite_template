@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install",
+  "regions": [
+    "iad1"
+  ],
+  "installCommand": "pnpm install --frozen-lockfile && cp -rL node_modules/@sparticuz/chromium/bin ./chromium-bin",
   "crons": [
     {
       "path": "/api/cron/tbc-safe-ingest",
@@ -28,7 +31,7 @@
     },
     {
       "path": "/api/cron/instagram-sync",
-      "schedule": "17 */6 * * *"
+      "schedule": "7,22,37,52 * * * *"
     },
     {
       "path": "/api/cron/contribute-photo-recovery",
@@ -44,7 +47,23 @@
     },
     {
       "path": "/api/cron/level-qc",
-      "schedule": "7 15 * * 1"
+      "schedule": "7 15 * * *"
+    },
+    {
+      "path": "/api/cron/fan-daily-pilot",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/contribution-publish",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/social-handle-discovery",
+      "schedule": "42 * * * *"
+    },
+    {
+      "path": "/api/cron/contribution-audit-digest",
+      "schedule": "15 7 * * *"
     }
   ]
 }

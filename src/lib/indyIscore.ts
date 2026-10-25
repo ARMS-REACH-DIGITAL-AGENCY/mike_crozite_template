@@ -566,13 +566,9 @@ export async function ensureIndyIscoreTables() {
       `insert into public.indy_iscore_leagues (
          league_code, league_name, season_year, season_id, league_id, stats_base_url, active, updated_at
        ) values ($1, $2, $3, $4, $5, $6, true, now())
-       on conflict (league_code) do update set
-         league_name = excluded.league_name,
-         season_year = excluded.season_year,
-         season_id = excluded.season_id,
-         league_id = excluded.league_id,
-         stats_base_url = excluded.stats_base_url,
-         updated_at = now()`,
+       -- Seed missing leagues only. A daily run must not revert an
+       -- explicitly configured next season to these original defaults.
+       on conflict (league_code) do nothing`,
       [league.league_code, league.league_name, league.season_year, league.season_id, league.league_id, ISCORE_API_BASE]
     );
   }

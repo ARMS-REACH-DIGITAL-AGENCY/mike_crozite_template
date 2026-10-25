@@ -26,6 +26,7 @@ import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
+import AllTimeOnDemandNavigation from "@/components/yatstats/AllTimeOnDemandNavigation";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
 import PartnerProgramPage from "@/components/yatstats/PartnerProgramPage";
@@ -205,6 +206,13 @@ async function resolveSchool(hsid: string, host: string): Promise<Row | null> {
   try {
     const isNumericHsid = /^\d+$/.test(hsid);
     const requestedSchool = isNumericHsid ? await getSchoolByHsid(hsid) : null;
+    // The Edge middleware has already validated and rewritten named school
+    // domains to their HSID. Avoid repeating the expensive hostname lookup.
+    // Retain host resolution for non-rewritten paths and cross-hub URLs.
+    const headersList = await headers();
+    const isValidatedRewrite = headersList.get('x-yat-internal-school-rewrite') === '1'
+      && headersList.get('x-yat-resolved-host-hsid') === hsid;
+    if (isValidatedRewrite && requestedSchool) return requestedSchool as Row;
     const hostSchool = host ? await getSchoolByUrl(`https://${host}`) : null;
 
     // A numeric school ID in the URL is an explicit cross-hub navigation.
@@ -406,7 +414,7 @@ export default async function SchoolPage({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ schoolState?: string; team?: string }>;
+  searchParams: Promise<{ schoolState?: string; team?: string; view?: string; player?: string }>;
 }) {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -449,9 +457,14 @@ export default async function SchoolPage({
     redirect(buildSchoolNotLiveHref(school, resolvedHsid, schoolState));
   }
 
+  // Only the active gallery is needed on a normal school landing. Preserve
+  // first-paint All-Time records for explicit team-year deep links.
+  const teamYear = parseTeamYear(qp.team);
+  const loadAllTime = Boolean(teamYear) || qp.view === "alltime" || Boolean(qp.player);
+
   const tributeSourceHsids = Array.from(new Set(
     TRIBUTE_STAT_OVERRIDES
-      .filter((override) => override.targetHsid === resolvedHsid)
+      .filter((override) => loadAllTime && override.targetHsid === resolvedHsid)
       .map((override) => override.sourceHsid)
   ));
 
@@ -460,10 +473,12 @@ export default async function SchoolPage({
       console.error("getActiveRosterByHsid failed", { resolvedHsid, error });
       return [];
     }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error("getAllTimeRosterByHsid failed", { resolvedHsid, error });
-      return [];
-    }),
+    loadAllTime
+      ? getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
+          console.error("getAllTimeRosterByHsid failed", { resolvedHsid, error });
+          return [];
+        })
+      : Promise.resolve([]),
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error("getFlipCardFrontStageByHsid failed", { resolvedHsid, error });
       return [];
@@ -493,25 +508,27 @@ export default async function SchoolPage({
   // enrich those cards when present; they do not decide whether a player is
   // Active. This keeps cards, filters, Row 3 and the footer tally identical.
   const activeStatsById = new Map(activeRosterRows.map((p) => [String(p.playerid), p]));
-  // Keep every status the Active filter offers in the DOM, but the
-  // owner-approved preset still controls first paint. This is especially
-  // important for RETIRED - COACH: the filter used to offer it while the
-  // server omitted those cards entirely, so selecting it could never show
-  // Mike Woods or another retired coach.
+  // Active Alumni is not a second All-Time gallery. The server must
+  // never create retired cards in this section, even hidden cards exposed
+  // later by the filter drawer. This follows the current staged status:
+  // ACTIVE <-> RETIRED <-> FREE AGENT moves players automatically as status
+  // data refreshes. Retired coaches remain available in All-Time.
   const activeMerged: Row[] = stageRows
     .filter((p) => GALLERY_STATUS_OPTIONS.includes(String(p.status_label || p.status || '').trim().toUpperCase() as (typeof GALLERY_STATUS_OPTIONS)[number]))
-    .filter((p) => !isHighSchoolPlayer(p) || isRetiredCoachCard(p))
+    .filter((p) => !String(p.status_label || p.status || '').trim().toUpperCase().startsWith('RETIRED'))
+    .filter((p) => !isHighSchoolPlayer(p))
     .map((stageRow) => {
       const id = String(stageRow.playerid);
       const statsRow = activeStatsById.get(id);
       return statsRow
-        ? { ...stageRow, ...statsRow, status_label: stageRow.status_label, display_status_label: stageRow.display_status_label, has_2026_stats: true }
+        ? { ...stageRow, ...statsRow, highest_level_label: stageRow.highest_level_label, status_label: stageRow.status_label, display_status_label: stageRow.display_status_label, has_2026_stats: true }
         : { ...stageRow, has_2026_stats: false, season_stats_pending: true };
     });
 
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Row[] = [];
-  for (const p of allTimeRosterRows) {
+  if (loadAllTime) {
+    for (const p of allTimeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
@@ -525,6 +542,7 @@ export default async function SchoolPage({
     if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isRetiredCoachCard(p))) {
       allTimeMerged.push({ ...p });
     }
+  }
   }
 
   // Coaches first, then A-Z - the same order the gallery's filter script
@@ -576,7 +594,6 @@ export default async function SchoolPage({
   // A shared team link (?team=2017): the page arrives already on the
   // All-Time list, filtered and ordered for that team (the other cards are
   // there, hidden), so nothing switches or reshuffles once it loads.
-  const teamYear = parseTeamYear(qp.team);
   const allTimeCards = teamYear
     ? teamYearCardOrder(allTimeFrontRoster, teamYear)
     : allTimeFrontRoster.map((player) => ({ player, onTeam: true }));
@@ -602,7 +619,7 @@ export default async function SchoolPage({
                       : 'none',
                   }}
                 >
-                  <PlayerCard
+                  <PlayerCard deferScheduleSnapshot
                     key={`active-${playerId}`}
                     player={p}
                     resolvedHsid={resolvedHsid}
@@ -626,14 +643,17 @@ export default async function SchoolPage({
         className={`yat-section${teamYear ? ' visible' : ''}`}
         data-alltime-team-year-filter={teamYear || undefined}
       >
+        <AllTimeOnDemandNavigation loaded={loadAllTime} />
         <div className="yat-grid" id="alltime-grid">
-          {allTimeFrontRoster.length === 0 ? (
+          {!loadAllTime ? (
+            <div className="yat-gallery-loading" role="status" aria-live="polite">Loading All-Time alumni…</div>
+          ) : allTimeFrontRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
             allTimeCards.map(({ player: p, onTeam }, i) => {
               const playerId = String(p.playerid);
               const card = (
-                <PlayerCard
+                <PlayerCard deferScheduleSnapshot
                   key={`alltime-${playerId}`}
                   player={p}
                   resolvedHsid={resolvedHsid}
@@ -680,7 +700,7 @@ export default async function SchoolPage({
             currentTeamRoster.map((p) => {
               const playerId = String(p.playerid);
               return (
-                <PlayerCard
+                <PlayerCard deferScheduleSnapshot
                   key={`current-${playerId}`}
                   player={p}
                   resolvedHsid={resolvedHsid}
