@@ -88,6 +88,28 @@ assert.match(school, /const liveSchoolHost =/, 'server must identify live school
 assert.match(school, /!liveSchoolHost &&/, 'numeric-route cookies are only for shared previews');
 assert.match(school, /yat_splash_seen_/, 'server must support per-HSID preview cookies');
 assert.doesNotMatch(school, /const seenSplash = .*yat_seen/, 'server must ignore the old platform-wide cookie');
+
+assert.equal(splashVisit('hamilton.az.yatstats.com', '/splash').hidden, false, 'dedicated replay bypasses previously visited school');
+assert.equal(splashVisit('perry.az.yatstats.com', '/splash').hidden, false, 'replay works on any school');
+assert.ok(root.includes("replayRoute=location.pathname==='/splash'"), 'head bootstrap must recognize replay path');
+assert.ok(root.includes("if(replayRoute){d.cookie=splashCookie"), 'enter must mark school visited');
+assert.ok(root.includes("location.replace(replayId&&!liveSchool?'/'+replayId:'/')"), 'enter must return to the correct gallery');
+const middleware = readFileSync('src/middleware.ts', 'utf8');
+assert.ok(middleware.includes("request.nextUrl.pathname === '/splash'"), 'middleware must force replay SSR');
+assert.ok(!middleware.includes("    path === '/splash' ||"), 'replay must bypass expensive middleware school-host rewrite');
+const dedicatedSplash = readFileSync('src/app/splash/page.tsx', 'utf8');
+assert.ok(dedicatedSplash.includes('export default async function SplashReplayPage'), 'standalone replay route must exist');
+assert.ok(dedicatedSplash.includes('previewMode'), 'standalone page must display enter button');
+const idReplay = readFileSync('src/app/replay/[hsid]/page.tsx', 'utf8');
+assert.ok(idReplay.includes('getSchoolByHsid(hsid)'), 'replay by ID must not depend on hostname resolution');
+assert.ok(idReplay.includes('previewMode'), 'replay by ID must display enter button');
+assert.ok(root.includes("pathParts[0]==='replay'"), 'head must force the ID replay page');
+assert.ok(root.includes("replayId&&!liveSchool?replayId:schoolPath"), 'each preview replay must have its own school cookie');
+
+assert.ok(dedicatedSplash.includes("getSchoolByUrl('https://' + host)"), 'replay must resolve school dynamically');
+assert.ok(dedicatedSplash.includes("requestHeaders.get('x-yat-splash-school-host')"), 'replay must read forwarded canonical school host');
+assert.ok(middleware.includes("requestHeaders.set('x-yat-splash-school-host', host)"), 'middleware must forward canonical school host');
+
 console.log('[splash schools] per-school first-visit cookies, permanent platform landing, JOIN and forced replay verified');
 
 
@@ -104,6 +126,8 @@ assert.match(css, /yat-sponsor-reveal/);
 assert.doesNotMatch(css, /yat-splash-swoosh-foreground/, 'no duplicated splash foreground');
 assert.doesNotMatch(splash, /className="yat-splash-swoosh-foreground"/, 'no diagonal foreground element');
 assert.doesNotMatch(css, /mix-blend-mode:screen/, 'no lightened seam from overlay blending');
+// Preserve the placement immediately before PR #568; do not change it
+// as part of unrelated splash layout or imagery fixes.
 assert.equal(css.split('splash-field-reference.webp').length - 1, 1, 'field background image rendered exactly once');
 assert.match(splash, /logo\.naturalWidth/);
 // The caption is deliberately anchored low beside the player's feet rather
@@ -121,6 +145,15 @@ assert.match(splash, /function fitCaption\(caption\)/, 'long team names fit with
 assert.match(css, /yat-splash-player\{[^}]*opacity:1;pointer-events:none/, 'player wrapper must stay visible even if hydration resets is-visible class');
 assert.match(css, /yat-splash-player \.yat-splash-player-caption-name\{animation:yatSplashNameFlash/, 'name flash must not depend on hydration-prone is-visible class');
 assert.doesNotMatch(css, /yat-splash-player\{[^}]*opacity:0/, 'never hide selected cutout behind hydration-controlled class');
+
+// On Chrome Android an image with no src may draw an outlined empty box, even
+// with alt="". Keep the loaded cutout visible, but never display its empty
+// placeholder while a school is waiting for its first verified player image.
+assert.match(css, /yat-splash-player img:not\(\[src\]\)/, 'hide empty player image elements on splash');
+assert.match(css, /yat-splash-player img\[src=""\]/, 'hide empty src player images');
+assert.ok(splash.includes("picture.addEventListener('error'"), 'hide cutout if a previously valid image fails to render');
+assert.ok(splash.includes("picture.removeAttribute('src')"), 'clear failed image src to avoid broken image rectangle');
+
 // Player profiles do not render InteractionStrip, so these independent,
 // school-wide queries must not block navigation from Favorites.
 assert.match(school, /const isProfileRoute = /, 'profile route fast-path must be scoped to player pages');
@@ -130,8 +163,8 @@ assert.match(school, /teamSeasonResults = !isProfileRoute &&/, 'avoid team-seaso
 assert.match(school, /\[stripFrontImageMap, stripHeadshotMap\] = isProfileRoute/, 'avoid unused two gallery image queries on profiles');
 assert.match(school, /stripPlayers = \(isProfileRoute \? \[\] : allStripRows\)/, 'do not serialize gallery images on profiles');
 
-assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:3px;/, 'desktop cutout must rest on the lower field baseline');
-assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:3px;/, 'mobile cutout must rest on the marked field baseline');
+assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:3px;/, 'desktop player position restored to pre-568 baseline');
+assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:3px;/, 'mobile player position restored to pre-568 baseline');
 assert.ok(root.includes("var minimumHold=noSponsor?3600:5500;"), 'skip empty sponsor read time but keep normal sponsored intro');
 assert.ok(root.includes("var earliest=Math.max(mounted+minimumHold"), 'sponsor-aware minimum hold used for exit');
 assert.ok(root.includes("addEventListener('DOMContentLoaded'"), 'profile splash must not wait for slow third-party images');
