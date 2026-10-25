@@ -50,7 +50,7 @@ export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | n
     const type = parts[0] || '';
     const id = parts[1] || '';
     return ['reel', 'p', 'tv'].includes(type) && /^[A-Za-z0-9_-]{5,40}$/.test(id)
-      ? video('Instagram', 'https://www.instagram.com/' + type + '/' + id + '/embed/captioned/', null) : null;
+      ? video('Instagram', 'https://www.instagram.com/' + type + '/' + id + '/embed/', null) : null;
   }
 
   if (host === 'tiktok.com' || host === 'm.tiktok.com' || host === 'vm.tiktok.com' || host === 'vt.tiktok.com') {
@@ -70,14 +70,13 @@ export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | n
 
 // Older submissions sometimes put raw video IDs, embed addresses, and thumbnail
 // links in the headline. Correct those at display time without mutating history.
+// A contributor's saved headline is authoritative, regardless of length.
+// Never silently replace it with "Video featuring ..." or copy provider titles.
 export function newsVideoHeadline(rawTitle: string, playerName: string | null | undefined): string {
-  const name = String(playerName || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  const fallback = 'Video featuring ' + (name || 'a YAT?STATS alumnus');
   const title = String(rawTitle || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!title || title.length > 110 || /(?:youtube\s+(?:video\s+)?tip|youtube\s+id|embed\s+url|thumbnail\s*:|https?:\/\/|video\s+shared\s+about)/i.test(title)) {
-    return fallback;
-  }
-  return title;
+  if (title) return title;
+  const name = String(playerName || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return 'Video featuring ' + (name || 'a YAT?STATS alumnus');
 }
 
 export function newsVideoDescription(rawText: string | null | undefined): string {

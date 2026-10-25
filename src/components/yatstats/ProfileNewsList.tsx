@@ -48,6 +48,44 @@ function formatDate(value: string | null): string {
     : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
+// Video-first viewer: stay on YAT?STATS. Show a centered play arrow over
+// our preview instead of an up-front YouTube exit prompt. Load the official
+// player only after the viewer taps play; its native controls remain usable.
+function NewsVideoPlayer({ video, title }: { video: NewsVideo; title: string }) {
+  const [playing, setPlaying] = useState(false);
+  const youtube = video.provider === 'YouTube';
+  const instagram = video.provider === 'Instagram';
+  const reel = instagram && /\/reel\//.test(video.watchUrl);
+  const classes = [
+    'pp-news-video-player',
+    instagram ? 'pp-news-video-instagram' : '',
+    reel ? 'pp-news-video-instagram-reel' : '',
+  ].filter(Boolean).join(' ');
+  if (!video.embedUrl) {
+    return <div className={classes}><a href={video.watchUrl} target="_blank" rel="noopener noreferrer">Open original video</a></div>;
+  }
+  return (
+    <div className={classes}>
+      {youtube && !playing && video.thumbnailUrl ? (
+        <button type="button" className="pp-news-video-start" onClick={() => setPlaying(true)} aria-label={`Play ${title} on YAT?STATS`}>
+          <img src={video.thumbnailUrl} alt="" />
+          <span className="pp-news-video-play-icon" aria-hidden="true" />
+        </button>
+      ) : (
+        <iframe
+          src={youtube && playing ? video.embedUrl + '&autoplay=1' : video.embedUrl}
+          title={`${video.provider} media: ${title}`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="lazy"
+          scrolling={instagram ? "no" : undefined}
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function ProfileNewsList({
   stories,
   firstName,
@@ -166,23 +204,8 @@ export default function ProfileNewsList({
         title={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
         portraitMedia={selectedVideo?.provider === "Instagram"}
         media={selectedVideo ? (
-          <div className={`pp-news-video-player${selectedVideo.provider === "Instagram" ? " pp-news-video-instagram" : ""}`}>
-            {selectedVideo.embedUrl ? (
-              <iframe
-                src={selectedVideo.embedUrl}
-                title={`${selectedVideo.provider} video: ${newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName)}`}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-              />
-            ) : (
-              <a href={selectedVideo.watchUrl} target="_blank" rel="noopener noreferrer">
-                <i className="ri-play-circle-fill" aria-hidden="true" />
-                Watch on {selectedVideo.provider}
-              </a>
-            )}
-          </div>
+          <NewsVideoPlayer key={openStory?.uuid || ''} video={selectedVideo}
+            title={newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName)} />
         ) : undefined}
         meta={
           openStory
@@ -192,10 +215,14 @@ export default function ProfileNewsList({
         footer={
           openStory ? (
             <div className="pp-news-modal-actions">
-              <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-                {selectedVideo ? `Watch on ${selectedVideo.provider}` : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
-                <i className="ri-external-link-line" aria-hidden="true" />
-              </a>
+              {/* Embedded videos play here. Do not place a competing off-site
+                  call to action under an already usable player. */}
+              {!selectedVideo?.embedUrl ? (
+                <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
+                  {selectedVideo ? "Original video (external)" : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
+                  <i className="ri-external-link-line" aria-hidden="true" />
+                </a>
+              ) : null}
               {playerProfileHref ? (
                 <a className="pp-news-modal-profile" href={playerProfileHref}
                   onClick={() => setOpenUuid("")}
@@ -221,8 +248,30 @@ export default function ProfileNewsList({
         .pp-news-video-label{display:inline-flex;align-items:center;gap:5px;font:800 11px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);color:#ffb21c}
         .pp-news-video-player{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:#000;overflow:hidden}
         .pp-news-video-player iframe{display:block;width:100%;height:100%;border:0}
-        .pp-news-video-instagram{aspect-ratio:9/16;width:min(100%,420px,calc(74dvh * 9/16));max-height:74dvh;flex:none}
-        .pp-news-video-instagram iframe{background:#fff;aspect-ratio:9/16}
+        .pp-news-video-start{position:relative;display:grid;place-items:center;width:100%;height:100%;padding:0;border:0;background:#080808;cursor:pointer;overflow:hidden}
+        .pp-news-video-start img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.84)}
+        .pp-news-video-play-icon{position:relative;z-index:1;width:76px;height:52px;border-radius:15px;background:#f22;display:grid;place-items:center;box-shadow:0 3px 24px #0009}
+        .pp-news-video-play-icon:after{content:"";display:block;width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-left:22px solid #fff;margin-left:4px}
+        .pp-news-video-start:is(:hover,:focus-visible) .pp-news-video-play-icon{background:#d11}
+        /* Instagram's public embed includes profile links above its media and
+           captions below. Keep it in an isolated iframe, but show only the
+           media area in our own drawer. The image stays interactive. */
+        .pp-news-video-instagram{
+          --ig-head:clamp(64px,20vw,106px);
+          display:block;position:relative;flex:none;
+          aspect-ratio:4/5;
+          width:min(100%,420px,calc(70dvh * .8));
+          max-height:70dvh;
+          overflow:hidden;
+          margin:0 auto;
+          background:#050505;
+        }
+        .pp-news-video-instagram iframe{
+          position:absolute;left:0;top:calc(-1 * var(--ig-head));
+          width:100%;height:calc(100% + var(--ig-head) + 170px);
+          border:0;background:#050505;
+        }
+        .pp-news-video-instagram-reel{aspect-ratio:9/16;width:min(100%,420px,calc(74dvh * .5625));max-height:74dvh}
         .pp-news-video-player a{display:flex;gap:8px;align-items:center;color:white;font:700 16px/1.3 var(--yat-font-ui,Arial,sans-serif);text-decoration:none;padding:20px;text-align:center}
         @media(max-width:740px) {
           .yp-news-mobile-ad {display:flex;min-height:77px;align-items:center;justify-content:space-around;gap:12px;padding:10px;margin:6px 0 12px;border:1px dashed var(--pp-news-muted);background:var(--pp-news-card-bg);color:var(--pp-news-title);text-align:center;}
