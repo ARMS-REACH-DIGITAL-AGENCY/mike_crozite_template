@@ -58,6 +58,14 @@ const SPLASH_CSS = `
 #yatSplash .yat-splash-glow{position:absolute;left:50%;top:56%;width:calc(var(--yat-splash-w) * 1.9);height:calc(var(--yat-splash-w) * 1.05);transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.17),rgba(255,255,255,.06) 55%,transparent);pointer-events:none;animation:yatSplashFadeIn .6s ease-out .2s both}
 #yatSplash .yat-splash-from-left{position:relative;display:flex;flex-direction:column;align-items:center;animation:yatSplashInLeft .5s cubic-bezier(.16,1,.3,1) .1s both}
 #yatSplash .yat-splash-from-right{position:relative;display:flex;flex-direction:column;align-items:center;animation:yatSplashInRight .5s cubic-bezier(.16,1,.3,1) .1s both}
+/* A streaming school page may reattach its splash markup or stylesheet after
+   the first entrance has played. Never replay the two opposing slides: the
+   crest and wordmark must stay together until the single exit transition. */
+html[data-yat-splash-intro-locked="1"] #yatSplash .yat-splash-from-left,
+html[data-yat-splash-intro-locked="1"] #yatSplash .yat-splash-from-right{
+  animation:none!important;
+  transform:none!important;
+}
 #yatSplash .yat-splash-crest{display:block;height:calc(var(--yat-splash-w) * .31);width:auto;max-width:var(--yat-splash-w);object-fit:contain}
 #yatSplash .yat-splash-fit{display:block;width:max-content;margin:0 auto;white-space:nowrap;font-weight:800;letter-spacing:.005em;text-transform:uppercase;text-shadow:0 1px 3px rgba(0,0,0,.6);font-size:calc(var(--yat-splash-w) * .045)}
 #yatSplash .yat-splash-name{margin-top:calc(var(--yat-splash-w) * .04)}
@@ -87,6 +95,34 @@ const SPLASH_CSS = `
 @media (prefers-reduced-motion:reduce){#yatSplash *,#yatSplash *::after{animation:none!important}}
 `;
 
+// Lock the first entrance once and keep it locked across a streamed splash
+// replacement in the SAME school navigation. A different school/path gets a
+// fresh animation. The document-level lock is not lost if #yatSplash is
+// reinserted during React's streamed hydration.
+const LOCK_ENTRANCE = `(function(){
+ var splash=document.getElementById('yatSplash');if(!splash)return;
+ var root=document.documentElement,route=location.host+location.pathname;
+ var priorRoute=root.getAttribute('data-yat-splash-intro-route');
+ var sameRoute=priorRoute===route;
+ if(!sameRoute){
+   root.setAttribute('data-yat-splash-intro-route',route);
+   root.removeAttribute('data-yat-splash-intro-locked');
+   root.setAttribute('data-yat-splash-first-mounted-at',String(Date.now()));
+   window.__yatSplashIntroDeadline=performance.now()+700;
+ } else if(window.__yatSplashIntroElement&&window.__yatSplashIntroElement!==splash){
+   // This markup was replaced: do not replay the entering crest and wordmark.
+   root.setAttribute('data-yat-splash-intro-locked','1');
+ }
+ window.__yatSplashIntroElement=splash;
+ function lock(){
+   if(root.getAttribute('data-yat-splash-intro-route')===route){
+     root.setAttribute('data-yat-splash-intro-locked','1');
+   }
+ }
+ var left=Number(window.__yatSplashIntroDeadline||performance.now())-performance.now();
+ if(left<=0)lock();else setTimeout(lock,left);
+})();`;
+
 // The two lines of words in the lockup are set to the YAT?STATS logo's
 // width: "Alumni Baseball Online Community" just inside it, the school's
 // name no wider than that and never in bigger type (a long name gets
@@ -104,7 +140,10 @@ const ROTATE_SPLASH_PLAYERS = "(function(){\n  var splash=document.getElementByI
 const SPONSOR_LOOKUP = `(function(){
  var splash=document.getElementById('yatSplash'),sponsor=document.getElementById('yatSplashSponsor');
  if(!splash||!sponsor)return;
- var started=Date.now();splash.setAttribute('data-yat-mounted-at',String(started));
+ // Preserve the original mount time even if streamed hydration replaces the
+ // splash. Otherwise a restart also extends the ad beyond its intended window.
+ var started=Number(document.documentElement.getAttribute('data-yat-splash-first-mounted-at'))||Date.now();
+ splash.setAttribute('data-yat-mounted-at',String(started));
  var slot=sponsor.querySelector('.yat-splash-partner-slot');
  if(!slot)return;
  function revealWhenReady(){
@@ -204,6 +243,7 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
         <p className="yat-splash-partner-name">{partner?.name || ''}</p>
       </div>
       {previewMode && <button type="button" className="yat-splash-continue">Enter YAT?STATS →</button>}
+      <script dangerouslySetInnerHTML={{ __html: LOCK_ENTRANCE }} />
       <script dangerouslySetInnerHTML={{ __html: FIT_WORDS }} />
       <script dangerouslySetInnerHTML={{ __html: ROTATE_SPLASH_PLAYERS }} />
       <script dangerouslySetInnerHTML={{ __html: SPONSOR_LOOKUP }} />
