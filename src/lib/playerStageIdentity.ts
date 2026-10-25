@@ -55,11 +55,6 @@ identity_mapping_candidates AS (
     m.current_org_or_conference_name AS org_name, m.level_label AS level
   FROM public.teamid_universe_mapping m
   WHERE m.teamid IN (SELECT teamid FROM identity_season_teams)
-  UNION ALL
-  SELECT m.teamid, m.school, m.conference, m.division
-  FROM public.college_baseball_programs_with_conferences m
-  WHERE m.teamid IN (SELECT teamid FROM identity_season_teams)
-    AND NOT EXISTS (SELECT 1 FROM public.teamid_universe_mapping t WHERE t.teamid = m.teamid)
 ),
 identity_unique_mapping AS (
   SELECT teamid, MIN(team_name) AS team_name, MIN(org_name) AS org_name, MIN(level) AS level
