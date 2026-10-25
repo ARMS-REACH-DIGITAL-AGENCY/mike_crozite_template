@@ -115,9 +115,28 @@ assert.match(css, /yatSplashNameFlash \.75s ease-out 1\.4s/, 'name glint follows
 assert.match(css, /@keyframes yatSplashNameFlash/, 'caption glint keyframes exist');
 assert.match(splash, /function fitCaption\(caption\)/, 'long team names fit without clipping');
 
+// A player selected while the school roster streams must NOT disappear when
+// React restores server-authored classes during hydration. This is essential
+// on schools without a preconfigured featured-player roster.
+assert.match(css, /yat-splash-player\{[^}]*opacity:1;pointer-events:none/, 'player wrapper must stay visible even if hydration resets is-visible class');
+assert.match(css, /yat-splash-player \.yat-splash-player-caption-name\{animation:yatSplashNameFlash/, 'name flash must not depend on hydration-prone is-visible class');
+assert.doesNotMatch(css, /yat-splash-player\{[^}]*opacity:0/, 'never hide selected cutout behind hydration-controlled class');
+// Player profiles do not render InteractionStrip, so these independent,
+// school-wide queries must not block navigation from Favorites.
+assert.match(school, /const isProfileRoute = /, 'profile route fast-path must be scoped to player pages');
+assert.match(school, /isProfileRoute\s*\? Promise\.resolve\(\[\] as string\[\]\)/, 'avoid season coverage query on profiles');
+assert.match(school, /isProfileRoute\s*\? Promise\.resolve\(\{ playerIds:/, 'avoid current-year summary query on profiles');
+assert.match(school, /teamSeasonResults = !isProfileRoute &&/, 'avoid team-season query on profiles');
+assert.match(school, /\[stripFrontImageMap, stripHeadshotMap\] = isProfileRoute/, 'avoid unused two gallery image queries on profiles');
+assert.match(school, /stripPlayers = \(isProfileRoute \? \[\] : allStripRows\)/, 'do not serialize gallery images on profiles');
+
 assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:3px;/, 'desktop cutout must rest on the lower field baseline');
 assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:3px;/, 'mobile cutout must rest on the marked field baseline');
-assert.match(root, /mounted\+5500/);
+assert.ok(root.includes("var minimumHold=noSponsor?3600:5500;"), 'skip empty sponsor read time but keep normal sponsored intro');
+assert.ok(root.includes("var earliest=Math.max(mounted+minimumHold"), 'sponsor-aware minimum hold used for exit');
+assert.ok(root.includes("addEventListener('DOMContentLoaded'"), 'profile splash must not wait for slow third-party images');
+assert.ok(splash.includes("data-yat-sponsor-state','none'"), 'record when no sponsor can be shown');
+assert.ok(splash.includes("data-yat-sponsor-state','pending'"), 'do not skip the paid sponsor while its image is loading');
 assert.ok(!root.includes('sponsorTimer='), 'sponsor timer must start from actual splash mount');
 assert.match(school, /splashRosterJson/);
 assert.match(school, /sortActivePlayers\(\[\.\.\.activeAlumniRows\]\)/, 'splash candidates must follow the Active Alumni gallery sort');

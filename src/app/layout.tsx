@@ -90,9 +90,12 @@ var tryExit=function(){
  }
  var mounted=Number(splash.getAttribute('data-yat-mounted-at'))||t0;
  var sponsorAt=Number(splash.getAttribute('data-yat-sponsor-at'))||0;
- // 2.2s logo-only, then enough time to read the sponsor. Never block
- // beyond 9s after mount for a missing or slow sponsor image.
- var earliest=Math.max(mounted+5500,sponsorAt?sponsorAt+2200:0);
+ // No sponsor assigned? After the YAT logo and player-name flashes,
+ // there is no paid message to hold. Keep the longer hold for a sponsor,
+ // and never block beyond 9s after mount if its image is slow.
+ var noSponsor=splash.getAttribute('data-yat-sponsor-state')==='none';
+ var minimumHold=noSponsor?3600:5500;
+ var earliest=Math.max(mounted+minimumHold,sponsorAt?sponsorAt+2200:0);
  var leaveAt=Math.min(earliest,mounted+9000);
  if(now<leaveAt){setTimeout(tryExit,Math.min(350,leaveAt-now));return;}
  leaving=true;flip();
@@ -103,6 +106,12 @@ var lift=function(){if(forced||ready)return;ready=true;
 };
 if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;flip();}});return;}
 addEventListener('yat:page-ready',lift);
+// On player profiles, DOMContentLoaded is sufficient: waiting for every
+// third-party player photo on window.load makes a ready page feel stuck.
+// Galleries keep their own explicit yat:page-ready signal and fallback.
+if(location.pathname.indexOf('/player/')!==-1){
+  addEventListener('DOMContentLoaded',function(){setTimeout(lift,250);});
+}
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);
 })();}catch(e){}`;
