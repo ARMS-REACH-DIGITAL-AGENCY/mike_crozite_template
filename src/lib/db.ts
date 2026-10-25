@@ -2349,7 +2349,10 @@ export async function getNewsByPlayer(
         AND nd.approval_status IN ('approved','published')
        LEFT JOIN flip_card_front_stage f
          ON f.playerid::text = na.playerid
-       WHERE na.playerid = $1
+       WHERE (na.playerid = $1 OR EXISTS (
+         SELECT 1 FROM news_article_player_tags nt
+          WHERE nt.news_uuid = na.uuid AND nt.playerid = $1
+       ))
          AND na.verification_status = 'VERIFIED'
          -- Stories the recap generator found no clean sentence about him in
          -- (and not featured) are marked rejected: not news about him.
