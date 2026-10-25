@@ -122,6 +122,8 @@ export default function ContributePlayerInfoForm({
             ? `${body.commitment?.teamName || 'College'} COMMIT published! Row 3 will use the college logo after refresh.`
             : 'UNCOMMITTED status published! Row 3 will show the uncommitted image after refresh.') +
             (body.otherFieldsQueued ? ' Your other profile edits were submitted separately.' : '')
+        : body.review === 'published_team'
+        ? 'Current team, playing level, and ACTIVE status published to the live site. Refresh to view the updated card.'
         : body.review === 'published'
         ? 'Varsity years saved. The school’s team-year filters will update on your next page refresh.'
         : body.review === 'needs_review'
