@@ -38,10 +38,9 @@ const SPLASH_CSS = `
   mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.22) 8%,rgba(0,0,0,.8) 22%,#000 36%);
 }
 
-/* Lift the player into the foreground while the bottom swoosh passes in front. */
+/* Keep the cutout above the single field artwork; do not duplicate or clip the field background. */
 #yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:clamp(24px,4vh,64px);transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:0;transition:opacity .35s ease;pointer-events:none}
 #yatSplash .yat-splash-player.is-visible{opacity:1}
-#yatSplash .yat-splash-swoosh-foreground{position:absolute;inset:auto 0 0;height:clamp(160px,20vh,320px);background:url('/img/splash-field-reference.webp') center bottom/100% 100% no-repeat;clip-path:polygon(0 75%,100% 85%,100% 100%,0 100%);opacity:.8;mix-blend-mode:screen;pointer-events:none;z-index:2}
 #yatSplash .yat-splash-player-caption{position:absolute;right:-20%;bottom:0;text-align:right;color:rgba(255,255,255,.83);font-size:clamp(8px,.8vw,10px);font-weight:500;letter-spacing:.015em;line-height:1.2;text-shadow:0 1px 4px #000;max-width:150px}
 #yatSplash .yat-splash-player-caption span{display:block}
 #yatSplash .yat-splash-player img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
@@ -149,7 +148,6 @@ export default function SchoolSplash({ crestUrl, schoolName, location = '', part
       {/* Reuse the player-profile field, blending its top edge into black. */}
       <div className="yat-splash-field" />
       <div className="yat-splash-player" id="yatSplashPlayer" data-school={schoolId} aria-hidden="true"><img alt="" /><div className="yat-splash-player-caption" /></div>
-      <div className="yat-splash-swoosh-foreground" aria-hidden="true" />
       <BallparkLights className="yat-splash-lights" />
       <div className="yat-splash-place yat-splash-place-lockup">
         <span className="yat-splash-glow" />

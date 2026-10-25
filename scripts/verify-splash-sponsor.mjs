@@ -31,7 +31,12 @@ const css = templateBody(splash, 'SPLASH_CSS');
 assert.ok(!css.includes('\\n#yatSplash'), 'splash CSS contains literal escaped newlines');
 assert.ok(!/<\/div>\\n\s*<div/.test(splash), 'splash JSX contains accidental escaped newlines');
 assert.match(css, /yat-sponsor-reveal/);
-assert.match(css, /yat-splash-swoosh-foreground/);
+// The duplicated foreground layer with a diagonal clip produced a visible
+// straight seam across the field. It must not be reintroduced.
+assert.doesNotMatch(css, /yat-splash-swoosh-foreground/, 'no duplicated splash foreground');
+assert.doesNotMatch(splash, /className="yat-splash-swoosh-foreground"/, 'no diagonal foreground element');
+assert.doesNotMatch(css, /mix-blend-mode:screen/, 'no lightened seam from overlay blending');
+assert.equal((css.match(/splash-field-reference\\.webp/g) || []).length, 1, 'field background image rendered exactly once');
 assert.match(splash, /logo\.naturalWidth/);
 assert.match(root, /mounted\+5500/);
 assert.ok(!root.includes('sponsorTimer='), 'sponsor timer must start from actual splash mount');
