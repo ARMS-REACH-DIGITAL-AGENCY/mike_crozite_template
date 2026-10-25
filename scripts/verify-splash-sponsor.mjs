@@ -104,9 +104,8 @@ assert.match(css, /yat-sponsor-reveal/);
 assert.doesNotMatch(css, /yat-splash-swoosh-foreground/, 'no duplicated splash foreground');
 assert.doesNotMatch(splash, /className="yat-splash-swoosh-foreground"/, 'no diagonal foreground element');
 assert.doesNotMatch(css, /mix-blend-mode:screen/, 'no lightened seam from overlay blending');
-// Keep the raised vertical offset deliberately; the prior bottom:3px regression
-// was introduced while aligning a marked baseline and moved the player out of the swoosh.
-assert.doesNotMatch(css, /yat-splash-player\{[^}]*bottom:3px/, 'never pin the player to the screen bottom');
+// Preserve the placement immediately before PR #568; do not change it
+// as part of unrelated splash layout or imagery fixes.
 assert.equal(css.split('splash-field-reference.webp').length - 1, 1, 'field background image rendered exactly once');
 assert.match(splash, /logo\.naturalWidth/);
 // The caption is deliberately anchored low beside the player's feet rather
@@ -142,8 +141,8 @@ assert.match(school, /teamSeasonResults = !isProfileRoute &&/, 'avoid team-seaso
 assert.match(school, /\[stripFrontImageMap, stripHeadshotMap\] = isProfileRoute/, 'avoid unused two gallery image queries on profiles');
 assert.match(school, /stripPlayers = \(isProfileRoute \? \[\] : allStripRows\)/, 'do not serialize gallery images on profiles');
 
-assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:clamp\(35px,5\.5vh,78px\);/, 'desktop cutout must be raised inside the gold swoosh');
-assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:clamp\(24px,5vh,54px\);/, 'mobile cutout must be raised inside the gold swoosh');
+assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:3px;/, 'desktop player position restored to pre-568 baseline');
+assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:3px;/, 'mobile player position restored to pre-568 baseline');
 assert.ok(root.includes("var minimumHold=noSponsor?3600:5500;"), 'skip empty sponsor read time but keep normal sponsored intro');
 assert.ok(root.includes("var earliest=Math.max(mounted+minimumHold"), 'sponsor-aware minimum hold used for exit');
 assert.ok(root.includes("addEventListener('DOMContentLoaded'"), 'profile splash must not wait for slow third-party images');
