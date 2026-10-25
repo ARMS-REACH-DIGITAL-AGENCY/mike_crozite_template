@@ -140,7 +140,12 @@ async function processTip(t:Tip):Promise<boolean> {
  let u:URL;try{u=new URL(t.article_url)}catch{return false}
  if(!['https:'].includes(u.protocol) || !clip(t.article_url))return false;
  // Do not automatically embed temporary Instagram Stories or unknown external sources.
- const title=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim().slice(0,150);
+ // New submissions use a structured title; preserve legacy freeform notes
+ // without truncating a fan-authored headline at 150 characters.
+ const legacy=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim();
+ const detail=parsed(t.notes);
+ const title=typeof detail?.title==='string' ? detail.title.trim() : legacy;
+ const description=typeof detail?.why==='string' ? detail.why.trim() : '';
  const label=title || `Video shared about ${player.first_name} ${player.last_name}`;
  const permalink=t.article_url;
  const identifier=hash(t.id);
@@ -148,7 +153,7 @@ async function processTip(t:Tip):Promise<boolean> {
    snippet,local_recap,discovery_source,verification_status,verification_reason,newsworthiness,raw_payload)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'contribute','VERIFIED','Fan provided link to named player','NORMAL',$11::jsonb)
    ON CONFLICT(uuid) DO NOTHING`,
-   [identifier,player.playerid,`${player.first_name} ${player.last_name}`,player.hsid,label,u.hostname.replace(/^www\./,''),new Date().toISOString(),permalink,title||null,title||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source})]);
+   [identifier,player.playerid,`${player.first_name} ${player.last_name}`,player.hsid,label,u.hostname.replace(/^www\./,''),new Date().toISOString(),permalink,description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source})]);
  return true;
 }
 // Used only for a validated, single-field roster-year submission. The same

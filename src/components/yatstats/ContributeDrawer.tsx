@@ -147,6 +147,7 @@ export default function ContributeDrawer() {
   // Missing Next-Level Alumni / News Tip
   const [mp, setMp] = useState({ name: '', gradYear: '', position: '', level: '', team: '', notes: '' });
   const [tipUrl, setTipUrl] = useState('');
+  const [tipTitle, setTipTitle] = useState('');
   const [tipWhy, setTipWhy] = useState('');
 
   const signedIn = Boolean(session?.uid && session?.email);
@@ -183,7 +184,7 @@ export default function ContributeDrawer() {
 
   const resetForms = useCallback(() => {
     setData({});
-    setSource(''); setTipUrl(''); setTipWhy('');
+    setSource(''); setTipUrl(''); setTipTitle(''); setTipWhy('');
     setMp({ name: '', gradYear: '', position: '', level: '', team: '', notes: '' });
     setStatus({ kind: 'idle' });
   }, []);
@@ -379,7 +380,8 @@ export default function ContributeDrawer() {
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
-      return post({ kind: 'tip', url: tipUrl.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || '' });
+      if (!tipTitle.trim()) return setStatus({ kind: 'error', text: 'Give this story or video a title.' });
+      return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || '' });
     }
     if (!mp.name.trim()) return setStatus({ kind: 'error', text: "Type the player's name." });
     if (!school) return setStatus({ kind: 'error', text: 'Pick his high school.' });
@@ -668,6 +670,12 @@ export default function ContributeDrawer() {
                 <div className="ycd-field">
                   <label className="ycd-label" htmlFor="ycdTipUrl"><i className="ri-newspaper-line" aria-hidden="true" /> <i className="ri-video-line" aria-hidden="true" /> News, video or social link</label>
                   <input id="ycdTipUrl" type="url" value={tipUrl} onChange={(e) => setTipUrl(e.target.value)} placeholder="https://" />
+                </div>
+                <div className="ycd-field">
+                  <label className="ycd-label" htmlFor="ycdTipTitle">Title</label>
+                  <textarea id="ycdTipTitle" rows={2} maxLength={2000} required value={tipTitle}
+                    onChange={(e) => setTipTitle(e.target.value)}
+                    placeholder="Write the headline fans should see on YAT?STATS" />
                 </div>
                 <div className="ycd-field">
                   <label className="ycd-label" htmlFor="ycdTipWhy">Why it matters (optional)</label>
