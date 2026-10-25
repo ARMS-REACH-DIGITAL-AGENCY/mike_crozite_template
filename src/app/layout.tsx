@@ -35,7 +35,9 @@ const SECTION_BOOTSTRAP =
 // roster loads). Two modes, decided per person before the first paint:
 // - full, for someone new to YAT?STATS: the logo slides in from the right,
 //   the crest from the left, then they shine; sponsor enters 2.2s after the splash mounts;\n//   allow at least 5.5s for the brand-and-sponsor sequence;
-// - no splash for anyone returning within 30 days (shared yat_seen cookie).
+// - no splash for returning visitors to the SAME school within 30 days.
+//   Host-only school cookies prevent visits to one school from hiding another's.
+//   Direct /{hsid} previews use a school-keyed cookie on the preview hostname.
 //   Normal navigation waits for the destination without a takeover overlay.
 // On exit the splash slides right, revealing the already-loaded school
 // home page underneath. A short transition sound plays
@@ -47,9 +49,17 @@ const SECTION_BOOTSTRAP =
 // touching the element; its rules start with "html " to outrank the
 // splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
-var d=document,h=location.hostname,forced=/[?&]splash=/.test(location.search),seen=!forced&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
-var dom=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
-d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+dom;
+var d=document,forced=/[?&]splash=/.test(location.search),joining=/[?&]join=1(?:&|$)/.test(location.search);
+// Every school subdomain has its own host-only 30-day visit cookie.
+// On a shared preview domain, /5004 and /5005 get separate keyed cookies.
+// The permanent yatstats.com landing page is not a timed school splash.
+var hostname=location.hostname.toLowerCase(),liveSchool=hostname.endsWith('.yatstats.com')&&hostname!=='www.yatstats.com';
+var seg=location.pathname.split('/')[1]||'',schoolPath=!liveSchool&&/^[1-9][0-9]*$/.test(seg)?seg:'';
+var splashCookie=schoolPath?'yat_splash_seen_'+schoolPath:'yat_splash_seen';
+var seen=!forced&&(joining||d.cookie.split(';').some(function(value){return value.trim()===splashCookie+'=1';}));
+// Forced QA previews and JOIN deep links do not consume the first-visit intro.
+// Do not write a splash cookie on the static platform landing page.
+if(!forced&&!joining&&(liveSchool||schoolPath))d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
 var set=function(css){st.textContent=css;};
 var P='html #yatSplash';

@@ -178,10 +178,16 @@ export default async function HsidLayout({
 
   const splashHsid = String(school.hsid ?? hsid);
   const splashOverride = (splashFeaturedPlayers as Record<string, { ids: string[]; confirmedCutouts?: string[]; details?: Record<string, { name: string; team: string }> }>)[splashHsid];
-  // Avoid even rendering the splash, its stadium light SVG, logo images or
-  // animations on repeat visits. Works across school subdomains via yat_seen.
-  // A manual ?splash=1 preview still forces the original introduction.
-  const seenSplash = /(?:^|;\s*)yat_seen=1(?:;|$)/.test(headersList.get('cookie') || '');
+  // Avoid rendering splash assets for repeat visits to THIS school only.
+  // On the live school subdomains the browser sends a host-only cookie;
+  // /{hsid} preview routes key it by school ID on the shared preview host.
+  const liveSchoolHost = host.split(':')[0].toLowerCase().endsWith('.yatstats.com') &&
+    host.split(':')[0].toLowerCase() !== 'www.yatstats.com';
+  const firstSegment = pathname.split('/')[1] || '';
+  const previewHsid = !liveSchoolHost && /^[1-9][0-9]*$/.test(firstSegment) ? firstSegment : '';
+  const splashCookie = previewHsid ? `yat_splash_seen_${previewHsid}` : 'yat_splash_seen';
+  const seenSplash = (headersList.get('cookie') || '')
+    .split(';').some((value) => value.trim() === `${splashCookie}=1`);
   const forceSplash = headersList.get('x-yat-force-splash') === '1';
   const showSplash = forceSplash || (!seenSplash && !openJoin);
   return (
