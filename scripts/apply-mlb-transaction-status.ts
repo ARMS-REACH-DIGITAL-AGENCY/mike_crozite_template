@@ -250,7 +250,8 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             is_on_40man = false,
             forty_man_org_name = NULL,
             forty_man_org_abbr = NULL
-      WHERE playerid::text = $1`,
+      WHERE playerid::text = $1
+        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = $1)`,
     [row.playerid, row.transaction_type, row.effective_date, teamName, status, resolvedLevel]
   );
 }
@@ -295,7 +296,8 @@ async function clearStaleDepartureFlags(
             highest_level_label = NULL,
             highest_level_checked_at = NULL
       WHERE playerid::text = ANY($1::text[])
-        AND last_transaction_applied_at IS NOT NULL`,
+        AND last_transaction_applied_at IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = flip_card_front_stage.playerid::text)`
     [playerIds]
   );
 
@@ -323,6 +325,7 @@ async function retireStaleFreeAgents(): Promise<number> {
             stage_updated_at = NOW()
       WHERE UPPER(TRIM(COALESCE(stage.team_affiliation_status, stage.status_label, ''))) = 'FREE AGENT'
         AND stage.last_transaction_applied_at IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = stage.playerid::text)
         AND stage.last_transaction_date IS NOT NULL
         AND stage.last_transaction_date <= CURRENT_DATE - INTERVAL '1 year'
         AND NOT EXISTS (
