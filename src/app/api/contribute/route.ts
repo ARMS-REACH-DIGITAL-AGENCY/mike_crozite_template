@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
             commitment:{status,teamId,teamName:savedCommitment.teamName}}, {status:201});
         }
       }
+      // Owner/reviewer emails are configured as production environment settings.
       // Site-authorized reviewer submissions publish current affiliations directly.
       // Ordinary fan edits remain queued; a public form must not overwrite player truth.
       // One reusable rule applies to all players and schools, not a school-specific exception.
