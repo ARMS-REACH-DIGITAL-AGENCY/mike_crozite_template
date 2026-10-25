@@ -18,6 +18,7 @@ export type ContributeTab = 'photo' | 'data' | 'missing' | 'tip';
 export type ContributePlayer = {
   playerId: string;
   displayName: string;
+  headshotUrl?: string;
   schoolId?: string;
   schoolName?: string;
   crestUrl?: string;
@@ -47,7 +48,7 @@ export function yearsOfHisLife(seasons: Season[], classOf: number | null, thisYe
   const birth = classOf ? classOf - 18 : null;
   const first = Math.min(birth ?? thisYear, ...seasons.map((s) => s.year));
   const out: Season[] = [];
-  for (let year = Math.max(thisYear, ...seasons.map((s) => s.year)); year >= first; year--) {
+  for (let year = Math.max(thisYear + 1, ...seasons.map((s) => s.year)); year >= first; year--) {
     const ofYear = seasons.filter((s) => s.year === year);
     if (ofYear.length) { out.push(...ofYear); continue; }
     if (birth === null) continue;
@@ -114,8 +115,8 @@ export const PHOTO_TYPES: PhotoType[] = [
   },
   {
     id: 'headshot',
-    prefix: 'CURRENT SEASON · ROW 3',
-    label: 'Current Player Headshot',
+    prefix: 'OFFICIAL CURRENT YEAR HEADSHOT',
+    label: 'HOT BUTTON ROW',
     aspects: [5 / 7],
     guide: 'eyes',
     asks: 'season',
@@ -226,7 +227,7 @@ export const CONTRIBUTE_OPTIONS: ContributeOption[] = [
   { id: 'video', icon: 'ri-video-chat-line', label: 'VIDEO MESSAGE', short: 'VIDEO MESSAGE', blurb: 'YAT-A-BOY player video exchange — coming soon.', section: 'sec-video' },
   { id: 'photo', tab: 'photo', icon: 'ri-upload-cloud-2-line', label: 'PHOTO UPLOADS', short: 'PHOTO UPLOADS', blurb: 'High school, headshots, action pics, yearly pics, and team logos.', section: 'cc-photo' },
   { id: 'data', tab: 'data', icon: 'ri-bar-chart-2-line', label: 'ADD PLAYER INFO', short: 'ADD PLAYER INFO', blurb: 'Correct a player or add a missing next-level alumnus.', section: 'cc-data' },
-  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'SHARE NEWS TIP', short: 'SHARE NEWS TIP', blurb: 'Send a published player news link.', section: 'cc-tip' },
+  { id: 'tip', tab: 'tip', icon: 'ri-newspaper-line', label: 'CLIPS & TIPS', short: 'CLIPS & TIPS', blurb: 'Send player news, video, or social media links.', section: 'cc-tip' },
 ]
 
 // What a sponsorship inquiry is about (the portal's Partner Program form).

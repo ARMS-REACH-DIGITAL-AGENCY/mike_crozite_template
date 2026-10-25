@@ -4,7 +4,7 @@ import { MouseEvent, useContext, useEffect, useMemo, useRef, useState } from 're
 import { preload } from 'react-dom';
 import { getOriginalForCardCopy, getPlayerHeadshotSources, PLAYER_HEADSHOT_FALLBACK_URL as HEADSHOT_FALLBACK_SRC } from '@/lib/playerImage';
 import { syncPlayerHeadshot } from '@/lib/playerHeadshotFallback';
-import { CONTRIBUTE_OPTIONS, contributeSectionHref, openContribute, openConnectInquiry, scrollToContributeSection } from '@/lib/contribute';
+import { CONTRIBUTE_OPTIONS, openContribute, openConnectInquiry, scrollToContributeSection } from '@/lib/contribute';
 import { SchoolContext } from '@/context/SchoolContext';
 import { getTitlePartner } from '@/lib/titlePartners';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
@@ -16,7 +16,6 @@ const CONTRIBUTION_ROW3_ICONS: Record<string,string> = {
   tip: 'ri-newspaper-line',
 };
 
-const ALL_TIME_TEAM_YEARS = Array.from({ length: 28 }, (_, index) => String(1999 + index));
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const PLAYER_NOW_BASE = `${YAT_ASSETS_BASE}/players/now`;
 const PLAYER_THEN_BASE = `${YAT_ASSETS_BASE}/players/then`;
@@ -43,6 +42,7 @@ type TeamSeasonResult = {
   achievement: string;
   wins: number;
   losses: number;
+  ties?: number;
   seasonNote: string | null;
   displayLine1: string | null;
   displayLine2: string | null;
@@ -54,6 +54,7 @@ type InteractionStripProps = {
   isNews?: boolean;
   players?: Player[];
   teamSeasonResults?: TeamSeasonResult[];
+  teamYearOptions?: string[];
   // The tab and team year the server rendered (a ?team=2017 link opens on
   // All-Time with 2017 picked). The first render must match the server's, so
   // the URL is read after mounting, never while rendering.
@@ -95,11 +96,11 @@ function isHighSchoolStatus(value?: string | null): boolean {
 function getCurrentSection(): string {
   if (typeof window === 'undefined' || typeof document === 'undefined') return 'active';
 
-  const hash = window.location.hash || '';
-  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '') || 'active';
-
+  // Actual visible tab outranks the address hash during navigation.
   const visible = document.querySelector<HTMLElement>('.yat-section.visible');
   if (visible?.id?.startsWith('sec-')) return visible.id.replace(/^sec-/, '') || 'active';
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '') || 'active';
 
   return 'active';
 }
@@ -249,14 +250,15 @@ export default function InteractionStrip({
   isNews = false,
   players = [],
   teamSeasonResults = [],
+  teamYearOptions = [],
   initialSection = 'active',
   initialTeamYear = null,
 }: InteractionStripProps) {
   // The All-Time year baseballs load with the page, so the tab opens on
   // them rather than on bare numbers.
   preload('/img/roster_year_ball.webp', { as: 'image' });
-  // The All-Time row's right-hand sign: the school's sponsor, or an open
-  // spot that links to the portal's sponsor section.
+  // The All-Time row's right-hand sign: show the school's sponsor or link
+  // an open advertising spot directly to the corporate partner page.
   const schoolForSponsor = useContext(SchoolContext);
   const sponsorHsid = String(schoolForSponsor?.hsid || '');
   const sponsor = sponsorHsid ? getTitlePartner(sponsorHsid) : null;
@@ -308,15 +310,18 @@ export default function InteractionStrip({
         // gallery, but as filters. Resolve its roster from the active gallery
         // first so client-side navigation doesn't depend on a news-only list
         // that may not be populated until a full refresh.
+        // News is a strict filter of the ACTIVE gallery, in ACTIVE DOM order.
+        // Never use a broad school / All-Time fallback for News headshots.
         const nextPlayers = section === 'news'
-          ? fallbackPlayersForSection('active', players)
+          ? readPlayersFromVisibleBlockFive('active', playersById)
+              .filter((player) => ACTIVE_GALLERY_STATUSES.includes(normalizeStatus(player.status)))
           : PLAYER_GALLERY_SECTIONS.has(section)
             ? readPlayersFromVisibleBlockFive(section, playersById)
             : fallbackPlayersForSection(section, players);
 
-        const resolvedPlayers = nextPlayers.length
+        const resolvedPlayers = section === 'news'
           ? nextPlayers
-          : fallbackPlayersForSection(section, players);
+          : nextPlayers.length ? nextPlayers : fallbackPlayersForSection(section, players);
 
         setSectionPlayers((current) =>
           playerSignature(current) === playerSignature(resolvedPlayers) ? current : resolvedPlayers
@@ -424,7 +429,21 @@ export default function InteractionStrip({
   const handleAllTimeResetClick = () => {
     setSelectedRosterYear(null);
     syncTeamParam('');
+    scrollRef.current?.scrollTo({ left: 0, behavior: 'instant' });
     window.dispatchEvent(new CustomEvent('yat:alltime-team-year-filter', { detail: { year: '', reset: true } }));
+  };
+
+  // Center a team year inside its horizontal rail only. scrollIntoView also
+  // moves the document vertically and could land the page below Mike Woods.
+  const centerYearInRail = (year: string) => {
+    const rail = scrollRef.current;
+    const badge = rail?.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`);
+    if (!rail || !badge) return;
+    const left = rail.scrollLeft
+      + badge.getBoundingClientRect().left
+      - rail.getBoundingClientRect().left
+      - (rail.clientWidth - badge.clientWidth) / 2;
+    rail.scrollTo({ left: Math.max(0, left), behavior: 'instant' });
   };
 
   // A shared team link (?team=2017) opens the All-Time list; the gallery's
@@ -451,9 +470,9 @@ export default function InteractionStrip({
       window.setTimeout(send, 2000);
     }));
     const year = new URLSearchParams(window.location.search).get('team') || '';
-    if (ALL_TIME_TEAM_YEARS.includes(year)) {
+    if (teamYearOptions.includes(year)) {
       if (window.location.hash !== '#sec-alltime') history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-alltime`);
-      document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${year}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+      window.requestAnimationFrame(() => centerYearInRail(year));
     }
     ready();
     const onYear = (event: Event) => {
@@ -462,7 +481,7 @@ export default function InteractionStrip({
       setSelectedRosterYear(picked || null);
       if (picked) {
         window.requestAnimationFrame(() => {
-          document.querySelector<HTMLElement>(`.alltime-year-badge[data-team-year="${picked}"]`)?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'center' });
+          centerYearInRail(picked);
         });
       }
     };
@@ -618,20 +637,23 @@ export default function InteractionStrip({
           align-items:center; justify-content:center; padding:7px; color:#171717;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-marker {
-          position:absolute; left:7px; top:8px; transform:none; z-index:7;
+          position:absolute; left:18px; top:12px; transform:none; z-index:7;
           display:flex; flex-direction:column; justify-content:center; align-items:center;
-          width:65px; height:42px; border:1px solid #c8c5b9; border-radius:2px;
+          width:58px; height:34px; border:1px solid #c8c5b9; border-radius:2px;
           background:#f4f1e9; color:#733648; cursor:pointer; box-shadow:0 1px 5px #0005;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          position:absolute; top:49px; left:0; width:100%; color:#e2c34b; display:flex; flex-direction:column; align-items:stretch; font:800 8px/1 Oswald,sans-serif; letter-spacing:0; text-align:center; white-space:nowrap;
+          position:absolute; top:40px; left:-6px; width:calc(100% + 12px);
+          color:#e2c34b; display:flex; flex-direction:column; align-items:center;
+          font:800 9px/1.05 Oswald,sans-serif; letter-spacing:0; text-align:center;
+          white-space:nowrap; pointer-events:none;
         }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child { font-size:15px; line-height:1; letter-spacing:.5px; transform:scaleX(1.1); transform-origin:center; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child { font-size:9px; line-height:1.05; letter-spacing:0; transform:none; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-count {
-          font:900 27px/1 Oswald,sans-serif;
+          font:900 23px/1 Oswald,sans-serif;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-left:82px !important;
+          padding-left:74px !important;
         }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] { background:#16472f; border-top:4px solid #dfc24d; }
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner { background:linear-gradient(160deg,#246b48,#123b29); }
@@ -740,15 +762,13 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .alltime-state-champion .alltime-champ-champions {
           font-size:10px; letter-spacing:-.55px;
         }
-        /* The fixed sign's two-line descriptor ends at the same baseline as records. */
+        /* Two compact lines below the smaller 162 sign: match the plaque records. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title {
-          top:46px; line-height:1; gap:0;
+          top:40px; line-height:1.05; gap:1px;
         }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span,
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:first-child {
-          font-size:12px; transform:none; letter-spacing:.1px;
-        }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-distance-title span:last-child {
-          font-size:8px; letter-spacing:-.2px;
+          font-size:9px; line-height:1.05; transform:none; letter-spacing:0;
         }
         /* Replace dark arrow blocks with small theme-matched translucent chevrons. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-strip-arrow {
@@ -763,6 +783,13 @@ export default function InteractionStrip({
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot.is-active,
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot[aria-current="true"],
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot:focus-visible { transform:translateY(3px); }
+        /* The portrait nudge must not move a selected year plaque.
+           Keep 2017 level with 2016 and the other team-year badges. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-year-badge,
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-year-badge.is-active,
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .alltime-year-badge:focus-visible {
+          transform:translateY(0);
+        }
         /* Move the portrait and surname together using only the parent slot transform. */
         .gallery-strip[data-react-mirrors-row5="true"] .gallery-slot-media {
           transform:none !important;
@@ -800,26 +827,44 @@ export default function InteractionStrip({
             flex:0 0 60px; width:60px; height:60px; aspect-ratio:1;
           }
         }
-        /* The All-Time row's sponsor sign, on the fence at the right, mirroring
-           the All-Time sign on the left. Keep one mask for both signs: each
-           reaches 72px from the rail edge (7px inset + 65px wide). Finish the
-           32px dissolve before that boundary, so years never pass under a sign.
-           The fixed signs are siblings of the masked scroller and stay opaque. */
+        /* Compact bookend signs finish at 76px from each outer edge.
+           Start the first year at 80px on a 360px phone, preserving room
+           for three 64px plaques with two 3px gaps before the right sign.
+           Fade off-scroll years underneath the fixed signs, not page black. */
         .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-inner {
-          padding-right:82px !important;
-          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
-          mask-image:linear-gradient(to right,transparent 0px,transparent 72px,black 104px,black calc(100% - 104px),transparent calc(100% - 72px),transparent 100%);
+          padding-right:74px !important;
+          -webkit-mask-image:linear-gradient(to right,transparent 0px,transparent 64px,black 73px,black calc(100% - 80px),transparent calc(100% - 71px),transparent 100%);
+          mask-image:linear-gradient(to right,transparent 0px,transparent 64px,black 73px,black calc(100% - 80px),transparent calc(100% - 71px),transparent 100%);
         }
-        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:78px; }
-        .alltime-sponsor-sign { position:absolute; right:7px; top:8px; z-index:7; width:65px; height:42px; display:block; color:inherit; text-decoration:none; }
+        /* Bare chevrons sit flush with the outer edges, without dark-green boxes.
+           Keep the sign and arrow hit areas separate. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow {
+          z-index:8; top:50%; width:18px; height:38px; transform:translateY(-50%);
+          background:transparent; border:0; box-shadow:none; border-radius:0; padding:0;
+          color:#f4f1e9; font-size:26px; text-shadow:0 1px 3px rgba(0,0,0,.75);
+        }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.left { left:0; }
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"] .gallery-strip-arrow.right { right:0; }
+        /* Outfield foul pole: a fixed yellow upright at the absolute left
+           fence edge, independent of the scrollable team-year badges. */
+        .gallery-strip[data-active-section="alltime"][data-react-mirrors-row5="true"]::before {
+          content:""; position:absolute; z-index:9; pointer-events:none;
+          left:0; top:-4px; bottom:0; width:4px; background:#dfc24d;
+          box-shadow:1px 0 1px rgba(0,0,0,.25);
+        }
+        .alltime-sponsor-sign { position:absolute; right:18px; top:12px; z-index:7; width:58px; height:34px; display:block; color:inherit; text-decoration:none; }
         .alltime-sponsor-board { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; padding:3px;
           border:1px solid #c8c5b9; border-radius:2px; background:#f4f1e9; color:#733648; box-shadow:0 1px 5px #0005; overflow:hidden; }
         .alltime-sponsor-board img { max-width:100%; max-height:100%; object-fit:contain; }
         .alltime-sponsor-board b { font:900 12px/1.05 Oswald,sans-serif; letter-spacing:.2px; }
         .alltime-sponsor-sign.is-open .alltime-sponsor-board { border-style:dashed; border-color:#733648; }
         .alltime-sponsor-sign.is-open:hover .alltime-sponsor-board { background:#fffbe9; }
-        .alltime-sponsor-title { position:absolute; top:46px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
+        .alltime-sponsor-title { position:absolute; top:42px; left:0; width:100%; display:flex; flex-direction:column; align-items:stretch; color:#e2c34b; font:800 8px/1 Oswald,sans-serif; text-align:center; white-space:nowrap; }
         .alltime-sponsor-title span:first-child { font-size:12px; letter-spacing:.1px; }
+        /* Open spot: "You can put it on the board! ... YES!" */
+        .alltime-sponsor-sign.is-open .alltime-sponsor-board b { font-size:8px; line-height:1.05; letter-spacing:0; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-title { top:42px; }
+        .alltime-sponsor-sign.is-open .alltime-sponsor-title span:first-child { font:900 19px/1 Oswald,sans-serif; letter-spacing:.2px; }
         .gallery-contribute-slot { border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; }
         /* Row 3's existing 60px circular portrait and 9px Oswald caption.
            Clip the portrait's lower 60px INSIDE the ring; extend only the
@@ -902,7 +947,7 @@ export default function InteractionStrip({
           <button type="button" className="alltime-distance-marker" onClick={handleAllTimeResetClick}
             aria-label={`Show All-Time List, ${allTimeCount} alumni`} title="Show all-time alumni">
             <strong className="alltime-distance-count">{allTimeCount}</strong>
-            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT LEVEL LIST</span></span>
+            <span className="alltime-distance-title"><span>ALL-TIME</span><span>NEXT-LEVEL LIST</span></span>
           </button>
         )}
         {showPlayerStrip && activeSection === 'alltime' && (
@@ -913,9 +958,9 @@ export default function InteractionStrip({
               <span className="alltime-sponsor-title"><span>PROUD</span><span>SPONSOR</span></span>
             </span>
           ) : (
-            <a className="alltime-sponsor-sign is-open" href={sponsorHsid ? contributeSectionHref(sponsorHsid, 'cc-fans') : '#'} aria-label="Sponsor this spot" title="Put your business here">
-              <span className="alltime-sponsor-board"><b>YOUR</b><b>BUSINESS</b></span>
-              <span className="alltime-sponsor-title"><span>SPONSOR</span><span>THIS SPOT</span></span>
+            <a className="alltime-sponsor-sign is-open" href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" aria-label="You can put it on the board! Yes! Sponsor this spot" title="Put your business here">
+              <span className="alltime-sponsor-board"><b>YOU CAN PUT</b><b>IT ON THE</b><b>BOARD!</b></span>
+              <span className="alltime-sponsor-title"><span>YES!</span></span>
             </a>
           )
         )}
@@ -923,14 +968,15 @@ export default function InteractionStrip({
           {showPlayerStrip ? (
             activeSection === 'alltime' ? (
               <>
-                {ALL_TIME_TEAM_YEARS.map((year) => {
+                {teamYearOptions.map((year) => {
                   const isSelected = selectedRosterYear === year;
                   const stats = teamSeasonResultsByYear.get(year);
                   const displayLines = [stats?.displayLine1 || stats?.achievement || '', stats?.displayLine2 || stats?.seasonNote || ''];
                   const isChampion = /\bstate\s+champ(?:ion)?s?\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
                   const isRunnerUp = /\b(state\s+)?runner.up\b/i.test([stats?.achievement,stats?.seasonNote].filter(Boolean).join(' '));
+                  const record = stats ? `${stats.wins}-${stats.losses}${(stats.ties || 0) > 0 ? `-${stats.ties}` : ''}` : '';
                   const statsLabel = stats
-                    ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${stats.wins}-${stats.losses})`
+                    ? `${stats.achievement}${stats.seasonNote ? `; ${stats.seasonNote}` : ''} (${record})`
                     : 'season stats not provided yet';
                   return (
                     <button
@@ -963,7 +1009,7 @@ export default function InteractionStrip({
                           )}
                         </span>
                       </div>
-                      <span className="gallery-slot-name-overlay alltime-season-record" aria-hidden="true">{stats?.wins != null && stats?.losses != null ? `(${stats.wins}-${stats.losses})` : ""}</span>
+                      <span className="gallery-slot-name-overlay alltime-season-record" aria-hidden="true">{stats?.wins != null && stats?.losses != null ? `(${record})` : ""}</span>
                     </button>
                   );
                 })}

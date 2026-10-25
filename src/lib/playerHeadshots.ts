@@ -12,7 +12,8 @@ export type PlayerHeadshot = {
 
 /**
  * A designated, approved photo always wins. If none exists, an approved
- * Connect & Contribute headshot is used. If neither exists, an unambiguous
+ * explicitly current Connect & Contribute headshot is used. Historical
+ * season-headshots remain on the career timeline. Otherwise an unambiguous
  * verified MLB identity supplies an official headshot candidate.
  */
 export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadshots(
@@ -25,8 +26,7 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
   const [designated, contributed, identities] = await Promise.all([
     getBatchDesignatedPlayerImages(ids, 'HEADSHOT'),
     query<{ playerid: string; description: string | null }>(
-      `SELECT DISTINCT ON (playerid)
-              playerid::text AS playerid, description
+      `SELECT playerid::text AS playerid, description
          FROM media_upload
         WHERE playerid = ANY($1::text[])
           AND purpose = 'headshot'
@@ -68,19 +68,60 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
     }
   }
 
+  // Historical headshots are season-specific career-path assets, not the
+  // official current headshot. Never promote a year-labelled upload solely
+  // because it is the newest approved headshot in media_upload.
+  const selectedCurrent = new Set<string>();
   for (const row of contributed.rows) {
-    let parsed: { published_assets?: string[] } = {};
+    if (selectedCurrent.has(String(row.playerid))) continue;
+    let parsed: { currentSeason?: boolean; published_assets?: string[] } = {};
     try { parsed = JSON.parse(row.description || '{}'); } catch {}
+    if (parsed.currentSeason !== true) continue;
     const key = (parsed.published_assets || []).find(
-      (value) => typeof value === 'string' && value.startsWith('players/season-headshots/'),
+      (value) => value === `players/now/${row.playerid}.jpg`,
     );
     const image = key ? storyAssetUrl(key) : null;
     if (image) {
+      selectedCurrent.add(String(row.playerid));
       result.set(String(row.playerid), {
         playerid: String(row.playerid),
         image_url: image,
         source: 'approved_photo',
       });
+    }
+  }
+
+  // If no canonical current portrait exists, search lists may display an
+  // explicitly approved season headshot. This is a visual fallback only;
+  // it does not rewrite the player's canonical HEADSHOT designation.
+  const missing = ids.filter((id) => !result.has(id));
+  if (missing.length) {
+    const archive = await query<{ playerid: string; description: string | null }>(
+      `SELECT DISTINCT ON (playerid) playerid::text AS playerid, description
+         FROM media_upload
+        WHERE playerid = ANY($1::text[])
+          AND purpose = 'headshot'
+          AND status = 'approved'
+        ORDER BY playerid, date_taken DESC NULLS LAST, uploaded_at DESC, id DESC`,
+      [missing],
+    ).catch((error) => {
+      console.error('Approved seasonal headshot fallback lookup failed', { error });
+      return { rows: [] as { playerid: string; description: string | null }[] };
+    });
+    for (const row of archive.rows) {
+      let parsed: { published_assets?: string[] } = {};
+      try { parsed = JSON.parse(row.description || '{}'); } catch {}
+      const key = (parsed.published_assets || []).find((asset) =>
+        /^players\/season-headshots\//.test(asset) && /\.(?:png|webp|jpe?g)$/i.test(asset),
+      );
+      const image = key ? storyAssetUrl(key) : null;
+      if (image && !result.has(String(row.playerid))) {
+        result.set(String(row.playerid), {
+          playerid: String(row.playerid),
+          image_url: image,
+          source: 'approved_photo',
+        });
+      }
     }
   }
 

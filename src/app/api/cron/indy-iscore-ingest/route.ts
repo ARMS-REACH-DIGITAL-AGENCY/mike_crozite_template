@@ -3,6 +3,7 @@ import {
   ingestIndyIscoreLeague,
   loadActiveIndyIscoreLeagues,
 } from '@/lib/indyIscore';
+import { syncConfiguredIndySchedules } from '@/lib/indySchedules';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -56,6 +57,12 @@ export async function GET(req: NextRequest) {
   const playerDetailLimit = intParam(req, 'playerDetailLimit', 300, 1, 2000);
   const maxGames = intParam(req, 'maxGames', 10, 1, 200);
 
+  // Full, explicitly configured seasons are a separate feed from the small
+  // recent-box-score workload. The daily cron must load schedules even when
+  // includeGames is false (the existing default for individual statistics).
+  const scheduleResults = await syncConfiguredIndySchedules({ dryRun, leagueFilter })
+    .catch((error) => ({ results: [], errors: [error instanceof Error ? error.message : String(error)] }));
+
   const leagues = await loadActiveIndyIscoreLeagues(leagueFilter);
   const results = [];
 
@@ -72,13 +79,14 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    ok: results.every((result) => result.errors.length === 0),
+    ok: scheduleResults.errors.length === 0 && results.every((result) => result.errors.length === 0),
     ranAt: new Date().toISOString(),
     dryRun,
     force,
     includeDetails,
     includeGames,
     leaguesChecked: results.length,
+    schedules: scheduleResults,
     totals: {
       battingRows: results.reduce((sum, result) => sum + result.battingRows, 0),
       pitchingRows: results.reduce((sum, result) => sum + result.pitchingRows, 0),

@@ -332,38 +332,38 @@ function css() {
     #playerFunZone {
       --psi-page-bg: #070707;
       --psi-panel-bg: #080808;
-      --psi-card-bg: #0c0c0c;
-      --psi-card-bg-2: rgba(255,255,255,.055);
+      --psi-card-bg: #101010;
+      --psi-card-bg-2: rgba(255,255,255,.025);
       --psi-head-bg-a: #202020;
       --psi-head-bg-b: #101010;
-      --psi-text: #f4f0e6;
+      --psi-text: #f1f1f1;
       --psi-muted-text: rgba(255,255,255,.84);
       --psi-border: rgba(255,255,255,.18);
-      --psi-cell-bg: rgba(255,255,255,.035);
-      --psi-cell-bg-alt: rgba(255,255,255,.065);
+      --psi-cell-bg: #101010;
+      --psi-cell-bg-alt: #101010;
       --psi-cell-hover: rgba(255,255,255,.12);
-      --psi-total-bg: rgba(214, 178, 83, .32);
-      --psi-total-bg-2: rgba(214, 178, 83, .20);
-      --psi-total-text: #fff7d6;
+      --psi-total-bg: #272727;
+      --psi-total-bg-2: #272727;
+      --psi-total-text: #fff;
     }
 
     html.light-theme #playerFunZone,
     body.light-theme #playerFunZone {
-      --psi-page-bg: #f6f0e4;
-      --psi-panel-bg: #fffaf0;
-      --psi-card-bg: #fffdf8;
-      --psi-card-bg-2: rgba(160,118,28,.10);
-      --psi-head-bg-a: #eadfbf;
-      --psi-head-bg-b: #d9c68e;
-      --psi-text: #17130b;
-      --psi-muted-text: #2b2415;
-      --psi-border: rgba(74,54,10,.24);
-      --psi-cell-bg: rgba(255,255,255,.78);
-      --psi-cell-bg-alt: rgba(245,236,214,.92);
-      --psi-cell-hover: rgba(224,198,126,.38);
-      --psi-total-bg: rgba(229, 197, 105, .72);
-      --psi-total-bg-2: rgba(241, 216, 145, .78);
-      --psi-total-text: #181109;
+      --psi-page-bg: #f4f4f4;
+      --psi-panel-bg: #fff;
+      --psi-card-bg: #fff;
+      --psi-card-bg-2: rgba(0,0,0,.025);
+      --psi-head-bg-a: #e9e9e9;
+      --psi-head-bg-b: #e9e9e9;
+      --psi-text: #171717;
+      --psi-muted-text: #444;
+      --psi-border: rgba(0,0,0,.10);
+      --psi-cell-bg: #fff;
+      --psi-cell-bg-alt: #fff;
+      --psi-cell-hover: #eee;
+      --psi-total-bg: #e8e8e8;
+      --psi-total-bg-2: #e8e8e8;
+      --psi-total-text: #171717;
     }
 
     #playerFunZone,
@@ -371,13 +371,13 @@ function css() {
     #playerFunZone .pp-funzone-outer { background: var(--psi-page-bg) !important; }
     #ppTab-stats { background: var(--psi-page-bg) !important; padding:6px 6px calc(var(--profile-tabs-h,68px) + 10px) !important; overflow:auto !important; color:var(--psi-text) !important; }
     #ppTab-stats .psi-shell { width:100%; background:transparent; }
-    #ppTab-stats .psi-card { width:100%; border:1px solid var(--psi-border); background:linear-gradient(180deg, var(--psi-card-bg-2), transparent), var(--psi-card-bg); margin:0 0 10px; box-shadow:0 14px 32px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08); }
-    #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 24px); overflow:auto; background:var(--psi-panel-bg); scrollbar-color:rgba(150,120,50,.55) rgba(150,120,50,.12); scrollbar-width:thin; }
+    #ppTab-stats .psi-card { width:100%; border:0; background:var(--psi-card-bg); margin:0 0 10px; box-shadow:none; }
+    #ppTab-stats .psi-table-wrap { width:100%; max-height: calc(100dvh - var(--row1-h, 40px) - var(--row2-h, 84px) - var(--row3-h, 96px) - var(--row4-h, 48px) - var(--profile-tabs-h, 68px) - var(--footerH, 64px) - 24px); overflow:auto; background:var(--psi-panel-bg); scrollbar-color:rgba(128,128,128,.45) transparent; scrollbar-width:thin; }
     #ppTab-stats .psi-table { min-width:0; width:max-content; border-collapse:separate; border-spacing:0; font:600 9.5px/1.1 var(--yat-font-compact, 'Barlow Condensed', 'Arial Narrow', sans-serif); color:var(--psi-text); table-layout:fixed; }
     /* Connect & Contribute type pairing: compact stat values and clear Archivo column headings. Keep table geometry and sortable controls unchanged. */
     #ppTab-stats .psi-table tbody td { font-family:var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); font-variant-numeric:tabular-nums; }
     #ppTab-stats .psi-table tfoot td { font-family:var(--yat-font-compact, "Barlow Condensed", "Arial Narrow", sans-serif); font-variant-numeric:tabular-nums; }
-    #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid var(--psi-border); border-bottom:1px solid var(--psi-border); background:linear-gradient(180deg,var(--psi-head-bg-a),var(--psi-head-bg-b)); color:var(--psi-text); text-align:right; white-space:nowrap; text-transform:uppercase; width:auto; }
+    #ppTab-stats .psi-table thead th { position:sticky; top:0; z-index:8; padding:0; border-right:1px solid var(--psi-border); border-bottom:1px solid var(--psi-border); background:var(--psi-head-bg-a); color:var(--psi-text); text-align:right; white-space:nowrap; text-transform:uppercase; width:auto; }
     #ppTab-stats .psi-table th button { width:auto; height:100%; display:flex; align-items:center; justify-content:flex-end; gap:2px; border:0; background:transparent; color:inherit; padding:4px 3px; font:800 9px/1 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
     #ppTab-stats .psi-table th.year button,
     #ppTab-stats .psi-table th.level button,
@@ -394,8 +394,8 @@ function css() {
     #ppTab-stats .psi-table td[data-key="year"],
     #ppTab-stats .psi-table td[data-key="level"],
     #ppTab-stats .psi-table td[data-key="age"] { text-align:center !important; }
-    #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { position:sticky; left:0; z-index:12; width:40px; min-width:40px; max-width:40px; box-shadow:4px 0 10px rgba(0,0,0,.18); }
-    #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { position:sticky; left:40px; z-index:11; width:108px; min-width:108px; max-width:108px; box-shadow:4px 0 10px rgba(0,0,0,.14); overflow:hidden; text-overflow:ellipsis; }
+    #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table td[data-key="year"] { position:sticky; left:0; z-index:12; width:40px; min-width:40px; max-width:40px; box-shadow:none; }
+    #ppTab-stats .psi-table th.team, #ppTab-stats .psi-table td[data-key="team"] { position:sticky; left:40px; z-index:11; width:108px; min-width:108px; max-width:108px; box-shadow:none; overflow:hidden; text-overflow:ellipsis; }
     #ppTab-stats .psi-table th.year, #ppTab-stats .psi-table th.team { z-index:16; }
     #ppTab-stats .psi-table tbody tr td[data-key="year"],
     #ppTab-stats .psi-table tbody tr td[data-key="team"] { background:var(--psi-cell-bg) !important; color:var(--psi-text); }
@@ -410,13 +410,13 @@ function css() {
     #ppTab-stats .psi-table th[data-sort-key="gs"], #ppTab-stats .psi-table td[data-key="gs"], #ppTab-stats .psi-table th[data-sort-key="cg"], #ppTab-stats .psi-table td[data-key="cg"], #ppTab-stats .psi-table th[data-sort-key="gr"], #ppTab-stats .psi-table td[data-key="gr"], #ppTab-stats .psi-table th[data-sort-key="gf"], #ppTab-stats .psi-table td[data-key="gf"], #ppTab-stats .psi-table th[data-sort-key="sv"], #ppTab-stats .psi-table td[data-key="sv"], #ppTab-stats .psi-table th[data-sort-key="er"], #ppTab-stats .psi-table td[data-key="er"], #ppTab-stats .psi-table th[data-sort-key="bb"], #ppTab-stats .psi-table td[data-key="bb"], #ppTab-stats .psi-table th[data-sort-key="so"], #ppTab-stats .psi-table td[data-key="so"], #ppTab-stats .psi-table th[data-sort-key="wp"], #ppTab-stats .psi-table td[data-key="wp"], #ppTab-stats .psi-table th[data-sort-key="bk"], #ppTab-stats .psi-table td[data-key="bk"], #ppTab-stats .psi-table th[data-sort-key="hb"], #ppTab-stats .psi-table td[data-key="hb"], #ppTab-stats .psi-table th[data-sort-key="rbi"], #ppTab-stats .psi-table td[data-key="rbi"], #ppTab-stats .psi-table th[data-sort-key="sb"], #ppTab-stats .psi-table td[data-key="sb"], #ppTab-stats .psi-table th[data-sort-key="tb"], #ppTab-stats .psi-table td[data-key="tb"], #ppTab-stats .psi-table th[data-sort-key="pa"], #ppTab-stats .psi-table td[data-key="pa"], #ppTab-stats .psi-table th[data-sort-key="xbh"], #ppTab-stats .psi-table td[data-key="xbh"], #ppTab-stats .psi-table th[data-sort-key="ab"], #ppTab-stats .psi-table td[data-key="ab"] { width:30px; min-width:30px; max-width:36px; }
     #ppTab-stats .psi-table th[data-sort-key="ip"], #ppTab-stats .psi-table td[data-key="ip"], #ppTab-stats .psi-table th[data-sort-key="era"], #ppTab-stats .psi-table td[data-key="era"], #ppTab-stats .psi-table th[data-sort-key="whip"], #ppTab-stats .psi-table td[data-key="whip"], #ppTab-stats .psi-table th[data-sort-key="h9"], #ppTab-stats .psi-table td[data-key="h9"], #ppTab-stats .psi-table th[data-sort-key="hr9"], #ppTab-stats .psi-table td[data-key="hr9"], #ppTab-stats .psi-table th[data-sort-key="bb9"], #ppTab-stats .psi-table td[data-key="bb9"], #ppTab-stats .psi-table th[data-sort-key="so9"], #ppTab-stats .psi-table td[data-key="so9"], #ppTab-stats .psi-table th[data-sort-key="ra9"], #ppTab-stats .psi-table td[data-key="ra9"], #ppTab-stats .psi-table th[data-sort-key="so_bb"], #ppTab-stats .psi-table td[data-key="so_bb"], #ppTab-stats .psi-table th[data-sort-key="bavg"], #ppTab-stats .psi-table td[data-key="bavg"], #ppTab-stats .psi-table th[data-sort-key="obp"], #ppTab-stats .psi-table td[data-key="obp"], #ppTab-stats .psi-table th[data-sort-key="slg"], #ppTab-stats .psi-table td[data-key="slg"], #ppTab-stats .psi-table th[data-sort-key="ops"], #ppTab-stats .psi-table td[data-key="ops"], #ppTab-stats .psi-table th[data-sort-key="seca"], #ppTab-stats .psi-table td[data-key="seca"], #ppTab-stats .psi-table th[data-sort-key="iso"], #ppTab-stats .psi-table td[data-key="iso"], #ppTab-stats .psi-table th[data-sort-key="babip"], #ppTab-stats .psi-table td[data-key="babip"] { width:42px; min-width:42px; max-width:50px; }
     #ppTab-stats .psi-table .linkish { color:var(--psi-text); text-decoration:none; }
-    #ppTab-stats .psi-total-row td { background:linear-gradient(180deg, var(--psi-total-bg), var(--psi-total-bg-2)) !important; color:var(--psi-total-text) !important; border-top:1px solid rgba(191,148,43,.58); font-weight:900 !important; }
+    #ppTab-stats .psi-total-row td { background:var(--psi-total-bg) !important; color:var(--psi-total-text) !important; border-top:1px solid rgba(128,128,128,.35); font-weight:900 !important; }
     #ppTab-stats .psi-total-row td[data-key="year"],
-    #ppTab-stats .psi-total-row td[data-key="team"] { background:linear-gradient(180deg, var(--psi-total-bg), var(--psi-total-bg-2)) !important; color:var(--psi-total-text) !important; }
+    #ppTab-stats .psi-total-row td[data-key="team"] { background:var(--psi-total-bg) !important; color:var(--psi-total-text) !important; }
     #ppTab-stats .psi-total-row td[data-key="team"] { letter-spacing:.02em; text-transform:uppercase; }
     #ppTab-stats .psi-bucket-total-row td,
     #ppTab-stats .psi-bucket-total-row td[data-key="year"],
-    #ppTab-stats .psi-bucket-total-row td[data-key="team"] { background:var(--psi-cell-bg-alt) !important; color:var(--psi-text) !important; border-top:2px solid rgba(191,148,43,.72); }
+    #ppTab-stats .psi-bucket-total-row td[data-key="team"] { background:var(--psi-cell-bg-alt) !important; color:var(--psi-text) !important; border-top:2px solid rgba(128,128,128,.42); }
     #ppTab-stats .psi-empty { min-height:260px; display:grid; place-items:center; padding:24px; color:var(--psi-muted-text); background:var(--psi-card-bg); font:800 13px/1.35 var(--yat-font-ui, Archivo, Arial, sans-serif); letter-spacing:.1em; text-transform:uppercase; text-align:center; }
     #ppTab-stats .psi-table th .psi-sort-mark { font-size:7px; line-height:1; }
     #ppTab-stats .psi-table th.is-sort-desc .psi-sort-mark::after { content:'▼'; }

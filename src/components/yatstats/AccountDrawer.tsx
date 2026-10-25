@@ -6,6 +6,7 @@ import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 
 interface AccountDrawerProps {
   subdomain: string;
+  schoolName?: string;
 }
 
 type AccountTab = 'signin' | 'register';
@@ -131,10 +132,23 @@ function applyHomeIdentity(identity: HomeIdentity) {
   } catch {}
 }
 
-export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
+export default function AccountDrawer({ subdomain, schoolName }: AccountDrawerProps) {
   const [activeTab, setActiveTab] = useState<AccountTab>('register');
   // Signed in: no JOIN / LOG IN tabs, just the close button.
   const [signedIn, setSignedIn] = useState(false);
+
+  // Public review/registration deep link: one shared entry point for every
+  // school's real JOIN form. No duplicate form or hardcoded school details.
+  // Example: /5004?join=1 (the carrier can verify consent without logging in).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('join') !== '1') return;
+    setActiveTab('register');
+    document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-favorites-open');
+    document.body.classList.add('drawer-account-open', 'drawer-open');
+    const drawer = document.getElementById('drawerAccount');
+    drawer?.classList.add('open', 'is-open', 'active');
+  }, []);
 
   useEffect(() => {
     // Other drawers open a specific account form through the same event.
@@ -212,8 +226,9 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
   return (
     <aside className="yat-drawer yat-drawer-right" id="drawerAccount">
       <div
-        role="tablist"
-        aria-label="Account access"
+        className={signedIn ? 'yat-account-drawer-header yat-account-header-signed' : 'yat-account-drawer-header'}
+        role={signedIn ? 'group' : 'tablist'}
+        aria-label={signedIn ? 'Account' : 'Account access'}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -222,9 +237,7 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
           gap: 0,
         }}
       >
-        {signedIn ? (
-          <span style={{ flex: 1 }} />
-        ) : (
+        {signedIn ? null : (
           <>
             <button
               type="button"
@@ -240,8 +253,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 cursor: 'pointer',
                 background: 'transparent',
                 border: 'none',
-                borderBottom: activeTab === 'register' ? '2px solid var(--gold)' : '2px solid transparent',
-                color: activeTab === 'register' ? 'var(--gold)' : 'var(--fg)',
+                borderBottom: activeTab === 'register' ? '2px solid var(--ink)' : '2px solid transparent',
+                color: activeTab === 'register' ? 'var(--ink)' : 'var(--muted)',
                 fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '15px',
                 letterSpacing: '.06em',
@@ -264,8 +277,8 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
                 cursor: 'pointer',
                 background: 'transparent',
                 border: 'none',
-                borderBottom: activeTab === 'signin' ? '2px solid var(--gold)' : '2px solid transparent',
-                color: activeTab === 'signin' ? 'var(--gold)' : 'var(--muted)',
+                borderBottom: activeTab === 'signin' ? '2px solid var(--ink)' : '2px solid transparent',
+                color: activeTab === 'signin' ? 'var(--ink)' : 'var(--muted)',
                 fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
                 fontSize: '15px',
                 letterSpacing: '.06em',
@@ -297,11 +310,37 @@ export default function AccountDrawer({ subdomain }: AccountDrawerProps) {
         </button>
       </div>
 
-      <AccountDrawerContent subdomain={subdomain} />
+      <AccountDrawerContent subdomain={subdomain} schoolName={schoolName} />
       <style jsx global>{`
         #drawerAccount{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #drawerAccount #acctTabJoin,#drawerAccount #acctTabLogin{font:800 13px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;}
         #drawerAccount #closeAccount{color:var(--ink)!important;}
+        /* Signed-in identity begins at the top of the drawer, using the
+           former empty JOIN / LOG IN strip. The close button stays usable. */
+        #drawerAccount .yat-account-header-signed {
+          position:static!important;
+          height:0!important;
+          min-height:0!important;
+          flex:0 0 0!important;
+          padding:0!important;
+          overflow:visible!important;
+          border:0!important;
+        }
+        #drawerAccount .yat-account-header-signed #closeAccount {
+          position:absolute!important;
+          top:8px!important;
+          right:9px!important;
+          width:36px!important;
+          height:36px!important;
+          border:0!important;
+          border-radius:6px!important;
+          background:transparent!important;
+          z-index:5!important;
+        }
+        #drawerAccount .yat-account-header-signed #closeAccount:hover,
+        #drawerAccount .yat-account-header-signed #closeAccount:focus-visible {
+          background:var(--line)!important;
+        }
       `}</style>
     </aside>
   );

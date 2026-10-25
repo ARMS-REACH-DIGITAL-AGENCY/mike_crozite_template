@@ -567,6 +567,52 @@ function validateResults(results: Array<{ feed: FeedKey; downloadedRows: number;
   }
 }
 
+
+// Resolve a single, verified 2026 independent team before canonical stage
+// normalization. Does not infer dates within a season or override MLB roster
+// facts. Ambiguous multi-team records are left for review.
+async function reconcileCollegeToIndyCurrentTeams(client: any): Promise<number> {
+  const { rows } = await client.query(`
+    WITH pro_evidence AS MATERIALIZED (
+      SELECT playerid::text AS playerid, teamid::text AS teamid
+      FROM public.tbc_batting_2026_season_raw WHERE year='2026'
+      UNION
+      SELECT playerid::text, teamid::text
+      FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+    ), eligible AS (
+      SELECT e.playerid, MIN(u.teamid) AS teamid
+      FROM pro_evidence e JOIN public.teamid_universe_mapping u ON u.teamid=e.teamid
+      WHERE u.level_label='INDY'
+        AND u.current_org_or_conference_name IN
+          ('American Association','Frontier League','Atlantic League','Pioneer League')
+      GROUP BY e.playerid HAVING COUNT(DISTINCT u.teamid)=1
+    ), updated AS (
+      UPDATE public.flip_card_front_stage f SET
+        current_teamid=u.teamid, current_team_source_team_id=u.teamid,
+        current_team_name=u.current_team_name,
+        current_org_or_conference_name=u.current_org_or_conference_name,
+        current_team_level=u.level_label, current_level_label=u.level_label,
+        level_label=u.level_label, display_level_label=u.level_label,
+        current_team_source='tbc_2026_indy_season_reconciled',
+        current_team_last_verified=now(),
+        next_game_date=NULL, next_game_status_label=NULL,
+        next_game_opponent=NULL, next_game_home_away=NULL,
+        next_game_time_utc=NULL, next_game_time_local=NULL,
+        updated_at=now(),stage_updated_at=now()
+      FROM eligible e JOIN public.teamid_universe_mapping u ON u.teamid=e.teamid
+      WHERE f.playerid=e.playerid AND f.status_label='ACTIVE'
+        AND f.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+        AND COALESCE(f.current_team_source,'') NOT IN
+          ('mlb_api','mlb_api_canonical_teamid','owner_reported_transfer')
+        AND COALESCE(f.team_affiliation_status,'') NOT IN ('RETIRED','FREE AGENT')
+        AND f.current_teamid IS DISTINCT FROM u.teamid
+      RETURNING f.playerid
+    )
+    SELECT count(*)::int AS corrected FROM updated
+  `);
+  return Number(rows[0]?.corrected || 0);
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -609,6 +655,7 @@ export async function GET(req: NextRequest) {
 
     const baseline = await ensureFlipCardBaselineRows(client);
     const newFlipCardRows = baseline.created;
+    const collegeToIndyCorrected = await reconcileCollegeToIndyCurrentTeams(client);
     const heldForIdentityReview = baseline.held;
 
     await recordIngestSuccess(client, { results, newFlipCardRows, heldForIdentityReview });
@@ -652,6 +699,7 @@ export async function GET(req: NextRequest) {
       ranAt: new Date().toISOString(),
       results,
       newFlipCardRows,
+      collegeToIndyCorrected,
       heldForIdentityReview,
     });
   } catch (error: any) {

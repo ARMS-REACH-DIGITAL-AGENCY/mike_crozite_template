@@ -27,11 +27,12 @@ function escapeTeamText(value: unknown) {
 type Props =
   | { mode?: 'player'; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
   | { mode: 'school'; onSchool: (s: ContributeSchool) => void; onPlayer?: never; onTeam?: never }
-  | { mode: 'team'; onTeam: (t: ContributeTeam) => void; onPlayer?: never; onSchool?: never };
+  | { mode: 'team' | 'college'; onTeam: (t: ContributeTeam) => void; onPlayer?: never; onSchool?: never };
 
 export default function ContributeSearch(props: Props) {
   const schoolOnly = props.mode === 'school';
-  const teamOnly = props.mode === 'team';
+  const teamOnly = props.mode === 'team' || props.mode === 'college';
+  const collegeOnly = props.mode === 'college';
   const [q, setQ] = useState('');
   const [mode, setMode] = useState<Mode>(schoolOnly ? 'school' : teamOnly ? 'team' : 'name');
   const [rosterOf, setRosterOf] = useState<{ hsid: string; name: string } | null>(null);
@@ -75,7 +76,7 @@ export default function ContributeSearch(props: Props) {
           el.innerHTML = renderSchoolRows(Array.isArray(data.programs) ? data.programs : [], 'No school matches.');
         } else {
           const endpoint = teamOnly ? '/api/teams/entities/search' : '/api/teams/search';
-          const data = await fetchJson(`${endpoint}?q=${encodeURIComponent(term)}&limit=75`);
+          const data = await fetchJson(`${endpoint}?q=${encodeURIComponent(term)}&limit=75${collegeOnly ? '&collegeOnly=1' : ''}`);
           if (!live) return;
           if (teamOnly) {
             const teams = Array.isArray(data.teams) ? data.teams : [];
@@ -92,7 +93,7 @@ export default function ContributeSearch(props: Props) {
                 <img src="${escapeTeamText(logo)}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='/img/yatstats-logo-circle.png';this.onerror=null" />
                 <span class="yat-search-player-text-link"><strong>${safeName}</strong>${level ? `<small>${safeLevel}</small>` : ''}${org ? `<small>${safeOrg}</small>` : ''}</span>
               </button>`;
-            }).join('')}</div>` : '<div class="yat-search-empty">No college or pro team matches.</div>';
+            }).join('')}</div>` : `<div class="yat-search-empty">${collegeOnly ? 'No college matches.' : 'No college or pro team matches.'}</div>`;
           } else {
             el.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
             hydrateFavoriteButtons(el);
@@ -103,7 +104,7 @@ export default function ContributeSearch(props: Props) {
       }
     }, rosterOf ? 0 : 180);
     return () => { live = false; window.clearTimeout(timer); };
-  }, [q, mode, rosterOf, teamOnly]);
+  }, [q, mode, rosterOf, teamOnly, collegeOnly]);
 
   // A result picks the player (or school) here instead of opening his page.
   useEffect(() => {
@@ -124,7 +125,7 @@ export default function ContributeSearch(props: Props) {
       event.stopPropagation();
       const d = card.dataset;
       if (card.classList.contains('yat-search-team-entity-card')) {
-        if (pick.current.mode === 'team') {
+        if (pick.current.mode === 'team' || pick.current.mode === 'college') {
           pick.current.onTeam({
             teamId: d.teamId || '',
             name: d.teamName || '',
@@ -141,10 +142,11 @@ export default function ContributeSearch(props: Props) {
         else setRosterOf({ hsid: school.hsid, name: school.name });
         return;
       }
-      if (pick.current.mode !== 'school' && pick.current.mode !== 'team' && d.playerId) {
-        pick.current.onPlayer({
+      if (pick.current.mode !== 'school' && pick.current.mode !== 'team' && pick.current.mode !== 'college' && d.playerId) {
+        pick.current.onPlayer?.({
           playerId: d.playerId,
           displayName: d.playerName || '',
+          headshotUrl: d.headshotUrl || '',
           schoolId: d.schoolId || undefined,
           schoolName: d.schoolName || undefined,
         });
@@ -162,15 +164,15 @@ export default function ContributeSearch(props: Props) {
           className="yat-gs-input"
           value={q}
           onChange={(e) => { setQ(e.target.value); setRosterOf(null); }}
-          placeholder={schoolOnly ? 'Search high schools...' : teamOnly ? 'Search college or pro teams...' : 'Search by name, school, or team...'}
+          placeholder={schoolOnly ? 'Search high schools...' : collegeOnly ? 'Search colleges by name or team ID...' : teamOnly ? 'Search college or pro teams...' : 'Search by name, school, or team...'}
           autoComplete="off"
-          aria-label={schoolOnly ? 'Search high schools' : teamOnly ? 'Search college or pro teams' : 'Search players'}
+          aria-label={schoolOnly ? 'Search high schools' : collegeOnly ? 'Search colleges' : teamOnly ? 'Search college or pro teams' : 'Search players'}
         />
         <i className="ri-search-line yat-gs-input-icon" aria-hidden="true" />
       </div>
       {!schoolOnly && !teamOnly && (
         <div className="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
-          {([['name', 'Player Name'], ['school', 'High School'], ['team', 'Current Team']] as [Mode, string][]).map(([m, label]) => (
+          {([['name', 'PLAYER NAME'], ['school', 'HIGH SCHOOL'], ['team', 'CURRENT TEAM']] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} className={`yat-search-mode-btn${mode === m ? ' active' : ''}`} onClick={() => { setMode(m); setRosterOf(null); }}>{label}</button>
           ))}
         </div>
@@ -194,6 +196,12 @@ export default function ContributeSearch(props: Props) {
           z-index:1; font-size:18px; pointer-events:none; opacity:.8;
         }
         .ycs-results { max-height: none !important; overflow: visible !important; }
+        /* Contribute school picker renders crest + identity, without the active-alumni
+           counter used by Global Search. Override the shared two-column grid
+           (whose second column is only 54px wide) so names get the remaining space. */
+        #drawerContribute .ycs .yat-search-school-topline {
+          grid-template-columns: 50px minmax(0, 1fr);
+        }
         .ycs-back { align-self: flex-start; margin: 4px 0; border: 0; background: none; padding: 0; color: var(--sb-text); font: 600 12px/1 var(--yat-font-compact); letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
         .ycs .yat-search-player-result, .ycs .yat-search-school-card, .ycs .yat-search-team-entity-card { cursor: pointer; }
         .ycs .yat-search-team-entity-card { display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:10px;border:1px solid var(--line);background:transparent;color:inherit;padding:8px 10px;border-radius:8px; }
