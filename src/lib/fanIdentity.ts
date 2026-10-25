@@ -9,6 +9,7 @@ import 'server-only';
 import type { NextRequest } from 'next/server';
 import { AUTH_PASS_COOKIE, readAuthPass } from './authPass';
 import { verifyFirebaseIdToken } from './firebaseIdToken';
+import { getUserProfile } from './userProfile';
 
 export type FanIdentity = { uid: string; email: string };
 
@@ -20,6 +21,18 @@ export async function identifyFan(req: NextRequest, idToken?: string | null): Pr
   }
   const passUid = readAuthPass(req.cookies.get(AUTH_PASS_COOKIE)?.value);
   return passUid ? { uid: passUid, email: '' } : null;
+}
+
+/** All fan-generated writes require a verified identity AND a saved
+ *  registration, including free Fan accounts. Never authorize a write
+ *  through the anonymous visitor cookie or the unsigned display session.
+ */
+export async function identifyRegisteredFan(req: NextRequest, idToken?: string | null): Promise<FanIdentity | null> {
+  const fan = await identifyFan(req, idToken);
+  if (!fan) return null;
+  const profile = await getUserProfile(fan.uid);
+  if (!profile?.firebase_uid || !profile.email) return null;
+  return { uid: fan.uid, email: fan.email || profile.email };
 }
 
 // For reads (which story is mine): the signed pass only.

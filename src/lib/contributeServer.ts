@@ -18,7 +18,7 @@ import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCom
 import { createHash } from 'crypto';
 import sharp from 'sharp';
 import { query } from './db';
-import { identifyFan } from './fanIdentity';
+import { identifyRegisteredFan } from './fanIdentity';
 import { getUserProfile, type UserProfile } from './userProfile';
 import { addNoteToGHLContact, addTagToGHLContact, findOrCreateGhlContact, sendGHLEmail } from './gohighlevel';
 import { toPlayerSlug } from './slug';
@@ -32,7 +32,7 @@ export type Contributor = { uid: string; email: string; name: string; profile: U
 // Who is contributing: a verified Firebase token or the signed pass (never
 // the plain session cookie, which the browser could edit).
 export async function identifyContributor(req: NextRequest, idToken?: string | null): Promise<Contributor | null> {
-  const identity = await identifyFan(req, idToken);
+  const identity = await identifyRegisteredFan(req, idToken);
   if (!identity) return null;
   const profile = await getUserProfile(identity.uid).catch(() => null);
   const name =

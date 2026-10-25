@@ -1,7 +1,6 @@
-import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { VISITOR_COOKIE, identifyFan, likerKey } from '@/lib/fanIdentity';
+import { identifyRegisteredFan } from '@/lib/fanIdentity';
 import { ensureFantasyGameSocialTables, gameKey } from '@/lib/fantasyGameSocial';
 
 export const runtime='nodejs';
@@ -9,9 +8,9 @@ export const runtime='nodejs';
 export async function POST(req:NextRequest,{params}:{params:Promise<{gameKey:string}>}) {
   const key=gameKey(decodeURIComponent((await params).gameKey||''));
   if(!key) return NextResponse.json({error:'Game not found.'},{status:404});
-  const fan=await identifyFan(req);
-  let liker=likerKey(req,fan?.uid), visitor:string|null=null;
-  if(!liker){ visitor=randomUUID(); liker=`anon:${visitor}`; }
+  const fan=await identifyRegisteredFan(req);
+  if(!fan) return NextResponse.json({error:'Register or log in to like this game.'},{status:401});
+  const liker=fan.uid;
   try {
     await ensureFantasyGameSocialTables();
     const {rows}=await query<{liked:boolean;like_count:number}>(`
@@ -26,8 +25,6 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{gameKey:str
              ((select count(*) from fantasy_game_likes where game_key=$1)
               -(select count(*) from removed)+(select count(*) from added))::int like_count
     `,[key,liker]);
-    const res=NextResponse.json({liked:Boolean(rows[0]?.liked),likeCount:rows[0]?.like_count||0});
-    if(visitor) res.cookies.set({name:VISITOR_COOKIE,value:visitor,path:'/',httpOnly:true,secure:true,sameSite:'lax',maxAge:60*60*24*365});
-    return res;
+    return NextResponse.json({liked:Boolean(rows[0]?.liked),likeCount:rows[0]?.like_count||0});
   } catch(error){ console.error('[fantasy-game] like failed',error); return NextResponse.json({error:'That like did not go through.'},{status:500}); }
 }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
-import { identifyFan, likerKey, VISITOR_COOKIE } from '@/lib/fanIdentity';
+import { identifyRegisteredFan, likerKey } from '@/lib/fanIdentity';
 export const runtime = 'nodejs';
 type Ctx={params:Promise<{uuid:string}>};
 const bad=(msg:string,status=400)=>NextResponse.json({error:msg},{status});
@@ -24,12 +23,11 @@ export async function POST(req:NextRequest,{params}:Ctx){
  const body=(await req.json().catch(()=>null)) as {action?:string;text?:string;playerId?:string}|null;
  if(!body || !['like','comment','tag'].includes(body.action||''))return bad('Invalid interaction.');
  try{const story=await news(uuid);if(!story)return bad('News story not found.',404);
- const fan=await identifyFan(req);
- if(body.action==='like'){let uid=likerKey(req,fan?.uid);let visitor:string|null=null;if(!uid){visitor=randomUUID();uid='anon:'+visitor;}
+ const fan=await identifyRegisteredFan(req);
+ if(!fan)return bad('Register or log in to interact with News.',401);
+ if(body.action==='like'){const uid=fan.uid;
   const {rows}=await query<{liked:boolean}>("WITH removed AS (DELETE FROM news_article_likes WHERE news_uuid=$1 AND actor_uid=$2 RETURNING 1),added AS (INSERT INTO news_article_likes(news_uuid,actor_uid) SELECT $1,$2 WHERE NOT EXISTS(SELECT 1 FROM removed) ON CONFLICT DO NOTHING RETURNING 1) SELECT EXISTS(SELECT 1 FROM added) AS liked",[uuid,uid]);
-  const result=NextResponse.json({ok:true,liked:Boolean(rows[0]?.liked)});
-  if(visitor)result.cookies.set({name:VISITOR_COOKIE,value:visitor,httpOnly:true,sameSite:'lax',secure:true,path:'/',maxAge:31536000});return result;}
- if(!fan)return bad('Sign in to contribute.',401);
+  return NextResponse.json({ok:true,liked:Boolean(rows[0]?.liked)});}
  if(body.action==='comment'){const text=String(body.text||'').trim();if(!text||text.length>2000)return bad('Enter 1–2000 characters.');
   const {rows}=await query<{id:string}>('INSERT INTO news_article_comments(news_uuid,firebase_uid,body) VALUES($1,$2,$3) RETURNING id::text',[uuid,fan.uid,text]);return NextResponse.json({ok:true,id:rows[0]?.id},{status:201});}
  const playerId=String(body.playerId||'').trim();if(!/^[A-Za-z0-9_-]{1,40}$/.test(playerId))return bad('Choose a player.');
