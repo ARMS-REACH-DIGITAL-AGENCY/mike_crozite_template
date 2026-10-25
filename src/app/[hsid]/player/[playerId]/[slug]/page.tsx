@@ -32,6 +32,7 @@ import { headers } from "next/headers";
 import { playerProfileShareInfo, playerShareOrigin } from "@/lib/playerProfileShare";
 import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import { parseNewsVideo, newsVideoHeadline, newsVideoDescription } from '@/lib/newsVideo';
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
@@ -284,7 +285,8 @@ export default async function ProfilePage({ params }: Props) {
 
   const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, null, true)).map((row: any) => ({
     uuid: String(row.uuid),
-    title: row.gallery_front_json?.headline ?? row.title ?? "",
+    title: parseNewsVideo(row.url) ? newsVideoHeadline(row.gallery_front_json?.headline ?? row.title ?? '', playerNewsFullName) : row.gallery_front_json?.headline ?? row.title ?? "", 
+    video: parseNewsVideo(row.url),
     url: row.url,
     source: row.source_full ?? row.source ?? null,
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
@@ -300,9 +302,7 @@ export default async function ProfilePage({ params }: Props) {
     }),
     newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
     tease:
-      row.tease_json?.body ??
-      row.summary ??
-      null,
+      parseNewsVideo(row.url) ? newsVideoDescription(row.tease_json?.body ?? row.summary ?? row.snippet ?? '') : (row.tease_json?.body ?? row.summary ?? null),
   }));
 
   const firstName = (player.firstname || "").trim();
