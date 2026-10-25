@@ -244,7 +244,7 @@ function NewsPanel({
       }
 
       try {
-        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=2`, {
+        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=3`, {
           cache: "no-store",
         });
 
@@ -253,7 +253,7 @@ function NewsPanel({
         }
 
         const data = await res.json();
-const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 2) : [];
+const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 3) : [];
 
 const normalizedTeases: NewsTease[] = posts.map((post) => ({
   badge:
