@@ -737,7 +737,7 @@ export default function ContributePhotoFlow({
       {/* 3. Select: Player | School | Team */}
       {type ? (
         <section className="ypf-step">
-          <div className="ycd-label"><span className="ycd-step">3</span> {pick === 'school' ? 'Select the school' : pick === 'team' ? 'Select the team' : 'Select the player'}</div>
+          <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 2 : 3}</span> {pick === 'school' ? 'Select the school' : pick === 'team' ? 'Select the team' : 'Select the player'}</div>
           <div className="ycd-switch ypf-pick" role="radiogroup" aria-label="Select">
             {(['player', 'school', 'team'] as Pick[]).map((k) => (
               <button
@@ -806,7 +806,7 @@ export default function ContributePhotoFlow({
           {/* 3a. The season, when it matters */}
           {needsSeason ? (
             <div className="ycd-field ypf-sub">
-              <div className="ycd-label"><span className="ycd-step ypf-step-sm">3a</span> Select season{type.id === 'other_photo' ? ' (if you know)' : ''}</div>
+              <div className="ycd-label"><span className="ycd-step ypf-step-sm">{!showPurposePicker && type ? "2a" : "3a"}</span> Select season{type.id === 'other_photo' ? ' (if you know)' : ''}</div>
               {!years ? <div className="ycd-muted ycd-small">Loading his seasons…</div>
                 : (
                   <div className="ycd-seasons" role="listbox" aria-label="Seasons">
@@ -894,7 +894,7 @@ export default function ContributePhotoFlow({
       {type && (file || editingHeroId) && preview && manageReadyForProof ? (
         <div className="ypf-verify" style={{display:'flex',flexDirection:'column',alignItems:'stretch'}}>
           <section className="ypf-step">
-            <div className="ycd-label"><span className="ycd-step">4</span> Verify position</div>
+            <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 3 : 4}</span> Verify position</div>
             {aspect && (!editingHeroId || file) ? (
               <>
                 {type.aspects && type.aspects.length > 1 ? (
@@ -916,7 +916,7 @@ export default function ContributePhotoFlow({
           </section>
 
           <section className="ypf-step">
-            <div className="ycd-label"><span className="ycd-step">5</span> Approve</div>
+            <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 4 : 5}</span> Approve</div>
             {ready ? (
               <>
                 <ContributeProof
@@ -945,7 +945,7 @@ export default function ContributePhotoFlow({
 
       {/* 6. Submit */}
       {(!manageHeroMode || manageReadyForProof) && <section className="ypf-step">
-        <div className="ycd-label"><span className="ycd-step">6</span> Submit</div>
+        <div className="ycd-label"><span className="ycd-step">{!showPurposePicker && type ? 5 : 6}</span> Submit</div>
         {confirm ? <FanConfirm email={email} onConfirmed={() => { setConfirm(false); void send(); }} /> : null}
         {error ? <div className="ycd-error">{error}</div> : null}
         <div className="ycd-actions">
