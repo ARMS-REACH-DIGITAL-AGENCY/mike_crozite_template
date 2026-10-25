@@ -302,6 +302,19 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
 
   useEffect(() => { setVisibleCount(60); }, [playerFilter, newsFilters]);
 
+  // A requested player/filter must search the full feed, not just the newest
+  // 100 school-wide stories. Fetch the remaining pages progressively while
+  // narrowed; the unfiltered feed stays lazy for cost and responsiveness.
+  const hasNarrowing = Boolean(
+    playerFilter || newsFilters.name.trim() || newsFilters.statuses.length ||
+    newsFilters.levels.length || newsFilters.orgs.length ||
+    newsFilters.gradClasses.length || newsFilters.rosterYears.length ||
+    newsFilters.favoritesOnly
+  );
+  useEffect(() => {
+    if (hasNarrowing && hasMore && posts && !loadingMore && !pageError) void loadMore();
+  }, [hasNarrowing, hasMore, posts, loadingMore, pageError, loadMore]);
+
   // Row 3 headshot clicks on the News tab (see InteractionStrip).
   useEffect(() => {
     const onFilter = (event: Event) => {
