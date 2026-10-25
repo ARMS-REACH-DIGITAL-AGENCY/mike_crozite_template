@@ -31,9 +31,10 @@ export default function NewsEngagement({uuid,hsid}:{uuid:string;hsid:string}){
  const shareNews=async()=>{
    if(!me){openSignIn();return;}
    const url=new URL(window.location.href);
+   const nativeShare = typeof navigator.share === 'function';
    url.searchParams.set('story',uuid);
    try{
-     if(navigator.share)await navigator.share({title:document.title,url:url.toString()});
+     if(nativeShare)await navigator.share({title:document.title,url:url.toString()});
      else{await navigator.clipboard.writeText(url.toString());setShareMessage('Link copied');}
      void fetch('/api/news/interact/'+encodeURIComponent(uuid),{
        method:'POST',credentials:'include',
