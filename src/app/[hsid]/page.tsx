@@ -464,7 +464,7 @@ export default async function SchoolPage({
 
   const tributeSourceHsids = Array.from(new Set(
     TRIBUTE_STAT_OVERRIDES
-      .filter((override) => override.targetHsid === resolvedHsid)
+      .filter((override) => loadAllTime && override.targetHsid === resolvedHsid)
       .map((override) => override.sourceHsid)
   ));
 
@@ -528,7 +528,7 @@ export default async function SchoolPage({
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Row[] = [];
   if (loadAllTime) {
-  for (const p of allTimeRosterRows) {
+    for (const p of allTimeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
@@ -543,7 +543,6 @@ export default async function SchoolPage({
       allTimeMerged.push({ ...p });
     }
   }
-
   }
 
   // Coaches first, then A-Z - the same order the gallery's filter script
