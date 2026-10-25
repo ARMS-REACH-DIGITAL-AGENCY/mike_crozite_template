@@ -222,6 +222,10 @@ async function SchoolShell({
   enableSplashCutouts: boolean;
 }) {
   const headersList = await headers();
+  // Profile pages do not display the school's image strip, plaques or footer.
+  // Keep the staged roster for correct profile return navigation and for
+  // choosing the school's one-time splash player, but skip irrelevant queries.
+  const isProfileRoute = /\/player\/[^/]+(?:\/|$)/.test(headersList.get('x-pathname') || '');
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
@@ -253,13 +257,17 @@ async function SchoolShell({
       return [];
     }),
     allTimeRosterForInitialTeam,
-    getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
-      // On a temporary coverage-cache failure, fall back to the existing
-      // per-school lookup rather than silently hiding verified team plaques.
-      console.error('getSchoolsWithApprovedTeamSeasons failed', { error });
-      return null;
-    }),
-    getActiveAlumniSummaryByHsid(resolvedHsid),
+    isProfileRoute
+      ? Promise.resolve([] as string[])
+      : getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
+          // On a temporary coverage-cache failure, fall back to the existing
+          // per-school lookup rather than silently hiding verified team plaques.
+          console.error('getSchoolsWithApprovedTeamSeasons failed', { error });
+          return null;
+        }),
+    isProfileRoute
+      ? Promise.resolve({ playerIds: [] as string[], statsPending: false })
+      : getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
   // Keep current-season evidence for stat badges only. Active Alumni
   // membership itself is the owner-approved status preset, shared with the
@@ -284,7 +292,7 @@ async function SchoolShell({
   // Avoid a separate season-results lookup for schools without approved seasons.
   const approvedSeasonSchoolIds: ReadonlySet<string> | null =
     schoolsWithSeasons === null ? null : new Set<string>(schoolsWithSeasons);
-  const teamSeasonResults = (approvedSeasonSchoolIds === null || approvedSeasonSchoolIds.has(String(resolvedHsid)))
+  const teamSeasonResults = !isProfileRoute && (approvedSeasonSchoolIds === null || approvedSeasonSchoolIds.has(String(resolvedHsid)))
     ? await getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
         console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
         return [];
@@ -434,7 +442,12 @@ async function SchoolShell({
     details: splashPlayerDetails,
   }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 
-  const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
+  // InteractionStrip is never rendered on player profiles. Neither batch
+  // image query belongs in the critical path when opening a profile through
+  // Favorites or another school's player link.
+  const [stripFrontImageMap, stripHeadshotMap] = isProfileRoute
+    ? [emptyStripImageMap(), emptyStripImageMap()]
+    : await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
         console.error('getBatchDesignatedPlayerImages failed for interaction strip', {
@@ -453,7 +466,7 @@ async function SchoolShell({
       : Promise.resolve(emptyStripImageMap()),
   ]);
 
-  const stripPlayers = allStripRows.map((p) => {
+  const stripPlayers = (isProfileRoute ? [] : allStripRows).map((p) => {
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
     const stripImages = getStripImageForPlayer(
