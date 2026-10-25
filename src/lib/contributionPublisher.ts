@@ -3,6 +3,8 @@ import { createHash } from 'crypto';
 import { query } from '@/lib/db';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { revalidateTag } from 'next/cache';
+import { parseNewsVideo, cleanNewsVideoTitle, isLegacyVideoPlaceholderTitle } from '@/lib/newsVideo';
+import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
 
 type Tip = { id: string; intake_source: string; matched_playerid: string | null; matched_hsid: string | null; raw_player_name: string | null; article_url: string; notes: string | null };
 type Missing = { id: string; hsid: string; player_name: string; grad_year: number | null; notes: string | null };
@@ -144,9 +146,12 @@ async function processTip(t:Tip):Promise<boolean> {
  // without truncating a fan-authored headline at 150 characters.
  const legacy=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim();
  const detail=parsed(t.notes);
- const title=typeof detail?.title==='string' ? detail.title.trim() : legacy;
+ const title=cleanNewsVideoTitle(typeof detail?.title==='string' ? detail.title : legacy);
  const description=typeof detail?.why==='string' ? detail.why.trim() : '';
- const label=title || `Video shared about ${player.first_name} ${player.last_name}`;
+ const youtube=parseNewsVideo(t.article_url)?.provider==='YouTube';
+ const needsYoutubeTitle=youtube && (!title || (t.intake_source==='manual_seed' && isLegacyVideoPlaceholderTitle(title)));
+ const label=(needsYoutubeTitle ? await fetchYouTubeVideoTitle(t.article_url) : null) || title;
+ if(!label || (needsYoutubeTitle && isLegacyVideoPlaceholderTitle(label)))return false;
  const permalink=t.article_url;
  const identifier=hash(t.id);
  await query(`INSERT INTO news_articles(uuid,playerid,player_name,hsid,title,source,published_at,url,

@@ -18,6 +18,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
+import { parseNewsVideo } from '@/lib/newsVideo';
 import { SchoolContext } from '@/context/SchoolContext';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import ContributePhotoFlow from '@/components/yatstats/ContributePhotoFlow';
@@ -150,6 +151,7 @@ export default function ContributeDrawer() {
   const [tipTitle, setTipTitle] = useState('');
   const [tipWhy, setTipWhy] = useState('');
 
+  const youtubeTip = parseNewsVideo(tipUrl)?.provider === 'YouTube';
   const signedIn = Boolean(session?.uid && session?.email);
   const sending = status.kind === 'sending';
   // Every year of his life, newest first (the same list as the Photo
@@ -380,7 +382,7 @@ export default function ContributeDrawer() {
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
-      if (!tipTitle.trim()) return setStatus({ kind: 'error', text: 'Give this story or video a title.' });
+      if (!tipTitle.trim() && !youtubeTip) return setStatus({ kind: 'error', text: 'Give this story or video a title.' });
       return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || '' });
     }
     if (!mp.name.trim()) return setStatus({ kind: 'error', text: "Type the player's name." });
@@ -672,10 +674,11 @@ export default function ContributeDrawer() {
                   <input id="ycdTipUrl" type="url" value={tipUrl} onChange={(e) => setTipUrl(e.target.value)} placeholder="https://" />
                 </div>
                 <div className="ycd-field">
-                  <label className="ycd-label" htmlFor="ycdTipTitle">Title</label>
-                  <textarea id="ycdTipTitle" rows={2} maxLength={2000} required value={tipTitle}
-                    onChange={(e) => setTipTitle(e.target.value)}
-                    placeholder="Write the headline fans should see on YAT?STATS" />
+                  <label className="ycd-label" htmlFor="ycdTipTitle">Title{youtubeTip ? ' (optional for YouTube)' : ''}</label>
+                   <textarea id="ycdTipTitle" rows={2} maxLength={2000} required={!youtubeTip} value={tipTitle}
+                     onChange={(e) => setTipTitle(e.target.value)}
+                     placeholder={youtubeTip ? 'Your headline, or leave blank for the original YouTube title' : 'Write the headline fans should see on YAT?STATS'} />
+                   {youtubeTip && <p className="ycd-muted ycd-small">Leave blank to use the video's original YouTube title. Links will not appear in the title.</p>}
                 </div>
                 <div className="ycd-field">
                   <label className="ycd-label" htmlFor="ycdTipWhy">Why it matters (optional)</label>

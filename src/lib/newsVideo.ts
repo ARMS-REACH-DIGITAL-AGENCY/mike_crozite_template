@@ -72,15 +72,20 @@ export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | n
 // links in the headline. Correct those at display time without mutating history.
 // A contributor's saved headline is authoritative, regardless of length.
 // Never silently replace it with "Video featuring ..." or copy provider titles.
-export function newsVideoHeadline(rawTitle: string, playerName: string | null | undefined): string {
+// Media IDs, embed addresses and thumbnails belong in the link, not the headline.
+export function cleanNewsVideoTitle(rawTitle: string | null | undefined): string {
   const title = String(rawTitle || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  if (title) {
-    // Historic fan video submissions sometimes stored YouTube IDs and
-    // thumbnail/embed addresses after the human-written title. Keep the
-    // actual first sentence, not the machine-generated URL appendix.
-    const cut = title.search(/\b(?:YouTube\s+(?:video\s+)?(?:ID|tip)|Embed\s+URL|Thumbnail\s*:|https?:\/\/)/i);
-    return (cut > 0 ? title.slice(0, cut) : title).trim().replace(/[.:;,\s-]+$/, '') || title;
-  }
+  const metadata = /\b(?:YouTube\s+(?:video\s+)?ID|Embed\s+URL|Thumbnail(?:\s+URL)?)\s*:|https?:\/\/\S+/i.exec(title);
+  return (metadata ? title.slice(0, metadata.index) : title).trim().replace(/[\s;,:-]+$/, '');
+}
+
+export function isLegacyVideoPlaceholderTitle(title: string): boolean {
+  return /^(?:YouTube\s+video\s+tip\s+for\b|Video\s+shared\s+about\b|Video\s+featuring\b)/i.test(title);
+}
+
+export function newsVideoHeadline(rawTitle: string, playerName: string | null | undefined): string {
+  const title = cleanNewsVideoTitle(rawTitle);
+  if (title) return title;
   const name = String(playerName || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   return 'Video featuring ' + (name || 'a YAT?STATS alumnus');
 }

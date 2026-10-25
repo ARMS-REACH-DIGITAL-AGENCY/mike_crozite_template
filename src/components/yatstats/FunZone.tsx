@@ -260,8 +260,8 @@ const normalizedTeases: NewsTease[] = posts.map((post) => ({
     post.tease?.badge ??
     (post.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
   headline:
-    post.tease?.headline ??
     post.displayHeadline ??
+    post.tease?.headline ??
     post.headline ??
     post.title ??
     undefined,
