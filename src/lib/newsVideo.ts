@@ -74,7 +74,13 @@ export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | n
 // Never silently replace it with "Video featuring ..." or copy provider titles.
 export function newsVideoHeadline(rawTitle: string, playerName: string | null | undefined): string {
   const title = String(rawTitle || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  if (title) return title;
+  if (title) {
+    // Historic fan video submissions sometimes stored YouTube IDs and
+    // thumbnail/embed addresses after the human-written title. Keep the
+    // actual first sentence, not the machine-generated URL appendix.
+    const cut = title.search(/\b(?:YouTube\s+(?:video\s+)?(?:ID|tip)|Embed\s+URL|Thumbnail\s*:|https?:\/\/)/i);
+    return (cut > 0 ? title.slice(0, cut) : title).trim().replace(/[.:;,\s-]+$/, '') || title;
+  }
   const name = String(playerName || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   return 'Video featuring ' + (name || 'a YAT?STATS alumnus');
 }
