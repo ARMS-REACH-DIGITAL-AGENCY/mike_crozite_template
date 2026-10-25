@@ -177,6 +177,7 @@ export default async function HsidLayout({
   }
 
   const splashHsid = String(school.hsid ?? hsid);
+  const splashOverride = (splashFeaturedPlayers as Record<string, { ids: string[]; confirmedCutouts?: string[] }>)[splashHsid];
   // Avoid even rendering the splash, its stadium light SVG, logo images or
   // animations on repeat visits. Works across school subdomains via yat_seen.
   // A manual ?splash=1 preview still forces the original introduction.
@@ -188,6 +189,8 @@ export default async function HsidLayout({
       {showSplash && <SchoolSplash
         previewMode={forceSplash}
         schoolId={splashHsid}
+        featuredPlayerIds={splashOverride?.ids ?? []}
+        confirmedCutoutIds={splashOverride?.confirmedCutouts ?? []}
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
@@ -390,7 +393,7 @@ async function SchoolShell({
   // school. A configured school (Hamilton) keeps its approved fixed pool.
   // This runs on the stage roster already loaded for the shell: zero new DB
   // calls, zero per-player server image checks, and no school-specific code.
-  const featuredSplashIds = (splashFeaturedPlayers as Record<string, string[]>)[String(resolvedHsid)];
+  const featuredSplashIds = (splashFeaturedPlayers as Record<string, { ids: string[] }>)[String(resolvedHsid)]?.ids;
   const splashCandidates = featuredSplashIds !== undefined
     ? featuredSplashIds
     : sortActivePlayers([...activeAlumniRows]).map((p) => String(p.playerid || '').trim());
@@ -418,6 +421,7 @@ async function SchoolShell({
   // Data-derived display names may contain markup characters. Escape them
   // before embedding JSON in an inline <script> so it cannot close the tag.
   const splashRosterJson = JSON.stringify({
+    school: resolvedHsid,
     active: splashActiveIds,
     other: splashOtherIds,
     details: splashPlayerDetails,
@@ -466,8 +470,8 @@ async function SchoolShell({
       <YatStyles />
       {enableSplashCutouts && (splashActiveIds.length > 0 || splashOtherIds.length > 0) && (
         <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
-          __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" +
-            splashRosterJson + "}));",
+          __html: "window.__yatSplashRoster=" + splashRosterJson + ";" +
+            "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:window.__yatSplashRoster}));",
         }} />
       )}
 
