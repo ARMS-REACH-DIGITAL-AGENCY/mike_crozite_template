@@ -198,6 +198,18 @@ assert.match(school, /window\.__yatSplashRoster=/, 'save streamed roster event t
 assert.match(school, /featuredPlayerIds=\{splashOverride\?\.ids \?\? \[\]\}/, 'pass generic school configuration to shared splash');
 
 assert.match(route, /WHERE s\.hsid = \$1/);
+
+// The database stores the eligible pool but must NOT cache the chosen logo.
+// Each real splash load selects independently, within the same priority tier.
+assert.match(route, /eligibleSponsorPool = unstable_cache/, 'cache sponsor inventory, not a single chosen logo');
+assert.match(route, /function selectSplashSponsor\(/, 'select a brand for each eligible splash request');
+assert.match(route, /Math\.random/, 'choose independently for each fan');
+assert.match(route, /seen\.add\(String\(row\.id\)\)/, 'one brand with multiple campaigns gets one vote');
+assert.match(route, /highest = Math\.max/, 'do not rotate lower-priority tiers with premium entitlements');
+assert.match(route, /sponsor_order_id IS NULL OR EXISTS/, 'exclude linked unpaid orders');
+assert.match(route, /Cache-Control': 'private, no-store'/, 'do not edge-cache a random sponsor selection');
+assert.doesNotMatch(route, /s-maxage=120/, 'edge cache must never pin one logo for two minutes');
+
 assert.match(sql, /REFERENCES public\.sponsor_orders\(id\)/);
 assert.match(sql, /v_school_splash_sponsor_assignments/);
 // Protect the previously approved Alumni News preview from being silently
