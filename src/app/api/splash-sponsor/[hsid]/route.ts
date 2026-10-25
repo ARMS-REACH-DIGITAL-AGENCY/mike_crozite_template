@@ -31,7 +31,7 @@ const eligibleSponsorPool = unstable_cache(async (hsid: string): Promise<Sponsor
   return rows;
 }, ['splash-sponsor-rotation-v1'], { revalidate: 120 });
 
-export function selectSplashSponsor(rows: SponsorRow[], random = Math.random): SponsorRow | null {
+function selectSplashSponsor(rows: SponsorRow[], random = Math.random): SponsorRow | null {
   // Priority is an entitlement tier, NOT a preference for oldest/latest brand.
   // Equal-priority sponsor assignments receive an equal share of new splashes.
   const valid = rows.filter((row) => {
