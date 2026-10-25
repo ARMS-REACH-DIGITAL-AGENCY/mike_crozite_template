@@ -49,6 +49,34 @@ export async function GET(req: NextRequest) {
       [BATCH, CONTRIBUTE_MODERATION_POLICY_VERSION]
     );
     const results: { id: string; outcome: string; detail?: string }[] = [];
+    // Approved action photos created while cutout removal was unavailable
+    // need their CURRENT timeline asset built too. Only repair the newest
+    // approved image per player, never replay an older photo over a new one.
+    const { rows: missingBackWeb } = await query<Pending>(
+      `SELECT DISTINCT ON (playerid) id::text,playerid,hsid,purpose,s3_key,
+           date_taken,team_at_time,description,uploaded_at,sha256
+         FROM media_upload m
+        WHERE purpose='back_hero' AND status='approved'
+          AND uploaded_at > now() - interval '14 days'
+          AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(m.description::jsonb->'published_assets')='array' THEN m.description::jsonb->'published_assets' ELSE '[]'::jsonb END) asset WHERE asset.value = 'players/back-web/' || m.playerid || '.webp')
+        ORDER BY playerid,uploaded_at DESC
+        LIMIT 2`
+    );
+    for (const item of missingBackWeb) {
+      try {
+        const details = parse(item.description);
+        const written = await promoteUpload(item);
+        await query(`UPDATE media_upload SET description=$2 WHERE id=$1
+          AND status='approved'`, [item.id,
+          JSON.stringify({...details,published_assets:Array.from(new Set([
+            ...(details.published_assets||[]),...written
+          ]))})]);
+        results.push({id:item.id,outcome:'timeline-back-image-repaired'});
+      } catch (error) {
+        console.error('[contribute/recovery] approved back hero repair failed',item.id,error);
+        results.push({id:item.id,outcome:'repair-failed'});
+      }
+    }
     for (const item of pending) {
       const details = parse(item.description);
       try {
