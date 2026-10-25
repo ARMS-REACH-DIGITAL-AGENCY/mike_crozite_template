@@ -19,7 +19,7 @@ import {
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
+import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isNeverASchoolSegment } from '@/lib/schoolSegment';
@@ -385,29 +385,34 @@ async function SchoolShell({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
-  // A school's featured cutouts are configured as data. The same rotation
-  // logic runs for every school, without additional database queries.
-  // When a featured pool exists, never fall back to unapproved players.
+  // Use the same level/grad-year/roster-years/surname sort as the visible
+  // Active Alumni gallery. Default: only its first FOUR players, on every
+  // school. A configured school (Hamilton) keeps its approved fixed pool.
+  // This runs on the stage roster already loaded for the shell: zero new DB
+  // calls, zero per-player server image checks, and no school-specific code.
   const featuredSplashIds = (splashFeaturedPlayers as Record<string, string[]>)[String(resolvedHsid)];
-  const splashActiveIds = !enableSplashCutouts
-    ? []
-    : featuredSplashIds !== undefined
-      ? Array.from(new Set(featuredSplashIds))
-      : Array.from(new Set(activeAlumniPlayerIds.filter((id) => /^\d+$/.test(id))));
-  const splashActiveIdSet = new Set(splashActiveIds);
-  const splashOtherIds = !enableSplashCutouts || featuredSplashIds !== undefined
-    ? []
-    : Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id) && !splashActiveIdSet.has(id))));
-  // Source the selected splash player's identity/team from this same
-  // normalized school stage roster; no player-specific lookup or hardcode.
+  const splashCandidates = featuredSplashIds !== undefined
+    ? featuredSplashIds
+    : sortActivePlayers([...activeAlumniRows]).map((p) => String(p.playerid || '').trim());
+  const splashActiveIds = enableSplashCutouts
+    ? Array.from(new Set(splashCandidates.filter((id) => /^(?:\d+|YAT\d+)$/i.test(id))))
+        .slice(0, featuredSplashIds !== undefined ? featuredSplashIds.length : 4)
+    : [];
+  // No other-alumni fallback: scanning 12+ player cutouts per splash is expensive.
+  // If none of the four have a cutout, leave the player slot empty.
+  const splashOtherIds: string[] = [];
+  // Send only the four (or school-approved) names to the browser, not the
+  // school's complete roster; substantially reduces inline JSON on big hubs.
+  const missingSplashDetails = new Set(splashActiveIds);
   const splashPlayerDetails: Record<string, { name: string; team: string }> = {};
-  if (enableSplashCutouts) {
+  if (enableSplashCutouts && missingSplashDetails.size) {
     for (const row of [...activeAlumniRows, ...allStripRows]) {
       const id = String(row.playerid || '').trim();
-      if (!/^(?:\d+|YAT\d+)$/i.test(id) || splashPlayerDetails[id]) continue;
+      if (!missingSplashDetails.delete(id)) continue;
       const name = String(row.display_name || `${String(row.first_name || row.firstname || '')} ${String(row.last_name || row.lastname || '')}`).trim();
       const team = String(row.current_team_name || '').trim();
       splashPlayerDetails[id] = { name, team };
+      if (!missingSplashDetails.size) break;
     }
   }
   // Data-derived display names may contain markup characters. Escape them
