@@ -38,8 +38,8 @@ const SPLASH_CSS = `
   mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.22) 8%,rgba(0,0,0,.8) 22%,#000 36%);
 }
 
-/* The player stands INSIDE the lower gold swoosh, lifted clear of the bottom edge. Keep the single original field artwork (no duplicate overlay/seam). The wrapper remains visible across streamed hydration; hide only empty player images below. */
-#yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:clamp(35px,5.5vh,78px);transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:1;pointer-events:none}
+/* Restore the previous field baseline placement. Keep the original single field artwork, hydration-safe player visibility, and empty-image guard. */
+#yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:3px;transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:1;pointer-events:none}
 #yatSplash .yat-splash-player.is-visible{opacity:1}
 #yatSplash .yat-splash-player-caption{position:absolute;left:calc(100% - 14px);bottom:clamp(12px,2.1vh,28px);text-align:left;color:rgba(255,255,255,.96);font-size:clamp(10px,.9vw,12px);font-weight:500;letter-spacing:.005em;line-height:1.14;text-shadow:0 2px 5px #000;max-width:min(55vw,360px);min-width:0;white-space:nowrap;pointer-events:none}
 #yatSplash .yat-splash-player-caption span{display:block}
@@ -50,7 +50,7 @@ const SPLASH_CSS = `
 #yatSplash .yat-splash-player img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
 /* Android Chrome draws a pale outlined rectangle for an <img> with no src. Keep the dynamic player slot, but never render an empty or failed image. */
 #yatSplash .yat-splash-player img:not([src]),#yatSplash .yat-splash-player img[src=""]{display:none!important}
-@media(max-width:600px){#yatSplash .yat-splash-player{left:22%;bottom:clamp(24px,5vh,54px);width:min(34vw,170px);height:clamp(115px,18vh,205px)}#yatSplash .yat-splash-player-caption{left:calc(100% - 30px);right:auto;bottom:clamp(8px,1.25vh,16px);font-size:clamp(9px,2.45vw,11px);max-width:calc(100vw - 34vw);min-width:0}}
+@media(max-width:600px){#yatSplash .yat-splash-player{left:22%;bottom:3px;width:min(34vw,170px);height:clamp(115px,18vh,205px)}#yatSplash .yat-splash-player-caption{left:calc(100% - 30px);right:auto;bottom:clamp(8px,1.25vh,16px);font-size:clamp(9px,2.45vw,11px);max-width:calc(100vw - 34vw);min-width:0}}
 #yatSplash .yat-splash-continue{position:absolute;z-index:5;left:50%;bottom:clamp(20px,5vh,52px);transform:translateX(-50%);background:rgba(24,24,24,.85);border:1px solid rgba(255,255,255,.65);border-radius:4px;padding:11px 24px;color:#fff;font:700 13px/1 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.09em;cursor:pointer;text-transform:uppercase;white-space:nowrap}
 #yatSplash .yat-splash-continue:hover{background:#303030}
 #yatSplash .yat-splash-place{position:absolute;z-index:1;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
