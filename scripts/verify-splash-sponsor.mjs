@@ -38,6 +38,8 @@ assert.doesNotMatch(splash, /className="yat-splash-swoosh-foreground"/, 'no diag
 assert.doesNotMatch(css, /mix-blend-mode:screen/, 'no lightened seam from overlay blending');
 assert.equal(css.split('splash-field-reference.webp').length - 1, 1, 'field background image rendered exactly once');
 assert.match(splash, /logo\.naturalWidth/);
+assert.match(css, /yat-splash-player\{[^}]*left:26%;bottom:3px;/, 'desktop cutout must rest on the lower field baseline');
+assert.match(css, /@media\(max-width:600px\)\{#yatSplash \.yat-splash-player\{left:22%;bottom:3px;/, 'mobile cutout must rest on the marked field baseline');
 assert.match(root, /mounted\+5500/);
 assert.ok(!root.includes('sponsorTimer='), 'sponsor timer must start from actual splash mount');
 assert.match(school, /splashRosterJson/);

@@ -39,12 +39,12 @@ const SPLASH_CSS = `
 }
 
 /* Keep the cutout above the single field artwork; do not duplicate or clip the field background. */
-#yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:clamp(24px,4vh,64px);transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:0;transition:opacity .35s ease;pointer-events:none}
+#yatSplash .yat-splash-player{position:absolute;z-index:1;left:26%;bottom:3px;transform:translateX(-50%);width:min(34vw,265px);height:clamp(125px,21vh,265px);opacity:0;transition:opacity .35s ease;pointer-events:none}
 #yatSplash .yat-splash-player.is-visible{opacity:1}
 #yatSplash .yat-splash-player-caption{position:absolute;right:-20%;bottom:0;text-align:right;color:rgba(255,255,255,.83);font-size:clamp(8px,.8vw,10px);font-weight:500;letter-spacing:.015em;line-height:1.2;text-shadow:0 1px 4px #000;max-width:150px}
 #yatSplash .yat-splash-player-caption span{display:block}
 #yatSplash .yat-splash-player img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
-@media(max-width:600px){#yatSplash .yat-splash-player{left:22%;bottom:clamp(20px,3vh,44px);width:min(34vw,170px);height:clamp(115px,18vh,205px)}#yatSplash .yat-splash-player-caption{right:-32%;font-size:8px}}
+@media(max-width:600px){#yatSplash .yat-splash-player{left:22%;bottom:3px;width:min(34vw,170px);height:clamp(115px,18vh,205px)}#yatSplash .yat-splash-player-caption{right:-32%;font-size:8px}}
 #yatSplash .yat-splash-continue{position:absolute;z-index:5;left:50%;bottom:clamp(20px,5vh,52px);transform:translateX(-50%);background:rgba(24,24,24,.85);border:1px solid rgba(255,255,255,.65);border-radius:4px;padding:11px 24px;color:#fff;font:700 13px/1 var(--yat-font-ui,Arial,sans-serif);letter-spacing:.09em;cursor:pointer;text-transform:uppercase;white-space:nowrap}
 #yatSplash .yat-splash-continue:hover{background:#303030}
 #yatSplash .yat-splash-place{position:absolute;z-index:1;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center}
