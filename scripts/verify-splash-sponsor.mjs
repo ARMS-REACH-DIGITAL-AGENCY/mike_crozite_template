@@ -93,13 +93,19 @@ assert.equal(splashVisit('hamilton.az.yatstats.com', '/splash').hidden, false, '
 assert.equal(splashVisit('perry.az.yatstats.com', '/splash').hidden, false, 'replay works on any school');
 assert.ok(root.includes("replayRoute=location.pathname==='/splash'"), 'head bootstrap must recognize replay path');
 assert.ok(root.includes("if(replayRoute){d.cookie=splashCookie"), 'enter must mark school visited');
-assert.ok(root.includes("location.replace('/')"), 'enter must navigate to gallery');
+assert.ok(root.includes("location.replace(replayId&&!liveSchool?'/'+replayId:'/')"), 'enter must return to the correct gallery');
 const middleware = readFileSync('src/middleware.ts', 'utf8');
 assert.ok(middleware.includes("request.nextUrl.pathname === '/splash'"), 'middleware must force replay SSR');
 assert.ok(!middleware.includes("    path === '/splash' ||"), 'replay must bypass expensive middleware school-host rewrite');
 const dedicatedSplash = readFileSync('src/app/splash/page.tsx', 'utf8');
 assert.ok(dedicatedSplash.includes('export default async function SplashReplayPage'), 'standalone replay route must exist');
 assert.ok(dedicatedSplash.includes('previewMode'), 'standalone page must display enter button');
+const idReplay = readFileSync('src/app/replay/[hsid]/page.tsx', 'utf8');
+assert.ok(idReplay.includes('getSchoolByHsid(hsid)'), 'replay by ID must not depend on hostname resolution');
+assert.ok(idReplay.includes('previewMode'), 'replay by ID must display enter button');
+assert.ok(root.includes("pathParts[0]==='replay'"), 'head must force the ID replay page');
+assert.ok(root.includes("replayId&&!liveSchool?replayId:schoolPath"), 'each preview replay must have its own school cookie');
+
 assert.ok(dedicatedSplash.includes("getSchoolByUrl('https://' + host)"), 'replay must resolve school dynamically');
 assert.ok(dedicatedSplash.includes("requestHeaders.get('x-yat-splash-school-host')"), 'replay must read forwarded canonical school host');
 assert.ok(middleware.includes("requestHeaders.set('x-yat-splash-school-host', host)"), 'middleware must forward canonical school host');
