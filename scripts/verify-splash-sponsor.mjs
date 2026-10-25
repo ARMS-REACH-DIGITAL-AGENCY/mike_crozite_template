@@ -88,6 +88,17 @@ assert.match(school, /const liveSchoolHost =/, 'server must identify live school
 assert.match(school, /!liveSchoolHost &&/, 'numeric-route cookies are only for shared previews');
 assert.match(school, /yat_splash_seen_/, 'server must support per-HSID preview cookies');
 assert.doesNotMatch(school, /const seenSplash = .*yat_seen/, 'server must ignore the old platform-wide cookie');
+
+assert.equal(splashVisit('hamilton.az.yatstats.com', '/splash').hidden, false, 'dedicated replay bypasses previously visited school');
+assert.equal(splashVisit('perry.az.yatstats.com', '/splash').hidden, false, 'replay works on any school');
+assert.ok(root.includes("replayRoute=location.pathname==='/splash'"), 'head bootstrap must recognize replay path');
+assert.ok(root.includes("if(replayRoute){d.cookie=splashCookie"), 'enter must mark school visited');
+assert.ok(root.includes("location.replace('/')"), 'enter must navigate to gallery');
+const middleware = readFileSync('src/middleware.ts', 'utf8');
+assert.ok(middleware.includes("path === '/splash'"), 'middleware must accept replay path');
+assert.ok(middleware.includes("request.nextUrl.pathname === '/splash'"), 'middleware must force replay SSR');
+assert.ok(middleware.includes("(path === '/' || path === '/splash')"), 'replay must internally render the school gallery');
+
 console.log('[splash schools] per-school first-visit cookies, permanent platform landing, JOIN and forced replay verified');
 
 
