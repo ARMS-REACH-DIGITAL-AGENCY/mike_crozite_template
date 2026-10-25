@@ -5,6 +5,7 @@ import SortToggle, { type SortDir } from "./SortToggle";
 import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
+import NewsEngagement from "./NewsEngagement";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
 import { toSlugFromDisplay } from "@/lib/slug";
@@ -202,6 +203,7 @@ export default function ProfileNewsList({
         }
       >
         {(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap) ? <p className="pp-news-reader-copy">{markPlayerName(stripHtml(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap), playerName)}</p> : null}
+        {openStory ? <NewsEngagement key={openStory.uuid} uuid={openStory.uuid} hsid={hsid} /> : null}
       </ProfileContentDrawer>
 
       <style>{`
