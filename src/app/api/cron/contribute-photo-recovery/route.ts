@@ -53,14 +53,19 @@ export async function GET(req: NextRequest) {
     // need their CURRENT timeline asset built too. Only repair the newest
     // approved image per player, never replay an older photo over a new one.
     const { rows: missingBackWeb } = await query<Pending>(
-      `SELECT DISTINCT ON (playerid) id::text,playerid,hsid,purpose,s3_key,
-           date_taken,team_at_time,description,uploaded_at,sha256
-         FROM media_upload m
-        WHERE purpose='back_hero' AND status='approved'
-          AND uploaded_at > now() - interval '14 days'
-          AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(m.description::jsonb->'published_assets')='array' THEN m.description::jsonb->'published_assets' ELSE '[]'::jsonb END) asset WHERE asset.value = 'players/back-web/' || m.playerid || '.webp')
-        ORDER BY playerid,uploaded_at DESC
-        LIMIT 2`
+      `SELECT id,playerid,hsid,purpose,s3_key,date_taken,team_at_time,
+          description,uploaded_at,sha256 FROM (
+          SELECT DISTINCT ON (playerid)
+            id::text,playerid,hsid,purpose,s3_key,date_taken,team_at_time,
+            description,uploaded_at,sha256
+          FROM media_upload m WHERE purpose='back_hero' AND status='approved'
+          ORDER BY playerid,uploaded_at DESC
+        ) latest WHERE uploaded_at > now()-interval '14 days'
+          AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(
+            CASE WHEN jsonb_typeof(latest.description::jsonb->'published_assets')='array'
+              THEN latest.description::jsonb->'published_assets' ELSE '[]'::jsonb END
+          ) asset WHERE asset.value='players/back-web/' || latest.playerid || '.webp')
+        ORDER BY uploaded_at DESC LIMIT 2`
     );
     for (const item of missingBackWeb) {
       try {
