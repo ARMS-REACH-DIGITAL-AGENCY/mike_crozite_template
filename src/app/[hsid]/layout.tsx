@@ -181,8 +181,10 @@ export default async function HsidLayout({
   // Avoid rendering splash assets for repeat visits to THIS school only.
   // On the live school subdomains the browser sends a host-only cookie;
   // /{hsid} preview routes key it by school ID on the shared preview host.
+  const liveSchoolHost = host.split(':')[0].toLowerCase().endsWith('.yatstats.com') &&
+    host.split(':')[0].toLowerCase() !== 'www.yatstats.com';
   const firstSegment = pathname.split('/')[1] || '';
-  const previewHsid = /^[1-9][0-9]*$/.test(firstSegment) ? firstSegment : '';
+  const previewHsid = !liveSchoolHost && /^[1-9][0-9]*$/.test(firstSegment) ? firstSegment : '';
   const splashCookie = previewHsid ? `yat_splash_seen_${previewHsid}` : 'yat_splash_seen';
   const seenSplash = (headersList.get('cookie') || '')
     .split(';').some((value) => value.trim() === `${splashCookie}=1`);
