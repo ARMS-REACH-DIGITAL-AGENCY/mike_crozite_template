@@ -12,6 +12,40 @@
     ],
     "confirmedCutouts": [
       "YAT000067"
-    ]
+    ],
+    "details": {
+      "180827": {
+        "name": "Cody Bellinger",
+        "team": "New York Yankees"
+      },
+      "213884": {
+        "name": "Drew Swift",
+        "team": "Las Vegas Aviators"
+      },
+      "225132": {
+        "name": "Dom Hamel",
+        "team": "Somerset Patriots"
+      },
+      "233197": {
+        "name": "Brock Selvidge",
+        "team": "Somerset Patriots"
+      },
+      "284749": {
+        "name": "Gavin Turley",
+        "team": "Stockton Ports"
+      },
+      "317316": {
+        "name": "Roch Cholowsky",
+        "team": "Winston-Salem Dash"
+      },
+      "320111": {
+        "name": "Cooper Brass",
+        "team": "Utah Valley University"
+      },
+      "YAT000067": {
+        "name": "Ben Ball",
+        "team": "University of Arizona"
+      }
+    }
   }
 }

@@ -51,6 +51,15 @@ const featured = JSON.parse(readFileSync('src/config/splash-featured-players.jso
 assert.deepEqual(featured['5004'].ids, ['320111','317316','180827','213884','225132','233197','284749','YAT000067'], 'Hamilton curated list must stay exactly eight');
 assert.ok(featured['5004'].confirmedCutouts.every(id => featured['5004'].ids.includes(id)), 'verified cutouts must be inside approved pool');
 assert.ok(featured['5004'].confirmedCutouts.includes('YAT000067'), 'preserve working Ben Ball cutout as fast fallback');
+
+assert.deepEqual(Object.keys(featured['5004'].details).sort(), featured['5004'].ids.slice().sort(), 'all featured players require captions');
+assert.equal(featured['5004'].details['YAT000067'].name, 'Ben Ball', 'known-good cutout name');
+assert.equal(featured['5004'].details['YAT000067'].team, 'University of Arizona', 'known-good cutout school');
+assert.match(splash, /data-featured-details=\{JSON\.stringify\(featuredPlayerDetails\)\}/, 'first-paint captions in server markup');
+assert.match(splash, /className="yat-splash-player-caption-name">\{initialPlayerDetails\.name\}/, 'server-render initial player name');
+assert.match(splash, /className="yat-splash-player-caption-team">\{initialPlayerDetails\.team\}/, 'server-render initial player team');
+assert.match(school, /featuredPlayerDetails=\{splashOverride\?\.details \?\? \{\}\}/, 'use reusable data-driven school caption schema');
+
 assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'render approved IDs before DB roster loads');
 assert.match(splash, /data-confirmed-ids=\{confirmedCutoutIds\.join/, 'render confirmed cutout IDs before DB roster loads');
 assert.match(splash, /confirmedCutoutIds\.length \? ' is-visible'/, 'immediate visible server-rendered cutout');

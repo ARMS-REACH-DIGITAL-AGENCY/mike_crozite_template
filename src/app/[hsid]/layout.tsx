@@ -177,7 +177,7 @@ export default async function HsidLayout({
   }
 
   const splashHsid = String(school.hsid ?? hsid);
-  const splashOverride = (splashFeaturedPlayers as Record<string, { ids: string[]; confirmedCutouts?: string[] }>)[splashHsid];
+  const splashOverride = (splashFeaturedPlayers as Record<string, { ids: string[]; confirmedCutouts?: string[]; details?: Record<string, { name: string; team: string }> }>)[splashHsid];
   // Avoid even rendering the splash, its stadium light SVG, logo images or
   // animations on repeat visits. Works across school subdomains via yat_seen.
   // A manual ?splash=1 preview still forces the original introduction.
@@ -191,6 +191,7 @@ export default async function HsidLayout({
         schoolId={splashHsid}
         featuredPlayerIds={splashOverride?.ids ?? []}
         confirmedCutoutIds={splashOverride?.confirmedCutouts ?? []}
+        featuredPlayerDetails={splashOverride?.details ?? {}}
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
