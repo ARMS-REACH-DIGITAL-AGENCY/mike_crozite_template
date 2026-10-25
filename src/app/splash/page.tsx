@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function SplashReplayPage() {
   const requestHeaders = await headers();
-  const host = (requestHeaders.get('host') || '').split(':')[0].toLowerCase();
+  const host = (requestHeaders.get('x-yat-splash-school-host') || requestHeaders.get('x-forwarded-host') || requestHeaders.get('host') || '').split(':')[0].toLowerCase();
   if (!/^(?:[a-z0-9-]+\.[a-z]{2}|[1-9][0-9]*)\.yatstats\.com$/.test(host)) notFound();
 
   const school = await getSchoolByUrl('https://' + host) as Record<string, unknown> | null;
