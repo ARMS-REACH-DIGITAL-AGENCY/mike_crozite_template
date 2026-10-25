@@ -743,6 +743,11 @@ export default function DrawerLayoutOverrides() {
           max-width:100%;
         }
       }
+      /* Authentication must appear above the already-open News reader.
+         Its normal docked layout stays unchanged outside this state. */
+      body.drawer-account-open .yat-content-drawer{z-index:60!important}
+      body.drawer-account-open #drawerAccount{z-index:2147483100!important}
+      body.drawer-account-open .yat-drawer-mask{z-index:2147483001!important}
       /* Mobile navigation uses the same visual rhythm as the Connect &
          Contribute list: compact Archivo labels, no rules, rounded grey
          selection. Reserve scrolling room above the fixed ticker/footer. */
