@@ -889,6 +889,7 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
       LEFT JOIN public.team_id_map team_map
         ON team_map.mlb_stats_api_id::text = display_truth.source_team_id::text
      WHERE stage.playerid::text = display_truth.playerid::text
+       AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = stage.playerid::text)
   `, [JSON.stringify(mlbCurrent)]);
 
   return result.rowCount ?? 0;
@@ -1038,6 +1039,7 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
       WHERE stage.playerid::text = pd.playerid
         AND stage.current_team_source = 'mlb_api'
         AND stage.last_transaction_applied_at IS NULL
+        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = stage.playerid::text)
         AND (
           stage.status_label IS DISTINCT FROM pd.departed
           OR stage.current_team_name IS NOT NULL
