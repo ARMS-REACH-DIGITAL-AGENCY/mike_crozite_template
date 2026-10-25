@@ -98,11 +98,12 @@ export async function authHeaders(): Promise<Record<string, string>> {
   }
 }
 
-// Like or un-like (no account needed). Used by posts and the small cards.
+// Likes require an authenticated and registered fan.
 export async function toggleStoryLike(storyId: string): Promise<{ liked: boolean; likeCount: number } | null> {
   try {
     const res = await fetch(`/api/stories/${storyId}/like`, { method: 'POST', headers: await authHeaders(), credentials: 'include' });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { openSignIn(); return null; }
     if (!res.ok) return null;
     track(data.liked ? 'story_like' : 'story_unlike', { moment_id: storyId });
     return { liked: Boolean(data.liked), likeCount: Number(data.likeCount) || 0 };
@@ -121,6 +122,8 @@ export function momentAlbum(story: Story): StoryPhoto[] {
 // One photo from a moment. On a phone the photo itself goes to the share
 // sheet (straight into Messages, Instagram...); otherwise the story's link.
 export async function sharePhoto(story: Story, photo: StoryPhoto): Promise<string | null> {
+  const auth=await fetch('/api/auth/session',{credentials:'include',cache:'no-store'}).then(r=>r.json()).catch(()=>null);
+  if(!auth?.authenticated){openSignIn();return null;}
   const src = photo.full || photo.web;
   if (src && !photo.logo && typeof navigator.canShare === 'function') {
     try {
@@ -144,6 +147,8 @@ export async function sharePhoto(story: Story, photo: StoryPhoto): Promise<strin
 // The phone's share sheet, else copy the link. Returns a message to show
 // (or null when the share sheet handled it / was cancelled).
 export async function shareStory(story: Story): Promise<string | null> {
+  const auth=await fetch('/api/auth/session',{credentials:'include',cache:'no-store'}).then(r=>r.json()).catch(()=>null);
+  if(!auth?.authenticated){openSignIn();return null;}
   const url = shareUrlFor(story.id);
   let method = 'link';
   let message: string | null = null;
@@ -342,6 +347,7 @@ export function StoryThread({
 
   // Anyone can like - no account needed (visitors like anonymously).
   const toggleLike = async () => {
+    if (!me) return requestSignIn();
     if (busy) return;
     const was = Boolean(story.likedByMe);
     setBusy('like');

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'node:crypto';
 import { writerQuery } from '@/lib/dbWriter';
+import { identifyRegisteredFan } from '@/lib/fanIdentity';
 export const runtime = 'nodejs';
 export async function POST(req:NextRequest) {
+  const fan=await identifyRegisteredFan(req);
+  if(!fan) return NextResponse.json({error:'Register or log in to share a game.'},{status:401});
   try {
     const body=await req.json();
     const raw=String(body.url||'');

@@ -18,6 +18,7 @@ import { markPlayerName } from "@/components/yatstats/PlayerNameMentions";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { toSlugFromDisplay } from "@/lib/slug";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import { parseNewsVideo, newsVideoHeadline, newsVideoDescription } from '@/lib/newsVideo';
 
 type NewsPost = {
   uuid: string;
@@ -193,6 +194,40 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   const [failed, setFailed] = useState(false);
   const [requested, setRequested] = useState(false);
   const [playerFilter, setPlayerFilter] = useState<string>("");
+  const [newsFilters, setNewsFilters] = useState<null | { status:string[]; level:string[]; classOf:string[]; roster:string[]; org:string[]; name:string; favorites:boolean }>(null);
+  // Use the EXISTING filter drawer inputs. Do not take ownership of its
+  // event handlers or modify global navigation/theme/drawer state.
+  useEffect(() => {
+    const read = () => {
+      const values = (id:string) => Array.from(document.querySelectorAll<HTMLInputElement>(`#${id} input[type="checkbox"]:not([data-select-all])`))
+        .filter(el => el.checked).map(el => el.value.trim().toUpperCase());
+      setNewsFilters({
+        status: values('filterStatus'), level: values('filterLevels'),
+        classOf: values('filterGradClass'), roster: values('filterRosterYears'),
+        org: values('filterOrgs'),
+        name: (document.getElementById('filterName') as HTMLInputElement | null)?.value.trim().toLowerCase() || '',
+        favorites: Boolean((document.getElementById('filterFavs') as HTMLInputElement | null)?.checked),
+      });
+    };
+    const onChange = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('#filters')) read();
+    };
+    // Capture changes before the gallery controller's event handlers.
+    document.addEventListener('change', onChange, true);
+    document.addEventListener('input', onChange, true);
+    const onReset = (event: MouseEvent) => {
+      if ((event.target as HTMLElement | null)?.closest('#filtersReset, #filtersReset2')) {
+        window.setTimeout(() => setNewsFilters(null), 0);
+      }
+    };
+    document.addEventListener('click', onReset, true);
+    return () => {
+      document.removeEventListener('change', onChange, true);
+      document.removeEventListener('input', onChange, true);
+      document.removeEventListener('click', onReset, true);
+    };
+  }, []);
 
   // Only fetch once the News tab is actually shown (SharedShell toggles
   // .visible on #sec-news), not on every gallery page load.
@@ -248,10 +283,29 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     });
   }, [playerFilter]);
 
-  const visible = useMemo(
-    () => (posts || []).filter((p) => !playerFilter || String(p.playerId || "") === playerFilter),
-    [posts, playerFilter]
-  );
+  const visible = useMemo(() => (posts || []).filter(p => {
+    if (playerFilter && String(p.playerId || '') !== playerFilter) return false;
+    if (!newsFilters) return true;
+    const norm = (v:unknown) => String(v || '').trim().toUpperCase();
+    const match = (arr:string[], v:unknown) => !arr.length || arr.includes(norm(v));
+    const grad = norm(p.gradClass);
+    const gradMatch = !newsFilters.classOf.length || newsFilters.classOf.some(choice => {
+      if (choice === grad) return true;
+      if (choice === 'PRE-1980') return Number(grad) > 0 && Number(grad) < 1980;
+      const range = choice.match(/^(\d{4})-(\d{4})$/);
+      return Boolean(range && Number(grad) >= Number(range[1]) && Number(grad) <= Number(range[2]));
+    });
+    if (!match(newsFilters.status,p.status) || !match(newsFilters.level,p.level) || !match(newsFilters.org,p.orgName)) return false;
+    if (!gradMatch) return false;
+    if (newsFilters.roster.length && !(p.rosterYears || []).some(y => newsFilters.roster.includes(norm(y)))) return false;
+    if (newsFilters.name && !String(p.playerName || '').toLowerCase().includes(newsFilters.name)) return false;
+    // Favorites markers already maintained by the existing gallery.
+    if (newsFilters.favorites) {
+      const card = document.querySelector<HTMLElement>(`#sec-active .yat-card[data-playerid="${CSS.escape(String(p.playerId || ''))}"]`);
+      if (!card || card.dataset.fav !== 'true') return false;
+    }
+    return true;
+  }), [posts, playerFilter, newsFilters]);
   const filteredName = useMemo(() => {
     if (!playerFilter) return "";
     const fromPost = (posts || []).find((p) => String(p.playerId || "") === playerFilter)?.playerName;
@@ -271,7 +325,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
 
   const rows: ProfileNewsStory[] = visible.map((post) => ({
     uuid: post.uuid,
-    title: stripHtml(post.displayHeadline || post.title) || 'Alumni news',
+    title: parseNewsVideo(post.url) ? newsVideoHeadline(post.displayHeadline || post.title, post.playerName) : stripHtml(post.displayHeadline || post.title) || 'Alumni news',
     url: post.url,
     source: post.displaySourceLabel || post.source,
     publishedAt: post.publishedAt,
@@ -279,9 +333,10 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     whyLocal: stripHtml(post.displayWhyLocal),
     imageUrl: post.imageUrl,
     newsworthiness: 'STANDARD',
-    tease: limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
+    tease: parseNewsVideo(post.url) ? newsVideoDescription(post.displayRecap || post.displayWhyLocal) : limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
     playerId: post.playerId,
     playerName: post.playerName,
+    video: parseNewsVideo(post.url),
   }));
 
   return (

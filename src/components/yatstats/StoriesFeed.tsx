@@ -298,6 +298,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   // Like and Share work straight from a card (no account needed for
   // either); Comment opens the story with the comment box ready.
   const likeFromCard = async (story: Story) => {
+    if(!me) return openSignIn();
     const was = Boolean(story.likedByMe);
     updateStory({ ...story, likedByMe: !was, likeCount: Math.max(0, story.likeCount + (was ? -1 : 1)) });
     const result = await toggleStoryLike(story.id);
@@ -309,6 +310,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   };
 
   const shareFromCard = async (story: Story) => {
+    if(!me) return openSignIn();
     const message = await shareStory(story);
     if (message) flash(message);
   };

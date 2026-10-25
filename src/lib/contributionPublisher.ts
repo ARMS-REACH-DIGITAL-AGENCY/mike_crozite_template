@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { query } from '@/lib/db';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { revalidateTag } from 'next/cache';
+import { parseNewsVideo, newsVideoHeadline } from '@/lib/newsVideo';
 
 type Tip = { id: string; intake_source: string; matched_playerid: string | null; matched_hsid: string | null; raw_player_name: string | null; article_url: string; notes: string | null };
 type Missing = { id: string; hsid: string; player_name: string; grad_year: number | null; notes: string | null };
@@ -141,7 +142,7 @@ async function processTip(t:Tip):Promise<boolean> {
  if(!['https:'].includes(u.protocol) || !clip(t.article_url))return false;
  // Do not automatically embed temporary Instagram Stories or unknown external sources.
  const title=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim().slice(0,150);
- const label=title || `Video shared about ${player.first_name} ${player.last_name}`;
+ const label=parseNewsVideo(t.article_url) ? newsVideoHeadline(title, `${player.first_name} ${player.last_name}`) : (title || `News shared about ${player.first_name} ${player.last_name}`);
  const permalink=t.article_url;
  const identifier=hash(t.id);
  await query(`INSERT INTO news_articles(uuid,playerid,player_name,hsid,title,source,published_at,url,
