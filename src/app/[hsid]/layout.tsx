@@ -12,6 +12,7 @@ import {
   getActiveAlumniSummaryByHsid,
   getSchoolByUrl,
   getSchoolTeamSeasonResults,
+  getSchoolsWithApprovedTeamSeasons,
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
@@ -32,6 +33,7 @@ import YatStyles from '@/components/yatstats/YatStyles';
 import AccountDrawer from '@/components/yatstats/AccountDrawer';
 import FavoritesDrawer from '@/components/yatstats/FavoritesDrawer';
 import ContributeDrawer from '@/components/yatstats/ContributeDrawer';
+import WhereYatNowDrawer from '@/components/yatstats/WhereYatNowDrawer';
 import SchoolContextProvider from '@/context/SchoolContext';
 import SharedShell from '@/components/yatstats/SharedShell';
 import SortFilterDrawerControls from '@/components/yatstats/SortFilterDrawerControls';
@@ -45,6 +47,7 @@ import YatTourBridge from '@/components/yatstats/YatTourBridge';
 import FavoritesFilter from '@/components/yatstats/FavoritesFilter';
 import SchoolSplash from '@/components/yatstats/shell/SchoolSplash';
 import { DEMO_TITLE_PARTNER, getTitlePartner } from '@/lib/titlePartners';
+import { getSplashSponsor } from '@/lib/splashSponsors';
 import { parseTeamYear, teamYearCardCount } from '@/lib/teamYearShare';
 
 const YAT_ASSETS_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
@@ -90,6 +93,8 @@ function emptyStripImageMap(): StripImageMap {
 }
 
 export const runtime = 'nodejs';
+// All school pages and player tabs share this DB-backed server render.
+export const preferredRegion = 'iad1';
 
 export async function generateMetadata({
   params,
@@ -165,21 +170,30 @@ export default async function HsidLayout({
   const isPreview = host.includes('vercel.app') || host.includes('localhost');
   const pathname = headersList.get('x-pathname') || '';
   const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
+  const openJoin = headersList.get('x-yat-open-join') === '1';
   if (/^\d+$/.test(hsid) && micrositeUrl && !isPreview && !isHostRewrite && new RegExp(`^/${hsid}/?$`).test(pathname)) {
-    permanentRedirect(micrositeUrl.replace(/\/$/, ''));
+    permanentRedirect(micrositeUrl.replace(/\/$/, '') + (openJoin ? '/?join=1' : ''));
   }
 
   const splashHsid = String(school.hsid ?? hsid);
+  // Avoid even rendering the splash, its stadium light SVG, logo images or
+  // animations on repeat visits. Works across school subdomains via yat_seen.
+  // A manual ?splash=1 preview still forces the original introduction.
+  const seenSplash = /(?:^|;\s*)yat_seen=1(?:;|$)/.test(headersList.get('cookie') || '');
+  const forceSplash = headersList.get('x-yat-force-splash') === '1';
+  const showSplash = forceSplash || (!seenSplash && !openJoin);
   return (
     <>
-      <SchoolSplash
+      {showSplash && <SchoolSplash
+        previewMode={forceSplash}
+        schoolId={splashHsid}
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
-        partner={getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
-      />
+        partner={getSplashSponsor(splashHsid) ?? getTitlePartner(splashHsid) ?? (isPreview && headersList.get('x-yat-splash') === 'partner' ? DEMO_TITLE_PARTNER : null)}
+      />}
       <Suspense fallback={null}>
-        <SchoolShell hsid={hsid} school={school}>{children}</SchoolShell>
+        <SchoolShell hsid={hsid} school={school} enableSplashCutouts={showSplash}>{children}</SchoolShell>
       </Suspense>
     </>
   );
@@ -189,10 +203,12 @@ async function SchoolShell({
   children,
   hsid,
   school,
+  enableSplashCutouts,
 }: {
   children: ReactNode;
   hsid: string;
   school: Record<string, unknown>;
+  enableSplashCutouts: boolean;
 }) {
   const headersList = await headers();
   const resolvedHsid = String(school.hsid ?? hsid);
@@ -209,18 +225,28 @@ async function SchoolShell({
     secondaryColor: String(school.secondary_color || '#FFFFFF'),
   };
 
-  const [allStageRows, rawAllTimeRoster, teamSeasonResults, activeSummary] = await Promise.all([
+  // The universal school shell does not need career batting/pitching aggregates.
+  // Preserve the existing first-paint team-year count only for explicit ?team=YYYY
+  // deep links; ordinary school, player-profile and contribute routes use stage data.
+  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
+  const allTimeRosterForInitialTeam = initialTeamYear
+    ? getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
+        console.error('getAllTimeRosterByHsid failed for initial team-year link', { resolvedHsid, initialTeamYear, error });
+        return [];
+      })
+    : Promise.resolve([] as Record<string, unknown>[]);
+
+  const [allStageRows, rawAllTimeRoster, schoolsWithSeasons, activeSummary] = await Promise.all([
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error('getFlipCardFrontStageByHsid failed', { resolvedHsid, error });
       return [];
     }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error('getAllTimeRosterByHsid failed', { resolvedHsid, error });
-      return [];
-    }),
-    getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
-      console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
-      return [];
+    allTimeRosterForInitialTeam,
+    getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
+      // On a temporary coverage-cache failure, fall back to the existing
+      // per-school lookup rather than silently hiding verified team plaques.
+      console.error('getSchoolsWithApprovedTeamSeasons failed', { error });
+      return null;
     }),
     getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
@@ -232,6 +258,31 @@ async function SchoolShell({
   const stageRows = (Array.isArray(allStageRows) ? (allStageRows as Record<string, unknown>[]) : []).filter(
     (p) => !isRetiredAtHighSchoolLevel(p)
   );
+  // Only explicit roster-year evidence counts; graduation dates alone do not.
+  const explicitRosterYears = new Set<string>();
+  for (const player of stageRows) {
+    const raw = player.roster_years;
+    if (!Array.isArray(raw)) continue;
+    for (const value of raw) {
+      for (const token of String(value).split(',')) {
+        const year = token.trim();
+        if (/^(19|20)\d{2}$/.test(year)) explicitRosterYears.add(year);
+      }
+    }
+  }
+  // Avoid a separate season-results lookup for schools without approved seasons.
+  const approvedSeasonSchoolIds: ReadonlySet<string> | null =
+    schoolsWithSeasons === null ? null : new Set<string>(schoolsWithSeasons);
+  const teamSeasonResults = (approvedSeasonSchoolIds === null || approvedSeasonSchoolIds.has(String(resolvedHsid)))
+    ? await getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
+        console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
+        return [];
+      })
+    : [];
+  const teamYearOptions = Array.from(new Set([
+    ...explicitRosterYears,
+    ...teamSeasonResults.map((result) => String(result.seasonYear)),
+  ])).sort((a, b) => Number(a) - Number(b));
   const activeAlumniRows = stageRows.filter((p) =>
     ACTIVE_GALLERY_STATUSES.includes(normalizeStatusLabel(p.status_label || p.status))
     && !isHighSchoolStripPlayer(p)
@@ -248,7 +299,6 @@ async function SchoolShell({
 
   // A shared team link (?team=2017, passed on by src/middleware.ts): rows
   // 2-3 and the count box are rendered for that team from the first byte.
-  const initialTeamYear = parseTeamYear(headersList.get('x-yat-team'));
   const initialTeamCount = initialTeamYear
     ? teamYearCardCount([
         ...allTimeRosterRows.map((p) => ({ ...(stageRows.find((s) => String(s.playerid) === String(p.playerid)) || {}), ...p })),
@@ -299,6 +349,19 @@ async function SchoolShell({
 
   // The same statuses on every school, in the same order (src/lib/galleryStatuses.ts).
   const statusFilterOptions = GALLERY_STATUS_OPTIONS;
+  // Keep filter checkbox values and their order. Start the second column
+  // with REASSIGNED TO MINORS, as requested for the mobile layout.
+  const statusSecondColumnIndex = statusFilterOptions.indexOf('REASSIGNED TO MINORS');
+  const graduationClassOptions = [
+    '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
+  ];
+  const rosterYearOptions = Array.from({length:29}, (_, i) => String(2027 - i));
+  // NCAA without a D1/D2/D3 classification is source data requiring enrichment,
+  // not a selectable competition level.
+  const levelFilterColumns = [
+    ['MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL'],
+    ['NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'],
+  ];
   const stripStageMap = new Map(
     stageRows.map((p) => [String(p.playerid), p])
   );
@@ -321,6 +384,35 @@ async function SchoolShell({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
+  // Favor active alumni; only fall back to other alumni when no usable
+  // high-school cutout exists. All IDs come from already fetched roster rows.
+  const splashActiveIds = enableSplashCutouts
+    ? Array.from(new Set(activeAlumniPlayerIds.filter((id) => /^\d+$/.test(id))))
+    : [];
+  const splashActiveIdSet = new Set(splashActiveIds);
+  const splashOtherIds = enableSplashCutouts
+    ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id) && !splashActiveIdSet.has(id))))
+    : [];
+  // Source the selected splash player's identity/team from this same
+  // normalized school stage roster; no player-specific lookup or hardcode.
+  const splashPlayerDetails: Record<string, { name: string; team: string }> = {};
+  if (enableSplashCutouts) {
+    for (const row of [...activeAlumniRows, ...allStripRows]) {
+      const id = String(row.playerid || '').trim();
+      if (!/^\\d+$/.test(id) || splashPlayerDetails[id]) continue;
+      const name = String(row.display_name || `${String(row.first_name || row.firstname || '')} ${String(row.last_name || row.lastname || '')}`).trim();
+      const team = String(row.current_team_name || '').trim();
+      splashPlayerDetails[id] = { name, team };
+    }
+  }
+  // Data-derived display names may contain markup characters. Escape them
+  // before embedding JSON in an inline <script> so it cannot close the tag.
+  const splashRosterJson = JSON.stringify({
+    active: splashActiveIds,
+    other: splashOtherIds,
+    details: splashPlayerDetails,
+  }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+
   const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
@@ -362,11 +454,20 @@ async function SchoolShell({
     <SchoolContextProvider schoolData={schoolData}>
       <AnalyticsSchool hsid={String(resolvedHsid)} hsname={schoolName || ''} />
       <YatStyles />
+      {enableSplashCutouts && (splashActiveIds.length > 0 || splashOtherIds.length > 0) && (
+        <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
+          __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" +
+            splashRosterJson + "}));",
+        }} />
+      )}
 
       <SharedShell
         hsid={resolvedHsid}
         players={stripPlayers}
+        profileActivePlayerIds={activeAlumniPlayerIds}
+        profileCurrentPlayerIds={currentRosterRows.map((player) => String(player.playerid))}
         teamSeasonResults={teamSeasonResults}
+        teamYearOptions={teamYearOptions}
         schoolMeta={schoolMeta}
         initialTeamYear={initialTeamYear}
         initialTeamCount={initialTeamCount}
@@ -414,9 +515,9 @@ async function SchoolShell({
             </a>
             <a className="yat-drawer-nav-item" data-tab="news" href="#sec-news"><i className="ri-newspaper-line yat-nav-page-icon" aria-hidden="true" /><span>ACTIVE ALUMNI{' '}<strong>NEWS</strong></span></a>
             <a className="yat-drawer-nav-item" data-cc-link href={`/${resolvedHsid}/connect-contribute`}><i className="ri-upload-cloud-2-line yat-nav-page-icon" aria-hidden="true" /><span><strong>CONNECT</strong>{' '}&amp;{' '}<strong>CONTRIBUTE</strong>{' '}PORTAL</span></a>
-            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>{' '}PROGRAM</span></a>
+            <a className="yat-drawer-nav-item" href="https://yatstats.com/partners/"><img src="/img/nav/partnership-handshake.png" alt="" className="yat-nav-custom-icon" /><span><strong>PARTNERSHIP</strong>&nbsp;PROGRAM</span></a>
             {/* Guided Tour comes before Alumni Fantasy in the navigation. */}
-            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-circle.png" alt="YAT?STATS" className="yat-nav-custom-icon yat-nav-tour-icon" /><span>GUIDED{' '}<strong>TOUR</strong></span></a>
+            <a className="yat-drawer-nav-item yat-drawer-guided-tour" href="https://yatstats.com/"><img src="/img/yatstats-logo-stacked.png" alt="" className="yat-nav-custom-icon yat-nav-tour-icon yat-nav-tour-stacked" /><span><strong>GUIDED TOUR &amp; FAQs</strong></span></a>
             <a className="yat-drawer-nav-item yat-drawer-fantasy-highlight" data-tab="fantasy" href="#sec-fantasy">
               <span className="yat-bracket-symbol" aria-hidden="true" />
               <span className="yat-drawer-fantasy-copy">
@@ -448,14 +549,15 @@ async function SchoolShell({
         </div>
       </aside>
 
-      <AccountDrawer subdomain={subdomain} />
+      <AccountDrawer subdomain={subdomain} schoolName={schoolName} />
       <FavoritesDrawer currentHsid={resolvedHsid} />
       {/* Connect & Contribute: one drawer for every entry point on the site. */}
       <ContributeDrawer />
+      <WhereYatNowDrawer />
 
       <aside className="yat-drawer yat-drawer-right" id="drawerFilters">
         <div
-          className="yat-drawer-header"
+          className="yat-drawer-header yat-filter-drawer-header"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -465,25 +567,16 @@ async function SchoolShell({
             borderBottom: '1px solid var(--line)',
           }}
         >
-          <h3 style={{ margin: 0 }}>SORT &amp; FILTER</h3>
+          <h3 style={{ margin: 0 }}>FILTER</h3>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              id="filtersReset"
-              className="yat-icon-btn"
-              aria-label="Reset filters"
-              title="Reset filters"
-            >
-              <i className="ri-restart-line" />
-            </button>
-
             <button className="yat-icon-btn" id="closeFilters" aria-label="Close filters">
               <i className="ri-close-line" />
             </button>
           </div>
         </div>
 
-        <div className="yat-drawer-content" id="filters">
+        <div className="yat-drawer-content yat-filter-body" id="filters">
           {/* "My Favorites": shown to everyone, so visitors see what
               registering gets them. FavoritesFilter marks the reader's
               favorites at this school (data-fav="true" on their cards, which
@@ -505,12 +598,22 @@ async function SchoolShell({
               <label className="yat-filter-select-all">
                 <input type="checkbox" data-select-all="filterStatus" /> Select All
               </label>
-
-              {statusFilterOptions.map((s) => (
-                <label key={s}>
-                  <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                <div className="yat-filter-column">
+                  {statusFilterOptions.slice(0,statusSecondColumnIndex).map((s) => (
+                    <label key={s}>
+                      <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
+                    </label>
+                  ))}
+                </div>
+                <div className="yat-filter-column">
+                  {statusFilterOptions.slice(statusSecondColumnIndex).map((s) => (
+                    <label key={s}>
+                      <input type="checkbox" value={s} defaultChecked={ACTIVE_GALLERY_STATUSES.includes(s)} /> {s}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </details>
 
@@ -518,13 +621,15 @@ async function SchoolShell({
             <summary>By Level</summary>
             <div className="yat-filter-options" id="filterLevels">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterLevels" /> Select All</label>
-              {[
-                'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL',
-              ].map((l) => (
-                <label key={l}>
-                  <input type="checkbox" value={l} /> {l}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {levelFilterColumns.map((levels,index) => (
+                  <div key={index} className="yat-filter-column">
+                    {levels.map((level) => (
+                      <label key={level}><input type="checkbox" value={level} /> {level}</label>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 
@@ -532,13 +637,13 @@ async function SchoolShell({
             <summary>By Graduating Class</summary>
             <div className="yat-filter-options" id="filterGradClass">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterGradClass" /> Select All</label>
-              {[
-                '2030','2029','2028','2027','2026','2025','2024','2023','2022','2021','2020','2019','2018','2017','2016','2015','2014','2013','2012','2011','2010','2009','2008','2007','2006','2005','2004','2003','2002','2001','2000','1990-1999','1980-1989','PRE-1980',
-              ].map((year) => (
-                <label key={year}>
-                  <input type="checkbox" value={year} /> {year}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {[graduationClassOptions.slice(0,Math.ceil(graduationClassOptions.length/2)),graduationClassOptions.slice(Math.ceil(graduationClassOptions.length/2))].map((years,i) => (
+                  <div className="yat-filter-column" key={i}>
+                    {years.map((year) => <label key={year}><input type="checkbox" value={year} /> {year}</label>)}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 
@@ -546,11 +651,13 @@ async function SchoolShell({
             <summary>By Roster Year</summary>
             <div className="yat-filter-options" id="filterRosterYears">
               <label className="yat-filter-select-all"><input type="checkbox" data-select-all="filterRosterYears" /> Select All</label>
-              {Array.from({length: 29}, (_, i) => String(2027 - i)).map((yr) => (
-                <label key={yr}>
-                  <input type="checkbox" value={yr} /> {yr}
-                </label>
-              ))}
+              <div className="yat-filter-columns">
+                {[rosterYearOptions.slice(0,Math.ceil(rosterYearOptions.length/2)),rosterYearOptions.slice(Math.ceil(rosterYearOptions.length/2))].map((years,i) => (
+                  <div className="yat-filter-column" key={i}>
+                    {years.map((yr) => <label key={yr}><input type="checkbox" value={yr} /> {yr}</label>)}
+                  </div>
+                ))}
+              </div>
             </div>
           </details>
 

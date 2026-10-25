@@ -11,8 +11,11 @@
 // reviewed it.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { revalidateTag } from 'next/cache';
+import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
-import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, logContribution } from '@/lib/contributeServer';
+import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
+import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 
 export const runtime = 'nodejs';
@@ -39,12 +42,14 @@ export async function POST(req: NextRequest) {
   let playerId = text(body.playerId, 20);
   let playerName = text(body.playerName, 120);
   let hsid = text(body.hsid, 20);
+  let selectedPlayerLevel = '';
 
   try {
     // A player on the site: his name and school come from our records.
     if (playerId && kind !== 'missing') {
-      const { rows } = await query<{ hsid: string | null; name: string }>(
-        `SELECT hsid::text AS hsid, TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name
+      const { rows } = await query<{ hsid: string | null; name: string; player_level: string | null }>(
+        `SELECT hsid::text AS hsid, TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name,
+             COALESCE(NULLIF(TRIM(display_level_label),''),level_label) AS player_level
            FROM flip_card_front_stage WHERE playerid::text = $1 LIMIT 1`,
         [playerId]
       );
@@ -52,6 +57,7 @@ export async function POST(req: NextRequest) {
       else {
         playerName = rows[0].name || playerName;
         hsid = rows[0].hsid || hsid;
+        selectedPlayerLevel = String(rows[0].player_level || '').trim().toUpperCase();
       }
     }
 
@@ -64,15 +70,20 @@ export async function POST(req: NextRequest) {
         ? body.fields as Record<string,unknown> : {};
       const allowed = [
         'first_name','last_name','class_of','roster_years','status_label','level_label',
-        'position','current_team_name','facebook','instagram','x','tiktok','linkedin'
+        'position','current_team_name','committed_teamid','facebook','instagram','x','tiktok','linkedin'
       ] as const;
       const submitted:Record<string,string|string[]> = {};
       for (const key of allowed) {
         const value=raw[key];
         if (key === 'roster_years') {
           if (!Array.isArray(value)) continue;
-          const years=[...new Set(value.map(v=>text(v,4)).filter(v=>/^\\d{4}$/.test(v) && +v>=1900 && +v<=new Date().getFullYear()+1))].slice(0,25);
-          if (years.length) submitted[key]=years;
+          const years=normalizeSubmittedVarsityYears(value);
+          if (!years) return fail('Choose valid high-school varsity years.');
+          submitted[key]=years;
+        } else if (key === 'committed_teamid') {
+          // An explicit blank clears an earlier commitment; absence does not.
+          if (typeof value !== 'string') return fail('Choose a valid college.');
+          submitted[key]=text(value, 20);
         } else if (typeof value === 'string' && value.trim()) {
           submitted[key]=text(value,key === 'current_team_name' ? 120 : 80);
         }
@@ -80,37 +91,168 @@ export async function POST(req: NextRequest) {
       if (!Object.keys(submitted).length) return fail('Enter at least one player detail.');
       const allYears=Array.from({length:new Date().getFullYear()+2-1900},(_,i)=>String(1900+i));
       if (submitted.class_of && !allYears.includes(String(submitted.class_of))) return fail('Choose a valid graduation year.');
-      if (submitted.status_label && ![
-        'ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON',
-        'FREE AGENT','COACH','UNKNOWN'
-      ].includes(String(submitted.status_label))) return fail('Choose a valid status.');
+      const isNew=!playerId;
+      const isHighSchool = isNew
+        ? String(submitted.level_label || '').trim().toUpperCase() === 'HIGH SCHOOL'
+        : selectedPlayerLevel === 'HIGH SCHOOL';
+      const status = String(submitted.status_label || '').toUpperCase();
+      // A blank optional commitment field is not a commitment request when
+      // creating a missing player; preserve the existing new-player workflow.
+      if (isNew && submitted.committed_teamid === '' && status !== 'COMMIT') {
+        delete submitted.committed_teamid;
+      }
+      const teamIdSpecified = Object.prototype.hasOwnProperty.call(submitted,'committed_teamid');
+      const teamId = String(submitted.committed_teamid || '');
+      if (submitted.status_label && !(isHighSchool
+        ? ['UNCOMMITTED','COMMIT'].includes(status)
+        : ['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT','COACH','UNKNOWN'].includes(status))) {
+        return fail(isHighSchool ? 'High school players must be UNCOMMITTED or COMMIT.' : 'Choose a valid status.');
+      }
+      if (teamIdSpecified || status==='COMMIT' || status==='UNCOMMITTED') {
+        if (isNew && isHighSchool && status==='UNCOMMITTED' && !teamIdSpecified) {
+          // A missing high-school player may be added as UNCOMMITTED.
+        } else {
+        if (!isHighSchool || isNew) return fail('Select an existing high-school player to announce a college commitment.');
+        if (!teamIdSpecified || !['UNCOMMITTED','COMMIT'].includes(status)) {
+          return fail('Choose the high-school status and college together.');
+        }
+        if (status==='UNCOMMITTED') {
+          if (teamId) return fail('UNCOMMITTED players cannot have a committed college.');
+        } else {
+          if (!/^\d{1,18}$/.test(teamId)) return fail('Choose a college from Global Search.');
+        }
+        }
+      }
       if (submitted.level_label && ![
         'HIGH SCHOOL','NJCAA','CCCAA','NWAC','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','ROOKIE','SINGLE-A','HIGH-A','DOUBLE-A','TRIPLE-A','MLB','INDY','INTERNATIONAL','RETIRED'
       ].includes(String(submitted.level_label))) return fail('Choose a valid level.');
-      const isNew=!playerId;
       if (isNew) {
         const first=String(submitted.first_name||'').trim(),last=String(submitted.last_name||'').trim();
         if (!first||!last) return fail('Enter first and last names separately.');
         if (!/^\d+$/.test(hsid)) return fail('Select a high school.');
         playerName=[first,last].join(' ');
       } else if (!/^\d+$/.test(hsid)) return fail('Player school was not found.');
+      const hasCommitmentUpdate = !isNew && isHighSchool && teamIdSpecified
+        && ['COMMIT','UNCOMMITTED'].includes(status);
+      let savedCommitment: {teamName:string|null;changed:boolean}|null=null;
+      if (hasCommitmentUpdate) {
+        // Previews share the production database. Test the form without
+        // writing ANY commitment, even when other fields changed.
+        if (process.env.VERCEL_ENV === 'preview') {
+          return NextResponse.json({ok:true,review:'preview_only'}, {status:200});
+        }
+        // Publish the canonical college selection immediately: this is
+        // distinct from the review workflow for unrelated profile edits.
+        savedCommitment=await publishCollegeCommitment({
+          playerId,hsid,status:status as 'COMMIT'|'UNCOMMITTED',teamId,
+          contributorUid:who.uid,source:'contribute',
+        });
+        // Do not leave an already-published college commitment in the
+        // correction queue. Other edited fields retain their review rules.
+        delete submitted.status_label;
+        delete submitted.committed_teamid;
+        if (Object.keys(submitted).length===0) {
+          await logContribution(who,'contribute_profile',{
+            playerid:playerId,hsid,pageUrl,details:{status_label:status,
+              committed_teamid:teamId,teamName:savedCommitment.teamName,
+              autoPublished:true},
+          });
+          return NextResponse.json({ok:true,review:'published_commitment',
+            commitment:{status,teamId,teamName:savedCommitment.teamName}}, {status:201});
+        }
+      }
+      // Owner/reviewer emails are configured as production environment settings.
+      // Site-authorized reviewer submissions publish current affiliations directly.
+      // Ordinary fan edits remain queued; a public form must not overwrite player truth.
+      // One reusable rule applies to all players and schools, not a school-specific exception.
+      const directTeamFields=['status_label','level_label','current_team_name'];
+      const directTeamUpdate=!isNew && isReviewer(who) && process.env.VERCEL_ENV !== 'preview'
+        && status==='ACTIVE' && typeof submitted.level_label==='string'
+        && typeof submitted.current_team_name==='string' && submitted.current_team_name.trim()!==''
+        && Object.keys(submitted).every(k=>directTeamFields.includes(k));
+      if(directTeamUpdate) {
+        const newLevel=String(submitted.level_label);
+        const newTeam=String(submitted.current_team_name);
+        const result=await query<{playerid:string}>(`
+          WITH verified AS (
+            SELECT playerid::text AS playerid FROM flip_card_front_stage
+             WHERE playerid::text=$1 AND hsid::text=$2 LIMIT 1
+          ), manual AS (
+            INSERT INTO player_team_override(playerid,teamid,team_name,level,reason,updated_by,updated_at)
+            SELECT playerid,NULL,$3,$4,'Verified contributor current-team update',$5,NOW() FROM verified
+            ON CONFLICT(playerid) DO UPDATE
+              SET teamid=NULL,team_name=EXCLUDED.team_name,level=EXCLUDED.level,
+                  reason=EXCLUDED.reason,updated_by=EXCLUDED.updated_by,updated_at=NOW()
+            RETURNING playerid
+          )
+          UPDATE flip_card_front_stage f SET
+            status_label='ACTIVE',display_status_label='ACTIVE',team_affiliation_status='ACTIVE',
+            current_team_name=$3,current_teamid=NULL,current_team_source_team_id=NULL,
+            current_org_or_conference_name=NULL,
+            level_label=$4,display_level_label=$4,current_level_label=$4,current_team_level=$4,
+            current_team_source='contribute_direct',current_team_roster_status=NULL,
+            current_team_last_verified=NOW(),current_team_absent_since=NULL,
+            is_on_40man=FALSE,forty_man_org_name=NULL,forty_man_org_abbr=NULL,
+            next_game_date=NULL,next_game_time_local=NULL,next_game_time_utc=NULL,
+            next_game_home_away=NULL,next_game_opponent=NULL,next_game_status_label=NULL,
+            updated_at=NOW(),stage_updated_at=NOW()
+          FROM manual WHERE f.playerid::text=manual.playerid AND f.hsid::text=$2
+          RETURNING f.playerid::text AS playerid`,
+          [playerId,hsid,newTeam,newLevel,who.uid]);
+        if(result.rows.length!==1) return fail('Player team could not be updated.',409);
+        revalidateTag(`school-data:${hsid}`,{expire:0});
+        await logContribution(who,'contribute_profile',{
+          playerid:playerId,hsid,pageUrl,
+          details:{autoPublished:true,fields:{status_label:'ACTIVE',level_label:newLevel,current_team_name:newTeam}},
+        });
+        return NextResponse.json({ok:true,review:'published_team'}, {status:201});
+      }
       const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
         by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
+      let contributionQueueId: string | null = null;
       if (isNew) {
         await query(
           `INSERT INTO missing_player_submission (hsid,player_name,grad_year,notes) VALUES ($1,$2,$3,$4)`,
           [hsid,playerName,submitted.class_of?Number(submitted.class_of):null,JSON.stringify(details)]
         );
       } else {
-        await query(
+        const queued=await query<{id:string}>(
           `INSERT INTO news_tip_queue (intake_source,sender_name,sender_contact_id,sender_role,raw_player_name,
                  matched_playerid,matched_hsid,article_url,notes,status)
-           VALUES ('correction',$1,$2,$3,$4,$5,$6,$7,$8,'new')`,
+           VALUES ('correction',$1,$2,$3,$4,$5,$6,$7,$8,'new') RETURNING id::text`,
           [who.name,who.uid,who.profile?.role||'fan',playerName||null,playerId,hsid,pageUrl||'',JSON.stringify(details)]
         );
+        contributionQueueId=queued.rows[0]?.id||null;
       }
+      // A public Instagram handle is immediately registered for the existing
+      // Business Discovery sync. The submitted handle must not already belong
+      // to another player; all other profile fields keep their review rules.
+      let instagramState: 'queued' | 'registered' | 'needs_review' = 'queued';
+      if (process.env.VERCEL_ENV !== 'preview' && !isNew && typeof submitted.instagram === 'string') {
+        const handle = String(submitted.instagram).trim().replace(/^@/,'')
+          .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
+        if (/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
+          const {rows: matches}=await query<{playerid:string|null}>(
+            'SELECT playerid FROM social_sources WHERE platform=$1 AND lower(handle)=lower($2) LIMIT 1',
+            ['instagram',handle]);
+          if (matches.length && matches[0].playerid !== playerId) {
+            instagramState='needs_review';
+          } else if (!matches.length) {
+            await query(`INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status)
+              VALUES('instagram',$1,'player',$2,$3,'business_discovery','active')
+              ON CONFLICT (platform,handle) DO NOTHING`,[handle,hsid,playerId]);
+            instagramState='registered';
+          } else {
+            instagramState='registered';
+          }
+        } else instagramState='needs_review';
+      }
+      const varsityOnly=!isNew && Object.keys(submitted).length===1 && Array.isArray(submitted.roster_years);
+      const varsityPublication=varsityOnly && contributionQueueId
+        ? await publishQueuedVarsityYears(contributionQueueId)
+        : 'pending';
       await logContribution(who,'contribute_profile',{playerid:playerId||null,hsid,pageUrl,details});
-      try {
+      if (process.env.VERCEL_ENV !== 'preview') try {
         const notify='newdata@yatstats.com';
         const contact=await findOrCreateGhlContact(notify,'YATSTATS Data Review');
         if(contact){
@@ -121,7 +263,9 @@ export async function POST(req: NextRequest) {
             '<br/><b>Sender:</b> '+esc(who.email||who.name)+'</p><pre>'+esc(JSON.stringify(submitted,null,2))+'</pre>');
         }
       } catch(error) { console.error('[contribute/profile] owner notification failed',error); }
-      return NextResponse.json({ok:true,review:'pending'}, {status:201});
+      return NextResponse.json({ok:true,review:savedCommitment?'published_commitment':varsityPublication,
+        otherFieldsQueued:Boolean(savedCommitment),instagram:instagramState,
+        commitment:savedCommitment?{status,teamId,teamName:savedCommitment.teamName}:undefined}, {status:201});
     }
 
     if (kind === 'data') {
@@ -152,14 +296,15 @@ export async function POST(req: NextRequest) {
     if (kind === 'tip') {
       const url = text(body.url);
       const why = text(body.why, 2000);
-      if (!/^https?:\/\/\S+\.\S+/i.test(url)) return fail('Paste the link to the story.');
+      const isClip = /(?:youtube\.com|youtu\.be|instagram\.com|tiktok\.com|x\.com|twitter\.com|facebook\.com|fb\.watch|vimeo\.com)/i.test(url);
+      if (!/^https?:\/\/\S+\.\S+/i.test(url)) return fail('Paste the news, video, or social link.');
       await query(
         `INSERT INTO news_tip_queue (intake_source, sender_name, sender_contact_id, sender_role, raw_player_name,
                                      matched_playerid, matched_hsid, article_url, notes, status)
          VALUES ('fan_drawer', $1, $2, $3, $4, $5, $6, $7, $8, 'new')`,
-        [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, why || null]
+        [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, [isClip ? '[clip]' : '[news]', why].filter(Boolean).join(' ')]
       );
-      await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url } });
+      await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url, sourceType: isClip ? 'clip' : 'news' } });
       return NextResponse.json({ ok: true }, { status: 201 });
     }
 

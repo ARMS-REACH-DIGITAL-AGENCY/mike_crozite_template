@@ -1,4 +1,5 @@
 import { normalizeGalleryStatus } from './galleryStatuses';
+import { OFFICIAL_LEVELS } from './officialLevels';
 
 type PlayerRow = Record<string, unknown>;
 
@@ -31,6 +32,15 @@ export function normalizePlayerLevel(value: unknown): string {
   if (!level || level === '-' || level === '--' || level === 'UNKNOWN') return '';
 
   return LEVEL_ALIASES[level] || level;
+}
+
+const OFFICIAL_PLAYER_LEVELS = new Set<string>(OFFICIAL_LEVELS);
+
+// Only official season or career-high levels belong on player surfaces.
+// PRO and generic NCAA are not approved player levels.
+function officialPlayerLevel(value: unknown): string {
+  const normalized = normalizePlayerLevel(value);
+  return OFFICIAL_PLAYER_LEVELS.has(normalized) ? normalized : '';
 }
 
 export type PlayerDisplayMetadata = {
@@ -68,16 +78,21 @@ export function resolvePlayerDisplay(player: PlayerRow): PlayerDisplayMetadata {
     && Boolean(previousTeam);
   const isSourcedDeparture = isTransactionDeparture || isRecordedDeparture;
 
-  const levelLabel = [
-    player.display_level_label,
-    player.level_label,
-    isSourcedDeparture ? player.previous_level_label : null,
-    player.level,
-    player.career_highlevel,
-  ].map(normalizePlayerLevel).find(Boolean) || '';
+  const statusLabel = isSourcedDeparture ? affiliationStatus : explicitStatus;
+  const isRetired = /^RETIRED(?:\b|$)/.test(statusLabel);
+  // Retired career high and a team's season level are distinct facts.
+  // Never rank, scan, or infer a retired career high while rendering a card.
+  const levelLabel = isRetired
+    ? officialPlayerLevel(player.highest_level_label)
+    : [
+        player.display_level_label,
+        player.level_label,
+        isSourcedDeparture ? player.previous_level_label : null,
+        player.level,
+      ].map(officialPlayerLevel).find(Boolean) || '';
 
   return {
-    statusLabel: isSourcedDeparture ? affiliationStatus : explicitStatus,
+    statusLabel,
     levelLabel,
     teamName: isSourcedDeparture ? previousTeam || currentTeam : currentTeam,
     orgConferenceName: text(isSourcedDeparture

@@ -24,6 +24,10 @@ export async function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
+  // A2P/manual-signup reviewers and new fans must reach the actual JOIN drawer
+  // without the first-visit splash covering the permission form.
+  if (request.nextUrl.searchParams.get('join') === '1') requestHeaders.set('x-yat-open-join', '1');
+  else requestHeaders.delete('x-yat-open-join');
   // A shared team link (?team=2017): the layout renders rows 2-3 and the
   // count box for that team from the first byte (layouts get no
   // searchParams of their own).
@@ -34,6 +38,10 @@ export async function middleware(request: NextRequest) {
   // partner (the school layout checks it is a preview).
   if (request.nextUrl.searchParams.get('splash') === 'partner') requestHeaders.set('x-yat-splash', 'partner');
   else requestHeaders.delete('x-yat-splash');
+
+  // Server layouts do not receive searchParams; retain explicit QA forcing.
+  if (request.nextUrl.searchParams.has('splash')) requestHeaders.set('x-yat-force-splash', '1');
+  else requestHeaders.delete('x-yat-force-splash');
 
   const path = request.nextUrl.pathname;
   const host = request.headers.get('host') || request.nextUrl.hostname;

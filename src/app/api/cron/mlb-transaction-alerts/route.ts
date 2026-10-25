@@ -150,20 +150,6 @@ function buildEmailHtml(tx: TransactionRow, recipient: RecipientRow): string {
     </div>`;
 }
 
-async function ensureHealthRow() {
-  await query(`
-    create table if not exists public.ingest_job_health (
-      job_name text primary key,
-      last_success_at timestamptz,
-      last_failure_at timestamptz,
-      consecutive_failures integer not null default 0,
-      last_error text,
-      last_result jsonb,
-      updated_at timestamptz not null default now()
-    )
-  `);
-}
-
 async function getRecipients(playerId: string): Promise<RecipientRow[]> {
   const { rows } = await query<RecipientRow>(`
     SELECT DISTINCT ON (lower(trim(up.email)))
@@ -302,15 +288,15 @@ async function loadTransactions(
       f.current_team_name,
       f.current_org_or_conference_name,
       ss.microsite_url,
-      to_lookup.level AS to_team_level
+      to_lookup.level_label AS to_team_level
     FROM public.player_transactions pt
     LEFT JOIN public.flip_card_front_stage f ON f.playerid::text = pt.playerid::text
     LEFT JOIN public.tbc_players_raw p ON p.playerid::text = pt.playerid::text
     LEFT JOIN public.school_success ss ON ss.hsid::text = f.hsid::text
     LEFT JOIN public.team_id_map tim
       ON tim.mlb_stats_api_id::text = pt.payload->'toTeam'->>'id'
-    LEFT JOIN public."150-pro_team_look_up_tbc_mlb" to_lookup
-      ON to_lookup.teamid::text = tim.tbc_teamid::text
+    LEFT JOIN public.teamid_universe_mapping to_lookup
+      ON to_lookup.teamid = tim.tbc_teamid::text
     WHERE pt.source = 'mlb_api'
       AND (
         pt.created_at > $1::timestamptz
@@ -327,8 +313,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  await ensureHealthRow();
-
+  // ingest_job_health is provisioned by database migrations. Cron jobs must
+  // never attempt schema DDL with the restricted runtime database role.
   try {
     const { rows: stateRows } = await query(
       `SELECT last_result FROM public.ingest_job_health WHERE job_name = $1`,

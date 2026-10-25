@@ -101,7 +101,10 @@ function showSectionWithoutClosing(tabId: string) {
     sectionLabel.textContent = labels[key] || key.toUpperCase();
   }
 
-  history.replaceState(null, '', `#sec-${key}`);
+  // Preserve the route and Next's history state; replaceState does not emit
+  // hashchange, so tell the shared section controller to reconcile immediately.
+  history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#sec-${key}`);
+  window.dispatchEvent(new CustomEvent('yat:section-changed', { detail: { section: key } }));
   return true;
 }
 

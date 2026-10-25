@@ -31,7 +31,9 @@ function normalizeCandidate(s?: string | null) {
 
 function absolutize(s: string) {
   if (!s) return s;
-  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('/')) return s;
+  // Local contribution proofs use blob: object URLs. Prefixing these with /
+  // breaks the proposed image and incorrectly falls back to the published card.
+  if (/^(?:https?:|blob:|data:)/i.test(s) || s.startsWith('/')) return s;
   return `/${s}`;
 }
 

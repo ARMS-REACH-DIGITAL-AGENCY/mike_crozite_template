@@ -11,9 +11,11 @@ Behavior:
 - Reads source images from YATSTATS_S3_SOURCE_PREFIX (default players/then/)
 - Writes matching transparent PNG files to YATSTATS_S3_OUTPUT_PREFIX
   (default players/then-cutouts/)
-- Keeps original JPG/JPEG/WEBP files intact
-- Skips PNG source files so generated outputs do not recursively process
-- Skips output PNGs that already exist unless OVERWRITE=true
+- Keeps original JPG/JPEG/WEBP/PNG files intact
+- INCLUDE_SOURCE_PNG=true processes ORIGINAL PNGs in explicit source prefixes
+  (older Hamilton imports put opaque HS photographs in players/then/*.png).
+  The output prefix is separate, so generated cutout PNGs are never inputs.
+- Skips generated outputs already present unless OVERWRITE=true
 
 Environment variables:
 - YATSTATS_S3_BUCKET: default yatstats-assets
@@ -24,6 +26,7 @@ Environment variables:
 - OVERWRITE: true/false, default false; only controls replacing generated PNG outputs
 - MAX_FILES: optional integer limit for testing
 - ONLY_IDS: optional comma-separated exact source filename stems, without extensions
+- INCLUDE_SOURCE_PNG: true/false, default false; enable for official annual photo folders
 """
 
 from __future__ import annotations
@@ -48,6 +51,7 @@ OVERWRITE = os.getenv("OVERWRITE", "false").lower() == "true"
 MAX_FILES_RAW = os.getenv("MAX_FILES", "").strip()
 MAX_FILES = int(MAX_FILES_RAW) if MAX_FILES_RAW.isdigit() else None
 ONLY_IDS = {item.strip() for item in os.getenv("ONLY_IDS", "").split(",") if item.strip()}
+INCLUDE_SOURCE_PNG = os.getenv("INCLUDE_SOURCE_PNG", "false").lower() == "true"
 
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
@@ -60,9 +64,9 @@ def normalize_prefix(prefix: str) -> str:
 
 def is_source_image(key: str) -> bool:
     lower = key.lower()
-    if lower.endswith(".png"):
-        return False
-    return lower.endswith((".jpg", ".jpeg", ".webp"))
+    return lower.endswith((".jpg", ".jpeg", ".webp")) or (
+        INCLUDE_SOURCE_PNG and lower.endswith(".png")
+    )
 
 
 def output_key_for(input_key: str) -> str:
@@ -89,18 +93,23 @@ def s3_object_exists(bucket: str, key: str) -> bool:
 
 
 def list_source_keys(bucket: str, prefix: str) -> list[str]:
-    keys: list[str] = []
+    # JPG and PNG sometimes coexist under the same player/year stem.
+    # Both map to one generated PNG; match the WebP builder's policy of
+    # selecting the most recently uploaded original, never the older copy.
+    newest_by_output: dict[str, dict] = {}
     paginator = s3.get_paginator("list_objects_v2")
 
     for page in paginator.paginate(Bucket=bucket, Prefix=normalize_prefix(prefix)):
         for obj in page.get("Contents", []):
             key = obj.get("Key", "")
-            if not key or key.endswith("/"):
+            if not key or key.endswith("/") or not is_source_image(key):
                 continue
-            if is_source_image(key):
-                keys.append(key)
+            output_key = output_key_for(key)
+            previous = newest_by_output.get(output_key)
+            if previous is None or obj["LastModified"] > previous["LastModified"]:
+                newest_by_output[output_key] = obj
 
-    return sorted(keys)
+    return sorted(obj["Key"] for obj in newest_by_output.values())
 
 
 def process_image_bytes(input_bytes: bytes) -> bytes:
@@ -116,11 +125,19 @@ def process_image_bytes(input_bytes: bytes) -> bytes:
 
 
 def main() -> int:
+    source_prefix = normalize_prefix(SOURCE_PREFIX)
+    output_prefix = normalize_prefix(OUTPUT_PREFIX)
+    # Never let a custom run consume its own generated PNG outputs or
+    # overwrite an original PNG with its cutout.
+    if not source_prefix or not output_prefix or source_prefix.startswith(output_prefix) or output_prefix.startswith(source_prefix):
+        print("ERROR: source and output prefixes must be distinct, non-overlapping folders")
+        return 2
     print(f"Bucket: {BUCKET}")
     print(f"Source prefix: {normalize_prefix(SOURCE_PREFIX)}")
     print(f"Output prefix: {normalize_prefix(OUTPUT_PREFIX)}")
     print(f"Region: {AWS_REGION}")
     print(f"Dry run: {DRY_RUN}")
+    print(f"Process original PNG uploads: {INCLUDE_SOURCE_PNG}")
     print(f"Overwrite generated PNG outputs: {OVERWRITE}")
     print(f"Max files: {MAX_FILES if MAX_FILES is not None else 'all'}")
     print(f"Only source filename stems: {', '.join(sorted(ONLY_IDS)) if ONLY_IDS else 'all'}")

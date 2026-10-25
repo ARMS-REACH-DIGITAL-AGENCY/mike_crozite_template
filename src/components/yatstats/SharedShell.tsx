@@ -102,7 +102,10 @@ export default function SharedShell({
   children,
   hsid,
   players = [],
+  profileActivePlayerIds = [],
+  profileCurrentPlayerIds = [],
   teamSeasonResults = [],
+  teamYearOptions = [],
   schoolMeta,
   row3Content,
   row4Content,
@@ -112,7 +115,10 @@ export default function SharedShell({
   children: ReactNode;
   hsid: string;
   players?: StripPlayer[];
+  profileActivePlayerIds?: string[];
+  profileCurrentPlayerIds?: string[];
   teamSeasonResults?: TeamSeasonResult[];
+  teamYearOptions?: string[];
   schoolMeta: SchoolMeta;
   row3Content?: ReactNode;
   row4Content?: ReactNode;
@@ -152,12 +158,30 @@ export default function SharedShell({
     if (isPlayerProfile) return;
 
     let frame = 0;
+    let lastVisibleSection = readRequestedSection();
+    let allTimeLandingReset = false;
+    const resetAllTimeLanding = () => {
+      const params = new URLSearchParams(window.location.search);
+      // A linked player intentionally opens at that card; do not override it.
+      if (readRequestedSection() !== 'alltime' || params.has('player') || window.location.hash.startsWith('#player-')) return;
+      // A single landing reset per visit: repeated page-ready / delayed frame
+      // callbacks used to pull the page upward again after users started reading.
+      if (allTimeLandingReset) return;
+      allTimeLandingReset = true;
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    };
     const syncSection = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         const requestedSection = readRequestedSection();
+        if (requestedSection !== 'alltime') allTimeLandingReset = false;
+        const enteringAllTime = requestedSection === 'alltime' && lastVisibleSection !== 'alltime';
+        lastVisibleSection = requestedSection;
         applyVisibleSection(requestedSection);
         setActiveSection(requestedSection);
+        // Switching tabs preserves the prior document scroll offset on mobile.
+        // Reset at the switch, then after React swaps the sticky header/rail.
+        if (enteringAllTime) window.requestAnimationFrame(resetAllTimeLanding);
         // The section is applied: drop the first-paint mark set in
         // app/layout.tsx (after React has rendered rows 3-4 for it).
         window.requestAnimationFrame(() => {
@@ -184,6 +208,11 @@ export default function SharedShell({
     document.addEventListener('click', onTabTap, true);
 
     syncSection();
+
+    // Also handle direct All-Time loads and browser scroll restoration.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(resetAllTimeLanding));
+    window.addEventListener('yat:page-ready', resetAllTimeLanding, { once: true });
+
     window.addEventListener('hashchange', syncSection);
     window.addEventListener('popstate', syncSection);
     window.addEventListener('yat:section-changed', syncSection);
@@ -197,6 +226,7 @@ export default function SharedShell({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(switchTimer);
       document.removeEventListener('click', onTabTap, true);
+      window.removeEventListener('yat:page-ready', resetAllTimeLanding);
       window.removeEventListener('hashchange', syncSection);
       window.removeEventListener('popstate', syncSection);
       window.removeEventListener('yat:section-changed', syncSection);
@@ -218,6 +248,8 @@ export default function SharedShell({
       <div className={`yat-row2-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <SchoolContextBar
           isPlayerProfile={isPlayerProfile}
+          profileActivePlayerIds={profileActivePlayerIds}
+          profileCurrentPlayerIds={profileCurrentPlayerIds}
           isGallery={isGallery}
           isNews={isNews}
           activeSection={activeSection}
@@ -263,6 +295,7 @@ export default function SharedShell({
                     isNews={isNews}
                     players={players}
                     teamSeasonResults={teamSeasonResults}
+                    teamYearOptions={teamYearOptions}
                     initialSection={initialSection}
                     initialTeamYear={teamYear}
                   />
@@ -282,6 +315,15 @@ export default function SharedShell({
               ? <BracketTicker hsid={hsid} />
               : <ClubhouseFooter activeAlumni={schoolMeta.activeAlumni} />}
           </div>
+          {/* Permanent contact stays below either ticker, independent of announcements. */}
+          <div className="yat-footer-contact" role="region" aria-label="YAT?STATS business contact details; scroll horizontally to read all details" tabIndex={0}>
+            <address className="yat-footer-contact-line">
+              <strong>Primary Source LLC dba YATSTATS</strong>
+              {' · '}PO Box 11861, Chandler, AZ 85248{' · '}
+              <a href="tel:+19289282228">(928) 928-2228</a>
+              {' · '}<a href="mailto:info@yatstats.com">info@yatstats.com</a>
+            </address>
+          </div>
         </div>
         <style jsx global>{`
           .yat-section-anchor-strip{height:84px;display:flex;align-items:center;gap:12px;overflow-x:auto;padding:4px 18px;scrollbar-width:thin;background:var(--bg,#111)}
@@ -289,12 +331,19 @@ export default function SharedShell({
           .yat-section-anchor-strip button span{display:block;white-space:nowrap}
           .yat-section-anchor-strip button:hover,.yat-section-anchor-strip button:focus-visible,.yat-section-anchor-strip button.is-active{border-color:var(--fg,#fff);color:var(--fg,#fff);background:var(--card-bg,#222)}
           .yat-section-anchor-strip button:focus-visible{outline:2px solid var(--fg,#fff);outline-offset:2px}
-          .yat-unified-footer{width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
-          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:0;left:0;width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));height:calc(100% + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
-          @media(max-width:640px){.yat-unified-footer-art{width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px));height:calc(100% + 12px)}}
+          .yat-unified-footer{--yat-footer-art-width:min(var(--yat-card-left-edge,clamp(64px,10vw,110px)),clamp(64px,10vw,110px));--yat-ticker-left:calc(var(--yat-footer-art-right,var(--yat-footer-art-width)) + 2px);--yat-ticker-fade:12px;--yat-contact-h:14px;width:100%;height:100%;display:flex;flex-direction:column;min-height:0;position:relative;isolation:isolate;overflow:visible}
+          .yat-unified-footer-art{position:absolute;z-index:8;pointer-events:none;bottom:var(--yat-contact-h,24px);left:0;width:var(--yat-footer-art-width);height:calc(100% - var(--yat-contact-h,24px) + 12px);background-image:var(--yat-footer-campaign-image,url("https://yatstats-assets.s3.us-west-2.amazonaws.com/yatstats/YaTi.png"));background-position:left bottom;background-repeat:no-repeat;background-size:contain;filter:drop-shadow(0 1px 2px #0005)}
+          @media(max-width:640px){.yat-unified-footer{--yat-footer-art-width:min(var(--yat-card-left-edge,clamp(55px,12vw,76px)),clamp(55px,12vw,76px))}}
           .yat-unified-footer-ticker{flex:1;min-height:0;width:100%;position:relative}
           .yat-unified-footer-ticker .yat-clubhouse,.yat-unified-footer-ticker .ybt-footer-stack{height:100%;width:100%}
           .yat-unified-footer-ticker .yat-clubhouse-nav{height:100%}
+          .yat-footer-contact{flex:0 0 var(--yat-contact-h,14px);height:var(--yat-contact-h,14px);width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;background:#fff;color:#777}
+          .yat-footer-contact::-webkit-scrollbar{display:none}
+          .yat-footer-contact-line{display:block;width:max-content;min-width:100%;margin:0;padding:1px 8px;font:400 7px/12px Arial,sans-serif;font-style:normal;text-align:center;white-space:nowrap}
+          .yat-footer-contact-line strong{font-weight:700}
+          .yat-footer-contact-line a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+          .yat-footer-contact:focus-visible{outline:1px solid #999;outline-offset:-1px}
+          .yat-footer-contact-line a:focus-visible{outline:1px solid #777;outline-offset:2px}
         `}</style>
       </footer>}
     </>

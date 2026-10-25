@@ -108,7 +108,7 @@ export default async function PlayerLayout({
       weight={meta.weight}
       classOf={meta.classOf}
     >
-      <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} />
+      <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} statusLabel={meta.statusLabel} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
       {children}
       <ProfileFunZoneCleanupStyles />
