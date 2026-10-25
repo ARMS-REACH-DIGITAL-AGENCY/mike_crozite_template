@@ -18,6 +18,7 @@ import { markPlayerName } from "@/components/yatstats/PlayerNameMentions";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { toSlugFromDisplay } from "@/lib/slug";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import { parseNewsVideo, newsVideoHeadline, newsVideoDescription } from '@/lib/newsVideo';
 
 type NewsPost = {
   uuid: string;
@@ -271,7 +272,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
 
   const rows: ProfileNewsStory[] = visible.map((post) => ({
     uuid: post.uuid,
-    title: stripHtml(post.displayHeadline || post.title) || 'Alumni news',
+    title: parseNewsVideo(post.url) ? newsVideoHeadline(post.displayHeadline || post.title, post.playerName) : stripHtml(post.displayHeadline || post.title) || 'Alumni news',
     url: post.url,
     source: post.displaySourceLabel || post.source,
     publishedAt: post.publishedAt,
@@ -279,9 +280,10 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     whyLocal: stripHtml(post.displayWhyLocal),
     imageUrl: post.imageUrl,
     newsworthiness: 'STANDARD',
-    tease: limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
+    tease: parseNewsVideo(post.url) ? newsVideoDescription(post.displayRecap || post.displayWhyLocal) : limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
     playerId: post.playerId,
     playerName: post.playerName,
+    video: parseNewsVideo(post.url),
   }));
 
   return (
