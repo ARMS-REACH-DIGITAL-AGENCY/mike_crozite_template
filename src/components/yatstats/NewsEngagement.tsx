@@ -5,7 +5,7 @@ import { useRef } from 'react';
 type Comment={id:string;text:string;createdAt:string;author:string};
 type Tag={playerid:string;name:string};
 type Data={likeCount:number;commentCount:number;likedByMe:boolean;comments:Comment[];tags:Tag[]};
-export default function NewsEngagement({uuid,hsid}:{uuid:string;hsid:string}){
+export default function NewsEngagement({uuid,hsid,title}:{uuid:string;hsid:string;title:string}){
  const me=useFanMe();
  const [data,setData]=useState<Data|null>(null);
  const [message,setMessage]=useState('');
@@ -34,7 +34,7 @@ export default function NewsEngagement({uuid,hsid}:{uuid:string;hsid:string}){
    const url=new URL('/n/'+encodeURIComponent(uuid),window.location.origin);
    const nativeShare = typeof navigator.share === 'function';
    try{
-     if(nativeShare)await navigator.share({title:document.title,url:url.toString()});
+     if(nativeShare)await navigator.share({title,url:url.toString()});
      else{await navigator.clipboard.writeText(url.toString());setShareMessage('Link copied');}
      void fetch('/api/news/interact/'+encodeURIComponent(uuid),{
        method:'POST',credentials:'include',
