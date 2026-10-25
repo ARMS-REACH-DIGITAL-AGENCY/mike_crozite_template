@@ -503,6 +503,8 @@ export default function GalleryFilterController() {
     document.addEventListener('click', onClickCapture, true);
     window.addEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
     window.addEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
+    const onAllTimeGalleryLoaded = () => { if (getCurrentSection() === 'alltime') applyFilters('alltime'); };
+    window.addEventListener('yat:alltime-gallery-loaded', onAllTimeGalleryLoaded);
 
     const sectionObserver = new MutationObserver(syncSection);
     document.querySelectorAll('.yat-section').forEach((section) => {
@@ -522,6 +524,7 @@ export default function GalleryFilterController() {
       document.removeEventListener('click', onClickCapture, true);
       window.removeEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
       window.removeEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
+      window.removeEventListener('yat:alltime-gallery-loaded', onAllTimeGalleryLoaded);
       sectionObserver.disconnect();
     };
   }, []);
