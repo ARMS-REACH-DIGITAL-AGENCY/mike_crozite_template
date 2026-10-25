@@ -422,8 +422,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         .yat-news-load-more{display:block;margin:18px auto;padding:10px 18px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);cursor:pointer;font-weight:700}
         /* A touch phone in browser 'Desktop site' mode must not retain a
            hidden sponsor column or narrow the reading area. */
-        @media (hover:none) and (pointer:coarse) {
-          .yp-school-news {width:100%!important;max-width:none!important;box-sizing:border-box;}
+        .yp-school-news {width:100%!important;max-width:none!important;box-sizing:border-box;}
           .yp-school-news-layout{display:block!important;min-width:0;}
           .yp-school-news-main{width:100%;min-width:0;}
           .yp-school-news-tower{display:none!important;}
@@ -545,7 +544,8 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           .yp-school-news-tower{display:none}
           .yp-school-news-main .pp-news-feed{padding:0 2px 55px}
         }
-      `}</style>
+        @media (hover:none) and (pointer:coarse) {
+        `}</style>
     </section>
   );
 }
