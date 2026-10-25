@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { identifyRegisteredFan, likerKey } from '@/lib/fanIdentity';
+import { identifyFan, likerKey } from '@/lib/fanIdentity';
+import { getUserProfile } from '@/lib/userProfile';
 export const runtime = 'nodejs';
 type Ctx={params:Promise<{uuid:string}>};
 const bad=(msg:string,status=400)=>NextResponse.json({error:msg},{status});
@@ -23,8 +24,9 @@ export async function POST(req:NextRequest,{params}:Ctx){
  const body=(await req.json().catch(()=>null)) as {action?:string;text?:string;playerId?:string}|null;
  if(!body || !['like','comment','tag'].includes(body.action||''))return bad('Invalid interaction.');
  try{const story=await news(uuid);if(!story)return bad('News story not found.',404);
- const fan=await identifyRegisteredFan(req);
- if(!fan)return bad('Register or log in to interact with News.',401);
+ const fan=await identifyFan(req);
+ const registration=fan ? await getUserProfile(fan.uid) : null;
+ if(!fan || !registration?.firebase_uid || !registration.email)return bad('Register or log in to interact with News.',401);
  if(body.action==='like'){const uid=fan.uid;
   const {rows}=await query<{liked:boolean}>("WITH removed AS (DELETE FROM news_article_likes WHERE news_uuid=$1 AND actor_uid=$2 RETURNING 1),added AS (INSERT INTO news_article_likes(news_uuid,actor_uid) SELECT $1,$2 WHERE NOT EXISTS(SELECT 1 FROM removed) ON CONFLICT DO NOTHING RETURNING 1) SELECT EXISTS(SELECT 1 FROM added) AS liked",[uuid,uid]);
   return NextResponse.json({ok:true,liked:Boolean(rows[0]?.liked)});}
