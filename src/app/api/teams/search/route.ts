@@ -57,10 +57,15 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const qRaw = (searchParams.get("q") || "").trim();
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "40", 10), 1), 75);
+    // Page size is bounded for predictable query latency, but the search has no
+    // total-results cap: clients page until hasMore is false.
+    const parsedLimit = Number.parseInt(searchParams.get("limit") || "40", 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 75) : 40;
+    const parsedOffset = Number.parseInt(searchParams.get("offset") || "0", 10);
+    const offset = Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0;
 
     if (!qRaw) {
-      return NextResponse.json({ teams: [] }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });
+      return NextResponse.json({ teams: [], hasMore: false, nextOffset: null }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });
     }
 
     const pattern = `%${qRaw}%`;
@@ -103,15 +108,35 @@ export async function GET(req: NextRequest) {
       select *
       from matches
       order by
+        -- Exact MLB club first, then MLB records for the matching organization.
+        -- An affiliate name sorting alphabetically must never hide the majors.
+        case
+          when lower(btrim(coalesce(current_team_name, ''))) = lower($3)
+            and upper(btrim(coalesce(level_label, ''))) = 'MLB' then 0
+          when upper(btrim(coalesce(level_label, ''))) = 'MLB' then 1
+          when lower(btrim(coalesce(current_team_name, ''))) = lower($3) then 2
+          else 3
+        end,
+        case upper(replace(btrim(coalesce(level_label, '')), ' ', ''))
+          when 'MLB' then 0
+          when 'TRIPLE-A' then 1 when 'AAA' then 1
+          when 'DOUBLE-A' then 2 when 'AA' then 2
+          when 'HIGH-A' then 3 when 'A+' then 3
+          when 'SINGLE-A' then 4 when 'LOW-A' then 4 when 'A' then 4
+          when 'ROOKIE' then 5
+          else 6
+        end,
         current_team_name asc nulls last,
-        level_label asc nulls last,
         lastname asc nulls last,
         firstname asc nulls last,
-        playerid asc
-      limit $2
+        playerid asc,
+        hsid asc
+      limit $2 offset $4
     `;
 
-    const { rows } = await query(sql, [pattern, limit]);
+    const { rows: pageWithLookahead } = await query(sql, [pattern, limit + 1, qRaw, offset]);
+    const hasMore = pageWithLookahead.length > limit;
+    const rows = pageWithLookahead.slice(0, limit);
     const headshots = await getBatchPlayerHeadshots(rows.map((row: any) => String(row.playerid)));
 
     const teams = rows.map((r: any) => {
@@ -149,7 +174,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ teams }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });
+    return NextResponse.json({ teams, hasMore, nextOffset: hasMore ? offset + teams.length : null }, { status: 200, headers: { ...cors, "Cache-Control": "no-store" } });
   } catch (err: any) {
     return NextResponse.json({ error: "Server error", message: err?.message }, { status: 500, headers: buildCorsHeaders(req) });
   }

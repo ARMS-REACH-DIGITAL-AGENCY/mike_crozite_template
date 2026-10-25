@@ -12,7 +12,7 @@
 //   player_hsids                 - links playerid -> hsid (high school)
 //   tbc_schools_raw              - high school info (hsid, hsname, colors, nickname) - NOT pro/college teams
 //   school_success               - per-school metadata (rank, counts, staging/microsite URLs, colors)
-//   teams                        - team_id -> team_name lookup; populated via scripts/import-teams.ts
+//   teamid_universe_mapping      - canonical team name / organization-conference / level lookup
 //
 // "Active" = player has batting or pitching stats from 2026
 // "All-time" = all players ever tagged to a school in player_hsids
@@ -38,10 +38,14 @@ import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
 // 3-connection pools dry. These numbers change with the nightly imports,
 // not by the minute. Failures aren't kept: the next view retries.
 const SCHOOL_DATA_TTL_SECONDS = 600;
-function keptAcrossRequests<T>(name: string, load: (key: string) => Promise<T>): (key: string) => Promise<T> {
+// Active-season stats and historical career aggregates change with data imports,
+// not each fan visit. Keep these expensive results longer than presentation data.
+const ACTIVE_ROSTER_TTL_SECONDS = 1800;
+const ALL_TIME_ROSTER_TTL_SECONDS = 3600;
+function keptAcrossRequests<T>(name: string, load: (key: string) => Promise<T>, ttlSeconds = SCHOOL_DATA_TTL_SECONDS): (key: string) => Promise<T> {
   return (key: string) =>
     unstable_cache(() => load(key), ['school-data', name, String(key)], {
-      revalidate: SCHOOL_DATA_TTL_SECONDS,
+      revalidate: ttlSeconds,
       tags: ['school-data', `school-data:${key}`],
     })();
 }
@@ -52,40 +56,117 @@ const pool = new Pool({
   // instance, not per deployment. Keep each instance's connection footprint
   // small to avoid exhausting the shared Neon compute under burst traffic.
   // PG_POOL_MAX remains available for deliberate capacity tuning.
-  max: Number(process.env.PG_POOL_MAX || 3),
+  max: Number(process.env.PG_POOL_MAX || 8),
   idleTimeoutMillis: 10000,
+  // Give idle sockets time to retire and recycle connections periodically.
+  // This works without adding a dependency to the frozen production lockfile.
+  allowExitOnIdle: true,
+  maxLifetimeSeconds: 600,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
   // Allow cold compute starts and short pool queues without turning
   // transient contention into false "school not found" results.
   connectionTimeoutMillis: 15000,
   ssl: { rejectUnauthorized: false },
 });
 
-// A read that failed only because the database couldn't start a parallel
-// worker for it (a momentary resource limit on the compute) - safe to run
-// again once.
-const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
-const isRead = (text: string) => /^\s*(select|with)\b/i.test(text);
+// An idle client can disconnect when a serverless instance is suspended or
+// a pooled backend is recycled. Without this listener, node-postgres emits an
+// uncaught error and may terminate the whole process.
+function poolSnapshot() {
+  return { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount };
+}
+pool.on('error', (error) => {
+  console.error('[db-pool] idle client disconnected', {
+    code: (error as NodeJS.ErrnoException).code ?? null,
+    message: error.message,
+    pool: poolSnapshot(),
+  });
+});
 
-// Generic query helper
+const PARALLEL_WORKER_ERROR = /parallel worker failed to initialize|could not start parallel worker/i;
+const TRANSIENT_CONNECTION_ERROR = /connection terminated (?:due to connection timeout|unexpectedly)|timeout exceeded when trying to connect|connection ended unexpectedly|connection reset by peer|socket hang up|terminating connection due to administrator command/i;
+const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'EPIPE', '57P01', '57P02', '57P03', '08000', '08001', '08003', '08006']);
+const DB_SLOW_QUERY_MS = 3000;
+
+// At most one retry for clearly read-only SELECT or WITH queries.
+// WITH can perform writes, so reject it if any DML/DDL token is present.
+// Never replay writes, row-locking SELECTs, or known side-effecting functions.
+function isRetryableRead(statement: string): boolean {
+  if (!/^\s*(?:SELECT|WITH)\b/i.test(statement)) return false;
+  return !/\b(?:INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL|DO|COPY|EXECUTE)\b|\bFOR\s+(?:UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b|\b(?:nextval|setval|pg_advisory_\w*)\s*\(/i.test(statement);
+}
+function isTransientDbError(error: unknown): boolean {
+  const err = error as { code?: string; message?: string; cause?: { code?: string; message?: string } } | null;
+  if (!err) return false;
+  return TRANSIENT_CONNECTION_CODES.has(String(err.code || '')) ||
+    TRANSIENT_CONNECTION_CODES.has(String(err.cause?.code || '')) ||
+    TRANSIENT_CONNECTION_ERROR.test([err.message, err.cause?.message].filter(Boolean).join(' '));
+}
+
+// Only aggregate pool counts and durations are logged. Neither SQL text nor
+// parameters (which may include personal data) are included in the diagnostics.
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: any[] = []
 ): Promise<QueryResult<T>> {
+  const startedAt = Date.now();
+  const atStart = poolSnapshot();
   try {
-    return await pool.query<T>(text, params);
-  } catch (error) {
-    if (isRead(text) && PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''))) {
-      console.warn('Database query retried after a parallel-worker error');
-      try {
-        return await pool.query<T>(text, params);
-      } catch (retryError) {
-        console.error('Database query error:', retryError);
-        throw retryError;
-      }
+    const result = await pool.query<T>(text, params);
+    // A queued request that finished promptly is not an overload warning.
+    // Report only genuinely slow operations, or sustained local queue pressure.
+    if (Date.now() - startedAt >= DB_SLOW_QUERY_MS || (atStart.waiting >= 10 && Date.now() - startedAt >= 500)) {
+      console.warn('[db-pool] slow query or local queue', {
+        durationMs: Date.now() - startedAt,
+        initialPool: atStart,
+        finalPool: poolSnapshot(),
+      });
     }
-    console.error('Database query error:', error);
-    throw error;
+    return result;
+  } catch (error) {
+    const transient = isTransientDbError(error);
+    const parallelWorker = PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''));
+    const shouldRetry = isRetryableRead(text) && (transient || parallelWorker);
+    console.error('[db-pool] query failure', {
+      durationMs: Date.now() - startedAt,
+      code: (error as { code?: string })?.code ?? null,
+      initialPool: atStart,
+      finalPool: poolSnapshot(),
+      retrying: shouldRetry,
+      failureType: transient ? 'connection' : parallelWorker ? 'parallel-worker' : 'other',
+    });
+    if (!shouldRetry) throw error;
+    // A single bounded retry allows a fresh connection after a dropped socket.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    try {
+      const result = await pool.query<T>(text, params);
+      console.warn('[db-pool] read recovered on retry', {
+        durationMs: Date.now() - startedAt,
+        finalPool: poolSnapshot(),
+      });
+      return result;
+    } catch (retryError) {
+      console.error('[db-pool] read retry failed', {
+        durationMs: Date.now() - startedAt,
+        code: (retryError as { code?: string })?.code ?? null,
+        finalPool: poolSnapshot(),
+      });
+      throw retryError;
+    }
   }
+}
+
+// Most profile traffic re-reads the same four season/career reports. Cache
+// their successful rows for five minutes across requests and server instances.
+// Keep catch/fallback logic outside this helper so a transient failure is
+// never cached as an empty stats report.
+async function cachedPlayerStatRows(bucket: string, playerId: string, sql: string): Promise<any[]> {
+  return unstable_cache(
+    async () => (await query(sql, [playerId])).rows,
+    ['player-stat-rows-v1', bucket, playerId],
+    { revalidate: 300, tags: ['player-stats', `player-stats:${playerId}`] },
+  )();
 }
 
 // ---------------------------------------------------------------------------
@@ -265,10 +346,20 @@ export type SchoolTeamSeasonResult = {
   achievement: string;
   wins: number;
   losses: number;
+  ties: number;
   seasonNote: string | null;
   displayLine1: string | null;
   displayLine2: string | null;
 };
+
+// Shared across school requests: avoid a per-school season lookup when no
+// approved historical records exist. The list refreshes to discover new schools.
+export const getSchoolsWithApprovedTeamSeasons = keptAcrossRequests('schools-with-approved-team-seasons-v1', async function getSchoolsWithApprovedTeamSeasons(_key: string): Promise<string[]> {
+  const { rows } = await query<{ hsid: string }>(
+    "SELECT DISTINCT hsid FROM public.school_team_season_results WHERE status = 'approved'"
+  );
+  return rows.map((row) => String(row.hsid));
+}, 600);
 
 export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeasonResults', async function getSchoolTeamSeasonResults(hsid: string): Promise<SchoolTeamSeasonResult[]> {
   if (!/^\d+$/.test(hsid)) return [];
@@ -279,10 +370,11 @@ export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeaso
     wins: number;
     losses: number;
     season_note: string | null;
+    ties: number;
     display_line_1: string | null;
     display_line_2: string | null;
   }>(
-    `SELECT season_year, achievement, wins, losses, season_note, display_line_1, display_line_2
+    `SELECT season_year, achievement, wins, losses, ties, season_note, display_line_1, display_line_2
        FROM public.school_team_season_results
       WHERE hsid = $1 AND status = 'approved'
       ORDER BY season_year DESC`,
@@ -294,13 +386,14 @@ export const getSchoolTeamSeasonResults = keptAcrossRequests('getSchoolTeamSeaso
     achievement: row.achievement,
     wins: Number(row.wins),
     losses: Number(row.losses),
+    ties: Number(row.ties || 0),
     seasonNote: row.season_note,
     displayLine1: row.display_line_1,
     displayLine2: row.display_line_2,
   }));
 });
 
-export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string) {
+export const getSchoolByHsid = cache(keptAcrossRequests('getSchoolByHsid', async function getSchoolByHsid(hsid: string) {
   if (!/^\d+$/.test(hsid)) return null;
   const { rows } = await query(
     'SELECT * FROM school_success WHERE hsid = $1 LIMIT 1',
@@ -320,9 +413,9 @@ export const getSchoolByHsid = cache(async function getSchoolByHsid(hsid: string
     [hsid],
   );
   return raw[0] || null;
-});
+}));
 
-export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: string) {
+export const getSchoolByUrl = cache(keptAcrossRequests('getSchoolByUrl', async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
   if (!hostOnly || !httpsUrl) return null;
   const candidates = Array.from(new Set([httpsUrl, hostOnly]));
@@ -338,7 +431,7 @@ export const getSchoolByUrl = cache(async function getSchoolByUrl(hostOrUrl: str
   const hsid = await resolveSchoolHsidFromHost(hostOnly,
     (sql, params = []) => query(sql, params));
   return hsid ? getSchoolByHsid(hsid) : null;
-});
+}));
 
 // ---------------------------------------------------------------------------
 // ACTIVE ROSTER - players with 2026 stats (homepage)
@@ -383,12 +476,17 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid::text AS playerid,
         year::text AS year,
-        highlevel::text AS highlevel,
+        canonical_level::text AS season_level,
         teamid::text AS teamid,
         g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so,
         draft_info,
         playyears
-      FROM tbc_batting_2026_season_raw
+      FROM (
+        SELECT raw_b.*, canonical.level_label AS canonical_level
+        FROM public.tbc_batting_2026_season_raw raw_b
+        LEFT JOIN public.teamid_universe_mapping canonical
+          ON canonical.teamid = raw_b.teamid::text
+      ) tbc_bat
       WHERE year = '2026' AND ${statsRowsFilter}
 
       UNION ALL
@@ -396,8 +494,8 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         yatstats_playerid::text AS playerid,
         season_year::text AS year,
-        'INDY'::text AS highlevel,
-        teamid::text AS teamid,
+        indy_map.level_label::text AS season_level,
+        indy_bat.teamid::text AS teamid,
         COALESCE(
           raw_stats #>> '{stats,GP}',
           raw_stats #>> '{stats,G}',
@@ -422,13 +520,15 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
           updated_at DESC
       ) indy_bat
+      LEFT JOIN public.teamid_universe_mapping indy_map
+        ON indy_map.teamid = indy_bat.teamid::text
     ),
 
     batting_2026_by_level AS (
       SELECT
         playerid::text AS playerid,
         MAX(year)      AS stat_year,
-        highlevel      AS bat_level,
+        season_level      AS bat_level,
         MAX(teamid)    AS teamid,
 
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS g,
@@ -446,7 +546,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         MAX(draft_info) AS draft_info,
         MAX(playyears)  AS playyears
       FROM batting_2026_rows
-      GROUP BY playerid::text, highlevel
+      GROUP BY playerid::text, season_level
     ),
 
     latest_batting AS (
@@ -522,7 +622,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid::text AS playerid,
         year::text AS year,
-        highlevel::text AS highlevel,
+        canonical_level::text AS season_level,
         teamid::text AS teamid,
         g::text AS g,
         gs::text AS gs,
@@ -537,7 +637,12 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         draft_info,
         playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
-      FROM tbc_pitching_2026_season_raw
+      FROM (
+        SELECT raw_p.*, canonical.level_label AS canonical_level
+        FROM public.tbc_pitching_2026_season_raw raw_p
+        LEFT JOIN public.teamid_universe_mapping canonical
+          ON canonical.teamid = raw_p.teamid::text
+      ) tbc_pitch
       WHERE year = '2026' AND ${statsRowsFilter}
 
       UNION ALL
@@ -545,8 +650,8 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         yatstats_playerid::text AS playerid,
         season_year::text AS year,
-        'INDY'::text AS highlevel,
-        teamid::text AS teamid,
+        indy_map.level_label::text AS season_level,
+        indy_pitch.teamid::text AS teamid,
         g::text,
         gs::text,
         w::text,
@@ -574,13 +679,15 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
           updated_at DESC
       ) indy_pitch
+      LEFT JOIN public.teamid_universe_mapping indy_map
+        ON indy_map.teamid = indy_pitch.teamid::text
     ),
 
     pitching_2026_by_level AS (
       SELECT
         playerid,
         MAX(year)   AS pitch_year,
-        highlevel   AS pit_level,
+        season_level   AS pit_level,
         MAX(teamid) AS pit_teamid,
 
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS pg,
@@ -610,7 +717,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         MAX(draft_info) AS pit_draft_info,
         MAX(playyears)  AS pit_playyears
       FROM pitching_2026_rows
-      GROUP BY playerid, highlevel
+      GROUP BY playerid, season_level
     ),
 
     latest_pitching AS (
@@ -701,11 +808,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid::text AS playerid,
         CASE
-          WHEN UPPER(COALESCE(highlevel::text, '')) IN ('INDY', 'INDEPENDENT') THEN 'indy'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
-            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          WHEN season_level = 'MLB' THEN 'mlb'
+          WHEN season_level IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN season_level = 'INDY' THEN 'indy'
+          WHEN season_level = 'INTERNATIONAL' THEN 'international'
+          WHEN season_level IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
           ELSE 'other'
         END AS bucket,
         year,
@@ -744,6 +851,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               WHEN 'mlb' THEN '2026 MLB BATTING'
               WHEN 'minors' THEN '2026 MINOR LEAGUE BATTING'
               WHEN 'indy' THEN '2026 INDY BATTING'
+              WHEN 'international' THEN '2026 INTERNATIONAL BATTING'
               WHEN 'college' THEN '2026 COLLEGE BATTING'
               ELSE '2026 BATTING'
             END,
@@ -766,7 +874,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               'g', g
             )
           )
-          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'college' THEN 4 ELSE 5 END
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
         ) AS season_batting_buckets
       FROM batting_2026_by_bucket
       GROUP BY playerid
@@ -776,11 +884,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       SELECT
         playerid,
         CASE
-          WHEN UPPER(COALESCE(highlevel::text, '')) IN ('INDY', 'INDEPENDENT') THEN 'indy'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
-            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          WHEN season_level = 'MLB' THEN 'mlb'
+          WHEN season_level IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN season_level = 'INDY' THEN 'indy'
+          WHEN season_level = 'INTERNATIONAL' THEN 'international'
+          WHEN season_level IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
           ELSE 'other'
         END AS bucket,
         year,
@@ -828,6 +936,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               WHEN 'mlb' THEN '2026 MLB PITCHING'
               WHEN 'minors' THEN '2026 MINOR LEAGUE PITCHING'
               WHEN 'indy' THEN '2026 INDY PITCHING'
+              WHEN 'international' THEN '2026 INTERNATIONAL PITCHING'
               WHEN 'college' THEN '2026 COLLEGE PITCHING'
               ELSE '2026 PITCHING'
             END,
@@ -848,7 +957,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
               'pg', pg
             )
           )
-          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'college' THEN 4 ELSE 5 END
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
         ) AS season_pitching_buckets
       FROM pitching_2026_by_bucket
       GROUP BY playerid
@@ -879,7 +988,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
           THEN lp.pit_level
           ELSE lb.bat_level
         END,
-        sp.career_highlevel
+        NULL::text
       )                                     AS level,
       sp.height,
       sp.weight,
@@ -931,7 +1040,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         CASE
           WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
           THEN lp.pit_level ELSE lb.bat_level
-        END, sp.career_highlevel)
+        END, NULL::text)
         WHEN 'MLB'           THEN 1
         WHEN 'TRIPLE-A'      THEN 2
         WHEN 'AAA'           THEN 2
@@ -970,10 +1079,12 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 }
 
 export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-2026-evidence', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
-  const sql = buildActiveRosterSql('ph.hsid = $1', 'TRUE');
+  // All returned rows belong to school_players; filter raw season inputs first.
+  // This avoids aggregating every team's 2026 stats on each school cache miss.
+  const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text IN (SELECT playerid::text FROM school_players)');
   const { rows } = await query(sql, [hsid]);
   return rows;
-}));
+}, ACTIVE_ROSTER_TTL_SECONDS));
 
 // Each player's latest season usage, for telling pitchers from batters by
 // what they actually did rather than the listed position alone (a "UT" who
@@ -1036,6 +1147,28 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       JOIN tbc_players_raw tp
         ON ph.playerid::text = tp.playerid::text
       WHERE ph.hsid = $1
+
+      UNION ALL
+      -- First-party contributed players have a verified school identity
+      -- record but no legacy TBC player row. Include them in the All-Time
+      -- gallery without writing synthetic data into imported TBC tables.
+      SELECT
+        f.playerid,
+        f.first_name AS firstname,
+        f.last_name AS lastname,
+        f.level_label AS career_highlevel,
+        NULL::text AS height,
+        NULL::text AS weight,
+        NULL::text AS bats,
+        NULL::text AS throws,
+        f.position
+      FROM public.flip_card_front_stage f
+      WHERE f.hsid::text = $1::text
+        AND f.source_summary->>'source' = 'contribute'
+        AND NOT EXISTS (
+          SELECT 1 FROM public.tbc_players_raw tp
+          WHERE tp.playerid::text = f.playerid::text
+        )
     ),
 
     latest_batting_level AS (
@@ -1549,7 +1682,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
   `;
   const { rows } = await query(sql, [hsid]);
   return rows;
-}));
+}, ALL_TIME_ROSTER_TTL_SECONDS));
 
 export interface PlayerSlugMatch {
   playerid: string;
@@ -1599,21 +1732,21 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     SELECT
       b.year,
       b.teamid,
-      COALESCE(t.team_name, b.teamid::text) AS team_name,
-      b.highlevel AS level,
+      COALESCE(t.current_team_name, b.teamid::text) AS team_name,
+      t.level_label AS level,
       b.g, b.ab, b.r, b.h,
       b.dbl AS "2b", b.tpl AS "3b",
       b.hr, b.rbi, b.sb, b.bb, b.so,
       b.bavg AS avg, b.obp, b.slg, b.ops,
       b.draft_info
     FROM public.v_tbc_batting_all_seasons_resolved b
-    LEFT JOIN public.teams t
-      ON t.teamid::text = b.teamid::text
+    LEFT JOIN public.teamid_universe_mapping t
+      ON t.teamid = b.teamid::text
     WHERE b.playerid::text = $1
     ORDER BY b.year ASC, b.teamid ASC
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('batting-seasons', playerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerBattingStats failed:', error);
@@ -1629,8 +1762,8 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     SELECT
       p.year,
       p.teamid,
-      COALESCE(t.team_name, p.teamid::text) AS team_name,
-      p.highlevel AS level,
+      COALESCE(t.current_team_name, p.teamid::text) AS team_name,
+      t.level_label AS level,
       p.g, p.gs, p.w, p.l,
       p.sv AS saves, p.ip,
       p.h AS hits_allowed, p.er,
@@ -1639,13 +1772,13 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       p.so9 AS k9, p.so_bb AS kbb,
       p.draft_info
     FROM public.v_tbc_pitching_all_seasons_resolved p
-    LEFT JOIN public.teams t
-      ON t.teamid::text = p.teamid::text
+    LEFT JOIN public.teamid_universe_mapping t
+      ON t.teamid = p.teamid::text
     WHERE p.playerid::text = $1
     ORDER BY p.year ASC, p.teamid ASC
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('pitching-seasons', playerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerPitchingStats failed:', error);
@@ -1688,7 +1821,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
     WHERE playerid::text = $1
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('career-batting', playerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerBatting failed:', error);
@@ -1822,7 +1955,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
     WHERE playerid::text = $1
   `;
   try {
-    const { rows } = await query(sql, [playerId]);
+    const rows = await cachedPlayerStatRows('career-pitching', playerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerPitching failed:', error);
@@ -1846,9 +1979,9 @@ export async function getTeamSchedule(
   try {
     // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
     // team_schedules). College teams' games live in college_schedule_games_raw,
-    // a separate pipeline with no overlapping teamids, so it's unioned in here
-    // rather than joined - this is the only reader that needs both sources
-    // reconciled into one shape.
+    // a separate pipeline. Independent schedules use verified source-team
+    // mappings and retain their own game identities. Union the feeds into
+    // one display contract without mixing provider IDs or stat coverage.
     const { rows } = await query(
       `WITH combined AS (
          SELECT
@@ -1867,7 +2000,13 @@ export async function getTeamSchedule(
            game_pk,
            home_team_id,
            away_team_id,
-           (SELECT ts.game_type FROM team_schedules ts WHERE ts.game_pk = v_team_schedule_feed.game_pk) AS game_type
+           (SELECT ts.game_type FROM team_schedules ts WHERE ts.game_pk = v_team_schedule_feed.game_pk) AS game_type,
+           'mlb_api'::text AS schedule_source,
+           game_pk::text AS source_game_id,
+           NULL::text AS source_season_id,
+           NULL::text AS source_league_code,
+           true AS tracks_player_lines,
+           NULL::text AS opponent_teamid
          FROM v_team_schedule_feed
          WHERE tbc_teamid::text = $1
 
@@ -1889,9 +2028,26 @@ export async function getTeamSchedule(
            NULL::bigint AS game_pk,
            NULL::integer AS home_team_id,
            NULL::integer AS away_team_id,
-           NULL::text AS game_type
+           NULL::text AS game_type,
+           'college'::text AS schedule_source,
+           NULL::text AS source_game_id,
+           NULL::text AS source_season_id,
+           NULL::text AS source_league_code,
+           false AS tracks_player_lines,
+           NULL::text AS opponent_teamid
          FROM college_schedule_games_raw g
          WHERE g.teamid::text = $1
+
+         UNION ALL
+
+         SELECT
+           tbc_teamid, team_name, game_date, game_time_utc, status,
+           venue_name, home_team_name, away_team_name, home_away, opponent,
+           home_score, away_score, game_pk, home_team_id, away_team_id,
+           game_type, schedule_source, source_game_id, source_season_id,
+           source_league_code, tracks_player_lines, opponent_teamid
+         FROM public.v_indy_team_schedule_feed
+         WHERE tbc_teamid = $1
        )
        SELECT
          *,
@@ -2001,27 +2157,15 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------------------
-// MLB TEAM LOGO MAP - mlb_org_id (MLB Stats API team.id, e.g. 147 for the
-// Yankees) -> teamid (the actual S3 logo key: teams/{teamid}.png).
+// ---------------------------------------------------------------------------
+// MLB TEAM ID CROSSWALK
 //
-// NOT the same as teams.teamid/mlb_stats_api_id - that pairing looks like
-// the right crosswalk but does not match what's actually in S3 (verified:
-// teams.teamid=10 is labeled Minnesota Twins there, but teams/10.png in S3
-// is the Rockies). "150-pro_team_look_up_tbc_mlb".teamid is the one that's
-// actually verified against the real S3 files (10 -> Rockies, 14 -> Royals,
-// 28 -> Rays, all confirmed).
+// public.team_id_map is the provider-ID crosswalk between each team's own
+// MLB Stats API team id and the canonical TBC teamid. It is not an identity
+// authority: display team name, organization/conference, and level come from
+// public.teamid_universe_mapping after the canonical teamid is resolved.
 //
-// team_id_map, not "150-pro_team_look_up_tbc_mlb", is the crosswalk to use
-// for "what tbc_teamid is THIS raw MLB Stats API team id" at any level.
-// "150-pro_team_look_up_tbc_mlb".mlb_org_id is the PARENT organization's id,
-// shared by every affiliate (all Yankees levels carry mlb_org_id=147) - so
-// it can only ever resolve the raw id of the actual top-level MLB club
-// itself, never a minor-league affiliate's own distinct raw id (e.g.
-// Somerset Patriots' own raw id, not the Yankees'). team_id_map is instead
-// keyed 1:1 by each team's own real raw id (populated from team_schedules,
-// the full MLB+MiLB ingest - see scripts/sync_mlb_schedules.py), so the
-// same lookup resolves a schedule teamid or opponent logo correctly
-// whether the team is an MLB club or any of its minor-league affiliates.
+// The same crosswalk works for MLB clubs and affiliated minor-league teams.
 // ---------------------------------------------------------------------------
 // The whole table, on every player page: kept per server instance for 6
 // hours (it changes when the schedule sync adds teams, not by the minute).
@@ -2485,6 +2629,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
         status_label: string | null;
         display_status_label: string | null;
         display_level_label: string | null;
+        highest_level_label: string | null;
         team_affiliation_status: string | null;
         current_team_source: string | null;
         last_transaction_type: string | null;
@@ -2505,6 +2650,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
            f.status_label,
            f.display_status_label,
            f.display_level_label,
+           f.highest_level_label,
            f.team_affiliation_status,
            f.current_team_source,
            f.last_transaction_type,
@@ -2583,6 +2729,7 @@ export async function getFlipCardTransactionStatus(playerid: string): Promise<an
          current_team_name,
          current_team_source,
          current_team_source_team_id,
+         current_teamid,
          team_affiliation_status,
          last_transaction_type,
          previous_team_name,

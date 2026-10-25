@@ -7,6 +7,7 @@ import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
+import { toSlugFromDisplay } from "@/lib/slug";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -50,6 +51,7 @@ export default function ProfileNewsList({
   firstName,
   playerId,
   playerName,
+  hsid,
   schoolWide = false,
 }: {
   stories: ProfileNewsStory[];
@@ -57,6 +59,8 @@ export default function ProfileNewsList({
   playerId: string;
   // Bolded in each story's copy; not linked - this is his profile already.
   playerName: string;
+  /** The school owning this reader, for profile links on both news pages. */
+  hsid: string;
   schoolWide?: boolean;
 }) {
   const storyParam = useStoryParam();
@@ -69,13 +73,23 @@ export default function ProfileNewsList({
   }, [storyParam, stories]);
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
+  const relatedPlayerId = String(openStory?.playerId || playerId || '').trim();
+  const relatedPlayerName = String(openStory?.playerName || playerName || '').trim();
+  const playerProfileHref = openStory && relatedPlayerId && hsid
+    ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(relatedPlayerId)}${relatedPlayerName ? `/${toSlugFromDisplay(relatedPlayerName)}` : ''}`
+    : '';
 
   // Newest first by default; ▲▼ at the top flips it (same as Stories).
   const [sort, setSort] = useState<SortDir>("newest");
+  const [search, setSearch] = useState("");
   const sorted = useMemo(() => {
     const time = (s: ProfileNewsStory) => (s.publishedAt ? new Date(s.publishedAt).getTime() || 0 : 0);
-    return stories.slice().sort((a, b) => (sort === "newest" ? time(b) - time(a) : time(a) - time(b)));
-  }, [stories, sort]);
+    const q = search.trim().toLocaleLowerCase();
+    return stories
+      .filter((story) => !q || [story.title, story.tease, story.recap, story.source, story.playerName, story.whyLocal]
+        .some((value) => stripHtml(value).toLocaleLowerCase().includes(q)))
+      .sort((a, b) => (sort === "newest" ? time(b) - time(a) : time(a) - time(b)));
+  }, [stories, sort, search]);
 
 
   if (stories.length === 0) {
@@ -91,8 +105,13 @@ export default function ProfileNewsList({
     <>
       <div className="pp-news-feed" aria-label={`${firstName}'s news stories`}>
         <div className="pp-news-tools">
-          <SortToggle dir={sort} onChange={setSort} />
+          <span className="pp-news-sort"><SortToggle dir={sort} onChange={setSort} compact /></span>
+          <label className="pp-news-search">
+            <i className="ri-search-line" aria-hidden="true" />
+            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search news" aria-label="Search news" />
+          </label>
         </div>
+        {sorted.length === 0 ? <p className="pp-news-no-results" role="status">No news matches “{search.trim()}”.</p> : null}
         {sorted.map((story,index) => (
           <Fragment key={story.uuid}>
           <button
@@ -142,10 +161,21 @@ export default function ProfileNewsList({
         }
         footer={
           openStory ? (
-            <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-              Read the original story at {(openStory.source || "the source").toUpperCase()}
-              <i className="ri-external-link-line" />
-            </a>
+            <div className="pp-news-modal-actions">
+              <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
+                Read the original story at {(openStory.source || "the source").toUpperCase()}
+                <i className="ri-external-link-line" aria-hidden="true" />
+              </a>
+              {playerProfileHref ? (
+                <a className="pp-news-modal-profile" href={playerProfileHref}
+                  onClick={() => setOpenUuid("")}
+                  aria-label={`View ${relatedPlayerName || 'this player'}'s YAT?STATS profile`}>
+                  <i className="ri-user-line" aria-hidden="true" />
+                  <span>VIEW PLAYER PROFILE</span>
+                  <i className="ri-arrow-right-up-line" aria-hidden="true" />
+                </a>
+              ) : null}
+            </div>
           ) : null
         }
       >
@@ -168,24 +198,24 @@ export default function ProfileNewsList({
           --pp-news-title:rgba(255,255,255,.95);
           --pp-news-body:rgba(255,255,255,.78);
           --pp-news-muted:rgba(255,255,255,.52);
-          --pp-news-label:var(--gold,#ffc107);
+          --pp-news-label:#bcbcbc;
           display:flex;
           flex-direction:column;
-          gap:0;
+          gap:8px;
           padding:8px 12px calc(var(--profile-tabs-h,68px) + 16px);
           min-height:100%;
           min-width:0;
         }
         body.light-theme .pp-news-feed{
           --pp-news-card-bg:rgba(255,255,255,.52);
-          --pp-news-card-border:rgba(53,43,30,.18);
+          --pp-news-card-border:rgba(0,0,0,.11);
           --pp-news-card-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 3px rgba(72,54,30,.08);
-          --pp-news-thumb-bg:rgba(53,43,30,.05);
-          --pp-news-thumb-border:rgba(53,43,30,.17);
+          --pp-news-thumb-bg:rgba(0,0,0,.04);
+          --pp-news-thumb-border:rgba(0,0,0,.14);
           --pp-news-title:rgba(31,25,18,.94);
           --pp-news-body:rgba(31,25,18,.78);
           --pp-news-muted:rgba(31,25,18,.52);
-          --pp-news-label:#b78600;
+          --pp-news-label:#555;
         }
         /* The eyebrow on its own line at the top left; under it the photo
            and the headline side by side, their tops level. */
@@ -193,34 +223,51 @@ export default function ProfileNewsList({
         .pp-news-tools{
           position:sticky;
           top:0;
-          z-index:6;
-          display:flex;
-          justify-content:flex-end;
-          margin:-10px 0 0;
-          padding:8px 0 6px;
-          background:var(--psi-page-bg,#070707);
+          z-index:16;
+          display:grid;
+          grid-template-columns:38px minmax(0,1fr);
+          align-items:center;
+          gap:6px;
+          margin:0;
+          padding:3px 0 5px;
+          /* The sticky controls must fully mask scrolling news cards in
+             both monochrome themes; translucent card surfaces are separate. */
+          background:var(--bg,#0c0c0c);
         }
+        .pp-news-sort{display:flex;align-items:center;justify-content:center;width:38px;min-width:0;height:32px;border-radius:6px;background:var(--pp-news-card-bg);}
+        .pp-news-sort button{border-radius:6px!important;}
+        .pp-news-search{display:flex;align-items:center;gap:6px;min-width:0;width:100%;height:32px;min-height:32px;padding:0 8px;border:0;border-radius:6px;background:var(--pp-news-card-bg);color:var(--pp-news-muted);}
+        .pp-news-search input{width:100%;min-width:0;height:30px;border:0;outline:0;background:transparent;color:var(--pp-news-title);font:400 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        /* On school Alumni News pages the three global header rows and
+           the optional selected-player strip remain above this toolbar. */
+        #sec-news .pp-news-tools{
+          top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + var(--yp-news-filter-h,0px) - 1px);
+          background:var(--bg,#0c0c0c);
+          /* Fill the transparent band between the player rail and sticky
+             controls so newspaper cards never show through while scrolling. */
+          box-shadow:0 -26px 0 0 var(--bg,#0c0c0c);
+        }
+        .pp-news-no-results{padding:18px 0;text-align:center;color:var(--pp-news-muted);font:400 14px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         .pp-news-teaser{
           appearance:none;
           width:100%;
           display:flex;
           flex-direction:column;
           align-items:stretch;
-          gap:8px;
+          gap:7px;
           min-width:0;
-          padding:14px 0;
+          padding:9px 10px;
           text-align:left;
           cursor:pointer;
-          border:0;
-          border-bottom:1px solid var(--pp-news-card-border);
-          border-radius:0;
-          background:transparent;
+          border:1px solid var(--pp-news-card-border);
+          border-radius:8px;
+          background:var(--pp-news-card-bg);
           box-shadow:none;
           color:var(--pp-news-title);
           transition:border-color .15s ease,background .15s ease,transform .15s ease;
         }
         .pp-news-teaser:hover{
-          border-color:var(--gold,#ffc107);
+          border-color:var(--pp-news-title);
         }
         .pp-news-teaser:active{
           transform:scale(.997);
@@ -234,8 +281,8 @@ export default function ProfileNewsList({
         .pp-news-thumb{
           display:block;
           flex:0 0 auto;
-          width:112px;
-          height:76px;
+          width:100px;
+          height:72px;
           object-fit:cover;
           border-radius:6px;
           border:1px solid var(--pp-news-thumb-border);
@@ -265,7 +312,7 @@ export default function ProfileNewsList({
         }
         .pp-news-title{
           margin-top:-.08em;
-          font:800 17px/1.2 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          font:800 14px/1.26 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           letter-spacing:-.02em;
           color:var(--pp-news-title);
         }
@@ -286,7 +333,7 @@ export default function ProfileNewsList({
 
         .pp-news-reader-copy{
           margin:0 0 16px;
-          font:400 18px/1.62 var(--yat-news-font,Georgia,serif);
+          font:400 15px/1.6 var(--yat-font-ui,Archivo,Arial,sans-serif);
           color:var(--yat-content-drawer-copy,rgba(255,255,255,.94));
         }
         .pp-news-modal-why{
@@ -295,11 +342,27 @@ export default function ProfileNewsList({
           font-style:italic;
           color:var(--yat-content-drawer-muted,rgba(255,255,255,.72));
         }
+        .pp-news-modal-actions{display:flex;flex-direction:column;align-items:flex-start;gap:13px;min-width:0}
+        .pp-news-modal-profile{
+          display:inline-flex;align-items:center;gap:7px;max-width:100%;
+          color:#ffb21c; /* Same bright scoreboard yellow as the timeline. */
+          -webkit-text-stroke:.35px #111;
+          paint-order:stroke fill;
+          text-decoration:none;
+          font:700 12px/1.3 var(--yat-font-ui,"Archivo",Arial,sans-serif);
+          letter-spacing:0;
+        }
+        .pp-news-modal-profile:hover,.pp-news-modal-profile:focus-visible{
+          color:#ffcb5f;
+          text-decoration:underline;
+          text-underline-offset:3px;
+        }
+        .pp-news-modal-profile i{font-size:15px;flex:none}
         .pp-news-modal-source{
           display:inline-flex;
           align-items:center;
           gap:7px;
-          color:var(--gold,#ffc107);
+          color:var(--pp-news-title);
           text-decoration:none;
           font:600 12px/1.25 var(--yat-font-ui,"Archivo",Arial,sans-serif);
           letter-spacing:0;
@@ -312,22 +375,22 @@ export default function ProfileNewsList({
             padding-left:8px;
             padding-right:8px;
           }
-          .pp-news-teaser{gap:7px;padding:12px 0}
+          .pp-news-teaser{gap:7px;padding:9px 10px}
           .pp-news-row{gap:8px}
-          .pp-news-thumb{width:96px;height:68px}
-          .pp-news-title{font-size:16px}
+          .pp-news-thumb{width:90px;height:66px}
+          .pp-news-title{font-size:14px;line-height:1.26}
           .pp-news-body{font-size:12px}
-          .pp-news-reader-copy{font-size:14px;line-height:1.65}
+          .pp-news-reader-copy{font-size:14px;line-height:1.55}
         }
 
         /* Story copy in the shared news font (globals.css), and never
            smaller than 12px on a phone. */
-        .pp-news-body,
-        .pp-news-reader-copy{font-family:var(--yat-news-font)}
+        .pp-news-body{font-family:var(--yat-news-font)}
+        .pp-news-reader-copy{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)}
         .pp-news-body{font-size:13px;line-height:1.4}
         .pp-news-thumb-photo{position:relative;overflow:hidden;background-position:center;background-size:cover}
         .pp-news-thumb-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-        body.light-theme .pp-news-modal-source{color:#9a6f00}
+        body.light-theme .pp-news-modal-source{color:#555}
         @media(max-width:640px){
           .pp-news-body{font-size:12px}
         }
