@@ -174,7 +174,8 @@ export default function ProfileNewsList({
         ariaLabel={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
         kicker={selectedVideo ? "YAT?STATS VIDEO" : "YAT?STATS LOCAL RECAP"}
         title={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
-        media={selectedVideo ? <div className="pp-news-video-player">{selectedVideo.embedUrl ? <iframe src={selectedVideo.embedUrl} title="Contributed video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen loading="lazy" referrerPolicy="strict-origin-when-cross-origin" /> : <a href={selectedVideo.watchUrl} target="_blank" rel="noopener noreferrer"><i className="ri-play-circle-fill" aria-hidden="true" /> Watch on {selectedVideo.provider}</a>}</div> : undefined}
+        portraitMedia={selectedVideo?.provider === "Instagram"}
+        media={selectedVideo ? <div className={`pp-news-video-player${selectedVideo.provider === "Instagram" ? " pp-news-video-instagram" : ""}`}>{selectedVideo.embedUrl ? <iframe src={selectedVideo.embedUrl} title="Contributed video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen loading="lazy" referrerPolicy="strict-origin-when-cross-origin" /> : <a href={selectedVideo.watchUrl} target="_blank" rel="noopener noreferrer"><i className="ri-play-circle-fill" aria-hidden="true" /> Watch on {selectedVideo.provider}</a>}</div> : undefined}
         meta={
           openStory
             ? `${(openStory.source || "News").toUpperCase()}${openStory.publishedAt ? ` · ${formatDate(openStory.publishedAt)}` : ""}`
@@ -212,6 +213,8 @@ export default function ProfileNewsList({
         .pp-news-video-label{display:inline-flex;align-items:center;gap:5px;font:800 11px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);color:#ffb21c}
         .pp-news-video-player{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:#000;overflow:hidden}
         .pp-news-video-player iframe{display:block;width:100%;height:100%;border:0}
+        .pp-news-video-instagram{aspect-ratio:9/16;width:min(100%,420px,calc(74dvh * 9/16));max-height:74dvh;flex:none}
+        .pp-news-video-instagram iframe{background:#fff;aspect-ratio:9/16}
         .pp-news-video-player a{display:flex;gap:8px;align-items:center;color:white;font:700 16px/1.3 var(--yat-font-ui,Arial,sans-serif);text-decoration:none;padding:20px;text-align:center}
         @media(max-width:740px) {
           .yp-news-mobile-ad {display:flex;min-height:77px;align-items:center;justify-content:space-around;gap:12px;padding:10px;margin:6px 0 12px;border:1px dashed var(--pp-news-muted);background:var(--pp-news-card-bg);color:var(--pp-news-title);text-align:center;}
