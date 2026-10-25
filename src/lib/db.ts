@@ -2218,7 +2218,7 @@ function syndicatedCopyFilter(alias: string, lowVisible: string): string {
          )`;
 }
 
-export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
+export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promise<any[]> {
   try {
     const { rows } = await query(
       `SELECT
@@ -2251,10 +2251,10 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
        LEFT JOIN flip_card_front_stage f
          ON f.playerid::text = na.playerid
        WHERE na.hsid = $1
-         -- Discovery is not publication. Only identity-verified, meaningful
-         -- candidates may leave the candidate store and reach public UI.
+         -- Match the player's profile feed: VERIFIED stories (including
+         -- lower-relevance NEWS NUGGETS) without an arbitrary six-story cap.
+         -- Never publish unverified, rejected or syndicated duplicate rows.
          AND na.verification_status = 'VERIFIED'
-         AND COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW'
          -- Stories the recap generator found no clean sentence about him in
          -- (and not featured) are marked rejected: not news about him.
          AND NOT EXISTS (
@@ -2262,39 +2262,19 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
          )
-         AND ${syndicatedCopyFilter('na', 'false')}
-         -- At most 6 VERIFIED stories per player on the school feed
-         -- (distinct stories: syndicated copies don't count).
-         AND na.id IN (
-           SELECT id FROM (
-             SELECT id, ROW_NUMBER() OVER (
-               PARTITION BY COALESCE(NULLIF(playerid, ''), uuid)
-               ORDER BY published_at DESC
-             ) AS rn
-             FROM news_articles ranked_na
-             WHERE hsid = $1
-               AND verification_status = 'VERIFIED'
-               AND COALESCE(newsworthiness, 'NORMAL') <> 'LOW'
-               AND NOT EXISTS (
-                 SELECT 1 FROM news_article_derivatives rejected
-                  WHERE rejected.news_article_uuid = ranked_na.uuid
-                    AND rejected.approval_status = 'rejected'
-               )
-               AND ${syndicatedCopyFilter('ranked_na', 'false')}
-           ) ranked
-           WHERE rn <= 6
-         )
+         AND ${syndicatedCopyFilter('na', 'true')}
        -- Newest first, full stop. Featured stories used to lead
        -- regardless of date, which put a March story above September's.
        ORDER BY
          na.published_at DESC NULLS LAST,
          na.id DESC
-       LIMIT $2`,
-      [hsid, limit]
+       LIMIT $2 OFFSET $3`,
+      [hsid, limit, offset]
     );
     return rows;
-  } catch {
-    return [];
+  } catch (error) {
+    console.error('[getNewsByHsid] failed', { hsid, error });
+    throw error;
   }
 }
 

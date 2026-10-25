@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 
 const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
+const FILTERABLE_SECTIONS = new Set([...PLAYER_GALLERY_SECTIONS, 'news']);
 
 // The favorites gallery view (toggled from the Favorites drawer) restricts
 // the same section's grid down to a set of playerIds by hiding everything
@@ -45,11 +46,13 @@ function normalize(value: unknown): string {
 function getCurrentSection(): string {
   if (typeof window === 'undefined' || typeof document === 'undefined') return 'active';
 
-  const hash = window.location.hash || '';
-  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '').toLowerCase();
-
+  // The visible tab is authoritative: on mobile, drawer interactions can
+  // occur before SharedShell updates the URL hash.
   const visible = document.querySelector<HTMLElement>('.yat-section.visible');
   if (visible?.id?.startsWith('sec-')) return visible.id.replace(/^sec-/, '').toLowerCase();
+
+  const hash = window.location.hash || '';
+  if (hash.startsWith('#sec-')) return hash.replace(/^#sec-/, '').toLowerCase();
 
   return 'active';
 }
@@ -168,7 +171,13 @@ function sortFilteredAllTime(section: HTMLElement) {
 }
 
 function applyFilters(section: string) {
-  if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+  if (!FILTERABLE_SECTIONS.has(section)) return;
+  // School News is rendered by React, not .yat-card player-gallery nodes.
+  // Notify the NewsGallery to filter its *complete* story collection.
+  if (section === 'news') {
+    window.dispatchEvent(new CustomEvent('yat:gallery-filtered', { detail: { section } }));
+    return;
+  }
 
   const targetSection = document.getElementById(`sec-${section}`);
   if (!targetSection) return;
@@ -222,9 +231,16 @@ function applyFilters(section: string) {
 }
 
 function applyPreset(section: string) {
-  if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+  if (!FILTERABLE_SECTIONS.has(section)) return;
 
   clearFilters();
+  // News starts with every verified story available; never inherit the
+  // Active Alumni gallery's checked status restrictions.
+  if (section === 'news') {
+    syncEverySelectAll();
+    applyFilters('news');
+    return;
+  }
   if (section === 'alltime') {
     const allTimeSection = document.getElementById('sec-alltime');
     if (allTimeSection) delete allTimeSection.dataset.alltimeTeamYearFilter;
@@ -385,7 +401,7 @@ export default function GalleryFilterController() {
       if (!target?.closest('#filters')) return;
 
       const section = getCurrentSection();
-      if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+      if (!FILTERABLE_SECTIONS.has(section)) return;
 
       if (section === 'alltime' && target.closest('#filterRosterYears')) {
         const allTimeSection = document.getElementById('sec-alltime');
@@ -443,7 +459,7 @@ export default function GalleryFilterController() {
       if (!target || target.id !== 'filterName') return;
 
       const section = getCurrentSection();
-      if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+      if (!FILTERABLE_SECTIONS.has(section)) return;
 
       event.stopPropagation();
       if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
@@ -455,7 +471,7 @@ export default function GalleryFilterController() {
       if (!target?.closest('#filtersReset, #filtersReset2')) return;
 
       const section = getCurrentSection();
-      if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+      if (!FILTERABLE_SECTIONS.has(section)) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -469,7 +485,7 @@ export default function GalleryFilterController() {
     // state fresh rather than trusting this event's own payload.
     const onFavoritesFilterChanged = () => {
       const section = getCurrentSection();
-      if (!PLAYER_GALLERY_SECTIONS.has(section)) return;
+      if (!FILTERABLE_SECTIONS.has(section)) return;
 
       const targetSection = document.getElementById(`sec-${section}`);
       const isEnabledNow = Boolean(targetSection) && getFavoritesGalleryRestriction(targetSection as HTMLElement).enabled;

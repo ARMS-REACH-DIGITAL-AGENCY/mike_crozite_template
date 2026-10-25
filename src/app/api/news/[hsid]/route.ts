@@ -11,7 +11,7 @@
 //                                      (featured, then most about him, not
 //                                      negative) - what the back of his
 //                                      flip card shows
-//   GET /api/news/:hsid?limit=5      — limit results
+//   GET /api/news/:hsid?limit=100&offset=100 — read next page of all verified school stories
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getNewsByHsid, getNewsByPlayer } from '@/lib/db';
@@ -56,7 +56,12 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const playerId = searchParams.get('player');
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
+  // Bound the size of each response; pagination keeps the complete school
+  // feed available without loading every article during initial page load.
+  const parsedLimit = Number(searchParams.get('limit') || '50');
+  const parsedOffset = Number(searchParams.get('offset') || '0');
+  const limit = Number.isFinite(parsedLimit) ? Math.max(1, Math.min(100, Math.trunc(parsedLimit))) : 50;
+  const offset = Number.isFinite(parsedOffset) ? Math.max(0, Math.trunc(parsedOffset)) : 0;
 
   try {
     let articles: any[];
@@ -64,7 +69,7 @@ export async function GET(
     if (playerId) {
       articles = await getNewsByPlayer(playerId, limit, false, true);
     } else {
-      articles = await getNewsByHsid(hsid, limit);
+      articles = await getNewsByHsid(hsid, limit, offset);
     }
 
     const posts = articles.map((row) => {
