@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
+import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 
@@ -40,12 +41,14 @@ export async function POST(req: NextRequest) {
   let playerId = text(body.playerId, 20);
   let playerName = text(body.playerName, 120);
   let hsid = text(body.hsid, 20);
+  let selectedPlayerLevel = '';
 
   try {
     // A player on the site: his name and school come from our records.
     if (playerId && kind !== 'missing') {
-      const { rows } = await query<{ hsid: string | null; name: string }>(
-        `SELECT hsid::text AS hsid, TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name
+      const { rows } = await query<{ hsid: string | null; name: string; player_level: string | null }>(
+        `SELECT hsid::text AS hsid, TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) AS name,
+             COALESCE(NULLIF(TRIM(display_level_label),''),level_label) AS player_level
            FROM flip_card_front_stage WHERE playerid::text = $1 LIMIT 1`,
         [playerId]
       );
@@ -53,6 +56,7 @@ export async function POST(req: NextRequest) {
       else {
         playerName = rows[0].name || playerName;
         hsid = rows[0].hsid || hsid;
+        selectedPlayerLevel = String(rows[0].player_level || '').trim().toUpperCase();
       }
     }
 
@@ -65,7 +69,7 @@ export async function POST(req: NextRequest) {
         ? body.fields as Record<string,unknown> : {};
       const allowed = [
         'first_name','last_name','class_of','roster_years','status_label','level_label',
-        'position','current_team_name','facebook','instagram','x','tiktok','linkedin'
+        'position','current_team_name','committed_teamid','facebook','instagram','x','tiktok','linkedin'
       ] as const;
       const submitted:Record<string,string|string[]> = {};
       for (const key of allowed) {
@@ -75,6 +79,10 @@ export async function POST(req: NextRequest) {
           const years=normalizeSubmittedVarsityYears(value);
           if (!years) return fail('Choose valid high-school varsity years.');
           submitted[key]=years;
+        } else if (key === 'committed_teamid') {
+          // An explicit blank clears an earlier commitment; absence does not.
+          if (typeof value !== 'string') return fail('Choose a valid college.');
+          submitted[key]=text(value, 20);
         } else if (typeof value === 'string' && value.trim()) {
           submitted[key]=text(value,key === 'current_team_name' ? 120 : 80);
         }
@@ -82,14 +90,42 @@ export async function POST(req: NextRequest) {
       if (!Object.keys(submitted).length) return fail('Enter at least one player detail.');
       const allYears=Array.from({length:new Date().getFullYear()+2-1900},(_,i)=>String(1900+i));
       if (submitted.class_of && !allYears.includes(String(submitted.class_of))) return fail('Choose a valid graduation year.');
-      if (submitted.status_label && ![
-        'ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON',
-        'FREE AGENT','COACH','UNKNOWN'
-      ].includes(String(submitted.status_label))) return fail('Choose a valid status.');
+      const isNew=!playerId;
+      const isHighSchool = isNew
+        ? String(submitted.level_label || '').trim().toUpperCase() === 'HIGH SCHOOL'
+        : selectedPlayerLevel === 'HIGH SCHOOL';
+      const status = String(submitted.status_label || '').toUpperCase();
+      const teamIdSpecified = Object.prototype.hasOwnProperty.call(submitted,'committed_teamid');
+      const teamId = String(submitted.committed_teamid || '');
+      if (submitted.status_label && !(isHighSchool
+        ? ['UNCOMMITTED','COMMIT'].includes(status)
+        : ['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT','COACH','UNKNOWN'].includes(status))) {
+        return fail(isHighSchool ? 'High school players must be UNCOMMITTED or COMMIT.' : 'Choose a valid status.');
+      }
+      let commitTeamName:string|null=null;
+      if (teamIdSpecified || status==='COMMIT' || status==='UNCOMMITTED') {
+        if (!isHighSchool || isNew) return fail('Select an existing high-school player to announce a college commitment.');
+        if (!teamIdSpecified || !['UNCOMMITTED','COMMIT'].includes(status)) {
+          return fail('Choose the high-school status and college together.');
+        }
+        if (status==='UNCOMMITTED') {
+          if (teamId) return fail('UNCOMMITTED players cannot have a committed college.');
+        } else {
+          if (!/^\d{1,18}$/.test(teamId)) return fail('Choose a college from Global Search.');
+          // Only canonical college team IDs, not arbitrary typed team names or professional teams.
+          const {rows: colleges}=await query<{current_team_name:string}>(
+            `SELECT current_team_name FROM teamid_universe_mapping
+              WHERE teamid=$1 AND UPPER(TRIM(COALESCE(level_label,'')))=ANY($2::text[])
+                AND COALESCE(TRIM(current_team_name),'')<>'' LIMIT 1`,
+            [teamId,[...COLLEGE_COMMIT_LEVELS]]
+          );
+          if(!colleges[0]) return fail('That team is not a recognized college program.');
+          commitTeamName=colleges[0].current_team_name;
+        }
+      }
       if (submitted.level_label && ![
         'HIGH SCHOOL','NJCAA','CCCAA','NWAC','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','ROOKIE','SINGLE-A','HIGH-A','DOUBLE-A','TRIPLE-A','MLB','INDY','INTERNATIONAL','RETIRED'
       ].includes(String(submitted.level_label))) return fail('Choose a valid level.');
-      const isNew=!playerId;
       if (isNew) {
         const first=String(submitted.first_name||'').trim(),last=String(submitted.last_name||'').trim();
         if (!first||!last) return fail('Enter first and last names separately.');
@@ -97,7 +133,15 @@ export async function POST(req: NextRequest) {
         playerName=[first,last].join(' ');
       } else if (!/^\d+$/.test(hsid)) return fail('Player school was not found.');
       const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
+        commitTeamName,
         by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
+      const commitOnly = !isNew && Object.keys(submitted).length === 2 && teamIdSpecified
+        && ['COMMIT','UNCOMMITTED'].includes(status);
+      // Preview runs can share a database with production. Validate, but don't
+      // persist a test announcement to the production submission queue.
+      if (commitOnly && process.env.VERCEL_ENV === 'preview') {
+        return NextResponse.json({ok:true,review:'preview_only',commitTeamName}, {status:200});
+      }
       let contributionQueueId: string | null = null;
       if (isNew) {
         await query(
