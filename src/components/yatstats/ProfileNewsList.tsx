@@ -8,6 +8,7 @@ import ProfileContentDrawer from "./ProfileContentDrawer";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
 import { toSlugFromDisplay } from "@/lib/slug";
+import { parseNewsVideo, newsVideoHeadline, newsVideoDescription, type NewsVideo } from "@/lib/newsVideo";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -23,6 +24,7 @@ export type ProfileNewsStory = {
   /** Populated by the school-wide Alumni News feed; absent on one-player profiles. */
   playerId?: string | null;
   playerName?: string | null;
+  video?: NewsVideo | null;
 };
 
 const noSubscribe = () => () => {};
@@ -73,6 +75,7 @@ export default function ProfileNewsList({
   }, [storyParam, stories]);
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
+  const selectedVideo = openStory ? (openStory.video || parseNewsVideo(openStory.url)) : null;
   const relatedPlayerId = String(openStory?.playerId || playerId || '').trim();
   const relatedPlayerName = String(openStory?.playerName || playerName || '').trim();
   const playerProfileHref = openStory && relatedPlayerId && hsid
@@ -112,7 +115,13 @@ export default function ProfileNewsList({
           </label>
         </div>
         {sorted.length === 0 ? <p className="pp-news-no-results" role="status">No news matches “{search.trim()}”.</p> : null}
-        {sorted.map((story,index) => (
+        {sorted.map((story,index) => {
+          const clip = story.video || parseNewsVideo(story.url);
+          const headline = clip
+            ? newsVideoHeadline(story.title, story.playerName || playerName)
+            : stripHtml(story.title) || "Alumni news";
+          const description = clip ? newsVideoDescription(story.tease) : story.tease;
+          return (
           <Fragment key={story.uuid}>
           <button
             type="button"
@@ -132,8 +141,9 @@ export default function ProfileNewsList({
                 <CardPhoto srcs={getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl)} className="pp-news-thumb-img" />
               </div>
               <div className="pp-news-copy">
-                <div className="pp-news-title">{stripHtml(story.title) || "Alumni news"}</div>
-                {story.tease ? <div className="pp-news-body">{markPlayerName(stripHtml(story.tease), story.playerName || playerName)}</div> : null}
+                <div className="pp-news-title">{headline}</div>
+                {clip ? <span className="pp-news-video-label"><i className="ri-play-circle-line" aria-hidden="true" /> WATCH VIDEO · {clip.provider}</span> : null}
+                {description ? <div className="pp-news-body">{markPlayerName(stripHtml(description), story.playerName || playerName)}</div> : null}
                 <div className="pp-news-footer">
                   {(story.source || "News").toUpperCase()}
                   {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
@@ -145,15 +155,35 @@ export default function ProfileNewsList({
             <div className="yp-news-mobile-ad" aria-label="Title Sponsor advertisement space"><span>TITLE SPONSOR</span><strong>ADVERTISING ROW</strong><small>Reserved sponsor creative</small></div>
           ) : null}
           </Fragment>
-        ))}
+        );})}
       </div>
 
       <ProfileContentDrawer
         open={Boolean(openStory)}
         onClose={() => setOpenUuid("")}
-        ariaLabel={stripHtml(openStory?.title) || "Alumni news"}
-        kicker="YAT?STATS LOCAL RECAP"
-        title={stripHtml(openStory?.title) || "Alumni news"}
+        ariaLabel={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
+        kicker={selectedVideo ? "YAT?STATS VIDEO" : "YAT?STATS LOCAL RECAP"}
+        title={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
+        portraitMedia={selectedVideo?.provider === "Instagram"}
+        media={selectedVideo ? (
+          <div className={`pp-news-video-player${selectedVideo.provider === "Instagram" ? " pp-news-video-instagram" : ""}`}>
+            {selectedVideo.embedUrl ? (
+              <iframe
+                src={selectedVideo.embedUrl}
+                title={`${selectedVideo.provider} video: ${newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName)}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            ) : (
+              <a href={selectedVideo.watchUrl} target="_blank" rel="noopener noreferrer">
+                <i className="ri-play-circle-fill" aria-hidden="true" />
+                Watch on {selectedVideo.provider}
+              </a>
+            )}
+          </div>
+        ) : undefined}
         meta={
           openStory
             ? `${(openStory.source || "News").toUpperCase()}${openStory.publishedAt ? ` · ${formatDate(openStory.publishedAt)}` : ""}`
@@ -163,7 +193,7 @@ export default function ProfileNewsList({
           openStory ? (
             <div className="pp-news-modal-actions">
               <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-                Read the original story at {(openStory.source || "the source").toUpperCase()}
+                {selectedVideo ? `Watch on ${selectedVideo.provider}` : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
                 <i className="ri-external-link-line" aria-hidden="true" />
               </a>
               {playerProfileHref ? (
@@ -179,11 +209,21 @@ export default function ProfileNewsList({
           ) : null
         }
       >
-        {openStory?.recap ? <p className="pp-news-reader-copy">{markPlayerName(stripHtml(openStory.recap), playerName)}</p> : null}
+        {(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap) ? (
+          <p className="pp-news-reader-copy">
+            {markPlayerName(stripHtml(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap), openStory?.playerName || playerName)}
+          </p>
+        ) : null}
       </ProfileContentDrawer>
 
       <style>{`
         .yp-news-mobile-ad {display:none;}
+        .pp-news-video-label{display:inline-flex;align-items:center;gap:5px;font:800 11px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);color:#ffb21c}
+        .pp-news-video-player{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:#000;overflow:hidden}
+        .pp-news-video-player iframe{display:block;width:100%;height:100%;border:0}
+        .pp-news-video-instagram{aspect-ratio:9/16;width:min(100%,420px,calc(74dvh * 9/16));max-height:74dvh;flex:none}
+        .pp-news-video-instagram iframe{background:#fff;aspect-ratio:9/16}
+        .pp-news-video-player a{display:flex;gap:8px;align-items:center;color:white;font:700 16px/1.3 var(--yat-font-ui,Arial,sans-serif);text-decoration:none;padding:20px;text-align:center}
         @media(max-width:740px) {
           .yp-news-mobile-ad {display:flex;min-height:77px;align-items:center;justify-content:space-around;gap:12px;padding:10px;margin:6px 0 12px;border:1px dashed var(--pp-news-muted);background:var(--pp-news-card-bg);color:var(--pp-news-title);text-align:center;}
           .yp-news-mobile-ad span,.yp-news-mobile-ad small {font:700 10px/1.3 var(--yat-font-compact);color:var(--pp-news-muted);}

@@ -726,6 +726,23 @@ export default function DrawerLayoutOverrides() {
           height:auto!important;
         }
       }
+      /* Touch-only browsers may request desktop CSS width. Open drawers are
+         overlays there, not desktop rails which permanently shrink the page. */
+      @media (hover:none) and (pointer:coarse){
+        body.drawer-left-open :is(.yat-row3-shell,.yat-row4-shell,.yat-row5-shell,.yat-row6-shell),
+        body.drawer-sort-open :is(.yat-row3-shell,.yat-row4-shell,.yat-row5-shell,.yat-row6-shell),
+        body.drawer-right-open :is(.yat-row3-shell,.yat-row4-shell,.yat-row5-shell,.yat-row6-shell),
+        body.drawer-account-open :is(.yat-row3-shell,.yat-row4-shell,.yat-row5-shell,.yat-row6-shell),
+        body.drawer-favorites-open :is(.yat-row3-shell,.yat-row4-shell,.yat-row5-shell,.yat-row6-shell){
+          margin-left:0!important;
+          margin-right:0!important;
+        }
+        #sec-news, #sec-news .yat-news-wrap, #sec-news .yp-school-news{
+          box-sizing:border-box;
+          min-width:0;
+          max-width:100%;
+        }
+      }
       /* Mobile navigation uses the same visual rhythm as the Connect &
          Contribute list: compact Archivo labels, no rules, rounded grey
          selection. Reserve scrolling room above the fixed ticker/footer. */
