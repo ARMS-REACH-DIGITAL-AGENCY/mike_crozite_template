@@ -101,6 +101,8 @@ const dedicatedSplash = readFileSync('src/app/splash/page.tsx', 'utf8');
 assert.ok(dedicatedSplash.includes('export default async function SplashReplayPage'), 'standalone replay route must exist');
 assert.ok(dedicatedSplash.includes('previewMode'), 'standalone page must display enter button');
 assert.ok(dedicatedSplash.includes("getSchoolByUrl('https://' + host)"), 'replay must resolve school dynamically');
+assert.ok(dedicatedSplash.includes("requestHeaders.get('x-yat-splash-school-host')"), 'replay must read forwarded canonical school host');
+assert.ok(middleware.includes("requestHeaders.set('x-yat-splash-school-host', host)"), 'middleware must forward canonical school host');
 
 console.log('[splash schools] per-school first-visit cookies, permanent platform landing, JOIN and forced replay verified');
 
