@@ -36,7 +36,7 @@ assert.match(css, /yat-sponsor-reveal/);
 assert.doesNotMatch(css, /yat-splash-swoosh-foreground/, 'no duplicated splash foreground');
 assert.doesNotMatch(splash, /className="yat-splash-swoosh-foreground"/, 'no diagonal foreground element');
 assert.doesNotMatch(css, /mix-blend-mode:screen/, 'no lightened seam from overlay blending');
-assert.equal((css.match(/splash-field-reference\\.webp/g) || []).length, 1, 'field background image rendered exactly once');
+assert.equal(css.split('splash-field-reference.webp').length - 1, 1, 'field background image rendered exactly once');
 assert.match(splash, /logo\.naturalWidth/);
 assert.match(root, /mounted\+5500/);
 assert.ok(!root.includes('sponsorTimer='), 'sponsor timer must start from actual splash mount');
