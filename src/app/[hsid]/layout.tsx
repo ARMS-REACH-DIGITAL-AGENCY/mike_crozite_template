@@ -26,6 +26,7 @@ import { isNeverASchoolSegment } from '@/lib/schoolSegment';
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
 import { getBatchPlayerHeadshots } from '@/lib/playerHeadshots';
 
+import { APPROVED_SPLASH_PLAYER_IDS_BY_HSID } from '@/lib/splashPlayerPreferences';
 import type { Metadata } from 'next';
 
 // Shared Components
@@ -386,12 +387,18 @@ async function SchoolShell({
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
   // Favor active alumni; only fall back to other alumni when no usable
   // high-school cutout exists. All IDs come from already fetched roster rows.
+  const approvedSplashIds = APPROVED_SPLASH_PLAYER_IDS_BY_HSID[resolvedHsid];
+  // All selections come from the already loaded stage/strip roster; no extra DB calls.
+  // An approved school pool is exclusive and includes inactive players where requested.
+  const availableSplashIds = new Set(stripPlayerIds);
   const splashActiveIds = enableSplashCutouts
-    ? Array.from(new Set(activeAlumniPlayerIds.filter((id) => /^\d+$/.test(id))))
+    ? approvedSplashIds
+      ? approvedSplashIds.filter((id) => availableSplashIds.has(id))
+      : Array.from(new Set(activeAlumniPlayerIds.filter((id) => /^[A-Za-z0-9]+$/.test(id))))
     : [];
   const splashActiveIdSet = new Set(splashActiveIds);
-  const splashOtherIds = enableSplashCutouts
-    ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id) && !splashActiveIdSet.has(id))))
+  const splashOtherIds = enableSplashCutouts && !approvedSplashIds
+    ? Array.from(new Set(stripPlayerIds.filter((id) => /^[A-Za-z0-9]+$/.test(id) && !splashActiveIdSet.has(id))))
     : [];
   // Source the selected splash player's identity/team from this same
   // normalized school stage roster; no player-specific lookup or hardcode.
@@ -399,7 +406,7 @@ async function SchoolShell({
   if (enableSplashCutouts) {
     for (const row of [...activeAlumniRows, ...allStripRows]) {
       const id = String(row.playerid || '').trim();
-      if (!/^\\d+$/.test(id) || splashPlayerDetails[id]) continue;
+      if (!/^[A-Za-z0-9]+$/.test(id) || splashPlayerDetails[id]) continue;
       const name = String(row.display_name || `${String(row.first_name || row.firstname || '')} ${String(row.last_name || row.lastname || '')}`).trim();
       const team = String(row.current_team_name || '').trim();
       splashPlayerDetails[id] = { name, team };
