@@ -173,9 +173,49 @@ export async function publishQueuedVarsityYears(queueId:string):Promise<'publish
 
 export async function publishPendingContributions(limit=35):Promise<Outcome>{
  const outcome:Outcome={published:0,review:0,failed:0};
+ // Replay legacy college announcements that were stamped "needs_review"
+ // before automatic commitment publishing existed. A matching stage record
+ // must still be UNCOMMITTED, with no selected college, and the original
+ // submission must have a valid COMMIT field. This is universal for every
+ // school, bounded by the existing cron limit, and performs no page-load work.
+ //
+ // The commitment_published audit marks recovered announcements so they
+ // cannot be replayed if the player later changes colleges or decommits.
  const {rows}=await query<Tip>(`SELECT id::text,intake_source,matched_playerid,matched_hsid,raw_player_name,article_url,notes
- FROM news_tip_queue q WHERE q.status='new' AND q.intake_source IN ('correction','fan_drawer','manual_seed') AND NOT EXISTS (SELECT 1 FROM fan_activity fa WHERE fa.action='contribute_processed' AND fa.details->>'queue_id'=q.id::text)
- ORDER BY submitted_at ASC LIMIT $1`,[limit]);
+ FROM news_tip_queue q WHERE q.status='new'
+   AND q.intake_source IN ('correction','fan_drawer','manual_seed')
+   AND (
+     NOT EXISTS (
+       SELECT 1 FROM fan_activity fa
+       WHERE fa.action='contribute_processed'
+         AND fa.details->>'queue_id'=q.id::text
+     )
+     OR (
+       q.intake_source='correction'
+       AND q.notes LIKE '%"committed_teamid"%'
+       AND q.notes LIKE '%"status_label":"COMMIT"%'
+       AND EXISTS (
+         SELECT 1 FROM fan_activity fa
+         WHERE fa.action='contribute_processed'
+           AND fa.details->>'queue_id'=q.id::text
+           AND fa.details->>'status'='needs_review'
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM fan_activity fa
+         WHERE fa.action='commitment_published'
+           AND fa.details->>'queue_id'=q.id::text
+       )
+       AND EXISTS (
+         SELECT 1 FROM flip_card_front_stage f
+         WHERE f.playerid=q.matched_playerid
+           AND f.hsid::text=q.matched_hsid
+           AND UPPER(COALESCE(f.status_label,''))='UNCOMMITTED'
+           AND f.committed_teamid IS NULL
+           AND UPPER(COALESCE(NULLIF(TRIM(f.display_level_label),''),f.level_label,''))='HIGH SCHOOL'
+       )
+     )
+   )
+ ORDER BY q.submitted_at ASC LIMIT $1`,[limit]);
  for(const item of rows){
    try{
      const isCorrection=item.intake_source==='correction';
