@@ -36,6 +36,13 @@ assert.match(splash, /logo\.naturalWidth/);
 assert.match(root, /mounted\+5500/);
 assert.ok(!root.includes('sponsorTimer='), 'sponsor timer must start from actual splash mount');
 assert.match(school, /splashRosterJson/);
+assert.match(school, /sortActivePlayers\(\[\.\.\.activeAlumniRows\]\)/, 'splash candidates must follow the Active Alumni gallery sort');
+assert.match(school, /featuredSplashIds\.length : 4/, 'non-curated schools must use at most four candidates');
+assert.match(school, /const splashOtherIds: string\[\] = \[\]/, 'no full-roster image-probing fallback');
+assert.match(school, /missingSplashDetails\.delete\(id\)/, 'send only curated caption data');
+const featured = JSON.parse(readFileSync('src/config/splash-featured-players.json', 'utf8'));
+assert.deepEqual(featured['5004'], ['320111','317316','180827','213884','225132','233197','284749','YAT000067'], 'Hamilton curated list must stay exactly eight');
+
 assert.match(route, /WHERE s\.hsid = \$1/);
 assert.match(sql, /REFERENCES public\.sponsor_orders\(id\)/);
 assert.match(sql, /v_school_splash_sponsor_assignments/);
