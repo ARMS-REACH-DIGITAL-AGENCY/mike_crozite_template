@@ -530,12 +530,22 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           .yp-school-news-tower{display:none}
           .yp-school-news-main .pp-news-feed{padding:0 2px 55px}
         }
-        @media (hover: none) and (pointer: coarse) {
-          #sec-news .yp-school-news{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box}
-          #sec-news .yp-school-news-layout{display:block!important;grid-template-columns:minmax(0,1fr)!important;width:100%!important}
-          #sec-news .yp-school-news-main{min-width:0!important;width:100%!important}
-          #sec-news .yp-school-news-tower{display:none!important}
-          #sec-news .yp-school-news-inline-ad{display:flex!important}
+        /* The sponsor follows available space, not pointer type. Chrome's
+           desktop-site mode on a phone must behave like the desktop layout. */
+        @media (max-width:740px) {
+          #sec-news .yp-school-news {width:100%!important;min-width:0!important;box-sizing:border-box}
+          #sec-news .yp-school-news-layout {display:block!important;width:100%!important}
+          #sec-news .yp-school-news-tower {display:none!important}
+          #sec-news .yp-school-news-inline-ad {display:flex!important}
+        }
+        /* A docked filter reduces the available reading column. Relocate the
+           tower to the in-feed ad rather than hiding sponsor inventory. */
+        @media (min-width:780px) {
+          body.drawer-right-open #sec-news .yp-school-news-layout {
+            grid-template-columns:minmax(0,1fr)!important;
+          }
+          body.drawer-right-open #sec-news .yp-school-news-tower {display:none!important}
+          body.drawer-right-open #sec-news .yp-school-news-inline-ad {display:flex!important}
         }
         `}</style>
     </section>
