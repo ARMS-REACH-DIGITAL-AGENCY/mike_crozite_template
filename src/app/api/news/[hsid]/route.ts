@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getNewsByHsid, getNewsByPlayer } from '@/lib/db';
+import { chooseNewsDisplayImage } from '@/lib/playerImage';
 
 export const runtime = 'nodejs';
 
@@ -88,13 +89,16 @@ export async function GET(
         sourceFull: row.source_full,
         publishedAt: row.published_at,
         url: row.url,
-        // Never assume the publisher hero depicts our alumnus. display_image_url
-        // is the verified/safe image; image_url remains the raw source image.
-        imageUrl:
-          row.display_image_url ??
-          (row.playerid
-            ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
-            : null),
+        // Use publisher photography only when explicitly approved or when
+        // article identity + a distinctive player-matching filename agree.
+        imageUrl: chooseNewsDisplayImage({
+          playerId: row.playerid,
+          playerName: row.player_name,
+          displayImageUrl: row.display_image_url,
+          sourceImageUrl: row.image_url,
+          verificationStatus: row.verification_status,
+          imageVerificationStatus: row.image_verification_status,
+        }),
         sourceImageUrl: row.image_url,
         snippet: row.snippet,
         sentiment: row.sentiment,

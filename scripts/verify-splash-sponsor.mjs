@@ -46,4 +46,19 @@ assert.deepEqual(featured['5004'], ['320111','317316','180827','213884','225132'
 assert.match(route, /WHERE s\.hsid = \$1/);
 assert.match(sql, /REFERENCES public\.sponsor_orders\(id\)/);
 assert.match(sql, /v_school_splash_sponsor_assignments/);
+// Protect the previously approved Alumni News preview from being silently
+// replaced by an older layout when a separate feature branch is deployed.
+const newsGallery = readFileSync('src/components/yatstats/NewsGallery.tsx', 'utf8');
+const newsRails = readFileSync('src/components/yatstats/DrawerRailController.tsx', 'utf8');
+const newsStyles = readFileSync('src/components/yatstats/YatStyles.tsx', 'utf8');
+const newsRoute = readFileSync('src/app/api/news/[hsid]/route.ts', 'utf8');
+const newsImages = readFileSync('src/lib/playerImage.ts', 'utf8');
+assert.match(newsGallery, /container:yp-news \/ inline-size/, 'preserve container-aware Alumni News layout');
+assert.match(newsGallery, /@container yp-news \(max-width:840px\)/, 'preserve responsive Alumni News sponsor tower');
+assert.match(newsRails, /\(hover: none\) and \(pointer: coarse\)/, 'preserve touch-device drawer-width fix');
+assert.match(newsStyles, /@media\(max-width:779px\)/, 'preserve mobile full-width rows');
+assert.match(newsRoute, /chooseNewsDisplayImage/, 'preserve verified Alumni News image selection in API');
+assert.match(newsImages, /export function chooseNewsDisplayImage/, 'preserve shared news image verification');
+console.log('[news preview] article imagery and responsive mobile layout baseline verified');
+
 console.log('[splash sponsors] inline JS syntax, reveal timing, CSS and DB mapping verified');
