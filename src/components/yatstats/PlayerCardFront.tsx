@@ -295,7 +295,8 @@ function normalizeImageUrl(value: string | null | undefined): string {
 function formatCommitStatusLabel(player: Record<string, unknown>, statusLabel: string): string {
   if (statusLabel.toUpperCase() !== "COMMIT") return statusLabel;
 
-  const committedTeamName = asText(player.committed_team_name);
+  const committedTeamName = asText(player.committed_team_name)
+    || asText(player.resolved_committed_team_name);
 
   if (!committedTeamName) return statusLabel;
 
@@ -686,6 +687,10 @@ export default function PlayerCardFront({
 
         .yat-front-chip-stack .front-chip--commit {
           max-width: min(100%, 210px);
+          white-space: normal;
+          overflow-wrap: break-word;
+          text-overflow: clip;
+          line-height: 1.1;
         }
 
         .yat-front-chip-stack .front-chip--forty-man {
