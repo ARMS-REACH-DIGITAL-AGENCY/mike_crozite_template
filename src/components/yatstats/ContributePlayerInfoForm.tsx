@@ -117,6 +117,11 @@ export default function ContributePlayerInfoForm({
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
       setMessage(body.review === 'preview_only'
         ? 'Preview test received. This commitment was NOT saved or published.'
+        : body.review === 'published_commitment'
+          ? (body.commitment?.status === 'COMMIT'
+            ? `${body.commitment?.teamName || 'College'} COMMIT published! Row 3 will use the college logo after refresh.`
+            : 'UNCOMMITTED status published! Row 3 will show the uncommitted image after refresh.') +
+            (body.otherFieldsQueued ? ' Your other profile edits were submitted separately.' : '')
         : body.review === 'published'
         ? 'Varsity years saved. The school’s team-year filters will update on your next page refresh.'
         : body.review === 'needs_review'
@@ -238,7 +243,7 @@ export default function ContributePlayerInfoForm({
     <button type="button" className="ycd-btn ycd-btn-primary" disabled={sending||loading} onClick={submit}>
       {!signedIn?'Sign in to send':sending?'Sending…':'Submit player information'}
     </button>
-    <small className="ycd-muted">Valid contributions publish automatically. Conflicting player details require verification.</small>
+    <small className="ycd-muted">Valid college commitments publish immediately. Unrelated profile corrections may require verification.</small>
     <style jsx>{`
       .ycd-profile-fields{display:flex;flex-direction:column;gap:13px;}
       .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
