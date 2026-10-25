@@ -140,22 +140,22 @@ export default function ProfileContentDrawer({
           display:flex;
           flex-direction:column;
           box-shadow:-18px 0 48px rgba(0,0,0,.48);
-          border-left:1px solid rgba(255,193,7,.28);
+          border-left:0;
           overflow:hidden;
           animation:yatDrawerIn .18s ease-out both;
         }
         body.light-theme .yat-content-drawer__sheet{
-          --yat-content-drawer-bg:#f4efe5;
-          --yat-content-drawer-header-start:#fffdf8;
-          --yat-content-drawer-header-end:#f4efe5;
-          --yat-content-drawer-fg:#1f1a13;
-          --yat-content-drawer-copy:rgba(31,26,19,.92);
-          --yat-content-drawer-muted:rgba(31,26,19,.58);
-          --yat-content-drawer-border:rgba(61,47,28,.16);
-          --yat-content-drawer-close-bg:rgba(31,26,19,.04);
-          --yat-content-drawer-media-bg:#e9e1d3;
-          box-shadow:-18px 0 48px rgba(50,38,24,.22);
-          border-left-color:rgba(183,134,0,.38);
+          --yat-content-drawer-bg:#f5f5f5;
+          --yat-content-drawer-header-start:#fff;
+          --yat-content-drawer-header-end:#f5f5f5;
+          --yat-content-drawer-fg:#171717;
+          --yat-content-drawer-copy:#303030;
+          --yat-content-drawer-muted:#666;
+          --yat-content-drawer-border:rgba(0,0,0,.10);
+          --yat-content-drawer-close-bg:rgba(0,0,0,.055);
+          --yat-content-drawer-media-bg:#ededed;
+          box-shadow:-12px 0 32px rgba(0,0,0,.16);
+          border-left-color:transparent;
         }
         @keyframes yatDrawerIn{
           from{transform:translateX(24px);opacity:.5}
@@ -168,32 +168,32 @@ export default function ProfileContentDrawer({
           padding:18px 18px 14px;
           border-bottom:1px solid var(--yat-content-drawer-border);
           flex:0 0 auto;
-          background:linear-gradient(180deg,var(--yat-content-drawer-header-start),var(--yat-content-drawer-header-end));
+          background:var(--yat-content-drawer-bg);
         }
         .yat-content-drawer__heading{min-width:0}
         .yat-content-drawer__kicker{
-          color:var(--gold,#ffc107);
-          font:700 11px/1 Oswald,sans-serif;
-          letter-spacing:.1em;
+          color:var(--yat-content-drawer-muted);
+          font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:.015em;
           margin-bottom:7px;
           text-transform:uppercase;
         }
         .yat-content-drawer__header h3{
           margin:0;
-          font:400 24px/1.08 "Bebas Neue",Oswald,sans-serif;
-          letter-spacing:.02em;
+          font:800 20px/1.17 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:-.025em;
         }
         .yat-content-drawer__meta{
-          margin-top:7px;
-          font:400 10px/1.2 Oswald,sans-serif;
-          letter-spacing:.06em;
+          margin-top:8px;
+          font:500 11px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);
+          letter-spacing:0;
           color:var(--yat-content-drawer-muted);
         }
         .yat-content-drawer__close{
           width:38px;
           height:38px;
-          border:1px solid var(--yat-content-drawer-border);
-          border-radius:50%;
+          border:0;
+          border-radius:6px;
           background:var(--yat-content-drawer-close-bg);
           color:var(--yat-content-drawer-fg);
           font:300 28px/1 Arial,sans-serif;
@@ -266,12 +266,9 @@ export default function ProfileContentDrawer({
           opacity:.15;
           pointer-events:none;
         }
-        /* Light theme: the reader turns paper-colored, where the white crest
-           would vanish - show it as dark ink instead. */
-        body.light-theme .yat-content-drawer__header::before{filter:invert(1);opacity:.09}
-        /* Bright gold is unreadable on the light paper - same darker gold the
-           News card backs use in light mode. */
-        body.light-theme .yat-content-drawer__kicker{color:#9a6f00}
+        /* On light neutral backgrounds, display the existing crest as a
+           subtle grayscale watermark rather than introducing cream/gold. */
+        body.light-theme .yat-content-drawer__header::before{filter:invert(1) grayscale(1);opacity:.065}
       `}</style>
     </div>,
     document.body

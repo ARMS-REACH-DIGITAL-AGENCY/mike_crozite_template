@@ -344,6 +344,19 @@ body.light-theme .yat-shell-meta-chip .yat-gs-chip-lbl {
   font-family: var(--yat-font-ui) !important;
 }
 
+/* Unified search modes: Global Search and every Contribute/Clips & Tips search.
+   Match the approved condensed, bold, uppercase navigation typography even
+   when legacy drawer styles specify the standard UI font. */
+.yat-search-mode-buttons .yat-search-mode-btn {
+  font-family: "Oswald", sans-serif !important;
+  font-size: clamp(10px, 2.7vw, 14px) !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+  letter-spacing: .015em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap;
+}
+
 .yat-section h1,
 .yat-section h2,
 .yat-section h3,

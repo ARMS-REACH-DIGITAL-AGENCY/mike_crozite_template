@@ -15,7 +15,7 @@ const PACKAGES:Package[] = [
  {id:'active',name:'Player Profile Partner — Active',location:'ACTIVE PLAYER FUNZONE',intro:'Sponsor an active alumnus in the News, Connect and Stories tabs of their existing player profile.',
   inventory:['Player-profile News tab: right-side advertising tower','Player-profile Connect tab: right-side advertising tower','Player-profile Stories / Career Path tab: right-side advertising tower','The same placements become a horizontal advertising row on mobile'],desktop:'Three FunZone tabs: right tower',mobile:'Three FunZone tabs: stacked ad row',metrics:'Profile sessions, News/Connect/Stories views, viewable impressions, clicks and qualified responses',inquiry:'profile'},
  {id:'retired',name:'Player Profile Partner — Retired',location:'ALL-TIME / RETIRED PLAYER FUNZONE',intro:'The same profile placement package with a proposed discount for former Next-Level alumni.',
-  inventory:['Archived career News tab: partner tower','Video Connect tab: partner tower','Career Path Stories tab: partner tower','Mobile: the tower converts into a horizontal advertising row','Discount relative to the active profile package; no price set'],desktop:'Three FunZone tabs: right tower',mobile:'Three FunZone tabs: stacked ad row',metrics:'Retired-profile sessions, archived-news views, viewability, clicks and qualified responses',inquiry:'profile'},
+  inventory:['Archived career News tab: partner tower','Video Connect tab: partner tower','Career Path Stories tab: partner tower','Mobile / docked: the tower converts into an in-feed 300 × 250 sponsor card','Discount relative to the active profile package; no price set'],desktop:'Three FunZone tabs: right tower',mobile:'Three FunZone tabs: stacked ad row',metrics:'Retired-profile sessions, archived-news views, viewability, clicks and qualified responses',inquiry:'profile'},
  {id:'bracket',name:'Fantasy Bracket Partner',location:'ALUMNI FANTASY SCOREBOARD',intro:'Brand exposure beside the scoreboard when both statistical side panels are closed; the same space is unavailable while panels are open.',
   inventory:['Scoreboard-adjacent sponsor area when statistical drawers are closed','No counted sponsor impression when stat panels cover the placement','Mobile ad placement to be verified before sale'],desktop:'Beside right-anchored scoreboard when stat panels closed',mobile:'Placement subject to responsive testing',metrics:'Tournament audience, time panels are closed, in-view ad impressions and clicks',inquiry:'bracket'},
  {id:'team',name:'All-Time Sponsor a Team',location:'ALL-TIME NEXT-LEVEL LIST',intro:'ONE combined sponsorship: the team-year logo banner plus the matching Row 5 YaTi offer message on the same page.',
@@ -24,7 +24,7 @@ const PACKAGES:Package[] = [
 
 function AdUnit({name,mode}:{name:string;mode:'tower'|'row'}) {
   return <div className={'yp-partner-ad yp-partner-'+mode} aria-label={name+' proposed sponsor placement'}>
-    <span>RESERVED PARTNER INVENTORY</span><strong>{name}</strong><small>{mode==='tower'?'DESKTOP TOWER':'MOBILE AD ROW'} · SPONSOR CREATIVE GOES HERE</small>
+    <span>RESERVED PARTNER INVENTORY</span><strong>{name}</strong><small>{mode==='tower'?'STANDARD 300 × 600 PX DESKTOP TOWER':'STANDARD 300 × 250 PX IN-FEED CARD'} · SPONSOR CREATIVE GOES HERE</small>
   </div>;
 }
 function Placement({item}:{item:Package}) {
@@ -39,7 +39,7 @@ function Placement({item}:{item:Package}) {
   if(item.id==='active'||item.id==='retired')return <div className="yp-partner-placement">
     <small>REAL PLAYER PROFILE: NEWS · CONNECT · STORIES</small>
     <div className="yp-partner-profile-sample"><div className="yp-partner-profile-copy"><div>NEWS &nbsp; | &nbsp; CONNECT &nbsp; | &nbsp; STORIES</div><span>Existing player content / real news rows / video / timeline</span><span>Profile statistics and player information stay unchanged</span></div><AdUnit name="PROFILE PARTNER" mode="tower"/></div>
-    <AdUnit name="PROFILE PARTNER" mode="row"/><p>The actual profile page has this ad slot on the right of each tab; on mobile the same advertiser shifts to a horizontal row.</p>
+    <AdUnit name="PROFILE PARTNER" mode="row"/><p>The actual profile page has this ad slot on the right of each tab; on narrower screens the same advertiser uses a dedicated 300 × 250 in-feed creative.</p>
   </div>;
   if(item.id==='bracket')return <div className="yp-partner-placement">
     <small>FANTASY BRACKET: STAT PANELS CLOSED</small><div className="yp-partner-bracket"><AdUnit name="BRACKET PARTNER" mode="tower"/><div>RIGHT-ANCHORED<br/>MAIN SCOREBOARD</div></div>
@@ -173,8 +173,8 @@ export default function PartnerProgramPage(){
      .yp-partner-ad{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;padding:15px;text-align:center;border:1px dashed var(--muted);background:var(--bg)}
      .yp-partner-ad span,.yp-partner-ad small{font:700 9px/1.3 var(--yat-font-compact);color:var(--muted)}
      .yp-partner-ad strong{font:800 16px/1.1 var(--yat-font-compact)}
-     .yp-partner-tower{min-height:200px}
-     .yp-partner-row{min-height:65px;margin-top:9px}
+     .yp-partner-tower{aspect-ratio:1/2;min-height:0}
+     .yp-partner-row{aspect-ratio:6/5;min-height:0;width:min(100%,300px);margin-top:9px}
      .yp-partner-profile-sample{display:grid;grid-template-columns:1fr 125px;gap:10px;margin-top:11px;align-items:stretch}
      .yp-partner-profile-copy{display:flex;flex-direction:column;gap:10px;min-height:198px;padding:14px;background:var(--bg);border:1px solid var(--line)}
      .yp-partner-profile-copy div{font:800 11px var(--yat-font-compact)}

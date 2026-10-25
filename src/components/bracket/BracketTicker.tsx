@@ -196,11 +196,10 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
           background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px);
           background-size:4px 4px;
           border-top:1px solid #1d1408; }
-        /* No hard edges: the crawl fades at the edges
-           and fades in from the region box. */
-        .ybt-lane { position:relative; flex:1 1 auto; min-width:0; overflow:hidden; display:flex; align-items:center;
-          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 72px, #000 calc(100% - 40px), transparent 100%);
-          mask-image:linear-gradient(to right, transparent 0, #000 72px, #000 calc(100% - 40px), transparent 100%); }
+        /* Match the shared YaTi boundary; scores enter beside the region box. */
+        .ybt-lane { position:relative; flex:1 1 auto; min-width:0; margin-left:var(--yat-ticker-left,80px); overflow:hidden; display:flex; align-items:center;
+          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 var(--yat-ticker-fade,12px), #000 calc(100% - 40px), transparent 100%);
+          mask-image:linear-gradient(to right, transparent 0, #000 var(--yat-ticker-fade,12px), #000 calc(100% - 40px), transparent 100%); }
         /* One ticker per region, stacked: copies of the region's games end
            to end, crawling left one copy per loop (a seamless wrap). Only
            the region on show runs; the others hold their place, invisible,

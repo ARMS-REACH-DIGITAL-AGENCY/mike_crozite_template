@@ -27,7 +27,9 @@ export async function teamYearShareMeta(schoolHsid: string, schoolName: string, 
   };
 }
 
-const LINK_PREVIEW_BOT = /bot|crawler|spider|facebookexternalhit|twitterbot|slackbot|discord|whatsapp|telegram|linkedinbot|skypeuripreview|google-structured-data|preview/i;
+// Only recognize actual link-preview crawlers. App names such as "Telegram", 
+// "Discord", and the generic word "preview" can appear in human webviews.
+const LINK_PREVIEW_BOT = /bot\b|crawler\b|spider\b|facebookexternalhit|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|skypeuripreview|google-structured-data/i;
 const esc = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 // The short team link: link-preview fetchers get the team card; people are
@@ -55,7 +57,7 @@ export async function teamShortLinkResponse(request: Request, segment: string | 
   const target = `${hostBase}${schoolPath}/?team=${year}#sec-alltime`;
 
   if (!LINK_PREVIEW_BOT.test(request.headers.get('user-agent') || '')) {
-    return new Response(null, { status: 307, headers: { Location: target, 'Cache-Control': 'no-store' } });
+    return new Response(null, { status: 307, headers: { Location: target, 'Cache-Control': 'no-store', Vary: 'User-Agent' } });
   }
 
   const meta = await teamYearShareMeta(String(school.hsid), String(school.hsname || ''), year, hostBase);
@@ -68,6 +70,11 @@ export async function teamShortLinkResponse(request: Request, segment: string | 
     + `<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">`
     + `<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(meta.title)}">`
     + `<meta name="twitter:description" content="${esc(meta.description)}"><meta name="twitter:image" content="${esc(meta.image)}">`
-    + `</head><body><a href="${esc(target)}">${esc(meta.title)}</a></body></html>`;
-  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+    // Preserve the OG card for crawlers, but immediately navigate if an
+    // interactive in-app browser ever identifies itself with a bot-like UA.
+    + `</head><body><a id="yat-team-share-target" href="${esc(target)}">${esc(meta.title)}</a>`
+    + `<script>window.location.replace(document.getElementById("yat-team-share-target").href)</script></body></html>`;
+  // NEVER cache this response publicly: a crawler's HTML previously leaked
+  // into human opens of the same short URL, producing a blank white page.
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'User-Agent' } });
 }

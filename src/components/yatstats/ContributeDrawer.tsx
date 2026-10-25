@@ -72,7 +72,7 @@ function ChosenPlayer({ player, onChange }: { player: ContributePlayer; onChange
       <div className="yat-search-card yat-search-player-result ycd-chosen-player">
         <span aria-hidden="true" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="yat-search-thumb yat-search-player-headshot" src={`${S3}/players/now/${encodeURIComponent(player.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
+        <img className="yat-search-thumb yat-search-player-headshot" src={player.headshotUrl || `${S3}/players/now/${encodeURIComponent(player.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
         <span className="yat-search-player-text-link">
           <strong>{player.displayName}</strong>
           {player.schoolName ? <small className="yat-search-hs-line">{player.schoolName}</small> : null}
@@ -166,7 +166,9 @@ export default function ContributeDrawer() {
   // included, when the fan just signed in from it).
   const show = useCallback(() => {
     setOpen(true);
-    document.body.classList.remove('drawer-left-open', 'drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open');
+    document.body.classList.remove('drawer-right-open', 'drawer-sort-open', 'drawer-account-open', 'drawer-favorites-open', 'drawer-story-open');
+    // On genuinely wide screens a left navigation/search rail may remain docked.
+    if (window.innerWidth < 1600) document.body.classList.remove('drawer-left-open', 'yat-left-search-mode');
     document.body.classList.add('drawer-contribute-open', 'drawer-open');
     const account = document.getElementById('drawerAccount');
     account?.classList.remove('open', 'is-open', 'active');
@@ -376,7 +378,7 @@ export default function ContributeDrawer() {
     if (!signedIn) { pendingOpen.current = true; return openAccountDrawer('signin'); }
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
-      if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the link to the story.' });
+      if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
       return post({ kind: 'tip', url: tipUrl.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || '' });
     }
     if (!mp.name.trim()) return setStatus({ kind: 'error', text: "Type the player's name." });
@@ -664,12 +666,12 @@ export default function ContributeDrawer() {
                   <PlayerPicker value={player} onChange={choosePlayer} />
                 </div>
                 <div className="ycd-field">
-                  <label className="ycd-label" htmlFor="ycdTipUrl">Link to the story</label>
+                  <label className="ycd-label" htmlFor="ycdTipUrl"><i className="ri-newspaper-line" aria-hidden="true" /> <i className="ri-video-line" aria-hidden="true" /> News, video or social link</label>
                   <input id="ycdTipUrl" type="url" value={tipUrl} onChange={(e) => setTipUrl(e.target.value)} placeholder="https://" />
                 </div>
                 <div className="ycd-field">
                   <label className="ycd-label" htmlFor="ycdTipWhy">Why it matters (optional)</label>
-                  <textarea id="ycdTipWhy" rows={3} value={tipWhy} onChange={(e) => setTipWhy(e.target.value)} placeholder={`A milestone, a call-up, a great game by ${firstName}…`} />
+                  <textarea id="ycdTipWhy" rows={3} value={tipWhy} onChange={(e) => setTipWhy(e.target.value)} placeholder={`A milestone, a call-up, a great game or clip featuring ${firstName}…`} />
                 </div>
               </>
             )}
@@ -786,7 +788,7 @@ export default function ContributeDrawer() {
         }
         #drawerContribute .ycd-header{padding:16px 20px 14px;gap:10px;align-items:flex-start;}
         #drawerContribute .ycd-header::before{opacity:.04;}
-        #drawerContribute .ycd-title{display:flex;align-items:center;gap:11px;min-width:0;font:800 clamp(18px,3.5vw,22px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;overflow-wrap:anywhere;}
+        #drawerContribute .ycd-title{display:flex;align-items:center;gap:11px;min-width:0;font:800 clamp(18px,3.5vw,22px)/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;overflow-wrap:anywhere;text-transform:uppercase;}
         #drawerContribute .ycd-title i{flex:0 0 38px;width:38px;height:38px;margin:0;border-radius:50%;background:var(--card-bg);border:1px solid var(--line);color:var(--fg);font-size:20px;vertical-align:middle;}
         #drawerContribute .ycd-close{margin-top:3px;color:var(--fg);}
         #drawerContribute .ycd-hello{display:flex;flex-direction:column;gap:2px;margin:8px 0 0;font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif);color:var(--muted);}

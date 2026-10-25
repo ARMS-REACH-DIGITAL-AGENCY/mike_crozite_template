@@ -10,6 +10,8 @@
 //                                ever reaches a card.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
+import { revalidateTag } from 'next/cache';
 import { assetUrl, existingPublishedTarget, identifyContributor, isReviewer, notifyContributor, promoteUpload, type UploadRow } from '@/lib/contributeServer';
 
 export const runtime = 'nodejs';
@@ -41,10 +43,18 @@ export async function GET(req: NextRequest) {
           ORDER BY m.uploaded_at ASC LIMIT 100`
       ),
       query(
-        `SELECT id::text, submitted_at, intake_source, sender_name, raw_player_name, matched_playerid, matched_hsid,
-                article_url, notes, status
-           FROM news_tip_queue WHERE intake_source IN ('correction', 'fan_drawer')
-          ORDER BY submitted_at DESC LIMIT 100`
+        `SELECT q.id::text, q.submitted_at, q.intake_source, q.sender_name, q.raw_player_name, q.matched_playerid, q.matched_hsid,
+                q.article_url, q.notes, COALESCE(audit.status, q.status) AS status
+           FROM news_tip_queue q
+           LEFT JOIN LATERAL (
+             SELECT fa.details->>'status' AS status FROM fan_activity fa
+             WHERE fa.action = 'contribute_processed'
+               AND fa.firebase_uid = 'system:contribution-publisher'
+               AND fa.details->>'queue_id' = q.id::text
+             ORDER BY fa.created_at DESC LIMIT 1
+           ) audit ON true
+          WHERE q.intake_source IN ('correction', 'fan_drawer')
+          ORDER BY q.submitted_at DESC LIMIT 100`
       ),
       query(
         `SELECT p.id::text, p.created_at, p.hsid, p.player_name, p.grad_year, p.notes, s.hsname AS school_name
@@ -79,7 +89,95 @@ export async function POST(req: NextRequest) {
   if (r.error) return r.error;
   const id = String(body.id || '');
   const action = String(body.action || '');
-  if (!/^[0-9a-f-]{36}$/i.test(id) || !['approve', 'reject'].includes(action)) return fail('Unknown request.');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return fail('Unknown request.');
+  if (action === 'approve_commit' || action === 'reject_commit') {
+    // Commitment test submissions in preview must never mutate the shared DB.
+    if (process.env.VERCEL_ENV === 'preview') return fail('Commitment approval is disabled on preview deployments.', 409);
+    try {
+      const {rows: queue}=await query<{
+        matched_playerid:string|null; matched_hsid:string|null; notes:string|null;
+        review_state:string|null;
+      }>(`SELECT q.matched_playerid, q.matched_hsid, q.notes,
+              (SELECT fa.details->>'status' FROM fan_activity fa
+               WHERE fa.action='contribute_processed'
+                 AND fa.details->>'queue_id'=q.id::text
+               ORDER BY fa.created_at DESC LIMIT 1) AS review_state
+          FROM news_tip_queue q WHERE q.id::text=$1 AND q.intake_source='correction' LIMIT 1`,[id]);
+      const item=queue[0];
+      if (!item?.matched_playerid || !item.matched_hsid) return fail('Commitment submission was not found.',404);
+      if (['published','rejected'].includes(item.review_state || '')) return fail('This submission was already reviewed.',409);
+      let details:Record<string,unknown>={};
+      try { details=JSON.parse(item.notes || '{}'); } catch { return fail('Invalid submission details.'); }
+      const fields=details.fields && typeof details.fields==='object' && !Array.isArray(details.fields)
+        ? details.fields as Record<string,unknown> : {};
+      // Only an explicit two-field commitment submission can change the roster.
+      if (details.kind!=='profile_update' || details.playerId!==item.matched_playerid ||
+          details.hsid!==item.matched_hsid ||
+          Object.keys(fields).sort().join(',')!=='committed_teamid,status_label' ||
+          typeof fields.committed_teamid!=='string') {
+        return fail('This correction requires a separate review workflow.',409);
+      }
+      const nextStatus=String(fields.status_label || '');
+      const nextTeamId=fields.committed_teamid.trim();
+      if (!['COMMIT','UNCOMMITTED'].includes(nextStatus) ||
+          (nextStatus==='COMMIT' && !/^\d{1,18}$/.test(nextTeamId)) ||
+          (nextStatus==='UNCOMMITTED' && nextTeamId!=='')) return fail('Invalid commitment details.');
+      const {rows: currentRows}=await query<{
+        playerid:string; hsid:string; player_level:string|null; status_label:string|null; committed_teamid:string|null;
+      }>(`SELECT playerid::text, hsid::text,
+                 COALESCE(NULLIF(TRIM(display_level_label),''),level_label) AS player_level,
+                 status_label, committed_teamid
+            FROM flip_card_front_stage WHERE playerid=$1 AND hsid::text=$2 LIMIT 1`,
+        [item.matched_playerid,item.matched_hsid]);
+      const current=currentRows[0];
+      if (!current || String(current.player_level||'').trim().toUpperCase()!=='HIGH SCHOOL' ||
+          /COACH/i.test(String(current.status_label||''))) {
+        return fail('This player is not currently eligible for a high-school commitment update.',409);
+      }
+      if (action==='reject_commit') {
+        await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+          VALUES('system:contribution-review','contribute_processed',$1,$2,
+            jsonb_build_object('queue_id',$3::text,'status','rejected','reason','Reviewer rejected commitment'))`,
+          [current.playerid,current.hsid,id]);
+        return NextResponse.json({ok:true,status:'rejected'});
+      }
+      if (nextStatus==='COMMIT') {
+        const {rows: teams}=await query<{teamid:string}>(`SELECT teamid FROM teamid_universe_mapping
+          WHERE teamid=$1 AND UPPER(TRIM(COALESCE(level_label,'')))=ANY($2::text[])
+            AND COALESCE(TRIM(current_team_name),'')<>'' LIMIT 1`,
+          [nextTeamId,[...COLLEGE_COMMIT_LEVELS]]);
+        if (!teams[0]) return fail('The selected college is not valid.',409);
+      }
+      // Update stage data and append the review audit atomically. A change to
+      // the player since the reviewer loaded the page fails the compare-and-set.
+      const {rows: published}=await query<{playerid:string}>(`
+        WITH updated AS (
+          UPDATE flip_card_front_stage
+          SET status_label=$1, display_status_label=$1, committed_teamid=$2, updated_at=now()
+          WHERE playerid=$3 AND hsid::text=$4
+            AND COALESCE(status_label,'')=$5 AND COALESCE(committed_teamid,'')=$6
+            AND UPPER(TRIM(COALESCE(NULLIF(TRIM(display_level_label),''),level_label,'')))='HIGH SCHOOL'
+            AND UPPER(COALESCE(status_label,'')) NOT LIKE '%COACH%'
+          RETURNING playerid,hsid
+        ), audited AS (
+          INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+          SELECT 'system:contribution-review','contribute_processed',playerid,hsid,
+            jsonb_build_object('queue_id',$7::text,'status','published',
+              'reason','Reviewer approved college commitment','status_label',$1::text,'committed_teamid',$2::text)
+          FROM updated RETURNING playerid
+        )
+        SELECT playerid FROM audited
+      `,[nextStatus,nextStatus==='COMMIT'?nextTeamId:null,current.playerid,current.hsid,
+         current.status_label || '',current.committed_teamid || '',id]);
+      if (!published[0]) return fail('Player data changed during review. Reload and verify before approving.',409);
+      revalidateTag(`school-data:${current.hsid}`,{expire:0});
+      return NextResponse.json({ok:true,status:'published',playerId:published[0].playerid});
+    } catch (error) {
+      console.error('[contribute/review] commitment review failed',error);
+      return fail('Commitment review could not be completed.',500);
+    }
+  }
+  if (!['approve','reject'].includes(action)) return fail('Unknown request.');
   try {
     const { rows } = await query<UploadRow & { status: string }>(
       `SELECT id::text, playerid, hsid, purpose, s3_key, date_taken, team_at_time, description, status FROM media_upload WHERE id = $1`,

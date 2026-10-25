@@ -4,6 +4,8 @@ import { writerQuery as query } from "@/lib/dbWriter";
 import { findOrCreateGhlContact, sendGHLEmail } from "@/lib/gohighlevel";
 import {
   ACTIVE_CARD_LEFTOVERS_SQL,
+  CANONICAL_ACTIVE_STAGE_MISMATCH_SQL,
+  CANONICAL_STAGE_REPAIR_SQL,
   LEVEL_FIX_TARGETS,
   LEVEL_SCAN_SQL,
   OFFICIAL_LEVELS,
@@ -11,16 +13,12 @@ import {
   levelFixSql,
 } from "@/lib/officialLevels";
 
-// Weekly level spot check (Pete, Oct 18-19, 2026: only the official levels
-// are used, anywhere in the database). Every Monday it:
-//   1. rewrites known aliases and wrong capitalisation to the official level
-//      (AAA -> TRIPLE-A, LOW-A -> SINGLE-A, Rk -> ROOKIE, JUCO -> NJCAA) in
-//      every level column the site reads (LEVEL_FIX_TARGETS);
-//   2. scans every level column of every table for values that still aren't
-//      official, so a new one is caught the week it shows up;
-//   3. lists active players whose card isn't official (generic NCAA ...)
-//      or disagrees with the team cross-check (teamid_universe_mapping);
-// then emails Pete what it fixed and what a person has to decide.
+// Daily canonical identity + level quality check.
+// teamid_universe_mapping is the only team identity authority. Every day it:
+//   1. repairs Flip Card current team / org-conference / level from canonical identity;
+//   2. rewrites known level aliases in the remaining live level columns;
+//   3. scans for unofficial values and active Flip Card identity drift;
+// then emails Pete only when it repaired drift or found something unresolved.
 //   GET /api/cron/level-qc            fix + report
 //   GET /api/cron/level-qc?dry=1      report only, change nothing
 
@@ -40,6 +38,17 @@ const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&
 
 type ScanRow = { table_name: string; column_name: string; value: string; rows: number };
 type CardRow = { playerid: string; display_name: string; current_team_name: string | null; card_level: string; team_level?: string };
+type IdentityMismatch = {
+  playerid: string;
+  display_name: string;
+  current_teamid: string | null;
+  current_team_name: string | null;
+  current_org_or_conference_name: string | null;
+  level_label: string | null;
+  canonical_team_name: string | null;
+  canonical_org_name: string | null;
+  canonical_level: string | null;
+};
 
 const table = (head: string[], rows: string[][]) =>
   `<table cellpadding="4" border="1" style="border-collapse:collapse"><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr>${rows
@@ -53,7 +62,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const fixed: Record<string, number> = {};
+    let canonicalFixed = 0;
     if (!dry) {
+      const { rows: canonicalRows } = await query<{ fixed: number }>(CANONICAL_STAGE_REPAIR_SQL);
+      canonicalFixed = canonicalRows[0]?.fixed ?? 0;
+      if (canonicalFixed) fixed["flip_card_front_stage canonical identity"] = canonicalFixed;
       for (const target of LEVEL_FIX_TARGETS) {
         try {
           const { rows } = await query<{ fixed: number }>(levelFixSql(target));
@@ -70,25 +83,38 @@ export async function GET(req: NextRequest) {
     const { rows: scan } = await query<ScanRow>(LEVEL_SCAN_SQL, [official]);
     const { rows: cards } = await query<CardRow>(ACTIVE_CARD_LEFTOVERS_SQL, [official]);
     const { rows: mismatches } = await query<CardRow>(TEAM_LEVEL_MISMATCH_SQL, [official]);
-    const result = { ok: true, dry, fixed, fixedTotal, scan, activeCards: cards.length, mismatches: mismatches.length };
+    const { rows: identityMismatches } = await query<IdentityMismatch>(CANONICAL_ACTIVE_STAGE_MISMATCH_SQL);
+    const result = {
+      ok: true,
+      dry,
+      fixed,
+      fixedTotal,
+      canonicalFixed,
+      scan,
+      activeCards: cards.length,
+      mismatches: mismatches.length,
+      identityMismatches: identityMismatches.length,
+    };
 
     // Email when something changed, an active player needs a decision, or
     // any table still holds an unofficial level; a clean week stays quiet.
-    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || scan.length > 0) {
+    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0) {
       const contactId = await findOrCreateGhlContact(REPORT_EMAIL, "Pete", "DeLuca", undefined, "YAT?STATS Operations");
       if (contactId) {
         const fixedRows = Object.entries(fixed).map(([k, n]) => [esc(k), String(n)]);
-        const html = `<p><b>Weekly level check${dry ? " (dry run)" : ""}</b></p>
+        const html = `<p><b>Daily canonical identity + level check${dry ? " (dry run)" : ""}</b></p>
           <p><b>Fixed automatically (${fixedTotal}):</b></p>
           ${fixedRows.length ? table(["Table.column", "Rows"], fixedRows) : "<p>Nothing this week.</p>"}
           <p><b>Active players whose card isn't an official level (${cards.length}):</b></p>
           ${cards.length ? table(["Player", "Team", "Card says"], cards.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_team_name), `<b>${esc(r.card_level)}</b>`])) : "<p>None.</p>"}
           <p><b>Active players whose card disagrees with teamid_universe_mapping (${mismatches.length}):</b></p>
           ${mismatches.length ? table(["Player", "Team", "Card says", "Team table says"], mismatches.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_team_name), esc(r.card_level), `<b>${esc(r.team_level)}</b>`])) : "<p>None.</p>"}
+          <p><b>Active Flip Cards still disagreeing with canonical Team ID identity (${identityMismatches.length}):</b></p>
+          ${identityMismatches.length ? table(["Player", "Team ID", "Card Team", "Canonical Team", "Card Org", "Canonical Org", "Card Level", "Canonical Level"], identityMismatches.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.canonical_team_name), esc(r.current_org_or_conference_name), esc(r.canonical_org_name), esc(r.level_label), esc(r.canonical_level)])) : "<p>None.</p>"}
           <p><b>Every value in the database that still isn't official:</b></p>
           ${table(["Table", "Column", "Value", "Rows"], scan.map((r) => [esc(r.table_name), esc(r.column_name), `<b>${esc(r.value)}</b>`, String(r.rows)]))}
           <p>NCAA without a division needs the division. PRO needs MLB, the affiliate level, INDY or INTERNATIONAL.</p>`;
-        await sendGHLEmail(contactId, `YAT?STATS weekly level check: ${cards.length + mismatches.length} active to review`, html);
+        await sendGHLEmail(contactId, `YAT?STATS daily identity check: ${cards.length + mismatches.length + identityMismatches.length} active to review`, html);
       }
     }
     console.log("[level-qc]", JSON.stringify({ ...result, scan: scan.length }));

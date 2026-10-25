@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact } from "@/lib/gohighlevel";
+import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
+import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
+import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent } from "@/lib/fanConsent";
 
 export const runtime = "nodejs";
 
@@ -15,6 +17,12 @@ interface RegisterRequestBody {
   firstName?: string;
   lastName?: string;
   subdomain?: string;
+  phone?: string;
+  smsInformational?: boolean;
+  smsPromotional?: boolean;
+  disclosureVersion?: string;
+  idToken?: string;
+  sourceUrl?: string;
 }
 
 async function getSchoolByHsid(hsid: string) {
@@ -65,6 +73,23 @@ export async function POST(request: NextRequest) {
       { error: "uid and email are required" },
       { status: 400 }
     );
+  }
+
+  const smsInformational = body.smsInformational === true;
+  const smsPromotional = body.smsPromotional === true;
+  const phoneDigits = String(body.phone || "").replace(/\D/g, "");
+  const normalizedDigits = phoneDigits.length === 11 && phoneDigits.startsWith("1") ? phoneDigits.slice(1) : phoneDigits;
+  const phoneE164 = /^[2-9]\d{2}[2-9]\d{6}$/.test(normalizedDigits) ? "+1" + normalizedDigits : null;
+  const hasSmsConsent = smsInformational || smsPromotional;
+  if (hasSmsConsent && (!phoneE164 || body.disclosureVersion !== FAN_CONSENT_VERSION)) {
+    return NextResponse.json({ error: "Valid phone number and current SMS disclosure required" }, { status: 400 });
+  }
+  // Signed Firebase proof is mandatory for recording permission to send texts.
+  if (hasSmsConsent) {
+    const verified = await verifyFirebaseIdToken(String(body.idToken || ""));
+    if (!verified || verified.uid !== body.uid || verified.email.toLowerCase() !== body.email.toLowerCase()) {
+      return NextResponse.json({ error: "Cannot verify SMS consent identity" }, { status: 401 });
+    }
   }
 
   try {
@@ -160,6 +185,53 @@ export async function POST(request: NextRequest) {
         hsname: homeSchoolName,
         hslocation: homeSchoolLocation,
       });
+    }
+
+    // Save evidence before permitting any contact to enter an SMS workflow.
+    // No inference from membership, registration, or a provided phone number.
+    if (hasSmsConsent && phoneE164) {
+      // Keep the auditable form URL without arbitrary share tokens, fantasy
+      // state, or other personal information in query strings.
+      let sourceUrl = "";
+      let sourceHost = "";
+      try {
+        const form = new URL(String(body.sourceUrl || "").slice(0, 2048));
+        sourceHost = form.hostname.toLowerCase();
+        if (form.protocol !== "https:") throw new Error("HTTPS required");
+        const browserOrigin = request.headers.get("origin");
+        if (browserOrigin && new URL(browserOrigin).origin !== form.origin) {
+          throw new Error("Form source does not match request origin");
+        }
+        const joinSuffix = form.searchParams.get("join") === "1" ? "?join=1" : "";
+        sourceUrl = form.origin + form.pathname + joinSuffix;
+      } catch {
+        return NextResponse.json({ error: "Invalid SMS consent source" }, { status: 400 });
+      }
+      const isBrandDomain = sourceHost === "yatstats.com" || sourceHost.endsWith(".yatstats.com");
+      const isPreview = process.env.VERCEL_ENV !== "production" && sourceHost.endsWith(".vercel.app");
+      if (!isBrandDomain && !isPreview) {
+        return NextResponse.json({ error: "Invalid SMS consent source" }, { status: 400 });
+      }
+      await query(`INSERT INTO fan_sms_consent_events
+        (firebase_uid, email, contact_id, home_hsid, school_name, phone_e164,
+         informational_opt_in, promotional_opt_in, disclosure_version, informational_disclosure,
+         promotional_disclosure, shared_disclosure, source_url, user_agent)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, [
+          body.uid, body.email, profile.arms_contact_id, profile.home_hsid,
+          homeSchoolName, phoneE164, smsInformational, smsPromotional, FAN_CONSENT_VERSION,
+          fanInformationalConsent(homeSchoolName), fanPromotionalConsent(homeSchoolName),
+          FAN_SMS_DISCLOSURE, sourceUrl, request.headers.get("user-agent") || ""
+        ]);
+      if (profile.arms_contact_id) {
+        // Non-fatal: Firebase account registration must not fail because of a
+        // transient ARMS API outage. SMS workflows must filter using the
+        // category-specific tags AND honor HighLevel's native DND/STOP.
+        const synced = await syncYatstatsSmsConsent(profile.arms_contact_id, phoneE164, {
+          informational: smsInformational,
+          promotional: smsPromotional,
+        });
+        if (!synced) console.error("[sms-consent] Consent saved locally; ARMS phone/tag sync pending");
+      }
     }
 
     const superfan = isSuperfan(profile);
