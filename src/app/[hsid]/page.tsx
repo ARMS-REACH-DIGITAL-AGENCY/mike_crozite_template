@@ -26,6 +26,7 @@ import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
+import AllTimeOnDemandNavigation from "@/components/yatstats/AllTimeOnDemandNavigation";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
 import PartnerProgramPage from "@/components/yatstats/PartnerProgramPage";
@@ -413,7 +414,7 @@ export default async function SchoolPage({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ schoolState?: string; team?: string }>;
+  searchParams: Promise<{ schoolState?: string; team?: string; view?: string; player?: string }>;
 }) {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -456,9 +457,14 @@ export default async function SchoolPage({
     redirect(buildSchoolNotLiveHref(school, resolvedHsid, schoolState));
   }
 
+  // Only the active gallery is needed on a normal school landing. Preserve
+  // first-paint All-Time records for explicit team-year deep links.
+  const teamYear = parseTeamYear(qp.team);
+  const loadAllTime = Boolean(teamYear) || qp.view === "alltime" || Boolean(qp.player);
+
   const tributeSourceHsids = Array.from(new Set(
     TRIBUTE_STAT_OVERRIDES
-      .filter((override) => override.targetHsid === resolvedHsid)
+      .filter((override) => loadAllTime && override.targetHsid === resolvedHsid)
       .map((override) => override.sourceHsid)
   ));
 
@@ -467,10 +473,12 @@ export default async function SchoolPage({
       console.error("getActiveRosterByHsid failed", { resolvedHsid, error });
       return [];
     }),
-    getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
-      console.error("getAllTimeRosterByHsid failed", { resolvedHsid, error });
-      return [];
-    }),
+    loadAllTime
+      ? getAllTimeRosterByHsid(resolvedHsid).catch((error) => {
+          console.error("getAllTimeRosterByHsid failed", { resolvedHsid, error });
+          return [];
+        })
+      : Promise.resolve([]),
     getFlipCardFrontStageByHsid(resolvedHsid).catch((error) => {
       console.error("getFlipCardFrontStageByHsid failed", { resolvedHsid, error });
       return [];
@@ -519,7 +527,8 @@ export default async function SchoolPage({
 
   const allTimeSeenIds = new Set<string>();
   const allTimeMerged: Row[] = [];
-  for (const p of allTimeRosterRows) {
+  if (loadAllTime) {
+    for (const p of allTimeRosterRows) {
     const id = String(p.playerid);
     const stageRow = stageMap.get(id);
     const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
@@ -533,6 +542,7 @@ export default async function SchoolPage({
     if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isRetiredCoachCard(p))) {
       allTimeMerged.push({ ...p });
     }
+  }
   }
 
   // Coaches first, then A-Z - the same order the gallery's filter script
@@ -584,7 +594,6 @@ export default async function SchoolPage({
   // A shared team link (?team=2017): the page arrives already on the
   // All-Time list, filtered and ordered for that team (the other cards are
   // there, hidden), so nothing switches or reshuffles once it loads.
-  const teamYear = parseTeamYear(qp.team);
   const allTimeCards = teamYear
     ? teamYearCardOrder(allTimeFrontRoster, teamYear)
     : allTimeFrontRoster.map((player) => ({ player, onTeam: true }));
@@ -634,8 +643,11 @@ export default async function SchoolPage({
         className={`yat-section${teamYear ? ' visible' : ''}`}
         data-alltime-team-year-filter={teamYear || undefined}
       >
+        <AllTimeOnDemandNavigation loaded={loadAllTime} />
         <div className="yat-grid" id="alltime-grid">
-          {allTimeFrontRoster.length === 0 ? (
+          {!loadAllTime ? (
+            <div className="yat-gallery-loading" role="status" aria-live="polite">Loading All-Time alumni…</div>
+          ) : allTimeFrontRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
             allTimeCards.map(({ player: p, onTeam }, i) => {
