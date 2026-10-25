@@ -49,7 +49,7 @@ const SECTION_BOOTSTRAP =
 // touching the element; its rules start with "html " to outrank the
 // splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
-var d=document,forced=/[?&]splash=/.test(location.search),joining=/[?&]join=1(?:&|$)/.test(location.search);
+var d=document,replayRoute=location.pathname==='/splash',forced=replayRoute||/[?&]splash=/.test(location.search),joining=/[?&]join=1(?:&|$)/.test(location.search);
 // Every school subdomain has its own host-only 30-day visit cookie.
 // On a shared preview domain, /5004 and /5005 get separate keyed cookies.
 // The permanent yatstats.com landing page is not a timed school splash.
@@ -104,7 +104,7 @@ var lift=function(){if(forced||ready)return;ready=true;
  if(!shown){set(OFF);return;}
  tryExit();
 };
-if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;flip();}});return;}
+if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;if(replayRoute){d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';location.replace('/');}else flip();}});return;}
 addEventListener('yat:page-ready',lift);
 // On player profiles, DOMContentLoaded is sufficient: waiting for every
 // third-party player photo on window.load makes a ready page feel stuck.
