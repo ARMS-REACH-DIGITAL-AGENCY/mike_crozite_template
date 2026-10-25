@@ -319,7 +319,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
       </div>
       <style>{`
         .yp-school-news {
-          width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;
+          width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;container:yp-news / inline-size;
           color:var(--fg);background:var(--bg);min-height:60vh;
         }
         /* The news toolbar sticks below the three shared sticky site rows.
@@ -401,7 +401,9 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           object-fit:contain;object-position:center;
         }
         .yp-school-news-inline-ad {display:none;}
-        @media(max-width:1080px){
+        /* Responsive to available reading width, not the device label or
+           raw viewport: a docked drawer can reduce the usable column. */
+        @container yp-news (max-width:840px){
           .yp-school-news-layout{display:block;}
           .yp-school-news-tower{display:none;}
           .yp-school-news-inline-ad{
@@ -421,7 +423,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         }
         body.light-theme .yp-school-news-tower :is(small,span) {color:#3b3224}
         @media(max-width:740px){
-          .yp-school-news{padding:8px 12px 100px}
+          .yp-school-news{width:100%;max-width:none;padding:8px 12px 100px}
           .yp-school-news-layout{display:block}
           .yp-school-news-tower{display:none}
           .yp-school-news-main .pp-news-feed{padding:0 2px 55px}
