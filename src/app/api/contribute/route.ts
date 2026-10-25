@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
-import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
+import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 
@@ -107,7 +107,6 @@ export async function POST(req: NextRequest) {
         : ['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT','COACH','UNKNOWN'].includes(status))) {
         return fail(isHighSchool ? 'High school players must be UNCOMMITTED or COMMIT.' : 'Choose a valid status.');
       }
-      let commitTeamName:string|null=null;
       if (teamIdSpecified || status==='COMMIT' || status==='UNCOMMITTED') {
         if (isNew && isHighSchool && status==='UNCOMMITTED' && !teamIdSpecified) {
           // A missing high-school player may be added as UNCOMMITTED.
@@ -120,15 +119,6 @@ export async function POST(req: NextRequest) {
           if (teamId) return fail('UNCOMMITTED players cannot have a committed college.');
         } else {
           if (!/^\d{1,18}$/.test(teamId)) return fail('Choose a college from Global Search.');
-          // Only canonical college team IDs, not arbitrary typed team names or professional teams.
-          const {rows: colleges}=await query<{current_team_name:string}>(
-            `SELECT current_team_name FROM teamid_universe_mapping
-              WHERE teamid=$1 AND UPPER(TRIM(COALESCE(level_label,'')))=ANY($2::text[])
-                AND COALESCE(TRIM(current_team_name),'')<>'' LIMIT 1`,
-            [teamId,[...COLLEGE_COMMIT_LEVELS]]
-          );
-          if(!colleges[0]) return fail('That team is not a recognized college program.');
-          commitTeamName=colleges[0].current_team_name;
         }
         }
       }
@@ -141,16 +131,37 @@ export async function POST(req: NextRequest) {
         if (!/^\d+$/.test(hsid)) return fail('Select a high school.');
         playerName=[first,last].join(' ');
       } else if (!/^\d+$/.test(hsid)) return fail('Player school was not found.');
-      const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
-        commitTeamName,
-        by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
-      const commitOnly = !isNew && Object.keys(submitted).length === 2 && teamIdSpecified
+      const hasCommitmentUpdate = !isNew && isHighSchool && teamIdSpecified
         && ['COMMIT','UNCOMMITTED'].includes(status);
-      // Preview runs can share a database with production. Validate, but don't
-      // persist a test announcement to the production submission queue.
-      if (commitOnly && process.env.VERCEL_ENV === 'preview') {
-        return NextResponse.json({ok:true,review:'preview_only',commitTeamName}, {status:200});
+      let savedCommitment: {teamName:string|null;changed:boolean}|null=null;
+      if (hasCommitmentUpdate) {
+        // Previews share the production database. Test the form without
+        // writing ANY commitment, even when other fields changed.
+        if (process.env.VERCEL_ENV === 'preview') {
+          return NextResponse.json({ok:true,review:'preview_only'}, {status:200});
+        }
+        // Publish the canonical college selection immediately: this is
+        // distinct from the review workflow for unrelated profile edits.
+        savedCommitment=await publishCollegeCommitment({
+          playerId,hsid,status:status as 'COMMIT'|'UNCOMMITTED',teamId,
+          contributorUid:who.uid,source:'contribute',
+        });
+        // Do not leave an already-published college commitment in the
+        // correction queue. Other edited fields retain their review rules.
+        delete submitted.status_label;
+        delete submitted.committed_teamid;
+        if (Object.keys(submitted).length===0) {
+          await logContribution(who,'contribute_profile',{
+            playerid:playerId,hsid,pageUrl,details:{status_label:status,
+              committed_teamid:teamId,teamName:savedCommitment.teamName,
+              autoPublished:true},
+          });
+          return NextResponse.json({ok:true,review:'published_commitment',
+            commitment:{status,teamId,teamName:savedCommitment.teamName}}, {status:201});
+        }
       }
+      const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
+        by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
       let contributionQueueId: string | null = null;
       if (isNew) {
         await query(
@@ -205,7 +216,9 @@ export async function POST(req: NextRequest) {
             '<br/><b>Sender:</b> '+esc(who.email||who.name)+'</p><pre>'+esc(JSON.stringify(submitted,null,2))+'</pre>');
         }
       } catch(error) { console.error('[contribute/profile] owner notification failed',error); }
-      return NextResponse.json({ok:true,review:varsityPublication,instagram:instagramState}, {status:201});
+      return NextResponse.json({ok:true,review:savedCommitment?'published_commitment':varsityPublication,
+        otherFieldsQueued:Boolean(savedCommitment),instagram:instagramState,
+        commitment:savedCommitment?{status,teamId,teamName:savedCommitment.teamName}:undefined}, {status:201});
     }
 
     if (kind === 'data') {

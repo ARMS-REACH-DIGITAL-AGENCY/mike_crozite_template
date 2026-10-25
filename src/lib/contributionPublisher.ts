@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash } from 'crypto';
 import { query } from '@/lib/db';
+import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { revalidateTag } from 'next/cache';
 
 type Tip = { id: string; intake_source: string; matched_playerid: string | null; matched_hsid: string | null; raw_player_name: string | null; article_url: string; notes: string | null };
@@ -65,6 +66,27 @@ async function stage(id: string) {
 async function processCorrection(t:Tip):Promise<boolean> {
  const meta = parsed(t.notes);
  const fields = (meta?.fields && typeof meta.fields === 'object' && !Array.isArray(meta.fields)) ? meta.fields as Record<string,unknown> : {};
+ // Existing form submissions were historically queued for manual approval,
+ // sometimes together with unrelated corrections. Publish a valid commitment
+ // right away; process any remaining fields using the existing verification
+ // rules. Also repairs commitments already waiting in the queue.
+ if (t.intake_source === 'correction' && t.matched_playerid && t.matched_hsid &&
+     (fields.status_label==='COMMIT' || fields.status_label==='UNCOMMITTED') &&
+     typeof fields.committed_teamid === 'string') {
+   const by = meta?.by && typeof meta.by==='object' && !Array.isArray(meta.by)
+     ? meta.by as Record<string,unknown> : {};
+   const uid = String(by.uid || '').trim() || 'system:contribution-publisher';
+   await publishCollegeCommitment({
+     playerId:t.matched_playerid,hsid:t.matched_hsid,
+     status:fields.status_label,teamId:fields.committed_teamid,
+     contributorUid:uid,source:'queued',queueId:t.id,
+   });
+   const remaining=Object.fromEntries(Object.entries(fields).filter(([key])=>
+     key!=='status_label' && key!=='committed_teamid'));
+   if (Object.keys(remaining).length===0) return true;
+   // A conflicting name, photo, etc. must not undo the college publication.
+   return processCorrection({...t,notes:JSON.stringify({...meta,fields:remaining})});
+ }
  const oldGrad = /^\[grad_year\]\s*(\d{4})$/.exec(t.notes || '');
  const requestedYear = year(fields.class_of || oldGrad?.[1]);
  const requestedPosition = typeof fields.position==='string' ? fields.position.trim().toUpperCase() : '';
