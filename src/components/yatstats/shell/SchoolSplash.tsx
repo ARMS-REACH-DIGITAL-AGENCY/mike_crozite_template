@@ -105,8 +105,9 @@ const SPONSOR_LOOKUP = `(function(){
  var splash=document.getElementById('yatSplash'),sponsor=document.getElementById('yatSplashSponsor');
  if(!splash||!sponsor)return;
  var started=Date.now();splash.setAttribute('data-yat-mounted-at',String(started));
+ splash.setAttribute('data-yat-sponsor-state','checking');
  var slot=sponsor.querySelector('.yat-splash-partner-slot');
- if(!slot)return;
+ if(!slot){splash.setAttribute('data-yat-sponsor-state','none');return;}
  function revealWhenReady(){
   if(!splash.isConnected)return;
   var elapsed=Date.now()-started;
@@ -115,18 +116,21 @@ const SPONSOR_LOOKUP = `(function(){
   if(!logo||!logo.complete||!logo.naturalWidth)return;
   if(splash.classList.contains('yat-sponsor-reveal'))return;
   splash.setAttribute('data-yat-sponsor-at',String(Date.now()));
+  splash.setAttribute('data-yat-sponsor-state','ready');
   splash.classList.add('yat-sponsor-reveal');
  }
  setTimeout(revealWhenReady,2200);
  var preset=slot.querySelector('img');
- if(preset&&!preset.complete)preset.addEventListener('load',revealWhenReady,{once:true});
+ if(preset){splash.setAttribute('data-yat-sponsor-state','pending');if(!preset.complete)preset.addEventListener('load',revealWhenReady,{once:true});}
  var id=sponsor.getAttribute('data-school');
- if(!/^[0-9]+$/.test(id||''))return;
+ if(!/^[0-9]+$/.test(id||'')){if(!preset)splash.setAttribute('data-yat-sponsor-state','none');return;}
  // A paid assignment is resolved from indexed Neon tables. Existing static
  // legacy previews are left intact when there is no DB assignment.
  fetch('/api/splash-sponsor/'+encodeURIComponent(id),{credentials:'same-origin'})
  .then(function(r){return r.ok?r.json():null;}).then(function(data){
-  var s=data&&data.sponsor;if(!s||!s.logoUrl)return;
+  var s=data&&data.sponsor;
+  if(!s||!s.logoUrl){if(!preset)splash.setAttribute('data-yat-sponsor-state','none');return;}
+  splash.setAttribute('data-yat-sponsor-state','pending');
   var name=sponsor.querySelector('.yat-splash-partner-name');
   var img=new Image();img.className='yat-splash-partner';img.alt=s.name||'Sponsor';
   img.onload=function(){
@@ -135,8 +139,9 @@ const SPONSOR_LOOKUP = `(function(){
    if(name)name.textContent=s.name||'';
    revealWhenReady();
   };
+  img.onerror=function(){if(!preset)splash.setAttribute('data-yat-sponsor-state','none');};
   img.src=s.logoUrl;
- }).catch(function(){});
+ }).catch(function(){if(!preset)splash.setAttribute('data-yat-sponsor-state','none');});
 })();`;
 
 // A light sweep across one image, masked to its shape.
