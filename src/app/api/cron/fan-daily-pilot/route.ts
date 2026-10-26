@@ -25,7 +25,9 @@ export async function GET(request:NextRequest){
   return NextResponse.json({ok:false,date,error:'sender_failed'},{status:500});
  }
  const payload=await response.json().catch(()=>({error:'invalid_sender_response'}));
- const failed=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>!['queued','previously_attempted'].includes(r.status)):[];
- console.log('[fan-daily-pilot] completed',JSON.stringify({date,httpStatus:response.status,recipients:recipients.length,failures:failed.length,results:payload.result?.map((r:{email:string;status:string})=>({email:r.email,status:r.status})),error:payload.error||null}));
+ const failed=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>!['queued','previously_queued'].includes(r.status)):[];
+ const newlyQueued=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>r.status==='queued').length:0;
+ const previouslyQueued=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>r.status==='previously_queued').length:0;
+ console.log('[fan-daily-pilot] completed',JSON.stringify({date,httpStatus:response.status,recipients:recipients.length,newlyQueued,previouslyQueued,failures:failed.length,results:payload.result?.map((r:{email:string;status:string})=>({email:r.email,status:r.status})),error:payload.error||null}));
  return NextResponse.json({ok:response.ok&&failed.length===0,date,...payload},{status:response.ok&&failed.length===0?200:500});
 }
