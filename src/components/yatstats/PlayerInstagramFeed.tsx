@@ -2,11 +2,12 @@
 
 // The player's own Instagram posts in the profile's Social tab: a grid of
 // their latest posts (our S3 copies, refreshed by the instagram-sync cron).
+// News stories that link to Instagram open in this same viewer.
 // A tile opens an uncropped S3 picture in an on-site viewer; reels and
 // carousels can switch to Instagram's interactive embed on demand. Navigation
 // stays on the profile and arrows/swipe step through posts. Loads only once the Social tab
 // is actually shown, and renders nothing when there are no stored posts.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 export type InstagramViewerPost = {
@@ -17,20 +18,70 @@ export type InstagramViewerPost = {
   thumbnail_url: string;
   published_at?: string | null;
   handle?: string | null;
+  /** News only: the post's own picture is still being looked up. */
+  media_pending?: boolean;
 };
 
 type SchoolFeed = { hsid: string; name: string };
 
-export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, externalPosts, initialPostId, onClose }: {
+const INSTAGRAM_EMBED_HEADER = 54;
+
+export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, externalPosts, initialPostId, onClose, renderFooter }: {
   playerId: string; firstName: string; schoolFeed?: SchoolFeed;
   externalPosts?: InstagramViewerPost[]; initialPostId?: string; onClose?: () => void;
+  /** Extra controls under the caption (News likes, shares and comments). */
+  renderFooter?: (post: InstagramViewerPost) => ReactNode;
 }) {
   const schoolHsid = schoolFeed?.hsid;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [posts, setPosts] = useState<InstagramViewerPost[] | null>(externalPosts || null);
   const [open, setOpen] = useState<number | null>(null);
   const [showInstagramEmbed, setShowInstagramEmbed] = useState(false);
+  const [brokenPictureId, setBrokenPictureId] = useState<string | null>(null);
   const touchX = useRef<number | null>(null);
+  const [viewerScale, setViewerScale] = useState(1);
+  // Each post's width:height, read from its picture, so Instagram's player
+  // can be cut down to exactly the post's media.
+  const [aspects, setAspects] = useState<Record<string, number>>({});
+  const [mediaBox, setMediaBox] = useState<{ width: number; height: number } | null>(null);
+  const mediaObserver = useRef<ResizeObserver | null>(null);
+  const mediaRef = useCallback((el: HTMLDivElement | null) => {
+    mediaObserver.current?.disconnect();
+    mediaObserver.current = null;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      const width = Math.floor(el.clientWidth);
+      const height = Math.floor(el.clientHeight);
+      setMediaBox((box) => (box && box.width === width && box.height === height ? box : { width, height }));
+    });
+    observer.observe(el);
+    mediaObserver.current = observer;
+  }, []);
+
+  useEffect(() => {
+    // Android Chrome's "Desktop site" mode lays the page out around 980px
+    // wide and shrinks it onto the phone, so the 480px viewer looked tiny.
+    // Enlarge only the viewer's presentation there; Instagram's player
+    // inside keeps its mobile dimensions.
+    const update = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const coarse = window.matchMedia('(any-pointer: coarse)').matches;
+      const tallVirtualViewport = width >= 700 && width <= 1200 && height / width >= 1.5;
+      const scale = coarse && tallVirtualViewport
+        ? Math.min(1.9, (width - 32) / 480, (height - 128) / 820)
+        : 1;
+      const next = scale >= 1.15 ? Math.round(scale * 100) / 100 : 1;
+      setViewerScale((previous) => (previous === next ? previous : next));
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
 
   useEffect(() => {
     if (externalPosts) return;
@@ -98,8 +149,28 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   }, [open, step, close]);
 
   const current = open !== null && posts ? posts[open] : null;
-  const embedUrl = current?.permalink ? `${current.permalink.replace(/\/?$/, '/')}embed/captioned/` : null;
+  const embedUrl = current?.permalink ? `${current.permalink.replace(/\/?$/, '/')}embed/` : null;
   const hasInteractiveMedia = Boolean(embedUrl && (current?.media_type === 'video' || current?.media_type === 'carousel'));
+  // No picture of the post itself (never a stand-in photo): show Instagram's
+  // own player instead, once we know no picture is coming.
+  const hasPicture = Boolean(current?.thumbnail_url?.trim() && brokenPictureId !== current?.id);
+  const embedShown = Boolean(embedUrl && (showInstagramEmbed || (!hasPicture && !current?.media_pending)));
+  // Instagram's player (measured): a 54px account bar with "View profile",
+  // then the media at full width, then "View more on Instagram", likes and
+  // comments. Show only the media, at the post's own proportions; it can't
+  // be laid out narrower than 326px, so a smaller box scales it down.
+  // Reels play in a 4:5 frame there; photos keep their own shape, which
+  // Instagram limits to between 1.91:1 and 4:5.
+  const isReel = current?.media_type === 'video' || /\/(reel|tv)\//.test(current?.permalink || '');
+  const pictureShape = current ? aspects[current.id] : undefined;
+  const heightPerWidth = !isReel && pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4;
+  const embedBox = mediaBox
+    ? (() => {
+        const width = Math.max(1, Math.min(mediaBox.width, Math.floor(mediaBox.height / heightPerWidth)));
+        const layoutWidth = Math.max(326, width);
+        return { width, height: Math.floor(width * heightPerWidth), layoutWidth, scale: width / layoutWidth };
+      })()
+    : null;
   const publishedDate = current?.published_at
     ? new Date(current.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
@@ -147,7 +218,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
           taller than the available mobile viewport and were cropping photos. */}
       {current && createPortal(
         <div
-          className="pp-ig-viewer"
+          className={`pp-ig-viewer${viewerScale > 1 ? ' pp-ig-viewer-zoomed' : ''}`}
           role="dialog"
           aria-modal="true"
           aria-label={'Instagram post by @' + (current.handle || 'unknown')}
@@ -165,7 +236,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
             step(end < start ? 1 : -1);
           }}
         >
-          <div className="pp-ig-frame">
+          <div className="pp-ig-frame" style={viewerScale > 1 ? { transform: `scale(${viewerScale})` } : undefined}>
             <div className="pp-ig-post-source">
               <i className="ri-instagram-line" aria-hidden="true" />
               <strong>{current.handle ? '@' + current.handle : 'Instagram'}</strong>
@@ -175,27 +246,50 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                 </a>
               )}
             </div>
-            <div className="pp-ig-media">
-              {showInstagramEmbed && embedUrl ? (
-                <iframe
-                  key={current.id}
-                  src={embedUrl}
-                  title={'Interactive Instagram post by @' + (current.handle || 'unknown')}
-                  allow="autoplay; encrypted-media; picture-in-picture; clipboard-write"
-                  allowFullScreen
-                  loading="eager"
-                />
-              ) : (
+            <div className="pp-ig-media" ref={mediaRef}>
+              {embedShown && embedUrl ? (
+                embedBox && (
+                  <div className="pp-ig-embed-crop" style={{ width: embedBox.width, height: embedBox.height }}>
+                    <iframe
+                      key={current.id}
+                      src={embedUrl}
+                      title={'Interactive Instagram post by @' + (current.handle || 'unknown')}
+                      allow="autoplay; encrypted-media; picture-in-picture; clipboard-write"
+                      allowFullScreen
+                      loading="eager"
+                      scrolling="no"
+                      style={{
+                        width: embedBox.layoutWidth,
+                        height: INSTAGRAM_EMBED_HEADER + Math.ceil(embedBox.layoutWidth * heightPerWidth) + 2,
+                        transform: `translateY(${-INSTAGRAM_EMBED_HEADER * embedBox.scale}px) scale(${embedBox.scale})`,
+                      }}
+                    />
+                  </div>
+                )
+              ) : hasPicture ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={current.id}
                   src={current.thumbnail_url}
                   alt={current.caption ? current.caption.slice(0, 140) : 'Instagram post photo'}
+                  onLoad={(e) => {
+                    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                    const id = current.id;
+                    if (w && h) setAspects((all) => (all[id] === h / w ? all : { ...all, [id]: h / w }));
+                  }}
+                  onError={() => setBrokenPictureId(current.id)}
                 />
+              ) : current.media_pending ? (
+                <div className="pp-ig-media-loading" role="status" aria-label="Loading Instagram post" />
+              ) : (
+                <div className="pp-ig-media-unavailable">
+                  <p>Instagram preview unavailable.</p>
+                  {current.permalink && <a href={current.permalink} target="_blank" rel="noopener noreferrer">Open the original Instagram post</a>}
+                </div>
               )}
             </div>
-            <div className="pp-ig-post-details">
-              {hasInteractiveMedia && (
+            <div className={`pp-ig-post-details${renderFooter ? ' pp-ig-post-details-news' : ''}`}>
+              {hasInteractiveMedia && hasPicture && (
                 <button
                   type="button"
                   className="pp-ig-embed-toggle"
@@ -205,12 +299,13 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                   {showInstagramEmbed ? 'VIEW UNCROPPED PHOTO' : current.media_type === 'video' ? 'PLAY REEL' : 'VIEW CAROUSEL'}
                 </button>
               )}
-              {!showInstagramEmbed && current.caption && (
+              {!embedShown && current.caption && (
                 <p className="pp-ig-caption">{current.caption}</p>
               )}
-              {!showInstagramEmbed && publishedDate && (
+              {!embedShown && publishedDate && (
                 <time dateTime={current.published_at || undefined} className="pp-ig-post-date">{publishedDate}</time>
               )}
+              {renderFooter && <div className="pp-ig-extra" key={current.id}>{renderFooter(current)}</div>}
             </div>
           </div>
           <button type="button" className="pp-ig-close" aria-label="Close" onClick={close}>
@@ -248,8 +343,18 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-post-source a { white-space:nowrap; font:700 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.04em; color:#e6c34c; text-decoration:none; }
         .pp-ig-media { min-height:0; min-width:0; flex:1 1 auto; display:flex; align-items:center; justify-content:center; background:#050505; }
         .pp-ig-media img { width:100%; height:100%; display:block; object-fit:contain; object-position:center; }
-        .pp-ig-media iframe { width:100%; height:100%; display:block; border:0; background:white; }
+        .pp-ig-embed-crop { position:relative; flex:none; overflow:hidden; background:#050505; }
+        .pp-ig-embed-crop iframe { position:absolute; top:0; left:0; display:block; border:0; background:#050505; transform-origin:0 0; }
         .pp-ig-post-details { flex:0 0 auto; max-height:128px; overflow-y:auto; overscroll-behavior:contain; padding:9px 13px 11px; }
+        .pp-ig-post-details-news { max-height:150px; }
+        .pp-ig-post-details-news:has(.yp-news-thread-open) { flex:0 1 auto; max-height:min(38dvh,320px); }
+        .pp-ig-post-details-news .yp-news-engagement { margin-top:8px; padding-top:6px; }
+        .pp-ig-extra { min-width:0; }
+        .pp-ig-media-loading { width:28px; height:28px; border-radius:50%; border:3px solid rgba(255,255,255,.2); border-top-color:#e6c34c; animation:pp-ig-spin .9s linear infinite; }
+        @keyframes pp-ig-spin { to { transform:rotate(360deg); } }
+        .pp-ig-media-unavailable { display:grid; justify-items:center; gap:10px; padding:18px; color:#ddd; text-align:center; font:600 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .pp-ig-media-unavailable p { margin:0; }
+        .pp-ig-media-unavailable a { color:#e6c34c; }
         .pp-ig-caption { margin:0; max-height:62px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:#dedede; font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .pp-ig-post-date { display:block; margin-top:6px; font:500 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:#a7a7a7; }
         .pp-ig-embed-toggle { display:inline-flex; align-items:center; gap:5px; margin:0 0 7px; border:1px solid rgba(255,255,255,.35); border-radius:4px; padding:6px 10px; background:#282828; color:#fff; cursor:pointer; font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); }
@@ -259,6 +364,9 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-nav.prev { left:8px; }
         .pp-ig-nav.next { right:8px; }
         .pp-ig-count { position:absolute; bottom:16px; left:0; right:0; text-align:center; color:rgba(255,255,255,.84); font:500 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.06em; pointer-events:none; }
+        .pp-ig-viewer-zoomed .pp-ig-close { width:62px; height:62px; font-size:34px; }
+        .pp-ig-viewer-zoomed .pp-ig-nav { width:64px; height:64px; font-size:38px; }
+        .pp-ig-viewer-zoomed .pp-ig-count { font-size:19px; bottom:22px; }
         @media (max-width:600px){
           .pp-ig-viewer { padding:56px 0 54px; padding: max(56px,env(safe-area-inset-top)) 0 max(54px,env(safe-area-inset-bottom)); }
           .pp-ig-frame { width:100%; height:calc(100vh - 110px); height:calc(100dvh - 110px); border-radius:0; }
