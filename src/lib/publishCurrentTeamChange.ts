@@ -1,6 +1,7 @@
 import 'server-only';
 import { query } from '@/lib/db';
 import { revalidateTag } from 'next/cache';
+import { OFFICIAL_LEVELS } from '@/lib/officialLevels';
 
 // Global Search returns stable team IDs. Never trust a typed team name, level,
 // or conference from a contribution; derive them from the canonical universe.
@@ -11,11 +12,7 @@ export type CanonicalCurrentTeam = {
   orgName: string;
 };
 
-const TEAM_LEVELS = new Set([
-  'NJCAA', 'CCCAA', 'NWAC', 'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA',
-  'ROOKIE', 'SINGLE-A', 'HIGH-A', 'DOUBLE-A', 'TRIPLE-A', 'MLB',
-  'INDY', 'INTERNATIONAL',
-]);
+const TEAM_LEVELS = new Set<string>(OFFICIAL_LEVELS.filter(level => level !== 'HIGH SCHOOL'));
 
 export async function resolveCanonicalCurrentTeam(teamId: string): Promise<CanonicalCurrentTeam | null> {
   if (!/^\d{1,18}$/.test(teamId)) return null;
@@ -45,6 +42,7 @@ export async function publishCurrentTeamChange(input: {
   team: CanonicalCurrentTeam;
   reviewerUid: string;
   reviewedFanSuggestion?: boolean;
+  contributionQueueId?: string;
 }): Promise<boolean> {
   const { playerId, hsid, team, reviewerUid } = input;
   // Update the stage row first. The manual override is written only for a
@@ -73,12 +71,20 @@ export async function publishCurrentTeamChange(input: {
         level=EXCLUDED.level, reason=EXCLUDED.reason,
         updated_by=EXCLUDED.updated_by, updated_at=NOW()
       RETURNING playerid
+    ), audited AS (
+      INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+      SELECT 'system:contribution-review','contribute_processed',o.playerid,$2,
+        jsonb_build_object('queue_id',$9::text,'status','published',
+          'reason','Reviewer approved canonical current-team change','current_teamid',$3::text)
+      FROM override_written o WHERE $9::text IS NOT NULL
+      RETURNING playerid
     )
     SELECT playerid FROM override_written`, [
       playerId, hsid, team.teamId, team.name, team.level, team.orgName, reviewerUid,
       input.reviewedFanSuggestion
         ? 'Reviewer approved canonical current-team change'
         : 'Verified contributor current-team update',
+      input.contributionQueueId || null,
     ]);
   if (rows.length !== 1) return false;
   revalidateTag(`school-data:${hsid}`, { expire: 0 });
