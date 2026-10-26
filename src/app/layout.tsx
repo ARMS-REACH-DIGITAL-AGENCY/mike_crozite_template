@@ -35,7 +35,9 @@ const SECTION_BOOTSTRAP =
 // roster loads). Two modes, decided per person before the first paint:
 // - full, for someone new to YAT?STATS: the logo slides in from the right,
 //   the crest from the left, then they shine; sponsor enters 2.2s after the splash mounts;\n//   allow at least 5.5s for the brand-and-sponsor sequence;
-// - no splash for anyone returning within 30 days (shared yat_seen cookie).
+// - no splash for returning visitors to the SAME school within 30 days.
+//   Host-only school cookies prevent visits to one school from hiding another's.
+//   Direct /{hsid} previews use a school-keyed cookie on the preview hostname.
 //   Normal navigation waits for the destination without a takeover overlay.
 // On exit the splash slides right, revealing the already-loaded school
 // home page underneath. A short transition sound plays
@@ -47,9 +49,17 @@ const SECTION_BOOTSTRAP =
 // touching the element; its rules start with "html " to outrank the
 // splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
-var d=document,h=location.hostname,forced=/[?&]splash=/.test(location.search),seen=!forced&&/(?:^|;\\s*)yat_seen=1/.test(d.cookie);
-var dom=(h==='yatstats.com'||/\\.yatstats\\.com$/.test(h))?';domain=.yatstats.com':'';
-d.cookie='yat_seen=1;path=/;max-age=2592000;SameSite=Lax'+dom;
+var d=document,pathParts=location.pathname.split('/').filter(Boolean),replayId=pathParts.length===2&&pathParts[0]==='replay'&&/^[1-9][0-9]*$/.test(pathParts[1])?pathParts[1]:'',replayRoute=location.pathname==='/splash'||!!replayId,forced=replayRoute||/[?&]splash=/.test(location.search),joining=/[?&]join=1(?:&|$)/.test(location.search);
+// Every school subdomain has its own host-only 30-day visit cookie.
+// On a shared preview domain, /5004 and /5005 get separate keyed cookies.
+// The permanent yatstats.com landing page is not a timed school splash.
+var hostname=location.hostname.toLowerCase(),liveSchool=hostname.endsWith('.yatstats.com')&&hostname!=='www.yatstats.com';
+var seg=location.pathname.split('/')[1]||'',schoolPath=!liveSchool&&/^[1-9][0-9]*$/.test(seg)?seg:'';
+var splashCookie=(replayId&&!liveSchool?replayId:schoolPath)?'yat_splash_seen_'+(replayId&&!liveSchool?replayId:schoolPath):'yat_splash_seen';
+var seen=!forced&&(joining||d.cookie.split(';').some(function(value){return value.trim()===splashCookie+'=1';}));
+// Forced QA previews and JOIN deep links do not consume the first-visit intro.
+// Do not write a splash cookie on the static platform landing page.
+if(!forced&&!joining&&(liveSchool||schoolPath))d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
 var set=function(css){st.textContent=css;};
 var P='html #yatSplash';
@@ -80,9 +90,12 @@ var tryExit=function(){
  }
  var mounted=Number(splash.getAttribute('data-yat-mounted-at'))||t0;
  var sponsorAt=Number(splash.getAttribute('data-yat-sponsor-at'))||0;
- // 2.2s logo-only, then enough time to read the sponsor. Never block
- // beyond 9s after mount for a missing or slow sponsor image.
- var earliest=Math.max(mounted+5500,sponsorAt?sponsorAt+2200:0);
+ // No sponsor assigned? After the YAT logo and player-name flashes,
+ // there is no paid message to hold. Keep the longer hold for a sponsor,
+ // and never block beyond 9s after mount if its image is slow.
+ var noSponsor=splash.getAttribute('data-yat-sponsor-state')==='none';
+ var minimumHold=noSponsor?3600:5500;
+ var earliest=Math.max(mounted+minimumHold,sponsorAt?sponsorAt+2200:0);
  var leaveAt=Math.min(earliest,mounted+9000);
  if(now<leaveAt){setTimeout(tryExit,Math.min(350,leaveAt-now));return;}
  leaving=true;flip();
@@ -91,8 +104,14 @@ var lift=function(){if(forced||ready)return;ready=true;
  if(!shown){set(OFF);return;}
  tryExit();
 };
-if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;flip();}});return;}
+if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;if(replayRoute){d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';location.replace(replayId&&!liveSchool?'/'+replayId:'/');}else flip();}});return;}
 addEventListener('yat:page-ready',lift);
+// On player profiles, DOMContentLoaded is sufficient: waiting for every
+// third-party player photo on window.load makes a ready page feel stuck.
+// Galleries keep their own explicit yat:page-ready signal and fallback.
+if(location.pathname.indexOf('/player/')!==-1){
+  addEventListener('DOMContentLoaded',function(){setTimeout(lift,250);});
+}
 addEventListener('load',function(){if(!d.getElementById('alltime-grid'))setTimeout(lift,250);});
 setTimeout(lift,8000);
 })();}catch(e){}`;

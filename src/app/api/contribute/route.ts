@@ -17,6 +17,8 @@ import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
+import { parseNewsVideo, cleanNewsVideoTitle } from '@/lib/newsVideo';
+import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
 
 export const runtime = 'nodejs';
 
@@ -296,13 +298,22 @@ export async function POST(req: NextRequest) {
     if (kind === 'tip') {
       const url = text(body.url);
       const why = text(body.why, 2000);
-      const isClip = /(?:youtube\.com|youtu\.be|instagram\.com|tiktok\.com|x\.com|twitter\.com|facebook\.com|fb\.watch|vimeo\.com)/i.test(url);
-      if (!/^https?:\/\/\S+\.\S+/i.test(url)) return fail('Paste the news, video, or social link.');
+      const enteredTitle = cleanNewsVideoTitle(text(body.title, 2000));
+       if (!/^https?:\/\/\S+\.\S+/i.test(url)) return fail('Paste the news, video, or social link.');
+       const provider = parseNewsVideo(url);
+       const isClip = Boolean(provider);
+       const youtubeFallback = !enteredTitle && provider?.provider === 'YouTube';
+       const title = enteredTitle || (youtubeFallback ? await fetchYouTubeVideoTitle(url) : null) || '';
+       if (!title) return fail(youtubeFallback
+         ? 'Could not retrieve the YouTube title. Enter your own title to submit.'
+         : 'Please enter a title.');
+       // Preserve contributor headline first; store YouTube title only as fallback.
+       const notes = JSON.stringify({ kind: isClip ? 'clip' : 'news', title, why, titleSource: enteredTitle ? 'fan' : 'youtube_oembed' });
       await query(
         `INSERT INTO news_tip_queue (intake_source, sender_name, sender_contact_id, sender_role, raw_player_name,
                                      matched_playerid, matched_hsid, article_url, notes, status)
          VALUES ('fan_drawer', $1, $2, $3, $4, $5, $6, $7, $8, 'new')`,
-        [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, [isClip ? '[clip]' : '[news]', why].filter(Boolean).join(' ')]
+        [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, notes]
       );
       await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url, sourceType: isClip ? 'clip' : 'news' } });
       return NextResponse.json({ ok: true }, { status: 201 });

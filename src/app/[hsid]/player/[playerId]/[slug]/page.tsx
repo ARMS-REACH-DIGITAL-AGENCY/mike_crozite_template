@@ -36,7 +36,7 @@ import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
-import { getTeamLogoUrl, getOriginalForCardCopy } from "@/lib/playerImage";
+import { getTeamLogoUrl, getOriginalForCardCopy, chooseNewsDisplayImage } from "@/lib/playerImage";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
 type Props = {
@@ -290,11 +290,14 @@ export default async function ProfilePage({ params }: Props) {
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
     recap: playerCentricRecap(row),
     whyLocal: row.gallery_back_json?.why_local ?? null,
-    imageUrl:
-      row.display_image_url ??
-      (row.playerid
-        ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
-        : null),
+    imageUrl: chooseNewsDisplayImage({
+      playerId: row.playerid,
+      playerName: row.player_name || playerNewsFullName,
+      displayImageUrl: row.display_image_url,
+      sourceImageUrl: row.image_url,
+      verificationStatus: row.verification_status,
+      imageVerificationStatus: row.image_verification_status,
+    }),
     newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
     tease:
       row.tease_json?.body ??

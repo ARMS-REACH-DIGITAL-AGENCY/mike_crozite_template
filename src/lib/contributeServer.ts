@@ -334,7 +334,35 @@ async function cutout(source: Buffer): Promise<Buffer | null> {
 async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source: Buffer, written: string[]) {
   const png = await cutout(source);
   if (!png) {
+    // A failed/missing background-removal response must not leave the
+    // PREVIOUS player's image cached as the live timeline cutout.
     await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `players/${kind}-cutouts/${pid}.png` })).catch(() => {});
+    if (kind === 'back') {
+      // Use the actual approved action photo as a faded, transparent WebP.
+      // This is an immediately visible fallback even if remove.bg is down;
+      // it preserves the full photo and hides the text-side background.
+      const { data, info } = await sharp(source)
+        .resize({ width: 1400, height: 1000, fit: 'inside', withoutEnlargement: true })
+        .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      for (let x = 0; x < info.width; x++) {
+        const t = Math.min(1, Math.max(0, (x / info.width - 0.1) / 0.4));
+        const fade = t * t * (3 - 2 * t);
+        for (let y = 0; y < info.height; y++) {
+          const alphaOffset = (y * info.width + x) * 4 + 3;
+          data[alphaOffset] = Math.round(data[alphaOffset] * fade);
+        }
+      }
+      const freshWeb = await sharp(data, { raw: info })
+        .trim({ threshold: 10 })
+        .webp({ quality: 82, alphaQuality: 90 })
+        .toBuffer();
+      await put(`players/back-web/${pid}.webp`, freshWeb, 'image/webp');
+      written.push(`players/back-web/${pid}.webp`);
+    } else {
+      // Without a fresh cutout, the consumer's existing source list falls
+      // through to the current original; an obsolete web cutout must go.
+      await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `players/${kind}-web/${pid}.webp` })).catch(() => {});
+    }
     return;
   }
   await put(`players/${kind}-cutouts/${pid}.png`, png, 'image/png');

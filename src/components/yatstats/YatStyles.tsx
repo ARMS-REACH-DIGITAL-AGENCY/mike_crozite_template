@@ -93,6 +93,15 @@ export default function YatStyles() {
         scroll-margin-top: calc(var(--yat-sticky-bottom, calc(var(--row1-h) + var(--row2-h) + var(--row3-h))) + 8px);
       }
 
+      /* Native mobile chrome must span the viewport with no phantom rail
+         inset. Active desktop rails have their own explicit push geometry. */
+      @media(max-width:779px){
+        .yat-row1-shell,.yat-row2-shell,.yat-row3-shell,.yat-row5-shell{
+          width:100%!important;max-width:none!important;
+        }
+        .yat-topbar{width:100%;max-width:none}
+      }
+
       /* ───────── ROW 1 / DESKTOP TOP NAV ───────── */
 
       .yat-topbar{

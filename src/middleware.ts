@@ -40,11 +40,13 @@ export async function middleware(request: NextRequest) {
   else requestHeaders.delete('x-yat-splash');
 
   // Server layouts do not receive searchParams; retain explicit QA forcing.
-  if (request.nextUrl.searchParams.has('splash')) requestHeaders.set('x-yat-force-splash', '1');
+  if (request.nextUrl.searchParams.has('splash') || request.nextUrl.pathname === '/splash') requestHeaders.set('x-yat-force-splash', '1');
   else requestHeaders.delete('x-yat-force-splash');
 
   const path = request.nextUrl.pathname;
   const host = request.headers.get('host') || request.nextUrl.hostname;
+  // Preserve the original school hostname for the standalone replay page.
+  if (path === '/splash' && schoolHostnamePattern(host)) requestHeaders.set('x-yat-splash-school-host', host);
   // Only school hostnames are rewritten; homepage, global APIs and assets
   // remain untouched. The school ID in the internal URL is never guessed.
   const isSchoolPagePath = (
@@ -68,7 +70,7 @@ export async function middleware(request: NextRequest) {
         const hsid = String(payload.hsid || '');
         if (/^[1-9][0-9]*$/.test(hsid)) {
           const dest = request.nextUrl.clone();
-          dest.pathname = path === '/' ? `/${hsid}` : `/${hsid}${path}`;
+          dest.pathname = (path === '/' || path === '/splash') ? `/${hsid}` : `/${hsid}${path}`;
           requestHeaders.set('x-yat-resolved-host-hsid', hsid);
           requestHeaders.set('x-yat-internal-school-rewrite', '1');
           return NextResponse.rewrite(dest, {

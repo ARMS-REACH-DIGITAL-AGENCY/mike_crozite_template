@@ -34,6 +34,8 @@ import type { ReactNode } from "react";
 import { installFunZoneSwipe } from "./funZoneSwipe";
 import SevenDaySnapshotView from "./SevenDaySnapshotView";
 import {openWhereYatNow} from "./WhereYatNowDrawer";
+import { parseNewsVideo } from "@/lib/newsVideo";
+import { PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 
 // Constants
 
@@ -95,6 +97,7 @@ interface NewsTease {
 interface NewsApiPost {
   uuid?: string | null;
   title?: string | null;
+  url?: string | null;
   tease?: NewsTease | null;
   headline?: string | null;
   summary?: string | null;
@@ -244,7 +247,7 @@ function NewsPanel({
       }
 
       try {
-        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=2`, {
+        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=3&sort=newest`, {
           cache: "no-store",
         });
 
@@ -253,15 +256,15 @@ function NewsPanel({
         }
 
         const data = await res.json();
-const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 2) : [];
+const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 3) : [];
 
 const normalizedTeases: NewsTease[] = posts.map((post) => ({
   badge:
     post.tease?.badge ??
     (post.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
   headline:
-    post.tease?.headline ??
     post.displayHeadline ??
+    post.tease?.headline ??
     post.headline ??
     post.title ??
     undefined,
@@ -284,7 +287,7 @@ const normalizedTeases: NewsTease[] = posts.map((post) => ({
     ]
       .filter(Boolean)
       .join(" · ") || undefined),
-  imageUrl: post.tease?.imageUrl ?? post.imageUrl ?? undefined,
+  imageUrl: (post.url ? parseNewsVideo(post.url)?.thumbnailUrl : null) || post.tease?.imageUrl || post.imageUrl || undefined,
   newsCardId:
     post.tease?.newsCardId ??
     post.uuid ??
@@ -349,6 +352,11 @@ return (
                 src={story.imageUrl}
                 alt={story.headline || "Latest news"}
                 className="fz-news-thumb"
+                onError={(event) => {
+                  const image = event.currentTarget;
+                  if (!image.src.endsWith(PLAYER_SILHOUETTE_URL)) image.src = PLAYER_SILHOUETTE_URL;
+                  else image.style.visibility = "hidden";
+                }}
               />
             </a>
           ) : (
@@ -1185,16 +1193,21 @@ export default function FunZone({
         .fz-news-list{
           display:flex;
           flex-direction:column;
-          gap:clamp(5px,1.3cqi,8px);
+          gap:clamp(4px,1cqi,6px);
           width:100%;
+          height:100%;
+          min-height:0;
           min-width:0;
         }
         .fz-news-featured{
           display:flex;
+          flex:1 1 0;
           gap:clamp(5px,1.8cqi,10px);
           align-items:flex-start;
+          overflow:hidden;
+          min-height:0;
           min-width:0;
-          padding:clamp(5px,1.45cqi,8px);
+          padding:clamp(4px,1.1cqi,7px);
           border:1px solid rgba(30,22,14,.18);
           border-radius:clamp(5px,1.4cqi,8px);
           background:rgba(255,255,255,.18);
@@ -1207,7 +1220,7 @@ export default function FunZone({
         .fz-news-thumb{
           display:block;
           width:clamp(44px,15cqi,68px);
-          height:clamp(58px,19cqi,88px);
+          height:clamp(45px,14cqi,68px);
           object-fit:cover;
           border-radius:clamp(4px,1cqi,8px);
           border:1px solid rgba(30,22,14,0.18);
@@ -1243,6 +1256,11 @@ export default function FunZone({
           color:rgba(30,22,14,0.5);
         }
         .fz-news-title{
+          display:-webkit-box;
+          -webkit-line-clamp:3;
+          -webkit-box-orient:vertical;
+          overflow:hidden;
+          overflow-wrap:anywhere;
           font:700 clamp(9px,3cqi,13px)/1.12 "Bebas Neue",sans-serif;
           letter-spacing:.03em;
           color:rgba(30,22,14,0.9);
@@ -1251,7 +1269,7 @@ export default function FunZone({
           font:400 clamp(7px,2.15cqi,10px)/1.35 var(--yat-news-font);
           color:rgba(30,22,14,.82);
           display:-webkit-box;
-          -webkit-line-clamp:2;
+          -webkit-line-clamp:1;
           -webkit-box-orient:vertical;
           overflow:hidden;
         }
