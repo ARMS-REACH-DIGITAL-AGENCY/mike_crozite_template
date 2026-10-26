@@ -291,11 +291,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                 <time dateTime={current.published_at || undefined} className="pp-ig-post-date">{publishedDate}</time>
               )}
               {renderFooter && <div className="pp-ig-extra" key={current.id}>{renderFooter(current)}</div>}
-              {renderFooter && showInstagramEmbed && current.permalink && (
-                <a className="pp-ig-embed-backup" href={current.permalink} target="_blank" rel="noopener noreferrer">
-                  Instagram not playing? Open original post
-                </a>
-              )}
             </div>
           </div>
           <button type="button" className="pp-ig-close" aria-label="Close" onClick={close}>
@@ -365,7 +360,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-post-details-news .pp-ig-caption { max-height:70px; }
         .pp-ig-post-details-news .yp-news-engagement { margin-top:9px; padding-top:9px; }
         .pp-ig-extra { min-width:0; }
-        .pp-ig-embed-backup { display:inline-block; margin-top:6px; color:#e6c34c; font:600 11px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .pp-ig-media-unavailable { display:grid; justify-items:center; gap:10px; padding:18px; color:#ddd; text-align:center; font:600 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .pp-ig-media-unavailable p { margin:0; }
         .pp-ig-media-unavailable a { color:#e6c34c; }
