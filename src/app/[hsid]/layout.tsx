@@ -378,7 +378,7 @@ async function SchoolShell({
   // NCAA without a D1/D2/D3 classification is source data requiring enrichment,
   // not a selectable competition level.
   const levelFilterColumns = [
-    ['MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','INTERNATIONAL'],
+    ['MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE','INDY','SPONSOR','INTERNATIONAL'],
     ['NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'],
   ];
   const stripStageMap = new Map(

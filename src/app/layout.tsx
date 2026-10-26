@@ -49,6 +49,7 @@ const SECTION_BOOTSTRAP =
 // touching the element; its rules start with "html " to outrank the
 // splash's own.
 const SPLASH_BOOTSTRAP = `try{(function(){
+if(location.pathname==='/embed/sponsor-card/preview'||location.pathname==='/embed/sponsor-card/preview/')return;
 var d=document,pathParts=location.pathname.split('/').filter(Boolean),replayId=pathParts.length===2&&pathParts[0]==='replay'&&/^[1-9][0-9]*$/.test(pathParts[1])?pathParts[1]:'',replayRoute=location.pathname==='/splash'||!!replayId,forced=replayRoute||/[?&]splash=/.test(location.search),joining=/[?&]join=1(?:&|$)/.test(location.search);
 // Every school subdomain has its own host-only 30-day visit cookie.
 // On a shared preview domain, /5004 and /5005 get separate keyed cookies.
