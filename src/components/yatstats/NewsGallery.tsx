@@ -30,6 +30,8 @@ type NewsPost = {
   publishedAt: string | null;
   playerId: string | null;
   playerName: string | null;
+  originalPlayerName?: string | null;
+  taggedPlayers?: Array<{playerId:string;playerName:string}>;
   level: string | null;
   status: string | null;
   gradClass: string | null;
@@ -339,7 +341,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
 
   const visible = useMemo(
     () => (posts || []).filter((p) =>
-      (!playerFilter || String(p.playerId || "") === playerFilter)
+      (!playerFilter || String(p.playerId || "") === playerFilter || Boolean(p.taggedPlayers?.some(tag => tag.playerId === playerFilter)))
       && matchesNewsStory(p, newsFilters, favoriteIds)
     ),
     [posts, playerFilter, newsFilters, favoriteIds]
