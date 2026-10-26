@@ -13,9 +13,13 @@ export async function GET(req: NextRequest) {
   }
   try {
     const post = await fetchInstagramPostPreview(url);
+    // A complete post keeps for a day; a partial one is retried soon.
+    const complete = Boolean(post?.handle && post?.thumbnail_url);
     return NextResponse.json(
       { post },
-      { headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800' } }
+      { headers: { 'Cache-Control': complete
+        ? 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800'
+        : 'public, max-age=60, s-maxage=300' } }
     );
   } catch (error) {
     console.error('instagram post preview failed', { url, error: String(error) });
