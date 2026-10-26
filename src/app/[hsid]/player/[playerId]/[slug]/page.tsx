@@ -288,17 +288,19 @@ export default async function ProfilePage({ params }: Props) {
     url: row.url,
     source: row.source_full ?? row.source ?? null,
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
-    recap: playerCentricRecap(row),
+    recap: row.tagged_to_player ? null : playerCentricRecap(row),
     whyLocal: row.gallery_back_json?.why_local ?? null,
     imageUrl: chooseNewsDisplayImage({
-      playerId: row.playerid,
-      playerName: row.player_name || playerNewsFullName,
+      playerId: row.associated_playerid ?? row.playerid,
+      playerName: row.associated_player_name || playerNewsFullName,
       displayImageUrl: row.display_image_url,
       sourceImageUrl: row.image_url,
       verificationStatus: row.verification_status,
       imageVerificationStatus: row.image_verification_status,
     }),
     newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
+    playerId: safePlayerId,
+    playerName: playerNewsFullName,
     tease:
       row.tease_json?.body ??
       row.summary ??

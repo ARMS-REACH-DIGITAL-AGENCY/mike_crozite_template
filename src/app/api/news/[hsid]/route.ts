@@ -102,8 +102,8 @@ export async function GET(
         // Use publisher photography only when explicitly approved or when
         // article identity + a distinctive player-matching filename agree.
         imageUrl: chooseNewsDisplayImage({
-          playerId: row.playerid,
-          playerName: row.player_name,
+          playerId: row.associated_playerid ?? row.playerid,
+          playerName: row.associated_player_name ?? row.player_name,
           displayImageUrl: row.display_image_url,
           sourceImageUrl: row.image_url,
           verificationStatus: row.verification_status,
@@ -116,8 +116,12 @@ export async function GET(
         country: row.country,
         localRecap: row.local_recap ?? null,
 
-        playerName: row.player_name ?? null,
-        playerId: row.playerid ?? null,
+        playerName: row.associated_player_name ?? row.player_name ?? null,
+        playerId: row.associated_playerid ?? row.playerid ?? null,
+        taggedPlayers: row.tagged_players ?? [],
+        taggedStory: Boolean(row.tagged_to_school || row.tagged_to_player),
+        originalPlayerName: row.player_name ?? null,
+        sourceHsid: row.hsid ?? null,
         playerDbName: row.player_name ?? null,
 
         level: row.stage_level_label ?? row.level_label ?? null,
@@ -167,7 +171,7 @@ export async function GET(
       { posts, total: posts.length },
       {
         status: 200,
-        headers: { ...cors, 'Cache-Control': 'public, max-age=300, s-maxage=300' },
+        headers: { ...cors, 'Cache-Control': 'public, max-age=15, s-maxage=15, stale-while-revalidate=15' },
       }
     );
   } catch (err: unknown) {

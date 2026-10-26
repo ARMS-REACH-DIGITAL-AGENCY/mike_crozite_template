@@ -2221,53 +2221,78 @@ function syndicatedCopyFilter(alias: string, lowVisible: string): string {
 export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promise<any[]> {
   try {
     const { rows } = await query(
-      `SELECT
-        na.*,
-        nd.tease_json,
-        nd.gallery_front_json,
-        nd.gallery_back_json,
-        nd.profile_json,
-        nd.share_json,
-        nd.story_grade,
-        nd.story_scope,
-        nd.player_relevance,
-        nd.match_confidence,
-        nd.generation_status,
-        nd.approval_status,
-        nd.updated_at AS derivatives_updated_at,
-        -- The player's card as of now; news_articles' own copies of these
-        -- are a snapshot from ingest time.
-        f.level_label AS stage_level_label,
-        f.status_label AS stage_status_label,
-        f.current_team_name AS stage_team_name,
-        f.current_org_or_conference_name AS stage_org_name,
-        f.class_of AS stage_class_of,
-        f.roster_years AS stage_roster_years
-       FROM news_articles na
+      `WITH tagged_school AS MATERIALIZED (
+         -- Keep the original article unchanged. A tag grants a second school
+         -- access to the story via that school's verified player records.
+         SELECT activity.details->>'news_uuid' AS uuid,
+                MIN(tagged_player.playerid::text) AS first_playerid,
+                jsonb_agg(DISTINCT jsonb_build_object(
+                  'playerId', tagged_player.playerid::text,
+                  'playerName', tagged_player.display_name,
+                  'level', tagged_player.level_label,
+                  'status', tagged_player.status_label,
+                  'gradClass', tagged_player.class_of,
+                  'rosterYears', tagged_player.roster_years,
+                  'orgName', tagged_player.current_org_or_conference_name
+                )) AS players
+           FROM fan_activity activity
+           JOIN flip_card_front_stage tagged_player
+             ON tagged_player.playerid::text = activity.details->>'playerId'
+          WHERE activity.action = 'news_tagged'
+            AND tagged_player.hsid::text = $1
+            AND activity.details->>'news_uuid' IS NOT NULL
+          GROUP BY activity.details->>'news_uuid'
+       ),
+       scoped_uuids AS (
+         SELECT uuid FROM news_articles WHERE hsid = $1
+         UNION
+         SELECT uuid FROM tagged_school
+       )
+       SELECT
+         na.*,
+         nd.tease_json,
+         nd.gallery_front_json,
+         nd.gallery_back_json,
+         nd.profile_json,
+         nd.share_json,
+         nd.story_grade,
+         nd.story_scope,
+         nd.player_relevance,
+         nd.match_confidence,
+         nd.generation_status,
+         nd.approval_status,
+         nd.updated_at AS derivatives_updated_at,
+         f.level_label AS stage_level_label,
+         f.status_label AS stage_status_label,
+         f.current_team_name AS stage_team_name,
+         f.current_org_or_conference_name AS stage_org_name,
+         f.class_of AS stage_class_of,
+         f.roster_years AS stage_roster_years,
+         CASE WHEN na.hsid = $1 THEN na.playerid
+              ELSE tagged_school.first_playerid END AS associated_playerid,
+         f.display_name AS associated_player_name,
+         COALESCE(tagged_school.players, '[]'::jsonb) AS tagged_players,
+         (na.hsid <> $1) AS tagged_to_school
+       FROM scoped_uuids scoped
+       JOIN news_articles na ON na.uuid = scoped.uuid
+       LEFT JOIN tagged_school ON tagged_school.uuid = na.uuid
        LEFT JOIN news_article_derivatives nd
          ON nd.news_article_uuid = na.uuid
         AND nd.generation_status IN ('staged','published')
         AND nd.approval_status IN ('approved','published')
        LEFT JOIN flip_card_front_stage f
-         ON f.playerid::text = na.playerid
-       WHERE na.hsid = $1
-         -- Match the player's profile feed: VERIFIED stories (including
-         -- lower-relevance NEWS NUGGETS) without an arbitrary six-story cap.
-         -- Never publish unverified, rejected or syndicated duplicate rows.
-         AND na.verification_status = 'VERIFIED'
-         -- Stories the recap generator found no clean sentence about him in
-         -- (and not featured) are marked rejected: not news about him.
+         ON f.playerid::text = CASE WHEN na.hsid = $1 THEN na.playerid
+                                   ELSE tagged_school.first_playerid END
+       WHERE na.verification_status = 'VERIFIED'
          AND NOT EXISTS (
            SELECT 1 FROM news_article_derivatives rejected
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
          )
-         AND ${syndicatedCopyFilter('na', 'true')}
-       -- Newest first, full stop. Featured stories used to lead
-       -- regardless of date, which put a March story above September's.
-       ORDER BY
-         na.published_at DESC NULLS LAST,
-         na.id DESC
+         -- An explicitly tagged UUID must not disappear just because another
+         -- syndicated copy has a newer headline timestamp.
+         AND (tagged_school.uuid IS NOT NULL OR ${syndicatedCopyFilter('na', 'true')})
+       ORDER BY na.published_at DESC NULLS LAST, na.id DESC
        LIMIT $2 OFFSET $3`,
       [hsid, limit, offset]
     );
@@ -2300,46 +2325,57 @@ export async function getNewsByPlayer(
       : [playerId, includeLowRelevance];
 
     const { rows } = await query(
-      `SELECT
-        na.*,
-        nd.tease_json,
-        nd.gallery_front_json,
-        nd.gallery_back_json,
-        nd.profile_json,
-        nd.share_json,
-        nd.story_grade,
-        nd.story_scope,
-        nd.player_relevance,
-        nd.match_confidence,
-        nd.generation_status,
-        nd.approval_status,
-        nd.updated_at AS derivatives_updated_at,
-        -- The player's card as of now; news_articles' own copies of these
-        -- are a snapshot from ingest time.
-        f.level_label AS stage_level_label,
-        f.status_label AS stage_status_label,
-        f.current_team_name AS stage_team_name,
-        f.current_org_or_conference_name AS stage_org_name,
-        f.class_of AS stage_class_of,
-        f.roster_years AS stage_roster_years
-       FROM news_articles na
+      `WITH associated_uuids AS (
+         SELECT uuid FROM news_articles WHERE playerid = $1
+         UNION
+         -- The same existing engagement event that records a News tag now
+         -- also grants the tagged player a feed association. No new table.
+         SELECT details->>'news_uuid' AS uuid
+           FROM fan_activity
+          WHERE action = 'news_tagged'
+            AND details->>'playerId' = $1
+       )
+       SELECT
+         na.*,
+         nd.tease_json,
+         nd.gallery_front_json,
+         nd.gallery_back_json,
+         nd.profile_json,
+         nd.share_json,
+         nd.story_grade,
+         nd.story_scope,
+         nd.player_relevance,
+         nd.match_confidence,
+         nd.generation_status,
+         nd.approval_status,
+         nd.updated_at AS derivatives_updated_at,
+         f.level_label AS stage_level_label,
+         f.status_label AS stage_status_label,
+         f.current_team_name AS stage_team_name,
+         f.current_org_or_conference_name AS stage_org_name,
+         f.class_of AS stage_class_of,
+         f.roster_years AS stage_roster_years,
+         $1::text AS associated_playerid,
+         f.display_name AS associated_player_name,
+         (na.playerid <> $1) AS tagged_to_player
+       FROM associated_uuids associated
+       JOIN news_articles na ON na.uuid = associated.uuid
        LEFT JOIN news_article_derivatives nd
          ON nd.news_article_uuid = na.uuid
         AND nd.generation_status IN ('staged','published')
         AND nd.approval_status IN ('approved','published')
        LEFT JOIN flip_card_front_stage f
-         ON f.playerid::text = na.playerid
-       WHERE na.playerid = $1
-         AND na.verification_status = 'VERIFIED'
-         -- Stories the recap generator found no clean sentence about him in
-         -- (and not featured) are marked rejected: not news about him.
+         ON f.playerid::text = $1
+       WHERE na.verification_status = 'VERIFIED'
          AND NOT EXISTS (
            SELECT 1 FROM news_article_derivatives rejected
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
          )
-         AND (${lowRelevanceParam}::boolean OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
-         AND ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)}
+         -- Tagging a verified story should make it visible even if the
+         -- original publisher assigned LOW newsworthiness to its subject.
+         AND (${lowRelevanceParam}::boolean OR na.playerid <> $1 OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
+         AND (na.playerid <> $1 OR ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)})
        ORDER BY
          ${bestFirst ? `CASE
            WHEN LOWER(COALESCE(na.sentiment, '')) = 'negative' THEN 2
@@ -2353,7 +2389,8 @@ export async function getNewsByPlayer(
       params
     );
     return rows;
-  } catch {
+  } catch (error) {
+    console.error('[getNewsByPlayer] failed', { playerId, error });
     return [];
   }
 }
