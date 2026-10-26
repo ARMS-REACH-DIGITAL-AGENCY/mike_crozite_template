@@ -233,7 +233,7 @@ export default function ProfileNewsList({
         footer={
           openStory ? (
             <div className="pp-news-modal-actions">
-              <NewsEngagement uuid={openStory.uuid} hsid={hsid} title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} />
+              <NewsEngagement uuid={openStory.uuid} hsid={hsid} title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} description={openStory.recap || openStory.tease || ''} />
               {/* Embedded videos play here. Do not place a competing off-site
                   call to action under an already usable player. */}
               {!selectedVideo?.embedUrl ? (
