@@ -6,6 +6,7 @@ import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import NewsEngagement from "./NewsEngagement";
+import PlayerInstagramFeed, { type InstagramViewerPost } from "./PlayerInstagramFeed";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
 import { toSlugFromDisplay } from "@/lib/slug";
@@ -106,6 +107,15 @@ export default function ProfileNewsList({
 }) {
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
+  const instagramStories = useMemo(() => stories.filter(s => parseNewsVideo(s.url)?.provider === 'Instagram'), [stories]);
+  const instagramPosts = useMemo<InstagramViewerPost[]>(() => instagramStories.map(s => {
+    const video = parseNewsVideo(s.url);
+    return { id: s.uuid, media_type: video?.watchUrl.includes('/reel/') ? 'video' : 'carousel',
+      caption: s.title, permalink: video?.watchUrl || s.url,
+      thumbnail_url: s.imageUrl || video?.thumbnailUrl || PLAYER_SILHOUETTE_URL,
+      published_at: s.publishedAt, handle: null };
+  }), [instagramStories]);
+  const instagramSelected = Boolean(instagramPosts.some(p => p.id === openUuid));
 
   useEffect(() => {
     if (storyParam && stories.some((s) => s.uuid === storyParam)) {
@@ -203,8 +213,9 @@ export default function ProfileNewsList({
         );})}
       </div>
 
+      {instagramSelected ? <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts} initialPostId={openUuid} onClose={() => setOpenUuid("")} /> : null}
       <ProfileContentDrawer
-        open={Boolean(openStory)}
+        open={Boolean(openStory) && !instagramSelected}
         onClose={() => setOpenUuid("")}
         ariaLabel={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
         kicker={selectedVideo ? "YAT?STATS VIDEO" : "YAT?STATS LOCAL RECAP"}
