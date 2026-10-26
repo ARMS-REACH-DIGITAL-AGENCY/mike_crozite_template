@@ -57,14 +57,17 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
     return () => io.disconnect();
   }, [playerId, schoolHsid, externalPosts]);
 
-  useEffect(() => {
-    if (externalPosts) {
-      setPosts(externalPosts);
-      const index = externalPosts.findIndex(p => p.id === initialPostId);
-      setOpen(index >= 0 ? index : externalPosts.length ? 0 : null);
-      setShowInstagramEmbed(false);
-    }
-  }, [externalPosts, initialPostId]);
+  // News posts can be filled in (picture, @handle, caption) after the viewer
+  // opens: take the new details as they come, but only a newly chosen post
+  // moves the viewer.
+  const [openedFor, setOpenedFor] = useState<string | undefined>(undefined);
+  if (externalPosts && posts !== externalPosts) setPosts(externalPosts);
+  if (externalPosts && openedFor !== initialPostId) {
+    const index = externalPosts.findIndex(p => p.id === initialPostId);
+    setOpenedFor(initialPostId);
+    setOpen(index >= 0 ? index : externalPosts.length ? 0 : null);
+    setShowInstagramEmbed(false);
+  }
 
   const close = useCallback(() => { setOpen(null); onClose?.(); }, [onClose]);
 

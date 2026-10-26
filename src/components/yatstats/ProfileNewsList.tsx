@@ -108,13 +108,31 @@ export default function ProfileNewsList({
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
   const instagramStories = useMemo(() => stories.filter(s => parseNewsVideo(s.url)?.provider === 'Instagram'), [stories]);
+  // The post itself (picture, @handle, caption, kind), so the viewer shows
+  // exactly what the Social tab shows for a synced post.
+  const [instagramDetails, setInstagramDetails] = useState<Record<string, InstagramViewerPost>>({});
+  useEffect(() => {
+    let cancelled = false;
+    for (const s of instagramStories) {
+      fetch(`/api/social/instagram-post?url=${encodeURIComponent(s.url)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!cancelled && d?.post) setInstagramDetails((prev) => ({ ...prev, [s.uuid]: d.post }));
+        })
+        .catch(() => {});
+    }
+    return () => { cancelled = true; };
+  }, [instagramStories]);
   const instagramPosts = useMemo<InstagramViewerPost[]>(() => instagramStories.map(s => {
     const video = parseNewsVideo(s.url);
-    return { id: s.uuid, media_type: video?.watchUrl.includes('/reel/') ? 'video' : 'carousel',
-      caption: s.title, permalink: video?.watchUrl || s.url,
-      thumbnail_url: s.imageUrl || video?.thumbnailUrl || PLAYER_SILHOUETTE_URL,
-      published_at: s.publishedAt, handle: null };
-  }), [instagramStories]);
+    const post = instagramDetails[s.uuid];
+    return { id: s.uuid,
+      media_type: post?.media_type || (video?.watchUrl.includes('/reel/') ? 'video' : 'carousel'),
+      caption: post?.caption || newsVideoHeadline(s.title, s.playerName || playerName),
+      permalink: post?.permalink || video?.watchUrl.replace(/embed\/$/, '') || s.url,
+      thumbnail_url: post?.thumbnail_url || s.imageUrl || video?.thumbnailUrl || PLAYER_SILHOUETTE_URL,
+      published_at: post?.published_at || s.publishedAt, handle: post?.handle || null };
+  }), [instagramStories, instagramDetails, playerName]);
   const instagramSelected = Boolean(instagramPosts.some(p => p.id === openUuid));
 
   useEffect(() => {
