@@ -38,6 +38,21 @@ function proposedCommitment(tip: Tip): {status:string;teamId:string;teamName:str
   } catch { return null; }
 }
 
+// Only a single, canonical team identity change is eligible for direct
+// approval. Other player corrections continue through the review queue.
+function proposedCurrentTeam(tip: Tip): {teamId:string;teamName:string;level:string} | null {
+  if (tip.intake_source!=='correction') return null;
+  try {
+    const detail=JSON.parse(tip.notes || '{}');
+    const f=detail?.fields;
+    if (detail?.kind!=='profile_update' || !f || typeof f!=='object' || Array.isArray(f) ||
+        Object.keys(f).sort().join(',')!=='current_team_name,current_teamid,level_label,status_label' ||
+        f.status_label!=='ACTIVE' || typeof f.current_teamid!=='string' ||
+        !/^\d{1,18}$/.test(f.current_teamid)) return null;
+    return {teamId:f.current_teamid,teamName:String(f.current_team_name || ''),level:String(f.level_label || '')};
+  } catch { return null; }
+}
+
 export default function ReviewQueue() {
   const [data, setData] = useState<{ photos: Photo[]; tips: Tip[]; missing: Missing[] } | null>(null);
   const [error, setError] = useState('');
@@ -55,7 +70,7 @@ export default function ReviewQueue() {
     return () => { live = false; };
   }, []);
 
-  const act = async (id: string, action: 'approve' | 'reject' | 'approve_commit' | 'reject_commit') => {
+  const act = async (id: string, action: 'approve' | 'reject' | 'approve_commit' | 'reject_commit' | 'approve_team' | 'reject_team') => {
     setBusy((b) => ({ ...b, [id]: action.startsWith('approve') ? 'Approving…' : 'Rejecting…' }));
     const res = await fetch('/api/contribute/review', {
       method: 'POST',
@@ -68,8 +83,8 @@ export default function ReviewQueue() {
       setBusy((b) => ({ ...b, [id]: body?.error || 'That did not work.' }));
       return;
     }
-    setData((d) => d ? (action.endsWith('_commit')
-      ? {...d, tips:d.tips.map(t=>t.id===id ? {...t,status:action==='approve_commit'?'published':'rejected'} : t)}
+    setData((d) => d ? ((action.endsWith('_commit') || action.endsWith('_team'))
+      ? {...d, tips:d.tips.map(t=>t.id===id ? {...t,status:action.startsWith('approve')?'published':'rejected'} : t)}
       : {...d, photos:d.photos.filter((p) => p.id !== id)}) : d);
     setBusy(b=>{const next={...b};delete next[id];return next;});
   };
@@ -117,12 +132,16 @@ export default function ReviewQueue() {
       <ul className="ycr-list">
         {data.tips.map((t) => {
           const commit=proposedCommitment(t);
+          const currentTeam=proposedCurrentTeam(t);
           const reviewable=!!commit && ['new','needs_review'].includes(t.status);
+          const reviewableTeam=!!currentTeam && ['new','needs_review'].includes(t.status);
           return <li key={t.id}>
-            <b>{commit ? 'College commitment' : t.intake_source === 'correction' ? 'Correction' : 'News tip'}</b>
+            <b>{commit ? 'College commitment' : currentTeam ? 'Current-team change' : t.intake_source === 'correction' ? 'Correction' : 'News tip'}</b>
             {t.raw_player_name ? ` · ${t.raw_player_name}` : ''} · <span className="ycr-muted">{t.sender_name || 'a fan'}, {when(t.submitted_at)}</span> · <span className="ycr-muted">{t.status === 'published' ? 'Published' : t.status === 'rejected' ? 'Rejected' : t.status === 'needs_review' ? 'Needs review' : 'New'}</span>
             {commit ? <div><strong>{commit.status === 'COMMIT' ? `${commit.teamName || commit.teamId} COMMIT` : 'UNCOMMITTED'}</strong>
               {commit.teamId ? ` · Team ID: ${commit.teamId}` : ' · Clear existing commitment'}</div>
+              : currentTeam ? <div><strong>{currentTeam.teamName || currentTeam.teamId}</strong>
+                {currentTeam.level ? ` · ${currentTeam.level}` : ''} · Team ID: {currentTeam.teamId}</div>
               : t.notes ? <div>{t.notes}</div> : null}
             {t.article_url ? <div><a href={t.article_url} target="_blank" rel="noopener noreferrer">{t.article_url}</a></div> : null}
             {reviewable ? <div className="ycr-actions">
@@ -130,6 +149,13 @@ export default function ReviewQueue() {
                 onClick={()=>act(t.id,'approve_commit')}>Approve commitment</button>
               <button type="button" className="ycr-btn" disabled={!!busy[t.id]}
                 onClick={()=>act(t.id,'reject_commit')}>Reject</button>
+              {busy[t.id] ? <span className="ycr-muted">{busy[t.id]}</span> : null}
+            </div> : null}
+            {reviewableTeam ? <div className="ycr-actions">
+              <button type="button" className="ycr-btn ycr-yes" disabled={!!busy[t.id]}
+                onClick={()=>act(t.id,'approve_team')}>Approve team change</button>
+              <button type="button" className="ycr-btn" disabled={!!busy[t.id]}
+                onClick={()=>act(t.id,'reject_team')}>Reject</button>
               {busy[t.id] ? <span className="ycr-muted">{busy[t.id]}</span> : null}
             </div> : null}
           </li>;
