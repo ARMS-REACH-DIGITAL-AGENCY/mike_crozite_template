@@ -89,8 +89,19 @@ export default function ContributePlayerInfoForm({
 
   const varsityYears = varsitySeasonOptions(values.class_of);
   const recordedYearsOutsideWindow = values.roster_years.filter(y=>!varsityYears.includes(y));
-  const isHighSchoolPlayer = values.level_label.toUpperCase() === 'HIGH SCHOOL'
-    && !/COACH/.test(values.status_label.toUpperCase());
+  // A graduated alumnus can still have a stale HIGH SCHOOL level on his
+  // card. An ACTIVE/retired alumnus with a completed graduation year is not
+  // making a high-school COLLEGE COMMIT when changing his current college.
+  const graduationYear=Number(values.class_of);
+  const today=new Date();
+  const hasGraduated=/^\d{4}$/.test(values.class_of) &&
+    (graduationYear<today.getFullYear() ||
+      (graduationYear===today.getFullYear() && today.getMonth()>=6));
+  const hasPostHighSchoolStatus=['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT']
+    .includes(values.status_label.toUpperCase());
+  const isHighSchoolPlayer = values.level_label.toUpperCase()==='HIGH SCHOOL'
+    && !/COACH/.test(values.status_label.toUpperCase())
+    && !(hasGraduated && hasPostHighSchoolStatus);
   const changed:Record<string,string|string[]> = Object.fromEntries(
     Object.entries(values).filter(([key,value])=>JSON.stringify(value)!==JSON.stringify(initial[key as keyof Fields]))
   );
@@ -139,7 +150,7 @@ export default function ContributePlayerInfoForm({
             : 'UNCOMMITTED status published! Row 3 will show the uncommitted image after refresh.') +
             (body.otherFieldsQueued ? ' Your other profile edits were submitted separately.' : '')
         : body.review === 'published_team'
-        ? 'Current team, playing level, and ACTIVE status published to the live site. Refresh to view the updated card.'
+        ? 'Current team, playing level, and conference published. The college commitment record was not changed. Refresh to view the updated card.'
         : body.review === 'published'
         ? 'Varsity years saved. The school’s team-year filters will update on your next page refresh.'
         : body.review === 'needs_review'
@@ -275,7 +286,9 @@ export default function ContributePlayerInfoForm({
           }} />
         </>
       )}
-      <p className="ycd-muted ycd-small">Choose a college or professional team from Global Search so the playing level, conference, and team logo stay linked to the correct record.</p>
+      <p className="ycd-muted ycd-small">{isHighSchoolPlayer
+        ? 'Choose the player’s current college or professional team from Global Search, separate from any commitment announcement.'
+        : 'For a college transfer, select the new school from Global Search. The current team, playing level, conference, and logo will use the selected team’s record.'}</p>
     </div>
     <div className="ycd-profile-social">
       <b>Player social media handles (optional)</b>
@@ -289,7 +302,9 @@ export default function ContributePlayerInfoForm({
     <button type="button" className="ycd-btn ycd-btn-primary" disabled={sending||loading} onClick={submit}>
       {!signedIn?'Sign in to send':sending?'Sending…':'Submit player information'}
     </button>
-    <small className="ycd-muted">Valid college commitments publish immediately. Unrelated profile corrections may require verification.</small>
+    <small className="ycd-muted">{isHighSchoolPlayer
+      ? 'Valid high-school college commitments publish immediately. Other corrections may require verification.'
+      : 'Current-team transfers do not edit college commitments. Changes submitted by fans may require verification.'}</small>
     <style jsx>{`
       .ycd-profile-fields{display:flex;flex-direction:column;gap:13px;}
       .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
