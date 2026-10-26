@@ -2218,7 +2218,7 @@ function syndicatedCopyFilter(alias: string, lowVisible: string): string {
          )`;
 }
 
-export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
+export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promise<any[]> {
   try {
     const { rows } = await query(
       `SELECT
@@ -2251,10 +2251,10 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
        LEFT JOIN flip_card_front_stage f
          ON f.playerid::text = na.playerid
        WHERE na.hsid = $1
-         -- Discovery is not publication. Only identity-verified, meaningful
-         -- candidates may leave the candidate store and reach public UI.
+         -- Match the player's profile feed: VERIFIED stories (including
+         -- lower-relevance NEWS NUGGETS) without an arbitrary six-story cap.
+         -- Never publish unverified, rejected or syndicated duplicate rows.
          AND na.verification_status = 'VERIFIED'
-         AND COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW'
          -- Stories the recap generator found no clean sentence about him in
          -- (and not featured) are marked rejected: not news about him.
          AND NOT EXISTS (
@@ -2262,39 +2262,19 @@ export async function getNewsByHsid(hsid: string, limit = 50): Promise<any[]> {
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
          )
-         AND ${syndicatedCopyFilter('na', 'false')}
-         -- At most 6 VERIFIED stories per player on the school feed
-         -- (distinct stories: syndicated copies don't count).
-         AND na.id IN (
-           SELECT id FROM (
-             SELECT id, ROW_NUMBER() OVER (
-               PARTITION BY COALESCE(NULLIF(playerid, ''), uuid)
-               ORDER BY published_at DESC
-             ) AS rn
-             FROM news_articles ranked_na
-             WHERE hsid = $1
-               AND verification_status = 'VERIFIED'
-               AND COALESCE(newsworthiness, 'NORMAL') <> 'LOW'
-               AND NOT EXISTS (
-                 SELECT 1 FROM news_article_derivatives rejected
-                  WHERE rejected.news_article_uuid = ranked_na.uuid
-                    AND rejected.approval_status = 'rejected'
-               )
-               AND ${syndicatedCopyFilter('ranked_na', 'false')}
-           ) ranked
-           WHERE rn <= 6
-         )
+         AND ${syndicatedCopyFilter('na', 'true')}
        -- Newest first, full stop. Featured stories used to lead
        -- regardless of date, which put a March story above September's.
        ORDER BY
          na.published_at DESC NULLS LAST,
          na.id DESC
-       LIMIT $2`,
-      [hsid, limit]
+       LIMIT $2 OFFSET $3`,
+      [hsid, limit, offset]
     );
     return rows;
-  } catch {
-    return [];
+  } catch (error) {
+    console.error('[getNewsByHsid] failed', { hsid, error });
+    throw error;
   }
 }
 
@@ -2466,6 +2446,13 @@ export async function getPlayerPhotos(imageId: string): Promise<any[]> {
 // drifting into two resolvers for the same "truth" table.
 const FLIP_CARD_STAGE_SELECT = `
     SELECT fs.*,
+      -- Look up the canonical college name only for a COMMIT missing its
+      -- stored name (e.g. automatically published announcements). Reuse the
+      -- indexed teamid mapping in this same roster query: no extra page-load
+      -- round trips or per-player fetches.
+      COALESCE(NULLIF(BTRIM(fs.committed_team_name), ''), commit_map.current_team_name)
+        AS resolved_committed_team_name,
+      NULLIF(BTRIM(commit_map.current_team_short_name), '') AS resolved_committed_team_short_name,
       -- Staging does not store bats/throws and often has NULL position.
       -- Pull the canonical TBC metadata so stage-only cards choose the right silhouette.
       tp.bats,
@@ -2473,9 +2460,9 @@ const FLIP_CARD_STAGE_SELECT = `
       COALESCE(NULLIF(BTRIM(fs.position), ''), NULLIF(BTRIM(tp.posit), '')) AS position,
       -- Every alumnus we know of gets a card: one with no status yet is
       -- UNKNOWN (until someone tells us), never left off the page.
-      COALESCE(NULLIF(UPPER(TRIM(status_label)), ''), 'UNKNOWN') AS status_label,
+      COALESCE(NULLIF(UPPER(TRIM(fs.status_label)), ''), 'UNKNOWN') AS status_label,
       -- Official levels only (Oct 18, 2026): every alias, any capitalisation.
-      CASE UPPER(TRIM(COALESCE(level_label, '')))
+      CASE UPPER(TRIM(COALESCE(fs.level_label, '')))
         WHEN 'AAA'           THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A'      THEN 'TRIPLE-A'
         WHEN 'TRIPLE-A (40-MAN)' THEN 'TRIPLE-A'
@@ -2510,13 +2497,16 @@ const FLIP_CARD_STAGE_SELECT = `
         WHEN 'HS'            THEN 'HIGH SCHOOL'
         WHEN 'HIGH SCHOOL'   THEN 'HIGH SCHOOL'
         WHEN '-'             THEN ''
-        ELSE UPPER(TRIM(COALESCE(level_label, '')))
+        ELSE UPPER(TRIM(COALESCE(fs.level_label, '')))
       END AS level_label
     FROM ${PLAYER_STAGE_IDENTITY_SOURCE} fs
     LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
+    LEFT JOIN public.teamid_universe_mapping commit_map
+      ON commit_map.teamid = fs.committed_teamid
+     AND UPPER(BTRIM(COALESCE(fs.status_label, ''))) = 'COMMIT'
 `;
 
-export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-identity-20261018', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-commit-short-name-20261025', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `WITH ${PLAYER_STAGE_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;

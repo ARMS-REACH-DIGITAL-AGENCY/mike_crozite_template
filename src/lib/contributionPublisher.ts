@@ -3,6 +3,8 @@ import { createHash } from 'crypto';
 import { query } from '@/lib/db';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { revalidateTag } from 'next/cache';
+import { parseNewsVideo, cleanNewsVideoTitle, isLegacyVideoPlaceholderTitle } from '@/lib/newsVideo';
+import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
 
 type Tip = { id: string; intake_source: string; matched_playerid: string | null; matched_hsid: string | null; raw_player_name: string | null; article_url: string; notes: string | null };
 type Missing = { id: string; hsid: string; player_name: string; grad_year: number | null; notes: string | null };
@@ -140,15 +142,23 @@ async function processTip(t:Tip):Promise<boolean> {
  let u:URL;try{u=new URL(t.article_url)}catch{return false}
  if(!['https:'].includes(u.protocol) || !clip(t.article_url))return false;
  // Do not automatically embed temporary Instagram Stories or unknown external sources.
- const title=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim().slice(0,150);
- const label=title || `Video shared about ${player.first_name} ${player.last_name}`;
+ // New submissions use a structured title; preserve legacy freeform notes
+ // without truncating a fan-authored headline at 150 characters.
+ const legacy=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim();
+ const detail=parsed(t.notes);
+ const title=cleanNewsVideoTitle(typeof detail?.title==='string' ? detail.title : legacy);
+ const description=typeof detail?.why==='string' ? detail.why.trim() : '';
+ const youtube=parseNewsVideo(t.article_url)?.provider==='YouTube';
+ const needsYoutubeTitle=youtube && (!title || (t.intake_source==='manual_seed' && isLegacyVideoPlaceholderTitle(title)));
+ const label=(needsYoutubeTitle ? await fetchYouTubeVideoTitle(t.article_url) : null) || title;
+ if(!label || (needsYoutubeTitle && isLegacyVideoPlaceholderTitle(label)))return false;
  const permalink=t.article_url;
  const identifier=hash(t.id);
  await query(`INSERT INTO news_articles(uuid,playerid,player_name,hsid,title,source,published_at,url,
    snippet,local_recap,discovery_source,verification_status,verification_reason,newsworthiness,raw_payload)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'contribute','VERIFIED','Fan provided link to named player','NORMAL',$11::jsonb)
    ON CONFLICT(uuid) DO NOTHING`,
-   [identifier,player.playerid,`${player.first_name} ${player.last_name}`,player.hsid,label,u.hostname.replace(/^www\./,''),new Date().toISOString(),permalink,title||null,title||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source})]);
+   [identifier,player.playerid,`${player.first_name} ${player.last_name}`,player.hsid,label,u.hostname.replace(/^www\./,''),new Date().toISOString(),permalink,description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source})]);
  return true;
 }
 // Used only for a validated, single-field roster-year submission. The same

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-type Post = {
+export type InstagramViewerPost = {
   id: string;
   media_type?: string | null;
   caption?: string | null;
@@ -21,15 +21,19 @@ type Post = {
 
 type SchoolFeed = { hsid: string; name: string };
 
-export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }: { playerId: string; firstName: string; schoolFeed?: SchoolFeed }) {
+export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, externalPosts, initialPostId, onClose }: {
+  playerId: string; firstName: string; schoolFeed?: SchoolFeed;
+  externalPosts?: InstagramViewerPost[]; initialPostId?: string; onClose?: () => void;
+}) {
   const schoolHsid = schoolFeed?.hsid;
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const [posts, setPosts] = useState<Post[] | null>(null);
+  const [posts, setPosts] = useState<InstagramViewerPost[] | null>(externalPosts || null);
   const [open, setOpen] = useState<number | null>(null);
   const [showInstagramEmbed, setShowInstagramEmbed] = useState(false);
   const touchX = useRef<number | null>(null);
 
   useEffect(() => {
+    if (externalPosts) return;
     const el = rootRef.current;
     if (!el) return;
     let done = false;
@@ -51,7 +55,18 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
     });
     io.observe(el);
     return () => io.disconnect();
-  }, [playerId, schoolHsid]);
+  }, [playerId, schoolHsid, externalPosts]);
+
+  useEffect(() => {
+    if (externalPosts) {
+      setPosts(externalPosts);
+      const index = externalPosts.findIndex(p => p.id === initialPostId);
+      setOpen(index >= 0 ? index : externalPosts.length ? 0 : null);
+      setShowInstagramEmbed(false);
+    }
+  }, [externalPosts, initialPostId]);
+
+  const close = useCallback(() => { setOpen(null); onClose?.(); }, [onClose]);
 
   const count = posts?.length || 0;
   const step = useCallback(
@@ -66,7 +81,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
   useEffect(() => {
     if (open === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(null);
+      if (e.key === 'Escape') close();
       else if (e.key === 'ArrowRight') step(1);
       else if (e.key === 'ArrowLeft') step(-1);
     };
@@ -77,7 +92,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, step]);
+  }, [open, step, close]);
 
   const current = open !== null && posts ? posts[open] : null;
   const embedUrl = current?.permalink ? `${current.permalink.replace(/\/?$/, '/')}embed/captioned/` : null;
@@ -87,7 +102,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
     : null;
   return (
     <div ref={rootRef} className="pp-ig-feed">
-      {posts && posts.length > 0 && (
+      {!externalPosts && posts && posts.length > 0 && (
         <>
           <div className={`pp-ig-head${schoolFeed ? ' pp-ig-head-school' : ''}`}>
             <span>
@@ -134,7 +149,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
           aria-modal="true"
           aria-label={'Instagram post by @' + (current.handle || 'unknown')}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setOpen(null);
+            if (e.target === e.currentTarget) close();
           }}
           onTouchStart={(e) => {
             touchX.current = e.touches[0]?.clientX ?? null;
@@ -195,7 +210,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed }:
               )}
             </div>
           </div>
-          <button type="button" className="pp-ig-close" aria-label="Close" onClick={() => setOpen(null)}>
+          <button type="button" className="pp-ig-close" aria-label="Close" onClick={close}>
             <i className="ri-close-line" />
           </button>
           {count > 1 && (
