@@ -38,6 +38,16 @@ The portal also uses the existing Firebase project/browser configuration and exi
 
 The server verifies the Firebase Bearer token’s signature, issuer, audience, and expiry before loading memberships. Unknown, inactive, expired, or unavailable authorization fails closed. No existing test-account UID is treated as an administrator.
 
+## Publisher-managed splash logo placements
+
+This is a separate entitlement from the Tribune newsletter and Active Alumni Sponsor Cards. The dashboard's existing `logo` upload saves immutable artwork in public object storage, and `POST /api/partners/brands` writes its URL to the **canonical** `public.sponsor_brands` record. The school splash resolver already reads that same record. No sponsor needs to duplicate uploads under `public/img/splash-sponsors/brands/`.
+
+The **Splash Logo Access** editor is publisher-only; it saves to `public.school_splash_sponsorships` through the authenticated `/api/partners/splash-placements` endpoint. Validation checks brand status and logo, valid school, dates, paid state and school match for any linked order, and an existing order's permanent claim. An unlinked placement is explicitly a publisher-managed test or promotion; it is never a receipt or payment creation. Every change writes an audit record.
+
+The splash GET endpoint caches eligible per-school placements for 120 seconds but returns a new random brand per splash request. At a given school, all distinct eligible brands in the highest priority tier share exposure equally; lower priority is overflow, not blended with a premium tier. Linked unpaid/refunded orders, inactive brands, paused/expired/future placements are excluded. The public response is `private, no-store` so a CDN cannot freeze one sponsor for everyone. Local `public/img/splash-sponsors/<hsid>/` art remains a random first-visit fallback when there is no active database sponsor.
+
+**Release dependency:** The existing isolated migrations and dedicated `yatstats_tribune_app` role must be approved and installed before separately applying `migrations/20261025_tribune_splash_entitlements.sql`. That small additive migration grants only this dedicated role SELECT/INSERT/UPDATE on the existing public splash placement table and usage of its identity sequence. It does not change other roles' permissions, existing sponsors, or newsletter-sending state. Installation is held until the Publisher's Desk production release is authorized.
+
 ## Campaign workflow
 
 Create or select a reusable sponsor brand. A new brand without an uploaded logo remains inactive with a neutral pending-logo image. Upload its logo, confirm its identity and destination, then activate it through the publisher account. A brand may sponsor multiple schools; its logo is stored once. These are canonical shared brand edits: name, logo, website, and active-state changes also affect existing splash placements using that brand. Tribune creative changes remain specific to the newsletter.

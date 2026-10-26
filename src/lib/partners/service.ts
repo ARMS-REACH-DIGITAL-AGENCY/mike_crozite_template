@@ -110,7 +110,7 @@ export async function dashboard(access: PartnerAccess, selected?: string | null)
   const sponsors = brands.slice(0, 50).map(brandRecord);
   const sponsorId = selectedId || sponsors[0]?.id || null;
   if (selectedId && !sponsors.some((s) => s.id === selectedId)) throw new PartnerAccessError(404, 'Sponsor not found.');
-  const [placements, creatives, orders, notes, settings, memberships] = await Promise.all([
+  const [placements, creatives, orders, notes, settings, memberships, splashPlacements] = await Promise.all([
     query<Row>(`SELECT p.*,s.hsname AS school_name FROM tribune_private.school_tribune_sponsorships p
       LEFT JOIN public.school_success s ON s.hsid::text=p.hsid WHERE p.sponsor_id=$1::bigint ORDER BY s.hsname,p.id DESC LIMIT 1000`, [sponsorId]),
     query<Row>(`SELECT * FROM tribune_private.tribune_sponsor_creatives WHERE sponsor_id=$1::bigint ORDER BY created_at DESC,id DESC LIMIT 100`, [sponsorId]),
@@ -122,10 +122,12 @@ export async function dashboard(access: PartnerAccess, selected?: string | null)
     access.publisher ? query<Row>('SELECT * FROM tribune_private.tribune_publication_settings WHERE id=true') : Promise.resolve({ rows: [] as Row[] }),
     access.publisher ? query<Row>(`SELECT id,firebase_uid,sponsor_id,role,is_active,revision FROM tribune_private.partner_portal_memberships
       WHERE role='publisher' OR sponsor_id=$1::bigint ORDER BY role,id LIMIT 200`, [sponsorId]) : Promise.resolve({ rows: [] as Row[] }),
+    query<Row>(`SELECT p.*,s.hsname AS school_name FROM public.school_splash_sponsorships p
+      LEFT JOIN public.school_success s ON s.hsid::text=p.hsid WHERE p.sponsor_id=$1::bigint ORDER BY s.hsname,p.id DESC LIMIT 1000`, [sponsorId]),
   ]);
   return {
     user: { uid: access.uid, email: access.email, publisher: access.publisher }, sponsors, selectedSponsorId: sponsorId, hasMoreSponsors,
-    placements: placements.rows.map(placementRecord), creatives: creatives.rows.map(creativeRecord), notes: notes.rows.map(noteRecord),
+    placements: placements.rows.map(placementRecord), splashPlacements: splashPlacements.rows.map(placementRecord), creatives: creatives.rows.map(creativeRecord), notes: notes.rows.map(noteRecord),
     publication: publicationRecord(settings.rows[0]),
     memberships: memberships.rows.map((r) => ({ id: text(r.id), revision: Number(r.revision), uid: text(r.firebase_uid), sponsorId: r.sponsor_id ? text(r.sponsor_id) : null, role: text(r.role), isActive: bool(r.is_active) })),
     orders: orders.rows.map((r) => ({ id: text(r.id), hsid: text(r.hsid), sponsorshipType: text(r.sponsorship_type), status: text(r.status), createdAt: iso(r.created_at) })),
@@ -251,6 +253,64 @@ export async function savePlacement(access: PartnerAccess, body: Body) {
     await write(`INSERT INTO tribune_private.school_tribune_sponsorships(sponsor_id,hsid,sponsor_order_id,status,priority,starts_at,ends_at,requires_approval,created_by)
     SELECT $1::bigint,$2,$3::bigint,$4,$5,$6::timestamptz,$7::timestamptz,$8,$9 WHERE ${claimed} RETURNING *`, [...values, access.uid], access, 'placement', 'create', claim);
   return { placement: placementRecord({ ...saved, school_name: school.hsname }) };
+}
+
+// Explicit splash-only entitlements. Tribune advertising and title-card access
+// never imply a splash placement. Only a verified publisher can activate one.
+export async function saveSplashPlacement(access: PartnerAccess, body: Body) {
+  assertPublisherAccess(access);
+  const id = body.id ? partnerId.parse(body.id) : null;
+  const content = placementInput.parse({ ...body, requiresApproval: false });
+  const brand = (await query<Row>('SELECT id,is_active,logo_url FROM public.sponsor_brands WHERE id=$1::bigint', [content.sponsorId])).rows[0];
+  if (!brand) throw new PartnerAccessError(404, 'Choose an existing Partner organization.');
+  if (content.status === 'active' && (!bool(brand.is_active) || !text(brand.logo_url) || text(brand.logo_url) === PENDING_LOGO)) {
+    throw new PartnerAccessError(409, 'Upload a real logo and activate the Partner brand before enabling its splash placement.');
+  }
+  const school = (await query<Row>('SELECT hsname FROM public.school_success WHERE hsid::text=$1 LIMIT 1', [content.hsid])).rows[0];
+  if (!school) throw new PartnerAccessError(400, 'Choose a school from the program search.');
+  const current = id ? (await query<Row>('SELECT id,sponsor_id FROM public.school_splash_sponsorships WHERE id=$1::bigint', [id])).rows[0] : null;
+  if (id && !current) throw new PartnerAccessError(404, 'That splash assignment no longer exists.');
+  if (current && text(current.sponsor_id) !== content.sponsorId) throw new PartnerAccessError(409, 'An existing splash assignment cannot change Partner brands.');
+  const duplicate = (await query<Row>(`SELECT id FROM public.school_splash_sponsorships
+    WHERE sponsor_id=$1::bigint AND hsid=$2 AND status<>'cancelled' AND id<>COALESCE($3::bigint,0) LIMIT 1`,
+    [content.sponsorId, content.hsid, id])).rows[0];
+  if (duplicate && content.status !== 'cancelled') throw new PartnerAccessError(409, 'This Partner already has a splash assignment for the selected school. Edit that assignment instead.');
+  if (content.sponsorOrderId) {
+    const order = (await query<Row>('SELECT id,hsid,status FROM public.sponsor_orders WHERE id=$1::bigint', [content.sponsorOrderId])).rows[0];
+    if (!order || (order.hsid && text(order.hsid) !== content.hsid)) throw new PartnerAccessError(400, 'That order does not match this school.');
+    if (content.status === 'active' && !['paid','active','completed','succeeded'].includes(text(order.status).toLowerCase()))
+      throw new PartnerAccessError(409, 'This order is not confirmed paid. Keep the splash assignment paused.');
+    const conflict = (await query<Row>(`
+      SELECT 1 FROM tribune_private.partner_sponsor_order_claims WHERE order_id=$1::bigint AND sponsor_id<>$2::bigint
+      UNION ALL SELECT 1 FROM public.school_splash_sponsorships WHERE sponsor_order_id=$1::bigint AND sponsor_id<>$2::bigint
+      UNION ALL SELECT 1 FROM tribune_private.school_tribune_sponsorships WHERE sponsor_order_id=$1::bigint AND sponsor_id<>$2::bigint
+      LIMIT 1`, [content.sponsorOrderId, content.sponsorId])).rows[0];
+    if (conflict) throw new PartnerAccessError(409, 'That sponsorship order is already assigned to another Partner.');
+  }
+  const values: unknown[] = [content.sponsorId, content.hsid, content.sponsorOrderId, content.status,
+    content.priority, content.startsAt, content.endsAt];
+  // write() appends the authorized actor UID, which the atomic claim also uses.
+  const actorParam = id ? '$9' : '$8';
+  const claim = `claimed_order AS (
+    INSERT INTO tribune_private.partner_sponsor_order_claims(order_id,sponsor_id,created_by)
+    SELECT $3::bigint,$1::bigint,${actorParam} WHERE $3::bigint IS NOT NULL
+    ON CONFLICT(order_id) DO UPDATE SET sponsor_id=EXCLUDED.sponsor_id
+      WHERE partner_sponsor_order_claims.sponsor_id=EXCLUDED.sponsor_id
+    RETURNING order_id
+  )`;
+  const claimed = '($3::bigint IS NULL OR EXISTS(SELECT 1 FROM claimed_order))';
+  const saved = id
+    ? await write(`UPDATE public.school_splash_sponsorships
+        SET hsid=$2,sponsor_order_id=$3::bigint,status=$4,priority=$5,
+            starts_at=$6::timestamptz,ends_at=$7::timestamptz,source='publisher-desk',updated_at=now()
+        WHERE id=$8::bigint AND sponsor_id=$1::bigint AND ${claimed} RETURNING *`,
+        [...values, id], access, 'splash_placement', 'update', claim)
+    : await write(`INSERT INTO public.school_splash_sponsorships
+        (sponsor_id,hsid,sponsor_order_id,status,priority,starts_at,ends_at,source)
+        SELECT $1::bigint,$2,$3::bigint,$4,$5,$6::timestamptz,$7::timestamptz,'publisher-desk'
+        WHERE ${claimed} RETURNING *`,
+        values, access, 'splash_placement', 'create', claim);
+  return { splashPlacement: placementRecord({ ...saved, school_name: school.hsname }) };
 }
 
 export async function getNote(access: PartnerAccess, id: string) {

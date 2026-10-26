@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
 import { PartnerAccessError, requirePartnerAccess } from '@/lib/partners/access';
-import { dashboard, saveBrand, saveCreative, saveMembership, saveNote, savePlacement, savePublication, searchSchools, searchSponsors } from '@/lib/partners/service';
+import { dashboard, saveBrand, saveCreative, saveMembership, saveNote, savePlacement, saveSplashPlacement, savePublication, searchSchools, searchSponsors } from '@/lib/partners/service';
 import { publicationPreview } from '@/lib/partners/preview';
 import { validationFields } from '@/lib/partners/validation';
 import { saveSponsorCard, saveSponsorCardPlacement, sponsorCardDashboard, sponsorCardPreview } from '@/lib/partners/sponsorCards';
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, context: Context) {
       body = parsed;
     } catch { return response({ error: 'The form could not be read. Refresh and try again.' }, 400); }
     const { operation } = await context.params;
-    const handlers = { creatives: saveCreative, brands: saveBrand, placements: savePlacement, notes: saveNote, publication: savePublication,
+    const handlers = { creatives: saveCreative, brands: saveBrand, placements: savePlacement, 'splash-placements': saveSplashPlacement, notes: saveNote, publication: savePublication,
       memberships: saveMembership, preview: publicationPreview, cards: saveSponsorCard, 'card-placements': saveSponsorCardPlacement, 'card-preview': sponsorCardPreview };
     const handler = handlers[operation as keyof typeof handlers];
     if (!handler) return response({ error: 'Not found.' }, 404);
