@@ -100,6 +100,31 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   }, [open, step, close]);
 
   const current = open !== null && posts ? posts[open] : null;
+  const requestedMedia = useRef<Set<string>>(new Set());
+  const currentId = current?.id;
+  const currentPermalink = current?.permalink;
+  const currentThumbnail = current?.thumbnail_url;
+  useEffect(() => {
+    // Exact post-URL lookup runs only when a user opens a News item.
+    // It never adds per-post joins or database queries to school page loads.
+    if (!preferEmbed || !currentId || !currentPermalink || currentThumbnail ||
+        requestedMedia.current.has(currentPermalink)) return;
+    requestedMedia.current.add(currentPermalink);
+    const controller = new AbortController();
+    fetch('/api/social/instagram-post?url=' + encodeURIComponent(currentPermalink), { signal: controller.signal })
+      .then(response => response.ok ? response.json() : { post: null })
+      .then(data => {
+        const matched = data?.post;
+        if (!matched?.thumbnail_url || controller.signal.aborted) return;
+        setPosts(previous => previous?.map(post => post.id === currentId
+          ? { ...post, thumbnail_url: matched.thumbnail_url,
+              media_type: matched.media_type || post.media_type,
+              handle: matched.handle || post.handle }
+          : post) || null);
+      }).catch(() => { /* Public Instagram embed remains available. */ });
+    return () => controller.abort();
+  }, [preferEmbed, currentId, currentPermalink, currentThumbnail]);
+
   // Iframe URLs must be Instagram URLs parsed by our shared host allowlist.
   const parsedPost = current?.permalink ? parseNewsVideo(current.permalink) : null;
   const embedUrl = parsedPost?.provider === 'Instagram'
