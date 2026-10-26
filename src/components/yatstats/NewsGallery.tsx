@@ -18,6 +18,8 @@ import { markPlayerName } from "@/components/yatstats/PlayerNameMentions";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { toSlugFromDisplay } from "@/lib/slug";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import { loadFavoriteIds, readYatUser } from "@/components/yatstats/FavoriteButton";
+import { EMPTY_NEWS_FILTERS, matchesNewsStory, type NewsFilterSelection } from "@/lib/newsFilterMatch";
 
 type NewsPost = {
   uuid: string;
@@ -38,6 +40,7 @@ type NewsPost = {
   displaySourceLabel: string | null;
   displayRecap: string | null;
   displayWhyLocal: string | null;
+  newsworthiness?: string | null;
 };
 
 export const NEWS_PLAYER_FILTER_EVENT = "yat:news-player-filter";
@@ -193,6 +196,12 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   const [failed, setFailed] = useState(false);
   const [requested, setRequested] = useState(false);
   const [playerFilter, setPlayerFilter] = useState<string>("");
+  const [newsFilters, setNewsFilters] = useState<NewsFilterSelection>(EMPTY_NEWS_FILTERS);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [pageError, setPageError] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(60);
 
   // Only fetch once the News tab is actually shown (SharedShell toggles
   // .visible on #sec-news), not on every gallery page load.
@@ -208,25 +217,105 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     return () => observer.disconnect();
   }, []);
 
+  // Fetch the first page only on tab entry. Further pages load on demand,
+  // so no school incurs an unbounded initial response or extra home-page SQL.
   useEffect(() => {
     if (!requested || posts !== null) return;
     let cancelled = false;
-    fetch(`/api/news/${encodeURIComponent(hsid)}?limit=100`)
+    fetch(`/api/news/${encodeURIComponent(hsid)}?limit=100&offset=0`)
       .then((res) => {
         if (!res.ok) throw new Error(`news ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        if (!cancelled) setPosts(Array.isArray(data?.posts) ? data.posts : []);
+        if (cancelled) return;
+        const rows: NewsPost[] = Array.isArray(data?.posts) ? data.posts : [];
+        setPosts(rows);
+        setHasMore(rows.length === 100);
       })
       .catch((err) => {
         console.error("[NewsGallery] news fetch failed:", err);
         if (!cancelled) setFailed(true);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [requested, posts, hsid]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMore || !posts) return;
+    setLoadingMore(true);
+    setPageError(false);
+    try {
+      const response = await fetch(`/api/news/${encodeURIComponent(hsid)}?limit=100&offset=${posts.length}`);
+      if (!response.ok) throw new Error(`news ${response.status}`);
+      const data = await response.json();
+      const next: NewsPost[] = Array.isArray(data?.posts) ? data.posts : [];
+      const ids = new Set(posts.map((post) => post.uuid));
+      setPosts([...posts, ...next.filter(post => !ids.has(post.uuid))]);
+      setHasMore(next.length === 100);
+    } catch (error) {
+      console.error('[NewsGallery] page fetch failed', error);
+      setPageError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, posts, hsid]);
+
+  // The shared sidebar owns its controls. For News, read the controls into
+  // React state instead of attempting to hide unrelated player-card elements.
+  useEffect(() => {
+    const snapshot = () => {
+      const group = (id: string) => Array.from(document.querySelectorAll<HTMLInputElement>(
+        `#${id} input[type="checkbox"]:not([data-select-all]):checked`
+      )).map(input => input.value);
+      setNewsFilters({
+        name: (document.getElementById('filterName') as HTMLInputElement | null)?.value || '',
+        statuses: group('filterStatus'),
+        levels: group('filterLevels'),
+        orgs: group('filterOrgs'),
+        gradClasses: group('filterGradClass'),
+        rosterYears: group('filterRosterYears'),
+        favoritesOnly: Boolean((document.getElementById('filterFavs') as HTMLInputElement | null)?.checked),
+      });
+    };
+    const onUpdate = (event: Event) => {
+      if ((event as CustomEvent<{ section?: string }>).detail?.section === 'news') snapshot();
+    };
+    const onFavs = () => {
+      const uid = readYatUser()?.uid;
+      if (uid) {
+        void loadFavoriteIds(uid).then(setFavoriteIds).catch(() => setFavoriteIds(new Set()));
+      } else setFavoriteIds(new Set());
+      snapshot();
+    };
+    window.addEventListener('yat:gallery-filtered', onUpdate);
+    window.addEventListener('yat-favorites-changed', onFavs);
+    window.addEventListener('yat-auth-success', onFavs);
+    window.addEventListener('yat-sign-out', onFavs);
+    onFavs();
+    return () => {
+      window.removeEventListener('yat:gallery-filtered', onUpdate);
+      window.removeEventListener('yat-favorites-changed', onFavs);
+      window.removeEventListener('yat-auth-success', onFavs);
+      window.removeEventListener('yat-sign-out', onFavs);
+    };
+  }, []);
+
+  useEffect(() => { setVisibleCount(60); }, [playerFilter, newsFilters]);
+
+  // A requested player/filter must search the full feed, not just the newest
+  // 100 school-wide stories. Fetch the remaining pages progressively while
+  // narrowed; the unfiltered feed stays lazy for cost and responsiveness.
+  const hasNarrowing = Boolean(
+    playerFilter || newsFilters.name.trim() || newsFilters.statuses.length ||
+    newsFilters.levels.length || newsFilters.orgs.length ||
+    newsFilters.gradClasses.length || newsFilters.rosterYears.length ||
+    newsFilters.favoritesOnly
+  );
+  useEffect(() => {
+    const linkedStory = new URLSearchParams(window.location.search).get('story');
+    const missingLinkedStory = Boolean(linkedStory && posts && !posts.some(post => post.uuid === linkedStory));
+    if ((hasNarrowing || missingLinkedStory) && hasMore && posts && !loadingMore && !pageError) void loadMore();
+  }, [hasNarrowing, hasMore, posts, loadingMore, pageError, loadMore]);
 
   // Row 3 headshot clicks on the News tab (see InteractionStrip).
   useEffect(() => {
@@ -249,8 +338,11 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   }, [playerFilter]);
 
   const visible = useMemo(
-    () => (posts || []).filter((p) => !playerFilter || String(p.playerId || "") === playerFilter),
-    [posts, playerFilter]
+    () => (posts || []).filter((p) =>
+      (!playerFilter || String(p.playerId || "") === playerFilter)
+      && matchesNewsStory(p, newsFilters, favoriteIds)
+    ),
+    [posts, playerFilter, newsFilters, favoriteIds]
   );
   const filteredName = useMemo(() => {
     if (!playerFilter) return "";
@@ -261,6 +353,20 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   }, [playerFilter, posts]);
 
   const clearFilter = useCallback(() => setPlayerFilter(""), []);
+  useEffect(() => {
+    const reset = () => {
+      setPlayerFilter("");
+      setNewsFilters(EMPTY_NEWS_FILTERS);
+      window.dispatchEvent(new Event("yat:news-reset"));
+    };
+    const onResetButton = (event: MouseEvent) => {
+      if (!document.getElementById("sec-news")?.classList.contains("visible")) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("#filtersReset, #filtersReset2")) reset();
+    };
+    window.addEventListener("click", onResetButton, true);
+    return () => window.removeEventListener("click", onResetButton, true);
+  }, []);
 
   // Cards that arrive after FLIP ALL was pressed (the news loads when the
   // tab opens, or a player filter adds cards) follow it too.
@@ -269,7 +375,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     document.querySelectorAll<HTMLElement>("#sec-news .news-card").forEach((card) => card.classList.add("is-flipped"));
   }, [visible]);
 
-  const rows: ProfileNewsStory[] = visible.map((post) => ({
+  const rows: ProfileNewsStory[] = visible.slice(0, visibleCount).map((post) => ({
     uuid: post.uuid,
     title: stripHtml(post.displayHeadline || post.title) || 'Alumni news',
     url: post.url,
@@ -278,7 +384,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     recap: stripHtml(post.displayRecap),
     whyLocal: stripHtml(post.displayWhyLocal),
     imageUrl: post.imageUrl,
-    newsworthiness: 'STANDARD',
+    newsworthiness: post.newsworthiness || 'STANDARD',
     tease: limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
     playerId: post.playerId,
     playerName: post.playerName,
@@ -305,6 +411,17 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           ) : (
             <ProfileNewsList stories={rows} firstName="school alumni" playerId="" playerName="" hsid={hsid} schoolWide />
           )}
+          {visible.length > visibleCount && (
+            <button type="button" className="yat-news-load-more" onClick={() => setVisibleCount((count) => count + 60)}>
+              Show more stories ({visible.length - visibleCount} remaining)
+            </button>
+          )}
+          {hasMore && (
+            <button type="button" className="yat-news-load-more" onClick={() => void loadMore()} disabled={loadingMore}>
+              {loadingMore ? 'Loading more news…' : 'Load older news stories'}
+            </button>
+          )}
+          {pageError && <div role="alert">Older stories could not be loaded. Try again.</div>}
           <aside className="yp-school-news-inline-ad" aria-label="Title Sponsor in-feed advertisement placement">
             <small>TITLE SPONSOR · ACTIVE ALUMNI NEWS</small>
             <strong>ADVERTISING PLACEMENT</strong>
@@ -318,8 +435,9 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         </aside>
       </div>
       <style>{`
+        .yat-news-load-more{display:block;margin:18px auto;padding:10px 18px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);cursor:pointer;font-weight:700}
         .yp-school-news {
-          width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;
+          width:min(100%,1310px);margin:0 auto;padding:16px 22px 100px;container:yp-news / inline-size;
           color:var(--fg);background:var(--bg);min-height:60vh;
         }
         /* The news toolbar sticks below the three shared sticky site rows.
@@ -401,7 +519,9 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
           object-fit:contain;object-position:center;
         }
         .yp-school-news-inline-ad {display:none;}
-        @media(max-width:1080px){
+        /* Responsive to available reading width, not the device label or
+           raw viewport: a docked drawer can reduce the usable column. */
+        @container yp-news (max-width:840px){
           .yp-school-news-layout{display:block;}
           .yp-school-news-tower{display:none;}
           .yp-school-news-inline-ad{
@@ -421,12 +541,30 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         }
         body.light-theme .yp-school-news-tower :is(small,span) {color:#3b3224}
         @media(max-width:740px){
-          .yp-school-news{padding:8px 12px 100px}
+          .yp-school-news{width:100%;max-width:none;padding:0 0 100px}
           .yp-school-news-layout{display:block}
           .yp-school-news-tower{display:none}
-          .yp-school-news-main .pp-news-feed{padding:0 2px 55px}
+          .yp-school-news-main .pp-news-feed{padding:0 0 55px}
         }
-      `}</style>
+        /* The sponsor follows available space, not pointer type. Chrome's
+           desktop-site mode on a phone must behave like the desktop layout. */
+        @media (max-width:740px) {
+          #sec-news .yp-school-news {width:100%!important;min-width:0!important;box-sizing:border-box;padding:0 0 100px!important;margin:0!important}
+          #sec-news .yp-school-news-layout {display:block!important;width:100%!important;min-width:0!important}
+          #sec-news .yp-school-news-main .pp-news-feed {padding:0 0 55px!important;width:100%!important}
+          #sec-news .yp-school-news-tower {display:none!important}
+          #sec-news .yp-school-news-inline-ad {display:flex!important}
+        }
+        /* A docked filter reduces the available reading column. Relocate the
+           tower to the in-feed ad rather than hiding sponsor inventory. */
+        @media (min-width:780px) {
+          body.drawer-right-open #sec-news .yp-school-news-layout {
+            grid-template-columns:minmax(0,1fr)!important;
+          }
+          body.drawer-right-open #sec-news .yp-school-news-tower {display:none!important}
+          body.drawer-right-open #sec-news .yp-school-news-inline-ad {display:flex!important}
+        }
+        `}</style>
     </section>
   );
 }

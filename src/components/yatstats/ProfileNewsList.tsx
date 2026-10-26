@@ -5,9 +5,12 @@ import SortToggle, { type SortDir } from "./SortToggle";
 import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
+import NewsEngagement from "./NewsEngagement";
+import PlayerInstagramFeed, { type InstagramViewerPost } from "./PlayerInstagramFeed";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
 import { toSlugFromDisplay } from "@/lib/slug";
+import { parseNewsVideo, newsVideoHeadline, newsVideoDescription, type NewsVideo } from "@/lib/newsVideo";
 
 export type ProfileNewsStory = {
   uuid: string;
@@ -23,6 +26,7 @@ export type ProfileNewsStory = {
   /** Populated by the school-wide Alumni News feed; absent on one-player profiles. */
   playerId?: string | null;
   playerName?: string | null;
+  video?: NewsVideo | null;
 };
 
 const noSubscribe = () => () => {};
@@ -46,6 +50,44 @@ function formatDate(value: string | null): string {
     : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
+// Video-first viewer: stay on YAT?STATS. Show a centered play arrow over
+// our preview instead of an up-front YouTube exit prompt. Load the official
+// player only after the viewer taps play; its native controls remain usable.
+function NewsVideoPlayer({ video, title }: { video: NewsVideo; title: string }) {
+  const [playing, setPlaying] = useState(false);
+  const youtube = video.provider === 'YouTube';
+  const instagram = video.provider === 'Instagram';
+  const reel = instagram && /\/reel\//.test(video.watchUrl);
+  const classes = [
+    'pp-news-video-player',
+    instagram ? 'pp-news-video-instagram' : '',
+    reel ? 'pp-news-video-instagram-reel' : '',
+  ].filter(Boolean).join(' ');
+  if (!video.embedUrl) {
+    return <div className={classes}><a href={video.watchUrl} target="_blank" rel="noopener noreferrer">Open original video</a></div>;
+  }
+  return (
+    <div className={classes}>
+      {youtube && !playing && video.thumbnailUrl ? (
+        <button type="button" className="pp-news-video-start" onClick={() => setPlaying(true)} aria-label={`Play ${title} on YAT?STATS`}>
+          <img src={video.thumbnailUrl} alt="" />
+          <span className="pp-news-video-play-icon" aria-hidden="true" />
+        </button>
+      ) : (
+        <iframe
+          src={youtube && playing ? video.embedUrl + '&autoplay=1' : video.embedUrl}
+          title={`${video.provider} media: ${title}`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="lazy"
+          scrolling={instagram ? "no" : undefined}
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function ProfileNewsList({
   stories,
   firstName,
@@ -65,6 +107,15 @@ export default function ProfileNewsList({
 }) {
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
+  const instagramStories = useMemo(() => stories.filter(s => parseNewsVideo(s.url)?.provider === 'Instagram'), [stories]);
+  const instagramPosts = useMemo<InstagramViewerPost[]>(() => instagramStories.map(s => {
+    const video = parseNewsVideo(s.url);
+    return { id: s.uuid, media_type: video?.watchUrl.includes('/reel/') ? 'video' : 'carousel',
+      caption: s.title, permalink: video?.watchUrl || s.url,
+      thumbnail_url: s.imageUrl || video?.thumbnailUrl || PLAYER_SILHOUETTE_URL,
+      published_at: s.publishedAt, handle: null };
+  }), [instagramStories]);
+  const instagramSelected = Boolean(instagramPosts.some(p => p.id === openUuid));
 
   useEffect(() => {
     if (storyParam && stories.some((s) => s.uuid === storyParam)) {
@@ -73,6 +124,7 @@ export default function ProfileNewsList({
   }, [storyParam, stories]);
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
+  const selectedVideo = openStory ? (openStory.video || parseNewsVideo(openStory.url)) : null;
   const relatedPlayerId = String(openStory?.playerId || playerId || '').trim();
   const relatedPlayerName = String(openStory?.playerName || playerName || '').trim();
   const playerProfileHref = openStory && relatedPlayerId && hsid
@@ -82,6 +134,12 @@ export default function ProfileNewsList({
   // Newest first by default; ▲▼ at the top flips it (same as Stories).
   const [sort, setSort] = useState<SortDir>("newest");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    if (!schoolWide) return;
+    const onReset = () => { setSearch(""); setSort("newest"); };
+    window.addEventListener("yat:news-reset", onReset);
+    return () => window.removeEventListener("yat:news-reset", onReset);
+  }, [schoolWide]);
   const sorted = useMemo(() => {
     const time = (s: ProfileNewsStory) => (s.publishedAt ? new Date(s.publishedAt).getTime() || 0 : 0);
     const q = search.trim().toLocaleLowerCase();
@@ -112,7 +170,13 @@ export default function ProfileNewsList({
           </label>
         </div>
         {sorted.length === 0 ? <p className="pp-news-no-results" role="status">No news matches “{search.trim()}”.</p> : null}
-        {sorted.map((story,index) => (
+        {sorted.map((story,index) => {
+          const clip = story.video || parseNewsVideo(story.url);
+          const headline = clip
+            ? newsVideoHeadline(story.title, story.playerName || playerName)
+            : stripHtml(story.title) || "Alumni news";
+          const description = clip ? newsVideoDescription(story.tease) : story.tease;
+          return (
           <Fragment key={story.uuid}>
           <button
             type="button"
@@ -132,8 +196,9 @@ export default function ProfileNewsList({
                 <CardPhoto srcs={getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl)} className="pp-news-thumb-img" />
               </div>
               <div className="pp-news-copy">
-                <div className="pp-news-title">{stripHtml(story.title) || "Alumni news"}</div>
-                {story.tease ? <div className="pp-news-body">{markPlayerName(stripHtml(story.tease), story.playerName || playerName)}</div> : null}
+                <div className="pp-news-title">{headline}</div>
+                {clip ? <span className="pp-news-video-label"><i className="ri-play-circle-line" aria-hidden="true" /> WATCH VIDEO · {clip.provider}</span> : null}
+                {description ? <div className="pp-news-body">{markPlayerName(stripHtml(description), story.playerName || playerName)}</div> : null}
                 <div className="pp-news-footer">
                   {(story.source || "News").toUpperCase()}
                   {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
@@ -145,15 +210,21 @@ export default function ProfileNewsList({
             <div className="yp-news-mobile-ad" aria-label="Title Sponsor advertisement space"><span>TITLE SPONSOR</span><strong>ADVERTISING ROW</strong><small>Reserved sponsor creative</small></div>
           ) : null}
           </Fragment>
-        ))}
+        );})}
       </div>
 
+      {instagramSelected ? <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts} initialPostId={openUuid} onClose={() => setOpenUuid("")} /> : null}
       <ProfileContentDrawer
-        open={Boolean(openStory)}
+        open={Boolean(openStory) && !instagramSelected}
         onClose={() => setOpenUuid("")}
-        ariaLabel={stripHtml(openStory?.title) || "Alumni news"}
-        kicker="YAT?STATS LOCAL RECAP"
-        title={stripHtml(openStory?.title) || "Alumni news"}
+        ariaLabel={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
+        kicker={selectedVideo ? "YAT?STATS VIDEO" : "YAT?STATS LOCAL RECAP"}
+        title={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
+        portraitMedia={selectedVideo?.provider === "Instagram"}
+        media={selectedVideo ? (
+          <NewsVideoPlayer key={openStory?.uuid || ''} video={selectedVideo}
+            title={newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName)} />
+        ) : undefined}
         meta={
           openStory
             ? `${(openStory.source || "News").toUpperCase()}${openStory.publishedAt ? ` · ${formatDate(openStory.publishedAt)}` : ""}`
@@ -162,10 +233,15 @@ export default function ProfileNewsList({
         footer={
           openStory ? (
             <div className="pp-news-modal-actions">
-              <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-                Read the original story at {(openStory.source || "the source").toUpperCase()}
-                <i className="ri-external-link-line" aria-hidden="true" />
-              </a>
+              <NewsEngagement uuid={openStory.uuid} hsid={hsid} title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} />
+              {/* Embedded videos play here. Do not place a competing off-site
+                  call to action under an already usable player. */}
+              {!selectedVideo?.embedUrl ? (
+                <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
+                  {selectedVideo ? "Original video (external)" : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
+                  <i className="ri-external-link-line" aria-hidden="true" />
+                </a>
+              ) : null}
               {playerProfileHref ? (
                 <a className="pp-news-modal-profile" href={playerProfileHref}
                   onClick={() => setOpenUuid("")}
@@ -179,11 +255,43 @@ export default function ProfileNewsList({
           ) : null
         }
       >
-        {openStory?.recap ? <p className="pp-news-reader-copy">{markPlayerName(stripHtml(openStory.recap), playerName)}</p> : null}
+        {(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap) ? (
+          <p className="pp-news-reader-copy">
+            {markPlayerName(stripHtml(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap), openStory?.playerName || playerName)}
+          </p>
+        ) : null}
       </ProfileContentDrawer>
 
       <style>{`
         .yp-news-mobile-ad {display:none;}
+        .pp-news-video-label{display:inline-flex;align-items:center;gap:5px;font:800 11px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);color:#ffb21c}
+        .pp-news-video-player{width:100%;aspect-ratio:16/9;display:grid;place-items:center;background:#000;overflow:hidden}
+        .pp-news-video-player iframe{display:block;width:100%;height:100%;border:0}
+        .pp-news-video-start{position:relative;display:grid;place-items:center;width:100%;height:100%;padding:0;border:0;background:#080808;cursor:pointer;overflow:hidden}
+        .pp-news-video-start img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.84)}
+        .pp-news-video-play-icon{position:relative;z-index:1;width:76px;height:52px;border-radius:15px;background:#f22;display:grid;place-items:center;box-shadow:0 3px 24px #0009}
+        .pp-news-video-play-icon:after{content:"";display:block;width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-left:22px solid #fff;margin-left:4px}
+        .pp-news-video-start:is(:hover,:focus-visible) .pp-news-video-play-icon{background:#d11}
+        /* Instagram's public embed includes profile links above its media and
+           captions below. Keep it in an isolated iframe, but show only the
+           media area in our own drawer. The image stays interactive. */
+        .pp-news-video-instagram{
+          --ig-head:clamp(64px,20vw,106px);
+          display:block;position:relative;flex:none;
+          aspect-ratio:4/5;
+          width:min(100%,420px,calc(70dvh * .8));
+          max-height:70dvh;
+          overflow:hidden;
+          margin:0 auto;
+          background:#050505;
+        }
+        .pp-news-video-instagram iframe{
+          position:absolute;left:0;top:calc(-1 * var(--ig-head));
+          width:100%;height:calc(100% + var(--ig-head) + 170px);
+          border:0;background:#050505;
+        }
+        .pp-news-video-instagram-reel{aspect-ratio:9/16;width:min(100%,420px,calc(74dvh * .5625));max-height:74dvh}
+        .pp-news-video-player a{display:flex;gap:8px;align-items:center;color:white;font:700 16px/1.3 var(--yat-font-ui,Arial,sans-serif);text-decoration:none;padding:20px;text-align:center}
         @media(max-width:740px) {
           .yp-news-mobile-ad {display:flex;min-height:77px;align-items:center;justify-content:space-around;gap:12px;padding:10px;margin:6px 0 12px;border:1px dashed var(--pp-news-muted);background:var(--pp-news-card-bg);color:var(--pp-news-title);text-align:center;}
           .yp-news-mobile-ad span,.yp-news-mobile-ad small {font:700 10px/1.3 var(--yat-font-compact);color:var(--pp-news-muted);}

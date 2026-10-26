@@ -163,6 +163,57 @@ export function getPlayerHeadshotSources(playerId: string, headshotUrl?: string 
   return [...new Set([designated, cutout, thumbnail, original, originalPng, ...officialSources, PLAYER_HEADSHOT_FALLBACK_URL].filter(Boolean))];
 }
 
+
+/**
+ * Prefer the source photo when a reviewer explicitly verified it, or when
+ * BOTH the article is player-verified and the image filename independently
+ * identifies that same alumnus by a distinctive surname. This is deliberately
+ * conservative: a verified article alone does not verify its lead photograph.
+ * No image requests, face analysis or extra database reads occur at page load.
+ */
+export function chooseNewsDisplayImage({
+  playerId,
+  playerName,
+  displayImageUrl,
+  sourceImageUrl,
+  verificationStatus,
+  imageVerificationStatus,
+}: {
+  playerId?: string | number | null;
+  playerName?: string | null;
+  displayImageUrl?: string | null;
+  sourceImageUrl?: string | null;
+  verificationStatus?: string | null;
+  imageVerificationStatus?: string | null;
+}): string | null {
+  const id = String(playerId ?? '').trim();
+  const fallback = String(displayImageUrl || '').trim() ||
+    (id ? getPlayerNowImageUrl(encodeURIComponent(id)) : null);
+  const source = String(sourceImageUrl || '').trim();
+  if (!source) return fallback;
+
+  try {
+    const parsed = new URL(source);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return fallback;
+    if (imageVerificationStatus === 'SOURCE_VERIFIED') return source;
+    if (verificationStatus !== 'VERIFIED') return fallback;
+
+    const names = String(playerName || '').normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .trim().split(/\s+/).filter(Boolean);
+    const surname = names[names.length - 1]?.replace(/[^a-z0-9]/g, '') || '';
+    // Short/common names and generic source photos remain on our own artwork.
+    if (names.length < 2 || surname.length < 7) return fallback;
+    const filename = decodeURIComponent(parsed.pathname.split('/').pop() || '')
+      .toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    if (filename.some((word) => ['logo', 'icon', 'placeholder', 'avatar', 'default', 'banner'].includes(word))) return fallback;
+    if (filename.includes(surname)) return source;
+  } catch {
+    // A malformed remote URL must never break the News API.
+  }
+  return fallback;
+}
+
 /**
  * Photos for a news card, best first. A story's publisher image is used only
  * when verification confirmed it shows our player (display_image_url set to
