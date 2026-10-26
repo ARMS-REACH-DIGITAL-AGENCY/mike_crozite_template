@@ -674,7 +674,9 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
 type HeroPhoto = { web: string; cutout: string | null; source: string | null; storyId?: string | null };
-type RailStory = { id: string; thumb: string | null; draft?: boolean };
+// Never render the square-cropped story thumbnail on the career rail.
+// The WebP web variant keeps the uploaded image's original orientation.
+type RailStory = { id: string; imageUrl: string | null; draft?: boolean };
 
 export type CareerTimelinePreviewState = {
   revision: string;
@@ -730,34 +732,36 @@ const RAIL_MONTH_START = 64;
 const missingCutouts = new Set<string>();
 const requestedCutouts = new Set<string>();
 
-// One fan photo in the hero spot. Uses the photo's cutout (background
-// knocked out, cropped to the people) placed exactly like the YaTi
-// cartoon - bottom pinned to the bottom of the slide, full height. Until a
-// cutout exists it shows the whole photo (sitting above the rail) and asks
-// the server to make one, so the next visit gets the cutout.
+// Approved annual hero: prefer transparent cutout; on a missing PNG show
+// the original approved JPG, preserving its aspect ratio. YaTi is only
+// the last fallback if BOTH the cutout and the original image fail.
 function StoryHeroImg({ photo, className, style, alt, readOnly = false, onOpenStory }: { photo: HeroPhoto; className: string; style?: CSSProperties; alt: string; readOnly?: boolean; onOpenStory?: (id: string) => void }) {
   // Story photos keep the entire image; approved annual hero photos use cutouts.
   const canCut = !photo.storyId && Boolean(photo.cutout && (photo.source || photo.cutout?.includes('/players/season-cutouts/')) && !missingCutouts.has(photo.source || photo.cutout || ''));
   const [cutFailed, setCutFailed] = useState(false);
+  const [originalFailed, setOriginalFailed] = useState(false);
   const useCut = canCut && !cutFailed;
   const onError = () => {
-    if (!useCut) return;
-    if (!readOnly) missingCutouts.add(photo.source || photo.cutout || '');
-    setCutFailed(true);
-    // Published contribution cutouts have no Story source key to regenerate.
-    // Fall back to the full photo rather than showing a broken image.
-    if (readOnly || !photo.source) return;
-    if (!requestedCutouts.has(photo.source)) {
-      requestedCutouts.add(photo.source);
-      fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
+    if (useCut) {
+      if (!readOnly) missingCutouts.add(photo.source || photo.cutout || '');
+      setCutFailed(true);
+      // Missing cutouts must never erase approved original photos.
+      if (readOnly || !photo.source) return;
+      if (!requestedCutouts.has(photo.source)) {
+        requestedCutouts.add(photo.source);
+        fetch('/api/stories/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: photo.source }) }).catch(() => {});
+      }
+    } else if (!originalFailed) {
+      // YaTi appears only when the approved original is also unavailable.
+      setOriginalFailed(true);
     }
   };
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId ? ' zt-timeline-memory' : ' zt-annual-hero'}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
+      className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId ? ' zt-timeline-memory' : ' zt-annual-hero'}${!photo.storyId && !useCut && !originalFailed ? ' zt-annual-hero-photo' : ''}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
       style={style}
-      src={useCut ? photo.cutout || photo.web : photo.storyId ? photo.web : YATI_PLACEHOLDERS[0]}
+      src={originalFailed ? YATI_PLACEHOLDERS[0] : useCut ? photo.cutout || photo.web : photo.web}
       alt={alt}
       loading="eager"
       decoding="async"
@@ -813,8 +817,9 @@ function StoryHeroStrip({ photos, tick, alt, readOnly = false, onOpenStory }: { 
   );
 }
 
-// Behind a year's slide when it has fan photos: all of them as a dark
-// montage (one photo: that photo, enlarged and blurred).
+// Faded, year-scoped photo backdrop (not a clickable or full-size hero).
+// Original-proportion web photos appear as soft color/texture behind the
+// headline and YaTi/approved anchor; month thumbnails open full memories.
 function StoryMontage({ photos }: { photos: string[] }) {
   const tiles = photos.slice(0, 6);
   return (
@@ -1063,6 +1068,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   // Fan/official Story photos are for MONTH rail thumbnails and full viewer,
   // never a full-size hero. This separation applies to every player.
   const [publishedPhotosByYear, setPublishedPhotosByYear] = useState<Record<number, HeroPhoto[]>>({});
+  // Fan Story photos belong in a FADED year-specific background, not the
+  // foreground hero. Separate from approved yearly hero uploads.
+  const [publishedFanBackdropsByYear, setPublishedFanBackdropsByYear] = useState<Record<number, string[]>>({});
   // year -> month (1-12) -> that month's stories (for the month rail).
   const [publishedStoriesByMonth, setPublishedStoriesByMonth] = useState<Record<number, Record<number, RailStory[]>>>({});
   // year -> its stories' ids (a coach year's "open the memory" button).
@@ -1076,6 +1084,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
   const [storiesLoad, setStoriesLoad] = useState<TimelineLoad>({ key: '', status: 'loading' });
   useEffect(() => {
     setPublishedPhotosByYear({});
+    setPublishedFanBackdropsByYear({});
     setPublishedStoriesByMonth({});
     setStoryIdsByYear({});
     setTimelineStories([]);
@@ -1095,6 +1104,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           if (cancelled || currentRequest !== request) return;
           if (!Array.isArray(data?.stories)) throw new Error('Missing player stories');
           const byYear: Record<number, HeroPhoto[]> = {};
+          const fanBackdrops: Record<number, string[]> = {};
           const byMonth: Record<number, Record<number, RailStory[]>> = {};
           const idsByYear: Record<number, string[]> = {};
           type ApiPhoto = { web: string | null; thumb?: string | null; cutout?: string | null; source?: string | null; logo?: boolean };
@@ -1102,9 +1112,23 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           for (const story of data.stories as ApiStory[]) {
             if (!story.year) continue;
             (idsByYear[story.year] ||= []).push(story.id);
+            // Use the UNCROPPED Story web image, never the square thumb.
+            // Keep it faint in the slide background; the photo itself
+            // remains fully accessible through month thumbnails and feed.
+            const fanPhoto = story.photos?.find((photo) => photo.web || photo.source);
+            const backdropUrl = fanPhoto?.web || fanPhoto?.source || null;
+            if (backdropUrl) {
+              const yearPhotos = (fanBackdrops[story.year] ||= []);
+              if (yearPhotos.length < 6 && !yearPhotos.includes(backdropUrl))
+                yearPhotos.push(backdropUrl);
+            }
             const month = story.date ? Number(story.date.slice(5, 7)) : 0;
             if (month >= 1 && month <= 12) {
-              ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, thumb: story.photos?.[0]?.thumb || story.photos?.[0]?.web || null });
+              const photo = story.photos?.[0];
+              ((byMonth[story.year] ||= {})[month] ||= []).push({
+                id: story.id,
+                imageUrl: photo?.web || photo?.source || photo?.thumb || null,
+              });
             }
             // Never promote a fan Story image (including reply photos) into
             // the hero asset list. All fan memories stay discoverable via
@@ -1120,6 +1144,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
               byYear[image.year] = [{ web: image.web, cutout: image.cutout, source: image.source, storyId: null }];
           }
           setPublishedPhotosByYear(byYear);
+          setPublishedFanBackdropsByYear(fanBackdrops);
           setPublishedStoriesByMonth(byMonth);
           setStoryIdsByYear(idsByYear);
           setTimelineStories(data.stories as Story[]);
@@ -1145,9 +1170,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     };
   }, [playerId, isPreview]);
 
-  // Local story previews belong to the month rail only; hero images must
-  // come from the verified yearly photo-upload workflow.
+  // Approved yearly images stay in the foreground. Story photos stay in
+  // the month rail and a screened-back montage; never swap these roles.
   const storyPhotosByYear = publishedPhotosByYear;
+  const fanBackdropsByYear = useMemo(() => {
+    if (!preview?.photos.length || !preview.year) return publishedFanBackdropsByYear;
+    return {
+      ...publishedFanBackdropsByYear,
+      [preview.year]: [
+        preview.photos[0].url,
+        ...(publishedFanBackdropsByYear[preview.year] || []),
+      ].filter((url, index, list) => Boolean(url) && list.indexOf(url) === index).slice(0, 6),
+    };
+  }, [publishedFanBackdropsByYear, preview?.year, preview?.photos]);
   const storiesByMonth = useMemo(() => {
     if (!preview?.photos.length || preview.month < 1 || preview.month > 12) return publishedStoriesByMonth;
     return {
@@ -1155,7 +1190,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
       [preview.year]: {
         ...publishedStoriesByMonth[preview.year],
         [preview.month]: [
-          { id: 'local-story-preview', thumb: preview.photos[0].url, draft: true },
+          { id: 'local-story-preview', imageUrl: preview.photos[0].url, draft: true },
           ...(publishedStoriesByMonth[preview.year]?.[preview.month] || []),
         ],
       },
@@ -2068,11 +2103,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                   area too, so this is a transparent window onto that one
                   continuous image instead of a second, independently-cropped
                   copy of it. */}
-              {/* Fan memories no longer replace the slide hero. Approved
-                  annual cutouts alone occupy the hero; keep the normal
-                  stadium/gradient atmosphere behind the text. */}
+              {/* Fan memories return only as faded, non-interactive
+                  background art. The year still uses its approved cutout
+                  or YaTi placeholder in the foreground; clicking a MONTH
+                  thumbnail remains the route to the full StoryViewer. */}
+              {(isCareerYearSlide(slide) || slide.kind === 'draft') && fanBackdropsByYear[slide.year]?.length ? (
+                <StoryMontage photos={fanBackdropsByYear[slide.year]} />
+              ) : null}
               <span className="zt-visual-gradient" aria-hidden="true" />
-              {(slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && (
+              {(slide.kind === 'lifeyear' || slide.kind === 'coachyear' || slide.kind === 'future') && !storyPhotosByYear[slide.year]?.length && !fanBackdropsByYear[slide.year]?.length && (
                 <span className="zt-logo-layer" aria-hidden="true">
                   <SmartImage srcs={slide.kind === 'coachyear' || (slide.kind === 'lifeyear' && varsityYears.has(slide.year)) ? hsCrestSrcs : []} src={YS_CREST_FALLBACK} alt="" />
                 </span>
@@ -2390,9 +2429,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                       )}
                       {stories.length > 0 && (isPreview ? (
                         <span className="zt-rail-month-memory" role="img" aria-label={`${selected ? 'Your photo' : `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`} in ${label} ${monthRailYear}`}>
-                          {stories[0].thumb ? (
+                          {stories[0].imageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={stories[0].thumb} alt="" loading="lazy" decoding="async" />
+                            <img src={stories[0].imageUrl} alt="" loading="lazy" decoding="async" />
                           ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </span>
@@ -2404,9 +2443,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                           aria-label={`Open ${stories.length} ${stories.length === 1 ? 'story' : 'stories'} from ${label} ${monthRailYear}`}
                           title={`${label} ${monthRailYear}: open memory`}
                         >
-                          {stories[0].thumb ? (
+                          {stories[0].imageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={stories[0].thumb} alt="" loading="lazy" decoding="async" />
+                            <img src={stories[0].imageUrl} alt="" loading="lazy" decoding="async" />
                           ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </button>
@@ -2639,6 +2678,17 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           filter:drop-shadow(0 3px 8px rgba(0,0,0,.5));
         }
          .zt-person-stack :global(.zt-person.zt-annual-hero) { bottom:-4% !important; height:104% !important; object-fit:contain; }
+        /* Unprocessed/failed yearly cutout: show entire approved original
+           on the left, without cropping and clear of the timeline rail. */
+        .zt-person-stack :global(.zt-person.zt-annual-hero-photo) {
+          left:0 !important;
+          width:calc(var(--hero-copy-left) - 8px) !important;
+          height:calc(100% - 34px) !important;
+          bottom:34px !important;
+          object-fit:contain !important;
+          object-position:right bottom !important;
+          filter:none !important;
+        }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
            headline's). */
@@ -2647,10 +2697,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-person-stack :global(.zt-story-leaving) { animation:zt-story-leave .9s cubic-bezier(.2,.8,.2,1) forwards; }
         @keyframes zt-story-enter { from { opacity:0; } to { opacity:.2; } }
         @keyframes zt-story-leave { from { transform:translateX(0); opacity:1; } to { transform:translateX(-60%); opacity:0; } }
-        /* Behind a year with fan photos: its photos as a dark montage. */
-        .zt-visual :global(.zt-story-montage) { position:absolute; z-index:0; inset:0; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; overflow:hidden; pointer-events:none; }
-        .zt-visual :global(.zt-story-montage img) { width:100%; height:100%; object-fit:cover; display:block; filter:brightness(.34) saturate(.8); }
-        .zt-visual :global(.zt-story-montage-single img) { transform:scale(1.15); filter:blur(14px) brightness(.38) saturate(.85); }
+        /* The fan-memory year backdrop is legible but SCREENED BACK;
+           it never occupies the hero foreground or intercepts taps.
+           The gradient remains above it, keeping all captions readable. */
+        .zt-visual :global(.zt-story-montage) { position:absolute; z-index:0; inset:0; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); overflow:hidden; pointer-events:none; opacity:.78; }
+        .zt-visual :global(.zt-story-montage img) { width:100%; height:100%; object-fit:cover; display:block; filter:blur(4px) brightness(.56) saturate(.75); }
+        .zt-visual :global(.zt-story-montage-single img) { transform:scale(1.08); filter:blur(12px) brightness(.62) saturate(.8); }
         @media (prefers-reduced-motion: reduce) {
           .zt-person-stack :global(.zt-person.zt-person-story) { transition:none; }
           .zt-person-stack :global(.zt-story-entering), .zt-person-stack :global(.zt-story-leaving) { animation:none; }
@@ -2916,19 +2968,29 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-rail-month.has-story { width:8px; height:8px; margin-left:-4px; background:#fff; box-shadow:none; }
         .zt-rail-month-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; color:rgba(255,255,255,.7); font:600 8px/1 Oswald,sans-serif; letter-spacing:.04em; white-space:nowrap; pointer-events:none; }
         .zt-rail-month.has-story .zt-rail-month-label { color:${TIMELINE_ACCENT}; }
-        /* MONTHS only: a real, aspect-preserved photograph above its tick.
-           No yellow square or circle. Full memory opens on click. */
+        /* All month thumbnails have the SAME displayed height. The image
+           determines its own width from its intrinsic aspect ratio:
+           landscapes spread horizontally, portraits stay narrow. Never
+           use the square-cropped -thumb.webp as the image source. The
+           max-width only contains exceptional panoramas within the rail.
+           The original full image remains available in StoryViewer. */
         .zt-rail-month-memory {
+          --zt-memory-height:38px;
+          --zt-memory-max-width:76px;
           position:absolute; z-index:9; left:50%; bottom:calc(50% + 8px);
           transform:translateX(-50%); display:flex; align-items:flex-end;
-          justify-content:center; width:max-content; height:max-content;
-          max-width:52px; padding:1px; border:0; border-radius:2px;
-          background:rgba(0,0,0,.55); color:#ffd02f; cursor:pointer;
+          justify-content:center; width:max-content; height:var(--zt-memory-height);
+          max-width:var(--zt-memory-max-width);
+          padding:0; border:0; border-radius:0;
+          background:transparent; color:#ffd02f; cursor:pointer;
           filter:drop-shadow(0 2px 3px #000); overflow:visible;
         }
         .zt-rail-month-memory :global(img) {
-          display:block; width:auto; height:auto; max-width:48px; max-height:38px;
-          object-fit:contain; object-position:center bottom; background:transparent;
+          display:block;
+          height:var(--zt-memory-height); width:auto;
+          min-width:0; max-height:none; max-width:var(--zt-memory-max-width);
+          object-fit:contain; object-position:center bottom;
+          border:0; border-radius:2px; background:transparent;
         }
         .zt-rail-month-memory:hover { filter:drop-shadow(0 2px 4px #000) brightness(1.18); }
         .zt-rail-star { font-size:18px; line-height:1; color:#ffd02f; -webkit-text-stroke:.55px #d83328; text-shadow:0 1px 2px #000; }
@@ -2942,11 +3004,22 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           color:#ffd02f; box-shadow:none; cursor:pointer; overflow:visible;
         }
         .zt-rail-year-memory:hover { transform:translate(-50%,-50%) scale(1.16); }
-        @media(max-width:620px) {
-          .zt-rail-month-memory { max-width:36px; bottom:calc(50% + 7px); }
-          .zt-rail-month-memory :global(img) { max-width:32px; max-height:32px; }
+        /* Use the actual timeline container width, not window width:
+           docked drawers and tablet splits must size thumbnails correctly. */
+        @container career-timeline (max-width:620px) {
+          .zt-rail-month-memory {
+            --zt-memory-height:32px;
+            --zt-memory-max-width:60px;
+            bottom:calc(50% + 7px);
+          }
           .zt-rail-year-memory { width:20px; height:24px; }
           .zt-rail-year-memory .zt-rail-star { font-size:16px; }
+        }
+        @container career-timeline (max-width:390px) {
+          .zt-rail-month-memory {
+            --zt-memory-height:28px;
+            --zt-memory-max-width:52px;
+          }
         }
 
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
@@ -3167,6 +3240,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
            .zt-person-stack :global(.zt-person.zt-timeline-memory) {
              bottom:22px !important; height:calc(100% - 30px) !important;
              object-position:left bottom;
+           }
+           .zt-person-stack :global(.zt-person.zt-annual-hero-photo) {
+             width:calc(58% - 8px) !important;
+             height:calc(100% - 22px) !important;
+             bottom:22px !important;
+             object-position:center bottom !important;
            }
           /* HS cutout: same left:24% as .zt-person, wider box (was
              clamp(84px,28cqw,120px)) -- at that width a wide pose was
