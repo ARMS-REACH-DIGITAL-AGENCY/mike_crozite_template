@@ -243,7 +243,7 @@ export function renderTribuneHtml(e: TribuneEdition): string {
         <h1 class="masthead" style="margin:0;font:700 61px ${SERIF};line-height:.98;letter-spacing:-3px;color:${C.ink};">${mastheadImage ? `<img src="${esc(mastheadImage)}" alt="${esc(e.masthead?.alt?.trim() || TRIBUNE_NAME)}" width="714" style="display:block;width:100%;max-width:714px;height:auto;margin:0 auto;border:0;">` : `<span style="font-size:.38em;letter-spacing:-.5px;vertical-align:middle;">The</span> YAT-A-BOY<br><span class="masthead-sub" style="font-size:59px;letter-spacing:-2px;">Tribune</span>`}</h1>
         ${mastheadImage && e.masthead?.includesTagline ? '' : `<p class="tagline" style="margin:14px 0 0;font:italic 14px ${SERIF};line-height:1.6;color:${C.muted};">Dedicated to tell our fans, <strong style="color:${C.ink};font-style:normal;">WHERE THEY YAT!</strong><br>Through <strong style="color:${C.ink};font-style:normal;">STORIES &amp; STATS!</strong></p>`}
       </td></tr>
-      <tr><td class="pad" style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:3px solid ${C.ink};border-bottom:1px solid ${C.ink};"><tr><td class="edition-meta" style="padding:10px 0;font:700 10px ${SANS};line-height:1.6;letter-spacing:.4px;">${schoolLogo ? `<img src="${esc(schoolLogo)}" width="21" height="21" alt="" style="display:inline-block;vertical-align:middle;margin-right:7px;">` : ''}${esc(e.school.name.toUpperCase())}<br><span style="font-weight:400;letter-spacing:0;color:${C.muted};">${esc(e.school.location)}</span></td><td class="edition-meta" align="right" style="padding:10px 0;font:700 10px ${SANS};line-height:1.6;letter-spacing:.3px;">${esc(cadence.toUpperCase())} EDITION<br><span style="font-weight:400;color:${C.muted};">${esc(date(e.generatedAt, true))}</span></td></tr></table></td></tr>
+      <tr><td class="pad" style="padding:0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:3px solid ${C.ink};border-bottom:1px solid ${C.ink};"><tr><td class="edition-meta" style="padding:10px 0;font:700 10px ${SANS};line-height:1.6;letter-spacing:.4px;">${schoolLogo ? `<img src="${esc(schoolLogo)}" width="21" height="21" alt="" style="display:inline-block;vertical-align:middle;margin-right:7px;">` : ''}${esc(e.school.name.toUpperCase())}<br><span style="font-weight:400;letter-spacing:0;color:${C.muted};">${esc(e.school.location)}</span></td><td class="edition-meta" align="right" style="padding:10px 0;font:700 10px ${SANS};line-height:1.6;letter-spacing:.3px;">${esc(e.period.cadence === 'daily' ? 'THE DAILY DIGEST · POWERED BY YAT?STATS' : 'WEEKLY EDITION')}<br><span style="font-weight:400;color:${C.muted};">${esc(date(e.generatedAt, true))}</span></td></tr></table></td></tr>
       ${renderPublisherNote(e)}
       <tr><td class="pad" style="padding:27px 32px 21px;">${kicker(e.matchup ? 'THE FANTASY DESK / REAL STATS. HOMETOWN PRIDE.' : 'THE ALUMNI DESK / REAL STATS. HOMETOWN PRIDE.')}
         <h2 class="headline" style="margin:0 0 13px;font:700 45px ${SERIF};line-height:1.07;letter-spacing:-1.8px;">${esc(e.story.headline)}</h2>
@@ -257,7 +257,7 @@ export function renderTribuneHtml(e: TribuneEdition): string {
       </tr></table></td></tr>
     </table>
     ${renderSponsor(e)}
-    ${renderRoster(e.homeRoster, false, e)}
+    ${e.period.cadence === 'daily' ? renderDailyDigest(e.homeRoster) : renderRoster(e.homeRoster, false, e)}
     ${follows}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="pad" style="padding:26px 32px 28px;background:${C.greenDark};color:#ffffff;">${kicker('THE ROAD TO THE 2027 FALL CLASSIC', C.gold)}<h2 style="margin:0 0 12px;font:700 31px ${SERIF};line-height:1.15;color:#ffffff;">Follow your alumni.<br>Dream about October.</h2><p style="margin:0 0 20px;font:14px ${SANS};line-height:1.8;color:#e0e7d8;">${esc(sweepstakesText(e))}</p>${rulesUrl ? `<a href="${esc(rulesUrl)}" style="display:inline-block;padding:12px 17px;background:${C.gold};color:${C.greenDark};font:700 11px ${SANS};text-decoration:none;">READ THE OFFICIAL RULES →</a>` : `<p style="margin:0;font:12px ${SANS};line-height:1.7;color:${C.gold};">The official rules link will be included before delivery.</p>`}</td></tr>
       <tr><td class="pad" align="center" style="padding:30px 32px 29px;border-bottom:3px solid ${C.ink};">${kicker('PASS THE PAPER')}<h2 style="margin:0 0 12px;font:700 29px ${SERIF};line-height:1.2;">Good stories belong in good company.</h2><p style="margin:0 auto 19px;max-width:560px;font:15px ${SERIF};line-height:1.8;color:${C.muted};">${esc(SHARING_TEXT)}</p>${button('SHARE THE SCHOOL EDITION →', e.links.share, true)}<p style="margin:14px 0 0;font:11px ${SANS};line-height:1.7;color:${C.muted};">Invite another alumnus. Bring another fan home.</p></td></tr>
@@ -298,6 +298,41 @@ function plainStats(table: TribuneStatsTable, otherSchools: boolean): string {
   const label = table.kind === 'batting' ? 'BATTERS' : 'PITCHERS';
   return `${label}\n\n${rows.length ? rows.join('\n\n') : `No ${label.toLowerCase()} are listed in this roster.`}\n\n${label} TOTALS\n${totalChunks.join('\n')}`;
 }
+
+/** Daily Digest: appearance-only compact lines. Never infer RBI, runs or
+ * other event details from summary columns that do not contain them. */
+function dailyLines(roster: TribuneRoster): Array<{ name: string; line: string; profileUrl?: string }> {
+  const lines: Array<{ name: string; line: string; profileUrl?: string }> = [];
+  for (const row of roster.batting.rows) {
+    if (row.state !== 'played') continue;
+    const c = row.cells;
+    const ab = c[2], hits = c[3];
+    const events = [[4, '2B'], [5, '3B'], [6, 'HR'], [7, 'BB'], [8, 'HBP']].flatMap(([i, label]) => {
+      const count = Number(c[i]);
+      return Number.isFinite(count) && count > 0 ? [`${count}${label}`] : [];
+    });
+    lines.push({ name: row.name, profileUrl: row.profileUrl, line: `${hits} for ${ab}${events.length ? ' | ' + events.join(', ') : ''}` });
+  }
+  for (const row of roster.pitching.rows) {
+    if (row.state !== 'played') continue;
+    const c = row.cells;
+    const details = [`${c[9]}K`, `${c[7]}BB`, `${c[3]}H`, `${c[5]}ER`, `${c[4]}R`];
+    lines.push({ name: row.name, profileUrl: row.profileUrl, line: `${c[2]} IP | ${details.join(', ')}` });
+  }
+  return lines;
+}
+function renderDailyDigest(roster: TribuneRoster): string {
+  const rows = dailyLines(roster);
+  const body = rows.length ? rows.map((r, i) =>
+    `<tr bgcolor="${i % 2 ? '#f0f1e8' : '#fbfaf4'}"><td style="padding:12px 15px;border-bottom:1px solid #e0e2d7;font:700 13px ${SANS};">${textLink(r.name.toUpperCase(), r.profileUrl, `color:${C.ink};font-weight:700;text-decoration:none;`)}</td><td style="padding:12px 15px;border-bottom:1px solid #e0e2d7;font:12px ${MONO};">${esc(r.line)}</td></tr>`).join('')
+    : `<tr><td style="padding:18px;font:13px ${SANS};color:${C.muted};">No verified player appearances for this reporting day.</td></tr>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fbfaf4;border-top:3px solid ${C.green};"><tr><td class="pad" style="padding:25px 32px 10px;">${kicker('THE DAILY DIGEST · POWERED BY YAT?STATS')}<h2 style="margin:0;font:700 29px ${SERIF};">Yesterday on the diamond.</h2><p style="font:12px ${SANS};color:${C.muted};">Only verified appearances · ${esc(roster.title)}</p></td></tr><tr><td class="pad" style="padding:0 32px 28px;"><table width="100%" cellpadding="0" cellspacing="0">${body}</table></td></tr></table>`;
+}
+function plainDailyDigest(roster: TribuneRoster): string {
+  const rows = dailyLines(roster);
+  return `THE DAILY DIGEST — POWERED BY YAT?STATS\\nOnly verified appearances · ${roster.title}\\n\\n${rows.length ? rows.map(r => `${r.name.toUpperCase()}  ${r.line}`).join('\\n') : 'No verified player appearances for this reporting day.'}`;
+}
+
 function plainRoster(roster: TribuneRoster, otherSchools: boolean, e: TribuneEdition): string {
   return `${otherSchools ? 'BEYOND THE HOME DIAMOND — YOUR SUPERFAN FOLLOW LIST' : 'EVERY ALUM. EVERY BOX SCORE.'}\n${roster.title} | ${roster.playerCount} players | ${e.period.label}\n\n${otherSchools ? `Players you follow from other schools. Their production is shown separately and does not count toward ${e.school.name}’s fantasy result.` : 'The complete school roster, including players with no appearance in this period. The statistics use the same columns and totals as the tournament table.'}\n\n${plainStats(roster.batting, otherSchools)}\n\n${plainStats(roster.pitching, otherSchools)}${roster.clubRecord ? `\n\nTEAM TOTAL: ${roster.clubRecord} real-game W–L` : ''}\n\nNo appearance = no recorded appearance in the period.\nData unavailable = a result could not be verified.\n— = unavailable or not applicable; it is not a zero.${roster.note ? `\n${roster.note}` : ''}`;
 }
@@ -336,7 +371,7 @@ export function renderTribuneText(e: TribuneEdition): string {
     credit ?? '',
     `IN THIS EDITION\nAlumni stats cover ${e.period.label}.\n${e.homeRoster.playerCount} players in your school’s complete roster.\n${plainLink('Visit the tournament', e.links.tournament)}`,
     e.sponsor ? `ADVERTISEMENT — ${e.sponsor.label ?? 'YOUR SCHOOL’S COMMUNITY PARTNER'}\n${e.sponsor.name}\n${e.sponsor.headline}\n\n${e.sponsor.body}\n${plainLink(e.sponsor.cta, e.sponsor.url)}` : `ADVERTISEMENT — SPONSOR SPACE\nA little hometown support goes a long way.\nReserved for this school’s sponsor: their message, logo and offer.${e.links.sponsorInquiry ? `\n${plainLink('Support this school’s edition', e.links.sponsorInquiry)}` : ''}`,
-    plainRoster(e.homeRoster, false, e),
+    e.period.cadence === 'daily' ? plainDailyDigest(e.homeRoster) : plainRoster(e.homeRoster, false, e),
     e.recipientTier === 'superfan' && e.follows ? plainRoster(e.follows, true, e) : '',
     `THE ROAD TO THE 2027 FALL CLASSIC\nFollow your alumni. Dream about October.\n\n${sweepstakesText(e)}\n${e.links.officialRules ? plainLink('Official rules', e.links.officialRules) : 'The official rules link will be included before delivery.'}`,
     `PASS THE PAPER\nGood stories belong in good company.\n\n${SHARING_TEXT}\n${plainLink('Share the school edition', e.links.share)}\nInvite another alumnus. Bring another fan home.`,
