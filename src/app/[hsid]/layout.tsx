@@ -19,12 +19,13 @@ import {
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortAllTimePlayers } from '@/lib/playerUtils';
+import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isNeverASchoolSegment } from '@/lib/schoolSegment';
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
 import { getBatchPlayerHeadshots } from '@/lib/playerHeadshots';
+import splashFeaturedPlayers from '@/config/splash-featured-players.json';
 
 import type { Metadata } from 'next';
 
@@ -176,10 +177,17 @@ export default async function HsidLayout({
   }
 
   const splashHsid = String(school.hsid ?? hsid);
-  // Avoid even rendering the splash, its stadium light SVG, logo images or
-  // animations on repeat visits. Works across school subdomains via yat_seen.
-  // A manual ?splash=1 preview still forces the original introduction.
-  const seenSplash = /(?:^|;\s*)yat_seen=1(?:;|$)/.test(headersList.get('cookie') || '');
+  const splashOverride = (splashFeaturedPlayers as Record<string, { ids: string[]; confirmedCutouts?: string[]; details?: Record<string, { name: string; team: string }> }>)[splashHsid];
+  // Avoid rendering splash assets for repeat visits to THIS school only.
+  // On the live school subdomains the browser sends a host-only cookie;
+  // /{hsid} preview routes key it by school ID on the shared preview host.
+  const liveSchoolHost = host.split(':')[0].toLowerCase().endsWith('.yatstats.com') &&
+    host.split(':')[0].toLowerCase() !== 'www.yatstats.com';
+  const firstSegment = pathname.split('/')[1] || '';
+  const previewHsid = !liveSchoolHost && /^[1-9][0-9]*$/.test(firstSegment) ? firstSegment : '';
+  const splashCookie = previewHsid ? `yat_splash_seen_${previewHsid}` : 'yat_splash_seen';
+  const seenSplash = (headersList.get('cookie') || '')
+    .split(';').some((value) => value.trim() === `${splashCookie}=1`);
   const forceSplash = headersList.get('x-yat-force-splash') === '1';
   const showSplash = forceSplash || (!seenSplash && !openJoin);
   return (
@@ -187,6 +195,9 @@ export default async function HsidLayout({
       {showSplash && <SchoolSplash
         previewMode={forceSplash}
         schoolId={splashHsid}
+        featuredPlayerIds={splashOverride?.ids ?? []}
+        confirmedCutoutIds={splashOverride?.confirmedCutouts ?? []}
+        featuredPlayerDetails={splashOverride?.details ?? {}}
         crestUrl={getSchoolCrestUrl(splashHsid)}
         schoolName={formatSchoolName(String(school.hsname || ''))}
         location={String(school.hslocation || '').trim().replace(/\s*,\s*/, ', ')}
@@ -211,6 +222,10 @@ async function SchoolShell({
   enableSplashCutouts: boolean;
 }) {
   const headersList = await headers();
+  // Profile pages do not display the school's image strip, plaques or footer.
+  // Keep the staged roster for correct profile return navigation and for
+  // choosing the school's one-time splash player, but skip irrelevant queries.
+  const isProfileRoute = /\/player\/[^/]+(?:\/|$)/.test(headersList.get('x-pathname') || '');
   const resolvedHsid = String(school.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
@@ -242,13 +257,17 @@ async function SchoolShell({
       return [];
     }),
     allTimeRosterForInitialTeam,
-    getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
-      // On a temporary coverage-cache failure, fall back to the existing
-      // per-school lookup rather than silently hiding verified team plaques.
-      console.error('getSchoolsWithApprovedTeamSeasons failed', { error });
-      return null;
-    }),
-    getActiveAlumniSummaryByHsid(resolvedHsid),
+    isProfileRoute
+      ? Promise.resolve([] as string[])
+      : getSchoolsWithApprovedTeamSeasons('all').catch((error): null => {
+          // On a temporary coverage-cache failure, fall back to the existing
+          // per-school lookup rather than silently hiding verified team plaques.
+          console.error('getSchoolsWithApprovedTeamSeasons failed', { error });
+          return null;
+        }),
+    isProfileRoute
+      ? Promise.resolve({ playerIds: [] as string[], statsPending: false })
+      : getActiveAlumniSummaryByHsid(resolvedHsid),
   ]);
   // Keep current-season evidence for stat badges only. Active Alumni
   // membership itself is the owner-approved status preset, shared with the
@@ -273,7 +292,7 @@ async function SchoolShell({
   // Avoid a separate season-results lookup for schools without approved seasons.
   const approvedSeasonSchoolIds: ReadonlySet<string> | null =
     schoolsWithSeasons === null ? null : new Set<string>(schoolsWithSeasons);
-  const teamSeasonResults = (approvedSeasonSchoolIds === null || approvedSeasonSchoolIds.has(String(resolvedHsid)))
+  const teamSeasonResults = !isProfileRoute && (approvedSeasonSchoolIds === null || approvedSeasonSchoolIds.has(String(resolvedHsid)))
     ? await getSchoolTeamSeasonResults(resolvedHsid).catch((error) => {
         console.error('getSchoolTeamSeasonResults failed', { resolvedHsid, error });
         return [];
@@ -384,36 +403,51 @@ async function SchoolShell({
   }
   const allStripRows = sortAllTimePlayers(stripMerged);
   const stripPlayerIds = allStripRows.map((p) => String(p.playerid)).filter(Boolean);
-  // Favor active alumni; only fall back to other alumni when no usable
-  // high-school cutout exists. All IDs come from already fetched roster rows.
+  // Use the same level/grad-year/roster-years/surname sort as the visible
+  // Active Alumni gallery. Default: only its first FOUR players, on every
+  // school. A configured school (Hamilton) keeps its approved fixed pool.
+  // This runs on the stage roster already loaded for the shell: zero new DB
+  // calls, zero per-player server image checks, and no school-specific code.
+  const featuredSplashIds = (splashFeaturedPlayers as Record<string, { ids: string[] }>)[String(resolvedHsid)]?.ids;
+  const splashCandidates = featuredSplashIds !== undefined
+    ? featuredSplashIds
+    : sortActivePlayers([...activeAlumniRows]).map((p) => String(p.playerid || '').trim());
   const splashActiveIds = enableSplashCutouts
-    ? Array.from(new Set(activeAlumniPlayerIds.filter((id) => /^\d+$/.test(id))))
+    ? Array.from(new Set(splashCandidates.filter((id) => /^(?:\d+|YAT\d+)$/i.test(id))))
+        .slice(0, featuredSplashIds !== undefined ? featuredSplashIds.length : 4)
     : [];
-  const splashActiveIdSet = new Set(splashActiveIds);
-  const splashOtherIds = enableSplashCutouts
-    ? Array.from(new Set(stripPlayerIds.filter((id) => /^\d+$/.test(id) && !splashActiveIdSet.has(id))))
-    : [];
-  // Source the selected splash player's identity/team from this same
-  // normalized school stage roster; no player-specific lookup or hardcode.
+  // No other-alumni fallback: scanning 12+ player cutouts per splash is expensive.
+  // If none of the four have a cutout, leave the player slot empty.
+  const splashOtherIds: string[] = [];
+  // Send only the four (or school-approved) names to the browser, not the
+  // school's complete roster; substantially reduces inline JSON on big hubs.
+  const missingSplashDetails = new Set(splashActiveIds);
   const splashPlayerDetails: Record<string, { name: string; team: string }> = {};
-  if (enableSplashCutouts) {
+  if (enableSplashCutouts && missingSplashDetails.size) {
     for (const row of [...activeAlumniRows, ...allStripRows]) {
       const id = String(row.playerid || '').trim();
-      if (!/^\\d+$/.test(id) || splashPlayerDetails[id]) continue;
+      if (!missingSplashDetails.delete(id)) continue;
       const name = String(row.display_name || `${String(row.first_name || row.firstname || '')} ${String(row.last_name || row.lastname || '')}`).trim();
       const team = String(row.current_team_name || '').trim();
       splashPlayerDetails[id] = { name, team };
+      if (!missingSplashDetails.size) break;
     }
   }
   // Data-derived display names may contain markup characters. Escape them
   // before embedding JSON in an inline <script> so it cannot close the tag.
   const splashRosterJson = JSON.stringify({
+    school: resolvedHsid,
     active: splashActiveIds,
     other: splashOtherIds,
     details: splashPlayerDetails,
   }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
 
-  const [stripFrontImageMap, stripHeadshotMap] = await Promise.all([
+  // InteractionStrip is never rendered on player profiles. Neither batch
+  // image query belongs in the critical path when opening a profile through
+  // Favorites or another school's player link.
+  const [stripFrontImageMap, stripHeadshotMap] = isProfileRoute
+    ? [emptyStripImageMap(), emptyStripImageMap()]
+    : await Promise.all([
     stripPlayerIds.length
       ? getBatchDesignatedPlayerImages(stripPlayerIds, 'YATSTATS_FRONT').catch((error) => {
         console.error('getBatchDesignatedPlayerImages failed for interaction strip', {
@@ -432,7 +466,7 @@ async function SchoolShell({
       : Promise.resolve(emptyStripImageMap()),
   ]);
 
-  const stripPlayers = allStripRows.map((p) => {
+  const stripPlayers = (isProfileRoute ? [] : allStripRows).map((p) => {
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
     const stripImages = getStripImageForPlayer(
@@ -456,8 +490,8 @@ async function SchoolShell({
       <YatStyles />
       {enableSplashCutouts && (splashActiveIds.length > 0 || splashOtherIds.length > 0) && (
         <script id="yat-splash-roster-pool" dangerouslySetInnerHTML={{
-          __html: "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:" +
-            splashRosterJson + "}));",
+          __html: "window.__yatSplashRoster=" + splashRosterJson + ";" +
+            "document.dispatchEvent(new CustomEvent('yat:splash-players',{detail:window.__yatSplashRoster}));",
         }} />
       )}
 

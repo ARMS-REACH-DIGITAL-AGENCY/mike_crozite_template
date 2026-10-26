@@ -129,6 +129,18 @@ function closeRightDrawer(right: DrawerState['right']) {
 }
 
 function restoreDrawerState() {
+  // Android's "Desktop site" can report a desktop-width viewport while
+  // remaining touch-only. Never resurrect a remembered desktop side rail
+  // there: it can reserve an empty right column across the school rows.
+  // A rail opened deliberately with a tap still works until navigation.
+  if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) {
+    document.body.classList.remove(
+      'drawer-left-open', 'yat-left-search-mode', 'drawer-sort-open',
+      'drawer-right-open', 'drawer-account-open', 'drawer-favorites-open',
+      'yat-desktop-docked-drawers'
+    );
+    return;
+  }
   const saved = readSavedDrawerState();
   if (!saved) return;
 

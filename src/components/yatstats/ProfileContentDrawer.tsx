@@ -16,6 +16,7 @@ type ProfileContentDrawerProps = {
   children: ReactNode;
   footer?: ReactNode;
   maxWidth?: number;
+  portraitMedia?: boolean;
 };
 
 /**
@@ -37,6 +38,7 @@ export default function ProfileContentDrawer({
   children,
   footer,
   maxWidth = 580,
+  portraitMedia = false,
 }: ProfileContentDrawerProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -72,7 +74,7 @@ export default function ProfileContentDrawer({
       />
 
       <article
-        className={`yat-content-drawer__sheet ${media ? "yat-content-drawer__sheet--media" : ""}`}
+        className={`yat-content-drawer__sheet ${media ? "yat-content-drawer__sheet--media" : ""} ${portraitMedia ? "yat-content-drawer__sheet--portrait" : ""}`}
         style={{ ["--yat-content-drawer-max" as string]: `${maxWidth}px` }}
       >
         <div className="yat-content-drawer__header">
@@ -222,6 +224,13 @@ export default function ProfileContentDrawer({
           background:var(--yat-content-drawer-media-bg);
           overflow:auto;
           border-bottom:1px solid var(--yat-content-drawer-border);
+        }
+        .yat-content-drawer__sheet--portrait .yat-content-drawer__media{
+          max-height:74dvh;
+          display:flex;
+          justify-content:center;
+          overflow:hidden;
+          background:#050505;
         }
         .yat-content-drawer__scroll{
           min-height:0;
