@@ -155,7 +155,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // Iframe URLs must be Instagram URLs parsed by our shared host allowlist.
   const parsedPost = current?.permalink ? parseNewsVideo(current.permalink) : null;
   const embedUrl = parsedPost?.provider === 'Instagram'
-    ? parsedPost.embedUrl?.replace(/\/embed\/$/, '/embed/captioned/') || null
+    ? (preferEmbed ? parsedPost.embedUrl : parsedPost.embedUrl?.replace(/\/embed\/$/, '/embed/captioned/')) || null
     : null;
   const hasPreview = Boolean(current?.thumbnail_url?.trim() && brokenThumbnailId !== current?.id);
   // News opens the actual Instagram post immediately, including when a
@@ -241,14 +241,23 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
             </div>
             <div className="pp-ig-media">
               {showInstagramEmbed && embedUrl ? (
-                <iframe
-                  key={current.id}
-                  src={embedUrl}
-                  title={'Interactive Instagram post by @' + (current.handle || 'unknown')}
-                  allow="autoplay; encrypted-media; picture-in-picture; clipboard-write"
-                  allowFullScreen
-                  loading="eager"
-                />
+                // A News post with no synced thumbnail must use Instagram's
+                // native player. Contain that player like the Social photo,
+                // and clip only Instagram's redundant account header: our
+                // own black Instagram + Original Post bar remains visible.
+                <div className={preferEmbed ? (
+                  'pp-ig-news-embed-window' + (current.media_type === 'video' || /\/reel\//.test(current.permalink || '') ? ' is-reel' : '')
+                ) : 'pp-ig-social-embed-window'}>
+                  <iframe
+                    key={current.id}
+                    src={embedUrl}
+                    title={'Interactive Instagram post by @' + (current.handle || 'unknown')}
+                    allow="autoplay; encrypted-media; picture-in-picture; clipboard-write"
+                    allowFullScreen
+                    loading="eager"
+                    scrolling="no"
+                  />
+                </div>
               ) : hasPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -325,6 +334,31 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-media { min-height:0; min-width:0; flex:1 1 auto; display:flex; align-items:center; justify-content:center; background:#050505; }
         .pp-ig-media img { width:100%; height:100%; display:block; object-fit:contain; object-position:center; }
         .pp-ig-media iframe { width:100%; height:100%; display:block; border:0; background:white; }
+        .pp-ig-social-embed-window { width:100%;height:100%; }
+        /* Media-first News mirrors the Social viewer's contained portrait.
+           A live Instagram embed is the fallback for contributed links whose
+           actual media has not been synced to our S3 library. */
+        .pp-ig-news-embed-window {
+          width:min(83%,380px);
+          min-width:min(100%,326px);
+          aspect-ratio:4/5;
+          max-height:100%;
+          position:relative;
+          overflow:hidden;
+          flex:none;
+          border-radius:6px;
+          background:#050505;
+        }
+        .pp-ig-news-embed-window.is-reel { width:min(76%,355px); aspect-ratio:9/16; }
+        /* The original embed's account stripe duplicates the YAT?STATS bar.
+           Clip its stripe, not the post media or the on-platform controls. */
+        .pp-ig-news-embed-window iframe {
+          position:absolute;
+          inset:-44px 0 auto 0;
+          width:100%;
+          height:calc(100% + 44px);
+          background:#050505;
+        }
         .pp-ig-post-details { flex:0 0 auto; max-height:128px; overflow-y:auto; overscroll-behavior:contain; padding:9px 13px 11px; }
         .pp-ig-post-details-news { flex:0 0 auto; max-height:128px; }
         .pp-ig-post-details-news:has(.yp-news-thread-open) { flex:0 1 auto; max-height:min(38dvh,320px); }
