@@ -83,6 +83,9 @@ export async function POST(req: NextRequest) {
           if (!years) return fail('Choose valid high-school varsity years.');
           submitted[key]=years;
          } else if (key === 'current_teamid') {
+          // A missing player may legitimately have no known current team.
+          // Only submitted, non-empty identities require a search selection.
+          if (value === '' || value === null || value === undefined) continue;
           if (typeof value !== 'string' || !/^\d{1,18}$/.test(value.trim())) {
             return fail('Choose a current team from Global Search.');
           }
