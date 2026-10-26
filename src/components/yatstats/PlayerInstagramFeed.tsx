@@ -8,6 +8,7 @@
 // is actually shown, and renders nothing when there are no stored posts.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { ReactNode } from 'react';
 
 export type InstagramViewerPost = {
   id: string;
@@ -21,9 +22,10 @@ export type InstagramViewerPost = {
 
 type SchoolFeed = { hsid: string; name: string };
 
-export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, externalPosts, initialPostId, onClose }: {
+export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, externalPosts, initialPostId, onClose, renderNewsActions }: {
   playerId: string; firstName: string; schoolFeed?: SchoolFeed;
   externalPosts?: InstagramViewerPost[]; initialPostId?: string; onClose?: () => void;
+  renderNewsActions?: (postId:string) => ReactNode;
 }) {
   const schoolHsid = schoolFeed?.hsid;
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -191,7 +193,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                 />
               )}
             </div>
-            <div className="pp-ig-post-details">
+            <div className={`pp-ig-post-details${renderNewsActions ? ' pp-ig-post-details-news' : ''}`}>
               {hasInteractiveMedia && (
                 <button
                   type="button"
@@ -208,6 +210,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               {!showInstagramEmbed && publishedDate && (
                 <time dateTime={current.published_at || undefined} className="pp-ig-post-date">{publishedDate}</time>
               )}
+              {renderNewsActions ? renderNewsActions(current.id) : null}
             </div>
           </div>
           <button type="button" className="pp-ig-close" aria-label="Close" onClick={close}>
@@ -247,6 +250,8 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-media img { width:100%; height:100%; display:block; object-fit:contain; object-position:center; }
         .pp-ig-media iframe { width:100%; height:100%; display:block; border:0; background:white; }
         .pp-ig-post-details { flex:0 0 auto; max-height:128px; overflow-y:auto; overscroll-behavior:contain; padding:9px 13px 11px; }
+        .pp-ig-post-details-news{max-height:min(45vh,380px)}
+        .pp-ig-post-details-news .yp-news-engagement{margin-top:10px}
         .pp-ig-caption { margin:0; max-height:62px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:#dedede; font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .pp-ig-post-date { display:block; margin-top:6px; font:500 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:#a7a7a7; }
         .pp-ig-embed-toggle { display:inline-flex; align-items:center; gap:5px; margin:0 0 7px; border:1px solid rgba(255,255,255,.35); border-radius:4px; padding:6px 10px; background:#282828; color:#fff; cursor:pointer; font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); }

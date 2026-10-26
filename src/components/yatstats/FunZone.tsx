@@ -310,9 +310,12 @@ if (!cancelled) {
     }
 
     loadNews();
-
+    // Only the open flip card listens, avoiding extra requests for every
+    // player on the school gallery when a contribution is edited or untagged.
+    window.addEventListener('yat:news-updated', loadNews);
     return () => {
       cancelled = true;
+      window.removeEventListener('yat:news-updated', loadNews);
     };
   }, [isActive, resolvedHsid, playerId]);
 

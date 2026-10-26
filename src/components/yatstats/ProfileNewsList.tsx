@@ -213,7 +213,12 @@ export default function ProfileNewsList({
         );})}
       </div>
 
-      {instagramSelected ? <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts} initialPostId={openUuid} onClose={() => setOpenUuid("")} /> : null}
+      {instagramSelected ? <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts} initialPostId={openUuid} onClose={() => setOpenUuid("")}
+        renderNewsActions={storyId => {
+          const selected = stories.find(s => s.uuid === storyId);
+          return selected ? <NewsEngagement key={storyId} uuid={storyId} hsid={hsid}
+            title={selected.title} description={selected.recap || selected.tease || ''}/> : null;
+        }} /> : null}
       <ProfileContentDrawer
         open={Boolean(openStory) && !instagramSelected}
         onClose={() => setOpenUuid("")}
