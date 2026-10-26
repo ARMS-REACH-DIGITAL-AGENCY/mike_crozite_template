@@ -60,7 +60,15 @@ export async function POST(req:NextRequest){
   RETURNING recipient_email`,
   [date,email,school.hsname,home.length,extra.length,logs.length]
  );
- if(!claim.rowCount){result.push({email,status:'previously_attempted',school:school.hsname});continue;}
+ if(!claim.rowCount){
+  const prior=(await query<{status:string;updated_at:string;error_detail:string|null}>(
+   'SELECT status,updated_at,error_detail FROM public.alumni_daily_email_delivery WHERE report_date=$1::date AND recipient_email=$2 LIMIT 1',
+   [date,email]
+  )).rows[0];
+  const priorStatus=String(prior?.status||'unknown');
+  console.warn('[fan-newsletter-pilot] duplicate delivery claim',JSON.stringify({date,email,priorStatus,updatedAt:prior?.updated_at||null}));
+  result.push({email,status:priorStatus==='queued'?'previously_queued':'blocked_prior_attempt',priorStatus,school:school.hsname});continue;
+ }
  const sent=await sendDailyPilotEmail(id,subject,html);
  await query(
   'UPDATE public.alumni_daily_email_delivery SET status=$3,error_detail=$4,updated_at=now() WHERE report_date=$1::date AND recipient_email=$2',
