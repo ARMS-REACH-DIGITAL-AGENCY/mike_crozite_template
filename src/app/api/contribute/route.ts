@@ -11,7 +11,6 @@
 // reviewed it.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { revalidateTag } from 'next/cache';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
