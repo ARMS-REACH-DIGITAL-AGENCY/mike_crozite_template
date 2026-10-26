@@ -125,9 +125,11 @@ export async function PATCH(req: NextRequest,{params}:Ctx) {
   const {uuid}=await params;
   if(!validUuid(uuid))return fail('Invalid news story.');
   const body=await req.json().catch(()=>null) as {title?:unknown;description?:unknown}|null;
-  if(!body || typeof body.title!=='string' || typeof body.description!=='string')
-    return fail('Enter a title and description.');
-  const title=editableText(body.title,500),description=editableText(body.description,2000);
+  if(!body || typeof body.title!=='string' ||
+     (body.description!==undefined && typeof body.description!=='string'))
+    return fail('Enter a valid title and description.');
+  const title=editableText(body.title,500),
+        description=body.description===undefined ? undefined : editableText(body.description,2000);
   if(title.length<3 || title.length>500)return fail('Enter a title between 3 and 500 characters.');
   try {
     const fan=await registered(req);
@@ -137,9 +139,15 @@ export async function PATCH(req: NextRequest,{params}:Ctx) {
     if(!canEdit(story,fan))return fail('Only the original contributor or an authorized reviewer can edit this post.',403);
     // Preserve the original linked media, verification and player mapping.
     // An explicit author edit overrides previously generated headlines.
-    await query(`UPDATE news_articles SET title=$2,snippet=$3,local_recap=$3,
-      raw_payload=jsonb_set(COALESCE(raw_payload,'{}'::jsonb),'{title_edited}','true'::jsonb,true)
-      WHERE uuid=$1 AND verification_status='VERIFIED'`,[uuid,title,description||null]);
+    if(description===undefined) {
+      await query(`UPDATE news_articles SET title=$2,
+        raw_payload=jsonb_set(COALESCE(raw_payload,'{}'::jsonb),'{title_edited}','true'::jsonb,true)
+        WHERE uuid=$1 AND verification_status='VERIFIED'`,[uuid,title]);
+    } else {
+      await query(`UPDATE news_articles SET title=$2,snippet=$3,local_recap=$3,
+        raw_payload=jsonb_set(COALESCE(raw_payload,'{}'::jsonb),'{title_edited}','true'::jsonb,true)
+        WHERE uuid=$1 AND verification_status='VERIFIED'`,[uuid,title,description||null]);
+    }
     await activity(fan.uid,'news_edited',uuid,story,{fields:['title','description']});
     return NextResponse.json({ok:true,title,description},{headers:{'Cache-Control':'no-store'}});
   }catch(e){console.error('[news interaction] edit',e);return fail('Could not save the edited post.',503);}
