@@ -171,7 +171,7 @@ export async function GET(
       { posts, total: posts.length },
       {
         status: 200,
-        headers: { ...cors, 'Cache-Control': 'public, max-age=300, s-maxage=300' },
+        headers: { ...cors, 'Cache-Control': 'public, max-age=15, s-maxage=15, stale-while-revalidate=15' },
       }
     );
   } catch (err: unknown) {
