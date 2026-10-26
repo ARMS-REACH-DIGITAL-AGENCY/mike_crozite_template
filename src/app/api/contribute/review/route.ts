@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
+import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
 import { assetUrl, existingPublishedTarget, identifyContributor, isReviewer, notifyContributor, promoteUpload, type UploadRow } from '@/lib/contributeServer';
 
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
            LEFT JOIN LATERAL (
              SELECT fa.details->>'status' AS status FROM fan_activity fa
              WHERE fa.action = 'contribute_processed'
-               AND fa.firebase_uid = 'system:contribution-publisher'
+               AND fa.firebase_uid IN ('system:contribution-publisher','system:contribution-review')
                AND fa.details->>'queue_id' = q.id::text
              ORDER BY fa.created_at DESC LIMIT 1
            ) audit ON true
@@ -90,6 +91,60 @@ export async function POST(req: NextRequest) {
   const id = String(body.id || '');
   const action = String(body.action || '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) return fail('Unknown request.');
+  if (action === 'approve_team' || action === 'reject_team') {
+    if (process.env.VERCEL_ENV === 'preview') {
+      return fail('Current-team approval is disabled on preview deployments.', 409);
+    }
+    try {
+      const { rows } = await query<{
+        matched_playerid: string | null;
+        matched_hsid: string | null;
+        notes: string | null;
+        status: string;
+        review_state: string | null;
+      }>(`SELECT q.matched_playerid, q.matched_hsid, q.notes, q.status,
+          (SELECT fa.details->>'status' FROM fan_activity fa
+           WHERE fa.action='contribute_processed'
+             AND fa.details->>'queue_id'=q.id::text
+           ORDER BY fa.created_at DESC LIMIT 1) AS review_state
+          FROM news_tip_queue q WHERE q.id::text=$1 AND q.intake_source='correction' LIMIT 1`, [id]);
+      const item=rows[0];
+      if (!item?.matched_playerid || !item.matched_hsid) return fail('Team-change submission was not found.',404);
+      if (['published','rejected'].includes(item.review_state || item.status || '')) {
+        return fail('This submission has already been reviewed.',409);
+      }
+      let details: Record<string,unknown>;
+      try { details=JSON.parse(item.notes || '{}'); } catch { return fail('Invalid submission details.'); }
+      const fields=details.fields && typeof details.fields==='object' && !Array.isArray(details.fields)
+        ? details.fields as Record<string,unknown> : {};
+      if (details.kind!=='profile_update' || details.playerId!==item.matched_playerid ||
+          details.hsid!==item.matched_hsid ||
+          Object.keys(fields).sort().join(',')!=='current_team_name,current_teamid,level_label,status_label' ||
+          fields.status_label!=='ACTIVE' || typeof fields.current_teamid!=='string' ||
+          !/^\d{1,18}$/.test(fields.current_teamid)) {
+        return fail('This correction requires a separate review workflow.',409);
+      }
+      if (action==='reject_team') {
+        await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+          VALUES('system:contribution-review','contribute_processed',$1,$2,
+            jsonb_build_object('queue_id',$3::text,'status','rejected','reason','Reviewer rejected current-team change'))`,
+          [item.matched_playerid,item.matched_hsid,id]);
+        return NextResponse.json({ok:true,status:'rejected'});
+      }
+      const team=await resolveCanonicalCurrentTeam(fields.current_teamid);
+      if (!team) return fail('The selected team no longer has a valid canonical ID.',409);
+      const published=await publishCurrentTeamChange({
+        playerId:item.matched_playerid,hsid:item.matched_hsid,
+        team,reviewerUid:r.who!.uid,reviewedFanSuggestion:true,contributionQueueId:id,
+      });
+      if (!published) return fail('Player not found. Reload and verify the correction.',409);
+      return NextResponse.json({ok:true,status:'published',playerId:item.matched_playerid,
+        teamId:team.teamId,teamName:team.name});
+    } catch (error) {
+      console.error('[contribute/review] current-team review failed',error);
+      return fail('Current-team review could not be completed.',500);
+    }
+  }
   if (action === 'approve_commit' || action === 'reject_commit') {
     // Commitment test submissions in preview must never mutate the shared DB.
     if (process.env.VERCEL_ENV === 'preview') return fail('Commitment approval is disabled on preview deployments.', 409);
