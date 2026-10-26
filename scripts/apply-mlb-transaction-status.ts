@@ -297,7 +297,7 @@ async function clearStaleDepartureFlags(
             highest_level_checked_at = NULL
       WHERE playerid::text = ANY($1::text[])
         AND last_transaction_applied_at IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = flip_card_front_stage.playerid::text)`
+        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = flip_card_front_stage.playerid::text)`,
     [playerIds]
   );
 
