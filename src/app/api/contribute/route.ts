@@ -15,6 +15,7 @@ import { revalidateTag } from 'next/cache';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
+import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 import { parseNewsVideo, cleanNewsVideoTitle } from '@/lib/newsVideo';
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
         ? body.fields as Record<string,unknown> : {};
       const allowed = [
         'first_name','last_name','class_of','roster_years','status_label','level_label',
-        'position','current_team_name','committed_teamid','facebook','instagram','x','tiktok','linkedin'
+        'position','current_team_name','current_teamid','committed_teamid','facebook','instagram','x','tiktok','linkedin'
       ] as const;
       const submitted:Record<string,string|string[]> = {};
       for (const key of allowed) {
@@ -82,6 +83,11 @@ export async function POST(req: NextRequest) {
           const years=normalizeSubmittedVarsityYears(value);
           if (!years) return fail('Choose valid high-school varsity years.');
           submitted[key]=years;
+         } else if (key === 'current_teamid') {
+          if (typeof value !== 'string' || !/^\d{1,18}$/.test(value.trim())) {
+            return fail('Choose a current team from Global Search.');
+          }
+          submitted.current_teamid=value.trim();
         } else if (key === 'committed_teamid') {
           // An explicit blank clears an earlier commitment; absence does not.
           if (typeof value !== 'string') return fail('Choose a valid college.');
@@ -91,6 +97,19 @@ export async function POST(req: NextRequest) {
         }
       }
       if (!Object.keys(submitted).length) return fail('Enter at least one player detail.');
+      if (submitted.current_team_name && !submitted.current_teamid) {
+        return fail('Choose the current team from Global Search, not a typed name.');
+      }
+      const selectedCurrentTeam=typeof submitted.current_teamid==='string'
+        ? await resolveCanonicalCurrentTeam(submitted.current_teamid) : null;
+      if (submitted.current_teamid && !selectedCurrentTeam) {
+        return fail('The selected team could not be verified. Search and select it again.');
+      }
+      if (selectedCurrentTeam) {
+        // Canonical team ID dictates display name, level and conference.
+        submitted.current_team_name=selectedCurrentTeam.name;
+        submitted.level_label=selectedCurrentTeam.level;
+      }
       const allYears=Array.from({length:new Date().getFullYear()+2-1900},(_,i)=>String(1900+i));
       if (submitted.class_of && !allYears.includes(String(submitted.class_of))) return fail('Choose a valid graduation year.');
       const isNew=!playerId;
@@ -98,6 +117,10 @@ export async function POST(req: NextRequest) {
         ? String(submitted.level_label || '').trim().toUpperCase() === 'HIGH SCHOOL'
         : selectedPlayerLevel === 'HIGH SCHOOL';
       const status = String(submitted.status_label || '').toUpperCase();
+      // An existing high-school player can graduate into a real college/pro
+      // roster when a verified current-team selection sets the status ACTIVE.
+      // A COLLEGE COMMIT remains separate and must not move the playing level.
+      const nextLevelTransition=!isNew && isHighSchool && !!selectedCurrentTeam && status==='ACTIVE';
       // A blank optional commitment field is not a commitment request when
       // creating a missing player; preserve the existing new-player workflow.
       if (isNew && submitted.committed_teamid === '' && status !== 'COMMIT') {
@@ -105,7 +128,7 @@ export async function POST(req: NextRequest) {
       }
       const teamIdSpecified = Object.prototype.hasOwnProperty.call(submitted,'committed_teamid');
       const teamId = String(submitted.committed_teamid || '');
-      if (submitted.status_label && !(isHighSchool
+      if (submitted.status_label && !(isHighSchool && !nextLevelTransition
         ? ['UNCOMMITTED','COMMIT'].includes(status)
         : ['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT','COACH','UNKNOWN'].includes(status))) {
         return fail(isHighSchool ? 'High school players must be UNCOMMITTED or COMMIT.' : 'Choose a valid status.');
@@ -167,45 +190,23 @@ export async function POST(req: NextRequest) {
       // Site-authorized reviewer submissions publish current affiliations directly.
       // Ordinary fan edits remain queued; a public form must not overwrite player truth.
       // One reusable rule applies to all players and schools, not a school-specific exception.
-      const directTeamFields=['status_label','level_label','current_team_name'];
+      const directTeamFields=['status_label','level_label','current_team_name','current_teamid'];
       const directTeamUpdate=!isNew && isReviewer(who) && process.env.VERCEL_ENV !== 'preview'
-        && status==='ACTIVE' && typeof submitted.level_label==='string'
-        && typeof submitted.current_team_name==='string' && submitted.current_team_name.trim()!==''
+        && status==='ACTIVE' && !!selectedCurrentTeam
         && Object.keys(submitted).every(k=>directTeamFields.includes(k));
-      if(directTeamUpdate) {
-        const newLevel=String(submitted.level_label);
-        const newTeam=String(submitted.current_team_name);
-        const result=await query<{playerid:string}>(`
-          WITH verified AS (
-            SELECT playerid::text AS playerid FROM flip_card_front_stage
-             WHERE playerid::text=$1 AND hsid::text=$2 LIMIT 1
-          ), manual AS (
-            INSERT INTO player_team_override(playerid,teamid,team_name,level,reason,updated_by,updated_at)
-            SELECT playerid,NULL,$3,$4,'Verified contributor current-team update',$5,NOW() FROM verified
-            ON CONFLICT(playerid) DO UPDATE
-              SET teamid=NULL,team_name=EXCLUDED.team_name,level=EXCLUDED.level,
-                  reason=EXCLUDED.reason,updated_by=EXCLUDED.updated_by,updated_at=NOW()
-            RETURNING playerid
-          )
-          UPDATE flip_card_front_stage f SET
-            status_label='ACTIVE',display_status_label='ACTIVE',team_affiliation_status='ACTIVE',
-            current_team_name=$3,current_teamid=NULL,current_team_source_team_id=NULL,
-            current_org_or_conference_name=NULL,
-            level_label=$4,display_level_label=$4,current_level_label=$4,current_team_level=$4,
-            current_team_source='contribute_direct',current_team_roster_status=NULL,
-            current_team_last_verified=NOW(),current_team_absent_since=NULL,
-            is_on_40man=FALSE,forty_man_org_name=NULL,forty_man_org_abbr=NULL,
-            next_game_date=NULL,next_game_time_local=NULL,next_game_time_utc=NULL,
-            next_game_home_away=NULL,next_game_opponent=NULL,next_game_status_label=NULL,
-            updated_at=NOW(),stage_updated_at=NOW()
-          FROM manual WHERE f.playerid::text=manual.playerid AND f.hsid::text=$2
-          RETURNING f.playerid::text AS playerid`,
-          [playerId,hsid,newTeam,newLevel,who.uid]);
-        if(result.rows.length!==1) return fail('Player team could not be updated.',409);
-        revalidateTag(`school-data:${hsid}`,{expire:0});
+      if (directTeamUpdate && selectedCurrentTeam) {
+        const saved=await publishCurrentTeamChange({
+          playerId,hsid,team:selectedCurrentTeam,reviewerUid:who.uid,
+        });
+        if (!saved) return fail('Player team could not be updated.',409);
         await logContribution(who,'contribute_profile',{
           playerid:playerId,hsid,pageUrl,
-          details:{autoPublished:true,fields:{status_label:'ACTIVE',level_label:newLevel,current_team_name:newTeam}},
+          details:{autoPublished:true,fields:{
+            status_label:'ACTIVE',level_label:selectedCurrentTeam.level,
+            current_team_name:selectedCurrentTeam.name,
+            current_teamid:selectedCurrentTeam.teamId,
+            current_org_or_conference_name:selectedCurrentTeam.orgName,
+          }},
         });
         return NextResponse.json({ok:true,review:'published_team'}, {status:201});
       }
