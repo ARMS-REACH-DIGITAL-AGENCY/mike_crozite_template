@@ -353,6 +353,20 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   }, [playerFilter, posts]);
 
   const clearFilter = useCallback(() => setPlayerFilter(""), []);
+  useEffect(() => {
+    const reset = () => {
+      setPlayerFilter("");
+      setNewsFilters(EMPTY_NEWS_FILTERS);
+      window.dispatchEvent(new Event("yat:news-reset"));
+    };
+    const onResetButton = (event: MouseEvent) => {
+      if (!document.getElementById("sec-news")?.classList.contains("visible")) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("#filtersReset, #filtersReset2")) reset();
+    };
+    window.addEventListener("click", onResetButton, true);
+    return () => window.removeEventListener("click", onResetButton, true);
+  }, []);
 
   // Cards that arrive after FLIP ALL was pressed (the news loads when the
   // tab opens, or a player filter adds cards) follow it too.
@@ -527,16 +541,17 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         }
         body.light-theme .yp-school-news-tower :is(small,span) {color:#3b3224}
         @media(max-width:740px){
-          .yp-school-news{width:100%;max-width:none;padding:8px 12px 100px}
+          .yp-school-news{width:100%;max-width:none;padding:0 0 100px}
           .yp-school-news-layout{display:block}
           .yp-school-news-tower{display:none}
-          .yp-school-news-main .pp-news-feed{padding:0 2px 55px}
+          .yp-school-news-main .pp-news-feed{padding:0 0 55px}
         }
         /* The sponsor follows available space, not pointer type. Chrome's
            desktop-site mode on a phone must behave like the desktop layout. */
         @media (max-width:740px) {
-          #sec-news .yp-school-news {width:100%!important;min-width:0!important;box-sizing:border-box}
-          #sec-news .yp-school-news-layout {display:block!important;width:100%!important}
+          #sec-news .yp-school-news {width:100%!important;min-width:0!important;box-sizing:border-box;padding:0 0 100px!important;margin:0!important}
+          #sec-news .yp-school-news-layout {display:block!important;width:100%!important;min-width:0!important}
+          #sec-news .yp-school-news-main .pp-news-feed {padding:0 0 55px!important;width:100%!important}
           #sec-news .yp-school-news-tower {display:none!important}
           #sec-news .yp-school-news-inline-ad {display:flex!important}
         }

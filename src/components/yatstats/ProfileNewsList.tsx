@@ -124,6 +124,12 @@ export default function ProfileNewsList({
   // Newest first by default; ▲▼ at the top flips it (same as Stories).
   const [sort, setSort] = useState<SortDir>("newest");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    if (!schoolWide) return;
+    const onReset = () => { setSearch(""); setSort("newest"); };
+    window.addEventListener("yat:news-reset", onReset);
+    return () => window.removeEventListener("yat:news-reset", onReset);
+  }, [schoolWide]);
   const sorted = useMemo(() => {
     const time = (s: ProfileNewsStory) => (s.publishedAt ? new Date(s.publishedAt).getTime() || 0 : 0);
     const q = search.trim().toLocaleLowerCase();

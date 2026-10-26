@@ -68,7 +68,7 @@ export async function GET(
     let articles: any[];
 
     if (playerId) {
-      articles = await getNewsByPlayer(playerId, limit, false, true);
+      articles = await getNewsByPlayer(playerId, limit, false, searchParams.get("sort") !== "newest");
     } else {
       articles = await getNewsByHsid(hsid, limit, offset);
     }
