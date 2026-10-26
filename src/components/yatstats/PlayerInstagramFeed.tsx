@@ -326,7 +326,8 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-media img { width:100%; height:100%; display:block; object-fit:contain; object-position:center; }
         .pp-ig-media iframe { width:100%; height:100%; display:block; border:0; background:white; }
         .pp-ig-post-details { flex:0 0 auto; max-height:128px; overflow-y:auto; overscroll-behavior:contain; padding:9px 13px 11px; }
-        .pp-ig-post-details-news { flex:0 1 auto; max-height:min(36dvh,260px); }
+        .pp-ig-post-details-news { flex:0 0 auto; max-height:128px; }
+        .pp-ig-post-details-news:has(.yp-news-thread-open) { flex:0 1 auto; max-height:min(38dvh,320px); }
         .pp-ig-post-details-news .pp-ig-caption { max-height:70px; }
         .pp-ig-post-details-news .yp-news-engagement { margin-top:9px; padding-top:9px; }
         .pp-ig-extra { min-width:0; }
@@ -351,7 +352,8 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         @media (max-width:600px){
           .pp-ig-viewer { padding:56px 0 54px; padding: max(56px,env(safe-area-inset-top)) 0 max(54px,env(safe-area-inset-bottom)); }
           .pp-ig-frame { width:100%; height:calc(100vh - 110px); height:calc(100dvh - 110px); border-radius:0; }
-          .pp-ig-post-details-news { max-height:34dvh; }
+          .pp-ig-post-details-news { max-height:128px; }
+          .pp-ig-post-details-news:has(.yp-news-thread-open) { max-height:38dvh; }
           .pp-ig-nav { top:auto; bottom:8px; transform:none; width:38px; height:38px; font-size:26px; }
           .pp-ig-nav.prev { left:calc(50% - 90px); }
           .pp-ig-nav.next { right:calc(50% - 90px); }
