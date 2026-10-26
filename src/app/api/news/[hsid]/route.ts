@@ -81,7 +81,8 @@ export async function GET(
       const share = row.share_json ?? null;
 
       // Contribution titles override any stale generated derivative.
-      const contributed = row.discovery_source === 'contribute';
+      // Explicit author edits always outrank old derived headlines.
+      const contributed = row.discovery_source === 'contribute' || row.raw_payload?.title_edited === true;
       const headline = contributed ? row.title : (galleryFront?.headline ?? row.title);
       const displayHeadline = parseNewsVideo(row.url) ? cleanNewsVideoTitle(headline) : headline;
       const tease = contributed && teaser ? { ...teaser, headline: displayHeadline } : teaser;
@@ -101,7 +102,9 @@ export async function GET(
         url: row.url,
         // Use publisher photography only when explicitly approved or when
         // article identity + a distinctive player-matching filename agree.
-        imageUrl: chooseNewsDisplayImage({
+        // A linked YouTube story displays its actual 16:9 video thumbnail,
+        // regardless of which player or school is viewing the shared story.
+        imageUrl: parseNewsVideo(row.url)?.thumbnailUrl || chooseNewsDisplayImage({
           playerId: row.associated_playerid ?? row.playerid,
           playerName: row.associated_player_name ?? row.player_name,
           displayImageUrl: row.display_image_url,

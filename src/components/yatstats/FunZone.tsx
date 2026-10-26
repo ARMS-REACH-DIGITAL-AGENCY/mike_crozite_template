@@ -351,7 +351,7 @@ return (
               <img
                 src={story.imageUrl}
                 alt={story.headline || "Latest news"}
-                className="fz-news-thumb"
+                className={`fz-news-thumb${story.imageUrl?.includes('i.ytimg.com/vi/') ? ' fz-news-video-thumb' : ''}`}
                 onError={(event) => {
                   const image = event.currentTarget;
                   if (!image.src.endsWith(PLAYER_SILHOUETTE_URL)) image.src = PLAYER_SILHOUETTE_URL;
@@ -1227,6 +1227,7 @@ export default function FunZone({
           box-shadow:0 1px 3px rgba(0,0,0,0.12);
           background:rgba(30,22,14,0.06);
         }
+        .fz-news-video-thumb{object-fit:contain;background:#090909}
         .fz-news-thumb-fallback{
           display:flex;
           align-items:center;

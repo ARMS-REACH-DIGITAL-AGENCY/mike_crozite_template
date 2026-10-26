@@ -190,7 +190,7 @@ export default function ProfileNewsList({
             <div className="pp-news-row">
               {/* Our own photo of the player, silhouette behind it. */}
               <div
-                className="pp-news-thumb pp-news-thumb-photo"
+                className={`pp-news-thumb pp-news-thumb-photo${clip?.provider === 'YouTube' ? ' pp-news-thumb-video' : ''}`}
                 style={{ backgroundImage: `url('${PLAYER_SILHOUETTE_URL}')` }}
               >
                 <CardPhoto srcs={getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl)} className="pp-news-thumb-img" />
@@ -397,6 +397,8 @@ export default function ProfileNewsList({
           box-shadow:0 1px 3px rgba(0,0,0,.16);
           background:var(--pp-news-thumb-bg);
         }
+        .pp-news-thumb-video{background:#080808!important;display:flex;align-items:center;justify-content:center}
+        .pp-news-thumb-video img{width:100%;height:100%;object-fit:contain!important}
         .pp-news-thumb-fallback{
           display:flex;
           align-items:center;

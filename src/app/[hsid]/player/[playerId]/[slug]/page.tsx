@@ -37,6 +37,7 @@ import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
 import { getTeamLogoUrl, getOriginalForCardCopy, chooseNewsDisplayImage } from "@/lib/playerImage";
+import { parseNewsVideo } from "@/lib/newsVideo";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
 type Props = {
@@ -284,13 +285,15 @@ export default async function ProfilePage({ params }: Props) {
 
   const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, null, true)).map((row: any) => ({
     uuid: String(row.uuid),
-    title: row.gallery_front_json?.headline ?? row.title ?? "",
+    title: (row.discovery_source === 'contribute' || row.raw_payload?.title_edited === true)
+      ? (row.title ?? "")
+      : (row.gallery_front_json?.headline ?? row.title ?? ""),
     url: row.url,
     source: row.source_full ?? row.source ?? null,
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
     recap: row.tagged_to_player ? null : playerCentricRecap(row),
     whyLocal: row.gallery_back_json?.why_local ?? null,
-    imageUrl: chooseNewsDisplayImage({
+    imageUrl: parseNewsVideo(row.url)?.thumbnailUrl || chooseNewsDisplayImage({
       playerId: row.associated_playerid ?? row.playerid,
       playerName: row.associated_player_name || playerNewsFullName,
       displayImageUrl: row.display_image_url,

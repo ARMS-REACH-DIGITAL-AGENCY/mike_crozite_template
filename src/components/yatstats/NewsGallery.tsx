@@ -262,6 +262,18 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     }
   }, [hasMore, loadingMore, posts, hsid]);
 
+  useEffect(() => {
+    const refresh = () => {
+      if (!requested) return;
+      setPosts(null);
+      setFailed(false);
+      setPageError(false);
+      setHasMore(false);
+    };
+    window.addEventListener('yat:news-updated', refresh);
+    return () => window.removeEventListener('yat:news-updated', refresh);
+  }, [requested]);
+
   // The shared sidebar owns its controls. For News, read the controls into
   // React state instead of attempting to hide unrelated player-card elements.
   useEffect(() => {
