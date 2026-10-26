@@ -36,6 +36,33 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const [embedOverride, setEmbedOverride] = useState<boolean | null>(null);
   const [brokenThumbnailId, setBrokenThumbnailId] = useState<string | null>(null);
   const touchX = useRef<number | null>(null);
+  const [viewerScale, setViewerScale] = useState(1);
+
+  useEffect(() => {
+    // Android Chrome's "Desktop site" mode forces a virtual viewport around
+    // 980px, then scales it down to the phone. The 480px viewer therefore looks
+    // tiny in the middle of a phone screenshot. Enlarge ONLY the dialog's visual
+    // presentation, leaving its inner Instagram iframe at mobile-friendly
+    // dimensions. Ordinary mobile, desktop and tablet layouts remain unchanged.
+    const update = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const coarse = window.matchMedia('(any-pointer: coarse)').matches;
+      const tallVirtualViewport = width >= 700 && width <= 1200 && height / width >= 1.5;
+      const scale = coarse && tallVirtualViewport
+        ? Math.min(1.9, (width - 32) / 480, (height - 128) / 820)
+        : 1;
+      const next = scale >= 1.15 ? Math.round(scale * 100) / 100 : 1;
+      setViewerScale(previous => previous === next ? previous : next);
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+    };
+  }, []);
 
   useEffect(() => {
     if (externalPosts) return;
@@ -131,7 +158,11 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
     ? parsedPost.embedUrl?.replace(/\/embed\/$/, '/embed/captioned/') || null
     : null;
   const hasPreview = Boolean(current?.thumbnail_url?.trim() && brokenThumbnailId !== current?.id);
-  const showInstagramEmbed = embedOverride ?? Boolean(preferEmbed && !hasPreview);
+  // News opens the actual Instagram post immediately, including when a
+  // matching synced thumbnail arrives a moment later. Social still defaults
+  // to the saved uncropped S3 photo and offers Play Reel / View Carousel.
+  // A broken S3 thumbnail falls back to the Instagram post in either tab.
+  const showInstagramEmbed = embedOverride ?? Boolean(embedUrl && (preferEmbed || brokenThumbnailId === current?.id));
   const hasInteractiveMedia = Boolean(embedUrl && (preferEmbed || current?.media_type === 'video' || current?.media_type === 'carousel'));
   const publishedDate = current?.published_at
     ? new Date(current.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -180,7 +211,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
           taller than the available mobile viewport and were cropping photos. */}
       {current && createPortal(
         <div
-          className="pp-ig-viewer"
+          className={`pp-ig-viewer${viewerScale > 1 ? " pp-ig-viewer-zoomed" : ""}`}
           role="dialog"
           aria-modal="true"
           aria-label={'Instagram post by @' + (current.handle || 'unknown')}
@@ -198,7 +229,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
             step(end < start ? 1 : -1);
           }}
         >
-          <div className="pp-ig-frame">
+          <div className="pp-ig-frame" style={viewerScale > 1 ? { transform: `scale(${viewerScale})` } : undefined}>
             <div className="pp-ig-post-source">
               <i className="ri-instagram-line" aria-hidden="true" />
               <strong>{current.handle ? '@' + current.handle : 'Instagram'}</strong>
@@ -295,7 +326,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-media img { width:100%; height:100%; display:block; object-fit:contain; object-position:center; }
         .pp-ig-media iframe { width:100%; height:100%; display:block; border:0; background:white; }
         .pp-ig-post-details { flex:0 0 auto; max-height:128px; overflow-y:auto; overscroll-behavior:contain; padding:9px 13px 11px; }
-        .pp-ig-post-details-news { flex:0 1 auto; max-height:min(42dvh,350px); }
+        .pp-ig-post-details-news { flex:0 1 auto; max-height:min(36dvh,260px); }
         .pp-ig-post-details-news .pp-ig-caption { max-height:70px; }
         .pp-ig-post-details-news .yp-news-engagement { margin-top:9px; padding-top:9px; }
         .pp-ig-extra { min-width:0; }
@@ -312,10 +343,15 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-nav.prev { left:8px; }
         .pp-ig-nav.next { right:8px; }
         .pp-ig-count { position:absolute; bottom:16px; left:0; right:0; text-align:center; color:rgba(255,255,255,.84); font:500 12px/1 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.06em; pointer-events:none; }
+        /* Phone requesting Desktop site: the frame stays 480px for Instagram's
+           embed layout, then scales visually to occupy the actual phone. */
+        .pp-ig-viewer-zoomed .pp-ig-close { width:62px; height:62px; font-size:34px; }
+        .pp-ig-viewer-zoomed .pp-ig-nav { width:64px; height:64px; font-size:38px; }
+        .pp-ig-viewer-zoomed .pp-ig-count { font-size:19px; bottom:22px; }
         @media (max-width:600px){
           .pp-ig-viewer { padding:56px 0 54px; padding: max(56px,env(safe-area-inset-top)) 0 max(54px,env(safe-area-inset-bottom)); }
           .pp-ig-frame { width:100%; height:calc(100vh - 110px); height:calc(100dvh - 110px); border-radius:0; }
-          .pp-ig-post-details-news { max-height:38dvh; }
+          .pp-ig-post-details-news { max-height:34dvh; }
           .pp-ig-nav { top:auto; bottom:8px; transform:none; width:38px; height:38px; font-size:26px; }
           .pp-ig-nav.prev { left:calc(50% - 90px); }
           .pp-ig-nav.next { right:calc(50% - 90px); }
