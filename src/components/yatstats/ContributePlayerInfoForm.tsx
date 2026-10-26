@@ -96,7 +96,7 @@ export default function ContributePlayerInfoForm({
   );
   // A new current-team selection always carries its canonical ID, name, level,
   // and status together, even if the last two values did not visibly change.
-  if (values.current_teamid !== initial.current_teamid) {
+  if (values.current_teamid !== initial.current_teamid || values.current_team_name !== initial.current_team_name) {
     changed.current_teamid=values.current_teamid;
     changed.current_team_name=values.current_team_name;
     changed.level_label=values.level_label;
