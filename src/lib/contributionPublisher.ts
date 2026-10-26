@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash } from 'crypto';
 import { query } from '@/lib/db';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
+import { resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
 import { parseNewsVideo, cleanNewsVideoTitle, isLegacyVideoPlaceholderTitle } from '@/lib/newsVideo';
 import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
@@ -251,12 +252,18 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
      }
      const playerid='YAT'+(BigInt('0x'+item.id.replace(/-/g,'').slice(0,15)) % BigInt('1000000000000000')).toString().padStart(15,'0');
      const status=String(fields.status_label||'UNKNOWN').slice(0,40);
-     const level=String(fields.level_label||'HIGH SCHOOL').slice(0,40);
+     const submittedTeamId=String(fields.current_teamid||'').trim();
+     const canonicalTeam=submittedTeamId ? await resolveCanonicalCurrentTeam(submittedTeamId) : null;
+     if (submittedTeamId && !canonicalTeam) {
+       await query("UPDATE missing_player_submission SET processed_status='needs_review',error_message='Canonical team could not be verified' WHERE id=$1",[item.id]);
+       outcome.review++;continue;
+     }
+     const level=canonicalTeam?.level || String(fields.level_label||'HIGH SCHOOL').slice(0,40);
      const position=String(fields.position||'').slice(0,20)||null;
-     const team=String(fields.current_team_name||'').slice(0,120)||null;
-     await query(`INSERT INTO flip_card_front_stage(playerid,hsid,first_name,last_name,display_name,class_of,position,status_label,level_label,current_team_name,source_notes,source_summary)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'fan-contributed; unverified',jsonb_build_object('submission_id',$11::text,'source','contribute'))
-       ON CONFLICT(playerid) DO NOTHING`,[playerid,item.hsid,first,last,`${first} ${last}`,year(item.grad_year),position,status,level,team,item.id]);
+     const team=canonicalTeam?.name || String(fields.current_team_name||'').slice(0,120)||null;
+     await query(`INSERT INTO flip_card_front_stage(playerid,hsid,first_name,last_name,display_name,class_of,position,status_label,level_label,current_team_name,current_teamid,current_org_or_conference_name,source_notes,source_summary)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,''),'fan-contributed; unverified',jsonb_build_object('submission_id',$13::text,'source','contribute'))
+       ON CONFLICT(playerid) DO NOTHING`,[playerid,item.hsid,first,last,`${first} ${last}`,year(item.grad_year),position,status,level,team,canonicalTeam?.teamId||null,canonicalTeam?.orgName||'',item.id]);
      await query("UPDATE missing_player_submission SET processed_status='published',published_playerid=$2,processed_at=now(),error_message=NULL WHERE id=$1 AND processed_status='new'",[item.id,playerid]);
      outcome.published++;
    }catch(e){console.error('[contribution-publisher] missing player failed',{id:item.id,error:String(e)});outcome.failed++;}
