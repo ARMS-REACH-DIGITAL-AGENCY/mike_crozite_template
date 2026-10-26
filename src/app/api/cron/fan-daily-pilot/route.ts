@@ -16,9 +16,16 @@ export async function GET(request:NextRequest){
   headers:{authorization:'Bearer '+secret,'content-type':'application/json'},
   body:JSON.stringify({date,emails:recipients,send:true}),
  });
- const response=await sendPilotReports(report);
- const payload=await response.json();
+ console.log('[fan-daily-pilot] start',JSON.stringify({date,recipients:recipients.length,at:new Date().toISOString()}));
+ let response:NextResponse;
+ try {
+  response=await sendPilotReports(report);
+ } catch(error) {
+  console.error('[fan-daily-pilot] unhandled sender failure',JSON.stringify({date,error:error instanceof Error?error.message:String(error)}));
+  return NextResponse.json({ok:false,date,error:'sender_failed'},{status:500});
+ }
+ const payload=await response.json().catch(()=>({error:'invalid_sender_response'}));
  const failed=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>!['queued','previously_attempted'].includes(r.status)):[];
- console.log('[fan-daily-pilot]',JSON.stringify({date,recipients:recipients.length,failures:failed.length,results:payload.result?.map((r:{email:string;status:string})=>({email:r.email,status:r.status}))}));
+ console.log('[fan-daily-pilot] completed',JSON.stringify({date,httpStatus:response.status,recipients:recipients.length,failures:failed.length,results:payload.result?.map((r:{email:string;status:string})=>({email:r.email,status:r.status})),error:payload.error||null}));
  return NextResponse.json({ok:response.ok&&failed.length===0,date,...payload},{status:response.ok&&failed.length===0?200:500});
 }
