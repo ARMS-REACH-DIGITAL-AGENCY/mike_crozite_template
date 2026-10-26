@@ -2221,7 +2221,15 @@ function syndicatedCopyFilter(alias: string, lowVisible: string): string {
 export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promise<any[]> {
   try {
     const { rows } = await query(
-      `WITH tagged_school AS MATERIALIZED (
+      `WITH latest_tags AS MATERIALIZED (
+         SELECT DISTINCT ON (details->>'news_uuid',details->>'playerId')
+           details,action
+         FROM fan_activity
+         WHERE action IN ('news_tagged','news_untagged')
+           AND details->>'news_uuid' IS NOT NULL AND details->>'playerId' IS NOT NULL
+         ORDER BY details->>'news_uuid',details->>'playerId',id DESC
+       ),
+       tagged_school AS MATERIALIZED (
          -- Keep the original article unchanged. A tag grants a second school
          -- access to the story via that school's verified player records.
          SELECT activity.details->>'news_uuid' AS uuid,
@@ -2235,7 +2243,7 @@ export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promi
                   'rosterYears', tagged_player.roster_years,
                   'orgName', tagged_player.current_org_or_conference_name
                 )) AS players
-           FROM fan_activity activity
+           FROM latest_tags activity
            JOIN flip_card_front_stage tagged_player
              ON tagged_player.playerid::text = activity.details->>'playerId'
           WHERE activity.action = 'news_tagged'
@@ -2330,10 +2338,16 @@ export async function getNewsByPlayer(
          UNION
          -- The same existing engagement event that records a News tag now
          -- also grants the tagged player a feed association. No new table.
-         SELECT details->>'news_uuid' AS uuid
-           FROM fan_activity
-          WHERE action = 'news_tagged'
-            AND details->>'playerId' = $1
+         SELECT tagged.uuid
+           FROM (
+             SELECT DISTINCT ON (details->>'news_uuid')
+               details->>'news_uuid' AS uuid, action
+             FROM fan_activity
+             WHERE action IN ('news_tagged','news_untagged')
+               AND details->>'playerId' = $1
+             ORDER BY details->>'news_uuid',id DESC
+           ) tagged
+          WHERE tagged.action='news_tagged'
        )
        SELECT
          na.*,
