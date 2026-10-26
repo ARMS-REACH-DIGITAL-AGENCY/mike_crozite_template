@@ -219,7 +219,7 @@ export default function ProfileNewsList({
         <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts}
           initialPostId={openUuid} onClose={() => setOpenUuid("")} preferEmbed
           renderFooter={(post) => (
-            <NewsEngagement key={post.id} uuid={post.id} hsid={hsid}
+            <NewsEngagement key={post.id} compactInViewer uuid={post.id} hsid={hsid}
               title={newsVideoHeadline(stories.find(story => story.uuid === post.id)?.title || post.caption || "", stories.find(story => story.uuid === post.id)?.playerName || playerName)} />
           )}
         />
