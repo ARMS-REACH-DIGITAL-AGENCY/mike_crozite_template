@@ -118,6 +118,12 @@ Add a dated line for each milestone.
   the app role had no access to `alumni_daily_email_delivery` (granted Oct
   21, `migrations/20261021_...`). Pete moved it to 4:00 AM Arizona (11:00
   UTC), an hour after the 3:00 AM Baseball Cube ingest.
+- 2026-10-26: Pete asked for the test brackets with the current
+  `Easter-NEWS` look. Each test branch got a `TEST-ONLY:` merge of
+  `Easter-NEWS` (#555-#578: splash, Alumni News, roster and card fixes).
+  None of those commits touch a bracket file or the bracket's stats
+  source, and bracket 1's `/api/bracket/live` returned the same rosters,
+  stat lines, club results and fan counts before and after.
 - Note for anyone replaying the brackets: `/api/bracket/live` takes at most
   64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
