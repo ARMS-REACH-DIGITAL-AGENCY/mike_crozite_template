@@ -57,5 +57,36 @@ CREATE TABLE IF NOT EXISTS tribune_private.newsletter_delivery_attempts (
 -- Runtime role can write delivery history, never approval.
 GRANT USAGE ON SCHEMA tribune_private TO yatstats_tribune_app;
 GRANT SELECT ON tribune_private.newsletter_control TO yatstats_tribune_app;
-GRANT SELECT,INSERT,UPDATE ON tribune_private.newsletter_preferences,tribune_private.newsletter_deliveries,tribune_private.newsletter_delivery_attempts TO yatstats_tribune_app;
+GRANT SELECT,INSERT,UPDATE ON tribune_private.newsletter_preferences TO yatstats_tribune_app;
+GRANT SELECT ON tribune_private.newsletter_deliveries,tribune_private.newsletter_delivery_attempts TO yatstats_tribune_app;
+-- Claims are serialized by the logical delivery identity and fail closed.
+-- A missing/disabled control, wrong version, or unsubscribed recipient cannot claim.
+CREATE OR REPLACE FUNCTION tribune_private.claim_newsletter_delivery(
+ p_id uuid,p_uid text,p_email text,p_type text,p_start date,p_end date,p_version text
+) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path=pg_catalog,tribune_private AS $
+DECLARE existing_status text;
+BEGIN
+ IF NOT EXISTS (SELECT 1 FROM tribune_private.newsletter_control
+    WHERE singleton AND enabled AND approved_layout_version=p_version AND cutover_complete_at IS NOT NULL)
+ THEN RETURN 'held_approval'; END IF;
+ IF NOT EXISTS (SELECT 1 FROM tribune_private.newsletter_preferences
+    WHERE firebase_uid=p_uid AND unsubscribed_all_at IS NULL
+    AND CASE WHEN p_type='daily' THEN daily_enabled WHEN p_type='weekly' THEN weekly_enabled ELSE false END)
+ THEN RETURN 'unsubscribed'; END IF;
+ IF p_type NOT IN ('daily','weekly') OR p_start>p_end OR
+   (p_type='daily' AND p_start<>p_end) OR
+   (p_type='weekly' AND p_end<>p_start+6)
+ THEN RETURN 'invalid_period'; END IF;
+ INSERT INTO tribune_private.newsletter_deliveries
+ (id,firebase_uid,recipient_email,publication_type,report_start,report_end,layout_version,status)
+ VALUES(p_id,p_uid,lower(btrim(p_email)),p_type,p_start,p_end,p_version,'claimed')
+ ON CONFLICT(firebase_uid,publication_type,report_start,report_end) DO NOTHING;
+ IF FOUND THEN RETURN 'claimed'; END IF;
+ SELECT status INTO existing_status FROM tribune_private.newsletter_deliveries
+ WHERE firebase_uid=p_uid AND publication_type=p_type AND report_start=p_start AND report_end=p_end;
+ RETURN 'previously_attempted';
+END $;
+REVOKE ALL ON FUNCTION tribune_private.claim_newsletter_delivery(uuid,text,text,text,date,date,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION tribune_private.claim_newsletter_delivery(uuid,text,text,text,date,date,text) TO yatstats_tribune_app;
 COMMIT;
