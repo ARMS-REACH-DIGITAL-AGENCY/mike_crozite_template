@@ -6,13 +6,13 @@ import ContributeSearch from './ContributeSearch';
 
 type Fields = {
   first_name:string; last_name:string; class_of:string; roster_years:string[];
-  status_label:string; level_label:string; position:string; current_team_name:string;
+  status_label:string; level_label:string; position:string; current_team_name:string; current_teamid:string;
   committed_teamid:string;
   facebook:string; instagram:string; x:string; tiktok:string; linkedin:string;
 };
 const EMPTY:Fields = {
   first_name:'',last_name:'',class_of:'',roster_years:[],status_label:'',
-  level_label:'',position:'',current_team_name:'',committed_teamid:'',
+  level_label:'',position:'',current_team_name:'',current_teamid:'',committed_teamid:'',
   facebook:'',instagram:'',x:'',tiktok:'',linkedin:'',
 };
 const YEARS = Array.from({ length: 115 }, (_,i)=>String(new Date().getFullYear()+1-i));
@@ -44,11 +44,12 @@ export default function ContributePlayerInfoForm({
   const [error,setError] = useState('');
   const [expandedYears,setExpandedYears] = useState(false);
   const [selectedCommitTeam,setSelectedCommitTeam] = useState<ContributeTeam | null>(null);
+  const [selectedCurrentTeam,setSelectedCurrentTeam] = useState<ContributeTeam | null>(null);
   const set=(field:keyof Fields,value:string|string[])=>setValues(v=>({...v,[field]:value}));
 
   useEffect(()=>{
     let cancelled=false;
-    setMessage('');setError('');setValues(EMPTY);setInitial(EMPTY);setSelectedCommitTeam(null);
+    setMessage('');setError('');setValues(EMPTY);setInitial(EMPTY);setSelectedCommitTeam(null);setSelectedCurrentTeam(null);
     if(!player?.playerId) return;
     setLoading(true);
     fetch('/api/contribute/player-fields?playerId='+encodeURIComponent(player.playerId),{cache:'no-store'})
@@ -62,9 +63,14 @@ export default function ContributePlayerInfoForm({
           roster_years:Array.isArray(p.roster_years)?p.roster_years.map(clean):[],
           status_label:clean(p.status_label),level_label:clean(p.level_label),
           position:clean(p.position),current_team_name:clean(p.current_team_name),
+          current_teamid:clean(p.current_teamid),
           committed_teamid:clean(p.committed_teamid),
         };
         setValues(next);setInitial(next);
+        if (next.current_teamid && next.current_team_name) setSelectedCurrentTeam({
+          teamId:next.current_teamid,name:next.current_team_name,
+          level:clean(p.level_label),orgName:clean(p.current_org_or_conference_name),
+        });
         if (next.committed_teamid) setSelectedCommitTeam({
           teamId:next.committed_teamid,
           name:clean(p.committed_team_name) || `College team ${next.committed_teamid}`,
@@ -88,6 +94,14 @@ export default function ContributePlayerInfoForm({
   const changed:Record<string,string|string[]> = Object.fromEntries(
     Object.entries(values).filter(([key,value])=>JSON.stringify(value)!==JSON.stringify(initial[key as keyof Fields]))
   );
+  // A new current-team selection always carries its canonical ID, name, level,
+  // and status together, even if the last two values did not visibly change.
+  if (values.current_teamid !== initial.current_teamid) {
+    changed.current_teamid=values.current_teamid;
+    changed.current_team_name=values.current_team_name;
+    changed.level_label=values.level_label;
+    changed.status_label=values.status_label;
+  }
   // Keep the status and canonical team id together so a commitment is never
   // interpreted as a college playing assignment or an unrelated status edit.
   if (isHighSchoolPlayer && (values.status_label!==initial.status_label || values.committed_teamid!==initial.committed_teamid)) {
@@ -104,6 +118,8 @@ export default function ContributePlayerInfoForm({
     if(isHighSchoolPlayer && values.status_label==='COMMIT' && !/^\d{1,18}$/.test(values.committed_teamid)){
       setError('Select the college from Global Search before announcing a commitment.');return;
     }
+    if(changed.current_team_name && !changed.current_teamid){setError('Choose the current team from Global Search.');return;}
+    if(changed.current_teamid && !/^\d{1,18}$/.test(values.current_teamid)){setError('Select a valid team from Global Search.');return;}
     if(!player && (!values.first_name.trim()||!values.last_name.trim())){setError('Enter the player’s first and last name.');return;}
     if(player && Object.keys(changed).length===0){setError('Change or add at least one field.');return;}
     setSending(true);
@@ -230,9 +246,37 @@ export default function ContributePlayerInfoForm({
       ) : <p className="ycd-muted ycd-small">Select COLLEGE COMMIT above to announce a college commitment using Global Search.</p>}
       <p className="ycd-muted ycd-small">A commitment does not change the player's current high-school team or playing level.</p>
     </div> : null}
-    <label className="ycd-field"><span className="ycd-label">Current or most recent team (if known)</span>
-      <input type="text" maxLength={120} value={values.current_team_name} onChange={e=>set('current_team_name',e.target.value)}/>
-    </label>
+    <div className="ycd-field">
+      <span className="ycd-label">Current or most recent team (if known)</span>
+      {selectedCurrentTeam && values.current_teamid === selectedCurrentTeam.teamId ? (
+        <div className="ycd-chosen-wrap">
+          <div className="ycd-chosen">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={selectedCurrentTeam.logoUrl || `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(selectedCurrentTeam.teamId)}.png`}
+              alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/img/yatstats-logo-circle.png';}} />
+            <span className="ycd-chosen-text"><b>{selectedCurrentTeam.name}</b>
+              <small>{[selectedCurrentTeam.level, selectedCurrentTeam.orgName, `Team ID: ${selectedCurrentTeam.teamId}`].filter(Boolean).join(' · ')}</small>
+            </span>
+          </div>
+          <button type="button" className="ycd-link ycd-small" onClick={()=>setSelectedCurrentTeam(null)}>Change team</button>
+        </div>
+      ) : (
+        <>
+          {values.current_team_name && !values.current_teamid
+            ? <p className="ycd-muted ycd-small">Current record: {values.current_team_name}. Select a verified team to link or change it.</p>
+            : null}
+          <ContributeSearch mode="team" onTeam={team=>{
+            if (!/^\d{1,18}$/.test(team.teamId) || !team.name || !team.level) return;
+            setSelectedCurrentTeam(team);
+            setValues(v=>({...v,
+              current_teamid:team.teamId,current_team_name:team.name,level_label:team.level || v.level_label,
+              status_label:['COMMIT','UNCOMMITTED'].includes(v.status_label) ? 'ACTIVE' : v.status_label,
+            }));
+          }} />
+        </>
+      )}
+      <p className="ycd-muted ycd-small">Choose a college or professional team from Global Search so the playing level, conference, and team logo stay linked to the correct record.</p>
+    </div>
     <div className="ycd-profile-social">
       <b>Player social media handles (optional)</b>
       {ACCOUNTS.map(k=><label className="ycd-field" key={k}>
