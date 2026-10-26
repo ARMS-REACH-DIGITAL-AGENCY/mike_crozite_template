@@ -307,7 +307,7 @@ function dailyLines(roster: TribuneRoster): Array<{ name: string; line: string; 
     if (row.state !== 'played') continue;
     const c = row.cells;
     const ab = c[2], hits = c[3];
-    const events = [[4, '2B'], [5, '3B'], [6, 'HR'], [7, 'BB'], [8, 'HBP']].flatMap(([i, label]) => {
+    const events = ([[4, '2B'], [5, '3B'], [6, 'HR'], [7, 'BB'], [8, 'HBP']] as Array<[number, string]>).flatMap(([i, label]) => {
       const count = Number(c[i]);
       return Number.isFinite(count) && count > 0 ? [`${count}${label}`] : [];
     });
