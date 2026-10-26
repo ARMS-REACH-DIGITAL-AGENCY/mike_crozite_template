@@ -34,7 +34,7 @@ export async function publishCollegeCommitment(input: {
     team_name: string | null;
   }>(`
     WITH college AS (
-      SELECT teamid, current_team_name
+      SELECT teamid, current_team_name, level_label, current_org_or_conference_name
         FROM teamid_universe_mapping
        WHERE teamid = $4
          AND UPPER(TRIM(COALESCE(level_label,''))) = ANY($5::text[])
@@ -42,20 +42,29 @@ export async function publishCollegeCommitment(input: {
        LIMIT 1
     ),
     eligible AS (
-      SELECT s.playerid, s.hsid
+      SELECT s.playerid, s.hsid,
+             c.current_team_name AS selected_team_name,
+             c.level_label AS selected_team_level,
+             c.current_org_or_conference_name AS selected_conference
         FROM flip_card_front_stage s
+        LEFT JOIN college c ON c.teamid = $4
        WHERE s.playerid = $1
          AND s.hsid::text = $2
          AND UPPER(TRIM(COALESCE(NULLIF(TRIM(s.display_level_label),''),s.level_label,''))) = 'HIGH SCHOOL'
          AND UPPER(COALESCE(s.status_label,'')) NOT LIKE '%COACH%'
          AND UPPER(COALESCE(s.display_status_label,'')) NOT LIKE '%COACH%'
-         AND ($3::text = 'UNCOMMITTED' OR EXISTS (SELECT 1 FROM college))
+         AND ($3::text = 'UNCOMMITTED' OR c.teamid IS NOT NULL)
     ),
     updated AS (
       UPDATE flip_card_front_stage f
          SET status_label = $3,
              display_status_label = $3,
              committed_teamid = NULLIF($4::text,''),
+             committed_team_name = CASE WHEN $3::text='COMMIT' THEN e.selected_team_name ELSE NULL END,
+             committed_level_label = CASE WHEN $3::text='COMMIT' THEN e.selected_team_level ELSE NULL END,
+             committed_org_or_conference_name = CASE WHEN $3::text='COMMIT' THEN e.selected_conference ELSE NULL END,
+             committed_source = CASE WHEN $3::text='COMMIT' THEN 'fan_contribution' ELSE NULL END,
+             committed_at = CASE WHEN $3::text='COMMIT' THEN COALESCE(f.committed_at, now()) ELSE NULL END,
              updated_at = now()
         FROM eligible e
        WHERE f.playerid = e.playerid
@@ -64,7 +73,13 @@ export async function publishCollegeCommitment(input: {
          AND UPPER(COALESCE(f.status_label,'')) NOT LIKE '%COACH%'
          AND (f.status_label IS DISTINCT FROM $3::text
            OR f.display_status_label IS DISTINCT FROM $3::text
-           OR f.committed_teamid IS DISTINCT FROM NULLIF($4::text,''))
+           OR f.committed_teamid IS DISTINCT FROM NULLIF($4::text,'')
+           OR f.committed_team_name IS DISTINCT FROM
+             (CASE WHEN $3::text='COMMIT' THEN e.selected_team_name ELSE NULL END)
+           OR f.committed_level_label IS DISTINCT FROM
+             (CASE WHEN $3::text='COMMIT' THEN e.selected_team_level ELSE NULL END)
+           OR f.committed_org_or_conference_name IS DISTINCT FROM
+             (CASE WHEN $3::text='COMMIT' THEN e.selected_conference ELSE NULL END))
       RETURNING f.playerid, f.hsid
     ),
     audited AS (

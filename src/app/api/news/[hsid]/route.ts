@@ -11,10 +11,12 @@
 //                                      (featured, then most about him, not
 //                                      negative) - what the back of his
 //                                      flip card shows
-//   GET /api/news/:hsid?limit=5      — limit results
+//   GET /api/news/:hsid?limit=100&offset=100 — read next page of all verified school stories
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getNewsByHsid, getNewsByPlayer } from '@/lib/db';
+import { chooseNewsDisplayImage } from '@/lib/playerImage';
+import { cleanNewsVideoTitle, parseNewsVideo } from '@/lib/newsVideo';
 
 export const runtime = 'nodejs';
 
@@ -55,25 +57,34 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const playerId = searchParams.get('player');
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
+  // Bound the size of each response; pagination keeps the complete school
+  // feed available without loading every article during initial page load.
+  const parsedLimit = Number(searchParams.get('limit') || '50');
+  const parsedOffset = Number(searchParams.get('offset') || '0');
+  const limit = Number.isFinite(parsedLimit) ? Math.max(1, Math.min(100, Math.trunc(parsedLimit))) : 50;
+  const offset = Number.isFinite(parsedOffset) ? Math.max(0, Math.trunc(parsedOffset)) : 0;
 
   try {
     let articles: any[];
 
     if (playerId) {
-      articles = await getNewsByPlayer(playerId, limit, false, true);
+      articles = await getNewsByPlayer(playerId, limit, false, searchParams.get("sort") !== "newest");
     } else {
-      articles = await getNewsByHsid(hsid, limit);
+      articles = await getNewsByHsid(hsid, limit, offset);
     }
 
     const posts = articles.map((row) => {
-      const tease = row.tease_json ?? null;
+      const teaser = row.tease_json ?? null;
       const galleryFront = row.gallery_front_json ?? null;
       const galleryBack = row.gallery_back_json ?? null;
       const profile = row.profile_json ?? null;
       const share = row.share_json ?? null;
 
-      const displayHeadline = galleryFront?.headline ?? row.title;
+      // Contribution titles override any stale generated derivative.
+      const contributed = row.discovery_source === 'contribute';
+      const headline = contributed ? row.title : (galleryFront?.headline ?? row.title);
+      const displayHeadline = parseNewsVideo(row.url) ? cleanNewsVideoTitle(headline) : headline;
+      const tease = contributed && teaser ? { ...teaser, headline: displayHeadline } : teaser;
       const displayRecap = galleryBack?.yati_recap ?? row.local_recap ?? row.summary ?? null;
       const displaySourceLabel = galleryFront?.source_label ?? row.source_full ?? row.source;
 
@@ -88,13 +99,16 @@ export async function GET(
         sourceFull: row.source_full,
         publishedAt: row.published_at,
         url: row.url,
-        // Never assume the publisher hero depicts our alumnus. display_image_url
-        // is the verified/safe image; image_url remains the raw source image.
-        imageUrl:
-          row.display_image_url ??
-          (row.playerid
-            ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(String(row.playerid))}.jpg`
-            : null),
+        // Use publisher photography only when explicitly approved or when
+        // article identity + a distinctive player-matching filename agree.
+        imageUrl: chooseNewsDisplayImage({
+          playerId: row.playerid,
+          playerName: row.player_name,
+          displayImageUrl: row.display_image_url,
+          sourceImageUrl: row.image_url,
+          verificationStatus: row.verification_status,
+          imageVerificationStatus: row.image_verification_status,
+        }),
         sourceImageUrl: row.image_url,
         snippet: row.snippet,
         sentiment: row.sentiment,
