@@ -1,12 +1,13 @@
 'use client';
 
-// The player's own Instagram posts in the profile's Social tab: a grid of
-// their latest posts (our S3 copies, refreshed by the instagram-sync cron).
+// Shared Instagram grid and viewer for profile Social posts and linked News.
+// Social media uses our synced S3 thumbnails; News may only have a permalink.
 // A tile opens an uncropped S3 picture in an on-site viewer; reels and
 // carousels can switch to Instagram's interactive embed on demand. Navigation
 // stays on the profile and arrows/swipe step through posts. Loads only once the Social tab
 // is actually shown, and renders nothing when there are no stored posts.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { parseNewsVideo } from '@/lib/newsVideo';
 import { createPortal } from 'react-dom';
 
 export type InstagramViewerPost = {
@@ -21,15 +22,19 @@ export type InstagramViewerPost = {
 
 type SchoolFeed = { hsid: string; name: string };
 
-export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, externalPosts, initialPostId, onClose }: {
+export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, externalPosts, initialPostId, onClose, preferEmbed = false, renderFooter }: {
   playerId: string; firstName: string; schoolFeed?: SchoolFeed;
   externalPosts?: InstagramViewerPost[]; initialPostId?: string; onClose?: () => void;
+  preferEmbed?: boolean; renderFooter?: (post: InstagramViewerPost) => ReactNode;
 }) {
   const schoolHsid = schoolFeed?.hsid;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [posts, setPosts] = useState<InstagramViewerPost[] | null>(externalPosts || null);
   const [open, setOpen] = useState<number | null>(null);
-  const [showInstagramEmbed, setShowInstagramEmbed] = useState(false);
+  // Null means use the mode best suited to this post. News without an actual
+  // Instagram thumbnail opens the real embed instead of a player headshot.
+  const [embedOverride, setEmbedOverride] = useState<boolean | null>(null);
+  const [brokenThumbnailId, setBrokenThumbnailId] = useState<string | null>(null);
   const touchX = useRef<number | null>(null);
 
   useEffect(() => {
@@ -62,7 +67,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
       setPosts(externalPosts);
       const index = externalPosts.findIndex(p => p.id === initialPostId);
       setOpen(index >= 0 ? index : externalPosts.length ? 0 : null);
-      setShowInstagramEmbed(false);
+      setEmbedOverride(null);
     }
   }, [externalPosts, initialPostId]);
 
@@ -71,7 +76,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const count = posts?.length || 0;
   const step = useCallback(
     (by: number) => {
-      setShowInstagramEmbed(false);
+      setEmbedOverride(null);
       setOpen((i) => (i === null || !count ? i : (i + by + count) % count));
     },
     [count]
@@ -95,8 +100,14 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   }, [open, step, close]);
 
   const current = open !== null && posts ? posts[open] : null;
-  const embedUrl = current?.permalink ? `${current.permalink.replace(/\/?$/, '/')}embed/captioned/` : null;
-  const hasInteractiveMedia = Boolean(embedUrl && (current?.media_type === 'video' || current?.media_type === 'carousel'));
+  // Iframe URLs must be Instagram URLs parsed by our shared host allowlist.
+  const parsedPost = current?.permalink ? parseNewsVideo(current.permalink) : null;
+  const embedUrl = parsedPost?.provider === 'Instagram'
+    ? parsedPost.embedUrl?.replace(/\/embed\/$/, '/embed/captioned/') || null
+    : null;
+  const hasPreview = Boolean(current?.thumbnail_url?.trim() && brokenThumbnailId !== current?.id);
+  const showInstagramEmbed = embedOverride ?? Boolean(preferEmbed && !hasPreview);
+  const hasInteractiveMedia = Boolean(embedUrl && (preferEmbed || current?.media_type === 'video' || current?.media_type === 'carousel'));
   const publishedDate = current?.published_at
     ? new Date(current.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : null;
@@ -126,7 +137,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                   className="pp-ig-tile"
                   role="listitem"
                   aria-label={`Open post ${i + 1} of ${posts.length}`}
-                  onClick={() => { setShowInstagramEmbed(false); setOpen(i); }}
+                  onClick={() => { setEmbedOverride(null); setOpen(i); }}
                 >
                   {body}
                 </button>
@@ -182,31 +193,43 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                   allowFullScreen
                   loading="eager"
                 />
-              ) : (
+              ) : hasPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={current.id}
                   src={current.thumbnail_url}
                   alt={current.caption ? current.caption.slice(0, 140) : 'Instagram post photo'}
+                  onError={() => setBrokenThumbnailId(current.id)}
                 />
+              ) : (
+                <div className="pp-ig-media-unavailable">
+                  <p>Instagram preview unavailable.</p>
+                  {current.permalink && <a href={current.permalink} target="_blank" rel="noopener noreferrer">Open original Instagram post</a>}
+                </div>
               )}
             </div>
-            <div className="pp-ig-post-details">
-              {hasInteractiveMedia && (
+            <div className={`pp-ig-post-details${renderFooter ? " pp-ig-post-details-news" : ""}`}>
+              {hasInteractiveMedia && hasPreview && (
                 <button
                   type="button"
                   className="pp-ig-embed-toggle"
-                  onClick={() => setShowInstagramEmbed((shown) => !shown)}
+                  onClick={() => setEmbedOverride(!showInstagramEmbed)}
                 >
                   <i className={showInstagramEmbed ? 'ri-image-line' : current.media_type === 'video' ? 'ri-play-circle-line' : 'ri-stack-line'} aria-hidden="true" />
-                  {showInstagramEmbed ? 'VIEW UNCROPPED PHOTO' : current.media_type === 'video' ? 'PLAY REEL' : 'VIEW CAROUSEL'}
+                  {showInstagramEmbed ? 'VIEW UNCROPPED PHOTO' : current.media_type === 'video' ? 'PLAY REEL' : current.media_type === 'carousel' ? 'VIEW CAROUSEL' : 'VIEW INSTAGRAM POST'}
                 </button>
               )}
-              {!showInstagramEmbed && current.caption && (
+              {(!showInstagramEmbed || renderFooter) && current.caption && (
                 <p className="pp-ig-caption">{current.caption}</p>
               )}
-              {!showInstagramEmbed && publishedDate && (
+              {(!showInstagramEmbed || renderFooter) && publishedDate && (
                 <time dateTime={current.published_at || undefined} className="pp-ig-post-date">{publishedDate}</time>
+              )}
+              {renderFooter && <div className="pp-ig-extra" key={current.id}>{renderFooter(current)}</div>}
+              {renderFooter && showInstagramEmbed && current.permalink && (
+                <a className="pp-ig-embed-backup" href={current.permalink} target="_blank" rel="noopener noreferrer">
+                  Instagram not playing? Open original post
+                </a>
               )}
             </div>
           </div>
@@ -247,6 +270,14 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-media img { width:100%; height:100%; display:block; object-fit:contain; object-position:center; }
         .pp-ig-media iframe { width:100%; height:100%; display:block; border:0; background:white; }
         .pp-ig-post-details { flex:0 0 auto; max-height:128px; overflow-y:auto; overscroll-behavior:contain; padding:9px 13px 11px; }
+        .pp-ig-post-details-news { flex:0 1 auto; max-height:min(42dvh,350px); }
+        .pp-ig-post-details-news .pp-ig-caption { max-height:70px; }
+        .pp-ig-post-details-news .yp-news-engagement { margin-top:9px; padding-top:9px; }
+        .pp-ig-extra { min-width:0; }
+        .pp-ig-embed-backup { display:inline-block; margin-top:6px; color:#e6c34c; font:600 11px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .pp-ig-media-unavailable { display:grid; justify-items:center; gap:10px; padding:18px; color:#ddd; text-align:center; font:600 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .pp-ig-media-unavailable p { margin:0; }
+        .pp-ig-media-unavailable a { color:#e6c34c; }
         .pp-ig-caption { margin:0; max-height:62px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:#dedede; font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .pp-ig-post-date { display:block; margin-top:6px; font:500 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:#a7a7a7; }
         .pp-ig-embed-toggle { display:inline-flex; align-items:center; gap:5px; margin:0 0 7px; border:1px solid rgba(255,255,255,.35); border-radius:4px; padding:6px 10px; background:#282828; color:#fff; cursor:pointer; font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); }
@@ -259,6 +290,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         @media (max-width:600px){
           .pp-ig-viewer { padding:56px 0 54px; padding: max(56px,env(safe-area-inset-top)) 0 max(54px,env(safe-area-inset-bottom)); }
           .pp-ig-frame { width:100%; height:calc(100vh - 110px); height:calc(100dvh - 110px); border-radius:0; }
+          .pp-ig-post-details-news { max-height:38dvh; }
           .pp-ig-nav { top:auto; bottom:8px; transform:none; width:38px; height:38px; font-size:26px; }
           .pp-ig-nav.prev { left:calc(50% - 90px); }
           .pp-ig-nav.next { right:calc(50% - 90px); }
