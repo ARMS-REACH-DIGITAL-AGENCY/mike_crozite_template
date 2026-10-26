@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
       ] as const;
       const submitted:Record<string,string|string[]> = {};
       for (const key of allowed) {
+        // Existing-player corrections submit only edited fields. An omitted
+        // college commitment is not an invalid college or a request to clear it.
+        if (!Object.prototype.hasOwnProperty.call(raw,key)) continue;
         const value=raw[key];
         if (key === 'roster_years') {
           if (!Array.isArray(value)) continue;
