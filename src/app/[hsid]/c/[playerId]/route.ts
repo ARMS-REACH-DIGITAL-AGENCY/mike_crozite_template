@@ -1,5 +1,7 @@
 import { getPlayerById, getSchoolByHsid, getSchoolByUrl } from '@/lib/db';
-import { escapePlayerPreviewHtml, PLAYER_PREVIEW_BOT, playerShareOrigin } from '@/lib/playerProfileShare';
+const PLAYER_PREVIEW_BOT = /bot|crawler|spider|facebookexternalhit|twitterbot|slackbot|discord|whatsapp|telegram|linkedinbot|skypeuripreview|pinterest|redditbot|preview/i;
+function escapePlayerPreviewHtml(value: string) { return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function playerShareOrigin(host: string, proto: string) { const safeHost = host.split(',')[0].trim().toLowerCase(); if (!/^[a-z0-9.-]+(?::[0-9]{1,5})?$/.test(safeHost)) return 'https://yatstats.com'; return (safeHost.startsWith('localhost') ? 'http' : proto === 'http' ? 'http' : 'https') + '://' + safeHost; }
 
 export const runtime = 'nodejs';
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
