@@ -185,14 +185,16 @@ assert.deepEqual(Object.keys(featured['5004'].details).sort(), featured['5004'].
 assert.equal(featured['5004'].details['YAT000067'].name, 'Ben Ball', 'known-good cutout name');
 assert.equal(featured['5004'].details['YAT000067'].team, 'University of Arizona', 'known-good cutout school');
 assert.match(splash, /data-featured-details=\{JSON\.stringify\(featuredPlayerDetails\)\}/, 'first-paint captions in server markup');
-assert.match(splash, /className="yat-splash-player-caption-name">\{initialPlayerDetails\.name\}/, 'server-render initial player name');
-assert.match(splash, /className="yat-splash-player-caption-team">\{initialPlayerDetails\.team\}/, 'server-render initial player team');
-assert.match(school, /featuredPlayerDetails=\{splashOverride\?\.details \?\? \{\}\}/, 'use reusable data-driven school caption schema');
-
-assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'render approved IDs before DB roster loads');
-assert.match(splash, /data-confirmed-ids=\{confirmedCutoutIds\.join/, 'render confirmed cutout IDs before DB roster loads');
-assert.match(splash, /confirmedCutoutIds\.length \? ' is-visible'/, 'immediate visible server-rendered cutout');
-assert.match(splash, /then-cutouts\/\$\{encodeURIComponent\(confirmedCutoutIds\[0\]\)\}\.png/, 'render known-good image src without relying on JavaScript');
+// The player and caption are now chosen together in the browser. No
+// server-seeded Ben Ball image/caption may flash before rotation finishes.
+assert.doesNotMatch(splash, /initialPlayerDetails/, 'no preloaded fixed player caption');
+assert.doesNotMatch(splash, /confirmedCutoutIds\[0\]/, 'no preloaded fixed cutout');
+assert.match(splash, /className="yat-splash-player"/, 'shared empty slot for selected player');
+assert.match(splash, /function showCaption\(id\)/, 'caption follows chosen player');
+assert.match(splash, /var queue=working.length>1/, 'rotate away from only-known-good player');
+assert.doesNotMatch(splash, /setTimeout\(function\(\)\{if\(!currentId\)tryRemaining\(\);\},550\)/, 'no concurrent fallback race');
+assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'approved IDs available before roster');
+assert.match(splash, /data-confirmed-ids=\{confirmedCutoutIds\.join/, 'known-good IDs available before roster');
 assert.match(splash, /if\(staticIds\.length\)begin\(staticIds,staticConfirmed\)/, 'start curated splash image loading immediately');
 assert.match(school, /window\.__yatSplashRoster=/, 'save streamed roster event to prevent missed listeners');
 assert.match(school, /featuredPlayerIds=\{splashOverride\?\.ids \?\? \[\]\}/, 'pass generic school configuration to shared splash');
