@@ -51,7 +51,8 @@ decides, not this file.
 |---|---|
 | `fantasy_seasons`, `fantasy_active_season` (view) | **Built** in production |
 | `master_bracket`, `master_bracket_series` (view) | **Built.** Holds test-2026 Round 1 results (final and locked) and the Round 2 pairings. The newsletter doesn't need it (section 6.5). |
-| The 7 tables in section 4 | **Coming.** Not created. With Pete's go, Claude creates them empty first, so the newsletter can point at them, then fills them. |
+| The 7 tables in section 4 | **Coming.** Not created; the SQL is `migrations/20261027_newsletter_publication_tables.sql`, not applied. With Pete's go, Claude creates them empty first, so the newsletter can point at them, then fills them. |
+| An old `public.daily_stat_lines` | **Exists** (checked Oct 27). It's an older table with a different layout (`game_id`, `week`, `day`, `ab`, `h`, ... `ops`, `fip`) and **0 rows**, and no code on any branch uses it. The migration replaces it, and only while it's still empty. |
 | The pipeline job that writes them | **Coming** (Claude; needs Pete's go) |
 | The page where fans pick their 11 scoreboard schools | **Coming** (Claude; needs Pete's go) |
 
@@ -89,6 +90,29 @@ Everything is in one database:
   - **Weekly:** `weekly_player_lines` and `weekly_box_scores` for that week.
 - **Monday:** the Monday morning run writes Sunday's Daily (with the final
   stories and scores) and the Weekly together.
+
+**The pipeline's schedule** (proposed; Pete turns it on):
+- **When it runs:** a GitHub Actions workflow at **11:05 UTC** every day
+  (4:05 a.m. Arizona), just after the cutoff.
+  - The raw stats load all day: MLB's feed every 10 minutes, plus a full
+    re-sync every 4 hours.
+  - What counts is what was in by 11:00 UTC.
+- **How long it takes:** measured on the test season before the schedule
+  goes on. The target is under 10 minutes.
+- **If it runs late:** the rows come out the same.
+  - The pipeline keeps each stat line's history, and it builds the day from
+    the lines as they stood at the cutoff, not as they are when it happens
+    to run.
+  - The newsletter just waits for the ready row.
+- **If it fails:** it retries every 15 minutes until the ready row is
+  written. A rerun after a failure writes nothing twice.
+- **How Pete hears about a failure:** GitHub's failed-run email, plus a
+  `needs_decision` row (`kind = 'edition_late'`). If Pete wants a text or a
+  direct email instead, he says so.
+- **Which ready row the newsletter uses:** each `(cadence, period_start)`
+  it hasn't sent yet, oldest first.
+- **Corrections:** by Pete's rule there are no corrected versions (section
+  9).
 
 ## 4. The publication tables
 
@@ -255,14 +279,12 @@ CREATE TABLE weekly_box_scores (
   away_runs            smallint NOT NULL,
   winner_hsid          integer  NOT NULL,
   decision             text     NOT NULL,  -- "Final", or e.g. "Final (Commissioner's decision)"; print as is
-  score_line           text     NOT NULL,  -- "Hamilton (Chandler, AZ) 5, Xavier Prep (Phoenix, AZ) 3"
   line_score           jsonb    NOT NULL,
   home_batting         jsonb    NOT NULL,
   away_batting         jsonb    NOT NULL,
   home_pitching        jsonb    NOT NULL,
   away_pitching        jsonb    NOT NULL,
-  home_extra_base_hits text[]   NOT NULL,  -- {"2B: Smith (Rays, MLB) 2, Jones (Ducks, NCAA-D1)", "HR: Smith (Rays, MLB) 2"}
-  away_extra_base_hits text[]   NOT NULL,
+  extra_base_hits      jsonb    NOT NULL,  -- {"home":["2B: Smith (Rays, MLB) 2, Jones (Ducks, NCAA-D1)","HR: Smith (Rays, MLB) 2"],"away":[...]}
   PRIMARY KEY (season_key, region, game_id)
 );
 CREATE INDEX weekly_box_scores_week_idx ON weekly_box_scores (season_key, week, region);
@@ -300,7 +322,8 @@ CREATE TABLE weekly_player_lines (
   season_key   text     REFERENCES fantasy_seasons(season_key),  -- NULL outside a fantasy season
   week         smallint,
   player_name  text     NOT NULL,
-  team_short   text     NOT NULL,  -- the player's latest team that week
+  team_name    text     NOT NULL,  -- the player's latest team that week: "Tampa Bay Rays"
+  team_short   text     NOT NULL,  -- "Rays"
   level        text     NOT NULL,  -- official level
   games        smallint NOT NULL,  -- 0 = didn't play
   line         text     NOT NULL,  -- print as is
@@ -361,7 +384,7 @@ existing logic; this contract doesn't change it.
       homepage.
 5. **Sponsor:** section 8.
 
-## 6. The Weekly Gazette: which rows
+## 6. The YAT-A-BOY Weekly Tribune: which rows
 
 **Inputs:**
 - the recipient's `firebase_uid` and `home_hsid`;
@@ -378,9 +401,13 @@ existing logic; this contract doesn't change it.
 4. **The recap** (optional; Pete decides whether the Weekly prints it): the
    home school's final story, `daily_game_stories` for
    `(period_end, home_hsid)` with `is_final`.
-5. **Scores around the league:** `weekly_box_scores.score_line` and
-   `decision` for every game that week in the home game's `region`.
-   - This needs no `master_bracket` read.
+5. **Scores around the league:** the `master_bracket` rows for that week in
+   the home game's `region`, `status = 'final' AND locked_at IS NOT NULL`
+   (query in section 13).
+   - Print the school names and runs.
+   - When `decided_by = 'commissioner'`, print "Commissioner's decision"
+     and nothing more.
+   - A weekly ready row means every game of the week is final and locked.
    - Whether to print every region game or a shorter list, Pete decides
      after seeing it.
 6. **Sponsor:** section 8.
@@ -411,16 +438,27 @@ The pipeline provides no sponsor data, and no sponsor is tied to results.
   - the masthead, official rules and postal address from
     `tribune_private.tribune_publication_settings`;
   - the publisher note from `tribune_private.publisher_notes`.
-- **`public.sponsor_brands` exists in production.** Columns, checked Oct
-  27: `id`, `slug`, `name`, `logo_url`, `website_url`,
-  `external_partner_id`, `is_active`, `created_at`, `updated_at`.
-- **The `tribune_private` tables don't exist in this production
-  database.** The Tribune connects with `TRIBUNE_DATABASE_URL`, and where
-  that points hasn't been checked. Where these tables live is Pete's
-  decision (section 14).
-- **Also in `public`** (columns not checked for this document):
-  `microsite_sponsors`, `player_profile_sponsors`, `sponsor_orders`,
-  `school_splash_sponsorships`, `v_school_splash_sponsor_assignments`.
+- **`tribune_private` has no tables in this production database** (checked
+  Oct 27). The Tribune connects with `TRIBUNE_DATABASE_URL`, and where that
+  points hasn't been checked. Where these tables live is Pete's decision
+  (section 14).
+- **The sponsor tables in production `public`** (columns checked Oct 27):
+
+| Table | Columns |
+|---|---|
+| `sponsor_brands` | `id`, `slug`, `name`, `logo_url`, `website_url`, `external_partner_id`, `is_active`, `created_at`, `updated_at` |
+| `school_splash_sponsorships` | `id`, `hsid`, `sponsor_id`, `sponsor_order_id`, `status`, `priority`, `starts_at`, `ends_at`, `source`, `created_at`, `updated_at` |
+| `v_school_splash_sponsor_assignments` (view) | `assignment_id`, `hsid`, `sponsor_id`, `sponsor_slug`, `sponsor_name`, `logo_url`, `website_url`, `sponsor_order_id`, `status`, `priority`, `starts_at`, `ends_at`, `source`, `created_at`, `updated_at`, `serving_now` |
+| `microsite_sponsors` | `id`, `hsid`, `sponsor_name`, `sponsor_image_url`, `sponsor_link_url`, `sponsor_label`, `placement`, `is_active`, `display_order`, `starts_at`, `ends_at`, `created_at`, `updated_at` |
+| `player_profile_sponsors` | `id`, `playerid`, `hsid`, `sponsor_name`, `sponsor_image_url`, `sponsor_link_url`, `sponsor_message`, `sponsor_label`, `is_active`, `starts_at`, `ends_at`, `created_at`, `updated_at` |
+| `sponsor_orders` | `id`, `sponsorship_type`, `stripe_checkout_session_id`, `stripe_payment_intent_id`, `hsid`, `playerid`, `purchaser_name`, `purchaser_email`, `sponsor_name`, `sponsor_link_url`, `sponsor_message`, `uploaded_image_url`, `status`, `created_at`, `updated_at` |
+
+- None of these has a newsletter cadence, a creative version, disclosure
+  text, or an annual-versus-weekly assignment. Those exist only in the
+  Tribune branch's `tribune_private` design.
+- Which sponsor tables are authoritative for the newsletter is the
+  newsletter team's proposal, for Pete to approve. The newsletter role can't
+  read any of them today (section 11).
 
 ## 9. History and corrections
 
@@ -434,11 +472,19 @@ The pipeline provides no sponsor data, and no sponsor is tied to results.
   - Late lines and corrections made during the week count only in that
     week's rows.
   - After Monday's cutoff, nothing changes the week.
+- **The database enforces it.** The trigger `publication_guard` rejects any
+  update or delete of a published row.
 - **A mistake found later** in a frozen row:
-  - It's fixed only if Pete orders it, and the change is logged with its
-    old and new values.
+  - It's fixed only if Pete orders it. The transaction must set
+    `publication.unlock = 'on'` and a `publication.reason`.
+  - The old and new row go into `publication_corrections`, so the original
+    edition can always be rebuilt.
   - A sent email is never resent or changed.
   - The newsletter doesn't read the log.
+- **ChatGPT proposed** that a correction create a new versioned set of rows
+  and a new ready row. Pete's rule is that nothing changes after the
+  cutoff, so this document has no versions. That's Pete's call
+  (section 14).
 - **`user_scoreboard_schools` is the one live table.** Read it at send
   time, and record in the sent copy which schools filled the board.
 
@@ -491,9 +537,14 @@ complete record.
 - The SELECT grants on the new tables come with their creation.
 - `yatstats_tribune_app` already reads `master_bracket` and the stat
   tables.
-- **Not verified:** whether `yatstats_tribune_app` can read `user_profiles`
-  and `user_favorites` today. The production pilot reads them through the
-  app's main connection. Check this before relying on it.
+- **Checked Oct 27:** `yatstats_tribune_app` can read `master_bracket` and
+  `fantasy_active_season`. It **can't** read `user_profiles`,
+  `user_favorites` or the sponsor tables. (The production pilot reads them
+  through the app's main connection.)
+  - The grant for `user_profiles` and `user_favorites` is a separate block
+    in the migration, for Pete to approve, because those tables hold fans'
+    emails.
+  - Sponsor grants wait for the sponsor decision (section 8).
 
 ## 12. HighLevel boundary
 
@@ -583,13 +634,14 @@ SELECT * FROM weekly_box_scores
 SELECT title, story, shout_outs FROM daily_game_stories
  WHERE stats_date = DATE '2026-10-25' AND hsid = 5004 AND is_final;
 
--- 4. Scores around the league: the home game's region.
-SELECT b.game_id, b.score_line, b.decision
-  FROM weekly_box_scores b
- WHERE b.season_key = 'test-2026' AND b.week = 3
-   AND b.region = (SELECT region FROM weekly_box_scores
+-- 4. Scores around the league: the home game's region, final and locked.
+SELECT m.home_school_name, m.home_runs, m.away_school_name, m.away_runs, m.decided_by
+  FROM master_bracket m
+ WHERE m.season_key = 'test-2026' AND m.stage = 'bracket' AND m.week = 3
+   AND m.region = (SELECT region FROM weekly_box_scores
                     WHERE season_key = 'test-2026' AND week = 3 AND 5004 IN (home_hsid, away_hsid))
- ORDER BY b.game_id;
+   AND m.status = 'final' AND m.locked_at IS NOT NULL
+ ORDER BY m.series_no, m.game_no;
 ```
 
 ## 14. Open items (Pete and Claude, not the newsletter)
@@ -604,6 +656,12 @@ SELECT b.game_id, b.score_line, b.decision
    database.
 3. **The pick page's address,** for the email's link: set when it's built.
 4. **For Pete to approve:**
+   - applying `migrations/20261027_newsletter_publication_tables.sql`. It
+     creates the 7 tables, the guard and the corrections log, and replaces
+     the old, empty `daily_stat_lines`;
+   - applying `migrations/20261027_newsletter_reads_fans.sql`, which lets the
+     newsletter role read `user_profiles` and `user_favorites`;
+   - whether a correction makes a new version (section 9);
    - the Weekly line format (4.7);
    - the box score columns (4.6);
    - whether the Weekly prints the recap (6.4);

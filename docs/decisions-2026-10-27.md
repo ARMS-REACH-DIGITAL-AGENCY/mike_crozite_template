@@ -109,7 +109,7 @@ says otherwise.
    - Inning-by-inning runs so far.
    - Underneath, a link to the full scoreboard on the homepage.
 
-## Weekly Gazette (Monday, when the week is final)
+## YAT-A-BOY Weekly Tribune (Monday, when the week is final)
 
 - The full home-school roster.
 - A full box score of the home game (week = game):
