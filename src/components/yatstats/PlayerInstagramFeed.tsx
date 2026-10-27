@@ -162,7 +162,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // be laid out narrower than 326px, so a smaller box scales it down.
   // Social embeds use Instagram's 4:5 frame; News uses the requested 9:16 media viewport. Photos keep their own shape, which
   // Instagram limits to between 1.91:1 and 4:5.
-  const isReel = current?.media_type === 'video' || /\/(reel|tv)\//.test(current?.permalink || '');
+  const isReel = externalPosts ? /\/(reel|tv)\//.test(current?.permalink || '') : (current?.media_type === 'video' || /\/(reel|tv)\//.test(current?.permalink || ''));
   const pictureShape = current ? aspects[current.id] : undefined;
   // News reels use a 9:16 viewport; standard posts/carousels retain Instagram's post proportions.
   // Social-tab sizing stays unchanged.
