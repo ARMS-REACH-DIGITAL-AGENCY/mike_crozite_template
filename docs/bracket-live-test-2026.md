@@ -147,6 +147,14 @@ Add a dated line for each milestone.
   Caribbean Series = INTERNATIONAL. The test pages still score the Fall
   League as DOUBLE-A (the feed's "WIN"), until the bracket reads levels from
   `stat_lines` - waiting on Pete (Round 1 was played that way).
+- 2026-10-27 (later): production `master_bracket` now holds the test
+  season's Round 1 results (144 games, final and locked, checksum-matched
+  to the results job's offline run as of Oct 26), the Round 2 pairings (72
+  games) and the 21 `commissioner_rulings` (weeks 2-3). Week 4 (Round 2
+  Game 1) is scored when `scripts/master-bracket-results.ts` runs; it isn't
+  scheduled yet (its workflow needs an `Easter-NEWS` merge, Pete's OK). The
+  newsletter should read `master_bracket` / `master_bracket_series` /
+  `stat_lines` rather than copy the bracket's scoring code.
 - Note for anyone replaying the brackets: `/api/bracket/live` takes at most
   64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
