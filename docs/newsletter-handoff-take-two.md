@@ -349,7 +349,7 @@ CREATE TABLE weekly_player_lines (
 
 **Inputs:**
 - the recipient's `firebase_uid`;
-- their `home_hsid` (from `user_profiles`);
+- their `home_hsid` (from `newsletter_recipients`);
 - `D`, the `period_start` of a daily `edition_ready` row.
 
 Send each daily ready row once to each eligible recipient. Who's eligible
@@ -359,7 +359,7 @@ existing logic; this contract doesn't change it.
 1. **Wait** for `edition_ready (cadence 'daily', period_start D)`.
 2. **Favorites' stat lines:**
    - all `daily_stat_lines` with `stats_date = D` whose `playerid` is one of
-     the recipient's `user_favorites`, in `sort_key` order;
+     the recipient's `newsletter_favorites`, in `sort_key` order;
    - the same rule for fans and superfans, with no home roster;
    - **no favorites at all:** print "You haven't picked any favorites yet"
      and a link to pick some;
@@ -531,7 +531,7 @@ complete record.
 |---|---|
 | **Pipeline** (Claude's job, in GitHub Actions with the `DATABASE_URL` secret) | Writes 4.1-4.4, 4.6, 4.7. Never touches HighLevel or the newsletter's tables. |
 | **Site** (the pick page, as the app's role `authenticator`) | Writes `user_scoreboard_schools` for the signed-in fan only |
-| **Newsletter runtime** (`yatstats_tribune_app`) | **SELECT only** on every table in section 4, `fantasy_active_season`, `user_profiles` and `user_favorites`. **No write** to any of them. |
+| **Newsletter runtime** (`yatstats_tribune_app`) | **SELECT only** on every table in section 4, `master_bracket`, `fantasy_active_season`, and the views `newsletter_recipients` and `newsletter_favorites`. **No write** to any of them. |
 | **Newsletter runtime**, its own tables | Writes its sent copies, deliveries and attempts, and reads its preferences. It doesn't write the approval gate or `alumni_newsletter_control`. |
 
 - The SELECT grants on the new tables come with their creation.
@@ -541,9 +541,14 @@ complete record.
   `fantasy_active_season`. It **can't** read `user_profiles`,
   `user_favorites` or the sponsor tables. (The production pilot reads them
   through the app's main connection.)
-  - The grant for `user_profiles` and `user_favorites` is a separate block
-    in the migration, for Pete to approve, because those tables hold fans'
-    emails.
+  - **Fan data comes through two narrow views, not the tables:**
+    - `newsletter_recipients`: `firebase_uid`, `email`, `first_name`,
+      `home_hsid`, `home_school_name`, `plan` and `is_superfan` (the
+      pilot's own rule).
+    - `newsletter_favorites`: `firebase_uid`, `playerid`.
+  - `user_profiles` also holds Stripe and HighLevel ids, promo codes and
+    roles, and the newsletter gets none of those. The views are in
+    `migrations/20261027_newsletter_reads_fans.sql`, for Pete to approve.
   - Sponsor grants wait for the sponsor decision (section 8).
 
 ## 12. HighLevel boundary
@@ -585,14 +590,14 @@ SELECT ready_at FROM edition_ready
  WHERE cadence = 'daily' AND period_start = DATE '2026-10-26';
 
 -- 1. The recipient.
-SELECT firebase_uid, email, plan, home_hsid::int AS home_hsid
-  FROM user_profiles WHERE firebase_uid = $1;
+SELECT firebase_uid, email, first_name, plan, is_superfan, home_hsid::int AS home_hsid
+  FROM newsletter_recipients WHERE firebase_uid = $1;
 
--- 2. Favorites' lines. "No favorites" = user_favorites has no rows for $1.
+-- 2. Favorites' lines. "No favorites" = newsletter_favorites has no rows for $1.
 SELECT l.stats_date, l.stat_line_id, l.line
   FROM daily_stat_lines l
  WHERE l.stats_date = DATE '2026-10-26'
-   AND l.playerid IN (SELECT f.playerid::text FROM user_favorites f WHERE f.firebase_uid = $1)
+   AND l.playerid IN (SELECT f.playerid FROM newsletter_favorites f WHERE f.firebase_uid = $1)
  ORDER BY l.sort_key;
 
 -- 3. The home school's story.
@@ -659,8 +664,8 @@ SELECT m.home_school_name, m.home_runs, m.away_school_name, m.away_runs, m.decid
    - applying `migrations/20261027_newsletter_publication_tables.sql`. It
      creates the 7 tables, the guard and the corrections log, and replaces
      the old, empty `daily_stat_lines`;
-   - applying `migrations/20261027_newsletter_reads_fans.sql`, which lets the
-     newsletter role read `user_profiles` and `user_favorites`;
+   - applying `migrations/20261027_newsletter_reads_fans.sql`, which creates
+     the two fan views the newsletter role can read;
    - whether a correction makes a new version (section 9);
    - the Weekly line format (4.7);
    - the box score columns (4.6);

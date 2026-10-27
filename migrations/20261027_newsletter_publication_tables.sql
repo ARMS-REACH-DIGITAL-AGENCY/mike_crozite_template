@@ -235,6 +235,9 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON SEQUENCE public.publication_corrections_id_seq FROM authenticated;
+  END IF;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticator') THEN
     GRANT INSERT ON public.edition_ready, public.daily_stat_lines, public.daily_game_stories,
       public.daily_game_scores, public.weekly_box_scores, public.weekly_player_lines TO authenticator;
