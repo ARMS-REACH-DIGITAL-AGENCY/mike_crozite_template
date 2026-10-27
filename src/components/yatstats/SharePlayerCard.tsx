@@ -8,7 +8,7 @@ export default function SharePlayerCard({ playerId, playerName, hsid }: { player
     event.preventDefault();
     event.stopPropagation();
     const numericSchool = /^\\d+$/.test(hsid || "") && window.location.pathname.startsWith("/" + hsid);
-    const path = (numericSchool ? "/" + hsid : "") + "/p/" + encodeURIComponent(playerId);
+    const path = (numericSchool ? "/" + hsid : "") + "/c/" + encodeURIComponent(playerId);
     const url = window.location.origin + path;
     try {
       if (navigator.share) {
