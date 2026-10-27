@@ -41,6 +41,7 @@ type Row = {
   home_hsid: number | null; away_hsid: number | null; home_seed: number | null; away_seed: number | null;
   home_school_name: string | null; away_school_name: string | null; status: string;
   innings: number[] | null; winner_hsid: number | null; decided_by: string | null; locked_at: string | null;
+  box_missing?: boolean;
 };
 type Ruling = { region: number; week: number; home_hsid: number; away_hsid: number; winner_hsid: number };
 type Result = {
@@ -49,6 +50,7 @@ type Result = {
 };
 type Fill = { region: number; game_id: number; home_hsid: number; away_hsid: number; home_seed: number; away_seed: number; home_school_name: string | null; away_school_name: string | null };
 type Decision = { kind: string; ref: string; summary: string; details: unknown };
+type BoxFill = { region: number; game_id: number; box: GameBox };
 
 const iso =(t: number) => new Date(t).toISOString().slice(0, 10);
 // The bracket's day: the date in Arizona (UTC-7, no DST), turning over at 4 a.m.
@@ -131,6 +133,7 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
   const byId = new Map(rows.map((r) => [r.game_id, r]));
   const results: Result[] = [];
   const decisions: Decision[] = [];
+  const boxFills: BoxFill[] = [];
   for (const round of idx.rounds) for (const s of round.series as SeriesRow[]) for (const g of s[7]) {
     const row = byId.get(g[0])!;
     const [ws] = idx.weeks[g[1] - 1] || [];
@@ -157,6 +160,10 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
           summary: `${row.away_school_name} at ${row.home_school_name} (week ${row.week}) was locked final; the stats now score it differently. The locked result stands until you decide.`,
           details: { locked: was, now },
         });
+      } else if (row.box_missing && res.box) {
+        // A final locked without its stat drawer gets it once, the result
+        // untouched (the newsletters print the drawer's lines).
+        boxFills.push({ region: row.region, game_id: g[0], box: res.box });
       }
       continue;
     }
@@ -169,7 +176,7 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
     }
     results.push(res);
   }
-  return { results, decisions };
+  return { results, decisions, boxFills };
 }
 
 // Fill the next round's slots from decided series (results applied first).
@@ -257,14 +264,16 @@ function computeSeason(season: Season, rows: Row[], rulings: Ruling[], live: Liv
   const groups = season.is_test ? [...new Set(rows.map((r) => r.region))].map((g) => rows.filter((r) => r.region === g)) : [rows];
   const results: Result[] = [];
   const decisions: Decision[] = [];
+  const boxFills: BoxFill[] = [];
   for (const group of groups) {
     const region = group[0]?.region;
     const out = scoreGroup(season, group, season.is_test ? rulings.filter((r) => r.region === region) : rulings, live, asof, withBox);
     results.push(...out.results);
     decisions.push(...out.decisions);
+    boxFills.push(...out.boxFills);
   }
   const { fills, decisions: more } = nextRoundFills(season, rows, results);
-  return { results, fills, decisions: [...decisions, ...more] };
+  return { results, fills, decisions: [...decisions, ...more], boxFills };
 }
 
 const startedWeeks = (season: Season, asof: string) =>
@@ -292,6 +301,12 @@ const SQL_DECISIONS = `
 INSERT INTO public.needs_decision (kind, season_key, ref, summary, details)
 SELECT x.kind, $1, x.ref, x.summary, x.details FROM jsonb_to_recordset($2::jsonb) AS x(kind text, ref text, summary text, details jsonb)
 ON CONFLICT (kind, ref) DO NOTHING`;
+// Only the box of a locked final that has none; run with the lock lifted
+// for this purpose (the guard trigger), last in the transaction.
+const SQL_BOXES = `
+UPDATE public.master_bracket m SET box = x.box
+FROM jsonb_to_recordset($2::jsonb) AS x(region smallint, game_id integer, box jsonb)
+WHERE m.season_key = $1 AND m.region = x.region AND m.game_id = x.game_id AND m.locked_at IS NOT NULL AND m.box IS NULL`;
 
 // The team list stays complete: every team on MLB's lists for this season
 // and next must have a teamid (team_id_map) before it plays, and any stat
@@ -346,10 +361,11 @@ async function main() {
     const rows: Row[] = read('rows.json');
     const rulings: Ruling[] = read('rulings.json');
     const live: Live = read('live.json');
-    const { results, fills, decisions } = computeSeason(season, rows, rulings, live, asof, withBox);
+    const { results, fills, decisions, boxFills } = computeSeason(season, rows, rulings, live, asof, withBox);
     const sub = (sql: string, json: unknown) => sql.replaceAll('$1', `'${season.season_key}'`).replaceAll('$2', dollar(JSON.stringify(json))).replaceAll('$3', String(withBox)).trim();
-    console.log(`-- ${season.season_key} as of ${asof}: ${results.length} results, ${fills.length} slots filled, ${decisions.length} for Pete`);
+    console.log(`-- ${season.season_key} as of ${asof}: ${results.length} results, ${fills.length} slots filled, ${decisions.length} for Pete, ${boxFills.length} locked finals get their box`);
     console.log(`${sub(SQL_RESULTS, forDb(results))};\n${sub(SQL_FILLS, fills)};\n${sub(SQL_DECISIONS, decisions)};`);
+    if (boxFills.length) console.log(`SET LOCAL master_bracket.unlock = 'on';\n${sub(SQL_BOXES, boxFills)};`);
     return;
   }
 
@@ -369,7 +385,8 @@ async function main() {
     for (const season of seasons) {
       const { rows } = await pool.query<Row>(
         `SELECT stage, region, round, series_no, game_no, game_id, week, home_hsid, away_hsid, home_seed, away_seed,
-                home_school_name, away_school_name, status, innings, winner_hsid, decided_by, locked_at
+                home_school_name, away_school_name, status, innings, winner_hsid, decided_by, locked_at,
+                box IS NULL AS box_missing
            FROM public.master_bracket WHERE season_key = $1`,
         [season.season_key],
       );
@@ -380,8 +397,8 @@ async function main() {
       const weeks = startedWeeks(season, asof);
       if (!weeks) { console.log(`${season.season_key}: nothing started by ${asof}`); continue; }
       const live = await fetchLive(base, season.opening_day, Math.min(weeks, 40), fieldOf(rows));
-      const { results, fills, decisions } = computeSeason(season, rows, rulings, live, asof, withBox);
-      console.log(`${season.season_key} as of ${asof}: ${results.length} results (${results.filter((r) => r.lock).length} final), ${fills.length} slots filled, ${decisions.length} for Pete`);
+      const { results, fills, decisions, boxFills } = computeSeason(season, rows, rulings, live, asof, withBox);
+      console.log(`${season.season_key} as of ${asof}: ${results.length} results (${results.filter((r) => r.lock).length} final), ${fills.length} slots filled, ${decisions.length} for Pete, ${boxFills.length} locked finals get their box`);
       for (const d of decisions) console.log(`  needs decision: ${d.summary}`);
       if (flag('dry-run')) continue;
       const client: PoolClient = await pool.connect();
@@ -391,6 +408,11 @@ async function main() {
         await client.query(SQL_RESULTS, [season.season_key, JSON.stringify(forDb(results)), withBox]);
         await client.query(SQL_FILLS, [season.season_key, JSON.stringify(fills)]);
         await client.query(SQL_DECISIONS, [season.season_key, JSON.stringify(decisions)]);
+        if (boxFills.length) {
+          await client.query("SET LOCAL master_bracket.unlock = 'on'");
+          await client.query("SET LOCAL master_bracket.reason = 'bracket results job: stat drawer added to a locked final (result unchanged)'");
+          await client.query(SQL_BOXES, [season.season_key, JSON.stringify(boxFills)]);
+        }
         await client.query('COMMIT');
       } catch (e) {
         await client.query('ROLLBACK');
