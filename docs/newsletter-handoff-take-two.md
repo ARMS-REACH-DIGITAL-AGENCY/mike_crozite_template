@@ -71,12 +71,20 @@ stats day that just closed (`stats_date`).
 3. **The scoreboard:** 12 games, like Wrigley Field's (Pete has the photo).
    - The home school's game sits bottom left, with red lines above and
      below.
-   - The other 11 are the nearest schools' games, in the order given.
+   - **The other 11 slots are the schools the fan picked**, in the fan's
+     order (5.4).
+   - Each game appears once. If two picked schools play each other, or the
+     fan picked the home school's opponent, the game takes one slot and the
+     rest stay blank.
+   - Slots the fan hasn't filled stay blank, with the invitation "Pick your
+     own favorite 11 and we'll send them to you every day" and a link to the
+     pick page.
+   - A fan who has picked nobody sees the home game and 11 blank slots.
    - Each game shows inning-by-inning runs so far.
    - Underneath: a "See the full scoreboard" link to the site's homepage.
 
-If the home school has no game (it isn't in the field), leave out sections
-2 and 3. The favorites' lines still go out.
+If the home school has no game (it isn't in the field), leave out the story
+and the home slot. The favorites' lines and the fan's picks still go out.
 
 ## 4. The Weekly Gazette
 
@@ -90,8 +98,8 @@ Sent Monday after the week's ready row.
    - each school's batting and pitching tables;
    - extra-base hits underneath.
 3. **Scores around the league:** the week's finals in the home school's
-   region, from `master_bracket`. Whether it's every region game or only
-   the nearby ones, Pete decides after seeing it.
+   region, from `master_bracket`. Whether it's every region game or a
+   shorter list, Pete decides after seeing it.
 
 ## 5. The tables
 
@@ -101,8 +109,8 @@ branch `main`, database `neondb`, schema `public`). The newsletter role
 
 **Status:**
 - **Built today:** `master_bracket` and `fantasy_active_season`.
-- **Coming:** the six tables in 5.1 to 5.6 aren't built yet. Their names and
-  columns below are the contract; build against them now. With Pete's go,
+- **Coming:** the seven tables in 5.1 to 5.6 aren't built yet. Their names
+  and columns below are the contract; build against them now. With Pete's go,
   Claude creates them empty first so the code can point at them, then fills
   them.
 
@@ -170,21 +178,43 @@ players.
 SELECT * FROM daily_game_stories WHERE stats_date = $1 AND hsid = $2;
 ```
 
-### 5.4 `daily_scoreboards` (coming): 12 games per school per day
+### 5.4 The scoreboard (coming): every game's score, plus the fan's picks
+
+**`daily_game_scores`:** one row per game per stats day, every game in the
+field.
 
 | column | meaning |
 |---|---|
-| `season_key`, `stats_date`, `hsid` | whose scoreboard |
-| `slot` | `0` = the home school's game (bottom left, red lines); `1`-`11` = nearby games, nearest first |
-| `region`, `game_id` | the game |
+| `season_key`, `stats_date`, `region`, `game_id` | the game, on that day |
+| `home_hsid`, `away_hsid` | the schools |
 | `away_label`, `home_label` | short names for the board, e.g. `HAMILTON` |
 | `away_innings`, `home_innings` | runs by inning so far, one text cell per inning (visitors on top, as on a scoreboard) |
 | `away_runs`, `home_runs` | the score so far |
 | `through_inning`, `is_final` | where the game stands |
 
+**`user_scoreboard_schools`:** the fan's picks, written by the pick page on
+the site.
+
+| column | meaning |
+|---|---|
+| `firebase_uid` | the fan (matches `user_profiles`) |
+| `position` | 1-11, the fan's order |
+| `hsid` | the school picked |
+
 ```sql
-SELECT * FROM daily_scoreboards WHERE stats_date = $1 AND hsid = $2 ORDER BY slot;
+-- the home game (slot bottom left)
+SELECT * FROM daily_game_scores WHERE stats_date = $1 AND $2::int IN (home_hsid, away_hsid);
+
+-- the fan's picks, in their order
+SELECT p.position, g.*
+  FROM user_scoreboard_schools p
+  JOIN daily_game_scores g ON g.stats_date = $1 AND p.hsid IN (g.home_hsid, g.away_hsid)
+ WHERE p.firebase_uid = $3
+ ORDER BY p.position;
 ```
+
+Picking rows like this is fine; it's not computing. Show a game only once,
+and leave unfilled slots blank (section 3).
 
 ### 5.5 `weekly_box_scores` (coming): one per game per week
 
@@ -271,11 +301,10 @@ Rules while building:
 
 ## 8. Open items (Pete and Claude, not the newsletter)
 
-1. Claude builds and fills the six tables, the frozen day and week copies,
-   and the nearby-schools list, and schedules the results job. Each step
+1. Claude builds and fills the tables in section 5, the frozen day and week
+   copies, and the pick page, and schedules the results job. Each step
    needs Pete's go.
 2. If the ready row is late: wait or skip? Pete to decide.
 3. Where the newsletter's own tables (`tribune_private.*`, sponsors, the
    copy of each send) live.
-4. Fans whose home school isn't in the field: no story or scoreboard (as
-   above), or the 12 games nearest their school? Pete to decide.
+4. The pick page's address, for the email's link: set when it's built.

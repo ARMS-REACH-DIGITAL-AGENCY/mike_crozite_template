@@ -94,12 +94,17 @@ says otherwise.
      players. Stored by school.
 4. **A Wrigley Field-style scoreboard: 12 games.**
    - The home game sits bottom left, between red lines.
-   - The other 11 are the nearest games: schools in the same city, county,
-     state or vicinity.
+   - **The fan picks the other 11 schools** (Pete, Oct 27; this replaced
+     the idea of computing the nearest schools, so no map lookup).
+     - Until they pick, those 11 slots are blank, with the invitation:
+       "Pick your own favorite 11 and we'll send them to you every day."
+     - They pick on a page on the site, up to 11 schools from the bracket
+       field. The newsletter links to it.
+     - Why: we can't get it wrong. And fans who aren't superfans get used to
+       following other schools, which gives them a reason to upgrade for
+       those schools' players' stats.
    - Inning-by-inning runs so far.
    - Underneath, a link to the full scoreboard on the homepage.
-   - Each school's nearby list is computed once, from map coordinates looked
-     up once for every school's town.
 
 ## Weekly Gazette (Monday, when the week is final)
 
@@ -108,13 +113,14 @@ says otherwise.
   - the line score;
   - each school's batting and pitching tables for the week;
   - extra-base hits underneath.
-- Scores around the league: every final in the region, or the nearby ones.
+- Scores around the league: every final in the region, or a shorter list.
   Pete will decide after seeing it.
 
 ## Who does what
 
-- **Claude:** the pipeline. Stat lines, stories, scoreboards, box scores,
-  results, frozen copies, nearby lists. All stored.
+- **Claude:** the pipeline. Stat lines, stories, every game's daily score,
+  box scores, results, frozen copies. All stored. Plus the page where fans
+  pick their 11 scoreboard schools, and the table that holds their picks.
 - **The newsletter (ChatGPT):** reads the stored rows, adds the sponsor,
   lays out the email, sends through HighLevel. No math, no formatting of
   stats, no rescoring, no `/api/bracket/live`.
