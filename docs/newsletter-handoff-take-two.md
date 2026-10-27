@@ -51,8 +51,9 @@ decides, not this file.
 |---|---|
 | `fantasy_seasons`, `fantasy_active_season` (view) | **Built** in production |
 | `master_bracket`, `master_bracket_series` (view) | **Built.** Holds test-2026 Round 1 results (final and locked) and the Round 2 pairings. The newsletter doesn't need it (section 6.5). |
-| The 7 tables in section 4 | **Coming.** Not created; the SQL is `migrations/20261027_newsletter_publication_tables.sql`, not applied. With Pete's go, Claude creates them empty first, so the newsletter can point at them, then fills them. |
-| An old `public.daily_stat_lines` | **Exists** (checked Oct 27). It's an older table with a different layout (`game_id`, `week`, `day`, `ab`, `h`, ... `ops`, `fip`) and **0 rows**, and no code on any branch uses it. The migration replaces it, and only while it's still empty. |
+| The 7 tables in section 4 | **Created, empty** (Oct 27, with Pete's go; `migrations/20261027_newsletter_publication_tables.sql`). The guard and the corrections log are in place, and the newsletter role has SELECT only. They stay empty until the pipeline job that fills them is built. |
+| The old `public.daily_stat_lines` | **Replaced.** It was an older, empty, unused table with a different layout. The migration dropped it only because it had 0 rows. |
+| `newsletter_recipients`, `newsletter_favorites` (views) | **Created** (Oct 27, with Pete's go; `migrations/20261027_newsletter_reads_fans.sql`). All seven test recipients resolve with their home school and favorites. |
 | The pipeline job that writes them | **Coming** (Claude; needs Pete's go) |
 | The page where fans pick their 11 scoreboard schools | **Coming** (Claude; needs Pete's go) |
 

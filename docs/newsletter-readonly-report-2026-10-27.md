@@ -1,5 +1,30 @@
 # Newsletter tables: read-only report (Oct 27, 2026)
 
+> **Update, later Oct 27: applied with Pete's go.** Both migrations were
+> applied to production, each as one transaction:
+> - `migrations/20261027_newsletter_publication_tables.sql`
+> - `migrations/20261027_newsletter_reads_fans.sql`
+>
+> Checked afterwards:
+> - **The tables:** all seven exist, owned by `neondb_owner`, with **0 rows**.
+>   `daily_stat_lines` has the contract's layout, and the old empty table is
+>   gone.
+> - **The guard:** 12 guard and log triggers are in place.
+> - **The newsletter role:** it has SELECT on the seven tables and on the
+>   two views, and no INSERT anywhere. It can't read `user_profiles`,
+>   `user_favorites` or `publication_corrections`.
+> - **The site role:** `authenticated` has no access.
+> - **The test recipients:** all seven resolve through
+>   `newsletter_recipients`, as superfans with their home school, and
+>   `newsletter_favorites` gives their favorites (40, 6, 19, 17, 19, 18
+>   and 4).
+>
+> Not applied (they need separate decisions):
+> - the optional revoke of raw-stat reads (section 8);
+> - any sponsor grant.
+>
+> The report below is the state before the apply.
+
 Checked against production by read-only queries on Oct 27, 2026:
 - Neon project `round-recipe-12286668`;
 - branch `main` (`br-polished-lab-a4i35u5j`);
