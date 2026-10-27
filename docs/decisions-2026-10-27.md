@@ -101,6 +101,9 @@ says otherwise.
      the idea of computing the nearest schools, so no map lookup).
      - Until they pick, those 11 slots are blank, with the invitation:
        "Pick your own favorite 11 and we'll send them to you every day."
+       After the first previews Pete said the invitation "must be bigger,
+       repositioned": it now sits on the board itself, above the games,
+       in large type with a "Pick your teams" button.
      - They pick on a page on the site, up to 11 schools from the bracket
        field. The newsletter links to it.
      - Why: we can't get it wrong. And fans who aren't superfans get used to

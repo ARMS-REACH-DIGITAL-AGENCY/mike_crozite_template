@@ -9,11 +9,14 @@ approach is dropped.
 The rules behind this contract are in `docs/decisions-2026-10-27.md`. Pete
 decides, not this file.
 
-**Status of this document:**
-- It is a contract. The publication tables in section 4 **don't exist yet**.
-- None of the SQL here has been executed, because the tables it reads
-  aren't built.
-- No production change was made for it.
+**Status of this document (updated Oct 27, evening):**
+- It is a contract. The publication tables in section 4 exist in
+  production and hold one finished Daily (stats day 2026-10-26) and one
+  finished Weekly (test-2026 week 3, Oct 19-25), each with its ready row.
+  They were written by a manual run of `scripts/newsletter-publish.ts`,
+  with Pete's go. There is no schedule.
+- The section 13 queries have been run, by `scripts/newsletter-preview.ts`,
+  for the 14 test previews (`docs/newsletter-publication-run-2026-10-27.md`).
 
 ---
 
@@ -51,10 +54,11 @@ decides, not this file.
 |---|---|
 | `fantasy_seasons`, `fantasy_active_season` (view) | **Built** in production |
 | `master_bracket`, `master_bracket_series` (view) | **Built.** Holds test-2026 Round 1 results (final and locked) and the Round 2 pairings. The newsletter doesn't need it (section 6.5). |
-| The 7 tables in section 4 | **Created, empty** (Oct 27, with Pete's go; `migrations/20261027_newsletter_publication_tables.sql`). The guard and the corrections log are in place, and the newsletter role has SELECT only. They stay empty until the pipeline job that fills them is built. |
+| The 7 tables in section 4 | **Created** (Oct 27, with Pete's go; `migrations/20261027_newsletter_publication_tables.sql`). The guard and the corrections log are in place, and the newsletter role has SELECT only. **One Daily and one Weekly are published** (2 ready rows; see the run report). `user_scoreboard_schools` is empty: no fan has picked yet. |
 | The old `public.daily_stat_lines` | **Replaced.** It was an older, empty, unused table with a different layout. The migration dropped it only because it had 0 rows. |
 | `newsletter_recipients`, `newsletter_favorites` (views) | **Created** (Oct 27, with Pete's go; `migrations/20261027_newsletter_reads_fans.sql`). All seven test recipients resolve with their home school and favorites. |
-| The pipeline job that writes them | **Coming** (Claude; needs Pete's go) |
+| The pipeline job that writes them | **Built, run by hand** (`scripts/newsletter-publish.ts`). Not scheduled; scheduling needs Pete's go. |
+| A preview reader and renderer | **Built** (`scripts/newsletter-preview.ts`): the section 13 queries as the newsletter role, printed as HTML and text. A reference for the newsletter's own renderer; it never sends. |
 | The page where fans pick their 11 scoreboard schools | **Coming** (Claude; needs Pete's go) |
 
 Everything is in one database:
@@ -197,12 +201,17 @@ CREATE TABLE daily_game_stories (
   title          text     NOT NULL,  -- "HAMILTON TAKES THE LEAD"
   story          text     NOT NULL,  -- "Hamilton put up two runs in the bottom of the 5th to take the lead..."
   shout_outs     jsonb    NOT NULL DEFAULT '[]',  -- [{"playerid":"209830","name":"Jake Smith","line":"Jake Smith (Rays, MLB) vs. Brewers: 2-for-4, HR, 2 RBI, BB"}]
-  PRIMARY KEY (stats_date, hsid)
+  PRIMARY KEY (stats_date, hsid, region, game_id)
 );
 ```
 
-- **Row identity:** `(stats_date, hsid)`. Every game gets two rows a day,
-  one from each school's side, about its own players.
+- **Row identity:** `(stats_date, hsid, region, game_id)`. Every game gets
+  two rows a day, one from each school's side, about its own players.
+  - In 2027 a school plays one game a week, so it has at most one row a
+    day.
+  - **In the test season a school can be in two brackets at once** (the six
+    test brackets share 69 schools; Hamilton is in Regions 1 and 6), so it
+    can have two rows a day. Print each one, in `region, game_id` order.
 - **The day's stats and the inning:**
   - Monday's stats are inning 1 (Tuesday's Daily); Wednesday's stats are
     inning 3 (Thursday's Daily); Sunday's are inning 7.
@@ -337,12 +346,17 @@ CREATE TABLE weekly_player_lines (
 - It covers every rostered alumnus of **every** school, frozen at the
   Monday cutoff. That includes schools outside the bracket field, so every
   fan's Weekly works.
+  - **The Oct 27 manual run wrote the 69 test-field schools only** (all
+    seven test recipients' schools are in the field). Every school comes
+    with the scheduled job.
 - The roster is the bracket's own rule: the current alumni statuses, with no
   high school players.
-- `line` follows the Daily style for the week, e.g.:
-  - `Jake Smith (Rays, MLB): 7-for-22, 2 HR, 5 RBI, 3 BB`
-  - `Tom Jones (Ducks, NCAA-D1): 2 GS, 12.0 IP, 2 ER, 15 K, 1-0`
-  - `Sam Lee (Bees, TRIPLE-A): Did not play`
+- `line` follows the Daily style for the week. As written on Oct 27:
+  - `Jacob Misiorowski (Brewers, MLB): 5.0 IP, 4 H, 1 ER, 1 BB, 3 K, 1-0`
+  - `Pascanel Ferreras (Gigantes del Cibao, INTERNATIONAL): 0-for-4`
+  - `Lucas Williams (Gwinnett Stripers, TRIPLE-A): Did not play`
+  - a player whose card has no team or no official level prints what is
+    known: `Jake Wong (DOUBLE-A): Did not play`, `Max Gieg: Did not play`.
 
   Pete approves the format.
 
@@ -366,8 +380,9 @@ existing logic; this contract doesn't change it.
      and a link to pick some;
    - **favorites, zero rows:** print "None of your players were in action
      yesterday."
-3. **The home school's game story:** the `daily_game_stories` row
-   `(D, home_hsid)`. If there's no row, leave out the section.
+3. **The home school's game story:** the `daily_game_stories` rows for
+   `(D, home_hsid)`, in `region, game_id` order: one in 2027, up to two in
+   the test season (4.3). If there's no row, leave out the section.
 4. **The scoreboard** (12 slots, laid out like Wrigley Field's):
    1. **Home slot,** bottom left between red lines: the `daily_game_scores`
       row for `D` with `home_hsid` in `(home_hsid, away_hsid)`. If there's
@@ -397,8 +412,10 @@ existing logic; this contract doesn't change it.
 2. **The full home roster:** `weekly_player_lines` for `(M, home_hsid)`,
    in `sort_key` order.
 3. **The home game's box score:** the `weekly_box_scores` row for
-   `(season_key, week)` with `home_hsid` in `(home_hsid, away_hsid)`. There
-   is at most one. If there's none, leave out the section.
+   `(season_key, week)` with `home_hsid` in `(home_hsid, away_hsid)`. In
+   2027 there is at most one; in the test season a school in two brackets
+   has two (print both, in `region, game_id` order, and the league scores
+   for both regions). If there's none, leave out the section.
 4. **The recap** (optional; Pete decides whether the Weekly prints it): the
    home school's final story, `daily_game_stories` for
    `(period_end, home_hsid)` with `is_final`.
@@ -514,7 +531,7 @@ Each sent copy must hold:
 - the edition: `cadence`, `period_start`, and the ready row's `ready_at`;
 - the keys of every pipeline row printed:
   - `daily_stat_lines (stats_date, stat_line_id)`;
-  - `daily_game_stories (stats_date, hsid)`;
+  - `daily_game_stories (stats_date, hsid, region, game_id)`;
   - `daily_game_scores (stats_date, season_key, region, game_id)`, by slot;
   - `weekly_box_scores (season_key, region, game_id)`;
   - `weekly_player_lines (period_start, hsid, playerid)`;
@@ -581,7 +598,8 @@ The example is the Hamilton fan (`home_hsid` 5004), with `$1` = their
 - **Daily:** stats day Oct 26, 2026 (test-2026, week 4, inning 1).
 - **Weekly:** the week of Oct 19-25 (test-2026, week 3).
 
-**Not executed:** the tables don't exist yet.
+**Run on Oct 27** by `scripts/newsletter-preview.ts`, as the newsletter's
+read-only role, for the 14 test previews.
 
 ### Daily, stats day 2026-10-26
 
@@ -601,9 +619,10 @@ SELECT l.stats_date, l.stat_line_id, l.line
    AND l.playerid IN (SELECT f.playerid FROM newsletter_favorites f WHERE f.firebase_uid = $1)
  ORDER BY l.sort_key;
 
--- 3. The home school's story.
+-- 3. The home school's story (two rows for Hamilton in the test: Regions 1 and 6).
 SELECT * FROM daily_game_stories
- WHERE stats_date = DATE '2026-10-26' AND hsid = 5004;
+ WHERE stats_date = DATE '2026-10-26' AND hsid = 5004
+ ORDER BY region, game_id;
 
 -- 4. Scoreboard, home slot.
 SELECT * FROM daily_game_scores
