@@ -3,8 +3,8 @@
 // The player's own Instagram posts in the profile's Social tab: a grid of
 // their latest posts (our S3 copies, refreshed by the instagram-sync cron).
 // News stories that link to Instagram open in this same viewer.
-// A tile opens an uncropped S3 picture in an on-site viewer; reels and
-// carousels can switch to Instagram's interactive embed on demand. Navigation
+// Social tiles open an uncropped S3 image and can switch to the interactive embed.
+// News articles open the interactive Instagram embed directly, with no preview step. Navigation
 // stays on the profile and arrows/swipe step through posts. Loads only once the Social tab
 // is actually shown, and renders nothing when there are no stored posts.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -154,16 +154,19 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // No picture of the post itself (never a stand-in photo): show Instagram's
   // own player instead, once we know no picture is coming.
   const hasPicture = Boolean(current?.thumbnail_url?.trim() && brokenPictureId !== current?.id);
-  const embedShown = Boolean(embedUrl && (showInstagramEmbed || (!hasPicture && !current?.media_pending)));
+  // News opens the real Instagram post immediately; Social tiles retain their established preview behavior.
+  const embedShown = Boolean(embedUrl && (externalPosts ? true : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
   // be laid out narrower than 326px, so a smaller box scales it down.
-  // Reels play in a 4:5 frame there; photos keep their own shape, which
+  // Social embeds use Instagram's 4:5 frame; News uses the requested 9:16 media viewport. Photos keep their own shape, which
   // Instagram limits to between 1.91:1 and 4:5.
   const isReel = current?.media_type === 'video' || /\/(reel|tv)\//.test(current?.permalink || '');
   const pictureShape = current ? aspects[current.id] : undefined;
-  const heightPerWidth = !isReel && pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4;
+  // News presents interactive Instagram media in a portrait 9:16 viewport.
+  // Preserve the existing measured Instagram sizing for the Social tab.
+  const heightPerWidth = externalPosts ? 16 / 9 : (!isReel && pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
   const embedBox = mediaBox
     ? (() => {
         const width = Math.max(1, Math.min(mediaBox.width, Math.floor(mediaBox.height / heightPerWidth)));
@@ -289,7 +292,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               )}
             </div>
             <div className={`pp-ig-post-details${renderFooter ? ' pp-ig-post-details-news' : ''}`}>
-              {hasInteractiveMedia && hasPicture && (
+              {!externalPosts && hasInteractiveMedia && hasPicture && (
                 <button
                   type="button"
                   className="pp-ig-embed-toggle"
