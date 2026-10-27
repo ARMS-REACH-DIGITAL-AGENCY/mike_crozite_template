@@ -2552,7 +2552,7 @@ export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCard
 // Same normalization as getFlipCardFrontStageByHsid, for one arbitrary
 // player regardless of which school's page is currently being viewed -
 // used to build a real flip card for a cross-school favorite.
-export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardFrontStageByPlayerId(playerId: string): Promise<any | null> {
+export const getFlipCardFrontStageByPlayerId = cache(export async function getFlipCardFrontStageByPlayerId(playerId: string): Promise<any | null> {
   const sql = `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.playerid = $1 LIMIT 1`;
   const { rows } = await query(sql, [playerId]);
   return rows[0] || null;
