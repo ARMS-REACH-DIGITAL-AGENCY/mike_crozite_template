@@ -124,6 +124,18 @@ Add a dated line for each milestone.
   None of those commits touch a bracket file or the bracket's stats
   source, and bracket 1's `/api/bracket/live` returned the same rosters,
   stat lines, club results and fan counts before and after.
+- 2026-10-26 (end of week 3): 12 Game 3s were still tied after every
+  tiebreaker (nobody in action, even club run differentials, even fan
+  bases). Pete: "you need to be the commissioner." Ruled, in order: the
+  better series run differential over Games 1-2; then the series game won
+  on the field rather than by a commissioner's decision; then the higher
+  seed. Recorded in `COMMISSIONER_DECISIONS` as a `TEST-ONLY:` commit on
+  all six test branches. Found at the same time: nothing builds Round 2
+  from the Round 1 winners (the test field and `blankSeason` on
+  `Easter-NEWS` both leave rounds 2-10 empty), so every Round 2 opponent
+  shows TBD; and the page moves to Round 2 by the calendar, with no Round 1
+  recap. Waiting on Pete's OK for the tiebreaker rule in the engine and
+  for both fixes (PIPELINE).
 - Note for anyone replaying the brackets: `/api/bracket/live` takes at most
   64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
