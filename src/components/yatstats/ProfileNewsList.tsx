@@ -108,13 +108,33 @@ export default function ProfileNewsList({
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
   const instagramStories = useMemo(() => stories.filter(s => parseNewsVideo(s.url)?.provider === 'Instagram'), [stories]);
+  // The post itself (picture, @handle, caption, kind), so the viewer shows
+  // exactly what the Social tab shows for a synced post.
+  // null: looked up, Instagram gave nothing (the viewer then shows Instagram's own player).
+  const [instagramDetails, setInstagramDetails] = useState<Record<string, InstagramViewerPost | null>>({});
+  useEffect(() => {
+    let cancelled = false;
+    for (const s of instagramStories) {
+      fetch(`/api/social/instagram-post?url=${encodeURIComponent(s.url)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d?.post || null, () => null)
+        .then((post) => {
+          if (!cancelled) setInstagramDetails((prev) => ({ ...prev, [s.uuid]: post }));
+        });
+    }
+    return () => { cancelled = true; };
+  }, [instagramStories]);
   const instagramPosts = useMemo<InstagramViewerPost[]>(() => instagramStories.map(s => {
     const video = parseNewsVideo(s.url);
-    return { id: s.uuid, media_type: video?.watchUrl.includes('/reel/') ? 'video' : 'carousel',
-      caption: s.title, permalink: video?.watchUrl || s.url,
-      thumbnail_url: s.imageUrl || video?.thumbnailUrl || PLAYER_SILHOUETTE_URL,
-      published_at: s.publishedAt, handle: null };
-  }), [instagramStories]);
+    const post = instagramDetails[s.uuid];
+    // Only the post's own picture: a player headshot is not Instagram media.
+    return { id: s.uuid, media_pending: post === undefined,
+      media_type: post?.media_type || (/\/(reel|tv)\//.test(video?.watchUrl || s.url) ? 'video' : 'image'),
+      caption: post?.caption || newsVideoHeadline(s.title, s.playerName || playerName),
+      permalink: post?.permalink || video?.watchUrl.replace(/embed\/$/, '') || s.url,
+      thumbnail_url: post?.thumbnail_url || '',
+      published_at: post?.published_at || s.publishedAt, handle: post?.handle || null };
+  }), [instagramStories, instagramDetails, playerName]);
   const instagramSelected = Boolean(instagramPosts.some(p => p.id === openUuid));
 
   useEffect(() => {
@@ -193,7 +213,13 @@ export default function ProfileNewsList({
                 className="pp-news-thumb pp-news-thumb-photo"
                 style={{ backgroundImage: `url('${PLAYER_SILHOUETTE_URL}')` }}
               >
-                <CardPhoto srcs={getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl)} className="pp-news-thumb-img" />
+                {(() => {
+                  // An Instagram story with no player photo (a coach, a
+                  // school post) shows the post's own picture instead.
+                  const postPicture = instagramDetails[story.uuid]?.thumbnail_url;
+                  const srcs = [...getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl), ...(postPicture ? [postPicture] : [])];
+                  return <CardPhoto key={srcs.join(' ')} srcs={srcs} className="pp-news-thumb-img" />;
+                })()}
               </div>
               <div className="pp-news-copy">
                 <div className="pp-news-title">{headline}</div>
@@ -213,7 +239,16 @@ export default function ProfileNewsList({
         );})}
       </div>
 
-      {instagramSelected ? <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts} initialPostId={openUuid} onClose={() => setOpenUuid("")} /> : null}
+      {instagramSelected ? (
+        <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts}
+          initialPostId={openUuid} onClose={() => setOpenUuid("")}
+          renderFooter={(post) => {
+            const story = stories.find((s) => s.uuid === post.id);
+            return <NewsEngagement key={post.id} compactInViewer uuid={post.id} hsid={hsid}
+              title={newsVideoHeadline(story?.title || "", story?.playerName || playerName)} />;
+          }}
+        />
+      ) : null}
       <ProfileContentDrawer
         open={Boolean(openStory) && !instagramSelected}
         onClose={() => setOpenUuid("")}
