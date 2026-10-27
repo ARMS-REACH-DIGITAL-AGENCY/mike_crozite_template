@@ -35,7 +35,9 @@ CREATE TABLE IF NOT EXISTS public.stat_lines (
   level text CHECK (level IN (
     'MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'SINGLE-A', 'ROOKIE', 'INDY', 'INTERNATIONAL',
     'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'CCCAA', 'NWAC', 'HIGH SCHOOL')),
-  source_level text,                 -- what the source printed (MLB's AAA, WIN, ROK ...)
+  source_level text CHECK (source_level IN (   -- MLB's level for the game, in the official names; NULL for WIN and IND
+    'MLB', 'TRIPLE-A', 'DOUBLE-A', 'HIGH-A', 'SINGLE-A', 'ROOKIE', 'INDY', 'INTERNATIONAL',
+    'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'CCCAA', 'NWAC', 'HIGH SCHOOL')),
   game_status text,                  -- the schedule's status when it has the game, else the line's
   is_final boolean NOT NULL DEFAULT false,
   team_won boolean,                  -- the player's team won (final games only)
@@ -97,7 +99,13 @@ SELECT
   l.home_away,
   t.teamid,
   CASE WHEN u.official THEN u.level END AS level,
-  l.raw_payload -> 'sport' ->> 'abbreviation' AS source_level,
+  -- MLB's own level for the game, in the official names (Pete, Oct 27): AAA
+  -- is TRIPLE-A and so on. NULL for MLB's two catch-alls, which aren't
+  -- levels: WIN (the winter leagues, Fall League and Caribbean) and IND
+  -- (independent and foreign leagues - its lines so far are all on teams
+  -- listed INTERNATIONAL). Those lines' level comes from the team, as every
+  -- line's does.
+  mlb.level AS source_level,
   coalesce(s.status, l.game_status) AS game_status,
   fin.is_final,
   CASE
