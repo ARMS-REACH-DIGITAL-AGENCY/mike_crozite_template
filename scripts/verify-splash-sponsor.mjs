@@ -37,7 +37,7 @@ function splashVisit(hostname, pathname = '/', search = '') {
   const schoolId = hostname === 'hamilton.az.yatstats.com' ? '5004'
     : hostname === 'perry.az.yatstats.com' ? '5005'
     : hostname === 'brandnew.az.yatstats.com' ? '5006'
-    : pathname.match(/^\\/(?:replay\\/)?([1-9][0-9]*)(?:\\/|$)/)?.[1] || '';
+    : (pathname.split('/').filter(Boolean).filter(part => /^[1-9][0-9]*$/.test(part))[0] || '');
   const cookieKey = schoolId ? 'yat_splash_seen_' + schoolId : '';
   // The server renders the opener only when the school has not been seen,
   // unless a replay was explicitly requested.
