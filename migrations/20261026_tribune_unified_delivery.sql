@@ -64,7 +64,7 @@ GRANT SELECT ON tribune_private.newsletter_deliveries,tribune_private.newsletter
 CREATE OR REPLACE FUNCTION tribune_private.claim_newsletter_delivery(
  p_id uuid,p_uid text,p_email text,p_type text,p_start date,p_end date,p_version text
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
-SET search_path=pg_catalog,tribune_private AS $
+SET search_path=pg_catalog,tribune_private AS $claim$
 DECLARE existing_status text;
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM tribune_private.newsletter_control
@@ -86,7 +86,7 @@ BEGIN
  SELECT status INTO existing_status FROM tribune_private.newsletter_deliveries
  WHERE firebase_uid=p_uid AND publication_type=p_type AND report_start=p_start AND report_end=p_end;
  RETURN 'previously_attempted';
-END $;
+END $claim$;
 REVOKE ALL ON FUNCTION tribune_private.claim_newsletter_delivery(uuid,text,text,text,date,date,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION tribune_private.claim_newsletter_delivery(uuid,text,text,text,date,date,text) TO yatstats_tribune_app;
 COMMIT;
