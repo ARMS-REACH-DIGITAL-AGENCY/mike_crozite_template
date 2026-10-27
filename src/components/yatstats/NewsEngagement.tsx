@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { authHeaders, openSignIn, useFanMe } from '@/components/yatstats/StoryViewer';
 import { useRef } from 'react';
 type Comment={id:string;text:string;createdAt:string;author:string};
-type Tag={playerid:string;name:string};
+type Tag={playerid:string;name:string;canRemove:boolean};
 type Data={likeCount:number;commentCount:number;likedByMe:boolean;comments:Comment[];tags:Tag[]};
 export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{uuid:string;hsid:string;title:string;compactInViewer?:boolean}){
  const me=useFanMe();
@@ -65,10 +65,10 @@ export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{
    {(!compactInViewer||showThread)&&<span className='yp-news-tag-hint'>Type @ in a comment to tag a player</span>}
   </div>
   {(!compactInViewer||showThread)&&<>
-  {data?.tags?.length?<div className='yp-news-tags'>Tagged: {data.tags.map(t=><span key={t.playerid}>{t.name}</span>)}</div>:null}
+  {data?.tags?.length?<div className='yp-news-tags'>Tagged: {data.tags.map(t=><span key={t.playerid}>{t.name}{t.canRemove?<button type='button' disabled={busy} aria-label={'Remove my tag for '+t.name} onClick={()=>void send({action:'untag',playerId:t.playerid})}> ×</button>:null}</span>)}</div>:null}
   {mentionOpen?<div className='yp-news-mentions'><strong>Tag a YAT?STATS player</strong><input autoFocus type='search' placeholder='Search players globally' value={mention} onChange={e=>setMention(e.target.value)} aria-label='Find player to mention'/><div className='yp-news-mention-list'>{matches.map(p=><button type='button' key={p.playerId} onClick={()=>{setPicked(list=>list.some(x=>x.playerId===p.playerId)?list:[...list,{playerId:p.playerId,displayName:p.displayName}]);setDraft(t=>t.replace(/@[A-Za-z0-9 .'-]*$/, '@'+p.displayName+' '));setMentionOpen(false);setMention('');}}><img src={p.headshotUrl||'/img/player-silhouette.png'} alt='' /><span><b>{p.displayName}</b><small>{p.currentTeamName||'Team unavailable'} · {p.schoolName}</small></span><img src={p.crestUrl||'/img/yatstats-logo-circle.png'} alt='' /></button>)}</div></div>:null}
   <div className='yp-news-comment-list'>{data?.comments?.map(c=><div key={c.id} className='yp-news-comment'><strong>{c.author}</strong><p>{c.text}</p></div>)}</div>
-  {picked.length?<div className='yp-news-tags'>Mentioning: {picked.map(p=><span key={p.playerId}>@{p.displayName}</span>)}</div>:null}
+  {picked.length?<div className='yp-news-tags'>Mentioning: {picked.map(p=><span key={p.playerId}>@{p.displayName}<button type='button' aria-label={'Remove pending tag for '+p.displayName} onClick={()=>setPicked(list=>list.filter(x=>x.playerId!==p.playerId))}> ×</button></span>)}</div>:null}
   <form onSubmit={e=>{e.preventDefault();if(draft.trim())void (async()=>{const saved=await send({action:'comment',text:draft.trim()});if(saved){for(const p of picked)await send({action:'tag',playerId:p.playerId});setPicked([]);}})();}}><textarea value={draft} onChange={e=>{if(!me){openSignIn();return;}const value=e.target.value;setDraft(value);const m=value.match(/@([^@\n]{0,45})$/);setMentionOpen(Boolean(m));setMention(m?.[1]||'');}} maxLength={2000} rows={2} placeholder='Add a comment (sign in required)' aria-label='Write a news comment'/><button type='submit' disabled={!draft.trim()||busy}>Post comment</button></form>
   </>}
   {shareMessage?<p role='status'>{shareMessage}</p>:null}
