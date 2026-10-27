@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 type Ctx = { params: Promise<{ uuid: string }> };
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const validUuid = (uuid: string) => /^[A-Za-z0-9_-]{1,100}$/.test(uuid);
-const keys = ['news_liked','news_unliked','news_commented','news_tagged','news_shared'];
+const keys = ['news_liked','news_unliked','news_commented','news_tagged','news_untagged','news_shared'];
 async function storyFor(uuid: string) {
   const { rows } = await query<{ playerid: string | null; hsid: string }>(
     "SELECT playerid,hsid FROM news_articles WHERE uuid=$1 AND verification_status='VERIFIED' LIMIT 1",[uuid]);
@@ -37,22 +37,22 @@ export async function GET(req: NextRequest,{params}:Ctx) {
        FROM fan_activity a LEFT JOIN user_profiles p ON p.firebase_uid=a.firebase_uid
        WHERE a.action=ANY($2::text[]) AND a.details->>'news_uuid'=$1
        ORDER BY a.id ASC LIMIT 1000`,[uuid,keys]);
-    const likes=new Set<string>(),comments: Array<{id:string;text:string;createdAt:string;author:string}>=[],tags=new Map<string,string>();
+    const likes=new Set<string>(),comments: Array<{id:string;text:string;createdAt:string;author:string}>=[],tags=new Map<string,{playerid:string;name:string;owners:Set<string>}>();
     for(const row of rows) {
       if(row.action==='news_liked')likes.add(row.firebase_uid);
       if(row.action==='news_unliked')likes.delete(row.firebase_uid);
       if(row.action==='news_commented')comments.push({id:row.id,text:String(row.details?.text||''),createdAt:row.created_at,author:[row.first_name,row.last_name].filter(Boolean).join(' ')||'A YAT?STATS fan'});
-      if(row.action==='news_tagged'&&row.details?.playerId)tags.set(String(row.details.playerId),String(row.details.playerName||row.details.playerId));
+      if((row.action==='news_tagged'||row.action==='news_untagged')&&row.details?.playerId){const id=String(row.details.playerId);let tag=tags.get(id);if(!tag){tag={playerid:id,name:String(row.details.playerName||id),owners:new Set()};tags.set(id,tag);}if(row.action==='news_tagged')tag.owners.add(row.firebase_uid);else tag.owners.delete(row.firebase_uid);}
     }
     const viewer=await registered(req);
-    return NextResponse.json({likeCount:likes.size,commentCount:comments.length,likedByMe:viewer?likes.has(viewer.uid):false,comments:comments.slice(-100),tags:[...tags].map(([playerid,name])=>({playerid,name}))},{headers:{'Cache-Control':'no-store'}});
+    return NextResponse.json({likeCount:likes.size,commentCount:comments.length,likedByMe:viewer?likes.has(viewer.uid):false,comments:comments.slice(-100),tags:[...tags.values()].filter(t=>t.owners.size>0).map(t=>({playerid:t.playerid,name:t.name,canRemove:viewer? t.owners.has(viewer.uid):false}))},{headers:{'Cache-Control':'no-store'}});
   } catch(e) {console.error('[news interaction] read',e);return fail('News interactions are unavailable.',503);}
 }
 export async function POST(req:NextRequest,{params}:Ctx) {
   const {uuid}=await params;
   if(!validUuid(uuid))return fail('Invalid news story.');
   const data=await req.json().catch(()=>null) as {action?:string;text?:string;playerId?:string;method?:string}|null;
-  if(!data||!['like','comment','tag','share'].includes(data.action||''))return fail('Invalid interaction.');
+  if(!data||!['like','comment','tag','untag','share'].includes(data.action||''))return fail('Invalid interaction.');
   try {
     const story=await storyFor(uuid);
     if(!story)return fail('News story not found.',404);
@@ -80,9 +80,11 @@ export async function POST(req:NextRequest,{params}:Ctx) {
     const {rows}=await query<{display_name:string}>(
       "SELECT display_name FROM flip_card_front_stage WHERE playerid=$1 LIMIT 1",[playerId]);
     if(!rows.length)return fail('Choose a YAT?STATS player.');
-    const {rows:already}=await query<{id:string}>(
-      "SELECT id::text FROM fan_activity WHERE action='news_tagged' AND details->>'news_uuid'=$1 AND details->>'playerId'=$2 LIMIT 1",[uuid,playerId]);
-    if(!already.length)await activity(fan.uid,'news_tagged',uuid,story,{playerId,playerName:rows[0].display_name});
+    const {rows:history}=await query<{action:string}>(
+      "SELECT action FROM fan_activity WHERE firebase_uid=$1 AND action IN ('news_tagged','news_untagged') AND details->>'news_uuid'=$2 AND details->>'playerId'=$3 ORDER BY id DESC LIMIT 1",[fan.uid,uuid,playerId]);
+    const active=history[0]?.action==='news_tagged';
+    if(data.action==='untag'){if(active)await activity(fan.uid,'news_untagged',uuid,story,{playerId,playerName:rows[0].display_name});}
+    else if(!active)await activity(fan.uid,'news_tagged',uuid,story,{playerId,playerName:rows[0].display_name});
     return NextResponse.json({ok:true});
   }catch(e){console.error('[news interaction] write',e);return fail('Could not save News interaction.',503);}
 }
