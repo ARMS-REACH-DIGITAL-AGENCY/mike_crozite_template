@@ -79,8 +79,9 @@ function pickKind(html: string, type: string, imageUrl: string | null): Instagra
   if (/CLIPS|VIDEO|REEL/.test(tag)) return 'video';
   if (tag.startsWith('CAROUSEL')) return 'carousel';
   if (tag) return 'image';
-  // Unknown: keep Instagram's own viewer one tap away.
-  return 'carousel';
+  // Unknown /p/ posts are not necessarily carousels. Never invent carousel controls.
+  // Reels and videos were recognized above; treat an unknown standard post as a photo.
+  return 'image';
 }
 
 // og:description reads "109 likes, 2 comments - borascorp on October 23, 2026: ...".
