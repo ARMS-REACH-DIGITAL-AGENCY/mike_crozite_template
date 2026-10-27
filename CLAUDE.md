@@ -17,3 +17,7 @@
   let Pete decide.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
+- **IDs (Pete, Oct 2026):** YAT is for player ids only - every player, high
+  school players included, gets one YAT player id for life. A high school's
+  team (its current team page) has teamid C + hsid (Hamilton = C5004), never
+  the plain hsid (it collides with other teams' teamids) and never YAT.
