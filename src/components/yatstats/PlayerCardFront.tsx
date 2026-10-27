@@ -3,6 +3,7 @@
 
 import { levelLabel, levelClass, gradClass, varsityDots } from "@/lib/playerUtils";
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import SharePlayerCard from "./SharePlayerCard";
 
 interface PlayerCardFrontProps {
   player: Record<string, unknown>;
@@ -41,7 +42,7 @@ export default function PlayerCardFront({ player: p, frontImageUrl = null, isAll
         style={{ backgroundImage: `url('${photoUrl}')` }}
       />
       <div className="yat-shade" />
-      {imageId && <SharePlayerCard playerId={imageId} playerName={[first,last].filter(Boolean).join(" ")} hsid={hsid || asText(p.hsid)} />}
+      {imageId && <SharePlayerCard playerId={imageId} playerName={[p.firstname, p.lastname].filter(Boolean).map(String).join(" ")} hsid={String(p.hsid || "")} />}
       <div className="yat-front-content">
         <div className="yat-chips-col">
           {gc && <span className="front-chip">CLASS OF {gc}</span>}
