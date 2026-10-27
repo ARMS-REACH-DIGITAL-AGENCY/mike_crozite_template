@@ -96,3 +96,13 @@ export function newsVideoDescription(rawText: string | null | undefined): string
   if (/\bgets? a mention in this\b/i.test(text)) return '';
   return text.slice(0, 350);
 }
+
+// The one headline every News view shows (profile tab, school feed, flip
+// card). A contributor's saved title wins over a stale generated derivative.
+export function newsDisplayHeadline(row: {
+  title?: string | null; url?: string | null; discovery_source?: string | null;
+  gallery_front_json?: { headline?: string | null } | null;
+}): string {
+  const headline = String((row.discovery_source === 'contribute' ? row.title : (row.gallery_front_json?.headline ?? row.title)) || '');
+  return parseNewsVideo(row.url) ? cleanNewsVideoTitle(headline) : headline;
+}

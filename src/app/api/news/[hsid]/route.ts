@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNewsByHsid, getNewsByPlayer } from '@/lib/db';
 import { chooseNewsDisplayImage } from '@/lib/playerImage';
-import { cleanNewsVideoTitle, parseNewsVideo } from '@/lib/newsVideo';
+import { newsDisplayHeadline } from '@/lib/newsVideo';
 
 export const runtime = 'nodejs';
 
@@ -82,8 +82,7 @@ export async function GET(
 
       // Contribution titles override any stale generated derivative.
       const contributed = row.discovery_source === 'contribute';
-      const headline = contributed ? row.title : (galleryFront?.headline ?? row.title);
-      const displayHeadline = parseNewsVideo(row.url) ? cleanNewsVideoTitle(headline) : headline;
+      const displayHeadline = newsDisplayHeadline(row);
       const tease = contributed && teaser ? { ...teaser, headline: displayHeadline } : teaser;
       const displayRecap = galleryBack?.yati_recap ?? row.local_recap ?? row.summary ?? null;
       const displaySourceLabel = galleryFront?.source_label ?? row.source_full ?? row.source;

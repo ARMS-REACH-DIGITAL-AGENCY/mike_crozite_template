@@ -7,7 +7,8 @@ import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import NewsEngagement from "./NewsEngagement";
 import PlayerInstagramFeed, { type InstagramViewerPost } from "./PlayerInstagramFeed";
-import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
+import { PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
+import { newsCardFooter, newsCardLabel, newsCardPictureSrcs } from "@/lib/newsCard";
 import { track } from "@/lib/analytics";
 import { toSlugFromDisplay } from "@/lib/slug";
 import { parseNewsVideo, newsVideoHeadline, newsVideoDescription, type NewsVideo } from "@/lib/newsVideo";
@@ -40,14 +41,6 @@ function useStoryParam(): string {
 
 function stripHtml(text: string | null | undefined): string {
   return (text || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return "";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 // Video-first viewer: stay on YAT?STATS. Show a centered play arrow over
@@ -204,20 +197,18 @@ export default function ProfileNewsList({
             onClick={() => { setOpenUuid(story.uuid); track("news_open", { uuid: story.uuid }); }}
           >
             <div className="pp-news-label">
-              {story.newsworthiness === "LOW" ? "NEWS NUGGET" : "YAT?STATS NEWS"}
+              {newsCardLabel(story.newsworthiness)}
               {schoolWide && story.playerName ? " · "+story.playerName.toUpperCase() : ""}
             </div>
             <div className="pp-news-row">
-              {/* Our own photo of the player, silhouette behind it. */}
+              {/* The video's own picture, else our photo of the player; silhouette behind it. */}
               <div
                 className="pp-news-thumb pp-news-thumb-photo"
                 style={{ backgroundImage: `url('${PLAYER_SILHOUETTE_URL}')` }}
               >
                 {(() => {
-                  // An Instagram story with no player photo (a coach, a
-                  // school post) shows the post's own picture instead.
-                  const postPicture = instagramDetails[story.uuid]?.thumbnail_url;
-                  const srcs = [...getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl), ...(postPicture ? [postPicture] : [])];
+                  const srcs = newsCardPictureSrcs({ url: story.url, playerId: story.playerId || playerId,
+                    imageUrl: story.imageUrl, instagramPicture: instagramDetails[story.uuid]?.thumbnail_url });
                   return <CardPhoto key={srcs.join(' ')} srcs={srcs} className="pp-news-thumb-img" />;
                 })()}
               </div>
@@ -225,10 +216,7 @@ export default function ProfileNewsList({
                 <div className="pp-news-title">{headline}</div>
                 {clip ? <span className="pp-news-video-label"><i className="ri-play-circle-line" aria-hidden="true" /> WATCH VIDEO · {clip.provider}</span> : null}
                 {description ? <div className="pp-news-body">{markPlayerName(stripHtml(description), story.playerName || playerName)}</div> : null}
-                <div className="pp-news-footer">
-                  {(story.source || "News").toUpperCase()}
-                  {story.publishedAt ? ` · ${formatDate(story.publishedAt)}` : ""}
-                </div>
+                <div className="pp-news-footer">{newsCardFooter(story.source, story.publishedAt)}</div>
               </div>
             </div>
           </button>
@@ -262,7 +250,7 @@ export default function ProfileNewsList({
         ) : undefined}
         meta={
           openStory
-            ? `${(openStory.source || "News").toUpperCase()}${openStory.publishedAt ? ` · ${formatDate(openStory.publishedAt)}` : ""}`
+            ? newsCardFooter(openStory.source, openStory.publishedAt)
             : undefined
         }
         footer={

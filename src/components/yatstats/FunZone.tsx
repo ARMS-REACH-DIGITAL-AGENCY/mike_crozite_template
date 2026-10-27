@@ -34,7 +34,9 @@ import type { ReactNode } from "react";
 import { installFunZoneSwipe } from "./funZoneSwipe";
 import SevenDaySnapshotView from "./SevenDaySnapshotView";
 import {openWhereYatNow} from "./WhereYatNowDrawer";
-import { parseNewsVideo } from "@/lib/newsVideo";
+import { newsVideoDescription, parseNewsVideo } from "@/lib/newsVideo";
+import { newsCardFooter, newsCardLabel, newsCardPictureSrcs } from "@/lib/newsCard";
+import CardPhoto from "./CardPhoto";
 import { PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 
 // Constants
@@ -90,7 +92,7 @@ interface NewsTease {
   headline?: string;
   body?: string;
   footer?: string;
-  imageUrl?: string;
+  imageSrcs?: string[];
   newsCardId?: string;
 }
 
@@ -107,6 +109,10 @@ interface NewsApiPost {
   publishedAt?: string | null;
   imageUrl?: string | null;
   id?: string | number | null;
+  newsworthiness?: string | null;
+  source?: string | null;
+  sourceFull?: string | null;
+  playerId?: string | null;
 }
 
 
@@ -258,41 +264,35 @@ function NewsPanel({
         const data = await res.json();
 const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 3) : [];
 
-const normalizedTeases: NewsTease[] = posts.map((post) => ({
-  badge:
-    post.tease?.badge ??
-    (post.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
-  headline:
-    post.displayHeadline ??
-    post.tease?.headline ??
-    post.headline ??
-    post.title ??
-    undefined,
-  body:
-    post.tease?.body ??
-    post.displayRecap ??
-    post.summary ??
-    undefined,
-  footer:
-    post.tease?.footer ??
-    ([
-      post.displaySourceLabel,
-      post.publishedAt
-        ? new Date(post.publishedAt).toLocaleDateString("en-US", {
-            month: "numeric",
-            day: "numeric",
-            year: "numeric",
-          })
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || undefined),
-  imageUrl: (post.url ? parseNewsVideo(post.url)?.thumbnailUrl : null) || post.tease?.imageUrl || post.imageUrl || undefined,
-  newsCardId:
-    post.tease?.newsCardId ??
-    post.uuid ??
-    (post.id != null ? String(post.id) : undefined),
-}));
+// Same card as the profile's News tab and the school's Alumni News feed.
+// Instagram stories show our copy of the post's own picture.
+const instagramPictures = await Promise.all(posts.map((post) =>
+  parseNewsVideo(post.url)?.provider === "Instagram"
+    ? fetch(`/api/social/instagram-post?url=${encodeURIComponent(String(post.url))}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => (d?.post?.thumbnail_url as string | undefined) || null, () => null)
+    : Promise.resolve(null)
+));
+const normalizedTeases: NewsTease[] = posts.map((post, index) => {
+  const video = parseNewsVideo(post.url);
+  const body = post.tease?.body ?? post.displayRecap ?? post.summary ?? undefined;
+  return {
+    badge: newsCardLabel(post.newsworthiness),
+    headline:
+      post.displayHeadline ??
+      post.headline ??
+      post.title ??
+      undefined,
+    body: (video ? newsVideoDescription(body) : body) || undefined,
+    footer: newsCardFooter(post.sourceFull ?? post.source, post.publishedAt),
+    imageSrcs: newsCardPictureSrcs({ url: post.url, playerId: post.playerId || playerId,
+      imageUrl: post.imageUrl, instagramPicture: instagramPictures[index] }),
+    newsCardId:
+      post.tease?.newsCardId ??
+      post.uuid ??
+      (post.id != null ? String(post.id) : undefined),
+  };
+});
 
 if (!cancelled) {
   setFeaturedNews(normalizedTeases);
@@ -346,18 +346,9 @@ return (
 
       return (
         <article className="fz-news-featured" key={story.newsCardId || `${story.headline || "news"}-${index}`}>
-          {story.imageUrl ? (
+          {story.imageSrcs?.length ? (
             <a href={storyHref} className="fz-news-thumb-link">
-              <img
-                src={story.imageUrl}
-                alt={story.headline || "Latest news"}
-                className="fz-news-thumb"
-                onError={(event) => {
-                  const image = event.currentTarget;
-                  if (!image.src.endsWith(PLAYER_SILHOUETTE_URL)) image.src = PLAYER_SILHOUETTE_URL;
-                  else image.style.visibility = "hidden";
-                }}
-              />
+              <CardPhoto key={story.imageSrcs.join(" ")} srcs={[...story.imageSrcs, PLAYER_SILHOUETTE_URL]} className="fz-news-thumb" />
             </a>
           ) : (
             <a href={storyHref} className="fz-news-thumb-link">
