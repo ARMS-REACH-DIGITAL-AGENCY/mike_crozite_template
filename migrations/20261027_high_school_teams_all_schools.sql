@@ -11,7 +11,8 @@
 -- Only adds rows; never changes an existing one. Safe to re-run. To undo:
 --   DELETE FROM public.teamid_universe_mapping
 --    WHERE source_system = 'YATSTATS_HIGH_SCHOOL'
---      AND notes LIKE 'Added 2026-10-27 from school_success%';
+--      AND (notes LIKE 'Added 2026-10-27 from school_success%'
+--        OR notes LIKE 'Added 2026-10-27 from tbc_schools_raw%');
 INSERT INTO public.teamid_universe_mapping
   (teamid, current_team_name, nickname, current_org_or_conference_name, locationlong,
    level_label, source_system, notes)
@@ -29,3 +30,24 @@ SELECT DISTINCT ON (s.hsid)
    AND coalesce(btrim(s.hsname), '') <> ''
    AND NOT EXISTS (SELECT 1 FROM public.teamid_universe_mapping t WHERE t.teamid = 'C' || s.hsid::text)
  ORDER BY s.hsid;
+
+-- Then every other school The Baseball Cube lists (tbc_schools_raw): 1,356
+-- on Oct 27, 729 of them with player cards (7,938 schools have a card; Pete:
+-- "close to 8000"). Same fields; a mascot of "-" is no mascot.
+INSERT INTO public.teamid_universe_mapping
+  (teamid, current_team_name, nickname, current_org_or_conference_name, locationlong,
+   level_label, source_system, notes)
+SELECT DISTINCT ON (r.hsid)
+       'C' || r.hsid::text,
+       btrim(btrim(r.hsname) || ' ' || coalesce(nullif(btrim(r.nickname), '-'), '')),
+       nullif(nullif(btrim(r.nickname), ''), '-'),
+       nullif(btrim(r.regionname), ''),
+       nullif(btrim(r.hslocation), ''),
+       'HIGH SCHOOL',
+       'YATSTATS_HIGH_SCHOOL',
+       'Added 2026-10-27 from tbc_schools_raw (Pete: every high school is a team, teamid C + hsid, so a high school player can choose his school as his current team in Global Search).'
+  FROM public.tbc_schools_raw r
+ WHERE r.hsid IS NOT NULL
+   AND coalesce(btrim(r.hsname), '') <> ''
+   AND NOT EXISTS (SELECT 1 FROM public.teamid_universe_mapping t WHERE t.teamid = 'C' || r.hsid::text)
+ ORDER BY r.hsid;
