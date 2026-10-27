@@ -1,0 +1,79 @@
+name: Bracket Results (master_bracket)
+
+# The newsletters' staging table: scores every started game of the live
+# fantasy season with the scoreboard's own code and writes the results and
+# stat drawers into master_bracket (scripts/master-bracket-results.ts).
+# Finals lock at 4 a.m. Arizona (11:00 UTC) the Monday after their week.
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season key (test-2026, 2027). Blank: every season live today."
+        required: false
+        type: string
+      asof:
+        description: "Bracket day, YYYY-MM-DD. Blank: today in Arizona (turns over at 4 a.m.)."
+        required: false
+        type: string
+      dry_run:
+        description: "Score and report only; write nothing."
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    # Hourly at :05, so the 11:05 UTC run locks Monday's finals and has the
+    # day's results in place before the morning newsletters.
+    - cron: "5 * * * *"
+
+concurrency:
+  group: master-bracket-results
+  cancel-in-progress: false
+
+jobs:
+  results:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout Easter-NEWS branch
+        uses: actions/checkout@v4
+        with:
+          ref: Easter-NEWS
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Score the bracket and write master_bracket
+        env:
+          SEASON_INPUT: ${{ github.event.inputs.season }}
+          ASOF_INPUT: ${{ github.event.inputs.asof }}
+          DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
+        run: |
+          ARGS=()
+          if [ -n "$SEASON_INPUT" ]; then
+            if ! [[ "$SEASON_INPUT" =~ ^[a-z0-9-]{1,20}$ ]]; then
+              echo "::error::season must look like test-2026 or 2027, got: $SEASON_INPUT"
+              exit 1
+            fi
+            ARGS+=(--season "$SEASON_INPUT")
+          fi
+          if [ -n "$ASOF_INPUT" ]; then
+            if ! [[ "$ASOF_INPUT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "::error::asof must be YYYY-MM-DD, got: $ASOF_INPUT"
+              exit 1
+            fi
+            ARGS+=(--asof "$ASOF_INPUT")
+          fi
+          if [ "$DRY_RUN_INPUT" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          npx tsx ./scripts/master-bracket-results.ts "${ARGS[@]}"
