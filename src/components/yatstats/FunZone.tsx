@@ -284,7 +284,7 @@ const normalizedTeases: NewsTease[] = posts.map((post, index) => {
       post.title ??
       undefined,
     body: (video ? newsVideoDescription(body) : body) || undefined,
-    footer: newsCardFooter(post.sourceFull ?? post.source, post.publishedAt),
+    footer: newsCardFooter(post.displaySourceLabel ?? post.sourceFull ?? post.source, post.publishedAt),
     imageSrcs: newsCardPictureSrcs({ url: post.url, playerId: post.playerId || playerId,
       imageUrl: post.imageUrl, instagramPicture: instagramPictures[index] }),
     newsCardId:

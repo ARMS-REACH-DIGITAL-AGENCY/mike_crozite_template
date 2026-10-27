@@ -287,7 +287,7 @@ export default async function ProfilePage({ params }: Props) {
     uuid: String(row.uuid),
     title: newsDisplayHeadline(row),
     url: row.url,
-    source: row.source_full ?? row.source ?? null,
+    source: row.gallery_front_json?.source_label ?? row.source_full ?? row.source ?? null,
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
     recap: row.tagged_to_player ? null : playerCentricRecap(row),
     whyLocal: row.gallery_back_json?.why_local ?? null,

@@ -43,6 +43,7 @@ type NewsPost = {
   displayRecap: string | null;
   displayWhyLocal: string | null;
   newsworthiness?: string | null;
+  tease?: { body?: string | null } | null;
 };
 
 export const NEWS_PLAYER_FILTER_EVENT = "yat:news-player-filter";
@@ -387,9 +388,12 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     whyLocal: stripHtml(post.displayWhyLocal),
     imageUrl: post.imageUrl,
     newsworthiness: post.newsworthiness || 'STANDARD',
-    tease: limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
-    playerId: post.playerId,
-    playerName: post.playerName,
+    // Same card text as the profile's News tab and the flip card.
+    tease: limitWords(stripHtml(post.tease?.body || post.displayRecap || post.displayWhyLocal) || '', 43),
+    // A story reaches a player by its player or by a tag (Mike Woods's
+    // Instagram story is tagged): label it either way.
+    playerId: post.playerId || post.taggedPlayers?.[0]?.playerId || null,
+    playerName: post.playerName || post.taggedPlayers?.[0]?.playerName || null,
   }));
 
   return (
