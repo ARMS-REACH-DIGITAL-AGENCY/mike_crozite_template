@@ -29,7 +29,7 @@ import { setInAction } from './inAction';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
-type Live = {
+export type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
   clubs: Record<string, [number, string, 0 | 1, number?][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
   fans?: Record<string, number[]>; // registered fans as each week went final
@@ -138,7 +138,7 @@ export function applyLive(idx: Index, asof: string) {
         .catch(() => null)
       : Promise.resolve(null))
       .then((live) => {
-        const boxes = live ? score(idx, live, asof) : {};
+        const boxes = live ? scoreLive(idx, live, asof) : {};
         boxesResolve?.(boxes);
         return { live, boxes };
       });
@@ -146,7 +146,13 @@ export function applyLive(idx: Index, asof: string) {
   return livePromise.then(() => idx);
 }
 
-function score(idx: Index, live: Live, asof: string) {
+// Score every game of idx as of the bracket's day asof, in place (each
+// game's innings, decidedBy and winner; each series' wins and winner), and
+// return the stat drawers' boxes by game id. The page runs it on
+// /api/bracket/live; the bracket results job
+// (scripts/master-bracket-results.ts) runs it on the same answer to write
+// master_bracket.
+export function scoreLive(idx: Index, live: Live, asof: string) {
   const start = idx.weeks[0][0];
   // asof is the bracket's day, which turns over at 4 a.m. Arizona time.
   const today = dayOf(asof, start);
