@@ -214,8 +214,11 @@ assert.deepEqual(Object.keys(featured['5004'].details).sort(), featured['5004'].
 assert.equal(featured['5004'].details['YAT000067'].name, 'Ben Ball', 'known-good cutout name');
 assert.equal(featured['5004'].details['YAT000067'].team, 'University of Arizona', 'known-good cutout school');
 assert.match(splash, /data-featured-details=\{JSON\.stringify\(featuredPlayerDetails\)\}/, 'first-paint captions in server markup');
-assert.match(splash, /className="yat-splash-player-caption-name">\{initialPlayerDetails\.name\}/, 'server-render initial player name');
-assert.match(splash, /className="yat-splash-player-caption-team">\{initialPlayerDetails\.team\}/, 'server-render initial player team');
+assert.doesNotMatch(splash, /initialPlayerDetails/, 'no hardcoded first player');
+assert.doesNotMatch(splash, /confirmedCutoutIds\\[0\\]/, 'no fixed first cutout');
+assert.match(splash, /rotationKey='yat_splash_rotation_v2_'/, 'per-school rotation queue');
+assert.match(splash, /signature:poolSignature,remaining:pendingQueue/, 'save unshown players');
+assert.match(splash, /function showCaption\\(id\\)/, 'caption matches selected player');
 assert.match(school, /featuredPlayerDetails=\{splashOverride\?\.details \?\? \{\}\}/, 'use reusable data-driven school caption schema');
 
 assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'render approved IDs before DB roster loads');
