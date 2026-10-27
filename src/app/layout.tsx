@@ -55,11 +55,11 @@ var d=document,pathParts=location.pathname.split('/').filter(Boolean),replayId=p
 // The permanent yatstats.com landing page is not a timed school splash.
 var hostname=location.hostname.toLowerCase(),liveSchool=hostname.endsWith('.yatstats.com')&&hostname!=='www.yatstats.com';
 var seg=location.pathname.split('/')[1]||'',schoolPath=!liveSchool&&/^[1-9][0-9]*$/.test(seg)?seg:'';
-var splashCookie=(replayId&&!liveSchool?replayId:schoolPath)?'yat_splash_seen_'+(replayId&&!liveSchool?replayId:schoolPath):'yat_splash_seen';
-var seen=!forced&&(joining||d.cookie.split(';').some(function(value){return value.trim()===splashCookie+'=1';}));
-// Forced QA previews and JOIN deep links do not consume the first-visit intro.
-// Do not write a splash cookie on the static platform landing page.
-if(!forced&&!joining&&(liveSchool||schoolPath))d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';
+// Server decides whether this school needs a splash using a per-HSID
+// cookie. The browser must never honor a legacy site-wide seen cookie.
+var splashCookie='yat_splash_seen_'+(replayId||schoolPath);
+var seen=joining;
+// Do not mark the visit before its school-specific splash actually mounts.
 var st=d.createElement('style');st.id='yat-splash-state';d.head.appendChild(st);
 var set=function(css){st.textContent=css;};
 var P='html #yatSplash';
@@ -88,6 +88,14 @@ var tryExit=function(){
   if(now-t0<12000){setTimeout(tryExit,250);return;}
   set(OFF);return;
  }
+ // Record this hub only, after its real splash has reached the DOM.
+ if(!forced&&!joining&&!splash.hasAttribute('data-yat-visit-recorded')){
+  var schoolId=(splash.querySelector('#yatSplashPlayer')||splash).getAttribute('data-school')||'';
+  if(/^[1-9][0-9]*$/.test(schoolId)){
+   d.cookie='yat_splash_seen_'+schoolId+'=1;path=/;max-age=2592000;SameSite=Lax';
+   splash.setAttribute('data-yat-visit-recorded','1');
+  }
+ }
  var mounted=Number(splash.getAttribute('data-yat-mounted-at'))||t0;
  var sponsorAt=Number(splash.getAttribute('data-yat-sponsor-at'))||0;
  // No sponsor assigned? After the YAT logo and player-name flashes,
@@ -104,7 +112,7 @@ var lift=function(){if(forced||ready)return;ready=true;
  if(!shown){set(OFF);return;}
  tryExit();
 };
-if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;if(replayRoute){d.cookie=splashCookie+'=1;path=/;max-age=2592000;SameSite=Lax';location.replace(replayId&&!liveSchool?'/'+replayId:'/');}else flip();}});return;}
+if(forced){addEventListener('click',function(e){var el=e.target;if(!leaving&&el&&el.closest&&el.closest('#yatSplash .yat-splash-continue')){leaving=true;if(replayRoute){var mountedSchool=(d.getElementById('yatSplashPlayer')||{}).getAttribute?.('data-school')||replayId||schoolPath;if(/^[1-9][0-9]*$/.test(mountedSchool))d.cookie='yat_splash_seen_'+mountedSchool+'=1;path=/;max-age=2592000;SameSite=Lax';location.replace(replayId&&!liveSchool?'/'+replayId:'/');}else flip();}});return;}
 addEventListener('yat:page-ready',lift);
 // On player profiles, DOMContentLoaded is sufficient: waiting for every
 // third-party player photo on window.load makes a ready page feel stuck.
