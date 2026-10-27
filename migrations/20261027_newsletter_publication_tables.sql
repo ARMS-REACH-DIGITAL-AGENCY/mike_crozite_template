@@ -87,7 +87,9 @@ CREATE TABLE IF NOT EXISTS public.daily_game_stories (
   title          text     NOT NULL,
   story          text     NOT NULL,
   shout_outs     jsonb    NOT NULL DEFAULT '[]',  -- [{"playerid","name","line"}]
-  PRIMARY KEY (stats_date, hsid)
+  -- One per school per game per day: in 2027 a school plays one game a week;
+  -- in the test season a school can be in two brackets at once.
+  PRIMARY KEY (stats_date, hsid, region, game_id)
 );
 
 -- Every game's score, every day, for the scoreboard.
