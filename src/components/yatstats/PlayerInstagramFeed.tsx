@@ -164,9 +164,9 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // Instagram limits to between 1.91:1 and 4:5.
   const isReel = current?.media_type === 'video' || /\/(reel|tv)\//.test(current?.permalink || '');
   const pictureShape = current ? aspects[current.id] : undefined;
-  // News presents interactive Instagram media in a portrait 9:16 viewport.
-  // Preserve the existing measured Instagram sizing for the Social tab.
-  const heightPerWidth = externalPosts ? 16 / 9 : (!isReel && pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
+  // News reels use a 9:16 viewport; standard posts/carousels retain Instagram's post proportions.
+  // Social-tab sizing stays unchanged.
+  const heightPerWidth = isReel && externalPosts ? 16 / 9 : (!isReel && pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
   const embedBox = mediaBox
     ? (() => {
         const width = Math.max(1, Math.min(mediaBox.width, Math.floor(mediaBox.height / heightPerWidth)));
