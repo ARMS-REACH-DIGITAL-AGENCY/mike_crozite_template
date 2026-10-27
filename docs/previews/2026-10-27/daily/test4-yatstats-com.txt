@@ -29,14 +29,14 @@ PICK YOUR OWN FAVORITE 11 and we'll send them to you every day: (pick page addre
        SAINT JOHN'S                  0                   0
 [1]    GULLIVER PREP                 0                   0
        SAINT JOHN'S                  0                   0
-[2]    (empty slot)
-[3]    (empty slot)
-[4]    (empty slot)
-[5]    (empty slot)
-[6]    (empty slot)
-[7]    (empty slot)
-[8]    (empty slot)
-[9]    (empty slot)
-[10]   (empty slot)
-[11]   (empty slot)
+[2]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[3]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[4]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[5]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[6]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[7]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[8]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[9]    Add a team to your custom daily scoreboard: (pick page address not set yet)
+[10]   Add a team to your custom daily scoreboard: (pick page address not set yet)
+[11]   Add a team to your custom daily scoreboard: (pick page address not set yet)
 See the full scoreboard: https://yatstats.com/

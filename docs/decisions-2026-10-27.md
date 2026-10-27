@@ -118,6 +118,10 @@ says otherwise.
        After the first previews Pete said the invitation "must be bigger,
        repositioned": it now sits on the board itself, above the games,
        in large type with a "Pick your teams" button.
+   - **Each empty pick slot looks like a search box** (Pete's mockup): "Add
+     a team to your daily scoreboard" with a magnifying glass. Email can't
+     run a search, so the box is a link to the site's pick page, opened on
+     that slot. The fan searches and picks there.
    - **The board's shape is Wrigley's** (Pete's mockup): a title bar across
      the top, "YAT?STATS ALUMNI BASEBALL" on the left and "BRACKET
      TOURNAMENT (2027)" on the right, with the sponsor's round logo standing

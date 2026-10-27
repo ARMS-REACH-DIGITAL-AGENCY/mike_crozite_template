@@ -121,15 +121,24 @@ const sheet = (inner: string) => `<div style="max-width:680px;margin:12px auto 2
 // One scoreboard slot: a game's two rows of nine inning cells and R, like a
 // Wrigley Field panel. Cells beyond the innings played so far, and every cell
 // of an empty slot, are blank panels.
-function slotHtml(g: R | null, opts: { home?: boolean; label?: string } = {}) {
+function slotHtml(g: R | null, opts: { home?: boolean; label?: string; slot?: number } = {}) {
   const line = opts.home ? '#d0021b' : '#173b21';
   const cell = (v: unknown, w = 17) =>
     `<td style="width:${w}px;height:17px;padding:0;border:1px solid #173b21;background:#0e2a16;text-align:center;font:bold 12px 'Courier New',monospace;color:#fff">${v === undefined || v === null || v === '' ? '&nbsp;' : esc(v)}</td>`;
+  const blanks = (runs = '') => `${Array.from({ length: 9 }, () => cell('')).join('')}${cell(runs, 21)}`;
   const teamRow = (label: string, cells: string[], runs: unknown) =>
     `<tr><td style="width:118px;max-width:118px;height:17px;padding:0 5px;overflow:hidden;white-space:nowrap;font:bold 10px Arial,Helvetica,sans-serif;color:#fff">${label ? esc(label) : '&nbsp;'}</td>${Array.from({ length: 9 }, (_, i) => cell(cells[i])).join('')}${cell(runs, 21)}</tr>`;
+  // An empty pick slot looks like a search box (Pete's mockup, Oct 27). Email
+  // can't run a search, so it's a link to the pick page, opened on this slot.
+  const searchBox = (slot: number) => {
+    const href = PICK_PAGE ? `${PICK_PAGE}?slot=${slot}` : `#pick-page-not-built-slot-${slot}`;
+    return `<tr><td rowspan="2" style="width:118px;max-width:118px;padding:2px 3px"><a href="${esc(href)}" style="display:block;padding:3px 6px;background:#0b1f10;border:1px solid #3d6b49;border-radius:4px;text-decoration:none;color:#fff;font:bold 9px/1.2 Arial,Helvetica,sans-serif;white-space:nowrap;overflow:hidden">ADD A TEAM &#128269;<br><span style="font-weight:normal;font-size:8px;color:#c8d8cc">to your daily scoreboard</span></a></td>${blanks()}</tr><tr>${blanks()}</tr>`;
+  };
   const rows = g && g.home_label
     ? teamRow(g.away_label, g.away_innings ?? [], g.away_runs) + teamRow(g.home_label, g.home_innings ?? [], g.home_runs)
-    : teamRow(opts.label ?? '', [], '') + teamRow('', [], '');
+    : !opts.home && !opts.label && opts.slot
+      ? searchBox(opts.slot)
+      : teamRow(opts.label ?? '', [], '') + teamRow('', [], '');
   return `<td style="padding:4px 5px;vertical-align:top"><table style="border-collapse:collapse;background:#1f4d2b;border-top:3px solid ${line};border-bottom:3px solid ${line}">${rows}</table></td>`;
 }
 
@@ -164,8 +173,8 @@ function scoreboardHtml(slots: ({ game: R | null; label?: string } | null)[], ho
   for (let r = 0; r < 6; r++) {
     const ls = slots[r];
     const rs = slots[5 + r];
-    const l = r < 5 ? slotHtml(ls?.game ?? null, { label: ls?.label }) : slotHtml(homeGame, { home: true });
-    rows += `<tr>${l}${slotHtml(rs?.game ?? null, { label: rs?.label })}</tr>`;
+    const l = r < 5 ? slotHtml(ls?.game ?? null, { label: ls?.label, slot: r + 1 }) : slotHtml(homeGame, { home: true });
+    rows += `<tr>${l}${slotHtml(rs?.game ?? null, { label: rs?.label, slot: 6 + r })}</tr>`;
   }
   return `<table style="border-collapse:collapse;margin:0 auto">
 <tr><td style="padding:0">${boardTopHtml()}</td></tr>
@@ -284,7 +293,8 @@ ${s.shout_outs.length ? `<div style="font:13px Arial,Helvetica,sans-serif"><b>Sh
     `YAT?STATS ALUMNI BASEBALL  ${SPONSOR_TEXT}  BRACKET TOURNAMENT (2027)`,
     ...(empty ? [`PICK YOUR OWN FAVORITE 11 and we'll send them to you every day: ${PICK_PAGE ?? '(pick page address not set yet)'}`, ''] : []),
     tagged('HOME', homeGame ? slotText(homeGame) : '(no home game today)'),
-    ...slots.map((s, i) => tagged(String(i + 1), s ? slotText(s.game, s.label) : '(empty slot)')),
+    ...slots.map((s, i) => tagged(String(i + 1), s ? slotText(s.game, s.label)
+      : `Add a team to your custom daily scoreboard: ${PICK_PAGE ? `${PICK_PAGE}?slot=${i + 1}` : '(pick page address not set yet)'}`)),
     `See the full scoreboard: ${SITE}`, '',
   ].join('\n');
 
