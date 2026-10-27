@@ -41,6 +41,7 @@ export default function PlayerCardFront({ player: p, frontImageUrl = null, isAll
         style={{ backgroundImage: `url('${photoUrl}')` }}
       />
       <div className="yat-shade" />
+      {imageId && <SharePlayerCard playerId={imageId} playerName={[first,last].filter(Boolean).join(" ")} hsid={hsid || asText(p.hsid)} />}
       <div className="yat-front-content">
         <div className="yat-chips-col">
           {gc && <span className="front-chip">CLASS OF {gc}</span>}
