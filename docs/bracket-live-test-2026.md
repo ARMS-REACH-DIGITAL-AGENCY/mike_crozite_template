@@ -136,6 +136,17 @@ Add a dated line for each milestone.
   shows TBD; and the page moves to Round 2 by the calendar, with no Round 1
   recap. Waiting on Pete's OK for the tiebreaker rule in the engine and
   for both fixes (PIPELINE).
+- 2026-10-27: Pete: "just give me the stat table, rebuild the schedule". In
+  the live database: `stat_lines` (the landing table: every stat line, any
+  source, with its teamid and official level; the MLB feed lands in it by
+  trigger) and `master_bracket` (both seasons' schedules: this test, six
+  brackets, and 2027 on the Feb 1 calendar; results, history, locked
+  finals, `commissioner_rulings`, `needs_decision`). Pete: the team list must
+  be complete - all 350 teams on MLB's lists now have a teamid and a level.
+  His levels: Arizona Fall League = MLB; Mexican League, winter leagues and
+  Caribbean Series = INTERNATIONAL. The test pages still score the Fall
+  League as DOUBLE-A (the feed's "WIN"), until the bracket reads levels from
+  `stat_lines` - waiting on Pete (Round 1 was played that way).
 - Note for anyone replaying the brackets: `/api/bracket/live` takes at most
   64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load

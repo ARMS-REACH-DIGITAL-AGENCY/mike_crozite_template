@@ -293,6 +293,42 @@ INSERT INTO public.needs_decision (kind, season_key, ref, summary, details)
 SELECT x.kind, $1, x.ref, x.summary, x.details FROM jsonb_to_recordset($2::jsonb) AS x(kind text, ref text, summary text, details jsonb)
 ON CONFLICT (kind, ref) DO NOTHING`;
 
+// The team list stays complete: every team on MLB's lists for this season
+// and next must have a teamid (team_id_map) before it plays, and any stat
+// line still held is one item per team on Pete's needs-decision list - never
+// one per line.
+const MLB_SPORTS = '1,11,12,13,14,16,17,23';
+async function checkTeams(pool: Pool) {
+  const year = Number(bracketDay().slice(0, 4));
+  const listed = new Map<number, string>();
+  for (const season of [year, year + 1]) {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/teams?sportIds=${MLB_SPORTS}&season=${season}&fields=teams,id,name,sport,league`);
+    if (!res.ok) { console.log(`MLB team list ${season}: HTTP ${res.status}`); continue; }
+    const { teams = [] } = await res.json() as { teams?: { id: number; name: string; sport?: { name?: string }; league?: { name?: string } }[] };
+    for (const t of teams) listed.set(t.id, `${t.name} (${[t.sport?.name, t.league?.name].filter(Boolean).join(' / ')})`);
+  }
+  const { rows: mapped } = await pool.query<{ id: number }>('SELECT DISTINCT mlb_stats_api_id AS id FROM public.team_id_map WHERE mlb_stats_api_id IS NOT NULL');
+  const known = new Set(mapped.map((r) => Number(r.id)));
+  const decisions: Decision[] = [...listed].filter(([id]) => !known.has(id)).map(([id, name]) => ({
+    kind: 'new_mlb_team', ref: `mlb_team:${id}`,
+    summary: `MLB lists ${name} (MLB team ${id}), which isn't in the team list yet: add it with its level before it plays.`,
+    details: { mlb_team_id: id, name },
+  }));
+  const { rows: held } = await pool.query<{ hold_reason: string; source_team_id: string | null; team_name: string | null; lines: string; first_game: string; last_game: string }>(
+    `SELECT hold_reason, source_team_id, team_name, sum(lines)::text AS lines, min(first_game)::text AS first_game, max(last_game)::text AS last_game
+       FROM public.stat_line_holds GROUP BY 1, 2, 3`,
+  );
+  for (const h of held) {
+    decisions.push({
+      kind: 'stat_line_hold', ref: `${h.source_team_id || h.team_name}:${h.hold_reason}`,
+      summary: `${h.lines} stat lines (${h.first_game} to ${h.last_game}) are held: ${h.hold_reason}`,
+      details: h,
+    });
+  }
+  for (const d of decisions) console.log(`  needs decision: ${d.summary}`);
+  if (decisions.length && !flag('dry-run')) await pool.query(SQL_DECISIONS, [null, JSON.stringify(decisions)]);
+}
+
 // innings go to Postgres as an array literal.
 const forDb = (results: Result[]) => results.map((r) => ({ ...r, innings: `{${r.innings.join(',')}}` }));
 const dollar = (s: string) => `$j$${s}$j$`;
@@ -322,6 +358,7 @@ async function main() {
   try {
     const relanded = await pool.query('SELECT public.stat_lines_reland_held() AS n');
     console.log(`held stat lines landed again: ${relanded.rows[0].n}`);
+    await checkTeams(pool);
     const { rows: seasons } = await pool.query<Season>(
       `SELECT season_key, is_test, opening_day::text, last_day::text, weeks, regions, schools_per_region
          FROM public.fantasy_seasons
