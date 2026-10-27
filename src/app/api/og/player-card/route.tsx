@@ -9,7 +9,7 @@
 
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
-import { getPlayerById, getResolvedCurrentTeam, getDesignatedPlayerImage } from "@/lib/db";
+import { getPlayerById, getResolvedCurrentTeam, getDesignatedPlayerImage, getFlipCardFrontStageByPlayerId } from "@/lib/db";
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 
 export const runtime = "nodejs";
@@ -56,10 +56,11 @@ export async function GET(req: NextRequest) {
 
   if (playerId) {
     try {
-      const [player, resolvedCurrentTeam, frontImage] = await Promise.all([
+      const [player, resolvedCurrentTeam, frontImage, stage] = await Promise.all([
         getPlayerById(playerId),
         getResolvedCurrentTeam(playerId),
         getDesignatedPlayerImage(playerId, "YATSTATS_FRONT"),
+        getFlipCardFrontStageByPlayerId(playerId).catch(() => null),
       ]);
 
       firstName = asText(player?.firstname || player?.first_name);
@@ -67,7 +68,13 @@ export async function GET(req: NextRequest) {
       bats = player?.bats;
       throwsHand = player?.throws;
       position = player?.position;
-      teamName = asText(resolvedCurrentTeam?.team_name) || asText(player?.current_team_name);
+      const committedTeamName = asText(stage?.resolved_committed_team_short_name)
+        || asText(stage?.committed_team_name)
+        || asText(stage?.resolved_committed_team_name);
+      const isCommit = asText(stage?.status_label || player?.status_label).toUpperCase() === "COMMIT";
+      teamName = isCommit && committedTeamName
+        ? committedTeamName + " COMMIT"
+        : asText(resolvedCurrentTeam?.team_name) || asText(player?.current_team_name);
       orgLine = asText(player?.current_org_or_conference_name);
       statusLabel = asText(player?.status_label).toUpperCase();
       levelLabel = (asText(resolvedCurrentTeam?.level) || asText(player?.level_label)).toUpperCase();
