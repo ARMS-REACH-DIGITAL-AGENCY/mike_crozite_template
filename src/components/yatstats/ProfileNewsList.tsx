@@ -129,7 +129,7 @@ export default function ProfileNewsList({
     const post = instagramDetails[s.uuid];
     // Only the post's own picture: a player headshot is not Instagram media.
     return { id: s.uuid, media_pending: post === undefined,
-      media_type: post?.media_type || (video?.watchUrl.includes('/reel/') ? 'video' : 'carousel'),
+      media_type: post?.media_type || (/\/(reel|tv)\//.test(video?.watchUrl || s.url) ? 'video' : 'image'),
       caption: post?.caption || newsVideoHeadline(s.title, s.playerName || playerName),
       permalink: post?.permalink || video?.watchUrl.replace(/embed\/$/, '') || s.url,
       thumbnail_url: post?.thumbnail_url || '',
