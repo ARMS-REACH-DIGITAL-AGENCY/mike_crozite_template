@@ -120,8 +120,11 @@ export async function POST(req: NextRequest) {
       if (details.kind!=='profile_update' || details.playerId!==item.matched_playerid ||
           details.hsid!==item.matched_hsid ||
           Object.keys(fields).sort().join(',')!=='current_team_name,current_teamid,level_label,status_label' ||
-          fields.status_label!=='ACTIVE' || typeof fields.current_teamid!=='string' ||
-          !/^\d{1,18}$/.test(fields.current_teamid)) {
+          typeof fields.current_teamid!=='string' ||
+          // A college or pro team (digits) makes him ACTIVE; his high school
+          // team (C + hsid) keeps him UNCOMMITTED or COMMIT.
+          !(fields.status_label==='ACTIVE' ? /^\d{1,18}$/.test(fields.current_teamid)
+            : ['COMMIT','UNCOMMITTED'].includes(String(fields.status_label)) && /^C\d{1,18}$/.test(fields.current_teamid))) {
         return fail('This correction requires a separate review workflow.',409);
       }
       if (action==='reject_team') {

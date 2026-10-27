@@ -53,6 +53,8 @@ const CREST_FALLBACK = '/img/school-placeholder.png';
 const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 const THIS_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: THIS_YEAR + 2 - 1960 }, (_, i) => THIS_YEAR + 1 - i);
+// High school classes run four years ahead (a freshman is the class of THIS_YEAR + 4).
+const CLASS_YEARS = Array.from({ length: THIS_YEAR + 5 - 1960 }, (_, i) => THIS_YEAR + 4 - i);
 
 function openAccountDrawer(tab: 'signin' | 'register') {
   document.body.classList.remove('drawer-contribute-open');
@@ -637,7 +639,7 @@ export default function ContributeDrawer() {
                     <label className="ycd-label" htmlFor="ycdMpGrad">HS class of</label>
                     <select id="ycdMpGrad" value={mp.gradYear} onChange={(e) => setMp({ ...mp, gradYear: e.target.value })}>
                       <option value="">Year</option>
-                      {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                      {CLASS_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
                   <div className="ycd-field">

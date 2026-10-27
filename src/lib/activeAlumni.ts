@@ -86,6 +86,8 @@ export function activeAlumniSummaryCtes(scopeSql: string): string {
       FROM public.flip_card_front_stage f
       JOIN scoped_schools s ON s.hsid = f.hsid::int
       WHERE UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY(ARRAY[${activeStatusesSql}]::text[])
+        -- High school players are not active alumni (Pete, Oct 2026).
+        AND UPPER(TRIM(COALESCE(NULLIF(TRIM(f.display_level_label), ''), f.level_label, ''))) <> 'HIGH SCHOOL'
     ), active_alumni_summary AS (
       SELECT s.hsid,
              COALESCE(a.current_aa, 0)::int AS current_aa,

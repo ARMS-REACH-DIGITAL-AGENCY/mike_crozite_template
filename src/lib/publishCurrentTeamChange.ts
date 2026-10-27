@@ -14,8 +14,11 @@ export type CanonicalCurrentTeam = {
 
 const TEAM_LEVELS = new Set<string>(OFFICIAL_LEVELS.filter(level => level !== 'HIGH SCHOOL'));
 
+// A high school's team is C + hsid (Hamilton = C5004), level HIGH SCHOOL;
+// every other team id is digits. The two never mix.
 export async function resolveCanonicalCurrentTeam(teamId: string): Promise<CanonicalCurrentTeam | null> {
-  if (!/^\d{1,18}$/.test(teamId)) return null;
+  const highSchool = /^C\d{1,18}$/.test(teamId);
+  if (!highSchool && !/^\d{1,18}$/.test(teamId)) return null;
   const { rows } = await query<{
     teamid: string;
     current_team_name: string | null;
@@ -27,7 +30,7 @@ export async function resolveCanonicalCurrentTeam(teamId: string): Promise<Canon
        LIMIT 1`, [teamId]);
   const row = rows[0];
   const level = String(row?.level_label || '').trim().toUpperCase();
-  if (!row || !TEAM_LEVELS.has(level)) return null;
+  if (!row || (highSchool ? level !== 'HIGH SCHOOL' : !TEAM_LEVELS.has(level))) return null;
   return {
     teamId: String(row.teamid),
     name: String(row.current_team_name).trim(),
@@ -48,10 +51,19 @@ export async function publishCurrentTeamChange(input: {
   // Update the stage row first. The manual override is written only for a
   // real matching player, in the same SQL statement, so source refreshes
   // cannot silently restore the superseded affiliation.
+  // A college or pro team makes him ACTIVE. His high school team keeps him a
+  // high school player - UNCOMMITTED or COMMIT, never ACTIVE: high school
+  // players are not active alumni (Pete, Oct 2026).
   const { rows } = await query<{ playerid: string }>(`
     WITH updated AS (
       UPDATE flip_card_front_stage f SET
-        status_label='ACTIVE', display_status_label='ACTIVE', team_affiliation_status='ACTIVE',
+        status_label=CASE WHEN $5='HIGH SCHOOL'
+          THEN CASE WHEN UPPER(COALESCE(f.status_label,'')) IN ('COMMIT','UNCOMMITTED') THEN UPPER(f.status_label) ELSE 'UNCOMMITTED' END
+          ELSE 'ACTIVE' END,
+        display_status_label=CASE WHEN $5='HIGH SCHOOL'
+          THEN CASE WHEN UPPER(COALESCE(f.status_label,'')) IN ('COMMIT','UNCOMMITTED') THEN UPPER(f.status_label) ELSE 'UNCOMMITTED' END
+          ELSE 'ACTIVE' END,
+        team_affiliation_status=CASE WHEN $5='HIGH SCHOOL' THEN 'CURRENT' ELSE 'ACTIVE' END,
         current_team_name=$4, current_teamid=$3, current_team_source_team_id=NULL,
         current_org_or_conference_name=NULLIF($6,''),
         level_label=$5, display_level_label=$5, current_level_label=$5, current_team_level=$5,

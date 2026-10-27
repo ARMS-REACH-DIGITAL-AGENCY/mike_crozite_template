@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
     if (!q) return NextResponse.json({ teams: [] }, { headers: { 'Cache-Control': 'no-store' } });
 
     const pattern = `%${q}%`;
+    // High schools are teams too (teamid C + hsid, level HIGH SCHOOL): a high
+    // school player's current team is his school. A college commitment
+    // (collegeOnly) never offers one.
     const { rows } = await query<{
       teamid: string;
       current_team_name: string | null;
@@ -28,7 +31,6 @@ export async function GET(req: NextRequest) {
               level_label, locationlong
          FROM teamid_universe_mapping
         WHERE COALESCE(current_team_name, '') <> ''
-          AND UPPER(COALESCE(level_label, '')) <> 'HIGH SCHOOL'
           AND ($6::boolean = false OR UPPER(COALESCE(level_label, '')) = ANY($7::text[]))
           AND (
             current_team_name ILIKE $1
@@ -38,6 +40,7 @@ export async function GET(req: NextRequest) {
             OR current_org_or_conference_abbrev ILIKE $1
             OR locationlong ILIKE $1
             OR teamid::text = $2
+            OR teamid::text = 'C' || $2
           )
         ORDER BY
           CASE WHEN LOWER(current_team_name) = LOWER($3) THEN 0

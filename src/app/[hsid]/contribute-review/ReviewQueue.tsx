@@ -47,8 +47,11 @@ function proposedCurrentTeam(tip: Tip): {teamId:string;teamName:string;level:str
     const f=detail?.fields;
     if (detail?.kind!=='profile_update' || !f || typeof f!=='object' || Array.isArray(f) ||
         Object.keys(f).sort().join(',')!=='current_team_name,current_teamid,level_label,status_label' ||
-        f.status_label!=='ACTIVE' || typeof f.current_teamid!=='string' ||
-        !/^\d{1,18}$/.test(f.current_teamid)) return null;
+        typeof f.current_teamid!=='string' ||
+        // College/pro team (digits) with ACTIVE, or his high school (C + hsid)
+        // with UNCOMMITTED/COMMIT - the same rule as the review API.
+        !(f.status_label==='ACTIVE' ? /^\d{1,18}$/.test(f.current_teamid)
+          : ['COMMIT','UNCOMMITTED'].includes(String(f.status_label)) && /^C\d{1,18}$/.test(f.current_teamid))) return null;
     return {teamId:f.current_teamid,teamName:String(f.current_team_name || ''),level:String(f.level_label || '')};
   } catch { return null; }
 }

@@ -15,7 +15,11 @@ const EMPTY:Fields = {
   level_label:'',position:'',current_team_name:'',current_teamid:'',committed_teamid:'',
   facebook:'',instagram:'',x:'',tiktok:'',linkedin:'',
 };
-const YEARS = Array.from({ length: 115 }, (_,i)=>String(new Date().getFullYear()+1-i));
+// Graduation years run four years ahead: a freshman today is the class of
+// this year + 4 (Oct 2026: 2027-2030 are all current high school classes).
+const YEARS = Array.from({ length: 118 }, (_,i)=>String(new Date().getFullYear()+4-i));
+// A team id from Global Search: digits, or C + hsid for a high school team.
+const TEAM_ID = /^(?:C)?\d{1,18}$/;
 const STATUS = ['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT','COACH','UNKNOWN'];
 const LEVEL = ['HIGH SCHOOL','NJCAA','CCCAA','NWAC','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','ROOKIE','SINGLE-A','HIGH-A','DOUBLE-A','TRIPLE-A','MLB','INDY','INTERNATIONAL','RETIRED'];
 const POSITION = ['P','C','1B','2B','3B','SS','IF','OF','LF','CF','RF','UT','DH','P-OF','IF-OF'];
@@ -26,9 +30,11 @@ const clean = (s:unknown)=>String(s ?? '').trim();
 function varsitySeasonOptions(classOf: string): string[] {
   if (!/^\d{4}$/.test(classOf)) return [];
   const year = Number(classOf);
-  if (year < 1900 || year > new Date().getFullYear()+1) return [];
+  const nextSeason = new Date().getFullYear()+1;
+  if (year < 1900 || year > nextSeason+3) return [];
+  // A season after next spring hasn't been played yet.
   return Array.from({ length: 4 }, (_, i) => String(year-i))
-    .filter(yearOption => Number(yearOption) >= 1900);
+    .filter(yearOption => Number(yearOption) >= 1900 && Number(yearOption) <= nextSeason);
 }
 export default function ContributePlayerInfoForm({
   player, school, signedIn, onSignIn,
@@ -130,7 +136,7 @@ export default function ContributePlayerInfoForm({
       setError('Select the college from Global Search before announcing a commitment.');return;
     }
     if(changed.current_team_name && !changed.current_teamid){setError('Choose the current team from Global Search.');return;}
-    if(changed.current_teamid && !/^\d{1,18}$/.test(values.current_teamid)){setError('Select a valid team from Global Search.');return;}
+    if(changed.current_teamid && !TEAM_ID.test(values.current_teamid)){setError('Select a valid team from Global Search.');return;}
     if(!player && (!values.first_name.trim()||!values.last_name.trim())){setError('Enter the player’s first and last name.');return;}
     if(player && Object.keys(changed).length===0){setError('Change or add at least one field.');return;}
     setSending(true);
@@ -218,7 +224,7 @@ export default function ContributePlayerInfoForm({
             {values.status_label&&!['COMMIT','UNCOMMITTED'].includes(values.status_label)
               ? <option value={values.status_label} disabled>{values.status_label} — select a high-school status</option>:null}
             <option value="UNCOMMITTED">UNCOMMITTED</option>
-            <option value="COMMIT" disabled={!player}>{selectedCommitTeam ? `${selectedCommitTeam.name} COMMIT` : 'COLLEGE COMMIT — choose a college below'}</option>
+            <option value="COMMIT">{selectedCommitTeam ? `${selectedCommitTeam.name} COMMIT` : 'COLLEGE COMMIT — choose a college below'}</option>
           </> : <>
             {values.status_label&&!STATUS.includes(values.status_label)?<option value={values.status_label}>{values.status_label}</option>:null}
             {STATUS.map(x=><option key={x} value={x}>{x}</option>)}
@@ -235,7 +241,7 @@ export default function ContributePlayerInfoForm({
     </div>
     {isHighSchoolPlayer ? <div className="ycd-field">
       <span className="ycd-label">College commitment</span>
-      {!player ? <p className="ycd-muted ycd-small">Add the missing player first; college commitments can be attached after the player exists.</p> : values.status_label==='COMMIT' ? (
+      {values.status_label==='COMMIT' ? (
         selectedCommitTeam && values.committed_teamid === selectedCommitTeam.teamId ? (
           <div className="ycd-chosen-wrap">
             <div className="ycd-chosen">
@@ -277,17 +283,22 @@ export default function ContributePlayerInfoForm({
             ? <p className="ycd-muted ycd-small">Current record: {values.current_team_name}. Select a verified team to link or change it.</p>
             : null}
           <ContributeSearch mode="team" onTeam={team=>{
-            if (!/^\d{1,18}$/.test(team.teamId) || !team.name || !team.level) return;
+            if (!TEAM_ID.test(team.teamId) || !team.name || !team.level) return;
             setSelectedCurrentTeam(team);
+            // A high school team keeps him a high school player: UNCOMMITTED or
+            // COMMIT, never ACTIVE (high school players aren't active alumni).
+            const highSchool=team.level.toUpperCase()==='HIGH SCHOOL';
             setValues(v=>({...v,
               current_teamid:team.teamId,current_team_name:team.name,level_label:team.level || v.level_label,
-              status_label:['COMMIT','UNCOMMITTED'].includes(v.status_label) ? 'ACTIVE' : v.status_label,
+              status_label:highSchool
+                ? (['COMMIT','UNCOMMITTED'].includes(v.status_label) ? v.status_label : 'UNCOMMITTED')
+                : ['COMMIT','UNCOMMITTED'].includes(v.status_label) ? 'ACTIVE' : v.status_label,
             }));
           }} />
         </>
       )}
       <p className="ycd-muted ycd-small">{isHighSchoolPlayer
-        ? 'Choose the player’s current college or professional team from Global Search, separate from any commitment announcement.'
+        ? 'Choose the player’s current team from Global Search (his high school, or a college or pro team), separate from any commitment announcement.'
         : 'For a college transfer, select the new school from Global Search. The current team, playing level, conference, and logo will use the selected team’s record.'}</p>
     </div>
     <div className="ycd-profile-social">

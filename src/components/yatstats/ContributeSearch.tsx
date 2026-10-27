@@ -85,15 +85,17 @@ export default function ContributeSearch(props: Props) {
               const name = String(t.name || t.currentTeamName || t.current_team_name || '').trim();
               const level = String(t.level || t.levelLabel || t.level_label || '').trim();
               const org = String(t.orgName || t.currentOrgOrConferenceName || t.current_org_or_conference_name || '').trim();
+              // Many high schools share a name: show the town with each one.
+              const place = level.toUpperCase() === 'HIGH SCHOOL' ? String(t.location || '').trim() : '';
               const logo = String(t.logoUrl || '').trim() || `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(teamId)}.png`;
               const safeName = escapeTeamText(name);
               const safeLevel = escapeTeamText(level);
               const safeOrg = escapeTeamText(org);
               return `<button type="button" class="yat-search-card yat-search-team-entity-card" data-team-id="${escapeTeamText(teamId)}" data-team-name="${safeName}" data-team-level="${safeLevel}" data-team-org="${safeOrg}" style="width:100%;text-align:left">
                 <img src="${escapeTeamText(logo)}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='/img/yatstats-logo-circle.png';this.onerror=null" />
-                <span class="yat-search-player-text-link"><strong>${safeName}</strong>${level ? `<small>${safeLevel}</small>` : ''}${org ? `<small>${safeOrg}</small>` : ''}</span>
+                <span class="yat-search-player-text-link"><strong>${safeName}</strong>${level ? `<small>${safeLevel}</small>` : ''}${org ? `<small>${safeOrg}</small>` : ''}${place ? `<small>${escapeTeamText(place)}</small>` : ''}</span>
               </button>`;
-            }).join('')}</div>` : `<div class="yat-search-empty">${collegeOnly ? 'No college matches.' : 'No college or pro team matches.'}</div>`;
+            }).join('')}</div>` : `<div class="yat-search-empty">${collegeOnly ? 'No college matches.' : 'No high school, college or pro team matches.'}</div>`;
           } else {
             el.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
             hydrateFavoriteButtons(el);
@@ -164,9 +166,9 @@ export default function ContributeSearch(props: Props) {
           className="yat-gs-input"
           value={q}
           onChange={(e) => { setQ(e.target.value); setRosterOf(null); }}
-          placeholder={schoolOnly ? 'Search high schools...' : collegeOnly ? 'Search colleges by name or team ID...' : teamOnly ? 'Search college or pro teams...' : 'Search by name, school, or team...'}
+          placeholder={schoolOnly ? 'Search high schools...' : collegeOnly ? 'Search colleges by name or team ID...' : teamOnly ? 'Search high school, college or pro teams...' : 'Search by name, school, or team...'}
           autoComplete="off"
-          aria-label={schoolOnly ? 'Search high schools' : collegeOnly ? 'Search colleges' : teamOnly ? 'Search college or pro teams' : 'Search players'}
+          aria-label={schoolOnly ? 'Search high schools' : collegeOnly ? 'Search colleges' : teamOnly ? 'Search high school, college or pro teams' : 'Search players'}
         />
         <i className="ri-search-line yat-gs-input-icon" aria-hidden="true" />
       </div>

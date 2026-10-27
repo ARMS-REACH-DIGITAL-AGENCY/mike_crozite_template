@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
+import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
+import { highSchoolTeamId } from '@/lib/yatIds';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
@@ -89,7 +91,8 @@ export async function POST(req: NextRequest) {
           // A missing player may legitimately have no known current team.
           // Only submitted, non-empty identities require a search selection.
           if (value === '' || value === null || value === undefined) continue;
-          if (typeof value !== 'string' || !/^\d{1,18}$/.test(value.trim())) {
+          // Digits, or C + hsid for a high school team.
+          if (typeof value !== 'string' || !/^(?:C)?\d{1,18}$/.test(value.trim())) {
             return fail('Choose a current team from Global Search.');
           }
           submitted.current_teamid=value.trim();
@@ -115,12 +118,14 @@ export async function POST(req: NextRequest) {
         submitted.current_team_name=selectedCurrentTeam.name;
         submitted.level_label=selectedCurrentTeam.level;
       }
-      const allYears=Array.from({length:new Date().getFullYear()+2-1900},(_,i)=>String(1900+i));
+      // Graduation years run four years ahead (a freshman is the class of this year + 4).
+      const allYears=Array.from({length:new Date().getFullYear()+5-1900},(_,i)=>String(1900+i));
       if (submitted.class_of && !allYears.includes(String(submitted.class_of))) return fail('Choose a valid graduation year.');
       const isNew=!playerId;
-      const isHighSchool = isNew
+      const highSchoolTeam = selectedCurrentTeam?.level === 'HIGH SCHOOL';
+      const isHighSchool = highSchoolTeam || (isNew
         ? String(submitted.level_label || '').trim().toUpperCase() === 'HIGH SCHOOL'
-        : selectedPlayerLevel === 'HIGH SCHOOL';
+        : selectedPlayerLevel === 'HIGH SCHOOL');
       const status = String(submitted.status_label || '').toUpperCase();
       // An existing high-school player can graduate into a real college/pro
       // roster when a verified current-team selection sets the status ACTIVE.
@@ -141,8 +146,11 @@ export async function POST(req: NextRequest) {
       if (teamIdSpecified || status==='COMMIT' || status==='UNCOMMITTED') {
         if (isNew && isHighSchool && status==='UNCOMMITTED' && !teamIdSpecified) {
           // A missing high-school player may be added as UNCOMMITTED.
+        } else if (!isNew && highSchoolTeam && !teamIdSpecified) {
+          // His status rides along with his high school team; his
+          // commitment isn't being changed.
         } else {
-        if (!isHighSchool || isNew) return fail('Select an existing high-school player to announce a college commitment.');
+        if (!isHighSchool) return fail('Only a high-school player can announce a college commitment.');
         if (!teamIdSpecified || !['UNCOMMITTED','COMMIT'].includes(status)) {
           return fail('Choose the high-school status and college together.');
         }
@@ -150,6 +158,17 @@ export async function POST(req: NextRequest) {
           if (teamId) return fail('UNCOMMITTED players cannot have a committed college.');
         } else {
           if (!/^\d{1,18}$/.test(teamId)) return fail('Choose a college from Global Search.');
+          // A missing player can be added with his commitment in the same
+          // submission (two searches: his current team and his college).
+          // The college is checked now; the card is made by the publisher.
+          if (isNew) {
+            const { rows: colleges } = await query<{ teamid: string }>(
+              `SELECT teamid FROM teamid_universe_mapping
+                WHERE teamid=$1 AND UPPER(TRIM(COALESCE(level_label,''))) = ANY($2::text[])
+                  AND COALESCE(TRIM(current_team_name),'') <> '' LIMIT 1`,
+              [teamId, [...COLLEGE_COMMIT_LEVELS]]);
+            if (!colleges.length) return fail('Choose a college from Global Search.');
+          }
         }
         }
       }
@@ -162,6 +181,15 @@ export async function POST(req: NextRequest) {
         if (!/^\d+$/.test(hsid)) return fail('Select a high school.');
         playerName=[first,last].join(' ');
       } else if (!/^\d+$/.test(hsid)) return fail('Player school was not found.');
+      // A high school player's current team is his own school (C + hsid).
+      if (highSchoolTeam && selectedCurrentTeam?.teamId !== highSchoolTeamId(hsid)) {
+        return fail('A high school player’s current team is his own high school. Choose his school’s team.');
+      }
+      // Previews share the production database: a new player's commitment is
+      // tested without saving anything, like an existing player's.
+      if (isNew && status === 'COMMIT' && process.env.VERCEL_ENV === 'preview') {
+        return NextResponse.json({ok:true,review:'preview_only'}, {status:200});
+      }
       const hasCommitmentUpdate = !isNew && isHighSchool && teamIdSpecified
         && ['COMMIT','UNCOMMITTED'].includes(status);
       let savedCommitment: {teamName:string|null;changed:boolean}|null=null;
@@ -196,8 +224,9 @@ export async function POST(req: NextRequest) {
       // Ordinary fan edits remain queued; a public form must not overwrite player truth.
       // One reusable rule applies to all players and schools, not a school-specific exception.
       const directTeamFields=['status_label','level_label','current_team_name','current_teamid'];
+      // His high school team keeps a high school status (UNCOMMITTED or COMMIT).
       const directTeamUpdate=!isNew && isReviewer(who) && process.env.VERCEL_ENV !== 'preview'
-        && status==='ACTIVE' && !!selectedCurrentTeam
+        && (highSchoolTeam ? ['COMMIT','UNCOMMITTED'].includes(status) : status==='ACTIVE') && !!selectedCurrentTeam
         && Object.keys(submitted).every(k=>directTeamFields.includes(k));
       if (directTeamUpdate && selectedCurrentTeam) {
         const saved=await publishCurrentTeamChange({
@@ -207,7 +236,7 @@ export async function POST(req: NextRequest) {
         await logContribution(who,'contribute_profile',{
           playerid:playerId,hsid,pageUrl,
           details:{autoPublished:true,fields:{
-            status_label:'ACTIVE',level_label:selectedCurrentTeam.level,
+            status_label:highSchoolTeam?status:'ACTIVE',level_label:selectedCurrentTeam.level,
             current_team_name:selectedCurrentTeam.name,
             current_teamid:selectedCurrentTeam.teamId,
             current_org_or_conference_name:selectedCurrentTeam.orgName,

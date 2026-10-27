@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash } from 'crypto';
 import { query } from '@/lib/db';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
+import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
 import { resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
 import { parseNewsVideo, cleanNewsVideoTitle, isLegacyVideoPlaceholderTitle } from '@/lib/newsVideo';
@@ -22,7 +23,8 @@ const handle = (v: string) => v.trim().replace(/^@/, '').replace(/^https?:\/\/(?
 const clip = (url: string) => /^https:\/\/(?:www\.)?(?:youtube\.com\/watch\?|youtube\.com\/shorts\/|youtu\.be\/|instagram\.com\/(?:p|reel)\/|facebook\.com\/|fb\.watch\/|milb\.com\/)/i.test(url);
 const hash = (s: string) => createHash('sha256').update(s).digest('hex').slice(0,32);
 function parsed(v: string | null): Record<string, unknown> | null { try { const x=JSON.parse(v || ''); return x && typeof x==='object' && !Array.isArray(x) ? x : null; } catch { return null; } }
-function year(v: unknown) { const y=Number(v); return Number.isInteger(y) && y>=1900 && y<=new Date().getFullYear()+1 ? String(y) : null; }
+// A graduation year: up to four years ahead (a freshman is the class of this year + 4).
+function year(v: unknown) { const y=Number(v); return Number.isInteger(y) && y>=1900 && y<=new Date().getFullYear()+4 ? String(y) : null; }
 // Accept only explicit four-digit varsity season evidence. No graduation-year
 // inference: those seasons must be selected by the contributor.
 export function normalizeSubmittedVarsityYears(input: unknown): string[] | null {
@@ -257,7 +259,6 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
      if(dup.rows.length){
        await query("UPDATE missing_player_submission SET processed_status='needs_review',error_message='Potential existing player; resolve identity first' WHERE id=$1",[item.id]);outcome.review++;continue;
      }
-     const status=String(fields.status_label||'UNKNOWN').slice(0,40);
      const submittedTeamId=String(fields.current_teamid||'').trim();
      const canonicalTeam=submittedTeamId ? await resolveCanonicalCurrentTeam(submittedTeamId) : null;
      if (submittedTeamId && !canonicalTeam) {
@@ -265,9 +266,38 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
        outcome.review++;continue;
      }
      const level=canonicalTeam?.level || String(fields.level_label||'HIGH SCHOOL').slice(0,40);
+     const highSchool=level.toUpperCase()==='HIGH SCHOOL';
+     if (canonicalTeam && highSchool && canonicalTeam.teamId!==highSchoolTeamId(item.hsid)) {
+       await query("UPDATE missing_player_submission SET processed_status='needs_review',error_message='High school team is not his own school' WHERE id=$1",[item.id]);
+       outcome.review++;continue;
+     }
+     // A high school player is UNCOMMITTED or COMMIT, never ACTIVE (high
+     // school players are not active alumni).
+     const submittedStatus=String(fields.status_label||'').trim().toUpperCase();
+     const status=highSchool
+       ? (['COMMIT','UNCOMMITTED'].includes(submittedStatus) ? submittedStatus : 'UNCOMMITTED')
+       : (submittedStatus||'UNKNOWN').slice(0,40);
+     // Added with his college commitment in the same submission: the college
+     // must still be a college on the team list.
+     let college:{teamid:string;current_team_name:string;level_label:string;current_org_or_conference_name:string|null}|undefined;
+     if (status==='COMMIT') {
+       const committedTeamId=String(fields.committed_teamid||'').trim();
+       college=/^\d{1,18}$/.test(committedTeamId)
+         ? (await query<{teamid:string;current_team_name:string;level_label:string;current_org_or_conference_name:string|null}>(
+           `SELECT teamid, current_team_name, UPPER(TRIM(level_label)) AS level_label, current_org_or_conference_name
+              FROM teamid_universe_mapping
+             WHERE teamid=$1 AND UPPER(TRIM(COALESCE(level_label,''))) = ANY($2::text[])
+               AND COALESCE(TRIM(current_team_name),'') <> '' LIMIT 1`,
+           [committedTeamId,[...COLLEGE_COMMIT_LEVELS]])).rows[0]
+         : undefined;
+       if (!college) {
+         await query("UPDATE missing_player_submission SET processed_status='needs_review',error_message='Committed college could not be verified' WHERE id=$1",[item.id]);
+         outcome.review++;continue;
+       }
+     }
      // A high school player's current team is his school's: C + hsid, when
      // the team list has it (never written to the list from here).
-     const school=!canonicalTeam && level.toUpperCase()==='HIGH SCHOOL'
+     const school=!canonicalTeam && highSchool
        ? (await query<{teamid:string;current_team_name:string|null;current_org_or_conference_name:string|null}>(
          `SELECT teamid, current_team_name, current_org_or_conference_name FROM teamid_universe_mapping WHERE teamid=$1 AND level_label='HIGH SCHOOL' LIMIT 1`,
          [highSchoolTeamId(item.hsid)])).rows[0]
@@ -276,11 +306,22 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
      const team=canonicalTeam?.name || school?.current_team_name || String(fields.current_team_name||'').slice(0,120)||null;
      const seq=await query<{n:string}>(`SELECT nextval('public.yat_playerid_seq')::text AS n`);
      const playerid=yatPlayerId(seq.rows[0].n);
-     await query(`INSERT INTO flip_card_front_stage(playerid,hsid,first_name,last_name,display_name,class_of,position,status_label,level_label,current_team_name,current_teamid,current_org_or_conference_name,source_notes,source_summary)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,''),'fan-contributed; unverified',jsonb_build_object('submission_id',$13::text,'source','contribute'))`,
+     await query(`INSERT INTO flip_card_front_stage(playerid,hsid,first_name,last_name,display_name,class_of,position,status_label,level_label,current_team_name,current_teamid,current_org_or_conference_name,source_notes,source_summary,
+         committed_teamid,committed_team_name,committed_level_label,committed_org_or_conference_name,committed_source,committed_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,''),'fan-contributed; unverified',jsonb_build_object('submission_id',$13::text,'source','contribute'),
+         $14::text,$15::text,$16::text,$17::text,CASE WHEN $14::text IS NULL THEN NULL ELSE 'fan_contribution' END,CASE WHEN $14::text IS NULL THEN NULL ELSE now() END)`,
        [playerid,item.hsid,first,last,`${first} ${last}`,year(item.grad_year),position,status,level,team,
-        canonicalTeam?.teamId||school?.teamid||null,canonicalTeam?.orgName||school?.current_org_or_conference_name||'',item.id]);
+        canonicalTeam?.teamId||school?.teamid||null,canonicalTeam?.orgName||school?.current_org_or_conference_name||'',item.id,
+        college?.teamid||null,college?.current_team_name||null,college?.level_label||null,college?.current_org_or_conference_name||null]);
+     if (college) {
+       // The same audit entry an existing player's commitment gets.
+       const by=details?.by && typeof details.by==='object' && !Array.isArray(details.by) ? details.by as Record<string,unknown> : {};
+       await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,teamid,details)
+         VALUES($1,'commitment_published',$2,$3,$4,jsonb_build_object('status_label','COMMIT','committed_teamid',$4::text,'source','queued','submission_id',$5::text))`,
+         [String(by.uid||'').trim()||'system:contribution-publisher',playerid,item.hsid,college.teamid,item.id]);
+     }
      await query("UPDATE missing_player_submission SET processed_status='published',published_playerid=$2,processed_at=now(),error_message=NULL WHERE id=$1 AND processed_status='new'",[item.id,playerid]);
+     revalidateTag(`school-data:${item.hsid}`, { expire: 0 });
      outcome.published++;
    }catch(e){console.error('[contribution-publisher] missing player failed',{id:item.id,error:String(e)});outcome.failed++;}
  }
