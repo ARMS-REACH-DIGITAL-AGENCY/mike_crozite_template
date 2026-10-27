@@ -110,11 +110,13 @@ export default function ProfileNewsList({
   const instagramStories = useMemo(() => stories.filter(s => parseNewsVideo(s.url)?.provider === 'Instagram'), [stories]);
   const instagramPosts = useMemo<InstagramViewerPost[]>(() => instagramStories.map(s => {
     const video = parseNewsVideo(s.url);
-    return { id: s.uuid, media_type: video?.watchUrl.includes('/reel/') ? 'video' : 'carousel',
-      caption: s.title, permalink: video?.watchUrl || s.url,
-      thumbnail_url: s.imageUrl || video?.thumbnailUrl || PLAYER_SILHOUETTE_URL,
+    return { id: s.uuid, media_type: video?.watchUrl.includes('/reel/') ? 'video' : 'image',
+      caption: newsVideoHeadline(s.title, s.playerName || playerName), permalink: video?.watchUrl || s.url,
+      // Player headshots are not Instagram media. Resolve the actual post
+      // thumbnail lazily in the shared viewer, then fall back to its embed.
+      thumbnail_url: '',
       published_at: s.publishedAt, handle: null };
-  }), [instagramStories]);
+  }), [instagramStories, playerName]);
   const instagramSelected = Boolean(instagramPosts.some(p => p.id === openUuid));
 
   useEffect(() => {
@@ -213,7 +215,15 @@ export default function ProfileNewsList({
         );})}
       </div>
 
-      {instagramSelected ? <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts} initialPostId={openUuid} onClose={() => setOpenUuid("")} /> : null}
+      {instagramSelected ? (
+        <PlayerInstagramFeed playerId={playerId} firstName={firstName} externalPosts={instagramPosts}
+          initialPostId={openUuid} onClose={() => setOpenUuid("")} preferEmbed
+          renderFooter={(post) => (
+            <NewsEngagement key={post.id} compactInViewer uuid={post.id} hsid={hsid}
+              title={newsVideoHeadline(stories.find(story => story.uuid === post.id)?.title || post.caption || "", stories.find(story => story.uuid === post.id)?.playerName || playerName)} />
+          )}
+        />
+      ) : null}
       <ProfileContentDrawer
         open={Boolean(openStory) && !instagramSelected}
         onClose={() => setOpenUuid("")}
