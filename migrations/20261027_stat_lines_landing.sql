@@ -283,9 +283,24 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- The 4-hourly sync rewrites the whole season (~100k lines) with the same
+-- values: a line lands again only when something in it changed.
 DROP TRIGGER IF EXISTS stat_lines_land ON public.player_game_logs;
-CREATE TRIGGER stat_lines_land
-  AFTER INSERT OR UPDATE OR DELETE ON public.player_game_logs
+DROP TRIGGER IF EXISTS stat_lines_land_insert ON public.player_game_logs;
+DROP TRIGGER IF EXISTS stat_lines_land_update ON public.player_game_logs;
+DROP TRIGGER IF EXISTS stat_lines_land_delete ON public.player_game_logs;
+CREATE TRIGGER stat_lines_land_insert AFTER INSERT ON public.player_game_logs
+  FOR EACH ROW EXECUTE FUNCTION public.stat_lines_on_game_log();
+CREATE TRIGGER stat_lines_land_update AFTER UPDATE ON public.player_game_logs
+  FOR EACH ROW
+  WHEN (OLD.stats IS DISTINCT FROM NEW.stats OR OLD.raw_payload IS DISTINCT FROM NEW.raw_payload
+        OR OLD.game_status IS DISTINCT FROM NEW.game_status OR OLD.playerid IS DISTINCT FROM NEW.playerid
+        OR OLD.source_team_id IS DISTINCT FROM NEW.source_team_id OR OLD.game_date IS DISTINCT FROM NEW.game_date
+        OR OLD.team_name IS DISTINCT FROM NEW.team_name OR OLD.opponent_name IS DISTINCT FROM NEW.opponent_name
+        OR OLD.home_away IS DISTINCT FROM NEW.home_away OR OLD.started IS DISTINCT FROM NEW.started
+        OR OLD.source IS DISTINCT FROM NEW.source OR OLD.stat_type IS DISTINCT FROM NEW.stat_type)
+  EXECUTE FUNCTION public.stat_lines_on_game_log();
+CREATE TRIGGER stat_lines_land_delete AFTER DELETE ON public.player_game_logs
   FOR EACH ROW EXECUTE FUNCTION public.stat_lines_on_game_log();
 
 -- A pro game goes final (or its score changes) on the schedule -> its lines
