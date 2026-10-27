@@ -14,6 +14,7 @@ import {
   getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
   getPlayerById,
+  getFlipCardFrontStageByPlayerId,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
@@ -329,22 +330,30 @@ export async function generateMetadata({
   const playerId = String(qp?.player || "").trim();
   if (playerId) {
     try {
-      const player = await getPlayerById(playerId);
+      const [player, stage] = await Promise.all([
+        getPlayerById(playerId),
+        getFlipCardFrontStageByPlayerId(playerId).catch(() => null),
+      ]);
       const playerName = player
         ? `${player.firstname || player.first_name || ""} ${player.lastname || player.last_name || ""}`.trim()
         : "";
 
       if (playerName) {
         const shareUrl = `${canonicalUrl}/?player=${encodeURIComponent(playerId)}`;
+        const committedName = String(stage?.resolved_committed_team_short_name || stage?.committed_team_name || stage?.resolved_committed_team_name || "").trim();
+        const isCommit = String(stage?.status_label || "").toUpperCase() === "COMMIT" && !!committedName;
+        const shareTitle = isCommit ? `${playerName} | ${name} | ${committedName} COMMIT` : `${playerName} | ${name} | YAT?STATS`;
         const ogImageUrl = `${canonicalUrl}/api/og/player-card?playerId=${encodeURIComponent(playerId)}`;
-        const description = `Check out ${playerName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS!`;
+        const description = isCommit
+          ? `${playerName} of ${name} has committed to ${committedName}. View the player flip card on YAT?STATS.`
+          : `Check out ${playerName}\'s YAT?STATS player card! Where They #YAT and What\'s Their #STATS!`;
 
         return {
-          title: `${playerName.toUpperCase()} | ${name.toUpperCase()} Alumni | YAT?STATS`,
+          title: shareTitle,
           description,
           alternates: { canonical: shareUrl },
           openGraph: {
-            title: `${playerName} | YAT?STATS`,
+            title: shareTitle,
             description,
             url: shareUrl,
             images: [{ url: ogImageUrl, width: 1200, height: 630 }],
