@@ -9,9 +9,10 @@
 //     locked. If a later run scores a locked final differently (a stat
 //     correction), the stored result stays and the difference goes on Pete's
 //     needs-decision list.
-//   - A game tied after every tiebreaker with no ruling in
-//     commissioner_rulings waits as 'awaiting_commissioner' and goes on the
-//     needs-decision list. The next run after a ruling is recorded finishes it.
+//   - A game tied after every tiebreaker is decided by the commissioner's
+//     automatic rules (lib/bracket/autoRuling.ts, Pete, Oct 27), unless a
+//     ruling recorded in commissioner_rulings says otherwise. (Before those
+//     rules it waited as 'awaiting_commissioner' on the needs-decision list.)
 //   - Once a series is decided its winner fills the next round's slot. Home is
 //     the better (lower) original seed; two equal seeds go on the
 //     needs-decision list rather than being guessed.
