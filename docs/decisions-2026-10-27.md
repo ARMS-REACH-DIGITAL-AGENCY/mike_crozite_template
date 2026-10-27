@@ -25,6 +25,20 @@ says otherwise.
   locked. Nothing after that changes it.
 - **Inning 9 (club W-L)** is decided by the same Monday 4 a.m. deadline.
 
+## Levels of games (Pete, Oct 27)
+
+- **Every stat line has an official level. None is ever blank.**
+- **A game in a league based outside the United States is INTERNATIONAL.**
+  That covers the Mexican League and the winter leagues (Mexico's Liga
+  Mexicana del Pacifico, the Dominican and Venezuelan leagues) and the
+  Caribbean Series. MLB's feed labels them "WIN" or "IND", which are not
+  levels.
+- **The Arizona Fall League is MLB**: MLB-level exhibition games, like all
+  spring training games.
+- **College summer leagues** (wood-bat leagues of mixed college players,
+  not sanctioned by the NCAA, NAIA, NJCAA and so on): Pete may leave them
+  out entirely. No such lines are in the database today.
+
 ## Storage
 
 - `stat_lines`: every line as the source reports it now, with when it first
@@ -104,6 +118,10 @@ says otherwise.
        After the first previews Pete said the invitation "must be bigger,
        repositioned": it now sits on the board itself, above the games,
        in large type with a "Pick your teams" button.
+   - **The board's shape is Wrigley's** (Pete's mockup): a title bar across
+     the top, "YAT?STATS ALUMNI BASEBALL" on the left and "BRACKET
+     TOURNAMENT (2027)" on the right, with the sponsor's round logo standing
+     on the bar in the middle, where Wrigley's clock is.
      - They pick on a page on the site, up to 11 schools from the bracket
        field. The newsletter links to it.
      - Why: we can't get it wrong. And fans who aren't superfans get used to

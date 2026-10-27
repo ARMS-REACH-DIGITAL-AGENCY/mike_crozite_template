@@ -200,8 +200,15 @@ approved one.
 - **Weekly coverage:** `weekly_player_lines` covers the 69 test-field
   schools, not every school. Every school comes with the scheduled job.
 - **Fall League clubs print as MLB** (for example "Jake Cook (Mesa Solar
-  Sox, MLB)"), because `teamid_universe_mapping` has the six Arizona Fall
-  League clubs at MLB. Pete decides.
+  Sox, MLB)"). That is correct: Pete's rule is that the Arizona Fall League
+  is MLB-level exhibition play, like spring training. (An earlier version of
+  this report wrongly listed it as an open question.)
+- **`stat_lines.source_level` was empty on 1,193 lines** (921 Fall League,
+  272 Mexican, Dominican and Venezuelan league lines). Their `level` column
+  was right, but Pete wants no line without a level.
+  `migrations/20261027_stat_lines_league_levels.sql` sets them to MLB and
+  INTERNATIONAL and fixes the feed's view. It is written but **not applied
+  yet**: the production database call is waiting on approval.
 - **Home school names:** `newsletter_recipients.home_school_name` is empty
   for the six test profiles, so the previews take the name from the
   finished story or box score row. Pete's own profile reads "Hamilton

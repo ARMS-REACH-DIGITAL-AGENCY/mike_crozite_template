@@ -133,6 +133,21 @@ function slotHtml(g: R | null, opts: { home?: boolean; label?: string } = {}) {
   return `<td style="padding:4px 5px;vertical-align:top"><table style="border-collapse:collapse;background:#1f4d2b;border-top:3px solid ${line};border-bottom:3px solid ${line}">${rows}</table></td>`;
 }
 
+// The board's top, shaped like Wrigley Field's: a bar with the two titles and
+// the sponsor's round logo standing on it where Wrigley's clock is (Pete's
+// mockup, Oct 27). No sponsor source is approved yet, so the circle is empty
+// and says so.
+function boardTopHtml() {
+  const bar = (text: string, align: string) =>
+    `<td style="padding:0;vertical-align:bottom"><div style="background:#173b21;padding:10px 12px;font:bold 15px Arial,Helvetica,sans-serif;letter-spacing:.03em;color:#fff;white-space:nowrap;text-align:${align}">${esc(text)}</div></td>`;
+  return `<table style="border-collapse:collapse;width:100%"><tr>
+${bar('YAT?STATS ALUMNI BASEBALL', 'left')}
+<td style="width:124px;padding:0;vertical-align:bottom;text-align:center;background:linear-gradient(to bottom,transparent 76px,#173b21 76px)">
+<div style="box-sizing:border-box;width:108px;height:108px;margin:0 auto 6px;padding-top:38px;border-radius:50%;background:#fff;border:5px solid #173b21;box-shadow:0 0 0 2px #f5d76e;text-align:center;font:bold 11px/1.3 Arial,Helvetica,sans-serif;color:#8a8a8a">SPONSOR<br><span style="font-weight:normal;font-size:10px">not filled</span></div></td>
+${bar('BRACKET TOURNAMENT (2027)', 'right')}
+</tr></table>`;
+}
+
 function scoreboardHtml(slots: ({ game: R | null; label?: string } | null)[], homeGame: R | null, empty: number) {
   // Wrigley-style: slots 1-5 down the left, the home game bottom left between
   // red lines, slots 6-11 down the right.
@@ -152,7 +167,9 @@ function scoreboardHtml(slots: ({ game: R | null; label?: string } | null)[], ho
     const l = r < 5 ? slotHtml(ls?.game ?? null, { label: ls?.label }) : slotHtml(homeGame, { home: true });
     rows += `<tr>${l}${slotHtml(rs?.game ?? null, { label: rs?.label })}</tr>`;
   }
-  return `<table style="border-collapse:collapse;margin:0 auto;background:#173b21">${rows}</table>
+  return `<table style="border-collapse:collapse;margin:0 auto">
+<tr><td style="padding:0">${boardTopHtml()}</td></tr>
+<tr><td style="padding:0;background:#173b21"><table style="border-collapse:collapse;width:100%">${rows}</table></td></tr></table>
 <p style="margin:8px 0 0;font:13px Arial,Helvetica,sans-serif;text-align:center"><a href="${SITE}" style="color:#1f4d2b">See the full scoreboard</a></p>`;
 }
 
@@ -256,7 +273,6 @@ ${s.shout_outs.length ? `<div style="font:13px Arial,Helvetica,sans-serif"><b>Sh
     h2('Your players yesterday'), favHtml,
     d.stories.length ? h2(`${school} on the bracket`) + storyHtml : '',
     h2('Scoreboard'), scoreboardHtml(slots, homeGame, empty),
-    SPONSOR_HTML,
   ].join('\n');
 
   const text = [
@@ -265,11 +281,11 @@ ${s.shout_outs.length ? `<div style="font:13px Arial,Helvetica,sans-serif"><b>Sh
     'YOUR PLAYERS YESTERDAY', favText, '',
     ...(d.stories.length ? [`${school.toUpperCase()} ON THE BRACKET`, storyText, ''] : []),
     'SCOREBOARD',
+    `YAT?STATS ALUMNI BASEBALL  ${SPONSOR_TEXT}  BRACKET TOURNAMENT (2027)`,
     ...(empty ? [`PICK YOUR OWN FAVORITE 11 and we'll send them to you every day: ${PICK_PAGE ?? '(pick page address not set yet)'}`, ''] : []),
     tagged('HOME', homeGame ? slotText(homeGame) : '(no home game today)'),
     ...slots.map((s, i) => tagged(String(i + 1), s ? slotText(s.game, s.label) : '(empty slot)')),
     `See the full scoreboard: ${SITE}`, '',
-    SPONSOR_TEXT, '',
   ].join('\n');
 
   const counts = {
