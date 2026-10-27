@@ -158,7 +158,9 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // A photo news post uses its own uncropped stored image rather than Instagram's clipped iframe.
   // Reels and carousels open the native interactive embed immediately.
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
-  const embedShown = Boolean(embedUrl && (externalPosts ? (isInteractiveNews || (!hasPicture && !current?.media_pending)) : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
+  // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
+  // Render the original Instagram post for all News media, never substitute that thumbnail.
+  const embedShown = Boolean(embedUrl && (externalPosts ? true : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
