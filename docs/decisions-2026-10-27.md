@@ -128,3 +128,7 @@ says otherwise.
   lays out the email, sends through HighLevel. No math, no formatting of
   stats, no rescoring, no `/api/bracket/live`.
 - The newsletter saves a copy of exactly what each edition sent.
+- When a day's or a week's content is completely written, the pipeline
+  marks it ready. The newsletter sends only after that mark. If the content
+  is late, the newsletter waits for it and sends late. **It never skips a
+  day** (Pete, Oct 27).

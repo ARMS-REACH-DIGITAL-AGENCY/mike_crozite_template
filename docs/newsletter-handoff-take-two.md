@@ -48,8 +48,8 @@ decides, not this file.
 - When a day's or a week's rows are complete, the pipeline adds one row to
   `edition_ready`. **Send an edition only after its ready row exists.** The
   rows behind it never change after that, so there's nothing to re-check.
-- If the ready row hasn't appeared by send time, don't send. Pete decides
-  whether to wait or skip (not decided yet).
+- If the ready row hasn't appeared by send time, **wait for it, then send.**
+  Never skip a day, and never send a partial edition (Pete's rule).
 
 ## 3. The Daily Digest
 
@@ -307,7 +307,6 @@ Rules while building:
 1. Claude builds and fills the tables in section 5, the frozen day and week
    copies, and the pick page, and schedules the results job. Each step
    needs Pete's go.
-2. If the ready row is late: wait or skip? Pete to decide.
-3. Where the newsletter's own tables (`tribune_private.*`, sponsors, the
+2. Where the newsletter's own tables (`tribune_private.*`, sponsors, the
    copy of each send) live.
-4. The pick page's address, for the email's link: set when it's built.
+3. The pick page's address, for the email's link: set when it's built.
