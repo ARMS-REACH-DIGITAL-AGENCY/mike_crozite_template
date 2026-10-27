@@ -81,6 +81,9 @@ says otherwise.
      some.
    - Favorites, but none played: "None of your players were in action
      yesterday."
+   - A stat line that arrives after the 4 a.m. cutoff never appears in a
+     Daily, not even the next day's. It shows up only in the Weekly (Pete,
+     Oct 27).
 2. **Stat line format**, written once per player per day by the pipeline:
    - "Jake Smith (Rays, MLB) vs. Brewers: 2-for-4, HR, 2 RBI, BB"
    - "Tom Jones (Ducks, NCAA-D1) vs. Beavers: 6.0 IP, 3 H, 1 ER, 2 BB, 8 K, W"

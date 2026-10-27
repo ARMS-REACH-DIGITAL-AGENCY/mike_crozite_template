@@ -158,6 +158,9 @@ SELECT line FROM daily_stat_lines
 
 Zero rows means "None of your players were in action yesterday."
 
+A line that arrives after the cutoff is never added to any day's rows. It
+shows up only in the Weekly (`weekly_player_lines`, `weekly_box_scores`).
+
 ### 5.3 `daily_game_stories` (coming): one story per school per day
 
 Every game gets two stories, one from each school's side, about its own
