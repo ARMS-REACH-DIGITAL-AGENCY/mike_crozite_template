@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { preparedIndex } from '@/lib/bracket/preparedIndex';
+import { refreshIfStale } from '@/lib/bracket/testRefresh';
 
 // The bracket pages' data from the prepared results: the Index (every
 // round's series and games with their stored innings and winners), the stat
@@ -19,6 +20,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'season=<key> and region=<0-8> are required' }, { status: 400 });
   }
   try {
+    // Test branch: bring stale results up to date first (no cron there).
+    await refreshIfStale(season);
     const prepared = await preparedIndex(season, region);
     if (!prepared) return NextResponse.json({ error: `no season ${season}` }, { status: 404 });
     return NextResponse.json(prepared, { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } });
