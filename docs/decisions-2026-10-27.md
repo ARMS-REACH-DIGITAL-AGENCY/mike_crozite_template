@@ -64,6 +64,32 @@ says otherwise.
     players, then TRIPLE-A, and on down the official levels; then a random
     draw fixed by the game.
 
+## The season: two tournaments in one (Pete, Oct 28)
+
+- **15,368 games is the number.** The season is more than the bracket.
+- **Every one of the 1,024 schools plays 30 games**, one a week in Weeks
+  1-30: 512 games a week, 1,024 x 30 / 2 = 15,360. A school knocked out of
+  the bracket keeps playing every week.
+- **Tournament 1, the National Bracket:** 10 rounds of best-of-3 series
+  inside those 30 weeks (games 1-3,069).
+- **Tournament 2, Total Runs:** each school's run total over its 30 games
+  is ranked against the other 127 schools in its region. The top run scorer
+  in each of the 8 regions plays single games in Week 31 (4 games), Week 32
+  (2) and Week 33 (1).
+- **Week 34, the World Series:** the Total Runs winner plays the National
+  Bracket winner (1 game).
+- Total: 15,360 + 7 + 1 = **15,368**. The system fills Weeks 31-34 itself
+  from the stored Week 30 results and the stored regional standings, never
+  by hand.
+- **Still to decide (Pete):**
+  - how eliminated schools are paired for their weekly games;
+  - whether the bracket champion can also be its region's Total Runs
+    leader. The practice simulation (`scripts/simulate-bracket-2026.ts`) has
+    the champion sit out and its region send the next school; Pete's Oct 28
+    wording is "the top run scorer from each of the 8 regions";
+  - the tiebreak when two schools lead a region with the same run total (the
+    simulation uses run differential, then wins, then seed).
+
 ## Bracket rounds (2027)
 
 - Winners advance automatically, round after round.
