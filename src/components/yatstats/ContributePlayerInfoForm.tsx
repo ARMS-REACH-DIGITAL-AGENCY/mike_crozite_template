@@ -121,7 +121,10 @@ export default function ContributePlayerInfoForm({
   }
   async function submit() {
     setMessage('');setError('');
-    if(!signedIn){onSignIn();return;}
+    // Resolve the real Firebase credential first; drawer session state may lag after sign-in.
+    await auth.authStateReady?.();
+    const liveToken=await auth.currentUser?.getIdToken().catch(()=>'');
+    if(!liveToken && !signedIn){onSignIn();return;}
     if(!school && !player?.schoolId){setError('Select the high school.');return;}
     if(isHighSchoolPlayer && !['UNCOMMITTED','COMMIT'].includes(values.status_label)){
       setError('High school players must be UNCOMMITTED or committed to a college.');return;

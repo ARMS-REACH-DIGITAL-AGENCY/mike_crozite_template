@@ -295,7 +295,7 @@ export default function ContributeDrawer() {
           const next = body?.authenticated ? (body.session as FanSession) : null;
           setSession(next);
           sessionRef.current = next;
-          if (next?.uid && pendingOpen.current) {
+          if (pendingOpen.current && (next?.uid || auth.currentUser)) {
             pendingOpen.current = false;
             show();
           }
@@ -383,8 +383,23 @@ export default function ContributeDrawer() {
     });
   };
 
-  const submit = () => {
-    if (!signedIn) { pendingOpen.current = true; return openAccountDrawer('signin'); }
+  const submit = async () => {
+    // Resolve the actual credential before opening sign-in: the session fetch
+    // can lag behind a successful Firebase login when opened from another page.
+    if (!signedIn) {
+      const token = await idToken();
+      if (!token) {
+        const res = await fetch('/api/auth/session', { credentials: 'include', cache: 'no-store' }).catch(() => null);
+        const body = await res?.json().catch(() => null);
+        if (!body?.authenticated) {
+          pendingOpen.current = true;
+          return openAccountDrawer('signin');
+        }
+        setSession(body.session as FanSession);
+      } else {
+        setFirebaseSignedIn(true);
+      }
+    }
     if (tab === 'data') return sendData();
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
