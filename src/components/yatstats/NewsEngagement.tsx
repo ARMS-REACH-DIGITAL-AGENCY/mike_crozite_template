@@ -32,8 +32,13 @@ export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{
  const [shareMessage,setShareMessage]=useState('');
  const shareNews=async()=>{
    if(!me){openSignIn();return;}
-   // One canonical, article-specific short URL with server-generated Open Graph metadata.
-   const url=new URL('/n/'+encodeURIComponent(uuid),window.location.origin);
+   // Share the school route directly: /n/:uuid can be captured as an invalid
+   // school segment on school subdomains. The school page renders story OG metadata.
+   const schoolPath=window.location.pathname.match(/^\/([0-9]+)(?:\/|$)/)?.[1];
+   const url=new URL(schoolPath?'/'+schoolPath:'/',window.location.origin);
+   url.searchParams.set('news','1');
+   url.searchParams.set('story',uuid);
+   url.hash='sec-news';
    const nativeShare = typeof navigator.share === 'function';
    try{
      if(nativeShare)await navigator.share({title,url:url.toString()});
