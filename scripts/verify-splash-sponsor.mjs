@@ -33,10 +33,32 @@ function splashVisit(hostname, pathname = '/', search = '') {
   const own = hostCookies.get(hostname) || new Map();
   hostCookies.set(hostname, own);
   let wrote = false, style = null;
+  const callbacks = new Map();
+  const schoolId = hostname === 'hamilton.az.yatstats.com' ? '5004'
+    : hostname === 'perry.az.yatstats.com' ? '5005'
+    : hostname === 'brandnew.az.yatstats.com' ? '5006'
+    : (pathname.split('/').filter(Boolean).filter(part => /^[1-9][0-9]*$/.test(part))[0] || '');
+  const cookieKey = schoolId ? 'yat_splash_seen_' + schoolId : '';
+  // The server renders the opener only when the school has not been seen,
+  // unless a replay was explicitly requested.
+  const forced = pathname === '/splash' || pathname.startsWith('/replay/') || search.includes('splash=1');
+  const serverHasSplash = !!schoolId && (forced || !own.has(cookieKey));
+  const attrs = new Map([['data-school', schoolId], ['data-yat-sponsor-state', 'none']]);
+  const splash = {
+    hasAttribute(k) { return attrs.has(k); },
+    getAttribute(k) { return attrs.get(k) ?? null; },
+    setAttribute(k, v) { attrs.set(k, v); },
+    querySelector(selector) { return selector === '#yatSplashPlayer' ? player : null; },
+  };
+  const player = { getAttribute(k) { return k === 'data-school' ? schoolId : null; } };
   const doc = {
     head: { appendChild(el) { style = el; } },
     createElement() { return { textContent: '', id: '' }; },
-    getElementById() { return null; },
+    getElementById(id) {
+      return serverHasSplash && !search.includes('join=1')
+        ? id === 'yatSplash' ? splash : id === 'yatSplashPlayer' ? player : null
+        : null;
+    },
   };
   Object.defineProperty(doc, 'cookie', {
     get() {
@@ -52,7 +74,7 @@ function splashVisit(hostname, pathname = '/', search = '') {
       const [key, value] = parts[0].split('=');
       const domainAttr = parts.find(x => x.toLowerCase().startsWith('domain='));
       if (domainAttr) {
-        const domain = domainAttr.split('=')[1].replace(/^\./, '');
+        const domain = domainAttr.split('=')[1].replace(/^\\./, '');
         if (!domainCookies.has(domain)) domainCookies.set(domain, new Map());
         domainCookies.get(domain).set(key, value);
       } else own.set(key, value);
@@ -60,14 +82,17 @@ function splashVisit(hostname, pathname = '/', search = '') {
   });
   splashBoot.runInNewContext({
     document: doc,
-    location: { hostname, pathname, search },
+    location: { hostname, pathname, search, replace() {} },
     matchMedia() { return { matches: false }; },
-    addEventListener() {},
+    addEventListener(name, cb) { callbacks.set(name, cb); },
     setTimeout() { return 1; },
     Date,
   });
   assert.ok(style, 'bootstrap must install a splash style state');
-  return { hidden: style.textContent.includes('display:none!important'), wrote };
+  if (serverHasSplash && !forced && !search.includes('join=1')) {
+    callbacks.get('yat:page-ready')?.();
+  }
+  return { hidden: !serverHasSplash || style.textContent.includes('display:none!important'), wrote };
 }
 assert.equal(splashVisit('hamilton.az.yatstats.com').hidden, false, 'Hamilton first visit opens');
 assert.equal(splashVisit('hamilton.az.yatstats.com').hidden, true, 'Hamilton return skips');
@@ -84,6 +109,10 @@ const join = splashVisit('brandnew.az.yatstats.com', '/', '?join=1');
 assert.equal(join.hidden, true, 'JOIN flow bypasses the intro');
 assert.equal(join.wrote, false, 'JOIN flow cannot consume first visit');
 assert.equal(splashVisit('brandnew.az.yatstats.com').hidden, false, 'after JOIN the school intro remains unconsumed');
+assert.equal(hostCookies.get('hamilton.az.yatstats.com').get('yat_splash_seen_5004'), '1', 'Hamilton stores only its per-school seen cookie');
+assert.equal(hostCookies.get('perry.az.yatstats.com').get('yat_splash_seen_5005'), '1', 'Perry stores only its per-school seen cookie');
+assert.equal(hostCookies.get('preview.vercel.app').get('yat_splash_seen_5004'), '1', 'preview stores school 5004 independently');
+assert.equal(hostCookies.get('preview.vercel.app').get('yat_splash_seen_5005'), '1', 'preview stores school 5005 independently');
 assert.match(school, /const liveSchoolHost =/, 'server must identify live school hosts');
 assert.match(school, /!liveSchoolHost &&/, 'numeric-route cookies are only for shared previews');
 assert.match(school, /yat_splash_seen_/, 'server must support per-HSID preview cookies');
@@ -92,7 +121,7 @@ assert.doesNotMatch(school, /const seenSplash = .*yat_seen/, 'server must ignore
 assert.equal(splashVisit('hamilton.az.yatstats.com', '/splash').hidden, false, 'dedicated replay bypasses previously visited school');
 assert.equal(splashVisit('perry.az.yatstats.com', '/splash').hidden, false, 'replay works on any school');
 assert.ok(root.includes("replayRoute=location.pathname==='/splash'"), 'head bootstrap must recognize replay path');
-assert.ok(root.includes("if(replayRoute){d.cookie=splashCookie"), 'enter must mark school visited');
+assert.ok(root.includes("if(replayRoute){var mountedSchool="), 'enter must mark the mounted school visited');
 assert.ok(root.includes("location.replace(replayId&&!liveSchool?'/'+replayId:'/')"), 'enter must return to the correct gallery');
 const middleware = readFileSync('src/middleware.ts', 'utf8');
 assert.ok(middleware.includes("request.nextUrl.pathname === '/splash'"), 'middleware must force replay SSR');
@@ -104,7 +133,7 @@ const idReplay = readFileSync('src/app/replay/[hsid]/page.tsx', 'utf8');
 assert.ok(idReplay.includes('getSchoolByHsid(hsid)'), 'replay by ID must not depend on hostname resolution');
 assert.ok(idReplay.includes('previewMode'), 'replay by ID must display enter button');
 assert.ok(root.includes("pathParts[0]==='replay'"), 'head must force the ID replay page');
-assert.ok(root.includes("replayId&&!liveSchool?replayId:schoolPath"), 'each preview replay must have its own school cookie');
+assert.ok(root.includes("d.cookie='yat_splash_seen_'+mountedSchool"), 'replay records the selected school only');
 
 assert.ok(dedicatedSplash.includes("getSchoolByUrl('https://' + host)"), 'replay must resolve school dynamically');
 assert.ok(dedicatedSplash.includes("requestHeaders.get('x-yat-splash-school-host')"), 'replay must read forwarded canonical school host');
@@ -185,14 +214,15 @@ assert.deepEqual(Object.keys(featured['5004'].details).sort(), featured['5004'].
 assert.equal(featured['5004'].details['YAT000067'].name, 'Ben Ball', 'known-good cutout name');
 assert.equal(featured['5004'].details['YAT000067'].team, 'University of Arizona', 'known-good cutout school');
 assert.match(splash, /data-featured-details=\{JSON\.stringify\(featuredPlayerDetails\)\}/, 'first-paint captions in server markup');
-assert.match(splash, /className="yat-splash-player-caption-name">\{initialPlayerDetails\.name\}/, 'server-render initial player name');
-assert.match(splash, /className="yat-splash-player-caption-team">\{initialPlayerDetails\.team\}/, 'server-render initial player team');
+assert.doesNotMatch(splash, /initialPlayerDetails/, 'no hardcoded first player');
+assert.doesNotMatch(splash, /confirmedCutoutIds\\[0\\]/, 'no fixed first cutout');
+assert.match(splash, /rotationKey='yat_splash_rotation_v2_'/, 'per-school rotation queue');
+assert.match(splash, /signature:poolSignature,remaining:pendingQueue/, 'save unshown players');
+assert.match(splash, /function showCaption\(id\)/, 'caption matches selected player');
 assert.match(school, /featuredPlayerDetails=\{splashOverride\?\.details \?\? \{\}\}/, 'use reusable data-driven school caption schema');
 
 assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'render approved IDs before DB roster loads');
 assert.match(splash, /data-confirmed-ids=\{confirmedCutoutIds\.join/, 'render confirmed cutout IDs before DB roster loads');
-assert.match(splash, /confirmedCutoutIds\.length \? ' is-visible'/, 'immediate visible server-rendered cutout');
-assert.match(splash, /then-cutouts\/\$\{encodeURIComponent\(confirmedCutoutIds\[0\]\)\}\.png/, 'render known-good image src without relying on JavaScript');
 assert.match(splash, /if\(staticIds\.length\)begin\(staticIds,staticConfirmed\)/, 'start curated splash image loading immediately');
 assert.match(school, /window\.__yatSplashRoster=/, 'save streamed roster event to prevent missed listeners');
 assert.match(school, /featuredPlayerIds=\{splashOverride\?\.ids \?\? \[\]\}/, 'pass generic school configuration to shared splash');
