@@ -160,14 +160,14 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
   // Render the original Instagram post for all News media, never substitute that thumbnail.
-  const embedShown = Boolean(embedUrl && (externalPosts ? true : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
+  const embedShown = Boolean(embedUrl && (externalPosts ? (isInteractiveNews || !hasPicture) : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
   // be laid out narrower than 326px, so a smaller box scales it down.
   // Social embeds use Instagram's 4:5 frame; News uses the requested 9:16 media viewport. Photos keep their own shape, which
   // Instagram limits to between 1.91:1 and 4:5.
-  const isReel = externalPosts ? /\/(reel|tv)\//.test(current?.permalink || '') : (current?.media_type === 'video' || /\/(reel|tv)\//.test(current?.permalink || ''));
+  const isReel = /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video';
   const pictureShape = current ? aspects[current.id] : undefined;
   // News reels use a 9:16 viewport; standard posts/carousels retain Instagram's post proportions.
   // Social-tab sizing stays unchanged.
