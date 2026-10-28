@@ -298,10 +298,8 @@ async function loadTransactions(
     LEFT JOIN public.teamid_universe_mapping to_lookup
       ON to_lookup.teamid = tim.tbc_teamid::text
     WHERE pt.source = 'mlb_api'
-      AND (
-        pt.created_at > $1::timestamptz
-        OR (pt.created_at = $1::timestamptz AND pt.id > $2::bigint)
-      )
+      AND pt.id > $2::bigint
+      AND pt.created_at >= $1::timestamptz - INTERVAL '2 minutes'
     ORDER BY pt.created_at, pt.id
     LIMIT 250
   `, [createdAfter, afterId || "0"]);
