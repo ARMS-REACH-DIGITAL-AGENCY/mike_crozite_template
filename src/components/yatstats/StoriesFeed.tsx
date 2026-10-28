@@ -506,8 +506,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-main { min-width: 0; }
         .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,300px);gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
         .ysf-story-column {min-width:0;}
-        .ysf-sponsor-column {min-width:0;position:sticky;top:0;align-self:start;z-index:2;}
-        .ysf-sponsor-column .yp-stories-feed-ad {width:100%;max-width:100%;box-sizing:border-box;min-height:clamp(480px,calc(100dvh - var(--pp-dock-h,62px) - 135px),900px);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+        .ysf-sponsor-column {min-width:0;position:sticky;top:var(--ysf-toolbar-offset,78px);align-self:start;z-index:2;}
+        .ysf-sponsor-column .yp-stories-feed-ad {width:100%;max-width:100%;box-sizing:border-box;height:calc(100dvh - var(--pp-dock-h,62px) - 115px);min-height:440px;max-height:900px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
         @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}.ysf-main{padding-top:0}.ysf-tools{margin:0 auto 6px;max-width:100%}}
         
         /* The scroll viewport ends at the fixed profile dock. This physical
@@ -515,7 +515,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
            and interaction row can be scrolled fully above the footer. */
         .ysf-bottom-scroll-clearance { display:block; height:calc(var(--pp-dock-h,62px) + 88px + env(safe-area-inset-bottom)); width:100%; flex:none; pointer-events:none; }
 
-        .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
+        .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;width:100%;max-width:none;margin:0 0 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
         .ysf-tool-row { display:flex;align-items:stretch;min-width:0; }
         .ysf-tool-row-search { display:grid;grid-template-columns:minmax(0,1fr) 38px auto;gap:6px;align-items:center; }
         .ysf-add-btn { display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:43px;padding:7px 10px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.045));box-shadow:inset 0 1px rgba(255,255,255,.14),0 3px 12px rgba(0,0,0,.16);color:var(--ysf-strong);font:800 clamp(10px,2.6vw,14px)/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);cursor:pointer;min-width:0;letter-spacing:.015em; }
