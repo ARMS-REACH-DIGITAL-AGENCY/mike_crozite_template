@@ -30,104 +30,6 @@
   "previews": [
     {
       "recipient": {
-        "email": "pcdaction@gmail.com",
-        "first_name": "Pete",
-        "home_hsid": "5004",
-        "plan": "superfan"
-      },
-      "cadence": "Daily Digest",
-      "period": "2026-10-26",
-      "season_key": "test-2026",
-      "week": 4,
-      "ready_row": "edition_ready (daily, 2026-10-26), ready_at 2026-10-27T17:10:06.272Z, cutoff 2026-10-27T11:00:00.000Z",
-      "subject": "YAT?STATS Daily Digest | Hamilton | Oct 26, 2026",
-      "counts": {
-        "favorites": 40,
-        "favorite_lines": 0,
-        "stories": 2,
-        "scoreboard_filled": 2,
-        "scoreboard_slots": 12,
-        "picks": 0
-      },
-      "warnings": [
-        "Home school has 2 games today (it is in 2 test brackets); the second is in slot 1.",
-        "No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.",
-        "The pick page isn't built: the \"Pick your teams\" link has no address yet."
-      ],
-      "keys": {
-        "daily_stat_lines": [],
-        "daily_game_stories": [
-          [
-            "2026-10-26",
-            5004,
-            1,
-            34
-          ],
-          [
-            "2026-10-26",
-            5004,
-            6,
-            34
-          ]
-        ]
-      },
-      "sponsor": "sponsor-incomplete: no sponsor source approved for the newsletter; nothing printed in the slot",
-      "incomplete_because": [
-        "sponsor-incomplete"
-      ],
-      "complete": false,
-      "html_path": "docs/previews/2026-10-27/daily/pcdaction-gmail-com.html",
-      "text_path": "docs/previews/2026-10-27/daily/pcdaction-gmail-com.txt"
-    },
-    {
-      "recipient": {
-        "email": "pcdaction@gmail.com",
-        "first_name": "Pete",
-        "home_hsid": "5004",
-        "plan": "superfan"
-      },
-      "cadence": "YAT-A-BOY Weekly Tribune",
-      "period": "2026-10-19 to 2026-10-25",
-      "season_key": "test-2026",
-      "week": 3,
-      "ready_row": "edition_ready (weekly, 2026-10-19), ready_at 2026-10-27T18:28:05.921Z, cutoff 2026-10-26T11:00:00.000Z",
-      "subject": "YAT-A-BOY Weekly Tribune | Hamilton (Chandler,AZ) | Week 3, Oct 19-25, 2026",
-      "counts": {
-        "roster": 47,
-        "did_not_play": 46,
-        "box_scores": 2,
-        "league_final_scores": 16,
-        "recap": 0
-      },
-      "warnings": [
-        "Home school played 2 games this week (it is in 2 test brackets): both box scores and both regions' scores are printed.",
-        "No final recap story for 2026-10-25 (the Daily stories start Oct 26), so the optional recap is left out."
-      ],
-      "keys": {
-        "weekly_box_scores": [
-          [
-            "test-2026",
-            1,
-            24
-          ],
-          [
-            "test-2026",
-            6,
-            24
-          ]
-        ],
-        "weekly_player_lines": 47
-      },
-      "sponsor": "sponsor-incomplete: no sponsor source approved for the newsletter; nothing printed in the slot",
-      "incomplete_because": [
-        "sponsor-incomplete"
-      ],
-      "complete": false,
-      "html_path": "docs/previews/2026-10-27/weekly/pcdaction-gmail-com.html",
-      "text_path": "docs/previews/2026-10-27/weekly/pcdaction-gmail-com.txt"
-    },
-    {
-      "recipient": {
         "email": "test1@yatstats.com",
         "first_name": "Test1",
         "home_hsid": "5004",
@@ -136,22 +38,23 @@
       "cadence": "Daily Digest",
       "period": "2026-10-26",
       "season_key": "test-2026",
+      "season_label": "Test Season 1",
+      "region": 1,
       "week": 4,
       "ready_row": "edition_ready (daily, 2026-10-26), ready_at 2026-10-27T17:10:06.272Z, cutoff 2026-10-27T11:00:00.000Z",
       "subject": "YAT?STATS Daily Digest | Hamilton | Oct 26, 2026",
       "counts": {
         "favorites": 6,
         "favorite_lines": 1,
-        "stories": 2,
-        "scoreboard_filled": 2,
+        "stories": 1,
+        "scoreboard_filled": 1,
         "scoreboard_slots": 12,
         "picks": 0
       },
       "warnings": [
-        "Home school has 2 games today (it is in 2 test brackets); the second is in slot 1.",
         "No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.",
         "The pick page isn't built: the \"Pick your teams\" link has no address yet.",
-        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story row."
+        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story or bracket row."
       ],
       "keys": {
         "daily_stat_lines": [
@@ -165,12 +68,6 @@
             "2026-10-26",
             5004,
             1,
-            34
-          ],
-          [
-            "2026-10-26",
-            5004,
-            6,
             34
           ]
         ]
@@ -193,18 +90,19 @@
       "cadence": "YAT-A-BOY Weekly Tribune",
       "period": "2026-10-19 to 2026-10-25",
       "season_key": "test-2026",
+      "season_label": "Test Season 1",
+      "region": 1,
       "week": 3,
       "ready_row": "edition_ready (weekly, 2026-10-19), ready_at 2026-10-27T18:28:05.921Z, cutoff 2026-10-26T11:00:00.000Z",
       "subject": "YAT-A-BOY Weekly Tribune | Hamilton (Chandler,AZ) | Week 3, Oct 19-25, 2026",
       "counts": {
         "roster": 47,
         "did_not_play": 46,
-        "box_scores": 2,
-        "league_final_scores": 16,
+        "box_scores": 1,
+        "league_final_scores": 8,
         "recap": 0
       },
       "warnings": [
-        "Home school played 2 games this week (it is in 2 test brackets): both box scores and both regions' scores are printed.",
         "No final recap story for 2026-10-25 (the Daily stories start Oct 26), so the optional recap is left out.",
         "newsletter_recipients has no home_school_name for this profile: the school name comes from the box score row."
       ],
@@ -213,11 +111,6 @@
           [
             "test-2026",
             1,
-            24
-          ],
-          [
-            "test-2026",
-            6,
             24
           ]
         ],
@@ -241,9 +134,11 @@
       "cadence": "Daily Digest",
       "period": "2026-10-26",
       "season_key": "test-2026",
+      "season_label": "Test Season 2",
+      "region": 2,
       "week": 4,
       "ready_row": "edition_ready (daily, 2026-10-26), ready_at 2026-10-27T17:10:06.272Z, cutoff 2026-10-27T11:00:00.000Z",
-      "subject": "YAT?STATS Daily Digest | School 7737 | Oct 26, 2026",
+      "subject": "YAT?STATS Daily Digest | St. John's Prep (Danvers,MA) | Oct 26, 2026",
       "counts": {
         "favorites": 19,
         "favorite_lines": 3,
@@ -253,10 +148,11 @@
         "picks": 0
       },
       "warnings": [
+        "St. John's Prep (Danvers,MA) has no game today in Test Season 2 (its Round 1 series is over), so the home slot is blank.",
         "No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.",
         "The pick page isn't built: the \"Pick your teams\" link has no address yet.",
         "No game story for the home school today: the section is left out.",
-        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story row."
+        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story or bracket row."
       ],
       "keys": {
         "daily_stat_lines": [
@@ -293,6 +189,8 @@
       "cadence": "YAT-A-BOY Weekly Tribune",
       "period": "2026-10-19 to 2026-10-25",
       "season_key": "test-2026",
+      "season_label": "Test Season 2",
+      "region": 2,
       "week": 3,
       "ready_row": "edition_ready (weekly, 2026-10-19), ready_at 2026-10-27T18:28:05.921Z, cutoff 2026-10-26T11:00:00.000Z",
       "subject": "YAT-A-BOY Weekly Tribune | St. John's Prep (Danvers,MA) | Week 3, Oct 19-25, 2026",
@@ -335,6 +233,8 @@
       "cadence": "Daily Digest",
       "period": "2026-10-26",
       "season_key": "test-2026",
+      "season_label": "Test Season 3",
+      "region": 3,
       "week": 4,
       "ready_row": "edition_ready (daily, 2026-10-26), ready_at 2026-10-27T17:10:06.272Z, cutoff 2026-10-27T11:00:00.000Z",
       "subject": "YAT?STATS Daily Digest | Grain Valley | Oct 26, 2026",
@@ -349,7 +249,7 @@
       "warnings": [
         "No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.",
         "The pick page isn't built: the \"Pick your teams\" link has no address yet.",
-        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story row."
+        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story or bracket row."
       ],
       "keys": {
         "daily_stat_lines": [
@@ -389,18 +289,19 @@
       "cadence": "YAT-A-BOY Weekly Tribune",
       "period": "2026-10-19 to 2026-10-25",
       "season_key": "test-2026",
+      "season_label": "Test Season 3",
+      "region": 3,
       "week": 3,
       "ready_row": "edition_ready (weekly, 2026-10-19), ready_at 2026-10-27T18:28:05.921Z, cutoff 2026-10-26T11:00:00.000Z",
       "subject": "YAT-A-BOY Weekly Tribune | Grain Valley (Grain Valley,MO) | Week 3, Oct 19-25, 2026",
       "counts": {
         "roster": 12,
         "did_not_play": 11,
-        "box_scores": 2,
-        "league_final_scores": 16,
+        "box_scores": 1,
+        "league_final_scores": 8,
         "recap": 0
       },
       "warnings": [
-        "Home school played 2 games this week (it is in 2 test brackets): both box scores and both regions' scores are printed.",
         "No final recap story for 2026-10-25 (the Daily stories start Oct 26), so the optional recap is left out.",
         "newsletter_recipients has no home_school_name for this profile: the school name comes from the box score row."
       ],
@@ -410,11 +311,6 @@
             "test-2026",
             3,
             3
-          ],
-          [
-            "test-2026",
-            4,
-            21
           ]
         ],
         "weekly_player_lines": 12
@@ -437,22 +333,23 @@
       "cadence": "Daily Digest",
       "period": "2026-10-26",
       "season_key": "test-2026",
+      "season_label": "Test Season 4",
+      "region": 4,
       "week": 4,
       "ready_row": "edition_ready (daily, 2026-10-26), ready_at 2026-10-27T17:10:06.272Z, cutoff 2026-10-27T11:00:00.000Z",
       "subject": "YAT?STATS Daily Digest | Saint John's | Oct 26, 2026",
       "counts": {
         "favorites": 19,
         "favorite_lines": 5,
-        "stories": 2,
-        "scoreboard_filled": 2,
+        "stories": 1,
+        "scoreboard_filled": 1,
         "scoreboard_slots": 12,
         "picks": 0
       },
       "warnings": [
-        "Home school has 2 games today (it is in 2 test brackets); the second is in slot 1.",
         "No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.",
         "The pick page isn't built: the \"Pick your teams\" link has no address yet.",
-        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story row."
+        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story or bracket row."
       ],
       "keys": {
         "daily_stat_lines": [
@@ -481,12 +378,6 @@
           [
             "2026-10-26",
             7733,
-            2,
-            31
-          ],
-          [
-            "2026-10-26",
-            7733,
             4,
             31
           ]
@@ -510,28 +401,24 @@
       "cadence": "YAT-A-BOY Weekly Tribune",
       "period": "2026-10-19 to 2026-10-25",
       "season_key": "test-2026",
+      "season_label": "Test Season 4",
+      "region": 4,
       "week": 3,
       "ready_row": "edition_ready (weekly, 2026-10-19), ready_at 2026-10-27T18:28:05.921Z, cutoff 2026-10-26T11:00:00.000Z",
       "subject": "YAT-A-BOY Weekly Tribune | Saint John's (Shrewsbury,MA) | Week 3, Oct 19-25, 2026",
       "counts": {
         "roster": 15,
         "did_not_play": 14,
-        "box_scores": 2,
-        "league_final_scores": 16,
+        "box_scores": 1,
+        "league_final_scores": 8,
         "recap": 0
       },
       "warnings": [
-        "Home school played 2 games this week (it is in 2 test brackets): both box scores and both regions' scores are printed.",
         "No final recap story for 2026-10-25 (the Daily stories start Oct 26), so the optional recap is left out.",
         "newsletter_recipients has no home_school_name for this profile: the school name comes from the box score row."
       ],
       "keys": {
         "weekly_box_scores": [
-          [
-            "test-2026",
-            2,
-            15
-          ],
           [
             "test-2026",
             4,
@@ -558,9 +445,11 @@
       "cadence": "Daily Digest",
       "period": "2026-10-26",
       "season_key": "test-2026",
+      "season_label": "Test Season 5",
+      "region": 5,
       "week": 4,
       "ready_row": "edition_ready (daily, 2026-10-26), ready_at 2026-10-27T17:10:06.272Z, cutoff 2026-10-27T11:00:00.000Z",
-      "subject": "YAT?STATS Daily Digest | School 1613 | Oct 26, 2026",
+      "subject": "YAT?STATS Daily Digest | Parkview (Lilburn,GA) | Oct 26, 2026",
       "counts": {
         "favorites": 18,
         "favorite_lines": 4,
@@ -570,10 +459,11 @@
         "picks": 0
       },
       "warnings": [
+        "Parkview (Lilburn,GA) has no game today in Test Season 5 (its Round 1 series is over), so the home slot is blank.",
         "No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.",
         "The pick page isn't built: the \"Pick your teams\" link has no address yet.",
         "No game story for the home school today: the section is left out.",
-        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story row."
+        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story or bracket row."
       ],
       "keys": {
         "daily_stat_lines": [
@@ -614,28 +504,24 @@
       "cadence": "YAT-A-BOY Weekly Tribune",
       "period": "2026-10-19 to 2026-10-25",
       "season_key": "test-2026",
+      "season_label": "Test Season 5",
+      "region": 5,
       "week": 3,
       "ready_row": "edition_ready (weekly, 2026-10-19), ready_at 2026-10-27T18:28:05.921Z, cutoff 2026-10-26T11:00:00.000Z",
       "subject": "YAT-A-BOY Weekly Tribune | Parkview (Lilburn,GA) | Week 3, Oct 19-25, 2026",
       "counts": {
         "roster": 24,
         "did_not_play": 23,
-        "box_scores": 2,
-        "league_final_scores": 16,
+        "box_scores": 1,
+        "league_final_scores": 8,
         "recap": 0
       },
       "warnings": [
-        "Home school played 2 games this week (it is in 2 test brackets): both box scores and both regions' scores are printed.",
         "No final recap story for 2026-10-25 (the Daily stories start Oct 26), so the optional recap is left out.",
         "newsletter_recipients has no home_school_name for this profile: the school name comes from the box score row."
       ],
       "keys": {
         "weekly_box_scores": [
-          [
-            "test-2026",
-            2,
-            21
-          ],
           [
             "test-2026",
             5,
@@ -662,21 +548,25 @@
       "cadence": "Daily Digest",
       "period": "2026-10-26",
       "season_key": "test-2026",
+      "season_label": "Test Season 6",
+      "region": 6,
       "week": 4,
       "ready_row": "edition_ready (daily, 2026-10-26), ready_at 2026-10-27T17:10:06.272Z, cutoff 2026-10-27T11:00:00.000Z",
-      "subject": "YAT?STATS Daily Digest | Mira Costa | Oct 26, 2026",
+      "subject": "YAT?STATS Daily Digest | Mira Costa (Manhattan Beach,CA) | Oct 26, 2026",
       "counts": {
         "favorites": 4,
         "favorite_lines": 1,
-        "stories": 1,
-        "scoreboard_filled": 1,
+        "stories": 0,
+        "scoreboard_filled": 0,
         "scoreboard_slots": 12,
         "picks": 0
       },
       "warnings": [
+        "Mira Costa (Manhattan Beach,CA) has no game today in Test Season 6 (its Round 1 series is over), so the home slot is blank.",
         "No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.",
         "The pick page isn't built: the \"Pick your teams\" link has no address yet.",
-        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story row."
+        "No game story for the home school today: the section is left out.",
+        "newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story or bracket row."
       ],
       "keys": {
         "daily_stat_lines": [
@@ -685,14 +575,7 @@
             "63336"
           ]
         ],
-        "daily_game_stories": [
-          [
-            "2026-10-26",
-            1546,
-            1,
-            31
-          ]
-        ]
+        "daily_game_stories": []
       },
       "sponsor": "sponsor-incomplete: no sponsor source approved for the newsletter; nothing printed in the slot",
       "incomplete_because": [
@@ -712,28 +595,24 @@
       "cadence": "YAT-A-BOY Weekly Tribune",
       "period": "2026-10-19 to 2026-10-25",
       "season_key": "test-2026",
+      "season_label": "Test Season 6",
+      "region": 6,
       "week": 3,
       "ready_row": "edition_ready (weekly, 2026-10-19), ready_at 2026-10-27T18:28:05.921Z, cutoff 2026-10-26T11:00:00.000Z",
       "subject": "YAT-A-BOY Weekly Tribune | Mira Costa (Manhattan Beach,CA) | Week 3, Oct 19-25, 2026",
       "counts": {
         "roster": 20,
         "did_not_play": 20,
-        "box_scores": 2,
-        "league_final_scores": 16,
+        "box_scores": 1,
+        "league_final_scores": 8,
         "recap": 0
       },
       "warnings": [
-        "Home school played 2 games this week (it is in 2 test brackets): both box scores and both regions' scores are printed.",
         "No final recap story for 2026-10-25 (the Daily stories start Oct 26), so the optional recap is left out.",
         "newsletter_recipients has no home_school_name for this profile: the school name comes from the box score row."
       ],
       "keys": {
         "weekly_box_scores": [
-          [
-            "test-2026",
-            1,
-            15
-          ],
           [
             "test-2026",
             6,

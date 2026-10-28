@@ -207,11 +207,14 @@ CREATE TABLE daily_game_stories (
 
 - **Row identity:** `(stats_date, hsid, region, game_id)`. Every game gets
   two rows a day, one from each school's side, about its own players.
-  - In 2027 a school plays one game a week, so it has at most one row a
-    day.
-  - **In the test season a school can be in two brackets at once** (the six
-    test brackets share 69 schools; Hamilton is in Regions 1 and 6), so it
-    can have two rows a day. Print each one, in `region, game_id` order.
+  - A fan follows **one season** (one bracket), so the newsletter reads only
+    that bracket's rows: `season_key` and `region` always go with `hsid`.
+    In 2027 a school is in one bracket and plays one game a week.
+  - **The October test is six separate test seasons** stored as Regions 1-6
+    of `test-2026`. Each is its own tournament; a school in two of them
+    (Hamilton is in Test Seasons 1 and 6) is two separate entries. Each
+    test fan follows one: test1@yatstats.com Test Season 1 ...
+    test6@yatstats.com Test Season 6 (Pete, Oct 27). Never combine them.
 - **The day's stats and the inning:**
   - Monday's stats are inning 1 (Tuesday's Daily); Wednesday's stats are
     inning 3 (Thursday's Daily); Sunday's are inning 7.
@@ -380,9 +383,9 @@ existing logic; this contract doesn't change it.
      and a link to pick some;
    - **favorites, zero rows:** print "None of your players were in action
      yesterday."
-3. **The home school's game story:** the `daily_game_stories` rows for
-   `(D, home_hsid)`, in `region, game_id` order: one in 2027, up to two in
-   the test season (4.3). If there's no row, leave out the section.
+3. **The home school's game story:** the `daily_game_stories` row for
+   `(D, home_hsid)` in the fan's own season and bracket (4.3). At most one.
+   If there's no row, leave out the section.
 4. **The scoreboard** (12 slots, laid out like Wrigley Field's):
    1. **Home slot,** bottom left between red lines: the `daily_game_scores`
       row for `D` with `home_hsid` in `(home_hsid, away_hsid)`. If there's
@@ -412,10 +415,9 @@ existing logic; this contract doesn't change it.
 2. **The full home roster:** `weekly_player_lines` for `(M, home_hsid)`,
    in `sort_key` order.
 3. **The home game's box score:** the `weekly_box_scores` row for
-   `(season_key, week)` with `home_hsid` in `(home_hsid, away_hsid)`. In
-   2027 there is at most one; in the test season a school in two brackets
-   has two (print both, in `region, game_id` order, and the league scores
-   for both regions). If there's none, leave out the section.
+   `(season_key, week)` in the fan's own bracket (`region`), with
+   `home_hsid` in `(home_hsid, away_hsid)`. At most one. If there's none,
+   leave out the section.
 4. **The recap** (optional; Pete decides whether the Weekly prints it): the
    home school's final story, `daily_game_stories` for
    `(period_end, home_hsid)` with `is_final`.
@@ -619,10 +621,10 @@ SELECT l.stats_date, l.stat_line_id, l.line
    AND l.playerid IN (SELECT f.playerid FROM newsletter_favorites f WHERE f.firebase_uid = $1)
  ORDER BY l.sort_key;
 
--- 3. The home school's story (two rows for Hamilton in the test: Regions 1 and 6).
+-- 3. The home school's story, in the fan's own bracket (test1: Test Season 1 = region 1).
 SELECT * FROM daily_game_stories
  WHERE stats_date = DATE '2026-10-26' AND hsid = 5004
- ORDER BY region, game_id;
+   AND season_key = 'test-2026' AND region = 1;
 
 -- 4. Scoreboard, home slot.
 SELECT * FROM daily_game_scores

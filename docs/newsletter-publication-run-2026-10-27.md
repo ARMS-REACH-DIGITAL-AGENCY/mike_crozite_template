@@ -8,6 +8,29 @@ schedule, no merge, no HighLevel call.
 The contract is `docs/newsletter-handoff-take-two.md`; Pete's rules are in
 `docs/decisions-2026-10-27.md`.
 
+> **Update (Pete, Oct 27): one test season per fan.** Each test bracket is
+> its own season-long tournament. The previews are now **12, for six
+> recipients**, and pcdaction@gmail.com gets none:
+>
+> - **test1@yatstats.com through test6@yatstats.com** each follow the test
+>   season with their number (`--seasons`).
+> - **Each preview reads only its own season's rows:** one game story and
+>   one box score at most, and that bracket's 8 final scores.
+> - **Where this report says otherwise,** this note wins: the two-bracket
+>   rows in the tables below, item 13's "two games at once", and the seven
+>   recipients.
+> - **What didn't change:** the production rows. The pipeline already
+>   scored and stored each bracket separately.
+>
+> | Recipient | Season | Daily: favorite lines, story, home game | Weekly: roster (did not play), box, league finals |
+> |---|---|---|---|
+> | test1 | Test Season 1, Hamilton | 1, 1, vs. Henry B. Plant | 47 (46), 1, 8 |
+> | test2 | Test Season 2, St. John's Prep | 3, 0, none (out after Round 1) | 19 (19), 1, 8 |
+> | test3 | Test Season 3, Grain Valley | 2, 1, vs. St. Pius X | 12 (11), 1, 8 |
+> | test4 | Test Season 4, Saint John's | 5, 1, vs. Gulliver Prep | 15 (14), 1, 8 |
+> | test5 | Test Season 5, Parkview | 4, 0, none (out after Round 1) | 24 (23), 1, 8 |
+> | test6 | Test Season 6, Mira Costa | 1, 0, none (out after Round 1) | 20 (20), 1, 8 |
+
 ## 1. Branch and commits
 
 Branch `ccr-0ad18095-umgndf`:

@@ -86,6 +86,15 @@ says otherwise.
 - Tests 1-6 stay as they are. Tests 1A-6A run the new way (reading stored
   results) with the same schools and the same data. They should match tests
   1-6 apart from known timing differences.
+- **Each test bracket is its own season-long tournament**, independent of
+  the others (Pete, Oct 27). The six run at the same time (Oct 5 to Oct 31)
+  but are never intertwined. A school in two test brackets is two separate
+  entries in two separate seasons.
+- **Each test fan follows one test season**, and every newsletter reports
+  only that season, exactly as a 2027 fan's will:
+  - test1@yatstats.com: Test Season 1, ..., test6@yatstats.com: Test Season 6
+    (each one's home school is in the bracket with its number);
+  - pcdaction@gmail.com gets no test newsletter.
 
 ## Daily Digest (every morning after the cutoff)
 

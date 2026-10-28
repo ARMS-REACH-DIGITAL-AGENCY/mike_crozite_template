@@ -8,7 +8,15 @@
 // tables, master_bracket and the two fan views):
 //
 //   DATABASE_URL=... npx --yes tsx scripts/newsletter-preview.ts \
-//     --daily 2026-10-26 --weekly 2026-10-19 --out <dir> --emails a@x.com,b@y.com
+//     --daily 2026-10-26 --weekly 2026-10-19 --out <dir> --emails a@x.com,b@y.com \
+//     [--seasons a@x.com=1,b@y.com=6]
+//
+// Each recipient follows ONE season: one bracket, a season-long tournament
+// on its own (Pete, Oct 27). The six October test brackets are six separate
+// test seasons that run at the same time; they are stored as regions 1-6 of
+// season test-2026, and --seasons says which one each test recipient follows.
+// Without it, the recipient's home school must be in exactly one bracket (as
+// every school is in 2027). Every row printed comes from that bracket only.
 //
 // For each recipient it writes <dir>/daily/<name>.html|.txt and
 // <dir>/weekly/<name>.html|.txt, and <dir>/report.json with every preview's
@@ -44,42 +52,62 @@ async function ready(db: Client, cadence: 'daily' | 'weekly', start: string) {
   return r.rows[0];
 }
 
-async function readDaily(db: Client, D: string, who: R) {
+type Season = { season_key: string; region: number; label: string; school: string | null };
+
+// The one bracket this recipient follows: the --seasons assignment, checked
+// against master_bracket, or else the only bracket the home school is in.
+async function seasonOf(db: Client, seasonKey: string, who: R, assigned?: number): Promise<Season> {
+  const home = Number(who.home_hsid);
+  const rows = (await db.query(
+    `SELECT region, min(CASE WHEN home_hsid = $2 THEN home_school_name ELSE away_school_name END) AS school
+       FROM master_bracket
+      WHERE season_key = $1 AND stage = 'bracket' AND $2 IN (home_hsid, away_hsid)
+      GROUP BY region ORDER BY region`, [seasonKey, home])).rows;
+  const regions = rows.map((r) => Number(r.region));
+  const region = assigned ?? (regions.length === 1 ? regions[0] : undefined);
+  if (region === undefined) throw new Error(`${who.email}: home school ${home} is in ${regions.length} brackets of ${seasonKey} (${regions.join(', ') || 'none'}); assign one with --seasons`);
+  if (!regions.includes(region)) throw new Error(`${who.email}: home school ${home} is not in bracket ${region} of ${seasonKey}`);
+  return {
+    season_key: seasonKey, region,
+    label: seasonKey.startsWith('test') ? `Test Season ${region}` : `Region ${region}`,
+    school: rows.find((r) => Number(r.region) === region)?.school ?? null,
+  };
+}
+
+async function readDaily(db: Client, D: string, who: R, s: Season) {
   const home = Number(who.home_hsid);
   const favorites = Number((await db.query('SELECT count(*) FROM newsletter_favorites WHERE firebase_uid = $1', [who.firebase_uid])).rows[0].count);
   const lines = (await db.query(
     `SELECT l.stats_date, l.stat_line_id, l.line FROM daily_stat_lines l
       WHERE l.stats_date = $1 AND l.playerid IN (SELECT f.playerid FROM newsletter_favorites f WHERE f.firebase_uid = $2)
       ORDER BY l.sort_key`, [D, who.firebase_uid])).rows;
-  // A school can be in two test brackets at once, so up to two stories and
-  // two home games; in 2027 there is one of each.
-  const stories = (await db.query('SELECT * FROM daily_game_stories WHERE stats_date = $1 AND hsid = $2 ORDER BY region, game_id', [D, home])).rows;
-  const homeGames = (await db.query('SELECT * FROM daily_game_scores WHERE stats_date = $1 AND $2 IN (home_hsid, away_hsid) ORDER BY region, game_id', [D, home])).rows;
+  // Only the recipient's own bracket: at most one game, one story.
+  const stories = (await db.query('SELECT * FROM daily_game_stories WHERE stats_date = $1 AND hsid = $2 AND season_key = $3 AND region = $4', [D, home, s.season_key, s.region])).rows;
+  const homeGames = (await db.query('SELECT * FROM daily_game_scores WHERE stats_date = $1 AND season_key = $2 AND region = $3 AND $4 IN (home_hsid, away_hsid)', [D, s.season_key, s.region, home])).rows;
   const picks = (await db.query(
     `SELECT p.position, p.hsid, p.label, g.season_key, g.region, g.game_id, g.home_label, g.away_label, g.home_innings, g.away_innings,
             g.home_runs, g.away_runs, g.through_inning, g.is_final
        FROM user_scoreboard_schools p
-       LEFT JOIN daily_game_scores g ON g.stats_date = $1 AND p.hsid IN (g.home_hsid, g.away_hsid)
-      WHERE p.firebase_uid = $2 ORDER BY p.position`, [D, who.firebase_uid])).rows;
+       LEFT JOIN daily_game_scores g ON g.stats_date = $1 AND g.season_key = $3 AND g.region = $4 AND p.hsid IN (g.home_hsid, g.away_hsid)
+      WHERE p.firebase_uid = $2 ORDER BY p.position`, [D, who.firebase_uid, s.season_key, s.region])).rows;
+  if (stories.length > 1 || homeGames.length > 1) throw new Error(`${who.email}: more than one game for school ${home} in ${s.label} on ${D}`);
   return { favorites, lines, stories, homeGames, picks };
 }
 
-async function readWeekly(db: Client, M: string, ed: R, who: R) {
+async function readWeekly(db: Client, M: string, ed: R, who: R, s: Season) {
   const home = Number(who.home_hsid);
   const roster = (await db.query('SELECT playerid, games, line FROM weekly_player_lines WHERE period_start = $1 AND hsid = $2 ORDER BY sort_key', [M, home])).rows;
-  const boxes = (await db.query('SELECT * FROM weekly_box_scores WHERE season_key = $1 AND week = $2 AND $3 IN (home_hsid, away_hsid) ORDER BY region, game_id', [ed.season_key, ed.week, home])).rows;
-  const recap = (await db.query('SELECT title, story, shout_outs, region, game_id FROM daily_game_stories WHERE stats_date = $1 AND hsid = $2 AND is_final ORDER BY region, game_id', [ed.period_end, home])).rows;
-  const league: R[] = [];
-  for (const b of boxes) {
-    const games = (await db.query(
-      `SELECT m.region, m.game_id, m.home_school_name, m.home_runs, m.away_school_name, m.away_runs, m.decided_by
-         FROM master_bracket m
-        WHERE m.season_key = $1 AND m.stage = 'bracket' AND m.week = $2 AND m.region = $3
-          AND m.status = 'final' AND m.locked_at IS NOT NULL
-        ORDER BY m.series_no, m.game_no`, [ed.season_key, ed.week, b.region])).rows;
-    league.push({ region: b.region, games });
-  }
-  return { roster, boxes, recap, league };
+  const boxes = (await db.query('SELECT * FROM weekly_box_scores WHERE season_key = $1 AND week = $2 AND region = $3 AND $4 IN (home_hsid, away_hsid)', [s.season_key, ed.week, s.region, home])).rows;
+  const recap = (await db.query('SELECT title, story, shout_outs, region, game_id FROM daily_game_stories WHERE stats_date = $1 AND hsid = $2 AND season_key = $3 AND region = $4 AND is_final', [ed.period_end, home, s.season_key, s.region])).rows;
+  if (boxes.length > 1) throw new Error(`${who.email}: more than one box score for school ${home} in ${s.label}, week ${ed.week}`);
+  // The league is the recipient's bracket: its games that week, final and locked.
+  const games = (await db.query(
+    `SELECT m.region, m.game_id, m.home_school_name, m.home_runs, m.away_school_name, m.away_runs, m.decided_by
+       FROM master_bracket m
+      WHERE m.season_key = $1 AND m.stage = 'bracket' AND m.week = $2 AND m.region = $3
+        AND m.status = 'final' AND m.locked_at IS NOT NULL
+      ORDER BY m.series_no, m.game_no`, [s.season_key, ed.week, s.region])).rows;
+  return { roster, boxes, recap, league: games.length ? [{ region: s.region, games }] : [] };
 }
 
 // ---------- Renderer: layout only ----------
@@ -98,7 +126,7 @@ function previewPanel(p: R) {
 ${row('Recipient', `${esc(p.recipient.email)} (${esc(p.recipient.first_name)}, home_hsid ${esc(p.recipient.home_hsid)}, plan ${esc(p.recipient.plan)})`)}
 ${row('Cadence', esc(p.cadence))}
 ${row('Period', esc(p.period))}
-${row('Season / week', `${esc(p.season_key)}, week ${esc(p.week)}`)}
+${row('Season / week', `${esc(p.season_key)}, <b>${esc(p.season_label)}</b>, week ${esc(p.week)}`)}
 ${row('Ready row', esc(p.ready_row))}
 ${row('Subject', `<b>${esc(p.subject)}</b>`)}
 ${row('Counts', esc(Object.entries(p.counts).map(([k, v]) => `${k} ${v}`).join(', ')))}
@@ -229,22 +257,24 @@ function lineScoreText(b: R) {
 
 // ---------- One Daily ----------
 
-function renderDaily(ed: R, who: R, d: Awaited<ReturnType<typeof readDaily>>) {
+// " · Test Season 6" under the masthead of a test edition, so a tester knows
+// which season it reports; nothing in 2027.
+const seasonNote = (s: Season) => (s.season_key.startsWith('test') ? ` · ${s.label}` : '');
+
+function renderDaily(ed: R, who: R, d: Awaited<ReturnType<typeof readDaily>>, s: Season) {
   const D = ed.period_start;
-  const school = d.stories[0]?.school_name ?? who.home_school_name ?? `School ${who.home_hsid}`;
+  const school = d.stories[0]?.school_name ?? s.school ?? who.home_school_name ?? `School ${who.home_hsid}`;
   const subject = `YAT?STATS Daily Digest | ${school} | ${shortDate(D)}`;
   const warnings: string[] = [];
 
   // The board: the home game in the home slot; slots 1-11 are the fan's
-  // picks, each game once. A second home game (test season only) goes in the
-  // first open slot.
+  // picks from the same season, each game once.
   const onBoard = new Set<string>();
   const key = (g: R) => `${g.season_key}/${g.region}/${g.game_id}`;
   const homeGame = d.homeGames[0] ?? null;
   if (homeGame) onBoard.add(key(homeGame));
   const slots: ({ game: R | null; label?: string } | null)[] = Array(11).fill(null);
   let next = 0;
-  for (const g of d.homeGames.slice(1)) { slots[next++] = { game: g }; onBoard.add(key(g)); }
   for (const p of d.picks) {
     if (next >= 11) break;
     if (p.game_id != null) {
@@ -254,11 +284,11 @@ function renderDaily(ed: R, who: R, d: Awaited<ReturnType<typeof readDaily>>) {
     } else slots[next++] = { game: null, label: p.label };
   }
   const empty = slots.filter((s) => !s).length;
-  if (d.homeGames.length > 1) warnings.push(`Home school has ${d.homeGames.length} games today (it is in ${d.homeGames.length} test brackets); the second is in slot 1.`);
+  if (!homeGame) warnings.push(`${school} has no game today in ${s.label} (its Round 1 series is over), so the home slot is blank.`);
   if (!d.picks.length) warnings.push('No scoreboard picks saved (user_scoreboard_schools is empty): the 11 pick slots are blank with the invitation.');
   if (empty && !PICK_PAGE) warnings.push("The pick page isn't built: the \"Pick your teams\" link has no address yet.");
   if (!d.stories.length) warnings.push('No game story for the home school today: the section is left out.');
-  if (!who.home_school_name) warnings.push('newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story row.');
+  if (!who.home_school_name) warnings.push('newsletter_recipients has no home_school_name for this profile: the school name comes from the finished story or bracket row.');
 
   const favHtml = d.favorites === 0
     ? `<p>You haven't picked any favorites yet. <a href="${SITE}">Pick some</a>.</p>`
@@ -277,7 +307,7 @@ ${s.shout_outs.length ? `<div style="font:13px Arial,Helvetica,sans-serif"><b>Sh
     ...(s.shout_outs.length ? [`Shout-outs: ${s.shout_outs.map((o: R) => o.line).join('; ')}`] : [])].join('\n')).join('\n\n');
 
   const body = [
-    masthead('YAT?STATS Daily Digest', `${longDate(D)} · ${school}`),
+    masthead('YAT?STATS Daily Digest', `${longDate(D)} · ${school}${seasonNote(s)}`),
     `<p style="margin:16px 0 0">Good morning, ${esc(who.first_name)}.</p>`,
     h2('Your players yesterday'), favHtml,
     d.stories.length ? h2(`${school} on the bracket`) + storyHtml : '',
@@ -285,7 +315,7 @@ ${s.shout_outs.length ? `<div style="font:13px Arial,Helvetica,sans-serif"><b>Sh
   ].join('\n');
 
   const text = [
-    `YAT?STATS DAILY DIGEST`, `${longDate(D)} · ${school}`, '',
+    `YAT?STATS DAILY DIGEST`, `${longDate(D)} · ${school}${seasonNote(s)}`, '',
     `Good morning, ${who.first_name}.`, '',
     'YOUR PLAYERS YESTERDAY', favText, '',
     ...(d.stories.length ? [`${school.toUpperCase()} ON THE BRACKET`, storyText, ''] : []),
@@ -308,14 +338,13 @@ ${s.shout_outs.length ? `<div style="font:13px Arial,Helvetica,sans-serif"><b>Sh
 
 // ---------- One Weekly ----------
 
-function renderWeekly(ed: R, who: R, w: Awaited<ReturnType<typeof readWeekly>>) {
+function renderWeekly(ed: R, who: R, w: Awaited<ReturnType<typeof readWeekly>>, s: Season) {
   const home = Number(who.home_hsid);
   const nameFromBox = w.boxes[0] ? (w.boxes[0].home_hsid === home ? w.boxes[0].home_name : w.boxes[0].away_name) : null;
-  const school = nameFromBox ?? who.home_school_name ?? `School ${who.home_hsid}`;
+  const school = nameFromBox ?? s.school ?? who.home_school_name ?? `School ${who.home_hsid}`;
   const period = `${monthDay(ed.period_start)}-${monthDay(ed.period_end).replace(/^[A-Za-z]+ /, '')}, ${ed.period_end.slice(0, 4)}`;
   const subject = `YAT-A-BOY Weekly Tribune | ${school} | Week ${ed.week}, ${period}`;
   const warnings: string[] = [];
-  if (w.boxes.length > 1) warnings.push(`Home school played ${w.boxes.length} games this week (it is in ${w.boxes.length} test brackets): both box scores and both regions' scores are printed.`);
   if (!w.boxes.length) warnings.push('No box score for the home school this week: the section is left out.');
   if (!w.recap.length) warnings.push(`No final recap story for ${ed.period_end} (the Daily stories start Oct 26), so the optional recap is left out.`);
   if (!who.home_school_name) warnings.push('newsletter_recipients has no home_school_name for this profile: the school name comes from the box score row.');
@@ -323,27 +352,27 @@ function renderWeekly(ed: R, who: R, w: Awaited<ReturnType<typeof readWeekly>>) 
 
   const boxHtml = w.boxes.map((b) => `<div style="margin:0 0 18px">
 <div style="font-size:18px;font-weight:bold">${esc(b.away_name)} at ${esc(b.home_name)}</div>
-<div style="font:12px Arial,Helvetica,sans-serif;color:#555;margin:2px 0 4px">${esc(b.round_name)}, Game ${esc(b.game_no)} · Region ${esc(b.region)} · ${esc(b.decision)}</div>
+<div style="font:12px Arial,Helvetica,sans-serif;color:#555;margin:2px 0 4px">${esc(b.round_name)}, Game ${esc(b.game_no)} · ${esc(s.label)} · ${esc(b.decision)}</div>
 ${lineScoreHtml(b)}
 ${boxTableHtml(b.away_batting, `${b.away_name} batting`)}
 ${boxTableHtml(b.home_batting, `${b.home_name} batting`)}
 ${boxTableHtml(b.away_pitching, `${b.away_name} pitching`)}
 ${boxTableHtml(b.home_pitching, `${b.home_name} pitching`)}
 ${[...b.extra_base_hits.away, ...b.extra_base_hits.home].length ? `<div style="font:12px Arial,Helvetica,sans-serif;margin-top:6px"><b>Extra-base hits:</b> ${[...b.extra_base_hits.away, ...b.extra_base_hits.home].map(esc).join('; ')}</div>` : ''}</div>`).join('');
-  const boxText = w.boxes.map((b) => [`${b.away_name} at ${b.home_name}`, `${b.round_name}, Game ${b.game_no} · Region ${b.region} · ${b.decision}`, '',
+  const boxText = w.boxes.map((b) => [`${b.away_name} at ${b.home_name}`, `${b.round_name}, Game ${b.game_no} · ${s.label} · ${b.decision}`, '',
     lineScoreText(b), '', boxTableText(b.away_batting, `${b.away_name} batting`), '', boxTableText(b.home_batting, `${b.home_name} batting`), '',
     boxTableText(b.away_pitching, `${b.away_name} pitching`), '', boxTableText(b.home_pitching, `${b.home_name} pitching`),
     ...([...b.extra_base_hits.away, ...b.extra_base_hits.home].length ? ['', `Extra-base hits: ${[...b.extra_base_hits.away, ...b.extra_base_hits.home].join('; ')}`] : [])].join('\n')).join('\n\n');
 
   const leagueLine = (g: R) => `${g.away_school_name} ${g.away_runs}, ${g.home_school_name} ${g.home_runs}${g.decided_by === 'commissioner' ? " (Commissioner's decision)" : ''}`;
-  const leagueHtml = w.league.map((l) => `<div style="font:bold 13px Arial,Helvetica,sans-serif;margin:8px 0 4px">Region ${esc(l.region)}</div>
+  const leagueHtml = w.league.map((l) => `<div style="font:bold 13px Arial,Helvetica,sans-serif;margin:8px 0 4px">${esc(s.label)}</div>
 <ul style="margin:0;padding-left:18px;font:13px Arial,Helvetica,sans-serif;line-height:1.6">${l.games.map((g: R) => `<li>${esc(leagueLine(g))}</li>`).join('')}</ul>`).join('');
-  const leagueText = w.league.map((l) => [`Region ${l.region}`, ...l.games.map((g: R) => `- ${leagueLine(g)}`)].join('\n')).join('\n\n');
+  const leagueText = w.league.map((l) => [s.label, ...l.games.map((g: R) => `- ${leagueLine(g)}`)].join('\n')).join('\n\n');
 
   const body = [
-    masthead('YAT-A-BOY Weekly Tribune', `Week ${ed.week} · ${period} · ${school}`),
+    masthead('YAT-A-BOY Weekly Tribune', `Week ${ed.week} · ${period} · ${school}${seasonNote(s)}`),
     `<p style="margin:16px 0 0">${esc(who.first_name)}, here's how ${esc(school)} and its alumni did this week.</p>`,
-    w.boxes.length ? h2(w.boxes.length > 1 ? 'The box scores' : 'The box score') + boxHtml : '',
+    w.boxes.length ? h2('The box score') + boxHtml : '',
     h2(`The full ${school} roster`),
     `<ul style="margin:0;padding-left:18px;line-height:1.55;font-size:14px">${w.roster.map((r) => `<li>${esc(r.line)}</li>`).join('')}</ul>`,
     w.league.length ? h2('Scores around the league') + leagueHtml : '',
@@ -351,9 +380,9 @@ ${[...b.extra_base_hits.away, ...b.extra_base_hits.home].length ? `<div style="f
   ].join('\n');
 
   const text = [
-    'YAT-A-BOY WEEKLY TRIBUNE', `Week ${ed.week} · ${period} · ${school}`, '',
+    'YAT-A-BOY WEEKLY TRIBUNE', `Week ${ed.week} · ${period} · ${school}${seasonNote(s)}`, '',
     `${who.first_name}, here's how ${school} and its alumni did this week.`, '',
-    ...(w.boxes.length ? [w.boxes.length > 1 ? 'THE BOX SCORES' : 'THE BOX SCORE', boxText, ''] : []),
+    ...(w.boxes.length ? ['THE BOX SCORE', boxText, ''] : []),
     `THE FULL ${school.toUpperCase()} ROSTER`, ...w.roster.map((r) => `- ${r.line}`), '',
     ...(w.league.length ? ['SCORES AROUND THE LEAGUE', leagueText, ''] : []),
     SPONSOR_TEXT, '',
@@ -366,7 +395,13 @@ ${[...b.extra_base_hits.away, ...b.extra_base_hits.home].length ? `<div style="f
 
 async function main() {
   const daily = arg('daily'), weekly = arg('weekly'), out = arg('out'), emails = (arg('emails') ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-  if (!daily || !weekly || !out || !emails.length) throw new Error('Usage: --daily YYYY-MM-DD --weekly YYYY-MM-DD(Monday) --out <dir> --emails a,b');
+  if (!daily || !weekly || !out || !emails.length) throw new Error('Usage: --daily YYYY-MM-DD --weekly YYYY-MM-DD(Monday) --out <dir> --emails a,b [--seasons a=1,b=6]');
+  // email -> the test bracket (season) that recipient follows
+  const assigned = new Map((arg('seasons') ?? '').split(',').filter(Boolean).map((p) => {
+    const [e, n] = p.split('=');
+    if (!e || !/^\d+$/.test(n ?? '')) throw new Error(`--seasons: "${p}" isn't email=number`);
+    return [e.trim().toLowerCase(), Number(n)] as [string, number];
+  }));
   const db = new Client({ connectionString: process.env.DATABASE_URL });
   await db.connect();
   try {
@@ -379,15 +414,17 @@ async function main() {
       const who = (await db.query('SELECT firebase_uid, email, first_name, home_hsid, home_school_name, plan, is_superfan FROM newsletter_recipients WHERE lower(email) = $1', [email])).rows;
       if (who.length !== 1) { report.push({ email, error: `newsletter_recipients returned ${who.length} rows` }); continue; }
       const r = who[0];
-      for (const [cadence, ed, made] of [
-        ['daily', dEd, renderDaily(dEd, r, await readDaily(db, daily, r))],
-        ['weekly', wEd, renderWeekly(wEd, r, await readWeekly(db, weekly, wEd, r))],
+      const dS = await seasonOf(db, dEd.season_key, r, assigned.get(email));
+      const wS = await seasonOf(db, wEd.season_key, r, assigned.get(email));
+      for (const [cadence, ed, s, made] of [
+        ['daily', dEd, dS, renderDaily(dEd, r, await readDaily(db, daily, r, dS), dS)],
+        ['weekly', wEd, wS, renderWeekly(wEd, r, await readWeekly(db, weekly, wEd, r, wS), wS)],
       ] as const) {
         const p: R = {
           recipient: { email: r.email, first_name: r.first_name, home_hsid: r.home_hsid, plan: r.plan },
           cadence: cadence === 'daily' ? 'Daily Digest' : 'YAT-A-BOY Weekly Tribune',
           period: ed.period_start === ed.period_end ? ed.period_start : `${ed.period_start} to ${ed.period_end}`,
-          season_key: ed.season_key, week: ed.week,
+          season_key: ed.season_key, season_label: s.label, region: s.region, week: ed.week,
           ready_row: `edition_ready (${ed.cadence}, ${ed.period_start}), ready_at ${new Date(ed.ready_at).toISOString()}, cutoff ${new Date(ed.cutoff_at).toISOString()}`,
           subject: made.subject, counts: made.counts, warnings: made.warnings, keys: made.keys,
           sponsor: 'sponsor-incomplete: no sponsor source approved for the newsletter; nothing printed in the slot',
