@@ -45,7 +45,8 @@
 //   DATABASE_URL=... npx --yes tsx scripts/master-bracket-results.ts [--season <key>] [--asof YYYY-MM-DD] [--dry-run]
 //     Every season live on the bracket's day (or the Monday after its last
 //     week) unless --season. Live data from
-//     ${BRACKET_LIVE_BASE_URL:-https://yatstats.com}/api/bracket/live.
+//     ${BRACKET_LIVE_BASE_URL:-https://5004.yatstats.com}/api/bracket/live.
+//     On the server: /api/cron/bracket-results runs the same thing.
 //
 //   npx --yes tsx scripts/master-bracket-results.ts --offline <dir> --season <key> --asof YYYY-MM-DD [--no-box]
 //     No database: reads <dir>/season.json, rows.json, rulings.json and
@@ -85,7 +86,7 @@ export type Clubs = Map<number, Map<string, number>>;
 
 const iso =(t: number) => new Date(t).toISOString().slice(0, 10);
 // The bracket's day: the date in Arizona (UTC-7, no DST), turning over at 4 a.m.
-const bracketDay = (now = Date.now()) => iso(now - 11 * 3600000);
+export const bracketDay = (now = Date.now()) => iso(now - 11 * 3600000);
 const daysFrom = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
@@ -666,7 +667,7 @@ WHERE m.season_key = $1 AND m.region = x.region AND m.game_id = x.game_id AND m.
 // line still held is one item per team on Pete's needs-decision list - never
 // one per line.
 const MLB_SPORTS = '1,11,12,13,14,16,17,23';
-async function checkTeams(pool: Pool) {
+export async function checkTeams(pool: Pool) {
   const year = Number(bracketDay().slice(0, 4));
   const listed = new Map<number, string>();
   for (const season of [year, year + 1]) {
@@ -747,6 +748,50 @@ SELECT stage, region, round, round_name, series_no, game_no, game_id, week, home
 export const SQL_RULINGS = 'SELECT region, week, home_hsid, away_hsid, winner_hsid FROM public.commissioner_rulings WHERE season_key = $1';
 export type { Season, Row, Ruling };
 
+// The production site's live data (any school's subdomain serves the same
+// /api/bracket/live; the bare yatstats.com is another site).
+export const LIVE_BASE = 'https://5004.yatstats.com';
+
+export const SQL_SEASONS = `
+SELECT season_key, is_test, opening_day::text, last_day::text, weeks, regions, schools_per_region
+  FROM public.fantasy_seasons
+ WHERE ($1::text IS NULL AND $2::date BETWEEN opening_day AND last_day + 1) OR season_key = $1`;
+
+// One season's run: score every started game on the live data and write it.
+// When it draws new pairs (a round just ended), it runs again at once so
+// their games are scored too. region: just one test bracket (a test
+// branch's own database holds all six). Returns what each pass did.
+export async function runSeason(pool: Pool, season: Season, asof: string, opts: { base: string; region?: number; withBox?: boolean; dryRun?: boolean }) {
+  const withBox = opts.withBox ?? true;
+  const passes: { results: number; final: number; fills: number; boxFills: number; decisions: string[] }[] = [];
+  for (let pass = 0; pass < 3; pass++) {
+    let { rows } = await pool.query<Row>(SQL_ROWS, [season.season_key]);
+    let { rows: rulings } = await pool.query<Ruling>(SQL_RULINGS, [season.season_key]);
+    if (opts.region != null) {
+      rows = rows.filter((r) => Number(r.region) === opts.region);
+      rulings = rulings.filter((r) => Number(r.region) === opts.region);
+    }
+    const weeks = startedWeeks(season, asof);
+    if (!weeks || !rows.length) break;
+    const live = await fetchLive(opts.base, season.opening_day, Math.min(weeks, 40), fieldOf(rows));
+    const clubs = clubsOf(live, await loadTeams(pool, rows, live, asof));
+    const out = computeSeason(season, rows, rulings, live, asof, withBox, clubs);
+    passes.push({
+      results: out.results.length, final: out.results.filter((r) => r.lock).length, fills: out.fills.length,
+      boxFills: out.boxFills.length, decisions: out.decisions.map((d) => d.summary),
+    });
+    if (opts.dryRun) break;
+    const client: PoolClient = await pool.connect();
+    try {
+      await writeSeason(client, season.season_key, out, withBox);
+    } finally {
+      client.release();
+    }
+    if (!out.fills.length) break;
+  }
+  return passes;
+}
+
 async function main() {
   const seasonKey = arg('season');
   const asof = arg('asof') || bracketDay();
@@ -770,35 +815,17 @@ async function main() {
   }
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 2 });
-  const base = (process.env.BRACKET_LIVE_BASE_URL || 'https://yatstats.com').replace(/\/$/, '');
+  const base = (process.env.BRACKET_LIVE_BASE_URL || LIVE_BASE).replace(/\/$/, '');
   try {
     const relanded = await pool.query('SELECT public.stat_lines_reland_held() AS n');
     console.log(`held stat lines landed again: ${relanded.rows[0].n}`);
     await checkTeams(pool);
-    const { rows: seasons } = await pool.query<Season>(
-      `SELECT season_key, is_test, opening_day::text, last_day::text, weeks, regions, schools_per_region
-         FROM public.fantasy_seasons
-        WHERE ($1::text IS NULL AND $2::date BETWEEN opening_day AND last_day + 1) OR season_key = $1`,
-      [seasonKey || null, asof],
-    );
+    const { rows: seasons } = await pool.query<Season>(SQL_SEASONS, [seasonKey || null, asof]);
     if (!seasons.length) console.log(`no fantasy season is live on ${asof}`);
     for (const season of seasons) {
-      const { rows } = await pool.query<Row>(SQL_ROWS, [season.season_key]);
-      const { rows: rulings } = await pool.query<Ruling>(SQL_RULINGS, [season.season_key]);
-      const weeks = startedWeeks(season, asof);
-      if (!weeks) { console.log(`${season.season_key}: nothing started by ${asof}`); continue; }
-      const live = await fetchLive(base, season.opening_day, Math.min(weeks, 40), fieldOf(rows));
-      const clubs = clubsOf(live, await loadTeams(pool, rows, live, asof));
-      const out = computeSeason(season, rows, rulings, live, asof, withBox, clubs);
-      const { results, fills, decisions, boxFills } = out;
-      console.log(`${season.season_key} as of ${asof}: ${results.length} results (${results.filter((r) => r.lock).length} final), ${fills.length} slots filled, ${decisions.length} for Pete, ${boxFills.length} locked finals get their box`);
-      for (const d of decisions) console.log(`  needs decision: ${d.summary}`);
-      if (flag('dry-run')) continue;
-      const client: PoolClient = await pool.connect();
-      try {
-        await writeSeason(client, season.season_key, out, withBox);
-      } finally {
-        client.release();
+      for (const pass of await runSeason(pool, season, asof, { base, withBox, dryRun: flag('dry-run') })) {
+        console.log(`${season.season_key} as of ${asof}: ${pass.results} results (${pass.final} final), ${pass.fills} slots filled, ${pass.decisions.length} for Pete, ${pass.boxFills} locked finals get their box`);
+        for (const d of pass.decisions) console.log(`  needs decision: ${d}`);
       }
     }
   } finally {
