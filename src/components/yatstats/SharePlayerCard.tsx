@@ -58,20 +58,20 @@ export default function SharePlayerCard({
         <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
         <path d="m8.7 13.5 6.6 4M15.3 6.5l-6.6 4"/>
       </svg>
-      <span className="yat-share-label">{copied ? "COPIED" : "SHARE"}</span>
+      {copied && <span className="sr-only">Link copied</span>}
       <style jsx>{`
         .yat-player-card-share {
           position: absolute;
           z-index: 15;
-          right: 6%;
-          top: 13%;
+          left: 50%;
+          bottom: 3%;
+          transform: translateX(-50%);
           display: inline-flex;
           align-items: center;
-          gap: 5px;
-          padding: 7px;
-          background: rgba(0,0,0,.78);
-          border: 1px solid rgba(255,255,255,.72);
-          border-radius: 16px;
+          padding: 5px;
+          background: transparent;
+          border: 0;
+          border-radius: 0;
           color: white;
           font: 800 11px/1 system-ui, sans-serif;
           letter-spacing: .03em;
