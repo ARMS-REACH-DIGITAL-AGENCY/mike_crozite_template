@@ -86,8 +86,8 @@ export function publicNewsHeadline(rawTitle: string | null | undefined, url?: st
   const cleaned = cleanNewsVideoTitle(preferred);
   // Legacy video tips sometimes appended a quoted testimonial after an
   // already completed headline. That quote is recap content, not a title.
-  const withoutAppendedQuote = url && parseNewsVideo(url) && /[.!?]\\s*["“]/.test(cleaned)
-    ? cleaned.split(/(?<=[.!?])\\s*(?=["“])/)[0]
+  const withoutAppendedQuote = url && parseNewsVideo(url) && /[.!?]\s*["“]/.test(cleaned)
+    ? cleaned.split(/(?<=[.!?])\s*(?=["“])/)[0]
     : cleaned;
   return withoutAppendedQuote.trim();
 }
