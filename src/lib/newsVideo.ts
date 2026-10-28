@@ -79,6 +79,19 @@ export function cleanNewsVideoTitle(rawTitle: string | null | undefined): string
   return (metadata ? title.slice(0, metadata.index) : title).trim().replace(/[\s;,:-]+$/, '');
 }
 
+// Single public headline rule across school News, flip cards, player profiles,
+// reader drawers and social previews. Keep original database title untouched.
+export function publicNewsHeadline(rawTitle: string | null | undefined, url?: string | null, contributed = false, editorialHeadline?: string | null): string {
+  const preferred = contributed ? rawTitle : (editorialHeadline || rawTitle);
+  const cleaned = cleanNewsVideoTitle(preferred);
+  // Legacy video tips sometimes appended a quoted testimonial after an
+  // already completed headline. That quote is recap content, not a title.
+  const withoutAppendedQuote = url && parseNewsVideo(url) && /[.!?]\\s*["“]/.test(cleaned)
+    ? cleaned.split(/(?<=[.!?])\\s*(?=["“])/)[0]
+    : cleaned;
+  return withoutAppendedQuote.trim();
+}
+
 export function isLegacyVideoPlaceholderTitle(title: string): boolean {
   return /^(?:YouTube\s+video\s+tip\s+for\b|Video\s+shared\s+about\b|Video\s+featuring\b)/i.test(title);
 }
