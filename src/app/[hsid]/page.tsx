@@ -18,7 +18,7 @@ import {
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { query } from "@/lib/db";
-import { parseNewsVideo } from "@/lib/newsVideo";
+import { parseNewsVideo, publicNewsHeadline } from "@/lib/newsVideo";
 import { fetchInstagramPostPreview } from "@/lib/instagramPostPreview";
 import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
@@ -270,7 +270,7 @@ export async function generateMetadata({
       );
       const article=rows[0];
       if (article) {
-        const title=article.title || "Alumni News | YAT?STATS";
+        const title=publicNewsHeadline(article.title, article.url) || "Alumni News | YAT?STATS";
         const description=(article.snippet || "Alumni News from YAT?STATS").slice(0,250);
         const provider=parseNewsVideo(article.url);
         const instagramImage=provider?.provider === "Instagram"
