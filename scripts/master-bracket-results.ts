@@ -274,26 +274,57 @@ export const pairKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${
 
 // A round's knocked-out pairs: real-life teammates' schools first, then the
 // draw (fixed by seed). Two schools that have already played each other
-// (met) are never paired again: a drawn pair that met swaps partners with
-// another drawn pair. That always works in 2027: before Round 10 a school
-// has played at most 9 others, out of a pool of 512 or more.
+// (met) are never paired again: a pair that met swaps partners with a drawn
+// pair (keeping the teammates' pairs), else with any pair; if one were still
+// left, any pairing without a rematch is searched for, in the draw's order.
+// One always exists: a school out of the bracket has played at most one
+// school per round before (9 before Round 10), and every pool is big enough
+// that each school has more than half the pool left to play - 2027's pools
+// are 512 or more; a 16-school test bracket's are 8, 12 and 14.
 export function drawPairs(pool: number[], seed: string, clubs: Clubs, met: Set<string>): [number, number][] {
   const mates = teammates(clubs);
   const fresh = (a: number, b: number) => !met.has(pairKey(a, b));
   const score = (a: number, b: number) => (fresh(a, b) ? mates(a, b) : 0);
   const { pairs } = pairEliminated(pool, seed, score);
-  const drawn = pairs.map((_, i) => i).filter((i) => score(...pairs[i]) === 0);
-  for (const i of drawn) {
+  const swap = (i: number, with_: number[]) => {
     const [a, b] = pairs[i];
-    if (fresh(a, b)) continue;
-    for (const j of drawn) {
+    for (const j of with_) {
       if (j === i) continue;
       const [c, d] = pairs[j];
-      if (fresh(a, c) && fresh(b, d)) { pairs[i] = [a, c]; pairs[j] = [b, d]; break; }
-      if (fresh(a, d) && fresh(b, c)) { pairs[i] = [a, d]; pairs[j] = [b, c]; break; }
+      if (fresh(a, c) && fresh(b, d)) { pairs[i] = [a, c]; pairs[j] = [b, d]; return true; }
+      if (fresh(a, d) && fresh(b, c)) { pairs[i] = [a, d]; pairs[j] = [b, c]; return true; }
     }
-  }
-  return pairs;
+    return false;
+  };
+  const all = pairs.map((_, i) => i);
+  const drawn = all.filter((i) => score(...pairs[i]) === 0);
+  for (const i of all) if (!fresh(...pairs[i]) && !swap(i, drawn)) swap(i, all);
+  if (pairs.every(([a, b]) => fresh(a, b))) return pairs;
+  return pairWithoutRematch(pairs.flat(), fresh) ?? pairs;
+}
+
+// Any pairing of the schools (in this order) with no two that met: each
+// school in turn takes the first school after it it hasn't played, backing
+// up when the rest can't be paired.
+function pairWithoutRematch(order: number[], fresh: (a: number, b: number) => boolean): [number, number][] | null {
+  const out: [number, number][] = [];
+  const used = new Set<number>();
+  const next = (): boolean => {
+    const a = order.find((h) => !used.has(h));
+    if (a === undefined) return true;
+    used.add(a);
+    for (const b of order) {
+      if (used.has(b) || !fresh(a, b)) continue;
+      used.add(b);
+      out.push([a, b]);
+      if (next()) return true;
+      used.delete(b);
+      out.pop();
+    }
+    used.delete(a);
+    return false;
+  };
+  return next() ? out : null;
 }
 
 type Side = { hsid: number; seed: number | null; name: string | null };
@@ -488,6 +519,7 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
       const pairs = drawPairs(pool.map((s) => s.hsid), ref, clubs, met);
       const again = pairs.filter(([a, b]) => met.has(pairKey(a, b)));
       if (again.length) {
+        // Can't happen (see drawPairs); if it ever did, nothing is stored.
         decisions.push({ kind: 'total_runs_rematch', ref, summary: `Round ${round}: the draw paired ${again.length} schools that already played each other. Nothing was stored for the round.`, details: { again } });
         continue;
       }

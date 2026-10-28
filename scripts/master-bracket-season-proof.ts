@@ -350,6 +350,56 @@ async function main() {
   check('every empty slot filled by the results job, from stored results', filled === empty,
     `${empty} empty slots in the seed (${seeded.map((s) => `${s.stage} ${s.n - s.known}`).join(', ')}); ${filled} filled by the job (master_bracket_history)`);
 
+  // Pete's counts (Oct 28): every round 512 three-game series (1,536 games),
+  // who had schools from the start, who the job filled, what's left empty,
+  // rematches, games and opponents per school, and Weeks 31-34.
+  const filledBy = await q<{ part: string; n: number }>(`
+    SELECT CASE WHEN m.stage IN ('bracket', 'total_runs') THEN 'rounds' ELSE 'post' END AS part, count(DISTINCT h.master_bracket_id)::int AS n
+      FROM public.master_bracket_history h JOIN public.master_bracket m ON m.id = h.master_bracket_id
+     WHERE h.reason = 'bracket results job' AND h.old_values->>'home_hsid' IS NULL AND h.new_values->>'home_hsid' IS NOT NULL
+     GROUP BY 1`);
+  const filledRounds = filledBy.find((x) => x.part === 'rounds')?.n ?? 0;
+  const filledPost = filledBy.find((x) => x.part === 'post')?.n ?? 0;
+  const seededRounds = seeded.filter((s) => s.stage === 'bracket' || s.stage === 'total_runs');
+  const perRound = Array.from({ length: 10 }, (_, i) => {
+    const games = regular.filter((r) => r.round === i + 1);
+    const ser = new Set(games.map((r) => `${r.stage}:${r.series_no}`));
+    return { round: i + 1, games: games.length, series: ser.size, bracketSeries: [...ser].filter((k) => k.startsWith('bracket')).length };
+  });
+  const seriesOf = new Map<string, number>(); // two schools -> how many series they're in
+  for (const s of series.values()) {
+    if (s.stage !== 'bracket' && s.stage !== 'total_runs') continue;
+    const k = pairKey(s.games[0].home_hsid!, s.games[0].away_hsid!);
+    seriesOf.set(k, (seriesOf.get(k) || 0) + 1);
+  }
+  const regularRematches = [...seriesOf.values()].filter((n) => n > 1).length;
+  const postMetBefore = rows.filter((r) => r.week > 30 && seriesOf.has(pairKey(r.home_hsid!, r.away_hsid!))).length;
+  const opp = new Map<number, Set<number>>();
+  for (const r of regular) for (const [a, b] of [[r.home_hsid!, r.away_hsid!], [r.away_hsid!, r.home_hsid!]]) (opp.get(a) || opp.set(a, new Set()).get(a)!).add(b);
+  const oppCounts = [...opp.values()].map((s) => s.size);
+  const counts = {
+    roundsGames: regular.length,
+    roundsAssignedAtStart: seededRounds.reduce((n, s) => n + s.known, 0),
+    roundsAssignedByJob: filledRounds,
+    unresolvedAfterRun: rows.filter((r) => r.home_hsid == null || r.away_hsid == null).length,
+    rematchesWeeks1to30: regularRematches,
+    schoolsWith30Games: [...perSchool.values()].filter((s) => s.size === 30).length,
+    distinctOpponents: { min: Math.min(...oppCounts), max: Math.max(...oppCounts), schoolsWith10: oppCounts.filter((n) => n === 10).length },
+    weeks31to33: rows.filter((r) => r.week >= 31 && r.week <= 33).length,
+    week34: rows.filter((r) => r.week === 34).length,
+    postFilledByJob: filledPost,
+    afterWeek30: rows.filter((r) => r.week > 30).length,
+    total: rows.length,
+    postseasonGamesBetweenSchoolsThatMetBefore: postMetBefore,
+    perRound,
+  };
+  check('every round: 512 three-game series, 1,536 games', perRound.every((p) => p.games === 1536 && p.series === 512),
+    perRound.map((p) => `R${p.round} ${p.series} series (${p.bracketSeries} bracket) ${p.games} games`).join('; '));
+  check('no two schools meet in two different series in Weeks 1-30', regularRematches === 0, `${regularRematches} pairs of schools met twice`);
+  check('every school: 30 games, 10 different opponents', counts.schoolsWith30Games === 1024 && counts.distinctOpponents.schoolsWith10 === 1024,
+    `${counts.schoolsWith30Games} schools with 30 games; distinct opponents ${counts.distinctOpponents.min}-${counts.distinctOpponents.max}`);
+  console.log(`COUNTS ${JSON.stringify(counts)}`);
+
   check('a rerun of every day changes nothing', before.md5 === after.md5 && before.history === after.history && before.decisions === after.decisions,
     `table ${before.md5 === after.md5 ? 'identical' : 'CHANGED'}; history ${before.history} -> ${after.history}; needs-decision ${before.decisions} -> ${after.decisions}; rerun fills: ${rerun.reduce((n, r) => n + Object.values(r.fills).reduce((a, b) => a + b, 0), 0)}`);
 
@@ -380,7 +430,7 @@ async function main() {
     note: 'Local database only; stand-in stats (scores mean nothing). The results job\'s own code and SQL.',
     seeded, alumni: data.alumni, lines: data.lineCount, runs: log.length * 2,
     drawn: Object.fromEntries([...Array.from({ length: 9 }, (_, i) => `total_runs round ${i + 2}`), 'bracket round 8', 'season_championship round 1', 'season_championship round 2', 'season_championship round 3', 'world_series round 1'].map((k) => [k, firstFill(k)])),
-    pairing, checks, deleteOfLockedFinal: deleted ? 'not blocked (open item)' : 'blocked', decisions,
+    pairing, counts, checks, deleteOfLockedFinal: deleted ? 'not blocked (open item)' : 'blocked', decisions,
     champion: { bracket: ws.home_school_name, totalRuns: ws.away_school_name, worldSeries: ws.winner_hsid === ws.home_hsid ? ws.home_school_name : ws.away_school_name },
     log, minutes: +((Date.now() - t0) / 60000).toFixed(1),
   };
