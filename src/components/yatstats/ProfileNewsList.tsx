@@ -244,8 +244,21 @@ export default function ProfileNewsList({
           initialPostId={openUuid} onClose={() => setOpenUuid("")}
           renderFooter={(post) => {
             const story = stories.find((s) => s.uuid === post.id);
-            return <NewsEngagement key={post.id} compactInViewer uuid={post.id} hsid={hsid}
-              title={newsVideoHeadline(story?.title || "", story?.playerName || playerName)} />;
+            const profileId = String(story?.playerId || playerId || "").trim();
+            const profileName = String(story?.playerName || playerName || "").trim();
+            const profileHref = profileId && hsid
+              ? `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(profileId)}${profileName ? `/${toSlugFromDisplay(profileName)}` : ""}`
+              : "";
+            return <div className="pp-news-instagram-footer">
+              <NewsEngagement key={post.id} compactInViewer uuid={post.id} hsid={hsid}
+                title={newsVideoHeadline(story?.title || "", profileName)} />
+              {profileHref ? <a className="pp-news-modal-profile" href={profileHref}
+                aria-label={`View ${profileName || "player"}'s YAT?STATS profile`}>
+                <i className="ri-user-line" aria-hidden="true" />
+                <span>VIEW PLAYER PROFILE</span>
+                <i className="ri-arrow-right-up-line" aria-hidden="true" />
+              </a> : null}
+            </div>;
           }}
         />
       ) : null}
