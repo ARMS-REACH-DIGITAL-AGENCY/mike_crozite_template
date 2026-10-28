@@ -19,6 +19,7 @@ import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
 import { query } from "@/lib/db";
 import { parseNewsVideo } from "@/lib/newsVideo";
+import { fetchInstagramPostPreview } from "@/lib/instagramPostPreview";
 import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
@@ -271,7 +272,10 @@ export async function generateMetadata({
       if (article) {
         const title=article.title || "Alumni News | YAT?STATS";
         const description=(article.snippet || "Alumni News from YAT?STATS").slice(0,250);
-        const image=article.display_image_url || article.image_url || parseNewsVideo(article.url)?.thumbnailUrl || undefined;
+        const provider=parseNewsVideo(article.url);
+        const instagramImage=provider?.provider === "Instagram"
+          ? (await fetchInstagramPostPreview(article.url).catch(() => null))?.thumbnail_url : null;
+        const image=instagramImage || article.display_image_url || article.image_url || provider?.thumbnailUrl || undefined;
         const shareUrl=(host ? `https://${host}` : canonicalUrl)+`/?news=1&story=${encodeURIComponent(qp.story)}#sec-news`;
         return {title,description,alternates:{canonical:shareUrl},
           openGraph:{type:"article",title,description,url:shareUrl,images:image?[{url:image}]:[]},
