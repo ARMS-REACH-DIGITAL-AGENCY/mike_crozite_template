@@ -177,7 +177,11 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
   const status = day ? `${series} · ${day.label}` : series;
   const games = slide.cards.map((card) => {
     const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
-    return { card, score: scoreFor(card, me), oppName: opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD', matchupKnown: Boolean(opp) };
+    // Whether this school is at home: the stored game says (the better seed);
+    // a game not yet shown takes the series' home from its other games.
+    const homeGame = card.game || slide.cards.find((c) => c.game)?.game;
+    const meHome = homeGame ? homeGame[2] === me : true;
+    return { card, score: scoreFor(card, me), oppName: opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD', matchupKnown: Boolean(opp), meHome };
   });
   // The scores' column sits two spaces past the longest school name.
   const nameCh = Math.max(schoolName.length, ...games.map((x) => x.oppName.length));
@@ -216,13 +220,15 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
 
       <aside className="yft-series" aria-label={`Round ${slide.round} series`} style={{ '--yft-name-ch': nameCh } as React.CSSProperties}>
         <div className="yft-series-games">
-          {games.map(({ card, score, oppName, matchupKnown }, i) => {
+          {games.map(({ card, score, oppName, matchupKnown, meHome }, i) => {
+            // Visitors on top, home below - the same order as the scoreboard.
+            const opp = <span key="opp" className="yft-scoreline"><b>{oppName}</b><i>{score ? score[1] : ''}</i></span>;
+            const mine = <span key="me" className="yft-scoreline home"><b>{schoolName}</b><i>{score ? score[0] : ''}</i></span>;
             return (
               <div key={card.week} className="yft-series-game">
                 <small>G{i + 1}</small>
                 <span>{score || matchupKnown ? <span className="yft-scorelines">
-                    <span className="yft-scoreline"><b>{oppName}</b><i>{score ? score[1] : ''}</i></span>
-                    <span className="yft-scoreline home"><b>{schoolName}</b><i>{score ? score[0] : ''}</i></span>
+                    {meHome ? [opp, mine] : [mine, opp]}
                   </span> : <>Week {card.week}<br /><em>TBD</em></>}</span>
               </div>
             );
