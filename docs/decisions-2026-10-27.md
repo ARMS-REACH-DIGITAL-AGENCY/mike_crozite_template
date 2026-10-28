@@ -81,8 +81,18 @@ says otherwise.
 - Total: 15,360 + 7 + 1 = **15,368**. The system fills Weeks 31-34 itself
   from the stored Week 30 results and the stored regional standings, never
   by hand.
+- **Knocked-out schools are paired each round (Pete, Oct 28).** The 512
+  schools out after Round 1 (Week 3) are matched up for Round 2, and so on
+  every round after. Matchups can cross regions.
+  - **Publicly they are "randomly selected".** Never publish the method (like
+    the commissioner's).
+  - **The method:** look at the real-life pro and college teams of each
+    school's alumni, and match up real-life teammates' high schools first.
+    The rest are drawn.
+  - As built: one opponent for the round's three weeks; each alumnus's
+    latest team in `player_team_stints`, by teamid (never by name); the
+    draw is fixed by the round, so it never changes once made.
 - **Still to decide (Pete):**
-  - how eliminated schools are paired for their weekly games;
   - whether the bracket champion can also be its region's Total Runs
     leader. The practice simulation (`scripts/simulate-bracket-2026.ts`) has
     the champion sit out and its region send the next school; Pete's Oct 28
@@ -102,8 +112,8 @@ says otherwise.
   reseeding after Round 8.
 - The rules page must be updated to match. It currently says there's no
   reseeding.
-- **Still to decide (Pete and Claude):** how eliminated schools are matched
-  for their weekly games.
+- How eliminated schools are matched for their weekly games: decided Oct 28,
+  see "The season: two tournaments in one" above.
 
 ## The tests
 

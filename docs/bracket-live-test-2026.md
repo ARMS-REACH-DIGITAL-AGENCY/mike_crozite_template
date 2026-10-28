@@ -155,6 +155,11 @@ Add a dated line for each milestone.
   scheduled yet (its workflow needs an `Easter-NEWS` merge, Pete's OK). The
   newsletter should read `master_bracket` / `master_bracket_series` /
   `stat_lines` rather than copy the bracket's scoring code.
+- 2026-10-28: Pete: the season is two tournaments in one, 15,368 games.
+  Every school plays every week; knocked-out schools are paired each round,
+  across regions, real-life teammates' schools first (publicly "randomly
+  selected"). Built and proven offline
+  (`docs/total-runs-proof-2026-10-28.md`); nothing applied to production.
 - Note for anyone replaying the brackets: `/api/bracket/live` takes at most
   64 schools per request (the field is 69), so ask one bracket at a time.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load

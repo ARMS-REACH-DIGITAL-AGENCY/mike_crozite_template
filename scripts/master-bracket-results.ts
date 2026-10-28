@@ -16,6 +16,22 @@
 //   - Once a series is decided its winner fills the next round's slot. Home is
 //     the better (lower) original seed; two equal seeds go on the
 //     needs-decision list rather than being guessed.
+//   - 2027, after Round 7 (Pete, Oct 27): the 8 survivors are reseeded 1-8 by
+//     original seed, a tie in seed broken by total runs. Round 8 is 1 v 8,
+//     4 v 5, 2 v 7, 3 v 6 (the 1/8 winner meets the 4/5 winner in Round 9);
+//     Rounds 8-10 show the new seeds, the better one at home.
+//   - Every school plays every week (Pete, Oct 28). Once every series of a
+//     round is decided, the schools out of the bracket so far are paired for
+//     the next round's three weeks: across regions in 2027 (inside its own
+//     bracket in a test season), real-life teammates' high schools first
+//     (each alumnus's latest pro or college team in player_team_stints, by
+//     teamid), then a draw fixed by the round. Publicly they are "randomly
+//     selected"; the method is never published.
+//   - Total Runs: after Week 30, each region's leader in runs over the 30
+//     weeks (then run differential, wins, seed; total_runs_standings) plays
+//     Weeks 31-33, seeded 1-8 the same way; the bracket champion sits that
+//     out and its region sends the next school. Week 34: the bracket
+//     champion (home) v the Total Runs winner.
 //   - Held stat lines are landed again first (stat_lines_reland_held), so a
 //     team or level Pete adds takes effect on its own.
 //
@@ -27,10 +43,12 @@
 //   npx --yes tsx scripts/master-bracket-results.ts --offline <dir> --season <key> --asof YYYY-MM-DD [--no-box]
 //     No database: reads <dir>/season.json, rows.json, rulings.json and
 //     live.json (the rows as the database returns them, the live data as the
-//     API does) and prints the SQL it would run.
-import { readFileSync } from 'node:fs';
+//     API does), and teams.json if it's there ({ playerid: teamid }, each
+//     alumnus's latest team), and prints the SQL it would run.
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Pool, type PoolClient } from 'pg';
+import { bracketOrder, pairEliminated } from '@/lib/bracket/engine';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { COMMISSIONER_DECISIONS } from '@/lib/bracket/commissioner';
 import { scoreLive, type Live } from '@/components/bracket/liveSeason';
@@ -38,10 +56,11 @@ import { tieNote, type GameBox, type GameRow, type Index, type SeriesRow } from 
 
 type Season = { season_key: string; is_test: boolean; opening_day: string; last_day: string; weeks: number; regions: number; schools_per_region: number };
 type Row = {
-  stage: string; region: number; round: number; series_no: number; game_no: number; game_id: number; week: number;
+  stage: string; region: number; round: number; round_name?: string; series_no: number; game_no: number; game_id: number; week: number;
   home_hsid: number | null; away_hsid: number | null; home_seed: number | null; away_seed: number | null;
   home_school_name: string | null; away_school_name: string | null; status: string;
-  innings: number[] | null; winner_hsid: number | null; decided_by: string | null; locked_at: string | null;
+  innings: number[] | null; home_runs?: number | null; away_runs?: number | null;
+  winner_hsid: number | null; decided_by: string | null; locked_at: string | null;
   box_missing?: boolean;
 };
 type Ruling = { region: number; week: number; home_hsid: number; away_hsid: number; winner_hsid: number };
@@ -49,9 +68,11 @@ type Result = {
   region: number; game_id: number; status: string; innings: number[]; home_runs: number; away_runs: number;
   winner_hsid: number | null; decided_by: string | null; decided_note: string | null; box: GameBox | null; lock: boolean;
 };
-type Fill = { region: number; game_id: number; home_hsid: number; away_hsid: number; home_seed: number; away_seed: number; home_school_name: string | null; away_school_name: string | null };
+type Fill = { region: number; game_id: number; home_hsid: number; away_hsid: number; home_seed: number | null; away_seed: number | null; home_school_name: string | null; away_school_name: string | null };
 type Decision = { kind: string; ref: string; summary: string; details: unknown };
 type BoxFill = { region: number; game_id: number; box: GameBox };
+// Each school's alumni by real-life team: hsid -> teamid -> how many.
+export type Clubs = Map<number, Map<string, number>>;
 
 const iso =(t: number) => new Date(t).toISOString().slice(0, 10);
 // The bracket's day: the date in Arizona (UTC-7, no DST), turning over at 4 a.m.
@@ -91,31 +112,41 @@ function mergeLive(into: Live, part: Live) {
 }
 
 // The scoreboard's index for a set of rows: the season's weeks, its
-// schools and every bracket series whose two schools are known.
+// schools and every series whose two schools are known - the bracket's, the
+// knocked-out schools' (three games, like a bracket series) and Weeks 31-34
+// (one game each). Every game is scored the same way.
 function buildIndex(season: Season, rows: Row[]): Index {
   const weeks = tournamentWeeks(season.opening_day, season.weeks);
   const schools: Index['schools'] = {};
-  const rounds = new Map<number, SeriesRow[]>();
+  const rounds = new Map<string, SeriesRow[]>();
   const series = new Map<string, SeriesRow>();
   const sorted = [...rows].sort((a, b) => a.round - b.round || a.region - b.region || a.series_no - b.series_no || a.game_no - b.game_no);
   for (const r of sorted) {
-    if (r.stage !== 'bracket' || r.home_hsid == null || r.away_hsid == null) continue;
-    schools[r.home_hsid] ||= [r.home_school_name || String(r.home_hsid), r.region, r.home_seed ?? 0];
-    schools[r.away_hsid] ||= [r.away_school_name || String(r.away_hsid), r.region, r.away_seed ?? 0];
-    const key = `${r.round}:${r.region}:${r.series_no}`;
+    if (r.home_hsid == null || r.away_hsid == null) continue;
+    if (r.stage === 'bracket') {
+      schools[r.home_hsid] ||= [r.home_school_name || String(r.home_hsid), r.region, r.home_seed ?? 0];
+      schools[r.away_hsid] ||= [r.away_school_name || String(r.away_hsid), r.region, r.away_seed ?? 0];
+    }
+    const key = `${r.stage}:${r.round}:${r.region}:${r.series_no}`;
     let s = series.get(key);
     if (!s) {
       s = [r.region, r.home_hsid, r.away_hsid, r.home_seed ?? 0, r.away_seed ?? 0, 0, [0, 0], []];
       series.set(key, s);
-      (rounds.get(r.round) || rounds.set(r.round, []).get(r.round)!).push(s);
+      const rk = `${r.stage}:${r.round}`;
+      (rounds.get(rk) || rounds.set(rk, []).get(rk)!).push(s);
     }
     s[7].push([r.game_id, r.week, r.home_hsid, r.away_hsid, '', [], null] as GameRow);
   }
   return {
     season: Number(season.opening_day.slice(0, 4)), weeks, schools,
-    rounds: [...rounds.entries()].sort(([a], [b]) => a - b).map(([r, list]) => ({
-      r, name: `Round ${r}`, start: weeks[(r - 1) * 3]?.[0] || '', end: weeks[r * 3 - 1]?.[1] || '', series: list,
-    })),
+    rounds: [...rounds.entries()].map(([k, list]) => {
+      const r = Number(k.split(':')[1]);
+      const gameWeeks = list.flatMap((s) => s[7].map((g) => g[1]));
+      return {
+        r, name: k.startsWith('bracket:') ? `Round ${r}` : k, series: list,
+        start: weeks[Math.min(...gameWeeks) - 1]?.[0] || '', end: weeks[Math.max(...gameWeeks) - 1]?.[1] || '',
+      };
+    }),
     lbt: [], gf: [], champion: 0, lbLeaders: [], lbChampion: 0,
   } as unknown as Index;
 }
@@ -153,6 +184,9 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
       lock: status === 'final',
     };
     if (row.locked_at) {
+      // A locked final whose week isn't over as of asof: a rerun of an
+      // earlier day. Nothing to compare.
+      if (status === 'in_progress') continue;
       const was = { status: row.status, innings: (row.innings || []).map(Number), winner: num(row.winner_hsid), by: row.decided_by };
       const now = { status: res.status, innings: res.innings, winner: res.winner_hsid, by: res.decided_by };
       if (JSON.stringify(was) !== JSON.stringify(now)) {
@@ -180,24 +214,73 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
   return { results, decisions, boxFills };
 }
 
-// Fill the next round's slots from decided series (results applied first).
-function nextRoundFills(season: Season, rows: Row[], results: Result[]) {
+// The bracket champion sits out the Total Runs games of Weeks 31-33 (its
+// region sends the next school), as in the practice season
+// (scripts/simulate-bracket-2026.ts). Pete to confirm.
+const CHAMPION_SITS_OUT = true;
+
+// How many of two schools' alumni are real-life teammates: for each team,
+// one school's alumni on it times the other's.
+export const teammates = (clubs: Clubs) => (a: number, b: number) => {
+  const x = clubs.get(a), y = clubs.get(b);
+  if (!x || !y) return 0;
+  let n = 0;
+  for (const [team, k] of x) n += k * (y.get(team) || 0);
+  return n;
+};
+
+// Each school's alumni by team, from each alumnus's latest team (teamid).
+export function clubsOf(live: Live, teamOf: Map<string, string>): Clubs {
+  const clubs: Clubs = new Map();
+  for (const [h, players] of Object.entries(live.roster || {})) {
+    const mine = new Map<string, number>();
+    for (const p of players) {
+      const team = teamOf.get(p[0]);
+      if (team) mine.set(team, (mine.get(team) || 0) + 1);
+    }
+    if (mine.size) clubs.set(Number(h), mine);
+  }
+  return clubs;
+}
+
+type Side = { hsid: number; seed: number | null; name: string | null };
+
+// Fill every empty slot that the results so far decide (this run's results
+// applied first): the bracket's next rounds, the knocked-out schools' pairs
+// and Weeks 31-34. A slot already filled is checked, never changed.
+function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs) {
   const regionRounds = Math.log2(season.schools_per_region);
   const lastRound = season.is_test ? regionRounds : regionRounds + Math.log2(season.regions);
   const now = new Map(results.map((r) => [`${r.region}:${r.game_id}`, r]));
   const state = (r: Row) => {
     const x = now.get(`${r.region}:${r.game_id}`);
-    return x ? { status: x.status, winner: x.winner_hsid } : { status: r.status, winner: num(r.winner_hsid) };
+    return x
+      ? { status: x.status, winner: x.winner_hsid, home: x.home_runs, away: x.away_runs }
+      : { status: r.status, winner: num(r.winner_hsid), home: num(r.home_runs) ?? 0, away: num(r.away_runs) ?? 0 };
   };
-  type Series = { region: number; round: number; series_no: number; games: Row[] };
+  type Series = { stage: string; region: number; round: number; series_no: number; games: Row[] };
   const series = new Map<string, Series>();
-  for (const r of rows) {
-    if (r.stage !== 'bracket') continue;
-    const k = `${r.round}:${r.region}:${r.series_no}`;
-    (series.get(k) || series.set(k, { region: r.region, round: r.round, series_no: r.series_no, games: [] }).get(k)!).games.push(r);
+  for (const r of [...rows].sort((a, b) => a.game_no - b.game_no)) {
+    const k = `${r.stage}:${r.round}:${r.region}:${r.series_no}`;
+    (series.get(k) || series.set(k, { stage: r.stage, region: r.region, round: r.round, series_no: r.series_no, games: [] }).get(k)!).games.push(r);
   }
-  // A series' winner: 2 wins.
-  const winnerOf = (s: Series) => {
+  const stageRound = (stage: string, round: number, region?: number) => [...series.values()]
+    .filter((s) => s.stage === stage && s.round === round && (region === undefined || s.region === region))
+    .sort((a, b) => a.region - b.region || a.series_no - b.series_no);
+  // Each school's own region and original seed: its Round 1 game.
+  const school = new Map<number, Side & { region: number }>();
+  for (const r of rows) {
+    if (r.stage !== 'bracket' || r.round !== 1) continue;
+    for (const [h, seed, name] of [[r.home_hsid, r.home_seed, r.home_school_name], [r.away_hsid, r.away_seed, r.away_school_name]] as const) {
+      if (h != null) school.set(Number(h), { hsid: Number(h), seed: num(seed), name, region: r.region });
+    }
+  }
+  const sideOf = (s: Series, home: boolean): Side => {
+    const g0 = s.games[0];
+    return home ? { hsid: num(g0.home_hsid)!, seed: num(g0.home_seed), name: g0.home_school_name } : { hsid: num(g0.away_hsid)!, seed: num(g0.away_seed), name: g0.away_school_name };
+  };
+  // A series' winner: 2 wins (a single game: its winner).
+  const winnerOf = (s: Series): Side | null => {
     const g0 = s.games[0];
     if (g0.home_hsid == null || g0.away_hsid == null) return null;
     let h = 0, a = 0;
@@ -207,60 +290,198 @@ function nextRoundFills(season: Season, rows: Row[], results: Result[]) {
       if (st.winner === num(g0.home_hsid)) h++;
       else if (st.winner === num(g0.away_hsid)) a++;
     }
-    if (h >= 2) return { hsid: num(g0.home_hsid)!, seed: num(g0.home_seed)!, name: g0.home_school_name };
-    if (a >= 2) return { hsid: num(g0.away_hsid)!, seed: num(g0.away_seed)!, name: g0.away_school_name };
-    return null;
+    const need = s.games.length === 1 ? 1 : 2;
+    return h >= need ? sideOf(s, true) : a >= need ? sideOf(s, false) : null;
   };
-  // Where a series' winner goes: [round, region, series_no, first or second].
+  const loserOf = (s: Series) => {
+    const w = winnerOf(s);
+    return w ? sideOf(s, w.hsid !== num(s.games[0].home_hsid)) : null;
+  };
+
+  const fills: Fill[] = [];
+  const decisions: Decision[] = [];
+  const refOf = (s: Series) => `${season.season_key}:${s.stage}:${s.round}:${s.region}:${s.series_no}`;
+  // Put two schools in a series' slots, or check the ones already there.
+  const place = (target: Series, home: Side, away: Side) => {
+    const g0 = target.games[0];
+    if (g0.home_hsid != null) {
+      const have = new Set([num(g0.home_hsid), num(g0.away_hsid)]);
+      if (!have.has(home.hsid) || !have.has(away.hsid)) {
+        decisions.push({
+          kind: 'pairing_changed', ref: refOf(target),
+          summary: `${g0.round_name ?? `Round ${target.round}`} series ${target.series_no} already has ${g0.away_school_name} at ${g0.home_school_name}, but the results now send ${home.name} and ${away.name}.`,
+          details: { stored: [g0.home_hsid, g0.away_hsid], now: [home.hsid, away.hsid] },
+        });
+      }
+      return;
+    }
+    for (const g of target.games) {
+      fills.push({ region: g.region, game_id: g.game_id, home_hsid: home.hsid, away_hsid: away.hsid, home_seed: home.seed, away_seed: away.seed, home_school_name: home.name, away_school_name: away.name });
+    }
+  };
+  // Runs, runs allowed and wins over the weeks every school plays (bracket
+  // and knocked-out games), final games only, through a week.
+  const totals = (lastWeek: number) => {
+    const t = new Map<number, { rf: number; ra: number; w: number }>();
+    for (const r of rows) {
+      if ((r.stage !== 'bracket' && r.stage !== 'total_runs') || r.week > lastWeek || r.home_hsid == null) continue;
+      const st = state(r);
+      if (st.status !== 'final') continue;
+      for (const [h, rf, ra] of [[num(r.home_hsid)!, st.home, st.away], [num(r.away_hsid)!, st.away, st.home]]) {
+        const cur = t.get(h) || { rf: 0, ra: 0, w: 0 };
+        cur.rf += rf; cur.ra += ra; cur.w += st.winner === h ? 1 : 0;
+        t.set(h, cur);
+      }
+    }
+    return t;
+  };
+
+  // The bracket: each decided series sends its winner on. Where a series'
+  // winner goes: [round, region, series_no, first or second]. Round 8 is
+  // reseeded (below).
   const next = (s: Series): [number, number, number, 0 | 1] | null => {
-    if (s.round >= lastRound) return null;
+    if (s.round >= lastRound || s.round === regionRounds) return null;
     if (s.round < regionRounds) return [s.round + 1, s.region, Math.ceil(s.series_no / 2), (s.series_no % 2 ? 0 : 1)];
-    if (s.round === regionRounds) return [s.round + 1, 0, Math.ceil(s.region / 2), (s.region % 2 ? 0 : 1)];
     return [s.round + 1, 0, Math.ceil(s.series_no / 2), (s.series_no % 2 ? 0 : 1)];
   };
-  const feeders = new Map<string, [ReturnType<typeof winnerOf>, ReturnType<typeof winnerOf>]>();
+  const feeders = new Map<string, [Side | null, Side | null]>();
   for (const s of series.values()) {
+    if (s.stage !== 'bracket') continue;
     const to = next(s);
     if (!to) continue;
-    const k = `${to[0]}:${to[1]}:${to[2]}`;
+    const k = `bracket:${to[0]}:${to[1]}:${to[2]}`;
     const pair = feeders.get(k) || [null, null];
     pair[to[3]] = winnerOf(s);
     feeders.set(k, pair);
   }
-  const fills: Fill[] = [];
-  const decisions: Decision[] = [];
   for (const [k, [first, second]] of feeders) {
     const target = series.get(k);
     if (!target || !first || !second) continue;
-    const g0 = target.games[0];
-    if (g0.home_hsid != null) {
-      const have = new Set([num(g0.home_hsid), num(g0.away_hsid)]);
-      if (!have.has(first.hsid) || !have.has(second.hsid)) {
-        decisions.push({
-          kind: 'pairing_changed', ref: `${season.season_key}:${target.round}:${target.region}:${target.series_no}`,
-          summary: `Round ${target.round} series ${target.series_no} already has ${g0.away_school_name} at ${g0.home_school_name}, but the series before it now send ${first.name} and ${second.name}.`,
-          details: { stored: [g0.home_hsid, g0.away_hsid], now: [first.hsid, second.hsid] },
-        });
-      }
-      continue;
-    }
-    if (first.seed === second.seed) {
+    if (target.games[0].home_hsid == null && first.seed === second.seed) {
       decisions.push({
-        kind: 'home_team', ref: `${season.season_key}:${target.round}:${target.region}:${target.series_no}`,
+        kind: 'home_team', ref: refOf(target),
         summary: `${first.name} and ${second.name} are both seed ${first.seed}: who is home in Round ${target.round}?`,
         details: { first, second },
       });
       continue;
     }
-    const [home, away] = first.seed < second.seed ? [first, second] : [second, first];
-    for (const g of target.games) {
-      fills.push({ region: g.region, game_id: g.game_id, home_hsid: home.hsid, away_hsid: away.hsid, home_seed: home.seed, away_seed: away.seed, home_school_name: home.name, away_school_name: away.name });
+    const [home, away] = (first.seed ?? 0) < (second.seed ?? 0) ? [first, second] : [second, first];
+    place(target, home, away);
+  }
+  // 2027, Round 8: the 8 survivors reseeded 1-8 by original seed, a tie in
+  // seed broken by total runs (Rounds 1-7); 1 v 8, 4 v 5, 2 v 7, 3 v 6.
+  if (lastRound > regionRounds) {
+    const survivors = stageRound('bracket', regionRounds).map(winnerOf);
+    const round8 = stageRound('bracket', regionRounds + 1, 0);
+    if (survivors.length === season.regions && survivors.every(Boolean) && round8.length === season.regions / 2) {
+      const t = totals(regionRounds * 3);
+      const runs = (s: Side) => t.get(s.hsid)?.rf ?? 0;
+      const ranked = (survivors as Side[]).sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0) || runs(b) - runs(a));
+      const tied = ranked.findIndex((s, i) => i > 0 && s.seed === ranked[i - 1].seed && runs(s) === runs(ranked[i - 1]));
+      if (tied > 0) {
+        decisions.push({
+          kind: 'reseed_tie', ref: `${season.season_key}:reseed:${regionRounds + 1}`,
+          summary: `${ranked[tied - 1].name} and ${ranked[tied].name} are both seed ${ranked[tied].seed} with ${runs(ranked[tied])} runs: who is seeded higher for Round ${regionRounds + 1}?`,
+          details: { ranked: ranked.map((s) => ({ ...s, runs: runs(s) })) },
+        });
+      } else {
+        const order = bracketOrder(season.regions);
+        round8.forEach((target, i) => {
+          const [hs, as] = [order[2 * i], order[2 * i + 1]];
+          place(target, { ...ranked[hs - 1], seed: hs }, { ...ranked[as - 1], seed: as });
+        });
+      }
+    }
+  }
+
+  // The knocked-out schools: once every bracket series before a round is
+  // decided, every school out so far is paired for that round. Each test
+  // bracket pairs its own; 2027 pairs them nationally (region 0).
+  const groups = season.is_test ? [...new Set(rows.map((r) => r.region))] : [0];
+  for (const region of groups) {
+    for (let round = 2; round <= lastRound; round++) {
+      const slots = stageRound('total_runs', round, region);
+      if (!slots.length) continue;
+      const before = [...series.values()].filter((s) => s.stage === 'bracket' && s.round < round && (!season.is_test || s.region === region));
+      const out = before.map(loserOf);
+      if (out.some((s) => !s)) continue;
+      const pool = (out as Side[]).sort((a, b) => a.hsid - b.hsid);
+      const ref = `${season.season_key}:total_runs:${round}:${region}`;
+      if (pool.length !== slots.length * 2) {
+        decisions.push({ kind: 'total_runs_pool', ref, summary: `Round ${round}: ${pool.length} schools are out of the bracket but there are ${slots.length * 2} places for them.`, details: { pool: pool.map((s) => s.hsid) } });
+        continue;
+      }
+      const filled = slots.filter((s) => s.games[0].home_hsid != null);
+      if (filled.length) {
+        const stored = new Set(filled.flatMap((s) => [num(s.games[0].home_hsid), num(s.games[0].away_hsid)]));
+        if (filled.length < slots.length || pool.some((s) => !stored.has(s.hsid))) {
+          decisions.push({ kind: 'pairing_changed', ref, summary: `Round ${round}: the knocked-out schools' pairs on file don't match the schools out of the bracket now.`, details: { stored: [...stored], now: pool.map((s) => s.hsid) } });
+        }
+        continue;
+      }
+      // Original seeds for the commissioner's Game 3 rule; the better one at home.
+      const seeded = (h: number): Side => ({ hsid: h, seed: school.get(h)?.seed ?? null, name: school.get(h)?.name ?? null });
+      const { pairs } = pairEliminated(pool.map((s) => s.hsid), ref, teammates(clubs));
+      const games = pairs
+        .map(([a, b]) => { const [x, y] = [seeded(a), seeded(b)]; return (y.seed ?? 0) < (x.seed ?? 0) ? [y, x] : [x, y]; })
+        .sort(([a], [b]) => (school.get(a.hsid)?.region ?? 0) - (school.get(b.hsid)?.region ?? 0) || (a.seed ?? 0) - (b.seed ?? 0) || a.hsid - b.hsid);
+      games.forEach(([home, away], i) => place(slots[i], home, away));
+    }
+  }
+
+  // Weeks 31-34 (2027). Once every game of Weeks 1-30 is final: each
+  // region's Total Runs leader, seeded 1-8 by the same order, into the slots'
+  // seeds (1 v 8, 4 v 5, 2 v 7, 3 v 6); winners go on, the better seed at
+  // home; then the bracket champion (home) v the Total Runs winner.
+  const sct = (round: number) => stageRound('season_championship', round, 0);
+  if (sct(1).length) {
+    const regular = rows.filter((r) => r.stage === 'bracket' || r.stage === 'total_runs');
+    const final = regular.every((r) => state(r).status === 'final');
+    const top = stageRound('bracket', lastRound, 0)[0];
+    const champion = top ? winnerOf(top) : null;
+    if (final && champion) {
+      const t = totals(Math.max(...regular.map((r) => r.week)));
+      const order = (a: number, b: number) => {
+        const x = t.get(a) || { rf: 0, ra: 0, w: 0 }, y = t.get(b) || { rf: 0, ra: 0, w: 0 };
+        return y.rf - x.rf || (y.rf - y.ra) - (x.rf - x.ra) || y.w - x.w || (school.get(a)?.seed ?? 0) - (school.get(b)?.seed ?? 0);
+      };
+      const leaders: number[] = [];
+      for (let region = 1; region <= season.regions; region++) {
+        const board = [...school.values()].filter((s) => s.region === region).map((s) => s.hsid).sort(order);
+        const leader = board.find((h) => !CHAMPION_SITS_OUT || h !== champion.hsid);
+        if (leader != null) leaders.push(leader);
+      }
+      leaders.sort(order);
+      const trSide = (seed: number): Side => ({ hsid: leaders[seed - 1], seed, name: school.get(leaders[seed - 1])?.name ?? null });
+      if (leaders.length === season.regions) {
+        sct(1).forEach((target, i) => {
+          const g0 = target.games[0];
+          const order8 = bracketOrder(season.regions);
+          place(target, trSide(num(g0.home_seed) ?? order8[2 * i]), trSide(num(g0.away_seed) ?? order8[2 * i + 1]));
+        });
+      }
+    }
+    for (let round = 2; sct(round).length; round++) {
+      const prev = sct(round - 1);
+      sct(round).forEach((target, i) => {
+        const [a, b] = [winnerOf(prev[2 * i]), winnerOf(prev[2 * i + 1])];
+        if (!a || !b) return;
+        const [home, away] = (a.seed ?? 0) < (b.seed ?? 0) ? [a, b] : [b, a];
+        place(target, home, away);
+      });
+    }
+    const last = [...series.values()].filter((s) => s.stage === 'season_championship').reduce((m, s) => Math.max(m, s.round), 0);
+    const trChampion = last ? winnerOf(sct(last)[0]) : null;
+    const ws = stageRound('world_series', 1, 0)[0];
+    if (ws && champion && trChampion) {
+      const orig = (s: Side): Side => ({ ...s, seed: school.get(s.hsid)?.seed ?? null });
+      place(ws, orig(champion), orig(trChampion));
     }
   }
   return { fills, decisions };
 }
 
-function computeSeason(season: Season, rows: Row[], rulings: Ruling[], live: Live, asof: string, withBox: boolean) {
+export function computeSeason(season: Season, rows: Row[], rulings: Ruling[], live: Live, asof: string, withBox: boolean, clubs: Clubs = new Map()) {
   // A test bracket is its own field; the 2027 regions share one.
   const groups = season.is_test ? [...new Set(rows.map((r) => r.region))].map((g) => rows.filter((r) => r.region === g)) : [rows];
   const results: Result[] = [];
@@ -273,7 +494,7 @@ function computeSeason(season: Season, rows: Row[], rulings: Ruling[], live: Liv
     decisions.push(...out.decisions);
     boxFills.push(...out.boxFills);
   }
-  const { fills, decisions: more } = nextRoundFills(season, rows, results);
+  const { fills, decisions: more } = fillSlots(season, rows, results, clubs);
   return { results, fills, decisions: [...decisions, ...more], boxFills };
 }
 
@@ -349,6 +570,51 @@ async function checkTeams(pool: Pool) {
 const forDb = (results: Result[]) => results.map((r) => ({ ...r, innings: `{${r.innings.join(',')}}` }));
 const dollar = (s: string) => `$j$${s}$j$`;
 
+// Each alumnus's latest real-life team as of a day (pro or college, by our
+// teamid), for the knocked-out schools' pairings. Only read while some of
+// those pairs are still to be drawn.
+async function loadTeams(db: Pool | PoolClient, rows: Row[], live: Live, asof: string) {
+  if (!rows.some((r) => r.stage === 'total_runs' && r.status === 'tbd')) return new Map<string, string>();
+  const ids = Object.values(live.roster || {}).flat().map((p) => p[0]);
+  const { rows: teams } = await db.query<{ playerid: string; teamid: string }>(
+    `SELECT DISTINCT ON (playerid) playerid, teamid
+       FROM public.player_team_stints
+      WHERE playerid = ANY($1) AND stint_start <= $2::date AND level IS DISTINCT FROM 'HIGH SCHOOL'
+      ORDER BY playerid, stint_start DESC, teamid`,
+    [ids, asof],
+  );
+  return new Map(teams.map((t) => [String(t.playerid), String(t.teamid)]));
+}
+
+type Computed = ReturnType<typeof computeSeason>;
+// One season's writes, in one transaction.
+export async function writeSeason(client: PoolClient, seasonKey: string, out: Computed, withBox: boolean) {
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL master_bracket.reason = 'bracket results job'");
+    await client.query(SQL_RESULTS, [seasonKey, JSON.stringify(forDb(out.results)), withBox]);
+    await client.query(SQL_FILLS, [seasonKey, JSON.stringify(out.fills)]);
+    await client.query(SQL_DECISIONS, [seasonKey, JSON.stringify(out.decisions)]);
+    if (out.boxFills.length) {
+      await client.query("SET LOCAL master_bracket.unlock = 'on'");
+      await client.query("SET LOCAL master_bracket.reason = 'bracket results job: stat drawer added to a locked final (result unchanged)'");
+      await client.query(SQL_BOXES, [seasonKey, JSON.stringify(out.boxFills)]);
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  }
+}
+
+export const SQL_ROWS = `
+SELECT stage, region, round, round_name, series_no, game_no, game_id, week, home_hsid, away_hsid, home_seed, away_seed,
+       home_school_name, away_school_name, status, innings, home_runs, away_runs, winner_hsid, decided_by, locked_at,
+       box IS NULL AS box_missing
+  FROM public.master_bracket WHERE season_key = $1`;
+export const SQL_RULINGS = 'SELECT region, week, home_hsid, away_hsid, winner_hsid FROM public.commissioner_rulings WHERE season_key = $1';
+export type { Season, Row, Ruling };
+
 async function main() {
   const seasonKey = arg('season');
   const asof = arg('asof') || bracketDay();
@@ -362,7 +628,8 @@ async function main() {
     const rows: Row[] = read('rows.json');
     const rulings: Ruling[] = read('rulings.json');
     const live: Live = read('live.json');
-    const { results, fills, decisions, boxFills } = computeSeason(season, rows, rulings, live, asof, withBox);
+    const teamOf = new Map<string, string>(existsSync(join(offline, 'teams.json')) ? Object.entries(read('teams.json')) : []);
+    const { results, fills, decisions, boxFills } = computeSeason(season, rows, rulings, live, asof, withBox, clubsOf(live, teamOf));
     const sub = (sql: string, json: unknown) => sql.replaceAll('$1', `'${season.season_key}'`).replaceAll('$2', dollar(JSON.stringify(json))).replaceAll('$3', String(withBox)).trim();
     console.log(`-- ${season.season_key} as of ${asof}: ${results.length} results, ${fills.length} slots filled, ${decisions.length} for Pete, ${boxFills.length} locked finals get their box`);
     console.log(`${sub(SQL_RESULTS, forDb(results))};\n${sub(SQL_FILLS, fills)};\n${sub(SQL_DECISIONS, decisions)};`);
@@ -384,40 +651,20 @@ async function main() {
     );
     if (!seasons.length) console.log(`no fantasy season is live on ${asof}`);
     for (const season of seasons) {
-      const { rows } = await pool.query<Row>(
-        `SELECT stage, region, round, series_no, game_no, game_id, week, home_hsid, away_hsid, home_seed, away_seed,
-                home_school_name, away_school_name, status, innings, winner_hsid, decided_by, locked_at,
-                box IS NULL AS box_missing
-           FROM public.master_bracket WHERE season_key = $1`,
-        [season.season_key],
-      );
-      const { rows: rulings } = await pool.query<Ruling>(
-        'SELECT region, week, home_hsid, away_hsid, winner_hsid FROM public.commissioner_rulings WHERE season_key = $1',
-        [season.season_key],
-      );
+      const { rows } = await pool.query<Row>(SQL_ROWS, [season.season_key]);
+      const { rows: rulings } = await pool.query<Ruling>(SQL_RULINGS, [season.season_key]);
       const weeks = startedWeeks(season, asof);
       if (!weeks) { console.log(`${season.season_key}: nothing started by ${asof}`); continue; }
       const live = await fetchLive(base, season.opening_day, Math.min(weeks, 40), fieldOf(rows));
-      const { results, fills, decisions, boxFills } = computeSeason(season, rows, rulings, live, asof, withBox);
+      const clubs = clubsOf(live, await loadTeams(pool, rows, live, asof));
+      const out = computeSeason(season, rows, rulings, live, asof, withBox, clubs);
+      const { results, fills, decisions, boxFills } = out;
       console.log(`${season.season_key} as of ${asof}: ${results.length} results (${results.filter((r) => r.lock).length} final), ${fills.length} slots filled, ${decisions.length} for Pete, ${boxFills.length} locked finals get their box`);
       for (const d of decisions) console.log(`  needs decision: ${d.summary}`);
       if (flag('dry-run')) continue;
       const client: PoolClient = await pool.connect();
       try {
-        await client.query('BEGIN');
-        await client.query("SET LOCAL master_bracket.reason = 'bracket results job'");
-        await client.query(SQL_RESULTS, [season.season_key, JSON.stringify(forDb(results)), withBox]);
-        await client.query(SQL_FILLS, [season.season_key, JSON.stringify(fills)]);
-        await client.query(SQL_DECISIONS, [season.season_key, JSON.stringify(decisions)]);
-        if (boxFills.length) {
-          await client.query("SET LOCAL master_bracket.unlock = 'on'");
-          await client.query("SET LOCAL master_bracket.reason = 'bracket results job: stat drawer added to a locked final (result unchanged)'");
-          await client.query(SQL_BOXES, [season.season_key, JSON.stringify(boxFills)]);
-        }
-        await client.query('COMMIT');
-      } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
+        await writeSeason(client, season.season_key, out, withBox);
       } finally {
         client.release();
       }
@@ -427,7 +674,10 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// Run as the job; imported (the full-season proof), it only lends its parts.
+if (/master-bracket-results\.ts$/.test(process.argv[1] || '')) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}
