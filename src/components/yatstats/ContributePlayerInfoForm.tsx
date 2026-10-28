@@ -121,7 +121,13 @@ export default function ContributePlayerInfoForm({
   }
   async function submit() {
     setMessage('');setError('');
-    if(!signedIn){onSignIn();return;}
+    if(!signedIn){
+      await auth.authStateReady?.();
+      const firebaseToken=await auth.currentUser?.getIdToken().catch(()=>'');
+      const response=firebaseToken ? null : await fetch('/api/auth/session',{credentials:'include',cache:'no-store'}).catch(()=>null);
+      const session=response?.ok ? await response.json().catch(()=>null) : null;
+      if(!firebaseToken && !session?.authenticated){onSignIn();return;}
+    }
     if(!school && !player?.schoolId){setError('Select the high school.');return;}
     if(isHighSchoolPlayer && !['UNCOMMITTED','COMMIT'].includes(values.status_label)){
       setError('High school players must be UNCOMMITTED or committed to a college.');return;
