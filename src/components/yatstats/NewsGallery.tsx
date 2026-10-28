@@ -197,6 +197,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   const [posts, setPosts] = useState<NewsPost[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [sharedStoryId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('story') || '');
   const [playerFilter, setPlayerFilter] = useState<string>("");
   const [newsFilters, setNewsFilters] = useState<NewsFilterSelection>(EMPTY_NEWS_FILTERS);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -211,13 +212,13 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     const section = document.getElementById("sec-news");
     if (!section) return;
     const check = () => {
-      if (section.classList.contains("visible")) setRequested(true);
+      if (sharedStoryId || section.classList.contains("visible")) setRequested(true);
     };
     check();
     const observer = new MutationObserver(check);
     observer.observe(section, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
-  }, []);
+  }, [sharedStoryId]);
 
   // Fetch the first page only on tab entry. Further pages load on demand,
   // so no school incurs an unbounded initial response or extra home-page SQL.
@@ -377,7 +378,12 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     document.querySelectorAll<HTMLElement>("#sec-news .news-card").forEach((card) => card.classList.add("is-flipped"));
   }, [visible]);
 
-  const rows: ProfileNewsStory[] = visible.slice(0, visibleCount).map((post) => ({
+  // A shared story must stay mounted even if it is older than the first
+  // visible page or the user's current filters would otherwise hide it.
+  const sharedPost = sharedStoryId ? (posts || []).find(p => p.uuid === sharedStoryId) : null;
+  const displayPosts = visible.slice(0, visibleCount);
+  if (sharedPost && !displayPosts.some(p => p.uuid === sharedStoryId)) displayPosts.unshift(sharedPost);
+  const rows: ProfileNewsStory[] = displayPosts.map((post) => ({
     uuid: post.uuid,
     title: stripHtml(post.displayHeadline || post.title) || 'Alumni news',
     url: post.url,
