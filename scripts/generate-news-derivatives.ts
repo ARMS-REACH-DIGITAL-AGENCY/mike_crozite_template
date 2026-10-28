@@ -19,6 +19,10 @@
 //   * a story that isn't about him (not FEATURED) and has no clean sentence
 //     about him is marked approval_status='rejected'; the news feeds leave
 //     rejected stories out
+//   * a fan-submitted link (discovery_source='contribute') keeps the fan's
+//     own words: no "gets a mention in this ... story" lead (there is no
+//     article to rate, so every one read as a passing mention), and it is
+//     never hidden - a person vouched for it
 //   * existing derivatives are preserved (manual/editorial work wins);
 //     --regenerate rewrites only the ones this generator wrote
 //   * --dry-run prints old vs new recaps and writes nothing
@@ -81,6 +85,7 @@ type CandidateRow = {
   verification_score: string | number | null;
   verification_evidence: any;
   newsworthiness: string | null;
+  discovery_source: string | null;
   class_of: string | null;
   level_label: string | null;
   status_label: string | null;
@@ -253,23 +258,37 @@ function buildDerivative(row: CandidateRow) {
   const domain = sourceDomain(row);
   const context = selectPlayerContext(row, fullName, effectiveLastName);
 
-  const lead =
-    playerRelevance === "primary"
+  const contributed = row.discovery_source === "contribute";
+  // A submitted link has no article to rate: the fan's description is the
+  // story text, else sentences about him from what came with the link.
+  // Whole sentences only (an old submission's text was cut at 150
+  // characters, mid-word), and not one that just repeats the headline.
+  const headlineKey = cleanText(row.title).toLowerCase();
+  const description = contributed
+    ? sentenceList(cleanText(row.snippet))
+        .filter((sentence) => /[.!?]["'’”)]?$/.test(sentence) && sentence.toLowerCase() !== headlineKey)
+        // A quote whose closing mark was cut off loses its opening mark too.
+        .map((sentence) => (/^["“]/.test(sentence) && !/["”]/.test(sentence.slice(1)) ? sentence.slice(1) : sentence))
+    : [];
+  const lead = contributed
+    ? ""
+    : playerRelevance === "primary"
       ? `${fullName} is the focus of this ${domain} story.`
       : playerRelevance === "secondary"
         ? `${fullName} is featured in this ${domain} story.`
         : `${fullName} gets a mention in this ${domain} story.`;
+  const storyText = contributed ? (description.length ? description : context) : [lead, ...context];
 
   // His name is in the headline, so the story is about him even when the
   // body has no clean sentence to quote. Otherwise, no clean sentence about
   // him means it isn't really news about him: keep it off the feeds.
-  const publishable = playerRelevance === "primary" || context.length > 0;
+  // A fan-submitted link was vouched for by a person.
+  const publishable = contributed || playerRelevance === "primary" || context.length > 0;
 
-  const recap = fitSentences([lead, ...context], 520);
+  const recap = fitSentences(storyText, 520);
   const profileBody = fitSentences(
     [
-      lead,
-      ...context,
+      ...storyText,
       team ? `YAT?STATS currently tracks ${fullName} with ${team}${org ? ` in ${org}` : ""}.` : "",
     ],
     900
@@ -294,7 +313,7 @@ function buildDerivative(row: CandidateRow) {
     tease: {
       headline: row.title,
       badge: level ? `${level} UPDATE` : "ALUMNI UPDATE",
-      body: fitSentences([lead, ...context], 300),
+      body: fitSentences(storyText, 300),
       footer: `${domain} · ${publishedDate}`,
       primary_cta: {
         label: "READ FULL NEWS ON PROFILE",
