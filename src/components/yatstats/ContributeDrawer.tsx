@@ -18,6 +18,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { parseNewsVideo } from '@/lib/newsVideo';
 import { SchoolContext } from '@/context/SchoolContext';
 import FanConfirm from '@/components/yatstats/FanConfirm';
@@ -152,7 +153,8 @@ export default function ContributeDrawer() {
   const [tipWhy, setTipWhy] = useState('');
 
   const youtubeTip = parseNewsVideo(tipUrl)?.provider === 'YouTube';
-  const signedIn = Boolean(session?.uid && session?.email);
+  const [firebaseSignedIn, setFirebaseSignedIn] = useState(false);
+  const signedIn = Boolean(session?.uid || firebaseSignedIn);
   const sending = status.kind === 'sending';
   // Every year of his life, newest first (the same list as the Photo
   // drawer), plus "Other": a year and a team or league we don't list.
@@ -265,6 +267,10 @@ export default function ContributeDrawer() {
     window.addEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
   }, [resetForms, choosePlayer, show, status.kind, player?.playerId, hubSchool?.hsid]);
+
+  // The Firebase identity may remain valid when the server cookie is missing or stale.
+  // Submit still validates the Firebase ID token server-side.
+  useEffect(() => onAuthStateChanged(auth, user => setFirebaseSignedIn(Boolean(user))), []);
 
   // A new Next.js school shell (for example after navigating to a different
   // school) remounts this drawer. Reopen the same kind of form on that page.
@@ -829,6 +835,23 @@ export default function ContributeDrawer() {
         #drawerContribute .ycd-field :is(input,select,textarea){min-height:40px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:400 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif);background:var(--card-bg);color:var(--fg);}
         #drawerContribute .ycd-field textarea{min-height:92px;}
         #drawerContribute :is(button,a,input,select,textarea):focus-visible{outline:2px solid var(--fg);outline-offset:2px;}
+        /* Phone browsers in desktop-site mode may report a 980px CSS viewport.
+           Use the touch viewport for an actual overlay instead of a clipped dock. */
+        @media (pointer:coarse) and (max-width:1199px) {
+          #drawerContribute.yat-contribute-drawer {
+            position:fixed!important;left:auto!important;right:0!important;
+            width:100vw!important;max-width:100vw!important;
+            height:auto!important;box-sizing:border-box!important;
+            overflow-x:hidden!important;overflow-y:auto!important;
+          }
+          #drawerContribute .ycd-main,#drawerContribute .ycd-col,
+          #drawerContribute .ycd-narrow,#drawerContribute .ycd-profile-fields {
+            min-width:0!important;max-width:100%!important;
+          }
+          #drawerContribute .ycd-pair {grid-template-columns:repeat(2,minmax(0,1fr));}
+          #drawerContribute :is(input,select,textarea) {max-width:100%;box-sizing:border-box;}
+          #drawerContribute .ycd-header,#drawerContribute .ycd-body {min-width:0;overflow-wrap:anywhere;}
+        }
         @media(max-width:779px){
           #drawerContribute .ycd-header{padding:15px 16px 12px;}
           #drawerContribute .ycd-title{font-size:20px!important;}
