@@ -31,8 +31,9 @@
 //     in a test season), real-life teammates' high schools first (each
 //     alumnus's latest pro or college team in player_team_stints, by
 //     teamid), then a draw fixed by the round; never two schools that have
-//     already played each other, if it can be helped. Publicly they are
-//     "randomly selected"; the method is never published.
+//     already played each other (a draw that had one isn't stored; it goes
+//     on the needs-decision list). Publicly they are "randomly selected";
+//     the method is never published.
 //   - Total Runs: after Week 30, each region's leader in runs over the 30
 //     weeks (then run differential, wins, seed; total_runs_standings) plays
 //     Weeks 31-33, seeded 1-8 the same way; the Main Bracket winner has byes
@@ -273,8 +274,9 @@ export const pairKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${
 
 // A round's knocked-out pairs: real-life teammates' schools first, then the
 // draw (fixed by seed). Two schools that have already played each other
-// (met) aren't paired again if it can be helped: a drawn pair that met swaps
-// partners with another drawn pair.
+// (met) are never paired again: a drawn pair that met swaps partners with
+// another drawn pair. That always works in 2027: before Round 10 a school
+// has played at most 9 others, out of a pool of 512 or more.
 export function drawPairs(pool: number[], seed: string, clubs: Clubs, met: Set<string>): [number, number][] {
   const mates = teammates(clubs);
   const fresh = (a: number, b: number) => !met.has(pairKey(a, b));
@@ -483,7 +485,13 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
       }
       // Original seeds for the commissioner's Game 3 rule; the better one at home.
       const seeded = (h: number): Side => ({ hsid: h, seed: school.get(h)?.seed ?? null, name: school.get(h)?.name ?? null });
-      const games = drawPairs(pool.map((s) => s.hsid), ref, clubs, met)
+      const pairs = drawPairs(pool.map((s) => s.hsid), ref, clubs, met);
+      const again = pairs.filter(([a, b]) => met.has(pairKey(a, b)));
+      if (again.length) {
+        decisions.push({ kind: 'total_runs_rematch', ref, summary: `Round ${round}: the draw paired ${again.length} schools that already played each other. Nothing was stored for the round.`, details: { again } });
+        continue;
+      }
+      const games = pairs
         .map(([a, b]) => { const [x, y] = [seeded(a), seeded(b)]; return (y.seed ?? 0) < (x.seed ?? 0) ? [y, x] : [x, y]; })
         .sort(([a], [b]) => (school.get(a.hsid)?.region ?? 0) - (school.get(b.hsid)?.region ?? 0) || (a.seed ?? 0) - (b.seed ?? 0) || a.hsid - b.hsid);
       games.forEach(([home, away], i) => {

@@ -198,15 +198,17 @@ async function main() {
     checks.push({ check: name, ok, detail });
     console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}: ${detail}`);
   };
-  // Pete's example (Oct 28): the 8 regional bracket winners' seeds and runs
-  // through Round 7, and the Round 8 he wrote down ([home region, away region]).
+  // Pete's hypothetical example (Oct 28), a test of the reseeding rule only:
+  // 8 made-up regional bracket winners' seeds and runs through Round 7, and
+  // the Round 8 he wrote down for them ([home region, away region]). The real
+  // Round 8 comes from the real Round 7 results, below.
   {
     const example = [[1, 4, 85], [2, 2, 90], [3, 44, 100], [4, 12, 99], [5, 1, 125], [6, 2, 91], [7, 10, 75], [8, 5, 110]]
       .map(([region, seed, runs]) => ({ region, seed, runs }));
     const { ranked } = reseed(example);
     const got = ROUND_8.map(([h, a]) => [ranked[h - 1].region, ranked[a - 1].region]);
     const pete = [[5, 3], [1, 8], [2, 7], [6, 4]];
-    check('Pete\'s example: Round 8 comes out as he wrote it', JSON.stringify(got) === JSON.stringify(pete),
+    check('the reseeding rule on Pete\'s hypothetical example gives the Round 8 he wrote', JSON.stringify(got) === JSON.stringify(pete),
       got.map(([h, a], i) => `Series ${i + 1}: (#${ROUND_8[i][1]}) Region ${a} at (#${ROUND_8[i][0]}) Region ${h}`).join('; '));
   }
   const by = (stage: string) => rows.filter((r) => r.stage === stage);

@@ -34,7 +34,7 @@ one" and "Bracket rounds (2027)").
   - scores the knocked-out games and Weeks 31-34 with the scoreboard's own
     code, exactly like bracket games;
   - pairs the knocked-out schools when a round ends: teammates' schools
-    first, never a rematch if it can be avoided;
+    first, never a rematch (a draw that had one isn't stored);
   - reseeds Rounds 8-10 by regional seed and routes Series 1-12 as Pete
     wrote them;
   - fills Weeks 31-34 from the stored Week 30 results and standings.
@@ -63,7 +63,7 @@ All 19 checks pass:
 
 | Check | Result |
 |---|---|
-| Pete's example: Round 8 as he wrote it | S1 (#8) Region 3 at (#1) Region 5; S2 (#5) Region 8 at (#4) Region 1; S3 (#6) Region 7 at (#3) Region 2; S4 (#7) Region 4 at (#2) Region 6 |
+| The reseeding rule on Pete's hypothetical example (a test of the rule only; the real Round 8 is filled from the real Round 7 results) | gives the Round 8 he wrote: S1 (#8) Region 3 at (#1) Region 5; S2 (#5) Region 8 at (#4) Region 1; S3 (#6) Region 7 at (#3) Region 2; S4 (#7) Region 4 at (#2) Region 6 |
 | Games | 15,368: bracket 3,084, knocked-out 12,276, Weeks 31-33 7, Week 34 1 |
 | Every game has two schools and is final and locked | 15,368 of 15,368 |
 | Weeks 1-30 | 512 games every week, 15,360 in all (1,024 x 30 / 2) |
@@ -98,10 +98,14 @@ All 19 checks pass:
 The teammate share is high because the stand-in teams are crowded: about 14
 alumni per team. Real rosters will link fewer schools; the rest are drawn.
 
-**Found and fixed on the way:** teammates-first pairing alone kept pairing
-the same schools round after round (327 of Round 10's 512 matchups were
-rematches). Schools that have already played are now never paired again if
-it can be avoided.
+**Found and fixed on the way:** the first version paired teammates' schools
+first and nothing else, so with the same pool and the same teammates it
+picked the same pairs round after round (in the first proof run, 327 of
+Round 10's 512 matchups repeated an earlier one; on one fixed pool of 512,
+186 of 256 by Round 10). Now two schools that have already played are never
+paired again: before Round 10 a school has played at most 9 others, in a
+pool of 512 or more, so a draw without rematches always exists, and a draw
+that had one would not be stored.
 
 ## Still open
 

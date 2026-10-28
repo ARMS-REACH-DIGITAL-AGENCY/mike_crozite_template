@@ -98,9 +98,10 @@ says otherwise.
     The rest are drawn.
   - As built: one opponent for the round's three weeks; each alumnus's
     latest team in `player_team_stints`, by teamid (never by name); two
-    schools that have already played each other aren't paired again if it
-    can be avoided; the draw is fixed by the round, so it never changes once
-    made.
+    schools that have already played each other are never paired again
+    (always possible: before Round 10 a school has played at most 9 others,
+    in a pool of 512 or more); the draw is fixed by the round, so it never
+    changes once made.
 - **Still to decide (Pete):** the tiebreak when two schools lead a region
   with the same run total (as built: run differential, then wins, then
   seed); who is home in Week 34 (as built: the Main Bracket winner).
@@ -116,8 +117,9 @@ Pete, Oct 28. This replaces the Oct 27 Rounds 9-10.
   other for all nine weeks, four 3-game series a round (36 games).
 - **Reseeding:** the 8 use their regional seeds, 1-8, for all three rounds.
   A tie in regional seed goes to more total runs through Round 7. Pete's
-  example: Region 6 and Region 2 winners were both #2 seeds; Region 6 is the
-  higher seed with 91 runs to Region 2's 90.
+  hypothetical example: if the Region 6 and Region 2 winners were both #2
+  seeds with 91 and 90 runs, Region 6 would be the higher seed. Who the 8
+  are is known only when Round 7 ends (Week 21); the job fills Round 8 then.
 - **Round 8 (Weeks 22-24):** Series 1: #1 v #8. Series 2: #4 v #5.
   Series 3: #3 v #6. Series 4: #2 v #7. The better seed is at home.
 - **Round 9 (Weeks 25-27):**
