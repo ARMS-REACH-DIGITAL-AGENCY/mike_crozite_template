@@ -191,8 +191,8 @@ assert.match(school, /featuredPlayerDetails=\{splashOverride\?\.details \?\? \{\
 
 assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'render approved IDs before DB roster loads');
 assert.match(splash, /data-confirmed-ids=\{confirmedCutoutIds\.join/, 'render confirmed cutout IDs before DB roster loads');
-assert.match(splash, /confirmedCutoutIds\.length \? ' is-visible'/, 'immediate visible server-rendered cutout');
-assert.match(splash, /then-cutouts\/\$\{encodeURIComponent\(confirmedCutoutIds\[0\]\)\}\.png/, 'render known-good image src without relying on JavaScript');
+assert.match(splash, /className="yat-splash-player"/, 'player wrapper has a stable hydration-safe class');
+assert.match(splash, /src=\{undefined\}/, 'do not pre-render a fixed cutout before per-school rotation');
 assert.match(splash, /if\(staticIds\.length\)begin\(staticIds,staticConfirmed\)/, 'start curated splash image loading immediately');
 assert.match(school, /window\.__yatSplashRoster=/, 'save streamed roster event to prevent missed listeners');
 assert.match(school, /featuredPlayerIds=\{splashOverride\?\.ids \?\? \[\]\}/, 'pass generic school configuration to shared splash');
@@ -228,3 +228,6 @@ assert.match(newsImages, /export function chooseNewsDisplayImage/, 'preserve sha
 console.log('[news preview] article imagery and responsive mobile layout baseline verified');
 
 console.log('[splash sponsors] inline JS syntax, reveal timing, CSS and DB mapping verified');
+
+assert.ok(splash.includes("yat_splash_rotation_v2_"), 'per-school rotation deck persists across visits');
+assert.ok(!splash.includes('<p className="yat-splash-partner-name">'), 'sponsor file-name caption must stay hidden');
