@@ -1290,6 +1290,29 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone .yp-profile-infeed-ad,
           #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
         }
+        /* Desktop player News uses a full-size 300x600 tower, not the
+           compressed card. Narrow layouts retain the in-feed ad. */
+        @media (min-width:1081px) {
+          #playerFunZone #ppTab-news .yp-profile-partner-columns {
+            display:grid!important;
+            grid-template-columns:minmax(0,1fr) 300px!important;
+            align-items:start!important;
+            height:auto!important;
+            overflow:visible!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-ad {
+            display:flex!important;
+            position:sticky!important;
+            top:12px!important;
+            width:300px!important;
+            height:600px!important;
+            min-height:600px!important;
+            max-height:600px!important;
+            aspect-ratio:1/2!important;
+            align-self:start!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-infeed-ad {display:none!important;}
+        }
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;

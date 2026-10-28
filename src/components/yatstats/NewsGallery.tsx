@@ -510,7 +510,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         .yp-school-news-tower {
           display:flex;flex-direction:column;gap:14px;align-items:center;
           justify-content:center;width:300px;height:600px;min-height:600px;max-height:600px;box-sizing:border-box;padding:25px 14px;
-          position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + 14px);
+          position:sticky;top:12px;align-self:start;
           border:1px dashed #898989;border-radius:3px;
           background:#181818;color:#fff;text-align:center;
         }
