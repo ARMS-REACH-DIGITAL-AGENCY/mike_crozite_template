@@ -225,6 +225,22 @@ function applyFilters(section: string) {
     displayTarget.style.display = show ? '' : 'none';
   });
 
+
+  // Sponsor cards have their own entitlement and are not roster players.
+  targetSection.querySelectorAll<HTMLElement>('.yat-card[data-sponsor-card="true"]').forEach(card => {
+    const name = String(card.dataset.name || '').toLowerCase();
+    const years = String(card.dataset.rosteryears || '').split(',').map(normalize).filter(Boolean);
+    const show = section === 'active'
+      && !favoritesOnly && !favoritesGallery.enabled
+      && (!nameFilter || name.includes(nameFilter))
+      && (!levels.length || levels.includes('SPONSOR'))
+      && (!organizations.length || organizations.includes(normalize(card.dataset.org)))
+      && matchesGraduatingClass(normalize(card.dataset.gradclass), gradClasses)
+      && (!rosterYears.length || years.some(year => rosterYears.includes(year)));
+    const displayTarget = card.closest<HTMLElement>('[data-sponsor-card-wrap="true"]') || card;
+    displayTarget.style.display = show ? '' : 'none';
+  });
+
   if (section === 'alltime') sortFilteredAllTime(targetSection);
 
   window.dispatchEvent(new CustomEvent('yat:gallery-filtered', { detail: { section } }));
@@ -518,7 +534,9 @@ export default function GalleryFilterController() {
     document.addEventListener('input', onInputCapture, true);
     document.addEventListener('click', onClickCapture, true);
     window.addEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
+    const onSponsorCardsLoaded = () => applyFilters(getCurrentSection());
     window.addEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
+    window.addEventListener('yat:sponsor-cards-loaded', onSponsorCardsLoaded);
     const onAllTimeGalleryLoaded = () => { if (getCurrentSection() === 'alltime') applyFilters('alltime'); };
     window.addEventListener('yat:alltime-gallery-loaded', onAllTimeGalleryLoaded);
 
@@ -540,6 +558,7 @@ export default function GalleryFilterController() {
       document.removeEventListener('click', onClickCapture, true);
       window.removeEventListener('yat:favorites-filter-changed', onFavoritesFilterChanged);
       window.removeEventListener('yat:alltime-team-year-filter', onAllTimeTeamYearFilter);
+      window.removeEventListener('yat:sponsor-cards-loaded', onSponsorCardsLoaded);
       window.removeEventListener('yat:alltime-gallery-loaded', onAllTimeGalleryLoaded);
       sectionObserver.disconnect();
     };

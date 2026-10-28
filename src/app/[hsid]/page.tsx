@@ -26,6 +26,7 @@ import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
+import SponsorGalleryCards from "@/components/yatstats/SponsorGalleryCards";
 import AllTimeOnDemandNavigation from "@/components/yatstats/AllTimeOnDemandNavigation";
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
@@ -602,6 +603,9 @@ export default async function SchoolPage({
     <>
       <section id="sec-active" className={`yat-section${teamYear ? '' : ' visible'}`}>
         <div className="yat-grid" id="active-grid">
+          {/* Keep gallery sponsor requests off by default until the Publisher's Desk
+              production schema and entitlements are fully verified. */}
+          {process.env.NEXT_PUBLIC_TRIBUNE_SPONSOR_CARDS_ENABLED === 'true' ? <SponsorGalleryCards hsid={resolvedHsid} /> : null}
           {activeSortedRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No active alumni found" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
           ) : (
