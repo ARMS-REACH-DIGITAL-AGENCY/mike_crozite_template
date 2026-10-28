@@ -14,7 +14,7 @@ export async function captureFlipCard(input: { origin: string; hsid: string; pla
   });
   try {
     const page = await browser.newPage();
-    await page.setViewport({ width: 1000, height: 900, deviceScaleFactor: 1 });
+    await page.setViewport({ width: 300, height: 420, deviceScaleFactor: 2 });
     await page.setCookie({ name: 'yat_seen', value: '1', url: input.origin });
     const url = new URL('/embed/share-card/' + encodeURIComponent(input.playerId), input.origin);
     const result = await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 26000 });
@@ -30,12 +30,9 @@ export async function captureFlipCard(input: { origin: string; hsid: string; pla
     const png = Buffer.from(await target.screenshot({type:'png'}));
     const metadata = await sharp(png).metadata();
     if (!metadata.width || !metadata.height || metadata.height < 300) throw new Error('Invalid card capture size');
-    const fitted = await sharp(png).resize({height:630,fit:'inside',withoutEnlargement:false}).png().toBuffer();
-    const fittedMeta = await sharp(fitted).metadata();
-    const left = Math.round((1200 - (fittedMeta.width || 0))/2);
-    const top = Math.round((630 - (fittedMeta.height || 0))/2);
-    return sharp({create:{width:1200,height:630,channels:4,background:'#070707'}})
-      .composite([{input:fitted,left,top}]).png().toBuffer();
+    // Preserve the card's original 5:7 portrait aspect ratio. Never crop or
+    // letterbox it into a landscape social banner.
+    return sharp(png).resize({width:750,height:1050,fit:'fill'}).png().toBuffer();
   } finally {
     await browser.close();
   }
