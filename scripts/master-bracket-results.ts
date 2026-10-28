@@ -69,6 +69,8 @@ type Row = {
   innings: number[] | null; home_runs?: number | null; away_runs?: number | null;
   winner_hsid: number | null; decided_by: string | null; locked_at: string | null;
   box_missing?: boolean;
+  // A week in progress: when the job last scored it, and its stored drawer.
+  computed_at?: string | null; box_in_progress?: GameBox | null;
 };
 type Ruling = { region: number; week: number; home_hsid: number; away_hsid: number; winner_hsid: number };
 type Result = {
@@ -84,6 +86,7 @@ export type Clubs = Map<number, Map<string, number>>;
 const iso =(t: number) => new Date(t).toISOString().slice(0, 10);
 // The bracket's day: the date in Arizona (UTC-7, no DST), turning over at 4 a.m.
 const bracketDay = (now = Date.now()) => iso(now - 11 * 3600000);
+const daysFrom = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
 function arg(name: string) {
@@ -161,6 +164,27 @@ function buildIndex(season: Season, rows: Row[]): Index {
 const ref = (season: string, r: { region: number; week: number; home_hsid: number | null; away_hsid: number | null }) =>
   `${season}:${r.region}:${r.week}:${r.home_hsid}:${r.away_hsid}`;
 
+// A week in progress: a day that had already closed (4 a.m. Arizona the
+// morning after) when the job last scored the game is frozen - its inning and
+// its drawer stay as stored, whatever stats arrive later (Pete, Oct 27). A
+// day closed since then is scored now, once, and frozen from then on.
+function freezeClosedDays(res: Result, row: Row, weekStart: string) {
+  const stored = (row.innings || []).map(Number);
+  if (!row.computed_at || stored.length < 14) return;
+  const closed = Math.max(0, Math.min(7, daysFrom(weekStart, bracketDay(Date.parse(row.computed_at)))));
+  for (let d = 0; d < closed; d++) [res.innings[2 * d], res.innings[2 * d + 1]] = [stored[2 * d], stored[2 * d + 1]];
+  res.home_runs = res.innings.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+  res.away_runs = res.innings.filter((_, i) => i % 2 === 1).reduce((a, b) => a + b, 0);
+  const was = row.box_in_progress;
+  if (!res.box || !was) return;
+  for (let d = 0; d < closed; d++) {
+    if (was.d?.[d]) res.box.d[d] = was.d[d];
+    if (was.f?.[d] && res.box.f) res.box.f[d] = was.f[d];
+    if (was.h.days?.[d] && res.box.h.days) res.box.h.days[d] = was.h.days[d];
+    if (was.a.days?.[d] && res.box.a.days) res.box.a.days[d] = was.a.days[d];
+  }
+}
+
 // Score one group of rows (a test bracket, or a whole 2027 season) and say
 // what to write.
 function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, asof: string, withBox: boolean) {
@@ -209,6 +233,7 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
       }
       continue;
     }
+    if (status === 'in_progress') freezeClosedDays(res, row, ws);
     if (status === 'awaiting_commissioner') {
       decisions.push({
         kind: 'commissioner_ruling', ref: ref(season.season_key, row),
@@ -716,7 +741,8 @@ export async function writeSeason(client: PoolClient, seasonKey: string, out: Co
 export const SQL_ROWS = `
 SELECT stage, region, round, round_name, series_no, game_no, game_id, week, home_hsid, away_hsid, home_seed, away_seed,
        home_school_name, away_school_name, status, innings, home_runs, away_runs, winner_hsid, decided_by, locked_at,
-       box IS NULL AS box_missing
+       box IS NULL AS box_missing, computed_at::text,
+       CASE WHEN locked_at IS NULL AND status = 'in_progress' THEN box END AS box_in_progress
   FROM public.master_bracket WHERE season_key = $1`;
 export const SQL_RULINGS = 'SELECT region, week, home_hsid, away_hsid, winner_hsid FROM public.commissioner_rulings WHERE season_key = $1';
 export type { Season, Row, Ruling };
