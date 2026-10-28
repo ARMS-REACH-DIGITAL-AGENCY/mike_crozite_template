@@ -22,9 +22,8 @@
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
-import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
-import { TEST_OPENING_DAY, applyTestField } from '@/lib/bracket/testSeason';
-import { applyLive, liveBoxes } from './liveSeason';
+import { TEST_BRACKET, TEST_SEASON_KEY } from '@/lib/bracket/testSeason';
+import { loadPreparedIndex, preparedBoxes, preparedLb } from './preparedSeason';
 import { inActionToday } from './inAction';
 import { ScoringRulesPanel } from './BracketRules';
 
@@ -107,8 +106,8 @@ export function tieNote(decidedBy: string) {
 // school's bracket is the 2027 season, with nothing played yet.
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
-  // Live games: every round's boxes come from the live lines.
-  if (!boxCache.has(file)) boxCache.set(file, liveBoxes());
+  // Every round's boxes are the prepared (stored) ones.
+  if (!boxCache.has(file)) boxCache.set(file, preparedBoxes());
   return boxCache.get(file)!;
 }
 
@@ -488,26 +487,18 @@ let indexPromise: Promise<Index> | null = null;
 export function loadIndex({ simulation = false }: { simulation?: boolean } = {}) {
   if (simulation) simulatedSeason = true;
   if (!indexPromise) {
-    indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
-      // Test branch: the season opens Mon Oct 5, 2026 - Week 1 = Oct 5-11.
-      if (idx && Array.isArray(idx.weeks)) {
-        idx.weeks = tournamentWeeks(TEST_OPENING_DAY, idx.weeks.length);
-      }
-      if (idx) applyTestField(idx);
-      return idx ? applyLive(idx, simulationAsOf()) : idx;
-    });
+    // Test 1A: the Index the server prepared from the stored results
+    // (master_bracket) - every round, nothing scored in the browser.
+    indexPromise = loadPreparedIndex(TEST_SEASON_KEY, TEST_BRACKET);
     indexPromise.catch(() => { indexPromise = null; });
   }
   return indexPromise;
 }
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
-  // Leaderboard games are played by schools out of the bracket - none yet.
-  if (!simulatedSeason) return Promise.resolve([] as LbGame[]);
-  if (!lbPromise) {
-    // Test branch: no practice-season leaderboard games.
-    lbPromise = Promise.resolve([] as LbGame[]);
-  }
+  // The knocked-out schools' prepared games (none until they're paired); the
+  // bracket lab has no practice-season leaderboard games.
+  if (!lbPromise) lbPromise = simulatedSeason ? Promise.resolve([] as LbGame[]) : preparedLb();
   return lbPromise;
 }
 

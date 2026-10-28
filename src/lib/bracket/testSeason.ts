@@ -14,6 +14,9 @@ export function arizonaToday(now = Date.now()) {
 // Which of the 6 test brackets (src/lib/bracket/testBrackets.ts) this
 // branch runs (this is test/bracket-6). Bracket 1 is the one with Hamilton.
 export const TEST_BRACKET = 6;
+// Test 6A shows this test season's prepared results (master_bracket; the
+// region is the bracket).
+export const TEST_SEASON_KEY = 'test-2026';
 
 
 type IndexLike = {
