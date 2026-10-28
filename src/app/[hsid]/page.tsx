@@ -343,7 +343,7 @@ export async function generateMetadata({
         const committedName = String(stage?.resolved_committed_team_short_name || stage?.committed_team_name || stage?.resolved_committed_team_name || "").trim();
         const isCommit = String(stage?.status_label || "").toUpperCase() === "COMMIT" && !!committedName;
         const shareTitle = isCommit ? `${playerName} | ${name} | ${committedName} COMMIT` : `${playerName} | ${name} | YAT?STATS`;
-        const ogImageUrl = `${canonicalUrl}/api/og/player-card?playerId=${encodeURIComponent(playerId)}`;
+        const ogImageUrl = `${canonicalUrl}/api/og/player-card?playerId=${encodeURIComponent(playerId)}&v=portrait-2`;
         const description = isCommit
           ? `${playerName} of ${name} has committed to ${committedName}. View the player flip card on YAT?STATS.`
           : `Check out ${playerName}\'s YAT?STATS player card! Where They #YAT and What\'s Their #STATS!`;
@@ -356,7 +356,7 @@ export async function generateMetadata({
             title: shareTitle,
             description,
             url: shareUrl,
-            images: [{ url: ogImageUrl, width: 1200, height: 630 }],
+            images: [{ url: ogImageUrl, width: 750, height: 1050 }],
           },
           twitter: {
             card: "summary_large_image",
