@@ -172,6 +172,8 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // News reels use a 9:16 viewport; standard posts/carousels retain Instagram's post proportions.
   // Social-tab sizing stays unchanged.
   const heightPerWidth = isReel && externalPosts ? 16 / 9 : (!isReel && pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
+  // Instagram photo embeds include an additional action/footer region after the
+  // media. Keep that region outside our crop while preserving full media height.
   const embedBox = mediaBox
     ? (() => {
         const width = Math.max(1, Math.min(mediaBox.width, Math.floor(mediaBox.height / heightPerWidth)));
@@ -269,7 +271,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                       style={{
                         width: embedBox.layoutWidth,
                         height: INSTAGRAM_EMBED_HEADER + Math.ceil(embedBox.layoutWidth * heightPerWidth) + 2,
-                        transform: `translateY(${-INSTAGRAM_EMBED_HEADER * embedBox.scale}px) scale(${embedBox.scale})`,
+                        transform: `translateY(${-INSTAGRAM_EMBED_HEADER}px) scale(${embedBox.scale})`,
                       }}
                     />
                   </div>
