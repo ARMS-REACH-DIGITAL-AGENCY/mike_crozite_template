@@ -1026,30 +1026,11 @@ function SortTable({ title, rows, cols, player, labels, total, empty, favs, gran
   );
 }
 
-function hashRosterKey(value: string) {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < value.length; i++) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h >>> 0;
-}
-
-function simulatedWeeklyWl(playerid: string, week: number, level: string): [number, number] {
-  const college = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level);
-  const games = college ? 4 : 6;
-  const seed = hashRosterKey(`yatstats-2026-wl:${playerid}:${week}:${level}`);
-  // Keep the prototype plausible and deterministic; every player receives
-  // a non-empty record, while real exported club results still win whenever present.
-  const wins = seed % (games + 1);
-  return [wins, games - wins];
-}
-
 function rosterName(p: ActiveRosterPlayer) {
   return String(p.display_name || `${p.firstname || ''} ${p.lastname || ''}`.trim() || `Player ${p.playerid}`);
 }
 
-function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined, week: number): PlayerRow[] {
+function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
   const current = new Map(existing.map((p) => [String(p[0]), p] as const));
   const source = roster && roster.length
     ? roster.map((r) => ({
@@ -1074,20 +1055,6 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
       ? [...row] as PlayerRow
       : [id, name, level, simulated, 0, 0, null, null, null, 0] as PlayerRow;
 
-    // Older checked-in preview boxes only carried [outs, HR, BB, HBP, K].
-    // Backfill H/R/ER/FIP deterministically so the expanded pitching table is
-    // useful immediately; regenerated fixtures export the real/simulated fields.
-    if (next[5] && (next[5] as number[]).length < 9) {
-      const old = [...(next[5] as number[])];
-      const outs = old[0] || 0, hr = old[1] || 0, bb = old[2] || 0, hbp = old[3] || 0, k = old[4] || 0;
-      const innings = outs / 3;
-      const h = outs ? Math.max(hr, Math.round(innings * 0.9)) : 0;
-      const r = outs ? Math.max(hr, Math.round((h + bb + hbp) * 0.38)) : 0;
-      const er = Math.max(0, r - (r > 2 ? 1 : 0));
-      const fip = outs ? (13 * hr + 3 * (bb + hbp) - 2 * k) / innings + 3.1 : 0;
-      next[5] = [outs, hr, bb, hbp, k, h, r, er, +fip.toFixed(2)];
-    }
-
     // Every active alumnus always stays in his roster group(s). If he did
     // not play this week he keeps a true zero line there, rather than moving
     // to a third group: a two-way player in both Batters and Pitchers, anyone
@@ -1106,10 +1073,7 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
       }
     }
 
-    if (!next[8]) {
-      next[8] = simulatedWeeklyWl(id, week, String(next[2] || level));
-      next[9] = 1;
-    }
+    // No club result for him: his W-L stays empty, never made up.
     return next;
   });
 }
@@ -1121,98 +1085,6 @@ function sumRosterWl(players: PlayerRow[]): [number, number] {
   }, [0, 0]);
 }
 
-// Deterministic per-player daily RNG (mulberry32 seeded from the FNV hash).
-function dailyRng(playerid: string, week: number, stat: string) {
-  let a = hashRosterKey(`daily:${playerid}:${week}:${stat}`) >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// Distribute `total` indistinguishable units across 7 days with probability
-// proportional to `weights`. The result always sums to exactly `total`.
-// When `caps` is given, no day receives more than its cap (used to keep the
-// baseball hierarchy true per day: hits <= at-bats, extra-base hits <= hits,
-// earned runs <= runs, ...). If the weekly source data already violates the
-// hierarchy, the spillover distributes proportionally without caps.
-function assignDailyCounts(total: number, weights: number[], rand: () => number, caps?: number[]): number[] {
-  const n = Math.max(0, Math.round(Number(total || 0)));
-  const out = [0, 0, 0, 0, 0, 0, 0];
-  if (!n) return out;
-  const w = weights.map((v) => Math.max(0, Number(v) || 0));
-  const hasCap = Array.isArray(caps);
-  const cap = hasCap ? (caps as number[]).map((v) => Math.max(0, Math.floor(Number(v) || 0))) : null;
-  const pickDay = (respectCap: boolean): number => {
-    const ew = [0, 0, 0, 0, 0, 0, 0];
-    let wSum = 0;
-    for (let d = 0; d < 7; d++) {
-      let e = w[d];
-      if (e <= 0 && !hasCap) e = 1; // uncapped mode with no signal: spread evenly
-      if (respectCap && cap && out[d] >= cap[d]) e = 0;
-      ew[d] = e; wSum += e;
-    }
-    if (wSum <= 0) return -1;
-    let r = rand() * wSum;
-    for (let d = 0; d < 7; d++) { if (r < ew[d]) return d; r -= ew[d]; }
-    return 6;
-  };
-  for (let i = 0; i < n; i++) {
-    let d = hasCap ? pickDay(true) : pickDay(false);
-    if (d < 0) d = pickDay(false); // caps exhausted: spill proportionally
-    if (d < 0) d = i % 7;          // fully degenerate: round-robin
-    out[d]++;
-  }
-  return out;
-}
-
-function dailyRosterRows(players: PlayerRow[], week: number, day: number): PlayerRow[] {
-  return players.map((p) => {
-    const next = [...p] as PlayerRow;
-    const pid = String(p[0]);
-    if (Array.isArray(p[4])) {
-      const src = p[4] as number[];
-      const [wPa, wAb, wH, wD2, wD3, wHr, wBb, wHbp, wSf] = src.map((v) => Math.max(0, Math.round(Number(v || 0))));
-      // Hierarchical split so the daily columns always add up to the weekly
-      // total: at-bats first, hits as a subset of at-bat days, extra-base
-      // hits as subsets of hit days. No post-hoc clamping, so no lost units.
-      const dAb = assignDailyCounts(wAb, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-ab'));
-      const dH = assignDailyCounts(wH, dAb, dailyRng(pid, week, 'bat-h'), dAb);
-      const dD2 = assignDailyCounts(wD2, dH, dailyRng(pid, week, 'bat-2b'), dH);
-      const dD3 = assignDailyCounts(wD3, dH.map((v, i) => v - dD2[i]), dailyRng(pid, week, 'bat-3b'), dH.map((v, i) => v - dD2[i]));
-      const dHr = assignDailyCounts(wHr, dH.map((v, i) => v - dD2[i] - dD3[i]), dailyRng(pid, week, 'bat-hr'), dH.map((v, i) => v - dD2[i] - dD3[i]));
-      const dBb = assignDailyCounts(wBb, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-bb'));
-      const dHbp = assignDailyCounts(wHbp, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-hbp'));
-      const dSf = assignDailyCounts(wSf, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'bat-sf'));
-      // Plate appearances follow the day's events; any weekly surplus beyond
-      // AB+BB+HBP+SF rides along proportionally so the sum stays exact.
-      const dPa = assignDailyCounts(wPa, dAb.map((v, i) => v + dBb[i] + dHbp[i] + dSf[i]), dailyRng(pid, week, 'bat-pa'));
-      next[4] = [dPa[day], dAb[day], dH[day], dD2[day], dD3[day], dHr[day], dBb[day], dHbp[day], dSf[day]];
-      next[6] = dPa[day] > 0 ? p[6] : null;
-    }
-    if (Array.isArray(p[5])) {
-      const src = p[5] as number[];
-      const [wOuts, wHr, wBb, wHbp, wK, wHits, wR, wEr] = src.map((v) => Math.max(0, Math.round(Number(v || 0))));
-      const wFip = Number(src[8] || 0);
-      const dOuts = assignDailyCounts(wOuts, [1, 1, 1, 1, 1, 1, 1], dailyRng(pid, week, 'pit-outs'));
-      const dHits = assignDailyCounts(wHits, dOuts, dailyRng(pid, week, 'pit-h'), dOuts);
-      const dHr = assignDailyCounts(wHr, dHits, dailyRng(pid, week, 'pit-hr'), dHits);
-      const dBb = assignDailyCounts(wBb, dOuts, dailyRng(pid, week, 'pit-bb'));
-      const dHbp = assignDailyCounts(wHbp, dOuts, dailyRng(pid, week, 'pit-hbp'));
-      const dK = assignDailyCounts(wK, dOuts, dailyRng(pid, week, 'pit-k'), dOuts);
-      const dR = assignDailyCounts(wR, dHits.map((v, i) => v + dBb[i] + dHbp[i]), dailyRng(pid, week, 'pit-r'), dHits.map((v, i) => v + dBb[i] + dHbp[i]));
-      const dEr = assignDailyCounts(wEr, dR, dailyRng(pid, week, 'pit-er'), dR);
-      next[5] = [dOuts[day], dHr[day], dBb[day], dHbp[day], dK[day], dHits[day], dR[day], dEr[day], wFip];
-      const active = dOuts[day] > 0 || dHr[day] > 0 || dBb[day] > 0 || dK[day] > 0;
-      next[7] = active ? p[7] : null;
-    }
-    next[8] = null;
-    return next;
-  });
-}
-
 export function correctedRosterGame(
   innings: number[],
   week: number,
@@ -1221,17 +1093,12 @@ export function correctedRosterGame(
   homeRoster?: ActiveRosterPlayer[],
   awayRoster?: ActiveRosterPlayer[],
 ) {
-  const homePlayers = completeRosterRows(homeRows, homeRoster, week);
-  const awayPlayers = completeRosterRows(awayRows, awayRoster, week);
+  const homePlayers = completeRosterRows(homeRows, homeRoster);
+  const awayPlayers = completeRosterRows(awayRows, awayRoster);
   const homeWl = sumRosterWl(homePlayers);
   const awayWl = sumRosterWl(awayPlayers);
-  const wp = ([w, l]: [number, number]) => w + l ? w / (w + l) : 0.5;
-  const hw = wp(homeWl), aw = wp(awayWl);
+  // The stored innings as they are: inning 9 is never recomputed here.
   const corrected = [...innings];
-  if (corrected.length >= 18) {
-    corrected[16] = hw > aw ? 1 : 0;
-    corrected[17] = aw > hw ? 1 : 0;
-  }
   const score: [number, number] = [
     corrected.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
     corrected.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
@@ -1283,8 +1150,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const rawTheirs = boxForView ? boxForView[side === 'h' ? 'a' : 'h'] : undefined;
   const mineRoster = me === 0 ? homeRoster : awayRoster;
   const theirsRoster = me === 0 ? awayRoster : homeRoster;
-  const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster, week);
-  const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster, week);
+  const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster);
+  const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster);
   // Unplayed drawer: the roster is known, but no metric can exist yet.
   // Blank the rate/metric cells so the drawer reads as empty, not zero-data.
   if (drawerMode && !played) {
@@ -1327,7 +1194,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     return () => { live = false; };
   }, [drawerMode]);
   const viewPlayers = statDay === 'week' ? (mine?.p || [])
-    : rawMine?.days ? rawMine.days[statDay] || [] : dailyRosterRows(mine?.p || [], week, statDay);
+    : rawMine?.days ? rawMine.days[statDay] || [] : [];
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
@@ -1358,7 +1225,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
   );
   // A day's W-L shows when the box has one (live: the club's result that day).
-  const wlCell = (p: PlayerRow) => p[8] ? `${p[8][0]}-${p[8][1]}` : statDay === 'week' ? '0-0' : '—';
+  const wlCell = (p: PlayerRow) => p[8] ? `${p[8][0]}-${p[8][1]}` : '—';
   const dayWl = statDay !== 'week' && viewPlayers.some((p) => p[8]) ? sumRosterWl(viewPlayers) : null;
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
