@@ -218,7 +218,7 @@ assert.doesNotMatch(splash, /initialPlayerDetails/, 'no hardcoded first player')
 assert.doesNotMatch(splash, /confirmedCutoutIds\\[0\\]/, 'no fixed first cutout');
 assert.match(splash, /rotationKey='yat_splash_rotation_v2_'/, 'per-school rotation queue');
 assert.match(splash, /signature:poolSignature,remaining:pendingQueue/, 'save unshown players');
-assert.match(splash, /function showCaption\\(id\\)/, 'caption matches selected player');
+assert.match(splash, /function showCaption\(id\)/, 'caption matches selected player');
 assert.match(school, /featuredPlayerDetails=\{splashOverride\?\.details \?\? \{\}\}/, 'use reusable data-driven school caption schema');
 
 assert.match(splash, /data-featured-ids=\{featuredPlayerIds\.join/, 'render approved IDs before DB roster loads');
