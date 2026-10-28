@@ -223,7 +223,11 @@ export async function POST(req: NextRequest) {
   if (file.size > CONTRIBUTE_MAX_PHOTO_BYTES) return fail('That photo is too large. Please choose a smaller one.', 413);
 
   const thisYear = new Date().getFullYear();
-  const year = Number(text(form.get('year'))) || (type.asks === 'season' ? NaN : thisYear);
+  // Flip-card back is a player-level current action image, not a season photo.
+  // Never reject it based on a season value from a cached or older client.
+  const year = purpose === 'back_hero'
+    ? thisYear
+    : Number(text(form.get('year'))) || (type.asks === 'season' ? NaN : thisYear);
   if (!Number.isInteger(year) || year < 1900 || year > thisYear + 1) return fail('Pick the season.');
   const teamId = text(form.get('teamId'), 20);
   if (type.asks === 'team' && !/^\d+$/.test(teamId)) return fail('Pick the team.');
