@@ -165,3 +165,14 @@ Add a dated line for each milestone.
 - Before Feb 1: `/api/bracket/live` is one uncached request per page load
   for every school in the field (16 on a test branch, 1,024 live). It must
   be scoped to a region/bracket and cached server-side before opening day.
+- 2026-10-28 (later): tests 1A-6A (`release/bracket-test-Na-20261027`, each
+  with its own Neon copy) draw the stored results (`/api/bracket/prepared`),
+  never score in the browser. Each copy got the knocked-out schools' 51
+  games (Rounds 2-4, ids 46-96). The results job runs on the server:
+  `/api/cron/bracket-results` (PIPELINE), one bracket per test
+  (`BRACKET_TEST_REGION`), live stats read from production
+  (`BRACKET_LIVE_BASE_URL=https://5004.yatstats.com`; each copy's own stats
+  stopped Oct 27), authorised by `BRACKET_RESULTS_KEY`. Vercel cron only
+  runs on production, so the hourly run is a Claude scheduled task that
+  calls the six routes. In production it will be a Vercel cron with
+  `CRON_SECRET` (needs the `Easter-NEWS` merge, Pete's OK).
