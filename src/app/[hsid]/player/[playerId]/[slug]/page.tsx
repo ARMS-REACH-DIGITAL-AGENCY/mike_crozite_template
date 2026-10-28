@@ -1,3 +1,4 @@
+import { publicNewsHeadline } from '@/lib/newsVideo';
 // src/app/[hsid]/player/[playerId]/[slug]/page.tsx
 // Player profile child page — lives inside the shared shell.
 // DO NOT touch the shell, layout, or any other file.
@@ -284,7 +285,7 @@ export default async function ProfilePage({ params }: Props) {
 
   const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, null, true)).map((row: any) => ({
     uuid: String(row.uuid),
-    title: row.gallery_front_json?.headline ?? row.title ?? "",
+    title: publicNewsHeadline(row.title, row.url, row.discovery_source === "contribute", row.gallery_front_json?.headline),
     url: row.url,
     source: row.source_full ?? row.source ?? null,
     publishedAt: row.published_at ? new Date(row.published_at).toISOString() : null,
