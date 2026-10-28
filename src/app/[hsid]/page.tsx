@@ -17,6 +17,8 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
+import { query } from "@/lib/db";
+import { parseNewsVideo } from "@/lib/newsVideo";
 import { isNeverASchoolSegment } from "@/lib/schoolSegment";
 import { formatSchoolName, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from "@/lib/playerUtils";
 import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame";
@@ -240,7 +242,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string }>;
+  searchParams: Promise<{ player?: string; story?: string; news?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -257,6 +259,26 @@ export async function generateMetadata({
   const schoolHsid = String(school?.hsid || hsid);
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
+  // Shared News links use the school route so named school subdomains do not
+  // resolve /n/:uuid as an unknown school. Supply article-specific previews.
+  if (qp.story && /^[A-Za-z0-9_-]{1,100}$/.test(qp.story)) {
+    try {
+      const { rows } = await query<{title:string;snippet:string|null;url:string;image_url:string|null;display_image_url:string|null}>(
+        "SELECT title,snippet,url,image_url,display_image_url FROM news_articles WHERE uuid=$1 AND hsid=$2 LIMIT 1",
+        [qp.story,schoolHsid]
+      );
+      const article=rows[0];
+      if (article) {
+        const title=article.title || "Alumni News | YAT?STATS";
+        const description=(article.snippet || "Alumni News from YAT?STATS").slice(0,250);
+        const image=article.display_image_url || article.image_url || parseNewsVideo(article.url)?.thumbnailUrl || undefined;
+        const shareUrl=(host ? `https://${host}` : canonicalUrl)+`/?news=1&story=${encodeURIComponent(qp.story)}#sec-news`;
+        return {title,description,alternates:{canonical:shareUrl},
+          openGraph:{type:"article",title,description,url:shareUrl,images:image?[{url:image}]:[]},
+          twitter:{card:"summary_large_image",title,description,images:image?[image]:[]}};
+      }
+    } catch (error) { console.error("news share metadata failed",error); }
+  }
   const fantasyGameId = Number(String(qp?.fantasyGame || "").trim() || 0);
   if (fantasyGameId && qp.snapshot === '1' && qp.homeName && qp.awayName && qp.scoreInnings && /^(?:\d{1,3},){17}\d{1,3}$/.test(qp.scoreInnings)) {
     const home = cleanSchoolLabel(qp.homeName.slice(0,120));
