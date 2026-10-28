@@ -21,3 +21,8 @@
   school players included, gets one YAT player id for life. A high school's
   team (its current team page) has teamid C + hsid (Hamilton = C5004), never
   the plain hsid (it collides with other teams' teamids) and never YAT.
+- **Never claim complete stats (Pete, Oct 28 2026):** YAT?STATS must never
+  claim to be a complete statistical source - not on the site, in emails,
+  rules, newsletters or anything written to Pete or fans. The line is: we do
+  our diligence to collect the most comprehensive data available to us. No
+  "every game", "all stats", "complete" wording about our coverage.
