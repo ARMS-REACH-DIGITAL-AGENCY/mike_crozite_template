@@ -507,7 +507,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,300px);gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
         .ysf-story-column {min-width:0;}
         .ysf-sponsor-column {min-width:0;position:sticky;top:var(--ysf-toolbar-offset,78px);align-self:start;z-index:2;}
-        .ysf-sponsor-column .yp-stories-feed-ad {width:100%;max-width:100%;box-sizing:border-box;height:calc(100dvh - var(--pp-dock-h,62px) - 115px);min-height:440px;max-height:900px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+        .ysf-desktop-columns .ysf-sponsor-column > .yp-stories-feed-ad {width:100%!important;max-width:100%!important;box-sizing:border-box!important;min-height:600px!important;height:600px!important;max-height:none!important;aspect-ratio:1/2;display:flex!important;flex-direction:column;align-items:center;justify-content:center;padding:18px 12px;}
         @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}.ysf-main{padding-top:0}.ysf-tools{margin:0 auto 6px;max-width:100%}}
         
         /* The scroll viewport ends at the fixed profile dock. This physical
