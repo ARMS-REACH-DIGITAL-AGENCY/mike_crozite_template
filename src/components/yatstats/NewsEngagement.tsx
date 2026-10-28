@@ -7,6 +7,12 @@ type Tag={playerid:string;name:string;canRemove:boolean};
 type Data={likeCount:number;commentCount:number;likedByMe:boolean;comments:Comment[];tags:Tag[]};
 export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{uuid:string;hsid:string;title:string;compactInViewer?:boolean}){
  const me=useFanMe();
+ const hasValidSession=async()=>{
+   const headers=await authHeaders();
+   if(Object.keys(headers).length) return true;
+   const response=await fetch('/api/auth/session',{credentials:'include',cache:'no-store'}).catch(()=>null);
+   return Boolean(response?.ok && (await response.json().catch(()=>null))?.authenticated);
+ };
  const [data,setData]=useState<Data|null>(null);
  const [message,setMessage]=useState('');
  const [draft,setDraft]=useState('');
@@ -31,7 +37,7 @@ export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{
  },[mention,mentionOpen]);
  const [shareMessage,setShareMessage]=useState('');
  const shareNews=async()=>{
-   if(!me){openSignIn();return;}
+   if(!me && !(await hasValidSession())){openSignIn();return;}
    // Share the school route directly: /n/:uuid can be captured as an invalid
    // school segment on school subdomains. The school page renders story OG metadata.
    const schoolPath=window.location.pathname.match(/^\/([0-9]+)(?:\/|$)/)?.[1];
@@ -54,12 +60,12 @@ export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{
  const url='/api/news/interact/'+encodeURIComponent(uuid);
  const refresh=async()=>{const r=await fetch(url,{credentials:'include',cache:'no-store'});if(!r.ok)throw Error('Interactions unavailable');setData(await r.json());};
  useEffect(()=>{let alive=true;fetch(url,{credentials:'include',cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Unavailable');return r.json();}).then(d=>{if(alive)setData(d);}).catch(()=>{if(alive)setMessage('News comments and likes are not available on this deployment.');});return()=>{alive=false;};},[url]);
- const send=async(body:Record<string,string>):Promise<boolean>=>{if(!me){openSignIn();return false;}if(busy)return false;setBusy(true);setMessage('');try{const res=await fetch(url,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',...(await authHeaders())},body:JSON.stringify(body)});const d=await res.json().catch(()=>({}));if(res.status===401){setMessage('Sign in to comment or tag players.');openSignIn();return false;}if(!res.ok)throw Error(d.error||'Could not save');await refresh();if(body.action==='comment')setDraft('');if(body.action==='tag'){setMentionOpen(false);setMention('');}return true;}catch(e){setMessage(e instanceof Error?e.message:'Could not save');return false;}finally{setBusy(false);}};
+ const send=async(body:Record<string,string>):Promise<boolean>=>{if(!me && !(await hasValidSession())){openSignIn();return false;}if(busy)return false;setBusy(true);setMessage('');try{const res=await fetch(url,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',...(await authHeaders())},body:JSON.stringify(body)});const d=await res.json().catch(()=>({}));if(res.status===401){setMessage('Sign in to comment or tag players.');openSignIn();return false;}if(!res.ok)throw Error(d.error||'Could not save');await refresh();if(body.action==='comment')setDraft('');if(body.action==='tag'){setMentionOpen(false);setMention('');}return true;}catch(e){setMessage(e instanceof Error?e.message:'Could not save');return false;}finally{setBusy(false);}};
  return <div className={'yp-news-engagement'+(compactInViewer&&showThread?' yp-news-thread-open':'')}>
   <div className='yp-news-engagement-actions'>
-   <button type='button' disabled={busy||!data} onClick={()=>me?void send({action:'like'}):openSignIn()}><i className={data?.likedByMe?'ri-thumb-up-fill':'ri-thumb-up-line'} aria-hidden='true'/> Like{data?.likeCount?` · ${data.likeCount}`:''}</button>
+   <button type='button' disabled={busy||!data} onClick={()=>void send({action:'like'})}><i className={data?.likedByMe?'ri-thumb-up-fill':'ri-thumb-up-line'} aria-hidden='true'/> Like{data?.likeCount?` · ${data.likeCount}`:''}</button>
    <button type='button' onClick={()=>void shareNews()}><i className='ri-share-forward-line' aria-hidden='true'/> Share</button>
-   <button type='button' onClick={()=>{if(!me){openSignIn();return;}setShowThread(true);setMentionOpen(true);}}><i className='ri-at-line' aria-hidden='true'/> Tag</button>
+   <button type='button' onClick={()=>void (async()=>{if(!me && !(await hasValidSession())){openSignIn();return;}setShowThread(true);setMentionOpen(true);})()}><i className='ri-at-line' aria-hidden='true'/> Tag</button>
    {compactInViewer ? (
     <button type='button' aria-expanded={showThread} onClick={()=>setShowThread(value=>!value)}>
       <i className='ri-chat-3-line' aria-hidden='true'/> Comments{data?.commentCount?` · ${data.commentCount}`:''}
