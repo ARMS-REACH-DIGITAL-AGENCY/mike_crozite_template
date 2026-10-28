@@ -504,11 +504,11 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
-        .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,300px);gap:16px;align-items:start;max-width:1200px;margin:0 auto;}
+        .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,300px);gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
         .ysf-story-column {min-width:0;}
-        .ysf-sponsor-column {min-width:0;position:sticky;top:12px;}
-        .ysf-sponsor-column .yp-stories-feed-ad {width:100%;max-width:100%;box-sizing:border-box;min-height:260px;}
-        @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}}
+        .ysf-sponsor-column {min-width:0;position:sticky;top:0;align-self:start;z-index:2;}
+        .ysf-sponsor-column .yp-stories-feed-ad {width:100%;max-width:100%;box-sizing:border-box;min-height:clamp(480px,calc(100dvh - var(--pp-dock-h,62px) - 135px),900px);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+        @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}.ysf-main{padding-top:0}.ysf-tools{margin:0 auto 6px;max-width:100%}}
         
         /* The scroll viewport ends at the fixed profile dock. This physical
            spacer (not just scroll-padding) guarantees the final advertiser
