@@ -3,8 +3,10 @@
 //   - every one of the 1,024 schools plays every week of Weeks 1-30
 //     (15,360 games): the bracket, and from Round 2 on the knocked-out
 //     schools, paired each round across regions, teammates' schools first;
+//   - Rounds 8-10 (Weeks 22-30): the 8 regional bracket winners play each
+//     other, reseeded by regional seed, four series a round;
 //   - Weeks 31-33: each region's Total Runs leader, then Week 34: the Total
-//     Runs winner v the bracket champion (8 games), all from the stored
+//     Runs winner v the Main Bracket winner (8 games), all from the stored
 //     results and standings, nothing by hand.
 //
 // Nothing touches production: the database must be on this machine, and the
@@ -25,7 +27,10 @@ import { join } from 'node:path';
 import { Pool } from 'pg';
 import { bracketOrder, hashString, mulberry32, pairEliminated } from '@/lib/bracket/engine';
 import type { Live } from '@/components/bracket/liveSeason';
-import { SQL_ROWS, SQL_RULINGS, clubsOf, computeSeason, teammates, writeSeason, type Row, type Ruling, type Season } from './master-bracket-results';
+import {
+  CHAMPIONSHIP_SERIES, ROUNDS_9_10, ROUND_8, SQL_ROWS, SQL_RULINGS, clubsOf, computeSeason, pairKey, reseed, teammates, writeSeason,
+  type Row, type Ruling, type Season,
+} from './master-bracket-results';
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -193,6 +198,17 @@ async function main() {
     checks.push({ check: name, ok, detail });
     console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}: ${detail}`);
   };
+  // Pete's example (Oct 28): the 8 regional bracket winners' seeds and runs
+  // through Round 7, and the Round 8 he wrote down ([home region, away region]).
+  {
+    const example = [[1, 4, 85], [2, 2, 90], [3, 44, 100], [4, 12, 99], [5, 1, 125], [6, 2, 91], [7, 10, 75], [8, 5, 110]]
+      .map(([region, seed, runs]) => ({ region, seed, runs }));
+    const { ranked } = reseed(example);
+    const got = ROUND_8.map(([h, a]) => [ranked[h - 1].region, ranked[a - 1].region]);
+    const pete = [[5, 3], [1, 8], [2, 7], [6, 4]];
+    check('Pete\'s example: Round 8 comes out as he wrote it', JSON.stringify(got) === JSON.stringify(pete),
+      got.map(([h, a], i) => `Series ${i + 1}: (#${ROUND_8[i][1]}) Region ${a} at (#${ROUND_8[i][0]}) Region ${h}`).join('; '));
+  }
   const by = (stage: string) => rows.filter((r) => r.stage === stage);
   const regular = rows.filter((r) => r.stage === 'bracket' || r.stage === 'total_runs');
 
@@ -246,7 +262,7 @@ async function main() {
   const mates = teammates(clubsAtEnd);
   let poolsOk = true;
   for (let round = 2; round <= 10; round++) {
-    for (const s of list('bracket', round - 1)) out.add(loser(s));
+    if (round - 1 <= 7) for (const s of list('bracket', round - 1)) out.add(loser(s));
     const pairs = list('total_runs', round);
     const schools = pairs.flatMap((s) => [s.games[0].home_hsid!, s.games[0].away_hsid!]);
     const same = pairs.every((s) => s.games.length === 3 && s.games.every((g) => g.home_hsid === s.games[0].home_hsid && g.away_hsid === s.games[0].away_hsid));
@@ -262,21 +278,45 @@ async function main() {
   }
   check('knocked-out schools: each round pairs exactly the schools out of the bracket', poolsOk,
     pairing.map((p) => `Round ${p.round}: ${p.schools} schools, ${p.pairs} pairs`).join('; '));
+  const pairsByRound = new Map<number, Set<string>>();
+  for (const r of rows) (pairsByRound.get(r.round) || pairsByRound.set(r.round, new Set()).get(r.round)!).add(`${r.stage}|${pairKey(r.home_hsid!, r.away_hsid!)}`);
+  const seen = new Set<string>();
+  let rematches = 0;
+  for (let round = 1; round <= 10; round++) {
+    const now = [...(pairsByRound.get(round) || [])].map((k) => k.split('|'));
+    for (const [stage, k] of now) if (stage === 'total_runs' && seen.has(k)) rematches++;
+    for (const [, k] of now) seen.add(k);
+  }
+  check('knocked-out schools never meet the same school twice', rematches === 0, `${rematches} knocked-out pairs had played each other before`);
   const r2 = pairing[0];
   check('Round 2 pairs real-life teammates\' schools first', r2.teammatePairs > r2.teammatePairsByDrawAlone,
     `${r2.teammatePairs} of ${r2.pairs} Round 2 pairs share a team (a draw alone: ${r2.teammatePairsByDrawAlone}); ${r2.crossRegion} of ${r2.pairs} cross regions`);
 
-  // Round 8: reseeded 1-8 by original seed (a tie in seed: more runs, Weeks 1-21).
+  // Rounds 8-10: the 8 regional bracket winners, reseeded by regional seed
+  // (a tie in seed: more runs, Weeks 1-21), then Pete's series routing.
   const runsTo = (h: number, week: number) => regular.filter((r) => r.week <= week && (r.home_hsid === h || r.away_hsid === h))
     .reduce((n, r) => n + (r.home_hsid === h ? r.home_runs! : r.away_runs!), 0);
-  const eight = list('bracket', 7).map(winner).sort((a, b) => seedOf.get(a)! - seedOf.get(b)! || runsTo(b, 21) - runsTo(a, 21));
-  const order = bracketOrder(8);
+  const eight = list('bracket', 7).map(winner);
+  const { ranked: newSeeds } = reseed(eight.map((h) => ({ hsid: h, seed: seedOf.get(h)!, runs: runsTo(h, 21) })));
   const r8 = list('bracket', 8);
-  const r8ok = r8.every((s, i) => s.games[0].home_hsid === eight[order[2 * i] - 1] && s.games[0].away_hsid === eight[order[2 * i + 1] - 1]
-    && s.games[0].home_seed === order[2 * i] && s.games[0].away_seed === order[2 * i + 1]);
-  check('Round 8 reseeded 1 v 8, 4 v 5, 2 v 7, 3 v 6', r8ok,
-    r8.map((s) => `${s.games[0].home_seed} v ${s.games[0].away_seed} (seeds ${seedOf.get(s.games[0].home_hsid!)} and ${seedOf.get(s.games[0].away_hsid!)})`).join(', '));
-  const champion = winner(list('bracket', 10)[0]);
+  const r8ok = r8.length === 4 && r8.every((s, i) => s.series_no === i + 1
+    && s.games[0].home_hsid === newSeeds[ROUND_8[i][0] - 1].hsid && s.games[0].away_hsid === newSeeds[ROUND_8[i][1] - 1].hsid
+    && s.games[0].home_seed === ROUND_8[i][0] && s.games[0].away_seed === ROUND_8[i][1]);
+  check('Round 8: the 8 regional winners reseeded, 1 v 8, 4 v 5, 3 v 6, 2 v 7', r8ok,
+    r8.map((s) => `Series ${s.series_no}: #${s.games[0].home_seed} Region ${regionOf.get(s.games[0].home_hsid!)} (regional seed ${seedOf.get(s.games[0].home_hsid!)}) v #${s.games[0].away_seed} Region ${regionOf.get(s.games[0].away_hsid!)} (${seedOf.get(s.games[0].away_hsid!)})`).join('; '));
+  const nat = (round: number, no: number) => list('bracket', round).find((s) => s.series_no === no)!;
+  const routed = ROUNDS_9_10.every(([round, no, a, b]) => {
+    const t = nat(round, no);
+    const pick = ([r, n, side]: [number, number, 'W' | 'L']) => (side === 'W' ? winner(nat(r, n)) : loser(nat(r, n)));
+    return t && new Set([t.games[0].home_hsid, t.games[0].away_hsid]).has(pick(a)) && new Set([t.games[0].home_hsid, t.games[0].away_hsid]).has(pick(b));
+  });
+  check('Rounds 9-10: series 5-12 routed as Pete wrote them', routed && list('bracket', 9).length === 4 && list('bracket', 10).length === 4,
+    ROUNDS_9_10.map(([round, no]) => `S${no}: ${nat(round, no).games[0].home_school_name} v ${nat(round, no).games[0].away_school_name}`).join('; '));
+  const eightSet = new Set(eight);
+  const late = regular.filter((r) => r.week >= 22 && (eightSet.has(r.home_hsid!) || eightSet.has(r.away_hsid!)));
+  check('Weeks 22-30: the 8 regional winners play only each other, every week', late.length === 36 && late.every((r) => r.stage === 'bracket' && eightSet.has(r.home_hsid!) && eightSet.has(r.away_hsid!)),
+    `${late.length} games (8 schools x 9 weeks / 2 = 36), all between two of the 8`);
+  const champion = winner(nat(10, CHAMPIONSHIP_SERIES));
 
   // Weeks 31-34 against the stored standings (the view).
   const standings = await q<{ region: number; hsid: number; region_rank: number; runs_for: number; run_diff: number; wins: number; games: number; seed: number }>(
@@ -284,6 +324,7 @@ async function main() {
   const leaders = [1, 2, 3, 4, 5, 6, 7, 8].map((region) => standings.filter((s) => s.region === region && s.hsid !== champion).sort((a, b) => a.region_rank - b.region_rank)[0]);
   const ranked = [...leaders].sort((a, b) => b.runs_for - a.runs_for || b.run_diff - a.run_diff || b.wins - a.wins || a.seed - b.seed);
   const w31 = list('season_championship', 1);
+  const order = bracketOrder(8); // the seed's Week 31 slots: 1 v 8, 4 v 5, 2 v 7, 3 v 6
   const w31ok = w31.every((s, i) => s.games[0].home_hsid === ranked[order[2 * i] - 1].hsid && s.games[0].away_hsid === ranked[order[2 * i + 1] - 1].hsid);
   check('every school\'s Total Runs counts 30 games', standings.length === 1024 && standings.every((s) => s.games === 30),
     `${standings.length} schools in the standings, ${Math.min(...standings.map((s) => s.games))}-${Math.max(...standings.map((s) => s.games))} games each`);
@@ -293,9 +334,11 @@ async function main() {
   const advOk = w32.every((s, i) => new Set([s.games[0].home_hsid, s.games[0].away_hsid]).has(winner(w31[2 * i])) && new Set([s.games[0].home_hsid, s.games[0].away_hsid]).has(winner(w31[2 * i + 1])))
     && new Set([w33[0].games[0].home_hsid, w33[0].games[0].away_hsid]).has(winner(w32[0])) && new Set([w33[0].games[0].home_hsid, w33[0].games[0].away_hsid]).has(winner(w32[1]));
   check('Weeks 32-33: winners advance', advOk, `${w32.map((s) => `${s.games[0].home_school_name} v ${s.games[0].away_school_name}`).join('; ')}; final: ${w33[0].games[0].home_school_name} v ${w33[0].games[0].away_school_name}`);
+  const byes = rows.filter((r) => r.week >= 31 && r.week <= 33 && (r.home_hsid === champion || r.away_hsid === champion)).length;
+  check('the Main Bracket winner has byes in Weeks 31-33', byes === 0, `${by('bracket').find((r) => r.home_hsid === champion)?.home_school_name || champion}: ${byes} games in Weeks 31-33`);
   const ws = by('world_series')[0];
-  check('Week 34: the bracket champion v the Total Runs winner', ws.home_hsid === champion && ws.away_hsid === winner(w33[0]),
-    `${ws.home_school_name} (bracket champion) v ${ws.away_school_name} (Total Runs winner); ${ws.winner_hsid === ws.home_hsid ? ws.home_school_name : ws.away_school_name} won`);
+  check('Week 34: the Main Bracket winner v the Total Runs winner', ws.home_hsid === champion && ws.away_hsid === winner(w33[0]),
+    `${ws.home_school_name} (Main Bracket winner) v ${ws.away_school_name} (Total Runs winner); ${ws.winner_hsid === ws.home_hsid ? ws.home_school_name : ws.away_school_name} won`);
 
   // Nothing by hand: every slot the seed left empty was filled by the job.
   const [{ filled }] = await q<{ filled: number }>(`

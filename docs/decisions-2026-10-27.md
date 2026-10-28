@@ -71,45 +71,66 @@ says otherwise.
   1-30: 512 games a week, 1,024 x 30 / 2 = 15,360. A school knocked out of
   the bracket keeps playing every week.
 - **Tournament 1, the National Bracket:** 10 rounds of best-of-3 series
-  inside those 30 weeks (games 1-3,069).
+  inside those 30 weeks (games 1-3,084; see "Bracket rounds" below).
 - **Tournament 2, Total Runs:** each school's run total over its 30 games
   is ranked against the other 127 schools in its region. The top run scorer
   in each of the 8 regions plays single games in Week 31 (4 games), Week 32
-  (2) and Week 33 (1).
-- **Week 34, the World Series:** the Total Runs winner plays the National
-  Bracket winner (1 game).
+  (2) and Week 33 (1). These are the 8 regional **Total Runs** winners,
+  announced after Week 30, not the 8 regional **bracket** winners.
+- **Week 34, the World Series:** the Total Runs winner plays the Main
+  Bracket winner (1 game). The Main Bracket winner has byes in Weeks 31-33,
+  so it is never one of the 8 Total Runs schools: if it leads its region's
+  Total Runs, the region's next school goes (Pete, Oct 28).
 - Total: 15,360 + 7 + 1 = **15,368**. The system fills Weeks 31-34 itself
   from the stored Week 30 results and the stored regional standings, never
   by hand.
-- **Knocked-out schools are paired each round (Pete, Oct 28).** The 512
-  schools out after Round 1 (Week 3) are matched up for Round 2, and so on
-  every round after. Matchups can cross regions.
+- **Knocked-out schools are paired each round (Pete, Oct 28).**
+  - The 512 schools out after Round 1 (Week 3) are matched up for Round 2
+    (256 games a week). After Round 2 (Week 6), 768 schools are out: 384
+    Round 3 matchups. And so on through Round 7.
+  - Rounds 8-10: the 1,016 schools out of the regional brackets (all but the
+    8 regional bracket winners) are paired each round, 508 matchups.
+  - Matchups can cross regions.
   - **Publicly they are "randomly selected".** Never publish the method (like
     the commissioner's).
   - **The method:** look at the real-life pro and college teams of each
     school's alumni, and match up real-life teammates' high schools first.
     The rest are drawn.
   - As built: one opponent for the round's three weeks; each alumnus's
-    latest team in `player_team_stints`, by teamid (never by name); the
-    draw is fixed by the round, so it never changes once made.
-- **Still to decide (Pete):**
-  - whether the bracket champion can also be its region's Total Runs
-    leader. The practice simulation (`scripts/simulate-bracket-2026.ts`) has
-    the champion sit out and its region send the next school; Pete's Oct 28
-    wording is "the top run scorer from each of the 8 regions";
-  - the tiebreak when two schools lead a region with the same run total (the
-    simulation uses run differential, then wins, then seed).
+    latest team in `player_team_stints`, by teamid (never by name); two
+    schools that have already played each other aren't paired again if it
+    can be avoided; the draw is fixed by the round, so it never changes once
+    made.
+- **Still to decide (Pete):** the tiebreak when two schools lead a region
+  with the same run total (as built: run differential, then wins, then
+  seed); who is home in Week 34 (as built: the Main Bracket winner).
 
 ## Bracket rounds (2027)
 
-- Winners advance automatically, round after round.
-- **After Round 7**, the 8 survivors are reseeded 1-8 by their original seed,
-  regardless of region. A tie in original seed is broken by total runs.
-- **Round 8:** 1 vs 8, 2 vs 7, 3 vs 6, 4 vs 5, better seed at home.
-- **Round 9:** the 1/8 winner plays the 4/5 winner; the 2/7 winner plays the
-  3/6 winner.
-- **Round 10:** those two winners play for the bracket champion. No
-  reseeding after Round 8.
+Pete, Oct 28. This replaces the Oct 27 Rounds 9-10.
+
+- **Rounds 1-7 (Weeks 1-21):** the eight 128-school regions play their own
+  brackets: 3,048 games and eight regional bracket winners. Winners advance
+  automatically, round after round.
+- **Rounds 8-10 (Weeks 22-30):** the 8 regional bracket winners play each
+  other for all nine weeks, four 3-game series a round (36 games).
+- **Reseeding:** the 8 use their regional seeds, 1-8, for all three rounds.
+  A tie in regional seed goes to more total runs through Round 7. Pete's
+  example: Region 6 and Region 2 winners were both #2 seeds; Region 6 is the
+  higher seed with 91 runs to Region 2's 90.
+- **Round 8 (Weeks 22-24):** Series 1: #1 v #8. Series 2: #4 v #5.
+  Series 3: #3 v #6. Series 4: #2 v #7. The better seed is at home.
+- **Round 9 (Weeks 25-27):**
+  - Series 5 (Bracket Semi 1): winners of Series 1 and 2.
+  - Series 6 (Bracket Semi 2): winners of Series 3 and 4.
+  - Series 7 (Bracket Semi 1 Loser): losers of Series 1 and 2.
+  - Series 8 (Bracket Semi 2 Loser): losers of Series 3 and 4.
+- **Round 10 (Weeks 28-30):**
+  - Series 9, the Bracket Championship: winners of Series 5 and 6. Its
+    winner is the Main Bracket winner.
+  - Series 10: loser of Series 5 v winner of Series 8.
+  - Series 11: loser of Series 6 v winner of Series 7.
+  - Series 12: losers of Series 7 and 8.
 - The rules page must be updated to match. It currently says there's no
   reseeding.
 - How eliminated schools are matched for their weekly games: decided Oct 28,

@@ -16,22 +16,28 @@
 //   - Once a series is decided its winner fills the next round's slot. Home is
 //     the better (lower) original seed; two equal seeds go on the
 //     needs-decision list rather than being guessed.
-//   - 2027, after Round 7 (Pete, Oct 27): the 8 survivors are reseeded 1-8 by
-//     original seed, a tie in seed broken by total runs. Round 8 is 1 v 8,
-//     4 v 5, 2 v 7, 3 v 6 (the 1/8 winner meets the 4/5 winner in Round 9);
+//   - 2027, Rounds 8-10 (Pete, Oct 28): the 8 regional bracket winners play
+//     each other all nine weeks, reseeded 1-8 by regional seed (a tie in seed
+//     goes to more runs through Round 7). Round 8: series 1 = 1 v 8, 2 = 4 v 5,
+//     3 = 3 v 6, 4 = 2 v 7. Round 9: 5 = the winners of 1 and 2, 6 = winners
+//     of 3 and 4, 7 = losers of 1 and 2, 8 = losers of 3 and 4. Round 10:
+//     9 = winners of 5 and 6 (the Main Bracket winner), 10 = loser of 5 v
+//     winner of 8, 11 = loser of 6 v winner of 7, 12 = losers of 7 and 8.
 //     Rounds 8-10 show the new seeds, the better one at home.
 //   - Every school plays every week (Pete, Oct 28). Once every series of a
-//     round is decided, the schools out of the bracket so far are paired for
-//     the next round's three weeks: across regions in 2027 (inside its own
-//     bracket in a test season), real-life teammates' high schools first
-//     (each alumnus's latest pro or college team in player_team_stints, by
-//     teamid), then a draw fixed by the round. Publicly they are "randomly
-//     selected"; the method is never published.
+//     round is decided, the schools out of the regional brackets so far are
+//     paired for the next round's three weeks (Rounds 8-10: all 1,016 but
+//     the 8 regional winners): across regions in 2027 (inside its own bracket
+//     in a test season), real-life teammates' high schools first (each
+//     alumnus's latest pro or college team in player_team_stints, by
+//     teamid), then a draw fixed by the round; never two schools that have
+//     already played each other, if it can be helped. Publicly they are
+//     "randomly selected"; the method is never published.
 //   - Total Runs: after Week 30, each region's leader in runs over the 30
 //     weeks (then run differential, wins, seed; total_runs_standings) plays
-//     Weeks 31-33, seeded 1-8 the same way; the bracket champion sits that
-//     out and its region sends the next school. Week 34: the bracket
-//     champion (home) v the Total Runs winner.
+//     Weeks 31-33, seeded 1-8 the same way; the Main Bracket winner has byes
+//     those weeks and its region sends the next school. Week 34: the Main
+//     Bracket winner (home) v the Total Runs winner.
 //   - Held stat lines are landed again first (stat_lines_reland_held), so a
 //     team or level Pete adds takes effect on its own.
 //
@@ -214,10 +220,30 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
   return { results, decisions, boxFills };
 }
 
-// The bracket champion sits out the Total Runs games of Weeks 31-33 (its
-// region sends the next school), as in the practice season
-// (scripts/simulate-bracket-2026.ts). Pete to confirm.
-const CHAMPION_SITS_OUT = true;
+// 2027, Rounds 8-10 (Pete, Oct 28): the 8 regional bracket winners play each
+// other all nine weeks, reseeded 1-8 by their regional seeds; a tie in seed
+// goes to more runs through Round 7. tie: the first of two still even.
+export function reseed<T extends { seed: number | null; runs: number }>(winners: T[]) {
+  const ranked = [...winners].sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0) || b.runs - a.runs);
+  const tie = ranked.findIndex((s, i) => i > 0 && s.seed === ranked[i - 1].seed && s.runs === ranked[i - 1].runs);
+  return { ranked, tie };
+}
+// Round 8, series 1-4, by the new seeds.
+export const ROUND_8: [home: number, away: number][] = [[1, 8], [4, 5], [3, 6], [2, 7]];
+// Rounds 9 and 10: each series' two schools, as the winner (W) or loser (L)
+// of an earlier series.
+type From = [round: number, series: number, side: 'W' | 'L'];
+export const ROUNDS_9_10: [round: number, series: number, a: From, b: From][] = [
+  [9, 5, [8, 1, 'W'], [8, 2, 'W']], // Bracket Semi 1
+  [9, 6, [8, 3, 'W'], [8, 4, 'W']], // Bracket Semi 2
+  [9, 7, [8, 1, 'L'], [8, 2, 'L']], // Bracket Semi 1 Loser
+  [9, 8, [8, 3, 'L'], [8, 4, 'L']], // Bracket Semi 2 Loser
+  [10, 9, [9, 5, 'W'], [9, 6, 'W']], // the Bracket Championship: the Main Bracket winner
+  [10, 10, [9, 5, 'L'], [9, 8, 'W']],
+  [10, 11, [9, 6, 'L'], [9, 7, 'W']],
+  [10, 12, [9, 7, 'L'], [9, 8, 'L']],
+];
+export const CHAMPIONSHIP_SERIES = 9;
 
 // How many of two schools' alumni are real-life teammates: for each team,
 // one school's alumni on it times the other's.
@@ -241,6 +267,31 @@ export function clubsOf(live: Live, teamOf: Map<string, string>): Clubs {
     if (mine.size) clubs.set(Number(h), mine);
   }
   return clubs;
+}
+
+export const pairKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+// A round's knocked-out pairs: real-life teammates' schools first, then the
+// draw (fixed by seed). Two schools that have already played each other
+// (met) aren't paired again if it can be helped: a drawn pair that met swaps
+// partners with another drawn pair.
+export function drawPairs(pool: number[], seed: string, clubs: Clubs, met: Set<string>): [number, number][] {
+  const mates = teammates(clubs);
+  const fresh = (a: number, b: number) => !met.has(pairKey(a, b));
+  const score = (a: number, b: number) => (fresh(a, b) ? mates(a, b) : 0);
+  const { pairs } = pairEliminated(pool, seed, score);
+  const drawn = pairs.map((_, i) => i).filter((i) => score(...pairs[i]) === 0);
+  for (const i of drawn) {
+    const [a, b] = pairs[i];
+    if (fresh(a, b)) continue;
+    for (const j of drawn) {
+      if (j === i) continue;
+      const [c, d] = pairs[j];
+      if (fresh(a, c) && fresh(b, d)) { pairs[i] = [a, c]; pairs[j] = [b, d]; break; }
+      if (fresh(a, d) && fresh(b, c)) { pairs[i] = [a, d]; pairs[j] = [b, c]; break; }
+    }
+  }
+  return pairs;
 }
 
 type Side = { hsid: number; seed: number | null; name: string | null };
@@ -336,14 +387,11 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
     return t;
   };
 
-  // The bracket: each decided series sends its winner on. Where a series'
-  // winner goes: [round, region, series_no, first or second]. Round 8 is
-  // reseeded (below).
-  const next = (s: Series): [number, number, number, 0 | 1] | null => {
-    if (s.round >= lastRound || s.round === regionRounds) return null;
-    if (s.round < regionRounds) return [s.round + 1, s.region, Math.ceil(s.series_no / 2), (s.series_no % 2 ? 0 : 1)];
-    return [s.round + 1, 0, Math.ceil(s.series_no / 2), (s.series_no % 2 ? 0 : 1)];
-  };
+  // The bracket inside a region (Rounds 2-7; every round of a test bracket):
+  // each decided series sends its winner on. Where a series' winner goes:
+  // [round, region, series_no, first or second].
+  const next = (s: Series): [number, number, number, 0 | 1] | null =>
+    s.round < regionRounds ? [s.round + 1, s.region, Math.ceil(s.series_no / 2), (s.series_no % 2 ? 0 : 1)] : null;
   const feeders = new Map<string, [Side | null, Side | null]>();
   for (const s of series.values()) {
     if (s.stage !== 'bracket') continue;
@@ -368,44 +416,58 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
     const [home, away] = (first.seed ?? 0) < (second.seed ?? 0) ? [first, second] : [second, first];
     place(target, home, away);
   }
-  // 2027, Round 8: the 8 survivors reseeded 1-8 by original seed, a tie in
-  // seed broken by total runs (Rounds 1-7); 1 v 8, 4 v 5, 2 v 7, 3 v 6.
-  if (lastRound > regionRounds) {
-    const survivors = stageRound('bracket', regionRounds).map(winnerOf);
-    const round8 = stageRound('bracket', regionRounds + 1, 0);
-    if (survivors.length === season.regions && survivors.every(Boolean) && round8.length === season.regions / 2) {
+
+  // 2027, Rounds 8-10: the 8 regional bracket winners, reseeded (Round 8),
+  // then each series' winner or loser on to its next series. Rounds 8-10
+  // show the new seeds 1-8; the better one is at home.
+  const national = !season.is_test && season.regions === 8 && regionRounds === 7;
+  const nationalSeries = (round: number, no: number) => series.get(`bracket:${round}:0:${no}`);
+  if (national) {
+    const winners = stageRound('bracket', regionRounds).map(winnerOf);
+    if (winners.length === 8 && winners.every(Boolean)) {
       const t = totals(regionRounds * 3);
-      const runs = (s: Side) => t.get(s.hsid)?.rf ?? 0;
-      const ranked = (survivors as Side[]).sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0) || runs(b) - runs(a));
-      const tied = ranked.findIndex((s, i) => i > 0 && s.seed === ranked[i - 1].seed && runs(s) === runs(ranked[i - 1]));
-      if (tied > 0) {
+      const { ranked, tie } = reseed((winners as Side[]).map((s) => ({ ...s, runs: t.get(s.hsid)?.rf ?? 0 })));
+      if (tie > 0) {
         decisions.push({
-          kind: 'reseed_tie', ref: `${season.season_key}:reseed:${regionRounds + 1}`,
-          summary: `${ranked[tied - 1].name} and ${ranked[tied].name} are both seed ${ranked[tied].seed} with ${runs(ranked[tied])} runs: who is seeded higher for Round ${regionRounds + 1}?`,
-          details: { ranked: ranked.map((s) => ({ ...s, runs: runs(s) })) },
+          kind: 'reseed_tie', ref: `${season.season_key}:reseed:8`,
+          summary: `${ranked[tie - 1].name} and ${ranked[tie].name} are both seed ${ranked[tie].seed} with ${ranked[tie].runs} runs through Round 7: who is seeded higher for Rounds 8-10?`,
+          details: { ranked },
         });
       } else {
-        const order = bracketOrder(season.regions);
-        round8.forEach((target, i) => {
-          const [hs, as] = [order[2 * i], order[2 * i + 1]];
-          place(target, { ...ranked[hs - 1], seed: hs }, { ...ranked[as - 1], seed: as });
+        const as = (seed: number): Side => ({ hsid: ranked[seed - 1].hsid, seed, name: ranked[seed - 1].name });
+        ROUND_8.forEach(([h, a], i) => {
+          const target = nationalSeries(8, i + 1);
+          if (target) place(target, as(h), as(a));
         });
       }
+    }
+    for (const [round, no, a, b] of ROUNDS_9_10) {
+      const target = nationalSeries(round, no);
+      const pick = ([r, n, side]: From) => {
+        const s = nationalSeries(r, n);
+        return s ? (side === 'W' ? winnerOf(s) : loserOf(s)) : null;
+      };
+      const [x, y] = [pick(a), pick(b)];
+      if (!target || !x || !y) continue;
+      const [home, away] = (x.seed ?? 0) < (y.seed ?? 0) ? [x, y] : [y, x];
+      place(target, home, away);
     }
   }
 
   // The knocked-out schools: once every bracket series before a round is
-  // decided, every school out so far is paired for that round. Each test
-  // bracket pairs its own; 2027 pairs them nationally (region 0).
+  // decided, every school out of the regional brackets so far is paired for
+  // that round (in 2027 the 8 regional winners never are). Each test bracket
+  // pairs its own; 2027 pairs them nationally (region 0).
+  const met = new Set(rows.filter((r) => r.home_hsid != null && r.away_hsid != null).map((r) => pairKey(num(r.home_hsid)!, num(r.away_hsid)!)));
+  for (const f of fills) met.add(pairKey(f.home_hsid, f.away_hsid));
   const groups = season.is_test ? [...new Set(rows.map((r) => r.region))] : [0];
   for (const region of groups) {
     for (let round = 2; round <= lastRound; round++) {
       const slots = stageRound('total_runs', round, region);
       if (!slots.length) continue;
       const before = [...series.values()].filter((s) => s.stage === 'bracket' && s.round < round && (!season.is_test || s.region === region));
-      const out = before.map(loserOf);
-      if (out.some((s) => !s)) continue;
-      const pool = (out as Side[]).sort((a, b) => a.hsid - b.hsid);
+      if (before.some((s) => !winnerOf(s))) continue;
+      const pool = before.filter((s) => s.round <= regionRounds).map((s) => loserOf(s)!).sort((a, b) => a.hsid - b.hsid);
       const ref = `${season.season_key}:total_runs:${round}:${region}`;
       if (pool.length !== slots.length * 2) {
         decisions.push({ kind: 'total_runs_pool', ref, summary: `Round ${round}: ${pool.length} schools are out of the bracket but there are ${slots.length * 2} places for them.`, details: { pool: pool.map((s) => s.hsid) } });
@@ -421,23 +483,27 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
       }
       // Original seeds for the commissioner's Game 3 rule; the better one at home.
       const seeded = (h: number): Side => ({ hsid: h, seed: school.get(h)?.seed ?? null, name: school.get(h)?.name ?? null });
-      const { pairs } = pairEliminated(pool.map((s) => s.hsid), ref, teammates(clubs));
-      const games = pairs
+      const games = drawPairs(pool.map((s) => s.hsid), ref, clubs, met)
         .map(([a, b]) => { const [x, y] = [seeded(a), seeded(b)]; return (y.seed ?? 0) < (x.seed ?? 0) ? [y, x] : [x, y]; })
         .sort(([a], [b]) => (school.get(a.hsid)?.region ?? 0) - (school.get(b.hsid)?.region ?? 0) || (a.seed ?? 0) - (b.seed ?? 0) || a.hsid - b.hsid);
-      games.forEach(([home, away], i) => place(slots[i], home, away));
+      games.forEach(([home, away], i) => {
+        place(slots[i], home, away);
+        met.add(pairKey(home.hsid, away.hsid));
+      });
     }
   }
 
   // Weeks 31-34 (2027). Once every game of Weeks 1-30 is final: each
   // region's Total Runs leader, seeded 1-8 by the same order, into the slots'
   // seeds (1 v 8, 4 v 5, 2 v 7, 3 v 6); winners go on, the better seed at
-  // home; then the bracket champion (home) v the Total Runs winner.
+  // home; then the Main Bracket winner (home) v the Total Runs winner. The
+  // Main Bracket winner has byes in Weeks 31-33 (Pete, Oct 28): if it leads
+  // its region's Total Runs, the region's next school goes.
   const sct = (round: number) => stageRound('season_championship', round, 0);
   if (sct(1).length) {
     const regular = rows.filter((r) => r.stage === 'bracket' || r.stage === 'total_runs');
     const final = regular.every((r) => state(r).status === 'final');
-    const top = stageRound('bracket', lastRound, 0)[0];
+    const top = national ? nationalSeries(lastRound, CHAMPIONSHIP_SERIES) : stageRound('bracket', lastRound, 0)[0];
     const champion = top ? winnerOf(top) : null;
     if (final && champion) {
       const t = totals(Math.max(...regular.map((r) => r.week)));
@@ -448,7 +514,7 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
       const leaders: number[] = [];
       for (let region = 1; region <= season.regions; region++) {
         const board = [...school.values()].filter((s) => s.region === region).map((s) => s.hsid).sort(order);
-        const leader = board.find((h) => !CHAMPION_SITS_OUT || h !== champion.hsid);
+        const leader = board.find((h) => h !== champion.hsid);
         if (leader != null) leaders.push(leader);
       }
       leaders.sort(order);

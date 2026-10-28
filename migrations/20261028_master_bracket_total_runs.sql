@@ -3,12 +3,16 @@
 --   - Every one of the 1,024 schools plays every week, Weeks 1-30: 512 games
 --     a week, 15,360 in all. A school knocked out of the bracket keeps
 --     playing.
---   - The National Bracket (stage 'bracket'): 10 rounds of best-of-3, games
---     1-3,069.
+--   - The National Bracket (stage 'bracket'): Rounds 1-7 inside the eight
+--     regions (3,048 games), then Rounds 8-10, where the 8 regional bracket
+--     winners play each other all nine weeks, four 3-game series a round:
+--     Round 8 series 1-4, Round 9 series 5-8, Round 10 series 9-12 (series 9
+--     is the Bracket Championship). Games 1-3,084.
 --   - The knocked-out schools' games (stage 'total_runs', new here): from
 --     Round 2 on, the schools out of the bracket are paired for each round,
---     across regions, one opponent for the round's three weeks. Games
---     3,070-15,360 (12,291). Publicly the pairings are "randomly selected";
+--     across regions, one opponent for the round's three weeks; in Rounds
+--     8-10, all 1,016 schools out of the regional brackets. Games
+--     3,085-15,360 (12,276). Publicly the pairings are "randomly selected";
 --     the results job matches real-life teammates' high schools first and
 --     draws the rest (never published, like the commissioner's rules).
 --   - Total Runs: each school's runs over its 30 games, ranked against the
@@ -20,6 +24,13 @@
 -- The results job (scripts/master-bracket-results.ts) fills every slot from
 -- the stored results; nothing is entered by hand. The slots themselves come
 -- from scripts/master-bracket-seed.cjs.
+
+-- Pete's series numbers for Rounds 9 and 10 (Oct 28). The 2027 rows seeded
+-- on Oct 27 numbered them 1-2 and 1; the new seed adds series 7, 8 and
+-- 10-12. Only empty slots; the game ids stay.
+UPDATE public.master_bracket
+   SET series_no = CASE round WHEN 9 THEN series_no + 4 ELSE 9 END
+ WHERE season_key = '2027' AND stage = 'bracket' AND round IN (9, 10) AND series_no <= 2 AND status = 'tbd';
 
 ALTER TABLE public.master_bracket DROP CONSTRAINT IF EXISTS master_bracket_stage_check;
 ALTER TABLE public.master_bracket ADD CONSTRAINT master_bracket_stage_check
@@ -92,6 +103,6 @@ BEGIN
 END $$;
 
 UPDATE public.fantasy_seasons
-   SET notes = 'The 1,024-school field and seeds of public/bracket-lab/2026/index.json. Weeks 1-30: every school plays every week (15,360 games) - the National Bracket (10 rounds of 3, games 1-3,069) and the knocked-out schools'' games (games 3,070-15,360). Weeks 31-33: the 8 regional Total Runs leaders (games 15,361-15,367). Week 34: the Fantasy World Series (game 15,368).',
+   SET notes = 'The 1,024-school field and seeds of public/bracket-lab/2026/index.json. Weeks 1-30: every school plays every week (15,360 games) - the National Bracket (10 rounds of 3: Rounds 1-7 in the regions, Rounds 8-10 the 8 regional winners, four series a round; games 1-3,084) and the knocked-out schools'' games (games 3,085-15,360). Weeks 31-33: the 8 regional Total Runs leaders (games 15,361-15,367). Week 34: the Fantasy World Series (game 15,368).',
        updated_at = now()
  WHERE season_key = '2027';

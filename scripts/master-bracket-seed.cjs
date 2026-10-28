@@ -83,16 +83,42 @@ function bracketRows({ regions, perRegion, nationalRounds, round1, firstWeek = 1
   return rows;
 }
 
+// 2027, Rounds 8-10 (Pete, Oct 28): the 8 regional bracket winners play each
+// other all nine weeks, four 3-game series a round - Round 8 series 1-4,
+// Round 9 series 5-8, Round 10 series 9-12 (9 is the Bracket Championship).
+// The results job fills them (its reseeding and routing). The bracket's main
+// path (series 1-6 and 9) keeps the game ids the site gives it; series 7, 8
+// and 10-12 are numbered after it.
+function nationalRows(firstGameId, firstRound) {
+  const rows = [];
+  let gameId = firstGameId;
+  const add = (round, seriesNos) => {
+    for (const seriesNo of seriesNos) {
+      for (let g = 1; g <= 3; g++) {
+        rows.push({ stage: 'bracket', region: 0, round, roundName: `Round ${round}`, seriesNo, gameNo: g, gameId: gameId++, week: (round - 1) * 3 + g });
+      }
+    }
+  };
+  add(firstRound, [1, 2, 3, 4]);
+  add(firstRound + 1, [5, 6]);
+  add(firstRound + 2, [9]);
+  add(firstRound + 1, [7, 8]);
+  add(firstRound + 2, [10, 11, 12]);
+  return rows;
+}
+
 // The knocked-out schools' games (Pete, Oct 28: every school plays every
 // week). From Round 2 on, every school out of the bracket is paired for the
 // round - one opponent, the round's three weeks - so each week has a game for
-// every school. The pairs are drawn when the round before ends (the results
-// job), so every slot starts empty. Numbered after the bracket's games.
-function totalRunsRows({ field, rounds, region, firstGameId, firstWeek = 1 }) {
+// every school. stayIn: how many schools are never out (2027: the 8 regional
+// bracket winners, who play each other in Rounds 8-10). The pairs are drawn
+// when the round before ends (the results job), so every slot starts empty.
+// Numbered after the bracket's games.
+function totalRunsRows({ field, rounds, region, firstGameId, stayIn = 1, firstWeek = 1 }) {
   const rows = [];
   let gameId = firstGameId;
   for (let r = 2; r <= rounds; r++) {
-    const pairs = (field - field / 2 ** (r - 1)) / 2;
+    const pairs = (field - Math.max(field / 2 ** (r - 1), stayIn)) / 2;
     for (let si = 0; si < pairs; si++) {
       for (let g = 1; g <= 3; g++) {
         rows.push({
@@ -120,15 +146,17 @@ if (season === '2027') {
   const idx = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/bracket-lab/2026/index.json'), 'utf8'));
   const name = (h) => idx.schools[h][0];
   const round1 = idx.rounds[0].series.map((s) => ({ home: s[1], away: s[2], homeSeed: s[3], awaySeed: s[4], homeName: name(s[1]), awayName: name(s[2]) }));
-  const rows = bracketRows({ regions: 8, perRegion: 128, nationalRounds: 3, round1 });
+  // Rounds 1-7 in the eight regions (games 1-3,048), then Rounds 8-10.
+  const rows = bracketRows({ regions: 8, perRegion: 128, nationalRounds: 0, round1 });
+  rows.push(...nationalRows(rows.length + 1, 8));
   // Check the ids and weeks against the site's own (index.json).
   const byId = new Map(rows.map((r) => [r.gameId, r]));
   for (const round of idx.rounds) for (const s of round.series) for (const g of s[7]) {
     const r = byId.get(g[0]);
     if (!r || r.week !== g[1] || r.round !== round.r || (round.r === 1 && (r.home !== g[2] || r.away !== g[3]))) throw new Error(`game ${g[0]} does not match index.json`);
   }
-  // The knocked-out schools' games: 3,070-15,360, across regions (region 0).
-  rows.push(...totalRunsRows({ field: 1024, rounds: 10, region: 0, firstGameId: rows.length + 1 }));
+  // The knocked-out schools' games: 3,085-15,360, across regions (region 0).
+  rows.push(...totalRunsRows({ field: 1024, rounds: 10, region: 0, firstGameId: rows.length + 1, stayIn: 8 }));
   checkEveryWeek(rows, 1024, 30);
   if (rows.length !== 15360) throw new Error(`weeks 1-30 should end at game 15,360, not ${rows.length}`);
   // Season Championship Tournament (weeks 31-33: the leaderboard's top 8,
