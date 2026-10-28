@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { findOrCreateGhlContact, sendGHLEmail } from "@/lib/gohighlevel";
+import { findOrCreateGhlContact, sendGHLEmailWithResult } from "@/lib/gohighlevel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -146,7 +146,7 @@ function buildEmailHtml(tx: TransactionRow, recipient: RecipientRow): string {
       <p style="margin:20px 0">
         <a href="${escapeHtml(url)}" style="display:inline-block;padding:11px 16px;border-radius:6px;background:#111;color:#fff;text-decoration:none;font-weight:700">View ${escapeHtml(tx.player_name)} on YAT?STATS</a>
       </p>
-      <p style="font-size:12px;color:#666">You are receiving this because you are a YAT?STATS Super Fan and this player is in your Favorites.</p>
+      <p style="font-size:12px;color:#666">MLB transaction effective date: ${escapeHtml(tx.effective_date ? new Date(tx.effective_date).toLocaleDateString("en-US", { timeZone: "UTC" }) : "Not reported")}. You are receiving this because you are a YAT?STATS Super Fan and this player is in your Favorites.</p>
     </div>`;
 }
 
@@ -308,6 +308,104 @@ async function loadTransactions(
   return rows;
 }
 
+/**
+ * Atomic claim, unique by transaction and recipient. A completed send is never
+ * repeated, including on cron replay. Transient errors retry with a backoff,
+ * while invalid-address failures stay failed until corrected by an operator.
+ */
+async function claimRecipient(tx: TransactionRow, recipient: RecipientRow): Promise<boolean> {
+  const { rows } = await query<{ recipient_email: string }>(`
+    INSERT INTO public.mlb_transaction_alert_delivery
+      (transaction_id,recipient_email,firebase_uid)
+    VALUES ($1::bigint,lower(trim($2)),$3)
+    ON CONFLICT (transaction_id,recipient_email) DO UPDATE SET
+      status = 'sending',
+      attempts = public.mlb_transaction_alert_delivery.attempts + 1,
+      claimed_at = NOW(),
+      retry_after = NULL,
+      updated_at = NOW()
+    WHERE (
+      public.mlb_transaction_alert_delivery.status = 'retry'
+      AND public.mlb_transaction_alert_delivery.retry_after <= NOW()
+      AND public.mlb_transaction_alert_delivery.attempts < 5
+    ) OR (
+      public.mlb_transaction_alert_delivery.status = 'sending'
+      AND public.mlb_transaction_alert_delivery.claimed_at < NOW() - INTERVAL '15 minutes'
+      AND public.mlb_transaction_alert_delivery.attempts < 5
+    )
+    RETURNING recipient_email
+  `, [tx.id, recipient.email, recipient.firebase_uid]);
+  return rows.length > 0;
+}
+
+async function finishRecipient(
+  tx: TransactionRow,
+  recipient: RecipientRow,
+  outcome: { ok: boolean; retryable: boolean; error: string | null },
+): Promise<void> {
+  await query(`
+    UPDATE public.mlb_transaction_alert_delivery
+       SET status = CASE WHEN $3::boolean THEN 'sent'
+                         WHEN $4::boolean AND attempts < 5 THEN 'retry'
+                         ELSE 'failed' END,
+           last_error = $5,
+           sent_at = CASE WHEN $3::boolean THEN NOW() ELSE sent_at END,
+           retry_after = CASE WHEN NOT $3::boolean AND $4::boolean AND attempts < 5
+                              THEN NOW() + (INTERVAL '5 minutes' * POWER(2, LEAST(attempts-1,3)))
+                              ELSE NULL END,
+           updated_at = NOW()
+     WHERE transaction_id = $1::bigint AND recipient_email = lower(trim($2))
+  `, [tx.id, recipient.email, outcome.ok, outcome.retryable, outcome.error]);
+}
+
+async function retryFailedRecipients(): Promise<{ attempted: number; sent: number; failed: number }> {
+  const { rows } = await query<{ id:string; playerid:string; email:string; firebase_uid:string; first_name:string|null; last_name:string|null; arms_contact_id:string|null }>(`
+    SELECT d.transaction_id::text AS id, pt.playerid, up.email, up.firebase_uid,
+           up.first_name, up.last_name,
+           COALESCE(NULLIF(trim(up.arms_contact_id),''),NULLIF(trim(uf.arms_contact_id),'')) AS arms_contact_id
+      FROM public.mlb_transaction_alert_delivery d
+      JOIN public.player_transactions pt ON pt.id=d.transaction_id
+      JOIN public.user_profiles up ON up.firebase_uid=d.firebase_uid
+      JOIN public.user_favorites uf ON uf.firebase_uid=d.firebase_uid AND uf.playerid=pt.playerid
+     WHERE d.status='retry' AND d.retry_after <= NOW()
+       AND d.attempts < 5 AND pt.created_at >= NOW() - INTERVAL '7 days'
+     ORDER BY d.retry_after
+     LIMIT 25
+  `);
+  let attempted=0,sent=0,failed=0;
+  for (const row of rows) {
+    const transactions=await loadOneTransaction(row.id);
+    const tx=transactions[0];
+    if(!tx)continue;
+    const recipient:RecipientRow={firebase_uid:row.firebase_uid,email:row.email,first_name:row.first_name,last_name:row.last_name,arms_contact_id:row.arms_contact_id};
+    if(!await claimRecipient(tx,recipient))continue;
+    attempted++;
+    const contactId= text(recipient.arms_contact_id) || await findOrCreateGhlContact(recipient.email,text(recipient.first_name)||undefined,text(recipient.last_name)||undefined,text(tx.hsid)||undefined);
+    const outcome=contactId ? await sendGHLEmailWithResult(contactId,emailSubject(tx),buildEmailHtml(tx,recipient))
+      : {ok:false,retryable:true,error:'GHL_CONTACT_UNAVAILABLE'};
+    await finishRecipient(tx,recipient,outcome);
+    if(outcome.ok)sent++; else failed++;
+  }
+  return {attempted,sent,failed};
+}
+
+async function loadOneTransaction(id:string):Promise<TransactionRow[]> {
+  const {rows}=await query<TransactionRow>(`
+    SELECT pt.id::text AS id,pt.playerid::text AS playerid,pt.transaction_type,
+      pt.from_team_name,pt.to_team_name,pt.effective_date,pt.created_at,pt.payload,
+      COALESCE(NULLIF(trim(f.display_name),''),NULLIF(trim(concat_ws(' ',f.first_name,f.last_name)),''),pt.playerid::text) AS player_name,
+      f.first_name,f.last_name,f.hsid::text AS hsid,f.level_label,f.current_team_name,
+      f.current_org_or_conference_name,ss.microsite_url,to_lookup.level_label AS to_team_level
+    FROM public.player_transactions pt
+    LEFT JOIN public.flip_card_front_stage f ON f.playerid::text=pt.playerid::text
+    LEFT JOIN public.school_success ss ON ss.hsid::text=f.hsid::text
+    LEFT JOIN public.team_id_map tim ON tim.mlb_stats_api_id::text=pt.payload->'toTeam'->>'id'
+    LEFT JOIN public.teamid_universe_mapping to_lookup ON to_lookup.teamid=tim.tbc_teamid::text
+    WHERE pt.id=$1::bigint LIMIT 1
+  `,[id]);
+  return rows;
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -329,6 +427,7 @@ export async function GET(req: NextRequest) {
     const lastTransactionId = text(state.lastTransactionId) || "0";
 
     const transactions = await loadTransactions(lastCreatedAt, lastTransactionId);
+    const retries = await retryFailedRecipients();
 
     let newsCreated = 0;
     let meaningful = 0;
@@ -345,6 +444,7 @@ export async function GET(req: NextRequest) {
       const recipients = await getRecipients(tx.playerid);
 
       for (const recipient of recipients) {
+        if (!await claimRecipient(tx, recipient)) continue;
         const contactId = text(recipient.arms_contact_id) || await findOrCreateGhlContact(
           recipient.email,
           text(recipient.first_name) || undefined,
@@ -352,18 +452,11 @@ export async function GET(req: NextRequest) {
           text(tx.hsid) || undefined,
           undefined,
         );
-
-        if (!contactId) {
-          emailFailures++;
-          continue;
-        }
-
-        const sent = await sendGHLEmail(
-          contactId,
-          emailSubject(tx),
-          buildEmailHtml(tx, recipient),
-        );
-        if (sent) emailsSent++;
+        const outcome = contactId
+          ? await sendGHLEmailWithResult(contactId, emailSubject(tx), buildEmailHtml(tx, recipient))
+          : { ok: false, retryable: true, error: "GHL_CONTACT_UNAVAILABLE" };
+        await finishRecipient(tx, recipient, outcome);
+        if (outcome.ok) emailsSent++;
         else emailFailures++;
       }
 
@@ -386,6 +479,7 @@ export async function GET(req: NextRequest) {
       superFanEmailsSent: emailsSent,
       emailFailures,
       webhookFailures,
+      retries,
       lastCreatedAt: cursor.created_at,
       lastTransactionId: cursor.id,
     };
