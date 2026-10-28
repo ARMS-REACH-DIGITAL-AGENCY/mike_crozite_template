@@ -46,6 +46,57 @@ function game(row:Row,days:Day[]):GameRow {
  row.result_state==='final'?'stored_final':row.result_state==='provisional'?'stored_provisional':'',
  mapInnings(row,days),row.result_state==='final'?row.advances_hsid:null];
 }
+
+type Snapshot = { hsid:number; stats_date:string; player_lines: Array<Record<string,unknown>> };
+function n(v:unknown):number {const x=Number(v);return Number.isFinite(x)?x:0;}
+function asPlayerRow(item:Record<string,unknown>,names:Record<string,string>):import('@/components/bracket/gallery').PlayerRow {
+ const id=String(item.playerid||'');
+ const bat=[n(item.bat_pa),n(item.bat_ab),n(item.bat_h),n(item.bat_2b),n(item.bat_3b),
+   n(item.bat_hr),n(item.bat_bb),n(item.bat_hbp),n(item.bat_sf)];
+ const pit=[n(item.pit_outs),n(item.pit_hr),n(item.pit_bb),n(item.pit_hbp),n(item.pit_so),0,0,0,0];
+ const hasBat=bat.some(v=>v>0),hasPit=pit.some(v=>v>0);
+ return [id,names[id]||id,String(item.level||'MLB'),0,hasBat?bat:0,hasPit?pit:0,null,null,null,0];
+}
+async function preparedBoxes(rows:Row[]):Promise<Record<string,GameBox>> {
+ const saved=await query<Snapshot>(`SELECT hsid,stats_date::text,player_lines
+ FROM isolated_pipeline.day_school_inputs
+ WHERE season_key='test-2026' AND region=$1 AND stats_date BETWEEN DATE '2026-10-26' AND DATE '2026-10-27'`,[TEST_BRACKET]);
+ const allIds=[...new Set(saved.rows.flatMap(s=>(s.player_lines||[]).map(x=>String(x.playerid||'')).filter(Boolean)))];
+ const identity=allIds.length?await query<{playerid:string;display_name:string}>(`
+ SELECT DISTINCT ON (playerid::text) playerid::text AS playerid,display_name
+ FROM public.flip_card_front_stage WHERE playerid::text=ANY($1::text[])
+ ORDER BY playerid::text`,[allIds]):{rows:[]};
+ const names=Object.fromEntries(identity.rows.map(x=>[x.playerid,x.display_name]));
+ const snapshot=new Map(saved.rows.map(x=>[x.hsid+'/'+x.stats_date,x]));
+ const out:Record<string,GameBox>={};
+ for(const g of rows.filter(r=>r.round===2&&r.game_no===1&&r.home_hsid&&r.away_hsid)){
+  const id=(g.round-1)*1000+(g.series_no-1)*3+g.game_no;
+  function side(hsid:number):GameBox['h']{
+   const days:Array<import('@/components/bracket/gallery').PlayerRow[]>=Array.from({length:7},()=>[]);
+   const weekly=new Map<string,Record<string,unknown>>();
+   for(let d=0;d<2;d++){
+    const date=d===0?'2026-10-26':'2026-10-27';
+    const lines=snapshot.get(hsid+'/'+date)?.player_lines||[];
+    days[d]=lines.map(x=>asPlayerRow(x,names));
+    for(const x of lines) {
+      const pid=String(x.playerid||'');if(!pid)continue;
+      const old=weekly.get(pid)||{...x};
+      if(weekly.has(pid)){
+       for(const key of ['bat_pa','bat_ab','bat_h','bat_2b','bat_3b','bat_hr','bat_bb','bat_hbp','bat_sf',
+         'pit_outs','pit_hr','pit_bb','pit_hbp','pit_so'])
+         old[key]=n(old[key])+n(x[key]);
+      }
+      weekly.set(pid,old);
+    }
+   }
+   return {p:[...weekly.values()].map(x=>asPlayerRow(x,names)),wl:[0,0],days};
+  }
+  out[String(id)]={d:[],f:[[true,true],[false,false],...Array.from({length:7},()=>[false,false]) as [boolean,boolean][]],
+    h:side(g.home_hsid!),a:side(g.away_hsid!)};
+ }
+ return out;
+}
+
 export async function GET(request:NextRequest) {
  if(process.env.VERCEL_ENV!=='preview')return NextResponse.json({error:'preview_only'},{status:403});
  // This route reads ONLY the branch-scoped isolated Neon connection. No scoring, writes, cron, or email.
@@ -53,7 +104,10 @@ export async function GET(request:NextRequest) {
   return NextResponse.json({error:'database_not_configured'},{status:503});
  const mode=request.nextUrl.searchParams.get('view')||'index';
  try{
-  if(mode==='boxes')return NextResponse.json({},{headers:{'Cache-Control':'no-store'}});
+  if(mode==='boxes') {
+   const rows=(await query<Row>(dataSql,[TEST_BRACKET])).rows;
+   return NextResponse.json(await preparedBoxes(rows),{headers:{'Cache-Control':'no-store'}});
+  }
   const [gamesRes,seriesRes,daysRes]=await Promise.all([
    query<Row>(dataSql,[TEST_BRACKET]),query<Series>(seriesSql,[TEST_BRACKET]),query<Day>(daySql,[TEST_BRACKET])
   ]);
