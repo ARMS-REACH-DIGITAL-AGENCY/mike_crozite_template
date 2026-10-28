@@ -60,7 +60,8 @@ import { bracketOrder, pairEliminated } from '@/lib/bracket/engine';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { COMMISSIONER_DECISIONS } from '@/lib/bracket/commissioner';
 import { scoreLive, type Live } from '@/components/bracket/liveSeason';
-import { tieNote, type GameBox, type GameRow, type Index, type SeriesRow } from '@/components/bracket/gallery';
+import type { GameBox, GameRow, Index, SeriesRow } from '@/components/bracket/gallery';
+import { tieNote } from '@/lib/bracket/tieNote';
 
 type Season = { season_key: string; is_test: boolean; opening_day: string; last_day: string; weeks: number; regions: number; schools_per_region: number };
 type Row = {
