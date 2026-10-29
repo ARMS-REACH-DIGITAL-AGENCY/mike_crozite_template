@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { toPlayerSlug } from '@/lib/slug';
 import FanConfirm from '@/components/yatstats/FanConfirm';
+import ContributeSearch from '@/components/yatstats/ContributeSearch';
 import { track } from '@/lib/analytics';
 import { jpegName, shrinkPhoto } from '@/lib/shrinkPhoto';
 
@@ -50,6 +51,7 @@ export type Story = {
 type StoryComment = { id: string; text: string; author: string; createdAt: string; isMine: boolean; canDelete: boolean; photos?: StoryPhoto[] };
 type PickedPhoto = { id: string; file: File; preview: string };
 const COMMENT_MAX_PHOTOS = 4;
+const STORY_MAX_TAGS = 20;
 export type Me = { firstName: string; lastName: string; email: string } | null;
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -275,7 +277,7 @@ export function StoryThread({
   const [busy, setBusy] = useState<'' | 'like' | 'comment' | 'save' | 'delete'>('');
   const [note, setNote] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [editing, setEditing] = useState<{ text: string; month: number; year: number } | null>(null);
+  const [editing, setEditing] = useState<{ text: string; month: number; year: number; tags: StoryPlayer[] } | null>(null);
   // Set when this site couldn't tell who the fan is: the action to retry
   // once they've confirmed it's them (FanConfirm).
   const [retry, setRetry] = useState<null | (() => void)>(null);
@@ -427,7 +429,7 @@ export function StoryThread({
   const startEdit = () => {
     setMenuOpen(false);
     const m = story.date ? Number(story.date.slice(5, 7)) : 1;
-    setEditing({ text: story.story, month: m || 1, year: story.year || new Date().getFullYear() });
+    setEditing({ text: story.story, month: m || 1, year: story.year || new Date().getFullYear(), tags: story.players.filter((p) => !p.isPrimary && p.playerId !== (story.players.find((a) => a.isPrimary)?.playerId || playerId)) });
   };
 
   const saveEdit = async () => {
@@ -436,11 +438,11 @@ export function StoryThread({
     try {
       const { res, data } = await call(`/api/stories/${story.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ story: editing.text, month: editing.month, year: editing.year }),
+        body: JSON.stringify({ story: editing.text, month: editing.month, year: editing.year, tagged: editing.tags.map((p) => p.playerId) }),
       });
       if (res.status === 401) return needConfirm(saveEdit);
       if (!res.ok) throw new Error(data?.error || 'Your changes could not be saved.');
-      onChange({ ...story, story: data.story, date: data.date, year: data.year });
+      onChange({ ...story, story: data.story, date: data.date, year: data.year, players: Array.isArray(data.players) ? data.players : story.players });
       setEditing(null);
       window.dispatchEvent(new CustomEvent('yat:story-posted', { detail: { id: story.id } }));
     } catch (error) {
@@ -530,6 +532,22 @@ export function StoryThread({
         </select>
       </div>
       <textarea value={editing.text} onChange={(e) => setEditing({ ...editing, text: e.target.value })} rows={6} />
+      <div className="ysv-edit-tag-section">
+        <label className="ysv-edit-tag-title">Tag players in this story</label>
+        {editing.tags.length > 0 && <div className="ysv-edit-tags">
+          {editing.tags.map((tag) => <span className="ysv-edit-tag" key={tag.playerId}>
+            {tag.name}
+            <button type="button" aria-label={"Remove tag for " + tag.name} disabled={busy === "save"} onClick={() => setEditing((prev) => prev ? { ...prev, tags: prev.tags.filter((p) => p.playerId !== tag.playerId) } : null)}>×</button>
+          </span>)}
+        </div>}
+        {editing.tags.length < STORY_MAX_TAGS && busy !== "save" && <ContributeSearch onPlayer={(candidate) => {
+          const primaryId = story.players.find((p) => p.isPrimary)?.playerId || playerId;
+          if (!candidate.playerId || candidate.playerId === primaryId) return;
+          setEditing((prev) => !prev || prev.tags.length >= STORY_MAX_TAGS || prev.tags.some((p) => p.playerId === candidate.playerId)
+            ? prev : { ...prev, tags: [...prev.tags, { playerId: candidate.playerId, name: candidate.displayName || "Player", hsid: candidate.schoolId || null, isPrimary: false }] });
+        }} />}
+        {editing.tags.length >= STORY_MAX_TAGS && <div className="ysv-muted">Up to {STORY_MAX_TAGS} players can be tagged.</div>}
+      </div>
       <div className="ysv-edit-actions">
         <button type="button" className="ysv-btn" onClick={() => setEditing(null)} disabled={busy === 'save'}>Cancel</button>
         <button type="button" className="ysv-btn ysv-btn-primary" onClick={saveEdit} disabled={busy === 'save' || !editing.text.trim()}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
@@ -930,6 +948,13 @@ export function StoryStyles() {
       .ysv-edit-date { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
       .ysv-edit select, .ysv-edit textarea, .ysv-composer textarea { width: 100%; border: 1px solid var(--ysv-input-border); border-radius: 8px; background: var(--ysv-input-bg); color: var(--ysv-fg); padding: 9px 12px; font: 400 14px/1.45 system-ui, sans-serif; }
       .ysv-edit textarea { resize: vertical; min-height: 120px; }
+.ysv-edit-tag-section { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.ysv-edit-tag-title { font:700 13px/1.4 system-ui,sans-serif; color:var(--ysv-fg); }
+.ysv-edit-tags { display:flex; flex-wrap:wrap; gap:6px; }
+.ysv-edit-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid var(--ysv-input-border); border-radius:6px; font:500 13px/1.4 system-ui,sans-serif; }
+.ysv-edit-tag button { border:0; background:transparent; color:var(--ysv-fg); cursor:pointer; font-size:18px; line-height:1; }
+.ysv-edit-tag-section .ycs { color:var(--ysv-fg); max-width:100%; }
+.ysv-edit-tag-section .ycs-results { max-height:185px !important; overflow-y:auto !important; }
       .ysv-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
       .ysv-btn { min-height: 36px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--ysv-gold); background: transparent; color: var(--ysv-gold-text); font: 400 15px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .07em; cursor: pointer; }
       .ysv-btn-primary { background: var(--ysv-gold); color: #000; }
