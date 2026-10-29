@@ -76,7 +76,13 @@ assert.doesNotMatch(schedules,/Oswald|rgba\(214,178,83/,'Game Log header and tag
 assert.match(footer,/#ffb238/,'Restore original illuminated orange ticker icons');
 assert.match(footer,/#ff7a1a/,'Restore original orange Doto labels');
 assert.match(footer,/#d2b45c/,'Restore ticker active underline');
-assert.doesNotMatch(page,/Bebas Neue|Oswald/,'All player tab content remains Archivo');
+// A single explicitly scoped, condensed sponsorship-ad heading belongs to
+// the paid promotional placement, not to the profile tabs themselves. Avoid
+// flagging its pre-existing fallback font while still forbidding other
+// condensed typography throughout the player profile page.
+const permittedInfeedAdHeading = /#playerFunZone \.yp-profile-infeed-ad strong \{font:800 18px\/1\.1 var\(--yat-font-compact,Oswald,sans-serif\);\}/;
+assert.match(page,permittedInfeedAdHeading,'Sponsor ad keeps its own condensed heading');
+assert.doesNotMatch(page.replace(permittedInfeedAdHeading,''),/Bebas Neue|Oswald/,'All other player tab content remains Archivo');
 // Intentional exception to the global Archivo standard: the Career Path Timeline
 // retains its original condensed type while all surrounding pages stay Archivo.
 assert.doesNotMatch(timeline,/#d6b253/,'No bronze-gold rail');
