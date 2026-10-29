@@ -66,9 +66,25 @@ export async function middleware(request: NextRequest) {
         signal: AbortSignal.timeout(12000),
       });
       if (response.ok) {
-        const payload = await response.json() as { hsid?: string };
+        const payload = await response.json() as { hsid?: string; canonicalUrl?: string | null };
         const hsid = String(payload.hsid || '');
         if (/^[1-9][0-9]*$/.test(hsid)) {
+          // Old name-HSID aliases remain resolvable, but normal school
+          // browsing uses the new readable, city-based canonical hostname.
+          // Keep numeric staging hosts (e.g. 5004.yatstats.com) functioning.
+          const canonical = String(payload.canonicalUrl || '');
+          const parsed = schoolHostnamePattern(host);
+          if (parsed?.type === 'named' && canonical) {
+            try {
+              const target = new URL(canonical);
+              if (target.hostname.endsWith('.yatstats.com') && target.hostname !== new URL('https://' + host).hostname) {
+                target.pathname = path;
+                target.search = request.nextUrl.search;
+                target.hash = request.nextUrl.hash;
+                return NextResponse.redirect(target, 308);
+              }
+            } catch { /* An invalid cached URL must never prevent routing. */ }
+          }
           const dest = request.nextUrl.clone();
           dest.pathname = (path === '/' || path === '/splash') ? `/${hsid}` : `/${hsid}${path}`;
           requestHeaders.set('x-yat-resolved-host-hsid', hsid);
