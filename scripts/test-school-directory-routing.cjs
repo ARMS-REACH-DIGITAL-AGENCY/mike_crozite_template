@@ -33,7 +33,7 @@ const query=async (sql,params=[])=>{
     return {rows:params[0]==='https://hamilton.az.yatstats.com'?[{hsid:'5004'}]:[]};
   if(sql.includes('EXISTS') && sql.includes('LIMIT 1'))
     return {rows:params[0]==='5004'?[{hsid:'5004'}]:[]};
-  if(sql.includes('AND EXISTS') && sql.includes('LIMIT 30')) {
+  if(sql.includes('LIMIT 30')) {
     const state=params[0];
     return {rows:schools.filter(s=>s.regionid===state && (
       s.name_slug===params[1] || (s.name_slug+'-'+s.city_slug)===params[1] || (s.name_slug+'-'+s.hsid)===params[1]
