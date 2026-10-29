@@ -41,6 +41,9 @@ export const MLB_ORG_STATUSES = [
 // Every status the filter drawer offers, in this order on every school.
 export const GALLERY_STATUS_OPTIONS = [
   'ACTIVE',
+  // On an MLB organization's 40-man list, without a verified active
+  // MLB or MiLB game-roster assignment. Do not label this as ACTIVE.
+  '40-MAN',
   ...INJURED_STATUSES,
   ...MLB_ORG_STATUSES,
   // A coach of the school's team (any status with COACH in it shows as a
@@ -63,13 +66,14 @@ export const GALLERY_STATUS_OPTIONS = [
 // Who's on a school's active roster: everyone still with a team or an
 // organization - ACTIVE, every injured list, and every other MLB
 // organization status (the fantasy Stat Ledger's rosters).
-export const ROSTER_STATUSES: readonly string[] = ['ACTIVE', ...INJURED_STATUSES, ...MLB_ORG_STATUSES];
+export const ROSTER_STATUSES: readonly string[] = ['ACTIVE', '40-MAN', ...INJURED_STATUSES, ...MLB_ORG_STATUSES];
 
 // Owner-approved Active Alumni first-paint preset and membership contract:
 // ACTIVE, injured, MLB organization roster states, and both redshirt statuses.
 // Historical/admin statuses remain available in the drawer but are unchecked.
 export const ACTIVE_GALLERY_STATUSES: readonly string[] = [
   'ACTIVE',
+  '40-MAN',
   ...INJURED_STATUSES,
   'ADMINISTRATIVE LEAVE',
   'BEREAVEMENT LIST',

@@ -895,6 +895,180 @@ async function refreshStage(mlbCurrent: MlbCurrent[]): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+// When a player appears ONLY as a true MLB 40-man member in the newest
+// org-wide run, that proves the parent organization but not a game-roster or
+// minor-league assignment. Preserve his specific affiliate if it belongs to
+// that SAME organization. Never preserve an affiliate or MLB team belonging
+// to a different organization (e.g. Seattle -> Tampa Bay for Casey Legumina).
+//
+// This fallback intentionally ignores multiple conflicting 40-man clubs,
+// newer verified stage assignments, manual overrides and transaction-owned
+// departures. It uses MLB source IDs for source fields, and mapped TBC IDs
+// only for the canonical display/logo fields. It never writes the legacy
+// player_current_team table.
+async function reconcileFortyManOnlyAffiliations(): Promise<number> {
+  const result = await pool.query(`
+    WITH latest_completed_run AS (
+      SELECT run_id
+      FROM public.source_ingest_runs
+      WHERE source = 'mlb_api'
+        AND feed_name = 'mlb_full_org_roster'
+        AND status = 'completed'
+      ORDER BY completed_at DESC NULLS LAST, started_at DESC
+      LIMIT 1
+    ),
+    forty_man_candidates AS (
+      SELECT
+        res.playerid::text AS playerid,
+        raw.source_player_id::text AS source_player_id,
+        raw.source_team_id::text AS mlb_team_id,
+        raw.source_team_name,
+        raw.org_name,
+        raw.org_abbr,
+        raw.seen_at,
+        raw.id AS raw_id
+      FROM public.mlb_org_roster_raw raw
+      JOIN public.mlb_org_roster_resolution res ON res.raw_id = raw.id
+      JOIN latest_completed_run lr ON lr.run_id = raw.run_id
+      WHERE res.match_status = 'matched'
+        AND res.playerid IS NOT NULL
+        AND LOWER(COALESCE(raw.roster_type, '')) = '40man'
+        AND raw.source_team_id::text = raw.org_source_team_id::text
+        AND NULLIF(TRIM(raw.org_name), '') IS NOT NULL
+    ),
+    unambiguous_parent AS (
+      SELECT playerid
+      FROM forty_man_candidates
+      GROUP BY playerid
+      HAVING COUNT(DISTINCT mlb_team_id) = 1
+         AND COUNT(DISTINCT source_player_id) = 1
+    ),
+    forty_man_only AS (
+      SELECT DISTINCT ON (fm.playerid)
+        fm.*
+      FROM forty_man_candidates fm
+      JOIN unambiguous_parent up ON up.playerid = fm.playerid
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.mlb_org_roster_resolution res
+        JOIN public.mlb_org_roster_raw raw ON raw.id = res.raw_id
+        JOIN latest_completed_run lr ON lr.run_id = raw.run_id
+        WHERE res.match_status = 'matched'
+          AND res.playerid::text = fm.playerid
+          AND (
+            LOWER(COALESCE(raw.roster_type, '')) = 'active'
+            OR (
+              LOWER(COALESCE(raw.roster_type, '')) = 'fullroster'
+              AND UPPER(TRIM(COALESCE(raw.roster_status, ''))) <> 'FORTY MAN'
+            )
+          )
+      )
+      ORDER BY fm.playerid, fm.seen_at DESC NULLS LAST, fm.raw_id DESC
+    ),
+    verified_parent AS (
+      SELECT
+        fm.*,
+        map.tbc_teamid::text AS tbc_teamid,
+        team.current_team_name AS canonical_name,
+        team.current_org_or_conference_name AS canonical_org
+      FROM forty_man_only fm
+      JOIN public.team_id_map map
+        ON map.mlb_stats_api_id::text = fm.mlb_team_id
+      JOIN public.teamid_universe_mapping team
+        ON team.teamid = map.tbc_teamid::text
+      WHERE team.level_label = 'MLB'
+        AND LOWER(TRIM(team.current_team_name)) = LOWER(TRIM(fm.source_team_name))
+        AND LOWER(TRIM(team.current_org_or_conference_name)) = LOWER(TRIM(fm.org_name))
+    )
+    UPDATE public.flip_card_front_stage stage
+       SET current_team_name = fm.canonical_name,
+           current_org_or_conference_name = fm.canonical_org,
+           current_teamid = fm.tbc_teamid,
+           current_team_source = 'mlb_api',
+           current_team_source_player_id = fm.source_player_id,
+           current_team_source_team_id = fm.mlb_team_id,
+           current_team_last_verified = fm.seen_at,
+           current_team_roster_status = 'Forty Man',
+           current_team_level = 'MLB',
+           current_level_label = 'MLB',
+           level_label = 'MLB',
+           display_level_label = 'MLB',
+           -- A 40-man-only player is affiliated, not on an active game roster.
+           -- Keep the separate status explicit on every shared player surface.
+           status_label = '40-MAN',
+           display_status_label = '40-MAN',
+           is_on_40man = true,
+           forty_man_org_name = fm.org_name,
+           forty_man_org_abbr = fm.org_abbr,
+           current_team_absent_since = NULL,
+           next_game_date = NULL,
+           next_game_time_local = NULL,
+           next_game_time_utc = NULL,
+           next_game_home_away = NULL,
+           next_game_opponent = NULL,
+           next_game_status_label = NULL,
+           updated_at = NOW(),
+           stage_updated_at = NOW()
+      FROM verified_parent fm
+     WHERE stage.playerid::text = fm.playerid
+       AND stage.last_transaction_applied_at IS NULL
+       AND COALESCE(stage.current_team_source, '') IN (
+         '', 'mlb_api', 'mlb_api_canonical_teamid'
+       )
+       AND UPPER(COALESCE(stage.status_label, '')) NOT IN ('FREE AGENT', 'RETIRED')
+       AND UPPER(COALESCE(stage.team_affiliation_status, '')) NOT IN ('FREE AGENT', 'RETIRED')
+       AND (
+         stage.current_team_last_verified IS NULL
+         OR stage.current_team_last_verified <= fm.seen_at
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM public.player_team_override manual
+         WHERE manual.playerid = stage.playerid::text
+       )
+       AND (
+         stage.current_team_name IS NULL
+         OR COALESCE(
+           NULLIF(TRIM(stage.current_org_or_conference_name), ''),
+           (
+             SELECT former_team.current_org_or_conference_name
+             FROM public.teamid_universe_mapping former_team
+             WHERE former_team.teamid = stage.current_teamid
+             LIMIT 1
+           )
+         ) IS DISTINCT FROM fm.canonical_org
+       )
+  `);
+  return result.rowCount ?? 0;
+}
+
+// Repair the ID TYPE of existing pre-fix rows, without pretending the
+// legacy canonical assignment is fresh. Oct 29 audit found 247 legacy
+// canonical rows that stored a TBC teamid in the MLB source-team-ID field.
+// Every affected TBC team has a unique MLB crosswalk and matching canonical
+// team name. This normalizes only the provider identifier: no team, level,
+// status, source provenance, or last-verified timestamp is modified.
+async function normalizeLegacyCanonicalSourceTeamIds(): Promise<number> {
+  const result = await pool.query(`
+    WITH verified_mapping AS (
+      SELECT f.ctid AS stage_row_id, map.mlb_stats_api_id::text AS mlb_team_id
+      FROM public.flip_card_front_stage f
+      JOIN public.team_id_map map ON map.tbc_teamid::text = f.current_teamid
+      JOIN public.teamid_universe_mapping canon ON canon.teamid = f.current_teamid
+      WHERE f.current_team_source = 'mlb_api_canonical_teamid'
+        AND f.current_team_source_team_id::text = f.current_teamid::text
+        AND NULLIF(TRIM(f.current_team_name), '') IS NOT NULL
+        AND LOWER(TRIM(f.current_team_name)) = LOWER(TRIM(canon.current_team_name))
+    )
+    UPDATE public.flip_card_front_stage stage
+       SET current_team_source_team_id = vm.mlb_team_id,
+           stage_updated_at = NOW()
+      FROM verified_mapping vm
+     WHERE stage.ctid = vm.stage_row_id
+       AND stage.current_team_source_team_id IS DISTINCT FROM vm.mlb_team_id
+  `);
+  return result.rowCount ?? 0;
+}
+
 // The daily full-schedule ingest owns schedule acquisition. The 3-hour roster
 // sync owns card readiness. Once roster truth changes, immediately attach the
 // best game already present in team_schedules so a newly discovered player
@@ -907,7 +1081,8 @@ async function refreshLoadedNextGames(): Promise<number> {
       FROM public.flip_card_front_stage f
       WHERE f.current_team_source = 'mlb_api'
         AND f.current_team_source_team_id ~ '^[0-9]+$'
-        AND LOWER(TRIM(COALESCE(f.status_label, ''))) NOT IN ('retired', 'not active', 'free agent')
+        AND LOWER(TRIM(COALESCE(f.status_label, ''))) NOT IN ('retired', 'not active', 'free agent', '40-man')
+        AND LOWER(TRIM(COALESCE(f.current_team_roster_status, ''))) <> 'forty man'
         AND UPPER(TRIM(COALESCE(f.level_label, ''))) IN (
           'MLB','AAA','TRIPLE-A','AA','DOUBLE-A','HIGH-A','A+','A','LOW-A','SINGLE-A','ROOKIE','ACL','FCL'
         )
@@ -1199,12 +1374,16 @@ async function main() {
     );
 
     const updated = await refreshStage(mlbCurrent);
+    const fortyManAffiliations = await reconcileFortyManOnlyAffiliations();
+    const normalizedIds = await normalizeLegacyCanonicalSourceTeamIds();
     const backfill = await backfillMappedCurrentTeamIdentity();
     const departed = await applyDepartures(mlbCurrent);
     const scheduled = await refreshLoadedNextGames();
     const absences = await flagRosterAbsences();
 
     console.log(`Updated flip_card_front_stage rows: ${updated}`);
+    console.log(`40-man-only organization corrections (not active-roster promotions): ${fortyManAffiliations}`);
+    console.log(`Legacy canonical team source-ID types normalized without team changes: ${normalizedIds}`);
     console.log(
       `Canonical MLB team backfill: ${backfill.teamIds} team ids, ${backfill.orgs} organization labels`
     );
