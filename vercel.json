@@ -64,6 +64,10 @@
     {
       "path": "/api/cron/contribution-audit-digest",
       "schedule": "15 7 * * *"
+    },
+    {
+      "path": "/api/cron/bracket-results",
+      "schedule": "18 * * * *"
     }
   ]
 }
