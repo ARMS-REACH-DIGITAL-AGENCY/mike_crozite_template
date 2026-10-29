@@ -543,7 +543,7 @@ function SocialPanel({
 
   // Keep the school name accurate whether the database stores "Perry" or
   // "Perry High School" (never append "High School" twice).
-  const schoolLabel = /\\bhigh school$/i.test(schoolName.trim())
+  const schoolLabel = schoolName.trim().toLowerCase().endsWith("high school")
     ? schoolName.trim()
     : `${schoolName.trim()} High School`;
   const shareText =
@@ -786,7 +786,7 @@ export default function FunZone({
   // OG image to SMS/social crawlers and redirects fans to the actual
   // player profile. This avoids the separate /api/og/player-card renderer
   // that crops action photos. It also makes the SMS URL shorter.
-  const shareRoot = (shareBaseUrl || `https://yatstats.com/${resolvedHsid}`).replace(/\\/+$/, "");
+  const shareRoot = (shareBaseUrl || `https://yatstats.com/${resolvedHsid}`).replace(/[/]+$/, "");
   const shareUrl = `${shareRoot}/p/${encodeURIComponent(imageId)}`;
   const ctaText = getCta(activeTab, firstName);
 
