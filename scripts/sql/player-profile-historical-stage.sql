@@ -30,7 +30,7 @@ CREATE UNIQUE INDEX ON _new_historical_pitching(playerid);
 DO $$
 DECLARE source_batting bigint; stage_batting bigint;
         source_pitching bigint; stage_pitching bigint;
-        mismatch_batting bigint; mismatch_pitching bigint;
+        mismatch_batting bigint; mismatch_pitching bigint; stale_players bigint;
 BEGIN
  SELECT count(*) INTO source_batting FROM public.tbc_batting_raw
  WHERE playerid IS NOT NULL AND (substring(year from '[0-9]{4}') IS NULL OR substring(year from '[0-9]{4}')::int < 2026);
@@ -66,6 +66,15 @@ BEGIN
  WHERE raw_d.digest IS DISTINCT FROM stage_d.digest;
  IF mismatch_batting <> 0 OR mismatch_pitching <> 0 THEN
   RAISE EXCEPTION 'Historical stage content parity failed: batting % pitching %',mismatch_batting,mismatch_pitching;
+ END IF;
+ -- Removed or reassigned source IDs require explicit investigation. A refresh
+ -- must not quietly retain stale staging records and claim full parity.
+ SELECT count(*) INTO stale_players
+ FROM public.player_profile_historical_stats_stage s
+ WHERE NOT EXISTS (SELECT 1 FROM _new_historical_batting b WHERE b.playerid=s.playerid)
+   AND NOT EXISTS (SELECT 1 FROM _new_historical_pitching p WHERE p.playerid=s.playerid);
+ IF stale_players > 0 THEN
+  RAISE EXCEPTION 'Historical stage includes % source-absent players; stop and review source/import changes',stale_players;
  END IF;
 END $$;
 -- Update only after successful complete validation.
