@@ -176,7 +176,7 @@ export default function WhereYatNowDrawer() {
           <div role="status" style={{ marginTop: 30, lineHeight: 1.6 }}>
             <h3 style={{ color: ACCENT, fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 22 }}>UPDATE RECEIVED</h3>
             <p>Your proof is confirmed and the update is awaiting identity review. An email receipt will link back to your saved proof. Once approved, the update will appear on the player's profile.</p>
-            {submissionId && <a href={`/\${target.hsid}/where-yat-proof?submission=\${submissionId}`} style={{color:ACCENT}}>VIEW MY SAVED PROOF ↗</a>}
+            {submissionId && <a href={`/${target.hsid}/where-yat-proof?submission=${submissionId}`} style={{color:ACCENT}}>VIEW MY SAVED PROOF ↗</a>}
             <p>Interested in promoting your business? Partnership details are on the YAT?STATS corporate site.</p>
             <a style={{ color: ACCENT, fontWeight: 800 }} href={PARTNERS_HREF} target="_blank" rel="noopener noreferrer">EXPLORE PARTNERSHIPS ↗</a>
             <p><button type="button" onClick={close} style={uiButton}>CLOSE</button></p>
