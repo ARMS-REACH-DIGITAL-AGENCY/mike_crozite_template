@@ -1290,6 +1290,13 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone .yp-profile-infeed-ad,
           #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
         }
+        /* Avoid the extra scrolling gap between the timeline and Stories tools.
+           Keep the scroll clipping inside the active tab, below the timeline. */
+        #playerFunZone #ppTab-upload.pp-fz-panel {
+          padding-top:0!important;
+          scroll-padding-top:0;
+        }
+        #playerFunZone #ppTab-upload .ysf { padding-top:0!important; }
         /* One desktop tower per feed: Stories owns its own sticky tower;
            News uses the same reserved 300x600 right column. */
         @media (min-width:1081px) {
