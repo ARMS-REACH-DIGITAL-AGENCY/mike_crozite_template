@@ -3,6 +3,7 @@ import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatsta
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
+import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";
 import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
 import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent } from "@/lib/fanConsent";
 
@@ -33,7 +34,10 @@ async function getSchoolByHsid(hsid: string) {
     LIMIT 1
   `;
   const result = await query(sql, [String(hsid)]);
-  return result.rows?.[0] ?? null;
+  const school: { hsname?: string | null; hslocation?: string | null; microsite_url?: string | null } | null = result.rows?.[0] ?? null;
+  if (!school) return null;
+  const urls = await canonicalSchoolUrls([hsid], (sql, params = []) => query(sql, params));
+  return { ...school, microsite_url: urls.get(String(hsid)) || school.microsite_url };
 }
 
 function normalizeMicrositeUrl(value?: string | null) {

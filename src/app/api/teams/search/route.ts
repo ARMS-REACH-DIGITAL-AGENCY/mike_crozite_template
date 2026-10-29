@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";
 import { toPlayerSlug } from "@/lib/slug";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE } from "@/lib/playerStageIdentity";
@@ -17,34 +18,6 @@ function buildCorsHeaders(req: NextRequest) {
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
-}
-
-function slugifySchoolName(name: string) {
-  return String(name || "")
-    .toLowerCase()
-    .trim()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function normalizeState(state: string) {
-  return String(state || "").toLowerCase().trim();
-}
-
-function buildMicrositeUrl(hsid?: string, hsname?: string, hslocation?: string) {
-  if (!hsid) return "";
-
-  const schoolSlug = slugifySchoolName(hsname || "");
-  const locParts = String(hslocation || "").split(",");
-  const statePart = (locParts.slice(1).join(",") || "").trim();
-  const stateSlug = normalizeState(statePart);
-
-  if (schoolSlug && stateSlug) {
-    return `https://${schoolSlug}.${stateSlug}.yatstats.com/${hsid}`;
-  }
-
-  return `/${hsid}`;
 }
 
 export async function OPTIONS(req: NextRequest) {
@@ -139,6 +112,8 @@ export async function GET(req: NextRequest) {
     const rows = pageWithLookahead.slice(0, limit);
     const headshots = await getBatchPlayerHeadshots(rows.map((row: any) => String(row.playerid)));
 
+    const canonicalUrls = await canonicalSchoolUrls(rows.map((row: any) => String(row.hsid || "")), (sql, params = []) => query(sql, params));
+
     const teams = rows.map((r: any) => {
       const locParts = String(r.hslocation || "").split(",");
       const firstName = r.firstname || "";
@@ -147,7 +122,7 @@ export async function GET(req: NextRequest) {
       const currentTeamId = r.current_teamid || "";
       const schoolId = r.hsid || "";
       const schoolName = r.hsname || "";
-      const micrositeUrl = buildMicrositeUrl(schoolId, schoolName, r.hslocation || "");
+      const micrositeUrl = canonicalUrls.get(String(schoolId)) || `https://yatstats.com/${encodeURIComponent(String(schoolId))}`;
 
       return {
         playerId: r.playerid || "",
