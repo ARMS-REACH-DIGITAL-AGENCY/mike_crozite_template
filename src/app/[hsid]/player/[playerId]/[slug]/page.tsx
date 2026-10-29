@@ -1,3 +1,4 @@
+import SponsorTower from '@/components/yatstats/SponsorTower';
 import { publicNewsHeadline } from '@/lib/newsVideo';
 // src/app/[hsid]/player/[playerId]/[slug]/page.tsx
 // Player profile child page — lives inside the shared shell.
@@ -984,11 +985,7 @@ export default async function ProfilePage({ params }: Props) {
                 <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>
             </div>
-            <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
-              <span>PLAYER PROFILE PARTNER</span>
-              <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
-            </aside>
+            <SponsorTower placement="player-news" className="yp-profile-ad" />
           </div>
         </div>
 
