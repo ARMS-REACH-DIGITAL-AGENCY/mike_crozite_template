@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - fix/school-hostname-global-search-directory-20261017
+      - fix/city-based-school-subdomains-20261029
     paths:
       - src/middleware.ts
       - src/app/api/school-host-resolve/route.ts
       - src/lib/schoolDirectoryRouting.ts
       - src/lib/db.ts
       - src/app/api/schools/search/route.ts
+      - src/app/api/players/search/route.ts
+      - src/app/api/teams/search/route.ts
+      - src/app/api/auth/**
       - src/components/yatstats/SearchDrawerTabs.tsx
       - src/app/[hsid]/**
       - scripts/test-school-directory-routing.cjs
