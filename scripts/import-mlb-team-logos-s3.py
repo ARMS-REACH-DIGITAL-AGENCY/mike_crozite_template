@@ -34,6 +34,7 @@ Environment:
 - MAX_TEAMS: optional limit for testing
 - ONLY_TEAMIDS: optional comma-separated TBC team ids
 - REPORT_PATH: default team-logo-report.csv
+- SKIP_EXISTING: true/false, default false; true is safe for automated gap filling
 """
 
 from __future__ import annotations
@@ -58,6 +59,7 @@ DRY_RUN = os.environ.get("DRY_RUN", "true").strip().lower() != "false"
 MAX_TEAMS = int(os.environ.get("MAX_TEAMS") or 0)
 ONLY_TEAMIDS = {t.strip() for t in (os.environ.get("ONLY_TEAMIDS") or "").split(",") if t.strip()}
 REPORT_PATH = os.environ.get("REPORT_PATH", "team-logo-report.csv")
+SKIP_EXISTING = os.environ.get("SKIP_EXISTING", "false").strip().lower() == "true"
 
 # "PRO" is not a level: a placeholder put on teams imported from
 # tbc_pro_teams_map_raw, which has no level column. Those teams carry their
@@ -85,16 +87,19 @@ def pro_teams(conn) -> list[dict]:
       )
       SELECT u.teamid, m.current_team_name, m.level_label,
              (SELECT x.mlb_stats_api_id FROM team_id_map x
-               WHERE x.tbc_teamid::text = u.teamid LIMIT 1) AS mlb_stats_api_id
+               WHERE x.tbc_teamid::text = u.teamid LIMIT 1) AS mlb_stats_api_id,
+             p.currentteamid AS successor_teamid
         FROM used u
         JOIN teamid_universe_mapping m ON m.teamid = u.teamid
+        LEFT JOIN tbc_pro_teams_map_raw p ON p.teamid = u.teamid
        WHERE m.level_label = ANY(%s)
        ORDER BY u.teamid
     """
     with conn.cursor() as cur:
         cur.execute(sql, (list(PRO_LEVELS),))
         return [
-            {"teamid": str(r[0]), "name": (r[1] or "").strip(), "level": r[2] or "", "mlb_stats_api_id": r[3]}
+            {"teamid": str(r[0]), "name": (r[1] or "").strip(), "level": r[2] or "",
+             "mlb_stats_api_id": r[3], "successor_teamid": str(r[4] or "")}
             for r in cur.fetchall()
         ]
 
@@ -197,38 +202,50 @@ def main() -> int:
     for team in teams:
         status, mlb_id, method, source = "", None, "", ""
         existing = existing_logos(team["teamid"])
-        if team["mlb_stats_api_id"]:
-            mlb_id, method = int(team["mlb_stats_api_id"]), "team_map_exact"
-        elif names.get(norm(team["name"])):
-            mlb_id, method = names[norm(team["name"])], "stats_api_name"
-        if not mlb_id:
-            status = "no_mlb_match"
-        elif MAX_TEAMS and processed >= MAX_TEAMS:
-            status = "skipped_max_teams"
+        historical_alias = (
+            bool(team["successor_teamid"])
+            and team["successor_teamid"] != team["teamid"]
+        )
+        # The canonical TBC historic->current franchise mapping is identity
+        # metadata, NOT license to replace an old Indians, Expos, or Brooklyn
+        # Dodgers crest with the present-day franchise logo.
+        if historical_alias:
+            status = "historical_artwork_required"
+        elif SKIP_EXISTING and existing:
+            status = "skipped_existing"
         else:
-            processed += 1
-            png, source = fetch_logo(mlb_id)
-            if not png:
-                status = "logo_not_found"
-            elif DRY_RUN:
-                status = "would_replace" if existing else "would_upload"
+            if team["mlb_stats_api_id"]:
+                mlb_id, method = int(team["mlb_stats_api_id"]), "team_map_exact"
+            elif names.get(norm(team["name"])):
+                mlb_id, method = names[norm(team["name"])], "stats_api_name"
+            if not mlb_id:
+                status = "no_mlb_match"
+            elif MAX_TEAMS and processed >= MAX_TEAMS:
+                status = "skipped_max_teams"
             else:
-                back_up(existing)
-                s3.put_object(
-                    Bucket=BUCKET,
-                    Key=f"teams/{team['teamid']}.png",
-                    Body=png,
-                    ContentType="image/png",
-                    CacheControl="public, max-age=31536000",
-                )
-                status = "replaced" if existing else "uploaded"
-            time.sleep(0.2)
+                processed += 1
+                png, source = fetch_logo(mlb_id)
+                if not png:
+                    status = "logo_not_found"
+                elif DRY_RUN:
+                    status = "would_replace" if existing else "would_upload"
+                else:
+                    back_up(existing)
+                    s3.put_object(
+                        Bucket=BUCKET,
+                        Key=f"teams/{team['teamid']}.png",
+                        Body=png,
+                        ContentType="image/png",
+                        CacheControl="public, max-age=31536000",
+                    )
+                    status = "replaced" if existing else "uploaded"
+                time.sleep(0.2)
         counts[status] = counts.get(status, 0) + 1
         rows.append({**team, "had_logo": "yes" if existing else "", "matched_mlb_stats_api_id": mlb_id or "", "match": method, "logo_origin": source, "status": status})
         print(f"{team['teamid']:>7}  {team['level']:<9} {team['name'][:34]:<34} {str(mlb_id or ''):>6}  {status}")
 
     with open(REPORT_PATH, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=["teamid", "name", "level", "mlb_stats_api_id", "had_logo", "matched_mlb_stats_api_id", "match", "logo_origin", "status"])
+        writer = csv.DictWriter(fh, fieldnames=["teamid", "name", "level", "mlb_stats_api_id", "successor_teamid", "had_logo", "matched_mlb_stats_api_id", "match", "logo_origin", "status"])
         writer.writeheader()
         writer.writerows(rows)
     print("\nSummary: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
