@@ -14,6 +14,7 @@ type Photo = {
   details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; moderation?: { decision?: string; description?: string } | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
 type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
+type Alumni = { id: number; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; sponsorship_interest: boolean; created_at: string };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -56,6 +57,8 @@ function proposedCurrentTeam(tip: Tip): {teamId:string;teamName:string;level:str
 export default function ReviewQueue() {
   const [data, setData] = useState<{ photos: Photo[]; tips: Tip[]; missing: Missing[] } | null>(null);
   const [error, setError] = useState('');
+  const [alumni, setAlumni] = useState<Alumni[]>([]);
+  const [alumniError, setAlumniError] = useState('');
   const [busy, setBusy] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -66,6 +69,11 @@ export default function ReviewQueue() {
       if (!live) return;
       if (!res.ok) setError(body?.error || 'Could not load the queue.');
       else setData(body);
+      const alumniRes = await fetch('/api/contribute/where-yat-now/review', { credentials: 'include', cache: 'no-store', headers: await authHeaders() });
+      const alumniBody = await alumniRes.json().catch(() => ({}));
+      if (!live) return;
+      if (alumniRes.ok) setAlumni(alumniBody.submissions || []);
+      else setAlumniError(alumniBody.error || 'Could not load alumni review queue.');
     })();
     return () => { live = false; };
   }, []);
@@ -89,11 +97,45 @@ export default function ReviewQueue() {
     setBusy(b=>{const next={...b};delete next[id];return next;});
   };
 
+  const reviewAlumni = async (id: number, status: 'approved' | 'rejected') => {
+    setBusy(b => ({ ...b, ['alumni-' + id]: 'Saving…' }));
+    const res = await fetch('/api/contribute/where-yat-now/review', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ id, status }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok || !result.ok) setBusy(b => ({ ...b, ['alumni-' + id]: result.error || 'Review failed.' }));
+    else { setAlumni(items => items.filter(item => item.id !== id)); setBusy(b => { const next={...b}; delete next['alumni-' + id]; return next; }); }
+  };
+  const focusId = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('alumni') || '';
   if (error) return <div className="ycr"><p className="ycr-error">{error}</p><Style /></div>;
   if (!data) return <div className="ycr"><p>Loading…</p><Style /></div>;
 
   return (
     <div className="ycr">
+      <h2>Where YAT Now? alumni updates waiting ({alumni.length})</h2>
+      {alumniError && <p className="ycr-error">{alumniError}</p>}
+      {alumni.length === 0 && !alumniError && <p className="ycr-muted">No pending alumni updates.</p>}
+      <div className="ycr-grid">
+        {alumni.map(item => <article key={item.id} id={'alumni-' + item.id} className="ycr-card" style={{ outline: focusId === String(item.id) ? '2px solid #e9bf56' : undefined, scrollMarginTop: 100 }}>
+          <h3 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 24 }}>{item.display_name}</h3>
+          <p className="ycr-muted">School #{item.hsid} · Submission #{item.id} · {when(item.created_at)}</p>
+          {item.photo_url && <img src={item.photo_url} alt={'Submitted photo of ' + item.display_name} />}
+          {item.story && <p style={{whiteSpace:'pre-wrap'}}>{item.story}</p>}
+          {item.occupation && <p>Occupation: {item.occupation}</p>}
+          {item.company_name && <p>Organization: {item.company_name}</p>}
+          {[item.location_city,item.location_state].filter(Boolean).length > 0 && <p>Location: {[item.location_city,item.location_state].filter(Boolean).join(', ')}</p>}
+          {[item.business_website,item.linkedin_url,item.instagram_url,item.facebook_url,item.x_url].filter(Boolean).map(url => <p key={url}><a href={url!} target="_blank" rel="noopener noreferrer" style={{color:'#e9bf56'}}>{url}</a></p>)}
+          <p className="ycr-muted">Contact (private): {item.contact_email}</p>
+          <p className="ycr-muted">Partnership interest: {item.sponsorship_interest ? 'Yes' : 'No'}</p>
+          {busy['alumni-' + item.id] && <p role="alert">{busy['alumni-' + item.id]}</p>}
+          <div className="ycr-actions">
+            <button type="button" className="ycr-btn ycr-yes" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'approved')}>Approve update</button>
+            <button type="button" className="ycr-btn" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'rejected')}>Reject</button>
+          </div>
+        </article>)}
+      </div>
       <h2>Photos waiting ({data.photos.length})</h2>
       {data.photos.length === 0 ? <p className="ycr-muted">Nothing waiting.</p> : null}
       <div className="ycr-grid">
