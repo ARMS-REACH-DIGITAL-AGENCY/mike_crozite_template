@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { writerQuery } from '@/lib/dbWriter';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
+import { resolveSchoolNewsOrigins, schoolNewsStoryUrl, schoolNewsReviewUrl } from '@/lib/schoolNewsLinks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,20 +43,24 @@ function azTime(timestamp: string): string {
     timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',
   });
 }
-function emailHtml(day: string, totals: Totals, rows: Story[]): string {
+function emailHtml(day: string, totals: Totals, rows: Story[], schoolOrigins: Map<string, string>): string {
   const visible = rows.slice(0,200);
   const details = visible.map((story) => {
-    const link = 'https://yatstats.com/n/' + encodeURIComponent(story.uuid);
+    const schoolBase = schoolOrigins.get(story.hsid);
+    const link = schoolNewsStoryUrl(schoolBase, story.uuid);
+    const reviewLink = schoolNewsReviewUrl(schoolBase);
     const removal = story.verification_status !== 'VERIFIED' ? ' (Removed)' : '';
     return [
       '<li style="margin:0 0 14px">',
       '<b>',esc(story.title),'</b>',esc(removal),
       '<div>',esc(story.player_name || story.playerid || 'Unknown player'),
-      ' | Hamilton / HSID ',esc(story.hsid),
+      ' | School HSID ',esc(story.hsid),
       ' | ',esc(azTime(story.ingested_at)),' AZ</div>',
       story.source_handle ? '<div>Instagram: @' + esc(story.source_handle) + '</div>' : '',
-      '<a href="',esc(link),'">View published story</a>',
+      link ? '<a href="' + esc(link) + '">View published story</a>' :
+        '<span>School microsite link unavailable; investigate school URL configuration</span>',
       ' &nbsp;|&nbsp; <a href="',esc(story.url),'">Original Instagram post</a>',
+      reviewLink ? ' &nbsp;|&nbsp; <a href="' + esc(reviewLink) + '">Review / remove</a>' : '',
       '</li>',
     ].join('');
   }).join('');
@@ -66,14 +71,13 @@ function emailHtml(day: string, totals: Totals, rows: Story[]): string {
     '<p><b>News tips captured: ',String(totals.found),
     ' &nbsp; | &nbsp; Stories currently published: ',String(totals.posted),
     ' &nbsp; | &nbsp; Stories removed: ',String(totals.removed),'</b></p>',
-    '<p>Hamilton professional player accounts currently resolved by Meta: ',
+    '<p>Professional player accounts currently resolved by Meta across monitored schools: ',
     String(totals.monitored),'. Instagram personal accounts are not accessible through Business Discovery.</p>',
     '<h3>Stories discovered and posted</h3>',
     visible.length ? '<ol>' + details + '</ol>' :
       '<p>No new Instagram Scout stories were recorded for this day. Existing fan-submitted News is not counted here.</p>',
     rows.length > visible.length ? '<p>Showing 200 newest stories; open the review queue for the full list.</p>' : '',
-    '<p><a href="https://yatstats.com/5004/contribute-review">',
-    'Open the YAT?STATS reviewer queue</a> to remove an inaccurate Scout story.</p>',
+    '<p>Each story links to its own school microsite and reviewer queue. Unresolved school URLs are flagged rather than replaced by a corporate-site link.</p>',
     '<p style="font-size:12px;color:#666">',
     'YAT?STATS operational report for ',esc(REPORT_EMAIL),
     '. Counts are based on when a story was added to the site, not the original Instagram post date.',
@@ -108,11 +112,23 @@ export async function GET(req: NextRequest) {
            WHERE n.discovery_source='social_scout' AND n.verification_status='REJECTED'
              AND n.ingested_at >= b.start_at AND n.ingested_at < b.end_at) AS removed,
           (SELECT COUNT(*)::int FROM social_sources s
-           WHERE s.hsid='5004' AND s.owner_type='player'
+           WHERE s.owner_type='player'
              AND s.external_account_id IS NOT NULL AND s.status='active') AS monitored`),
     ]);
+    // Resolve every school from the same canonical directory used by player
+    // profiles and global search; this supports 8,000+ school subdomains.
+    const schoolOrigins = await resolveSchoolNewsOrigins(
+      [...new Set(stories.rows.map((story) => story.hsid))],
+      (sql, params = []) => query(sql, params),
+    );
+    const unresolvedSchools = [...new Set(stories.rows
+      .filter((story) => !schoolOrigins.has(story.hsid))
+      .map((story) => story.hsid))];
+    if (unresolvedSchools.length) {
+      console.error('[social-news-digest] unresolved school microsite URLs', unresolvedSchools);
+    }
     const totals = counts.rows[0] || {found:0,posted:0,removed:0,monitored:0};
-    const result = {date:day,...totals,listLength:stories.rows.length};
+    const result = {date:day,...totals,listLength:stories.rows.length,unresolvedSchools};
     // Preview never sends mail or creates a delivery-log record.
     if (process.env.VERCEL_ENV === 'preview') {
       return NextResponse.json({ok:true,dryRun:true,...result});
@@ -129,7 +145,7 @@ export async function GET(req: NextRequest) {
     const ok = await sendGHLEmail(contactId,
       'YAT?STATS Instagram Scout Daily Report — ' + day +
         ' (' + totals.posted + ' posted)',
-      emailHtml(day,totals,stories.rows));
+      emailHtml(day,totals,stories.rows,schoolOrigins));
     if (!ok) throw new Error('HighLevel rejected the daily Instagram Scout report');
     await writerQuery(`
       INSERT INTO fan_activity(firebase_uid,action,details)
