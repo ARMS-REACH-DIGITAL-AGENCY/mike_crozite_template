@@ -9,6 +9,8 @@ for (const rule of [
   /\.ysf-card-image \{[^\n]*height:var\(--ysf-story-photo-h\)/,
   /\.ysf-photos-item img \{[^\n]*object-fit:contain/,
   /\.ysf-card-image img \{[^\n]*object-fit:contain/,
+  /\.ysf-card-image img \{[^\n]*min-width:0; min-height:0; object-fit:contain/,
+  /\.ysf-photos-item img \{[^\n]*min-width:0; min-height:0;/,
 ]) assert.match(feed, rule, 'Story photos must retain common uncropped height');
 assert.match(rail, /image: story\.photos\?\.\[0\]\?\.web \|\| story\.photos\?\.\[0\]\?\.full/);
 assert.doesNotMatch(rail, /src=\{stories\[0\]\.thumb\}/);
