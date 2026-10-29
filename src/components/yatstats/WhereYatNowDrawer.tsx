@@ -106,6 +106,7 @@ export default function WhereYatNowDrawer() {
     if (!proof) {
       const nextProof: WhereYatProof = { displayName:String(data.get('displayName') || ''), city:String(data.get('city')||''),state:String(data.get('state')||''),occupation:String(data.get('occupation')||''),company:String(data.get('company')||''),website:String(data.get('website')||''),linkedin:String(data.get('linkedin')||''),instagram:String(data.get('instagram')||''),facebook:String(data.get('facebook')||''),x:String(data.get('x')||''),story:String(data.get('story')||''),photoUrl:photoPreview };
       setProof(nextProof);
+      requestAnimationFrame(() => setTimeout(() => document.getElementById('where-yat-proof')?.scrollIntoView({behavior:'smooth',block:'nearest'}), 30));
       return;
     }
     data.set('proofConfirmed','yes');
@@ -183,7 +184,6 @@ export default function WhereYatNowDrawer() {
           </div>
         ) : (
           <form ref={formRef} onSubmit={submit}>
-            {proof && <div style={{marginBottom:18}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:22,color:ACCENT}}>REVIEW YOUR PROOF</h3><WhereYatProofCard proof={proof}/><p style={{fontSize:13,color:'#ccc'}}>Please confirm every detail. Your confirmation does not verify identity; an authorized reviewer must also approve publication.</p><button type="button" style={{...uiButton,background:'#333',color:'#fff',border:'1px solid #777',marginBottom:10}} onClick={()=>setProof(null)}>EDIT MY DETAILS</button></div>}
             {field('YOUR NAME', 'displayName', 'First and last name', true)}
             {field('EMAIL (FOR FOLLOW-UP, NOT PUBLIC)', 'email', 'you@example.com', true)}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -214,6 +214,7 @@ export default function WhereYatNowDrawer() {
               I'm interested in hearing about optional advertising or partnership opportunities for my business.
             </label>
             <p style={{ fontSize: 11, lineHeight: 1.55, color: '#aaa' }}>By submitting, you authorize YAT?STATS to review and display approved public information and photos. Keep private contact details out of your public story. Submitting on someone else's behalf does not verify their identity.</p>
+            {proof && <div id="where-yat-proof" style={{margin:'18px 0 12px'}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:22,color:ACCENT}}>REVIEW YOUR PROOF</h3><WhereYatProofCard proof={proof}/><p style={{fontSize:13,color:'#ccc'}}>Please confirm every detail. Your confirmation does not verify identity; an authorized reviewer must also approve publication.</p><button type="button" style={{...uiButton,background:'#333',color:'#fff',border:'1px solid #777',marginBottom:10}} onClick={()=>setProof(null)}>EDIT MY DETAILS</button></div>}
             {error && !fieldError && <p role="alert" style={{ color: '#ffb3b3', fontWeight: 700 }}>{error}</p>}
             <button type="submit" disabled={busy} style={{ ...uiButton, width: '100%', marginTop: 7, opacity: busy ? .65 : 1 }}>
               {busy ? 'SUBMITTING…' : proof ? 'CONFIRM PROOF & SUBMIT UPDATE' : 'REVIEW MY PROOF →'}
