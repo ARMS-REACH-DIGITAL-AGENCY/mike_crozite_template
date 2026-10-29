@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS, type WhereYatLinkField } from '@/lib/whereYatLinks';
 
 type Target = { playerId: string; hsid: string; name: string };
 export const WHERE_YAT_OPEN = 'yat:where-yat-now-open';
@@ -25,11 +26,28 @@ export default function WhereYatNowDrawer() {
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [fieldError, setFieldError] = useState<WhereYatLinkField | null>(null);
+  const [fan, setFan] = useState({ name: '', email: '' });
   const formRef = useRef<HTMLFormElement>(null);
   const pendingAfterSignIn = useRef<Target | null>(null);
 
   useEffect(() => {
     setReady(true);
+    const u = auth.currentUser;
+    if (u) setFan({ name: u.displayName || '', email: u.email || '' });
+    fetch('/api/auth/session', { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(data => {
+      const s = data?.authenticated ? data.session : null;
+      if (!s) return;
+      const name = [s.firstName, s.lastName].filter(Boolean).join(' ').trim() || s.displayName || '';
+      setFan({ name, email: s.email || '' });
+      const form = formRef.current;
+      if (form) {
+        const nameInput = form.elements.namedItem('displayName') as HTMLInputElement | null;
+        const emailInput = form.elements.namedItem('email') as HTMLInputElement | null;
+        if (nameInput && !nameInput.value.trim()) nameInput.value = name;
+        if (emailInput && !emailInput.value.trim()) emailInput.value = s.email || '';
+      }
+    }).catch(() => {});
     const handler = async (e: Event) => {
       const d = (e as CustomEvent<Target>).detail;
       if (!d?.playerId || !d?.hsid) return;
@@ -42,6 +60,7 @@ export default function WhereYatNowDrawer() {
       pendingAfterSignIn.current = null;
       setTarget(d);
       setError('');
+      setFieldError(null);
       setSuccess(false);
       document.body.classList.add('drawer-open');
     };
@@ -81,6 +100,18 @@ export default function WhereYatNowDrawer() {
     const data = new FormData(event.currentTarget);
     setBusy(true);
     setError('');
+    setFieldError(null);
+    for (const field of WHERE_YAT_LINK_FIELDS) {
+      const result = normalizeWhereYatLink(field, String(data.get(field) || ''));
+      if (result.error) {
+        setError(result.error);
+        setFieldError(field);
+        formRef.current?.elements.namedItem(field) && (formRef.current.elements.namedItem(field) as HTMLInputElement).focus();
+        setBusy(false);
+        return;
+      }
+      data.set(field, result.url);
+    }
     try {
       await auth.authStateReady?.();
       const token = await auth.currentUser?.getIdToken().catch(() => '');
@@ -95,7 +126,13 @@ export default function WhereYatNowDrawer() {
       data.set('hsid', target.hsid);
       const response = await fetch('/api/contribute/where-yat-now', { method: 'POST', body: data, credentials: 'include' });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Unable to submit.');
+      if (!response.ok) {
+        if (WHERE_YAT_LINK_FIELDS.includes(body.field)) {
+          setFieldError(body.field);
+          (formRef.current?.elements.namedItem(body.field) as HTMLInputElement | null)?.focus();
+        }
+        throw new Error(body.error || 'Unable to submit.');
+      }
       setSuccess(true);
       formRef.current?.reset();
     } catch (e) {
@@ -109,7 +146,8 @@ export default function WhereYatNowDrawer() {
   const field = (label: string, name: string, placeholder = '', required = false) => (
     <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '.055em', marginBottom: 13, color: '#ddd' }}>
       {label}
-      <input style={{ ...FIELD_STYLES, marginTop: 6 }} type={name === 'email' ? 'email' : 'text'} autoComplete={name === 'email' ? 'email' : name === 'displayName' ? 'name' : 'off'} name={name} placeholder={placeholder} required={required} maxLength={name === 'email' ? 220 : 300} />
+      <input style={{ ...FIELD_STYLES, marginTop: 6, borderColor: fieldError === name ? '#ffb3b3' : '#555' }} type={name === 'email' ? 'email' : 'text'} autoComplete={name === 'email' ? 'email' : name === 'displayName' ? 'name' : 'off'} name={name} defaultValue={name === 'displayName' ? fan.name : name === 'email' ? fan.email : undefined} placeholder={placeholder} required={required} maxLength={name === 'email' ? 220 : 300} aria-invalid={fieldError === name} onInput={() => { if (fieldError === name) { setFieldError(null); setError(''); } }} />
+      {fieldError === name && <small style={{ color: '#ffb3b3', display: 'block', marginTop: 5, fontFamily: 'Archivo,Arial,sans-serif', letterSpacing: 0 }}>{error}</small>}
     </label>
   );
   return createPortal(
@@ -140,11 +178,11 @@ export default function WhereYatNowDrawer() {
             </div>
             {field('WHAT DO YOU DO THESE DAYS?', 'occupation', 'Career or current role')}
             {field('BUSINESS OR ORGANIZATION', 'company', 'Company name')}
-            {field('BUSINESS WEBSITE', 'website', 'https://...')}
-            {field('LINKEDIN', 'linkedin', 'Profile URL')}
-            {field('INSTAGRAM', 'instagram', 'Profile URL')}
-            {field('FACEBOOK', 'facebook', 'Profile URL')}
-            {field('X / TWITTER', 'x', 'Profile URL')}
+            {field('BUSINESS WEBSITE (OPTIONAL)', 'website', 'yatstats.com')}
+            {field('LINKEDIN (OPTIONAL)', 'linkedin', 'petedeluca or full profile URL')}
+            {field('INSTAGRAM (OPTIONAL)', 'instagram', '@pcdaction')}
+            {field('FACEBOOK (OPTIONAL)', 'facebook', 'petedeluca')}
+            {field('X / TWITTER (OPTIONAL)', 'x', '@pcdaction')}
             <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '.055em', marginBottom: 15 }}>WHAT HAVE YOU BEEN UP TO?
               <textarea name="story" maxLength={2400} rows={4} style={{ ...FIELD_STYLES, resize: 'vertical', marginTop: 6 }} placeholder="Family, work, memories, and what matters to you today..." />
             </label>
@@ -157,7 +195,7 @@ export default function WhereYatNowDrawer() {
               I'm interested in hearing about optional advertising or partnership opportunities for my business.
             </label>
             <p style={{ fontSize: 11, lineHeight: 1.55, color: '#aaa' }}>By submitting, you authorize YAT?STATS to review and display approved public information and photos. Keep private contact details out of your public story. Submitting on someone else's behalf does not verify their identity.</p>
-            {error && <p role="alert" style={{ color: '#ffb3b3', fontWeight: 700 }}>{error}</p>}
+            {error && !fieldError && <p role="alert" style={{ color: '#ffb3b3', fontWeight: 700 }}>{error}</p>}
             <button type="submit" disabled={busy} style={{ ...uiButton, width: '100%', marginTop: 7, opacity: busy ? .65 : 1 }}>
               {busy ? 'SUBMITTING…' : 'SUBMIT FREE ALUMNI UPDATE'}
             </button>
