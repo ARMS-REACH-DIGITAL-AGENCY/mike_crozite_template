@@ -19,4 +19,15 @@ assert(!flip.includes("background:'#145a3c'"),'Legacy green CTA must be gone');
 assert(profile.includes('https://yatstats.com/partners/'),'Profile partner link must use corporate site');
 assert(submit.includes("pending: true"),'Moderation must be preserved');
 assert(submit.includes("partnerHref: 'https://yatstats.com/partners/'"),'Server partnership link mismatch');
+
+const links = fs.readFileSync('src/lib/whereYatLinks.ts', 'utf8');
+assert(drawer.includes('normalizeWhereYatLink(field,'),'Client must normalize handles');
+assert(drawer.includes("name === 'displayName' ? fan.name"),'Contributor name must be prefilled');
+assert(drawer.includes("name === 'email' ? fan.email"),'Email must be prefilled');
+assert(drawer.includes("setFieldError(field)"),'Show which social field failed');
+assert(submit.includes("normalizeWhereYatLink(field, fields[field])"),'Server must normalize independently');
+assert(submit.includes('error: result.error, field'),'Server should report specific invalid field');
+assert(links.includes("value.replace(/^httpa:"),'Known httpa typo must be handled');
+assert(links.includes("if (value.startsWith('@'))"),'Support @ handles');
+assert(links.includes("if (!value) return { url: '' }"),'Optional links should not be required');
 console.log('Where YAT Now universal submission / brand / auth / moderation contract: OK');
