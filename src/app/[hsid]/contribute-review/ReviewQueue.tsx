@@ -70,8 +70,8 @@ export default function ReviewQueue() {
     return () => { live = false; };
   }, []);
 
-  const act = async (id: string, action: 'approve' | 'reject' | 'approve_commit' | 'reject_commit' | 'approve_team' | 'reject_team' | 'approve_scout' | 'reject_scout') => {
-    setBusy((b) => ({ ...b, [id]: action.startsWith('approve') ? 'Approving…' : 'Rejecting…' }));
+  const act = async (id: string, action: 'approve' | 'reject' | 'approve_commit' | 'reject_commit' | 'approve_team' | 'reject_team' | 'unpublish_scout') => {
+    setBusy((b) => ({ ...b, [id]: action === 'unpublish_scout' ? 'Removing…' : action.startsWith('approve') ? 'Approving…' : 'Rejecting…' }));
     const res = await fetch('/api/contribute/review', {
       method: 'POST',
       credentials: 'include',
@@ -83,7 +83,7 @@ export default function ReviewQueue() {
       setBusy((b) => ({ ...b, [id]: body?.error || 'That did not work.' }));
       return;
     }
-    setData((d) => d ? ((action.endsWith('_commit') || action.endsWith('_team') || action.endsWith('_scout'))
+    setData((d) => d ? ((action.endsWith('_commit') || action.endsWith('_team') || action === 'unpublish_scout')
       ? {...d, tips:d.tips.map(t=>t.id===id ? {...t,status:action.startsWith('approve')?'published':'rejected'} : t)}
       : {...d, photos:d.photos.filter((p) => p.id !== id)}) : d);
     setBusy(b=>{const next={...b};delete next[id];return next;});
@@ -144,11 +144,9 @@ export default function ReviewQueue() {
                 {currentTeam.level ? ` · ${currentTeam.level}` : ''} · Team ID: {currentTeam.teamId}</div>
               : t.notes ? <div>{t.notes}</div> : null}
             {t.article_url ? <div><a href={t.article_url} target="_blank" rel="noopener noreferrer">{t.article_url}</a></div> : null}
-            {t.intake_source === 'social_scout' && t.status === 'needs_review' ? <div className="ycr-actions">
-              <button type="button" className="ycr-btn ycr-yes" disabled={!!busy[t.id]}
-                onClick={()=>act(t.id,'approve_scout')}>Publish verified news</button>
+            {t.intake_source === 'social_scout' && t.status === 'published' ? <div className="ycr-actions">
               <button type="button" className="ycr-btn" disabled={!!busy[t.id]}
-                onClick={()=>act(t.id,'reject_scout')}>Reject tip</button>
+                onClick={()=>act(t.id,'unpublish_scout')}>Remove from News</button>
               {busy[t.id] ? <span className="ycr-muted">{busy[t.id]}</span> : null}
             </div> : null}
             {reviewable ? <div className="ycr-actions">

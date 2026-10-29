@@ -91,57 +91,42 @@ export async function POST(req: NextRequest) {
   const id = String(body.id || '');
   const action = String(body.action || '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) return fail('Unknown request.');
-  if (action === 'approve_scout' || action === 'reject_scout') {
-    if (process.env.VERCEL_ENV === 'preview') return fail('Scout approvals are disabled on previews.', 409);
+  if (action === 'unpublish_scout') {
+    if (process.env.VERCEL_ENV === 'preview') return fail('Removing news is disabled on previews.', 409);
     try {
-      const {rows}=await query<{
-        id:string; matched_playerid:string; matched_hsid:string; raw_player_name:string;
-        article_url:string; notes:string; status:string;
-      }>(`SELECT id::text, matched_playerid, matched_hsid, raw_player_name,
-             article_url, notes, status FROM news_tip_queue
-          WHERE id::text=$1 AND intake_source='social_scout' LIMIT 1`,[id]);
-      const tip=rows[0];
-      if(!tip || tip.status!=='needs_review') return fail('Scout candidate was not found.',404);
-      const {rows:previous}=await query<{status:string}>(`SELECT details->>'status' AS status
-        FROM fan_activity WHERE action='contribute_processed'
-          AND details->>'queue_id'=$1 ORDER BY created_at DESC LIMIT 1`,[id]);
-      if(previous.length) return fail('Already reviewed.',409);
-      if(action==='approve_scout'){
-        const {rows:player}=await query<{playerid:string;hsid:string;first_name:string;last_name:string}>(`
-          SELECT playerid,hsid,first_name,last_name FROM flip_card_front_stage
-          WHERE playerid=$1 AND hsid=$2 LIMIT 1`,[tip.matched_playerid,tip.matched_hsid]);
-        if(!player[0]) return fail('Player is no longer associated with the school.',409);
-        const meta=JSON.parse(tip.notes || '{}') as {title?:string;captionExcerpt?:string};
-        const url=new URL(tip.article_url);
-        if(url.protocol!=='https:' || url.hostname!=='www.instagram.com' ||
-          !/^\/(?:p|reel)\/[A-Za-z0-9_-]{5,32}\/$/.test(url.pathname)) return fail('Invalid original Instagram URL.',409);
-        const code=url.pathname.split('/')[2];
-        const {rows:existing}=await query<{uuid:string}>(`
-          SELECT uuid FROM news_articles WHERE hsid=$1 AND playerid=$2
-             AND strpos(url,$3)>0 LIMIT 1`,[tip.matched_hsid,tip.matched_playerid,code]);
-        if(existing.length) return fail('This post is already published.',409);
-        await query(`
-          INSERT INTO news_articles(uuid,playerid,player_name,hsid,title,source,
-            published_at,url,snippet,local_recap,discovery_source,verification_status,
-            verification_reason,newsworthiness,raw_payload)
-          VALUES(md5($1),$2,$3,$4,$5,'instagram.com',now(),$6,$7,$7,
-            'social_scout','VERIFIED','Reviewer approved public original Instagram post',
-            'NORMAL',$8::jsonb)
-          ON CONFLICT(uuid) DO NOTHING`,
-          [id,tip.matched_playerid,`${player[0].first_name} ${player[0].last_name}`,
-            tip.matched_hsid,String(meta.title || 'Player news').slice(0,180),
-            tip.article_url,String(meta.captionExcerpt || '').slice(0,350),
-            JSON.stringify({contribution_id:id,contributor_source:'social_scout',approved_by:r.who!.uid})]);
-      }
-      await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
-        VALUES($1,'contribute_processed',$2,$3,
-          jsonb_build_object('queue_id',$4::text,'status',$5::text,'reason','Social scout reviewed'))`,
-        [r.who!.uid,tip.matched_playerid,tip.matched_hsid,id,action==='approve_scout'?'published':'rejected']);
-      if(action==='approve_scout') revalidateTag(`school-data:${tip.matched_hsid}`,{expire:0});
-      return NextResponse.json({ok:true,status:action==='approve_scout'?'published':'rejected'});
-    } catch(error) {
-      console.error('[contribute/review] scout review failed',error);
-      return fail('Scout candidate review failed.',500);
+      // Rejection hides the article without erasing the audit trail;
+      // the scout sees the existing permalink and cannot republish it.
+      const { rows } = await query<{ uuid: string; hsid: string }>(`
+        WITH revoked AS (
+          UPDATE news_articles n
+          SET verification_status='REJECTED',
+              verification_reason='Removed from public news by authorized reviewer',
+              verified_at=now()
+          FROM news_tip_queue t
+          WHERE t.id::text=$1 AND t.intake_source='social_scout'
+            AND t.status='published' AND t.promoted_news_uuid=n.uuid
+            AND n.discovery_source='social_scout'
+            AND n.verification_status='VERIFIED'
+          RETURNING n.uuid,n.playerid,n.hsid
+        ), queue_status AS (
+          UPDATE news_tip_queue t SET status='rejected'
+          WHERE t.id::text=$1 AND t.intake_source='social_scout'
+            AND t.promoted_news_uuid IN (SELECT uuid FROM revoked)
+          RETURNING t.id
+        ), audit AS (
+          INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+          SELECT $2,'social_news_removed',playerid,hsid,
+                 jsonb_build_object('news_uuid',uuid,'queue_id',$1::text,
+                  'reason','reviewer removed automatic scout story')
+          FROM revoked RETURNING id
+        )
+        SELECT uuid,hsid FROM revoked`,[id,r.who!.uid]);
+      if (!rows.length) return fail('Published scout article was not found or was already removed.', 404);
+      revalidateTag('school-data:' + rows[0].hsid,{expire:0});
+      return NextResponse.json({ ok: true, status: 'rejected', uuid: rows[0].uuid });
+    } catch (error) {
+      console.error('[contribute/review] unpublish scout failed',error);
+      return fail('Could not remove scout article.',500);
     }
   }
   if (action === 'approve_team' || action === 'reject_team') {

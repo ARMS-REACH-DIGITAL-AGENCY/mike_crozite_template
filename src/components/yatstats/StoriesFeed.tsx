@@ -502,7 +502,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
         .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
-        .ysf-story-column {min-width:0;}
+        /* Every story photo has a common responsive height. Portrait images remain narrower and no photo is cropped. */
+        .ysf-story-column {min-width:0;container-type:inline-size;--ysf-story-photo-h:min(420px,56.25cqw);}
         .ysf-sponsor-column {min-width:0;position:sticky;top:0;align-self:start;z-index:2;}
         .ysf-desktop-columns .ysf-sponsor-column > .yat-desktop-sponsor-tower {width:300px;max-width:100%;}
         @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}.ysf-main{padding-top:0}.ysf-tools{margin:0 auto 6px;max-width:100%}}
@@ -531,20 +532,20 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-sort button { border-radius:6px !important; }
         @media(max-width:410px){.ysf-add-btn{font-size:10px;padding:7px 6px;gap:6px}.ysf-tm-btn{min-width:60px}}
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
-        .ysf-photos-item { min-width:0; display:grid; place-items:center; padding:0; border:0; background:#101010; cursor:zoom-in; overflow:hidden; }
-        .ysf-photos-item img { display:block; width:auto; height:auto; max-width:100%; max-height:min(70dvh,760px); object-fit:contain; object-position:center; }
+        .ysf-photos-item { min-width:0; height:var(--ysf-story-photo-h); display:grid; place-items:center; padding:0; border:0; background:#101010; cursor:zoom-in; overflow:hidden; }
+        .ysf-photos-item img { display:block; width:100%; height:100%; min-width:0; min-height:0; max-width:100%; object-fit:contain; object-position:center; }
         .ysf-photos-1 .ysf-photos-item { width:100%; min-height:0; }
-        .ysf-photos-1 .ysf-photos-item img { width:auto; height:auto; max-width:100%; max-height:min(75dvh,760px); object-fit:contain; margin:auto; }
+        .ysf-photos-1 .ysf-photos-item img { width:100%; height:100%; object-fit:contain; margin:auto; }
         /* A Draft Day story's club logo: whole, on a light panel. */
         .ysf-photos-logo .ysf-photos-item { background: #f4f1ea; padding: 28px 0; }
         .ysf-photos-logo .ysf-photos-item img { max-height: 200px; }
         .ysf-photos-2 { grid-template-columns: 1fr 1fr; }
-        .ysf-photos-2 .ysf-photos-item { aspect-ratio: 1; }
+        .ysf-photos-2 .ysf-photos-item { width:100%; }
         .ysf-photos-3 { grid-template-columns:repeat(2,minmax(0,1fr)); }
-        .ysf-photos-3 .ysf-photos-item { aspect-ratio:4/3; }
-        .ysf-photos-3 .ysf-photos-item:first-child { grid-column:1 / -1; aspect-ratio:16/10; }
+        .ysf-photos-3 .ysf-photos-item { width:100%; }
+        .ysf-photos-3 .ysf-photos-item:first-child { grid-column:1 / -1; }
         .ysf-photos-4 { grid-template-columns: 1fr 1fr; }
-        .ysf-photos-4 .ysf-photos-item { aspect-ratio: 4 / 3; }
+        .ysf-photos-4 .ysf-photos-item { width:100%; }
         /* The date on its own line at the top left; under it the photo and
            the story side by side, their tops level. Thin border like the
            News cards. */
@@ -567,8 +568,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
         .ysf-card-photo-logo { background: #f4f1ea; }
         .ysf-card-photo-logo img { object-fit: contain; object-position: center; padding: 8px; box-sizing: border-box; }
-        .ysf-card-image { position:relative; display:grid; place-items:center; width:100%; min-width:0; max-height:70dvh; background:#101010; overflow:hidden; }
-        .ysf-card-image img { display:block; width:auto; height:auto; max-width:100%; max-height:70dvh; object-fit:contain; object-position:center; }
+        .ysf-card-image { position:relative; display:grid; place-items:center; width:100%; min-width:0; height:var(--ysf-story-photo-h); background:#101010; overflow:hidden; }
+        .ysf-card-image img { display:block; width:100%; height:100%; min-width:0; min-height:0; object-fit:contain; object-position:center; }
         .ysf-card-image-logo { background:#f4f1ea; }
         .ysf-card-image-logo img { max-height:220px; }
 
