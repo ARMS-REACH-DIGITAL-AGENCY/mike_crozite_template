@@ -6,6 +6,7 @@ import { query } from '@/lib/db';
 import { identifyContributor, contributionsToday, logContribution } from '@/lib/contributeServer';
 import { S3_BUCKET, S3_REGION, storyAssetUrl } from '@/lib/storyAssets';
 import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS } from '@/lib/whereYatLinks';
+import { notifyWhereYatReviewers } from '@/lib/whereYatReviewNotifications';
 
 export const runtime = 'nodejs';
 export const maxDuration = 40;
@@ -82,6 +83,9 @@ export async function POST(req: NextRequest) {
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship },
     }).catch(() => {});
+    const submissionId = result.rows[0]?.id;
+    // Submission succeeds independently of notification delivery. Never disclose reviewer contact details.
+    if (submissionId) await notifyWhereYatReviewers({ id: submissionId, hsid, playerId, displayName }).catch(err => console.error('[where-yat-now] reviewer alert failed', err));
     return NextResponse.json({ ok: true, pending: true, partnerHref: 'https://yatstats.com/partners/' });
   } catch (error) {
     console.error('[where-yat-now] submit failed', { playerId, error });
