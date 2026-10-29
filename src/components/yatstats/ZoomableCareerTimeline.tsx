@@ -2232,7 +2232,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                 <>
                   <span className="zt-kick">His hometown never stopped caring</span>
                   <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>
-                  <span className="zt-bodycopy">Stay connected to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'} on his baseball journey...</span>
+                  <span className="zt-bodycopy">Connect. Contribute. Remember {resolvedPlayerName ? firstName(resolvedPlayerName) : 'this player'}</span>
                 </>
               )}
               {slide.kind === 'season' && (
@@ -2810,11 +2810,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-bigstat { display:flex; flex-direction:column; gap:1px; }
         .zt-bigstat-label { color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9cqw,8.5px); letter-spacing:.08em; text-transform:uppercase; }
         .zt-bigstat-value { color:#f7f7f5; font-family:"Bebas Neue",Oswald,sans-serif; font-weight:700; font-size:clamp(17px,3.2cqw,25px); line-height:1; }
-        /* Anchor's own line is short enough by design to stay on the base
-           rule's single line (white-space:nowrap + ellipsis) at every
-           breakpoint, including mobile -- per direct feedback. Life-year
-           quotes are genuinely long/multi-line, so those still need to
-           wrap. */
+        /* Keep the personalized anchor tagline on the SAME line and vertical
+           position as the previous subtitle. Its smaller phone size and
+           wider, left-shifted copy box make the full name fit. */
+        .zt-anchor .zt-bodycopy { white-space:nowrap; overflow:visible; text-overflow:clip; }
         .zt-lifeyear .zt-bodycopy, .zt-coachyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
         /* Life-year slides now always carry a YaTi placeholder image (see
            .zt-person-stack's 'lifeyear' case), same as a season slide with
@@ -3138,28 +3137,19 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              left:24%/object-position:left-bottom this had before that. */
           .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28cqw,120px); object-position:left bottom; }
           .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { width:calc(58% - 8px); }
-          /* Anchor slide, per direct feedback: HS cutout big, pro image
-             about half its height (55% of the row), a little to the right
-             and in front of it -- both visible at once (no more then/now
-             crossfade here; it never actually ran anyway, since its
-             selector wasn't :global() and SmartImage's <img> carries no
-             styled-jsx scope class). An action shot's right edge is
-             pinned 16px past the headline column's real left edge (58%
-             here -- see the doubled-box note on .zt-person above) and it
-             grows leftward; the headshot fallback sits flush on that line.
-             Same height for every player (48% of the row -- the size
-             Casey Legumina's read right at, per direct feedback) via the
-             oversized box, see the desktop rule. bottom:8px puts its feet
-             on the rail's line (.zt-rail drops to bottom:2px here, 12px
-             tall). */
+          /* Anchor action photo and fallback headshot track the same 53%-of-real-
+             screen text boundary as the widened anchor copy. Action shots
+             retain their 24px magazine overlap; fallback headshots end
+             4px short of the headline, rather than sitting under text.
+             Both remain at 48% height and 8px above the rail. */
           /* width/object-position restated for the same reason as the
              900px rule: this breakpoint's .zt-person rule (left:24%, a
              ~100px width, object-position:left bottom) would otherwise win
              and put the pro image's box ~575px off the left edge. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(58% - 24px - 800px); width:800px; height:48%; bottom:8px; object-position:right bottom; }
-          /* Headshot fallback flush against the headline column's real
-             left edge (58% here -- see the doubled-box note above). */
-          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(58% - 800px); }
+          .zt-person-stack :global(.zt-person-now) { left:calc(53% - 24px - 800px); width:800px; height:48%; bottom:8px; object-position:right bottom; }
+          /* All headshot fallbacks, including Cade's, stop just before
+             the shifted copy instead of overlapping its first letter. */
+          .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(53% - 4px - 800px); }
           /* Whole timeline/story photos stand directly on the mobile
              timeline rail instead of floating above it. This path is
              shared by Story photos and Connect & Contribute yearly hero
@@ -3169,10 +3159,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              bottom:22px !important; height:calc(100% - 30px) !important;
              object-position:left bottom;
            }
-          /* HS cutout: same left:24% as .zt-person, wider box (was
-             clamp(84px,28cqw,120px)) -- at that width a wide pose was
-             width-limited to well under the row's height. */
-          .zt-person-stack :global(.zt-person-then) { left:24%; width:clamp(130px,40cqw,170px); }
+          /* Keep the full HS pose, but align its rightmost edge 4px before
+             the same 53% screen boundary as the anchor headline.
+             This controls the image's visible edge, not just its box. */
+          .zt-person-stack :global(.zt-person-then) { left:calc(53% - 4px - clamp(130px,40cqw,170px)); width:clamp(130px,40cqw,170px); object-position:right bottom; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.19; }
           /* This whole block (name + the four metadata lines) is sized
              down a notch at this breakpoint -- smaller than the desktop
@@ -3242,36 +3232,21 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              relative to the outer (un-doubled) frame, not to any one
              .zt-slide. */
           .zt-slide { flex:0 0 200%; width:200%; min-width:200%; }
-          /* One shared position for every slide kind, still -- left/width
-             moved back to the anchor's own original 26%/22%, not
-             lifeyear/season's old 22%/28% (real 44%-100%) that this got
-             unified onto -- per direct feedback, that landed the headline
-             too far left on every slide, anchor included, once it became
-             the shared value. Nudged right from 26%/22% to 29%/19% (real
-             58%-96%) per direct feedback the header/text block still
-             needed to move a little further right -- a prior pass pushed
-             this too far to 32%/17% and also (wrongly) reused this box's
-             own doubled percentage directly in the person-stack rules
-             above, which don't live in this doubled scrolling box; those
-             are back to their own flat, correct values now (see their own
-             comments). Contained to the real screen's right half,
-             expressed as left+width rather than right, because this slide
-             is 200% wide, so "right" would measure from an edge that's
-             off-screen. */
+          /* Each phone slide is 200% of the real viewport; general
+             year/season slide copy stays at its approved 29%/19% spot.
+             The anchor alone shifts 5% of the real screen left and gains
+             that width back, keeping the right edge at 99% of viewport. */
           .zt-copy { left:29%; right:auto; width:19%; bottom:14px; justify-content:flex-start; padding-top:4px; }
-          /* A touch smaller than the general .zt-bodycopy floor so the
-             now-shorter anchor line ("Stay connected to X on his
-             baseball journey...") has the best chance of actually
-             fitting on one line in this narrow column, not just
-             getting cut off by the single-line ellipsis. */
-          .zt-anchor .zt-bodycopy { font-size:clamp(8px,2cqw,10px); }
+          /* Return the tagline to the original, small, one-line subtitle
+             treatment. Its top edge remains directly below the headline. */
+          .zt-anchor .zt-bodycopy { font-size:clamp(7px,2.2cqw,8px); line-height:1.15; letter-spacing:-.02em; }
           .zt-kick { font-size:7px; margin-bottom:4px; }
           .zt-drafted { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(12px,3.8cqw,15px); margin-bottom:4px; line-height:1.04; }
-          /* Give the anchor headline just enough mobile width for "NEITHER"
-             to stay with the graduation line above instead of orphaning at
-             the start of the next line. Other slide copy widths stay put. */
-          .zt-anchor .zt-copy { width:20.5%; }
+          /* Real phone anchor boundary: 26.5% of a 200%-wide slide =
+             53% of the viewport. 23% of the slide = 46% of the viewport;
+             its right edge remains at 99%, just as before. */
+          .zt-anchor .zt-copy { left:26.5%; width:23%; }
           .zt-bodycopy { font-size:clamp(9px,2.2cqw,11px); }
         }
         /* Responsive transition band: previous 620px threshold suddenly
@@ -3282,7 +3257,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         @container career-timeline (min-width:560px) and (max-width:740px) {
           .zt-slide {flex:0 0 100%;width:100%;min-width:100%;}
           .zt-copy {left:51%;right:4%;width:auto;bottom:17px;padding-top:6px;}
-          .zt-anchor .zt-copy {left:51%;right:4%;width:auto;}
+          .zt-anchor .zt-copy {left:48%;right:4%;width:auto;}
           .zt-kick {font-size:9px;}
           .zt-title {font-size:clamp(16px,2.7cqw,20px);line-height:1.05;}
           .zt-bodycopy {font-size:clamp(10px,1.7cqw,12px);}
@@ -3292,14 +3267,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
             height:100%;bottom:0;object-position:left bottom;
           }
           .zt-person-stack :global(.zt-person-then) {
-            left:clamp(113px,19cqw,153px);width:clamp(170px,30cqw,220px);
+            left:calc(48% - 4px - clamp(170px,30cqw,220px));
+            width:clamp(170px,30cqw,220px);object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now) {
-            left:calc(51% - 24px - 800px);width:800px;height:48%;bottom:8px;
+            left:calc(48% - 24px - 800px);width:800px;height:48%;bottom:8px;
             object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) {
-            left:calc(51% - 800px);
+            left:calc(48% - 4px - 800px);
           }
           .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) {
             left:0;width:47%;height:100%;
@@ -3309,6 +3285,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           .zt-persist-name {font-size:clamp(11px,2cqw,15px);}
           .zt-persist-team {font-size:8.5px;}
           .zt-persist-org {font-size:8px;}
+        }
+        /* On small phones, anchor slides need their headline group lower
+           than the default top-aligned story copy. Align the last (short,
+           single-line) tagline 40px above the bottom of the 150px hero:
+           14px inherited bottom + 26px padding. That positions it near
+           the marked visual baseline while leaving space above the year
+           rail, team marks, pennants, and memory stars. The image layers,
+           school identity, non-anchor slides and tablet/desktop stay put.
+           Keep a single shared template rule for every player/school. */
+        @container career-timeline (max-width:559px) {
+          .zt-anchor .zt-copy {
+            justify-content:flex-end;
+            padding-bottom:26px;
+          }
         }
         /* One geometry for the full timeline and its proof. The full
            timeline's native container fills row3; the proof fixes that
