@@ -818,9 +818,13 @@ async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 2 });
   const base = (process.env.BRACKET_LIVE_BASE_URL || LIVE_BASE).replace(/\/$/, '');
   try {
-    const relanded = await pool.query('SELECT public.stat_lines_reland_held() AS n');
-    console.log(`held stat lines landed again: ${relanded.rows[0].n}`);
-    await checkTeams(pool);
+    // A dry run writes nothing: the held lines and the team list belong to
+    // the ingest, like the bracket writes (the server route does the same).
+    if (!flag('dry-run')) {
+      const relanded = await pool.query('SELECT public.stat_lines_reland_held() AS n');
+      console.log(`held stat lines landed again: ${relanded.rows[0].n}`);
+      await checkTeams(pool);
+    }
     const { rows: seasons } = await pool.query<Season>(SQL_SEASONS, [seasonKey || null, asof]);
     if (!seasons.length) console.log(`no fantasy season is live on ${asof}`);
     for (const season of seasons) {
