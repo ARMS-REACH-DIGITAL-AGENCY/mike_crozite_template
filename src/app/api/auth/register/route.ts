@@ -34,7 +34,7 @@ async function getSchoolByHsid(hsid: string) {
     LIMIT 1
   `;
   const result = await query(sql, [String(hsid)]);
-  const school = result.rows?.[0] ?? null;
+  const school: { hsname?: string | null; hslocation?: string | null; microsite_url?: string | null } | null = result.rows?.[0] ?? null;
   if (!school) return null;
   const urls = await canonicalSchoolUrls([hsid], (sql, params = []) => query(sql, params));
   return { ...school, microsite_url: urls.get(String(hsid)) || school.microsite_url };
