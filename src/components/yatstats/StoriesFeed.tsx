@@ -533,7 +533,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         @media(max-width:410px){.ysf-add-btn{font-size:10px;padding:7px 6px;gap:6px}.ysf-tm-btn{min-width:60px}}
         .ysf-photos { display: grid; gap: 2px; margin-top: 4px; background: var(--ysf-card-border); }
         .ysf-photos-item { min-width:0; height:var(--ysf-story-photo-h); display:grid; place-items:center; padding:0; border:0; background:#101010; cursor:zoom-in; overflow:hidden; }
-        .ysf-photos-item img { display:block; width:100%; height:100%; max-width:100%; object-fit:contain; object-position:center; }
+        .ysf-photos-item img { display:block; width:100%; height:100%; min-width:0; min-height:0; max-width:100%; object-fit:contain; object-position:center; }
         .ysf-photos-1 .ysf-photos-item { width:100%; min-height:0; }
         .ysf-photos-1 .ysf-photos-item img { width:100%; height:100%; object-fit:contain; margin:auto; }
         /* A Draft Day story's club logo: whole, on a light panel. */
@@ -569,7 +569,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-photo-logo { background: #f4f1ea; }
         .ysf-card-photo-logo img { object-fit: contain; object-position: center; padding: 8px; box-sizing: border-box; }
         .ysf-card-image { position:relative; display:grid; place-items:center; width:100%; min-width:0; height:var(--ysf-story-photo-h); background:#101010; overflow:hidden; }
-        .ysf-card-image img { display:block; width:100%; height:100%; object-fit:contain; object-position:center; }
+        .ysf-card-image img { display:block; width:100%; height:100%; min-width:0; min-height:0; object-fit:contain; object-position:center; }
         .ysf-card-image-logo { background:#f4f1ea; }
         .ysf-card-image-logo img { max-height:220px; }
 
