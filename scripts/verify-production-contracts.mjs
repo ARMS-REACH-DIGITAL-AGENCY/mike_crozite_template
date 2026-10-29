@@ -21,3 +21,6 @@ assert(school.includes('<SponsorTower placement="school-news"'), 'School News mu
 assert(tower.includes('data-yat-sponsor-slot="300x600"'), 'Sponsor tower size contract missing');
 assert(globalCss.includes('.yat-desktop-sponsor-tower'), 'Shared tower CSS missing');
 console.log('Shared 300x600 sponsor contracts passed');
+
+assert(profile.includes('<SponsorTower placement="player-connect"'), 'Player Connect must use shared desktop sponsor tower');
+assert(profile.includes('#ppTab-connect .yp-player-video-placeholder'), 'Connect video needs constrained left-column layout');
