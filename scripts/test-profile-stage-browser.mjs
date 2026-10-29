@@ -59,7 +59,8 @@ async function statsTest(person) {
     );
     const oldRows=await getRows(b),newRows=await getRows(p);
     assert.deepEqual(newRows,oldRows,person.kind+' Stats season rows or totals differ from production');
-    if(newRows.some(x=>x.body.length)) assert(newRows.some(x=>x.totals.length),'Missing totals for existing statistics');
+    // Compare exact footer rows to production. Some legitimate historical
+    // players have no footer in either implementation; never invent totals.
     console.log('STATS_PASS',person.kind,person.id, 'body',newRows.reduce((n,t)=>n+t.body.length,0),
       'totals',newRows.reduce((n,t)=>n+t.totals.length,0));
     await p.page.locator('a.pp-fz-tab[href="#ppTab-news"]').first().click();
