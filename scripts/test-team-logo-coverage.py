@@ -30,6 +30,19 @@ class LogoTests(unittest.TestCase):
         self.assertIn('obj["LastModified"] > previous["LastModified"]', src)
         self.assertIn('not OVERWRITE and out["LastModified"] >= src["LastModified"]', src)
 
+    def test_historical_asset_backfill_is_non_destructive(self):
+        src = (ROOT / "backfill-historical-team-logos.py").read_text()
+        self.assertIn('IfNoneMatch="*"', src)
+        self.assertIn('if present(s3,dest) or present(s3,f"teams-web/{tid}.webp")', src)
+        self.assertIn('DRY_RUN=os.getenv("DRY_RUN","true")', src)
+        self.assertNotIn("delete_object(", src)
+
+    def test_period_accurate_draft_team_mapping(self):
+        src = (ROOT / "import-player-draft-picks.ts").read_text()
+        self.assertIn("tbc_pro_teams_map_raw p", src)
+        self.assertIn("lower(trim(p.teamname)) = lower(trim(d.draft_team_name))", src)
+        self.assertIn("ORDER BY priority,teamid LIMIT 1", src)
+
     def test_audit_is_read_only_and_uses_all_season_sources(self):
         src = (ROOT / "audit-team-logo-coverage.py").read_text()
         for table in ("tbc_batting_raw", "tbc_pitching_raw", "tbc_batting_2026_season_raw", "tbc_pitching_2026_season_raw"):
