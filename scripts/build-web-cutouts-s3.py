@@ -22,7 +22,10 @@ gallery's flip cards (drawn 264px wide; the originals average 1.4MB):
 And small copies of the team logos, which are uploaded by hand at full
 size (a 1346x1558 PNG is 531KB; the strip draws it about 90px wide):
 
-- teams/{teamid}.png -> teams-web/{teamid}.webp  (fits 400x400, transparency kept)
+- teams/cutouts/{teamid}.png (preferred), or teams/{teamid}.png/.jpg/.webp
+  -> teams-web/{teamid}.webp  (fits 400x400, transparency kept)
+  The newest of a verified cutout and its original wins; raw logos are never
+  stranded when the optional manual cutout job has not run.
 
 Cutout processing mirrors api/cutout/route.ts (keep the two in step):
 1. Downscale to fit 2000x2000.
@@ -142,7 +145,7 @@ JOBS = {
     "then-card": ("players/then/", PHOTO_EXTENSIONS, "players/then-card/", lambda b: build_card_photo(b, 800)),
     "back-card": ("players/back/", PHOTO_EXTENSIONS, "players/back-card/", lambda b: build_card_photo(b, 800)),
     "now-thumb": ("players/now/", PHOTO_EXTENSIONS, "players/now-thumb/", lambda b: build_card_photo(b, 400)),
-    # Build display WebP from the transparent cutouts, not raw logos.
+    # Prefer fresh cutouts, but discover original logos below when no cutout exists.
     "team-logo": ("teams/cutouts/", (".png",), "teams-web/", build_team_logo),
 }
 
@@ -180,6 +183,24 @@ def main() -> int:
                 # If a player has both a .jpg and a .png, prefer the newest.
                 if pid not in sources or obj["LastModified"] > sources[pid]["LastModified"]:
                     sources[pid] = obj
+        if kind == "team-logo":
+            # The cutout job is manual, but the WebP job runs hourly. Previously
+            # team-logo searched ONLY teams/cutouts/ and silently ignored every
+            # original under teams/, so new verified uploads never acquired a
+            # teams-web/ asset. The original is a safe fallback, not a different
+            # team's logo. A newer cutout replaces it on the next hourly pass.
+            for page in paginator.paginate(Bucket=BUCKET, Prefix="teams/"):
+                for obj in page.get("Contents", []):
+                    key = obj["Key"]
+                    name = key[len("teams/"):]
+                    if "/" in name or not name.lower().endswith(PHOTO_EXTENSIONS):
+                        continue
+                    tid = name.rsplit(".", 1)[0]
+                    if not tid.isdigit():
+                        continue
+                    previous = sources.get(tid)
+                    if previous is None or obj["LastModified"] > previous["LastModified"]:
+                        sources[tid] = obj
         for page in paginator.paginate(Bucket=BUCKET, Prefix=out_prefix):
             for obj in page.get("Contents", []):
                 key = obj["Key"]

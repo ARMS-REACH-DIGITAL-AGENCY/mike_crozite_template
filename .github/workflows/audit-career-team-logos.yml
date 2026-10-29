@@ -1,0 +1,39 @@
+name: Audit Career Team Logo Coverage
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 10 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+      REPORT_PATH: team-logo-coverage.csv
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install boto3 "psycopg[binary]"
+      - name: Audit S3 inventory against all career seasons
+        run: python scripts/audit-team-logo-coverage.py
+      - name: Store coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: career-team-logo-coverage
+          path: team-logo-coverage.csv
+          if-no-files-found: ignore
