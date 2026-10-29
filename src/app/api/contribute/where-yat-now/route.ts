@@ -7,6 +7,7 @@ import { identifyContributor, contributionsToday, logContribution } from '@/lib/
 import { S3_BUCKET, S3_REGION, storyAssetUrl } from '@/lib/storyAssets';
 import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS } from '@/lib/whereYatLinks';
 import { notifyWhereYatReviewers } from '@/lib/whereYatReviewNotifications';
+import { notifyWhereYatContributor } from '@/lib/whereYatContributorNotifications';
 
 export const runtime = 'nodejs';
 export const maxDuration = 40;
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
   if (!who) return reply('Please sign in to submit your update.', 401);
   if (await contributionsToday(who.uid) >= 60) return reply('Daily contribution limit reached.', 429);
 
+  if (clean(form.get('proofConfirmed'),8)!=='yes') return reply('Please review and confirm your proof before submitting.');
   const playerId = clean(form.get('playerId'), 32);
   const hsid = clean(form.get('hsid'), 16);
   const displayName = clean(form.get('displayName'), 140);
@@ -73,8 +75,8 @@ export async function POST(req: NextRequest) {
       `INSERT INTO public.alumni_where_yat_now
       (playerid,hsid,contributor_uid,contact_email,display_name,location_city,location_state,
        occupation,company_name,business_website,linkedin_url,instagram_url,facebook_url,x_url,
-       story,photo_key,photo_url,sponsorship_interest)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       story,photo_key,photo_url,sponsorship_interest,proof_confirmed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now())
        RETURNING id`,
       [playerId,hsid,who.uid,email,displayName,fields.city,fields.state,fields.occupation,fields.company,
        normalized.website,normalized.linkedin,normalized.instagram,
@@ -86,7 +88,8 @@ export async function POST(req: NextRequest) {
     const submissionId = result.rows[0]?.id;
     // Submission succeeds independently of notification delivery. Never disclose reviewer contact details.
     if (submissionId) await notifyWhereYatReviewers({ id: submissionId, hsid, playerId, displayName }).catch(err => console.error('[where-yat-now] reviewer alert failed', err));
-    return NextResponse.json({ ok: true, pending: true, partnerHref: 'https://yatstats.com/partners/' });
+    if (submissionId) await notifyWhereYatContributor({id:submissionId,hsid,email:who.email||email,name:displayName,outcome:'received'}).catch(err=>console.error('[where-yat-now] contributor receipt failed',err));
+    return NextResponse.json({ ok: true, pending: true, submissionId, partnerHref: 'https://yatstats.com/partners/' });
   } catch (error) {
     console.error('[where-yat-now] submit failed', { playerId, error });
     return reply('Unable to save this update. Please try again.', 500);
