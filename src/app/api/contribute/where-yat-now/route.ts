@@ -5,17 +5,12 @@ import { randomUUID } from 'crypto';
 import { query } from '@/lib/db';
 import { identifyContributor, contributionsToday, logContribution } from '@/lib/contributeServer';
 import { S3_BUCKET, S3_REGION, storyAssetUrl } from '@/lib/storyAssets';
+import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS } from '@/lib/whereYatLinks';
 
 export const runtime = 'nodejs';
 export const maxDuration = 40;
 const reply = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const clean = (value: FormDataEntryValue | null, limit: number) => String(value ?? '').trim().slice(0, limit);
-const validLink = (s: string) => {
-  if (!s) return true;
-  try { const u = new URL(s.startsWith('http') ? s : 'https://' + s); return u.protocol === 'https:' || u.protocol === 'http:'; }
-  catch { return false; }
-};
-const normalizeLink = (s: string) => !s ? '' : (s.startsWith('http://') || s.startsWith('https://') ? s : 'https://' + s);
 const retired = (s: string) => /\bRETIRED\b/i.test(s) && !/\bACTIVE\b/i.test(s);
 
 export async function POST(req: NextRequest) {
@@ -38,8 +33,11 @@ export async function POST(req: NextRequest) {
     instagram: clean(form.get('instagram'), 300), facebook: clean(form.get('facebook'), 300),
     x: clean(form.get('x'), 300), story: clean(form.get('story'), 2400),
   };
-  for (const value of [fields.website, fields.linkedin, fields.instagram, fields.facebook, fields.x]) {
-    if (!validLink(value)) return reply('Please enter valid social and business links.');
+  const normalized: Record<string, string> = {};
+  for (const field of WHERE_YAT_LINK_FIELDS) {
+    const result = normalizeWhereYatLink(field, fields[field]);
+    if (result.error) return NextResponse.json({ error: result.error, field }, { status: 400 });
+    normalized[field] = result.url;
   }
 
   try {
@@ -78,8 +76,8 @@ export async function POST(req: NextRequest) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
        RETURNING id`,
       [playerId,hsid,who.uid,email,displayName,fields.city,fields.state,fields.occupation,fields.company,
-       normalizeLink(fields.website),normalizeLink(fields.linkedin),normalizeLink(fields.instagram),
-       normalizeLink(fields.facebook),normalizeLink(fields.x),fields.story,photoKey,photoUrl,sponsorship],
+       normalized.website,normalized.linkedin,normalized.instagram,
+       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,sponsorship],
     );
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship },
