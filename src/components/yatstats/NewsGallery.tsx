@@ -1,4 +1,5 @@
 "use client";
+import SponsorTower from "@/components/yatstats/SponsorTower";
 
 // Alumni News gallery (#sec-news): news cards laid out like the flip-card
 // gallery, one card per story - a player can have many cards, or none.
@@ -436,11 +437,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
             <span>300 × 250 PX · IN-FEED SPONSOR CARD</span>
           </aside>
         </div>
-        <aside className="yp-school-news-tower" aria-label="Title Sponsor desktop advertisement placement">
-          <small>TITLE SPONSOR · ACTIVE ALUMNI NEWS</small>
-          <strong>ADVERTISING<br />TOWER</strong>
-          <span>300 × 600 PX · STANDARD DESKTOP AD</span>
-        </aside>
+        <SponsorTower placement="school-news" className="yp-school-news-tower" />
       </div>
       <style>{`
         .yat-news-load-more{display:block;margin:18px auto;padding:10px 18px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);cursor:pointer;font-weight:700}
@@ -510,7 +507,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
         .yp-school-news-tower {
           display:flex;flex-direction:column;gap:14px;align-items:center;
           justify-content:center;width:300px;height:600px;min-height:600px;max-height:600px;box-sizing:border-box;padding:25px 14px;
-          position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,100px) + 14px);
+          position:sticky;top:12px;align-self:start;
           border:1px dashed #898989;border-radius:3px;
           background:#181818;color:#fff;text-align:center;
         }

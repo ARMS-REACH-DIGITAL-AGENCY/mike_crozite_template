@@ -407,3 +407,50 @@ body.light-theme {
   --sb-ink: rgba(31, 25, 18, .86);
   --sb-ink-muted: rgba(31, 25, 18, .68);
 }
+
+
+/* Canonical YAT?STATS desktop sponsor inventory shared across News and Stories. */
+.yat-desktop-sponsor-tower {
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;box-sizing:border-box;width:300px;min-width:0;max-width:100%;
+  height:600px;min-height:600px;max-height:600px;
+  padding:24px 14px;margin:0;border:1px dashed #898989;border-radius:3px;
+  background:#181818;color:#fff;text-align:center;
+  position:sticky;top:0;align-self:start;overflow:hidden;
+}
+.yat-desktop-sponsor-tower small,.yat-desktop-sponsor-tower span {
+  font:700 12px/1.3 var(--yat-font-compact,Oswald,sans-serif);color:#d4d4d4;
+}
+.yat-desktop-sponsor-tower strong {
+  font:800 clamp(23px,2.2vw,34px)/1.1 var(--yat-font-compact,Oswald,sans-serif);
+}
+.yat-desktop-sponsor-tower :is(img,picture,video){
+  display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+}
+body.light-theme .yat-desktop-sponsor-tower {
+  background:#f0e6d1;color:#17130b;border-color:#8d7a5b;
+}
+body.light-theme .yat-desktop-sponsor-tower :is(small,span) {color:#3b3224;}
+/* Player profile tab controls must never substitute the 300x250 in-feed
+   card for a desktop tower when the container has enough width. */
+@media (min-width:1081px) {
+  #playerFunZone #ppTab-news .yp-profile-partner-columns {
+    display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;
+    align-items:start!important;overflow:visible!important;max-height:none!important;
+  }
+  #playerFunZone #ppTab-news .yp-profile-ad.yat-desktop-sponsor-tower {
+    display:flex!important;position:sticky!important;top:0!important;
+    width:300px!important;min-width:300px!important;max-width:300px!important;
+    height:600px!important;min-height:600px!important;max-height:600px!important;
+    aspect-ratio:1/2!important;margin:0!important;align-self:start!important;
+  }
+  #playerFunZone #ppTab-news .yp-profile-infeed-ad {display:none!important;}
+  #playerFunZone #ppTab-upload .ysf-desktop-columns {
+    display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;
+  }
+  #playerFunZone #ppTab-upload .ysf-sponsor-column > .yat-desktop-sponsor-tower {
+    display:flex!important;width:300px!important;min-width:300px!important;
+    height:600px!important;min-height:600px!important;max-height:600px!important;
+    margin:0!important;position:sticky!important;top:0!important;
+  }
+}

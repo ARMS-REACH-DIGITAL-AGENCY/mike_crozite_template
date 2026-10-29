@@ -62,6 +62,7 @@ function activate(hashValue?: string | null) {
   const hash = normalizeHash(hashValue);
   const activeId = hash.replace('#', '');
   if (shownTab && shownTab !== activeId) track('profile_tab_view', { profile_tab: tabName(activeId.replace('ppTab-', '')) });
+  const changedTab = shownTab !== activeId;
   shownTab = activeId;
 
   TAB_IDS.forEach((id) => {
@@ -71,6 +72,13 @@ function activate(hashValue?: string | null) {
     panel.classList.toggle('pp-fz-panel-active', isActive);
     panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     panel.hidden = !isActive;
+    // A newly selected tab starts below the fixed career header, not at a
+    // scroll offset retained from the previous tab or deep-link navigation.
+    if (isActive && changedTab && id === 'ppTab-connect') {
+      panel.scrollTop = 0;
+      const content = panel.querySelector<HTMLElement>('.yp-profile-partner-body');
+      if (content) content.scrollTop = 0;
+    }
   });
 
   document.querySelectorAll<HTMLAnchorElement>('.pp-fz-tab').forEach((tab) => {

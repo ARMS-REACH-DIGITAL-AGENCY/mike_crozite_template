@@ -1,3 +1,4 @@
+import SponsorTower from '@/components/yatstats/SponsorTower';
 import { publicNewsHeadline } from '@/lib/newsVideo';
 // src/app/[hsid]/player/[playerId]/[slug]/page.tsx
 // Player profile child page — lives inside the shared shell.
@@ -984,11 +985,7 @@ export default async function ProfilePage({ params }: Props) {
                 <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>
             </div>
-            <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
-              <span>PLAYER PROFILE PARTNER</span>
-              <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
-            </aside>
+            <SponsorTower placement="player-news" className="yp-profile-ad" />
           </div>
         </div>
 
@@ -1053,11 +1050,7 @@ export default async function ProfilePage({ params }: Props) {
                 <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>
             </div>
-            <aside className="yp-profile-ad" aria-label="Player Profile Partner advertising placement">
-              <span>PLAYER PROFILE PARTNER</span>
-              <strong>ADVERTISER<br/>PLACEMENT</strong>
-              <small>300 × 600 CREATIVE · SCALES TO FIT</small>
-            </aside>
+            <SponsorTower placement="player-connect" className="yp-profile-ad" />
           </div>
         </div>
 
@@ -1289,6 +1282,78 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-ad {display:none!important;}
           #playerFunZone .yp-profile-infeed-ad,
           #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
+        }
+        /* Avoid the extra scrolling gap between the timeline and Stories tools.
+           Keep the scroll clipping inside the active tab, below the timeline. */
+        #playerFunZone #ppTab-upload.pp-fz-panel {
+          padding-top:0!important;
+          scroll-padding-top:0;
+        }
+        #playerFunZone #ppTab-upload .ysf { padding-top:0!important; }
+        /* One desktop tower per feed: Stories owns its own sticky tower;
+           News uses the same reserved 300x600 right column. */
+        @media (min-width:1081px) {
+          #playerFunZone #ppTab-news .yp-profile-partner-columns {
+            display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;
+            align-items:start!important;height:auto!important;overflow:visible!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-ad {
+            display:flex!important;position:sticky!important;top:0!important;
+            width:300px!important;height:600px!important;min-height:600px!important;
+            max-height:600px!important;aspect-ratio:1/2!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-infeed-ad {display:none!important;}
+          #playerFunZone #ppTab-upload .yp-profile-partner-columns {
+            display:block!important;width:100%!important;max-width:100%!important;
+            padding-inline:0!important;overflow:visible!important;
+          }
+          #playerFunZone #ppTab-upload > .yp-profile-partner-columns > .yp-profile-ad {display:none!important;}
+          #playerFunZone #ppTab-upload .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;overflow:visible!important;
+          }
+        }
+        /* Container-width rule follows the older 1080px collapse:
+           desktop-style News gets a tower whenever the actual panel fits,
+           including desktop-site mode and docked browser windows. */
+        @container yat-profile-ads (min-width: 841px) {
+          #playerFunZone #ppTab-news .yp-profile-partner-columns {
+            display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;
+            align-items:start!important;width:100%!important;height:auto!important;
+            max-height:none!important;overflow:visible!important;gap:16px!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;
+            overflow:visible!important;min-width:0!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-ad.yat-desktop-sponsor-tower {
+            display:flex!important;position:sticky!important;top:0!important;
+            width:300px!important;min-width:300px!important;max-width:300px!important;
+            height:600px!important;min-height:600px!important;max-height:600px!important;
+            margin:0!important;aspect-ratio:1/2!important;align-self:start!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-infeed-ad {display:none!important;}
+        }
+        /* Connect uses the same desktop tower and single-column video area as News. */
+        @container yat-profile-ads (min-width:841px) {
+          #playerFunZone #ppTab-connect .yp-profile-partner-columns {
+            display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;
+            width:100%!important;max-height:none!important;height:auto!important;
+            gap:16px!important;overflow:visible!important;align-items:start!important;
+          }
+          #playerFunZone #ppTab-connect .yp-profile-partner-body {
+            min-width:0!important;height:auto!important;max-height:none!important;
+            overflow:visible!important;
+          }
+          #playerFunZone #ppTab-connect .yp-player-video-placeholder {
+            width:100%!important;max-width:100%!important;box-sizing:border-box!important;
+          }
+          #playerFunZone #ppTab-connect .yp-profile-ad.yat-desktop-sponsor-tower {
+            display:flex!important;position:sticky!important;top:0!important;
+            width:300px!important;min-width:300px!important;max-width:300px!important;
+            height:600px!important;min-height:600px!important;max-height:600px!important;
+            margin:0!important;aspect-ratio:1/2!important;align-self:start!important;
+          }
+          #playerFunZone #ppTab-connect .yp-profile-infeed-ad {display:none!important;}
         }
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {

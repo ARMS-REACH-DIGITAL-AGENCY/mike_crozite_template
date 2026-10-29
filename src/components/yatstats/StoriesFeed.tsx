@@ -1,4 +1,5 @@
 'use client';
+import SponsorTower from '@/components/yatstats/SponsorTower';
 
 // src/components/yatstats/StoriesFeed.tsx
 // The Stories tab on the player profile page: every live story this player
@@ -335,11 +336,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   }, [stories, search, sort, yearFilter]);
 
   const sponsorCard = (
-    <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner advertising placement">
-      <span>PLAYER PROFILE PARTNER</span>
-      <strong>ADVERTISER PLACEMENT</strong>
-      <small>SPONSOR CARD · SAME WIDTH AS STORIES</small>
-    </aside>
+    <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner mobile sponsor card"><span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small></aside>
   );
 
   let body: React.ReactNode;
@@ -463,7 +460,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
       <div className="ysf-main">
         <div className={isDesktop ? "ysf-desktop-columns" : "ysf-mobile-columns"}>
           <div className="ysf-story-column">{body}</div>
-          {isDesktop ? <div className="ysf-sponsor-column">{sponsorCard}</div> : null}
+          {isDesktop ? <div className="ysf-sponsor-column"><SponsorTower placement="player-stories" /></div> : null}
         </div>
         <div className="ysf-bottom-scroll-clearance" aria-hidden="true" />
       </div>
@@ -504,18 +501,18 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
-        .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,300px);gap:16px;align-items:start;max-width:1200px;margin:0 auto;}
+        .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
         .ysf-story-column {min-width:0;}
-        .ysf-sponsor-column {min-width:0;position:sticky;top:12px;}
-        .ysf-sponsor-column .yp-stories-feed-ad {width:100%;max-width:100%;box-sizing:border-box;min-height:260px;}
-        @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}}
+        .ysf-sponsor-column {min-width:0;position:sticky;top:0;align-self:start;z-index:2;}
+        .ysf-desktop-columns .ysf-sponsor-column > .yat-desktop-sponsor-tower {width:300px;max-width:100%;}
+        @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}.ysf-main{padding-top:0}.ysf-tools{margin:0 auto 6px;max-width:100%}}
         
         /* The scroll viewport ends at the fixed profile dock. This physical
            spacer (not just scroll-padding) guarantees the final advertiser
            and interaction row can be scrolled fully above the footer. */
         .ysf-bottom-scroll-clearance { display:block; height:calc(var(--pp-dock-h,62px) + 88px + env(safe-area-inset-bottom)); width:100%; flex:none; pointer-events:none; }
 
-        .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;max-width:760px;margin:-10px auto 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
+        .ysf-tools { display:flex;flex-direction:column;gap:7px;position:sticky;top:0;z-index:6;width:100%;max-width:none;margin:0 0 10px;padding:7px 0 8px;min-width:0;background:var(--psi-page-bg,#070707); }
         .ysf-tool-row { display:flex;align-items:stretch;min-width:0; }
         .ysf-tool-row-search { display:grid;grid-template-columns:minmax(0,1fr) 38px auto;gap:6px;align-items:center; }
         .ysf-add-btn { display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:43px;padding:7px 10px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.045));box-shadow:inset 0 1px rgba(255,255,255,.14),0 3px 12px rgba(0,0,0,.16);color:var(--ysf-strong);font:800 clamp(10px,2.6vw,14px)/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);cursor:pointer;min-width:0;letter-spacing:.015em; }
