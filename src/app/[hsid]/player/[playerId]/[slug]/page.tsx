@@ -1316,6 +1316,27 @@ export default async function ProfilePage({ params }: Props) {
             height:auto!important;max-height:none!important;overflow:visible!important;
           }
         }
+        /* Container-width rule follows the older 1080px collapse:
+           desktop-style News gets a tower whenever the actual panel fits,
+           including desktop-site mode and docked browser windows. */
+        @container yat-profile-ads (min-width: 841px) {
+          #playerFunZone #ppTab-news .yp-profile-partner-columns {
+            display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;
+            align-items:start!important;width:100%!important;height:auto!important;
+            max-height:none!important;overflow:visible!important;gap:16px!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;
+            overflow:visible!important;min-width:0!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-ad.yat-desktop-sponsor-tower {
+            display:flex!important;position:sticky!important;top:0!important;
+            width:300px!important;min-width:300px!important;max-width:300px!important;
+            height:600px!important;min-height:600px!important;max-height:600px!important;
+            margin:0!important;aspect-ratio:1/2!important;align-self:start!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-infeed-ad {display:none!important;}
+        }
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
