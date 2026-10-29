@@ -23,13 +23,14 @@ import {
 } from '@/lib/bracket/engine';
 import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
 import { commissionerRuling } from '@/lib/bracket/commissioner';
+import { autoRuling } from '@/lib/bracket/autoRuling';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
-type Live = {
+export type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
   clubs: Record<string, [number, string, 0 | 1, number?][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
   fans?: Record<string, number[]>; // registered fans as each week went final
@@ -138,7 +139,7 @@ export function applyLive(idx: Index, asof: string) {
         .catch(() => null)
       : Promise.resolve(null))
       .then((live) => {
-        const boxes = live ? score(idx, live, asof) : {};
+        const boxes = live ? scoreLive(idx, live, asof) : {};
         boxesResolve?.(boxes);
         return { live, boxes };
       });
@@ -146,7 +147,13 @@ export function applyLive(idx: Index, asof: string) {
   return livePromise.then(() => idx);
 }
 
-function score(idx: Index, live: Live, asof: string) {
+// Score every game of idx as of the bracket's day asof, in place (each
+// game's innings, decidedBy and winner; each series' wins and winner), and
+// return the stat drawers' boxes by game id. The page runs it on
+// /api/bracket/live; the bracket results job
+// (scripts/master-bracket-results.ts) runs it on the same answer to write
+// master_bracket.
+export function scoreLive(idx: Index, live: Live, asof: string) {
   const start = idx.weeks[0][0];
   // asof is the bracket's day, which turns over at 4 a.m. Arizona time.
   const today = dayOf(asof, start);
@@ -222,7 +229,19 @@ function score(idx: Index, live: Live, asof: string) {
   }
 
   const boxes: Record<string, GameBox> = {};
-  const scoreGame = (g: GameRow) => {
+  // A game tied after every tiebreaker: a ruling recorded by hand, else the
+  // commissioner's automatic rules (lib/bracket/autoRuling.ts) - g is game n
+  // (0-based) of series s, whose earlier games are already scored.
+  const ruling = (g: GameRow, s: SeriesRow | undefined, n: number) => () => commissionerRuling(g[1], g[2], g[3]) ?? autoRuling({
+    week: g[1], gameNo: n + 1, home: g[2], away: g[3],
+    seeds: s ? [g[2] === s[1] ? s[3] : g[2] === s[2] ? s[4] : undefined, g[3] === s[1] ? s[3] : g[3] === s[2] ? s[4] : undefined] : undefined,
+    earlier: (s?.[7] || []).slice(0, n).map((e) => ({
+      home: e[2], away: e[3], winner: e[6], decidedBy: e[4],
+      runs: [e[5].reduce((t, r, i) => (i % 2 ? t : t + r), 0), e[5].reduce((t, r, i) => (i % 2 ? t + r : t), 0)] as [number, number],
+    })),
+    rosters: [(roster.get(String(g[2])) || []).map((p) => p[2]), (roster.get(String(g[3])) || []).map((p) => p[2])],
+  }).winner;
+  const scoreGame = (g: GameRow, s?: SeriesRow, n = 0) => {
     const week = g[1];
     const [ws] = idx.weeks[week - 1] || [];
     if (!ws || ws > asof || !g[2] || !g[3]) return;
@@ -290,7 +309,7 @@ function score(idx: Index, live: Live, asof: string) {
       return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows };
     };
     const home = side(g[2]), away = side(g[3]);
-    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? () => commissionerRuling(g[1], g[2], g[3]) : undefined,
+    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? ruling(g, s, n) : undefined,
       [live.fans?.[String(g[2])]?.[week - 1] ?? 0, live.fans?.[String(g[3])]?.[week - 1] ?? 0]);
     // A week in progress counts only the posted runs; the week (8) and W-L
     // (9) innings post with Sunday's, and any tiebreak once it's final.
@@ -316,7 +335,7 @@ function score(idx: Index, live: Live, asof: string) {
 
   for (const round of idx.rounds) {
     for (const s of round.series as SeriesRow[]) {
-      s[7].forEach(scoreGame);
+      s[7].forEach((g, n) => scoreGame(g, s, n));
       // A series is decided once a school has 2 wins.
       const wins: [number, number] = [s[7].filter((g) => g[6] === s[1]).length, s[7].filter((g) => g[6] === s[2]).length];
       s[6] = wins;
