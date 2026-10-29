@@ -68,6 +68,14 @@
     {
       "path": "/api/cron/bracket-results",
       "schedule": "18 * * * *"
+    },
+    {
+      "path": "/api/cron/social-news-scout",
+      "schedule": "12,27,42,57 * * * *"
+    },
+    {
+      "path": "/api/cron/social-news-digest",
+      "schedule": "30 14 * * *"
     }
   ]
 }

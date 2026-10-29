@@ -10,6 +10,7 @@
 //                                ever reaches a card.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { writerQuery } from '@/lib/dbWriter';
 import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
                AND fa.details->>'queue_id' = q.id::text
              ORDER BY fa.created_at DESC LIMIT 1
            ) audit ON true
-          WHERE q.intake_source IN ('correction', 'fan_drawer')
+          WHERE q.intake_source IN ('correction', 'fan_drawer', 'social_scout')
           ORDER BY q.submitted_at DESC LIMIT 100`
       ),
       query(
@@ -91,6 +92,44 @@ export async function POST(req: NextRequest) {
   const id = String(body.id || '');
   const action = String(body.action || '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) return fail('Unknown request.');
+  if (action === 'unpublish_scout') {
+    if (process.env.VERCEL_ENV === 'preview') return fail('Removing news is disabled on previews.', 409);
+    try {
+      // Rejection hides the article without erasing the audit trail;
+      // the scout sees the existing permalink and cannot republish it.
+      const { rows } = await writerQuery<{ uuid: string; hsid: string }>(`
+        WITH revoked AS (
+          UPDATE news_articles n
+          SET verification_status='REJECTED',
+              verification_reason='Removed from public news by authorized reviewer',
+              verified_at=now()
+          FROM news_tip_queue t
+          WHERE t.id::text=$1 AND t.intake_source='social_scout'
+            AND t.status='published' AND t.promoted_news_uuid=n.uuid
+            AND n.discovery_source='social_scout'
+            AND n.verification_status='VERIFIED'
+          RETURNING n.uuid,n.playerid,n.hsid
+        ), queue_status AS (
+          UPDATE news_tip_queue t SET status='rejected'
+          WHERE t.id::text=$1 AND t.intake_source='social_scout'
+            AND t.promoted_news_uuid IN (SELECT uuid FROM revoked)
+          RETURNING t.id
+        ), audit AS (
+          INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+          SELECT $2,'social_news_removed',playerid,hsid,
+                 jsonb_build_object('news_uuid',uuid,'queue_id',$1::text,
+                  'reason','reviewer removed automatic scout story')
+          FROM revoked RETURNING id
+        )
+        SELECT uuid,hsid FROM revoked`,[id,r.who!.uid]);
+      if (!rows.length) return fail('Published scout article was not found or was already removed.', 404);
+      revalidateTag('school-data:' + rows[0].hsid,{expire:0});
+      return NextResponse.json({ ok: true, status: 'rejected', uuid: rows[0].uuid });
+    } catch (error) {
+      console.error('[contribute/review] unpublish scout failed',error);
+      return fail('Could not remove scout article.',500);
+    }
+  }
   if (action === 'approve_team' || action === 'reject_team') {
     if (process.env.VERCEL_ENV === 'preview') {
       return fail('Current-team approval is disabled on preview deployments.', 409);
