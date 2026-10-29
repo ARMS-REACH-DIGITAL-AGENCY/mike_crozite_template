@@ -1,3 +1,4 @@
+import SponsorTower from '@/components/yatstats/SponsorTower';
 "use client";
 
 // Alumni News gallery (#sec-news): news cards laid out like the flip-card
@@ -436,11 +437,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
             <span>300 × 250 PX · IN-FEED SPONSOR CARD</span>
           </aside>
         </div>
-        <aside className="yp-school-news-tower" aria-label="Title Sponsor desktop advertisement placement">
-          <small>TITLE SPONSOR · ACTIVE ALUMNI NEWS</small>
-          <strong>ADVERTISING<br />TOWER</strong>
-          <span>300 × 600 PX · STANDARD DESKTOP AD</span>
-        </aside>
+        <SponsorTower placement="school-news" className="yp-school-news-tower" />
       </div>
       <style>{`
         .yat-news-load-more{display:block;margin:18px auto;padding:10px 18px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);cursor:pointer;font-weight:700}
