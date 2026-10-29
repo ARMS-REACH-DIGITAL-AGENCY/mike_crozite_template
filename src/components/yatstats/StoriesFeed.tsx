@@ -1,3 +1,4 @@
+import SponsorTower from '@/components/yatstats/SponsorTower';
 'use client';
 
 // src/components/yatstats/StoriesFeed.tsx
@@ -335,11 +336,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   }, [stories, search, sort, yearFilter]);
 
   const sponsorCard = (
-    <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner advertising placement">
-      <span>PLAYER PROFILE PARTNER</span>
-      <strong>ADVERTISER PLACEMENT</strong>
-      <small>300 × 600 DESKTOP TOWER</small>
-    </aside>
+    <aside className="yp-stories-feed-ad" aria-label="Player Profile Partner mobile sponsor card"><span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small></aside>
   );
 
   let body: React.ReactNode;
@@ -463,7 +460,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
       <div className="ysf-main">
         <div className={isDesktop ? "ysf-desktop-columns" : "ysf-mobile-columns"}>
           <div className="ysf-story-column">{body}</div>
-          {isDesktop ? <div className="ysf-sponsor-column">{sponsorCard}</div> : null}
+          {isDesktop ? <div className="ysf-sponsor-column"><SponsorTower placement="player-stories" /></div> : null}
         </div>
         <div className="ysf-bottom-scroll-clearance" aria-hidden="true" />
       </div>
@@ -504,10 +501,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
-        .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,300px);gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
+        .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
         .ysf-story-column {min-width:0;}
         .ysf-sponsor-column {min-width:0;position:sticky;top:0;align-self:start;z-index:2;}
-        .ysf-desktop-columns .ysf-sponsor-column > .yp-stories-feed-ad {width:100%!important;max-width:100%!important;box-sizing:border-box!important;min-height:600px!important;height:600px!important;max-height:none!important;aspect-ratio:1/2;display:flex!important;flex-direction:column;align-items:center;justify-content:center;padding:18px 12px;}
+        .ysf-desktop-columns .ysf-sponsor-column > .yat-desktop-sponsor-tower {width:300px;max-width:100%;}
         @media(max-width:779px){.ysf-desktop-columns{display:block}.ysf-sponsor-column{display:none}.ysf-main{padding-top:0}.ysf-tools{margin:0 auto 6px;max-width:100%}}
         
         /* The scroll viewport ends at the fixed profile dock. This physical
