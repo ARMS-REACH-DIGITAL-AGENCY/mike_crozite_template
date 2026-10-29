@@ -14,7 +14,7 @@ type Photo = {
   details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; moderation?: { decision?: string; description?: string } | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
 type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
-type Alumni = { id: number; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; sponsorship_interest: boolean; created_at: string };
+type Alumni = { id: number; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; sponsorship_interest: boolean; created_at: string; proof_confirmed_at:string|null; identity_review_method:string|null; identity_review_note:string|null };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -59,6 +59,7 @@ export default function ReviewQueue() {
   const [error, setError] = useState('');
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [alumniError, setAlumniError] = useState('');
+  const [identity, setIdentity] = useState<Record<number,{method:string;note:string}>>({});
   const [busy, setBusy] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -105,11 +106,12 @@ export default function ReviewQueue() {
   }, [alumni]);
 
   const reviewAlumni = async (id: number, status: 'approved' | 'rejected') => {
+    const evidence=identity[id]||{method:'',note:''};
     setBusy(b => ({ ...b, ['alumni-' + id]: 'Saving…' }));
     const res = await fetch('/api/contribute/where-yat-now/review', {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ id, status }),
+      body: JSON.stringify({ id, status,identityMethod:evidence.method,identityNote:evidence.note }),
     });
     const result = await res.json().catch(() => ({}));
     if (!res.ok || !result.ok) setBusy(b => ({ ...b, ['alumni-' + id]: result.error || 'Review failed.' }));
@@ -136,9 +138,22 @@ export default function ReviewQueue() {
           {[item.business_website,item.linkedin_url,item.instagram_url,item.facebook_url,item.x_url].filter(Boolean).map(url => <p key={url}><a href={url!} target="_blank" rel="noopener noreferrer" style={{color:'#e9bf56'}}>{url}</a></p>)}
           <p className="ycr-muted">Contact (private): {item.contact_email}</p>
           <p className="ycr-muted">Partnership interest: {item.sponsorship_interest ? 'Yes' : 'No'}</p>
+          <p style={{color:item.proof_confirmed_at?'#e9bf56':'#ffb3b3'}}>Contributor proof: {item.proof_confirmed_at?'CONFIRMED':'NOT CONFIRMED'}</p>
+          <label>IDENTITY CHECK (REQUIRED TO APPROVE)
+           <select value={identity[item.id]?.method||''} onChange={e=>setIdentity(prev=>({...prev,[item.id]:{method:e.target.value,note:prev[item.id]?.note||''}}))} style={{display:'block',width:'100%',padding:9,background:'#1c1c1c',color:'#fff'}}>
+             <option value="">Choose an independent check</option>
+             <option value="known-person">Reviewer personally knows the alumnus</option>
+             <option value="coach-roster">Coach/roster confirmation</option>
+             <option value="verified-school-contact">Verified school representative</option>
+             <option value="verified-direct-contact">Direct identity confirmation</option>
+           </select>
+          </label>
+          <label>IDENTITY VERIFICATION NOTES
+            <textarea value={identity[item.id]?.note||''} onChange={e=>setIdentity(prev=>({...prev,[item.id]:{method:prev[item.id]?.method||'',note:e.target.value}}))} placeholder="Who or what independently confirmed identity? (not just the contributor's own claim)" maxLength={1000} rows={3} style={{display:'block',width:'100%',padding:9,background:'#1c1c1c',color:'#fff'}}/>
+          </label>
           {busy['alumni-' + item.id] && <p role="alert">{busy['alumni-' + item.id]}</p>}
           <div className="ycr-actions">
-            <button type="button" className="ycr-btn ycr-yes" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'approved')}>Approve update</button>
+            <button type="button" className="ycr-btn ycr-yes" disabled={!!busy['alumni-' + item.id]||!item.proof_confirmed_at||!identity[item.id]?.method||(identity[item.id]?.note||'').trim().length<12} onClick={() => reviewAlumni(item.id,'approved')}>Approve update</button>
             <button type="button" className="ycr-btn" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'rejected')}>Reject</button>
           </div>
         </article>)}
