@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
 import { getIndyIscoreStatsForPlayer } from '@/lib/indyIscore';
+import { getAflSeasonStatsForPlayer } from '@/lib/aflSeasonStats';
 
 type StatRecord = Record<string, unknown>;
 
@@ -281,7 +282,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'playerId is required' }, { status: 400 });
     }
 
-    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw, indyIscore] = await Promise.all([
+    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw, indyIscore, aflSeasons] = await Promise.all([
       readPlayerRows(BATTING_TABLES[0], playerId),
       readPlayerRows(BATTING_TABLES[1], playerId),
       readPlayerRows(PITCHING_TABLES[0], playerId),
@@ -294,6 +295,7 @@ export async function GET(req: NextRequest) {
         console.warn('indy iScore stats lookup failed:', error);
         return { batting: [], pitching: [], recentGames: [] };
       }),
+      getAflSeasonStatsForPlayer(playerId),
     ]);
 
     const battingRawMatched = filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
@@ -313,8 +315,8 @@ export async function GET(req: NextRequest) {
     const indyPitchingRows = asStatRecordArray(indyIscore?.pitching);
     const indyRecentGameRows = asStatRecordArray(indyIscore?.recentGames);
 
-    const batting = dedupe([...battingBaseRows, ...withoutRepeatedSeasons(battingBaseRows, indyBattingRows)]).sort(byYearThenTeam);
-    const pitching = dedupe([...pitchingBaseRows, ...withoutRepeatedSeasons(pitchingBaseRows, indyPitchingRows)]).sort(byYearThenTeam);
+    const batting = dedupe([...battingBaseRows, ...withoutRepeatedSeasons(battingBaseRows, indyBattingRows), ...aflSeasons.batting]).sort(byYearThenTeam);
+    const pitching = dedupe([...pitchingBaseRows, ...withoutRepeatedSeasons(pitchingBaseRows, indyPitchingRows), ...aflSeasons.pitching]).sort(byYearThenTeam);
     const externalRecentStats = [...externalBaseRows, ...indyRecentGameRows];
     const primaryType = pitching.length > 0 && (batting.length === 0 || pitching.length >= batting.length)
       ? 'pitching'
@@ -328,9 +330,11 @@ export async function GET(req: NextRequest) {
       counts: {
         battingHistorical: battingHistorical.length,
         batting2026: batting2026.length,
+        aflBatting: aflSeasons.batting.length,
         indyIscoreBatting: indyBattingRows.length,
         pitchingHistorical: pitchingHistorical.length,
         pitching2026: pitching2026.length,
+        aflPitching: aflSeasons.pitching.length,
         indyIscorePitching: indyPitchingRows.length,
         battingHistorical2026Excluded,
         pitchingHistorical2026Excluded,
