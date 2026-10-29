@@ -1,5 +1,5 @@
 type SponsorTowerProps = {
-  placement: "school-news" | "player-news" | "player-stories";
+  placement: "school-news" | "player-news" | "player-stories" | "player-connect";
   className?: string;
 };
 
