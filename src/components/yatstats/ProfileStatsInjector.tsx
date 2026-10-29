@@ -497,9 +497,10 @@ export default function ProfileStatsInjector({ playerId, meta }: { playerId: str
         .catch((err) => { if (!cancelled) panel.innerHTML = `${css()}<div class="psi-empty">Stats failed to load: ${esc(err?.message || 'Unknown error')}</div>`; });
     };
     const check = () => {
-      if (panel.classList.contains('active') || panel.classList.contains('is-active') ||
-          panel.classList.contains('pp-fz-panel-active') ||
-          (!panel.hidden && window.getComputedStyle(panel).display !== 'none')) load();
+      // Only the shared FunZone tab controller may activate this panel.
+      // Visibility alone is unreliable during hydration before tab classes
+      // and hidden attributes have been synchronized.
+      if (panel.classList.contains('pp-fz-panel-active') && !panel.hidden) load();
     };
     const observer = new MutationObserver(check);
     observer.observe(panel, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
