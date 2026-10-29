@@ -21,6 +21,14 @@ on:
         options:
           - "true"
           - "false"
+      skip_existing:
+        description: "Preserve already published logo objects (recommended)"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
       max_teams:
         description: "Optional max number of logos to fetch. Leave blank for all."
         required: false
@@ -43,6 +51,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       YATSTATS_S3_BUCKET: yatstats-assets
       DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      SKIP_EXISTING: ${{ github.event.inputs.skip_existing || 'true' }}
       MAX_TEAMS: ${{ github.event.inputs.max_teams || '' }}
       ONLY_TEAMIDS: ${{ github.event.inputs.only_teamids || '' }}
       REPORT_PATH: team-logo-report.csv
