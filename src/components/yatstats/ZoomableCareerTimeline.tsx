@@ -3286,6 +3286,20 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           .zt-persist-team {font-size:8.5px;}
           .zt-persist-org {font-size:8px;}
         }
+        /* On small phones, anchor slides need their headline group lower
+           than the default top-aligned story copy. Align the last (short,
+           single-line) tagline 40px above the bottom of the 150px hero:
+           14px inherited bottom + 26px padding. That positions it near
+           the marked visual baseline while leaving space above the year
+           rail, team marks, pennants, and memory stars. The image layers,
+           school identity, non-anchor slides and tablet/desktop stay put.
+           Keep a single shared template rule for every player/school. */
+        @container career-timeline (max-width:559px) {
+          .zt-anchor .zt-copy {
+            justify-content:flex-end;
+            padding-bottom:26px;
+          }
+        }
         /* One geometry for the full timeline and its proof. The full
            timeline's native container fills row3; the proof fixes that
            same container at384x150 and scales every layer together.
