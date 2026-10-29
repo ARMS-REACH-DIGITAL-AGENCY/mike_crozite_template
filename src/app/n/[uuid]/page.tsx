@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { query } from '@/lib/db';
 import { parseNewsVideo } from '@/lib/newsVideo';
+import { resolveSchoolNewsOrigins, schoolNewsStoryUrl } from '@/lib/schoolNewsLinks';
 
 type Context = { params: Promise<{ uuid: string }> };
 async function story(uuid: string) {
@@ -24,11 +25,14 @@ export async function generateMetadata({params}:Context):Promise<Metadata> {
 }
 export default async function NewsShareLanding({params}:Context) {
   const {uuid}=await params, item=await story(uuid);
-  const href=item ? `/${encodeURIComponent(item.hsid)}?news=1&story=${encodeURIComponent(uuid)}#sec-news` : '/';
+  const schoolUrls = item
+    ? await resolveSchoolNewsOrigins([item.hsid], (sql, params = []) => query(sql, params))
+    : new Map<string, string>();
+  const href = item ? schoolNewsStoryUrl(schoolUrls.get(item.hsid), uuid) : null;
   return <main style={{background:'#101010',color:'#fff',minHeight:'100vh',padding:'3rem',fontFamily:'Arial,sans-serif'}}>
     <h1>{item?.title || 'News story not found'}</h1>
     <p>{item ? 'Opening this Alumni News story on YAT?STATS…' : 'This story is unavailable.'}</p>
-    <a href={href} style={{color:'#ffb21c'}}>Open on YAT?STATS</a>
-    {item ? <script dangerouslySetInnerHTML={{__html:`window.location.replace(${JSON.stringify(href)})`}}/> : null}
+    {href ? <a href={href} style={{color:'#ffb21c'}}>Open the school's News story</a> : null}
+    {href ? <script dangerouslySetInnerHTML={{__html:`window.location.replace(${JSON.stringify(href)})`}}/> : null}
   </main>;
 }
