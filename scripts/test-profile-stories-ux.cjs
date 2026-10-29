@@ -28,8 +28,22 @@ assert.match(timeline,/\.zt-nav \{ top:50%; bottom:auto;/,'Arrows remain inside 
 assert.match(timeline,/\.zt-rail \{ position:absolute; z-index:6; left:12px; right:12px;/,'Rail spans width with small insets');
 assert.match(timeline,/\.zt-nav \{[^\n]*border:0;[^\n]*background:transparent;/,'Arrows have no frame or opaque fill');
 assert.match(timeline,/left:calc\(32% - 24px - 800px\)/,'Tablet/medium photo clears copy');
-assert.match(timeline,/left:calc\(58% - 24px - 800px\)/,'Mobile photo clears copy');
-assert.match(timeline,/left:calc\(51% - 24px - 800px\)/,'560-740px photo clears copy');
+// On small phones a slide is twice viewport width. The anchor copy starts
+// at 26.5% of that slide (53% of viewport); both anchor photo variants must
+// track that line instead of the retired 58% position.
+assert.match(timeline,/\.zt-anchor \.zt-copy \{ left:26\.5%; width:23%; \}/,'Small-phone anchor headline uses the shared 53% screen boundary');
+assert.match(timeline,/left:calc\(53% - 24px - 800px\)/,'Mobile action photo follows the shifted headline');
+assert.match(timeline,/left:calc\(53% - 4px - 800px\)/,'Mobile headshot fallback ends before headline');
+assert.match(timeline,/left:calc\(53% - 4px - clamp\(130px,40cqw,170px\)\)/,'Mobile high-school cutout stays before headline');
+// Transition-band anchor geometry must move as one, not independently.
+assert.match(timeline,/\.zt-anchor \.zt-copy \{left:48%;right:4%;width:auto;\}/,'560-740px anchor headline shifted left');
+assert.match(timeline,/left:calc\(48% - 24px - 800px\)/,'560-740px action photo clears headline');
+assert.match(timeline,/left:calc\(48% - 4px - 800px\)/,'560-740px fallback headshot clears headline');
+assert.match(timeline,/left:calc\(48% - 4px - clamp\(170px,30cqw,220px\)\)/,'560-740px high-school cutout clears headline');
+// Only anchor copy moves vertically on narrow phones; timeline icons stay
+// attached to their original rail rather than following the text.
+assert.match(timeline,/@container career-timeline \(max-width:559px\) \{\s*\.zt-anchor \.zt-copy \{\s*justify-content:flex-end;\s*padding-bottom:26px;/,'Phone anchor headline lowers without moving timeline rail');
+assert.match(timeline,/\.zt-anchor \.zt-bodycopy \{ white-space:nowrap; overflow:visible; text-overflow:clip; \}/,'Personalized tagline stays on one line');
 assert.match(teamApi,/nextOffset/,'Team search returns continuation token');
 assert.match(search,/loadNextTeamPage/,'Live search scrolls all pages');
 
