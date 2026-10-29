@@ -474,24 +474,39 @@ function attachSortHandlers(panel: HTMLElement) {
 export default function ProfileStatsInjector({ playerId, meta }: { playerId: string; meta?: StatsMeta }) {
   useEffect(() => {
     let cancelled = false;
+    let started = false;
     const panel = document.querySelector('#ppTab-stats') as HTMLElement | null;
     if (!panel) return;
-    panel.innerHTML = `${css()}<div class="psi-empty">Loading season stats...</div>`;
-    fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-      .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data?.error || 'Unable to load stats'); return data; })
-      .then((data) => {
-        if (cancelled) return;
-        const batting = Array.isArray(data?.batting) ? data.batting : [];
-        const pitching = Array.isArray(data?.pitching) ? data.pitching : [];
-        const primary = data?.primaryType === 'pitching' ? 'pitching' : 'batting';
-        const html = primary === 'pitching'
-          ? `${table('pitching', pitching, pitchingColumns)}${table('batting', batting, battingColumns)}`
-          : `${table('batting', batting, battingColumns)}${table('pitching', pitching, pitchingColumns)}`;
-        panel.innerHTML = html ? `${css()}<div class="psi-shell">${html}</div>` : `${css()}<div class="psi-empty">No season-by-season stats found for this player yet.</div>`;
-        attachSortHandlers(panel);
-      })
-      .catch((err) => { if (!cancelled) panel.innerHTML = `${css()}<div class="psi-empty">Stats failed to load: ${esc(err?.message || 'Unknown error')}</div>`; });
-    return () => { cancelled = true; };
+    const load = () => {
+      if (started || cancelled) return;
+      started = true;
+      panel.innerHTML = `${css()}<div class="psi-empty">Loading season stats...</div>`;
+      fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
+        .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data?.error || 'Unable to load stats'); return data; })
+        .then((data) => {
+          if (cancelled) return;
+          const batting = Array.isArray(data?.batting) ? data.batting : [];
+          const pitching = Array.isArray(data?.pitching) ? data.pitching : [];
+          const primary = data?.primaryType === 'pitching' ? 'pitching' : 'batting';
+          const html = primary === 'pitching'
+            ? `${table('pitching', pitching, pitchingColumns)}${table('batting', batting, battingColumns)}`
+            : `${table('batting', batting, battingColumns)}${table('pitching', pitching, pitchingColumns)}`;
+          panel.innerHTML = html ? `${css()}<div class="psi-shell">${html}</div>` : `${css()}<div class="psi-empty">No season-by-season stats found for this player yet.</div>`;
+          attachSortHandlers(panel);
+        })
+        .catch((err) => { if (!cancelled) panel.innerHTML = `${css()}<div class="psi-empty">Stats failed to load: ${esc(err?.message || 'Unknown error')}</div>`; });
+    };
+    const check = () => {
+      if (panel.classList.contains('active') || panel.classList.contains('is-active') ||
+          panel.classList.contains('pp-fz-panel-active') ||
+          (!panel.hidden && window.getComputedStyle(panel).display !== 'none')) load();
+    };
+    const observer = new MutationObserver(check);
+    observer.observe(panel, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+    const onClick = () => requestAnimationFrame(check);
+    document.addEventListener('click', onClick);
+    check();
+    return () => { cancelled = true; observer.disconnect(); document.removeEventListener('click', onClick); };
   }, [playerId, meta]);
   return null;
 }
