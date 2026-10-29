@@ -33,9 +33,9 @@ def inventory(s3, prefix: str) -> set[str]:
 
 
 def rows_from_database(conn):
-    used = " UNION ALL ".join(f"SELECT teamid FROM public.{table} WHERE teamid ~ '^[0-9]+$'" for table in SOURCE_TABLES)
+    used = " UNION ".join(f"SELECT DISTINCT teamid FROM public.{table} WHERE teamid ~ '^[0-9]+$'" for table in SOURCE_TABLES)
     sql = f"""
-        WITH used AS (SELECT DISTINCT teamid FROM ({used}) all_seasons)
+        WITH used AS ({used})
         SELECT u.teamid,
                coalesce(nullif(m.current_team_name, ''), nullif(p.teamname, ''), nullif(c.collegename,''), '') AS name,
                coalesce(m.level_label, '') AS level,
