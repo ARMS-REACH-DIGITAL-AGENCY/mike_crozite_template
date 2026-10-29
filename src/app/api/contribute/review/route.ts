@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         const meta=JSON.parse(tip.notes || '{}') as {title?:string;captionExcerpt?:string};
         const url=new URL(tip.article_url);
         if(url.protocol!=='https:' || url.hostname!=='www.instagram.com' ||
-          !/^\\/(?:p|reel)\\/[A-Za-z0-9_-]{5,32}\\/$/.test(url.pathname)) return fail('Invalid original Instagram URL.',409);
+          !/^\/(?:p|reel)\/[A-Za-z0-9_-]{5,32}\/$/.test(url.pathname)) return fail('Invalid original Instagram URL.',409);
         const code=url.pathname.split('/')[2];
         const {rows:existing}=await query<{uuid:string}>(`
           SELECT uuid FROM news_articles WHERE hsid=$1 AND playerid=$2
