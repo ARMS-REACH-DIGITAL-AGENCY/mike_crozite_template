@@ -136,6 +136,12 @@ def mlb_names() -> dict[str, int]:
     return by_name
 
 
+def is_historical_team(team: dict) -> bool:
+    """A successor franchise must never stand in for its historical logo."""
+    successor = str(team.get("successor_teamid") or "")
+    return bool(successor) and successor != str(team["teamid"])
+
+
 def existing_logos(teamid: str) -> list[str]:
     res = s3.list_objects_v2(Bucket=BUCKET, Prefix=f"teams/{teamid}.")
     return [obj["Key"] for obj in res.get("Contents", [])]
@@ -202,10 +208,7 @@ def main() -> int:
     for team in teams:
         status, mlb_id, method, source = "", None, "", ""
         existing = existing_logos(team["teamid"])
-        historical_alias = (
-            bool(team["successor_teamid"])
-            and team["successor_teamid"] != team["teamid"]
-        )
+        historical_alias = is_historical_team(team)
         # The canonical TBC historic->current franchise mapping is identity
         # metadata, NOT license to replace an old Indians, Expos, or Brooklyn
         # Dodgers crest with the present-day franchise logo.
