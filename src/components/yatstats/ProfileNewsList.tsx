@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import SortToggle, { type SortDir } from "./SortToggle";
 import CardPhoto from "./CardPhoto";
 import { markPlayerName } from "./PlayerNameMentions";
@@ -107,6 +107,8 @@ export default function ProfileNewsList({
 }) {
   const storyParam = useStoryParam();
   const [openUuid, setOpenUuid] = useState<string>("");
+  // The same ?story= URL may stay mounted while card arrays change.
+  const openedStoryParam = useRef<string | null>(null);
   const instagramStories = useMemo(() => stories.filter(s => parseNewsVideo(s.url)?.provider === 'Instagram'), [stories]);
   // The post itself (picture, @handle, caption, kind), so the viewer shows
   // exactly what the Social tab shows for a synced post.
@@ -137,11 +139,22 @@ export default function ProfileNewsList({
   }), [instagramStories, instagramDetails, playerName]);
   const instagramSelected = Boolean(instagramPosts.some(p => p.id === openUuid));
 
+  // Open a linked story only once when it first enters the loaded feed.
+  // Changing Row 3 filters must not reopen a previously dismissed story.
   useEffect(() => {
-    if (storyParam && stories.some((s) => s.uuid === storyParam)) {
+    if (storyParam && openedStoryParam.current !== storyParam
+        && stories.some((s) => s.uuid === storyParam)) {
+      openedStoryParam.current = storyParam;
       setOpenUuid(storyParam);
     }
   }, [storyParam, stories]);
+
+  useEffect(() => {
+    if (!schoolWide) return;
+    const onRow3Filter = () => setOpenUuid("");
+    window.addEventListener("yat:news-player-filter", onRow3Filter);
+    return () => window.removeEventListener("yat:news-player-filter", onRow3Filter);
+  }, [schoolWide]);
 
   const openStory = stories.find((s) => s.uuid === openUuid) || null;
   const selectedVideo = openStory ? (openStory.video || parseNewsVideo(openStory.url)) : null;
