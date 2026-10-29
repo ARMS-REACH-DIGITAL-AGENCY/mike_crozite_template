@@ -97,6 +97,13 @@ export default function ReviewQueue() {
     setBusy(b=>{const next={...b};delete next[id];return next;});
   };
 
+  useEffect(() => {
+    if (!alumni.length) return;
+    const id = new URLSearchParams(window.location.search).get('alumni');
+    if (!id || !alumni.some(item => String(item.id) === id)) return;
+    requestAnimationFrame(() => document.getElementById('alumni-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [alumni]);
+
   const reviewAlumni = async (id: number, status: 'approved' | 'rejected') => {
     setBusy(b => ({ ...b, ['alumni-' + id]: 'Saving…' }));
     const res = await fetch('/api/contribute/where-yat-now/review', {
