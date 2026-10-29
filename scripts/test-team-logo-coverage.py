@@ -33,7 +33,9 @@ class LogoTests(unittest.TestCase):
     def test_historical_asset_backfill_is_non_destructive(self):
         src = (ROOT / "backfill-historical-team-logos.py").read_text()
         self.assertIn('IfNoneMatch="*"', src)
-        self.assertIn('if present(s3,dest) or present(s3,f"teams-web/{tid}.webp")', src)
+        self.assertIn('has_original=bool(present(s3,dest))', src)
+        self.assertIn('has_web=bool(present(s3,target_web))', src)
+        self.assertIn('IfNoneMatch="*"', src)
         self.assertIn('DRY_RUN=os.getenv("DRY_RUN","true")', src)
         self.assertNotIn("delete_object(", src)
 
