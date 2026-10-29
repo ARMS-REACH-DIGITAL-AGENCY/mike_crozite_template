@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship },
     }).catch(() => {});
-    return NextResponse.json({ ok: true, pending: true, partnerHref: `/${hsid}#sec-partner` });
+    return NextResponse.json({ ok: true, pending: true, partnerHref: 'https://yatstats.com/partners/' });
   } catch (error) {
     console.error('[where-yat-now] submit failed', { playerId, error });
     return reply('Unable to save this update. Please try again.', 500);
