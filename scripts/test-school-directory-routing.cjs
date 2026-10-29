@@ -37,7 +37,7 @@ const query=async (sql,params=[])=>{
     const state=params[0];
     return {rows:schools.filter(s=>s.regionid===state && (
       s.name_slug===params[1] || (s.name_slug+'-'+s.city_slug)===params[1] || (s.name_slug+'-'+s.hsid)===params[1]
-    )).map(s=>({hsid:s.hsid}))};
+    )).map(s=>({hsid:s.hsid,name_slug:s.name_slug}))};
   }
   throw Error('Unhandled mocked SQL: '+sql.slice(0,130));
 };
