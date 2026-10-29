@@ -130,7 +130,7 @@ export async function canonicalSchoolUrls(
   for (const r of rows) {
     const id = String(r.hsid);
     if (r.existing) {
-      mapped.set(id, String(r.existing).replace(/\\/+$/, ''));
+      mapped.set(id, String(r.existing).replace(/\/+$/, ''));
       continue;
     }
     const state = String(r.regionid || '').toLowerCase();
