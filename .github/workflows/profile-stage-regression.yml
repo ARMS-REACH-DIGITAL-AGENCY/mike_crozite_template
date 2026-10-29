@@ -1,0 +1,31 @@
+name: Player profile real-browser regression
+on:
+  pull_request:
+    branches: [Easter-NEWS]
+    paths:
+      - 'src/app/[hsid]/player/**'
+      - 'src/components/yatstats/ProfileStatsInjector.tsx'
+      - 'src/components/yatstats/ProfileGameLogLoader.tsx'
+      - 'src/lib/playerGameLogData.ts'
+      - 'src/app/api/player-game-log/**'
+      - 'src/app/api/player-season-stats/**'
+      - 'scripts/test-profile-stage-browser.mjs'
+      - '.github/workflows/profile-stage-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install Playwright runner (without modifying lockfile)
+        run: npm install --no-save --package-lock=false playwright@1.57.0
+      - name: Install Chromium and dependencies
+        run: npx playwright install chromium --with-deps
+      - name: Real-browser statistics and game-log parity
+        run: node scripts/test-profile-stage-browser.mjs
