@@ -1,6 +1,7 @@
 'use client';
 
 import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { getSharedPlayerSeasonStats } from '@/lib/playerSeasonStatsClient';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
 import { SchoolContext } from '@/context/SchoolContext';
