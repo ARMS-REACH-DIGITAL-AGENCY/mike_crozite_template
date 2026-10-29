@@ -1,4 +1,5 @@
 "use client";
+import SponsorTower from "@/components/yatstats/SponsorTower";
 
 // Alumni News gallery (#sec-news): news cards laid out like the flip-card
 // gallery, one card per story - a player can have many cards, or none.
