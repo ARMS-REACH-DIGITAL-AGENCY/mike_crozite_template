@@ -1,5 +1,6 @@
 'use client';
 
+import { getSharedPlayerSeasonStats } from '@/lib/playerSeasonStatsClient';
 import { useEffect } from 'react';
 
 type Row = Record<string, unknown>;
@@ -481,8 +482,7 @@ export default function ProfileStatsInjector({ playerId, meta }: { playerId: str
       if (started || cancelled) return;
       started = true;
       panel.innerHTML = `${css()}<div class="psi-empty">Loading season stats...</div>`;
-      fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-        .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data?.error || 'Unable to load stats'); return data; })
+      getSharedPlayerSeasonStats(playerId)
         .then((data) => {
           if (cancelled) return;
           const batting = Array.isArray(data?.batting) ? data.batting : [];
