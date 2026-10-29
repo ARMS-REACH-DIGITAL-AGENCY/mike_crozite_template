@@ -674,7 +674,7 @@ function MomentDetailModal({ moment, session, onClose, onCommentPosted, onReacti
 // faded way back. Every tick the line slides left - the next photo becomes
 // the hero, the old hero fades out to the left and rejoins at the end.
 type HeroPhoto = { web: string; cutout: string | null; source: string | null; storyId?: string | null };
-type RailStory = { id: string; thumb: string | null; draft?: boolean };
+type RailStory = { id: string; image: string | null; draft?: boolean };
 
 export type CareerTimelinePreviewState = {
   revision: string;
@@ -1097,14 +1097,15 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           const byYear: Record<number, HeroPhoto[]> = {};
           const byMonth: Record<number, Record<number, RailStory[]>> = {};
           const idsByYear: Record<number, string[]> = {};
-          type ApiPhoto = { web: string | null; thumb?: string | null; cutout?: string | null; source?: string | null; logo?: boolean };
+          type ApiPhoto = { web: string | null; full?: string | null; thumb?: string | null; cutout?: string | null; source?: string | null; logo?: boolean };
           type ApiStory = { id: string; kind?: string; year: number | null; date?: string | null; photos?: ApiPhoto[]; commentPhotos?: ApiPhoto[] };
           for (const story of data.stories as ApiStory[]) {
             if (!story.year) continue;
             (idsByYear[story.year] ||= []).push(story.id);
             const month = story.date ? Number(story.date.slice(5, 7)) : 0;
             if (month >= 1 && month <= 12) {
-              ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, thumb: story.photos?.[0]?.thumb || story.photos?.[0]?.web || null });
+              // The stored square thumbnail crops people; use the aspect-preserved photo instead.
+              ((byMonth[story.year] ||= {})[month] ||= []).push({ id: story.id, image: story.photos?.[0]?.web || story.photos?.[0]?.full || story.photos?.[0]?.thumb || null });
             }
             // Never promote a fan Story image (including reply photos) into
             // the hero asset list. All fan memories stay discoverable via
@@ -1155,7 +1156,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
       [preview.year]: {
         ...publishedStoriesByMonth[preview.year],
         [preview.month]: [
-          { id: 'local-story-preview', thumb: preview.photos[0].url, draft: true },
+          { id: 'local-story-preview', image: preview.photos[0].url, draft: true },
           ...(publishedStoriesByMonth[preview.year]?.[preview.month] || []),
         ],
       },
@@ -2390,9 +2391,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                       )}
                       {stories.length > 0 && (isPreview ? (
                         <span className="zt-rail-month-memory" role="img" aria-label={`${selected ? 'Your photo' : `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`} in ${label} ${monthRailYear}`}>
-                          {stories[0].thumb ? (
+                          {stories[0].image ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={stories[0].thumb} alt="" loading="lazy" decoding="async" />
+                            <img src={stories[0].image} alt="" loading="lazy" decoding="async" />
                           ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </span>
@@ -2404,9 +2405,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                           aria-label={`Open ${stories.length} ${stories.length === 1 ? 'story' : 'stories'} from ${label} ${monthRailYear}`}
                           title={`${label} ${monthRailYear}: open memory`}
                         >
-                          {stories[0].thumb ? (
+                          {stories[0].image ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={stories[0].thumb} alt="" loading="lazy" decoding="async" />
+                            <img src={stories[0].image} alt="" loading="lazy" decoding="async" />
                           ) : <span className="zt-rail-star" aria-hidden="true">★</span>}
                           {stories.length > 1 && <span className="zt-rail-story-count">{stories.length}</span>}
                         </button>
@@ -2922,12 +2923,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           position:absolute; z-index:9; left:50%; bottom:calc(50% + 8px);
           transform:translateX(-50%); display:flex; align-items:flex-end;
           justify-content:center; width:max-content; height:max-content;
-          max-width:52px; padding:1px; border:0; border-radius:2px;
+          max-width:none; padding:1px; border:0; border-radius:2px;
           background:rgba(0,0,0,.55); color:#ffd02f; cursor:pointer;
           filter:drop-shadow(0 2px 3px #000); overflow:visible;
         }
         .zt-rail-month-memory :global(img) {
-          display:block; width:auto; height:auto; max-width:48px; max-height:38px;
+          display:block; width:auto; height:26px; max-width:none; max-height:none;
           object-fit:contain; object-position:center bottom; background:transparent;
         }
         .zt-rail-month-memory:hover { filter:drop-shadow(0 2px 4px #000) brightness(1.18); }
@@ -2943,8 +2944,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         }
         .zt-rail-year-memory:hover { transform:translate(-50%,-50%) scale(1.16); }
         @media(max-width:620px) {
-          .zt-rail-month-memory { max-width:36px; bottom:calc(50% + 7px); }
-          .zt-rail-month-memory :global(img) { max-width:32px; max-height:32px; }
+          .zt-rail-month-memory { max-width:none; bottom:calc(50% + 7px); }
+          .zt-rail-month-memory :global(img) { height:18px; max-width:none; max-height:none; }
           .zt-rail-year-memory { width:20px; height:24px; }
           .zt-rail-year-memory .zt-rail-star { font-size:16px; }
         }
