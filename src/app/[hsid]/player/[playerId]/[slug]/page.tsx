@@ -612,7 +612,7 @@ export default async function ProfilePage({ params }: Props) {
           display:block;max-width:100%;max-height:100%;
           width:auto;height:auto;object-fit:contain;
         }
-        #playerFunZone .yp-profile-infeed-ad strong {font:800 18px/1.1 var(--yat-font-compact,Oswald,sans-serif);}
+        #playerFunZone .yp-profile-infeed-ad strong {font:800 18px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
         #playerFunZone .yp-profile-infeed-ad small {font:600 10px/1.2 var(--yat-font-ui,Arial,sans-serif);opacity:.72;}
         #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:none;}
         /* Real container width captures the docked left/right rails as well
