@@ -853,11 +853,12 @@ export default function FunZone({
         data-fz-tab="schedule"
       >
         {retiredPlayer ? (
-          <div className="fz-where-yat" style={{padding:'9px',textAlign:'center',fontFamily:'Oswald,sans-serif'}}>
-            <h3 style={{fontSize:'clamp(16px,5cqi,24px)',marginBottom:9}}>WHERE YAT NOW?</h3>
-            <p style={{fontSize:'clamp(10px,3cqi,14px)',marginBottom:12}}>Share what life looks like after baseball.</p>
+          <div className="fz-where-yat" style={{padding:'12px 10px',textAlign:'center',fontFamily:'Archivo,Arial,sans-serif',background:'linear-gradient(160deg,#232323,#101010)',border:'1px solid #555',borderRadius:2}}>
+            <div style={{fontFamily:'Oswald,Barlow Condensed,sans-serif',fontSize:'clamp(10px,2.5cqi,12px)',color:'#e9bf56',letterSpacing:'.1em'}}>CONNECT · CONTRIBUTE · REMEMBER</div>
+            <h3 style={{fontFamily:'Oswald,Barlow Condensed,sans-serif',fontSize:'clamp(18px,5cqi,25px)',margin:'8px 0',color:'#fff'}}>WHERE YAT NOW?</h3>
+            <p style={{fontSize:'clamp(10px,3cqi,13px)',marginBottom:12,color:'#d1d1d1'}}>Life after baseball? Share your story, a recent photo, and what you're doing today.</p>
             <button type="button" onClick={() => openWhereYatNow({playerId:imageId,hsid:resolvedHsid,name:displayName})}
-              style={{background:'#145a3c',color:'#fff',border:0,borderRadius:3,padding:'8px 12px',fontWeight:800,cursor:'pointer'}}>SHARE YOUR UPDATE →</button>
+              style={{background:'#e9bf56',color:'#151515',border:0,borderRadius:2,padding:'9px 14px',fontFamily:'Oswald,Barlow Condensed,sans-serif',fontSize:15,fontWeight:800,letterSpacing:'.04em',cursor:'pointer'}}>SHARE AN ALUMNI UPDATE →</button>
           </div>
         ) : lazySchedulePlayerId ? (
           loadedSchedule ? <SevenDaySnapshotView {...loadedSchedule} profileHref={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`} /> :
