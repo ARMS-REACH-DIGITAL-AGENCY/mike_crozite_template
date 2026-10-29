@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
 const preview = process.env.PROFILE_PREVIEW_ORIGIN ||
-  'https://mike-crozite-template-jbucd7bhy-arms-reach-digital-agency.vercel.app';
+  'https://mike-crozite-template-72bsygok6-arms-reach-digital-agency.vercel.app';
 const production = process.env.PROFILE_PRODUCTION_ORIGIN ||
   'https://hamilton.az.yatstats.com';
 const cases = [
