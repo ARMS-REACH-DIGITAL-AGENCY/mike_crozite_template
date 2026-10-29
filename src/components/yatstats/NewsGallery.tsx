@@ -1,4 +1,3 @@
-import SponsorTower from '@/components/yatstats/SponsorTower';
 "use client";
 
 // Alumni News gallery (#sec-news): news cards laid out like the flip-card
