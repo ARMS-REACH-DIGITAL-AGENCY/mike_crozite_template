@@ -261,16 +261,11 @@ async function readPreparedHistoricalRows(playerId: string, kind: "batting"|"pit
               m.current_org_or_conference_abbrev, m.level_label,
               $2::text AS _source
          FROM public.player_profile_historical_stats_stage s
-         CROSS JOIN LATERAL jsonb_to_recordset(s.${column}) AS raw(
-           playerid text, year text, teamid text, highlevel text, team_name text,
-           firstname text, lastname text, name text,
-           g text, ab text, r text, h text, dbl text, tpl text, hr text, rbi text,
-           sb text, bb text, so text, bavg text, obp text, slg text, ops text,
-           w text, l text, era text, gs text, cg text, sho text, gr text,
-           gf text, sv text, ip text, er text, whip text, h9 text, hr9 text,
-           bb9 text, so9 text, ra9 text, so_bb text, wp text, bk text, hb text,
-           age text, league text, mlb text
-         )
+         CROSS JOIN LATERAL jsonb_array_elements(s.${column}) as entry(value)
+         CROSS JOIN LATERAL jsonb_populate_record(
+           NULL::public.${kind==="batting" ? "tbc_batting_raw" : "tbc_pitching_raw"},
+           entry.value
+         ) AS raw
          LEFT JOIN public.teamid_universe_mapping m ON m.teamid::text=raw.teamid
         WHERE s.playerid=$1
           AND s.${kind === "batting" ? "batting_prepared_at" : "pitching_prepared_at"} IS NOT NULL
