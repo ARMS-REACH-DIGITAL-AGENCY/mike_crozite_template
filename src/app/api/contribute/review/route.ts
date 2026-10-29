@@ -10,6 +10,7 @@
 //                                ever reaches a card.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { writerQuery } from '@/lib/dbWriter';
 import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
     try {
       // Rejection hides the article without erasing the audit trail;
       // the scout sees the existing permalink and cannot republish it.
-      const { rows } = await query<{ uuid: string; hsid: string }>(`
+      const { rows } = await writerQuery<{ uuid: string; hsid: string }>(`
         WITH revoked AS (
           UPDATE news_articles n
           SET verification_status='REJECTED',

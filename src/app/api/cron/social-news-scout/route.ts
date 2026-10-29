@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 // Existing Meta Business Discovery sync stores authorized public posts.
-// This independent cron classifies their captions and queues reviewed tips.
+// This independent cron publishes qualified player news, preserving a removable audit trail.
 export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET || req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

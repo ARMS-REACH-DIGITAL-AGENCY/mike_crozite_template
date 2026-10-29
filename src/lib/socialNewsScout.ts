@@ -1,5 +1,5 @@
 import 'server-only';
-import { query } from '@/lib/db';
+import { writerQuery as query } from '@/lib/dbWriter';
 import { canonicalInstagramPostUrl, classifySocialNewsCaption, instagramPostKey, socialNewsHeadline } from '@/lib/socialNewsScoutRules';
 
 type Post = {
