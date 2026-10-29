@@ -1,0 +1,22 @@
+// Guard the shared retired-alumni survey across every school.
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const drawer = fs.readFileSync('src/components/yatstats/WhereYatNowDrawer.tsx','utf8');
+const flip = fs.readFileSync('src/components/yatstats/FunZone.tsx','utf8');
+const profile = fs.readFileSync('src/components/yatstats/WhereYatProfilePanel.tsx','utf8');
+const submit = fs.readFileSync('src/app/api/contribute/where-yat-now/route.ts','utf8');
+const ahead = drawer.indexOf('const data = new FormData(event.currentTarget)');
+const asyncAuth = drawer.indexOf('await auth.authStateReady?.();',drawer.indexOf('async function submit'));
+assert(ahead > -1 && ahead < asyncAuth,'FormData must be captured before first await in submit');
+assert(drawer.includes("if (!token) {"),'Submission must require a signed-in fan');
+assert(drawer.includes('pendingAfterSignIn.current = d'),'Sign-in must preserve targeted alumnus');
+assert(drawer.includes('onAuthStateChanged'),'After sign-in, resume intended alumni form');
+assert(drawer.includes("https://yatstats.com/partners/"),'Corporate partner destination required');
+assert(!drawer.includes('#145a3c') && !drawer.includes('sec-partner'),'Legacy form styling and link must be gone');
+assert(flip.includes('SHARE AN ALUMNI UPDATE'),'Retired flip CTA missing');
+assert(flip.includes("openWhereYatNow({playerId:imageId,hsid:resolvedHsid,name:displayName})"),'Alumni target must remain dynamic');
+assert(!flip.includes("background:'#145a3c'"),'Legacy green CTA must be gone');
+assert(profile.includes('https://yatstats.com/partners/'),'Profile partner link must use corporate site');
+assert(submit.includes("pending: true"),'Moderation must be preserved');
+assert(submit.includes("partnerHref: 'https://yatstats.com/partners/'"),'Server partnership link mismatch');
+console.log('Where YAT Now universal submission / brand / auth / moderation contract: OK');
