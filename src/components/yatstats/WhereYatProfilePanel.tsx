@@ -58,10 +58,10 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         </article>
       ) : <p>Know what {name} has been doing since baseball? Help us reconnect the alumni community with an updated photo, business and social links.</p>}
       <button type="button" data-where-yat-profile-player={playerId} data-where-yat-profile-school={hsid} data-where-yat-profile-name={name}
-        style={{ marginTop: 16, padding: '12px 18px', background: '#145a3c', border: 0, color: 'white', fontWeight: 800, cursor: 'pointer' }}>
+        style={{ marginTop: 16, padding: '12px 18px', background: '#e9bf56', border: 0, color: '#151515', fontFamily: 'Oswald,Barlow Condensed,sans-serif', fontWeight: 800, letterSpacing: '.04em', cursor: 'pointer' }}>
         {entry ? 'SUBMIT AN UPDATED STORY →' : 'SHARE A FREE ALUMNI UPDATE →'}
       </button>
-      <p style={{ marginTop: 18, fontSize: 13 }}>Have a business to promote? <a href={`/${hsid}#sec-partner`} style={{ color: '#e9bf56' }}>Explore optional YAT?STATS Partnership opportunities →</a></p>
+      <p style={{ marginTop: 18, fontSize: 13 }}>Have a business to promote? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS Partnership opportunities →</a></p>
     </div>
   );
 }
