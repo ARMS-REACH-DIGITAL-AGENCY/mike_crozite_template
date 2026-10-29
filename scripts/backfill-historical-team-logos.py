@@ -32,18 +32,28 @@ def main():
             print("REJECT invalid manifest entry",tid,source);error+=1;continue
         ext=source.rsplit(".",1)[-1].lower()
         dest=f"teams/{tid}.png"
-        if present(s3,dest) or present(s3,f"teams-web/{tid}.webp") or present(s3,f"teams/cutouts/{tid}.png"):
-            print("SKIP existing historical asset",tid);skip+=1;continue
+        target_web=f"teams-web/{tid}.webp"
+        has_original=bool(present(s3,dest))
+        has_cutout=bool(present(s3,f"teams/cutouts/{tid}.png"))
+        has_web=bool(present(s3,target_web))
+        if has_web:
+            print("SKIP already published historical WebP",tid);skip+=1;continue
         try:
-            image=Image.open(io.BytesIO(s3.get_object(Bucket=BUCKET,Key=source)["Body"].read()))
-            image.verify()
-            raw=Image.open(io.BytesIO(s3.get_object(Bucket=BUCKET,Key=source)["Body"].read())).convert("RGBA")
+            # Never change existing historical artwork. The optimized asset can
+            # be repaired independently if an earlier run created only the PNG.
+            original_key=f"teams/cutouts/{tid}.png" if has_cutout else dest if has_original else source
+            raw=Image.open(io.BytesIO(s3.get_object(Bucket=BUCKET,Key=original_key)["Body"].read())).convert("RGBA")
             if min(raw.size)<32: raise ValueError("artwork too small")
-            rendered=io.BytesIO()
-            raw.save(rendered,format="PNG")
-            print(("DRY RUN" if DRY_RUN else "PUBLISH"),tid,source,"=>",dest)
+            print(("DRY RUN" if DRY_RUN else "PUBLISH"),tid,original_key,"=>",target_web)
             if not DRY_RUN:
-                s3.put_object(Bucket=BUCKET,Key=dest,Body=rendered.getvalue(),ContentType="image/png",CacheControl="public, max-age=86400",IfNoneMatch="*")
+                if not (has_original or has_cutout):
+                    rendered=io.BytesIO()
+                    raw.save(rendered,format="PNG")
+                    s3.put_object(Bucket=BUCKET,Key=dest,Body=rendered.getvalue(),ContentType="image/png",CacheControl="public, max-age=86400",IfNoneMatch="*")
+                raw.thumbnail((400,400),Image.Resampling.LANCZOS)
+                optimized=io.BytesIO()
+                raw.save(optimized,format="WEBP",quality=82,alpha_quality=90)
+                s3.put_object(Bucket=BUCKET,Key=target_web,Body=optimized.getvalue(),ContentType="image/webp",CacheControl="public, max-age=86400",IfNoneMatch="*")
             ok+=1
         except Exception as exc:
             print("FAILED",tid,str(exc));error+=1
