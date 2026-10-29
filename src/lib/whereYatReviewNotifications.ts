@@ -5,8 +5,12 @@ import { resolveSchoolNewsOrigins } from './schoolNewsLinks';
 
 // Central, school-independent reviewer destinations. These are administrative
 // transaction alerts, not opt-in marketing subscriptions.
+// alumni@yatstats.com is a GoDaddy alias of pete@yatstats.com; no second mailbox needed.
 const REVIEW_EMAIL = 'alumni@yatstats.com';
-const REVIEW_PHONE = '+14806282588';
+// Send only from the A2P-registered ARMS number to the owner's personal cell.
+// The Google Voice line is neither the sender nor the recipient for these alerts.
+const REVIEW_FROM_NUMBER = '+19289282228';
+const REVIEW_TO_NUMBER = '+14806282588';
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => (
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string,string>)[char]
 ));
@@ -26,7 +30,7 @@ async function lookupSmsContact(): Promise<string | null> {
   if (!key || !locationId) return null;
   const url = new URL('https://services.leadconnectorhq.com/contacts/search/duplicate');
   url.searchParams.set('locationId', locationId);
-  url.searchParams.set('number', REVIEW_PHONE);
+  url.searchParams.set('number', REVIEW_TO_NUMBER);
   try {
     const response = await fetch(url, {
       headers: { Accept: 'application/json', Authorization: 'Bearer ' + key, Version: '2021-07-28' },
@@ -40,7 +44,7 @@ async function lookupSmsContact(): Promise<string | null> {
     const data = await response.json() as {contact?: {id?: string; phone?: string; dnd?: boolean; dndSettings?: {SMS?: {status?: string}}}};
     const contact = data.contact;
     // Never route a private review notification to a different contact.
-    if (!contact?.id || String(contact.phone || '').replace(/\D/g,'') !== REVIEW_PHONE.replace(/\D/g,'')) return null;
+    if (!contact?.id || String(contact.phone || '').replace(/\D/g,'') !== REVIEW_TO_NUMBER.replace(/\D/g,'')) return null;
     if (contact.dnd || contact.dndSettings?.SMS?.status === 'active') {
       console.warn('[where-yat-alert] SMS contact has Do Not Disturb enabled');
       return null;
@@ -59,7 +63,7 @@ async function sendSms(contactId: string, message: string): Promise<boolean> {
     const response = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + key, Version: '2021-04-15' },
-      body: JSON.stringify({ type: 'SMS', contactId, toNumber: REVIEW_PHONE, message }),
+      body: JSON.stringify({ type: 'SMS', contactId, fromNumber: REVIEW_FROM_NUMBER, toNumber: REVIEW_TO_NUMBER, message }),
       signal: AbortSignal.timeout(12000),
     });
     if (!response.ok) console.error('[where-yat-alert] SMS not queued', response.status, (await response.text()).slice(0,220));
