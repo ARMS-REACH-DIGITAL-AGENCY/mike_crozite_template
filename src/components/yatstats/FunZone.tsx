@@ -554,7 +554,7 @@ function SocialPanel({
           `Visit @${YAT_STATS_X_HANDLE} to find out.`,
           "Where They YAT? Stories & Stats.",
           `#${hashtag}`,
-        ].join("\\n")
+        ].join("\n")
       : `Where They YAT? Stories & Stats. Follow ${fullName}'s career on YAT?STATS. #${hashtag}`;
 
   // What fans see in the Social tab is the actual text that gets shared.
