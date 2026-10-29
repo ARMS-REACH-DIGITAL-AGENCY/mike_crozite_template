@@ -250,7 +250,52 @@ async function tableExists(tableName: string) {
   return Boolean(rows[0]?.table_name);
 }
 
+// Prepared historical records are grouped by player once during ingestion.
+// Resolve current canonical team labels at read time so changing the mapping
+// never requires rewriting immutable historical stats.
+async function readPreparedHistoricalRows(playerId: string, kind: "batting"|"pitching"): Promise<any[]|null> {
+  try {
+    const column = kind === "batting" ? "batting_rows" : "pitching_rows";
+    const { rows } = await query(
+      `SELECT raw.*, m.current_team_name, m.current_org_or_conference_name,
+              m.current_org_or_conference_abbrev, m.level_label,
+              $2::text AS _source
+         FROM public.player_profile_historical_stats_stage s
+         CROSS JOIN LATERAL jsonb_to_recordset(s.${column}) AS raw(
+           playerid text, year text, teamid text, highlevel text, team_name text,
+           firstname text, lastname text, name text,
+           g text, ab text, r text, h text, dbl text, tpl text, hr text, rbi text,
+           sb text, bb text, so text, bavg text, obp text, slg text, ops text,
+           w text, l text, era text, gs text, cg text, sho text, gr text,
+           gf text, sv text, ip text, er text, whip text, h9 text, hr9 text,
+           bb9 text, so9 text, ra9 text, so_bb text, wp text, bk text, hb text,
+           age text, league text, mlb text
+         )
+         LEFT JOIN public.teamid_universe_mapping m ON m.teamid::text=raw.teamid
+        WHERE s.playerid=$1
+          AND s.${kind === "batting" ? "batting_prepared_at" : "pitching_prepared_at"} IS NOT NULL
+        ORDER BY raw.year,raw.teamid`,
+      [playerId, kind==="batting" ? "tbc_batting_raw" : "tbc_pitching_raw"]
+    );
+    // Empty can mean no batting/pitching seasons for an otherwise valid player.
+    // Only stage records with a preparation timestamp count as authoritative.
+    const ready = await query(
+      `SELECT 1 FROM public.player_profile_historical_stats_stage
+         WHERE playerid=$1 AND ${kind==="batting" ? "batting_prepared_at" : "pitching_prepared_at"} IS NOT NULL LIMIT 1`,
+      [playerId]
+    );
+    return ready.rows.length ? rows : null;
+  } catch(error) {
+    console.warn("[player-stats] historical staging unavailable, falling back",error);
+    return null;
+  }
+}
+
 async function readPlayerRows(tableName: string, playerId: string) {
+  if (tableName === "tbc_batting_raw" || tableName === "tbc_pitching_raw") {
+    const prepared = await readPreparedHistoricalRows(playerId,tableName==="tbc_batting_raw"?"batting":"pitching");
+    if(prepared!==null)return prepared;
+  }
   if (!(await tableExists(tableName))) return [];
 
   const { rows } = await query(
