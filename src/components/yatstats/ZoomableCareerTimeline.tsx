@@ -1014,11 +1014,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     let cancelled = false;
     setStats([]);
     setStatsLoad({ key: playerId, status: 'loading' });
-    fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`player-season-stats ${res.status} for playerId=${playerId}`);
-        return res.json();
-      })
+    getSharedPlayerSeasonStats(playerId)
       .then((data) => {
         if (cancelled) return;
         const primary = data?.primaryType === 'batting' ? data?.batting : data?.pitching;
