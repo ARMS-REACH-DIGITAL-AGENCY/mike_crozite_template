@@ -106,7 +106,7 @@ export default function WhereYatNowDrawer() {
       if (result.error) {
         setError(result.error);
         setFieldError(field);
-        formRef.current?.elements.namedItem(field) && (formRef.current.elements.namedItem(field) as HTMLInputElement).focus();
+        (formRef.current?.elements.namedItem(field) as HTMLInputElement | null)?.focus();
         setBusy(false);
         return;
       }
