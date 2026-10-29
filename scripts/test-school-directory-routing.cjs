@@ -104,7 +104,7 @@ const query=async (sql,params=[])=>{
     compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2021}
   }).outputText;
   const exportObj={};
-  vm.runInNewContext(compiled,{exports:exportObj,require,console,URLSearchParams},{filename:'SearchDrawerTabs.js'});
+  vm.runInNewContext(compiled,{exports:exportObj,require:(name) => name === './FavoriteButton' ? {loadFavoriteIds:()=>[]} : require(name),console,URLSearchParams},{filename:'SearchDrawerTabs.js'});
   const html=exportObj.renderSchoolRows([
     {hsid:'5004',hsname:'Hamilton',hslocation:'Chandler,AZ',microsite_url:urls.get('5004'),bracket_eligible:true,current_aa:43},
     {hsid:'4',hsname:'Melbourne',hslocation:'Melbourne,FL',microsite_url:urls.get('4'),bracket_eligible:false,current_aa:38},
