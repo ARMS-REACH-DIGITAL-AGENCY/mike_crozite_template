@@ -1,5 +1,5 @@
-import SponsorTower from '@/components/yatstats/SponsorTower';
 'use client';
+import SponsorTower from '@/components/yatstats/SponsorTower';
 
 // src/components/yatstats/StoriesFeed.tsx
 // The Stories tab on the player profile page: every live story this player
