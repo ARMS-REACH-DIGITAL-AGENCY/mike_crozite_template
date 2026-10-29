@@ -62,7 +62,16 @@ export async function POST(req: NextRequest) {
         .rotate().resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 82, mozjpeg: true }).toBuffer();
       photoKey = `alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/${randomUUID()}.jpg`;
-      const s3 = new S3Client({ region: S3_REGION });
+      // Use the same explicit S3 credentials as our existing Contribute uploads.
+      // Bare S3Client falls through to the AWS instance profile chain, which is
+      // not available in Vercel serverless functions.
+      const accessKeyId = process.env.YATSTATS_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+      const secretAccessKey = process.env.YATSTATS_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+      if (!accessKeyId || !secretAccessKey) {
+        console.error('[where-yat-now] Photo storage credentials missing', { playerId, environment: process.env.VERCEL_ENV });
+        return reply('Photo storage is temporarily unavailable. Please try again shortly; your entries have not been saved.', 503);
+      }
+      const s3 = new S3Client({ region: S3_REGION, credentials: { accessKeyId, secretAccessKey } });
       await s3.send(new PutObjectCommand({
         Bucket: S3_BUCKET, Key: photoKey, Body: compressed, ContentType: 'image/jpeg',
         CacheControl: 'private, no-store',
