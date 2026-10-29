@@ -1,0 +1,21 @@
+name: Team Logo Regression
+on:
+  pull_request:
+    paths:
+      - "scripts/*team*logo*.py"
+      - "scripts/build-web-cutouts-s3.py"
+      - ".github/workflows/*team*logo*.yml"
+      - ".github/workflows/team-logo-regression.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python scripts/test-team-logo-coverage.py
+      - run: python -m py_compile scripts/audit-team-logo-coverage.py scripts/build-web-cutouts-s3.py scripts/import-mlb-team-logos-s3.py
