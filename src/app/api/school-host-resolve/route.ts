@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { unstable_cache } from 'next/cache';
-import { normalizeSchoolHost, resolveSchoolHsidFromHost, schoolHostnamePattern } from '@/lib/schoolDirectoryRouting';
+import { canonicalSchoolUrls, normalizeSchoolHost, resolveSchoolHsidFromHost, schoolHostnamePattern } from '@/lib/schoolDirectoryRouting';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,11 +12,13 @@ export const dynamic = 'force-dynamic';
 // hostname in Next's shared data cache; failures are not cached. Keep HTTP
 // responses private: the hostname is in a header, not the URL cache key.
 const resolveCachedSchoolHost = unstable_cache(
-  async (hostname: string) => resolveSchoolHsidFromHost(
-    hostname,
-    (sql, params = []) => query(sql, params),
-  ),
-  ['school-host-resolution-v1'],
+  async (hostname: string) => {
+    const hsid = await resolveSchoolHsidFromHost(hostname, (sql, params = []) => query(sql, params));
+    if (!hsid) return { hsid: null, canonicalUrl: null };
+    const urls = await canonicalSchoolUrls([hsid], (sql, params = []) => query(sql, params));
+    return { hsid, canonicalUrl: urls.get(hsid) || null };
+  },
+  ['school-host-resolution-city-v2'],
   { revalidate: 600, tags: ['school-directory'] },
 );
 
@@ -28,8 +30,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ hsid: null }, { headers: { 'Cache-Control': 'no-store' } });
   }
   try {
-    const hsid = await resolveCachedSchoolHost(host);
-    return NextResponse.json({ hsid }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+    const resolved = await resolveCachedSchoolHost(host);
+    return NextResponse.json(resolved, { headers: { 'Cache-Control': 'private, max-age=60' } });
   } catch (error) {
     console.error('school-host-resolve failed', error);
     return NextResponse.json(
