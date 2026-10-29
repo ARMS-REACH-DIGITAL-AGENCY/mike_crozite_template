@@ -21,6 +21,7 @@ import { toSlugFromDisplay } from "@/lib/slug";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import { loadFavoriteIds, readYatUser } from "@/components/yatstats/FavoriteButton";
 import { EMPTY_NEWS_FILTERS, matchesNewsStory, type NewsFilterSelection } from "@/lib/newsFilterMatch";
+import { dismissSchoolNewsStoryParam } from "@/lib/newsStoryNavigation";
 
 type NewsPost = {
   uuid: string;
@@ -198,7 +199,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   const [posts, setPosts] = useState<NewsPost[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [requested, setRequested] = useState(false);
-  const [sharedStoryId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('story') || '');
+  const [sharedStoryId, setSharedStoryId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('story') || '');
   const [playerFilter, setPlayerFilter] = useState<string>("");
   const [newsFilters, setNewsFilters] = useState<NewsFilterSelection>(EMPTY_NEWS_FILTERS);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -306,6 +307,14 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
 
   useEffect(() => { setVisibleCount(60); }, [playerFilter, newsFilters]);
 
+  // A shared URL opens one story on arrival, never overrides later row-three
+  // News filters. Consuming it changes the current URL without navigation.
+  const releaseSharedStory = useCallback(() => {
+    setSharedStoryId('');
+    const nextPath = dismissSchoolNewsStoryParam(window.location.href);
+    if (nextPath !== null) window.history.replaceState(window.history.state, '', nextPath);
+  }, []);
+
   // A requested player/filter must search the full feed, not just the newest
   // 100 school-wide stories. Fetch the remaining pages progressively while
   // narrowed; the unfiltered feed stays lazy for cost and responsiveness.
@@ -316,20 +325,21 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     newsFilters.favoritesOnly
   );
   useEffect(() => {
-    const linkedStory = new URLSearchParams(window.location.search).get('story');
-    const missingLinkedStory = Boolean(linkedStory && posts && !posts.some(post => post.uuid === linkedStory));
+    const missingLinkedStory = Boolean(sharedStoryId && posts && !posts.some(post => post.uuid === sharedStoryId));
     if ((hasNarrowing || missingLinkedStory) && hasMore && posts && !loadingMore && !pageError) void loadMore();
-  }, [hasNarrowing, hasMore, posts, loadingMore, pageError, loadMore]);
+  }, [hasNarrowing, sharedStoryId, hasMore, posts, loadingMore, pageError, loadMore]);
 
   // Row 3 headshot clicks on the News tab (see InteractionStrip).
   useEffect(() => {
     const onFilter = (event: Event) => {
       const id = String((event as CustomEvent<{ playerId?: string }>).detail?.playerId || "");
+      if (!id) return;
+      releaseSharedStory();
       setPlayerFilter((current) => (current === id ? "" : id));
     };
     window.addEventListener(NEWS_PLAYER_FILTER_EVENT, onFilter);
     return () => window.removeEventListener(NEWS_PLAYER_FILTER_EVENT, onFilter);
-  }, []);
+  }, [releaseSharedStory]);
 
   // Mark the selected headshot in row 3.
   useEffect(() => {
@@ -356,9 +366,13 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     return slot?.textContent?.trim() || "this player";
   }, [playerFilter, posts]);
 
-  const clearFilter = useCallback(() => setPlayerFilter(""), []);
+  const clearFilter = useCallback(() => {
+    releaseSharedStory();
+    setPlayerFilter("");
+  }, [releaseSharedStory]);
   useEffect(() => {
     const reset = () => {
+      releaseSharedStory();
       setPlayerFilter("");
       setNewsFilters(EMPTY_NEWS_FILTERS);
       window.dispatchEvent(new Event("yat:news-reset"));
@@ -370,7 +384,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     };
     window.addEventListener("click", onResetButton, true);
     return () => window.removeEventListener("click", onResetButton, true);
-  }, []);
+  }, [releaseSharedStory]);
 
   // Cards that arrive after FLIP ALL was pressed (the news loads when the
   // tab opens, or a player filter adds cards) follow it too.
