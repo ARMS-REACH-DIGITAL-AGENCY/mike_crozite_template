@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 type Target = { playerId: string; hsid: string; name: string };
 export const WHERE_YAT_OPEN = 'yat:where-yat-now-open';
@@ -10,7 +11,14 @@ export function openWhereYatNow(target: Target) {
   window.dispatchEvent(new CustomEvent<Target>(WHERE_YAT_OPEN, { detail: target }));
 }
 
-const FIELD_STYLES = { width: '100%', padding: '10px', background: '#fff', color: '#191919', border: '1px solid #aaa', borderRadius: 4, fontSize: 15 } as const;
+const PARTNERS_HREF = 'https://yatstats.com/partners/';
+const FIELD_STYLES = { width: '100%', minHeight: 43, padding: '10px 11px', background: '#181818', color: '#f4f4f4', border: '1px solid #555', borderRadius: 2, fontFamily: 'Archivo,Arial,sans-serif', fontSize: 14, boxSizing: 'border-box' } as const;
+const ACCENT = '#e9bf56';
+const uiButton = { background: ACCENT, color: '#111', padding: '12px 16px', border: 0, borderRadius: 2, fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 16, fontWeight: 800, letterSpacing: '.035em', cursor: 'pointer' } as const;
+function requestSignIn() {
+  document.body.classList.add('drawer-account-open', 'drawer-open');
+  window.dispatchEvent(new CustomEvent('yat:acct-tab', { detail: 'signin' }));
+}
 export default function WhereYatNowDrawer() {
   const [target, setTarget] = useState<Target | null>(null);
   const [ready, setReady] = useState(false);
@@ -18,17 +26,34 @@ export default function WhereYatNowDrawer() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
+  const pendingAfterSignIn = useRef<Target | null>(null);
 
   useEffect(() => {
     setReady(true);
-    const handler = (e: Event) => {
+    const handler = async (e: Event) => {
       const d = (e as CustomEvent<Target>).detail;
       if (!d?.playerId || !d?.hsid) return;
+      await auth.authStateReady?.();
+      if (!auth.currentUser) {
+        pendingAfterSignIn.current = d;
+        requestSignIn();
+        return;
+      }
+      pendingAfterSignIn.current = null;
       setTarget(d);
       setError('');
       setSuccess(false);
       document.body.classList.add('drawer-open');
     };
+    const stopWatchingAuth = onAuthStateChanged(auth, (user) => {
+      if (!user || !pendingAfterSignIn.current) return;
+      const d = pendingAfterSignIn.current;
+      pendingAfterSignIn.current = null;
+      setTarget(d);
+      setError('');
+      setSuccess(false);
+      document.body.classList.add('drawer-open');
+    });
     window.addEventListener(WHERE_YAT_OPEN, handler);
     const onClick = (event: MouseEvent) => {
       const element = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-where-yat-profile-player]');
@@ -40,7 +65,7 @@ export default function WhereYatNowDrawer() {
       if (playerId && hsid) window.dispatchEvent(new CustomEvent(WHERE_YAT_OPEN, { detail: { playerId, hsid, name } }));
     };
     document.addEventListener('click', onClick);
-    return () => { window.removeEventListener(WHERE_YAT_OPEN, handler); document.removeEventListener("click", onClick); };
+    return () => { window.removeEventListener(WHERE_YAT_OPEN, handler); document.removeEventListener('click', onClick); stopWatchingAuth(); document.body.classList.remove('drawer-open'); };
   }, []);
 
   const close = () => {
@@ -52,17 +77,24 @@ export default function WhereYatNowDrawer() {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!target || busy) return;
+    // Capture form synchronously: event.currentTarget is cleared after the first await.
+    const data = new FormData(event.currentTarget);
     setBusy(true);
     setError('');
     try {
       await auth.authStateReady?.();
       const token = await auth.currentUser?.getIdToken().catch(() => '');
-      const data = new FormData(event.currentTarget);
-      if (token) data.set('idToken', token);
+      if (!token) {
+        pendingAfterSignIn.current = target;
+        setTarget(null);
+        requestSignIn();
+        return;
+      }
+      data.set('idToken', token);
       data.set('playerId', target.playerId);
       data.set('hsid', target.hsid);
       const response = await fetch('/api/contribute/where-yat-now', { method: 'POST', body: data, credentials: 'include' });
-      const body = await response.json();
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Unable to submit.');
       setSuccess(true);
       formRef.current?.reset();
@@ -75,27 +107,28 @@ export default function WhereYatNowDrawer() {
 
   if (!ready || !target) return null;
   const field = (label: string, name: string, placeholder = '', required = false) => (
-    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, letterSpacing: '.04em', marginBottom: 11 }}>
+    <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '.055em', marginBottom: 13, color: '#ddd' }}>
       {label}
-      <input style={{ ...FIELD_STYLES, marginTop: 4 }} name={name} placeholder={placeholder} required={required} maxLength={name === 'email' ? 220 : 300} />
+      <input style={{ ...FIELD_STYLES, marginTop: 6 }} type={name === 'email' ? 'email' : 'text'} autoComplete={name === 'email' ? 'email' : name === 'displayName' ? 'name' : 'off'} name={name} placeholder={placeholder} required={required} maxLength={name === 'email' ? 220 : 300} />
     </label>
   );
   return createPortal(
     <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 130000, background: 'rgba(0,0,0,.78)' }} onClick={close}>
       <aside role="dialog" aria-modal="true" aria-label="WHERE YAT NOW? alumni update"
         onClick={(e) => e.stopPropagation()}
-        style={{ marginLeft: 'auto', width: 'min(100%,490px)', height: '100dvh', overflowY: 'auto', background: '#f5f0e7', color: '#211b14', padding: '18px 20px 45px', boxShadow: '-8px 0 30px #0009', fontFamily: 'Arial,sans-serif' }}>
-        <button type="button" onClick={close} aria-label="Close survey" style={{ float: 'right', fontSize: 28, border: 0, background: 'transparent', cursor: 'pointer' }}>×</button>
-        <div style={{ color: '#9a732b', fontWeight: 800, fontSize: 12, letterSpacing: '.1em' }}>YAT?STATS · ALUMNI CONNECTION</div>
-        <h2 style={{ fontSize: 25, lineHeight: 1.1, margin: '12px 0' }}>WHERE YAT NOW?</h2>
-        <p style={{ fontSize: 14, lineHeight: 1.5 }}>Help former teammates, coaches, and fans reconnect with {target.name}. This alumni update is free, and submissions are reviewed before appearing on the profile.</p>
+        style={{ marginLeft: 'auto', width: 'min(100%,490px)', height: '100dvh', overflowY: 'auto', background: '#101010', color: '#f2f2f2', padding: '22px clamp(16px,4vw,26px) 54px', boxShadow: '-8px 0 30px #0009', fontFamily: 'Archivo,Arial,sans-serif', boxSizing: 'border-box', overscrollBehavior: 'contain' }}>
+        <button type="button" onClick={close} aria-label="Close survey" style={{ float: 'right', fontSize: 26, border: '1px solid #595959', width: 38, height: 38, background: 'transparent', color: '#eee', cursor: 'pointer', borderRadius: 2 }}>×</button>
+        <div style={{ color: ACCENT, fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontWeight: 700, fontSize: 12, letterSpacing: '.12em', paddingTop: 7 }}>YAT?STATS / CONNECT · CONTRIBUTE · REMEMBER</div>
+        <h2 style={{ fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 32, lineHeight: 1.1, margin: '14px 0 6px', letterSpacing: '.035em' }}>WHERE YAT NOW?</h2>
+        <div style={{ height: 2, width: 64, background: ACCENT, margin: '12px 0 15px' }} />
+        <p style={{ fontSize: 14, lineHeight: 1.6, color: '#d0d0d0' }}>Reconnect with {target.name}. Share a free alumni update for the player's profile. All submissions are reviewed before publication.</p>
         {success ? (
-          <div role="status" style={{ marginTop: 30 }}>
-            <h3>Thanks for the update!</h3>
-            <p>Your information and photo have been submitted for review. Once approved, they can appear on the alumni profile.</p>
-            <p>Want to promote your business beyond the free alumni listing? Explore our optional partnership opportunities.</p>
-            <a style={{ color: '#145a3c', fontWeight: 800 }} href={`/${target.hsid}#sec-partner`} onClick={close}>EXPLORE PARTNERSHIP OPTIONS →</a>
-            <p><button type="button" onClick={close}>Close</button></p>
+          <div role="status" style={{ marginTop: 30, lineHeight: 1.6 }}>
+            <h3 style={{ color: ACCENT, fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 22 }}>UPDATE RECEIVED</h3>
+            <p>Your update is awaiting review. When approved, it will appear in the retired player's Where YAT Now? profile tab.</p>
+            <p>Interested in promoting your business? Partnership details are on the YAT?STATS corporate site.</p>
+            <a style={{ color: ACCENT, fontWeight: 800 }} href={PARTNERS_HREF} target="_blank" rel="noopener noreferrer">EXPLORE PARTNERSHIPS ↗</a>
+            <p><button type="button" onClick={close} style={uiButton}>CLOSE</button></p>
           </div>
         ) : (
           <form ref={formRef} onSubmit={submit}>
@@ -112,23 +145,24 @@ export default function WhereYatNowDrawer() {
             {field('INSTAGRAM', 'instagram', 'Profile URL')}
             {field('FACEBOOK', 'facebook', 'Profile URL')}
             {field('X / TWITTER', 'x', 'Profile URL')}
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 11 }}>WHAT HAVE YOU BEEN UP TO?
-              <textarea name="story" maxLength={2400} rows={4} style={{ ...FIELD_STYLES, resize: 'vertical', marginTop: 4 }} placeholder="Your story, family, memories, work, and what matters to you today..." />
+            <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '.055em', marginBottom: 15 }}>WHAT HAVE YOU BEEN UP TO?
+              <textarea name="story" maxLength={2400} rows={4} style={{ ...FIELD_STYLES, resize: 'vertical', marginTop: 6 }} placeholder="Family, work, memories, and what matters to you today..." />
             </label>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 18 }}>UPLOAD A RECENT PHOTO (OPTIONAL)
-              <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style={{ display: 'block', marginTop: 7, maxWidth: '100%' }} />
-              <small style={{ display: 'block', fontWeight: 400, marginTop: 3 }}>One photo, maximum 8 MB. Reviewed before publishing.</small>
+            <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, marginBottom: 19, letterSpacing: '.055em' }}>UPLOAD A RECENT PHOTO (OPTIONAL)
+              <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style={{ display: 'block', width: '100%', marginTop: 8, color: '#f2f2f2', fontFamily: 'Archivo,Arial,sans-serif', fontSize: 13 }} />
+              <small style={{ display: 'block', fontWeight: 400, marginTop: 5, color: '#aaa', letterSpacing: 'normal', fontFamily: 'Archivo,Arial,sans-serif' }}>One photo, maximum 8 MB. Reviewed before publishing.</small>
             </label>
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 16, fontSize: 13 }}>
-              <input type="checkbox" name="sponsorship" value="yes" style={{ marginTop: 2 }} />
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 18, fontSize: 13, lineHeight: 1.5, color: '#e1e1e1' }}>
+              <input type="checkbox" name="sponsorship" value="yes" style={{ marginTop: 4, accentColor: ACCENT, width: 17, height: 17, flexShrink: 0 }} />
               I'm interested in hearing about optional advertising or partnership opportunities for my business.
             </label>
-            <p style={{ fontSize: 11, lineHeight: 1.4 }}>By submitting, you authorize YAT?STATS to review and display the approved public information and photo. Do not include private contact details in your public story. Submitting someone else's details does not verify you are that alumnus.</p>
-            {error && <p role="alert" style={{ color: '#ae2222', fontWeight: 700 }}>{error}</p>}
-            <button type="submit" disabled={busy} style={{ width: '100%', background: '#145a3c', color: '#fff', padding: 15, border: 0, fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+            <p style={{ fontSize: 11, lineHeight: 1.55, color: '#aaa' }}>By submitting, you authorize YAT?STATS to review and display approved public information and photos. Keep private contact details out of your public story. Submitting on someone else's behalf does not verify their identity.</p>
+            {error && <p role="alert" style={{ color: '#ffb3b3', fontWeight: 700 }}>{error}</p>}
+            <button type="submit" disabled={busy} style={{ ...uiButton, width: '100%', marginTop: 7, opacity: busy ? .65 : 1 }}>
               {busy ? 'SUBMITTING…' : 'SUBMIT FREE ALUMNI UPDATE'}
             </button>
-            <p style={{ fontSize: 12 }}>Want to advertise instead? <a href={`/${target.hsid}#sec-partner`} onClick={close}>View the Partnership Program</a>.</p>
+            <p style={{ fontSize: 12, color: '#bbb', marginTop: 17, textAlign: 'center' }}>Business partnerships are optional and separate from this free update.</p>
+            <p style={{ fontSize: 13, textAlign: 'center' }}><a href={PARTNERS_HREF} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, textDecoration: 'underline' }}>YAT?STATS Corporate Partnership Program ↗</a></p>
           </form>
         )}
       </aside>
