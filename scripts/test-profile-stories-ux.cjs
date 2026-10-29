@@ -28,8 +28,22 @@ assert.match(timeline,/\.zt-nav \{ top:50%; bottom:auto;/,'Arrows remain inside 
 assert.match(timeline,/\.zt-rail \{ position:absolute; z-index:6; left:12px; right:12px;/,'Rail spans width with small insets');
 assert.match(timeline,/\.zt-nav \{[^\n]*border:0;[^\n]*background:transparent;/,'Arrows have no frame or opaque fill');
 assert.match(timeline,/left:calc\(32% - 24px - 800px\)/,'Tablet/medium photo clears copy');
-assert.match(timeline,/left:calc\(58% - 24px - 800px\)/,'Mobile photo clears copy');
-assert.match(timeline,/left:calc\(51% - 24px - 800px\)/,'560-740px photo clears copy');
+// On small phones a slide is twice viewport width. The anchor copy starts
+// at 26.5% of that slide (53% of viewport); both anchor photo variants must
+// track that line instead of the retired 58% position.
+assert.match(timeline,/\.zt-anchor \.zt-copy \{ left:26\.5%; width:23%; \}/,'Small-phone anchor headline uses the shared 53% screen boundary');
+assert.match(timeline,/left:calc\(53% - 24px - 800px\)/,'Mobile action photo follows the shifted headline');
+assert.match(timeline,/left:calc\(53% - 4px - 800px\)/,'Mobile headshot fallback ends before headline');
+assert.match(timeline,/left:calc\(53% - 4px - clamp\(130px,40cqw,170px\)\)/,'Mobile high-school cutout stays before headline');
+// Transition-band anchor geometry must move as one, not independently.
+assert.match(timeline,/\.zt-anchor \.zt-copy \{left:48%;right:4%;width:auto;\}/,'560-740px anchor headline shifted left');
+assert.match(timeline,/left:calc\(48% - 24px - 800px\)/,'560-740px action photo clears headline');
+assert.match(timeline,/left:calc\(48% - 4px - 800px\)/,'560-740px fallback headshot clears headline');
+assert.match(timeline,/left:calc\(48% - 4px - clamp\(170px,30cqw,220px\)\)/,'560-740px high-school cutout clears headline');
+// Only anchor copy moves vertically on narrow phones; timeline icons stay
+// attached to their original rail rather than following the text.
+assert.match(timeline,/@container career-timeline \(max-width:559px\) \{\s*\.zt-anchor \.zt-copy \{\s*justify-content:flex-end;\s*padding-bottom:26px;/,'Phone anchor headline lowers without moving timeline rail');
+assert.match(timeline,/\.zt-anchor \.zt-bodycopy \{ white-space:nowrap; overflow:visible; text-overflow:clip; \}/,'Personalized tagline stays on one line');
 assert.match(teamApi,/nextOffset/,'Team search returns continuation token');
 assert.match(search,/loadNextTeamPage/,'Live search scrolls all pages');
 
@@ -62,7 +76,13 @@ assert.doesNotMatch(schedules,/Oswald|rgba\(214,178,83/,'Game Log header and tag
 assert.match(footer,/#ffb238/,'Restore original illuminated orange ticker icons');
 assert.match(footer,/#ff7a1a/,'Restore original orange Doto labels');
 assert.match(footer,/#d2b45c/,'Restore ticker active underline');
-assert.doesNotMatch(page,/Bebas Neue|Oswald/,'All player tab content remains Archivo');
+// A single explicitly scoped, condensed sponsorship-ad heading belongs to
+// the paid promotional placement, not to the profile tabs themselves. Avoid
+// flagging its pre-existing fallback font while still forbidding other
+// condensed typography throughout the player profile page.
+const permittedInfeedAdHeading = /#playerFunZone \.yp-profile-infeed-ad strong \{font:800 18px\/1\.1 var\(--yat-font-compact,Oswald,sans-serif\);\}/;
+assert.match(page,permittedInfeedAdHeading,'Sponsor ad keeps its own condensed heading');
+assert.doesNotMatch(page.replace(permittedInfeedAdHeading,''),/Bebas Neue|Oswald/,'All other player tab content remains Archivo');
 // Intentional exception to the global Archivo standard: the Career Path Timeline
 // retains its original condensed type while all surrounding pages stay Archivo.
 assert.doesNotMatch(timeline,/#d6b253/,'No bronze-gold rail');
