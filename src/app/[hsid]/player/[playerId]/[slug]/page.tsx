@@ -1290,6 +1290,28 @@ export default async function ProfilePage({ params }: Props) {
           #playerFunZone .yp-profile-infeed-ad,
           #playerFunZone #ppTab-upload .yp-stories-feed-ad {display:flex!important;}
         }
+        /* One desktop tower per feed: Stories owns its own sticky tower;
+           News uses the same reserved 300x600 right column. */
+        @media (min-width:1081px) {
+          #playerFunZone #ppTab-news .yp-profile-partner-columns {
+            display:grid!important;grid-template-columns:minmax(0,1fr) 300px!important;
+            align-items:start!important;height:auto!important;overflow:visible!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-ad {
+            display:flex!important;position:sticky!important;top:0!important;
+            width:300px!important;height:600px!important;min-height:600px!important;
+            max-height:600px!important;aspect-ratio:1/2!important;
+          }
+          #playerFunZone #ppTab-news .yp-profile-infeed-ad {display:none!important;}
+          #playerFunZone #ppTab-upload .yp-profile-partner-columns {
+            display:block!important;width:100%!important;max-width:100%!important;
+            padding-inline:0!important;overflow:visible!important;
+          }
+          #playerFunZone #ppTab-upload > .yp-profile-partner-columns > .yp-profile-ad {display:none!important;}
+          #playerFunZone #ppTab-upload .yp-profile-partner-body {
+            height:auto!important;max-height:none!important;overflow:visible!important;
+          }
+        }
         /* ── Block 4: Metadata chip row — rendered in yat-row4-shell via layout.tsx row4Content ── */
         .pp-meta-chips {
           width: 100%;
