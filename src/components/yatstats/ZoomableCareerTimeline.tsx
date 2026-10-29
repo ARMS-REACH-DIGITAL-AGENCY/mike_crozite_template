@@ -2232,7 +2232,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                 <>
                   <span className="zt-kick">His hometown never stopped caring</span>
                   <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>
-                  <span className="zt-bodycopy">Stay connected to {resolvedPlayerName ? firstName(resolvedPlayerName) : 'him'} on his baseball journey...</span>
+                  <span className="zt-bodycopy">Connect. Contribute. Remember {resolvedPlayerName ? firstName(resolvedPlayerName) : 'this player'}</span>
                 </>
               )}
               {slide.kind === 'season' && (
@@ -2810,11 +2810,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         .zt-bigstat { display:flex; flex-direction:column; gap:1px; }
         .zt-bigstat-label { color:#aeb2b6; font-family:Oswald,sans-serif; font-weight:600; font-size:clamp(7px,.9cqw,8.5px); letter-spacing:.08em; text-transform:uppercase; }
         .zt-bigstat-value { color:#f7f7f5; font-family:"Bebas Neue",Oswald,sans-serif; font-weight:700; font-size:clamp(17px,3.2cqw,25px); line-height:1; }
-        /* Anchor's own line is short enough by design to stay on the base
-           rule's single line (white-space:nowrap + ellipsis) at every
-           breakpoint, including mobile -- per direct feedback. Life-year
-           quotes are genuinely long/multi-line, so those still need to
-           wrap. */
+        /* Let the anchor's player-specific tagline wrap rather than disappear
+           into an ellipsis at phone widths. Other slide copy is unchanged. */
+        .zt-anchor .zt-bodycopy { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:break-word; }
         .zt-lifeyear .zt-bodycopy, .zt-coachyear .zt-bodycopy { white-space:normal; overflow-wrap:anywhere; }
         /* Life-year slides now always carry a YaTi placeholder image (see
            .zt-person-stack's 'lifeyear' case), same as a season slide with
@@ -3169,10 +3167,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              bottom:22px !important; height:calc(100% - 30px) !important;
              object-position:left bottom;
            }
-          /* HS cutout: same left:24% as .zt-person, wider box (was
-             clamp(84px,28cqw,120px)) -- at that width a wide pose was
-             width-limited to well under the row's height. */
-          .zt-person-stack :global(.zt-person-then) { left:24%; width:clamp(130px,40cqw,170px); }
+          /* A phone slide is 200% wide, so its headline starts at
+             58% of the real viewport. Anchor the HS figure's rightmost
+             edge 12px before that line, instead of using left-aligned
+             contain boxes whose visible edges vary with pose/aspect ratio.
+             Never crop the player. */
+          .zt-person-stack :global(.zt-person-then) { left:calc(58% - 12px - clamp(130px,40cqw,170px)); width:clamp(130px,40cqw,170px); object-position:right bottom; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.19; }
           /* This whole block (name + the four metadata lines) is sized
              down a notch at this breakpoint -- smaller than the desktop
@@ -3259,12 +3259,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              is 200% wide, so "right" would measure from an edge that's
              off-screen. */
           .zt-copy { left:29%; right:auto; width:19%; bottom:14px; justify-content:flex-start; padding-top:4px; }
-          /* A touch smaller than the general .zt-bodycopy floor so the
-             now-shorter anchor line ("Stay connected to X on his
-             baseball journey...") has the best chance of actually
-             fitting on one line in this narrow column, not just
-             getting cut off by the single-line ellipsis. */
-          .zt-anchor .zt-bodycopy { font-size:clamp(8px,2cqw,10px); }
+          /* Keep the personalized tagline readable and allow two lines
+             rather than shrinking the font to force a single line. */
+          .zt-anchor .zt-bodycopy { font-size:clamp(9px,2.2cqw,11px); }
           .zt-kick { font-size:7px; margin-bottom:4px; }
           .zt-drafted { font-size:7px; margin-bottom:3px; }
           .zt-title { font-size:clamp(12px,3.8cqw,15px); margin-bottom:4px; line-height:1.04; }
@@ -3292,7 +3289,8 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
             height:100%;bottom:0;object-position:left bottom;
           }
           .zt-person-stack :global(.zt-person-then) {
-            left:clamp(113px,19cqw,153px);width:clamp(170px,30cqw,220px);
+            left:calc(51% - 12px - clamp(170px,30cqw,220px));
+            width:clamp(170px,30cqw,220px);object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now) {
             left:calc(51% - 24px - 800px);width:800px;height:48%;bottom:8px;
