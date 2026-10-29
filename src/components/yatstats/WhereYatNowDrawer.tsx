@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import WhereYatProofCard, { type WhereYatProof } from './WhereYatProofCard';
 import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS, type WhereYatLinkField } from '@/lib/whereYatLinks';
 
 type Target = { playerId: string; hsid: string; name: string };
@@ -28,6 +29,9 @@ export default function WhereYatNowDrawer() {
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState<WhereYatLinkField | null>(null);
   const [fan, setFan] = useState({ name: '', email: '' });
+  const [proof, setProof] = useState<WhereYatProof | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [submissionId, setSubmissionId] = useState<number | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const pendingAfterSignIn = useRef<Target | null>(null);
 
@@ -62,6 +66,7 @@ export default function WhereYatNowDrawer() {
       setError('');
       setFieldError(null);
       setSuccess(false);
+      setProof(null);
       document.body.classList.add('drawer-open');
     };
     const stopWatchingAuth = onAuthStateChanged(auth, (user) => {
@@ -98,6 +103,12 @@ export default function WhereYatNowDrawer() {
     if (!target || busy) return;
     // Capture form synchronously: event.currentTarget is cleared after the first await.
     const data = new FormData(event.currentTarget);
+    if (!proof) {
+      const nextProof: WhereYatProof = { displayName:String(data.get('displayName') || ''), city:String(data.get('city')||''),state:String(data.get('state')||''),occupation:String(data.get('occupation')||''),company:String(data.get('company')||''),website:String(data.get('website')||''),linkedin:String(data.get('linkedin')||''),instagram:String(data.get('instagram')||''),facebook:String(data.get('facebook')||''),x:String(data.get('x')||''),story:String(data.get('story')||''),photoUrl:photoPreview };
+      setProof(nextProof);
+      return;
+    }
+    data.set('proofConfirmed','yes');
     setBusy(true);
     setError('');
     setFieldError(null);
@@ -134,6 +145,7 @@ export default function WhereYatNowDrawer() {
         throw new Error(body.error || 'Unable to submit.');
       }
       setSuccess(true);
+      setSubmissionId(Number(body.submissionId) || null);
       formRef.current?.reset();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to submit.');
@@ -163,13 +175,15 @@ export default function WhereYatNowDrawer() {
         {success ? (
           <div role="status" style={{ marginTop: 30, lineHeight: 1.6 }}>
             <h3 style={{ color: ACCENT, fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 22 }}>UPDATE RECEIVED</h3>
-            <p>Your update is awaiting review. When approved, it will appear in the retired player's Where YAT Now? profile tab.</p>
+            <p>Your proof is confirmed and the update is awaiting identity review. An email receipt will link back to your saved proof. Once approved, the update will appear on the player's profile.</p>
+            {submissionId && <a href={`/\${target.hsid}/where-yat-proof?submission=\${submissionId}`} style={{color:ACCENT}}>VIEW MY SAVED PROOF ↗</a>}
             <p>Interested in promoting your business? Partnership details are on the YAT?STATS corporate site.</p>
             <a style={{ color: ACCENT, fontWeight: 800 }} href={PARTNERS_HREF} target="_blank" rel="noopener noreferrer">EXPLORE PARTNERSHIPS ↗</a>
             <p><button type="button" onClick={close} style={uiButton}>CLOSE</button></p>
           </div>
         ) : (
           <form ref={formRef} onSubmit={submit}>
+            {proof && <div style={{marginBottom:18}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:22,color:ACCENT}}>REVIEW YOUR PROOF</h3><WhereYatProofCard proof={proof}/><p style={{fontSize:13,color:'#ccc'}}>Please confirm every detail. Your confirmation does not verify identity; an authorized reviewer must also approve publication.</p><button type="button" style={{...uiButton,background:'#333',color:'#fff',border:'1px solid #777',marginBottom:10}} onClick={()=>setProof(null)}>EDIT MY DETAILS</button></div>}
             {field('YOUR NAME', 'displayName', 'First and last name', true)}
             {field('EMAIL (FOR FOLLOW-UP, NOT PUBLIC)', 'email', 'you@example.com', true)}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -186,8 +200,13 @@ export default function WhereYatNowDrawer() {
             <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '.055em', marginBottom: 15 }}>WHAT HAVE YOU BEEN UP TO?
               <textarea name="story" maxLength={2400} rows={4} style={{ ...FIELD_STYLES, resize: 'vertical', marginTop: 6 }} placeholder="Family, work, memories, and what matters to you today..." />
             </label>
-            <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, marginBottom: 19, letterSpacing: '.055em' }}>UPLOAD A RECENT PHOTO (OPTIONAL)
-              <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style={{ display: 'block', width: '100%', marginTop: 8, color: '#f2f2f2', fontFamily: 'Archivo,Arial,sans-serif', fontSize: 13 }} />
+            <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 14, fontWeight: 700, marginBottom: 19, letterSpacing: '.055em' }}>ADD A RECENT PHOTO (OPTIONAL)
+              <div style={{border:'2px dashed #e9bf56',padding:22,margin:'10px 0',background:'#222',textAlign:'center',minHeight:135}}>
+                <div style={{fontSize:27,color:ACCENT}}>＋</div><div>UPLOAD YOUR PHOTO</div>
+                <div style={{fontFamily:'Archivo,sans-serif',fontSize:12,color:'#bbb'}}>Tap to choose a recent photo, or leave this blank</div>
+                {photoPreview && <img src={photoPreview} alt="Selected photo" style={{display:'block',margin:'12px auto',maxHeight:180,maxWidth:'100%',objectFit:'contain'}}/>}
+                <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={e=>{const file=e.target.files?.[0]; if(photoPreview) URL.revokeObjectURL(photoPreview);setPhotoPreview(file?URL.createObjectURL(file):null);setProof(null);}} style={{display:'block',margin:'12px auto',width:'100%',fontFamily:'Archivo,Arial,sans-serif',fontSize:13}}/>
+              </div>
               <small style={{ display: 'block', fontWeight: 400, marginTop: 5, color: '#aaa', letterSpacing: 'normal', fontFamily: 'Archivo,Arial,sans-serif' }}>One photo, maximum 8 MB. Reviewed before publishing.</small>
             </label>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 18, fontSize: 13, lineHeight: 1.5, color: '#e1e1e1' }}>
@@ -197,7 +216,7 @@ export default function WhereYatNowDrawer() {
             <p style={{ fontSize: 11, lineHeight: 1.55, color: '#aaa' }}>By submitting, you authorize YAT?STATS to review and display approved public information and photos. Keep private contact details out of your public story. Submitting on someone else's behalf does not verify their identity.</p>
             {error && !fieldError && <p role="alert" style={{ color: '#ffb3b3', fontWeight: 700 }}>{error}</p>}
             <button type="submit" disabled={busy} style={{ ...uiButton, width: '100%', marginTop: 7, opacity: busy ? .65 : 1 }}>
-              {busy ? 'SUBMITTING…' : 'SUBMIT FREE ALUMNI UPDATE'}
+              {busy ? 'SUBMITTING…' : proof ? 'CONFIRM PROOF & SUBMIT UPDATE' : 'REVIEW MY PROOF →'}
             </button>
             <p style={{ fontSize: 12, color: '#bbb', marginTop: 17, textAlign: 'center' }}>Business partnerships are optional and separate from this free update.</p>
             <p style={{ fontSize: 13, textAlign: 'center' }}><a href={PARTNERS_HREF} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, textDecoration: 'underline' }}>YAT?STATS Corporate Partnership Program ↗</a></p>
