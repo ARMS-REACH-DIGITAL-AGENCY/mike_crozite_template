@@ -282,6 +282,9 @@ function marked(row: Row, totalKind: 'level' | 'bucket') {
 }
 
 function totalRows(kind: 'batting' | 'pitching', rows: Row[]) {
+  // AFL exhibition totals appear as dedicated team/season rows, never as
+  // official regular-season MLB career totals.
+  rows = rows.filter((row) => row.is_exhibition !== true);
   const make = kind === 'pitching' ? buildPitchingTotal : buildBattingTotal;
   const out: Row[] = [];
 
