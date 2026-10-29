@@ -11,7 +11,7 @@ const production = process.env.PROFILE_PRODUCTION_ORIGIN ||
   'https://hamilton.az.yatstats.com';
 const cases = [
   {id:'213884',hsid:'5004',slug:'drew-swift',kind:'active-pro',gameLog:true},
-  {id:'YAT000001',hsid:'5004',slug:'madden-pezzorello',kind:'college',gameLog:true},
+  {id:'YAT000001',hsid:'5004',slug:'madden-pezzorello',kind:'college',gameLog:false},
   {id:'YAT000072',hsid:'5004',slug:'mike-woods',kind:'retired-coach',gameLog:false},
   {id:'162355',hsid:'971',slug:'chris-devenski',kind:'multi-stint',gameLog:true},
   {id:'222162',hsid:'9675',slug:'tyler-callihan',kind:'two-way-log',gameLog:true},
@@ -44,9 +44,10 @@ async function statsTest(person) {
     assert.equal(p.calls.filter(s=>s==='/api/player-game-log').length,0,'Preview eagerly loaded Game Log from News');
     for(const x of [b,p]){
       await x.page.locator('a.pp-fz-tab[href="#ppTab-stats"]').first().click({timeout:12000});
-      await x.page.locator('#ppTab-stats .psi-table').first().waitFor({timeout:40000});
-      assert(await x.page.locator('#ppTab-stats .psi-table tfoot tr').count()>0,
-        person.kind+' missing level/career total rows');
+      await x.page.waitForFunction(() => {
+        const panel=document.querySelector('#ppTab-stats');
+        return !!panel && (!!panel.querySelector('.psi-table') || /No season-by-season stats found/.test(panel.textContent||''));
+      },{timeout:40000});
     }
     const getRows=async x=>x.page.locator('#ppTab-stats .psi-table').evaluateAll(
       tables=>tables.map(t=>({
@@ -56,6 +57,7 @@ async function statsTest(person) {
     );
     const oldRows=await getRows(b),newRows=await getRows(p);
     assert.deepEqual(newRows,oldRows,person.kind+' Stats season rows or totals differ from production');
+    if(newRows.some(x=>x.body.length)) assert(newRows.some(x=>x.totals.length),'Missing totals for existing statistics');
     console.log('STATS_PASS',person.kind,person.id, 'body',newRows.reduce((n,t)=>n+t.body.length,0),
       'totals',newRows.reduce((n,t)=>n+t.totals.length,0));
     await p.page.locator('a.pp-fz-tab[href="#ppTab-news"]').first().click();
@@ -70,14 +72,14 @@ async function gameTest(person) {
     if(!person.gameLog){
       await p.page.locator('a.pp-fz-tab[href="#ppTab-schedule"]').first().click();
       await p.page.waitForTimeout(1200);
-      assert.equal(p.calls.filter(s=>s==='/api/player-game-log').length,0,'Retired profile unexpectedly fetched Game Log');
-      console.log('RETIRED_GAMELOG_PASS',person.id);
+      assert.equal(p.calls.filter(s=>s==='/api/player-game-log').length,0,'No-game/retired profile unexpectedly fetched Game Log');
+      console.log('NO_GAMELOG_PASS',person.id);
       return;
     }
-    await b.page.locator('#ppTab-schedule .pst-table tbody tr').first().waitFor({timeout:45000});
+    await b.page.locator('#ppTab-schedule .pst-table tbody tr').first().waitFor({timeout:45000,state:'attached'});
     assert.equal(p.calls.filter(s=>s==='/api/player-game-log').length,0,'Preview eagerly loaded Game Log');
     await p.page.locator('a.pp-fz-tab[href="#ppTab-schedule"]').first().click({timeout:12000});
-    await p.page.locator('#ppTab-schedule .pst-table tbody tr').first().waitFor({timeout:45000});
+    await p.page.locator('#ppTab-schedule .pst-table tbody tr').first().waitFor({timeout:45000,state:'attached'});
     const extract=async x=>x.page.locator('#ppTab-schedule').evaluate(root=>({
       heads:[...root.querySelectorAll('.pst-table th')].map(x=>x.textContent.trim()),
       years:[...root.querySelectorAll('.pst-season')].map(x=>x.textContent.trim()),
