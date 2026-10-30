@@ -99,4 +99,37 @@ for (const variable of ['GALLERY_STATUS_OPTIONS','ROSTER_STATUSES','ACTIVE_GALLE
     variable + ' must explicitly recognize 40-MAN');
 }
 
+
+// Guard the non-MLB 2026 NULL-team-ID recovery. A past season, April MLB
+// snapshot or ambiguous team must never become a current assignment.
+const recovery = section(levels,
+  'export const SAFE_2026_STAGE_TEAM_RECOVERY_SQL = `',
+  'export const STAGE_TEAM_COVERAGE_SQL');
+assert(recovery.includes("year = '2026'"),
+  'Recovery must use only current-season 2026 records');
+assert(recovery.includes('COUNT(DISTINCT teamid) = 1'),
+  'Ambiguous multi-team 2026 assignments must not be guessed');
+assert(!/public\.player_current_team\b/i.test(recovery),
+  'Recovery must never read the obsolete MLB snapshot');
+assert(recovery.includes("f.current_teamid IS NULL") &&
+       recovery.includes("f.current_team_source IS NULL"),
+  'Recovery must not overwrite an existing verified assignment');
+assert(recovery.includes('public.player_team_override') &&
+       recovery.includes('f.last_transaction_applied_at IS NULL'),
+  'Recovery must protect overrides and transaction departures');
+assert(!/current_team_last_verified\s*=/i.test(recovery),
+  '2026 stats evidence must not be misrepresented as a live verified roster');
+assert(recovery.includes("'INDY','INTERNATIONAL'") ||
+       recovery.includes("'INDY','INTERNATIONAL'".replace(',', ', ')),
+  'Recovery must include independent and international levels');
+assert(!/['"]PRO['"]/.test(recovery),
+  'Unresolved generic PRO team levels must not be auto-assigned');
+assert(cron.includes('SAFE_2026_STAGE_TEAM_RECOVERY_SQL') &&
+       cron.includes('STAGE_TEAM_COVERAGE_SQL') &&
+       cron.includes('UNRESOLVED_ACTIVE_TEAM_SQL'),
+  'Daily check must reconcile and report entire stage coverage');
+const ingest = source('src/app/api/cron/tbc-safe-ingest/route.ts');
+assert(ingest.includes('SAFE_2026_STAGE_TEAM_RECOVERY_SQL'),
+  'TBC ingest must recover safe team IDs immediately after the new season feed');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
