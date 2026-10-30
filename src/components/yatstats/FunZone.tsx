@@ -890,9 +890,9 @@ export default function FunZone({
               <div style={{textAlign:'center',padding:'18px 8px',font:'700 clamp(13px,4cqi,20px) Oswald,sans-serif',letterSpacing:'.05em',color:'#4c3724'}}>WAITING FOR APPROVAL</div> :
               <div style={{textAlign:'center',padding:'12px 6px'}}>
                 <h3 style={{font:'700 clamp(15px,4cqi,22px) Oswald,sans-serif',margin:'0 0 8px'}}>WHERE YAT NOW?</h3>
-                <p style={{fontSize:'clamp(10px,2.8cqi,13px)',marginBottom:12}}>Share what life looks like after baseball.</p>
-                <button type="button" onClick={() => openWhereYatNow({playerId:imageId,hsid:resolvedHsid,name:displayName,position:String(player.position||"")})}
-                  style={{background:'#4c3724',color:'#fff',border:0,borderRadius:2,padding:'8px 12px',font:'700 clamp(11px,3cqi,15px) Oswald,sans-serif',cursor:'pointer'}}>SHARE YOUR ALUMNI UPDATE</button>
+                <p style={{fontSize:'clamp(10px,2.8cqi,13px)',marginBottom:12}}>Your life after baseball deserves a place in your hometown story.</p>
+                <button type="button" onClick={() => window.location.assign(`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`)}
+                  style={{background:'#e9bf56',color:'#111',border:0,borderRadius:2,padding:'8px 12px',font:'700 clamp(11px,3cqi,15px) Oswald,sans-serif',cursor:'pointer'}}>CLAIM YOUR PROFILE</button>
               </div>}
           </div>
         ) : lazySchedulePlayerId ? (
