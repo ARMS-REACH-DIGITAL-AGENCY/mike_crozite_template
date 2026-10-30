@@ -1,0 +1,17 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const read = (path) => fs.readFileSync(path, 'utf8');
+const page = read('src/app/[hsid]/page.tsx');
+const share = read('src/components/yatstats/shell/PageMessageStrip.tsx');
+const image = read('src/app/api/og/school/route.tsx');
+const middleware = read('src/middleware.ts');
+assert.match(share, /\?share=alltime#sec-alltime/, 'All-Time share must be crawler-readable');
+assert.match(page, /qp\?\.share === 'alltime'/, 'server needs All-Time share metadata');
+assert.match(page, /api\/og\/school\?hsid=/, 'default school should have OG image');
+assert.match(page, /width: 1200, height: 630/, 'school OG must be a full landscape preview');
+assert.match(page, /twitter:\s*\{\s*card: "summary_large_image"/, 'Twitter image missing');
+assert.match(image, /const SIZE = \{ width: 1200, height: 630 \}/, 'OG image dimension');
+assert.match(image, /getSchoolByHsid\(hsid\)/, 'image is school-aware');
+assert.doesNotMatch(image, /getFlipCardFrontStageByHsid|getAllTimeRosterByHsid/, 'OG image should not scan the roster');
+assert.match(middleware, /BLOCKED_BOTS/, 'keep existing anti-crawler safeguards');
+console.log('School and All-Time link preview regression checks passed.');
