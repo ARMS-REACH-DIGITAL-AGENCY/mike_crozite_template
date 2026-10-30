@@ -43,7 +43,7 @@ assert.equal(parseNewsVideo("https://x.com/Ben13Porter/status/unsafe"), null);
 
 const widget = fs.readFileSync(path.join(__dirname, "../src/components/yatstats/XPostEmbed.tsx"), "utf8");
 const reader = fs.readFileSync(path.join(__dirname, "../src/components/yatstats/ProfileNewsList.tsx"), "utf8");
-assert.ok(widget.includes("platform.twitter.com/widgets.js"));
+assert.ok(widget.includes("platform.x.com/widgets.js"));
 assert.match(widget, /createTweet/);
 assert.match(widget, /Watch original video on X/);
 assert.match(widget, /setTimeout/);
