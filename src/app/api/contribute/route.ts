@@ -6,12 +6,11 @@
 //        { kind: 'missing', name, hsid, gradYear?, position?, level?, team?, notes? }
 //   (plus idToken?, pageUrl?)
 //
-// Corrections and tips wait in news_tip_queue, missing players in
-// missing_player_submission. Nothing changes on the site until we've
-// reviewed it.
+// Tips publish during the request after automatic screening. Corrections and
+// missing players retain their own separate data-validation workflows.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears } from '@/lib/contributionPublisher';
+import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears, publishQueuedTipNow } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
@@ -315,14 +314,19 @@ export async function POST(req: NextRequest) {
          : 'Please enter a title.');
        // Preserve contributor headline first; store YouTube title only as fallback.
        const notes = JSON.stringify({ kind: isClip ? 'clip' : 'news', title, why, titleSource: enteredTitle ? 'fan' : 'youtube_oembed' });
-      await query(
+      const queued=await query<{id:string}>(
         `INSERT INTO news_tip_queue (intake_source, sender_name, sender_contact_id, sender_role, raw_player_name,
                                      matched_playerid, matched_hsid, article_url, notes, status)
-         VALUES ('fan_drawer', $1, $2, $3, $4, $5, $6, $7, $8, 'new')`,
+         VALUES ('fan_drawer', $1, $2, $3, $4, $5, $6, $7, $8, 'new') RETURNING id::text`,
         [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, notes]
       );
       await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url, sourceType: isClip ? 'clip' : 'news' } });
-      return NextResponse.json({ ok: true }, { status: 201 });
+      // Preview deployments share the production DB; never let a preview
+      // contribution test publish a real news article.
+      const publication=process.env.VERCEL_ENV==='preview'?'pending'
+        :await publishQueuedTipNow(queued.rows[0].id);
+      if(publication==='rejected')return NextResponse.json({ok:false,error:'The contribution did not pass the automatic publishing checks.'},{status:422});
+      return NextResponse.json({ok:true,publication}, {status:201});
     }
 
     if (kind === 'missing') {
