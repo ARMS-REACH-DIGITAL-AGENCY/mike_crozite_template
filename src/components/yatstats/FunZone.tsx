@@ -885,7 +885,10 @@ export default function FunZone({
       >
         {retiredPlayer ? (
           <div className="fz-where-yat" style={{height:'100%',minHeight:0,overflow:'hidden',padding:'clamp(3px,1cqi,7px)',fontFamily:'Archivo,Arial,sans-serif',background:'transparent',color:'#1e160e'}}>
-            {alumniUpdate?.status==='approved' ? <WhereYatProofCard variant="content" showName={false} proof={{playerId:imageId,hsid:resolvedHsid,displayName:alumniUpdate.display_name||displayName,city:alumniUpdate.location_city||'',state:alumniUpdate.location_state||'',occupation:alumniUpdate.occupation||'',company:alumniUpdate.company_name||'',website:alumniUpdate.business_website||'',linkedin:alumniUpdate.linkedin_url||'',instagram:alumniUpdate.instagram_url||'',facebook:alumniUpdate.facebook_url||'',x:alumniUpdate.x_url||'',story:alumniUpdate.story||'',photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null}}/> :
+            {alumniUpdate?.status==='approved' ? <div style={{height:'100%',display:'flex',flexDirection:'column',minHeight:0}}>
+              <WhereYatProofCard variant="content" showName={false} proof={{playerId:imageId,hsid:resolvedHsid,displayName:alumniUpdate.display_name||displayName,city:alumniUpdate.location_city||'',state:alumniUpdate.location_state||'',occupation:alumniUpdate.occupation||'',company:alumniUpdate.company_name||'',website:alumniUpdate.business_website||'',linkedin:alumniUpdate.linkedin_url||'',instagram:alumniUpdate.instagram_url||'',facebook:alumniUpdate.facebook_url||'',x:alumniUpdate.x_url||'',story:String(alumniUpdate.story||'').slice(0,240),photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null}}/>
+              <a href={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`} style={{display:'block',textAlign:'center',font:'700 clamp(9px,2.8cqi,15px) Oswald,sans-serif',color:'#221811',borderTop:'1px solid #8f8070',padding:'5px 2px',textDecoration:'underline'}}>READ MORE ABOUT {firstName.toUpperCase()}\'S LIFE AFTER HIGH SCHOOL</a>
+            </div> :
             alumniUpdate?.status==='pending' ?
               <div style={{textAlign:'center',padding:'18px 8px',font:'700 clamp(13px,4cqi,20px) Oswald,sans-serif',letterSpacing:'.05em',color:'#4c3724'}}>WAITING FOR APPROVAL</div> :
               <div style={{textAlign:'center',padding:'12px 6px'}}>
