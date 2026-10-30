@@ -243,7 +243,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; story?: string; news?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string }>;
+  searchParams: Promise<{ player?: string; story?: string; news?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string; share?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -262,7 +262,7 @@ export async function generateMetadata({
   const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
   // Shared News links use the school route so named school subdomains do not
   // resolve /n/:uuid as an unknown school. Supply article-specific previews.
-  if (qp.story && /^[A-Za-z0-9_-]{1,100}$/.test(qp.story)) {
+  if (qp.story && /^[A-Za-z0-9_:-]{1,120}$/.test(qp.story)) {
     try {
       const { rows } = await query<{title:string;snippet:string|null;url:string;image_url:string|null;display_image_url:string|null}>(
         "SELECT title,snippet,url,image_url,display_image_url FROM news_articles WHERE uuid=$1 AND hsid=$2 LIMIT 1",
@@ -272,14 +272,14 @@ export async function generateMetadata({
       if (article) {
         const title=publicNewsHeadline(article.title, article.url) || "Alumni News | YAT?STATS";
         const description=(article.snippet || "Alumni News from YAT?STATS").slice(0,250);
-        const provider=parseNewsVideo(article.url);
-        const instagramImage=provider?.provider === "Instagram"
-          ? (await fetchInstagramPostPreview(article.url).catch(() => null))?.thumbnail_url : null;
-        const image=instagramImage || article.display_image_url || article.image_url || provider?.thumbnailUrl || undefined;
-        const shareUrl=(host ? `https://${host}` : canonicalUrl)+`/?news=1&story=${encodeURIComponent(qp.story)}#sec-news`;
+        // Same-origin card guarantees a 1200x630 PNG, even when source media
+        // is missing or inaccessible to public social-preview crawlers.
+        const shareBase = host ? `https://${host}` : canonicalUrl;
+        const image = `${shareBase}/api/og/news?hsid=${encodeURIComponent(schoolHsid)}&story=${encodeURIComponent(qp.story)}`;
+        const shareUrl=shareBase+`/?news=1&story=${encodeURIComponent(qp.story)}#sec-news`;
         return {title,description,alternates:{canonical:shareUrl},
-          openGraph:{type:"article",title,description,url:shareUrl,images:image?[{url:image}]:[]},
-          twitter:{card:"summary_large_image",title,description,images:image?[image]:[]}};
+          openGraph:{type:"article",title,description,url:shareUrl,images:[{url:image,width:1200,height:630,type:"image/png"}]},
+          twitter:{card:"summary_large_image",title,description,images:[image]}};
       }
     } catch (error) { console.error("news share metadata failed",error); }
   }
@@ -395,15 +395,30 @@ export async function generateMetadata({
     }
   }
 
+  // Unlike URL fragments, the share parameter is visible to link-preview
+  // crawlers and gives the whole All-Time list a dedicated preview card.
+  const allTimeShare = qp?.share === 'alltime';
+  const schoolShareImage = `${host ? `https://${host}` : canonicalUrl}/api/og/school?hsid=${encodeURIComponent(schoolHsid)}${allTimeShare ? '&section=alltime' : ''}`;
+  const schoolShareTitle = allTimeShare ? `${name.toUpperCase()} | ALL-TIME NEXT-LEVEL ALUMNI | YAT?STATS` : titleParts.join(" | ");
+  const schoolShareDescription = allTimeShare
+    ? `Explore all-time next-level baseball alumni from ${name} (${loc}). Connect. Contribute. Remember.`
+    : `Track active and all-time baseball alumni from ${name} (${loc}).`;
+  const schoolShareUrl = allTimeShare ? `${canonicalUrl}/?share=alltime#sec-alltime` : canonicalUrl;
   return {
-    title: titleParts.join(" | "),
-    description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
-    alternates: { canonical: canonicalUrl },
+    title: schoolShareTitle,
+    description: schoolShareDescription,
+    alternates: { canonical: schoolShareUrl },
     openGraph: {
-      title: titleParts.join(" | "),
-      description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
-      url: canonicalUrl,
-      images: [{ url: crestUrl, width: 512, height: 512 }],
+      title: schoolShareTitle,
+      description: schoolShareDescription,
+      url: schoolShareUrl,
+      images: [{ url: schoolShareImage, width: 1200, height: 630, type: "image/png" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: schoolShareTitle,
+      description: schoolShareDescription,
+      images: [schoolShareImage],
     },
     icons: {
       icon: [

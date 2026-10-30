@@ -25,7 +25,7 @@ assert(flip.includes("alumniUpdate?.status === 'approved'"),'Retired approved st
 assert(read('src/components/yatstats/WhereYatFunZonePanel.tsx').includes('href={profileHref}'),'Flip CTA must open full profile questionnaire');
 assert(!flip.includes("background:'#145a3c'"),'Legacy green CTA must be gone');
 assert(profile.includes('https://yatstats.com/partners/'),'Profile partner link must use corporate site');
-assert(submit.includes('pending: true'),'Moderation must be preserved');
+assert(submit.includes("const publicationStatus = safeToPublish ? 'approved' : 'pending';") && submit.includes('pending: !safeToPublish, published: safeToPublish'),'Only safety-approved submissions may publish');
 assert(submit.includes("partnerHref: 'https://yatstats.com/partners/'"),'Server partnership link mismatch');
 assert(drawer.includes('normalizeWhereYatLink(field,'),'Client must normalize handles');
 assert(drawer.includes("name === 'displayName' ? fan.name"),'Contributor name must be prefilled');

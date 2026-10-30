@@ -544,47 +544,31 @@ function SocialPanel({
     ? schoolLocation.split(",").map((part) => part.trim()).filter(Boolean).join(", ")
     : "";
 
+  // Keep the school name accurate whether the database stores "Perry" or
+  // "Perry High School" (never append "High School" twice).
+  const schoolLabel = schoolName.trim().toLowerCase().endsWith("high school")
+    ? schoolName.trim()
+    : `${schoolName.trim()} High School`;
   const shareText =
     schoolName && formattedLocation
       ? [
-          `Hey Alumni of ${schoolName} High School in ${formattedLocation}...`,
-          `Do you ever wonder what became of one of your school's best baseball players like ${fullName}?`,
-          `Visit @${YAT_STATS_X_HANDLE} to find out`,
-          `Where They #YAT and`,
-          `What's Their #STATS!`,
+          `Hey Alumni of ${schoolLabel} in ${formattedLocation}...`,
+          `Do you ever wonder what became of one of your school's best baseball players, like ${fullName}?`,
+          `Visit @${YAT_STATS_X_HANDLE} to find out.`,
+          "Where They YAT? Stories & Stats.",
           `#${hashtag}`,
         ].join("\n")
-      : `Check out ${fullName}'s YAT?STATS player card! Where They #YAT and What's Their #STATS! #${hashtag}`;
+      : `Where They YAT? Stories & Stats. Follow ${fullName}'s career on YAT?STATS. #${hashtag}`;
 
-  // Same copy as shareText above, just as JSX with the @handle/#YAT/#STATS
-  // tokens pulled into their own elements for the accent color - kept as a
-  // second, parallel construction (rather than parsing shareText with a
-  // regex) so the plain-text version used for the actual share links can
-  // never drift from what's visually shown here as "the message that's
-  // going to be posted." A flat array of inline nodes, not one <span> per
-  // logical line - rendered as a single flowing paragraph so it wraps
-  // naturally instead of stacking fixed line breaks (which wasted vertical
-  // space and forced a smaller font).
-  const messageNodes: ReactNode[] =
-    schoolName && formattedLocation
-      ? [
-          `Hey Alumni of ${schoolName} High School in ${formattedLocation}... Do you ever wonder what became of one of your school's best baseball players like ${fullName}? Visit `,
-          <b className="fz-social-accent" key="handle">@{YAT_STATS_X_HANDLE}</b>,
-          " to find out Where They ",
-          <b className="fz-social-accent" key="yat">#YAT</b>,
-          " and What's Their ",
-          <b className="fz-social-accent" key="stats">#STATS</b>,
-          "! ",
-          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
-        ]
-      : [
-          `Check out ${fullName}'s YAT?STATS player card! Where They `,
-          <b className="fz-social-accent" key="yat">#YAT</b>,
-          " and What's Their ",
-          <b className="fz-social-accent" key="stats">#STATS</b>,
-          "! ",
-          <b className="fz-social-accent" key="hashtag">#{hashtag}</b>,
-        ];
+  // What fans see in the Social tab is the actual text that gets shared.
+  // Only highlight the brand mention and personalized hashtag.
+  const messageNodes: ReactNode[] = shareText
+    .split(/(@yat_stats|#YATABOY[A-Za-z0-9]*)/gi)
+    .map((part, index) =>
+      /^(?:@yat_stats|#YATABOY)/i.test(part)
+        ? <b className="fz-social-accent" key={index}>{part}</b>
+        : part
+    );
 
   const encodedUrl = encodeURIComponent(shareUrl);
   const encodedText = encodeURIComponent(shareText);
@@ -828,31 +812,13 @@ export default function FunZone({
   // Deep-link to the matching tab on the profile page so the CTA always
   // opens the same tab the user is currently viewing on the flip card.
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}#ppTab-${activeTab}`;
-  // shareBaseUrl is the school's real canonical URL (school_success.
-  // microsite_url, e.g. "https://hamilton.az.yatstats.com"), resolved by
-  // the page/route that rendered this card - a bare "yatstats.com/{hsid}"
-  // URL 404s in production, the flip card only ever lives on the school's
-  // own subdomain. Only fall back to that (still-incorrect but non-empty)
-  // form if a school record genuinely couldn't be resolved.
-  //
-  // A share should land back on THIS card (the school roster page,
-  // scrolled/highlighted to this player), not the separate full profile
-  // page - YatInteractivity.tsx's revealRequestedPlayerCard() already does
-  // exactly that, matching the same ?view=<section>&player=<id>#player-<id>
-  // pattern already used elsewhere (FavoritesDrawer/ProfilePageEnhancer/
-  // SearchDrawerTabs) to deep-link into a card. ?player= (not just the
-  // #hash) is required because getRequestedPlayerId() reads it as the
-  // primary signal and only falls back to the hash if it's missing - and a
-  // #hash alone never reaches the server, so link-preview crawlers
-  // (Facebook, iMessage, SMS) could never see it to build the player-
-  // specific preview image below. view= must match the section this card
-  // actually lives in (active vs. all-time), or retryRevealRequestedPlayerCard()
-  // switches to the wrong section and the card is never found. "name" is
-  // along for the human-readable URL only (ignored by the lookup, which is
-  // by id) - the trailing #player-<id> hash is redundant with ?player= for
-  // the script's own logic, but lets the browser jump straight to the card
-  // via native same-page anchor behavior even before any JS has run.
-  const shareUrl = `${shareBaseUrl || `https://yatstats.com/${resolvedHsid}`}/?view=${isAllTime ? "alltime" : "active"}&player=${encodeURIComponent(imageId)}${slug ? `&name=${encodeURIComponent(slug)}` : ""}#player-${encodeURIComponent(imageId)}`;
+  // Share the player's existing SHORT PROFILE route rather than the
+  // school-card ?player= URL. The short route returns the profile's rich
+  // OG image to SMS/social crawlers and redirects fans to the actual
+  // player profile. This avoids the separate /api/og/player-card renderer
+  // that crops action photos. It also makes the SMS URL shorter.
+  const shareRoot = (shareBaseUrl || `https://yatstats.com/${resolvedHsid}`).replace(/[/]+$/, "");
+  const shareUrl = `${shareRoot}/p/${encodeURIComponent(imageId)}`;
   const ctaText = getCta(activeTab, firstName);
 
   // Suppress unused-variable warnings for props used only in sub-panels

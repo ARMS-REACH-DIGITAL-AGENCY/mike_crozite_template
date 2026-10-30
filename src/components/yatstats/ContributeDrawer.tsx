@@ -13,7 +13,7 @@
 // a few words. Or switch to "Our school" for the crest, school info and
 // the All-Time list. Missing Next-Level Alumni and News Tip are short forms.
 // Anyone can look; sending takes a free fan account. Nothing a fan sends
-// reaches the site until we've reviewed it.
+// is published before its required automated safety checks.
 
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -359,7 +359,7 @@ export default function ContributeDrawer() {
       const out = await res.json().catch(() => ({}));
       if (res.status === 401) return setStatus({ kind: 'error', confirm: true });
       if (!res.ok) throw new Error(out?.error || 'That could not be sent.');
-      setStatus({ kind: 'done' });
+      setStatus({ kind: 'done', text: body.kind === 'tip' ? (out.publication === 'published' ? 'Your contribution is live on Alumni News.' : 'Your contribution was received. Automatic safety screening will retry shortly.') : undefined });
     } catch (error) {
       setStatus({ kind: 'error', text: error instanceof Error ? error.message : 'That could not be sent.' });
     }
@@ -389,7 +389,7 @@ export default function ContributeDrawer() {
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
       if (!tipTitle.trim() && !youtubeTip) return setStatus({ kind: 'error', text: 'Give this story or video a title.' });
-      return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || '' });
+      return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || hubSchool?.hsid || '' });
     }
     if (!mp.name.trim()) return setStatus({ kind: 'error', text: "Type the player's name." });
     if (!school) return setStatus({ kind: 'error', text: 'Pick his high school.' });
@@ -446,7 +446,7 @@ export default function ContributeDrawer() {
         ) : status.kind === 'done' ? (
           <div className="ycd-done">
             <p className="ycd-done-title">Thank you{fanName ? `, ${fanName}` : ''}!</p>
-            <p className="ycd-muted">We review everything before it goes on the site. You&apos;re helping build the most complete record of Where they YAT now.</p>
+            <p className="ycd-muted">{status.text || 'Thank you for helping build the most complete record of Where they YAT now.'}</p>
             <div className="ycd-actions">
               <button type="button" className="ycd-btn ycd-btn-primary" onClick={resetForms}>Send more</button>
               <button type="button" className="ycd-btn" onClick={close}>Done</button>
@@ -700,7 +700,7 @@ export default function ContributeDrawer() {
             <div className="ycd-actions">
               <button type="button" className="ycd-btn ycd-btn-primary" onClick={submit} disabled={sending}>{sendLabel}</button>
             </div>
-            <div className="ycd-muted ycd-small">We review everything before it goes on the site.</div>
+            <div className="ycd-muted ycd-small">Tips &amp; Clips are screened automatically and publish as soon as they pass the safety check. Temporary Instagram Stories link to the original.</div>
           </div>
         )}
       </div>

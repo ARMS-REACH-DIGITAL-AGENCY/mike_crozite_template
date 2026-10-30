@@ -9,7 +9,6 @@
 // image's pixels. Trimming here makes every figure fill its box the same way.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache';
 import sharp from 'sharp';
 
 export const runtime = 'nodejs';
@@ -80,13 +79,9 @@ async function buildCutout(kind: string, id: string): Promise<string | null> {
   return output.toString('base64');
 }
 
-// Kept in Next's data cache, which (unlike the CDN's response cache)
-// survives new deployments -- so a fresh deploy doesn't send every
-// visitor through a cold S3 download + trim (1-2s per image) again. An
-// hour's revalidate lets a replaced cutout, or a newly added one for a
-// player who had none, show up the same day; a stale entry is served
-// instantly while it refreshes in the background.
-const getCutout = unstable_cache(buildCutout, ['api-cutout-webp-v2'], { revalidate: 3600 });
+// Mutable cutouts can be deleted and rebuilt after a replacement upload.
+// Do not cache an outdated cutout or a negative result for up to a day:
+// the prebuilt WebP is the fast path; this route is only the fallback.
 
 export async function GET(req: NextRequest) {
   const kind = req.nextUrl.searchParams.get('kind') || '';
@@ -96,18 +91,18 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const encoded = await getCutout(kind, id);
+    const encoded = await buildCutout(kind, id);
     // Passed through as a 404 so SmartImage's onError moves on to its next
     // source.
     if (!encoded) {
-      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300, s-maxage=3600' } });
+      return new NextResponse(null, { status: 404, headers: { 'Cache-Control': 'no-store, max-age=0' } });
     }
     return new NextResponse(new Uint8Array(Buffer.from(encoded, 'base64')), {
       headers: {
         'Content-Type': 'image/webp',
-        // Not immutable like the S3 originals: cutouts get replaced in
-        // place at the same key, so the CDN re-checks daily.
-        'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
+        // Cutouts are overwritten or removed after a newly approved upload.
+// An old PNG must never survive in the browser or CDN after replacement.
+        'Cache-Control': 'no-store, max-age=0',
       },
     });
   } catch (error) {

@@ -94,7 +94,7 @@ export default function PageMessageStrip({
     // A team goes out as its short link (/5004/t/2017), like the Fantasy
     // game's /g/ links, so a text shows the team card alone, no long URL.
     const base = `${window.location.origin}${window.location.pathname.replace(/\/+$/, '')}`;
-    const url = teamYear ? `${base}/t/${teamYear}` : `${base}/#sec-alltime`;
+    const url = teamYear ? `${base}/t/${teamYear}` : `${base}/?share=alltime#sec-alltime`;
     try {
       if (navigator.share) {
         await navigator.share({ url });

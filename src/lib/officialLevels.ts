@@ -198,3 +198,103 @@ export const CANONICAL_ACTIVE_STAGE_MISMATCH_SQL = `
        f.level_label IS DISTINCT FROM u.level_label
      )
    ORDER BY f.display_name`;
+
+// Recover missing active college/INDY/INTERNATIONAL team IDs from exactly one
+// canonical 2026 stats team. This is NOT a roster-verification timestamp:
+// we deliberately leave current_team_last_verified untouched. Never use the
+// April player_current_team snapshot, multi-team seasons, PRO placeholders,
+// older stat seasons, overrides, MLB/MiLB assignments, or transaction departures.
+// Idempotent; run after TBC ingest and in daily quality control.
+export const SAFE_2026_STAGE_TEAM_RECOVERY_SQL = `
+WITH season_teams AS MATERIALIZED (
+  SELECT playerid::text AS playerid, teamid::text AS teamid
+    FROM public.tbc_batting_2026_season_raw
+   WHERE year = '2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+  UNION
+  SELECT playerid::text, teamid::text
+    FROM public.tbc_pitching_2026_season_raw
+   WHERE year = '2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+), single_team AS MATERIALIZED (
+  SELECT playerid, MIN(teamid) AS teamid
+    FROM season_teams
+   GROUP BY playerid
+  HAVING COUNT(DISTINCT teamid) = 1
+), eligible AS MATERIALIZED (
+  SELECT f.playerid, u.teamid, u.current_team_name AS team_name,
+         u.current_org_or_conference_name AS org_name, u.level_label AS level
+    FROM public.flip_card_front_stage f
+    JOIN single_team s ON s.playerid = f.playerid
+    JOIN public.teamid_universe_mapping u ON u.teamid = s.teamid
+   WHERE f.status_label = 'ACTIVE'
+     AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL
+     AND f.current_team_last_verified IS NULL
+     AND f.current_team_source_player_id IS NULL
+     AND f.current_team_source_team_id IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND f.is_on_40man IS NOT TRUE
+     AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)), '') NOT IN ('FREE AGENT', 'RETIRED')
+     AND NOT EXISTS (
+       SELECT 1 FROM public.player_team_override o WHERE o.playerid = f.playerid
+     )
+     AND u.level_label IN (
+       'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC',
+       'INDY','INTERNATIONAL'
+     )
+     AND NULLIF(BTRIM(u.current_team_name), '') IS NOT NULL
+), changed AS (
+  UPDATE public.flip_card_front_stage f
+     SET current_teamid = e.teamid,
+         current_team_source_team_id = e.teamid,
+         current_team_name = e.team_name,
+         current_org_or_conference_name = e.org_name,
+         current_team_level = e.level,
+         current_level_label = e.level,
+         level_label = e.level,
+         display_level_label = e.level,
+         current_team_source = 'tbc_2026_unique_team_recovered',
+         stage_updated_at = NOW(), updated_at = NOW()
+    FROM eligible e
+   WHERE f.playerid = e.playerid
+     AND f.status_label = 'ACTIVE'
+     AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL
+     AND f.current_team_last_verified IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND f.is_on_40man IS NOT TRUE
+     AND NOT EXISTS (
+       SELECT 1 FROM public.player_team_override o WHERE o.playerid = f.playerid
+     )
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS recovered FROM changed
+`;
+
+// Full-stage coverage metrics. Historical NULL IDs are expected; active NULL
+// IDs and assigned-but-unmapped IDs need investigation.
+export const STAGE_TEAM_COVERAGE_SQL = `
+SELECT COUNT(*)::int AS stage_rows,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NULL)::int AS null_team_ids,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE')::int AS active_rows,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NULL)::int AS active_null_team_ids,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NOT NULL AND u.teamid IS NULL)::int AS unmapped_team_ids,
+  COUNT(*) FILTER (
+    WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NOT NULL
+      AND f.current_team_source IS NULL
+  )::int AS active_team_id_without_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+`;
+
+export const UNRESOLVED_ACTIVE_TEAM_SQL = `
+SELECT f.playerid, f.display_name, f.status_label, f.current_teamid,
+  f.current_team_name, f.level_label, f.current_team_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+WHERE f.status_label = 'ACTIVE'
+  AND (f.current_teamid IS NULL OR u.teamid IS NULL)
+ORDER BY f.display_name, f.playerid
+LIMIT 100
+`;

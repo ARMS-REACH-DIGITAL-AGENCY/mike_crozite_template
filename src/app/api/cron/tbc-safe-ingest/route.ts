@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { sanitizeError, sendIngestAlert } from "@/lib/ingestAlerts";
+import { SAFE_2026_STAGE_TEAM_RECOVERY_SQL } from "@/lib/officialLevels";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -656,9 +657,11 @@ export async function GET(req: NextRequest) {
     const baseline = await ensureFlipCardBaselineRows(client);
     const newFlipCardRows = baseline.created;
     const collegeToIndyCorrected = await reconcileCollegeToIndyCurrentTeams(client);
+    const { rows: recoveredRows } = await client.query(SAFE_2026_STAGE_TEAM_RECOVERY_SQL);
+    const safeTeamIdsRecovered = Number(recoveredRows[0]?.recovered || 0);
     const heldForIdentityReview = baseline.held;
 
-    await recordIngestSuccess(client, { results, newFlipCardRows, heldForIdentityReview });
+    await recordIngestSuccess(client, { results, newFlipCardRows, collegeToIndyCorrected, safeTeamIdsRecovered, heldForIdentityReview });
 
     await client.query("commit");
 
@@ -700,6 +703,7 @@ export async function GET(req: NextRequest) {
       results,
       newFlipCardRows,
       collegeToIndyCorrected,
+      safeTeamIdsRecovered,
       heldForIdentityReview,
     });
   } catch (error: any) {

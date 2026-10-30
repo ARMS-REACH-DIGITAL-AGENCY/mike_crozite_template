@@ -78,7 +78,7 @@ WORK_MAX = 2000
 OUT_MAX_W = 1400
 OUT_MAX_H = 1000
 TRIM_ALPHA = 10
-CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+CACHE_CONTROL = "public, max-age=0, must-revalidate"
 
 
 def fade_alpha_row(width: int) -> list[int]:

@@ -6,6 +6,9 @@ import {
   ACTIVE_CARD_LEFTOVERS_SQL,
   CANONICAL_ACTIVE_STAGE_MISMATCH_SQL,
   CANONICAL_STAGE_REPAIR_SQL,
+  SAFE_2026_STAGE_TEAM_RECOVERY_SQL,
+  STAGE_TEAM_COVERAGE_SQL,
+  UNRESOLVED_ACTIVE_TEAM_SQL,
   LEVEL_FIX_TARGETS,
   LEVEL_SCAN_SQL,
   OFFICIAL_LEVELS,
@@ -63,7 +66,11 @@ export async function GET(req: NextRequest) {
   try {
     const fixed: Record<string, number> = {};
     let canonicalFixed = 0;
+    let teamIdsRecovered = 0;
     if (!dry) {
+      const { rows: recoveryRows } = await query<{ recovered: number }>(SAFE_2026_STAGE_TEAM_RECOVERY_SQL);
+      teamIdsRecovered = recoveryRows[0]?.recovered ?? 0;
+      if (teamIdsRecovered) fixed["flip_card_front_stage safe 2026 team recovery"] = teamIdsRecovered;
       const { rows: canonicalRows } = await query<{ fixed: number }>(CANONICAL_STAGE_REPAIR_SQL);
       canonicalFixed = canonicalRows[0]?.fixed ?? 0;
       if (canonicalFixed) fixed["flip_card_front_stage canonical identity"] = canonicalFixed;
@@ -84,12 +91,26 @@ export async function GET(req: NextRequest) {
     const { rows: cards } = await query<CardRow>(ACTIVE_CARD_LEFTOVERS_SQL, [official]);
     const { rows: mismatches } = await query<CardRow>(TEAM_LEVEL_MISMATCH_SQL, [official]);
     const { rows: identityMismatches } = await query<IdentityMismatch>(CANONICAL_ACTIVE_STAGE_MISMATCH_SQL);
+    const { rows: coverageRows } = await query<{
+      stage_rows: number; null_team_ids: number; active_rows: number;
+      active_null_team_ids: number; unmapped_team_ids: number;
+      active_team_id_without_source: number;
+    }>(STAGE_TEAM_COVERAGE_SQL);
+    const coverage = coverageRows[0];
+    const { rows: unresolvedActiveTeams } = await query<{
+      playerid: string; display_name: string; status_label: string;
+      current_teamid: string | null; current_team_name: string | null;
+      level_label: string | null; current_team_source: string | null;
+    }>(UNRESOLVED_ACTIVE_TEAM_SQL);
     const result = {
       ok: true,
       dry,
       fixed,
       fixedTotal,
       canonicalFixed,
+      teamIdsRecovered,
+      coverage,
+      unresolvedActiveTeams,
       scan,
       activeCards: cards.length,
       mismatches: mismatches.length,
@@ -98,7 +119,7 @@ export async function GET(req: NextRequest) {
 
     // Email when something changed, an active player needs a decision, or
     // any table still holds an unofficial level; a clean week stays quiet.
-    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0) {
+    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0 || (coverage?.active_null_team_ids ?? 0) > 0 || (coverage?.unmapped_team_ids ?? 0) > 0) {
       const contactId = await findOrCreateGhlContact(REPORT_EMAIL, "Pete", "DeLuca", undefined, "YAT?STATS Operations");
       if (contactId) {
         const fixedRows = Object.entries(fixed).map(([k, n]) => [esc(k), String(n)]);
@@ -111,6 +132,9 @@ export async function GET(req: NextRequest) {
           ${mismatches.length ? table(["Player", "Team", "Card says", "Team table says"], mismatches.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_team_name), esc(r.card_level), `<b>${esc(r.team_level)}</b>`])) : "<p>None.</p>"}
           <p><b>Active Flip Cards still disagreeing with canonical Team ID identity (${identityMismatches.length}):</b></p>
           ${identityMismatches.length ? table(["Player", "Team ID", "Card Team", "Canonical Team", "Card Org", "Canonical Org", "Card Level", "Canonical Level"], identityMismatches.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.canonical_team_name), esc(r.current_org_or_conference_name), esc(r.canonical_org_name), esc(r.level_label), esc(r.canonical_level)])) : "<p>None.</p>"}
+          <p><b>Full-stage coverage:</b> ${esc(JSON.stringify(coverage))}</p>
+          <p><b>Unresolved ACTIVE assignments (first ${unresolvedActiveTeams.length}):</b></p>
+          ${unresolvedActiveTeams.length ? table(["Player", "Team ID", "Team", "Level", "Source"], unresolvedActiveTeams.map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.level_label), esc(r.current_team_source)])) : "<p>None.</p>"}
           <p><b>Every value in the database that still isn't official:</b></p>
           ${table(["Table", "Column", "Value", "Rows"], scan.map((r) => [esc(r.table_name), esc(r.column_name), `<b>${esc(r.value)}</b>`, String(r.rows)]))}
           <p>NCAA without a division needs the division. PRO needs MLB, the affiliate level, INDY or INTERNATIONAL.</p>`;
