@@ -8,6 +8,7 @@ import { S3_BUCKET, S3_REGION, storyAssetUrl } from '@/lib/storyAssets';
 import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS } from '@/lib/whereYatLinks';
 import { notifyWhereYatReviewers } from '@/lib/whereYatReviewNotifications';
 import { notifyWhereYatContributor } from '@/lib/whereYatContributorNotifications';
+import { storeStoryPhoto, STORY_MAX_PHOTO_BYTES } from '@/lib/stories';
 
 export const runtime = 'nodejs';
 export const maxDuration = 40;
@@ -35,6 +36,11 @@ export async function POST(req: NextRequest) {
     website: clean(form.get('website'), 300), linkedin: clean(form.get('linkedin'), 300),
     instagram: clean(form.get('instagram'), 300), facebook: clean(form.get('facebook'), 300),
     x: clean(form.get('x'), 300), story: clean(form.get('story'), 2400),
+    favoriteHs: clean(form.get('favoriteHs'), 5000), favoriteAfter: clean(form.get('favoriteAfter'), 5000),
+    family: clean(form.get('family'), 5000), retirementYear: clean(form.get('retirementYear'), 4),
+    businessMessage: clean(form.get('businessMessage'), 3000), businessOffer: clean(form.get('businessOffer'), 1000),
+    businessEmail: clean(form.get('businessEmail'), 220), businessPhone: clean(form.get('businessPhone'), 80),
+    teammateTips: clean(form.get('teammateTips'), 5000),
   };
   const normalized: Record<string, string> = {};
   for (const field of WHERE_YAT_LINK_FIELDS) {
@@ -108,17 +114,31 @@ export async function POST(req: NextRequest) {
       companyLogoUrl = storyAssetUrl(companyLogoKey);
     }
 
+    const lifeFiles = form.getAll('lifePhotos').filter((f): f is File => f instanceof File && f.size > 0);
+    if (lifeFiles.length > 4 || lifeFiles.some(f => f.size > STORY_MAX_PHOTO_BYTES))
+      return reply('Please choose up to four photographs, each under 4 MB.', 413);
+    const album = [];
+    for (let i=0; i<lifeFiles.length; i++) {
+      const stored = await storeStoryPhoto(randomUUID(), i, Buffer.from(await lifeFiles[i].arrayBuffer()));
+      album.push({ web: storyAssetUrl(stored.web_s3_key), full: storyAssetUrl(stored.s3_key), thumb: storyAssetUrl(stored.thumb_s3_key) });
+    }
+    const year = fields.retirementYear ? Number(fields.retirementYear) : null;
+    if (year !== null && (!Number.isInteger(year) || year < 1900 || year > new Date().getFullYear()))
+      return reply('Please enter a valid retirement year.');
+    const publicBusiness = clean(form.get('businessPublic'), 8) === 'yes';
+    const attested = clean(form.get('claimAttestation'),8) === 'yes';
+    if (!attested) return reply('Please confirm that you are the alumnus or are authorized to submit this update.');
     const sponsorship = clean(form.get('sponsorship'), 8) === 'yes';
     const result = await query<{ id: number }>(
       `INSERT INTO public.alumni_where_yat_now
       (playerid,hsid,contributor_uid,contact_email,display_name,location_city,location_state,
        occupation,company_name,business_website,linkedin_url,instagram_url,facebook_url,x_url,
-       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now())
+       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at,retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,questionnaire_version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,2)
        RETURNING id`,
       [playerId,hsid,who.uid,email,displayName,fields.city,fields.state,fields.occupation,fields.company,
        normalized.website,normalized.linkedin,normalized.instagram,
-       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship],
+       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested],
     );
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
