@@ -9,6 +9,18 @@ export type NewsVideo = {
 
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 
+/** Extract a public X/Twitter post ID from ordinary and /video/1 status links. */
+export function getXPostId(rawUrl: string | null | undefined): string | null {
+  let url: URL;
+  try { url = new URL(String(rawUrl || '')); } catch { return null; }
+  if (url.protocol !== 'https:' || url.username || url.password) return null;
+  const host = url.hostname.toLowerCase().replace(/^www\./, '');
+  if (!['x.com', 'mobile.x.com', 'twitter.com', 'mobile.twitter.com'].includes(host)) return null;
+  const parts = url.pathname.split('/').filter(Boolean);
+  return parts.length >= 3 && /^[A-Za-z0-9_]{1,15}$/.test(parts[0])
+    && parts[1] === 'status' && /^\d{8,20}$/.test(parts[2]) ? parts[2] : null;
+}
+
 export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | null {
   let url: URL;
   try {
@@ -61,8 +73,9 @@ export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | n
     return parts.length ? video('Facebook', null, null) : null;
   }
 
-  if (host === 'x.com' || host === 'twitter.com' || host === 'mobile.twitter.com') {
-    return parts.includes('status') ? video('X', null, null) : null;
+  if (['x.com', 'mobile.x.com', 'twitter.com', 'mobile.twitter.com'].includes(host)) {
+    // X's video is embedded through the official widgets.js post player.
+    return getXPostId(watchUrl) ? video('X', null, null) : null;
   }
 
   return null;
