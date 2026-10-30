@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { query } from '@/lib/db';
 import { parseNewsVideo } from '@/lib/newsVideo';
 import { resolveSchoolNewsOrigins, schoolNewsStoryUrl } from '@/lib/schoolNewsLinks';
@@ -17,11 +18,11 @@ export async function generateMetadata({params}:Context):Promise<Metadata> {
   const {uuid}=await params;
   const item=await story(uuid);
   if (!item) return { title:'Story not found | YAT?STATS',robots:{index:false} };
-  const video=parseNewsVideo(item.url);
-  const image=video?.thumbnailUrl || item.display_image_url || item.image_url || undefined;
+  const host=(await headers()).get('host') || 'yatstats.com';
+  const image=`https://${host}/api/og/news?hsid=${encodeURIComponent(item.hsid)}&story=${encodeURIComponent(uuid)}`;
   const title=item.title || 'Alumni News | YAT?STATS';
   const description=(item.snippet || `Alumni news featuring ${item.player_name || 'YAT?STATS'}`).slice(0,250);
-  return {title,description,openGraph:{type:'article',title,description,images:image?[{url:image}]:[]},twitter:{card:'summary_large_image',title,description,images:image?[image]:[]}};
+  return {title,description,openGraph:{type:'article',title,description,images:[{url:image,width:1200,height:630,type:'image/png'}]},twitter:{card:'summary_large_image',title,description,images:[image]}};
 }
 export default async function NewsShareLanding({params}:Context) {
   const {uuid}=await params, item=await story(uuid);

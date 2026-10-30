@@ -14,4 +14,16 @@ assert.match(image, /const SIZE = \{ width: 1200, height: 630 \}/, 'OG image dim
 assert.match(image, /getSchoolByHsid\(hsid\)/, 'image is school-aware');
 assert.doesNotMatch(image, /getFlipCardFrontStageByHsid|getAllTimeRosterByHsid/, 'OG image should not scan the roster');
 assert.match(middleware, /BLOCKED_BOTS/, 'keep existing anti-crawler safeguards');
-console.log('School and All-Time link preview regression checks passed.');
+const newsImage = read('src/app/api/og/news/route.tsx');
+const shortNews = read('src/app/n/[uuid]/page.tsx');
+const config = read('next.config.ts');
+assert.match(page, /api\/og\/news\?hsid=/, 'school news metadata needs same-origin artwork');
+assert.match(page, /width:1200,height:630,type:"image\/png"/, 'news preview must be a full landscape image');
+assert.match(shortNews, /api\/og\/news\?hsid=/, 'short news link needs full image');
+assert.match(newsImage, /const SIZE = \{ width: 1200, height: 630 \}/, 'news image must be 1200x630');
+assert.match(newsImage, /getSchoolCrestUrl\(hsid\)/, 'missing story media requires school fallback');
+assert.match(newsImage, /news\.display_image_url/, 'prefer supplied story images');
+assert.match(newsImage, /new ImageResponse\(/, 'news images must be real PNGs');
+assert.match(config, /htmlLimitedBots:[^\n]*GoogleMessages/, 'Google Messages crawler needs OG metadata in <head>');
+assert.match(config, /htmlLimitedBots:[^\n]*facebookexternalhit/, 'keep Facebook bot head metadata');
+console.log('School, All-Time, News and Google Messages social preview checks passed.');
