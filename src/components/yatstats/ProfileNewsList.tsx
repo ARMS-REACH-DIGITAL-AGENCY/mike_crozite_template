@@ -298,8 +298,8 @@ export default function ProfileNewsList({
               {/* Embedded videos play here. Do not place a competing off-site
                   call to action under an already usable player. */}
               {!selectedVideo?.embedUrl ? (
-                <a className="pp-news-modal-source" href={openStory.url} target="_blank" rel="noopener noreferrer">
-                  {selectedVideo ? "Original video (external)" : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
+                <a className="pp-news-modal-source" href={/^MLB Transactions$/i.test(openStory.source || "") && openStory.publishedAt ? `https://www.mlb.com/transactions/${new Date(openStory.publishedAt).toISOString().slice(0, 10).replace(/-/g, "/")}` : openStory.url} target="_blank" rel="noopener noreferrer">
+                  {/^MLB Transactions$/i.test(openStory.source || "") ? "VIEW ALL TRANSACTIONS ON MLB.COM" : selectedVideo ? "Original video (external)" : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
                   <i className="ri-external-link-line" aria-hidden="true" />
                 </a>
               ) : null}
