@@ -20,23 +20,21 @@ export default function WhereYatFunZonePanel({
 }) {
   return (
     <section className={`wyn-fz wyn-fz-${state}`} aria-label="Where YAT Now? alumni card">
-      <div className="wyn-fz-brand">
+      {state !== "unclaimed" && <div className="wyn-fz-brand">
         <img src={LOGO} alt="YAT?STATS" loading="lazy" />
         {state === 'approved' && <span>WHERE YAT NOW?</span>}
-      </div>
+      </div>}
 
       {state === 'unclaimed' && (
-        <>
-          <div className="wyn-fz-headline">
-            <span className="wyn-fz-brush-word">WHERE YAT</span>
-            <strong>NOW?</strong>
-          </div>
-          <div className="wyn-fz-copy">
+        <div className="wyn-fz-art">
+          <div className="wyn-fz-art-logo"><img src={LOGO} alt="YAT?STATS" /></div>
+          <div className="wyn-fz-art-title"><span>WHERE YAT</span><strong>NOW?</strong></div>
+          <div className="wyn-fz-art-bottom">
             <b>LIFE AFTER BASEBALL IS PART OF THE STORY.</b>
-            <p>Same game. New chapter. Reconnect with teammates and tell your hometown where life has taken you.</p>
+            <p>Update your profile and share where life has taken you since your playing days. Reconnect with teammates.</p>
+            <a className="wyn-fz-art-button" href={profileHref}>CLAIM YOUR PROFILE ›</a>
           </div>
-          <a className="wyn-fz-action" href={profileHref}>CLAIM YOUR PROFILE <i className="ri-arrow-right-s-line" aria-hidden="true" /></a>
-        </>
+        </div>
       )}
 
       {state === 'pending' && (
@@ -69,6 +67,20 @@ export default function WhereYatFunZonePanel({
       )}
 
       <style>{`
+        .wyn-fz-unclaimed{padding:0;background:#eee5d3;}
+        .wyn-fz-unclaimed::before{display:none;}
+        .wyn-fz-art{height:100%;width:100%;display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden;background:linear-gradient(165deg,#fff9e9,#e8dcca);}
+        .wyn-fz-art:before{content:"";position:absolute;inset:0 0 39%;background:radial-gradient(circle at 85% 45%,#2778b6 0%,transparent 43%),linear-gradient(130deg,#06213d,#06518b 58%,#08213c);clip-path:polygon(0 9%,100% 0,100% 90%,0 100%);}
+        .wyn-fz-art-logo{position:relative;z-index:1;align-self:flex-start;width:75%;padding:4% 5% 0;filter:drop-shadow(1px 3px 1px #001);}
+        .wyn-fz-art-logo img{width:100%;height:auto;max-height:48px;object-fit:contain;object-position:left;}
+        .wyn-fz-art-title{z-index:1;position:relative;display:flex;flex-direction:column;align-items:center;transform:rotate(-5deg);width:100%;margin-top:2%;filter:drop-shadow(3px 5px 1px #001b3e);}
+        .wyn-fz-art-title span{font:italic 900 clamp(28px,13cqi,72px)/.95 "Bebas Neue",Oswald,sans-serif;color:white;text-shadow:2px 2px #123f6e;}
+        .wyn-fz-art-title strong{font:italic 900 clamp(54px,24cqi,132px)/.9 "Bebas Neue",Oswald,sans-serif;color:#ffca1b;-webkit-text-stroke:1px #092847;text-shadow:3px 4px #00152d;}
+        .wyn-fz-art-bottom{z-index:1;margin-top:auto;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;padding:0 5% 4%;box-sizing:border-box;gap:clamp(3px,1cqi,8px);}
+        .wyn-fz-art-bottom b{font:900 clamp(11px,4cqi,22px)/1.08 Oswald,sans-serif;}
+        .wyn-fz-art-bottom p{font:500 clamp(9px,2.9cqi,15px)/1.3 Archivo,Arial,sans-serif;margin:0;}
+        .wyn-fz-art-button{width:96%;box-sizing:border-box;background:linear-gradient(#ffe86c,#ffc821 65%,#e5a012);border:2px solid #78510e;border-radius:9px;box-shadow:0 2px 5px #3a250e99,inset 0 2px #fff7a6;padding:clamp(5px,1.6cqi,11px) 3px;color:#09223b!important;text-decoration:none!important;font:900 clamp(12px,4cqi,23px)/1 Oswald,sans-serif;}
+
         .wyn-fz {
           display:flex; flex-direction:column; width:100%; height:100%; min-height:0;
           box-sizing:border-box; overflow:hidden; position:relative; isolation:isolate;
