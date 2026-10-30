@@ -185,7 +185,7 @@ export default function WhereYatNowDrawer() {
         <div style={{ color: ACCENT, fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontWeight: 700, fontSize: 12, letterSpacing: '.12em', paddingTop: 7 }}>YAT?STATS / CONNECT · CONTRIBUTE · REMEMBER</div>
         <h2 style={{ fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 32, lineHeight: 1.1, margin: '14px 0 6px', letterSpacing: '.035em' }}>WHERE YAT NOW?</h2>
         <div style={{ height: 2, width: 64, background: ACCENT, margin: '12px 0 15px' }} />
-        <p style={{ fontSize: 14, lineHeight: 1.6, color: '#d0d0d0' }}>Reconnect with {target.name}. Share a free alumni update for the player's profile. All submissions are reviewed before publication.</p>
+        <p style={{ fontSize: 14, lineHeight: 1.6, color: '#d0d0d0' }}>Claim or update {target.name}'s alumni profile. Proof confirmation and identity verification are required before publication.</p>
         {success ? (
           <div role="status" style={{ marginTop: 30, lineHeight: 1.6 }}>
             <h3 style={{ color: ACCENT, fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 22 }}>UPDATE RECEIVED</h3>
@@ -237,13 +237,14 @@ export default function WhereYatNowDrawer() {
               <input type="checkbox" name="sponsorship" value="yes" style={{ marginTop: 4, accentColor: ACCENT, width: 17, height: 17, flexShrink: 0 }} />
               I'm interested in hearing about optional advertising or partnership opportunities for my business.
             </label>
+            <label style={{display:'flex',gap:10,alignItems:'flex-start',fontSize:13,margin:'14px 0'}}><input type="checkbox" name="claimAttestation" value="yes" required style={{marginTop:3}}/> I am this alumnus or have their permission to submit this update.</label>
             <p style={{ fontSize: 11, lineHeight: 1.55, color: '#aaa' }}>By submitting, you authorize YAT?STATS to review and display approved public information and photos. Keep private contact details out of your public story. Submitting on someone else's behalf does not verify their identity.</p>
             {proof && <div id="where-yat-proof" style={{margin:'18px 0 12px'}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:22,color:ACCENT}}>REVIEW YOUR PROOF</h3><WhereYatProofCard proof={proof} variant="full"/><p style={{fontSize:13,color:'#ccc'}}>Please confirm every detail. Your confirmation does not verify identity; an authorized reviewer must also approve publication.</p><button type="button" style={{...uiButton,background:'#333',color:'#fff',border:'1px solid #777',marginBottom:10}} onClick={()=>setProof(null)}>EDIT MY DETAILS</button></div>}
             {error && !fieldError && <p role="alert" style={{ color: '#ffb3b3', fontWeight: 700 }}>{error}</p>}
             <button type="submit" disabled={busy} style={{ ...uiButton, width: '100%', marginTop: 7, opacity: busy ? .65 : 1 }}>
               {busy ? 'SUBMITTING…' : proof ? 'CONFIRM PROOF & SUBMIT UPDATE' : 'REVIEW MY PROOF →'}
             </button>
-            <p style={{ fontSize: 12, color: '#bbb', marginTop: 17, textAlign: 'center' }}>Business partnerships are optional and separate from this free update.</p>
+            <p style={{ fontSize: 12, color: '#bbb', marginTop: 17, textAlign: 'center' }}>Business partnerships are optional and separate from your alumni profile.</p>
             <p style={{ fontSize: 13, textAlign: 'center' }}><a href={PARTNERS_HREF} target="_blank" rel="noopener noreferrer" style={{ color: ACCENT, textDecoration: 'underline' }}>YAT?STATS Corporate Partnership Program ↗</a></p>
           </form>
         )}
