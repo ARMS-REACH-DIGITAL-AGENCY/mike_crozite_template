@@ -14,7 +14,7 @@ type Photo = {
   details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; moderation?: { decision?: string; description?: string } | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
 type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
-type Alumni = { id: number; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; sponsorship_interest: boolean; created_at: string; proof_confirmed_at:string|null; identity_review_method:string|null; identity_review_note:string|null };
+type Alumni = { id: number; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; company_logo_url: string | null; sponsorship_interest: boolean; created_at: string; proof_confirmed_at:string|null; identity_review_method:string|null; identity_review_note:string|null };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -131,6 +131,7 @@ export default function ReviewQueue() {
           <h3 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 24 }}>{item.display_name}</h3>
           <p className="ycr-muted">School #{item.hsid} · Submission #{item.id} · {when(item.created_at)}</p>
           {item.photo_url && <img src={item.photo_url} alt={'Submitted photo of ' + item.display_name} />}
+          {item.company_logo_url && <div><strong>Submitted company logo (requires approval):</strong><img src={item.company_logo_url} alt={'Company logo for '+(item.company_name||item.display_name)} style={{width:130,height:95,objectFit:'contain',display:'block',background:'#eee'}} /></div>}
           {item.story && <p style={{whiteSpace:'pre-wrap'}}>{item.story}</p>}
           {item.occupation && <p>Occupation: {item.occupation}</p>}
           {item.company_name && <p>Organization: {item.company_name}</p>}
