@@ -2133,7 +2133,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     (then-web/), falling back to /api/cutout, which does
                     the same trim on the fly -- the figure (not empty
                     canvas) fills its box either way. */}
-                <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[webCutoutUrl('then', playerId), apiCutoutUrl('then', playerId), `${S3_BASE}/players/then-card/${encodeURIComponent(playerId)}.webp`]} src={`${S3_BASE}/players/then/${encodeURIComponent(playerId)}.jpg`} alt={`${firstName(slide.title)} high school front-card image`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[apiCutoutUrl('then', playerId), `${S3_BASE}/players/then/${encodeURIComponent(playerId)}.jpg`]} src={`${S3_BASE}/players/then/${encodeURIComponent(playerId)}.jpg`} alt={`${firstName(slide.title)} high school front-card image`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
                 {/* The SMALL overlapping action photo is the actual flip-card
                     BACK, not the player's headshot. Prefer its transparent
                     cutout; if cutout processing is missing, use the same
@@ -2145,7 +2145,6 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     className="zt-person zt-person-now"
                     style={{ opacity }}
                     srcs={[
-                      webCutoutUrl('back', playerId),
                       apiCutoutUrl('back', playerId),
                       `${S3_BASE}/players/back-card/${encodeURIComponent(playerId)}.webp`,
                       `${S3_BASE}/players/back/${encodeURIComponent(playerId)}.jpg`,
@@ -2187,7 +2186,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           // stretched over the whole banner.
           if (slide.kind === 'today') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[webCutoutUrl('now', playerId)]} src={apiCutoutUrl('now', playerId)} alt={`${resolvedPlayerName || 'Player'} today`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[apiCutoutUrl('now', playerId)]} src={`${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`} alt={`${resolvedPlayerName || 'Player'} today`} />
             );
           }
           if (slide.kind === 'lifeyear') {
