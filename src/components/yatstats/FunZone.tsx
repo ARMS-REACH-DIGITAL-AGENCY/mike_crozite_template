@@ -36,7 +36,7 @@ import SevenDaySnapshotView from "./SevenDaySnapshotView";
 import {openWhereYatNow} from "./WhereYatNowDrawer";
 import {auth} from "@/lib/firebase";
 import {onAuthStateChanged} from "firebase/auth";
-import WhereYatProofCard from "./WhereYatProofCard";
+import WhereYatFunZonePanel from "./WhereYatFunZonePanel";
 import { parseNewsVideo } from "@/lib/newsVideo";
 import { PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 
@@ -884,20 +884,21 @@ export default function FunZone({
         data-fz-tab="schedule"
       >
         {retiredPlayer ? (
-          <div className="fz-where-yat" style={{height:'100%',minHeight:0,overflow:'hidden',padding:'clamp(3px,1cqi,7px)',fontFamily:'Archivo,Arial,sans-serif',background:'transparent',color:'#1e160e'}}>
-            {alumniUpdate?.status==='approved' ? <div style={{height:'100%',display:'flex',flexDirection:'column',minHeight:0}}>
-              <WhereYatProofCard variant="content" showName={false} proof={{playerId:imageId,hsid:resolvedHsid,displayName:alumniUpdate.display_name||displayName,city:alumniUpdate.location_city||'',state:alumniUpdate.location_state||'',occupation:alumniUpdate.occupation||'',company:alumniUpdate.company_name||'',website:alumniUpdate.business_website||'',linkedin:alumniUpdate.linkedin_url||'',instagram:alumniUpdate.instagram_url||'',facebook:alumniUpdate.facebook_url||'',x:alumniUpdate.x_url||'',story:String(alumniUpdate.story||'').slice(0,240),photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null}}/>
-              <a href={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`} style={{display:'block',textAlign:'center',font:'700 clamp(9px,2.8cqi,15px) Oswald,sans-serif',color:'#221811',borderTop:'1px solid #8f8070',padding:'5px 2px',textDecoration:'underline'}}>READ MORE ABOUT {firstName.toUpperCase()}\'S LIFE AFTER HIGH SCHOOL</a>
-            </div> :
-            alumniUpdate?.status==='pending' ?
-              <div style={{textAlign:'center',padding:'18px 8px',font:'700 clamp(13px,4cqi,20px) Oswald,sans-serif',letterSpacing:'.05em',color:'#4c3724'}}>WAITING FOR APPROVAL</div> :
-              <div style={{height:'100%',display:'flex',flexDirection:'column',padding:'clamp(9px,2.8cqi,16px)',color:'#251b13',gap:'clamp(7px,2cqi,14px)'}}>
-                <div style={{font:'600 clamp(10px,3.2cqi,18px) Oswald,sans-serif',letterSpacing:'.08em',borderBottom:'1px solid #8a7f71',paddingBottom:6}}>WHERE YAT NOW?</div>
-                <div style={{font:'700 clamp(18px,5cqi,27px)/1.1 Oswald,sans-serif'}}>THE NEXT CHAPTER</div>
-                <p style={{margin:0,font:'400 clamp(11px,3.1cqi,16px)/1.5 Archivo,sans-serif'}}>Baseball was only the beginning. Every alumnus has a story worth remembering.</p>
-                <p style={{font:'500 clamp(10px,2.8cqi,15px)/1.5 Archivo,sans-serif',margin:0,color:'#544739'}}>The memories. The people. The life that followed.</p>
-                <a href={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`} style={{marginTop:'auto',display:'block',textAlign:'center',padding:'10px 8px',border:'1px solid #3d3022',background:'#35271d',color:'#fff',font:'700 clamp(12px,3.4cqi,17px) Oswald,sans-serif',textDecoration:'none'}}>CLAIM YOUR PROFILE</a>
-              </div>}
+          <div className="fz-where-yat">
+            <WhereYatFunZonePanel
+              state={alumniUpdate?.status === 'approved' ? 'approved' : alumniUpdate?.status === 'pending' ? 'pending' : 'unclaimed'}
+              firstName={firstName}
+              profileHref={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`}
+              proof={alumniUpdate?.status === 'approved' ? {
+                playerId:imageId, hsid:resolvedHsid, displayName:alumniUpdate.display_name||displayName,
+                city:alumniUpdate.location_city||'', state:alumniUpdate.location_state||'',
+                occupation:alumniUpdate.occupation||'', company:alumniUpdate.company_name||'',
+                website:alumniUpdate.business_website||'', linkedin:alumniUpdate.linkedin_url||'',
+                instagram:alumniUpdate.instagram_url||'', facebook:alumniUpdate.facebook_url||'',
+                x:alumniUpdate.x_url||'',story:String(alumniUpdate.story||'').slice(0,260),
+                photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null,
+              } : null}
+            />
           </div>
         ) : lazySchedulePlayerId ? (
           loadedSchedule ? <SevenDaySnapshotView {...loadedSchedule} profileHref={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`} /> :
@@ -1122,6 +1123,19 @@ export default function FunZone({
           background:transparent;
         }
 
+        /* Where YAT Now art occupies the existing panel only; tabs remain
+           outside it as six real navigation buttons, at every card size. */
+        .fz-where-yat{height:100%;min-height:0;display:flex;overflow:hidden;}
+        .fz-panel[data-fz-tab="schedule"]:has(.fz-where-yat){
+          padding:0;
+        }
+        .fz-root:has(.fz-where-yat){min-height:0;}
+        .fz-root:has(.fz-where-yat) .fz-tab-strip{
+          flex-shrink:0;
+          min-height:clamp(28px,9.5cqi,53px);
+          position:relative;
+          z-index:2;
+        }
         .fz-stats-shell{
           display:flex;
           flex-direction:column;
