@@ -109,7 +109,7 @@ assert(recovery.includes("year = '2026'"),
   'Recovery must use only current-season 2026 records');
 assert(recovery.includes('COUNT(DISTINCT teamid) = 1'),
   'Ambiguous multi-team 2026 assignments must not be guessed');
-assert(!/public\\.player_current_team\\b/i.test(recovery),
+assert(!/public\.player_current_team\b/i.test(recovery),
   'Recovery must never read the obsolete MLB snapshot');
 assert(recovery.includes("f.current_teamid IS NULL") &&
        recovery.includes("f.current_team_source IS NULL"),
@@ -117,7 +117,7 @@ assert(recovery.includes("f.current_teamid IS NULL") &&
 assert(recovery.includes('public.player_team_override') &&
        recovery.includes('f.last_transaction_applied_at IS NULL'),
   'Recovery must protect overrides and transaction departures');
-assert(!/current_team_last_verified\\s*=/i.test(recovery),
+assert(!/current_team_last_verified\s*=/i.test(recovery),
   '2026 stats evidence must not be misrepresented as a live verified roster');
 assert(recovery.includes("'INDY','INTERNATIONAL'") ||
        recovery.includes("'INDY','INTERNATIONAL'".replace(',', ', ')),
