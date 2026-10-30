@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const result = await query(
     `SELECT id, playerid, hsid, contact_email, display_name, location_city,
        location_state, occupation, company_name, business_website,
-       linkedin_url, instagram_url, facebook_url, x_url, story, photo_url,
+       linkedin_url, instagram_url, facebook_url, x_url, story, photo_url, company_logo_url,
        sponsorship_interest, created_at, proof_confirmed_at, identity_review_method, identity_review_note
      FROM public.alumni_where_yat_now WHERE status='pending'
      ORDER BY created_at ASC LIMIT 100`);
