@@ -7,7 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import WhereYatProofCard, { type WhereYatProof } from './WhereYatProofCard';
 import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS, type WhereYatLinkField } from '@/lib/whereYatLinks';
 
-type Target = { playerId: string; hsid: string; name: string };
+type Target = { playerId: string; hsid: string; name: string; position?: string };
 export const WHERE_YAT_OPEN = 'yat:where-yat-now-open';
 export function openWhereYatNow(target: Target) {
   window.dispatchEvent(new CustomEvent<Target>(WHERE_YAT_OPEN, { detail: target }));
@@ -31,6 +31,7 @@ export default function WhereYatNowDrawer() {
   const [fan, setFan] = useState({ name: '', email: '' });
   const [proof, setProof] = useState<WhereYatProof | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [submissionId, setSubmissionId] = useState<number | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const pendingAfterSignIn = useRef<Target | null>(null);
@@ -67,6 +68,8 @@ export default function WhereYatNowDrawer() {
       setFieldError(null);
       setSuccess(false);
       setProof(null);
+      setPhotoPreview(null);
+      setLogoPreview(null);
       document.body.classList.add('drawer-open');
     };
     const stopWatchingAuth = onAuthStateChanged(auth, (user) => {
@@ -104,7 +107,16 @@ export default function WhereYatNowDrawer() {
     // Capture form synchronously: event.currentTarget is cleared after the first await.
     const data = new FormData(event.currentTarget);
     if (!proof) {
-      const nextProof: WhereYatProof = { displayName:String(data.get('displayName') || ''), city:String(data.get('city')||''),state:String(data.get('state')||''),occupation:String(data.get('occupation')||''),company:String(data.get('company')||''),website:String(data.get('website')||''),linkedin:String(data.get('linkedin')||''),instagram:String(data.get('instagram')||''),facebook:String(data.get('facebook')||''),x:String(data.get('x')||''),story:String(data.get('story')||''),photoUrl:photoPreview };
+      const nextProof: WhereYatProof = {
+        playerId: target.playerId, hsid: target.hsid, position: target.position,
+        displayName:String(data.get('displayName') || ''),
+        city:String(data.get('city')||''),state:String(data.get('state')||''),
+        occupation:String(data.get('occupation')||''),company:String(data.get('company')||''),
+        website:String(data.get('website')||''),linkedin:String(data.get('linkedin')||''),
+        instagram:String(data.get('instagram')||''),facebook:String(data.get('facebook')||''),
+        x:String(data.get('x')||''),story:String(data.get('story')||''),
+        photoUrl:photoPreview,logoUrl:logoPreview,
+      };
       setProof(nextProof);
       requestAnimationFrame(() => setTimeout(() => document.getElementById('where-yat-proof')?.scrollIntoView({behavior:'smooth',block:'nearest'}), 30));
       return;
@@ -147,6 +159,7 @@ export default function WhereYatNowDrawer() {
       }
       setSuccess(true);
       setSubmissionId(Number(body.submissionId) || null);
+      window.dispatchEvent(new CustomEvent('yat:where-yat-submitted', { detail: { playerId:target.playerId, hsid:target.hsid } }));
       formRef.current?.reset();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to submit.');
@@ -192,6 +205,17 @@ export default function WhereYatNowDrawer() {
             </div>
             {field('WHAT DO YOU DO THESE DAYS?', 'occupation', 'Career or current role')}
             {field('BUSINESS OR ORGANIZATION', 'company', 'Company name')}
+            <label style={{display:'block',fontFamily:'Oswald,Barlow Condensed,Arial Narrow,sans-serif',fontSize:14,fontWeight:700,letterSpacing:'.055em',marginBottom:18}}>ADD YOUR COMPANY LOGO (OPTIONAL)
+              <div style={{border:'2px dashed #b9a47b',padding:17,margin:'9px 0',background:'#222',textAlign:'center'}}>
+                <div style={{fontSize:24,color:ACCENT}}>＋</div>
+                <div>UPLOAD COMPANY LOGO</div>
+                <div style={{fontFamily:'Archivo,Arial,sans-serif',fontSize:12,color:'#bbb',letterSpacing:0}}>Transparent PNG recommended. JPG or WebP also accepted. Max 5 MB.</div>
+                {logoPreview && <img src={logoPreview} alt="Selected company logo" style={{display:'block',margin:'10px auto',maxHeight:100,maxWidth:'85%',objectFit:'contain',background:'#ddd',padding:6}} />}
+                <input name="companyLogo" type="file" accept="image/png,image/jpeg,image/webp"
+                  onChange={e=>{const file=e.target.files?.[0];if(file && file.size>5*1024*1024){setError('Company logo must be under 5 MB.');e.target.value='';return;}if(logoPreview)URL.revokeObjectURL(logoPreview);setLogoPreview(file?URL.createObjectURL(file):null);setProof(null);setError('');}}
+                  style={{display:'block',margin:'12px auto',width:'100%',fontFamily:'Archivo,Arial,sans-serif',fontSize:13,letterSpacing:0}} />
+              </div>
+            </label>
             {field('BUSINESS WEBSITE (OPTIONAL)', 'website', 'yatstats.com')}
             {field('LINKEDIN (OPTIONAL)', 'linkedin', 'petedeluca or full profile URL')}
             {field('INSTAGRAM (OPTIONAL)', 'instagram', '@pcdaction')}
@@ -214,7 +238,7 @@ export default function WhereYatNowDrawer() {
               I'm interested in hearing about optional advertising or partnership opportunities for my business.
             </label>
             <p style={{ fontSize: 11, lineHeight: 1.55, color: '#aaa' }}>By submitting, you authorize YAT?STATS to review and display approved public information and photos. Keep private contact details out of your public story. Submitting on someone else's behalf does not verify their identity.</p>
-            {proof && <div id="where-yat-proof" style={{margin:'18px 0 12px'}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:22,color:ACCENT}}>REVIEW YOUR PROOF</h3><WhereYatProofCard proof={proof}/><p style={{fontSize:13,color:'#ccc'}}>Please confirm every detail. Your confirmation does not verify identity; an authorized reviewer must also approve publication.</p><button type="button" style={{...uiButton,background:'#333',color:'#fff',border:'1px solid #777',marginBottom:10}} onClick={()=>setProof(null)}>EDIT MY DETAILS</button></div>}
+            {proof && <div id="where-yat-proof" style={{margin:'18px 0 12px'}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:22,color:ACCENT}}>REVIEW YOUR PROOF</h3><WhereYatProofCard proof={proof} variant="full"/><p style={{fontSize:13,color:'#ccc'}}>Please confirm every detail. Your confirmation does not verify identity; an authorized reviewer must also approve publication.</p><button type="button" style={{...uiButton,background:'#333',color:'#fff',border:'1px solid #777',marginBottom:10}} onClick={()=>setProof(null)}>EDIT MY DETAILS</button></div>}
             {error && !fieldError && <p role="alert" style={{ color: '#ffb3b3', fontWeight: 700 }}>{error}</p>}
             <button type="submit" disabled={busy} style={{ ...uiButton, width: '100%', marginTop: 7, opacity: busy ? .65 : 1 }}>
               {busy ? 'SUBMITTING…' : proof ? 'CONFIRM PROOF & SUBMIT UPDATE' : 'REVIEW MY PROOF →'}
