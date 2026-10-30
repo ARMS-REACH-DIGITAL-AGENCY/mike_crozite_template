@@ -214,33 +214,49 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
  FROM news_tip_queue q WHERE q.status='new'
    AND q.intake_source IN ('correction','fan_drawer','manual_seed')
    AND (
-     NOT EXISTS (
-       SELECT 1 FROM fan_activity fa
-       WHERE fa.action='contribute_processed'
-         AND fa.details->>'queue_id'=q.id::text
-     )
-     OR (
-       q.intake_source='correction'
-       AND q.notes LIKE '%"committed_teamid"%'
-       AND q.notes LIKE '%"status_label":"COMMIT"%'
-       AND EXISTS (
+     -- Tips & Clips (including old needs_review records) must never be
+     -- stranded by an outdated audit label. Only published or safety-rejected
+     -- is terminal. A temporary AI outage remains eligible for retry.
+     (
+       q.intake_source IN ('fan_drawer','manual_seed')
+       AND NOT EXISTS (
          SELECT 1 FROM fan_activity fa
          WHERE fa.action='contribute_processed'
            AND fa.details->>'queue_id'=q.id::text
-           AND fa.details->>'status'='needs_review'
+           AND fa.details->>'status' IN ('published','rejected')
        )
-       AND NOT EXISTS (
-         SELECT 1 FROM fan_activity fa
-         WHERE fa.action='commitment_published'
-           AND fa.details->>'queue_id'=q.id::text
-       )
-       AND EXISTS (
-         SELECT 1 FROM flip_card_front_stage f
-         WHERE f.playerid=q.matched_playerid
-           AND f.hsid::text=q.matched_hsid
-           AND UPPER(COALESCE(f.status_label,''))='UNCOMMITTED'
-           AND f.committed_teamid IS NULL
-           AND UPPER(COALESCE(NULLIF(TRIM(f.display_level_label),''),f.level_label,''))='HIGH SCHOOL'
+     )
+     OR (
+       q.intake_source='correction'
+       AND (
+         NOT EXISTS (
+           SELECT 1 FROM fan_activity fa
+           WHERE fa.action='contribute_processed'
+             AND fa.details->>'queue_id'=q.id::text
+         )
+         OR (
+           q.notes LIKE '%"committed_teamid"%'
+           AND q.notes LIKE '%"status_label":"COMMIT"%'
+           AND EXISTS (
+             SELECT 1 FROM fan_activity fa
+             WHERE fa.action='contribute_processed'
+               AND fa.details->>'queue_id'=q.id::text
+               AND fa.details->>'status'='needs_review'
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM fan_activity fa
+             WHERE fa.action='commitment_published'
+               AND fa.details->>'queue_id'=q.id::text
+           )
+           AND EXISTS (
+             SELECT 1 FROM flip_card_front_stage f
+             WHERE f.playerid=q.matched_playerid
+               AND f.hsid::text=q.matched_hsid
+               AND UPPER(COALESCE(f.status_label,''))='UNCOMMITTED'
+               AND f.committed_teamid IS NULL
+               AND UPPER(COALESCE(NULLIF(TRIM(f.display_level_label),''),f.level_label,''))='HIGH SCHOOL'
+           )
+         )
        )
      )
    )
