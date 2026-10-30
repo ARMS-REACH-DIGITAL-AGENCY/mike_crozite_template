@@ -239,7 +239,39 @@ export async function getPlayerSocialHandles(playerId: string): Promise<Record<s
   }
 }
 
+// A person has one YAT identity even when Baseball Cube used an older ID.
+// Keep the source ID for historical stat joins; never rewrite imported raw files.
+export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<string> {
+  if (/^\d+$/.test(playerId)) return playerId;
+  const { rows } = await query<{ source_player_id: string }>(
+    `SELECT source_player_id FROM public.player_source_map
+      WHERE playerid = $1 AND source = 'tbc' AND is_verified IS TRUE
+        AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'
+      ORDER BY updated_at DESC LIMIT 1`,
+    [playerId]
+  );
+  return rows[0]?.source_player_id || playerId;
+}
+
+// Read aliases only for the people on this school's roster, not the full crosswalk.
+export async function getVerifiedTbcCanonicalPlayerIds(sourceIds: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(sourceIds.filter(Boolean))];
+  const aliases = new Map<string, string>();
+  if (!ids.length) return aliases;
+  const { rows } = await query<{ source_player_id: string; playerid: string }>(
+    `SELECT source_player_id, playerid
+       FROM public.player_source_map
+      WHERE source = 'tbc' AND is_verified IS TRUE
+        AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'
+        AND source_player_id = ANY($1::text[])`,
+    [ids]
+  );
+  for (const row of rows) aliases.set(row.source_player_id, row.playerid);
+  return aliases;
+}
+
 export async function getPlayerById(playerId: string): Promise<any | null> {
+  const tbcPlayerId = await resolveVerifiedTbcPlayerId(playerId);
   const [tbcResult, stageResult] = await Promise.all([
     query<{
       playerid: string;
@@ -265,7 +297,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
        from tbc_players_raw
        where playerid::text = $1
        limit 1`,
-      [playerId]
+      [tbcPlayerId]
     ),
     query<{
       playerid: string;
@@ -314,7 +346,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
     null;
 
   return {
-    playerid: tp?.playerid || fs?.playerid || playerId,
+    playerid: fs?.playerid || tp?.playerid || playerId,
     firstname,
     lastname,
     display_name,
@@ -1694,12 +1726,16 @@ export interface PlayerSlugMatch {
 export async function findPlayersBySlug(slug: string, hsid?: string): Promise<PlayerSlugMatch[]> {
   const sql = `
     SELECT
-      tp.playerid::text AS playerid,
+      COALESCE(m.playerid, tp.playerid)::text AS playerid,
       tp.firstname,
       tp.lastname,
       ph.hsid::text AS hsid
     FROM tbc_players_raw tp
     LEFT JOIN player_hsids ph ON ph.playerid::text = tp.playerid::text
+    LEFT JOIN public.player_source_map m
+      ON m.source = 'tbc' AND m.source_player_id = tp.playerid::text
+      AND m.is_verified IS TRUE
+      AND m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
     WHERE trim(both '-' from regexp_replace(lower(trim(coalesce(tp.firstname,'') || ' ' || coalesce(tp.lastname,''))), '-+', '-', 'g')) = $1
       ${hsid ? "AND (ph.hsid::text = $2 OR ph.hsid IS NULL)" : ""}
     LIMIT 10
@@ -1728,6 +1764,7 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 // SEASON-BY-SEASON BATTING STATS - all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
+  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
   const sql = `
     SELECT
       b.year,
@@ -1746,7 +1783,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     ORDER BY b.year ASC, b.teamid ASC
   `;
   try {
-    const rows = await cachedPlayerStatRows('batting-seasons', playerId, sql);
+    const rows = await cachedPlayerStatRows('batting-seasons', historicalPlayerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerBattingStats failed:', error);
@@ -1758,6 +1795,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 // SEASON-BY-SEASON PITCHING STATS - all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
+  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
   const sql = `
     SELECT
       p.year,
@@ -1778,7 +1816,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     ORDER BY p.year ASC, p.teamid ASC
   `;
   try {
-    const rows = await cachedPlayerStatRows('pitching-seasons', playerId, sql);
+    const rows = await cachedPlayerStatRows('pitching-seasons', historicalPlayerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerPitchingStats failed:', error);
@@ -1790,6 +1828,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
 // CAREER AGGREGATE STATS - totals across all seasons
 // ---------------------------------------------------------------------------
 export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
+  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
   const sql = `
@@ -1821,7 +1860,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
     WHERE playerid::text = $1
   `;
   try {
-    const rows = await cachedPlayerStatRows('career-batting', playerId, sql);
+    const rows = await cachedPlayerStatRows('career-batting', historicalPlayerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerBatting failed:', error);
@@ -1830,6 +1869,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
 }
 
 export async function getPlayerCareerPitching(playerId: string): Promise<any | null> {
+  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
   const sql = `
@@ -1955,7 +1995,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
     WHERE playerid::text = $1
   `;
   try {
-    const rows = await cachedPlayerStatRows('career-pitching', playerId, sql);
+    const rows = await cachedPlayerStatRows('career-pitching', historicalPlayerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerPitching failed:', error);
