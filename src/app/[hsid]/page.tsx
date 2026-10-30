@@ -579,7 +579,7 @@ export default async function SchoolPage({
     const sourceId = String(p.playerid);
     const id = canonicalTbcIds.get(sourceId) || sourceId;
     const stageRow = stageMap.get(sourceId);
-    const mergedRow = { ...(stageRow || {}), ...p, playerid: id };
+    const mergedRow: Row = { ...(stageRow || {}), ...p, playerid: id };
     // The school affiliation determines WHERE the card appears. The shared
     // identity determines WHO it represents. Do not overwrite a Dobson
     // alumnus's playing history with his current Hamilton coaching role.
