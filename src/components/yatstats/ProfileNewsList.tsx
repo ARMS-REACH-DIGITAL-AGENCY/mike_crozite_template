@@ -7,6 +7,7 @@ import { markPlayerName } from "./PlayerNameMentions";
 import ProfileContentDrawer from "./ProfileContentDrawer";
 import NewsEngagement from "./NewsEngagement";
 import PlayerInstagramFeed, { type InstagramViewerPost } from "./PlayerInstagramFeed";
+import XPostEmbed from "./XPostEmbed";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { track } from "@/lib/analytics";
 import { toSlugFromDisplay } from "@/lib/slug";
@@ -282,7 +283,7 @@ export default function ProfileNewsList({
         kicker={selectedVideo ? "YAT?STATS VIDEO" : "YAT?STATS LOCAL RECAP"}
         title={selectedVideo ? newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName) : stripHtml(openStory?.title) || "Alumni news"}
         portraitMedia={selectedVideo?.provider === "Instagram"}
-        media={selectedVideo ? (
+        media={selectedVideo && selectedVideo.provider !== "X" ? (
           <NewsVideoPlayer key={openStory?.uuid || ''} video={selectedVideo}
             title={newsVideoHeadline(openStory?.title || "", openStory?.playerName || playerName)} />
         ) : undefined}
@@ -297,7 +298,7 @@ export default function ProfileNewsList({
               <NewsEngagement uuid={openStory.uuid} hsid={hsid} title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} />
               {/* Embedded videos play here. Do not place a competing off-site
                   call to action under an already usable player. */}
-              {!selectedVideo?.embedUrl ? (
+              {!selectedVideo?.embedUrl && selectedVideo?.provider !== "X" ? (
                 <a className="pp-news-modal-source" href={/^MLB Transactions$/i.test(openStory.source || "") && openStory.publishedAt ? `https://www.mlb.com/transactions/${new Date(openStory.publishedAt).toISOString().slice(0, 10).replace(/-/g, "/")}` : openStory.url} target="_blank" rel="noopener noreferrer">
                   {/^MLB Transactions$/i.test(openStory.source || "") ? "VIEW ALL TRANSACTIONS ON MLB.COM" : selectedVideo ? "Original video (external)" : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
                   <i className="ri-external-link-line" aria-hidden="true" />
@@ -316,6 +317,10 @@ export default function ProfileNewsList({
           ) : null
         }
       >
+        {selectedVideo?.provider === "X" && openStory ? (
+          <XPostEmbed key={openStory.uuid} url={selectedVideo.watchUrl}
+            title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} />
+        ) : null}
         {(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap) ? (
           <p className="pp-news-reader-copy">
             {markPlayerName(stripHtml(selectedVideo ? newsVideoDescription(openStory?.recap) : openStory?.recap), openStory?.playerName || playerName)}
