@@ -160,10 +160,20 @@ def main() -> int:
         print(f"\n[{index}/{len(keys)}] {key} -> {output_key}")
 
         try:
-            if not OVERWRITE and s3_object_exists(BUCKET, output_key):
-                print("SKIP existing generated PNG output")
-                skipped_existing += 1
-                continue
+            # A replacement reuses the same player ID. Rebuild if the source is
+            # newer; merely checking that an output exists leaves old faces live.
+            if not OVERWRITE:
+                source_meta = s3.head_object(Bucket=BUCKET, Key=key)
+                try:
+                    output_meta = s3.head_object(Bucket=BUCKET, Key=output_key)
+                except ClientError as exc:
+                    if exc.response.get("Error", {}).get("Code") not in {"404", "NoSuchKey", "NotFound"}:
+                        raise
+                    output_meta = None
+                if output_meta and output_meta["LastModified"] >= source_meta["LastModified"]:
+                    print("SKIP existing up-to-date generated PNG output")
+                    skipped_existing += 1
+                    continue
 
             if DRY_RUN:
                 print("DRY RUN would create/update generated PNG output")
@@ -179,7 +189,7 @@ def main() -> int:
                 Key=output_key,
                 Body=output_bytes,
                 ContentType="image/png",
-                CacheControl="public, max-age=31536000, immutable",
+                CacheControl="public, max-age=0, must-revalidate",
             )
 
             print(f"OK uploaded generated PNG: {len(output_bytes):,} bytes")
