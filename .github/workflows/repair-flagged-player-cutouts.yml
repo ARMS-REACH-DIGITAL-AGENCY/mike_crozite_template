@@ -1,0 +1,37 @@
+name: Repair Flagged Player Cutouts
+on:
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - data/cutout-repair-requests.json
+      - scripts/repair_flagged_cutouts.py
+      - scripts/cutout_quality.py
+      - .github/workflows/repair-flagged-player-cutouts.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: player-cutout-processing
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+      DRY_RUN: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pillow numpy opencv-python-headless boto3 rembg onnxruntime
+      - run: python scripts/test_cutout_quality.py
+      - uses: actions/cache@v4
+        with:
+          path: ~/.u2net
+          key: player-cutout-qa-models
+      - run: python scripts/repair_flagged_cutouts.py
