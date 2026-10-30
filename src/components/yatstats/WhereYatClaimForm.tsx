@@ -70,9 +70,10 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  }
  const style={background:'#1c1c1c',color:'#eee',border:'1px solid #555',width:'100%',padding:11,fontSize:15,boxSizing:'border-box' as const};
  const labelStyle={display:'block',font:'700 15px Oswald,sans-serif',letterSpacing:'.03em',marginBottom:15};
- if(alreadyPending)return <div role="status" style={{padding:20,border:'1px solid #e9bf56'}}><h3>WAITING FOR APPROVAL</h3><p>Your submitted questionnaire is awaiting identity verification and review. Your answers have not been published.</p></div>;
+
  if(receipt)return <div role="status"><h3>{published?'PROFILE PUBLISHED':'UPDATE RECEIVED — WAITING FOR APPROVAL'}</h3><p>{published?'Your approved flip-card back and expanded player profile are now published.':'Your proof has been received and is awaiting review. Neither public version has been published.'}</p><a href={`/${hsid}/where-yat-proof?submission=${receipt}`}>VIEW YOUR SAVED PROOF</a></div>;
  return <form ref={form} onSubmit={submit} style={{display:'grid',gap:15,maxWidth:780}}>
+  {alreadyPending&&<p role="status" style={{padding:12,border:'1px solid #e9bf56',color:'#eee'}}>A previous update is awaiting review. You can submit a new questionnaire below; your previous submission will be preserved.</p>}
   <p style={{color:'#bbb'}}>Claim your alumni profile and tell the {school} baseball community what happened after baseball. Only verified alumni profiles are published.</p>
   <section><h3>ABOUT YOU</h3>
   <label style={labelStyle}>YOUR NAME<input required name="displayName" defaultValue={fan.name||name} style={style}/></label>
