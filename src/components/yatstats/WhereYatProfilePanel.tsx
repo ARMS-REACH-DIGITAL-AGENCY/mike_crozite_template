@@ -23,6 +23,7 @@ type AlumniUpdate = {
 
 export default async function WhereYatProfilePanel({ playerId, hsid, name }: { playerId: string; hsid: string; name: string }) {
   let entry: AlumniUpdate | null = null;
+  let schoolName='your high school';
   try {
     const { rows } = await query<AlumniUpdate>(
       `SELECT display_name, location_city, location_state, occupation, company_name, business_website,
@@ -30,6 +31,8 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
        FROM public.alumni_where_yat_now WHERE playerid=$1 AND hsid=$2 AND status='approved'
        ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId, hsid]);
     entry = rows[0] || null;
+    const school=await query<{hsname:string}>('SELECT hsname FROM public.school_success WHERE hsid::text=$1 LIMIT 1',[hsid]);
+    schoolName=school.rows[0]?.hsname||schoolName;
   } catch (error) {
     console.error('[where-yat-profile] Could not fetch reviewed update', error);
   }
@@ -53,7 +56,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
           {entry.life_photos_json?.length>0&&<section><h3>AFTER BASEBALL — PHOTO ALBUM</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{entry.life_photos_json.map((photo,i)=><a key={i} href={photo.full} target="_blank" rel="noopener noreferrer"><img alt={'Alumni life after baseball photo '+(i+1)} src={photo.web} style={{width:'100%',height:175,objectFit:'contain'}}/></a>)}</div></section>}
           {entry.business_public_opt_in&&(entry.business_message||entry.business_offer||entry.business_contact_email||entry.business_contact_phone)&&<section style={{padding:18,border:'1px solid #777'}}><h3>BUSINESS SPOTLIGHT</h3>{entry.business_message&&<p>{entry.business_message}</p>}{entry.business_offer&&<p><strong>SPECIAL OFFER:</strong> {entry.business_offer}</p>}{entry.business_contact_email&&<p><a href={'mailto:'+entry.business_contact_email}>{entry.business_contact_email}</a></p>}{entry.business_contact_phone&&<p>{entry.business_contact_phone}</p>}</section>}
         </div>
-      </article> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school="YOUR HIGH SCHOOL" />}
+      </article> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
     </div>
   );
