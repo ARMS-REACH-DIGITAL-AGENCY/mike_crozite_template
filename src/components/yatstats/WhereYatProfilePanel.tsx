@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { storyAssetUrl } from '@/lib/storyAssets';
+import WhereYatProofCard from './WhereYatProofCard';
 
 type AlumniUpdate = {
   display_name: string;
@@ -14,54 +15,45 @@ type AlumniUpdate = {
   x_url: string | null;
   story: string | null;
   photo_key: string | null;
+  photo_url: string | null;
+  company_logo_url: string | null;
 };
-const link = (url: string | null) => {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : null;
-  } catch { return null; }
-};
+
 export default async function WhereYatProfilePanel({ playerId, hsid, name }: { playerId: string; hsid: string; name: string }) {
   let entry: AlumniUpdate | null = null;
   try {
     const { rows } = await query<AlumniUpdate>(
       `SELECT display_name, location_city, location_state, occupation, company_name, business_website,
-        linkedin_url, instagram_url, facebook_url, x_url, story, photo_key
-       FROM public.alumni_where_yat_now WHERE playerid=$1 AND status='approved'
-       ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId]);
+        linkedin_url, instagram_url, facebook_url, x_url, story, photo_key, photo_url, company_logo_url
+       FROM public.alumni_where_yat_now WHERE playerid=$1 AND hsid=$2 AND status='approved'
+       ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId, hsid]);
     entry = rows[0] || null;
   } catch (error) {
-    // Safe during the deployment preceding the additive database migration.
     console.error('[where-yat-profile] Could not fetch reviewed update', error);
   }
-  const socials = entry ? [
-    ['Website', entry.business_website], ['LinkedIn', entry.linkedin_url],
-    ['Instagram', entry.instagram_url], ['Facebook', entry.facebook_url], ['X', entry.x_url],
-  ] as const : [];
   return (
-    <div style={{ maxWidth: 850, margin: 'auto', padding: '16px', fontFamily: 'Archivo,Arial,sans-serif', color: '#eee' }}>
-      <h2 style={{ fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
+    <div style={{ maxWidth: 850, margin: 'auto', padding: 16, fontFamily: 'Archivo,Arial,sans-serif', color: '#eee' }}>
+      <h2 style={{ fontFamily:'Oswald,Arial Narrow,sans-serif', fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
       {entry ? (
-        <article style={{ background: '#181818', border: '1px solid #777', padding: 16, borderRadius: 6 }}>
-          {entry.photo_key && <img src={storyAssetUrl(entry.photo_key) || ''} alt={name + ' recent alumni photo'} style={{ float: 'right', width: 'min(33%,185px)', margin: '0 0 12px 14px', borderRadius: 4 }} />}
-          <h3 style={{ fontSize: 22, fontWeight: 800 }}>{entry.display_name || name}</h3>
-          {[entry.location_city, entry.location_state].filter(Boolean).length > 0 &&
-            <p>{[entry.location_city, entry.location_state].filter(Boolean).join(', ')}</p>}
-          {entry.occupation && <p><strong>Now:</strong> {entry.occupation}</p>}
-          {entry.company_name && <p><strong>Business:</strong> {entry.company_name}</p>}
-          {entry.story && <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{entry.story}</p>}
-          <div style={{ clear: 'both', display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
-            {socials.map(([label, url]) => link(url) &&
-              <a key={label} href={link(url)!} target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56', textDecoration: 'underline' }}>{label} ↗</a>)}
-          </div>
+        <article style={{backgroundColor:'#c2b9ae',color:'#1e160e',border:'2px solid rgba(30,22,14,0.65)',padding:16,maxWidth:650,
+          backgroundImage:'repeating-linear-gradient(168deg,transparent 0,transparent 3px,rgba(255,255,255,.05) 3px,rgba(255,255,255,.05) 4px)'}}>
+          <WhereYatProofCard variant="content" showName={false} proof={{
+            playerId, hsid, displayName:entry.display_name||name,
+            city:entry.location_city||'',state:entry.location_state||'',
+            occupation:entry.occupation||'',company:entry.company_name||'',
+            website:entry.business_website||'',linkedin:entry.linkedin_url||'',
+            instagram:entry.instagram_url||'',facebook:entry.facebook_url||'',
+            x:entry.x_url||'',story:entry.story||'',
+            photoUrl:entry.photo_url||storyAssetUrl(entry.photo_key),
+            logoUrl:entry.company_logo_url,
+          }}/>
         </article>
-      ) : <p>Know what {name} has been doing since baseball? Help us reconnect the alumni community with an updated photo, business and social links.</p>}
+      ) : <p>Know what {name} has been doing since baseball? Help us reconnect the alumni community with an updated photo, company logo and social links.</p>}
       <button type="button" data-where-yat-profile-player={playerId} data-where-yat-profile-school={hsid} data-where-yat-profile-name={name}
         style={{ marginTop: 16, padding: '12px 18px', background: '#e9bf56', border: 0, color: '#151515', fontFamily: 'Oswald,Barlow Condensed,sans-serif', fontWeight: 800, letterSpacing: '.04em', cursor: 'pointer' }}>
-        {entry ? 'SUBMIT AN UPDATED STORY →' : 'SHARE A FREE ALUMNI UPDATE →'}
+        {entry ? 'SUBMIT AN UPDATED STORY' : 'SHARE A FREE ALUMNI UPDATE'}
       </button>
-      <p style={{ marginTop: 18, fontSize: 13 }}>Have a business to promote? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS Partnership opportunities →</a></p>
+      <p style={{ marginTop: 18, fontSize: 13 }}>Have a business to promote? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
     </div>
   );
 }
