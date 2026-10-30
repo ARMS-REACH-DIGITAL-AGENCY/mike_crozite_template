@@ -81,7 +81,7 @@ export default function XPostEmbed({ url, title }: { url: string; title: string 
     <div className="pp-news-x-embed" aria-label={`X video: ${title}`}>
       {postId ? (
         <Script
-          src="https://platform.twitter.com/widgets.js"
+          src="https://platform.x.com/widgets.js"
           strategy="afterInteractive"
           onReady={() => setScriptReady(true)}
           onError={() => setState("error")}
