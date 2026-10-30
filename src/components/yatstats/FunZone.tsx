@@ -34,6 +34,8 @@ import type { ReactNode } from "react";
 import { installFunZoneSwipe } from "./funZoneSwipe";
 import SevenDaySnapshotView from "./SevenDaySnapshotView";
 import {openWhereYatNow} from "./WhereYatNowDrawer";
+import {auth} from "@/lib/firebase";
+import {onAuthStateChanged} from "firebase/auth";
 import WhereYatProofCard from "./WhereYatProofCard";
 import { parseNewsVideo } from "@/lib/newsVideo";
 import { PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
@@ -737,17 +739,36 @@ export default function FunZone({
   lazySchedulePlayerId,
 }: FunZoneProps) {
   const retiredPlayer = /\bRETIRED\b/i.test(String(player.status_label || player.status || ""));
+  const imageId = String(player.playerid || "");
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [alumniUpdate,setAlumniUpdate]=useState<any>(null);
   useEffect(()=>{
-    if(!retiredPlayer)return;
+    // Loading every retired player's status during a roster render produces
+    // thousands of unnecessary DB requests. Load only on the selected tab.
+    if(!retiredPlayer || activeTab!=='schedule') return;
     let active=true;
-    const load=()=>fetch('/api/contribute/where-yat-now/status?playerId='+encodeURIComponent(imageId)+'&hsid='+encodeURIComponent(resolvedHsid),{credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{if(active)setAlumniUpdate(d?.update||null)}).catch(()=>{});
+    const load=async()=>{
+      try {
+        await auth.authStateReady?.();
+        const token=await auth.currentUser?.getIdToken().catch(()=>'');
+        const url='/api/contribute/where-yat-now/status?playerId='+encodeURIComponent(imageId)+'&hsid='+encodeURIComponent(resolvedHsid);
+        const response=await fetch(url,{credentials:'include',cache:'no-store',
+          headers:token?{'x-firebase-token':token}:{}});
+        const data=response.ok?await response.json():null;
+        if(active)setAlumniUpdate(data?.update||null);
+      } catch {/* An unavailable status endpoint must not break the flip card. */}
+    };
     load();
-    const onFocus=()=>load();
+    const onFocus=()=>{void load()};
+    const onSubmitted=(event:Event)=>{
+      const detail=(event as CustomEvent<{playerId:string;hsid:string}>).detail;
+      if(detail?.playerId===imageId && detail?.hsid===resolvedHsid)void load();
+    };
+    const unsubscribe=onAuthStateChanged(auth,()=>{void load()});
     window.addEventListener('focus',onFocus);
-    return()=>{active=false;window.removeEventListener('focus',onFocus)};
-  },[retiredPlayer,imageId,resolvedHsid]);
+    window.addEventListener('yat:where-yat-submitted',onSubmitted);
+    return()=>{active=false;unsubscribe();window.removeEventListener('focus',onFocus);window.removeEventListener('yat:where-yat-submitted',onSubmitted)};
+  },[retiredPlayer,activeTab,imageId,resolvedHsid]);
   const [loadedSchedule, setLoadedSchedule] = useState<{items:import('./PlayerSevenDaySnapshot').SnapshotItem[];todayIso:string}|null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState(false);
@@ -801,7 +822,6 @@ export default function FunZone({
     setActiveStatsIndex(0);
   }
 
-  const imageId = String(player.playerid || "");
   const slug = String(player.slug || "");
   const firstName = displayName.split(" ")[0] || "this player";
   const lastName = String(player.lastname || player.last_name || displayName.split(" ").slice(1).join(" ") || "");
@@ -845,7 +865,7 @@ export default function FunZone({
         1. CTA strip - YaTi (left) + speech bubble (right)
            flex-shrink:1 - yields padding before the content panel.
       */}
-      <YatiCta ctaText={ctaText} profileHref={profileHref} />
+      {!(retiredPlayer && activeTab === "schedule") && <YatiCta ctaText={ctaText} profileHref={profileHref} />}
 
       {/*
         2. Content panels - flex:1 min-height:0
@@ -864,14 +884,14 @@ export default function FunZone({
         data-fz-tab="schedule"
       >
         {retiredPlayer ? (
-          <div className="fz-where-yat" style={{padding:'clamp(4px,1.5cqi,10px)',fontFamily:'Archivo,Arial,sans-serif',background:'transparent',color:'#1e160e'}}>
-            {alumniUpdate?.status==='approved' ? <WhereYatProofCard showName={false} proof={{displayName:alumniUpdate.display_name||displayName,city:alumniUpdate.location_city||'',state:alumniUpdate.location_state||'',occupation:alumniUpdate.occupation||'',company:alumniUpdate.company_name||'',website:alumniUpdate.business_website||'',linkedin:alumniUpdate.linkedin_url||'',instagram:alumniUpdate.instagram_url||'',facebook:alumniUpdate.facebook_url||'',x:alumniUpdate.x_url||'',story:alumniUpdate.story||'',photoUrl:alumniUpdate.photo_url||null}}/> :
+          <div className="fz-where-yat" style={{height:'100%',minHeight:0,overflow:'hidden',padding:'clamp(3px,1cqi,7px)',fontFamily:'Archivo,Arial,sans-serif',background:'transparent',color:'#1e160e'}}>
+            {alumniUpdate?.status==='approved' ? <WhereYatProofCard variant="content" showName={false} proof={{playerId:imageId,hsid:resolvedHsid,displayName:alumniUpdate.display_name||displayName,city:alumniUpdate.location_city||'',state:alumniUpdate.location_state||'',occupation:alumniUpdate.occupation||'',company:alumniUpdate.company_name||'',website:alumniUpdate.business_website||'',linkedin:alumniUpdate.linkedin_url||'',instagram:alumniUpdate.instagram_url||'',facebook:alumniUpdate.facebook_url||'',x:alumniUpdate.x_url||'',story:alumniUpdate.story||'',photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null}}/> :
             alumniUpdate?.status==='pending' ?
               <div style={{textAlign:'center',padding:'18px 8px',font:'700 clamp(13px,4cqi,20px) Oswald,sans-serif',letterSpacing:'.05em',color:'#4c3724'}}>WAITING FOR APPROVAL</div> :
               <div style={{textAlign:'center',padding:'12px 6px'}}>
                 <h3 style={{font:'700 clamp(15px,4cqi,22px) Oswald,sans-serif',margin:'0 0 8px'}}>WHERE YAT NOW?</h3>
                 <p style={{fontSize:'clamp(10px,2.8cqi,13px)',marginBottom:12}}>Share what life looks like after baseball.</p>
-                <button type="button" onClick={() => openWhereYatNow({playerId:imageId,hsid:resolvedHsid,name:displayName})}
+                <button type="button" onClick={() => openWhereYatNow({playerId:imageId,hsid:resolvedHsid,name:displayName,position:String(player.position||"")})}
                   style={{background:'#4c3724',color:'#fff',border:0,borderRadius:2,padding:'8px 12px',font:'700 clamp(11px,3cqi,15px) Oswald,sans-serif',cursor:'pointer'}}>SHARE YOUR ALUMNI UPDATE</button>
               </div>}
           </div>
