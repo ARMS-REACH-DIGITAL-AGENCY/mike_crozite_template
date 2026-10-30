@@ -17,8 +17,22 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const [receipt,setReceipt]=useState<number|null>(null);
+ const [alreadyPending,setAlreadyPending]=useState(false);
  const [fan,setFan]=useState({name:'',email:''});
- useEffect(()=>{const u=auth.currentUser;setFan({name:u?.displayName||'',email:u?.email||''})},[]);
+ useEffect(()=>{
+  let active=true;
+  (async()=>{
+   await auth.authStateReady?.();
+   const u=auth.currentUser;
+   if(active)setFan({name:u?.displayName||'',email:u?.email||''});
+   const token=await u?.getIdToken().catch(()=>'');
+   if(!token)return;
+   const result=await fetch('/api/contribute/where-yat-now/status?playerId='+encodeURIComponent(playerId)+'&hsid='+encodeURIComponent(hsid),
+     {headers:{'x-firebase-token':token},credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null);
+   if(active)setAlreadyPending(result?.update?.status==='pending');
+  })();
+  return()=>{active=false}
+ },[playerId,hsid]);
  async function addFiles(files:FileList|null){
   if(!files)return;
   const picked=Array.from(files).slice(0,Math.max(0,4-photos.length));setBusy(true);
@@ -49,6 +63,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  }
  const style={background:'#1c1c1c',color:'#eee',border:'1px solid #555',width:'100%',padding:11,fontSize:15,boxSizing:'border-box' as const};
  const labelStyle={display:'block',font:'700 15px Oswald,sans-serif',letterSpacing:'.03em',marginBottom:15};
+ if(alreadyPending)return <div role="status" style={{padding:20,border:'1px solid #e9bf56'}}><h3>WAITING FOR APPROVAL</h3><p>Your submitted questionnaire is awaiting identity verification and review. Your answers have not been published.</p></div>;
  if(receipt)return <div role="status"><h3>WAITING FOR APPROVAL</h3><p>Your proof has been submitted for verification.</p><a href={`/${hsid}/where-yat-proof?submission=${receipt}`}>VIEW YOUR SAVED PROOF</a></div>;
  return <form ref={form} onSubmit={submit} style={{display:'grid',gap:15,maxWidth:780}}>
   <p style={{color:'#bbb'}}>Claim your alumni profile and tell the {school} baseball community what happened after baseball. Only verified alumni profiles are published.</p>
