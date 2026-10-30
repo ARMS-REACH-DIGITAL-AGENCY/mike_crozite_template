@@ -891,11 +891,19 @@ export default function FunZone({
             </div> :
             alumniUpdate?.status==='pending' ?
               <div style={{textAlign:'center',padding:'18px 8px',font:'700 clamp(13px,4cqi,20px) Oswald,sans-serif',letterSpacing:'.05em',color:'#4c3724'}}>WAITING FOR APPROVAL</div> :
-              <div style={{textAlign:'center',padding:'12px 6px'}}>
-                <h3 style={{font:'700 clamp(15px,4cqi,22px) Oswald,sans-serif',margin:'0 0 8px'}}>WHERE YAT NOW?</h3>
-                <p style={{fontSize:'clamp(10px,2.8cqi,13px)',marginBottom:12}}>Your life after baseball deserves a place in your hometown story.</p>
+              <div style={{display:'flex',flexDirection:'column',height:'100%',minHeight:0,padding:'clamp(6px,2cqi,12px)',color:'#231910'}}>
+                <div style={{font:'600 clamp(8px,2.5cqi,13px) Oswald,sans-serif',borderBottom:'1px solid #8d7e6d',paddingBottom:6,letterSpacing:'.06em'}}>YAT?STATS / WHERE YAT NOW?</div>
+                <div style={{display:'flex',alignItems:'flex-start',gap:'clamp(5px,2cqi,10px)',marginTop:10}}>
+                  <div style={{flex:1,font:'500 clamp(9px,2.7cqi,14px)/1.5 Archivo,sans-serif'}}>
+                    <div><strong>LOCATION:</strong> <span style={{opacity:.55}}>Where are you now?</span></div>
+                    <div><strong>NOW:</strong> <span style={{opacity:.55}}>Your life after baseball</span></div>
+                    <div><strong>BUSINESS:</strong> <span style={{opacity:.55}}>What do you do today?</span></div>
+                  </div>
+                  <div style={{flex:'0 0 29%',height:'clamp(50px,23cqi,110px)',border:'1px dashed #87745e',display:'grid',placeItems:'center',textAlign:'center',font:'600 clamp(7px,2cqi,11px) Oswald,sans-serif',color:'#756653'}}>YOUR RECENT PHOTO</div>
+                </div>
+                <p style={{font:'400 clamp(9px,2.65cqi,14px)/1.5 Archivo,sans-serif',color:'#766d61',borderTop:'1px solid #9b8b78',paddingTop:10,marginTop:12}}>Your story is still being written. Reconnect with teammates and show your hometown community where life has taken you.</p>
                 <button type="button" onClick={() => window.location.assign(`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`)}
-                  style={{background:'#e9bf56',color:'#111',border:0,borderRadius:2,padding:'8px 12px',font:'700 clamp(11px,3cqi,15px) Oswald,sans-serif',cursor:'pointer'}}>CLAIM YOUR PROFILE</button>
+                  style={{background:'#e9bf56',color:'#111',border:0,borderRadius:2,padding:'9px 8px',font:'700 clamp(10px,3cqi,16px) Oswald,sans-serif',cursor:'pointer',marginTop:'auto'}}>CLAIM YOUR PROFILE</button>
               </div>}
           </div>
         ) : lazySchedulePlayerId ? (
