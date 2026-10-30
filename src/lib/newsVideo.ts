@@ -17,7 +17,9 @@ export function getXPostId(rawUrl: string | null | undefined): string | null {
   const host = url.hostname.toLowerCase().replace(/^www\./, '');
   if (!['x.com', 'mobile.x.com', 'twitter.com', 'mobile.twitter.com'].includes(host)) return null;
   const parts = url.pathname.split('/').filter(Boolean);
-  return parts.length >= 3 && /^[A-Za-z0-9_]{1,15}$/.test(parts[0])
+  const validTail = parts.length === 3
+    || (parts.length === 5 && parts[3] === 'video' && /^\d{1,2}$/.test(parts[4]));
+  return validTail && /^[A-Za-z0-9_]{1,15}$/.test(parts[0])
     && parts[1] === 'status' && /^\d{8,20}$/.test(parts[2]) ? parts[2] : null;
 }
 
