@@ -13,6 +13,7 @@ import {
   getSchoolByUrl,
   getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
+  getVerifiedTbcCanonicalPlayerIds,
   getPlayerById,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
@@ -544,6 +545,11 @@ export default async function SchoolPage({
   const currentTeamRoster = sortActivePlayers(stageRows.filter((p) => isHighSchoolPlayer(p) && !isRetiredCoachCard(p)).map((p) => ({ ...p })))
     .sort((a, b) => Number(isCoachCard(b)) - Number(isCoachCard(a)));
   const stageMap = new Map(stageRows.map((p) => [String(p.playerid), p]));
+  // An alumnus may later coach at another school: keep one permanent YAT ID
+  // for both cards, while each school still controls roster membership.
+  const canonicalTbcIds = loadAllTime
+    ? await getVerifiedTbcCanonicalPlayerIds(allTimeRosterRows.map((p) => String(p.playerid)))
+    : new Map<string, string>();
 
   // Active membership is the owner-approved status preset. Season stats
   // enrich those cards when present; they do not decide whether a player is
@@ -570,10 +576,18 @@ export default async function SchoolPage({
   const allTimeMerged: Row[] = [];
   if (loadAllTime) {
     for (const p of allTimeRosterRows) {
-    const id = String(p.playerid);
-    const stageRow = stageMap.get(id);
-    const mergedRow = stageRow ? { ...stageRow, ...p } : { ...p };
+    const sourceId = String(p.playerid);
+    const id = canonicalTbcIds.get(sourceId) || sourceId;
+    const stageRow = stageMap.get(sourceId);
+    const mergedRow = { ...(stageRow || {}), ...p, playerid: id };
+    // The school affiliation determines WHERE the card appears. The shared
+    // identity determines WHO it represents. Do not overwrite a Dobson
+    // alumnus's playing history with his current Hamilton coaching role.
     if (isHighSchoolPlayer(mergedRow) && !isRetiredCoachCard(mergedRow)) continue;
+    if (canonicalTbcIds.has(sourceId)) {
+      mergedRow.level_label = mergedRow.level_label || mergedRow.career_highlevel;
+    }
+    if (allTimeSeenIds.has(id)) continue;
     allTimeMerged.push(mergedRow);
     allTimeSeenIds.add(id);
   }
