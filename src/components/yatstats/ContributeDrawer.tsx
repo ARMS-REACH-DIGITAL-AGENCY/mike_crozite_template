@@ -389,7 +389,7 @@ export default function ContributeDrawer() {
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
       if (!tipTitle.trim() && !youtubeTip) return setStatus({ kind: 'error', text: 'Give this story or video a title.' });
-      return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || '' });
+      return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || hubSchool?.hsid || '' });
     }
     if (!mp.name.trim()) return setStatus({ kind: 'error', text: "Type the player's name." });
     if (!school) return setStatus({ kind: 'error', text: 'Pick his high school.' });
