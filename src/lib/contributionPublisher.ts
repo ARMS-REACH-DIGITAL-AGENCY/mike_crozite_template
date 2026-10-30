@@ -141,9 +141,13 @@ async function processCorrection(t:Tip):Promise<boolean> {
 type TipOutcome='published'|'rejected'|'pending';
 async function processTip(t:Tip):Promise<TipOutcome> {
  const link=parseContributedNewsLink(t.article_url);
- if(!link || !t.matched_playerid || !t.matched_hsid)return 'rejected';
- const player=await stage(t.matched_playerid);
- if(!player || player.hsid!==t.matched_hsid)return 'rejected';
+ if(!link || !t.matched_hsid || !/^\d+$/.test(t.matched_hsid))return 'rejected';
+ const player=t.matched_playerid?await stage(t.matched_playerid):null;
+ if(t.matched_playerid && (!player || player.hsid!==t.matched_hsid))return 'rejected';
+ if(!player){
+  const school=await query<{hsid:string}>(`SELECT hsid::text AS hsid FROM school_success WHERE hsid::text=$1 LIMIT 1`,[t.matched_hsid]);
+  if(!school.rows.length)return 'rejected';
+ }
  const detail=parsed(t.notes);
  const legacy=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim();
  const title=cleanNewsVideoTitle(typeof detail?.title==='string'?detail.title:legacy);
@@ -152,16 +156,16 @@ async function processTip(t:Tip):Promise<TipOutcome> {
  const needsYoutubeTitle=youtube&&(!title||(t.intake_source==='manual_seed'&&isLegacyVideoPlaceholderTitle(title)));
  const label=(needsYoutubeTitle?await fetchYouTubeVideoTitle(link.url):null)||title;
  if(!label||(needsYoutubeTitle&&isLegacyVideoPlaceholderTitle(label)))return 'rejected';
- const safety=await moderateContributedTip({url:link.url,title:label,description,playerName:`${player.first_name} ${player.last_name}`});
+ const safety=await moderateContributedTip({url:link.url,title:label,description,playerName:player?`${player.first_name} ${player.last_name}`:null});
  if(safety.decision==='unavailable')return 'pending';
  if(safety.decision==='reject')return 'rejected';
  await query(`INSERT INTO news_articles(uuid,playerid,player_name,hsid,title,source,published_at,url,
  snippet,local_recap,discovery_source,verification_status,verification_reason,newsworthiness,raw_payload)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'contribute','VERIFIED','AI-screened fan contribution','NORMAL',$11::jsonb)
  ON CONFLICT(uuid) DO NOTHING`,
- [hash(t.id),player.playerid,`${player.first_name} ${player.last_name}`,player.hsid,label,link.source,new Date().toISOString(),link.url,
+ [hash(t.id),player?.playerid||null,player?`${player.first_name} ${player.last_name}`:null,t.matched_hsid,label,link.source,new Date().toISOString(),link.url,
  description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source,instagram_story:link.instagramStory,moderated:true})]);
- revalidateTag(`school-data:${player.hsid}`,{expire:0});
+ revalidateTag(`school-data:${t.matched_hsid}`,{expire:0});
  return 'published';
 }
 export async function publishQueuedTipNow(id:string):Promise<TipOutcome>{
