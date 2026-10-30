@@ -92,7 +92,14 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   <label><input type="checkbox" name="claimAttestation" required value="yes"/> I am this alumnus or have their permission to submit this profile. This claim will be independently verified.</label>
   {proof&&<section id="claim-proof"><h3>REVIEW YOUR PROFILE AND FLIP-CARD PROOFS</h3>
    <WhereYatProofCard variant="full" proof={{playerId,hsid,displayName:proof.displayName||name,city:proof.city,state:proof.state,occupation:proof.occupation,company:proof.company,story:proof.story||proof.favoriteAfter||proof.favoriteHs,website:proof.website,linkedin:proof.linkedin,instagram:proof.instagram,facebook:proof.facebook,x:proof.x,photoUrl:photos[0]?.url}}/>
-   <p>Your public questionnaire will include all approved answers and photos. Private teammate tips and contact email are excluded.</p>
+   <div style={{background:'#171717',padding:16,border:'1px solid #555',marginTop:16}}>
+     <h3>EXPANDED PROFILE PROOF</h3>
+     {([['Most memorable high school baseball moment',proof.favoriteHs],['Most memorable baseball moment after graduation',proof.favoriteAfter],['Retired from baseball',proof.retirementYear],['Life and family',proof.family],['Life after baseball',proof.story]] as const).map(([title,answer])=>answer&&<section key={title} style={{padding:'8px 0',borderBottom:'1px solid #333'}}><strong>{title}</strong><p style={{whiteSpace:'pre-wrap'}}>{answer}</p></section>)}
+     {photos.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:14}}>{photos.map((p,i)=><img key={p.url} src={p.url} alt={'Proof photo '+(i+1)} style={{width:'46%',maxHeight:160,objectFit:'contain'}}/>)}</div>}
+     {proof.businessPublic==='yes'&&<section><h4>OPTIONAL BUSINESS SPOTLIGHT</h4><p>{proof.company}</p><p>{proof.businessMessage}</p><p>{proof.businessOffer}</p></section>}
+     {proof.teammateTips&&<section style={{border:'1px dashed #b5a16b',padding:10,marginTop:15}}><h4>PRIVATE — TEAMMATE LEADS</h4><p style={{whiteSpace:'pre-wrap'}}>{proof.teammateTips}</p><small>Only authorized school/review staff will see this section.</small></section>}
+   </div>
+   <p>Your public questionnaire will include approved answers and photos. Private teammate tips and your contributor contact email are excluded. Your abbreviated card is shown above.</p>
    <button type="button" onClick={()=>setProof(null)}>EDIT ANSWERS</button></section>}
   {error&&<p role="alert" style={{color:'#ffb5b5'}}>{error}</p>}
   <button disabled={busy} type="submit" style={{background:'#e9bf56',border:0,padding:15,font:'800 18px Oswald,sans-serif',color:'#111',cursor:'pointer'}}>{busy?'PROCESSING…':proof?'CONFIRM PROOF & SUBMIT':'PREVIEW MY PROFILE & FLIP CARD'}</button>
