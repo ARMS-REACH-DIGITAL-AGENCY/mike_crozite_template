@@ -5,7 +5,7 @@ type Comment={id:string;text:string;when:string;author:string};
 export default function WhereYatReactions({id}: {id:number}){
  const [data,setData]=useState<{likes:number;liked:boolean;comments:Comment[]}>({likes:0,liked:false,comments:[]});
  const [text,setText]=useState('');const [error,setError]=useState('');
- async function headers(){await auth.authStateReady?.();const token=await auth.currentUser?.getIdToken();return token?{'x-firebase-token':token}:{}}
+ async function headers():Promise<Record<string,string>>{await auth.authStateReady?.();const token=await auth.currentUser?.getIdToken();return token?{'x-firebase-token':token}:{}}
  async function refresh(){const h=await headers();const r=await fetch('/api/contribute/where-yat-now/social?id='+id,{headers:h,cache:'no-store'});if(r.ok)setData(await r.json())}
  useEffect(()=>{void refresh()},[id]);
  async function act(action:'like'|'comment'){
