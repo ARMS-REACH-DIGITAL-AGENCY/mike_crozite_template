@@ -28,6 +28,14 @@ export default function XPostEmbed({ url, title }: { url: string; title: string 
   const [scriptReady, setScriptReady] = useState(false);
   const [state, setState] = useState<EmbedState>("loading");
 
+  // Some browsers silently block the third-party script rather than firing onError.
+  // Never leave fans staring at an indefinite loading screen.
+  useEffect(() => {
+    if (!postId || state !== "loading") return;
+    const timeout = window.setTimeout(() => setState("error"), 15000);
+    return () => window.clearTimeout(timeout);
+  }, [postId, state]);
+
   useEffect(() => {
     if (!scriptReady || !postId) return;
     const target = targetRef.current;
