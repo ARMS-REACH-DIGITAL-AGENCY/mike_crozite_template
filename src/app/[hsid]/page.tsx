@@ -262,7 +262,7 @@ export async function generateMetadata({
   const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
   // Shared News links use the school route so named school subdomains do not
   // resolve /n/:uuid as an unknown school. Supply article-specific previews.
-  if (qp.story && /^[A-Za-z0-9_-]{1,100}$/.test(qp.story)) {
+  if (qp.story && /^[A-Za-z0-9_:-]{1,100}$/.test(qp.story)) {
     try {
       const { rows } = await query<{title:string;snippet:string|null;url:string;image_url:string|null;display_image_url:string|null}>(
         "SELECT title,snippet,url,image_url,display_image_url FROM news_articles WHERE uuid=$1 AND hsid=$2 LIMIT 1",
@@ -275,7 +275,7 @@ export async function generateMetadata({
         const provider=parseNewsVideo(article.url);
         const instagramImage=provider?.provider === "Instagram"
           ? (await fetchInstagramPostPreview(article.url).catch(() => null))?.thumbnail_url : null;
-        const image=instagramImage || article.display_image_url || article.image_url || provider?.thumbnailUrl || undefined;
+        const image=instagramImage || article.display_image_url || article.image_url || provider?.thumbnailUrl || crestUrl;
         const shareUrl=(host ? `https://${host}` : canonicalUrl)+`/?news=1&story=${encodeURIComponent(qp.story)}#sec-news`;
         return {title,description,alternates:{canonical:shareUrl},
           openGraph:{type:"article",title,description,url:shareUrl,images:image?[{url:image}]:[]},
