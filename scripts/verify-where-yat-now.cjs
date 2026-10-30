@@ -19,10 +19,10 @@ assert(drawer.includes('pendingAfterSignIn.current = d'),'Sign-in must preserve 
 assert(drawer.includes('onAuthStateChanged'),'After sign-in, resume intended alumni form');
 assert(drawer.includes('https://yatstats.com/partners/'),'Corporate partner destination required');
 assert(!drawer.includes('#145a3c') && !drawer.includes('sec-partner'),'Legacy form styling and link must be gone');
-assert(flip.includes('SHARE YOUR ALUMNI UPDATE'),'Retired CTA missing');
+assert(flip.includes('CLAIM YOUR PROFILE'),'Retired CTA missing');
 assert(flip.includes('WAITING FOR APPROVAL'),'Retired pending state missing');
 assert(flip.includes("alumniUpdate?.status==='approved'"),'Retired approved state missing');
-assert(flip.includes('openWhereYatNow({playerId:imageId,hsid:resolvedHsid,name:displayName,position:'),'Alumni target must remain dynamic');
+assert(flip.includes('window.location.assign('),'Flip CTA must open full profile questionnaire');
 assert(!flip.includes("background:'#145a3c'"),'Legacy green CTA must be gone');
 assert(profile.includes('https://yatstats.com/partners/'),'Profile partner link must use corporate site');
 assert(submit.includes('pending: true'),'Moderation must be preserved');
@@ -52,3 +52,8 @@ assert(privateProof.includes('contributor_uid=$2'),'Private proof must be accoun
 assert(flip.includes("activeTab!=='schedule'"),'Status queries must be lazy');
 assert(flip.includes('auth.currentUser?.getIdToken()'),'Pending status must use Firebase fan identity');
 console.log('PASS shared retired alumni 5:7 proof, logo, auth, CTA/pending/approval, moderation and review');
+
+const claim = read('src/components/yatstats/WhereYatClaimForm.tsx');
+assert(claim.includes('favoriteHs') && claim.includes('favoriteAfter') && claim.includes('teammateTips'), 'Complete life questionnaire and private teammate tips');
+assert(claim.includes('lifePhotos'),'Allow multiple life photos');
+assert(claim.includes('businessPublic'),'Optional business promotion requires consent');
