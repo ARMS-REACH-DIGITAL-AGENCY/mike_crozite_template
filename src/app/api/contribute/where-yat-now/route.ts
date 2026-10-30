@@ -53,30 +53,59 @@ export async function POST(req: NextRequest) {
 
     let photoKey: string | null = null;
     let photoUrl: string | null = null;
+    let companyLogoKey: string | null = null;
+    let companyLogoUrl: string | null = null;
     const photo = form.get('photo');
+    const companyLogo = form.get('companyLogo');
+
+    // Validate both optional files before any storage write.
+    if (photo instanceof File && photo.size &&
+        (photo.size > 8 * 1024 * 1024 || !['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(photo.type)))
+      return reply('Select a JPG, PNG or WebP personal photo under 8 MB.', 413);
+    if (companyLogo instanceof File && companyLogo.size &&
+        (companyLogo.size > 5 * 1024 * 1024 || !['image/jpeg','image/png','image/webp'].includes(companyLogo.type)))
+      return reply('Select a JPG, PNG or WebP company logo under 5 MB.', 413);
+
+    // Both image uploads use the existing Contribute AWS credential names.
+    const accessKeyId = process.env.YATSTATS_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.YATSTATS_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+    if (((photo instanceof File && photo.size) || (companyLogo instanceof File && companyLogo.size)) &&
+        (!accessKeyId || !secretAccessKey)) {
+      console.error('[where-yat-now] Media storage credentials missing', { playerId, environment: process.env.VERCEL_ENV });
+      return reply('Photo/logo storage is temporarily unavailable. Please try again shortly; your entries have not been saved.', 503);
+    }
+    const s3 = accessKeyId && secretAccessKey
+      ? new S3Client({ region: S3_REGION, credentials: { accessKeyId, secretAccessKey } })
+      : null;
     if (photo instanceof File && photo.size) {
-      if (photo.size > 8 * 1024 * 1024 || !['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(photo.type))
-        return reply('Select a JPG, PNG or WebP image under 8 MB.', 413);
       const original = Buffer.from(await photo.arrayBuffer());
       const compressed = await sharp(original, { failOn: 'error', limitInputPixels: 16000000 })
         .rotate().resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 82, mozjpeg: true }).toBuffer();
       photoKey = `alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/${randomUUID()}.jpg`;
-      // Use the same explicit S3 credentials as our existing Contribute uploads.
-      // Bare S3Client falls through to the AWS instance profile chain, which is
-      // not available in Vercel serverless functions.
-      const accessKeyId = process.env.YATSTATS_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-      const secretAccessKey = process.env.YATSTATS_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-      if (!accessKeyId || !secretAccessKey) {
-        console.error('[where-yat-now] Photo storage credentials missing', { playerId, environment: process.env.VERCEL_ENV });
-        return reply('Photo storage is temporarily unavailable. Please try again shortly; your entries have not been saved.', 503);
-      }
-      const s3 = new S3Client({ region: S3_REGION, credentials: { accessKeyId, secretAccessKey } });
-      await s3.send(new PutObjectCommand({
+      await s3!.send(new PutObjectCommand({
         Bucket: S3_BUCKET, Key: photoKey, Body: compressed, ContentType: 'image/jpeg',
         CacheControl: 'private, no-store',
       }));
       photoUrl = storyAssetUrl(photoKey);
+    }
+    if (companyLogo instanceof File && companyLogo.size) {
+      const original = Buffer.from(await companyLogo.arrayBuffer());
+      let logoBytes: Buffer;
+      try {
+        // Preserve transparency and the complete company mark; never crop logos.
+        logoBytes = await sharp(original, { failOn: 'error', limitInputPixels: 16000000 })
+          .rotate().resize(640, 640, { fit: 'inside', withoutEnlargement: true })
+          .png({ compressionLevel: 9 }).toBuffer();
+      } catch {
+        return reply('The company logo could not be processed. Upload a valid PNG, JPG or WebP image.', 422);
+      }
+      companyLogoKey = `alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/logos/${randomUUID()}.png`;
+      await s3!.send(new PutObjectCommand({
+        Bucket: S3_BUCKET, Key: companyLogoKey, Body: logoBytes, ContentType: 'image/png',
+        CacheControl: 'private, no-store',
+      }));
+      companyLogoUrl = storyAssetUrl(companyLogoKey);
     }
 
     const sponsorship = clean(form.get('sponsorship'), 8) === 'yes';
@@ -84,15 +113,15 @@ export async function POST(req: NextRequest) {
       `INSERT INTO public.alumni_where_yat_now
       (playerid,hsid,contributor_uid,contact_email,display_name,location_city,location_state,
        occupation,company_name,business_website,linkedin_url,instagram_url,facebook_url,x_url,
-       story,photo_key,photo_url,sponsorship_interest,proof_confirmed_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now())
+       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now())
        RETURNING id`,
       [playerId,hsid,who.uid,email,displayName,fields.city,fields.state,fields.occupation,fields.company,
        normalized.website,normalized.linkedin,normalized.instagram,
-       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,sponsorship],
+       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship],
     );
     await logContribution(who, 'contribute_where_yat_now', {
-      playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship },
+      playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
     }).catch(() => {});
     const submissionId = result.rows[0]?.id;
     // Submission succeeds independently of notification delivery. Never disclose reviewer contact details.
