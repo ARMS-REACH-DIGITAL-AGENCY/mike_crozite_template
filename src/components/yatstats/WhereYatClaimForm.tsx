@@ -24,7 +24,12 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   (async()=>{
    await auth.authStateReady?.();
    const u=auth.currentUser;
-   if(active)setFan({name:u?.displayName||'',email:u?.email||''});
+   if(active){setFan({name:u?.displayName||'',email:u?.email||''});
+     const nameInput=form.current?.elements.namedItem('displayName') as HTMLInputElement|null;
+     const emailInput=form.current?.elements.namedItem('email') as HTMLInputElement|null;
+     if(nameInput && u?.displayName && (!nameInput.value || nameInput.value===name)) nameInput.value=u.displayName;
+     if(emailInput && u?.email && !emailInput.value)emailInput.value=u.email;
+   }
    const token=await u?.getIdToken().catch(()=>'');
    if(!token)return;
    const result=await fetch('/api/contribute/where-yat-now/status?playerId='+encodeURIComponent(playerId)+'&hsid='+encodeURIComponent(hsid),
