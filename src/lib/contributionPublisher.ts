@@ -14,7 +14,7 @@ type Missing = { id: string; hsid: string; player_name: string; grad_year: numbe
 type Outcome = { published: number; review: number; failed: number };
 // Track a completed queue record in the existing append-only audit log, avoiding
 // UPDATE privileges on the publicly writable intake table.
-async function markTip(t:Tip,status:'published'|'needs_review',reason:string) {
+async function markTip(t:Tip,status:'published'|'needs_review'|'rejected',reason:string) {
  await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
  VALUES('system:contribution-publisher','contribute_processed',$1,$2,$3::jsonb)`,
  [t.matched_playerid,t.matched_hsid,JSON.stringify({queue_id:t.id,status,reason})]);
