@@ -243,7 +243,7 @@ export async function generateMetadata({
   searchParams,
 }: {
   params: Promise<{ hsid: string }>;
-  searchParams: Promise<{ player?: string; story?: string; news?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string }>;
+  searchParams: Promise<{ player?: string; story?: string; news?: string; fantasyGame?: string; scoreInnings?: string; week?: string; homeId?: string; awayId?: string; snapshot?: string; homeName?: string; awayName?: string; scoreStatus?: string; sharedAt?: string; played?: string; weekStart?: string; round?: string; gameNo?: string; team?: string; share?: string }>;
 }): Promise<Metadata> {
   const { hsid } = await params;
   if (isNeverASchoolSegment(hsid)) notFound();
@@ -395,15 +395,30 @@ export async function generateMetadata({
     }
   }
 
+  // Unlike URL fragments, the share parameter is visible to link-preview
+  // crawlers and gives the whole All-Time list a dedicated preview card.
+  const allTimeShare = qp?.share === 'alltime';
+  const schoolShareImage = `${host ? `https://${host}` : canonicalUrl}/api/og/school?hsid=${encodeURIComponent(schoolHsid)}${allTimeShare ? '&section=alltime' : ''}`;
+  const schoolShareTitle = allTimeShare ? `${name.toUpperCase()} | ALL-TIME NEXT-LEVEL ALUMNI | YAT?STATS` : titleParts.join(" | ");
+  const schoolShareDescription = allTimeShare
+    ? `Explore all-time next-level baseball alumni from ${name} (${loc}). Connect. Contribute. Remember.`
+    : `Track active and all-time baseball alumni from ${name} (${loc}).`;
+  const schoolShareUrl = allTimeShare ? `${canonicalUrl}/?share=alltime#sec-alltime` : canonicalUrl;
   return {
-    title: titleParts.join(" | "),
-    description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
-    alternates: { canonical: canonicalUrl },
+    title: schoolShareTitle,
+    description: schoolShareDescription,
+    alternates: { canonical: schoolShareUrl },
     openGraph: {
-      title: titleParts.join(" | "),
-      description: `Track active and all-time baseball alumni from ${name} (${loc}).`,
-      url: canonicalUrl,
-      images: [{ url: crestUrl, width: 512, height: 512 }],
+      title: schoolShareTitle,
+      description: schoolShareDescription,
+      url: schoolShareUrl,
+      images: [{ url: schoolShareImage, width: 1200, height: 630, type: "image/png" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: schoolShareTitle,
+      description: schoolShareDescription,
+      images: [schoolShareImage],
     },
     icons: {
       icon: [
