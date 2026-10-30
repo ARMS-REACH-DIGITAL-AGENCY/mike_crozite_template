@@ -1,6 +1,7 @@
 'use client';
 
 import PlayerCardBackHero from './PlayerCardBackHero';
+import { toSlugFromDisplay } from '@/lib/slug';
 import { normalizeWhereYatLink, type WhereYatLinkField } from '@/lib/whereYatLinks';
 
 // The same content is used in the contributor proof, the real flip-card tab,
@@ -115,8 +116,9 @@ export default function WhereYatProofCard({
 }: { proof: WhereYatProof; showName?: boolean; variant?: 'full' | 'content' }) {
   const location = [proof.city, proof.state].filter(Boolean).join(', ');
   const profileHref = proof.playerId && proof.hsid
-    ? `/${proof.hsid}/player/${proof.playerId}/`
+    ? `/${proof.hsid}/player/${proof.playerId}/${toSlugFromDisplay(proof.displayName)}`
     : '#sec-alltime';
+  const businessHref = normalizeWhereYatLink('website', proof.website || '').url;
   const links = socialItems.map(item => {
     const raw = proof[item.key] || '';
     const normalized = normalizeWhereYatLink(item.key, raw);
@@ -132,7 +134,11 @@ export default function WhereYatProofCard({
           {location && <p><b>LOCATION:</b> {location}</p>}
           {proof.occupation && <p><b>NOW:</b> {proof.occupation}</p>}
           {proof.company && <p><b>BUSINESS:</b> {proof.company}</p>}
-          {proof.logoUrl && <img className="wyn-logo-inline" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Company logo'} />}
+          {proof.logoUrl && (businessHref
+            ? <a href={businessHref} target="_blank" rel="noopener noreferrer" aria-label={'Visit ' + (proof.company || 'the company') + ' website'}>
+                <img className="wyn-logo-inline" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Company logo'} />
+              </a>
+            : <img className="wyn-logo-inline" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Company logo'} />)}
         </div>
         {proof.photoUrl
           ? <img className="wyn-photo" src={proof.photoUrl} alt="Alumnus's recent photo" />
@@ -155,7 +161,7 @@ export default function WhereYatProofCard({
   }
 
   return (
-    <div className="wyn-card" role="img" aria-label={'5 by 7 retired alumni card proof for ' + proof.displayName}>
+    <div className="wyn-card" aria-label={'5 by 7 retired alumni card proof for ' + proof.displayName}>
       <div className="wyn-card-frame">
         {proof.playerId
           ? <PlayerCardBackHero playerId={proof.playerId} displayName={proof.displayName}
