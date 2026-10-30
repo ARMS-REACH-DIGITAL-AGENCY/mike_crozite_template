@@ -29,7 +29,7 @@ export async function resolveSchoolNewsOrigins(
 
 export function schoolNewsStoryUrl(schoolBase: string | null | undefined, uuid: string): string | null {
   const origin = schoolNewsOrigin(schoolBase);
-  if (!origin || !/^[A-Za-z0-9_-]{1,100}$/.test(uuid)) return null;
+  if (!origin || !/^[A-Za-z0-9_:-]{1,100}$/.test(uuid)) return null;
   const url = new URL('/', origin);
   url.searchParams.set('news', '1');
   url.searchParams.set('story', uuid);
