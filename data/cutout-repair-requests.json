@@ -1,0 +1,9 @@
+{
+  "requests": [
+    {
+      "kind": "then",
+      "player_id": "180634",
+      "reason": "head removed from HS cutout"
+    }
+  ]
+}

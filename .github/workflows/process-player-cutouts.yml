@@ -75,7 +75,7 @@ jobs:
       - name: Install image processing dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install boto3 pillow rembg onnxruntime
+          pip install boto3 pillow numpy opencv-python-headless rembg onnxruntime
 
       # rembg's background-removal model (~1GB) is downloaded once to
       # this directory on first use; caching it avoids re-downloading the

@@ -40,6 +40,7 @@ import boto3
 from botocore.exceptions import ClientError
 from PIL import Image
 from rembg import remove
+from cutout_quality import inspect_cutout
 
 BUCKET = os.getenv("YATSTATS_S3_BUCKET", "yatstats-assets")
 LEGACY_PREFIX = os.getenv("YATSTATS_S3_PREFIX", "players/then/")
@@ -119,6 +120,10 @@ def process_image_bytes(input_bytes: bytes) -> bytes:
     if alpha_min >= 255 or alpha_max <= 0:
         raise ValueError("background removal returned no usable transparency; refusing to publish an opaque/empty cutout")
 
+    verdict = inspect_cutout(input_bytes, removed)
+    if not verdict.ok:
+        raise ValueError(f"cutout quality check failed: {verdict.reason}")
+
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)
     return buffer.getvalue()
@@ -160,6 +165,19 @@ def main() -> int:
         print(f"\n[{index}/{len(keys)}] {key} -> {output_key}")
 
         try:
+            # Keep rejected source versions blocked until a new original is uploaded.
+            relative = key[len(source_prefix):]
+            pid = PurePosixPath(relative).stem
+            kind = source_prefix.rstrip("/").split("/")[-1]
+            reject_key = f"players/cutout-quality/rejected/{kind}/{pid}.json"
+            if s3_object_exists(BUCKET, reject_key):
+                import json
+                record = json.loads(s3.get_object(Bucket=BUCKET, Key=reject_key)["Body"].read())
+                current_etag = s3.head_object(Bucket=BUCKET, Key=key)["ETag"].strip('"')
+                if record.get("source_etag") == current_etag:
+                    print("SKIP cutout rejected by quality gate for unchanged original")
+                    skipped_existing += 1
+                    continue
             if not OVERWRITE and s3_object_exists(BUCKET, output_key):
                 print("SKIP existing generated PNG output")
                 skipped_existing += 1
