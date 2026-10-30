@@ -6,6 +6,8 @@ import { resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
 import { parseNewsVideo, cleanNewsVideoTitle, isLegacyVideoPlaceholderTitle } from '@/lib/newsVideo';
 import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
+import { parseContributedNewsLink } from '@/lib/contributedNewsLink';
+import { moderateContributedTip } from '@/lib/contributeTipModeration';
 
 type Tip = { id: string; intake_source: string; matched_playerid: string | null; matched_hsid: string | null; raw_player_name: string | null; article_url: string; notes: string | null };
 type Missing = { id: string; hsid: string; player_name: string; grad_year: number | null; notes: string | null };
@@ -136,31 +138,43 @@ async function processCorrection(t:Tip):Promise<boolean> {
  }
  return keys.length>0 || Boolean(oldGrad && requestedYear);
 }
-async function processTip(t:Tip):Promise<boolean> {
- if(!t.matched_playerid || !t.matched_hsid || !/^https:\/\//i.test(t.article_url))return false;
+type TipOutcome='published'|'rejected'|'pending';
+async function processTip(t:Tip):Promise<TipOutcome> {
+ const link=parseContributedNewsLink(t.article_url);
+ if(!link || !t.matched_playerid || !t.matched_hsid)return 'rejected';
  const player=await stage(t.matched_playerid);
- if(!player || player.hsid!==t.matched_hsid)return false;
- let u:URL;try{u=new URL(t.article_url)}catch{return false}
- if(!['https:'].includes(u.protocol) || !clip(t.article_url))return false;
- // Do not automatically embed temporary Instagram Stories or unknown external sources.
- // New submissions use a structured title; preserve legacy freeform notes
- // without truncating a fan-authored headline at 150 characters.
- const legacy=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim();
+ if(!player || player.hsid!==t.matched_hsid)return 'rejected';
  const detail=parsed(t.notes);
- const title=cleanNewsVideoTitle(typeof detail?.title==='string' ? detail.title : legacy);
- const description=typeof detail?.why==='string' ? detail.why.trim() : '';
- const youtube=parseNewsVideo(t.article_url)?.provider==='YouTube';
- const needsYoutubeTitle=youtube && (!title || (t.intake_source==='manual_seed' && isLegacyVideoPlaceholderTitle(title)));
- const label=(needsYoutubeTitle ? await fetchYouTubeVideoTitle(t.article_url) : null) || title;
- if(!label || (needsYoutubeTitle && isLegacyVideoPlaceholderTitle(label)))return false;
- const permalink=t.article_url;
- const identifier=hash(t.id);
+ const legacy=(t.notes||'').replace(/^\[(clip|news)\]\s*/,'').trim();
+ const title=cleanNewsVideoTitle(typeof detail?.title==='string'?detail.title:legacy);
+ const description=typeof detail?.why==='string'?detail.why.trim():'';
+ const youtube=parseNewsVideo(link.url)?.provider==='YouTube';
+ const needsYoutubeTitle=youtube&&(!title||(t.intake_source==='manual_seed'&&isLegacyVideoPlaceholderTitle(title)));
+ const label=(needsYoutubeTitle?await fetchYouTubeVideoTitle(link.url):null)||title;
+ if(!label||(needsYoutubeTitle&&isLegacyVideoPlaceholderTitle(label)))return 'rejected';
+ const safety=await moderateContributedTip({url:link.url,title:label,description,playerName:`${player.first_name} ${player.last_name}`});
+ if(safety.decision==='unavailable')return 'pending';
+ if(safety.decision==='reject')return 'rejected';
  await query(`INSERT INTO news_articles(uuid,playerid,player_name,hsid,title,source,published_at,url,
-   snippet,local_recap,discovery_source,verification_status,verification_reason,newsworthiness,raw_payload)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'contribute','VERIFIED','Fan provided link to named player','NORMAL',$11::jsonb)
-   ON CONFLICT(uuid) DO NOTHING`,
-   [identifier,player.playerid,`${player.first_name} ${player.last_name}`,player.hsid,label,u.hostname.replace(/^www\./,''),new Date().toISOString(),permalink,description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source})]);
- return true;
+ snippet,local_recap,discovery_source,verification_status,verification_reason,newsworthiness,raw_payload)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'contribute','VERIFIED','AI-screened fan contribution','NORMAL',$11::jsonb)
+ ON CONFLICT(uuid) DO NOTHING`,
+ [hash(t.id),player.playerid,`${player.first_name} ${player.last_name}`,player.hsid,label,link.source,new Date().toISOString(),link.url,
+ description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source,instagram_story:link.instagramStory,moderated:true})]);
+ revalidateTag(`school-data:${player.hsid}`,{expire:0});
+ return 'published';
+}
+export async function publishQueuedTipNow(id:string):Promise<TipOutcome>{
+ const {rows}=await query<Tip>(`SELECT id::text,intake_source,matched_playerid,matched_hsid,raw_player_name,article_url,notes
+ FROM news_tip_queue WHERE id::text=$1 AND intake_source='fan_drawer' LIMIT 1`,[id]);
+ if(!rows[0])return 'rejected';
+ const prior=await query<{status:string}>(`SELECT details->>'status' AS status FROM fan_activity WHERE action='contribute_processed'
+ AND details->>'queue_id'=$1 AND firebase_uid='system:contribution-publisher' ORDER BY created_at DESC LIMIT 1`,[id]);
+ if(prior.rows[0]?.status==='published')return 'published';
+ if(prior.rows[0]?.status==='rejected')return 'rejected';
+ const result=await processTip(rows[0]);
+ if(result==='published'||result==='rejected')await markTip(rows[0],result,'AI-screened immediate contribution');
+ return result;
 }
 // Used only for a validated, single-field roster-year submission. The same
 // checks as the scheduled publisher apply, with one exact queued ID.
@@ -230,9 +244,16 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
  for(const item of rows){
    try{
      const isCorrection=item.intake_source==='correction';
-     const ok=isCorrection ? await processCorrection(item) : await processTip(item);
-     if(ok){await markTip(item,'published','automatically processed');refreshSchoolAfterYearPublish(item);outcome.published++;}
-     else{await markTip(item,'needs_review','Conflicting/unsupported field or unverified destination');outcome.review++;}
+     if(!isCorrection){
+       const result=await processTip(item);
+       if(result==='published'){await markTip(item,'published','AI-screened automatic publish');outcome.published++;}
+       else if(result==='rejected'){await markTip(item,'rejected','Automatic checks rejected');outcome.review++;}
+       else outcome.review++;
+      }else{
+       const ok=await processCorrection(item);
+       if(ok){await markTip(item,'published','automatically processed');refreshSchoolAfterYearPublish(item);outcome.published++;}
+       else{await markTip(item,'needs_review','Conflicting correction');outcome.review++;}
+      }
    } catch(e){console.error('[contribution-publisher] tip failed',{id:item.id,error:String(e)});outcome.failed++;}
  }
  // New player submissions need a match check and a dedicated stable YAT ID.
