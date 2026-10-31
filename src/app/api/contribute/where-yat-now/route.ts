@@ -28,6 +28,16 @@ export async function POST(req: NextRequest) {
   if (clean(form.get('proofConfirmed'),8)!=='yes') return reply('Please review and confirm your proof before submitting.');
   const playerId = clean(form.get('playerId'), 32);
   const hsid = clean(form.get('hsid'), 16);
+  const replacesSubmissionId = Number(clean(form.get('replacesSubmissionId'), 20)) || null;
+  let prior: Record<string, any> | null = null;
+  if (replacesSubmissionId) {
+    const previous = await query(
+      `SELECT * FROM public.alumni_where_yat_now WHERE id=$1 AND playerid=$2 AND hsid=$3 AND contributor_uid=$4 AND status IN ('approved','pending') LIMIT 1`,
+      [replacesSubmissionId, playerId, hsid, who.uid]
+    );
+    if (!previous.rows[0]) return reply('This saved questionnaire does not belong to your account.', 403);
+    prior = previous.rows[0];
+  }
   const displayName = clean(form.get('displayName'), 140);
   const email = clean(form.get('email'), 220).toLowerCase();
   if (!/^(?:YAT)?[A-Za-z0-9_-]{1,28}$/.test(playerId) || !/^\d{1,10}$/.test(hsid)) return reply('Invalid player.');
@@ -134,6 +144,11 @@ export async function POST(req: NextRequest) {
     // The first Life After Baseball photo is also the flip-card's recent photo
     // unless a separate personal portrait was uploaded. This matches the proof.
     if (!photoUrl && album.length > 0) photoUrl = album[0].web;
+    if (prior) {
+      if (!photoUrl) {photoUrl=prior.photo_url||null;photoKey=prior.photo_key||null;}
+      if (!companyLogoUrl) {companyLogoUrl=prior.company_logo_url||null;companyLogoKey=prior.company_logo_key||null;}
+      if (!album.length && Array.isArray(prior.life_photos_json)) album.push(...prior.life_photos_json);
+    }
 
     // A confirmed proof is published immediately only after every safety check passes.
     // Unavailable, rejected or uncertain moderation never exposes either public view.
@@ -149,16 +164,18 @@ export async function POST(req: NextRequest) {
       if (verdict?.decision !== 'approve') safeToPublish = false;
     }
     const publicationStatus = safeToPublish ? 'approved' : 'pending';
+    // Revisions create a new record. A previously approved record remains
+    // published while the revised version goes through moderation.
     const result = await query<{ id: number }>(
       `INSERT INTO public.alumni_where_yat_now
       (playerid,hsid,contributor_uid,contact_email,display_name,location_city,location_state,
        occupation,company_name,business_website,linkedin_url,instagram_url,facebook_url,x_url,
-       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at,retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,questionnaire_version,status,reviewed_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,2,$33,CASE WHEN $33='approved' THEN now() ELSE NULL END)
+       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at,retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,questionnaire_version,status,reviewed_at,replaces_submission_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,2,$33,CASE WHEN $33='approved' THEN now() ELSE NULL END,$34)
        RETURNING id`,
       [playerId,hsid,who.uid,email,displayName,fields.city,fields.state,fields.occupation,fields.company,
        normalized.website,normalized.linkedin,normalized.instagram,
-       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested,publicationStatus],
+       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested,publicationStatus,replacesSubmissionId],
     );
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
