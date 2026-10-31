@@ -56,6 +56,7 @@ const questionOrder = questionGroups.flatMap(group => group.questions.map(questi
 export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId:string;hsid:string;name:string;school:string}){
  const form=useRef<HTMLFormElement>(null);
  const [photos,setPhotos]=useState<Picked[]>([]);
+ const [memoryPhotos,setMemoryPhotos]=useState<Record<string,Picked[]>>({});
  const [proof,setProof]=useState<Record<string,string>|null>(null);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
@@ -109,6 +110,8 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    if(input)input.value=String(saved[column]??'');
   }
   setFeaturedMemory(String(saved.featured_memory_key||'story'));
+  // Old questionnaire photos remain attached to their original saved memory.
+  // Do not silently reassign them when editing a questionnaire.
   const opt=form.current.elements.namedItem('businessPublic') as HTMLInputElement|null;
   if(opt)opt.checked=!!saved.business_public_opt_in;
   setAnswered(Object.fromEntries(Object.entries(mapping).map(([key,column])=>[key,!!String(saved[column]??'').trim()])));
@@ -133,6 +136,14 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   })();
   return()=>{active=false}
  },[playerId,hsid]);
+ async function addMemoryFiles(key:string,files:FileList|null){
+  if(!files)return;
+  const existing=memoryPhotos[key]||[];
+  if(existing.length+files.length>4){setError('Up to four photos per memory.');return;}
+  setBusy(true);
+  try{const next=await Promise.all(Array.from(files).map(async file=>{const a=await prepareStoryPhoto(await copyStoryPhoto(file));return {...a,url:URL.createObjectURL(a.blob)}}));setMemoryPhotos(prev=>({...prev,[key]:[...(prev[key]||[]),...next]}));setProof(null);setError('');}
+  catch(e){setError(e instanceof Error?e.message:'Unable to prepare memory photos.');}finally{setBusy(false)}
+ }
  async function addFiles(files:FileList|null){
   if(!files)return;
   const picked=Array.from(files).slice(0,Math.max(0,4-photos.length));setBusy(true);
@@ -203,7 +214,8 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    await auth.authStateReady?.();const token=await auth.currentUser?.getIdToken();
    if(!token){window.dispatchEvent(new CustomEvent('yat:acct-tab',{detail:'signin'}));throw Error('Sign in to claim this profile. Your answers are still here.')}
    data.set('idToken',token);data.set('proofConfirmed','yes');
-   data.delete('lifePhotos');
+   for(const [key,images] of Object.entries(memoryPhotos)){for(const photo of images)data.append('memoryPhoto_'+key,photo.blob,photo.name);}
+  data.delete('lifePhotos');
    photos.forEach(p=>data.append('lifePhotos',p.blob,p.name));
    const {body,contentType}=await createStoryUploadBody(data);
    const response=await fetch('/api/contribute/where-yat-now',{method:'POST',body,headers:{'content-type':contentType},credentials:'include'});
@@ -227,10 +239,11 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   </div>;
   if(id==='retirementYear')return <label className="ycd-field"><span className="ycd-label">YEAR YOU RETIRED FROM BASEBALL</span><input type="number" name="retirementYear" min="1900" max={new Date().getFullYear()} /></label>;
   const storyField=fields.find(([key])=>key===id);
-  if(storyField)return <label className="ycd-field">
-   <span className="ycd-label">{storyField[1].replace('YOUR HIGH SCHOOL',school.toUpperCase())}</span>
-   <textarea name={storyField[0]} rows={4} maxLength={storyField[0]==='story'?2400:5000} />
-  </label>;
+  if(storyField)return <div className="ycd-field">
+   <label className="ycd-field"><span className="ycd-label">{storyField[1].replace('YOUR HIGH SCHOOL',school.toUpperCase())}</span><textarea name={storyField[0]} rows={4} maxLength={storyField[0]==='story'?2400:5000}/></label>
+   <label className="wyn-photo-select"><span className="wyn-photo-select-heading"><i className="ri-image-add-line"/> ADD PHOTOS TO THIS MEMORY</span><span className="ycd-muted ycd-small">Up to 4 photos, attached only to this answer.</span><input type="file" multiple accept="image/*" onChange={e=>{void addMemoryFiles(storyField[0],e.target.files);e.target.value='';}}/></label>
+   {(memoryPhotos[storyField[0]]||[]).length>0&&<div className="wyn-photos">{memoryPhotos[storyField[0]].map((photo,index)=><div className="wyn-photo-thumb" key={photo.url}><img src={photo.url} alt={'Memory photo '+(index+1)}/><button type="button" className="ycd-btn" onClick={()=>{URL.revokeObjectURL(photo.url);setMemoryPhotos(prev=>({...prev,[storyField[0]]:(prev[storyField[0]]||[]).filter((_,j)=>j!==index)}));setProof(null)}}>REMOVE</button></div>)}</div>}
+  </div>;
   if(id==='lifePhotos')return <div className="ycd-field">
    <label className="wyn-photo-select">
     <span className="wyn-photo-select-heading"><i className="ri-image-add-line" aria-hidden="true" /> ADD PHOTOS</span>
@@ -362,7 +375,8 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
        occupation:proof.occupation, company:proof.company,
        story:proof[featuredMemory]||proof.story||proof.favoriteAfter||proof.favoriteHs, website:proof.website,
        linkedin:proof.linkedin, instagram:proof.instagram, facebook:proof.facebook,
-       x:proof.x, photoUrl:photos[0]?.url
+       x:proof.x, photoUrl:memoryPhotos[featuredMemory]?.[0]?.url||photos[0]?.url,
+       businessPublic:proof.businessPublic==='yes'
       }} />
      </div>
      <div className="wyn-proof-details">
@@ -377,6 +391,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
        <div key={title} className="wyn-proof-entry"><strong>{title}</strong><p>{answer}</p></div>
       ))}
       <p><strong>Featured flip-card memory:</strong> {fields.find(([key])=>key===featuredMemory)?.[1]}</p>
+      {fields.map(([key,title])=>memoryPhotos[key]?.length>0&&<div key={key} className="wyn-proof-entry"><strong>{title.replace('YOUR HIGH SCHOOL',school.toUpperCase())} — PHOTOS</strong><div className="wyn-proof-photos">{memoryPhotos[key].map((p,i)=><img key={p.url} src={p.url} alt={'Memory photo '+(i+1)}/>)}</div></div>)}
       {photos.length > 0 && <div className="wyn-proof-photos">{photos.map((p,i) => <img key={p.url} src={p.url} alt={'Proof photo '+(i+1)} />)}</div>}
       {proof.businessPublic === 'yes' && (
        <div className="wyn-proof-entry">
