@@ -433,3 +433,36 @@ export const TEAM_UNIVERSE_AUDIT_24H_SQL = `
  FROM public.teamid_universe_change_audit
  WHERE changed_at >= NOW() - INTERVAL '24 hours'
 `;
+
+/** Every imported stat row must resolve by exact Team ID before it can enter a
+ * competitive career bucket. These counts are for visibility and reconciliation:
+ * raw archives are never modified, and PRO/UNKNOWN never become MINORS by range. */
+export const HISTORICAL_TBC_LEVEL_COVERAGE_SQL = `
+WITH imported AS (
+  SELECT teamid::text AS teamid, 'batting' AS source
+  FROM public.v_tbc_batting_all_seasons_resolved
+  UNION ALL
+  SELECT teamid::text, 'pitching'
+  FROM public.v_tbc_pitching_all_seasons_resolved
+), grouped AS (
+  SELECT teamid, source, COUNT(*)::bigint AS stat_rows
+  FROM imported GROUP BY teamid, source
+)
+SELECT source,
+  COALESCE(SUM(stat_rows),0)::bigint AS total_stat_rows,
+  COUNT(DISTINCT teamid) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  )::int AS unresolved_teamids,
+  COALESCE(SUM(stat_rows) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  ),0)::bigint AS held_stat_rows
+FROM grouped g
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid=g.teamid
+GROUP BY source ORDER BY source
+`;
