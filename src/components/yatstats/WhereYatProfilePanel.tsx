@@ -61,7 +61,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         <aside className="wyn-story-inline-ad" aria-label="Player Profile Partner in-feed sponsor">
           <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small>
         </aside>
-        {entry.life_photos_json?.length>0&&<details style={{padding:16,border:'1px solid #444'}}><summary>AFTER BASEBALL — PHOTO ALBUM</summary><div style={{display:'flex',flexWrap:'wrap',gap:12,paddingTop:12}}>{entry.life_photos_json.map((photo,i)=><a key={i} href={photo.full} target="_blank" rel="noopener noreferrer"><img alt={'Life after baseball '+(i+1)} src={photo.web} style={{height:140,maxWidth:'100%',objectFit:'contain'}}/></a>)}</div></details>}
+
       </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       <style>{`
         .where-yat-profile { padding: 12px; width:100%; box-sizing:border-box; color:var(--yat-text,#f5f5f5); background:transparent; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); }
