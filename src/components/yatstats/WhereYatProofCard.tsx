@@ -24,6 +24,7 @@ export type WhereYatProof = {
   story?: string;
   photoUrl?: string | null;
   logoUrl?: string | null;
+  businessPublic?: boolean;
 };
 
 type Social = { key: WhereYatLinkField; icon: string; label: string; className: string };
@@ -77,7 +78,7 @@ const css = `
     background:rgba(255,255,255,.2); box-shadow:0 1px 2px #0002;}
   .wyn-no-photo {flex:0 0 30%; width:30%; min-height:14cqi; display:grid; place-items:center;
     text-align:center; border:1px dashed #83796b; font:600 clamp(7px,1.9cqi,10px) Oswald,sans-serif;}
-  .wyn-logo-inline {display:inline-block; max-width:17cqi; max-height:8cqi; width:auto; object-fit:contain;
+  .wyn-logo-inline {display:inline-block; max-width:28cqi; max-height:11cqi; width:auto; object-fit:contain;
     vertical-align:middle; padding:2px; background:rgba(255,255,255,.4); margin-left:4px;}
   .wyn-story {min-height:0; flex:1; overflow:hidden; white-space:pre-wrap; overflow-wrap:anywhere;
     font:400 clamp(8px,2.65cqi,14px)/1.35 Archivo,Arial,sans-serif;
@@ -92,6 +93,14 @@ const css = `
   .wyn-facebook {background:#0866ff;} .wyn-instagram {background:linear-gradient(30deg,#f9ce34,#ee2a7b,#6228d7);}
   .wyn-x {background:#070707;} .wyn-linkedin {background:#0a66c2;}
   .wyn-contact {background:#1374cc;}
+  .wyn-website {background:#356b40;}
+  .wyn-business-links {display:flex;flex-direction:column;align-items:center;gap:clamp(3px,.8cqi,6px);flex:none;border-top:1px solid rgba(30,22,14,.16);padding-top:clamp(3px,.8cqi,6px);}
+  .wyn-business-logo {max-width:36cqi;max-height:11cqi;object-fit:contain;background:rgba(255,255,255,.6);border-radius:3px;padding:2px;}
+  .wyn-business-name {font:700 clamp(7px,2.2cqi,11px)/1.2 Archivo,Arial,sans-serif;text-align:center;overflow-wrap:anywhere;}
+  .wyn-business-links .wyn-socials {border:0;margin:0;padding:0;width:100%;}
+  .wyn-embedded .wyn-identity {display:none;}
+  .wyn-embedded .wyn-body {background:transparent;}
+  .wyn-embedded .wyn-story {border-top:0;padding-top:0;}
   .wyn-footer {flex:none; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); min-height:11cqi;
     border-top:clamp(1px,.5cqi,3px) solid rgba(30,22,14,.35); background:rgba(30,22,14,.06);}
   .wyn-footer-tab {display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0;
@@ -124,7 +133,8 @@ export default function WhereYatProofCard({
     const normalized = normalizeWhereYatLink(item.key, raw);
     return normalized.url ? { ...item, href: normalized.url } : null;
   }).filter((item): item is Social & { href: string } => !!item);
-  const contactHref = profileHref + '#ppTab-connect';
+  const showBusiness = proof.businessPublic !== false;
+  const businessLinks = showBusiness ? links : [];
   const body = (
     <div className="wyn-body">
       <div className="wyn-heading">YAT?STATS / WHERE YAT NOW?</div>
@@ -133,26 +143,22 @@ export default function WhereYatProofCard({
           {showName && <div className="wyn-small-name">{proof.displayName}</div>}
           {location && <p><b>LOCATION:</b> {location}</p>}
           {proof.occupation && <p><b>NOW:</b> {proof.occupation}</p>}
-          {proof.company && <p><b>BUSINESS:</b> {proof.company}</p>}
-          {proof.logoUrl && (businessHref
-            ? <a href={businessHref} target="_blank" rel="noopener noreferrer" aria-label={'Visit ' + (proof.company || 'the company') + ' website'}>
-                <img className="wyn-logo-inline" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Company logo'} />
-              </a>
-            : <img className="wyn-logo-inline" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Company logo'} />)}
         </div>
-        {proof.photoUrl
-          ? <img className="wyn-photo" src={proof.photoUrl} alt="Alumnus's recent photo" />
-          : <div className="wyn-no-photo">NO RECENT PHOTO</div>}
+        {proof.photoUrl && <img className="wyn-photo" src={proof.photoUrl} alt="Alumnus's recent photo" />}
       </div>
-      <p className="wyn-story">{proof.story || 'No alumni story provided.'}</p>
-      <div className="wyn-socials" aria-label="Alumni public social and community links">
-        {links.map(link => <a key={link.key} className={'wyn-social ' + link.className}
-          href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label}>
-          <i className={link.icon} aria-hidden="true" />
-        </a>)}
-        {proof.playerId && proof.hsid && <a className="wyn-social wyn-contact" href={contactHref}
-          aria-label="Connect through YAT?STATS"><i className="ri-chat-3-fill" aria-hidden="true" /></a>}
-      </div>
+      <p className="wyn-story">{proof.story || 'Visit the player profile to learn more about life after baseball.'}</p>
+      {showBusiness && (proof.company || proof.logoUrl || businessHref || businessLinks.length > 0) && (
+        <div className="wyn-business-links" aria-label="Business information and links">
+          {proof.logoUrl && (businessHref
+            ? <a href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Visit business website"><img className="wyn-business-logo" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Business logo'} /></a>
+            : <img className="wyn-business-logo" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Business logo'} />)}
+          {proof.company && <div className="wyn-business-name">{proof.company}</div>}
+          {(businessHref || businessLinks.length > 0) && <div className="wyn-socials">
+            {businessHref && <a className="wyn-social wyn-website" href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Business website"><i className="ri-global-line" aria-hidden="true" /></a>}
+            {businessLinks.map(link => <a key={link.key} className={'wyn-social ' + link.className} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label}><i className={link.icon} aria-hidden="true" /></a>)}
+          </div>}
+        </div>
+      )}
     </div>
   );
 
