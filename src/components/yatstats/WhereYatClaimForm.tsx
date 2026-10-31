@@ -62,8 +62,53 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  const [published,setPublished]=useState(false);
  const [alreadyPending,setAlreadyPending]=useState(false);
  const [fan,setFan]=useState({name:'',email:''});
+ const [saved,setSaved]=useState<Record<string,any>|null>(null);
+ const [signedIn,setSignedIn]=useState<boolean|null>(null);
+ const [editEnabled,setEditEnabled]=useState(false);
+ const [savedLoaded,setSavedLoaded]=useState(false);
+ function openJoin(){
+  document.body.classList.add('drawer-account-open','drawer-open');
+  window.dispatchEvent(new CustomEvent('yat:acct-tab',{detail:'register'}));
+ }
+ function loadSaved(){
+  void (async()=>{
+   await auth.authStateReady?.();
+   const user=auth.currentUser;
+   setSignedIn(Boolean(user));
+   if(!user){setSavedLoaded(true);return;}
+   const token=await user.getIdToken().catch(()=>'');
+   if(!token){setSavedLoaded(true);return;}
+   const response=await fetch('/api/contribute/where-yat-now/mine?playerId='+encodeURIComponent(playerId)+'&hsid='+encodeURIComponent(hsid),{headers:{'x-firebase-token':token},cache:'no-store',credentials:'include'}).catch(()=>null);
+   const result=response?.ok?await response.json().catch(()=>null):null;
+   setSaved(result?.submission||null);
+   setSavedLoaded(true);
+  })();
+ }
  const [openQuestion,setOpenQuestion]=useState<string|null>(null);
  const [answered,setAnswered]=useState<Record<string,boolean>>({});
+ useEffect(()=>{
+  loadSaved();
+  window.addEventListener('yat-auth-success',loadSaved);
+  window.addEventListener('yat-sign-out',loadSaved);
+  return()=>{window.removeEventListener('yat-auth-success',loadSaved);window.removeEventListener('yat-sign-out',loadSaved)};
+ },[playerId,hsid]);
+ useEffect(()=>{
+  if(!saved || !editEnabled || !form.current)return;
+  const mapping:Record<string,string>={
+   displayName:'display_name',email:'contact_email',city:'location_city',state:'location_state',
+   occupation:'occupation',company:'company_name',website:'business_website',linkedin:'linkedin_url',
+   instagram:'instagram_url',facebook:'facebook_url',x:'x_url',story:'story',favoriteHs:'favorite_hs_memory',
+   favoriteAfter:'favorite_post_hs_memory',family:'family_life',retirementYear:'retirement_year',
+   businessMessage:'business_message',businessOffer:'business_offer',businessEmail:'business_contact_email',
+   businessPhone:'business_contact_phone',teammateTips:'private_teammate_tips'};
+  for(const [key,column] of Object.entries(mapping)){
+   const input=form.current.elements.namedItem(key) as HTMLInputElement|HTMLTextAreaElement|null;
+   if(input)input.value=String(saved[column]??'');
+  }
+  const opt=form.current.elements.namedItem('businessPublic') as HTMLInputElement|null;
+  if(opt)opt.checked=!!saved.business_public_opt_in;
+  setAnswered(Object.fromEntries(Object.entries(mapping).map(([key,column])=>[key,!!String(saved[column]??'').trim()])));
+ },[saved,editEnabled]);
  useEffect(()=>{
   let active=true;
   (async()=>{
@@ -142,7 +187,9 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    showQuestion('claimAttestation');return;
   }
   setError('');
+  if(!auth.currentUser){openJoin();setError('JOIN or sign in to save your questionnaire. Your answers remain here.');return;}
   const data=new FormData(e.currentTarget);data.set('playerId',playerId);data.set('hsid',hsid);
+  if(saved?.id && editEnabled)data.set('replacesSubmissionId',String(saved.id));
   if(!proof){setProof(Object.fromEntries([...data.entries()].filter(([,v])=>typeof v==='string')) as Record<string,string>);
     requestAnimationFrame(()=>document.getElementById('claim-proof')?.scrollIntoView({behavior:'smooth',block:'start'}));return}
   setBusy(true);setError('');
@@ -221,6 +268,22 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  // Presentation reuses the exact Connect & Contribute drawer design classes.
  // Keep the dedicated questionnaire data, validation, photo upload, proof,
  // permissions and API unchanged.
+ if(!editEnabled && saved && signedIn)return (
+  <div className="where-yat-claim">
+   <section className="wyn-form-section">
+    <h3 className="ycd-label">YOUR SAVED WHERE YAT? QUESTIONNAIRE</h3>
+    <p className="ycd-muted ycd-small">Your previous answers are saved. You can edit them and review an updated proof before submitting a revision.</p>
+    <button type="button" className="ycd-btn ycd-btn-primary" onClick={()=>setEditEnabled(true)}>EDIT MY ANSWERS</button>
+   </section>
+  </div>
+ );
+ if(!signedIn && savedLoaded)return (
+  <div className="where-yat-claim"><section className="wyn-form-section">
+   <h3 className="ycd-label">JOIN TO SHARE YOUR STORY</h3>
+   <p className="ycd-muted ycd-small">Sign in or JOIN YAT?STATS to complete this questionnaire and return to edit your answers.</p>
+   <button type="button" className="ycd-btn ycd-btn-primary" onClick={openJoin}>JOIN OR SIGN IN</button>
+  </section></div>
+ );
  if (receipt) return (
   <div className="where-yat-claim" role="status">
    <section className="wyn-form-section">
