@@ -298,3 +298,111 @@ WHERE f.status_label = 'ACTIVE'
 ORDER BY f.display_name, f.playerid
 LIMIT 100
 `;
+
+// Only classify blank-status players from verified 2026 college or independent
+// game participation. MLB/MiLB status is owned exclusively by the MLB roster
+// pipeline. Unmatched, multi-team, partial-team and legacy records are held.
+// Historical career-high labels NEVER become current display levels.
+// This is season activity evidence, not a live roster verification timestamp.
+export const SAFE_2026_BLANK_STATUS_RECOVERY_SQL = `
+WITH evidence AS MATERIALIZED (
+  SELECT playerid::text AS playerid, teamid::text AS teamid,
+         'tbc_2026'::text AS evidence_source
+    FROM public.tbc_batting_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+  UNION
+  SELECT playerid::text, teamid::text, 'tbc_2026'
+    FROM public.tbc_pitching_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+  UNION
+  SELECT b.yatstats_playerid::text, b.teamid::text, 'indy_2026'
+    FROM public.indy_iscore_batting_2026_season_raw b
+    JOIN public.indy_iscore_player_source_map s
+      ON s.source_system=b.source_system AND s.league_code=b.league_code
+     AND s.season_id=b.season_id AND s.source_player_id=b.source_player_id
+     AND s.yatstats_playerid=b.yatstats_playerid
+     AND s.match_status='matched' AND s.match_confidence>=0.92
+   WHERE b.season_year=2026 AND b.yatstats_playerid IS NOT NULL AND b.teamid IS NOT NULL
+  UNION
+  SELECT b.yatstats_playerid::text, b.teamid::text, 'indy_2026'
+    FROM public.indy_iscore_pitching_2026_season_raw b
+    JOIN public.indy_iscore_player_source_map s
+      ON s.source_system=b.source_system AND s.league_code=b.league_code
+     AND s.season_id=b.season_id AND s.source_player_id=b.source_player_id
+     AND s.yatstats_playerid=b.yatstats_playerid
+     AND s.match_status='matched' AND s.match_confidence>=0.92
+   WHERE b.season_year=2026 AND b.yatstats_playerid IS NOT NULL AND b.teamid IS NOT NULL
+), unique_evidence AS MATERIALIZED (
+  SELECT playerid, MIN(teamid) AS teamid, MIN(evidence_source) AS evidence_source
+    FROM evidence
+   GROUP BY playerid
+  HAVING COUNT(DISTINCT teamid)=1 AND COUNT(DISTINCT evidence_source)=1
+), eligible AS MATERIALIZED (
+  SELECT f.playerid, u.teamid, u.current_team_name AS team_name,
+         u.current_org_or_conference_name AS org_name, u.level_label AS team_level,
+         e.evidence_source
+    FROM public.flip_card_front_stage f
+    JOIN unique_evidence e ON e.playerid=f.playerid
+    JOIN public.teamid_universe_mapping u ON u.teamid=e.teamid
+   WHERE f.status_label IS NULL
+     AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL
+     AND f.current_team_last_verified IS NULL
+     AND f.current_team_source_player_id IS NULL
+     AND f.current_team_source_team_id IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND f.is_on_40man IS NOT TRUE
+     AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT')
+     AND u.current_team_name IS NOT NULL
+     AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+     AND (
+       (e.evidence_source='tbc_2026' AND u.level_label IN
+         ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'))
+       OR
+       (e.evidence_source='indy_2026' AND u.level_label='INDY')
+     )
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+     AND NOT EXISTS (
+       SELECT 1 FROM public.player_source_map m
+       WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM public.mlb_org_roster_resolution r
+       WHERE r.playerid=f.playerid AND r.match_status='matched'
+     )
+     AND (
+       e.evidence_source <> 'indy_2026'
+       OR NOT EXISTS (
+         SELECT 1 FROM public.indy_iscore_batting_2026_season_raw i
+         WHERE i.season_year=2026 AND i.yatstats_playerid=f.playerid
+           AND NULLIF(BTRIM(i.teamid),'') IS NULL
+         UNION ALL
+         SELECT 1 FROM public.indy_iscore_pitching_2026_season_raw i
+         WHERE i.season_year=2026 AND i.yatstats_playerid=f.playerid
+           AND NULLIF(BTRIM(i.teamid),'') IS NULL
+       )
+     )
+), changed AS (
+  UPDATE public.flip_card_front_stage f SET
+    status_label='ACTIVE', display_status_label='ACTIVE',
+    current_teamid=e.teamid, current_team_source_team_id=e.teamid,
+    current_team_name=e.team_name,
+    current_org_or_conference_name=e.org_name,
+    current_team_level=e.team_level, current_level_label=e.team_level,
+    level_label=e.team_level, display_level_label=e.team_level,
+    current_team_source=CASE WHEN e.evidence_source='tbc_2026'
+      THEN 'tbc_2026_college_participation'
+      ELSE 'indy_2026_verified_participation' END,
+    updated_at=NOW(), stage_updated_at=NOW()
+    FROM eligible e
+   WHERE f.playerid=e.playerid
+     AND f.status_label IS NULL AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS activated FROM changed
+`;
