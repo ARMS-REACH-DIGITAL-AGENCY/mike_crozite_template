@@ -1062,7 +1062,7 @@ export default function FunZone({
           line-height:1;
         }
         .fz-tab-label{
-          font:700 clamp(5px,1.8cqi,7.5px) "Bebas Neue",sans-serif;
+          font:700 clamp(5px,1.8cqi,7.5px)/1 var(--ticker-date-doto), "Doto", monospace;
           letter-spacing:.07em;
           text-transform:uppercase;
           line-height:1;
