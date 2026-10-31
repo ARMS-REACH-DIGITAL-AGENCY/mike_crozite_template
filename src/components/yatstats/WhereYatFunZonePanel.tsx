@@ -188,6 +188,106 @@ export default function WhereYatFunZonePanel({
         .wyn-fz-approved-content .wyn-story{font-size:clamp(8px,2.5cqi,13px);line-height:1.28;}
         .wyn-fz-approved-content .wyn-socials{padding-top:clamp(2px,.6cqi,5px);}
         .wyn-fz-approved .wyn-fz-action{font-size:clamp(9px,2.8cqi,14px);margin-top:clamp(2px,.7cqi,4px);}
+        /* UNCLAIMED + PENDING: use the same cream notebook design as the
+           approved card. The Github artwork was never connected, so remove
+           its blue brush/gradient rather than pretending it is installed. */
+        .wyn-fz-unclaimed::before,
+        .wyn-fz-pending::before,
+        .wyn-fz-unclaimed .wyn-fz-art::before {
+          content:none!important;
+          display:none!important;
+          background:none!important;
+          filter:none!important;
+        }
+        .wyn-fz-unclaimed,
+        .wyn-fz-pending {
+          background:#f2eadc!important;
+          background-image:repeating-linear-gradient(0deg,transparent 0,transparent 21px,rgba(70,56,39,.035) 22px)!important;
+          color:#27221b;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art {
+          background:transparent!important;
+          color:#27221b;
+          padding:clamp(5px,2cqi,12px);
+          box-sizing:border-box;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-logo {
+          width:100%;
+          padding:0 2%;
+          filter:none;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-logo img {
+          filter:none;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-title {
+          margin-top:clamp(8px,4cqi,22px);
+          transform:none;
+          filter:none;
+          text-shadow:none;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-title span {
+          color:#312820;
+          text-shadow:none;
+          -webkit-text-stroke:0;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-title strong {
+          color:#9b7023;
+          text-shadow:none;
+          -webkit-text-stroke:0;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-bottom {
+          padding-bottom:3%;
+          color:#27221b;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-bottom b {
+          color:#30261e;
+        }
+        .wyn-fz-unclaimed .wyn-fz-art-button {
+          color:#261d11!important;
+          background:#eec54b;
+          border:1px solid #836524;
+          box-shadow:none;
+        }
+        .wyn-fz-pending .wyn-fz-brand {
+          border-bottom-color:rgba(44,34,22,.35);
+        }
+        .wyn-fz-pending .wyn-fz-brand img {filter:none;}
+        .wyn-fz-pending .wyn-fz-headline {
+          transform:none;
+          text-shadow:none;
+          margin-top:clamp(8px,3cqi,18px);
+        }
+        .wyn-fz-pending .wyn-fz-brush-word {
+          color:#30261e;
+          font-style:normal;
+          -webkit-text-stroke:0;
+          text-shadow:none;
+        }
+        .wyn-fz-pending .wyn-fz-headline strong {
+          color:#9b7023;
+          font-style:normal;
+          filter:none;
+          -webkit-text-stroke:0;
+          text-shadow:none;
+        }
+        .wyn-fz-pending .wyn-fz-status {
+          color:#282119;
+          background:#eec54b;
+          transform:none;
+          box-shadow:none;
+          border-radius:3px;
+        }
+        .wyn-fz-pending .wyn-fz-pending-copy,
+        .wyn-fz-pending .wyn-fz-progress span {
+          color:#30261e;
+        }
+        .wyn-fz-pending .wyn-fz-progress i,
+        .wyn-fz-pending .wyn-fz-pending-link {
+          color:#594628!important;
+        }
+        .wyn-fz-pending .wyn-fz-progress {
+          border-top-color:rgba(44,34,22,.28);
+        }
         @media (prefers-reduced-motion:reduce){.wyn-fz *{transition:none!important;}}
       `}</style>
     </section>
