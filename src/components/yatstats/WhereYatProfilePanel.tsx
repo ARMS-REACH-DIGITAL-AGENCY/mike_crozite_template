@@ -39,7 +39,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
     console.error('[where-yat-profile] Could not fetch reviewed update', error);
   }
   return (
-    <div style={{ maxWidth: 850, margin: 'auto', padding: 16, fontFamily: 'Archivo,Arial,sans-serif', color: '#eee' }}>
+    <div className="where-yat-profile" style={{ maxWidth: 850, margin: 'auto', padding: 16, fontFamily: 'Archivo,Arial,sans-serif', color: '#eee', backgroundColor:'#111', colorScheme:'dark' }}>
       <h2 style={{ fontFamily:'Oswald,Arial Narrow,sans-serif', fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
       {entry ? <article style={{maxWidth:800}}>
         <div style={{background:'#c2b9ae',color:'#1e160e',padding:18}}>
@@ -60,7 +60,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         </div>
         <WhereYatReactions id={entry.id}/>
       </article> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
-      <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
+      <style>{`\n        .where-yat-profile { background:#111 !important; color:#f5f5f5 !important; }\n        .where-yat-profile article, .where-yat-profile section { background:#191919 !important; color:#f5f5f5 !important; }\n        .where-yat-profile h2, .where-yat-profile h3, .where-yat-profile p, .where-yat-profile strong { color:#f5f5f5 !important; opacity:1 !important; }\n        .where-yat-profile a { color:#e9bf56; }\n        .where-yat-profile .wyn-embedded, .where-yat-profile .wyn-body { background:#c2b9ae !important; color:#1e160e !important; }\n        .where-yat-profile .wyn-embedded p { color:#1e160e !important; }\n      `}</style>\n      <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
     </div>
   );
 }
