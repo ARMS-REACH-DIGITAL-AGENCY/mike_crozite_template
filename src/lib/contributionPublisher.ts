@@ -172,7 +172,7 @@ async function processTip(t:Tip):Promise<TipOutcome> {
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,'contribute','VERIFIED','AI-screened fan contribution','NORMAL',$13::jsonb)
    ON CONFLICT(uuid) DO NOTHING`,
    [uuid,player?.playerid||null,player?`${player.first_name} ${player.last_name}`:null,t.matched_hsid,label,link.source,originalDate||new Date().toISOString(),link.url,
-   thumbnail,thumbnail?'SOURCE_VERIFIED':null,description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source,instagram_story:link.instagramStory,moderated:true,original_published_at:originalDate,team_year:targetYear,contributor_uid:detail?.contributorUid||null})]);
+   thumbnail,thumbnail?'SOURCE_VERIFIED':'FALLBACK_PLAYER',description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source,instagram_story:link.instagramStory,moderated:true,original_published_at:originalDate,team_year:targetYear,contributor_uid:detail?.contributorUid||null})]);
  if(targetYear)await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
    VALUES('system:contribution-publisher','news_team_year_tagged',NULL,$1,$2::jsonb)`,
    [t.matched_hsid,JSON.stringify({news_uuid:uuid,teamYear:targetYear})]);
