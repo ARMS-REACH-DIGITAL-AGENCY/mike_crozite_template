@@ -29,4 +29,12 @@ assert(form.includes("fetch('/api/contribute/where-yat-now'"), 'Preserve publica
 assert(form.includes('proofConfirmed'), 'Preserve proof approval');
 assert(form.includes('WhereYatProofCard'), 'Preserve 5x7 card preview');
 assert(css.includes('body:not(.light-theme)') && css.includes('var(--card-bg)'), 'Theme must follow site tokens');
+
+assert(form.includes('const [openQuestion,setOpenQuestion]'), 'Only one question open at a time');
+assert(form.includes('hidden={!isOpen}'), 'Collapsed answers stay mounted');
+assert(form.includes('noValidate'), 'Collapsed required controls need explicit validation');
+assert(form.includes('showQuestion(\'displayName\')') && form.includes('showQuestion(\'email\')') && form.includes('showQuestion(\'claimAttestation\')'), 'Validation must open missing fields');
+assert(form.includes('questionGroups.map(') && form.includes('questionOrder'), 'Show every questionnaire question on initial view');
+assert(css.includes('.wyn-question-body[hidden]{display:none!important;}'), 'Collapsed panels hide completely');
+
 console.log('PASS universal Contribute styling on Where YAT questionnaire (fields, proof, API, light/dark)');
