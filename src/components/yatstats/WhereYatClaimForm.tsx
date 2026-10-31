@@ -10,6 +10,48 @@ const fields=[
  ['family','DO YOU HAVE A FAMILY? ANY BALLPLAYERS? TELL US MORE.'],
  ['story','WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'],
 ] as const;
+
+/* Every question is visible in the index, initially closed. Keeping all
+   controls mounted (and only hiding their panels) preserves FormData,
+   typed answers and selected uploads when moving from question to question. */
+const questionGroups = [
+ { title:'ABOUT YOU', questions:[
+  {id:'displayName',title:'YOUR NAME',required:true},
+  {id:'email',title:'CONTACT EMAIL (PRIVATE)',required:true},
+  {id:'location',title:'CITY AND STATE'},
+  {id:'retirementYear',title:'YEAR YOU RETIRED FROM BASEBALL'}
+ ]},
+ { title:'YOUR BASEBALL AND LIFE STORY', questions:[
+  {id:'favoriteHs',title:'MOST MEMORABLE MOMENT PLAYING AT YOUR HIGH SCHOOL'},
+  {id:'favoriteAfter',title:'MOST MEMORABLE BASEBALL MOMENT AFTER GRADUATION'},
+  {id:'family',title:'DO YOU HAVE A FAMILY? ANY BALLPLAYERS? TELL US MORE.'},
+  {id:'story',title:'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'},
+  {id:'lifePhotos',title:'PHOTOS FROM LIFE AFTER BASEBALL (UP TO 4)',optional:true}
+ ]},
+ { title:'OPTIONAL BUSINESS SPOTLIGHT', optional:true, questions:[
+  {id:'occupation',title:'YOUR PROFESSION',optional:true},
+  {id:'company',title:'COMPANY / ORGANIZATION',optional:true},
+  {id:'businessMessage',title:'WHAT WOULD YOU LIKE PEOPLE TO KNOW ABOUT YOUR BUSINESS?',optional:true},
+  {id:'businessOffer',title:'SPECIAL OFFER',optional:true},
+  {id:'companyLogo',title:'COMPANY LOGO',optional:true},
+  {id:'website',title:'BUSINESS WEBSITE',optional:true},
+  {id:'businessEmail',title:'PUBLIC BUSINESS EMAIL',optional:true},
+  {id:'businessPhone',title:'PUBLIC BUSINESS PHONE',optional:true},
+  {id:'linkedin',title:'LINKEDIN',optional:true},
+  {id:'instagram',title:'INSTAGRAM',optional:true},
+  {id:'facebook',title:'FACEBOOK',optional:true},
+  {id:'x',title:'X / TWITTER',optional:true},
+  {id:'businessPublic',title:'PERMISSION TO PUBLISH BUSINESS DETAILS',optional:true}
+ ]},
+ { title:'RECONNECT WITH TEAMMATES', questions:[
+  {id:'teammateTips',title:'TEAMMATE INFORMATION (PRIVATE)',optional:true}
+ ]},
+ { title:'VERIFY YOUR SUBMISSION', questions:[
+  {id:'claimAttestation',title:'CONFIRM YOU ARE THIS ALUMNUS OR HAVE PERMISSION',required:true}
+ ]}
+] as const;
+const questionOrder = questionGroups.flatMap(group => group.questions.map(question => question.id));
+
 export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId:string;hsid:string;name:string;school:string}){
  const form=useRef<HTMLFormElement>(null);
  const [photos,setPhotos]=useState<Picked[]>([]);
@@ -20,6 +62,8 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  const [published,setPublished]=useState(false);
  const [alreadyPending,setAlreadyPending]=useState(false);
  const [fan,setFan]=useState({name:'',email:''});
+ const [openQuestion,setOpenQuestion]=useState<string|null>(null);
+ const [answered,setAnswered]=useState<Record<string,boolean>>({});
  useEffect(()=>{
   let active=true;
   (async()=>{
@@ -30,6 +74,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
      const emailInput=form.current?.elements.namedItem('email') as HTMLInputElement|null;
      if(nameInput && u?.displayName && (!nameInput.value || nameInput.value===name)) nameInput.value=u.displayName;
      if(emailInput && u?.email && !emailInput.value)emailInput.value=u.email;
+     setAnswered(previous => ({...previous,displayName:!!nameInput?.value.trim(),email:!!emailInput?.value.trim()}));
    }
    const token=await u?.getIdToken().catch(()=>'');
    if(!token)return;
@@ -47,8 +92,56 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    setPhotos(prev=>[...prev,...prepared]);setProof(null);setError('');
   }catch(e){setError(e instanceof Error?e.message:'Could not read photo')}finally{setBusy(false)}
  }
+
+ // Only one question can be open. The next action opens the next one and
+ // scrolls its heading into view; closing never unmounts the input element.
+ function showQuestion(id:string|null){
+  setOpenQuestion(id);
+  if(id) requestAnimationFrame(() => document.getElementById('wyn-q-'+id)?.scrollIntoView({behavior:'smooth',block:'nearest'}));
+ }
+ function nextQuestion(id:string){
+  const index=questionOrder.indexOf(id as typeof questionOrder[number]);
+  showQuestion(index>=0 && index<questionOrder.length-1 ? questionOrder[index+1] : null);
+ }
+ function questionAnswered(id:string):boolean {
+  if(id==='lifePhotos')return photos.length>0;
+  const el=form.current?.elements.namedItem(id==='location'?'city':id) as HTMLInputElement|HTMLTextAreaElement|null;
+  if(id==='location')return Boolean(el?.value.trim() || (form.current?.elements.namedItem('state') as HTMLInputElement|null)?.value.trim());
+  if(!el)return false;
+  if(el instanceof HTMLInputElement && el.type==='checkbox')return el.checked;
+  if(el instanceof HTMLInputElement && el.type==='file')return Boolean(el.files?.length);
+  return Boolean(el.value.trim());
+ }
+ function answerChanged(event:React.FormEvent<HTMLFormElement>){
+  const target=event.target as HTMLElement;
+  const id=target.closest<HTMLElement>('[data-wyn-question]')?.dataset.wynQuestion;
+  if(!id)return;
+  setAnswered(previous=>({...previous,[id]:questionAnswered(id)}));
+  if(proof)setProof(null); // Always regenerate the proof after an answer changes.
+  if(error)setError('');
+ }
+
  async function submit(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();if(busy)return;
+  // Hidden required controls are intentionally kept in the DOM. Use
+  // noValidate plus explicit checks so a collapsed input can be opened
+  // instead of producing "invalid form control is not focusable".
+  const nameInput=e.currentTarget.elements.namedItem('displayName') as HTMLInputElement|null;
+  const emailInput=e.currentTarget.elements.namedItem('email') as HTMLInputElement|null;
+  const attestation=e.currentTarget.elements.namedItem('claimAttestation') as HTMLInputElement|null;
+  if(!nameInput?.value.trim()){
+   setError('Enter your name before previewing your profile.');
+   showQuestion('displayName');return;
+  }
+  if(!emailInput?.value.trim() || !emailInput.checkValidity()){
+   setError('Enter a valid private contact email before previewing your profile.');
+   showQuestion('email');return;
+  }
+  if(!attestation?.checked){
+   setError('Confirm that you are this alumnus or have permission to submit the profile.');
+   showQuestion('claimAttestation');return;
+  }
+  setError('');
   const data=new FormData(e.currentTarget);data.set('playerId',playerId);data.set('hsid',hsid);
   if(!proof){setProof(Object.fromEntries([...data.entries()].filter(([,v])=>typeof v==='string')) as Record<string,string>);
     requestAnimationFrame(()=>document.getElementById('claim-proof')?.scrollIntoView({behavior:'smooth',block:'start'}));return}
@@ -69,6 +162,62 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   }catch(e){setError(e instanceof Error?e.message:'Submission failed')}finally{setBusy(false)}
  }
 
+
+ // A single rendering point for each question's existing data field.
+ function renderQuestion(id:string){
+  if(id==='displayName')return <label className="ycd-field"><span className="ycd-label">YOUR NAME</span><input required name="displayName" defaultValue={fan.name||name} autoComplete="name"/></label>;
+  if(id==='email')return <label className="ycd-field"><span className="ycd-label">CONTACT EMAIL (PRIVATE)</span><input required type="email" name="email" defaultValue={fan.email} autoComplete="email" /></label>;
+  if(id==='location')return <div className="ycd-pair">
+   <label className="ycd-field"><span className="ycd-label">CITY</span><input name="city" autoComplete="address-level2" /></label>
+   <label className="ycd-field"><span className="ycd-label">STATE</span><input name="state" autoComplete="address-level1" /></label>
+  </div>;
+  if(id==='retirementYear')return <label className="ycd-field"><span className="ycd-label">YEAR YOU RETIRED FROM BASEBALL</span><input type="number" name="retirementYear" min="1900" max={new Date().getFullYear()} /></label>;
+  const storyField=fields.find(([key])=>key===id);
+  if(storyField)return <label className="ycd-field">
+   <span className="ycd-label">{storyField[1].replace('YOUR HIGH SCHOOL',school.toUpperCase())}</span>
+   <textarea name={storyField[0]} rows={4} maxLength={storyField[0]==='story'?2400:5000} />
+  </label>;
+  if(id==='lifePhotos')return <div className="ycd-field">
+   <label className="wyn-photo-select">
+    <span className="wyn-photo-select-heading"><i className="ri-image-add-line" aria-hidden="true" /> ADD PHOTOS</span>
+    <span className="ycd-muted ycd-small">Up to 4 photos from life after baseball.</span>
+    <input type="file" multiple accept="image/*" onChange={e=>void addFiles(e.target.files)} aria-label="Add up to four life after baseball photos" />
+   </label>
+   {photos.length>0 && <div className="wyn-photos">{photos.map((photo,index)=>
+    <div className="wyn-photo-thumb" key={photo.url}>
+     <img src={photo.url} alt={'Photo '+(index+1)} />
+     <button type="button" className="ycd-btn" onClick={()=>{URL.revokeObjectURL(photo.url);setPhotos(previous=>previous.filter((_,j)=>j!==index));setProof(null);setAnswered(previous=>({...previous,lifePhotos:photos.length>1}));}}>REMOVE</button>
+    </div>)}</div>}
+  </div>;
+  if(id==='occupation')return <label className="ycd-field"><span className="ycd-label">YOUR PROFESSION</span><input name="occupation" /></label>;
+  if(id==='company')return <label className="ycd-field"><span className="ycd-label">COMPANY / ORGANIZATION</span><input name="company" /></label>;
+  if(id==='businessMessage')return <label className="ycd-field"><span className="ycd-label">WHAT WOULD YOU LIKE PEOPLE TO KNOW ABOUT YOUR BUSINESS?</span><textarea name="businessMessage" rows={3}/></label>;
+  if(id==='businessOffer')return <label className="ycd-field"><span className="ycd-label">SPECIAL OFFER (OPTIONAL)</span><textarea name="businessOffer" rows={2}/></label>;
+  if(id==='companyLogo')return <label className="ycd-field"><span className="ycd-label">COMPANY LOGO (OPTIONAL)</span><input type="file" name="companyLogo" accept="image/png,image/jpeg,image/webp" /></label>;
+  if(id==='website')return <label className="ycd-field"><span className="ycd-label">BUSINESS WEBSITE</span><input name="website" /></label>;
+  if(id==='businessEmail')return <label className="ycd-field"><span className="ycd-label">PUBLIC BUSINESS EMAIL</span><input name="businessEmail" type="email" /></label>;
+  if(id==='businessPhone')return <label className="ycd-field"><span className="ycd-label">PUBLIC BUSINESS PHONE</span><input name="businessPhone" type="tel" /></label>;
+  if(id==='linkedin')return <label className="ycd-field"><span className="ycd-label">LINKEDIN</span><input name="linkedin" /></label>;
+  if(id==='instagram')return <label className="ycd-field"><span className="ycd-label">INSTAGRAM</span><input name="instagram" /></label>;
+  if(id==='facebook')return <label className="ycd-field"><span className="ycd-label">FACEBOOK</span><input name="facebook" /></label>;
+  if(id==='x')return <label className="ycd-field"><span className="ycd-label">X / TWITTER</span><input name="x" /></label>;
+  if(id==='businessPublic')return <label className="wyn-checkbox">
+   <input type="checkbox" name="businessPublic" value="yes" />
+   <span>I authorize YAT?STATS to display my optional business promotion and contact details.</span>
+  </label>;
+  if(id==='teammateTips')return <label className="ycd-field">
+   <span className="ycd-label">TEAMMATE INFORMATION (PRIVATE)</span>
+   <span className="ycd-muted ycd-small">Private leads for the {school} baseball program. These details are never published.</span>
+   <textarea name="teammateTips" rows={4} maxLength={5000} placeholder="Names, graduation years, and information that can help reconnect fellow alumni" />
+  </label>;
+  if(id==='claimAttestation')return <label className="wyn-checkbox">
+   <input type="checkbox" name="claimAttestation" required value="yes"/>
+   <span>I am this alumnus or have their permission to submit this profile. This claim will be independently verified.</span>
+  </label>;
+  return null;
+ }
+ const answeredCount=questionOrder.filter(id=>id==='lifePhotos'?photos.length>0:Boolean(answered[id])).length;
+
  // Presentation reuses the exact Connect & Contribute drawer design classes.
  // Keep the dedicated questionnaire data, validation, photo upload, proof,
  // permissions and API unchanged.
@@ -84,91 +233,54 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   </div>
  );
 
+
  return (
-  <form ref={form} onSubmit={submit} className="where-yat-claim" aria-label="Where YAT Now alumni questionnaire">
+  <form ref={form} onSubmit={submit} onChange={answerChanged} noValidate
+   className="where-yat-claim" aria-label="Where YAT Now alumni questionnaire">
    {alreadyPending && <div role="status" className="wyn-claim-status ycd-muted ycd-small">A previous update is awaiting review. You can submit a new questionnaire below; your previous submission will be preserved.</div>}
-   <p className="ycd-muted ycd-small">Claim your alumni profile and tell the {school} baseball community what happened after baseball. Only verified alumni profiles are published.</p>
+   <p className="ycd-muted ycd-small">All questions are listed below. Tap one to answer it; opening another automatically closes the previous question. Optional questions can be skipped.</p>
+   <div className="wyn-question-progress" role="status" aria-live="polite">
+    <span>{answeredCount} OF {questionOrder.length} ANSWERED</span>
+    <span>ONE QUESTION OPEN AT A TIME</span>
+   </div>
 
-   <section className="wyn-form-section">
-    <h3 className="ycd-label"><span className="ycd-step">1</span> ABOUT YOU</h3>
-    <div className="wyn-form-fields">
-     <label className="ycd-field"><span className="ycd-label">YOUR NAME</span><input required name="displayName" defaultValue={fan.name || name} /></label>
-     <label className="ycd-field"><span className="ycd-label">CONTACT EMAIL (PRIVATE)</span><input required type="email" name="email" defaultValue={fan.email} /></label>
-     <div className="ycd-pair">
-      <label className="ycd-field"><span className="ycd-label">CITY</span><input name="city" /></label>
-      <label className="ycd-field"><span className="ycd-label">STATE</span><input name="state" /></label>
-     </div>
-     <label className="ycd-field"><span className="ycd-label">YEAR YOU RETIRED FROM BASEBALL</span><input type="number" name="retirementYear" min="1900" max="2026" /></label>
-    </div>
-   </section>
-
-   <section className="wyn-form-section">
-    <h3 className="ycd-label"><span className="ycd-step">2</span> YOUR STORY</h3>
-    <p className="ycd-muted ycd-small">Share the memories and moments that make up your life after baseball.</p>
-    <div className="wyn-form-fields">
-     {fields.map(([key,title]) => (
-      <label key={key} className="ycd-field">
-       <span className="ycd-label">{title.replace('YOUR HIGH SCHOOL', school.toUpperCase())}</span>
-       <textarea name={key} rows={4} maxLength={key === 'story' ? 2400 : 5000} />
-      </label>
-     ))}
-    </div>
-   </section>
-
-   <section className="wyn-form-section">
-    <h3 className="ycd-label"><span className="ycd-step">3</span> PHOTOS FROM LIFE AFTER BASEBALL</h3>
-    <p className="ycd-muted ycd-small">Choose up to four photos to accompany your alumni story.</p>
-    <div className="ycd-field">
-     <label className="wyn-photo-select">
-      <span className="wyn-photo-select-heading"><i className="ri-image-add-line" aria-hidden="true" /> ADD PHOTOS</span>
-      <input type="file" multiple accept="image/*" onChange={e => void addFiles(e.target.files)} aria-label="Add up to four life after baseball photos" />
-     </label>
-     {photos.length > 0 && (
-      <div className="wyn-photos">
-       {photos.map((p,i) => (
-        <div className="wyn-photo-thumb" key={p.url}>
-         <img src={p.url} alt={'Photo ' + (i+1)} />
-         <button type="button" className="ycd-btn" onClick={() => { URL.revokeObjectURL(p.url); setPhotos(v => v.filter((_,j) => j!==i)); setProof(null); }}>Remove</button>
+   {questionGroups.map((group,groupIndex)=>(
+    <section key={group.title} className="wyn-form-section wyn-question-group" aria-label={group.title}>
+     <h3 className="ycd-label wyn-question-group-title">
+      <span className="ycd-step">{groupIndex+1}</span>{group.title}
+      {'optional' in group && group.optional && <small>OPTIONAL</small>}
+     </h3>
+     {group.questions.map((question)=>{
+      const isOpen=openQuestion===question.id;
+      const isAnswered=question.id==='lifePhotos'?photos.length>0:Boolean(answered[question.id]);
+      const title=question.title.replace('YOUR HIGH SCHOOL',school.toUpperCase());
+      const isOptional='optional' in question && question.optional;
+      return (
+       <div key={question.id} id={'wyn-q-'+question.id} className={'wyn-question'+(isOpen?' is-open':'')+(isAnswered?' is-answered':'')}
+        data-wyn-question={question.id}>
+        <button type="button" className="wyn-question-toggle" aria-expanded={isOpen}
+         aria-controls={'wyn-question-body-'+question.id}
+         onClick={()=>showQuestion(isOpen?null:question.id)}>
+         <span className="wyn-question-title">{title}</span>
+         {isOptional && <span className="wyn-question-optional">OPTIONAL</span>}
+         {isAnswered && <i className="ri-checkbox-circle-fill wyn-question-done" aria-label="Answered" />}
+         <i className={isOpen?'ri-arrow-up-s-line wyn-question-chevron':'ri-arrow-down-s-line wyn-question-chevron'} aria-hidden="true" />
+        </button>
+        {/* Hidden keeps field values, attached files, and FormData intact. */}
+        <div id={'wyn-question-body-'+question.id} className="wyn-question-body" hidden={!isOpen}>
+         {renderQuestion(question.id)}
+         <div className="wyn-question-actions">
+          <button type="button" className="ycd-btn" onClick={()=>nextQuestion(question.id)}>
+           {question.id===questionOrder[questionOrder.length-1]?'DONE — REVIEW BELOW':'NEXT QUESTION'}
+           <i className="ri-arrow-right-line" aria-hidden="true"/>
+          </button>
+         </div>
         </div>
-       ))}
-      </div>
-     )}
-    </div>
-   </section>
-
-   <section className="wyn-form-section">
-    <h3 className="ycd-label"><span className="ycd-step">4</span> OPTIONAL BUSINESS SPOTLIGHT</h3>
-    <p className="ycd-muted ycd-small">Separate from your alumni story. Choose whether to publish your business contact information.</p>
-    <div className="wyn-form-fields">
-     <label className="ycd-field"><span className="ycd-label">YOUR PROFESSION</span><input name="occupation" /></label>
-     <label className="ycd-field"><span className="ycd-label">COMPANY / ORGANIZATION</span><input name="company" /></label>
-     <label className="ycd-field"><span className="ycd-label">WHAT WOULD YOU LIKE PEOPLE TO KNOW ABOUT YOUR BUSINESS?</span><textarea name="businessMessage" rows={3} /></label>
-     <label className="ycd-field"><span className="ycd-label">SPECIAL OFFER (OPTIONAL)</span><textarea name="businessOffer" rows={2} /></label>
-     <label className="ycd-field"><span className="ycd-label">COMPANY LOGO (OPTIONAL)</span><input type="file" name="companyLogo" accept="image/png,image/jpeg,image/webp" /></label>
-     {([['website','BUSINESS WEBSITE'],['businessEmail','PUBLIC BUSINESS EMAIL'],['businessPhone','PUBLIC BUSINESS PHONE'],['linkedin','LINKEDIN'],['instagram','INSTAGRAM'],['facebook','FACEBOOK'],['x','X / TWITTER']] as const).map(([key,title]) => (
-      <label className="ycd-field" key={key}><span className="ycd-label">{title}</span><input name={key} /></label>
-     ))}
-     <label className="wyn-checkbox"><input type="checkbox" name="businessPublic" value="yes" /><span>I authorize YAT?STATS to display my optional business promotion and contact details.</span></label>
-    </div>
-   </section>
-
-   <section className="wyn-form-section">
-    <h3 className="ycd-label"><span className="ycd-step">5</span> TEAMMATES — WHERE THEY YAT?</h3>
-    <p className="ycd-muted ycd-small">Private leads for the {school} baseball program. These details are never published.</p>
-    <label className="ycd-field">
-     <span className="ycd-label">TEAMMATE INFORMATION (PRIVATE)</span>
-     <textarea name="teammateTips" rows={4} maxLength={5000} placeholder="Names, graduation years, and information that can help reconnect fellow alumni" />
-    </label>
-   </section>
-
-   <section className="wyn-form-section">
-    <h3 className="ycd-label"><span className="ycd-step"><i className="ri-shield-check-line" aria-hidden="true" /></span> VERIFY YOUR SUBMISSION</h3>
-    <label className="wyn-checkbox">
-     <input type="checkbox" name="claimAttestation" required value="yes" />
-     <span>I am this alumnus or have their permission to submit this profile. This claim will be independently verified.</span>
-    </label>
-   </section>
-
+       </div>
+      );
+     })}
+    </section>
+   ))}
    {proof && (
     <section id="claim-proof" className="wyn-form-section wyn-claim-proof">
      <h3 className="ycd-label"><span className="ycd-step">6</span> REVIEW YOUR PROFILE AND FLIP-CARD PROOFS</h3>
