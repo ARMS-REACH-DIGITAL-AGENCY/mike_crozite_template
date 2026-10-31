@@ -146,16 +146,23 @@ export default function ContributePhotoFlow({
   // approval preview reuses the genuine PlayerCardFront renderer rather
   // than assembling an unrelated schematic or invented player data.
   const [publishedCard, setPublishedCard] = useState<Record<string, unknown> | null>(null);
+  const [currentFrontImageUrl, setCurrentFrontImageUrl] = useState<string | null>(null);
+  const [frontReplacementConfirmed, setFrontReplacementConfirmed] = useState(false);
   useEffect(() => {
     let active = true;
     setPublishedCard(null);
+    setCurrentFrontImageUrl(null);
+    setFrontReplacementConfirmed(false);
     if ((purpose !== 'flip_card' && purpose !== 'back_hero') || !main?.playerId) return;
     const params = new URLSearchParams({ playerId: main.playerId });
     if (main.schoolId) params.set('hsid', main.schoolId);
-    fetch('/api/contribute/card-preview?' + params.toString())
+    fetch('/api/contribute/card-preview?' + params.toString(), {cache:'no-store'})
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
-        if (active) setPublishedCard(data?.player && typeof data.player === 'object' ? data.player : null);
+        if (!active) return;
+        setPublishedCard(data?.player && typeof data.player === 'object' ? data.player : null);
+        setCurrentFrontImageUrl(purpose === 'flip_card' && typeof data?.currentFrontImageUrl === 'string'
+          ? data.currentFrontImageUrl : null);
       })
       .catch(() => { if (active) setPublishedCard(null); });
     return () => { active = false; };
@@ -326,6 +333,7 @@ export default function ContributePhotoFlow({
     if (preview.startsWith('blob:')) URL.revokeObjectURL(preview);
     setFile(f);
     setPreview(URL.createObjectURL(f));
+    setFrontReplacementConfirmed(false);
     setCrop(null);
     setError('');
   };
@@ -335,6 +343,7 @@ export default function ContributePhotoFlow({
     // list, reveal its actions under Step 1 instead of leaving them above view.
     if (id === 'timeline_hero' && purpose !== id) revealHeroActions.current = true;
     setPurpose(id);
+    setFrontReplacementConfirmed(false);
     setShowPurposePicker(false);
     if (id !== 'team_logo') { setSelectedTeam(null); setTeamId(''); }
     setCrop(null);
@@ -393,6 +402,8 @@ export default function ContributePhotoFlow({
     if (!signedIn) return onSignIn();
     const p = problem();
     if (p) return setError(p);
+    if (type.id === 'flip_card' && !frontReplacementConfirmed)
+      return setError('Confirm that the new image should replace the current flip-card front.');
     if (!validSubmissionHsid && !(editingHeroId && !file && type.id === 'timeline_hero')) return setError('Select a high school from the search results.');
     if (!approved) return setError('Check the proof and approve it first.');
     setStage('sending');
@@ -427,6 +438,7 @@ export default function ContributePhotoFlow({
       if (token) form.set('idToken', token);
       form.set('photo', blob, blob.type === 'image/jpeg' ? uploadFile.name.replace(/\.[^.]+$/, '') + '.jpg' : uploadFile.name);
       form.set('purpose', type.id);
+      if (type.id === 'flip_card' && frontReplacementConfirmed) form.set('confirmReplaceFront', '1');
       if (type.id === 'timeline_hero' && editingHeroId) form.set('replaceUploadId',editingHeroId);
       form.set('year', String(yearToSend() || THIS_YEAR));
       form.set('playerId', type.id === 'school_logo' || type.id === 'team_logo' ? '' : main?.playerId || '');
@@ -473,6 +485,7 @@ export default function ContributePhotoFlow({
     setFile(null); setPreview(''); setEditingHeroId(null); setPurpose(initialType || null); setShowPurposePicker(!initialType); setCrop(null); setNote('');
     setSeasonKey(''); setOther({ year: '', team: '' }); setTeamId(''); setSelectedTeam(null); setLandscape(false); setApprovedSig('');
     setResult(null); setError(''); setConfirm(false); setStage('form');
+    setFrontReplacementConfirmed(false);
     setManageHeroMode(false); setManageHeroAction(null); setArchiveConfirmed(false);
     setArchiveNotice(''); setArchivedYear(null); revealHeroActions.current = false;
   };
@@ -931,6 +944,31 @@ export default function ContributePhotoFlow({
                   player={proofPlayer}
                   publishedCard={publishedCard}
                 />
+                {type.id === 'flip_card' && (
+                  <section className="ypf-front-replace" aria-label="Replace flip-card front">
+                    <p className="ycd-muted ycd-small">
+                      This photo replaces the current front of {main?.displayName || "this player's"} ONE flip card everywhere it appears. The previous original is archived, not deleted.
+                    </p>
+                    <div className="ypf-hero-compare">
+                      <figure>
+                        {currentFrontImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={currentFrontImageUrl} alt="Currently published flip-card front" onError={() => setCurrentFrontImageUrl(null)} />
+                        ) : <span>Current image unavailable</span>}
+                        <figcaption>CURRENT FRONT</figcaption>
+                      </figure>
+                      <figure>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={preview} alt="Replacement flip-card front" />
+                        <figcaption>NEW FRONT</figcaption>
+                      </figure>
+                    </div>
+                    <label className={`ypf-approve${frontReplacementConfirmed ? ' is-on' : ''}`}>
+                      <input type="checkbox" checked={frontReplacementConfirmed} onChange={(e) => setFrontReplacementConfirmed(e.target.checked)} />
+                      <span>Yes. Make this the new flip-card front and preserve the previous photo.</span>
+                    </label>
+                  </section>
+                )}
                 <label className={`ypf-approve${approved ? ' is-on' : ''}`}>
                   <input type="checkbox" checked={approved} onChange={(e) => setApprovedSig(e.target.checked ? sig : '')} />
                   <span>{editingHeroId ? 'I approve the updated year or replacement image.' : 'Looks right. This is where my photo goes.'}</span>
@@ -949,7 +987,7 @@ export default function ContributePhotoFlow({
         {confirm ? <FanConfirm email={email} onConfirmed={() => { setConfirm(false); void send(); }} /> : null}
         {error ? <div className="ycd-error">{error}</div> : null}
         <div className="ycd-actions">
-          <button type="button" className="ycd-btn ycd-btn-primary" onClick={() => { void send(); }} disabled={sending || (signedIn && !approved)}>
+          <button type="button" className="ycd-btn ycd-btn-primary" onClick={() => { void send(); }} disabled={sending || (signedIn && (!approved || (type?.id === 'flip_card' && !frontReplacementConfirmed)))}>
             {!signedIn ? 'Sign in to submit' : sending ? 'Checking your photo…' : 'Submit'}
           </button>
         </div>
