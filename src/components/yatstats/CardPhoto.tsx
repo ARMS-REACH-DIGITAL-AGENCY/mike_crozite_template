@@ -16,7 +16,12 @@ import { useEffect, useRef, useState } from 'react';
 export default function CardPhoto({ srcs, className = 'yat-bg-photo', eager = false }: { srcs: string[]; className?: string; eager?: boolean }) {
   const [index, setIndex] = useState(0);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const primarySrc = srcs[0] || '';
   const src = srcs[index];
+
+  // After a front-card replacement changes its versioned URL, restart at
+  // the new primary image instead of staying on a previous fallback.
+  useEffect(() => { setIndex(0); }, [primarySrc]);
 
   // A load that failed before hydration never reached onError; replay it
   // so the next source is tried.
