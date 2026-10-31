@@ -301,7 +301,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
 
  const receiptStatus=receipt ? (published?'approved':'pending') : saved?.status;
  const confirmedId=receipt||Number(saved?.id||0);
- if(receiptStatus==='pending' && confirmedId>0 && signedIn) return (
+ if(!editEnabled && receiptStatus==='pending' && confirmedId>0 && signedIn) return (
   <div className="where-yat-claim wyn-pending-receipt" role="status" aria-live="polite">
    <section className="wyn-form-section">
     <h3 className="ycd-label"><i className="ri-time-line" aria-hidden="true"/> SUBMISSION RECEIVED — PENDING APPROVAL</h3>
