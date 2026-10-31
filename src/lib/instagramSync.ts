@@ -74,6 +74,30 @@ async function ourInstagramAccountId(): Promise<string> {
   return (ourAccountId = pick.id);
 }
 
+// Resolve one synced professional account's Reel/video for the on-site Social viewer.
+// Use Meta's Business Discovery API (not Instagram's branded iframe). Meta may omit
+// media_url for licensed audio or accounts with downloads restricted; in that case
+// the caller displays our thumbnail and links to the original Instagram post.
+export async function instagramProfessionalVideoUrl(handle: string, postId: string): Promise<string | null> {
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(handle) || !/^[A-Za-z0-9_-]{5,80}$/.test(postId)) return null;
+  const me = await ourInstagramAccountId();
+  const fields = `business_discovery.username(${handle}){media.limit(${POSTS_PER_ACCOUNT}){id,media_type,media_url}}`;
+  const found = await graph<{ business_discovery?: { media?: { data?: GraphMedia[] } } }>(me, { fields });
+  const matched = found.business_discovery?.media?.data?.find((post) => post.id === postId && post.media_type === 'VIDEO');
+  if (!matched?.media_url) return null;
+  // Never send arbitrary URLs from the Graph response to a browser video element.
+  try {
+    const src = new URL(matched.media_url);
+    const host = src.hostname.toLowerCase();
+    if (src.protocol !== 'https:' || src.username || src.password ||
+        !(host === 'fbcdn.net' || host.endsWith('.fbcdn.net') ||
+          host === 'cdninstagram.com' || host.endsWith('.cdninstagram.com'))) return null;
+    return src.toString();
+  } catch {
+    return null;
+  }
+}
+
 function pictureUrl(m: GraphMedia): string | null {
   if (m.media_type === 'VIDEO') return m.thumbnail_url || null;
   if (m.media_type === 'CAROUSEL_ALBUM') {
