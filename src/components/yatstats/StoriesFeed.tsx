@@ -376,7 +376,11 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                   onDeleted={removeStory}
                   media={<StoryPhotos story={s} onOpen={(i) => show(s, i)} />}
                 />
-                
+                {index === (list.length <= 2 ? 0 : 1) && (
+                  <aside className="yp-stories-feed-ad ysf-docked-only-ad" aria-label="Player Profile Partner in-feed sponsor">
+                    <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small>
+                  </aside>
+                )}
               </Fragment>
             ))}
           </div>
@@ -501,6 +505,8 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 48px 16px; text-align: center; color: var(--ysf-muted); font: 400 14px/1.45 var(--yat-font-ui, Arial, sans-serif); }
         .ysf-empty strong { color: var(--ysf-strong); font: 800 18px/1.15 var(--yat-font-ui, Arial, sans-serif); letter-spacing: -.01em; text-transform: uppercase; }
         .ysf-main { min-width: 0; }
+        .ysf-docked-only-ad {display:none!important;}
+        body.drawer-contribute-open .ysf-docked-only-ad {display:flex!important;}
         .ysf-desktop-columns {display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start;width:100%;max-width:1200px;margin:0 auto;}
         /* Every story photo has a common responsive height. Portrait images remain narrower and no photo is cropped. */
         .ysf-story-column {min-width:0;container-type:inline-size;--ysf-story-photo-h:min(420px,56.25cqw);}
