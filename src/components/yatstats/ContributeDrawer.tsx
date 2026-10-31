@@ -177,6 +177,8 @@ export default function ContributeDrawer() {
     document.body.classList.add('drawer-contribute-open', 'drawer-open');
     const account = document.getElementById('drawerAccount');
     account?.classList.remove('open', 'is-open', 'active');
+    // Body classes already close the account panel. The rail controller
+    // must not re-open it from the same click that initiated this form.
   }, []);
 
   const close = useCallback(() => {
