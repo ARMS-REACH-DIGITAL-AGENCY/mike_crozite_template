@@ -232,6 +232,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    if(!response.ok)throw Error(result.error||'Submission failed');
    setReceipt(Number(result.submissionId));
    setPublished(result.published===true);
+   loadSaved();
    window.dispatchEvent(new CustomEvent('yat:where-yat-submitted',{detail:{playerId,hsid}}));
   }catch(e){setError(e instanceof Error?e.message:'Submission failed')}finally{setBusy(false)}
  }
