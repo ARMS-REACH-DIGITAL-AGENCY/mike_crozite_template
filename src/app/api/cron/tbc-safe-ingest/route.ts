@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { sanitizeError, sendIngestAlert } from "@/lib/ingestAlerts";
-import { SAFE_2026_STAGE_TEAM_RECOVERY_SQL } from "@/lib/officialLevels";
+import { SAFE_2026_BLANK_STATUS_RECOVERY_SQL, SAFE_2026_STAGE_TEAM_RECOVERY_SQL } from "@/lib/officialLevels";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -657,11 +657,13 @@ export async function GET(req: NextRequest) {
     const baseline = await ensureFlipCardBaselineRows(client);
     const newFlipCardRows = baseline.created;
     const collegeToIndyCorrected = await reconcileCollegeToIndyCurrentTeams(client);
+    const { rows: classifiedRows } = await client.query(SAFE_2026_BLANK_STATUS_RECOVERY_SQL);
+    const previouslyUnclassifiedActivated = Number(classifiedRows[0]?.activated || 0);
     const { rows: recoveredRows } = await client.query(SAFE_2026_STAGE_TEAM_RECOVERY_SQL);
     const safeTeamIdsRecovered = Number(recoveredRows[0]?.recovered || 0);
     const heldForIdentityReview = baseline.held;
 
-    await recordIngestSuccess(client, { results, newFlipCardRows, collegeToIndyCorrected, safeTeamIdsRecovered, heldForIdentityReview });
+    await recordIngestSuccess(client, { results, newFlipCardRows, collegeToIndyCorrected, previouslyUnclassifiedActivated, safeTeamIdsRecovered, heldForIdentityReview });
 
     await client.query("commit");
 
@@ -703,6 +705,7 @@ export async function GET(req: NextRequest) {
       results,
       newFlipCardRows,
       collegeToIndyCorrected,
+      previouslyUnclassifiedActivated,
       safeTeamIdsRecovered,
       heldForIdentityReview,
     });
