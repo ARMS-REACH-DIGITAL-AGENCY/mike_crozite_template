@@ -450,7 +450,7 @@ WITH imported AS (
 )
 SELECT source,
   COALESCE(SUM(stat_rows),0)::bigint AS total_stat_rows,
-  COUNT(DISTINCT teamid) FILTER(
+  COUNT(DISTINCT g.teamid) FILTER(
     WHERE u.teamid IS NULL OR u.level_label IS NULL
        OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
          'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
