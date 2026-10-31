@@ -863,7 +863,7 @@ export default function FunZone({
                 instagram:alumniUpdate.instagram_url||'', facebook:alumniUpdate.facebook_url||'',
                 x:alumniUpdate.x_url||'',story:String(({favoriteHs:alumniUpdate.favorite_hs_memory,favoriteAfter:alumniUpdate.favorite_post_hs_memory,family:alumniUpdate.family_life,story:alumniUpdate.story} as Record<string,unknown>)[alumniUpdate.featured_memory_key||'story']||alumniUpdate.story||''),
                 storyPrompt:({favoriteHs:'MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',favoriteAfter:'MOST MEMORABLE BASEBALL MOMENT AFTER GRADUATION',family:'LIFE AND FAMILY',story:'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'} as Record<string,string>)[alumniUpdate.featured_memory_key||'story']||'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?',
-                photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null,
+                photoUrl:alumniUpdate.memory_photos_json?.[alumniUpdate.featured_memory_key||'story']?.[0]?.web||alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null,
                 businessPublic:Boolean(alumniUpdate.business_public_opt_in),
                  businesses:Array.isArray(alumniUpdate.businesses_json)?alumniUpdate.businesses_json:[],
                  businessHeadshotUrl:alumniUpdate.business_headshot_url||null,
