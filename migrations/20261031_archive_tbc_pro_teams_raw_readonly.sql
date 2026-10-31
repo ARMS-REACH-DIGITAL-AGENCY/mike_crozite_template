@@ -44,4 +44,6 @@ REVOKE INSERT,UPDATE,DELETE,TRUNCATE
   ON public.tbc_pro_teams_map_raw_legacy_archived_20261031
   FROM authenticated,authenticator,PUBLIC;
 REVOKE INSERT,UPDATE,DELETE ON public.tbc_pro_teams_map_raw FROM authenticated,authenticator,PUBLIC;
+GRANT SELECT ON public.tbc_pro_teams_map_raw TO authenticated,authenticator;
+REVOKE INSERT,UPDATE,DELETE ON public.v_tbc_team_lookup FROM authenticated,authenticator,PUBLIC;
 COMMIT;
