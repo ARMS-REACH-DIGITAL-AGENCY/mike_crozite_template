@@ -1,8 +1,8 @@
 'use client';
 
-import { Doto } from 'next/font/google';
 
-const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
+
+const tickerDateFont = { className: 'yat-runtime-doto' };
 
 import { useContext, useEffect, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
