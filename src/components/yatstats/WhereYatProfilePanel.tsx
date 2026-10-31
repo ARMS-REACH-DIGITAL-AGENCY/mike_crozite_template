@@ -4,7 +4,7 @@ import WhereYatReactions from './WhereYatReactions';
 import { StoryStyles } from './StoryViewer';
 import SponsorTower from './SponsorTower';
 import WhereYatShareButton from './WhereYatShareButton';
-import WhereYatOwnerEditor from './WhereYatOwnerEditor';
+import WhereYatMemory from './WhereYatMemory';
 
 type AlumniUpdate = {
   id:number;
@@ -22,7 +22,7 @@ type AlumniUpdate = {
   photo_key: string | null;
   photo_url: string | null;
   company_logo_url: string | null;
-  retirement_year: number | null;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;business_message:string|null;business_offer:string|null;business_contact_email:string|null;business_contact_phone:string|null;business_public_opt_in:boolean;life_photos_json:Array<{web:string;full:string;thumb:string}>;
+  retirement_year: number | null;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;business_message:string|null;business_offer:string|null;business_contact_email:string|null;business_contact_phone:string|null;business_public_opt_in:boolean;life_photos_json:Array<{web:string;full:string;thumb:string}>;memory_photos_json:Record<string,Array<{web:string;full:string;thumb:string}>>;
 };
 
 export default async function WhereYatProfilePanel({ playerId, hsid, name }: { playerId: string; hsid: string; name: string }) {
@@ -31,7 +31,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
   try {
     const { rows } = await query<AlumniUpdate>(
       `SELECT id, display_name, location_city, location_state, occupation, company_name, business_website,
-        linkedin_url, instagram_url, facebook_url, x_url, story, photo_key, photo_url, company_logo_url, retirement_year, favorite_hs_memory, favorite_post_hs_memory, family_life, business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,life_photos_json
+        linkedin_url, instagram_url, facebook_url, x_url, story, photo_key, photo_url, company_logo_url, retirement_year, favorite_hs_memory, favorite_post_hs_memory, family_life, business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,life_photos_json,memory_photos_json
        FROM public.alumni_where_yat_now WHERE playerid=$1 AND hsid=$2 AND status='approved'
        ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId, hsid]);
     entry = rows[0] || null;
@@ -51,12 +51,14 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
       </div>
       {entry && <WhereYatOwnerEditor playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       {entry ? <div className="wyn-story-layout"><div className="wyn-story-feed">
-        {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} className="wyn-story-card ysf">
-          <header className="wyn-story-header">{entry.display_name||name} — {label}</header>
-          {(key==='family'&&entry.life_photos_json?.length>0)||((key==='story')&&entry.photo_url&&!entry.life_photos_json?.length)?<div className="wyn-story-photo-grid">{(key==='family'?entry.life_photos_json:[{web:entry.photo_url||'',full:entry.photo_url||'',thumb:''}]).filter(photo=>photo.web).map((photo,i)=><img key={i} src={photo.web} alt={`${label} photo ${i+1}`} className="wyn-story-image"/>)}</div>:null}
-          <div className="wyn-story-body"><p style={{whiteSpace:'pre-wrap',lineHeight:1.65,margin:0}}>{value}</p></div>
-          <div className="wyn-story-actions"><WhereYatReactions id={entry.id} storyKey={key}/></div>
-        </article>)}
+        {([['favoriteHs','MOST MEMORABLE MOMENT PLAYING AT '+schoolName.toUpperCase(),entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value])=>value&&
+        <WhereYatMemory key={key} id={entry.id} storyKey={key} label={label} initialText={value} playerId={playerId} hsid={hsid} initialPhotos={
+          entry.memory_photos_json && Object.prototype.hasOwnProperty.call(entry.memory_photos_json,key)
+            ? entry.memory_photos_json[key]||[]
+            : key==='family' ? entry.life_photos_json||[]
+            : key==='story' && entry.photo_url ? [{web:entry.photo_url,full:entry.photo_url,thumb:entry.photo_url}] : []
+        }/>
+        )}
         <aside className="wyn-story-inline-ad" aria-label="Player Profile Partner in-feed sponsor">
           <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small>
         </aside>
