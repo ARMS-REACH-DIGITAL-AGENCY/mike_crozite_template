@@ -1,0 +1,18 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const db = fs.readFileSync('src/lib/db.ts', 'utf8');
+const page = fs.readFileSync('src/app/[hsid]/page.tsx', 'utf8');
+const stats = fs.readFileSync('src/app/api/player-season-stats/route.ts', 'utf8');
+assert.match(db, /source = 'tbc' AND is_verified IS TRUE/);
+assert.match(db, /match_method IS DISTINCT FROM 'rejected_bad_identity_match'/);
+assert.match(db, /return rows\[0\]\?\.source_player_id \|\| playerId/);
+assert.match(db, /getVerifiedTbcCanonicalPlayerIds\(sourceIds/);
+assert.match(db, /playerid: fs\?\.playerid \|\| tp\?\.playerid/);
+assert.match(page, /canonicalTbcIds\.get\(sourceId\) \|\| sourceId/);
+assert.match(page, /playerid: id/);
+assert.match(page, /getVerifiedTbcCanonicalPlayerIds[\s\S]*?\.catch\(\(error\)/);
+assert.match(stats, /const tbcPlayerId = await resolveVerifiedTbcPlayerId\(playerId\)/);
+assert.match(stats, /readPlayerRows\(BATTING_TABLES\[0\], tbcPlayerId\)/);
+assert.match(stats, /readPlayerRows\(PITCHING_TABLES\[0\], tbcPlayerId\)/);
+assert.match(stats, /getRecentExternalStatsForPlayer\(playerId/);
+console.log('PASS verified canonical cross-school cards and history contract');
