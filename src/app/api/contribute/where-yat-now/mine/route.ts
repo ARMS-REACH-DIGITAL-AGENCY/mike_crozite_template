@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
   const hsid = req.nextUrl.searchParams.get('hsid') || '';
   if (!/^[A-Za-z0-9_-]{1,40}$/.test(playerId) || !/^\d{1,10}$/.test(hsid))
     return NextResponse.json({error:'Invalid player.'},{status:400});
+  const requestedId = req.nextUrl.searchParams.get('submissionId');
+  if(requestedId && !/^[1-9]\\d*$/.test(requestedId))return NextResponse.json({error:'Invalid submission.'},{status:400});
   const { rows } = await query(
     `SELECT id, status, display_name, contact_email, location_city, location_state, occupation,
       company_name, business_website, linkedin_url, instagram_url, facebook_url, x_url,
@@ -19,9 +21,9 @@ export async function GET(req: NextRequest) {
       retirement_year, favorite_hs_memory, favorite_post_hs_memory, family_life,
       private_teammate_tips, life_photos_json, businesses_json, business_headshot_url
      FROM public.alumni_where_yat_now
-     WHERE playerid=$1 AND hsid=$2 AND contributor_uid=$3 AND status IN ('approved','pending')
+     WHERE playerid=$1 AND hsid=$2 AND contributor_uid=$3 AND status IN ('approved','pending') AND ($4::bigint IS NULL OR id=$4)
      ORDER BY created_at DESC, id DESC LIMIT 1`,
-    [playerId, hsid, who.uid]
+    [playerId, hsid, who.uid, requestedId||null]
   );
   return NextResponse.json({submission:rows[0]||null},{headers:{'Cache-Control':'private, no-store'}});
 }
