@@ -71,11 +71,12 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .where-yat-profile .ysv-comments {padding:12px;}
         .where-yat-profile .ysv-composer {padding:10px 12px 12px;}
         .where-yat-profile .ysv-note {margin:10px 12px;}
+        body.light-theme .where-yat-profile .wyn-story-card {--ysv-input-bg:rgba(255,255,255,.8);--ysv-gold-text:#9a6f00;}
         @media(max-width:899px){.wyn-story-layout{display:block}.wyn-story-sponsor{display:none}.where-yat-profile{padding:10px}}
         /* StoriesFeed is the source of truth: theme lives on body.light-theme, not html. */
         .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.055); --wyn-card-text:rgba(255,255,255,.88); --wyn-border:rgba(255,255,255,.14); color:var(--wyn-card-text); }
         body.light-theme .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.52); --wyn-card-text:rgba(31,25,18,.86); --wyn-border:rgba(53,43,30,.18); }
-        .where-yat-profile .wyn-story-card { background:var(--wyn-card-bg); color:var(--wyn-card-text); border-color:var(--wyn-border); --ysv-fg:var(--wyn-card-text); --ysv-text:var(--wyn-card-text); --ysv-line:var(--wyn-border); }
+        .where-yat-profile .wyn-story-card { background:var(--wyn-card-bg); color:var(--wyn-card-text); border-color:var(--wyn-border); --ysv-fg:var(--wyn-card-text); --ysv-text:var(--wyn-card-text); --ysv-line:var(--wyn-border); --ysv-bubble:rgba(128,128,128,.1); --ysv-input-bg:rgba(128,128,128,.08); --ysv-input-border:var(--wyn-border); --ysv-gold:#FFD700; --ysv-gold-text:#e1b833; --ysv-avatar-sm-bg:rgba(128,128,128,.12); }
         .where-yat-profile .wyn-story-header,.where-yat-profile .wyn-story-actions {border-color:var(--wyn-border);}
         .where-yat-profile .wyn-story-body {font:400 13px/1.4 var(--yat-news-font,Georgia,serif);}
         .where-yat-profile .wyn-story-header {font:700 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);}
