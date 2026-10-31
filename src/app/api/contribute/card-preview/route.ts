@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { getBatchDesignatedPlayerImages, query } from '@/lib/db';
+import { getPlayerThenCardUrl } from '@/lib/playerImage';
 import { PLAYER_ID } from '@/lib/contribute';
 
 // Public-only fields from the same materialized gallery source that
@@ -61,7 +62,12 @@ export async function GET(req: NextRequest) {
     // The real gallery expects these canonical name keys.
     player.firstname = player.firstname || player.first_name || '';
     player.lastname = player.lastname || player.last_name || '';
-    return NextResponse.json({player}, {headers:{'Cache-Control':'private, max-age=30'}});
+    // The same current image chosen by the live gallery is shown in the
+    // contributor's replace-before/after proof. This includes freshly
+    // approved uploads, not just legacy player_photos designations.
+    const frontImages = await getBatchDesignatedPlayerImages([id], 'YATSTATS_FRONT');
+    const currentFrontImageUrl = frontImages.get(id)?.image_url || getPlayerThenCardUrl(id);
+    return NextResponse.json({player, currentFrontImageUrl}, {headers:{'Cache-Control':'private, no-store'}});
   } catch (error) {
     console.error('[contribute/card-preview] could not read public stage', error);
     return NextResponse.json({error:'Preview unavailable'}, {status:500});
