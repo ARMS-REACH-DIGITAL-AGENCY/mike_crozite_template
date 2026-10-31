@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!/^[A-Za-z0-9_-]{1,40}$/.test(playerId) || !/^\d{1,10}$/.test(hsid))
     return NextResponse.json({error:'Invalid player.'},{status:400});
   const requestedId = req.nextUrl.searchParams.get('submissionId');
-  if(requestedId && !/^[1-9]\\d*$/.test(requestedId))return NextResponse.json({error:'Invalid submission.'},{status:400});
+  if(requestedId && !/^[1-9][0-9]*$/.test(requestedId))return NextResponse.json({error:'Invalid submission.'},{status:400});
   const { rows } = await query(
     `SELECT id, status, display_name, contact_email, location_city, location_state, occupation,
       company_name, business_website, linkedin_url, instagram_url, facebook_url, x_url,
