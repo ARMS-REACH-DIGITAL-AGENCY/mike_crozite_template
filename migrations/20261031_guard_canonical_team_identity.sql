@@ -48,7 +48,12 @@ BEGIN
     RAISE EXCEPTION 'Canonical teamid cannot be changed; use an explicit provider crosswalk'
       USING ERRCODE='23514';
   END IF;
-  IF reason IS NULL OR length(reason)<20 THEN
+  -- Fully validated new high-school identities may be appended by the existing
+  -- school import; edits to existing teams and all pro/college inserts are reviewed.
+  IF (reason IS NULL OR length(reason)<20)
+     AND NOT (TG_OP='INSERT'
+       AND NEW.source_system='YATSTATS_HIGH_SCHOOL'
+       AND NEW.level_label='HIGH SCHOOL') THEN
     RAISE EXCEPTION 'Canonical team changes require documented reviewed provenance: SET LOCAL app.yatstats_canonical_reason'
       USING ERRCODE='23514';
   END IF;
@@ -87,7 +92,9 @@ BEGIN
       teamid,operation,db_role,application_name,reason,before_row,after_row,changed_fields
     ) VALUES(
       NEW.teamid,TG_OP,current_user::text,current_setting('application_name',true),
-      current_setting('app.yatstats_canonical_reason',true),
+      COALESCE(NULLIF(BTRIM(current_setting('app.yatstats_canonical_reason',true)),''),
+        CASE WHEN TG_OP='INSERT' AND NEW.source_system='YATSTATS_HIGH_SCHOOL'
+          THEN 'validated_school_import' END),
       CASE WHEN TG_OP='UPDATE' THEN old_data ELSE NULL END,
       new_data,changes
     );
