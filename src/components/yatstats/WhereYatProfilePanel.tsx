@@ -1,7 +1,11 @@
 import { query } from '@/lib/db';
 import { storyAssetUrl } from '@/lib/storyAssets';
+import WhereYatProofCard from './WhereYatProofCard';
+import WhereYatClaimForm from './WhereYatClaimForm';
+import WhereYatReactions from './WhereYatReactions';
 
 type AlumniUpdate = {
+  id:number;
   display_name: string;
   location_city: string | null;
   location_state: string | null;
@@ -14,54 +18,49 @@ type AlumniUpdate = {
   x_url: string | null;
   story: string | null;
   photo_key: string | null;
+  photo_url: string | null;
+  company_logo_url: string | null;
+  retirement_year: number | null;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;business_message:string|null;business_offer:string|null;business_contact_email:string|null;business_contact_phone:string|null;business_public_opt_in:boolean;life_photos_json:Array<{web:string;full:string;thumb:string}>;
 };
-const link = (url: string | null) => {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : null;
-  } catch { return null; }
-};
+
 export default async function WhereYatProfilePanel({ playerId, hsid, name }: { playerId: string; hsid: string; name: string }) {
   let entry: AlumniUpdate | null = null;
+  let schoolName='your high school';
   try {
     const { rows } = await query<AlumniUpdate>(
-      `SELECT display_name, location_city, location_state, occupation, company_name, business_website,
-        linkedin_url, instagram_url, facebook_url, x_url, story, photo_key
-       FROM public.alumni_where_yat_now WHERE playerid=$1 AND status='approved'
-       ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId]);
+      `SELECT id, display_name, location_city, location_state, occupation, company_name, business_website,
+        linkedin_url, instagram_url, facebook_url, x_url, story, photo_key, photo_url, company_logo_url, retirement_year, favorite_hs_memory, favorite_post_hs_memory, family_life, business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,life_photos_json
+       FROM public.alumni_where_yat_now WHERE playerid=$1 AND hsid=$2 AND status='approved'
+       ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId, hsid]);
     entry = rows[0] || null;
+    const school=await query<{hsname:string}>('SELECT hsname FROM public.school_success WHERE hsid::text=$1 LIMIT 1',[hsid]);
+    schoolName=school.rows[0]?.hsname||schoolName;
   } catch (error) {
-    // Safe during the deployment preceding the additive database migration.
     console.error('[where-yat-profile] Could not fetch reviewed update', error);
   }
-  const socials = entry ? [
-    ['Website', entry.business_website], ['LinkedIn', entry.linkedin_url],
-    ['Instagram', entry.instagram_url], ['Facebook', entry.facebook_url], ['X', entry.x_url],
-  ] as const : [];
   return (
-    <div style={{ maxWidth: 850, margin: 'auto', padding: '16px', fontFamily: 'Archivo,Arial,sans-serif', color: '#eee' }}>
-      <h2 style={{ fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
-      {entry ? (
-        <article style={{ background: '#181818', border: '1px solid #777', padding: 16, borderRadius: 6 }}>
-          {entry.photo_key && <img src={storyAssetUrl(entry.photo_key) || ''} alt={name + ' recent alumni photo'} style={{ float: 'right', width: 'min(33%,185px)', margin: '0 0 12px 14px', borderRadius: 4 }} />}
-          <h3 style={{ fontSize: 22, fontWeight: 800 }}>{entry.display_name || name}</h3>
-          {[entry.location_city, entry.location_state].filter(Boolean).length > 0 &&
-            <p>{[entry.location_city, entry.location_state].filter(Boolean).join(', ')}</p>}
-          {entry.occupation && <p><strong>Now:</strong> {entry.occupation}</p>}
-          {entry.company_name && <p><strong>Business:</strong> {entry.company_name}</p>}
-          {entry.story && <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{entry.story}</p>}
-          <div style={{ clear: 'both', display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
-            {socials.map(([label, url]) => link(url) &&
-              <a key={label} href={link(url)!} target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56', textDecoration: 'underline' }}>{label} ↗</a>)}
-          </div>
-        </article>
-      ) : <p>Know what {name} has been doing since baseball? Help us reconnect the alumni community with an updated photo, business and social links.</p>}
-      <button type="button" data-where-yat-profile-player={playerId} data-where-yat-profile-school={hsid} data-where-yat-profile-name={name}
-        style={{ marginTop: 16, padding: '12px 18px', background: '#145a3c', border: 0, color: 'white', fontWeight: 800, cursor: 'pointer' }}>
-        {entry ? 'SUBMIT AN UPDATED STORY →' : 'SHARE A FREE ALUMNI UPDATE →'}
-      </button>
-      <p style={{ marginTop: 18, fontSize: 13 }}>Have a business to promote? <a href={`/${hsid}#sec-partner`} style={{ color: '#e9bf56' }}>Explore optional YAT?STATS Partnership opportunities →</a></p>
+    <div className="where-yat-profile" style={{ maxWidth: 850, margin: 'auto', padding: 16, fontFamily: 'Archivo,Arial,sans-serif', color: '#eee', backgroundColor:'#111', colorScheme:'dark' }}>
+      <h2 style={{ fontFamily:'Oswald,Arial Narrow,sans-serif', fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
+      {entry ? <article style={{maxWidth:800}}>
+        <div style={{background:'#c2b9ae',color:'#1e160e',padding:18}}>
+          <WhereYatProofCard variant="content" showName={false} proof={{
+            playerId,hsid,displayName:entry.display_name||name,city:entry.location_city||'',state:entry.location_state||'',
+            occupation:entry.occupation||'',company:entry.business_public_opt_in?entry.company_name||'':'',
+            website:entry.business_public_opt_in?entry.business_website||'':'',
+            linkedin:entry.linkedin_url||'',instagram:entry.instagram_url||'',facebook:entry.facebook_url||'',x:entry.x_url||'',
+            story:entry.story||entry.favorite_post_hs_memory||'',photoUrl:entry.photo_url||storyAssetUrl(entry.photo_key),
+            logoUrl:entry.business_public_opt_in?entry.company_logo_url:null,
+          }}/>
+        </div>
+        <div style={{display:'grid',gap:18,marginTop:20}}>
+          {([['MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['LIFE AND FAMILY',entry.family_life],['WHAT LIFE LOOKS LIKE NOW',entry.story]] as const).map(([label,value])=>value&&<section key={label} style={{padding:18,border:'1px solid #555'}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:19}}>{label}</h3><p style={{whiteSpace:'pre-wrap',lineHeight:1.65}}>{value}</p></section>)}
+          {entry.retirement_year&&<p>RETIRED FROM BASEBALL: {entry.retirement_year}</p>}
+          {entry.life_photos_json?.length>0&&<section><h3>AFTER BASEBALL — PHOTO ALBUM</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{entry.life_photos_json.map((photo,i)=><a key={i} href={photo.full} target="_blank" rel="noopener noreferrer"><img alt={'Alumni life after baseball photo '+(i+1)} src={photo.web} style={{width:'100%',height:175,objectFit:'contain'}}/></a>)}</div></section>}
+          {entry.business_public_opt_in&&(entry.business_message||entry.business_offer||entry.business_contact_email||entry.business_contact_phone)&&<section style={{padding:18,border:'1px solid #777'}}><h3>BUSINESS SPOTLIGHT</h3>{entry.business_message&&<p>{entry.business_message}</p>}{entry.business_offer&&<p><strong>SPECIAL OFFER:</strong> {entry.business_offer}</p>}{entry.business_contact_email&&<p><a href={'mailto:'+entry.business_contact_email}>{entry.business_contact_email}</a></p>}{entry.business_contact_phone&&<p>{entry.business_contact_phone}</p>}</section>}
+        </div>
+        <WhereYatReactions id={entry.id}/>
+      </article> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      <style>{`\n        .where-yat-profile { background:#111 !important; color:#f5f5f5 !important; }\n        .where-yat-profile article, .where-yat-profile section { background:#191919 !important; color:#f5f5f5 !important; }\n        .where-yat-profile h2, .where-yat-profile h3, .where-yat-profile p, .where-yat-profile strong { color:#f5f5f5 !important; opacity:1 !important; }\n        .where-yat-profile a { color:#e9bf56; }\n        .where-yat-profile .wyn-embedded, .where-yat-profile .wyn-body { background:#c2b9ae !important; color:#1e160e !important; }\n        .where-yat-profile .wyn-embedded p { color:#1e160e !important; }\n      `}</style>\n      <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
     </div>
   );
 }
