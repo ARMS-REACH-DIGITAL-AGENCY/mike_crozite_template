@@ -863,6 +863,7 @@ export default function FunZone({
                 instagram:alumniUpdate.instagram_url||'', facebook:alumniUpdate.facebook_url||'',
                 x:alumniUpdate.x_url||'',story:String(alumniUpdate.story||'').slice(0,260),
                 photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null,
+                businessPublic:Boolean(alumniUpdate.business_public_opt_in),
               } : null}
             />
           </div>
