@@ -191,7 +191,7 @@ export default function BracketTicker({ hsid }: { hsid: string }) {
       {/* Global: the items are built outside the render tree styled-jsx scopes; every class is ybt-prefixed. */}
       <style jsx global>{`
         .ybt-footer-stack { position:relative; height:100%; min-height:0; display:flex; flex-direction:column; }
-        .ybt { position:relative; flex:1 1 auto; min-height:0; align-self:stretch; width:100%; display:flex; overflow:hidden;
+        .ybt { font-family:'Doto', monospace !important; position:relative; flex:1 1 auto; min-height:0; align-self:stretch; width:100%; display:flex; overflow:hidden;
           background-color:#070503;
           background-image:radial-gradient(rgba(255,160,40,.07) 1px, transparent 1.4px);
           background-size:4px 4px;
