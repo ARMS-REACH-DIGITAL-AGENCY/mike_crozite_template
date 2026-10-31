@@ -19,6 +19,7 @@ import sharp from 'sharp';
 import type { Pool } from 'pg';
 import { putPublicAsset } from './stories';
 import { storyAssetUrl } from './storyAssets';
+import { safeInstagramVideoUrl, INSTAGRAM_VIDEO_URL_TTL_MS } from './instagramVideo';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
 export const POSTS_PER_ACCOUNT = 12;
@@ -162,16 +163,20 @@ export async function syncInstagramSource(
           }
         }
       }
+      const videoUrl = m.media_type === 'VIDEO' ? safeInstagramVideoUrl(m.media_url) : null;
+      const videoExpiry = videoUrl ? new Date(Date.now() + INSTAGRAM_VIDEO_URL_TTL_MS) : null;
       await pool.query(
         `INSERT INTO social_posts
            (social_source_id, platform, external_post_id, media_type, caption, permalink,
             media_url, thumbnail_url, media_url_expires_at, published_at, raw_payload, ingested_at)
-         VALUES ($1, 'instagram', $2, $3, $4, $5, NULL, $6, NULL, $7, $8::jsonb, now())
+         VALUES ($1, 'instagram', $2, $3, $4, $5, $9, $6, $10, $7, $8::jsonb, now())
          ON CONFLICT (social_source_id, external_post_id) DO UPDATE SET
            media_type = EXCLUDED.media_type,
            caption = EXCLUDED.caption,
            permalink = EXCLUDED.permalink,
            thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, social_posts.thumbnail_url),
+           media_url = EXCLUDED.media_url,
+           media_url_expires_at = EXCLUDED.media_url_expires_at,
            published_at = EXCLUDED.published_at,
            raw_payload = EXCLUDED.raw_payload`,
         [
@@ -184,6 +189,8 @@ export async function syncInstagramSource(
           m.timestamp || null,
           // Instagram's own media links expire; keep only what doesn't.
           JSON.stringify({ id: m.id, media_type: m.media_type, permalink: m.permalink, timestamp: m.timestamp }),
+          videoUrl,
+          videoExpiry,
         ]
       );
     }
