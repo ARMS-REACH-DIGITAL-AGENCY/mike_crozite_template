@@ -597,9 +597,13 @@ export default async function SchoolPage({
   }
 
   for (const p of stageRows) {
-    const id = String(p.playerid);
+    const sourceId = String(p.playerid);
+    const id = canonicalTbcIds.get(sourceId) || sourceId;
+    // Dobson's historical TBC row can have an older staged copy. Do not
+    // re-introduce it as a second card after the alumni row used the YAT ID.
     if (!allTimeSeenIds.has(id) && (!isHighSchoolPlayer(p) || isRetiredCoachCard(p))) {
-      allTimeMerged.push({ ...p });
+      allTimeMerged.push({ ...p, playerid: id });
+      allTimeSeenIds.add(id);
     }
   }
   }
