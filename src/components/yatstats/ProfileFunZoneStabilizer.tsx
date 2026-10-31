@@ -1,8 +1,8 @@
 'use client';
 
-import { Doto } from 'next/font/google';
 
-const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap', variable: '--ticker-date-doto' });
+
+const tickerDateFont = { variable: 'yat-runtime-doto' };
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
