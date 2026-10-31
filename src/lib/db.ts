@@ -243,14 +243,19 @@ export async function getPlayerSocialHandles(playerId: string): Promise<Record<s
 // Keep the source ID for historical stat joins; never rewrite imported raw files.
 export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<string> {
   if (/^\d+$/.test(playerId)) return playerId;
-  const { rows } = await query<{ source_player_id: string }>(
-    `SELECT source_player_id FROM public.player_source_map
-      WHERE playerid = $1 AND source = 'tbc' AND is_verified IS TRUE
-        AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'
-      ORDER BY updated_at DESC LIMIT 1`,
-    [playerId]
-  );
-  return rows[0]?.source_player_id || playerId;
+  try {
+    const { rows } = await query<{ source_player_id: string }>(
+      `SELECT source_player_id FROM public.player_source_map
+        WHERE playerid = $1 AND source = 'tbc' AND is_verified IS TRUE
+          AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'
+        ORDER BY updated_at DESC LIMIT 1`,
+      [playerId]
+    );
+    return rows[0]?.source_player_id || playerId;
+  } catch (error) {
+    console.warn('Verified TBC identity lookup failed; keeping canonical ID', { playerId, error });
+    return playerId;
+  }
 }
 
 // Read aliases only for the people on this school's roster, not the full crosswalk.
