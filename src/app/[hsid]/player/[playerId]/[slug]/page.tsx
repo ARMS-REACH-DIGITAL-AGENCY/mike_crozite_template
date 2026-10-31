@@ -92,7 +92,35 @@ export async function generateMetadata({
   searchParams,
 }: Props & { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
   const { hsid, playerId, slug } = await params;
-  const storyParam = (await searchParams)?.story;
+  const search = await searchParams;
+  if (search?.yataboy === '1') {
+    try {
+      const { rows } = await query<{ display_name: string; story: string | null }>(
+        `SELECT display_name, story FROM public.alumni_where_yat_now
+         WHERE playerid=$1 AND hsid=$2 AND status='approved'
+         ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`,
+        [playerId, hsid]
+      );
+      if (rows[0]) {
+        const base = await defaultPlayerShareMetadata(hsid, playerId, slug);
+        const playerName = rows[0].display_name.trim() || slug.replace(/-/g, ' ');
+        const title = `#YATABOY ${playerName.toUpperCase()} | YAT?STATS`;
+        const description = `#YATABOY ${playerName} — discover where life after baseball took him on YAT?STATS.`;
+        const canonical = typeof base.alternates?.canonical === 'string'
+          ? base.alternates.canonical : '';
+        const shareUrl = canonical ? canonical + '?yataboy=1' : undefined;
+        return {
+          ...base, title, description,
+          openGraph: { ...base.openGraph, title, description, ...(shareUrl ? { url: shareUrl } : {}) },
+          twitter: { ...base.twitter, title, description },
+        };
+      }
+    } catch (error) {
+      console.error('[where-yat-share] approved preview unavailable', error);
+    }
+    // The share route must never expose unapproved questionnaire details.
+  }
+  const storyParam = search?.story;
   const storyId = typeof storyParam === 'string' && /^\d{1,18}$/.test(storyParam) ? storyParam : null;
   if (!storyId) return defaultPlayerShareMetadata(hsid, playerId, slug);
   try {
