@@ -86,6 +86,8 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   })();
  }
  const [openQuestion,setOpenQuestion]=useState<string|null>(null);
+ const [allOpen,setAllOpen]=useState(false);
+ const [featuredMemory,setFeaturedMemory]=useState('story');
  const [answered,setAnswered]=useState<Record<string,boolean>>({});
  useEffect(()=>{
   loadSaved();
@@ -106,6 +108,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    const input=form.current.elements.namedItem(key) as HTMLInputElement|HTMLTextAreaElement|null;
    if(input)input.value=String(saved[column]??'');
   }
+  setFeaturedMemory(String(saved.featured_memory_key||'story'));
   const opt=form.current.elements.namedItem('businessPublic') as HTMLInputElement|null;
   if(opt)opt.checked=!!saved.business_public_opt_in;
   setAnswered(Object.fromEntries(Object.entries(mapping).map(([key,column])=>[key,!!String(saved[column]??'').trim()])));
@@ -142,6 +145,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  // Only one question can be open. The next action opens the next one and
  // scrolls its heading into view; closing never unmounts the input element.
  function showQuestion(id:string|null){
+  setAllOpen(false);
   setOpenQuestion(id);
   if(id) requestAnimationFrame(() => document.getElementById('wyn-q-'+id)?.scrollIntoView({behavior:'smooth',block:'nearest'}));
  }
@@ -191,6 +195,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   if(!auth.currentUser){openJoin();setError('JOIN or sign in to save your questionnaire. Your answers remain here.');return;}
   const data=new FormData(e.currentTarget);data.set('playerId',playerId);data.set('hsid',hsid);
   if(saved?.id && editEnabled)data.set('replacesSubmissionId',String(saved.id));
+  data.set('featuredMemory',featuredMemory);
   if(!proof){setProof(Object.fromEntries([...data.entries()].filter(([,v])=>typeof v==='string')) as Record<string,string>);
     requestAnimationFrame(()=>document.getElementById('claim-proof')?.scrollIntoView({behavior:'smooth',block:'start'}));return}
   setBusy(true);setError('');
@@ -303,10 +308,12 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   <form ref={form} onSubmit={submit} onChange={answerChanged} noValidate
    className="where-yat-claim" aria-label="Where YAT Now alumni questionnaire">
    {alreadyPending && <div role="status" className="wyn-claim-status ycd-muted ycd-small">A previous update is awaiting review. You can submit a new questionnaire below; your previous submission will be preserved.</div>}
-   <p className="ycd-muted ycd-small">All questions are listed below. Tap one to answer it; opening another automatically closes the previous question. Optional questions can be skipped.</p>
+   <p className="ycd-muted ycd-small">Choose a question to answer or open all questions to review your answers together. Every story prompt becomes its own memory after publication.</p>
+   <div className="wyn-question-actions"><button type="button" className="ycd-btn" onClick={()=>setAllOpen(true)}>OPEN ALL</button><button type="button" className="ycd-btn" onClick={()=>{setAllOpen(false);setOpenQuestion(null)}}>CLOSE ALL</button></div>
+   <section className="wyn-form-section"><label className="ycd-field"><span className="ycd-label">WHICH MEMORY SHOULD APPEAR ON YOUR FLIP-CARD BACK?</span><select aria-label="Featured flip-card memory" value={featuredMemory} onChange={e=>{setFeaturedMemory(e.target.value);setProof(null)}}>{fields.map(([key,title])=><option key={key} value={key}>{title.replace('YOUR HIGH SCHOOL',school.toUpperCase())}</option>)}</select></label></section>
    <div className="wyn-question-progress" role="status" aria-live="polite">
     <span>{answeredCount} OF {questionOrder.length} ANSWERED</span>
-    <span>ONE QUESTION OPEN AT A TIME</span>
+    <span>{allOpen?'ALL QUESTIONS OPEN':'OPEN INDIVIDUALLY OR ALL AT ONCE'}</span>
    </div>
 
    {questionGroups.map((group,groupIndex)=>(
@@ -316,7 +323,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
       {'optional' in group && group.optional && <small>OPTIONAL</small>}
      </h3>
      {group.questions.map((question)=>{
-      const isOpen=openQuestion===question.id;
+      const isOpen=allOpen||openQuestion===question.id;
       const isAnswered=question.id==='lifePhotos'?photos.length>0:Boolean(answered[question.id]);
       const title=question.title.replace('YOUR HIGH SCHOOL',school.toUpperCase());
       const isOptional='optional' in question && question.optional;
@@ -353,7 +360,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
       <WhereYatProofCard variant="full" proof={{
        playerId, hsid, displayName:proof.displayName||name, city:proof.city, state:proof.state,
        occupation:proof.occupation, company:proof.company,
-       story:proof.story||proof.favoriteAfter||proof.favoriteHs, website:proof.website,
+       story:proof[featuredMemory]||proof.story||proof.favoriteAfter||proof.favoriteHs, website:proof.website,
        linkedin:proof.linkedin, instagram:proof.instagram, facebook:proof.facebook,
        x:proof.x, photoUrl:photos[0]?.url
       }} />
@@ -369,6 +376,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
       ] as const).map(([title,answer]) => answer && (
        <div key={title} className="wyn-proof-entry"><strong>{title}</strong><p>{answer}</p></div>
       ))}
+      <p><strong>Featured flip-card memory:</strong> {fields.find(([key])=>key===featuredMemory)?.[1]}</p>
       {photos.length > 0 && <div className="wyn-proof-photos">{photos.map((p,i) => <img key={p.url} src={p.url} alt={'Proof photo '+(i+1)} />)}</div>}
       {proof.businessPublic === 'yes' && (
        <div className="wyn-proof-entry">
