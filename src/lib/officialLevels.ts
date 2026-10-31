@@ -435,3 +435,61 @@ FROM grouped g
 LEFT JOIN public.teamid_universe_mapping u ON u.teamid=g.teamid
 GROUP BY source ORDER BY source
 `;
+
+// Explicit 2025 cutoff: absence of playing activity after 2025 => RETIRED.
+// Protect any 2026-season activity, live MLB identities, and manual overrides.
+// Independent professional players require separate current-roster authority;
+// recent stats block retirement but do not establish ACTIVE by themselves.
+// No age criterion, no fabricated last team, and no invented career-high level.
+// Run in bounded batches; provenance trigger records every change.
+export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `
+
+WITH season2026 AS MATERIALIZED (
+  SELECT playerid FROM public.tbc_batting_2026_season_raw WHERE year='2026'
+  UNION SELECT playerid FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_batting_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_pitching_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT playerid FROM public.player_game_logs WHERE game_date>=DATE '2026-01-01' AND game_date<DATE '2027-01-01'
+), eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label IS NULL
+  AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+  AND f.current_team_source_player_id IS NULL AND f.current_team_source_team_id IS NULL
+  AND f.current_team_last_verified IS NULL
+  AND f.last_transaction_applied_at IS NULL AND f.current_team_absent_since IS NULL
+  AND f.is_on_40man IS NOT TRUE
+  AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT','ACTIVE','40-MAN')
+  AND NOT EXISTS(SELECT 1 FROM season2026 s WHERE s.playerid=f.playerid)
+  AND NOT EXISTS(SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+  AND NOT EXISTS(SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
+  AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ ORDER BY f.playerid LIMIT 2000
+), classified AS (
+ UPDATE public.flip_card_front_stage f SET
+  status_label='RETIRED', display_status_label='RETIRED',
+  team_affiliation_status='RETIRED',
+  updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid AND f.status_label IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS retired FROM classified
+`;
+
+// Restore existing verified career high where legacy NCAA placeholder persisted.
+export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL = `
+
+WITH fixed AS (
+ UPDATE public.flip_card_front_stage f
+ SET level_label=f.highest_level_label,
+     display_level_label=f.highest_level_label,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     updated_at=NOW(),stage_updated_at=NOW()
+ WHERE f.status_label='RETIRED' AND f.level_label='NCAA'
+ AND f.highest_level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+ AND f.current_teamid IS NULL AND f.current_team_name IS NULL AND f.current_team_source IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS corrected FROM fixed
+`;
