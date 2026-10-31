@@ -34,7 +34,7 @@ const socialItems: Social[] = [
   { key: 'linkedin', icon: 'ri-linkedin-fill', label: 'LinkedIn', className: 'wyn-linkedin' },
 ];
 const footerTabs = [
-  ['ri-calendar-line', 'WHERE YAT NOW?'],
+  ['ri-calendar-line', 'YAT?'],
   ['ri-bar-chart-2-line', 'STATS'],
   ['ri-newspaper-line', 'NEWS'],
   ['ri-share-line', 'SOCIAL'],
