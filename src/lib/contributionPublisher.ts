@@ -6,6 +6,7 @@ import { resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
 import { parseNewsVideo, cleanNewsVideoTitle, isLegacyVideoPlaceholderTitle } from '@/lib/newsVideo';
 import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
+import { fetchYouTubeVideoMetadata, normalizeNewsPublicationDate } from '@/lib/youtubeVideoMetadata';
 import { parseContributedNewsLink } from '@/lib/contributedNewsLink';
 import { moderateContributedTip } from '@/lib/contributeTipModeration';
 
@@ -153,18 +154,28 @@ async function processTip(t:Tip):Promise<TipOutcome> {
  const title=cleanNewsVideoTitle(typeof detail?.title==='string'?detail.title:legacy);
  const description=typeof detail?.why==='string'?detail.why.trim():'';
  const youtube=parseNewsVideo(link.url)?.provider==='YouTube';
+ const youtubeMetadata=youtube?await fetchYouTubeVideoMetadata(link.url):null;
  const needsYoutubeTitle=youtube&&(!title||(t.intake_source==='manual_seed'&&isLegacyVideoPlaceholderTitle(title)));
- const label=(needsYoutubeTitle?await fetchYouTubeVideoTitle(link.url):null)||title;
+ const label=(needsYoutubeTitle?(youtubeMetadata?.title||await fetchYouTubeVideoTitle(link.url)):null)||title;
+ const originalDate=normalizeNewsPublicationDate(detail?.publishedAt)||youtubeMetadata?.publishedAt||null;
+ const targetYear=typeof detail?.teamYear==='number'&&Number.isInteger(detail.teamYear)&&detail.teamYear>=1900&&detail.teamYear<=new Date().getFullYear()+1?detail.teamYear:null;
+ if(youtube&&!originalDate)return 'rejected';
+ if(targetYear){const {rows:roster}=await query<{n:number}>(`SELECT count(*)::int AS n FROM flip_card_front_stage WHERE hsid::text=$1 AND $2::text=ANY(roster_years)`,[t.matched_hsid,String(targetYear)]);if(!roster[0]?.n)return 'rejected';}
  if(!label||(needsYoutubeTitle&&isLegacyVideoPlaceholderTitle(label)))return 'rejected';
  const safety=await moderateContributedTip({url:link.url,title:label,description,playerName:player?`${player.first_name} ${player.last_name}`:null});
  if(safety.decision==='unavailable')return 'pending';
  if(safety.decision==='reject')return 'rejected';
+ const uuid=hash(t.id);
+ const thumbnail=youtube?(youtubeMetadata?.thumbnailUrl||parseNewsVideo(link.url)?.thumbnailUrl):null;
  await query(`INSERT INTO news_articles(uuid,playerid,player_name,hsid,title,source,published_at,url,
- snippet,local_recap,discovery_source,verification_status,verification_reason,newsworthiness,raw_payload)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'contribute','VERIFIED','AI-screened fan contribution','NORMAL',$11::jsonb)
- ON CONFLICT(uuid) DO NOTHING`,
- [hash(t.id),player?.playerid||null,player?`${player.first_name} ${player.last_name}`:null,t.matched_hsid,label,link.source,new Date().toISOString(),link.url,
- description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source,instagram_story:link.instagramStory,moderated:true})]);
+   image_url,display_image_url,image_verification_status,snippet,local_recap,discovery_source,verification_status,verification_reason,newsworthiness,raw_payload)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,'contribute','VERIFIED','AI-screened fan contribution','NORMAL',$13::jsonb)
+   ON CONFLICT(uuid) DO NOTHING`,
+   [uuid,player?.playerid||null,player?`${player.first_name} ${player.last_name}`:null,t.matched_hsid,label,link.source,originalDate||new Date().toISOString(),link.url,
+   thumbnail,thumbnail?'SOURCE_VERIFIED':null,description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source,instagram_story:link.instagramStory,moderated:true,original_published_at:originalDate,team_year:targetYear,contributor_uid:detail?.contributorUid||null})]);
+ if(targetYear)await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+   VALUES('system:contribution-publisher','news_team_year_tagged',NULL,$1,$2::jsonb)`,
+   [t.matched_hsid,JSON.stringify({news_uuid:uuid,teamYear:targetYear})]);
  revalidateTag(`school-data:${t.matched_hsid}`,{expire:0});
  return 'published';
 }
