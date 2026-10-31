@@ -49,7 +49,8 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
           : `WHERE YAT NOW, ${(name.trim().split(/\s+/)[0] || 'ALUMNUS').toUpperCase()}?`}</h2>
         {entry && <WhereYatShareButton playerName={entry.display_name || name} />}
       </div>
-      {entry ? <div className="wyn-story-layout"><div className="wyn-story-feed">
+      <div className="wyn-story-layout"><div className="wyn-story-feed">
+      {entry ? <>
         {([['favoriteHs','MOST MEMORABLE MOMENT PLAYING AT '+schoolName.toUpperCase(),entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value])=>value&&
         <WhereYatMemory key={key} id={entry.id} storyKey={key} label={label} initialText={value} playerId={playerId} hsid={hsid} initialPhotos={
           entry.memory_photos_json && Object.prototype.hasOwnProperty.call(entry.memory_photos_json,key)
@@ -62,7 +63,8 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
           <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small>
         </aside>
 
-      </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      </> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div>
       <style>{`
         .where-yat-profile { padding: 12px; width:100%; box-sizing:border-box; color:var(--yat-text,#f5f5f5); background:transparent; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); }
         /* Keep the current sticky heading in the same place, switching only
@@ -85,7 +87,14 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .wyn-story-inline-ad :is(span,small){font:600 11px/1.3 var(--yat-font-ui,Arial,sans-serif);}
         body.drawer-contribute-open .wyn-story-inline-ad{display:flex;}
         @media(max-width:899px){.wyn-story-inline-ad{display:flex;}}
-        .wyn-story-sponsor { position:sticky; top:110px; min-width:0; }
+        .wyn-story-sponsor { position:sticky; top:0; min-width:0; }
+        .wyn-story-feed > .where-yat-claim {max-width:none;margin:0;}
+        body.drawer-contribute-open .wyn-story-layout {grid-template-columns:minmax(0,1fr);}
+        body.drawer-contribute-open .wyn-story-sponsor {display:none;}
+        @media(min-width:900px){body.drawer-contribute-open .wyn-story-inline-ad{display:flex;}}
+        @media(max-width:899px){.wyn-story-sponsor{display:none;}}
+        .wyn-story-layout{width:100%;min-width:0;max-width:1200px;margin:0 auto;}
+        .wyn-story-sponsor > .yat-desktop-sponsor-tower {width:300px;max-width:100%;}
         .wyn-story-card { border:1px solid var(--yat-border,rgba(128,128,128,.3)); border-radius:8px; overflow:hidden; background:var(--yat-card-bg,rgba(128,128,128,.08)); color:inherit; }
         .wyn-story-header { padding:10px 12px; border-bottom:1px solid var(--yat-border,rgba(128,128,128,.3)); font:700 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .wyn-story-photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:2px; background:#101010; }
@@ -101,7 +110,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .where-yat-profile .ysv-composer {padding:10px 12px 12px;}
         .where-yat-profile .ysv-note {margin:10px 12px;}
         body.light-theme .where-yat-profile .wyn-story-card {--ysv-input-bg:rgba(255,255,255,.8);--ysv-gold-text:#9a6f00;}
-        @media(max-width:899px){.wyn-story-layout{display:block}.wyn-story-sponsor{display:none}.where-yat-profile{padding:10px}}
+        @media(max-width:899px){.wyn-story-layout{display:block}.where-yat-profile{padding:10px}}
         /* StoriesFeed is the source of truth: theme lives on body.light-theme, not html. */
         .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.055); --wyn-card-text:rgba(255,255,255,.88); --wyn-border:rgba(255,255,255,.14); color:var(--wyn-card-text); }
         body.light-theme .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.52); --wyn-card-text:rgba(31,25,18,.86); --wyn-border:rgba(53,43,30,.18); }
