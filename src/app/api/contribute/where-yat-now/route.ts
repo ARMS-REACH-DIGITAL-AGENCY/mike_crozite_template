@@ -8,6 +8,7 @@ import { S3_BUCKET, S3_REGION, storyAssetUrl } from '@/lib/storyAssets';
 import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS } from '@/lib/whereYatLinks';
 import { notifyWhereYatReviewers } from '@/lib/whereYatReviewNotifications';
 import { notifyWhereYatContributor } from '@/lib/whereYatContributorNotifications';
+import { syncWhereYatSubmissionToArms } from '@/lib/whereYatArmsSync';
 import { storeStoryPhoto, STORY_MAX_PHOTO_BYTES } from '@/lib/stories';
 import { moderateContributedTip } from '@/lib/contributeTipModeration';
 import { moderatePhoto } from '@/lib/contributeModeration';
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
     businessMessage: clean(form.get('businessMessage'), 3000), businessOffer: clean(form.get('businessOffer'), 1000),
     businessEmail: clean(form.get('businessEmail'), 220), businessPhone: clean(form.get('businessPhone'), 80),
     teammateTips: clean(form.get('teammateTips'), 5000),
+    contactPhone: clean(form.get('contactPhone'), 40),
   };
   const normalized: Record<string, string> = {};
   for (const field of WHERE_YAT_LINK_FIELDS) {
@@ -163,28 +165,31 @@ export async function POST(req: NextRequest) {
       const verdict = await moderatePhoto({ imageUrl, purpose: 'other_photo', playerName: displayName });
       if (verdict?.decision !== 'approve') safeToPublish = false;
     }
-    const publicationStatus = safeToPublish ? 'approved' : 'pending';
+    // Automated moderation is a safety filter, not independent identity
+    // verification. Never auto-publish a newly claimed retired identity.
+    const publicationStatus = 'pending';
     // Revisions create a new record. A previously approved record remains
     // published while the revised version goes through moderation.
     const result = await query<{ id: number }>(
       `INSERT INTO public.alumni_where_yat_now
       (playerid,hsid,contributor_uid,contact_email,display_name,location_city,location_state,
        occupation,company_name,business_website,linkedin_url,instagram_url,facebook_url,x_url,
-       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at,retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,questionnaire_version,status,reviewed_at,replaces_submission_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,2,$33,CASE WHEN $33='approved' THEN now() ELSE NULL END,$34)
+       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at,retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,questionnaire_version,status,reviewed_at,replaces_submission_id,contact_phone)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,2,$33,NULL,$34,$35)
        RETURNING id`,
       [playerId,hsid,who.uid,email,displayName,fields.city,fields.state,fields.occupation,fields.company,
        normalized.website,normalized.linkedin,normalized.instagram,
-       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested,publicationStatus,replacesSubmissionId],
+       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested,publicationStatus,replacesSubmissionId,fields.contactPhone],
     );
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
     }).catch(() => {});
     const submissionId = result.rows[0]?.id;
     // Submission succeeds independently of notification delivery. Never disclose reviewer contact details.
-    if (submissionId && !safeToPublish) await notifyWhereYatReviewers({ id: submissionId, hsid, playerId, displayName }).catch(err => console.error('[where-yat-now] reviewer alert failed', err));
-    if (submissionId) await notifyWhereYatContributor({id:submissionId,hsid,email:who.email||email,name:displayName,outcome:safeToPublish?'approved':'received'}).catch(err=>console.error('[where-yat-now] contributor receipt failed',err));
-    return NextResponse.json({ ok: true, pending: !safeToPublish, published: safeToPublish, submissionId, partnerHref: 'https://yatstats.com/partners/' });
+    if (submissionId) await syncWhereYatSubmissionToArms(submissionId).catch(error=>console.error('[where-yat-now] ARMS sync queued for retry',error));
+    if (submissionId) await notifyWhereYatReviewers({ id: submissionId, hsid, playerId, displayName }).catch(err => console.error('[where-yat-now] reviewer alert failed', err));
+    if (submissionId) await notifyWhereYatContributor({id:submissionId,hsid,email:who.email||email,name:displayName,outcome:'received'}).catch(err=>console.error('[where-yat-now] contributor receipt failed',err));
+    return NextResponse.json({ ok: true, pending: true, published: false, submissionId, partnerHref: 'https://yatstats.com/partners/' });
   } catch (error) {
     console.error('[where-yat-now] submit failed', { playerId, error });
     return reply('Unable to save this update. Please try again.', 500);
