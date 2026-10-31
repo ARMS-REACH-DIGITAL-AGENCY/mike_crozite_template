@@ -174,3 +174,7 @@ body:not(.light-theme) .where-yat-claim .ycd-error{color:#ff9999;}
 .where-yat-claim .wyn-question-inline-ad :is(span,small){font:600 11px/1.3 var(--yat-font-ui,Arial,sans-serif)}
 @media(max-width:899px){.where-yat-claim .wyn-question-inline-ad{display:flex}}
 @media(min-width:900px){body.drawer-contribute-open .where-yat-claim .wyn-question-inline-ad{display:flex}}
+
+/* Accordion header already names the field. Keep CITY / STATE sublabels only. */
+.where-yat-claim .wyn-question-body > .ycd-field > .ycd-label,
+.where-yat-claim .wyn-question-body > .ycd-field > .ycd-field > .ycd-label {display:none}
