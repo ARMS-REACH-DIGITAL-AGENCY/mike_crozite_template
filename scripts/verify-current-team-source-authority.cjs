@@ -119,9 +119,10 @@ assert(recovery.includes('public.player_team_override') &&
   'Recovery must protect overrides and transaction departures');
 assert(!/current_team_last_verified\s*=/i.test(recovery),
   '2026 stats evidence must not be misrepresented as a live verified roster');
-assert(recovery.includes("'INDY','INTERNATIONAL'") ||
-       recovery.includes("'INDY','INTERNATIONAL'".replace(',', ', ')),
-  'Recovery must include independent and international levels');
+assert(recovery.includes("'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'") &&
+       !recovery.includes("'INDY','INTERNATIONAL'") &&
+       !recovery.includes("'INDY', 'INTERNATIONAL'"),
+  'TBC season totals may repair college teams but never pro roster assignments');
 assert(!/['"]PRO['"]/.test(recovery),
   'Unresolved generic PRO team levels must not be auto-assigned');
 assert(cron.includes('SAFE_2026_STAGE_TEAM_RECOVERY_SQL') &&
@@ -141,12 +142,12 @@ assert(activeRecovery.includes("f.status_label IS NULL"),
 assert(activeRecovery.includes("COUNT(DISTINCT teamid)=1") &&
        activeRecovery.includes("COUNT(DISTINCT evidence_source)=1"),
   '2026 team and source must be unambiguous');
-assert(activeRecovery.includes("s.match_status='matched'") &&
-       activeRecovery.includes('s.match_confidence>=0.92'),
-  'Independent-league player identity must be verified');
+assert(!activeRecovery.includes('indy_iscore_') && !activeRecovery.includes("u.level_label='INDY'"),
+  'Independent professional season stats must never auto-classify ACTIVE');
 assert(activeRecovery.includes("e.evidence_source='tbc_2026'") &&
-       activeRecovery.includes("u.level_label='INDY'"),
-  'College and independent current-season evidence must be distinct');
+       activeRecovery.includes("'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'") &&
+       activeRecovery.includes("u.current_org_or_conference_name"),
+  'Only complete canonical colleges may be activated from 2026 season stats');
 assert(activeRecovery.includes('public.mlb_org_roster_resolution') &&
        activeRecovery.includes("m.source='mlb_api'") &&
        activeRecovery.includes('public.player_team_override'),
@@ -157,6 +158,28 @@ assert(cron.includes('SAFE_2026_BLANK_STATUS_RECOVERY_SQL'),
   'Daily check must classify eligible blank-status players');
 assert(ingest.includes('SAFE_2026_BLANK_STATUS_RECOVERY_SQL'),
   'Ingest must classify new eligible player rows');
+assert(!ingest.includes('reconcileCollegeToIndyCurrentTeams') &&
+       !ingest.includes('tbc_2026_indy_season_reconciled'),
+  'TBC season ingest must never promote a professional current team');
+const cutoff = section(levels,
+  'export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `',
+  'export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL');
+assert(cutoff.includes("f.status_label IS NULL") &&
+       cutoff.includes("season_year=2026") &&
+       cutoff.includes("game_date>=DATE '2026-01-01'") &&
+       cutoff.includes("m.source='mlb_api'") &&
+       cutoff.includes('mlb_org_roster_resolution') &&
+       cutoff.includes('player_team_override') &&
+       !cutoff.includes('current_teamid=') &&
+       !cutoff.includes('current_team_last_verified='),
+  'Retirement backfill must preserve 2026 players, verified MLB identities and current teams');
+const retiredLevels = section(levels,
+  'export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL = `',
+  'SELECT COUNT(*)::int AS corrected FROM fixed');
+assert(retiredLevels.includes('f.highest_level_label') &&
+       retiredLevels.includes("f.level_label='NCAA'") &&
+       retiredLevels.includes("f.current_teamid IS NULL"),
+  'Retired college cleanup must use verified existing career-high and no current team');
 const provenance = source('migrations/20261031_flip_card_stage_field_provenance.sql');
 assert(provenance.includes('AFTER INSERT OR UPDATE OF') &&
        provenance.includes('recorded_at TIMESTAMPTZ') &&
