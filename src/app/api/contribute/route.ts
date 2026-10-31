@@ -321,7 +321,7 @@ export async function POST(req: NextRequest) {
        if (provider?.provider === 'YouTube' && !publishedAt) return fail('YouTube did not supply a publication date. Enter the date shown on YouTube.');
        const rawYear = text(body.teamYear, 4);
        const teamYear = rawYear ? Number(rawYear) : null;
-       if (rawYear && (!/^\d{4}$/.test(rawYear) || !Number.isInteger(teamYear) || teamYear < 1900 || teamYear > new Date().getFullYear() + 1)) return fail('Choose a valid team year.');
+       if (rawYear && (!/^\d{4}$/.test(rawYear) || !Number.isInteger(teamYear) || teamYear === null || teamYear < 1900 || teamYear > new Date().getFullYear() + 1)) return fail('Choose a valid team year.');
        if (!/^\d+$/.test(hsid)) return fail('Choose a high school program.');
        const notes = JSON.stringify({ kind: isClip ? 'clip' : 'news', title, why, titleSource: enteredTitle ? 'fan' : 'youtube', publishedAt, dateSource: manualDate ? 'manual' : metadata?.dateSource || 'unknown', thumbnailUrl: metadata?.thumbnailUrl || null, teamYear, contributorUid: who.uid });
       const queued=await query<{id:string}>(
