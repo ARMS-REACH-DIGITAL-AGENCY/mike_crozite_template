@@ -3,7 +3,7 @@
 // Reads directly from canonical TBC tables and appends source-flexible external stats.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, resolveVerifiedTbcPlayerId } from '@/lib/db';
 import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
 import { getIndyIscoreStatsForPlayer } from '@/lib/indyIscore';
 import { getAflSeasonStatsForPlayer } from '@/lib/aflSeasonStats';
@@ -282,11 +282,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'playerId is required' }, { status: 400 });
     }
 
+    // TBC historical rows retain the source ID, while the player profile,
+    // external feeds, and card URLs keep the single canonical YAT identity.
+    const tbcPlayerId = await resolveVerifiedTbcPlayerId(playerId);
     const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw, indyIscore, aflSeasons] = await Promise.all([
-      readPlayerRows(BATTING_TABLES[0], playerId),
-      readPlayerRows(BATTING_TABLES[1], playerId),
-      readPlayerRows(PITCHING_TABLES[0], playerId),
-      readPlayerRows(PITCHING_TABLES[1], playerId),
+      readPlayerRows(BATTING_TABLES[0], tbcPlayerId),
+      readPlayerRows(BATTING_TABLES[1], tbcPlayerId),
+      readPlayerRows(PITCHING_TABLES[0], tbcPlayerId),
+      readPlayerRows(PITCHING_TABLES[1], tbcPlayerId),
       getRecentExternalStatsForPlayer(playerId, 10).catch((error) => {
         console.warn('external stats lookup failed:', error);
         return [];
