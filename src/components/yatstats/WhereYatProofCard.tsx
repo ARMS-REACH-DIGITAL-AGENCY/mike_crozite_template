@@ -22,6 +22,7 @@ export type WhereYatProof = {
   facebook?: string;
   x?: string;
   story?: string;
+  storyPrompt?:string;
   photoUrl?: string | null;
   logoUrl?: string | null;
   businessPublic?: boolean;
@@ -157,7 +158,7 @@ export default function WhereYatProofCard({
         </div>
         {proof.photoUrl && <img className="wyn-photo" src={proof.photoUrl} alt="Alumnus's recent photo" />}
       </div>
-      <div className="wyn-story-prompt">WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?</div>
+      <div className="wyn-story-prompt">{proof.storyPrompt||'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'}</div>
       <p className="wyn-story">{excerpt}</p>
       {showBusiness && (proof.company || proof.logoUrl || businessHref || businessLinks.length > 0 || businesses.length > 0 || proof.businessHeadshotUrl) && (
         <div className="wyn-business-links" aria-label="Business information and links">
