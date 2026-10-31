@@ -292,7 +292,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   </label>;
   return null;
  }
- const answeredCount=questionOrder.filter(id=>id==='lifePhotos'?photos.length>0:Boolean(answered[id])).length;
+ const answeredCount=questionOrder.filter(id=>Boolean(answered[id])).length;
 
  // Presentation reuses the exact Connect & Contribute drawer design classes.
  // Keep the dedicated questionnaire data, validation, photo upload, proof,
