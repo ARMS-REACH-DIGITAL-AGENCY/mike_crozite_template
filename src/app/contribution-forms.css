@@ -178,3 +178,17 @@ body:not(.light-theme) .where-yat-claim .ycd-error{color:#ff9999;}
 /* Accordion header already names the field. Keep CITY / STATE sublabels only. */
 .where-yat-claim .wyn-question-body > .ycd-field > .ycd-label,
 .where-yat-claim .wyn-question-body > .ycd-field > .ycd-field > .ycd-label {display:none}
+
+/* One flip-card-back accordion, followed by four independent memory prompts. */
+.where-yat-claim .wyn-unified-section{padding:0;overflow:hidden;gap:0}
+.where-yat-claim .wyn-section-toggle{display:flex;align-items:center;gap:9px;width:100%;padding:12px;border:0;text-align:left;cursor:pointer;background:transparent;color:var(--fg);font:800 13px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif)}
+.where-yat-claim .wyn-section-toggle .wyn-section-name{flex:1;min-width:0}
+.where-yat-claim .wyn-section-toggle>i{font-size:18px;flex:none}
+.where-yat-claim .wyn-section-body{display:flex;flex-direction:column;gap:10px;padding:10px 12px 12px;border-top:1px solid var(--line)}
+.where-yat-claim .wyn-section-body[hidden]{display:none!important}
+.where-yat-claim .wyn-flip-subhead{font:800 11px/1.2 var(--yat-font-compact,Oswald,sans-serif);margin:7px 0 0;letter-spacing:.04em;border-bottom:1px solid var(--line);padding-bottom:4px}
+.where-yat-claim .wyn-field-item{min-width:0}
+.where-yat-claim .wyn-field-item>.ycd-field{gap:5px}
+.where-yat-claim .wyn-final-details{gap:12px}
+.where-yat-claim .wyn-final-details>div{min-width:0}
+.where-yat-claim .wyn-memory-section .wyn-section-body .ycd-field>.ycd-label{display:none}
