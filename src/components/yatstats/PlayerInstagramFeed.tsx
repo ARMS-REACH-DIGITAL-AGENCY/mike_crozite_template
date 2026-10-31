@@ -154,12 +154,14 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   useEffect(() => {
     if (!videoPostId) return;
     let active = true;
-    fetch(`/api/social/player/${encodeURIComponent(playerId)}/video/${encodeURIComponent(videoPostId)}`)
+    fetch(schoolHsid
+      ? `/api/social/school/${encodeURIComponent(schoolHsid)}/video/${encodeURIComponent(videoPostId)}`
+      : `/api/social/player/${encodeURIComponent(playerId)}/video/${encodeURIComponent(videoPostId)}`)
       .then((response) => response.ok ? response.json() : { video_url: null })
       .then((data) => { if (active) setSocialVideo({ id: videoPostId, url: typeof data.video_url === 'string' ? data.video_url : null }); })
       .catch(() => { if (active) setSocialVideo({ id: videoPostId, url: null }); });
     return () => { active = false; };
-  }, [playerId, videoPostId]);
+  }, [playerId, schoolHsid, videoPostId]);
   const embedUrl = current?.permalink ? `${current.permalink.replace(/\/?$/, '/')}embed/` : null;
   const hasInteractiveMedia = Boolean(embedUrl && (current?.media_type === 'video' || current?.media_type === 'carousel'));
   // No picture of the post itself (never a stand-in photo): show Instagram's
