@@ -18,6 +18,7 @@ const questionGroups = [
  { title:'ABOUT YOU', questions:[
   {id:'displayName',title:'YOUR NAME',required:true},
   {id:'email',title:'CONTACT EMAIL (PRIVATE)',required:true},
+  {id:'contactPhone',title:'CALLBACK PHONE (PRIVATE)',optional:true},
   {id:'location',title:'CITY AND STATE'},
   {id:'retirementYear',title:'YEAR YOU RETIRED FROM BASEBALL'}
  ]},
@@ -95,7 +96,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  useEffect(()=>{
   if(!saved || !editEnabled || !form.current)return;
   const mapping:Record<string,string>={
-   displayName:'display_name',email:'contact_email',city:'location_city',state:'location_state',
+   displayName:'display_name',email:'contact_email',contactPhone:'contact_phone',city:'location_city',state:'location_state',
    occupation:'occupation',company:'company_name',website:'business_website',linkedin:'linkedin_url',
    instagram:'instagram_url',facebook:'facebook_url',x:'x_url',story:'story',favoriteHs:'favorite_hs_memory',
    favoriteAfter:'favorite_post_hs_memory',family:'family_life',retirementYear:'retirement_year',
@@ -151,6 +152,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  function questionAnswered(id:string):boolean {
   if(id==='lifePhotos')return photos.length>0;
   const el=form.current?.elements.namedItem(id==='location'?'city':id) as HTMLInputElement|HTMLTextAreaElement|null;
+  if(id==='contactPhone')return <label className="ycd-field"><span className="ycd-label">CALLBACK PHONE (PRIVATE)</span><span className="ycd-muted ycd-small">Only the YAT?STATS review team will use this to verify your identity or thank you. This does not authorize marketing texts or calls.</span><input type="tel" name="contactPhone" autoComplete="tel" /></label>;
   if(id==='location')return Boolean(el?.value.trim() || (form.current?.elements.namedItem('state') as HTMLInputElement|null)?.value.trim());
   if(!el)return false;
   if(el instanceof HTMLInputElement && el.type==='checkbox')return el.checked;
