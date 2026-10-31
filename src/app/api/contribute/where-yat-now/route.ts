@@ -131,6 +131,10 @@ export async function POST(req: NextRequest) {
     const attested = clean(form.get('claimAttestation'),8) === 'yes';
     if (!attested) return reply('Please confirm that you are the alumnus or are authorized to submit this update.');
     const sponsorship = clean(form.get('sponsorship'), 8) === 'yes';
+    // The first Life After Baseball photo is also the flip-card's recent photo
+    // unless a separate personal portrait was uploaded. This matches the proof.
+    if (!photoUrl && album.length > 0) photoUrl = album[0].web;
+
     // A confirmed proof is published immediately only after every safety check passes.
     // Unavailable, rejected or uncertain moderation never exposes either public view.
     const safetyText = [fields.story, fields.favoriteHs, fields.favoriteAfter, fields.family,
