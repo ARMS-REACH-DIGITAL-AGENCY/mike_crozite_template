@@ -24,7 +24,7 @@ export default function WhereYatMemory({id,storyKey,label,initialText,initialPho
    await auth.authStateReady?.();
    const token=await auth.currentUser?.getIdToken().catch(()=>'');
    if(!token){if(active)setOwner(false);return}
-   const resp=await fetch('/api/contribute/where-yat-now/mine?playerId='+encodeURIComponent(playerId)+'&hsid='+encodeURIComponent(hsid),{headers:{'x-firebase-token':token},cache:'no-store'}).catch(()=>null);
+   const resp=await fetch('/api/contribute/where-yat-now/mine?playerId='+encodeURIComponent(playerId)+'&hsid='+encodeURIComponent(hsid)+'&submissionId='+encodeURIComponent(String(id)),{headers:{'x-firebase-token':token},cache:'no-store'}).catch(()=>null);
    const result=resp?.ok?await resp.json().catch(()=>null):null;
    if(active)setOwner(Number(result?.submission?.id)===id);
   }
