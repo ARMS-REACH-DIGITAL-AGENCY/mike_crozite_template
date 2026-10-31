@@ -3,6 +3,7 @@ import WhereYatClaimForm from './WhereYatClaimForm';
 import WhereYatReactions from './WhereYatReactions';
 import { StoryStyles } from './StoryViewer';
 import SponsorTower from './SponsorTower';
+import WhereYatShareButton from './WhereYatShareButton';
 
 type AlumniUpdate = {
   id:number;
@@ -41,7 +42,12 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
   return (
     <div className="where-yat-profile">
       <StoryStyles />
-      <h2 className="wyn-panel-title">{entry ? 'WHERE YAT NOW?' : `WHERE YAT NOW, ${(name.trim().split(/\s+/)[0] || 'ALUMNUS').toUpperCase()}?`}</h2>
+      <div className={entry ? 'wyn-panel-heading wyn-panel-heading-approved' : 'wyn-panel-heading wyn-panel-heading-unclaimed'}>
+        <h2 className="wyn-panel-title">{entry
+          ? `#YATABOY ${(entry.display_name || name).trim().toUpperCase()}`
+          : `WHERE YAT NOW, ${(name.trim().split(/\s+/)[0] || 'ALUMNUS').toUpperCase()}?`}</h2>
+        {entry && <WhereYatShareButton playerName={entry.display_name || name} />}
+      </div>
       {entry ? <div className="wyn-story-layout"><div className="wyn-story-feed">
         {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} className="wyn-story-card ysf">
           <header className="wyn-story-header">{entry.display_name||name} — {label}</header>
@@ -56,7 +62,19 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
       </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       <style>{`
         .where-yat-profile { padding: 12px; width:100%; box-sizing:border-box; color:var(--yat-text,#f5f5f5); background:transparent; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); }
-        .where-yat-profile .wyn-panel-title {position:sticky;top:0;z-index:10;background:var(--psi-page-bg,var(--bg,#070707));color:var(--wyn-card-text);font:700 22px/1.2 var(--yat-font-condensed,Oswald,Arial Narrow,sans-serif);margin:0 0 10px;padding:8px 4px;border-bottom:1px solid var(--wyn-border);}
+        /* Keep the current sticky heading in the same place, switching only
+           alignment and copy after an approved questionnaire. */
+        .where-yat-profile .wyn-panel-heading {position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;min-width:0;background:var(--psi-page-bg,var(--bg,#070707));color:var(--wyn-card-text);margin:0 0 10px;padding:8px 4px;border-bottom:1px solid var(--wyn-border);}
+        .where-yat-profile .wyn-panel-title {min-width:0;max-width:100%;font:700 22px/1.2 var(--yat-font-condensed,Oswald,Arial Narrow,sans-serif);text-transform:uppercase;margin:0;overflow-wrap:break-word;}
+        .where-yat-profile .wyn-panel-heading-unclaimed {justify-content:flex-start;text-align:left;}
+        .where-yat-profile .wyn-panel-heading-approved {justify-content:flex-end;text-align:right;}
+        .where-yat-profile .wyn-panel-heading-approved .wyn-panel-title {flex:0 1 auto;text-align:right;}
+        .where-yat-profile .wyn-panel-share {display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none;}
+        .where-yat-profile .wyn-panel-share-btn {display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:42px;min-height:36px;padding:5px 8px;background:transparent;color:inherit;border:1px solid var(--wyn-border);border-radius:5px;cursor:pointer;font:700 11px/1 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        .where-yat-profile .wyn-panel-share-btn i {font-size:18px;line-height:1;}
+        .where-yat-profile .wyn-panel-share-btn:hover,.where-yat-profile .wyn-panel-share-btn:focus-visible {background:var(--wyn-card-bg);outline-offset:2px;}
+        .where-yat-profile .wyn-panel-share-feedback {font:600 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);max-width:85px;}
+        @media(max-width:410px){.where-yat-profile .wyn-panel-title{font-size:20px;}.where-yat-profile .wyn-panel-share-btn{min-height:34px;padding:4px 6px;}}
         .wyn-story-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:12px; align-items:start; }
         .wyn-story-feed { min-width:0; display:grid; gap:8px; }
         .wyn-story-inline-ad{display:none;box-sizing:border-box;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;width:100%;padding:16px;border:1px dashed var(--wyn-border);border-radius:8px;text-align:center;color:var(--wyn-card-text);background:var(--wyn-card-bg);}
