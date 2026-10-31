@@ -4,6 +4,7 @@ import WhereYatReactions from './WhereYatReactions';
 import { StoryStyles } from './StoryViewer';
 import SponsorTower from './SponsorTower';
 import WhereYatShareButton from './WhereYatShareButton';
+import WhereYatOwnerEditor from './WhereYatOwnerEditor';
 
 type AlumniUpdate = {
   id:number;
@@ -48,6 +49,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
           : `WHERE YAT NOW, ${(name.trim().split(/\s+/)[0] || 'ALUMNUS').toUpperCase()}?`}</h2>
         {entry && <WhereYatShareButton playerName={entry.display_name || name} />}
       </div>
+      {entry && <WhereYatOwnerEditor playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       {entry ? <div className="wyn-story-layout"><div className="wyn-story-feed">
         {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} className="wyn-story-card ysf">
           <header className="wyn-story-header">{entry.display_name||name} — {label}</header>
