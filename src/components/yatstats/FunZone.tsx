@@ -867,6 +867,7 @@ export default function FunZone({
                 businessPublic:Boolean(alumniUpdate.business_public_opt_in),
                  businesses:Array.isArray(alumniUpdate.businesses_json)?alumniUpdate.businesses_json:[],
                  businessHeadshotUrl:alumniUpdate.business_headshot_url||null,
+                 businessEmail:alumniUpdate.business_contact_email||null,businessPhone:alumniUpdate.business_contact_phone||null,
               } : null}
             />
           </div>
