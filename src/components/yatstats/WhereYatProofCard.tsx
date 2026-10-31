@@ -68,10 +68,10 @@ export default function WhereYatProofCard({
   const showBusiness = proof.businessPublic !== false;
   const businesses=(proof.businesses||[]).slice(0,4).filter(item=>item.name||item.website||item.logoUrl);
   const socialLinks=links.slice().sort((a,b)=>['linkedin','facebook','x','instagram'].indexOf(a.key)-['linkedin','facebook','x','instagram'].indexOf(b.key));
-  const publicEmail=showBusiness && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(proof.businessEmail||'') ? String(proof.businessEmail).trim() : '';
+  const publicEmail=showBusiness && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proof.businessEmail||'') ? String(proof.businessEmail).trim() : '';
   const publicPhone=showBusiness ? String(proof.businessPhone||'').replace(/[^0-9+]/g,'') : '';
   const emailHref=publicEmail?'mailto:'+publicEmail:'';
-  const textHref=publicPhone.replace(/\\D/g,'').length>=10?'sms:'+publicPhone:'';
+  const textHref=publicPhone.replace(/\D/g,'').length>=10?'sms:'+publicPhone:'';
   const businessNames=businesses.map(item=>item.name).filter(Boolean).join(' | ')||proof.company||'';
   const businessLogos=businesses.filter(item=>item.logoUrl);
   const storyText=proof.story||'Visit the player profile to learn more about life after baseball.';
