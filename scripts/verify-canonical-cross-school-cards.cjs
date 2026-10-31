@@ -15,4 +15,9 @@ assert.match(stats, /const tbcPlayerId = await resolveVerifiedTbcPlayerId\(playe
 assert.match(stats, /readPlayerRows\(BATTING_TABLES\[0\], tbcPlayerId\)/);
 assert.match(stats, /readPlayerRows\(PITCHING_TABLES\[0\], tbcPlayerId\)/);
 assert.match(stats, /getRecentExternalStatsForPlayer\(playerId/);
+const search = fs.readFileSync('src/app/api/players/search/route.ts', 'utf8');
+assert.match(search, /coalesce\(alias\.playerid, tp\.playerid\)/);
+assert.match(search, /alias\.is_verified IS TRUE/);
+assert.match(search, /select distinct on \(c\.playerid\)/);
+assert.match(page, /const id = canonicalTbcIds\.get\(sourceId\) \|\| sourceId/);
 console.log('PASS verified canonical cross-school cards and history contract');
