@@ -861,9 +861,11 @@ export default function FunZone({
                 occupation:alumniUpdate.occupation||'', company:alumniUpdate.company_name||'',
                 website:alumniUpdate.business_website||'', linkedin:alumniUpdate.linkedin_url||'',
                 instagram:alumniUpdate.instagram_url||'', facebook:alumniUpdate.facebook_url||'',
-                x:alumniUpdate.x_url||'',story:String(alumniUpdate.story||'').slice(0,260),
+                x:alumniUpdate.x_url||'',story:String(alumniUpdate.story||''),
                 photoUrl:alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null,
                 businessPublic:Boolean(alumniUpdate.business_public_opt_in),
+                 businesses:Array.isArray(alumniUpdate.businesses_json)?alumniUpdate.businesses_json:[],
+                 businessHeadshotUrl:alumniUpdate.business_headshot_url||null,
               } : null}
             />
           </div>
