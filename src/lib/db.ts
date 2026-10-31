@@ -1232,14 +1232,19 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
+    -- Career stat buckets are ALWAYS derived from the canonical Team ID level,
+    -- never from numeric ID ranges or TBC highlevel (which is a career maximum).
+    -- An unresolved/PRO Team ID remains 'other' and is excluded from the wrong
+    -- league bucket until the authoritative mapping is repaired.
     career_batting_by_bucket AS (
       SELECT
         playerid::text AS playerid,
         CASE
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
-            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          WHEN canonical_team.level_label = 'MLB' THEN 'mlb'
+          WHEN canonical_team.level_label IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN canonical_team.level_label = 'INDY' THEN 'indy'
+          WHEN canonical_team.level_label = 'INTERNATIONAL' THEN 'international'
+          WHEN canonical_team.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
           ELSE 'other'
         END AS bucket,
         COUNT(DISTINCT year) AS batting_seasons,
@@ -1284,7 +1289,9 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
           )
           ELSE NULL
         END AS ops
-      FROM public.v_tbc_batting_all_seasons_resolved
+      FROM public.v_tbc_batting_all_seasons_resolved career_stats
+      LEFT JOIN public.teamid_universe_mapping canonical_team
+        ON canonical_team.teamid = career_stats.teamid::text
       WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       GROUP BY playerid::text, bucket
     ),
@@ -1295,6 +1302,8 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         CASE bucket
           WHEN 'mlb' THEN 'MLB CAREER'
           WHEN 'minors' THEN 'MINOR LEAGUE CAREER'
+          WHEN 'indy' THEN 'INDEPENDENT CAREER'
+          WHEN 'international' THEN 'INTERNATIONAL CAREER'
           WHEN 'college' THEN 'COLLEGE CAREER'
           ELSE 'CAREER'
         END AS career_bucket_label
@@ -1305,8 +1314,10 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         CASE bucket
           WHEN 'mlb' THEN 1
           WHEN 'minors' THEN 2
-          WHEN 'college' THEN 3
-          ELSE 4
+          WHEN 'indy' THEN 3
+          WHEN 'international' THEN 4
+          WHEN 'college' THEN 5
+          ELSE 6
         END
     ),
 
@@ -1320,6 +1331,8 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
             'label', CASE bucket
               WHEN 'mlb' THEN 'MLB CAREER BATTING'
               WHEN 'minors' THEN 'MINOR LEAGUE CAREER BATTING'
+              WHEN 'indy' THEN 'INDEPENDENT CAREER BATTING'
+              WHEN 'international' THEN 'INTERNATIONAL CAREER BATTING'
               WHEN 'college' THEN 'COLLEGE CAREER BATTING'
               ELSE 'CAREER BATTING'
             END,
@@ -1342,7 +1355,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
               'ops', ops
             )
           )
-          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'college' THEN 4 ELSE 5 END
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
         ) AS career_batting_buckets
       FROM career_batting_by_bucket
       WHERE bucket <> 'other'
@@ -1353,10 +1366,11 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       SELECT
         playerid::text AS playerid,
         CASE
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 100 THEN 'mlb'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 10000
-            AND NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int < 20000 THEN 'minors'
-          WHEN NULLIF(regexp_replace(COALESCE(teamid::text, ''), '[^0-9]', '', 'g'), '')::int >= 20000 THEN 'college'
+          WHEN canonical_team.level_label = 'MLB' THEN 'mlb'
+          WHEN canonical_team.level_label IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN canonical_team.level_label = 'INDY' THEN 'indy'
+          WHEN canonical_team.level_label = 'INTERNATIONAL' THEN 'international'
+          WHEN canonical_team.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
           ELSE 'other'
         END AS bucket,
         COUNT(DISTINCT year) AS pitching_seasons,
@@ -1529,7 +1543,9 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
           THEN ROUND(SUM(${n("so")}) / SUM(${n("bb")}), 2)
           ELSE NULL
         END AS so_bb
-      FROM public.v_tbc_pitching_all_seasons_resolved
+      FROM public.v_tbc_pitching_all_seasons_resolved career_stats
+      LEFT JOIN public.teamid_universe_mapping canonical_team
+        ON canonical_team.teamid = career_stats.teamid::text
       WHERE playerid::text IN (SELECT playerid::text FROM school_players)
       GROUP BY playerid::text, bucket
     ),
@@ -1540,6 +1556,8 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         CASE bucket
           WHEN 'mlb' THEN 'MLB CAREER'
           WHEN 'minors' THEN 'MINOR LEAGUE CAREER'
+          WHEN 'indy' THEN 'INDEPENDENT CAREER'
+          WHEN 'international' THEN 'INTERNATIONAL CAREER'
           WHEN 'college' THEN 'COLLEGE CAREER'
           ELSE 'CAREER'
         END AS career_bucket_label
@@ -1550,8 +1568,10 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         CASE bucket
           WHEN 'mlb' THEN 1
           WHEN 'minors' THEN 2
-          WHEN 'college' THEN 3
-          ELSE 4
+          WHEN 'indy' THEN 3
+          WHEN 'international' THEN 4
+          WHEN 'college' THEN 5
+          ELSE 6
         END
     ),
 
@@ -1565,6 +1585,8 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
             'label', CASE bucket
               WHEN 'mlb' THEN 'MLB CAREER PITCHING'
               WHEN 'minors' THEN 'MINOR LEAGUE CAREER PITCHING'
+              WHEN 'indy' THEN 'INDEPENDENT CAREER PITCHING'
+              WHEN 'international' THEN 'INTERNATIONAL CAREER PITCHING'
               WHEN 'college' THEN 'COLLEGE CAREER PITCHING'
               ELSE 'CAREER PITCHING'
             END,
@@ -1589,7 +1611,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
               'so_bb', so_bb
             )
           )
-          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'college' THEN 4 ELSE 5 END
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
         ) AS career_pitching_buckets
       FROM career_pitching_by_bucket
       WHERE bucket <> 'other'

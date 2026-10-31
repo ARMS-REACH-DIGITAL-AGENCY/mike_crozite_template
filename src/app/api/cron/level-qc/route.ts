@@ -16,6 +16,7 @@ import {
   TEAM_LEVEL_MISMATCH_SQL,
   TEAM_UNIVERSE_INTEGRITY_SQL,
   TEAM_UNIVERSE_AUDIT_24H_SQL,
+  HISTORICAL_TBC_LEVEL_COVERAGE_SQL,
   levelFixSql,
 } from "@/lib/officialLevels";
 
@@ -111,6 +112,14 @@ export async function GET(req: NextRequest) {
     const teamUniverse = teamUniverseRows[0];
     const { rows: canonicalAuditRows } = await query<{ changes_past_24h: number }>(TEAM_UNIVERSE_AUDIT_24H_SQL);
     const canonicalChanges24h = canonicalAuditRows[0]?.changes_past_24h ?? 0;
+    // Report canonical coverage of actual imported seasons, not just team counts.
+    const { rows: historicalLevelCoverage } = await query<{
+      source: string; total_stat_rows: number; unresolved_teamids: number;
+      held_stat_rows: number;
+    }>(HISTORICAL_TBC_LEVEL_COVERAGE_SQL);
+    const heldHistoricalStats = historicalLevelCoverage.reduce(
+      (n, r) => n + Number(r.held_stat_rows), 0
+    );
     const { rows: unresolvedActiveTeams } = await query<{
       playerid: string; display_name: string; status_label: string;
       current_teamid: string | null; current_team_name: string | null;
@@ -127,6 +136,8 @@ export async function GET(req: NextRequest) {
       coverage,
       teamUniverse,
       canonicalChanges24h,
+      historicalLevelCoverage,
+      heldHistoricalStats,
       unresolvedActiveTeams,
       scan,
       activeCards: cards.length,
@@ -136,7 +147,7 @@ export async function GET(req: NextRequest) {
 
     // Email when something changed, an active player needs a decision, or
     // any table still holds an unofficial level; a clean week stays quiet.
-    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0 || (coverage?.active_null_team_ids ?? 0) > 0 || (coverage?.unmapped_team_ids ?? 0) > 0 || (teamUniverse?.teams_needing_review ?? 0) > 0 || canonicalChanges24h > 0) {
+    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0 || (coverage?.active_null_team_ids ?? 0) > 0 || (coverage?.unmapped_team_ids ?? 0) > 0 || (teamUniverse?.teams_needing_review ?? 0) > 0 || canonicalChanges24h > 0 || heldHistoricalStats > 0) {
       const contactId = await findOrCreateGhlContact(REPORT_EMAIL, "Pete", "DeLuca", undefined, "YAT?STATS Operations");
       if (contactId) {
         const fixedRows = Object.entries(fixed).map(([k, n]) => [esc(k), String(n)]);
@@ -151,6 +162,10 @@ export async function GET(req: NextRequest) {
           ${identityMismatches.length ? table(["Player", "Team ID", "Card Team", "Canonical Team", "Card Org", "Canonical Org", "Card Level", "Canonical Level"], identityMismatches.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.canonical_team_name), esc(r.current_org_or_conference_name), esc(r.canonical_org_name), esc(r.level_label), esc(r.canonical_level)])) : "<p>None.</p>"}
           <p><b>Canonical team universe health (requires zero unresolved):</b> ${esc(JSON.stringify(teamUniverse))}</p>
           <p><b>Reviewed canonical changes in past 24 hours:</b> ${canonicalChanges24h}</p>
+          <p><b>Historical career-stat rows awaiting verified team-level mapping (${heldHistoricalStats}):</b></p>
+          ${table(["Source", "Imported stat rows", "Unresolved Team IDs", "Held out of competitive buckets"],
+            historicalLevelCoverage.map((r) => [esc(r.source), String(r.total_stat_rows),
+              String(r.unresolved_teamids), String(r.held_stat_rows)]))}
           <p><b>Full-stage coverage:</b> ${esc(JSON.stringify(coverage))}</p>
           <p><b>Unresolved ACTIVE assignments (first ${unresolvedActiveTeams.length}):</b></p>
           ${unresolvedActiveTeams.length ? table(["Player", "Team ID", "Team", "Level", "Source"], unresolvedActiveTeams.map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.level_label), esc(r.current_team_source)])) : "<p>None.</p>"}
