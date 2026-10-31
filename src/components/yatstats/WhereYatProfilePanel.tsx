@@ -56,17 +56,21 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .wyn-story-feed { min-width:0; display:grid; gap:8px; }
         .wyn-story-sponsor { position:sticky; top:110px; min-width:0; }
         .wyn-story-card { border:1px solid var(--yat-border,rgba(128,128,128,.3)); border-radius:8px; overflow:hidden; background:var(--yat-card-bg,rgba(128,128,128,.08)); color:inherit; }
-        .wyn-story-header { padding:10px 12px; border-bottom:1px solid var(--yat-border,rgba(128,128,128,.3)); font:700 14px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .wyn-story-header { padding:10px 12px; border-bottom:1px solid var(--yat-border,rgba(128,128,128,.3)); font:700 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .wyn-story-photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:2px; background:#101010; }
         .wyn-story-image { display:block; width:100%; max-height:520px; object-fit:contain; background:#101010; }
-        .wyn-story-body { padding:12px; font:400 14px/1.5 var(--yat-news-font,Georgia,serif); }
+        .wyn-story-body { padding:12px; font:400 13px/1.4 var(--yat-news-font,Georgia,serif); }
         .wyn-story-actions { padding:0 12px 12px; border-top:1px solid var(--yat-border,rgba(128,128,128,.3)); }
         @media(max-width:899px){.wyn-story-layout{display:block}.wyn-story-sponsor{display:none}.where-yat-profile{padding:10px}}
-        html:not(.dark) .where-yat-profile, html[data-theme='light'] .where-yat-profile, [data-theme='light'] .where-yat-profile {color:#171717}
-        html:not(.dark) .wyn-story-card, html[data-theme='light'] .wyn-story-card, [data-theme='light'] .wyn-story-card {background:#fff;color:#171717;border-color:#d4d4d4}
-        html:not(.dark) .wyn-story-header,html:not(.dark) .wyn-story-actions, [data-theme='light'] .wyn-story-header,[data-theme='light'] .wyn-story-actions {border-color:#d4d4d4}
-        html.dark .wyn-story-card,html[data-theme='dark'] .wyn-story-card,[data-theme='dark'] .wyn-story-card {background:#191919;color:#f4f4f4;border-color:#444}
-        html.dark .wyn-story-header,html.dark .wyn-story-actions,[data-theme='dark'] .wyn-story-header,[data-theme='dark'] .wyn-story-actions {border-color:#444}
+        /* StoriesFeed is the source of truth: theme lives on body.light-theme, not html. */
+        .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.055); --wyn-card-text:rgba(255,255,255,.88); --wyn-border:rgba(255,255,255,.14); color:var(--wyn-card-text); }
+        body.light-theme .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.52); --wyn-card-text:rgba(31,25,18,.86); --wyn-border:rgba(53,43,30,.18); }
+        .where-yat-profile .wyn-story-card { background:var(--wyn-card-bg); color:var(--wyn-card-text); border-color:var(--wyn-border); }
+        .where-yat-profile .wyn-story-header,.where-yat-profile .wyn-story-actions {border-color:var(--wyn-border);}
+        .where-yat-profile .wyn-story-body {font:400 13px/1.4 var(--yat-news-font,Georgia,serif);}
+        .where-yat-profile .wyn-story-header {font:700 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);}
+        @media(max-width:410px){.where-yat-profile .wyn-story-body{font-size:12px;}}
+
       `}</style>
       <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
     </div>
