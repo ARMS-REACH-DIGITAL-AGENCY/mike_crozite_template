@@ -20,7 +20,9 @@ assert(drawer.includes('onAuthStateChanged'),'After sign-in, resume intended alu
 assert(drawer.includes('https://yatstats.com/partners/'),'Corporate partner destination required');
 assert(!drawer.includes('#145a3c') && !drawer.includes('sec-partner'),'Legacy form styling and link must be gone');
 assert(flip.includes('WhereYatFunZonePanel'),'Retired CTA missing');
-assert(read('src/components/yatstats/WhereYatFunZonePanel.tsx').includes('WAITING FOR APPROVAL'),'Retired pending state missing');
+const retiredPanel = read('src/components/yatstats/WhereYatFunZonePanel.tsx');
+assert(retiredPanel.includes("state === 'unclaimed'") && retiredPanel.includes("state !== 'approved'"),'Unclaimed/pending graphic state selection must remain explicit');
+assert(retiredPanel.includes("const WAITING_APPROVAL_ART = '/img/where-yat-now/waiting-approval.png'"),'Pending state must use the supplied approval graphic');
 assert(flip.includes("alumniUpdate?.status === 'approved'"),'Retired approved state missing');
 assert(read('src/components/yatstats/WhereYatFunZonePanel.tsx').includes('href={profileHref}'),'Flip CTA must open full profile questionnaire');
 assert(!flip.includes("background:'#145a3c'"),'Legacy green CTA must be gone');
@@ -59,7 +61,15 @@ assert(claim.includes('lifePhotos'),'Allow multiple life photos');
 assert(claim.includes('businessPublic'),'Optional business promotion requires consent');
 
 const fzPanel=read('src/components/yatstats/WhereYatFunZonePanel.tsx');
-assert((fzPanel.match(/state === /g)||[]).length>=3,'All three Where YAT Now states must render');
+assert(fzPanel.includes("state !== 'approved'") && fzPanel.includes("state === 'unclaimed'") && fzPanel.includes("state: WhereYatFunZoneState"),'Retired unclaimed/pending/approved branches must be present');
+for (const asset of ['claim-profile.png','waiting-approval.png']) {
+ const path='public/img/where-yat-now/'+asset;
+ assert(fs.existsSync(path),'Required repo graphic missing: '+path);
+ const png=fs.readFileSync(path);
+ assert(png.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),'Retired card art is not a valid PNG: '+path);
+ assert(png.length>10000,'Retired card image is unexpectedly small: '+path);
+}
+assert(fzPanel.includes('href={profileHref}'),'Retired graphic must remain an actionable link');
 assert(flip.includes('TABS.map((tab)'),'Use existing six FunZone tab controls');
 assert((flip.match(/id: "(schedule|stats|news|social|connect|upload)"/g)||[]).length===6,'Preserve exactly six FunZone tab definitions');
 assert(flip.includes('onClick={() => setActiveTab(tab.id)}'),'Keep real tab interactions');
