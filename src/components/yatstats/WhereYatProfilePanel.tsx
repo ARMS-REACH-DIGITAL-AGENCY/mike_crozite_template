@@ -1,6 +1,4 @@
 import { query } from '@/lib/db';
-import { storyAssetUrl } from '@/lib/storyAssets';
-import WhereYatProofCard from './WhereYatProofCard';
 import WhereYatClaimForm from './WhereYatClaimForm';
 import WhereYatReactions from './WhereYatReactions';
 
@@ -41,25 +39,15 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
   return (
     <div className="where-yat-profile" style={{ maxWidth: 850, margin: 'auto', padding: 16, fontFamily: 'Archivo,Arial,sans-serif', color: '#eee', backgroundColor:'#111', colorScheme:'dark' }}>
       <h2 style={{ fontFamily:'Oswald,Arial Narrow,sans-serif', fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
-      {entry ? <article style={{maxWidth:800}}>
-        <div style={{background:'#c2b9ae',color:'#1e160e',padding:18}}>
-          <WhereYatProofCard variant="content" showName={false} proof={{
-            playerId,hsid,displayName:entry.display_name||name,city:entry.location_city||'',state:entry.location_state||'',
-            occupation:entry.occupation||'',company:entry.business_public_opt_in?entry.company_name||'':'',
-            website:entry.business_public_opt_in?entry.business_website||'':'',
-            linkedin:entry.linkedin_url||'',instagram:entry.instagram_url||'',facebook:entry.facebook_url||'',x:entry.x_url||'',
-            story:entry.story||entry.favorite_post_hs_memory||'',photoUrl:entry.photo_url||storyAssetUrl(entry.photo_key),
-            logoUrl:entry.business_public_opt_in?entry.company_logo_url:null,
-          }}/>
-        </div>
-        <div style={{display:'grid',gap:18,marginTop:20}}>
-          {([['MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['LIFE AND FAMILY',entry.family_life],['WHAT LIFE LOOKS LIKE NOW',entry.story]] as const).map(([label,value])=>value&&<section key={label} style={{padding:18,border:'1px solid #555'}}><h3 style={{fontFamily:'Oswald,sans-serif',fontSize:19}}>{label}</h3><p style={{whiteSpace:'pre-wrap',lineHeight:1.65}}>{value}</p></section>)}
-          {entry.retirement_year&&<p>RETIRED FROM BASEBALL: {entry.retirement_year}</p>}
-          {entry.life_photos_json?.length>0&&<section><h3>AFTER BASEBALL — PHOTO ALBUM</h3><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>{entry.life_photos_json.map((photo,i)=><a key={i} href={photo.full} target="_blank" rel="noopener noreferrer"><img alt={'Alumni life after baseball photo '+(i+1)} src={photo.web} style={{width:'100%',height:175,objectFit:'contain'}}/></a>)}</div></section>}
-          {entry.business_public_opt_in&&(entry.business_message||entry.business_offer||entry.business_contact_email||entry.business_contact_phone)&&<section style={{padding:18,border:'1px solid #777'}}><h3>BUSINESS SPOTLIGHT</h3>{entry.business_message&&<p>{entry.business_message}</p>}{entry.business_offer&&<p><strong>SPECIAL OFFER:</strong> {entry.business_offer}</p>}{entry.business_contact_email&&<p><a href={'mailto:'+entry.business_contact_email}>{entry.business_contact_email}</a></p>}{entry.business_contact_phone&&<p>{entry.business_contact_phone}</p>}</section>}
-        </div>
-        <WhereYatReactions id={entry.id}/>
-      </article> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      {entry ? <div style={{maxWidth:800,display:'grid',gap:18}}>
+        {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} style={{border:'1px solid #444',borderRadius:8,overflow:'hidden',background:'#191919'}}>
+          <header style={{padding:'12px 16px',borderBottom:'1px solid #444',fontFamily:'Oswald,sans-serif',fontSize:18,fontWeight:700}}>{entry.display_name||name} — {label}</header>
+          {entry.life_photos_json?.[index]?.web||((index===0||index===3)&&entry.photo_url)?<img src={entry.life_photos_json?.[index]?.web||entry.photo_url||''} alt={label} style={{width:'100%',maxHeight:430,objectFit:'contain',background:'#101010'}}/>:null}
+          <div style={{padding:'14px 16px'}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.65,margin:0}}>{value}</p></div>
+          <div style={{padding:'0 16px 12px'}}><WhereYatReactions id={entry.id} storyKey={key}/></div>
+        </article>)}
+        {entry.life_photos_json?.length>0&&<details style={{padding:16,border:'1px solid #444'}}><summary>AFTER BASEBALL — PHOTO ALBUM</summary><div style={{display:'flex',flexWrap:'wrap',gap:12,paddingTop:12}}>{entry.life_photos_json.map((photo,i)=><a key={i} href={photo.full} target="_blank" rel="noopener noreferrer"><img alt={'Life after baseball '+(i+1)} src={photo.web} style={{height:140,maxWidth:'100%',objectFit:'contain'}}/></a>)}</div></details>}
+      </div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       <style>{`\n        .where-yat-profile { background:#111 !important; color:#f5f5f5 !important; }\n        .where-yat-profile article, .where-yat-profile section { background:#191919 !important; color:#f5f5f5 !important; }\n        .where-yat-profile h2, .where-yat-profile h3, .where-yat-profile p, .where-yat-profile strong { color:#f5f5f5 !important; opacity:1 !important; }\n        .where-yat-profile a { color:#e9bf56; }\n        .where-yat-profile .wyn-embedded, .where-yat-profile .wyn-body { background:#c2b9ae !important; color:#1e160e !important; }\n        .where-yat-profile .wyn-embedded p { color:#1e160e !important; }\n      `}</style>\n      <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
     </div>
   );
