@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
   const playerId = clean(form.get('playerId'), 32);
   const hsid = clean(form.get('hsid'), 16);
   const replacesSubmissionId = Number(clean(form.get('replacesSubmissionId'), 20)) || null;
+  const memoryKeys=['favoriteHs','favoriteAfter','family','story'] as const;
+  const selectedMemory=clean(form.get('featuredMemory'),32);
+  const featuredMemory=memoryKeys.includes(selectedMemory as typeof memoryKeys[number])?selectedMemory:'story';
   let prior: Record<string, any> | null = null;
   if (replacesSubmissionId) {
     const previous = await query(
@@ -136,6 +139,12 @@ export async function POST(req: NextRequest) {
       const stored = await storeStoryPhoto(randomUUID(), i, Buffer.from(await lifeFiles[i].arrayBuffer()));
       album.push({ web: storyAssetUrl(stored.web_s3_key), full: storyAssetUrl(stored.s3_key), thumb: storyAssetUrl(stored.thumb_s3_key) });
     }
+    const memoryPhotos:Record<string,Array<{web:string|null;full:string|null;thumb:string|null}>>={...(prior?.memory_photos_json||{})};
+    for(const key of memoryKeys){
+      const files=form.getAll('memoryPhoto_'+key).filter((f):f is File=>f instanceof File&&f.size>0);
+      if(files.length>4||files.some(file=>file.size>STORY_MAX_PHOTO_BYTES||!file.type.startsWith('image/')))return reply('Each memory can have up to four images under 4 MB.',413);
+      if(files.length){const list=[];for(const [i,file] of files.entries()){const stored=await storeStoryPhoto(randomUUID(),i,Buffer.from(await file.arrayBuffer()));list.push({web:storyAssetUrl(stored.web_s3_key),full:storyAssetUrl(stored.s3_key),thumb:storyAssetUrl(stored.thumb_s3_key)});}memoryPhotos[key]=list;}
+    }
     const year = fields.retirementYear ? Number(fields.retirementYear) : null;
     if (year !== null && (!Number.isInteger(year) || year < 1900 || year > new Date().getFullYear()))
       return reply('Please enter a valid retirement year.');
@@ -160,7 +169,7 @@ export async function POST(req: NextRequest) {
       url: normalized.website || '', title: displayName, description: safetyText.slice(0, 2000), playerName: displayName,
     });
     let safeToPublish = textVerdict.decision === 'approve';
-    for (const imageUrl of [photoUrl, companyLogoUrl, ...album.map(item => item.web)].filter((url): url is string => Boolean(url))) {
+    for (const imageUrl of [photoUrl, companyLogoUrl, ...album.map(item => item.web),...Object.values(memoryPhotos).flatMap(items=>items.map(item=>item.web))].filter((url): url is string => Boolean(url))) {
       if (!safeToPublish) break;
       const verdict = await moderatePhoto({ imageUrl, purpose: 'other_photo', playerName: displayName });
       if (verdict?.decision !== 'approve') safeToPublish = false;
@@ -174,12 +183,12 @@ export async function POST(req: NextRequest) {
       `INSERT INTO public.alumni_where_yat_now
       (playerid,hsid,contributor_uid,contact_email,display_name,location_city,location_state,
        occupation,company_name,business_website,linkedin_url,instagram_url,facebook_url,x_url,
-       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at,retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,questionnaire_version,status,reviewed_at,replaces_submission_id,contact_phone)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,2,$33,NULL,$34,$35)
+       story,photo_key,photo_url,company_logo_key,company_logo_url,sponsorship_interest,proof_confirmed_at,retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,questionnaire_version,status,reviewed_at,replaces_submission_id,contact_phone,memory_photos_json,featured_memory_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,now(),$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31::jsonb,$32,2,$33,NULL,$34,$35,$36::jsonb,$37)
        RETURNING id`,
       [playerId,hsid,who.uid,email,displayName,fields.city,fields.state,fields.occupation,fields.company,
        normalized.website,normalized.linkedin,normalized.instagram,
-       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested,publicationStatus,replacesSubmissionId,fields.contactPhone],
+       normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested,publicationStatus,replacesSubmissionId,fields.contactPhone,JSON.stringify(memoryPhotos),featuredMemory],
     );
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
