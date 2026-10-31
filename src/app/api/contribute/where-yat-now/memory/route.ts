@@ -42,9 +42,10 @@ export async function PATCH(req:NextRequest){
  for(const [i,file] of files.entries()){
   const saved=await storeStoryPhoto(randomUUID(),i,Buffer.from(await file.arrayBuffer()));
   const photo={web:storyAssetUrl(saved.web_s3_key),full:storyAssetUrl(saved.s3_key),thumb:storyAssetUrl(saved.thumb_s3_key)};
+  if(!photo.web||!photo.full||!photo.thumb)return bad('Image storage did not return a usable photo.',503);
   const verdict=await moderatePhoto({imageUrl:photo.web,purpose:'other_photo'});
   if(verdict?.decision!=='approve')return bad('A photo could not be safety-verified. Your published memory is unchanged.',422);
-  uploaded.push(photo);
+  uploaded.push({web:photo.web,full:photo.full,thumb:photo.thumb});
  }
  const photos={...existing,[key]:[...kept,...uploaded]};
  const column=columns[key];
