@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/generate-splash-sponsors.mjs && next dev",
-    "build": "node scripts/test-school-directory-routing.cjs && node scripts/verify-current-team-source-authority.cjs && node scripts/check-shared-roster-sql.cjs && node scripts/test-school-news-links.cjs && node scripts/test-news-row3-navigation.cjs && node scripts/test-school-social-previews.cjs && node scripts/generate-splash-sponsors.mjs && node scripts/verify-splash-sponsor.mjs && node scripts/verify-timeline-photo-layout.cjs && node scripts/verify-where-yat-now.cjs && node scripts/verify-where-yat-form-design.cjs && next build",
+    "build": "node scripts/test-school-directory-routing.cjs && node scripts/verify-current-team-source-authority.cjs && node scripts/check-shared-roster-sql.cjs && node scripts/test-school-news-links.cjs && node scripts/test-news-row3-navigation.cjs && node scripts/test-school-social-previews.cjs && node scripts/generate-splash-sponsors.mjs && node scripts/verify-splash-sponsor.mjs && node scripts/verify-timeline-photo-layout.cjs && node scripts/verify-where-yat-now.cjs && node scripts/verify-where-yat-form-design.cjs && node scripts/verify-docked-contribute-layout.cjs && next build",
     "start": "next start",
     "lint": "eslint",
     "bracket:audit": "node scripts/bracket-integrity-2026.mjs audit",
