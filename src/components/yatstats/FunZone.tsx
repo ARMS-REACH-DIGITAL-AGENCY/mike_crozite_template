@@ -944,7 +944,7 @@ export default function FunZone({
             type="button"
           >
             <i className={tab.icon} aria-hidden="true" />
-            <span className="fz-tab-label">{retiredPlayer && tab.id === "schedule" ? "WHERE YAT NOW?" : tab.label}</span>
+            <span className="fz-tab-label">{retiredPlayer && tab.id === "schedule" ? "YAT?" : tab.label}</span>
           </button>
         ))}
       </nav>
