@@ -2443,10 +2443,41 @@ export async function getNewsByPlayer(
 // ---------------------------------------------------------------------------
 // PLAYER PHOTOS - uploaded career-progression photos for the filmstrip.
 // ---------------------------------------------------------------------------
+// Front-card contributions are intentionally higher priority than legacy
+// pinned images. A fan's AI-approved Flip Card Front upload must become the
+// visible front everywhere (gallery, profile, share preview, cross-school
+// favorites), without rewriting source tables or relying on mutable S3 cache.
+const FRONT_ASSET_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+
+type PublishedFrontUpload = {
+  id: string;
+  playerid: string;
+  description: string | null;
+};
+function publishedFrontUrl(row: PublishedFrontUpload): string | null {
+  let assets: unknown = null;
+  try { assets = JSON.parse(row.description || '{}')?.published_assets; } catch { return null; }
+  if (!Array.isArray(assets)) return null;
+  // Only records that actually published a flip-card front are eligible.
+  const published = assets.filter((v): v is string => typeof v === 'string');
+  const permanentKey = `players/front-uploads/${row.playerid}_${row.id}.webp`;
+  if (published.includes(permanentKey))
+    return `${FRONT_ASSET_BASE}/${permanentKey}`;
+  if (published.includes(`players/then-card/${row.playerid}.webp`))
+    return `${FRONT_ASSET_BASE}/players/then-card/${encodeURIComponent(row.playerid)}.webp?v=${encodeURIComponent(row.id)}`;
+  if (published.includes(`players/then/${row.playerid}.jpg`))
+    return `${FRONT_ASSET_BASE}/players/then/${encodeURIComponent(row.playerid)}.jpg?v=${encodeURIComponent(row.id)}`;
+  return null;
+}
+
 export async function getDesignatedPlayerImage(
   imageId: string,
   role: string
 ): Promise<any | null> {
+  if (role === 'YATSTATS_FRONT') {
+    const map = await getBatchDesignatedPlayerImages([imageId], role);
+    return map.get(imageId) || null;
+  }
   try {
     const { rows } = await query(
       `SELECT *
@@ -2455,7 +2486,7 @@ export async function getDesignatedPlayerImage(
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC
+        ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, created_at DESC, photo_asset_id DESC
         LIMIT 1`,
       [imageId, role]
     );
@@ -2469,7 +2500,11 @@ export const getBatchDesignatedPlayerImages = cache(async function getBatchDesig
   imageIds: string[],
   role: string
 ): Promise<Map<string, any>> {
-  if (imageIds.length === 0) return new Map();
+  const map = new Map<string, any>();
+  if (imageIds.length === 0) return map;
+
+  // A missing upload lookup must not hide designated legacy images. Keep the
+  // two reads separate so an error in either source doesn't blank the other.
   try {
     const { rows } = await query(
       `SELECT DISTINCT ON (playerid::text) playerid, image_url
@@ -2478,17 +2513,41 @@ export const getBatchDesignatedPlayerImages = cache(async function getBatchDesig
           AND image_role = $2
           AND approval_status = 'APPROVED'
           AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST`,
+        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, created_at DESC`,
       [imageIds, role]
     );
-    const map = new Map<string, any>();
     for (const row of rows) {
-      map.set(String(row.playerid), row);
+      if (row.image_url) map.set(String(row.playerid), row);
     }
-    return map;
-  } catch {
-    return new Map();
+  } catch (error) {
+    console.error('[getBatchDesignatedPlayerImages] designated image lookup failed', { role, error });
   }
+  if (role !== 'YATSTATS_FRONT') return map;
+
+  try {
+    // DISTINCT ON keeps a player-level replacement universal across all
+    // school pages, while avoiding per-player queries on large rosters.
+    // Empty published_assets (e.g. duplicate uploads) never take the slot.
+    const { rows } = await query<PublishedFrontUpload>(
+      `SELECT DISTINCT ON (playerid) playerid, id::text, description
+         FROM media_upload
+        WHERE playerid = ANY($1::text[])
+          AND purpose = 'flip_card'
+          AND status = 'approved'
+          AND (description LIKE '%players/then/%'
+            OR description LIKE '%players/then-card/%'
+            OR description LIKE '%players/front-uploads/%')
+        ORDER BY playerid, uploaded_at DESC, id DESC`,
+      [imageIds]
+    );
+    for (const row of rows) {
+      const image_url = publishedFrontUrl(row);
+      if (image_url) map.set(row.playerid, { playerid: row.playerid, image_url });
+    }
+  } catch (error) {
+    console.error('[getBatchDesignatedPlayerImages] published front lookup failed', { error });
+  }
+  return map;
 });
 
 export async function getPlayerPhotos(imageId: string): Promise<any[]> {
