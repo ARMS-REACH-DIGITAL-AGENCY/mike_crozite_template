@@ -1,36 +1,164 @@
 'use client';
-import {useEffect,useState} from 'react';
-import {auth} from '@/lib/firebase';
-type Comment={id:string;text:string;when:string;author:string};
-export default function WhereYatReactions({id,storyKey='legacy'}: {id:number;storyKey?:string}){
- const [data,setData]=useState<{likes:number;liked:boolean;comments:Comment[]}>({likes:0,liked:false,comments:[]});
- const [text,setText]=useState('');const [error,setError]=useState('');
- async function headers():Promise<Record<string,string>>{await auth.authStateReady?.();const token=await auth.currentUser?.getIdToken();return token?{'x-firebase-token':token}:{}}
- async function refresh(){const h=await headers();const r=await fetch('/api/contribute/where-yat-now/social?id='+id+'&storyKey='+encodeURIComponent(storyKey),{headers:h,cache:'no-store'});if(r.ok)setData(await r.json())}
- useEffect(()=>{void refresh()},[id,storyKey]);
- async function act(action:'like'|'comment'){
-  const h=await headers();
-  if(!Object.keys(h).length){setError('Sign in to participate.');window.dispatchEvent(new CustomEvent('yat:acct-tab',{detail:'signin'}));return;}
-  const r=await fetch('/api/contribute/where-yat-now/social',{method:'POST',headers:{...h,'content-type':'application/json'},body:JSON.stringify({id,action,text,storyKey})});
-  const d=await r.json().catch(()=>({}));if(!r.ok){setError(d.error||'Unable to post.');return}
-  setText('');setError('');await refresh();
- }
- async function share(){
-  const url=window.location.href.split('#')[0]+'#where-yat-'+storyKey;
-  if(navigator.share)try{await navigator.share({url});return}catch{}
-  await navigator.clipboard.writeText(url).catch(()=>setError('Unable to copy link'));
- }
- return <section className="wyn-reactions">
-   <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
-    <button type="button" onClick={()=>void act('like')} aria-pressed={data.liked}>{data.liked?'♥ Liked':'♡ Like'} ({data.likes})</button>
-    <button type="button" onClick={()=>document.getElementById('alumni-comment-'+storyKey)?.focus()}>Comment ({data.comments.length})</button>
-    <button type="button" onClick={()=>void share()}>Share</button>
-   </div>
-   <h3 style={{fontFamily:'Oswald,sans-serif',marginTop:12}}>COMMUNITY COMMENTS</h3>
-   {data.comments.map(c=><article key={c.id} style={{borderBottom:'1px solid currentColor',padding:'10px 0'}}><strong>{c.author}</strong><p>{c.text}</p></article>)}
-   <textarea id={"alumni-comment-"+storyKey} value={text} maxLength={2000} rows={3} onChange={e=>setText(e.target.value)} placeholder="Join the conversation about life after baseball" className="wyn-comment-input"/>
-   <button type="button" disabled={!text.trim()} onClick={()=>void act('comment')}>POST COMMENT</button>
-   {error&&<p role="alert" style={{color:'#ffc0c0'}}>{error}</p>}
-    <style>{` .wyn-reactions{border-top:1px solid #999;padding:12px 0;margin-top:12px;color:inherit} .wyn-reactions button{color:inherit;background:transparent;border:0;cursor:pointer;font:inherit} .wyn-comment-input{width:100%;box-sizing:border-box;background:transparent;color:inherit;border:1px solid #999;padding:10px} .wyn-comment-input::placeholder{color:#888} `}</style>
-  </section>
+
+import { useEffect, useRef, useState } from 'react';
+import { auth } from '@/lib/firebase';
+import { openSignIn, useFanMe } from './StoryViewer';
+
+type Comment = { id: string; text: string; when: string; author: string };
+type Reactions = { likes: number; liked: boolean; comments: Comment[] };
+const EMPTY: Reactions = { likes: 0, liked: false, comments: [] };
+
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('') || 'Y';
+}
+
+async function sessionHeaders(): Promise<Record<string, string>> {
+  await auth.authStateReady?.();
+  const token = await auth.currentUser?.getIdToken().catch(() => '');
+  return token ? { 'x-firebase-token': token } : {};
+}
+
+// Uses the exact compact Stories card action bar (ysf-card-actions), icons
+// and StoryViewer comment-bubble/composer classes. The retired-questionnaire
+// API remains independent: each answer keeps its own likes and comments.
+export default function WhereYatReactions({ id, storyKey = 'legacy' }: { id: number; storyKey?: string }) {
+  const me = useFanMe();
+  const [data, setData] = useState<Reactions>(EMPTY);
+  const [draft, setDraft] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  const myName = [me?.firstName, me?.lastName].filter(Boolean).join(' ');
+  const load = async () => {
+    try {
+      const headers = await sessionHeaders();
+      const url = '/api/contribute/where-yat-now/social?id=' + encodeURIComponent(String(id)) +
+        '&storyKey=' + encodeURIComponent(storyKey);
+      const response = await fetch(url, { headers, credentials: 'include', cache: 'no-store' });
+      if (!response.ok) throw new Error('Reactions are unavailable.');
+      const result = await response.json() as Reactions;
+      setData({
+        likes: Number(result.likes) || 0,
+        liked: Boolean(result.liked),
+        comments: Array.isArray(result.comments) ? result.comments : [],
+      });
+    } catch {
+      setError('Unable to load reactions.');
+    }
+  };
+  useEffect(() => {
+    void load();
+    const refresh = () => void load();
+    window.addEventListener('yat-auth-success', refresh);
+    window.addEventListener('yat-sign-out', refresh);
+    return () => {
+      window.removeEventListener('yat-auth-success', refresh);
+      window.removeEventListener('yat-sign-out', refresh);
+    };
+    // Reload whenever the published answer or signed-in fan changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, storyKey]);
+
+  const act = async (action: 'like' | 'comment') => {
+    if (busy) return;
+    const headers = await sessionHeaders();
+    if (!me && !Object.keys(headers).length) { openSignIn(); return; }
+    if (action === 'comment' && !draft.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch('/api/contribute/where-yat-now/social', {
+        method: 'POST', credentials: 'include',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ id, action, text: draft.trim(), storyKey }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.status === 401) { openSignIn(); return; }
+      if (!response.ok) throw new Error(result.error || 'Unable to save your reaction.');
+      if (action === 'comment') { setDraft(''); setComposerOpen(false); }
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to save your reaction.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const comment = () => {
+    if (!me && !auth.currentUser) { openSignIn(); return; }
+    setComposerOpen(true);
+    requestAnimationFrame(() => composerRef.current?.focus());
+  };
+
+  const share = async () => {
+    const url = new URL(window.location.href);
+    url.hash = 'where-yat-' + storyKey;
+    if (navigator.share) {
+      try { await navigator.share({ url: url.toString() }); return; }
+      catch (cause) {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setError('Link copied. Paste it anywhere to share.');
+    } catch { setError('Unable to copy link.'); }
+  };
+
+  return (
+    <section className="wyn-reactions" aria-label="Like, comment and share this alumni story">
+      <div className="ysf-card-actions">
+        <button type="button" className={data.liked ? 'ysf-liked' : ''} aria-pressed={data.liked}
+          disabled={busy} onClick={() => void act('like')}>
+          <i className={data.liked ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} aria-hidden="true" />
+          Like{data.likes > 0 ? ` · ${data.likes}` : ''}
+        </button>
+        <button type="button" onClick={comment}>
+          <i className="ri-chat-3-line" aria-hidden="true" />
+          Comment{data.comments.length > 0 ? ` · ${data.comments.length}` : ''}
+        </button>
+        <button type="button" onClick={() => void share()}>
+          <i className="ri-share-forward-line" aria-hidden="true" /> Share
+        </button>
+      </div>
+
+      {data.comments.length > 0 && (
+        <div className="ysv-comments">
+          {data.comments.map(c => (
+            <div className="ysv-comment" key={c.id}>
+              <span className="ysv-avatar ysv-avatar-sm" aria-hidden="true">{initials(c.author)}</span>
+              <div className="ysv-comment-main">
+                <div className="ysv-bubble"><strong>{c.author}</strong><span>{c.text}</span></div>
+                <div className="ysv-comment-meta">
+                  <span>{new Date(c.when).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {composerOpen && (
+        <div className="ysv-composer">
+          <span className="ysv-avatar ysv-avatar-sm" aria-hidden="true">{initials(myName || 'YAT')}</span>
+          <div className="ysv-compose-box">
+            <textarea
+              ref={composerRef} value={draft} rows={2} maxLength={2000}
+              onChange={event => setDraft(event.target.value)}
+              onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void act('comment'); } }}
+              placeholder={`Were you there? Add a comment as ${myName || 'you'}`}
+              aria-label="Write a comment"
+            />
+          </div>
+          <button type="button" onClick={() => void act('comment')} disabled={busy || !draft.trim()}
+            aria-label="Post comment" title="Post comment">
+            <i className={busy ? 'ri-loader-4-line ysv-spin' : 'ri-send-plane-2-fill'} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      {error && <div className="ysv-note" role="status">{error}</div>}
+    </section>
+  );
 }
