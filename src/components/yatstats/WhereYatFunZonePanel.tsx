@@ -171,7 +171,13 @@ export default function WhereYatFunZonePanel({
           color:#0b2f54!important; text-align:center; text-decoration:underline;
           font:700 clamp(8px,2.5cqi,12px) Oswald,sans-serif; margin-top:clamp(5px,1.4cqi,9px);
         }
-        .wyn-fz-approved::before{top:0;height:27%;clip-path:polygon(0 5%,100% 0,97% 85%,0 100%);}
+        /* Approved profiles use a neutral notebook surface, not the old
+           blue brush stroke. Reserve the space for story and business links. */
+        .wyn-fz-approved::before{display:none!important;content:none!important;}
+        .wyn-fz-approved .wyn-fz-brand {border-color:rgba(30,22,14,.35);}
+        .wyn-fz-approved .wyn-fz-brand span{color:#30261d;text-shadow:none;}
+        .wyn-fz-approved .wyn-fz-brand img{filter:none;}
+        .wyn-fz-approved-content .wyn-story{flex:1;min-height:0;}
         .wyn-fz-approved .wyn-fz-brand{margin-bottom:clamp(4px,1.4cqi,9px);}
         .wyn-fz-approved-content{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
         .wyn-fz-approved-content .wyn-embedded{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
