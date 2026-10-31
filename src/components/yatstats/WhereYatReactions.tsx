@@ -20,16 +20,17 @@ export default function WhereYatReactions({id,storyKey='legacy'}: {id:number;sto
   if(navigator.share)try{await navigator.share({url});return}catch{}
   await navigator.clipboard.writeText(url).catch(()=>setError('Unable to copy link'));
  }
- return <section style={{borderTop:'1px solid #666',padding:'20px 0',marginTop:24}}>
+ return <section className="wyn-reactions">
    <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
     <button type="button" onClick={()=>void act('like')} aria-pressed={data.liked}>{data.liked?'♥ Liked':'♡ Like'} ({data.likes})</button>
     <button type="button" onClick={()=>document.getElementById('alumni-comment-'+storyKey)?.focus()}>Comment ({data.comments.length})</button>
     <button type="button" onClick={()=>void share()}>Share</button>
    </div>
-   <h3 style={{fontFamily:'Oswald,sans-serif',marginTop:20}}>COMMUNITY COMMENTS</h3>
-   {data.comments.map(c=><article key={c.id} style={{borderBottom:'1px solid #444',padding:'10px 0'}}><strong>{c.author}</strong><p>{c.text}</p></article>)}
-   <textarea id={"alumni-comment-"+storyKey} value={text} maxLength={2000} rows={3} onChange={e=>setText(e.target.value)} placeholder="Join the conversation about life after baseball" style={{width:'100%',boxSizing:'border-box',background:'#181818',color:'#fff',border:'1px solid #666',padding:10}}/>
+   <h3 style={{fontFamily:'Oswald,sans-serif',marginTop:12}}>COMMUNITY COMMENTS</h3>
+   {data.comments.map(c=><article key={c.id} style={{borderBottom:'1px solid currentColor',padding:'10px 0'}}><strong>{c.author}</strong><p>{c.text}</p></article>)}
+   <textarea id={"alumni-comment-"+storyKey} value={text} maxLength={2000} rows={3} onChange={e=>setText(e.target.value)} placeholder="Join the conversation about life after baseball" className="wyn-comment-input"/>
    <button type="button" disabled={!text.trim()} onClick={()=>void act('comment')}>POST COMMENT</button>
    {error&&<p role="alert" style={{color:'#ffc0c0'}}>{error}</p>}
+    <style>{` .wyn-reactions{border-top:1px solid #999;padding:12px 0;margin-top:12px;color:inherit} .wyn-reactions button{color:inherit;background:transparent;border:0;cursor:pointer;font:inherit} .wyn-comment-input{width:100%;box-sizing:border-box;background:transparent;color:inherit;border:1px solid #999;padding:10px} .wyn-comment-input::placeholder{color:#888} `}</style>
   </section>
 }
