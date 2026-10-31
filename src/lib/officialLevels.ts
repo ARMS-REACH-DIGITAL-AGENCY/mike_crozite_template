@@ -464,7 +464,7 @@ WITH season2026 AS MATERIALIZED (
   AND NOT EXISTS(SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
   AND NOT EXISTS(SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
   AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
- ORDER BY f.playerid LIMIT 2000
+ ORDER BY f.playerid LIMIT 5000
 ), classified AS (
  UPDATE public.flip_card_front_stage f SET
   status_label='RETIRED', display_status_label='RETIRED',
