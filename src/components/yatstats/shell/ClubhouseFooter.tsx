@@ -107,6 +107,8 @@ export default function ClubhouseFooter({ activeAlumni }: { activeAlumni: number
         mask-image:linear-gradient(to right, transparent 0px, #000 var(--yat-ticker-fade,12px), #000 calc(100% - 35px), transparent 100%);
       }
       .yat-clubhouse-marquee {
+        font-family:'Doto', monospace !important;
+        font-weight:900 !important;
         display:flex !important;
         align-items:center;
         height:100%;
