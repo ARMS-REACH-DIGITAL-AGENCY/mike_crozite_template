@@ -11,47 +11,31 @@ const fields=[
  ['story','WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'],
 ] as const;
 
-/* Every question is visible in the index, initially closed. Keeping all
-   controls mounted (and only hiding their panels) preserves FormData,
-   typed answers and selected uploads when moving from question to question. */
-const questionGroups = [
- { title:'ABOUT YOU', questions:[
-  {id:'displayName',title:'YOUR NAME',required:true},
-  {id:'email',title:'CONTACT EMAIL (PRIVATE)',required:true},
-  {id:'contactPhone',title:'CALLBACK PHONE (PRIVATE)',optional:true},
-  {id:'location',title:'CITY AND STATE'},
-  {id:'retirementYear',title:'YEAR YOU RETIRED FROM BASEBALL'}
- ]},
- { title:'YOUR BASEBALL AND LIFE STORY', questions:[
-  {id:'favoriteHs',title:'MOST MEMORABLE MOMENT PLAYING AT YOUR HIGH SCHOOL'},
-  {id:'favoriteAfter',title:'MOST MEMORABLE BASEBALL MOMENT AFTER GRADUATION'},
-  {id:'family',title:'DO YOU HAVE A FAMILY? ANY BALLPLAYERS? TELL US MORE.'},
-  {id:'story',title:'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'},
-  // Each memory now includes its own photo uploader.
- ]},
- { title:'OPTIONAL BUSINESS SPOTLIGHT', optional:true, questions:[
-  {id:'occupation',title:'YOUR PROFESSION',optional:true},
-  {id:'company',title:'COMPANY / ORGANIZATION',optional:true},
-  {id:'businessMessage',title:'WHAT WOULD YOU LIKE PEOPLE TO KNOW ABOUT YOUR BUSINESS?',optional:true},
-  {id:'businessOffer',title:'SPECIAL OFFER',optional:true},
-  {id:'companyLogo',title:'COMPANY LOGO',optional:true},
-  {id:'website',title:'BUSINESS WEBSITE',optional:true},
-  {id:'businessEmail',title:'PUBLIC BUSINESS EMAIL',optional:true},
-  {id:'businessPhone',title:'PUBLIC BUSINESS PHONE',optional:true},
-  {id:'linkedin',title:'LINKEDIN',optional:true},
-  {id:'instagram',title:'INSTAGRAM',optional:true},
-  {id:'facebook',title:'FACEBOOK',optional:true},
-  {id:'x',title:'X / TWITTER',optional:true},
-  {id:'businessPublic',title:'PERMISSION TO PUBLISH BUSINESS DETAILS',optional:true}
- ]},
- { title:'RECONNECT WITH TEAMMATES', questions:[
-  {id:'teammateTips',title:'TEAMMATE INFORMATION (PRIVATE)',optional:true}
- ]},
- { title:'VERIFY YOUR SUBMISSION', questions:[
-  {id:'claimAttestation',title:'CONFIRM YOU ARE THIS ALUMNUS OR HAVE PERMISSION',required:true}
- ]}
+/* The form follows the published profile: the flip-card back is one
+   grouped accordion, followed by four separate memory/story prompts.
+   The fields keep their existing names so saved records and moderation
+   continue using the same submission API. */
+const flipCardFields=[
+ {id:'displayName',title:'YOUR NAME',required:true},
+ {id:'email',title:'CONTACT EMAIL (PRIVATE)',required:true},
+ {id:'contactPhone',title:'CALLBACK PHONE (PRIVATE)',optional:true},
+ {id:'location',title:'CITY AND STATE'},
+ {id:'retirementYear',title:'YEAR YOU RETIRED FROM BASEBALL'},
+ {id:'occupation',title:'YOUR PROFESSION',optional:true},
+ {id:'company',title:'COMPANY / ORGANIZATION',optional:true},
+ {id:'businessMessage',title:'WHAT WOULD YOU LIKE PEOPLE TO KNOW ABOUT YOUR BUSINESS?',optional:true},
+ {id:'businessOffer',title:'SPECIAL OFFER',optional:true},
+ {id:'companyLogo',title:'COMPANY LOGO',optional:true},
+ {id:'website',title:'BUSINESS WEBSITE',optional:true},
+ {id:'businessEmail',title:'PUBLIC BUSINESS EMAIL',optional:true},
+ {id:'businessPhone',title:'PUBLIC BUSINESS PHONE / TEXT',optional:true},
+ {id:'linkedin',title:'LINKEDIN',optional:true},
+ {id:'facebook',title:'FACEBOOK',optional:true},
+ {id:'instagram',title:'INSTAGRAM',optional:true},
+ {id:'x',title:'X / TWITTER',optional:true},
+ {id:'businessPublic',title:'PERMISSION TO PUBLISH BUSINESS DETAILS',optional:true},
 ] as const;
-const questionOrder = questionGroups.flatMap(group => group.questions.map(question => question.id));
+const questionOrder=[...flipCardFields.map(field=>field.id),...fields.map(field=>field[0]),'teammateTips','claimAttestation'] as const;
 
 export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId:string;hsid:string;name:string;school:string}){
  const form=useRef<HTMLFormElement>(null);
@@ -86,7 +70,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    setSavedLoaded(true);
   })();
  }
- const [openQuestion,setOpenQuestion]=useState<string|null>(null);
+ const [openQuestion,setOpenQuestion]=useState<string|null>('flipCard');
  const [allOpen,setAllOpen]=useState(false);
  const [closedWhenAll,setClosedWhenAll]=useState<string[]>([]);
  const [featuredMemory,setFeaturedMemory]=useState('story');
@@ -154,13 +138,28 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   }catch(e){setError(e instanceof Error?e.message:'Could not read photo')}finally{setBusy(false)}
  }
 
- // All form controls stay mounted, preserving answers and selected files.
+ // The top block is a single accordion, not eighteen separate questions.
+ // Keep collapsed inputs mounted so the API receives every field on submit.
+ function sectionForField(id:string):string {
+  return flipCardFields.some(field=>field.id===id)?'flipCard':id;
+ }
  function showQuestion(id:string|null){
-  if(allOpen){
-   if(id)setClosedWhenAll(previous=>previous.includes(id)?previous.filter(value=>value!==id):[...previous,id]);
+  if(!id)return;
+  const section=sectionForField(id);
+  if(section==='claimAttestation'||section==='teammateTips'){
+   requestAnimationFrame(()=>document.getElementById('wyn-q-'+id)?.scrollIntoView({behavior:'smooth',block:'nearest'}));
    return;
   }
-  setOpenQuestion(id);
+  if(allOpen)setClosedWhenAll(previous=>previous.filter(value=>value!==section));
+  else setOpenQuestion(section);
+  requestAnimationFrame(()=>document.getElementById('wyn-q-'+id)?.scrollIntoView({behavior:'smooth',block:'nearest'}));
+ }
+ function toggleSection(id:string){
+  if(allOpen)setClosedWhenAll(previous=>previous.includes(id)?previous.filter(value=>value!==id):[...previous,id]);
+  else setOpenQuestion(previous=>previous===id?null:id);
+ }
+ function sectionIsOpen(id:string):boolean{
+  return allOpen?!closedWhenAll.includes(id):openQuestion===id;
  }
  function toggleAllQuestions(){
   setAllOpen(previous=>!previous);
@@ -250,7 +249,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   if(id==='retirementYear')return <label className="ycd-field"><span className="ycd-label">YEAR YOU RETIRED FROM BASEBALL</span><input type="number" name="retirementYear" min="1900" max={new Date().getFullYear()} /></label>;
   const storyField=fields.find(([key])=>key===id);
   if(storyField)return <div className="ycd-field">
-   <label className="ycd-field"><span className="ycd-label">{storyField[1].replace('YOUR HIGH SCHOOL',school.toUpperCase())}</span><textarea name={storyField[0]} rows={4} maxLength={storyField[0]==='story'?2400:5000}/></label>
+   <label className="ycd-field"><textarea aria-label={storyField[1].replace('YOUR HIGH SCHOOL',school.toUpperCase())} name={storyField[0]} rows={4} maxLength={storyField[0]==='story'?2400:5000}/></label>
    <label className="wyn-photo-select"><span className="wyn-photo-select-heading"><i className="ri-image-add-line"/> ADD PHOTOS TO THIS MEMORY</span><span className="ycd-muted ycd-small">Up to 4 photos, attached only to this answer.</span><input type="file" multiple accept="image/*" onChange={e=>{void addMemoryFiles(storyField[0],e.target.files);e.target.value='';}}/></label>
    {(memoryPhotos[storyField[0]]||[]).length>0&&<div className="wyn-photos">{memoryPhotos[storyField[0]].map((photo,index)=><div className="wyn-photo-thumb" key={photo.url}><img src={photo.url} alt={'Memory photo '+(index+1)}/><button type="button" className="ycd-btn" onClick={()=>{URL.revokeObjectURL(photo.url);setMemoryPhotos(prev=>({...prev,[storyField[0]]:(prev[storyField[0]]||[]).filter((_,j)=>j!==index)}));setProof(null)}}>REMOVE</button></div>)}</div>}
   </div>;
@@ -344,42 +343,51 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
     </button>
    </div>
 
-   {questionGroups.map((group,groupIndex)=>(
-    <Fragment key={group.title}>
-    <section className="wyn-form-section wyn-question-group" aria-label={group.title}>
-     <h3 className="ycd-label wyn-question-group-title">
-      <span className="ycd-step">{groupIndex+1}</span>{group.title}
-      {'optional' in group && group.optional && <small>OPTIONAL</small>}
-     </h3>
-     {group.questions.map((question)=>{
-      const isOpen=allOpen?!closedWhenAll.includes(question.id):openQuestion===question.id;
-      const isAnswered=question.id==='lifePhotos'?photos.length>0:Boolean(answered[question.id]);
-      const title=question.title.replace('YOUR HIGH SCHOOL',school.toUpperCase());
-      const isOptional='optional' in question && question.optional;
-      return (
-       <div key={question.id} id={'wyn-q-'+question.id} className={'wyn-question'+(isOpen?' is-open':'')+(isAnswered?' is-answered':'')}
-        data-wyn-question={question.id}>
-        <button type="button" className="wyn-question-toggle" aria-expanded={isOpen}
-         aria-controls={'wyn-question-body-'+question.id}
-         onClick={()=>showQuestion(isOpen?null:question.id)}>
-         <span className="wyn-question-title">{title}</span>
-         {isOptional && <span className="wyn-question-optional">OPTIONAL</span>}
-         {isAnswered && <i className="ri-checkbox-circle-fill wyn-question-done" aria-label="Answered" />}
-         <i className={isOpen?'ri-arrow-up-s-line wyn-question-chevron':'ri-arrow-down-s-line wyn-question-chevron'} aria-hidden="true" />
-        </button>
-        {/* Hidden keeps field values, attached files, and FormData intact. */}
-        <div id={'wyn-question-body-'+question.id} className="wyn-question-body" hidden={!isOpen}>
-         {renderQuestion(question.id)}
-        </div>
+   <section id="wyn-q-flipCard" className="wyn-form-section wyn-unified-section wyn-flip-card-section" aria-label="Your flip-card back">
+    <button type="button" className="wyn-section-toggle" aria-expanded={sectionIsOpen('flipCard')}
+     aria-controls="wyn-flip-card-fields" onClick={()=>toggleSection('flipCard')}>
+     <span className="ycd-step">1</span>
+     <span className="wyn-section-name">YOUR FLIP-CARD BACK</span>
+     <i className={sectionIsOpen('flipCard')?'ri-arrow-up-s-line':'ri-arrow-down-s-line'} aria-hidden="true"/>
+    </button>
+    <div id="wyn-flip-card-fields" className="wyn-section-body wyn-flip-card-body" hidden={!sectionIsOpen('flipCard')}>
+     <p className="ycd-muted ycd-small">These details build the back of your flip card. Private contact details are for verification only. You'll select the memory featured on the card when you review your proof.</p>
+     {flipCardFields.map((field,index)=>(
+      <Fragment key={field.id}>
+       {index===0&&<h4 className="wyn-flip-subhead">ABOUT YOU</h4>}
+       {index===5&&<h4 className="wyn-flip-subhead">BUSINESS DETAILS</h4>}
+       {index===11&&<h4 className="wyn-flip-subhead">CONTACT & SOCIAL LINKS</h4>}
+       <div className="wyn-field-item" data-wyn-question={field.id} id={'wyn-q-'+field.id}>
+        {renderQuestion(field.id)}
        </div>
-      );
-     })}
-    </section>
-    {groupIndex===1 && <aside className="wyn-question-inline-ad" aria-label="Player Profile Partner in-feed placement">
+      </Fragment>
+     ))}
+    </div>
+   </section>
+   {fields.map(([key,title],index)=>(
+    <Fragment key={key}>
+     <section id={'wyn-q-'+key} data-wyn-question={key} className="wyn-form-section wyn-unified-section wyn-memory-section" aria-label={title.replace('YOUR HIGH SCHOOL',school.toUpperCase())}>
+      <button type="button" className="wyn-section-toggle" aria-expanded={sectionIsOpen(key)}
+       aria-controls={'wyn-memory-body-'+key} onClick={()=>toggleSection(key)}>
+       <span className="ycd-step">{index+2}</span>
+       <span className="wyn-section-name">{title.replace('YOUR HIGH SCHOOL',school.toUpperCase())}</span>
+       {answered[key]&&<i className="ri-checkbox-circle-fill wyn-question-done" aria-label="Answered"/>}
+       <i className={sectionIsOpen(key)?'ri-arrow-up-s-line':'ri-arrow-down-s-line'} aria-hidden="true"/>
+      </button>
+      <div id={'wyn-memory-body-'+key} className="wyn-section-body" hidden={!sectionIsOpen(key)}>
+       {renderQuestion(key)}
+      </div>
+     </section>
+     {index===1&&<aside className="wyn-question-inline-ad" aria-label="Player Profile Partner in-feed placement">
       <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED PARTNER CARD</small>
-    </aside>}
+     </aside>}
     </Fragment>
    ))}
+   <div className="wyn-form-section wyn-final-details" aria-label="Final private details and verification">
+    <h3 className="ycd-label">BEFORE YOU SUBMIT</h3>
+    <div id="wyn-q-teammateTips" data-wyn-question="teammateTips">{renderQuestion('teammateTips')}</div>
+    <div id="wyn-q-claimAttestation" data-wyn-question="claimAttestation">{renderQuestion('claimAttestation')}</div>
+   </div>
    {proof && (
     <section id="claim-proof" className="wyn-form-section wyn-claim-proof">
      <h3 className="ycd-label"><span className="ycd-step">6</span> REVIEW YOUR PROFILE AND FLIP-CARD PROOFS</h3>
