@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./contribution-forms.css";
 import StyledJsxRegistry from "./registry";
 import { AnalyticsPageViews } from "@/components/analytics/Analytics";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics";
