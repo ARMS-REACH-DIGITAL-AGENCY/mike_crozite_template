@@ -2379,6 +2379,13 @@ export async function getNewsByPlayer(
            FROM fan_activity
           WHERE action = 'news_tagged'
             AND details->>'playerId' = $1
+         UNION
+         SELECT na.uuid
+           FROM flip_card_front_stage roster
+           JOIN news_articles na ON na.hsid::text = roster.hsid::text
+          WHERE roster.playerid::text = $1
+            AND na.discovery_source = 'contribute'
+            AND na.raw_payload->>'team_year' = ANY(roster.roster_years)
        )
        SELECT
          na.*,
