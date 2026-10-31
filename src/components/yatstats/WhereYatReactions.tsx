@@ -93,10 +93,11 @@ export default function WhereYatReactions({ id, storyKey = 'legacy' }: { id: num
   };
 
   const share = async () => {
-    const url = new URL(window.location.href);
-    url.hash = 'where-yat-' + storyKey;
+    const url = new URL(window.location.pathname, window.location.origin);
+    url.searchParams.set('whereYatStory',storyKey);
+    url.hash = 'ppTab-schedule';
     if (navigator.share) {
-      try { await navigator.share({ url: url.toString() }); return; }
+      try { await navigator.share({ title: '#YATABOY — A life after baseball memory', url: url.toString() }); return; }
       catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return;
       }
