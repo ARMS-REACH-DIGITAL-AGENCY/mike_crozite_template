@@ -297,32 +297,46 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  // Presentation reuses the exact Connect & Contribute drawer design classes.
  // Keep the dedicated questionnaire data, validation, photo upload, proof,
  // permissions and API unchanged.
- if(!editEnabled && saved && signedIn)return (
-  <div className="where-yat-claim">
+
+ const receiptStatus=receipt ? (published?'approved':'pending') : saved?.status;
+ const confirmedId=receipt||Number(saved?.id||0);
+ if(receiptStatus==='pending' && confirmedId>0 && signedIn) return (
+  <div className="where-yat-claim wyn-pending-receipt" role="status" aria-live="polite">
    <section className="wyn-form-section">
-    <h3 className="ycd-label">YOUR SAVED WHERE YAT? QUESTIONNAIRE</h3>
-    <p className="ycd-muted ycd-small">Your previous answers are saved. You can edit them and review an updated proof before submitting a revision.</p>
-    <button type="button" className="ycd-btn ycd-btn-primary" onClick={()=>setEditEnabled(true)}>EDIT MY ANSWERS</button>
+    <h3 className="ycd-label"><i className="ri-time-line" aria-hidden="true"/> SUBMISSION RECEIVED — PENDING APPROVAL</h3>
+    <p>Your Where YAT? questionnaire is saved as <strong>submission #{confirmedId}</strong>. Thank you for telling us how life has been since baseball.</p>
+    <p>We are verifying your alumni identity. <strong>Your completed flip card and memories are not public yet.</strong> There is no need to submit again.</p>
+    <div className="wyn-pending-card" aria-label="Flip-card back waiting for approval">
+     <img src="/img/where-yat-now/waiting-approval.png" alt="Update received. Waiting for identity approval before the flip card is published."/>
+    </div>
+    <div className="ycd-actions wyn-pending-actions">
+     <a className="ycd-btn ycd-btn-primary" href={'/'+hsid+'/where-yat-proof?submission='+confirmedId}>VIEW MY PRIVATE SAVED PROOF</a>
+     {saved?.id && <button type="button" className="ycd-btn" onClick={()=>{setReceipt(null);setEditEnabled(true)}}>EDIT MY ANSWERS</button>}
+    </div>
+    <p className="ycd-muted ycd-small">After approval, your completed card replaces this pending artwork. Your submitted proof is private until then.</p>
    </section>
   </div>
+ );
+ if(!editEnabled && saved && signedIn)return (
+  <div className="where-yat-claim"><section className="wyn-form-section">
+   <h3 className="ycd-label">YOUR PUBLISHED WHERE YAT? QUESTIONNAIRE</h3>
+   <p>Your published answers are saved. You can edit them and submit a revision for review.</p>
+   <button type="button" className="ycd-btn ycd-btn-primary" onClick={()=>setEditEnabled(true)}>EDIT MY ANSWERS</button>
+  </section></div>
  );
  if(!signedIn && savedLoaded)return (
   <div className="where-yat-claim"><section className="wyn-form-section">
    <h3 className="ycd-label">JOIN TO SHARE YOUR STORY</h3>
-   <p className="ycd-muted ycd-small">Sign in or JOIN YAT?STATS to complete this questionnaire and return to edit your answers.</p>
+   <p className="ycd-muted ycd-small">Sign in or JOIN YAT?STATS to complete the questionnaire and return to edit your answers.</p>
    <button type="button" className="ycd-btn ycd-btn-primary" onClick={openJoin}>JOIN OR SIGN IN</button>
   </section></div>
  );
- if (receipt) return (
-  <div className="where-yat-claim" role="status">
-   <section className="wyn-form-section">
-    <h3 className="ycd-label"><span className="ycd-step"><i className="ri-checkbox-circle-line" aria-hidden="true" /></span>{published ? 'PROFILE PUBLISHED' : 'UPDATE RECEIVED — WAITING FOR APPROVAL'}</h3>
-    <p className="ycd-muted ycd-small">{published ? 'Your approved flip-card back and expanded player profile are now published.' : 'Your proof has been received and is awaiting review. Neither public version has been published.'}</p>
-    <div className="ycd-actions">
-     <a className="ycd-btn ycd-btn-primary" href={'/' + hsid + '/where-yat-proof?submission=' + receipt}>VIEW YOUR SAVED PROOF</a>
-    </div>
-   </section>
-  </div>
+ if(receipt && published)return (
+  <div className="where-yat-claim" role="status"><section className="wyn-form-section">
+   <h3 className="ycd-label"><i className="ri-checkbox-circle-fill" aria-hidden="true"/> PROFILE PUBLISHED</h3>
+   <p>Your approved flip-card back and life-after-baseball memories are now public.</p>
+   <a className="ycd-btn ycd-btn-primary" href={'/'+hsid+'/where-yat-proof?submission='+receipt}>VIEW MY SAVED PROOF</a>
+  </section></div>
  );
 
 
