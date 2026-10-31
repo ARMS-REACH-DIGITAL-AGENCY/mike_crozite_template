@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import WhereYatClaimForm from './WhereYatClaimForm';
 import WhereYatReactions from './WhereYatReactions';
+import { StoryStyles } from './StoryViewer';
 import SponsorTower from './SponsorTower';
 
 type AlumniUpdate = {
@@ -39,9 +40,10 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
   }
   return (
     <div className="where-yat-profile">
+      <StoryStyles />
       <h2 style={{ fontFamily:'Oswald,Arial Narrow,sans-serif', fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
       {entry ? <div className="wyn-story-layout"><div className="wyn-story-feed">
-        {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} className="wyn-story-card">
+        {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} className="wyn-story-card ysf">
           <header className="wyn-story-header">{entry.display_name||name} — {label}</header>
           {(key==='family'&&entry.life_photos_json?.length>0)||((key==='story')&&entry.photo_url&&!entry.life_photos_json?.length)?<div className="wyn-story-photo-grid">{(key==='family'?entry.life_photos_json:[{web:entry.photo_url||'',full:entry.photo_url||'',thumb:''}]).filter(photo=>photo.web).map((photo,i)=><img key={i} src={photo.web} alt={`${label} photo ${i+1}`} className="wyn-story-image"/>)}</div>:null}
           <div className="wyn-story-body"><p style={{whiteSpace:'pre-wrap',lineHeight:1.65,margin:0}}>{value}</p></div>
@@ -60,12 +62,20 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .wyn-story-photo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:2px; background:#101010; }
         .wyn-story-image { display:block; width:100%; max-height:520px; object-fit:contain; background:#101010; }
         .wyn-story-body { padding:12px; font:400 13px/1.4 var(--yat-news-font,Georgia,serif); }
-        .wyn-story-actions { padding:0 12px 12px; border-top:1px solid var(--yat-border,rgba(128,128,128,.3)); }
+        .wyn-story-actions { padding:0; border-top:0; }
+        .where-yat-profile .wyn-reactions {margin:0;padding:0;border:0;color:inherit;}
+        .where-yat-profile .ysf-card-actions {border-top:1px solid var(--wyn-border);border-bottom:1px solid var(--wyn-border);}
+        .where-yat-profile .ysf-card-actions button {color:var(--wyn-card-text);font:600 13px/1 var(--yat-font-ui,Arial,sans-serif);}
+        .where-yat-profile .ysf-card-actions button i {font-size:15px;}
+        .where-yat-profile .ysf-card-actions button.ysf-liked {color:var(--ysv-gold-text);}
+        .where-yat-profile .ysv-comments {padding:12px;}
+        .where-yat-profile .ysv-composer {padding:10px 12px 12px;}
+        .where-yat-profile .ysv-note {margin:10px 12px;}
         @media(max-width:899px){.wyn-story-layout{display:block}.wyn-story-sponsor{display:none}.where-yat-profile{padding:10px}}
         /* StoriesFeed is the source of truth: theme lives on body.light-theme, not html. */
         .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.055); --wyn-card-text:rgba(255,255,255,.88); --wyn-border:rgba(255,255,255,.14); color:var(--wyn-card-text); }
         body.light-theme .where-yat-profile { --wyn-card-bg:rgba(255,255,255,.52); --wyn-card-text:rgba(31,25,18,.86); --wyn-border:rgba(53,43,30,.18); }
-        .where-yat-profile .wyn-story-card { background:var(--wyn-card-bg); color:var(--wyn-card-text); border-color:var(--wyn-border); }
+        .where-yat-profile .wyn-story-card { background:var(--wyn-card-bg); color:var(--wyn-card-text); border-color:var(--wyn-border); --ysv-fg:var(--wyn-card-text); --ysv-text:var(--wyn-card-text); --ysv-line:var(--wyn-border); }
         .where-yat-profile .wyn-story-header,.where-yat-profile .wyn-story-actions {border-color:var(--wyn-border);}
         .where-yat-profile .wyn-story-body {font:400 13px/1.4 var(--yat-news-font,Georgia,serif);}
         .where-yat-profile .wyn-story-header {font:700 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif);}
