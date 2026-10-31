@@ -404,7 +404,8 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
        occupation:proof.occupation, company:proof.company,
        story:proof[featuredMemory]||proof.story||proof.favoriteAfter||proof.favoriteHs, storyPrompt:fields.find(([key])=>key===featuredMemory)?.[1].replace('YOUR HIGH SCHOOL',school.toUpperCase()), website:proof.website,
        linkedin:proof.linkedin, instagram:proof.instagram, facebook:proof.facebook,
-       x:proof.x, photoUrl:memoryPhotos[featuredMemory]?.[0]?.url||photos[0]?.url,
+       x:proof.x, businessEmail:proof.businessEmail,businessPhone:proof.businessPhone,
+       photoUrl:memoryPhotos[featuredMemory]?.[0]?.url||photos[0]?.url,
        businessPublic:proof.businessPublic==='yes'
       }} />
      </div>
