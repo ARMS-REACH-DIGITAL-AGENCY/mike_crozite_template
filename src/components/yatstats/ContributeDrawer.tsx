@@ -151,8 +151,28 @@ export default function ContributeDrawer() {
   const [tipUrl, setTipUrl] = useState('');
   const [tipTitle, setTipTitle] = useState('');
   const [tipWhy, setTipWhy] = useState('');
+  const [tipPublishedDate, setTipPublishedDate] = useState('');
+  const [tipTeamYear, setTipTeamYear] = useState('');
+  const [tipDateStatus, setTipDateStatus] = useState('');
 
   const youtubeTip = parseNewsVideo(tipUrl)?.provider === 'YouTube';
+  useEffect(() => {
+    if (!youtubeTip) { setTipDateStatus(''); return; }
+    const controller = new AbortController();
+    setTipDateStatus('Reading original YouTube publication date…');
+    const timeout = window.setTimeout(() => {
+      fetch('/api/contribute/youtube-metadata?url=' + encodeURIComponent(tipUrl), { signal: controller.signal })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (controller.signal.aborted) return;
+          if (data?.publishedAt) {
+            setTipPublishedDate(v => v || data.publishedAt.slice(0, 10));
+            setTipDateStatus('Original YouTube date loaded. Editable below.');
+          } else setTipDateStatus('Enter the original date shown on YouTube.');
+        }).catch(() => { if (!controller.signal.aborted) setTipDateStatus('Enter the original publication date manually.'); });
+    }, 350);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [tipUrl, youtubeTip]);
   const [firebaseSignedIn, setFirebaseSignedIn] = useState(false);
   const signedIn = Boolean(session?.uid || firebaseSignedIn);
   const sending = status.kind === 'sending';
@@ -188,7 +208,7 @@ export default function ContributeDrawer() {
 
   const resetForms = useCallback(() => {
     setData({});
-    setSource(''); setTipUrl(''); setTipTitle(''); setTipWhy('');
+    setSource(''); setTipUrl(''); setTipTitle(''); setTipWhy(''); setTipPublishedDate(''); setTipTeamYear(''); setTipDateStatus('');
     setMp({ name: '', gradYear: '', position: '', level: '', team: '', notes: '' });
     setStatus({ kind: 'idle' });
   }, []);
@@ -389,7 +409,12 @@ export default function ContributeDrawer() {
     if (tab === 'tip') {
       if (!/^https?:\/\/\S+\.\S+/i.test(tipUrl.trim())) return setStatus({ kind: 'error', text: 'Paste the news, video, or social link.' });
       if (!tipTitle.trim() && !youtubeTip) return setStatus({ kind: 'error', text: 'Give this story or video a title.' });
-      return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(), playerId: player?.playerId || '', playerName: player?.displayName || '', hsid: player?.schoolId || hubSchool?.hsid || '' });
+      if (youtubeTip && !tipPublishedDate) return setStatus({ kind: 'error', text: 'Enter the original YouTube publication date.' });
+       if (!player?.schoolId && !school?.hsid && !hubSchool?.hsid) return setStatus({ kind: 'error', text: 'Select a high school program.' });
+       return post({ kind: 'tip', url: tipUrl.trim(), title: tipTitle.trim(), why: tipWhy.trim(),
+         publishedDate: tipPublishedDate, teamYear: tipTeamYear,
+         playerId: player?.playerId || '', playerName: player?.displayName || '',
+         hsid: player?.schoolId || school?.hsid || hubSchool?.hsid || '' });
     }
     if (!mp.name.trim()) return setStatus({ kind: 'error', text: "Type the player's name." });
     if (!school) return setStatus({ kind: 'error', text: 'Pick his high school.' });
@@ -672,7 +697,7 @@ export default function ContributeDrawer() {
             ) : (
               <>
                 <div className="ycd-field">
-                  <div className="ycd-label">Who is it about? (optional)</div>
+                  <div className="ycd-label">Tag a player (optional)</div>
                   <PlayerPicker value={player} onChange={choosePlayer} />
                 </div>
                 <div className="ycd-field">
@@ -687,7 +712,16 @@ export default function ContributeDrawer() {
                    {youtubeTip && <p className="ycd-muted ycd-small">Leave blank to use the video's original YouTube title. Links will not appear in the title.</p>}
                 </div>
                 <div className="ycd-field">
-                  <label className="ycd-label" htmlFor="ycdTipWhy">Why it matters (optional)</label>
+                  <label className="ycd-label" htmlFor="ycdTipDate">Original publication date</label>
+                 <input id="ycdTipDate" type="date" value={tipPublishedDate} max={new Date().toISOString().slice(0,10)} onChange={e=>setTipPublishedDate(e.target.value)} />
+                 <p className="ycd-muted ycd-small">{tipDateStatus || 'The source date, not the date this was added to YAT?STATS.'}</p>
+                 <label className="ycd-label" htmlFor="ycdTipTeamYear">Tag varsity team year (optional)</label>
+                 <select id="ycdTipTeamYear" value={tipTeamYear} onChange={e=>setTipTeamYear(e.target.value)}>
+                   <option value="">No team year</option>
+                   {YEARS.map(y=><option value={y} key={y}>{y} varsity team</option>)}
+                 </select>
+                 <p className="ycd-muted ycd-small">Also shows the post on every verified varsity player's News feed for that school and year.</p>
+                 <label className="ycd-label" htmlFor="ycdTipWhy">Why it matters (optional)</label>
                   <textarea id="ycdTipWhy" rows={3} value={tipWhy} onChange={(e) => setTipWhy(e.target.value)} placeholder={`A milestone, a call-up, a great game or clip featuring ${firstName}…`} />
                 </div>
               </>

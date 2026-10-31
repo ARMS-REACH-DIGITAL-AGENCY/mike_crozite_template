@@ -230,7 +230,12 @@ export default function ProfileNewsList({
                   // An Instagram story with no player photo (a coach, a
                   // school post) shows the post's own picture instead.
                   const postPicture = instagramDetails[story.uuid]?.thumbnail_url;
-                  const srcs = [...getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl), ...(postPicture ? [postPicture] : [])];
+                  const youtubeThumbnail = clip?.provider === 'YouTube' ? clip.thumbnailUrl : null;
+                   // For contributed videos the video frame is authoritative,
+                   // not the player's unrelated profile photograph.
+                   const srcs = youtubeThumbnail
+                     ? [youtubeThumbnail, ...getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl)]
+                     : [...getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl), ...(postPicture ? [postPicture] : [])];
                   return <CardPhoto key={srcs.join(' ')} srcs={srcs} className="pp-news-thumb-img" />;
                 })()}
               </div>
