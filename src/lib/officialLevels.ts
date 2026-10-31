@@ -469,6 +469,12 @@ WITH season2026 AS MATERIALIZED (
  UPDATE public.flip_card_front_stage f SET
   status_label='RETIRED', display_status_label='RETIRED',
   team_affiliation_status='RETIRED',
+  source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','no_activity_after_2025',
+      'evidence','no_documented_2026_participation',
+      'source','yatstats_retirement_cutoff',
+      'applied_at',NOW())),
   updated_at=NOW(),stage_updated_at=NOW()
  FROM eligible e WHERE f.playerid=e.playerid AND f.status_label IS NULL
  RETURNING f.playerid
