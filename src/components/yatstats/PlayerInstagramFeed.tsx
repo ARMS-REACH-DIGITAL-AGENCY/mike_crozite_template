@@ -175,7 +175,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // Render the original Instagram post for all News media, never substitute that thumbnail.
   // Social Reels use Meta's licensed media URL when available, never its branded iframe.
   const socialReel = Boolean(!externalPosts && current?.media_type === 'video');
-  const resolvedVideo = socialReel && socialVideo?.id === current?.id ? socialVideo.url : null;
+  const resolvedVideo = socialReel && socialVideo?.id === current?.id ? (socialVideo?.url ?? null) : null;
   const embedShown = Boolean(!socialReel && embedUrl && (externalPosts ? (isInteractiveNews || !hasPicture) : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
