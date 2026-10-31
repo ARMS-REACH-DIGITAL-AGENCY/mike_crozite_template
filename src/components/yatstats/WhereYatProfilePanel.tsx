@@ -49,6 +49,9 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
           <div className="wyn-story-body"><p style={{whiteSpace:'pre-wrap',lineHeight:1.65,margin:0}}>{value}</p></div>
           <div className="wyn-story-actions"><WhereYatReactions id={entry.id} storyKey={key}/></div>
         </article>)}
+        <aside className="wyn-story-inline-ad" aria-label="Player Profile Partner in-feed sponsor">
+          <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small>
+        </aside>
         {entry.life_photos_json?.length>0&&<details style={{padding:16,border:'1px solid #444'}}><summary>AFTER BASEBALL — PHOTO ALBUM</summary><div style={{display:'flex',flexWrap:'wrap',gap:12,paddingTop:12}}>{entry.life_photos_json.map((photo,i)=><a key={i} href={photo.full} target="_blank" rel="noopener noreferrer"><img alt={'Life after baseball '+(i+1)} src={photo.web} style={{height:140,maxWidth:'100%',objectFit:'contain'}}/></a>)}</div></details>}
       </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       <style>{`
@@ -56,6 +59,11 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .where-yat-profile .wyn-panel-title {position:sticky;top:0;z-index:10;background:var(--psi-page-bg,var(--bg,#070707));color:var(--wyn-card-text);font:700 22px/1.2 var(--yat-font-condensed,Oswald,Arial Narrow,sans-serif);margin:0 0 10px;padding:8px 4px;border-bottom:1px solid var(--wyn-border);}
         .wyn-story-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:12px; align-items:start; }
         .wyn-story-feed { min-width:0; display:grid; gap:8px; }
+        .wyn-story-inline-ad{display:none;box-sizing:border-box;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;width:100%;padding:16px;border:1px dashed var(--wyn-border);border-radius:8px;text-align:center;color:var(--wyn-card-text);background:var(--wyn-card-bg);}
+        .wyn-story-inline-ad strong{font:800 20px/1.1 var(--yat-font-compact,Oswald,sans-serif);}
+        .wyn-story-inline-ad :is(span,small){font:600 11px/1.3 var(--yat-font-ui,Arial,sans-serif);}
+        body.drawer-contribute-open .wyn-story-inline-ad{display:flex;}
+        @media(max-width:899px){.wyn-story-inline-ad{display:flex;}}
         .wyn-story-sponsor { position:sticky; top:110px; min-width:0; }
         .wyn-story-card { border:1px solid var(--yat-border,rgba(128,128,128,.3)); border-radius:8px; overflow:hidden; background:var(--yat-card-bg,rgba(128,128,128,.08)); color:inherit; }
         .wyn-story-header { padding:10px 12px; border-bottom:1px solid var(--yat-border,rgba(128,128,128,.3)); font:700 12px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
