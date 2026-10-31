@@ -25,6 +25,8 @@ export type WhereYatProof = {
   photoUrl?: string | null;
   logoUrl?: string | null;
   businessPublic?: boolean;
+  businesses?: Array<{name:string;website:string;logoUrl?:string}>;
+  businessHeadshotUrl?:string|null;
 };
 
 type Social = { key: WhereYatLinkField; icon: string; label: string; className: string };
@@ -116,6 +118,10 @@ const css = `
   .wyn-embedded .wyn-heading {font-size:clamp(6px,2.1cqi,10px);}
   .wyn-embedded .wyn-identity p {font-size:clamp(7px,2.1cqi,11px);}
   .wyn-embedded .wyn-story {font-size:clamp(7px,2.25cqi,11px); line-height:1.25;}
+  .wyn-story-prompt{font:800 clamp(7px,2.1cqi,11px)/1.2 Oswald,Arial,sans-serif;color:#5a4830;letter-spacing:.03em;}
+  .wyn-business-list{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:5px;width:100%;}
+  .wyn-business-list a{display:flex;align-items:center;gap:4px;color:#30261e;text-decoration:none;font-size:clamp(7px,2.1cqi,11px);}
+  .wyn-business-list img{width:clamp(22px,7cqi,36px);height:clamp(22px,7cqi,36px);object-fit:contain;}
   .wyn-embedded .wyn-photo {max-height:25cqi;}
   .wyn-embedded .wyn-social {width:clamp(18px,7cqi,34px);height:clamp(18px,7cqi,34px);font-size:clamp(10px,4cqi,19px);}
 `;
@@ -134,6 +140,11 @@ export default function WhereYatProofCard({
     return normalized.url ? { ...item, href: normalized.url } : null;
   }).filter((item): item is Social & { href: string } => !!item);
   const showBusiness = proof.businessPublic !== false;
+  const businesses=(proof.businesses||[]).slice(0,4).filter(b=>b.name||b.website||b.logoUrl);
+  // A fixed 5:7 card cannot contain an unbounded biography. Render a clearly
+  // labeled excerpt rather than silently cutting text at an arbitrary line.
+  const storyText=proof.story||'Visit the player profile to learn more about life after baseball.';
+  const excerpt=storyText.length>280?storyText.slice(0,277).trimEnd()+'…':storyText;
   const businessLinks = showBusiness ? links : [];
   const body = (
     <div className="wyn-body">
@@ -146,9 +157,12 @@ export default function WhereYatProofCard({
         </div>
         {proof.photoUrl && <img className="wyn-photo" src={proof.photoUrl} alt="Alumnus's recent photo" />}
       </div>
-      <p className="wyn-story">{proof.story || 'Visit the player profile to learn more about life after baseball.'}</p>
-      {showBusiness && (proof.company || proof.logoUrl || businessHref || businessLinks.length > 0) && (
+      <div className="wyn-story-prompt">WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?</div>
+      <p className="wyn-story">{excerpt}</p>
+      {showBusiness && (proof.company || proof.logoUrl || businessHref || businessLinks.length > 0 || businesses.length > 0 || proof.businessHeadshotUrl) && (
         <div className="wyn-business-links" aria-label="Business information and links">
+          {businesses.length>0&&<div className="wyn-business-list">{businesses.map((b,i)=>{const href=normalizeWhereYatLink('website',b.website||'').url;return href?<a key={i} href={href} target="_blank" rel="noopener noreferrer">{b.logoUrl&&<img src={b.logoUrl} alt={b.name+' logo'}/>}<span>{b.name}</span></a>:<span key={i}>{b.name}</span>})}</div>}
+          {proof.businessHeadshotUrl&&<img className="wyn-business-logo" src={proof.businessHeadshotUrl} alt="Business headshot"/>}
           {proof.logoUrl && (businessHref
             ? <a href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Visit business website"><img className="wyn-business-logo" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Business logo'} /></a>
             : <img className="wyn-business-logo" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Business logo'} />)}
