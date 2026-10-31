@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {Fragment,useEffect,useRef,useState} from 'react';
 import {auth} from '@/lib/firebase';
 import {copyStoryPhoto,prepareStoryPhoto,createStoryUploadBody,type StoryPhotoData} from '@/lib/storyPhotoUpload';
 import WhereYatProofCard from './WhereYatProofCard';
@@ -27,7 +27,7 @@ const questionGroups = [
   {id:'favoriteAfter',title:'MOST MEMORABLE BASEBALL MOMENT AFTER GRADUATION'},
   {id:'family',title:'DO YOU HAVE A FAMILY? ANY BALLPLAYERS? TELL US MORE.'},
   {id:'story',title:'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'},
-  {id:'lifePhotos',title:'PHOTOS FROM LIFE AFTER BASEBALL (UP TO 4)',optional:true}
+  // Each memory now includes its own photo uploader.
  ]},
  { title:'OPTIONAL BUSINESS SPOTLIGHT', optional:true, questions:[
   {id:'occupation',title:'YOUR PROFESSION',optional:true},
@@ -88,6 +88,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  }
  const [openQuestion,setOpenQuestion]=useState<string|null>(null);
  const [allOpen,setAllOpen]=useState(false);
+ const [closedWhenAll,setClosedWhenAll]=useState<string[]>([]);
  const [featuredMemory,setFeaturedMemory]=useState('story');
  const [answered,setAnswered]=useState<Record<string,boolean>>({});
  useEffect(()=>{
@@ -153,16 +154,18 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   }catch(e){setError(e instanceof Error?e.message:'Could not read photo')}finally{setBusy(false)}
  }
 
- // Only one question can be open. The next action opens the next one and
- // scrolls its heading into view; closing never unmounts the input element.
+ // All form controls stay mounted, preserving answers and selected files.
  function showQuestion(id:string|null){
-  setAllOpen(false);
+  if(allOpen){
+   if(id)setClosedWhenAll(previous=>previous.includes(id)?previous.filter(value=>value!==id):[...previous,id]);
+   return;
+  }
   setOpenQuestion(id);
-  if(id) requestAnimationFrame(() => document.getElementById('wyn-q-'+id)?.scrollIntoView({behavior:'smooth',block:'nearest'}));
  }
- function nextQuestion(id:string){
-  const index=questionOrder.indexOf(id as typeof questionOrder[number]);
-  showQuestion(index>=0 && index<questionOrder.length-1 ? questionOrder[index+1] : null);
+ function toggleAllQuestions(){
+  setAllOpen(previous=>!previous);
+  setClosedWhenAll([]);
+  setOpenQuestion(null);
  }
  function questionAnswered(id:string):boolean {
   if(id==='lifePhotos')return photos.length>0;
@@ -206,9 +209,16 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   if(!auth.currentUser){openJoin();setError('JOIN or sign in to save your questionnaire. Your answers remain here.');return;}
   const data=new FormData(e.currentTarget);data.set('playerId',playerId);data.set('hsid',hsid);
   if(saved?.id && editEnabled)data.set('replacesSubmissionId',String(saved.id));
-  data.set('featuredMemory',featuredMemory);
-  if(!proof){setProof(Object.fromEntries([...data.entries()].filter(([,v])=>typeof v==='string')) as Record<string,string>);
-    requestAnimationFrame(()=>document.getElementById('claim-proof')?.scrollIntoView({behavior:'smooth',block:'start'}));return}
+  const answers=Object.fromEntries([...data.entries()].filter(([,v])=>typeof v==='string')) as Record<string,string>;
+  const available=fields.filter(([key])=>String(answers[key]||'').trim());
+  const effectiveFeatured=available.some(([key])=>key===featuredMemory)?featuredMemory:(available[0]?.[0]||'story');
+  data.set('featuredMemory',effectiveFeatured);
+  if(!proof){
+   setFeaturedMemory(effectiveFeatured);
+   setProof(answers);
+   requestAnimationFrame(()=>document.getElementById('claim-proof')?.scrollIntoView({behavior:'smooth',block:'start'}));
+   return;
+  }
   setBusy(true);setError('');
   try{
    await auth.authStateReady?.();const token=await auth.currentUser?.getIdToken();
@@ -321,22 +331,28 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
   <form ref={form} onSubmit={submit} onChange={answerChanged} noValidate
    className="where-yat-claim" aria-label="Where YAT Now alumni questionnaire">
    {alreadyPending && <div role="status" className="wyn-claim-status ycd-muted ycd-small">A previous update is awaiting review. You can submit a new questionnaire below; your previous submission will be preserved.</div>}
-   <p className="ycd-muted ycd-small">Choose a question to answer or open all questions to review your answers together. Every story prompt becomes its own memory after publication.</p>
-   <div className="wyn-question-actions"><button type="button" className="ycd-btn" onClick={()=>setAllOpen(true)}>OPEN ALL</button><button type="button" className="ycd-btn" onClick={()=>{setAllOpen(false);setOpenQuestion(null)}}>CLOSE ALL</button></div>
-   <section className="wyn-form-section"><label className="ycd-field"><span className="ycd-label">WHICH MEMORY SHOULD APPEAR ON YOUR FLIP-CARD BACK?</span><select aria-label="Featured flip-card memory" value={featuredMemory} onChange={e=>{setFeaturedMemory(e.target.value);setProof(null)}}>{fields.map(([key,title])=><option key={key} value={key}>{title.replace('YOUR HIGH SCHOOL',school.toUpperCase())}</option>)}</select></label></section>
-   <div className="wyn-question-progress" role="status" aria-live="polite">
-    <span>{answeredCount} OF {questionOrder.length} ANSWERED</span>
-    <span>{allOpen?'ALL QUESTIONS OPEN':'OPEN INDIVIDUALLY OR ALL AT ONCE'}</span>
+   <div className="wyn-question-intro">
+    <p>We'd love to know how you're doing! Tell us where life has taken you since baseball, share a few memories and photos, and reconnect with teammates.</p>
+    <strong>CONNECT. CONTRIBUTE. REMEMBER.</strong>
+   </div>
+   <div className="wyn-question-toolbar">
+    <span className="wyn-question-progress" role="status" aria-live="polite">{answeredCount} OF {questionOrder.length} ANSWERED</span>
+    <button type="button" className="wyn-question-all-toggle" onClick={toggleAllQuestions}
+      aria-label={allOpen?'Close all questions':'Open all questions'}
+      title={allOpen?'Close all questions':'Open all questions'} aria-expanded={allOpen}>
+      <i className={allOpen?'ri-subtract-line':'ri-add-line'} aria-hidden="true"/>
+    </button>
    </div>
 
    {questionGroups.map((group,groupIndex)=>(
-    <section key={group.title} className="wyn-form-section wyn-question-group" aria-label={group.title}>
+    <Fragment key={group.title}>
+    <section className="wyn-form-section wyn-question-group" aria-label={group.title}>
      <h3 className="ycd-label wyn-question-group-title">
       <span className="ycd-step">{groupIndex+1}</span>{group.title}
       {'optional' in group && group.optional && <small>OPTIONAL</small>}
      </h3>
      {group.questions.map((question)=>{
-      const isOpen=allOpen||openQuestion===question.id;
+      const isOpen=allOpen?!closedWhenAll.includes(question.id):openQuestion===question.id;
       const isAnswered=question.id==='lifePhotos'?photos.length>0:Boolean(answered[question.id]);
       const title=question.title.replace('YOUR HIGH SCHOOL',school.toUpperCase());
       const isOptional='optional' in question && question.optional;
@@ -354,21 +370,26 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
         {/* Hidden keeps field values, attached files, and FormData intact. */}
         <div id={'wyn-question-body-'+question.id} className="wyn-question-body" hidden={!isOpen}>
          {renderQuestion(question.id)}
-         <div className="wyn-question-actions">
-          <button type="button" className="ycd-btn" onClick={()=>nextQuestion(question.id)}>
-           {question.id===questionOrder[questionOrder.length-1]?'DONE — REVIEW BELOW':'NEXT QUESTION'}
-           <i className="ri-arrow-right-line" aria-hidden="true"/>
-          </button>
-         </div>
         </div>
        </div>
       );
      })}
     </section>
+    {groupIndex===1 && <aside className="wyn-question-inline-ad" aria-label="Player Profile Partner in-feed placement">
+      <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED PARTNER CARD</small>
+    </aside>}
+    </Fragment>
    ))}
    {proof && (
     <section id="claim-proof" className="wyn-form-section wyn-claim-proof">
      <h3 className="ycd-label"><span className="ycd-step">6</span> REVIEW YOUR PROFILE AND FLIP-CARD PROOFS</h3>
+     {fields.some(([key])=>String(proof[key]||'').trim())&&<label className="ycd-field wyn-featured-memory-choice">
+      <span className="ycd-label">WHICH MEMORY WOULD YOU LIKE ON YOUR FLIP CARD?</span>
+      <select aria-label="Choose your featured memory" value={featuredMemory} onChange={event=>setFeaturedMemory(event.target.value)}>
+       {fields.filter(([key])=>String(proof[key]||'').trim()).map(([key,title])=><option key={key} value={key}>{title.replace('YOUR HIGH SCHOOL',school.toUpperCase())}</option>)}
+      </select>
+      <span className="ycd-muted ycd-small">Your flip-card preview updates to show the selected answer and its photo.</span>
+     </label>}
      <div className="wyn-proof-card">
       <WhereYatProofCard variant="full" proof={{
        playerId, hsid, displayName:proof.displayName||name, city:proof.city, state:proof.state,
@@ -390,7 +411,6 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
       ] as const).map(([title,answer]) => answer && (
        <div key={title} className="wyn-proof-entry"><strong>{title}</strong><p>{answer}</p></div>
       ))}
-      <p><strong>Featured flip-card memory:</strong> {fields.find(([key])=>key===featuredMemory)?.[1]}</p>
       {fields.map(([key,title])=>memoryPhotos[key]?.length>0&&<div key={key} className="wyn-proof-entry"><strong>{title.replace('YOUR HIGH SCHOOL',school.toUpperCase())} — PHOTOS</strong><div className="wyn-proof-photos">{memoryPhotos[key].map((p,i)=><img key={p.url} src={p.url} alt={'Memory photo '+(i+1)}/>)}</div></div>)}
       {photos.length > 0 && <div className="wyn-proof-photos">{photos.map((p,i) => <img key={p.url} src={p.url} alt={'Proof photo '+(i+1)} />)}</div>}
       {proof.businessPublic === 'yes' && (
