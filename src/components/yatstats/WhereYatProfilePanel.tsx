@@ -41,7 +41,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
   return (
     <div className="where-yat-profile">
       <StoryStyles />
-      <h2 style={{ fontFamily:'Oswald,Arial Narrow,sans-serif', fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
+      <h2 className="wyn-panel-title">WHERE YAT NOW?</h2>
       {entry ? <div className="wyn-story-layout"><div className="wyn-story-feed">
         {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} className="wyn-story-card ysf">
           <header className="wyn-story-header">{entry.display_name||name} — {label}</header>
@@ -53,7 +53,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
       </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       <style>{`
         .where-yat-profile { padding: 12px; width:100%; box-sizing:border-box; color:var(--yat-text,#f5f5f5); background:transparent; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); }
-        .where-yat-profile h2 { font:700 22px/1.2 var(--yat-font-condensed,Oswald,Arial Narrow,sans-serif); margin:4px 0 14px; }
+        .where-yat-profile .wyn-panel-title {position:sticky;top:0;z-index:10;background:var(--psi-page-bg,var(--bg,#070707));color:var(--wyn-card-text);font:700 22px/1.2 var(--yat-font-condensed,Oswald,Arial Narrow,sans-serif);margin:0 0 10px;padding:8px 4px;border-bottom:1px solid var(--wyn-border);}
         .wyn-story-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:12px; align-items:start; }
         .wyn-story-feed { min-width:0; display:grid; gap:8px; }
         .wyn-story-sponsor { position:sticky; top:110px; min-width:0; }
