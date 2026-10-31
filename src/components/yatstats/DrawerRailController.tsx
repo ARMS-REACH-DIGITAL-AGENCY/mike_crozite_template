@@ -231,8 +231,15 @@ export default function DrawerRailController() {
         return;
       }
 
+      // A contribution shortcut *leaves* the account drawer. Do not run
+      // the legacy "keep account open" callback after the shortcut closes
+      // Account and opens Contribute: that callback used to reopen Account
+      // on top of the newly selected form.
+      if (target.closest('#drawerAccount [data-drawer-handoff="contribute"]')) return;
       if (target.closest('#drawerAccount')) {
         window.setTimeout(() => {
+          if (!body.classList.contains('drawer-account-open')
+            || body.classList.contains('drawer-contribute-open')) return;
           forceAccountDrawerOpen();
           syncRailMode();
         }, 0);
