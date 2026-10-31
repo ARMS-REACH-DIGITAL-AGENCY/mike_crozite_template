@@ -186,4 +186,22 @@ assert(provenance.includes('AFTER INSERT OR UPDATE OF') &&
        provenance.includes("'before', before_fields -> k"),
   'Stage insert/update history must retain timestamps and field-level before/after');
 
+const statusCron = source('src/app/api/cron/flip-card-status-reconciliation/route.ts');
+const schedule = source('vercel.json');
+const stageGuard = source('migrations/20261031_guard_flip_card_canonical_promotion.sql');
+const readTimeIdentity = source('src/lib/playerStageIdentity.ts');
+assert(statusCron.includes('SAFE_2025_RETIREMENT_BACKFILL_SQL') &&
+       statusCron.includes('SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL') &&
+       statusCron.includes('CRON_SECRET'),
+  'Dedicated cron must reconcile verified retirement and legacy college levels');
+assert(schedule.includes('/api/cron/flip-card-status-reconciliation'),
+  'Retirement cutoff must run automatically on future ingests');
+assert(stageGuard.includes('BEFORE INSERT OR UPDATE OF current_teamid,level_label,display_level_label') &&
+       stageGuard.includes('NEW.level_label NOT IN') &&
+       stageGuard.includes('NEW.current_teamid'),
+  'Prevent unverified team/level values from entering flip-card stage');
+assert(readTimeIdentity.includes("m.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')") &&
+       readTimeIdentity.includes('AND m.level IS NOT NULL'),
+  'Read-time stage identity must not activate professional players from stats');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
