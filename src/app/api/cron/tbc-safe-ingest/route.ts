@@ -657,6 +657,8 @@ export async function GET(req: NextRequest) {
     const baseline = await ensureFlipCardBaselineRows(client);
     const newFlipCardRows = baseline.created;
     const collegeToIndyCorrected = await reconcileCollegeToIndyCurrentTeams(client);
+    const { rows: activatedRows } = await client.query(SAFE_2026_BLANK_STATUS_RECOVERY_SQL);
+    const participantsRecovered = Number(activatedRows[0]?.activated || 0);
     const { rows: classifiedRows } = await client.query(SAFE_2026_BLANK_STATUS_RECOVERY_SQL);
     const previouslyUnclassifiedActivated = Number(classifiedRows[0]?.activated || 0);
     const { rows: recoveredRows } = await client.query(SAFE_2026_STAGE_TEAM_RECOVERY_SQL);
