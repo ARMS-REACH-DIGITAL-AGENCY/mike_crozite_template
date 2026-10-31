@@ -159,7 +159,7 @@ async function processTip(t:Tip):Promise<TipOutcome> {
  const label=(needsYoutubeTitle?(youtubeMetadata?.title||await fetchYouTubeVideoTitle(link.url)):null)||title;
  const originalDate=normalizeNewsPublicationDate(detail?.publishedAt)||youtubeMetadata?.publishedAt||null;
  const targetYear=typeof detail?.teamYear==='number'&&Number.isInteger(detail.teamYear)&&detail.teamYear>=1900&&detail.teamYear<=new Date().getFullYear()+1?detail.teamYear:null;
- if(youtube&&!originalDate)return 'rejected';
+ // For queued pre-existing tips, use the ingestion timestamp when YouTube does not expose a date.
  if(targetYear){const {rows:roster}=await query<{n:number}>(`SELECT count(*)::int AS n FROM flip_card_front_stage WHERE hsid::text=$1 AND $2::text=ANY(roster_years)`,[t.matched_hsid,String(targetYear)]);if(!roster[0]?.n)return 'rejected';}
  if(!label||(needsYoutubeTitle&&isLegacyVideoPlaceholderTitle(label)))return 'rejected';
  const safety=await moderateContributedTip({url:link.url,title:label,description,playerName:player?`${player.first_name} ${player.last_name}`:null});
