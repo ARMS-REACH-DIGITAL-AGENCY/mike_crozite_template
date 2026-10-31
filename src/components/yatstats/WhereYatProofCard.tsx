@@ -25,6 +25,8 @@ export type WhereYatProof = {
   storyPrompt?:string;
   photoUrl?: string | null;
   logoUrl?: string | null;
+  businessEmail?: string | null;
+  businessPhone?: string | null;
   businessPublic?: boolean;
   businesses?: Array<{name:string;website:string;logoUrl?:string}>;
   businessHeadshotUrl?:string|null;
@@ -46,86 +48,8 @@ const footerTabs = [
   ['ri-upload-cloud-line', 'STORIES'],
 ] as const;
 
-const css = `
-  .wyn-card { box-sizing:border-box; position:relative; container-type:inline-size; aspect-ratio:5 / 7;
-    width:100%; max-width:100%; background-color:#c2b9ae; overflow:hidden;
-    background-image:repeating-linear-gradient(168deg,transparent 0px,transparent 3px,rgba(255,255,255,.05) 3px,rgba(255,255,255,.05) 4px),
-    repeating-linear-gradient(78deg,transparent 0px,transparent 5px,rgba(0,0,0,.04) 5px,rgba(0,0,0,.04) 6px); }
-  .wyn-card-frame { height:calc(100% - 2.2cqi); margin:1.1cqi; display:flex; flex-direction:column;
-    border:clamp(1px,.6cqi,3px) solid rgba(30,22,14,.65); border-radius:clamp(2px,.8cqi,5px);
-    overflow:hidden; min-height:0; }
-  .wyn-card .yat-back-hero { display:block; position:relative; flex:none; height:36cqi; max-height:31%;
-    width:100%; overflow:hidden; text-decoration:none; background:#35312c; }
-  .wyn-card .yat-back-img {position:absolute; inset:0; height:100%; width:100%; object-fit:cover; object-position:top center; display:block;}
-  .wyn-card .yat-back-hero-fallback {position:absolute; inset:0; background:#534c45; z-index:-1;}
-  .wyn-card .yat-back-scrim { position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.30) 55%,transparent 85%); }
-  .wyn-card .yat-back-meta {position:absolute; top:0; left:0; z-index:3; padding:clamp(6px,2.1cqi,13px); }
-  .wyn-card .ybm-name {font:800 clamp(16px,5.4cqi,31px)/1 'Bebas Neue',Oswald,sans-serif; color:white; text-transform:uppercase; letter-spacing:.045em; text-shadow:0 1px 4px #000;}
-  .wyn-card .ybm-pos {font:600 clamp(8px,2.8cqi,15px)/1.4 Oswald,sans-serif; color:white; letter-spacing:.06em;}
-  .wyn-card .ybm-team,.wyn-card .ybm-org,.wyn-card .ybm-bthw {display:none;}
-  .wyn-body {box-sizing:border-box; display:flex; flex-direction:column; min-height:0;
-    height:100%; flex:1; overflow:hidden; color:#1e160e; font-family:Archivo,Arial,sans-serif;
-    padding:clamp(5px,2.2cqi,13px); gap:clamp(3px,1.1cqi,7px);
-    background-image:repeating-linear-gradient(0deg,transparent 0,transparent 21px,rgba(70,56,39,.025) 22px); }
-  .wyn-heading {font:600 clamp(7px,2.4cqi,13px)/1.25 Oswald,'Arial Narrow',sans-serif;
-    letter-spacing:.08em; color:#4f4031; border-bottom:1px solid rgba(30,22,14,.15);
-    padding-bottom:clamp(3px,.8cqi,6px); flex:none;}
-  .wyn-identity {display:flex; align-items:flex-start; gap:clamp(5px,1.5cqi,12px); flex:none; min-width:0;}
-  .wyn-identity-details {min-width:0; flex:1;}
-  .wyn-identity p {font:400 clamp(8px,2.5cqi,14px)/1.28 Archivo,Arial,sans-serif;
-    margin:0 0 clamp(2px,.7cqi,5px); overflow-wrap:anywhere;}
-  .wyn-identity b {font-weight:800;}
-  .wyn-small-name {font:700 clamp(9px,2.8cqi,15px)/1.15 Oswald,'Arial Narrow',sans-serif;
-    margin:0 0 clamp(3px,1cqi,6px); }
-  .wyn-photo {flex:0 0 32%; width:32%; max-height:31cqi; object-fit:contain; border:1px solid rgba(30,22,14,.22);
-    background:rgba(255,255,255,.2); box-shadow:0 1px 2px #0002;}
-  .wyn-no-photo {flex:0 0 30%; width:30%; min-height:14cqi; display:grid; place-items:center;
-    text-align:center; border:1px dashed #83796b; font:600 clamp(7px,1.9cqi,10px) Oswald,sans-serif;}
-  .wyn-logo-inline {display:inline-block; max-width:28cqi; max-height:11cqi; width:auto; object-fit:contain;
-    vertical-align:middle; padding:2px; background:rgba(255,255,255,.4); margin-left:4px;}
-  .wyn-story {min-height:0; flex:1; overflow:hidden; white-space:pre-wrap; overflow-wrap:anywhere;
-    font:400 clamp(8px,2.65cqi,14px)/1.35 Archivo,Arial,sans-serif;
-    border-top:1px solid rgba(30,22,14,.17); padding-top:clamp(3px,1.2cqi,9px); margin:0;}
-  .wyn-socials {flex:none; border-top:1px solid rgba(30,22,14,.16); margin-top:auto; padding-top:clamp(3px,1.2cqi,8px);
-    display:flex; flex-wrap:nowrap; align-items:center; justify-content:space-around;
-    gap:clamp(2px,1.1cqi,8px);}
-  .wyn-social {display:grid; place-items:center; color:#fff!important; text-decoration:none!important;
-    font-size:clamp(10px,5.2cqi,26px); width:clamp(19px,8.6cqi,45px); height:clamp(19px,8.6cqi,45px);
-    border-radius:50%; box-shadow:0 1px 2px #0003; flex:none; }
-  .wyn-social i {line-height:1;}
-  .wyn-facebook {background:#0866ff;} .wyn-instagram {background:linear-gradient(30deg,#f9ce34,#ee2a7b,#6228d7);}
-  .wyn-x {background:#070707;} .wyn-linkedin {background:#0a66c2;}
-  .wyn-contact {background:#1374cc;}
-  .wyn-website {background:#356b40;}
-  .wyn-business-links {display:flex;flex-direction:column;align-items:center;gap:clamp(3px,.8cqi,6px);flex:none;border-top:1px solid rgba(30,22,14,.16);padding-top:clamp(3px,.8cqi,6px);}
-  .wyn-business-logo {max-width:36cqi;max-height:11cqi;object-fit:contain;background:rgba(255,255,255,.6);border-radius:3px;padding:2px;}
-  .wyn-business-name {font:700 clamp(7px,2.2cqi,11px)/1.2 Archivo,Arial,sans-serif;text-align:center;overflow-wrap:anywhere;}
-  .wyn-business-links .wyn-socials {border:0;margin:0;padding:0;width:100%;}
-  .wyn-embedded .wyn-identity {display:none;}
-  .wyn-embedded .wyn-body {background:transparent;}
-  .wyn-embedded .wyn-story {border-top:0;padding-top:0;}
-  .wyn-footer {flex:none; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); min-height:11cqi;
-    border-top:clamp(1px,.5cqi,3px) solid rgba(30,22,14,.35); background:rgba(30,22,14,.06);}
-  .wyn-footer-tab {display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:0;
-    padding:clamp(1px,.5cqi,4px) 0; gap:clamp(1px,.4cqi,3px); border-right:1px solid rgba(30,22,14,.1);
-    color:#51483f; text-align:center;}
-  .wyn-footer-tab:first-child {color:#14110d; border-top:clamp(1px,.5cqi,3px) solid #14110d;}
-  .wyn-footer-tab i {font-size:clamp(10px,4cqi,21px); line-height:1;}
-  .wyn-footer-tab span {font:700 clamp(6px,1.9cqi,10px)/1 Oswald,'Arial Narrow',sans-serif;
-    white-space:nowrap; text-transform:uppercase;}
-  .wyn-embedded {container-type:inline-size; width:100%; max-width:100%; min-height:0;
-    background:transparent; padding:0;}
-  .wyn-embedded .wyn-body {background:transparent; padding:0; gap:clamp(2px,.8cqi,5px);}
-  .wyn-embedded .wyn-heading {font-size:clamp(6px,2.1cqi,10px);}
-  .wyn-embedded .wyn-identity p {font-size:clamp(7px,2.1cqi,11px);}
-  .wyn-embedded .wyn-story {font-size:clamp(7px,2.25cqi,11px); line-height:1.25;}
-  .wyn-story-prompt{font:800 clamp(7px,2.1cqi,11px)/1.2 Oswald,Arial,sans-serif;color:#5a4830;letter-spacing:.03em;}
-  .wyn-business-list{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:5px;width:100%;}
-  .wyn-business-list a{display:flex;align-items:center;gap:4px;color:#30261e;text-decoration:none;font-size:clamp(7px,2.1cqi,11px);}
-  .wyn-business-list img{width:clamp(22px,7cqi,36px);height:clamp(22px,7cqi,36px);object-fit:contain;}
-  .wyn-embedded .wyn-photo {max-height:25cqi;}
-  .wyn-embedded .wyn-social {width:clamp(18px,7cqi,34px);height:clamp(18px,7cqi,34px);font-size:clamp(10px,4cqi,19px);}
-`;
+const css = "\n  .wyn-card {box-sizing:border-box;position:relative;container-type:inline-size;aspect-ratio:5 / 7;width:100%;max-width:100%;overflow:hidden;background-color:#cfc6b8;background-image:repeating-linear-gradient(0deg,transparent 0,transparent 19px,rgba(75,55,35,.055) 20px),repeating-linear-gradient(90deg,transparent 0,transparent 19px,rgba(75,55,35,.045) 20px);}\n  .wyn-card-frame {height:calc(100% - 2.2cqi);margin:1.1cqi;display:flex;flex-direction:column;border:clamp(1px,.6cqi,3px) solid rgba(34,27,19,.72);border-radius:3px;overflow:hidden;min-height:0;}\n  .wyn-card .yat-back-hero{display:block;position:relative;flex:none;height:36cqi;max-height:31%;width:100%;overflow:hidden;text-decoration:none;background:#35312c;}\n  .wyn-card .yat-back-img{position:absolute;inset:0;height:100%;width:100%;object-fit:cover;object-position:top center;display:block;}\n  .wyn-card .yat-back-hero-fallback{position:absolute;inset:0;background:#534c45;z-index:-1;}\n  .wyn-card .yat-back-scrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.3) 55%,transparent 85%);}\n  .wyn-card .yat-back-meta{position:absolute;top:0;left:0;z-index:3;padding:clamp(6px,2.1cqi,13px);}\n  .wyn-card .ybm-name{font:800 clamp(16px,5.4cqi,31px)/1 'Bebas Neue',Oswald,sans-serif;color:white;text-transform:uppercase;letter-spacing:.045em;text-shadow:0 1px 4px #000;}\n  .wyn-card .ybm-pos{font:600 clamp(8px,2.8cqi,15px)/1.4 Oswald,sans-serif;color:white;letter-spacing:.06em;}\n  .wyn-card .ybm-team,.wyn-card .ybm-org,.wyn-card .ybm-bthw{display:none;}\n  .wyn-body{box-sizing:border-box;display:flex;flex-direction:column;flex:1;height:100%;min-height:0;min-width:0;overflow:hidden;color:#221a12;font-family:Archivo,Arial,sans-serif;background-color:#f0e9dd;background-image:repeating-linear-gradient(0deg,transparent 0,transparent 19px,rgba(81,64,44,.045) 20px),repeating-linear-gradient(90deg,transparent 0,transparent 19px,rgba(81,64,44,.035) 20px);}\n  .wyn-top-half,.wyn-bottom-half{box-sizing:border-box;flex:1 1 50%;min-height:0;min-width:0;position:relative;overflow:hidden;}\n  .wyn-top-half{display:flex;flex-direction:column;gap:clamp(2px,.8cqi,5px);padding:clamp(5px,1.8cqi,11px);border-bottom:clamp(1px,.5cqi,3px) solid #6a5a49;}\n  .wyn-heading{position:relative;z-index:1;flex:none;color:#403225;font:800 clamp(8px,2.65cqi,15px)/1.1 Oswald,'Arial Narrow',sans-serif;letter-spacing:.055em;border-bottom:1px solid rgba(65,46,28,.35);padding-bottom:clamp(2px,.6cqi,4px);white-space:nowrap;}\n  .wyn-identity{position:relative;z-index:1;flex:none;max-width:100%;min-width:0;}\n  .wyn-identity-has-headshot{padding-right:32%;}\n  .wyn-identity-details p{font:400 clamp(8px,2.55cqi,14px)/1.3 Archivo,Arial,sans-serif;margin:0 0 clamp(1px,.5cqi,4px);overflow-wrap:anywhere;}\n  .wyn-identity-details b{font-weight:800;}\n  .wyn-small-name{font:700 clamp(9px,2.6cqi,15px)/1.15 Oswald,sans-serif;margin:0 0 3px;}\n  .wyn-business-names{position:relative;z-index:1;flex:none;max-width:100%;box-sizing:border-box;color:#241b13;background:rgba(117,102,85,.16);padding:clamp(2px,.7cqi,5px);font:600 clamp(7px,2.1cqi,12px)/1.15 Archivo,Arial,sans-serif;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}\n  .wyn-headshot{position:absolute;right:0;top:clamp(20px,7cqi,40px);bottom:0;width:31%;max-width:31%;height:calc(100% - clamp(20px,7cqi,40px));object-fit:contain;object-position:center bottom;z-index:1;pointer-events:none;}\n  .wyn-top-has-headshot .wyn-business-names{max-width:68%;}\n  .wyn-business-links{box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:clamp(2px,.8cqi,5px);margin-top:auto;max-width:100%;width:100%;min-height:0;position:relative;z-index:2;}\n  .wyn-top-has-headshot .wyn-business-links{width:69%;}\n  .wyn-business-list{display:flex;flex-wrap:nowrap;justify-content:flex-start;align-items:center;gap:clamp(2px,.8cqi,5px);min-width:0;max-width:100%;overflow:hidden;}\n  .wyn-business-list a,.wyn-business-list span{display:flex;align-items:center;min-width:0;text-decoration:none;color:#251b15;}\n  .wyn-business-list img,.wyn-business-logo{display:block;object-fit:contain;box-sizing:border-box;width:auto;max-width:clamp(25px,10cqi,55px);height:clamp(20px,7.3cqi,44px);padding:1px;flex:none;}\n  .wyn-business-list .wyn-business-name{font:700 clamp(6px,1.7cqi,10px)/1.1 Archivo,Arial,sans-serif;max-width:14cqi;overflow:hidden;}\n  .wyn-business-logo-link{display:inline-flex;align-items:center;}\n  .wyn-socials{display:flex;align-items:center;flex-wrap:nowrap;justify-content:flex-start;gap:clamp(2px,.65cqi,6px);max-width:100%;min-width:0;overflow:hidden;}\n  .wyn-social{display:grid;place-items:center;flex:0 0 auto;text-decoration:none!important;color:#fff!important;background:#333;font-size:clamp(9px,3.7cqi,21px);width:clamp(16px,6.2cqi,33px);height:clamp(16px,6.2cqi,33px);border-radius:50%;box-shadow:0 1px 2px #0003;}\n  .wyn-social i{line-height:1;}\n  .wyn-website{background:#356b40}.wyn-facebook{background:#0866ff}.wyn-instagram{background:linear-gradient(30deg,#f9ce34,#ee2a7b,#6228d7)}.wyn-x{background:#070707}.wyn-linkedin{background:#0a66c2}.wyn-contact{background:#1374cc}.wyn-text{background:#1255a0;}\n  .wyn-bottom-half{padding:clamp(6px,1.8cqi,11px);display:flex;flex-direction:column;gap:clamp(3px,1cqi,6px);}\n  .wyn-story-prompt{color:#58432f;font:800 clamp(8px,2.55cqi,15px)/1.15 Oswald,'Arial Narrow',sans-serif;letter-spacing:.03em;flex:none;text-transform:uppercase;border-bottom:1px solid rgba(66,47,32,.33);padding-bottom:clamp(2px,.6cqi,4px);}\n  .wyn-memory-content{flex:1;min-height:0;overflow:hidden;position:relative;}\n  .wyn-featured-photo{display:block;float:left;width:clamp(45px,26%,140px);max-height:78%;object-fit:contain;object-position:center top;margin:0 clamp(4px,1cqi,7px) clamp(2px,.6cqi,4px) 0;}\n  .wyn-story{display:block;font:400 clamp(8px,2.5cqi,14px)/1.32 Archivo,Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;}\n  .wyn-more{position:absolute;bottom:0;right:0;background:#f0e9ddcc;color:#493322!important;text-decoration:underline;font:700 clamp(7px,1.8cqi,11px)/1.3 Archivo,Arial,sans-serif;padding:2px;}\n  .wyn-footer{flex:none;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));min-height:11cqi;border-top:clamp(1px,.5cqi,3px) solid rgba(30,22,14,.35);background:rgba(30,22,14,.06);}\n  .wyn-footer-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;padding:clamp(1px,.5cqi,4px) 0;gap:clamp(1px,.4cqi,3px);border-right:1px solid rgba(30,22,14,.1);color:#51483f;text-align:center;}\n  .wyn-footer-tab:first-child{color:#14110d;border-top:clamp(1px,.5cqi,3px) solid #14110d;}\n  .wyn-footer-tab i{font-size:clamp(10px,4cqi,21px);line-height:1;}\n  .wyn-footer-tab span{font:700 clamp(6px,1.9cqi,10px)/1 Oswald,'Arial Narrow',sans-serif;white-space:nowrap;text-transform:uppercase;}\n  .wyn-embedded{container-type:inline-size;box-sizing:border-box;display:flex;flex-direction:column;flex:1;width:100%;height:100%;max-width:100%;min-height:0;overflow:hidden;background:transparent;padding:0;}\n  .wyn-embedded .wyn-body{height:100%;flex:1;padding:0;}\n  .wyn-embedded .wyn-top-half{padding:clamp(4px,1.3cqi,8px);gap:clamp(2px,.55cqi,4px);}\n  .wyn-embedded .wyn-bottom-half{padding:clamp(4px,1.3cqi,8px);}\n  .wyn-embedded .wyn-social{width:clamp(16px,5.6cqi,30px);height:clamp(16px,5.6cqi,30px);font-size:clamp(9px,3.5cqi,18px);}\n";
+
 
 export default function WhereYatProofCard({
   proof, showName = false, variant = 'content',
@@ -140,40 +64,61 @@ export default function WhereYatProofCard({
     const normalized = normalizeWhereYatLink(item.key, raw);
     return normalized.url ? { ...item, href: normalized.url } : null;
   }).filter((item): item is Social & { href: string } => !!item);
+
   const showBusiness = proof.businessPublic !== false;
-  const businesses=(proof.businesses||[]).slice(0,4).filter(b=>b.name||b.website||b.logoUrl);
-  // A fixed 5:7 card cannot contain an unbounded biography. Render a clearly
-  // labeled excerpt rather than silently cutting text at an arbitrary line.
+  const businesses=(proof.businesses||[]).slice(0,4).filter(item=>item.name||item.website||item.logoUrl);
+  const socialLinks=links.slice().sort((a,b)=>['linkedin','facebook','x','instagram'].indexOf(a.key)-['linkedin','facebook','x','instagram'].indexOf(b.key));
+  const publicEmail=showBusiness && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(proof.businessEmail||'') ? String(proof.businessEmail).trim() : '';
+  const publicPhone=showBusiness ? String(proof.businessPhone||'').replace(/[^0-9+]/g,'') : '';
+  const emailHref=publicEmail?'mailto:'+publicEmail:'';
+  const textHref=publicPhone.replace(/\\D/g,'').length>=10?'sms:'+publicPhone:'';
+  const businessNames=businesses.map(item=>item.name).filter(Boolean).join(' | ')||proof.company||'';
+  const businessLogos=businesses.filter(item=>item.logoUrl);
   const storyText=proof.story||'Visit the player profile to learn more about life after baseball.';
-  const excerpt=storyText.length>280?storyText.slice(0,277).trimEnd()+'…':storyText;
-  const businessLinks = showBusiness ? links : [];
+  const excerpt=storyText.length>360?storyText.slice(0,357).trimEnd()+'…':storyText;
+  const hasMore=storyText.length>360;
+  const portrait=showBusiness ? proof.businessHeadshotUrl : null;
+  const showBusinessArea=showBusiness && (businessNames||proof.logoUrl||businessLogos.length>0||businessHref||socialLinks.length>0||emailHref||textHref);
   const body = (
     <div className="wyn-body">
-      <div className="wyn-heading">YAT?STATS / WHERE YAT NOW?</div>
-      <div className="wyn-identity">
-        <div className="wyn-identity-details">
-          {showName && <div className="wyn-small-name">{proof.displayName}</div>}
-          {location && <p><b>LOCATION:</b> {location}</p>}
-          {proof.occupation && <p><b>NOW:</b> {proof.occupation}</p>}
+      <div className={'wyn-top-half'+(portrait?' wyn-top-has-headshot':'')}>
+        <div className="wyn-heading">YAT?STATS / WHERE YAT NOW?</div>
+        <div className={'wyn-identity'+(portrait?' wyn-identity-has-headshot':'')}>
+          <div className="wyn-identity-details">
+            {showName && <div className="wyn-small-name">{proof.displayName}</div>}
+            {location && <p><b>LOCATION:</b> {location}</p>}
+            {proof.occupation && <p><b>NOW:</b> {proof.occupation}</p>}
+          </div>
         </div>
-        {proof.photoUrl && <img className="wyn-photo" src={proof.photoUrl} alt="Alumnus's recent photo" />}
-      </div>
-      <div className="wyn-story-prompt">{proof.storyPrompt||'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'}</div>
-      <p className="wyn-story">{excerpt}</p>
-      {showBusiness && (proof.company || proof.logoUrl || businessHref || businessLinks.length > 0 || businesses.length > 0 || proof.businessHeadshotUrl) && (
-        <div className="wyn-business-links" aria-label="Business information and links">
-          {businesses.length>0&&<div className="wyn-business-list">{businesses.map((b,i)=>{const href=normalizeWhereYatLink('website',b.website||'').url;return href?<a key={i} href={href} target="_blank" rel="noopener noreferrer">{b.logoUrl&&<img src={b.logoUrl} alt={b.name+' logo'}/>}<span>{b.name}</span></a>:<span key={i}>{b.name}</span>})}</div>}
-          {proof.businessHeadshotUrl&&<img className="wyn-business-logo" src={proof.businessHeadshotUrl} alt="Business headshot"/>}
-          {proof.logoUrl && (businessHref
-            ? <a href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Visit business website"><img className="wyn-business-logo" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Business logo'} /></a>
-            : <img className="wyn-business-logo" src={proof.logoUrl} alt={proof.company ? proof.company + ' logo' : 'Business logo'} />)}
-          {proof.company && <div className="wyn-business-name">{proof.company}</div>}
-          {(businessHref || businessLinks.length > 0) && <div className="wyn-socials">
-            {businessHref && <a className="wyn-social wyn-website" href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Business website"><i className="ri-global-line" aria-hidden="true" /></a>}
-            {businessLinks.map(link => <a key={link.key} className={'wyn-social ' + link.className} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label}><i className={link.icon} aria-hidden="true" /></a>)}
+        {showBusiness && businessNames && <div className="wyn-business-names">{businessNames}</div>}
+        {portrait && <img className="wyn-headshot" src={portrait} alt={proof.displayName+' business portrait'}/>}
+        {showBusinessArea && <div className="wyn-business-links" aria-label="Business logos and contact links">
+          {(businessLogos.length>0||proof.logoUrl)&&<div className="wyn-business-list">
+            {businessLogos.length>0 ? businessLogos.map((business,i)=>{
+              const href=normalizeWhereYatLink('website',business.website||'').url;
+              return href
+                ? <a href={href} key={i} target="_blank" rel="noopener noreferrer" title={business.name||'Business website'}><img src={business.logoUrl} alt={(business.name||'Business')+' logo'}/></a>
+                : <span key={i}><img src={business.logoUrl} alt={(business.name||'Business')+' logo'}/></span>;
+            }) : proof.logoUrl && (businessHref
+              ? <a className="wyn-business-logo-link" href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Visit business website"><img className="wyn-business-logo" src={proof.logoUrl} alt={(proof.company||'Business')+' logo'}/></a>
+              : <span><img className="wyn-business-logo" src={proof.logoUrl} alt={(proof.company||'Business')+' logo'}/></span>)}
           </div>}
+          <div className="wyn-socials" aria-label="Public business contact options">
+            {businessHref && <a className="wyn-social wyn-website" href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Business website"><i className="ri-global-line" aria-hidden="true"/></a>}
+            {socialLinks.map(link=><a key={link.key} className={'wyn-social '+link.className} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label}><i className={link.icon} aria-hidden="true"/></a>)}
+            {emailHref && <a className="wyn-social wyn-contact" href={emailHref} aria-label="Email business"><i className="ri-mail-line" aria-hidden="true"/></a>}
+            {textHref && <a className="wyn-social wyn-text" href={textHref} aria-label="Text business"><i className="ri-message-2-fill" aria-hidden="true"/></a>}
+          </div>
+        </div>}
+      </div>
+      <div className="wyn-bottom-half">
+        <div className="wyn-story-prompt">{proof.storyPrompt||'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'}</div>
+        <div className="wyn-memory-content">
+          {proof.photoUrl && <img className="wyn-featured-photo" src={proof.photoUrl} alt="Photo accompanying the selected memory"/>}
+          <p className="wyn-story">{excerpt}</p>
+          {hasMore && <a className="wyn-more" href={profileHref}>READ FULL MEMORY</a>}
         </div>
-      )}
+      </div>
     </div>
   );
 
