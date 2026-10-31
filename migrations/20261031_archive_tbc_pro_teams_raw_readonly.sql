@@ -24,6 +24,21 @@ CREATE VIEW public.tbc_pro_teams_map_raw AS
          COALESCE(NULLIF(BTRIM(u.locationlong),''),a.teamlocation)::text AS teamlocation
   FROM public.tbc_pro_teams_map_raw_legacy_archived_20261031 a
   LEFT JOIN public.teamid_universe_mapping u ON u.teamid=a.teamid;
+-- ALTER TABLE rename rewires existing dependent views to the archived source.
+-- Reattach the historical lookup to the canonical-backed read-only compatibility
+-- view so no active view keeps taking the old raw teamname.
+CREATE OR REPLACE VIEW public.v_tbc_team_lookup AS
+ SELECT 'pro'::text AS team_type,
+        p.teamid,p.currentteamid,p.teamname AS team_name,
+        NULL::text AS team_short,NULL::text AS nickname,
+        p.teamlocation AS location
+   FROM public.tbc_pro_teams_map_raw p
+ UNION ALL
+ SELECT 'college'::text AS team_type,
+        c.teamid,NULL::text AS currentteamid,c.collegename AS team_name,
+        c.collegeshort AS team_short,c.nickname,c.locationlong AS location
+   FROM public.tbc_college_teams_map_raw c;
+
 -- Archived source is no longer writable by application/data-api roles.
 REVOKE INSERT,UPDATE,DELETE,TRUNCATE
   ON public.tbc_pro_teams_map_raw_legacy_archived_20261031
