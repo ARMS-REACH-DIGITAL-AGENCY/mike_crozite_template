@@ -549,6 +549,10 @@ export default async function SchoolPage({
   // for both cards, while each school still controls roster membership.
   const canonicalTbcIds = loadAllTime
     ? await getVerifiedTbcCanonicalPlayerIds(allTimeRosterRows.map((p) => String(p.playerid)))
+        .catch((error) => {
+          console.warn('getVerifiedTbcCanonicalPlayerIds failed; preserving original school cards', { resolvedHsid, error });
+          return new Map<string, string>();
+        })
     : new Map<string, string>();
 
   // Active membership is the owner-approved status preset. Season stats
