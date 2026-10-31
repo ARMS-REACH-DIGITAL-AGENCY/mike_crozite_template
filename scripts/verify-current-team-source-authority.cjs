@@ -141,12 +141,12 @@ assert(activeRecovery.includes("f.status_label IS NULL"),
 assert(activeRecovery.includes("COUNT(DISTINCT teamid)=1") &&
        activeRecovery.includes("COUNT(DISTINCT evidence_source)=1"),
   '2026 team and source must be unambiguous');
-assert(activeRecovery.includes("s.match_status='matched'") &&
-       activeRecovery.includes('s.match_confidence>=0.92'),
-  'Independent-league player identity must be verified');
-assert(activeRecovery.includes("e.evidence_source='tbc_2026'") &&
-       activeRecovery.includes("u.level_label='INDY'"),
-  'College and independent current-season evidence must be distinct');
+assert(!activeRecovery.includes('indy_iscore_') &&
+       !activeRecovery.includes("u.level_label='INDY'") &&
+       activeRecovery.includes("e.evidence_source='tbc_2026'"),
+  'Pro/Indy stats must never establish ACTIVE; college-only 2026 stats may');
+assert(activeRecovery.includes("'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'"),
+  'Only mapped official college levels may activate from 2026 statistics');
 assert(activeRecovery.includes('public.mlb_org_roster_resolution') &&
        activeRecovery.includes("m.source='mlb_api'") &&
        activeRecovery.includes('public.player_team_override'),
