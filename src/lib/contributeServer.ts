@@ -462,8 +462,30 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
     sharp(src).resize({ width: w, height: h, fit, withoutEnlargement: fit === 'inside' }).webp({ quality }).toBuffer();
 
   if (purpose === 'flip_card') {
+    // Snapshot the previous front before replacing it. Every successful
+    // replacement is reversible even when the previous image was imported
+    // outside the Contribute workflow.
+    const previous = await existingPublishedTarget(u);
+    if (previous) {
+      const archiveKey = `players/front-archive/${pid}/before-${u.id}.jpg`;
+      await copy(previous, archiveKey, 'image/jpeg', IMMUTABLE_CACHE);
+      written.push(archiveKey);
+    }
+
+    // One permanent, never-overwritten URL per approved front. Browsers may
+    // cache these images for a year: publishing the next version MUST yield
+    // a different URL, not just overwrite players/then-card/{id}.webp.
+    const frontKey = `players/front-uploads/${pid}_${u.id}.webp`;
+    const originalKey = `players/front-uploads/${pid}_${u.id}.jpg`;
+    const cardBytes = await webp(800, 1120, 'cover');
+    await copy(u.s3_key, originalKey, 'image/jpeg', IMMUTABLE_CACHE);
+    await put(frontKey, cardBytes, 'image/webp', IMMUTABLE_CACHE);
+    written.push(originalKey, frontKey);
+
+    // Keep the legacy fixed paths for timelines and older clients. The
+    // gallery uses the unique frontKey from media_upload after approval.
     await copy(u.s3_key, `players/then/${pid}.jpg`, 'image/jpeg');
-    await put(`players/then-card/${pid}.webp`, await webp(800, 1120, 'cover'), 'image/webp');
+    await put(`players/then-card/${pid}.webp`, cardBytes, 'image/webp');
     written.push(`players/then/${pid}.jpg`, `players/then-card/${pid}.webp`);
     await replaceCutout('then', pid, src, written);
   } else if (purpose === 'headshot') {
