@@ -406,3 +406,30 @@ WITH evidence AS MATERIALIZED (
 )
 SELECT COUNT(*)::int AS activated FROM changed
 `;
+
+/** Strict canonical-reference coverage. Missing org/level is never auto-filled
+ * from historical Baseball Cube player stats or PRO placeholders. */
+export const TEAM_UNIVERSE_INTEGRITY_SQL = `
+ SELECT COUNT(*)::int AS total_teams,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL)::int AS missing_names,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL)::int AS missing_orgs,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(level_label),'') IS NULL)::int AS missing_levels,
+ COUNT(*) FILTER(WHERE level_label NOT IN (
+   'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+   'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+   'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+ ))::int AS unofficial_levels,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL OR
+   NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL OR
+   level_label NOT IN (
+     'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+     'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+     'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+   ) OR level_label IS NULL)::int AS teams_needing_review
+ FROM public.teamid_universe_mapping
+`;
+export const TEAM_UNIVERSE_AUDIT_24H_SQL = `
+ SELECT COUNT(*)::int AS changes_past_24h
+ FROM public.teamid_universe_change_audit
+ WHERE changed_at >= NOW() - INTERVAL '24 hours'
+`;
