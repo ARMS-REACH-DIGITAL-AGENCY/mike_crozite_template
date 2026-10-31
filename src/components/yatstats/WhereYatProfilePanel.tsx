@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import WhereYatClaimForm from './WhereYatClaimForm';
 import WhereYatReactions from './WhereYatReactions';
+import SponsorTower from './SponsorTower';
 
 type AlumniUpdate = {
   id:number;
@@ -37,18 +38,33 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
     console.error('[where-yat-profile] Could not fetch reviewed update', error);
   }
   return (
-    <div className="where-yat-profile" style={{ maxWidth: 850, margin: 'auto', padding: 16, fontFamily: 'Archivo,Arial,sans-serif', color: '#eee', backgroundColor:'#111', colorScheme:'dark' }}>
+    <div className="where-yat-profile">
       <h2 style={{ fontFamily:'Oswald,Arial Narrow,sans-serif', fontSize: 25, fontWeight: 800, marginBottom: 12 }}>WHERE YAT NOW?</h2>
-      {entry ? <div style={{maxWidth:800,display:'grid',gap:18}}>
-        {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} style={{border:'1px solid #444',borderRadius:8,overflow:'hidden',background:'#191919'}}>
-          <header style={{padding:'12px 16px',borderBottom:'1px solid #444',fontFamily:'Oswald,sans-serif',fontSize:18,fontWeight:700}}>{entry.display_name||name} — {label}</header>
-          {entry.life_photos_json?.[index]?.web||((index===0||index===3)&&entry.photo_url)?<img src={entry.life_photos_json?.[index]?.web||entry.photo_url||''} alt={label} style={{width:'100%',maxHeight:430,objectFit:'contain',background:'#101010'}}/>:null}
-          <div style={{padding:'14px 16px'}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.65,margin:0}}>{value}</p></div>
-          <div style={{padding:'0 16px 12px'}}><WhereYatReactions id={entry.id} storyKey={key}/></div>
+      {entry ? <div className="wyn-story-layout"><div className="wyn-story-feed">
+        {([['favoriteHs','MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT LIFE LOOKS LIKE NOW',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value],index)=>value&&<article id={'where-yat-'+key} key={key} className="wyn-story-card">
+          <header className="wyn-story-header">{entry.display_name||name} — {label}</header>
+          {entry.life_photos_json?.[index]?.web||((index===0||index===3)&&entry.photo_url)?<img src={entry.life_photos_json?.[index]?.web||entry.photo_url||''} alt={label} className="wyn-story-image"/>:null}
+          <div className="wyn-story-body"><p style={{whiteSpace:'pre-wrap',lineHeight:1.65,margin:0}}>{value}</p></div>
+          <div className="wyn-story-actions"><WhereYatReactions id={entry.id} storyKey={key}/></div>
         </article>)}
         {entry.life_photos_json?.length>0&&<details style={{padding:16,border:'1px solid #444'}}><summary>AFTER BASEBALL — PHOTO ALBUM</summary><div style={{display:'flex',flexWrap:'wrap',gap:12,paddingTop:12}}>{entry.life_photos_json.map((photo,i)=><a key={i} href={photo.full} target="_blank" rel="noopener noreferrer"><img alt={'Life after baseball '+(i+1)} src={photo.web} style={{height:140,maxWidth:'100%',objectFit:'contain'}}/></a>)}</div></details>}
-      </div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
-      <style>{`\n        .where-yat-profile { background:#111 !important; color:#f5f5f5 !important; }\n        .where-yat-profile article, .where-yat-profile section { background:#191919 !important; color:#f5f5f5 !important; }\n        .where-yat-profile h2, .where-yat-profile h3, .where-yat-profile p, .where-yat-profile strong { color:#f5f5f5 !important; opacity:1 !important; }\n        .where-yat-profile a { color:#e9bf56; }\n        .where-yat-profile .wyn-embedded, .where-yat-profile .wyn-body { background:#c2b9ae !important; color:#1e160e !important; }\n        .where-yat-profile .wyn-embedded p { color:#1e160e !important; }\n      `}</style>\n      <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
+      </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      <style>{`
+        .where-yat-profile { padding: 12px; width:100%; box-sizing:border-box; color:var(--yat-text,#f5f5f5); background:transparent; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .where-yat-profile h2 { font:700 22px/1.2 var(--yat-font-condensed,Oswald,Arial Narrow,sans-serif); margin:4px 0 14px; }
+        .wyn-story-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:12px; align-items:start; }
+        .wyn-story-feed { min-width:0; display:grid; gap:8px; }
+        .wyn-story-sponsor { position:sticky; top:110px; min-width:0; }
+        .wyn-story-card { border:1px solid var(--yat-border,rgba(128,128,128,.3)); border-radius:8px; overflow:hidden; background:var(--yat-card-bg,rgba(128,128,128,.08)); color:inherit; }
+        .wyn-story-header { padding:10px 12px; border-bottom:1px solid var(--yat-border,rgba(128,128,128,.3)); font:700 14px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
+        .wyn-story-image { display:block; width:100%; max-height:520px; object-fit:contain; background:#101010; }
+        .wyn-story-body { padding:12px; font:400 14px/1.5 var(--yat-news-font,Georgia,serif); }
+        .wyn-story-actions { padding:0 12px 12px; border-top:1px solid var(--yat-border,rgba(128,128,128,.3)); }
+        @media(max-width:899px){.wyn-story-layout{display:block}.wyn-story-sponsor{display:none}.where-yat-profile{padding:10px}}
+        @media(prefers-color-scheme:light){.where-yat-profile{color:#171717}.wyn-story-card{background:#fff;border-color:#d4d4d4}.wyn-story-header,.wyn-story-actions{border-color:#d4d4d4}}
+        @media(prefers-color-scheme:dark){.where-yat-profile{color:#f4f4f4}.wyn-story-card{background:#191919;border-color:#444}.wyn-story-header,.wyn-story-actions{border-color:#444}}
+      `}</style>
+      <p style={{ marginTop: 18, fontSize: 13 }}>Interested in community partnerships? <a href="https://yatstats.com/partners/" target="_blank" rel="noopener noreferrer" style={{ color: '#e9bf56' }}>Explore optional YAT?STATS partnership opportunities</a></p>
     </div>
   );
 }
