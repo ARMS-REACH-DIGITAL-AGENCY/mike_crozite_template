@@ -373,7 +373,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
       <WhereYatProofCard variant="full" proof={{
        playerId, hsid, displayName:proof.displayName||name, city:proof.city, state:proof.state,
        occupation:proof.occupation, company:proof.company,
-       story:proof[featuredMemory]||proof.story||proof.favoriteAfter||proof.favoriteHs, website:proof.website,
+       story:proof[featuredMemory]||proof.story||proof.favoriteAfter||proof.favoriteHs, storyPrompt:fields.find(([key])=>key===featuredMemory)?.[1].replace('YOUR HIGH SCHOOL',school.toUpperCase()), website:proof.website,
        linkedin:proof.linkedin, instagram:proof.instagram, facebook:proof.facebook,
        x:proof.x, photoUrl:memoryPhotos[featuredMemory]?.[0]?.url||photos[0]?.url,
        businessPublic:proof.businessPublic==='yes'
