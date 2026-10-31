@@ -462,3 +462,46 @@ export async function syncYatstatsSmsConsent(
     return false;
   }
 }
+
+
+/**
+ * Roster-alert variant of the email sender. Returns the HighLevel outcome
+ * so the delivery ledger can distinguish invalid contacts from retryable
+ * outages. Keep the existing sendGHLEmail() API unchanged for other callers.
+ */
+export async function sendGHLEmailWithResult(
+  contactId: string,
+  subject: string,
+  html: string,
+): Promise<{ ok: boolean; retryable: boolean; error: string | null }> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey) return { ok: false, retryable: true, error: "GHL_API_KEY_MISSING" };
+
+  try {
+    const response = await fetch("https://services.leadconnectorhq.com/conversations/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        Version: "2021-04-15",
+      },
+      body: JSON.stringify({ type: "Email", contactId, subject, html }),
+    });
+
+    if (response.ok) return { ok: true, retryable: false, error: null };
+    const raw = (await response.text().catch(() => "")).slice(0, 1000);
+    let errorCode = "GHL_EMAIL_REJECTED";
+    try {
+      const parsed = JSON.parse(raw) as { canonicalCode?: string; error?: string };
+      errorCode = String(parsed.canonicalCode || parsed.error || errorCode).slice(0, 100);
+    } catch { /* Some providers return plain text. */ }
+
+    console.error("Roster-alert email rejected", { status: response.status, code: errorCode });
+    const retryable = response.status === 408 || response.status === 429 || response.status >= 500;
+    return { ok: false, retryable, error: `HTTP_${response.status}:${errorCode}` };
+  } catch (error) {
+    console.error("Roster-alert email network failure", error instanceof Error ? error.message : "unknown");
+    return { ok: false, retryable: true, error: "GHL_EMAIL_NETWORK_ERROR" };
+  }
+}

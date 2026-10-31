@@ -12,7 +12,12 @@ on:
         required: false
         type: string
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/5 * * * *"
+    - cron: "35 10 * * *"  # 3:35 AM Phoenix reconciliation
+
+concurrency:
+  group: mlb-transactions-sync
+  cancel-in-progress: false
 
 jobs:
   sync-mlb-transactions:
@@ -50,6 +55,7 @@ jobs:
           # bash can only ever read, never execute.
           START_DATE_INPUT: ${{ github.event.inputs.start_date }}
           END_DATE_INPUT: ${{ github.event.inputs.end_date }}
+          RUN_SCHEDULE: ${{ github.event.schedule }}
         run: |
           DATE_RE='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
           ARGS=()
@@ -66,6 +72,9 @@ jobs:
               exit 1
             fi
             ARGS+=(--end "$END_DATE_INPUT")
+          fi
+          if [ -z "$START_DATE_INPUT" ] && [ "$RUN_SCHEDULE" != "35 10 * * *" ]; then
+            ARGS+=(--start "$(date -u -d '2 days ago' +%F)")
           fi
           npx tsx ./scripts/sync-mlb-transactions.ts "${ARGS[@]}"
 
