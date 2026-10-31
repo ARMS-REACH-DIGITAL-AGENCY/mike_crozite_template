@@ -7,6 +7,7 @@ import {
   CANONICAL_ACTIVE_STAGE_MISMATCH_SQL,
   CANONICAL_STAGE_REPAIR_SQL,
   SAFE_2026_STAGE_TEAM_RECOVERY_SQL,
+  SAFE_2026_BLANK_STATUS_RECOVERY_SQL,
   STAGE_TEAM_COVERAGE_SQL,
   UNRESOLVED_ACTIVE_TEAM_SQL,
   LEVEL_FIX_TARGETS,
@@ -67,7 +68,11 @@ export async function GET(req: NextRequest) {
     const fixed: Record<string, number> = {};
     let canonicalFixed = 0;
     let teamIdsRecovered = 0;
+    let participantsRecovered = 0;
     if (!dry) {
+      const { rows: participants } = await query<{ activated: number }>(SAFE_2026_BLANK_STATUS_RECOVERY_SQL);
+      participantsRecovered = participants[0]?.activated ?? 0;
+      if (participantsRecovered) fixed['flip_card_front_stage 2026 activity'] = participantsRecovered;
       const { rows: recoveryRows } = await query<{ recovered: number }>(SAFE_2026_STAGE_TEAM_RECOVERY_SQL);
       teamIdsRecovered = recoveryRows[0]?.recovered ?? 0;
       if (teamIdsRecovered) fixed["flip_card_front_stage safe 2026 team recovery"] = teamIdsRecovered;
@@ -109,6 +114,7 @@ export async function GET(req: NextRequest) {
       fixedTotal,
       canonicalFixed,
       teamIdsRecovered,
+      participantsRecovered,
       coverage,
       unresolvedActiveTeams,
       scan,

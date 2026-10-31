@@ -132,4 +132,35 @@ const ingest = source('src/app/api/cron/tbc-safe-ingest/route.ts');
 assert(ingest.includes('SAFE_2026_STAGE_TEAM_RECOVERY_SQL'),
   'TBC ingest must recover safe team IDs immediately after the new season feed');
 
+
+const activeRecovery = section(levels,
+  'export const SAFE_2026_BLANK_STATUS_RECOVERY_SQL = `',
+  'SELECT COUNT(*)::int AS activated FROM changed');
+assert(activeRecovery.includes("f.status_label IS NULL"),
+  'Only unclassified players can be classified automatically');
+assert(activeRecovery.includes("COUNT(DISTINCT teamid)=1") &&
+       activeRecovery.includes("COUNT(DISTINCT evidence_source)=1"),
+  '2026 team and source must be unambiguous');
+assert(activeRecovery.includes("s.match_status='matched'") &&
+       activeRecovery.includes('s.match_confidence>=0.92'),
+  'Independent-league player identity must be verified');
+assert(activeRecovery.includes("e.evidence_source='tbc_2026'") &&
+       activeRecovery.includes("u.level_label='INDY'"),
+  'College and independent current-season evidence must be distinct');
+assert(activeRecovery.includes('public.mlb_org_roster_resolution') &&
+       activeRecovery.includes("m.source='mlb_api'") &&
+       activeRecovery.includes('public.player_team_override'),
+  'Never overrule MLB API mappings or explicit overrides');
+assert(!/current_team_last_verified\s*=/.test(activeRecovery),
+  'Season activity must not become a fake verified-live-roster timestamp');
+assert(cron.includes('SAFE_2026_BLANK_STATUS_RECOVERY_SQL'),
+  'Daily check must classify eligible blank-status players');
+assert(ingest.includes('SAFE_2026_BLANK_STATUS_RECOVERY_SQL'),
+  'Ingest must classify new eligible player rows');
+const provenance = source('migrations/20261031_flip_card_stage_field_provenance.sql');
+assert(provenance.includes('AFTER INSERT OR UPDATE OF') &&
+       provenance.includes('recorded_at TIMESTAMPTZ') &&
+       provenance.includes("'before', before_fields -> k"),
+  'Stage insert/update history must retain timestamps and field-level before/after');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
