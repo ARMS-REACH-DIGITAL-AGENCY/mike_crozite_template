@@ -281,6 +281,13 @@ export async function POST(req: NextRequest) {
       return fail('Pick the high school.');
     }
 
+    // A front photo occupies a player-wide, already-visible card slot.
+    // Prevent old cached upload forms from silently overwriting it. The
+    // new form shows the current image beside the proposed image and obtains
+    // the fan's explicit confirmation before any S3 object is modified.
+    if (purpose === 'flip_card' && text(form.get('confirmReplaceFront'), 5) !== '1')
+      return fail('Confirm REPLACE CURRENT FLIP-CARD FRONT in the photo form before submitting.', 409);
+
     // A yearly hero is a SINGLE active player/year slot. New submissions
     // cannot silently overwrite it; the fan chooses an explicit existing
     // upload to replace and must own that upload (reviewers can also edit).
@@ -327,6 +334,7 @@ export async function POST(req: NextRequest) {
       by: { uid: who.uid, name: who.name, email: who.email || null },
       pageUrl,
       replacesUploadId: replaceUploadId || undefined,
+      frontReplacementConfirmed: purpose === 'flip_card' ? true : undefined,
     };
     await query(
       `INSERT INTO media_upload (id, playerid, hsid, category, s3_key, date_taken, status, mime_type, file_size_bytes, purpose, description, team_at_time, sha256)
@@ -431,7 +439,9 @@ export async function POST(req: NextRequest) {
             ORDER BY uploaded_at ASC LIMIT 1`,
           [id, playerId, purpose, `${year}-01-01`, staged.sha256]
         );
-        if (duplicates.length && !replaceUploadId) {
+        // Front replacements, including restoring an older picture, must
+        // always publish a new immutable version and become the active card.
+        if (duplicates.length && !replaceUploadId && purpose !== 'flip_card') {
           status = 'approved';
           message = "That photo is already on the site.";
         } else {
