@@ -38,6 +38,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const [open, setOpen] = useState<number | null>(null);
   const [showInstagramEmbed, setShowInstagramEmbed] = useState(false);
   const [brokenPictureId, setBrokenPictureId] = useState<string | null>(null);
+  const [socialVideo, setSocialVideo] = useState<{ id: string; url: string | null } | null>(null);
   const touchX = useRef<number | null>(null);
   const [viewerScale, setViewerScale] = useState(1);
   // Each post's width:height, read from its picture, so Instagram's player
@@ -149,6 +150,16 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   }, [open, step, close]);
 
   const current = open !== null && posts ? posts[open] : null;
+  const videoPostId = !externalPosts && current?.media_type === 'video' ? current.id : null;
+  useEffect(() => {
+    if (!videoPostId) return;
+    let active = true;
+    fetch(`/api/social/player/${encodeURIComponent(playerId)}/video/${encodeURIComponent(videoPostId)}`)
+      .then((response) => response.ok ? response.json() : { video_url: null })
+      .then((data) => { if (active) setSocialVideo({ id: videoPostId, url: typeof data.video_url === 'string' ? data.video_url : null }); })
+      .catch(() => { if (active) setSocialVideo({ id: videoPostId, url: null }); });
+    return () => { active = false; };
+  }, [playerId, videoPostId]);
   const embedUrl = current?.permalink ? `${current.permalink.replace(/\/?$/, '/')}embed/` : null;
   const hasInteractiveMedia = Boolean(embedUrl && (current?.media_type === 'video' || current?.media_type === 'carousel'));
   // No picture of the post itself (never a stand-in photo): show Instagram's
@@ -160,7 +171,10 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
   // Render the original Instagram post for all News media, never substitute that thumbnail.
-  const embedShown = Boolean(embedUrl && (externalPosts ? (isInteractiveNews || !hasPicture) : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
+  // Social Reels use Meta's licensed media URL when available, never its branded iframe.
+  const socialReel = Boolean(!externalPosts && current?.media_type === 'video');
+  const resolvedVideo = socialReel && socialVideo?.id === current?.id ? socialVideo.url : null;
+  const embedShown = Boolean(!socialReel && embedUrl && (externalPosts ? (isInteractiveNews || !hasPicture) : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
@@ -257,7 +271,11 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               )}
             </div>
             <div className="pp-ig-media" ref={mediaRef}>
-              {embedShown && embedUrl ? (
+              {resolvedVideo ? (
+                <video key={current.id} src={resolvedVideo} controls playsInline preload="metadata" poster={hasPicture ? current.thumbnail_url : undefined}
+                  onError={() => setSocialVideo({ id: current.id, url: null })}
+                  style={{ maxWidth: '100%', maxHeight: '100%', width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : embedShown && embedUrl ? (
                 embedBox && (
                   <div className="pp-ig-embed-crop" style={{ width: embedBox.width, height: embedBox.height }}>
                     <iframe
@@ -299,7 +317,10 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               )}
             </div>
             <div className={`pp-ig-post-details${renderFooter ? ' pp-ig-post-details-news' : ''}`}>
-              {!externalPosts && hasInteractiveMedia && hasPicture && (
+              {!externalPosts && socialReel && socialVideo?.id === current.id && !resolvedVideo && (
+                <p className="pp-ig-video-note">Instagram has not made this Reel available for playback here. Use ORIGINAL POST to watch it on Instagram.</p>
+              )}
+              {!externalPosts && !socialReel && hasInteractiveMedia && hasPicture && (
                 <button
                   type="button"
                   className="pp-ig-embed-toggle"
@@ -365,6 +386,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-media-unavailable { display:grid; justify-items:center; gap:10px; padding:18px; color:#ddd; text-align:center; font:600 13px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .pp-ig-media-unavailable p { margin:0; }
         .pp-ig-media-unavailable a { color:#e6c34c; }
+        .pp-ig-video-note { margin:0 0 8px; font:500 12px/1.4 var(--yat-font-ui,Arial,sans-serif); color:#ddd; }
         .pp-ig-caption { margin:0; max-height:62px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; color:#dedede; font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .pp-ig-post-date { display:block; margin-top:6px; font:500 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); color:#a7a7a7; }
         .pp-ig-embed-toggle { display:inline-flex; align-items:center; gap:5px; margin:0 0 7px; border:1px solid rgba(255,255,255,.35); border-radius:4px; padding:6px 10px; background:#282828; color:#fff; cursor:pointer; font:700 11px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); }
