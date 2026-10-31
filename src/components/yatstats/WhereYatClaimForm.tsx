@@ -152,7 +152,6 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  function questionAnswered(id:string):boolean {
   if(id==='lifePhotos')return photos.length>0;
   const el=form.current?.elements.namedItem(id==='location'?'city':id) as HTMLInputElement|HTMLTextAreaElement|null;
-  if(id==='contactPhone')return <label className="ycd-field"><span className="ycd-label">CALLBACK PHONE (PRIVATE)</span><span className="ycd-muted ycd-small">Only the YAT?STATS review team will use this to verify your identity or thank you. This does not authorize marketing texts or calls.</span><input type="tel" name="contactPhone" autoComplete="tel" /></label>;
   if(id==='location')return Boolean(el?.value.trim() || (form.current?.elements.namedItem('state') as HTMLInputElement|null)?.value.trim());
   if(!el)return false;
   if(el instanceof HTMLInputElement && el.type==='checkbox')return el.checked;
@@ -216,6 +215,7 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
  function renderQuestion(id:string){
   if(id==='displayName')return <label className="ycd-field"><span className="ycd-label">YOUR NAME</span><input required name="displayName" defaultValue={fan.name||name} autoComplete="name"/></label>;
   if(id==='email')return <label className="ycd-field"><span className="ycd-label">CONTACT EMAIL (PRIVATE)</span><input required type="email" name="email" defaultValue={fan.email} autoComplete="email" /></label>;
+  if(id==='contactPhone')return <label className="ycd-field"><span className="ycd-label">CALLBACK PHONE (PRIVATE)</span><span className="ycd-muted ycd-small">Only the YAT?STATS review team will use this to verify your identity or thank you. This does not authorize marketing texts or calls.</span><input type="tel" name="contactPhone" autoComplete="tel" /></label>;
   if(id==='location')return <div className="ycd-pair">
    <label className="ycd-field"><span className="ycd-label">CITY</span><input name="city" autoComplete="address-level2" /></label>
    <label className="ycd-field"><span className="ycd-label">STATE</span><input name="state" autoComplete="address-level1" /></label>
