@@ -14,6 +14,8 @@ import {
   LEVEL_SCAN_SQL,
   OFFICIAL_LEVELS,
   TEAM_LEVEL_MISMATCH_SQL,
+  TEAM_UNIVERSE_INTEGRITY_SQL,
+  TEAM_UNIVERSE_AUDIT_24H_SQL,
   levelFixSql,
 } from "@/lib/officialLevels";
 
@@ -102,6 +104,13 @@ export async function GET(req: NextRequest) {
       active_team_id_without_source: number;
     }>(STAGE_TEAM_COVERAGE_SQL);
     const coverage = coverageRows[0];
+    const { rows: teamUniverseRows } = await query<{
+      total_teams: number; missing_names: number; missing_orgs: number;
+      missing_levels: number; unofficial_levels: number; teams_needing_review: number;
+    }>(TEAM_UNIVERSE_INTEGRITY_SQL);
+    const teamUniverse = teamUniverseRows[0];
+    const { rows: canonicalAuditRows } = await query<{ changes_past_24h: number }>(TEAM_UNIVERSE_AUDIT_24H_SQL);
+    const canonicalChanges24h = canonicalAuditRows[0]?.changes_past_24h ?? 0;
     const { rows: unresolvedActiveTeams } = await query<{
       playerid: string; display_name: string; status_label: string;
       current_teamid: string | null; current_team_name: string | null;
@@ -116,6 +125,8 @@ export async function GET(req: NextRequest) {
       teamIdsRecovered,
       participantsRecovered,
       coverage,
+      teamUniverse,
+      canonicalChanges24h,
       unresolvedActiveTeams,
       scan,
       activeCards: cards.length,
@@ -125,7 +136,7 @@ export async function GET(req: NextRequest) {
 
     // Email when something changed, an active player needs a decision, or
     // any table still holds an unofficial level; a clean week stays quiet.
-    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0 || (coverage?.active_null_team_ids ?? 0) > 0 || (coverage?.unmapped_team_ids ?? 0) > 0) {
+    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0 || (coverage?.active_null_team_ids ?? 0) > 0 || (coverage?.unmapped_team_ids ?? 0) > 0 || (teamUniverse?.teams_needing_review ?? 0) > 0 || canonicalChanges24h > 0) {
       const contactId = await findOrCreateGhlContact(REPORT_EMAIL, "Pete", "DeLuca", undefined, "YAT?STATS Operations");
       if (contactId) {
         const fixedRows = Object.entries(fixed).map(([k, n]) => [esc(k), String(n)]);
@@ -138,6 +149,8 @@ export async function GET(req: NextRequest) {
           ${mismatches.length ? table(["Player", "Team", "Card says", "Team table says"], mismatches.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_team_name), esc(r.card_level), `<b>${esc(r.team_level)}</b>`])) : "<p>None.</p>"}
           <p><b>Active Flip Cards still disagreeing with canonical Team ID identity (${identityMismatches.length}):</b></p>
           ${identityMismatches.length ? table(["Player", "Team ID", "Card Team", "Canonical Team", "Card Org", "Canonical Org", "Card Level", "Canonical Level"], identityMismatches.slice(0, 200).map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.canonical_team_name), esc(r.current_org_or_conference_name), esc(r.canonical_org_name), esc(r.level_label), esc(r.canonical_level)])) : "<p>None.</p>"}
+          <p><b>Canonical team universe health (requires zero unresolved):</b> ${esc(JSON.stringify(teamUniverse))}</p>
+          <p><b>Reviewed canonical changes in past 24 hours:</b> ${canonicalChanges24h}</p>
           <p><b>Full-stage coverage:</b> ${esc(JSON.stringify(coverage))}</p>
           <p><b>Unresolved ACTIVE assignments (first ${unresolvedActiveTeams.length}):</b></p>
           ${unresolvedActiveTeams.length ? table(["Player", "Team ID", "Team", "Level", "Source"], unresolvedActiveTeams.map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.level_label), esc(r.current_team_source)])) : "<p>None.</p>"}
