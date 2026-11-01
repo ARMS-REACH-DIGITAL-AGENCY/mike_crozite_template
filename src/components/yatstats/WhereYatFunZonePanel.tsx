@@ -5,6 +5,7 @@
 // This is ONLY the content pane of the back of the flip card: the real player
 // hero above and the six working FunZone tabs below remain untouched.
 import WhereYatProofCard, { type WhereYatProof } from './WhereYatProofCard';
+import {openContribute} from '@/lib/contribute';
 
 export type WhereYatFunZoneState = 'unclaimed' | 'pending' | 'approved';
 
@@ -13,12 +14,13 @@ const CLAIM_PROFILE_ART = '/img/where-yat-now/claim-profile.png';
 const WAITING_APPROVAL_ART = '/img/where-yat-now/waiting-approval.png';
 
 export default function WhereYatFunZonePanel({
-  state, firstName, profileHref, proof,
+  state, firstName, profileHref, proof, playerId, hsid, schoolName, displayName,
 }: {
   state: WhereYatFunZoneState;
   firstName: string;
   profileHref: string;
   proof?: WhereYatProof | null;
+  playerId?:string;hsid?:string;schoolName?:string;displayName?:string;
 }) {
   const art = state === 'unclaimed'
     ? { src: CLAIM_PROFILE_ART, alt: 'Where YAT Now? Life after baseball is part of the story. Claim your profile.', link: 'Claim your retired alumni profile and complete the questionnaire' }
@@ -30,7 +32,7 @@ export default function WhereYatFunZonePanel({
         // Both source graphics already contain their copy and call to action.
         // Make the whole graphic one usable link; no duplicate styled CTA or
         // transparent text placed on top of the artwork.
-        <a href={profileHref} className="wyn-fz-graphic" aria-label={art.link}>
+        <a href={profileHref} className="wyn-fz-graphic" aria-label={art.link} onClick={e=>{if(state==='unclaimed'&&playerId&&hsid){e.preventDefault();openContribute({tab:'retired_card',player:{playerId,displayName:displayName||firstName,schoolId:hsid,schoolName:schoolName||''}})}}}>
           <img src={art.src} alt={art.alt} decoding="async" loading="eager" />
         </a>
       ) : proof ? (
