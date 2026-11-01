@@ -167,7 +167,7 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    const prepared=await createStoryUploadBody(form);
    // Never strand the designer in SUBMITTING if a photo upload stalls.
    const controller=new AbortController();
-   const timeout=window.setTimeout(()=>controller.abort(),90000);
+   const timeout=window.setTimeout(()=>controller.abort(),35000);
    let res:Response;
    try{
     res=await fetch('/api/contribute/where-yat-now',{
