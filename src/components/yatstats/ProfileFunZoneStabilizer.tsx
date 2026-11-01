@@ -1,8 +1,8 @@
 'use client';
 
-import { Doto } from 'next/font/google';
+import localFont from 'next/font/local';
 
-const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap', variable: '--ticker-date-doto' });
+const tickerDateFont = localFont({ src: [{ path: '../../fonts/doto-latin-700-normal.woff2', weight: '700' }, { path: '../../fonts/doto-latin-900-normal.woff2', weight: '900' }], display: 'swap', variable: '--ticker-date-doto' });
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';

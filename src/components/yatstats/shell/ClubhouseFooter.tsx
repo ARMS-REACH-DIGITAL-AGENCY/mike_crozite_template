@@ -1,8 +1,8 @@
 'use client';
 
-import { Doto } from 'next/font/google';
+import localFont from 'next/font/local';
 
-const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap' });
+const tickerDateFont = localFont({ src: [{ path: '../../../fonts/doto-latin-700-normal.woff2', weight: '700' }, { path: '../../../fonts/doto-latin-900-normal.woff2', weight: '900' }], display: 'swap' });
 
 import { useContext, useEffect, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
