@@ -9,7 +9,7 @@ import { WHERE_YAT_MEMORY_MAX_CHARS } from '@/lib/whereYatPrompts';
 
 type Photo={web:string;full:string;thumb:string};
 type Picked={blob:Blob;name:string;preview:string};
-export default function WhereYatMemory({id,storyKey,label,initialText,initialPhotos,playerId,hsid,alumnusName}:{id:number;storyKey:string;label:string;initialText:string;initialPhotos:Photo[];playerId:string;hsid:string;alumnusName:string}){
+export default function WhereYatMemory({id,storyKey,label,initialText,initialPhotos,playerId,hsid,alumnusName,showReactions=true}:{id:number;storyKey:string;label:string;initialText:string;initialPhotos:Photo[];playerId:string;hsid:string;alumnusName:string;showReactions?:boolean}){
  const avatarInitials=alumnusName.trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('')||'Y';
  const [text,setText]=useState(initialText);
  const [photos,setPhotos]=useState<Photo[]>(initialPhotos);
@@ -84,7 +84,7 @@ export default function WhereYatMemory({id,storyKey,label,initialText,initialPho
   <div className="ysv-post-pad ysv-post-content">
    <p className="ysv-story">{text}</p>
    <button type="button" className="ysv-open-memory" onClick={()=>openViewer()} aria-label={'Open full memory: '+label}>VIEW FULL MEMORY <i className="ri-external-link-line" aria-hidden="true"/></button>
-   <div className="wyn-story-actions"><WhereYatReactions id={id} storyKey={storyKey} onOpenComment={()=>openViewer(true)}/></div>
+   {showReactions&&<div className="wyn-story-actions"><WhereYatReactions id={id} storyKey={storyKey} onOpenComment={()=>openViewer(true)}/></div>}
   </div>
   {modal}
    <style>{`
