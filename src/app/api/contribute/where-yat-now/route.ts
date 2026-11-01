@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
     }
 
     if(businessHeadshot instanceof File&&businessHeadshot.size&&s3){
-      const prepared=await applyPositionedCrop(Buffer.from(await businessHeadshot.arrayBuffer()),requestedCrop(form.get('businessHeadshotCrop')),750,750);
+      const prepared=await applyPositionedCrop(Buffer.from(await businessHeadshot.arrayBuffer()),requestedCrop(form.get('businessHeadshotCrop')),500,750);
       headshotKey=`alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/business-headshots/${randomUUID()}.jpg`;
       await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:headshotKey,Body:prepared,ContentType:'image/jpeg',CacheControl:'private, no-store'}));
       headshotUrl=storyAssetUrl(headshotKey);
