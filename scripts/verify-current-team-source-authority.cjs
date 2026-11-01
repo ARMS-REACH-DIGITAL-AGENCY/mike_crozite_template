@@ -217,4 +217,18 @@ assert(readTimeIdentity.includes("m.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3
        readTimeIdentity.includes('AND m.level IS NOT NULL'),
   'Read-time stage identity must not activate professional players from stats');
 
+const retiredTransactionClear = section(levels,
+  'export const SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL = `',
+  'SELECT COUNT(*)::int AS cleared FROM changed');
+assert(retiredTransactionClear.includes("f.status_label='RETIRED'") &&
+       retiredTransactionClear.includes("f.last_transaction_type ILIKE '%retir%'") &&
+       retiredTransactionClear.includes("f.last_transaction_applied_at >= f.current_team_last_verified") &&
+       retiredTransactionClear.includes('player_team_override') &&
+       retiredTransactionClear.includes('current_teamid=NULL') &&
+       !retiredTransactionClear.includes('SET status_label=') &&
+       !retiredTransactionClear.includes('highest_level_label='),
+  'Only a newer retirement transaction can clear an older MLB roster assignment');
+assert(statusCron.includes('SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL'),
+  'Stage maintenance must clear stale current team after a confirmed retirement');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
