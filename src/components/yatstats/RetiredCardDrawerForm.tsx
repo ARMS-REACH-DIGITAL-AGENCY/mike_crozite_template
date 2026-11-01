@@ -1,7 +1,8 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {auth} from '@/lib/firebase';
-import WhereYatFlipCardEditor,{type FlipCardSaved} from './WhereYatFlipCardEditor';
+import type {FlipCardSaved} from './WhereYatFlipCardEditor';
+import WhereYatUnifiedDrawer from './WhereYatUnifiedDrawer';
 export default function RetiredCardDrawerForm({playerId,hsid,name,school,onClose}:{playerId:string;hsid:string;name:string;school:string;onClose:()=>void}){
  const [saved,setSaved]=useState<FlipCardSaved|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
  useEffect(()=>{let active=true;(async()=>{
@@ -13,11 +14,8 @@ export default function RetiredCardDrawerForm({playerId,hsid,name,school,onClose
   finally{if(active)setLoading(false);}
  })();return()=>{active=false}},[playerId,hsid]);
  return <div className="ycd-narrow" aria-label="Retired alumni flip card designer">
-  {loading?<p className="ycd-muted">Loading your saved memories…</p>:error?<div className="ycd-error" role="alert">{error}</div>:!saved?
-   <div className="ycd-placeholder">Save at least one memory on your Where YAT? page before designing your flip card.<button className="ycd-btn" type="button" onClick={onClose}>BACK TO MEMORIES</button></div>
-  :<><p className="ycd-muted ycd-small">Upload the back-of-card hero, business images and memory photos here, then review the entire finished flip card once before saving.</p>
-   <WhereYatFlipCardEditor key={saved.id} saved={saved} playerId={playerId} hsid={hsid} name={name} school={school} onSaved={setSaved} drawerMode/>
-   <button className="ycd-btn" type="button" onClick={onClose}>BACK TO MEMORIES</button>
-  </>}
+  {loading?<p className="ycd-muted">Loading your flip-card details…</p>:error?<div role="alert" className="ycd-error">{error}</div>:
+   <WhereYatUnifiedDrawer key={saved?.id||playerId} saved={saved} playerId={playerId} hsid={hsid} name={name} school={school} onSaved={setSaved}/>
+  }
  </div>;
 }
