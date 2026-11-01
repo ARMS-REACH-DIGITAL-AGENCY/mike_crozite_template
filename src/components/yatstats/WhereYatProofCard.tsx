@@ -1,6 +1,7 @@
 'use client';
 
 import PlayerCardBackHero from './PlayerCardBackHero';
+import { WHERE_YAT_MEMORY_MAX_CHARS } from '@/lib/whereYatPrompts';
 import { toSlugFromDisplay } from '@/lib/slug';
 import { normalizeWhereYatLink, type WhereYatLinkField } from '@/lib/whereYatLinks';
 
@@ -66,7 +67,7 @@ export default function WhereYatProofCard({
   }).filter((item): item is Social & { href: string } => !!item);
 
   const showBusiness = proof.businessPublic !== false;
-  const businesses=(proof.businesses||[]).slice(0,4).filter(item=>item.name||item.website||item.logoUrl);
+  const businesses=(proof.businesses||[]).slice(0,1).filter(item=>item.name||item.website||item.logoUrl);
   const socialLinks=links.slice().sort((a,b)=>['linkedin','facebook','x','instagram'].indexOf(a.key)-['linkedin','facebook','x','instagram'].indexOf(b.key));
   const publicEmail=showBusiness && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proof.businessEmail||'') ? String(proof.businessEmail).trim() : '';
   const publicPhone=showBusiness ? String(proof.businessPhone||'').replace(/[^0-9+]/g,'') : '';
@@ -75,8 +76,8 @@ export default function WhereYatProofCard({
   const businessNames=businesses.map(item=>item.name).filter(Boolean).join(' | ')||proof.company||'';
   const businessLogos=businesses.filter(item=>item.logoUrl);
   const storyText=proof.story||'Visit the player profile to learn more about life after baseball.';
-  const excerpt=storyText.length>360?storyText.slice(0,357).trimEnd()+'…':storyText;
-  const hasMore=storyText.length>360;
+  // Never silently truncate a submitted memory. New entries have a clear authoring limit.
+  const hasMore=storyText.length>WHERE_YAT_MEMORY_MAX_CHARS;
   const portrait=showBusiness ? proof.businessHeadshotUrl : null;
   const showBusinessArea=showBusiness && (businessNames||proof.logoUrl||businessLogos.length>0||businessHref||socialLinks.length>0||emailHref||textHref);
   const body = (
@@ -104,7 +105,7 @@ export default function WhereYatProofCard({
               : <span><img className="wyn-business-logo" src={proof.logoUrl} alt={(proof.company||'Business')+' logo'}/></span>)}
           </div>}
           <div className="wyn-socials" aria-label="Public business contact options">
-            {businessHref && <a className="wyn-social wyn-website" href={businessHref} target="_blank" rel="noopener noreferrer" aria-label="Business website"><i className="ri-global-line" aria-hidden="true"/></a>}
+            
             {socialLinks.map(link=><a key={link.key} className={'wyn-social '+link.className} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label}><i className={link.icon} aria-hidden="true"/></a>)}
             {emailHref && <a className="wyn-social wyn-contact" href={emailHref} aria-label="Email business"><i className="ri-mail-line" aria-hidden="true"/></a>}
             {textHref && <a className="wyn-social wyn-text" href={textHref} aria-label="Text business"><i className="ri-message-2-fill" aria-hidden="true"/></a>}
@@ -115,8 +116,8 @@ export default function WhereYatProofCard({
         <div className="wyn-story-prompt">{proof.storyPrompt||'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'}</div>
         <div className="wyn-memory-content">
           {proof.photoUrl && <img className="wyn-featured-photo" src={proof.photoUrl} alt="Photo accompanying the selected memory"/>}
-          <p className="wyn-story">{excerpt}</p>
-          {hasMore && <a className="wyn-more" href={profileHref}>READ FULL MEMORY</a>}
+          <p className="wyn-story">{storyText}</p>
+          
         </div>
       </div>
     </div>
