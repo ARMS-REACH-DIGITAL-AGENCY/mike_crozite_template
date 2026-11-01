@@ -1,6 +1,8 @@
 'use client';
 
 import PlayerCardBackHero from './PlayerCardBackHero';
+import type { Crop } from '@/lib/contribute';
+import type { CSSProperties } from 'react';
 import { WHERE_YAT_MEMORY_MAX_CHARS } from '@/lib/whereYatPrompts';
 import { toSlugFromDisplay } from '@/lib/slug';
 import { normalizeWhereYatLink, type WhereYatLinkField } from '@/lib/whereYatLinks';
@@ -31,6 +33,9 @@ export type WhereYatProof = {
   businessPublic?: boolean;
   businesses?: Array<{name:string;website:string;logoUrl?:string}>;
   businessHeadshotUrl?:string|null;
+  /** Unpublished image selected in the single retired-card drawer. */
+  heroPreviewUrl?: string | null;
+  heroCrop?: Crop | null;
 };
 
 type Social = { key: WhereYatLinkField; icon: string; label: string; className: string };
@@ -79,6 +84,13 @@ export default function WhereYatProofCard({
   // Never silently truncate a submitted memory. New entries have a clear authoring limit.
   const hasMore=storyText.length>WHERE_YAT_MEMORY_MAX_CHARS;
   const portrait=showBusiness ? proof.businessHeadshotUrl : null;
+  const heroCrop=proof.heroPreviewUrl ? proof.heroCrop : null;
+  const heroStyle=heroCrop ? {
+    '--wyn-hero-left': (-heroCrop.x / Math.max(0.001,heroCrop.w) * 100) + '%',
+    '--wyn-hero-top': (-heroCrop.y / Math.max(0.001,heroCrop.h) * 100) + '%',
+    '--wyn-hero-width': (100 / Math.max(0.001,heroCrop.w)) + '%',
+    '--wyn-hero-height': (100 / Math.max(0.001,heroCrop.h)) + '%',
+  } as CSSProperties : undefined;
   const showBusinessArea=showBusiness && (businessNames||proof.logoUrl||businessLogos.length>0||businessHref||socialLinks.length>0||emailHref||textHref);
   const body = (
     <div className="wyn-body">
@@ -128,12 +140,12 @@ export default function WhereYatProofCard({
   }
 
   return (
-    <div className="wyn-card" aria-label={'5 by 7 retired alumni card proof for ' + proof.displayName}>
+    <div className={'wyn-card'+(heroCrop?' wyn-new-hero':'')} style={heroStyle} aria-label={'5 by 7 retired alumni card proof for ' + proof.displayName}>
       <div className="wyn-card-frame">
         {proof.playerId
           ? <PlayerCardBackHero playerId={proof.playerId} displayName={proof.displayName}
               profileHref={profileHref} teamName="" orgConf=""
-              posLevelStatus={[proof.position, 'RETIRED'].filter(Boolean).join(' - ')} btHw="" />
+              posLevelStatus={[proof.position, 'RETIRED'].filter(Boolean).join(' - ')} btHw="" previewImageUrl={proof.heroPreviewUrl||null} />
           : <div className="yat-back-hero"><div className="yat-back-meta"><div className="ybm-name">{proof.displayName}</div>
               <div className="ybm-pos">RETIRED</div></div></div>}
         {body}
@@ -144,6 +156,7 @@ export default function WhereYatProofCard({
         </div>
       </div>
       <style>{css}</style>
+      <style>{`.wyn-card.wyn-new-hero .yat-back-hero .yat-back-img{left:var(--wyn-hero-left)!important;top:var(--wyn-hero-top)!important;width:var(--wyn-hero-width)!important;height:var(--wyn-hero-height)!important;max-width:none!important;max-height:none!important;object-fit:fill!important;}`}</style>
     </div>
   );
 }
