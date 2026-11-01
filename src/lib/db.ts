@@ -2401,6 +2401,13 @@ export async function getNewsByPlayer(
            FROM fan_activity
           WHERE action = 'news_tagged'
             AND details->>'playerId' = $1
+         UNION
+         SELECT na.uuid
+           FROM flip_card_front_stage roster
+           JOIN news_articles na ON na.hsid::text = roster.hsid::text
+          WHERE roster.playerid::text = $1
+            AND na.discovery_source = 'contribute'
+            AND na.raw_payload->>'team_year' = ANY(roster.roster_years)
        )
        SELECT
          na.*,
@@ -2424,7 +2431,7 @@ export async function getNewsByPlayer(
          f.roster_years AS stage_roster_years,
          $1::text AS associated_playerid,
          f.display_name AS associated_player_name,
-         (na.playerid <> $1) AS tagged_to_player
+         (na.playerid IS DISTINCT FROM $1) AS tagged_to_player
        FROM associated_uuids associated
        JOIN news_articles na ON na.uuid = associated.uuid
        LEFT JOIN news_article_derivatives nd
@@ -2441,8 +2448,8 @@ export async function getNewsByPlayer(
          )
          -- Tagging a verified story should make it visible even if the
          -- original publisher assigned LOW newsworthiness to its subject.
-         AND (${lowRelevanceParam}::boolean OR na.playerid <> $1 OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
-         AND (na.playerid <> $1 OR ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)})
+         AND (${lowRelevanceParam}::boolean OR na.playerid IS DISTINCT FROM $1 OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
+         AND (na.playerid IS DISTINCT FROM $1 OR ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)})
        ORDER BY
          ${bestFirst ? `CASE
            WHEN LOWER(COALESCE(na.sentiment, '')) = 'negative' THEN 2

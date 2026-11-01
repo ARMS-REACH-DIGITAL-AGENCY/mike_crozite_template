@@ -18,6 +18,7 @@ import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isRevi
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 import { parseNewsVideo, cleanNewsVideoTitle } from '@/lib/newsVideo';
 import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
+import { fetchYouTubeVideoMetadata, normalizeNewsPublicationDate } from '@/lib/youtubeVideoMetadata';
 
 export const runtime = 'nodejs';
 
@@ -308,19 +309,28 @@ export async function POST(req: NextRequest) {
        const provider = parseNewsVideo(url);
        const isClip = Boolean(provider);
        const youtubeFallback = !enteredTitle && provider?.provider === 'YouTube';
-       const title = enteredTitle || (youtubeFallback ? await fetchYouTubeVideoTitle(url) : null) || '';
+       const metadata = provider?.provider === 'YouTube' ? await fetchYouTubeVideoMetadata(url) : null;
+       const title = enteredTitle || metadata?.title || (youtubeFallback ? await fetchYouTubeVideoTitle(url) : null) || '';
        if (!title) return fail(youtubeFallback
          ? 'Could not retrieve the YouTube title. Enter your own title to submit.'
          : 'Please enter a title.');
        // Preserve contributor headline first; store YouTube title only as fallback.
-       const notes = JSON.stringify({ kind: isClip ? 'clip' : 'news', title, why, titleSource: enteredTitle ? 'fan' : 'youtube_oembed' });
+       const manualDate = text(body.publishedDate, 32);
+       const publishedAt = manualDate ? normalizeNewsPublicationDate(manualDate) : metadata?.publishedAt || null;
+       if (manualDate && !publishedAt) return fail('Enter a valid original publication date.');
+       if (provider?.provider === 'YouTube' && !publishedAt) return fail('YouTube did not supply a publication date. Enter the date shown on YouTube.');
+       const rawYear = text(body.teamYear, 4);
+       const teamYear = rawYear ? Number(rawYear) : null;
+       if (rawYear && (!/^\d{4}$/.test(rawYear) || !Number.isInteger(teamYear) || teamYear === null || teamYear < 1900 || teamYear > new Date().getFullYear() + 1)) return fail('Choose a valid team year.');
+       if (!/^\d+$/.test(hsid)) return fail('Choose a high school program.');
+       const notes = JSON.stringify({ kind: isClip ? 'clip' : 'news', title, why, titleSource: enteredTitle ? 'fan' : 'youtube', publishedAt, dateSource: manualDate ? 'manual' : metadata?.dateSource || 'unknown', thumbnailUrl: metadata?.thumbnailUrl || null, teamYear, contributorUid: who.uid });
       const queued=await query<{id:string}>(
         `INSERT INTO news_tip_queue (intake_source, sender_name, sender_contact_id, sender_role, raw_player_name,
                                      matched_playerid, matched_hsid, article_url, notes, status)
          VALUES ('fan_drawer', $1, $2, $3, $4, $5, $6, $7, $8, 'new') RETURNING id::text`,
         [who.name, who.uid, who.profile?.role || 'fan', playerName || null, playerId || null, hsid || null, url, notes]
       );
-      await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url, sourceType: isClip ? 'clip' : 'news' } });
+      await logContribution(who, 'contribute_tip', { playerid: playerId || null, hsid: hsid || null, pageUrl, details: { url, sourceType: isClip ? 'clip' : 'news', teamYear, publishedAt } });
       // Preview deployments share the production DB; never let a preview
       // contribution test publish a real news article.
       const publication=process.env.VERCEL_ENV==='preview'?'pending'
