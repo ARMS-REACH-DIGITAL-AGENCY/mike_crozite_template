@@ -231,4 +231,23 @@ assert(retiredTransactionClear.includes("f.status_label='RETIRED'") &&
 assert(statusCron.includes('SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL'),
   'Stage maintenance must clear stale current team after a confirmed retirement');
 
+const collegeReactivation = section(levels,
+  'export const SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL = `',
+  'SELECT COUNT(*)::int AS reactivated FROM changed');
+assert(collegeReactivation.includes("'no_activity_after_2025'") &&
+       collegeReactivation.includes("'yatstats_retirement_cutoff'") &&
+       collegeReactivation.includes("EXTRACT(YEAR FROM CURRENT_DATE)=2026") &&
+       collegeReactivation.includes("COUNT(DISTINCT teamid)=1") &&
+       collegeReactivation.includes("'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'") &&
+       collegeReactivation.includes('mlb_org_roster_resolution') &&
+       collegeReactivation.includes('player_team_override') &&
+       !collegeReactivation.includes("'INDY'") &&
+       !collegeReactivation.includes("'INTERNATIONAL'") &&
+       !collegeReactivation.includes('current_team_last_verified='),
+  'Only auto-retired players with unique verified 2026 COLLEGE participation can reactivate');
+assert(statusCron.includes('SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL'),
+  'Late college season imports must be able to reverse automated retirement');
+assert(cutoff.includes('EXTRACT(YEAR FROM CURRENT_DATE)=2026'),
+  'Year-specific retirement rule must fail closed when 2027 begins');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
