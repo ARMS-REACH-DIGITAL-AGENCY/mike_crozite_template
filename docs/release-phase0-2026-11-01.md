@@ -197,7 +197,12 @@ work ran before the audit trigger existed (e.g. 298 of the 308
 
 - **371 teams still have level `PRO`** and **1 has `UNKNOWN`** - neither is
   an official level. No guessing; listed for your research.
-- Confirm the Oct 27 `YAT` -> `C` re-key of 1,024 schools was your call.
+- ~~Confirm the Oct 27 `YAT` -> `C` re-key of 1,024 schools was your call.~~
+  **Confirmed by Pete (Nov 1):** every high school is also a team (its 2027
+  High School Team Page), so it needs a teamid like college and pro teams.
+  `YAT` stays reserved for playerids only, so high-school teamids use the
+  prefix `C` + hsid. Example: `C5004` is the current teamid of Hamilton's
+  2027 high school players, who are associated with hsid `5004`.
 
 ## Step 4 - Release matrix
 

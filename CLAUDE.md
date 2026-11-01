@@ -15,5 +15,9 @@
   scripts, no seeding, no automated writes. Correcting an obvious error (a
   level not spelled the official way) is fine; anything else, report it and
   let Pete decide.
+- **ID prefixes (Pete, Nov 2026):** `YAT` is for playerids ONLY. A high
+  school is also a team (its 2027 High School Team Page), and its teamid is
+  `C` + hsid: `C5004` is the current teamid of Hamilton's 2027 high school
+  players (hsid `5004`). Never give a team a `YAT` id.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
