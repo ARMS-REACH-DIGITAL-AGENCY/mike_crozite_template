@@ -1363,6 +1363,22 @@ export default async function ProfilePage({ params }: Props) {
             height:auto!important;max-height:none!important;overflow:visible!important;
           }
         }
+        /* Nov 1 fix: on wide screens the News and Stories feeds stopped scrolling.
+           Since #604 their inner body is height:auto/overflow:visible, but the
+           active panel was still overflow:hidden from the Oct 21 two-scroller
+           layout, so nothing could scroll. The active panel is the one scroll
+           surface for these two tabs; the sticky towers stay put inside it. */
+        @media (min-width:1081px) {
+          #playerFunZone :is(#ppTab-news,#ppTab-upload).pp-fz-panel-active {
+            overflow-y:auto!important;overflow-x:hidden!important;
+            overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;
+          }
+        }
+        @container yat-profile-ads (min-width: 841px) {
+          #playerFunZone #ppTab-news.pp-fz-panel-active {
+            overflow-y:auto!important;overflow-x:hidden!important;
+          }
+        }
         /* Container-width rule follows the older 1080px collapse:
            desktop-style News gets a tower whenever the actual panel fits,
            including desktop-site mode and docked browser windows. */
