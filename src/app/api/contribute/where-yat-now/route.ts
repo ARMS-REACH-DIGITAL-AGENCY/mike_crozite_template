@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { randomUUID } from 'crypto';
@@ -14,7 +14,7 @@ import { moderateContributedTip } from '@/lib/contributeTipModeration';
 import { moderatePhoto } from '@/lib/contributeModeration';
 
 export const runtime = 'nodejs';
-export const maxDuration = 40;
+export const maxDuration = 120;
 const reply = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const clean = (value: FormDataEntryValue | null, limit: number) => String(value ?? '').trim().slice(0, limit);
 const retired = (s: string) => /\bRETIRED\b/i.test(s) && !/\bACTIVE\b/i.test(s);
@@ -233,9 +233,15 @@ export async function POST(req: NextRequest) {
     }).catch(() => {});
     const submissionId = result.rows[0]?.id;
     // Submission succeeds independently of notification delivery. Never disclose reviewer contact details.
-    if (submissionId) await syncWhereYatSubmissionToArms(submissionId).catch(error=>console.error('[where-yat-now] ARMS sync queued for retry',error));
-    if (submissionId) await notifyWhereYatReviewers({ id: submissionId, hsid, playerId, displayName }).catch(err => console.error('[where-yat-now] reviewer alert failed', err));
-    if (submissionId) await notifyWhereYatContributor({id:submissionId,hsid,email:who.email||email,name:displayName,outcome:'received'}).catch(err=>console.error('[where-yat-now] contributor receipt failed',err));
+    // Receipt goes back immediately. External CRM/email deliveries run after response.
+    if (submissionId) after(async () => {
+      const results = await Promise.allSettled([
+        syncWhereYatSubmissionToArms(submissionId),
+        notifyWhereYatReviewers({ id: submissionId, hsid, playerId, displayName }),
+        notifyWhereYatContributor({id:submissionId,hsid,email:who.email||email,name:displayName,outcome:'received'})
+      ]);
+      results.forEach((result,index)=>{if(result.status==='rejected')console.error('[where-yat-now] post-submit task failed',index,result.reason);});
+    });
     return NextResponse.json({ ok: true, pending: true, published: false, submissionId, partnerHref: 'https://yatstats.com/partners/' });
   } catch (error) {
     console.error('[where-yat-now] submit failed', { playerId, error });
