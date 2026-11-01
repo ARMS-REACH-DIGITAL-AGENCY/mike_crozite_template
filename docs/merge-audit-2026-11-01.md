@@ -91,6 +91,18 @@ branches are excluded (see `docs/bracket-live-test-2026.md`).
 - **Freeze:** #621 was still being pushed this morning. Each wave should use
   a fixed commit, with the authors not pushing to that branch while it is
   being integrated.
+- **#653** (`fix/instagram-sync-quota-20261101`, opened after the first
+  pass): merges cleanly, 4 files, but shares
+  `src/app/api/cron/instagram-sync/route.ts` with #639. Same wave, #653 first.
+  Acceptance: real posts on Trevor Bauer's Social tab after scheduled runs.
+- **#621's ARMS/HighLevel sync** (`/api/cron/where-yat-arms-sync`, every 10
+  min) runs only when `VERCEL_ENV=production`, so no preview can test it. It
+  has a lease (no double send between runs) and stops after 15 attempts, but
+  no on/off switch. It creates real CRM contacts, notes and tasks, which a
+  database snapshot cannot undo. Add an env switch, off by default; merge
+  with it off; switch it on and watch the first record. Its first run would
+  also send the 4 existing pending submissions (ids 4-7, 6 and 7 both
+  replacing 4) - decide first whether those are real or tests.
 - **Before each wave:** a Neon snapshot of the production branch (code
   rollback does not undo data).
 
