@@ -56,6 +56,44 @@ branches are excluded (see `docs/bracket-live-test-2026.md`).
   script to the single-line `build` command, so they all collide there. That
   is mechanical, not a sign of risk.
 
+## Follow-up checks (after the other agents' second round)
+
+- **Production data vs. old code.** Every candidate branch was searched for
+  added writes to `flip_card_front_stage`, `teamid_universe_mapping`,
+  `player_team_override` or `player_source_map`. **None of the branches in
+  waves 1-5 write to them.** Every branch that does is either already in
+  production or old. The two dangerous old ones are **#429**
+  (`fix/player-current-metadata-20261018`, 719 commits behind) and **#405**
+  (`fix/canonical-current-team-groups-20261016`, 884 behind). Both rewrite
+  `tbc-safe-ingest`, the job that writes the stage table. Close them; never
+  merge them. The canonical-team guard and audit triggers are live in the
+  database (`canonical_team_identity_guard`, `canonical_team_identity_audit`).
+- **`teamid_universe_mapping`, for Pete (not changed, reported only):** of
+  20,727 rows, 17,248 have `source_system = 'YATSTATS_HIGH_SCHOOL'`, added by
+  script on Oct 27 (notes: "Pete: every high school..."). That matches the
+  unmerged branch `fix/high-school-team-ids`: its data is live, but its code
+  (the add-player form, YAT numbers, C + hsid teams) is not. Another 434 rows
+  came from the Oct 31 repair migrations (308 college history, 86 TBC team
+  pages, 28 INTERNATIONAL, 6 Pioneer, 6 web). Pete to confirm these were his
+  calls.
+- **#621 also changes site-wide behavior**, beyond Where YAT (deliberate; it
+  has its own check, `verify-first-flip-tab.cjs`):
+  1. flipping any player card opens the **7-Day Snapshot** tab first;
+  2. Flip All now goes Snapshot -> Stats -> News ... (was Stats first);
+  3. the retired player's tab label is now "YAT?" (was "WHERE YAT NOW?");
+  4. a placeholder "ADVERTISER PLACEMENT" in-feed card in Stories when the
+     Contribute drawer is open;
+  5. the bracket font bug above (the only one that is not intended).
+  Pete checks 1-4 on the preview; 5 is reverted.
+- **#525** (`perf/lightweight-school-shell-20261023`): 296 behind, conflicts
+  in `src/app/[hsid]/layout.tsx` and `src/lib/db.ts`, only 31 added lines.
+  Cheaper to redo on current production than to merge.
+- **Freeze:** #621 was still being pushed this morning. Each wave should use
+  a fixed commit, with the authors not pushing to that branch while it is
+  being integrated.
+- **Before each wave:** a Neon snapshot of the production branch (code
+  rollback does not undo data).
+
 ## Branch-by-branch
 
 ### A. Already in production - close, do not merge
