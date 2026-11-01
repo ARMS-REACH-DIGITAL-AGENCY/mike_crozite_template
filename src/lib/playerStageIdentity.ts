@@ -50,11 +50,15 @@ identity_season_teams AS (
       THEN MIN(teamid) FILTER (WHERE teamid <> '0') END AS teamid
   FROM identity_season_rows GROUP BY playerid
 ),
+-- Never promote professional 2026 season participation to a current roster.
+-- The MLB org API and independent-league roster are the only pro authorities.
 identity_mapping_candidates AS (
   SELECT m.teamid, m.current_team_name AS team_name,
     m.current_org_or_conference_name AS org_name, m.level_label AS level
   FROM public.teamid_universe_mapping m
   WHERE m.teamid IN (SELECT teamid FROM identity_season_teams)
+    AND m.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+    AND NULLIF(BTRIM(m.current_org_or_conference_name),'') IS NOT NULL
 ),
 identity_unique_mapping AS (
   SELECT teamid, MIN(team_name) AS team_name, MIN(org_name) AS org_name, MIN(level) AS level
@@ -75,9 +79,9 @@ identity_stage_repairs AS MATERIALIZED (
     'current_level_label', m.level,
     'level_label', m.level,
     'display_level_label', m.level,
-    'status_label', CASE WHEN s.has_2026_stats THEN 'ACTIVE' END,
-    'display_status_label', CASE WHEN s.has_2026_stats THEN 'ACTIVE' END,
-    'current_team_roster_status', CASE WHEN s.has_2026_stats THEN 'Active' END,
+    'status_label', CASE WHEN s.has_2026_stats AND m.level IS NOT NULL THEN 'ACTIVE' END,
+    'display_status_label', CASE WHEN s.has_2026_stats AND m.level IS NOT NULL THEN 'ACTIVE' END,
+    'current_team_roster_status', CASE WHEN s.has_2026_stats AND m.level IS NOT NULL THEN 'Active' END,
     'current_team_last_verified', NULL,
     'is_on_40man', NULL,
     'forty_man_org_name', NULL,
