@@ -854,6 +854,7 @@ export default function FunZone({
             <WhereYatFunZonePanel
               state={alumniUpdate?.status === 'approved' ? 'approved' : alumniUpdate?.status === 'pending' ? 'pending' : 'unclaimed'}
               firstName={firstName}
+              playerId={imageId} hsid={resolvedHsid} displayName={displayName} schoolName={''}
               profileHref={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`}
               proof={alumniUpdate?.status === 'approved' ? {
                 playerId:imageId, hsid:resolvedHsid, displayName:alumniUpdate.display_name||displayName,
