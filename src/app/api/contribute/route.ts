@@ -10,6 +10,7 @@
 // missing players retain their own separate data-validation workflows.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { enrollPlayerInstagramSource } from '@/lib/instagramSourceEnrollment';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears, publishQueuedTipNow } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
@@ -214,6 +215,9 @@ export async function POST(req: NextRequest) {
         });
         return NextResponse.json({ok:true,review:'published_team'}, {status:201});
       }
+      if (process.env.VERCEL_ENV === 'preview') {
+        return NextResponse.json({ ok: true, review: 'preview_only' }, { status: 200 });
+      }
       const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
         by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
       let contributionQueueId: string | null = null;
@@ -231,28 +235,11 @@ export async function POST(req: NextRequest) {
         );
         contributionQueueId=queued.rows[0]?.id||null;
       }
-      // A public Instagram handle is immediately registered for the existing
-      // Business Discovery sync. The submitted handle must not already belong
-      // to another player; all other profile fields keep their review rules.
+      // Registered accounts enter the prioritized Instagram sync queue automatically.
+      // Meta Business Discovery verifies Creator/Business eligibility on polling.
       let instagramState: 'queued' | 'registered' | 'needs_review' = 'queued';
-      if (process.env.VERCEL_ENV !== 'preview' && !isNew && typeof submitted.instagram === 'string') {
-        const handle = String(submitted.instagram).trim().replace(/^@/,'')
-          .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
-        if (/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
-          const {rows: matches}=await query<{playerid:string|null}>(
-            'SELECT playerid FROM social_sources WHERE platform=$1 AND lower(handle)=lower($2) LIMIT 1',
-            ['instagram',handle]);
-          if (matches.length && matches[0].playerid !== playerId) {
-            instagramState='needs_review';
-          } else if (!matches.length) {
-            await query(`INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status)
-              VALUES('instagram',$1,'player',$2,$3,'business_discovery','active')
-              ON CONFLICT (platform,handle) DO NOTHING`,[handle,hsid,playerId]);
-            instagramState='registered';
-          } else {
-            instagramState='registered';
-          }
-        } else instagramState='needs_review';
+      if (!isNew && typeof submitted.instagram === 'string') {
+        instagramState = await enrollPlayerInstagramSource({ playerId, hsid, input: submitted.instagram });
       }
       const varsityOnly=!isNew && Object.keys(submitted).length===1 && Array.isArray(submitted.roster_years);
       const varsityPublication=varsityOnly && contributionQueueId

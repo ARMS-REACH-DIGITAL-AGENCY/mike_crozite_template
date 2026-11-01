@@ -65,6 +65,7 @@ export default function ContributePlayerInfoForm({
           position:clean(p.position),current_team_name:clean(p.current_team_name),
           current_teamid:clean(p.current_teamid),
           committed_teamid:clean(p.committed_teamid),
+          instagram:clean(p.instagram),x:clean(p.x),
         };
         setValues(next);setInitial(next);
         if (next.current_teamid && next.current_team_name) setSelectedCurrentTeam({
@@ -162,7 +163,12 @@ export default function ContributePlayerInfoForm({
         : body.review === 'needs_review'
           ? 'Received. These years need verification before appearing on the school page.'
           : 'Received. Your information is queued for processing. Updates that need verification are held for review.');
-      setInitial(values);
+      if (body.instagram === 'registered') {
+        setMessage(previous=>previous+' Instagram saved. Eligible professional accounts will populate the Social tab automatically.');
+      } else if (body.instagram === 'needs_review') {
+        setMessage(previous=>previous+' The Instagram account was not connected and needs verification.');
+      }
+      setInitial(body.instagram === 'needs_review' ? {...values,instagram:initial.instagram} : values);
     }catch(e){setError(e instanceof Error?e.message:'Unable to send.');}finally{setSending(false);}
   }
 

@@ -1,0 +1,16 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const policy = fs.readFileSync('src/lib/instagramSyncPolicy.ts', 'utf8');
+const cron = fs.readFileSync('src/app/api/cron/instagram-sync/route.ts', 'utf8');
+assert.ok(policy.includes('INSTAGRAM_SYNC_ACCOUNTS_PER_RUN = 8'));
+assert.ok(policy.includes('INSTAGRAM_SYNC_REFRESH_HOURS = 6'));
+assert.ok(policy.includes("message.includes('(#4)')"));
+assert.ok(cron.includes('last_polled_at IS NULL OR last_polled_at < now() - make_interval(hours => $1::int)'));
+assert.ok(cron.includes('ORDER BY last_polled_at NULLS FIRST, id'));
+assert.ok(cron.includes('isMetaInstagramRateLimit(result.error)'));
+assert.ok(cron.includes('const BACKOFF_HOURS = 2'));
+assert.ok(cron.includes('FROM ingest_job_health WHERE job_name = $1'));
+assert.ok(cron.includes('if (coolingDown[0]?.blocked)'));
+assert.ok(cron.includes('ON CONFLICT (job_name) DO UPDATE SET'));
+assert.ok(!cron.includes('const ACCOUNTS_PER_RUN = 40'));
+console.log('PASS: Instagram sync prioritizes new accounts, throttles repeat polls, and pauses across runs on Meta rate limits');

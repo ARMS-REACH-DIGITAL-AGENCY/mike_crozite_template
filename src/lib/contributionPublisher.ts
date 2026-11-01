@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash } from 'crypto';
 import { query } from '@/lib/db';
+import { enrollPlayerInstagramSource } from '@/lib/instagramSourceEnrollment';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
@@ -127,6 +128,10 @@ async function processCorrection(t:Tip):Promise<boolean> {
  for(const platform of ['instagram','x'] as const){
    const raw=fields[platform];
    if(typeof raw!=='string'||!raw.trim())continue;
+   if (platform === 'instagram') {
+     if (await enrollPlayerInstagramSource({playerId:player.playerid,hsid:player.hsid,input:raw}) !== 'registered') return false;
+     continue;
+   }
    const name=handle(raw);
    if(!/^[a-zA-Z0-9._]{1,30}$/.test(name))continue;
    // A handle attached to another player is an exception, not an identity reassignment.
