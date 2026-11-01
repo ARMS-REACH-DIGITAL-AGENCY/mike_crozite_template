@@ -52,6 +52,7 @@ const regenerate = args.includes("--regenerate");
 const dryRun = args.includes("--dry-run");
 const targetUuid = args.includes("--uuid") ? args[args.indexOf("--uuid") + 1] : "";
 const editorialMode = !args.includes("--legacy");
+const requireFeatured = args.includes("--require-featured");
 
 // Written into every derivative this script makes, so --regenerate can tell
 // its own work from a hand edit. (Untagged rows predate the tag; nothing but
@@ -364,7 +365,10 @@ function buildDerivative(row: CandidateRow) {
 
 async function loadCandidates(): Promise<CandidateRow[]> {
   const limitClause = batchLimit > 0 ? "LIMIT $2" : "";
-  const params = batchLimit > 0 ? [targetHsids, batchLimit] : [targetHsids];
+  const params = batchLimit > 0
+    ? (targetUuid ? [targetHsids, batchLimit, targetUuid] : [targetHsids, batchLimit])
+    : (targetUuid ? [targetHsids, targetUuid] : [targetHsids]);
+  const uuidFilter = targetUuid ? `AND na.uuid = ${batchLimit > 0 ? 3 : 2}` : "";
 
   const { rows } = await pool.query<CandidateRow>(
     `SELECT
@@ -383,7 +387,7 @@ async function loadCandidates(): Promise<CandidateRow[]> {
        ON nd.news_article_uuid = na.uuid
       AND nd.playerid = na.playerid
      WHERE na.hsid = ANY($1::text[])
-       AND ${targetUuid ? "na.uuid = '" + targetUuid.replace(/[^a-f0-9:]/gi, "") + "'" : "TRUE"}
+       ${uuidFilter}
        AND na.verification_status = 'VERIFIED'
        AND NULLIF(TRIM(COALESCE(na.playerid, '')), '') IS NOT NULL
        AND ${
@@ -520,7 +524,11 @@ async function main() {
           if (editorial.kind === "skip") {
             console.log("Incidental player mention, not significant alumni news: " + row.uuid);
             hidden++;
+            if (requireFeatured) failed++;
             continue;
+          }
+          if (requireFeatured && editorial.newsworthiness !== "FEATURED") {
+            throw new Error("Regression: expected a major player-career development, received " + editorial.newsworthiness);
           }
           d.storyGrade = editorial.newsworthiness === "FEATURED" ? "A" : "B";
           d.playerRelevance = editorial.newsworthiness === "FEATURED" ? "primary" : "secondary";
