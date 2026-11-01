@@ -41,6 +41,7 @@ import { randomUUID } from "crypto";
 import { appendFileSync } from "fs";
 import { Pool } from "pg";
 import { verifyNewsIdentity, type VerificationResult } from "./lib/newsIdentity";
+import { planWebzNewsBatches, WEBZ_PLAN_VERSION } from "./lib/webzDiscoveryPlan.mjs";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -60,7 +61,7 @@ if (!WEBZ_TOKEN) {
 // Leave headroom in the monthly Webz.io credits for manual runs.
 const MIN_BALANCE = Number(process.env.NEWS_MIN_BALANCE || 0.5);
 
-const BATCH_SIZE = 8; // max player names per Webz.io query
+const MAX_SEARCHES_PER_SCHOOL = Number(process.env.NEWS_MAX_SEARCHES_PER_SCHOOL || 10);
 const DELAY_BETWEEN_CALLS_MS = 1000; // rate-limit courtesy delay
 
 // Parse CLI args
@@ -89,6 +90,8 @@ interface PlayerRow {
   current_level: string | null;
   college_path: string | null;
   career_teams: string | null;
+  recent_news_count: number;
+  recent_verified_count: number;
 }
 
 interface WebzPost {
@@ -126,6 +129,7 @@ interface WebzResponse {
   // the balance left. It sends no requests_left.
   balance: number;
   cost: number;
+  warnings: string[];
 }
 
 // The News API sends its envelope in snake_case (total_results).
@@ -135,6 +139,7 @@ interface WebzRawResponse {
   totalResults?: number;
   balance?: number;
   cost?: number;
+  warnings?: unknown[];
 }
 
 // ---------------------------------------------------------------------------
@@ -198,10 +203,22 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
        f.current_org_or_conference_name AS current_org,
        f.level_label AS current_level,
        ctx.college_path_text AS college_path,
-       ctx.career_team_names AS career_teams
+       ctx.career_team_names AS career_teams,
+       COALESCE(coverage.recent_news_count, 0)::int AS recent_news_count,
+       COALESCE(coverage.recent_verified_count, 0)::int AS recent_verified_count
      FROM flip_card_front_stage f
      LEFT JOIN tbc_players_raw tp ON tp.playerid::text = f.playerid::text
      LEFT JOIN v_news_player_context ctx ON ctx.playerid::text = f.playerid::text
+     LEFT JOIN (
+       SELECT playerid,
+         COUNT(*)::int AS recent_news_count,
+         COUNT(*) FILTER (WHERE verification_status = 'VERIFIED')::int AS recent_verified_count
+       FROM news_articles
+       WHERE hsid = ANY($1::text[])
+         AND discovery_source = 'webz'
+         AND published_at >= NOW() - INTERVAL '30 days'
+       GROUP BY playerid
+     ) coverage ON coverage.playerid = f.playerid::text
      WHERE f.hsid::text = ANY($1::text[])
        AND (
          NULLIF(TRIM(f.status_label), '') IS NOT NULL
@@ -246,7 +263,7 @@ const RESULTS_PER_CALL = 10;
 // betting previews, sportsbook promos. Excluded in the query so we don't
 // pay for them. ("odds" and "picks" are left out on purpose - they appear
 // in real stories: "against the odds", "draft picks".)
-const EXCLUDED_TERMS = ["fantasy", "betting", "sportsbook", "\"promo code\"", "\"best bets\"", "\"prop bets\"", "PrizePicks", "DFS"];
+// Shared topic terms and exclusions are tested in webzDiscoveryPlan.mjs.
 
 // Where a school's search window starts: what Webz.io crawled since that
 // school's last completed run began (less an hour of overlap for posts
@@ -314,6 +331,8 @@ async function fetchWebzNews(
     sort: "crawled",
     format: "json",
     size: String(RESULTS_PER_CALL),
+    order: "desc", // Most recently crawled first within the capped results.
+    warning: "true", // Webz parser diagnostics.
   });
 
   try {
@@ -332,6 +351,7 @@ async function fetchWebzNews(
       totalResults: Number(data.total_results ?? data.totalResults),
       balance: Number(data.balance),
       cost: Number(data.cost),
+      warnings: Array.isArray(data.warnings) ? data.warnings.map(String) : [],
     };
   } catch (err) {
     if (err instanceof WebzAuthError) throw err;
