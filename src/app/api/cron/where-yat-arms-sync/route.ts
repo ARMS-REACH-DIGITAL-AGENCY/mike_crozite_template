@@ -19,16 +19,22 @@ export async function GET(req:NextRequest){
  for(const {id} of rows){outcomes.push({id,ok:await syncWhereYatSubmissionToArms(id)});}
  // Retry reviewer alerts separately from CRM sync. A missing audit or an incomplete
  // email/SMS result is not a successful notification.
- const alertRows=await query<{id:number;hsid:string;playerid:string;display_name:string}>(`
-   SELECT a.id,a.hsid,a.playerid,a.display_name FROM public.alumni_where_yat_now a
+ const alertRows=await query<{id:number;hsid:string;playerid:string;display_name:string;email_sent:boolean;sms_sent:boolean}>(`
+   SELECT a.id,a.hsid,a.playerid,a.display_name,
+     EXISTS(SELECT 1 FROM public.fan_activity fa WHERE fa.action='where_yat_notification'
+       AND fa.details->>'submissionId'=a.id::text AND fa.details->>'emailQueued'='true') AS email_sent,
+     EXISTS(SELECT 1 FROM public.fan_activity fa WHERE fa.action='where_yat_notification'
+       AND fa.details->>'submissionId'=a.id::text AND fa.details->>'smsQueued'='true') AS sms_sent
+   FROM public.alumni_where_yat_now a
    WHERE a.status='pending' AND a.proof_confirmed_at IS NOT NULL
      AND a.created_at >= now()-interval '30 days'
-     AND NOT EXISTS (
-       SELECT 1 FROM public.fan_activity fa
-       WHERE fa.action='where_yat_notification'
-         AND fa.details->>'submissionId'=a.id::text
-         AND fa.details->>'emailQueued'='true'
-         AND fa.details->>'smsQueued'='true'
+     AND (
+       NOT EXISTS (SELECT 1 FROM public.fan_activity fa
+         WHERE fa.action='where_yat_notification' AND fa.details->>'submissionId'=a.id::text
+           AND fa.details->>'emailQueued'='true')
+       OR NOT EXISTS (SELECT 1 FROM public.fan_activity fa
+         WHERE fa.action='where_yat_notification' AND fa.details->>'submissionId'=a.id::text
+           AND fa.details->>'smsQueued'='true')
      )
      AND (SELECT count(*) FROM public.fan_activity fa
        WHERE fa.action='where_yat_notification'
@@ -37,7 +43,7 @@ export async function GET(req:NextRequest){
    ORDER BY a.created_at ASC LIMIT 10`);
  const alerts=[];
  for(const item of alertRows.rows){
-   const result=await notifyWhereYatReviewers({id:Number(item.id),hsid:item.hsid,playerId:item.playerid,displayName:item.display_name});
+   const result=await notifyWhereYatReviewers({id:Number(item.id),hsid:item.hsid,playerId:item.playerid,displayName:item.display_name,sendEmail:!item.email_sent,sendSms:!item.sms_sent});
    alerts.push({id:item.id,...result});
  }
  return NextResponse.json({ok:true,attempted:outcomes.length,results:outcomes,reviewAlerts:alerts});
