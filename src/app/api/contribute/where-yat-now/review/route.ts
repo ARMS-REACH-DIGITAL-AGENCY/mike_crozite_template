@@ -26,8 +26,19 @@ export async function POST(req: NextRequest) {
   if (process.env.VERCEL_ENV === 'preview' && process.env.YATSTATS_ISOLATED_PREVIEW !== '1') return NextResponse.json({ error: 'Approval is disabled on preview deployments.' }, { status: 409 });
   let data: { id?: number; status?: string; identityMethod?: string; identityNote?: string };
   try { data = await req.json(); } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }); }
-  if (!Number.isSafeInteger(data.id) || !['approved', 'rejected'].includes(data.status || ''))
+  if (!Number.isSafeInteger(data.id) || !['approved', 'rejected', 'deleted'].includes(data.status || ''))
     return NextResponse.json({ error: 'Invalid review action' }, { status: 400 });
+  // Delete removes an unwanted pending version entirely (Pete, Nov 1: an alum
+  // can leave several versions; only one is kept). No email, no CRM. Its
+  // claim/reaction rows go with it (ON DELETE CASCADE).
+  if (data.status === 'deleted') {
+    const removed = await query<{ id: number }>(
+      `DELETE FROM public.alumni_where_yat_now WHERE id=$1 AND status='pending' RETURNING id`,
+      [data.id]
+    );
+    if (!removed.rows[0]) return NextResponse.json({ error: 'Record not found or already reviewed.' }, { status: 409 });
+    return NextResponse.json({ ok: true, item: { id: removed.rows[0].id, status: 'deleted' } });
+  }
   const reviewerIdentity=await identifyContributor(req,req.headers.get('x-firebase-token'));
   const method=String(data.identityMethod||'').trim().slice(0,120);
   const note=String(data.identityNote||'').trim().slice(0,1000);

@@ -106,7 +106,8 @@ export default function ReviewQueue() {
     requestAnimationFrame(() => document.getElementById('alumni-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }, [alumni]);
 
-  const reviewAlumni = async (id: number, status: 'approved' | 'rejected') => {
+  const reviewAlumni = async (id: number, status: 'approved' | 'rejected' | 'deleted') => {
+    if (status === 'deleted' && !window.confirm('Delete this version for good? It cannot be undone.')) return;
     const evidence=identity[id]||{method:'',note:''};
     setBusy(b => ({ ...b, ['alumni-' + id]: 'Saving…' }));
     const res = await fetch('/api/contribute/where-yat-now/review', {
@@ -167,6 +168,7 @@ export default function ReviewQueue() {
             <a className="ycr-btn" href={'/' + item.hsid + '/where-yat-proof?submission=' + item.id} target="_blank" rel="noopener">View flip-card proof</a>
             <button type="button" className="ycr-btn ycr-yes" disabled={!!busy['alumni-' + item.id]||!item.proof_confirmed_at||!identity[item.id]?.method||(identity[item.id]?.note||'').trim().length<12} onClick={() => reviewAlumni(item.id,'approved')}>Approve update</button>
             <button type="button" className="ycr-btn" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'rejected')}>Reject</button>
+            <button type="button" className="ycr-btn" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'deleted')}>Delete</button>
           </div>
         </article>)}
       </div>
