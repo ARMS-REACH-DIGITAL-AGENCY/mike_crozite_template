@@ -45,6 +45,7 @@ export async function PATCH(req:NextRequest){
   const key='alumni-where-yat-now/pending/'+id+'/'+prefix+'/'+randomUUID()+'.png';
   await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:key,Body:bytes,ContentType:'image/png'}));
   const url=storyAssetUrl(key);
+  if(!url)return fail('Image storage did not return a valid URL.',503);
   const check=await moderatePhoto({imageUrl:url,purpose:'other_photo'});
   if(check?.decision!=='approve')return fail('The uploaded image could not pass automatic safety screening. Your saved card was not changed.',422);
   output[field]={url,key};
