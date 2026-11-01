@@ -4,7 +4,8 @@ import {auth} from '@/lib/firebase';
 import {copyStoryPhoto,prepareStoryPhoto} from '@/lib/storyPhotoUpload';
 import {WHERE_YAT_PROMPTS,WHERE_YAT_MEMORY_MAX_CHARS,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
 import WhereYatMemory from './WhereYatMemory';
-import WhereYatFlipCardEditor,{type FlipCardSaved} from './WhereYatFlipCardEditor';
+import {openContribute} from '@/lib/contribute';
+import type {FlipCardSaved} from './WhereYatFlipCardEditor';
 type Photo={web:string;full:string;thumb:string};
 type Saved=FlipCardSaved;
 const col:Record<WhereYatPromptKey,keyof Saved>={favoriteHs:'favorite_hs_memory',favoriteAfter:'favorite_post_hs_memory',family:'family_life',story:'story'};
@@ -40,7 +41,6 @@ export default function WhereYatPromptedStories({playerId,hsid,name,school}:{pla
  return <section className="wyn-prompt-feed" aria-label="Life after baseball story prompts">
   <p className="wyn-prompt-intro">We want to know how life has been since baseball. Open any memory, share your story and add a photo. Connect. Contribute. Remember.</p>
   {saved?.status==='pending'&&<p className="wyn-prompt-status" role="status">YOUR STORIES ARE SAVED — PENDING ALUMNI IDENTITY APPROVAL. They are only visible to you until approved.</p>}
-  {saved?.id&&<WhereYatFlipCardEditor saved={saved} playerId={playerId} hsid={hsid} name={name} school={school} onSaved={setSaved}/>}
   {WHERE_YAT_PROMPTS.map(({key,label})=>{
    const actual=label.replace('YOUR HIGH SCHOOL',school.toUpperCase());const value=String(saved?.[col[key]]||'');
    return <article className="wyn-prompt-card" key={key}>
@@ -54,8 +54,9 @@ export default function WhereYatPromptedStories({playerId,hsid,name,school}:{pla
     </div>}
    </article>
   })}
+  <button type="button" className="wyn-design-card-cta" onClick={()=>openContribute({tab:'retired_card',player:{playerId,displayName:name,schoolId:hsid,schoolName:school}})}><i className="ri-id-card-line" aria-hidden="true"/> NOW DESIGN YOUR FLIP CARD</button>
   <style>{`
-   .wyn-prompt-feed{display:grid;gap:10px}.wyn-prompt-intro{margin:0;padding:10px;font:400 14px/1.4 var(--yat-font-ui,Arial,sans-serif)}.wyn-prompt-status{padding:10px 12px;border:1px solid #b99236;font:700 12px/1.4 var(--yat-font-ui,Arial,sans-serif)}.wyn-prompt-card{border:1px solid var(--wyn-border,rgba(128,128,128,.35));border-radius:8px;overflow:hidden;background:var(--wyn-card-bg,rgba(128,128,128,.08))}.wyn-prompt-opener{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;padding:16px;background:transparent;color:inherit;text-align:left;cursor:pointer}.wyn-prompt-opener strong{font:700 13px/1.4 var(--yat-font-condensed,Oswald,Arial,sans-serif)}.wyn-prompt-opener span{white-space:nowrap;font-size:11px}.wyn-prompt-editor{display:grid;gap:10px;padding:12px;border-top:1px solid var(--wyn-border)}.wyn-prompt-editor textarea{box-sizing:border-box;width:100%;min-height:140px;padding:12px;border-radius:6px;border:1px solid #888;background:var(--wyn-card-bg,#1b1b1b);color:inherit;font:400 15px/1.5 var(--yat-font-ui,Arial,sans-serif)}.wyn-prompt-controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px}.wyn-prompt-controls input{max-width:180px}.wyn-prompt-claim{display:flex;gap:8px;align-items:flex-start;font-size:12px}.wyn-prompt-buttons{display:flex;justify-content:flex-end;gap:8px}.wyn-prompt-buttons button{padding:9px 14px;border:1px solid #888;border-radius:5px;background:#222;color:white;cursor:pointer}.wyn-prompt-buttons button:last-child{background:#e6b93e;color:#111;font-weight:800}.wyn-prompt-buttons button:disabled{opacity:.5}
+   .wyn-prompt-feed{display:grid;gap:10px}.wyn-design-card-cta{width:100%;min-height:52px;background:#e5ba42;color:#111;border:1px solid #bc8a19;border-radius:6px;font:800 15px Oswald,Arial,sans-serif;cursor:pointer}.wyn-prompt-intro{margin:0;padding:10px;font:400 14px/1.4 var(--yat-font-ui,Arial,sans-serif)}.wyn-prompt-status{padding:10px 12px;border:1px solid #b99236;font:700 12px/1.4 var(--yat-font-ui,Arial,sans-serif)}.wyn-prompt-card{border:1px solid var(--wyn-border,rgba(128,128,128,.35));border-radius:8px;overflow:hidden;background:var(--wyn-card-bg,rgba(128,128,128,.08))}.wyn-prompt-opener{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;padding:16px;background:transparent;color:inherit;text-align:left;cursor:pointer}.wyn-prompt-opener strong{font:700 13px/1.4 var(--yat-font-condensed,Oswald,Arial,sans-serif)}.wyn-prompt-opener span{white-space:nowrap;font-size:11px}.wyn-prompt-editor{display:grid;gap:10px;padding:12px;border-top:1px solid var(--wyn-border)}.wyn-prompt-editor textarea{box-sizing:border-box;width:100%;min-height:140px;padding:12px;border-radius:6px;border:1px solid #888;background:var(--wyn-card-bg,#1b1b1b);color:inherit;font:400 15px/1.5 var(--yat-font-ui,Arial,sans-serif)}.wyn-prompt-controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px}.wyn-prompt-controls input{max-width:180px}.wyn-prompt-claim{display:flex;gap:8px;align-items:flex-start;font-size:12px}.wyn-prompt-buttons{display:flex;justify-content:flex-end;gap:8px}.wyn-prompt-buttons button{padding:9px 14px;border:1px solid #888;border-radius:5px;background:#222;color:white;cursor:pointer}.wyn-prompt-buttons button:last-child{background:#e6b93e;color:#111;font-weight:800}.wyn-prompt-buttons button:disabled{opacity:.5}
   `}</style>
  </section>;
 }
