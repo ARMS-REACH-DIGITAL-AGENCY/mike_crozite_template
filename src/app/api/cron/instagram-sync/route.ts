@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { syncInstagramSource, type SourceResult } from '@/lib/instagramSync';
+import { INSTAGRAM_SYNC_ACCOUNTS_PER_RUN, INSTAGRAM_SYNC_REFRESH_HOURS, isMetaInstagramRateLimit } from '@/lib/instagramSyncPolicy';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -18,7 +19,7 @@ const pool = new Pool({
   max: 2,
 });
 
-const ACCOUNTS_PER_RUN = 40;
+// Prioritize accounts not yet synchronized and refresh existing ones at most every six hours.
 
 function isAuthorized(req: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
@@ -37,16 +38,20 @@ export async function GET(req: NextRequest) {
   const { rows: sources } = await pool.query<{ id: number; handle: string }>(
     `SELECT id, handle FROM social_sources
       WHERE platform = 'instagram' AND status = 'active' AND COALESCE(handle, '') <> ''
+        AND (last_polled_at IS NULL OR last_polled_at < now() - make_interval(hours => $1::int))
       ORDER BY last_polled_at NULLS FIRST, id
-      LIMIT $1`,
-    [ACCOUNTS_PER_RUN]
+      LIMIT $2`,
+    [INSTAGRAM_SYNC_REFRESH_HOURS, INSTAGRAM_SYNC_ACCOUNTS_PER_RUN]
   );
 
   const results: SourceResult[] = [];
   for (const source of sources) {
-    results.push(await syncInstagramSource(pool, source));
+    const result = await syncInstagramSource(pool, source);
+    results.push(result);
+    // Stop consuming quota once Meta signals application-wide throttling.
+    if (!result.ok && isMetaInstagramRateLimit(result.error)) break;
   }
   const failed = results.filter((r) => !r.ok);
   if (failed.length) console.error('instagram-sync failures', failed);
-  return NextResponse.json({ ok: true, accounts: results.length, failed: failed.length, results });
+  return NextResponse.json({ ok: failed.length === 0, accounts: results.length, failed: failed.length, rateLimited: results.some((r) => !r.ok && isMetaInstagramRateLimit(r.error)), results });
 }
