@@ -133,6 +133,9 @@ export default function SharedShell({
   const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
   const isContributeRoute = /\/(connect-contribute|contribute-review(?:\/bulk)?)\/?$/.test(pathname);
+  // A saved Where YAT Now proof is a private standalone page, not a gallery tab.
+  // The gallery section controller must not hide it or show an empty roster strip.
+  const isPrivateProofRoute = /\/where-yat-proof\/?$/.test(pathname);
   const teamYear = isPlayerProfile ? null : initialTeamYear;
   const initialSection = isContributeRoute ? 'mentor' : teamYear ? 'alltime' : 'active';
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -152,10 +155,10 @@ export default function SharedShell({
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const isNews = activeSection === 'news';
-  const isGallery = !isPlayerProfile && !isContributeRoute && GALLERY_SECTIONS.has(activeSection);
+  const isGallery = !isPlayerProfile && !isContributeRoute && !isPrivateProofRoute && GALLERY_SECTIONS.has(activeSection);
 
   useEffect(() => {
-    if (isPlayerProfile) return;
+    if (isPlayerProfile || isPrivateProofRoute) return;
 
     let frame = 0;
     let lastVisibleSection = readRequestedSection();
@@ -232,20 +235,20 @@ export default function SharedShell({
       window.removeEventListener('yat:section-changed', syncSection);
       observer.disconnect();
     };
-  }, [isPlayerProfile, pathname]);
+  }, [isPlayerProfile, isPrivateProofRoute, pathname]);
 
   return (
     <>
       <TimelineCleanup />
       {isContributeRoute && <ContributeViewportLayout />}
-      {!isPlayerProfile && !isContributeRoute && <GalleryFilterController />}
-      {!isPlayerProfile && !isContributeRoute && <Row3MirrorGuard />}
+      {!isPlayerProfile && !isContributeRoute && !isPrivateProofRoute && <GalleryFilterController />}
+      {!isPlayerProfile && !isContributeRoute && !isPrivateProofRoute && <Row3MirrorGuard />}
 
       <div className={`yat-row1-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <GlobalTopbar hsid={hsid} />
       </div>
 
-      <div className={`yat-row2-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
+      {!isPrivateProofRoute && <div className={`yat-row2-shell${isPlayerProfile ? ' pp-hero-row' : ''}`}>
         <SchoolContextBar
           isPlayerProfile={isPlayerProfile}
           profileActivePlayerIds={profileActivePlayerIds}
@@ -254,10 +257,10 @@ export default function SharedShell({
           isNews={isNews}
           activeSection={activeSection}
         />
-      </div>
+      </div>}
 
       <main>
-        <div className="yat-row3-shell">
+        {!isPrivateProofRoute && <div className="yat-row3-shell">
           {row3Content
             ? row3Content
             : isContributeRoute
@@ -300,13 +303,13 @@ export default function SharedShell({
                     initialTeamYear={teamYear}
                   />
                 )}
-        </div>
+        </div>}
 
         {/* The former Row 5 gallery is now visual Row 4. Keep legacy class for existing gallery styling. */}
         <div className="yat-row5-shell yat-visual-row4-gallery">{children}</div>
       </main>
 
-      {!isPlayerProfile && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
+      {!isPlayerProfile && !isPrivateProofRoute && <footer className={`yat-row6-shell yat-footer yat-clubhouse-footer`}>
         <div className="yat-unified-footer">
           <div className="yat-unified-footer-art" aria-hidden="true" />
           <PageMessageStrip hsid={hsid} pageKey={activeSection} activeAlumni={schoolMeta.activeAlumni} activeStatsPending={schoolMeta.activeStatsPending} initialTeamYear={teamYear} initialTeamCount={teamYear ? initialTeamCount : null} />
