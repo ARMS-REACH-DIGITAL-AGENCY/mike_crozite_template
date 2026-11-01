@@ -105,5 +105,8 @@ jobs:
           esac
           if [ -n "${{ github.event.inputs.news_uuid }}" ]; then
             ARGS="$ARGS --uuid ${{ github.event.inputs.news_uuid }}"
+            if [ "${{ github.event.inputs.summaries }}" = "preview-rewrite" ]; then
+              ARGS="$ARGS --require-featured"
+            fi
           fi
           npx tsx scripts/generate-news-derivatives.ts --hsid "$TARGET_HSID" $ARGS
