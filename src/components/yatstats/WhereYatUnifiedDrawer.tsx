@@ -165,10 +165,16 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
     }
    }
    const prepared=await createStoryUploadBody(form);
-   const res=await fetch('/api/contribute/where-yat-now',{
-    method:'POST',body:prepared.body,
-    headers:{'content-type':prepared.contentType},credentials:'include'
-   });
+   // Never strand the designer in SUBMITTING if a photo upload stalls.
+   const controller=new AbortController();
+   const timeout=window.setTimeout(()=>controller.abort(),90000);
+   let res:Response;
+   try{
+    res=await fetch('/api/contribute/where-yat-now',{
+     method:'POST',body:prepared.body,
+     headers:{'content-type':prepared.contentType},credentials:'include',signal:controller.signal
+    });
+   }finally{window.clearTimeout(timeout);}
    const json=await res.json().catch(()=>({}));
    if(!res.ok)throw Error(json.error||'Could not submit the completed card.');
    const id=Number(json.submissionId);
@@ -176,7 +182,7 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    setSubmissionId(id);setReceipt(true);
    onSaved({...saved,id,status:'pending',featured_memory_key:selected} as FlipCardSaved);
    window.dispatchEvent(new CustomEvent('yat:where-yat-submitted',{detail:{playerId,hsid,submissionId:id}}));
-  }catch(e){setError(e instanceof Error?e.message:'Submission failed. Your edits remain here.');}
+  }catch(e){setError(e instanceof Error&&e.name==='AbortError'?'The submission timed out. Check your saved submission before trying again to avoid duplicates. Your entries are still in this editor.':e instanceof Error?e.message:'Submission failed. Your edits remain here.');}
   finally{setBusy(false);}
  }
  const disabled=busy||preparing;
