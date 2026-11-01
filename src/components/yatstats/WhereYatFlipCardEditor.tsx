@@ -6,8 +6,8 @@ import {WHERE_YAT_PROMPTS,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
 type Photo={web:string;full:string;thumb:string};
 export type FlipCardSaved={id:number;status:string;display_name?:string;location_city?:string;location_state?:string;occupation?:string;company_name?:string;business_website?:string;company_logo_url?:string;business_headshot_url?:string;business_contact_email?:string;business_contact_phone?:string;business_public_opt_in?:boolean;linkedin_url?:string;facebook_url?:string;instagram_url?:string;x_url?:string;favorite_hs_memory?:string;favorite_post_hs_memory?:string;family_life?:string;story?:string;featured_memory_key?:string;memory_photos_json?:Record<string,Photo[]>};
 const answers:Record<WhereYatPromptKey,keyof FlipCardSaved>={favoriteHs:'favorite_hs_memory',favoriteAfter:'favorite_post_hs_memory',family:'family_life',story:'story'};
-export default function WhereYatFlipCardEditor({saved,playerId,hsid,name,school,onSaved}:{saved:FlipCardSaved;playerId:string;hsid:string;name:string;school:string;onSaved:(updated:FlipCardSaved)=>void}){
- const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[view,setView]=useState(false);
+export default function WhereYatFlipCardEditor({saved,playerId,hsid,name,school,onSaved,drawerMode=false}:{saved:FlipCardSaved;playerId:string;hsid:string;name:string;school:string;onSaved:(updated:FlipCardSaved)=>void;drawerMode?:boolean}){
+ const [open,setOpen]=useState(drawerMode),[busy,setBusy]=useState(false),[error,setError]=useState(''),[view,setView]=useState(false);
  const [values,setValues]=useState<Record<string,string>>({
  city:saved.location_city||'',state:saved.location_state||'',occupation:saved.occupation||'',company:saved.company_name||'',
  website:saved.business_website||'',linkedin:saved.linkedin_url||'',facebook:saved.facebook_url||'',instagram:saved.instagram_url||'',x:saved.x_url||'',
@@ -44,7 +44,7 @@ export default function WhereYatFlipCardEditor({saved,playerId,hsid,name,school,
  }catch(e){setError(e instanceof Error?e.message:'Could not save.')}finally{setBusy(false)}}
  const defs:[string,string][]=[['city','CITY'],['state','STATE'],['occupation','NOW / PROFESSION'],['company','BUSINESS NAME'],['website','BUSINESS WEBSITE (LINKED FROM LOGO)'],
  ['linkedin','LINKEDIN'],['facebook','FACEBOOK'],['x','X'],['instagram','INSTAGRAM'],['businessEmail','PUBLIC BUSINESS EMAIL'],['businessPhone','PUBLIC BUSINESS PHONE / TEXT']];
- return <div className="wyn-card-editor"><button type="button" className="wyn-card-open" onClick={()=>setOpen(v=>!v)}><i className="ri-edit-line"/> {open?'CLOSE EDITOR':'DESIGN THE BACK OF YOUR FLIP CARD'}</button>
+ return <div className="wyn-card-editor">{!drawerMode&&<button type="button" className="wyn-card-open" onClick={()=>setOpen(v=>!v)}><i className="ri-edit-line"/> {open?'CLOSE EDITOR':'DESIGN THE BACK OF YOUR FLIP CARD'}</button>}
  {open&&<section className="wyn-card-fields" aria-label="Flip-card back editor">
   
   {defs.map(([k,label])=><label key={k}><span>{label}</span><input value={values[k]||''} onChange={e=>value(k,e.target.value)}/></label>)}
