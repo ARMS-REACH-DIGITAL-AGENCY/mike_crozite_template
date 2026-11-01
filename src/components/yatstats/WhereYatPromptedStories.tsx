@@ -4,8 +4,9 @@ import {auth} from '@/lib/firebase';
 import {copyStoryPhoto,prepareStoryPhoto} from '@/lib/storyPhotoUpload';
 import {WHERE_YAT_PROMPTS,WHERE_YAT_MEMORY_MAX_CHARS,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
 import WhereYatMemory from './WhereYatMemory';
+import WhereYatFlipCardEditor,{type FlipCardSaved} from './WhereYatFlipCardEditor';
 type Photo={web:string;full:string;thumb:string};
-type Saved={id:number;status:string;favorite_hs_memory?:string;favorite_post_hs_memory?:string;family_life?:string;story?:string;memory_photos_json?:Record<string,Photo[]>};
+type Saved=FlipCardSaved;
 const col:Record<WhereYatPromptKey,keyof Saved>={favoriteHs:'favorite_hs_memory',favoriteAfter:'favorite_post_hs_memory',family:'family_life',story:'story'};
 export default function WhereYatPromptedStories({playerId,hsid,name,school}:{playerId:string;hsid:string;name:string;school:string}){
  const [saved,setSaved]=useState<Saved|null>(null),[loaded,setLoaded]=useState(false),[editing,setEditing]=useState<WhereYatPromptKey|null>(null);
@@ -39,6 +40,7 @@ export default function WhereYatPromptedStories({playerId,hsid,name,school}:{pla
  return <section className="wyn-prompt-feed" aria-label="Life after baseball story prompts">
   <p className="wyn-prompt-intro">We want to know how life has been since baseball. Open any memory, share your story and add a photo. Connect. Contribute. Remember.</p>
   {saved?.status==='pending'&&<p className="wyn-prompt-status" role="status">YOUR STORIES ARE SAVED — PENDING ALUMNI IDENTITY APPROVAL. They are only visible to you until approved.</p>}
+  {saved?.id&&<WhereYatFlipCardEditor saved={saved} playerId={playerId} hsid={hsid} name={name} school={school} onSaved={setSaved}/>}
   {WHERE_YAT_PROMPTS.map(({key,label})=>{
    const actual=label.replace('YOUR HIGH SCHOOL',school.toUpperCase());const value=String(saved?.[col[key]]||'');
    return <article className="wyn-prompt-card" key={key}>
