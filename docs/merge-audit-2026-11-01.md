@@ -194,17 +194,5 @@ one he still wants.
 
 ## Proposed order
 
-Each wave: its own branch off the current `Easter-NEWS`, Vercel preview,
-Pete's OK, merge, watch for an hour, then the next wave.
-
-1. **Wave 0 - housekeeping (no code):** close the PRs and branches in A.
-2. **Wave 1 - news backend:** #652 + #651 (with the `$` fix and the Webz
-   test in `build`). Back-end scripts only; no UI.
-3. **Wave 2 - Where YAT Now:** #621 with both-sides conflict resolution and
-   production's two bracket files restored. Preview: submit, receipt, photos,
-   reload, reviewer queue; then the ARMS sync on production.
-4. **Wave 3 - images:** #624, #625, #628 together, then #635.
-5. **Wave 4 - News media:** #639, #636, #629, #622.
-6. **Wave 5 - the rest of B/D:** #590, #588, #592, #586, #561, then #607 on
-   its own.
-7. Section E and F after Pete has looked at them.
+Superseded. The current plan, release matrix and Phase 0 record are in
+`docs/release-phase0-2026-11-01.md`.
