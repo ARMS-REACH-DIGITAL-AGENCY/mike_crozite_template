@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     `SELECT id, playerid, hsid, contact_email, display_name, location_city,
        location_state, occupation, company_name, business_website,
        linkedin_url, instagram_url, facebook_url, x_url, story, photo_url, company_logo_url,
-       sponsorship_interest, retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,created_at, proof_confirmed_at, identity_review_method, identity_review_note
+       sponsorship_interest, retirement_year,favorite_hs_memory,favorite_post_hs_memory,family_life,business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,private_teammate_tips,life_photos_json,alumni_claim_attested,created_at, proof_confirmed_at, identity_review_method, identity_review_note,arms_sync_status,arms_sync_attempts,arms_synced_at,arms_sync_error,arms_contact_id,arms_task_id
      FROM public.alumni_where_yat_now WHERE status='pending'
      ORDER BY created_at ASC LIMIT 100`);
   return NextResponse.json({ submissions: result.rows });
