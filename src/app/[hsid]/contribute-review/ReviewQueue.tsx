@@ -7,13 +7,14 @@
 import { useEffect, useState } from 'react';
 import { auth } from '@/lib/firebase';
 import { photoTypeLabel } from '@/lib/contribute';
+import { toSlugFromDisplay } from '@/lib/slug';
 
 type Photo = {
   id: string; playerid: string; hsid: string; purpose: string; url: string | null; date_taken: string | null;
   uploaded_at: string; player_name: string | null; school_name: string | null;
   details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; moderation?: { decision?: string; description?: string } | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
-type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
+type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; matched_playerid?: string | null; matched_hsid?: string | null; article_url: string; notes: string | null; status: string };
 type Alumni = { id: number; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; company_logo_url: string | null; sponsorship_interest: boolean; created_at: string; proof_confirmed_at:string|null; identity_review_method:string|null; identity_review_note:string|null; retirement_year:number|null;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;business_message:string|null;business_offer:string|null;business_contact_email:string|null;business_contact_phone:string|null;business_public_opt_in:boolean;private_teammate_tips:string|null;life_photos_json:Array<{web:string;full:string;thumb:string}>;alumni_claim_attested:boolean;arms_sync_status?:string;arms_sync_attempts?:number;arms_synced_at?:string|null;arms_sync_error?:string|null;arms_contact_id?:string|null;arms_task_id?:string|null; };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
 
@@ -218,7 +219,10 @@ export default function ReviewQueue() {
               : currentTeam ? <div><strong>{currentTeam.teamName || currentTeam.teamId}</strong>
                 {currentTeam.level ? ` · ${currentTeam.level}` : ''} · Team ID: {currentTeam.teamId}</div>
               : t.notes ? <div>{t.notes}</div> : null}
-            {t.article_url ? <div><a href={t.article_url} target="_blank" rel="noopener noreferrer">{t.article_url}</a></div> : null}
+            {t.intake_source === 'correction' && t.matched_playerid && t.matched_hsid
+              ? <div>Corrected player: <a href={'/' + t.matched_hsid + '/player/' + encodeURIComponent(t.matched_playerid) + '/' + toSlugFromDisplay(t.raw_player_name || 'player')} target="_blank" rel="noopener noreferrer">{t.raw_player_name || t.matched_playerid} (school {t.matched_hsid})</a></div>
+              : null}
+            {t.article_url ? <div>{t.intake_source === 'correction' ? 'Submitted from: ' : null}<a href={t.article_url} target="_blank" rel="noopener noreferrer">{t.article_url}</a></div> : null}
             {t.intake_source === 'social_scout' && t.status === 'published' ? <div className="ycr-actions">
               <button type="button" className="ycr-btn" disabled={!!busy[t.id]}
                 onClick={()=>act(t.id,'unpublish_scout')}>Remove from News</button>
