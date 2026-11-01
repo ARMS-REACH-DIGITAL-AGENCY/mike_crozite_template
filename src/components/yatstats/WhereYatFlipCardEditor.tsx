@@ -65,9 +65,9 @@ export default function WhereYatFlipCardEditor({
     const data=JSON.parse(draft) as {values?:Record<string,string>;consent?:boolean};
     if(data.values&&typeof data.values==='object')setValues(current=>({...current,...data.values}));
     if(typeof data.consent==='boolean')setConsent(data.consent);
-    setDraftRestored(true);
    }
   }catch{/* Storage may be unavailable in private browsing. */}
+  setDraftRestored(true);
  },[draftKey]);
  useEffect(()=>{
   if(!draftRestored)return;
