@@ -36,6 +36,8 @@ export type WhereYatProof = {
   /** Unpublished image selected in the single retired-card drawer. */
   heroPreviewUrl?: string | null;
   heroCrop?: Crop | null;
+  businessHeadshotCrop?: Crop | null;
+  memoryPhotoCrop?: Crop | null;
 };
 
 type Social = { key: WhereYatLinkField; icon: string; label: string; className: string };
@@ -90,6 +92,8 @@ export default function WhereYatProofCard({
   const hasMore=storyText.length>WHERE_YAT_MEMORY_MAX_CHARS;
   const portrait=showBusiness ? proof.businessHeadshotUrl : null;
   const heroCrop=proof.heroPreviewUrl ? proof.heroCrop : null;
+  const headshotCrop=proof.businessHeadshotUrl&&proof.businessHeadshotCrop;
+  const memoryCrop=proof.photoUrl&&proof.memoryPhotoCrop;
   const heroStyle=heroCrop ? {
     '--wyn-hero-left': (-heroCrop.x / Math.max(0.001,heroCrop.w) * 100) + '%',
     '--wyn-hero-top': (-heroCrop.y / Math.max(0.001,heroCrop.h) * 100) + '%',
@@ -109,7 +113,7 @@ export default function WhereYatProofCard({
           </div>
         </div>
         {showBusiness && businessNames && <div className="wyn-business-names">{businessNames}</div>}
-        {portrait && <img className="wyn-headshot" src={portrait} alt={proof.displayName+' business portrait'}/>}
+        {portrait && <img className="wyn-headshot" style={headshotCrop?{objectFit:'cover',objectPosition:`${Math.min(100,Math.max(0,(headshotCrop.x+headshotCrop.w/2)*100))}% ${Math.min(100,Math.max(0,(headshotCrop.y+headshotCrop.h/2)*100))}%`}:undefined} src={portrait} alt={proof.displayName+' business portrait'}/>}
         {showBusinessArea && <div className="wyn-business-links" style={{'--wyn-business-link-count':Math.max(1,businessLinkCount)} as CSSProperties} aria-label="Business logos and contact links">
           {(businessLogos.length>0||proof.logoUrl)&&<div className="wyn-business-list">
             {businessLogos.length>0 ? businessLogos.map((business,i)=>{
@@ -132,7 +136,7 @@ export default function WhereYatProofCard({
       <div className="wyn-bottom-half">
         <div className="wyn-story-prompt">{proof.storyPrompt||'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'}</div>
         <div className="wyn-memory-content">
-          {proof.photoUrl && <img className="wyn-featured-photo" src={proof.photoUrl} alt="Photo accompanying the selected memory"/>}
+          {proof.photoUrl && <img className="wyn-featured-photo" style={memoryCrop?{objectFit:'cover',objectPosition:`${Math.min(100,Math.max(0,(memoryCrop.x+memoryCrop.w/2)*100))}% ${Math.min(100,Math.max(0,(memoryCrop.y+memoryCrop.h/2)*100))}%`}:undefined} src={proof.photoUrl} alt="Photo accompanying the selected memory"/>}
           <p className="wyn-story">{storyText}</p>
           
         </div>
