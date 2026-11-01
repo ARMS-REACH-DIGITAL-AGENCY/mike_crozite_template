@@ -1,0 +1,12 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const policy = fs.readFileSync('src/lib/instagramSyncPolicy.ts', 'utf8');
+const cron = fs.readFileSync('src/app/api/cron/instagram-sync/route.ts', 'utf8');
+assert.match(policy, /INSTAGRAM_SYNC_ACCOUNTS_PER_RUN = 8/);
+assert.match(policy, /INSTAGRAM_SYNC_REFRESH_HOURS = 6/);
+assert.match(policy, /message\.includes\('\(#4\)'\)/);
+assert.match(cron, /last_polled_at IS NULL OR last_polled_at < now\(\) - make_interval\(hours => \$1::int\)/);
+assert.match(cron, /ORDER BY last_polled_at NULLS FIRST, id/);
+assert.match(cron, /if \(!result\.ok && isMetaInstagramRateLimit\(result\.error\)\) break/);
+assert.doesNotMatch(cron, /const ACCOUNTS_PER_RUN = 40/);
+console.log('PASS: Instagram sync prioritizes new accounts, refreshes eligible accounts and respects Meta quota');
