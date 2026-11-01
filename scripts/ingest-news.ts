@@ -600,7 +600,7 @@ async function main() {
       const batch = planned.players as PlayerRow[];
       const queryString = planned.query;
       console.log(
-        `  Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch
+        `  Batch ${i + 1}: ${batch
           .map((p) => `${p.firstname} ${p.lastname}`)
           .join(", ")}`
       );
