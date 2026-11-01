@@ -44,7 +44,7 @@ export default function WhereYatPromptedStories({playerId,hsid,name,school}:{pla
   {WHERE_YAT_PROMPTS.map(({key,label})=>{
    const actual=label.replace('YOUR HIGH SCHOOL',school.toUpperCase());const value=String(saved?.[col[key]]||'');
    return <article className="wyn-prompt-card" key={key}>
-    {value&&saved?.id?<WhereYatMemory id={saved.id} storyKey={key} label={actual} alumnusName={saved?.display_name||name} initialText={value} initialPhotos={saved.memory_photos_json?.[key]||[]} playerId={playerId} hsid={hsid}/>:<button type="button" className="wyn-prompt-opener" onClick={()=>open(key)}><strong>{actual}</strong><span>{loaded?'WRITE YOUR STORY +':'LOADING…'}</span></button>}
+    {value&&saved?.id?<WhereYatMemory id={saved.id} storyKey={key} label={actual} alumnusName={saved?.display_name||name} showReactions={saved.status==='approved'} initialText={value} initialPhotos={saved.memory_photos_json?.[key]||[]} playerId={playerId} hsid={hsid}/>:<button type="button" className="wyn-prompt-opener" onClick={()=>open(key)}><strong>{actual}</strong><span>{loaded?'WRITE YOUR STORY +':'LOADING…'}</span></button>}
     {editing===key&&<div className="wyn-prompt-editor">
      <textarea aria-label={actual} rows={5} maxLength={WHERE_YAT_MEMORY_MAX_CHARS} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Tell us your memory…"/>
      <div className="wyn-prompt-controls"><span>{draft.length} / {WHERE_YAT_MEMORY_MAX_CHARS} characters</span><label>ADD PHOTO <input type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label></div>
