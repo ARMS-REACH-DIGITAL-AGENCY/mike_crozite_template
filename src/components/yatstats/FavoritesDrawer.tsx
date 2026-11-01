@@ -346,7 +346,9 @@ function attachFlipListener(card: HTMLElement) {
     if (target.closest('a, button, input, select, textarea, label, [role="button"]')) return;
 
     event.stopPropagation();
+    const opening = !card.classList.contains('is-flipped');
     card.classList.toggle('is-flipped');
+    if (opening) card.querySelector<HTMLElement>('.fz-tab-btn[data-fz-tab="schedule"]')?.click();
   });
 }
 
