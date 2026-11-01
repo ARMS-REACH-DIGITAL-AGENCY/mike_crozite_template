@@ -260,4 +260,19 @@ assert(expandedStageGuard.includes('yatstats_guard_stage_name_org_edits') &&
        expandedStageGuard.includes('NEW.display_level_label IS DISTINCT FROM canonical.level_label'),
   'Block all name/org/level identity bypasses at the flip-card staging boundary');
 
+const teamDiscoveryMigration = source('migrations/20261031_tbc_teamid_discovery_queue.sql');
+assert(teamDiscoveryMigration.includes('CREATE TABLE IF NOT EXISTS public.tbc_teamid_reconciliation_queue') &&
+       teamDiscoveryMigration.includes('refresh_tbc_teamid_reconciliation_queue') &&
+       teamDiscoveryMigration.includes("THEN 'UNMAPPED'") &&
+       teamDiscoveryMigration.includes("THEN 'INCOMPLETE'") &&
+       teamDiscoveryMigration.includes("THEN 'INVALID_ID'") &&
+       teamDiscoveryMigration.includes('source_evidence jsonb') &&
+       !/INSERT INTO public\.teamid_universe_mapping/i.test(teamDiscoveryMigration) &&
+       !/UPDATE public\.teamid_universe_mapping/i.test(teamDiscoveryMigration),
+  'Unknown source Team IDs must go to an evidence queue, not mutate the canonical mapping');
+assert(ingest.includes('refresh_tbc_teamid_reconciliation_queue') &&
+       cron.includes('refresh_tbc_teamid_reconciliation_queue') &&
+       ingest.includes('teamIdDiscovery'),
+  'Both ingestion and daily QC must report new Team IDs without rejecting TBC raw rows');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
