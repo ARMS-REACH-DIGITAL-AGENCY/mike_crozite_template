@@ -1,5 +1,5 @@
 import { query } from '@/lib/db';
-import WhereYatClaimForm from './WhereYatClaimForm';
+import WhereYatPromptedStories from './WhereYatPromptedStories';
 import WhereYatReactions from './WhereYatReactions';
 import { StoryStyles } from './StoryViewer';
 import SponsorTower from './SponsorTower';
@@ -63,7 +63,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
           <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD</small>
         </aside>
 
-      </> : <WhereYatClaimForm playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      </> : <WhereYatPromptedStories playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
       </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div>
       <style>{`
         .where-yat-profile { padding: 12px; width:100%; box-sizing:border-box; color:var(--yat-text,#f5f5f5); background:transparent; font-family:var(--yat-font-ui,Archivo,Arial,sans-serif); }
