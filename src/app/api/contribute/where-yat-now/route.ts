@@ -18,6 +18,23 @@ export const maxDuration = 40;
 const reply = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const clean = (value: FormDataEntryValue | null, limit: number) => String(value ?? '').trim().slice(0, limit);
 const retired = (s: string) => /\bRETIRED\b/i.test(s) && !/\bACTIVE\b/i.test(s);
+type PhotoCrop={x:number;y:number;w:number;h:number};
+function requestedCrop(value:FormDataEntryValue|null):PhotoCrop|null{
+ try{const c=JSON.parse(String(value||'')) as PhotoCrop;
+  if([c?.x,c?.y,c?.w,c?.h].every(Number.isFinite)&&c.x>=0&&c.y>=0&&c.w>0&&c.h>0&&c.x+c.w<=1.001&&c.y+c.h<=1.001)return c;
+ }catch{}
+ return null;
+}
+async function applyPositionedCrop(raw:Buffer,c:PhotoCrop|null,w:number,h:number){
+ let img=sharp(raw,{failOn:'error',limitInputPixels:16_000_000}).rotate();
+ const metadata=await img.metadata();const W=metadata.width||0,H=metadata.height||0;
+ if(c&&W&&H){
+  const left=Math.max(0,Math.min(W-1,Math.round(c.x*W)));
+  const top=Math.max(0,Math.min(H-1,Math.round(c.y*H)));
+  img=img.extract({left,top,width:Math.max(1,Math.min(W-left,Math.round(c.w*W))),height:Math.max(1,Math.min(H-top,Math.round(c.h*H)))});
+ }
+ return img.resize(w,h,{fit:'cover',position:'centre'}).jpeg({quality:85,mozjpeg:true}).toBuffer();
+}
 
 export async function POST(req: NextRequest) {
   let form: FormData;
@@ -75,11 +92,14 @@ export async function POST(req: NextRequest) {
     if (!retired(String(rows[0].status_label || ''))) return reply('This survey is available for retired alumni.', 409);
 
     let photoKey: string | null = null;
+    let headshotUrl: string | null = null;
+    let headshotKey: string | null = null;
     let photoUrl: string | null = null;
     let companyLogoKey: string | null = null;
     let companyLogoUrl: string | null = null;
     const photo = form.get('photo');
     const companyLogo = form.get('companyLogo');
+    const businessHeadshot=form.get('businessHeadshot');
 
     // Validate both optional files before any storage write.
     if (photo instanceof File && photo.size &&
@@ -89,10 +109,11 @@ export async function POST(req: NextRequest) {
         (companyLogo.size > 5 * 1024 * 1024 || !['image/jpeg','image/png','image/webp'].includes(companyLogo.type)))
       return reply('Select a JPG, PNG or WebP company logo under 5 MB.', 413);
 
-    // Both image uploads use the existing Contribute AWS credential names.
+    if(businessHeadshot instanceof File&&businessHeadshot.size>0&&(businessHeadshot.size>8*1024*1024||!businessHeadshot.type.startsWith('image/')))return reply('Business headshot must be an image under 8 MB.',413);
+    // All optional images use the existing Contribute AWS credential names.
     const accessKeyId = process.env.YATSTATS_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = process.env.YATSTATS_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-    if (((photo instanceof File && photo.size) || (companyLogo instanceof File && companyLogo.size)) &&
+    if (((photo instanceof File && photo.size) || (companyLogo instanceof File && companyLogo.size) || (businessHeadshot instanceof File&&businessHeadshot.size)) &&
         (!accessKeyId || !secretAccessKey)) {
       console.error('[where-yat-now] Media storage credentials missing', { playerId, environment: process.env.VERCEL_ENV });
       return reply('Photo/logo storage is temporarily unavailable. Please try again shortly; your entries have not been saved.', 503);
@@ -102,9 +123,7 @@ export async function POST(req: NextRequest) {
       : null;
     if (photo instanceof File && photo.size) {
       const original = Buffer.from(await photo.arrayBuffer());
-      const compressed = await sharp(original, { failOn: 'error', limitInputPixels: 16000000 })
-        .rotate().resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+      const compressed = await applyPositionedCrop(original,requestedCrop(form.get('backHeroCrop')),2000,700);
       photoKey = `alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/${randomUUID()}.jpg`;
       await s3!.send(new PutObjectCommand({
         Bucket: S3_BUCKET, Key: photoKey, Body: compressed, ContentType: 'image/jpeg',
@@ -131,6 +150,12 @@ export async function POST(req: NextRequest) {
       companyLogoUrl = storyAssetUrl(companyLogoKey);
     }
 
+    if(businessHeadshot instanceof File&&businessHeadshot.size&&s3){
+      const prepared=await applyPositionedCrop(Buffer.from(await businessHeadshot.arrayBuffer()),requestedCrop(form.get('businessHeadshotCrop')),750,750);
+      headshotKey=`alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/business-headshots/${randomUUID()}.jpg`;
+      await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:headshotKey,Body:prepared,ContentType:'image/jpeg',CacheControl:'private, no-store'}));
+      headshotUrl=storyAssetUrl(headshotKey);
+    }
     const lifeFiles = form.getAll('lifePhotos').filter((f): f is File => f instanceof File && f.size > 0);
     if (lifeFiles.length > 4 || lifeFiles.some(f => f.size > STORY_MAX_PHOTO_BYTES))
       return reply('Please choose up to four photographs, each under 4 MB.', 413);
@@ -143,7 +168,15 @@ export async function POST(req: NextRequest) {
     for(const key of memoryKeys){
       const files=form.getAll('memoryPhoto_'+key).filter((f):f is File=>f instanceof File&&f.size>0);
       if(files.length>4||files.some(file=>file.size>STORY_MAX_PHOTO_BYTES||!file.type.startsWith('image/')))return reply('Each memory can have up to four images under 4 MB.',413);
-      if(files.length){const list=[];for(const [i,file] of files.entries()){const stored=await storeStoryPhoto(randomUUID(),i,Buffer.from(await file.arrayBuffer()));list.push({web:storyAssetUrl(stored.web_s3_key),full:storyAssetUrl(stored.s3_key),thumb:storyAssetUrl(stored.thumb_s3_key)});}memoryPhotos[key]=list;}
+      const cropValues=form.getAll('memoryCrop_'+key);
+      const keep=form.getAll('keepMemoryPhoto_'+key).map(String);
+      const preserved=Array.isArray(prior?.memory_photos_json?.[key])?prior.memory_photos_json[key].filter((p:{full:string})=>keep.includes(p.full)):[];
+      if(files.length){const list=[...preserved];for(const [i,file] of files.entries()){
+        const crop=requestedCrop(cropValues[i]||null);
+        const bytes=crop?await applyPositionedCrop(Buffer.from(await file.arrayBuffer()),crop,1024,1024):Buffer.from(await file.arrayBuffer());
+        const stored=await storeStoryPhoto(randomUUID(),i,bytes);list.push({web:storyAssetUrl(stored.web_s3_key),full:storyAssetUrl(stored.s3_key),thumb:storyAssetUrl(stored.thumb_s3_key)});
+      }memoryPhotos[key]=list;}
+      else if(keep.length)memoryPhotos[key]=preserved;
     }
     const year = fields.retirementYear ? Number(fields.retirementYear) : null;
     if (year !== null && (!Number.isInteger(year) || year < 1900 || year > new Date().getFullYear()))
@@ -158,6 +191,7 @@ export async function POST(req: NextRequest) {
     if (prior) {
       if (!photoUrl) {photoUrl=prior.photo_url||null;photoKey=prior.photo_key||null;}
       if (!companyLogoUrl) {companyLogoUrl=prior.company_logo_url||null;companyLogoKey=prior.company_logo_key||null;}
+      if (!headshotUrl) {headshotUrl=prior.business_headshot_url||null;headshotKey=prior.business_headshot_key||null;}
       if (!album.length && Array.isArray(prior.life_photos_json)) album.push(...prior.life_photos_json);
     }
 
@@ -169,7 +203,7 @@ export async function POST(req: NextRequest) {
       url: normalized.website || '', title: displayName, description: safetyText.slice(0, 2000), playerName: displayName,
     });
     let safeToPublish = textVerdict.decision === 'approve';
-    for (const imageUrl of [photoUrl, companyLogoUrl, ...album.map(item => item.web),...Object.values(memoryPhotos).flatMap(items=>items.map(item=>item.web))].filter((url): url is string => Boolean(url))) {
+    for (const imageUrl of [photoUrl, companyLogoUrl,headshotUrl, ...album.map(item => item.web),...Object.values(memoryPhotos).flatMap(items=>items.map(item=>item.web))].filter((url): url is string => Boolean(url))) {
       if (!safeToPublish) break;
       const verdict = await moderatePhoto({ imageUrl, purpose: 'other_photo', playerName: displayName });
       if (verdict?.decision !== 'approve') safeToPublish = false;
@@ -190,6 +224,10 @@ export async function POST(req: NextRequest) {
        normalized.website,normalized.linkedin,normalized.instagram,
        normalized.facebook,normalized.x,fields.story,photoKey,photoUrl,companyLogoKey,companyLogoUrl,sponsorship,year,fields.favoriteHs,fields.favoriteAfter,fields.family,fields.businessMessage,fields.businessOffer,fields.businessEmail,fields.businessPhone,publicBusiness,fields.teammateTips,JSON.stringify(album),attested,publicationStatus,replacesSubmissionId,fields.contactPhone,JSON.stringify(memoryPhotos),featuredMemory],
     );
+    if(headshotUrl||headshotKey){
+      await query('UPDATE public.alumni_where_yat_now SET business_headshot_url=$2,business_headshot_key=$3 WHERE id=$1',
+        [result.rows[0].id,headshotUrl,headshotKey]);
+    }
     await logContribution(who, 'contribute_where_yat_now', {
       playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
     }).catch(() => {});
