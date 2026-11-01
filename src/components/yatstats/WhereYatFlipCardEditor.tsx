@@ -44,9 +44,9 @@ export default function WhereYatFlipCardEditor({saved,playerId,hsid,name,school,
  }catch(e){setError(e instanceof Error?e.message:'Could not save.')}finally{setBusy(false)}}
  const defs:[string,string][]=[['city','CITY'],['state','STATE'],['occupation','NOW / PROFESSION'],['company','BUSINESS NAME'],['website','BUSINESS WEBSITE (LINKED FROM LOGO)'],
  ['linkedin','LINKEDIN'],['facebook','FACEBOOK'],['x','X'],['instagram','INSTAGRAM'],['businessEmail','PUBLIC BUSINESS EMAIL'],['businessPhone','PUBLIC BUSINESS PHONE / TEXT']];
- return <div className="wyn-card-editor"><button type="button" className="wyn-card-open" onClick={()=>setOpen(v=>!v)}><i className="ri-edit-line"/> {open?'CLOSE FLIP-CARD EDITOR':'EDIT MY FLIP-CARD BACK'}</button>
+ return <div className="wyn-card-editor"><button type="button" className="wyn-card-open" onClick={()=>setOpen(v=>!v)}><i className="ri-edit-line"/> {open?'CLOSE EDITOR':'DESIGN THE BACK OF YOUR FLIP CARD'}</button>
  {open&&<section className="wyn-card-fields" aria-label="Flip-card back editor">
-  <p>Only the flip-card back needs a layout proof. Your memories are saved individually above.</p>
+  
   {defs.map(([k,label])=><label key={k}><span>{label}</span><input value={values[k]||''} onChange={e=>value(k,e.target.value)}/></label>)}
   <label><span>BUSINESS LOGO — CLICKABLE WEBSITE LINK</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{setLogo(e.target.files?.[0]||null);setView(false)}}/></label>
   <label><span>BUSINESS HEADSHOT — UPPER RIGHT</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>{setHeadshot(e.target.files?.[0]||null);setView(false)}}/></label>
