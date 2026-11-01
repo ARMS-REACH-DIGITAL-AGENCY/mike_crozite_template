@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { query } from '@/lib/db';
 import { identifyContributor, contributionsToday, logContribution } from '@/lib/contributeServer';
 import { S3_BUCKET, S3_REGION, storyAssetUrl } from '@/lib/storyAssets';
@@ -83,13 +83,65 @@ export async function POST(req: NextRequest) {
     normalized[field] = result.url;
   }
 
+  // Double-submit guard. A slow first submit can make the fan click again
+  // while the server is still saving, which stored the same update twice
+  // (#6 and #7, Nov 1). The same account sending the same answers and the
+  // same files within 15 minutes gets the first receipt back; a real edit
+  // (any changed answer or photo) is a new fingerprint and goes through.
+  const fileSignature = [...form.entries()]
+    .filter((entry): entry is [string, File] => entry[1] instanceof File && entry[1].size > 0)
+    .map(([key, file]) => key + ':' + file.name + ':' + file.size)
+    .sort().join('|');
+  const fingerprint = createHash('sha256').update(JSON.stringify([
+    who.uid, playerId, hsid, replacesSubmissionId, displayName, email, fields, featuredMemory,
+    clean(form.get('businessPublic'), 8), clean(form.get('sponsorship'), 8), fileSignature,
+  ])).digest('hex');
+  const earlier = await query<{ submission_id: string | null; in_progress: boolean }>(
+    `SELECT details->>'submissionId' AS submission_id,
+            action='where_yat_submit_started' AS in_progress
+       FROM public.fan_activity
+      WHERE firebase_uid=$1 AND details->>'fingerprint'=$2
+        AND ((action='contribute_where_yat_now' AND created_at > now() - interval '15 minutes')
+          OR (action='where_yat_submit_started' AND created_at > now() - interval '3 minutes'
+              AND NOT EXISTS (SELECT 1 FROM public.fan_activity f
+                               WHERE f.firebase_uid=fan_activity.firebase_uid
+                                 AND f.action='where_yat_submit_failed'
+                                 AND f.details->>'fingerprint'=fan_activity.details->>'fingerprint'
+                                 AND f.created_at >= fan_activity.created_at)))
+      ORDER BY (action='contribute_where_yat_now') DESC, created_at DESC LIMIT 1`,
+    [who.uid, fingerprint],
+  ).catch(() => ({ rows: [] as Array<{ submission_id: string | null; in_progress: boolean }> }));
+  const repeat = earlier.rows[0];
+  if (repeat && !repeat.in_progress && repeat.submission_id) {
+    return NextResponse.json({ ok: true, pending: true, published: false, duplicate: true,
+      submissionId: Number(repeat.submission_id), partnerHref: 'https://yatstats.com/partners/' });
+  }
+  if (repeat?.in_progress) {
+    return reply('Your update is already being saved. Please wait a moment, then refresh to see your receipt.', 409);
+  }
+  await query(
+    `INSERT INTO public.fan_activity (firebase_uid, action, playerid, hsid, details)
+     VALUES ($1, 'where_yat_submit_started', $2, $3, $4::jsonb)`,
+    [who.uid, playerId, hsid, JSON.stringify({ fingerprint })],
+  ).catch((error) => console.error('[where-yat-now] submit marker failed', error));
+
+  // Any early exit after the marker releases the guard so a retry is allowed.
+  const fail = async (message: string, status = 400) => {
+    await query(
+      `INSERT INTO public.fan_activity (firebase_uid, action, playerid, hsid, details)
+       VALUES ($1, 'where_yat_submit_failed', $2, $3, $4::jsonb)`,
+      [who.uid, playerId, hsid, JSON.stringify({ fingerprint })],
+    ).catch(() => {});
+    return reply(message, status);
+  };
+
   try {
     const { rows } = await query<{ status_label: string }>(
       'SELECT status_label FROM public.flip_card_front_stage WHERE playerid::text=$1 AND hsid::text=$2 LIMIT 1',
       [playerId, hsid],
     );
-    if (!rows.length) return reply('That alumni profile could not be found.', 404);
-    if (!retired(String(rows[0].status_label || ''))) return reply('This survey is available for retired alumni.', 409);
+    if (!rows.length) return fail('That alumni profile could not be found.', 404);
+    if (!retired(String(rows[0].status_label || ''))) return fail('This survey is available for retired alumni.', 409);
 
     let photoKey: string | null = null;
     let headshotUrl: string | null = null;
@@ -104,19 +156,19 @@ export async function POST(req: NextRequest) {
     // Validate both optional files before any storage write.
     if (photo instanceof File && photo.size &&
         (photo.size > 8 * 1024 * 1024 || !['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(photo.type)))
-      return reply('Select a JPG, PNG or WebP personal photo under 8 MB.', 413);
+      return fail('Select a JPG, PNG or WebP personal photo under 8 MB.', 413);
     if (companyLogo instanceof File && companyLogo.size &&
         (companyLogo.size > 5 * 1024 * 1024 || !['image/jpeg','image/png','image/webp'].includes(companyLogo.type)))
-      return reply('Select a JPG, PNG or WebP company logo under 5 MB.', 413);
+      return fail('Select a JPG, PNG or WebP company logo under 5 MB.', 413);
 
-    if(businessHeadshot instanceof File&&businessHeadshot.size>0&&(businessHeadshot.size>8*1024*1024||!businessHeadshot.type.startsWith('image/')))return reply('Business headshot must be an image under 8 MB.',413);
+    if(businessHeadshot instanceof File&&businessHeadshot.size>0&&(businessHeadshot.size>8*1024*1024||!businessHeadshot.type.startsWith('image/')))return fail('Business headshot must be an image under 8 MB.',413);
     // All optional images use the existing Contribute AWS credential names.
     const accessKeyId = process.env.YATSTATS_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = process.env.YATSTATS_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
     if (((photo instanceof File && photo.size) || (companyLogo instanceof File && companyLogo.size) || (businessHeadshot instanceof File&&businessHeadshot.size)) &&
         (!accessKeyId || !secretAccessKey)) {
       console.error('[where-yat-now] Media storage credentials missing', { playerId, environment: process.env.VERCEL_ENV });
-      return reply('Photo/logo storage is temporarily unavailable. Please try again shortly; your entries have not been saved.', 503);
+      return fail('Photo/logo storage is temporarily unavailable. Please try again shortly; your entries have not been saved.', 503);
     }
     const s3 = accessKeyId && secretAccessKey
       ? new S3Client({ region: S3_REGION, credentials: { accessKeyId, secretAccessKey } })
@@ -140,7 +192,7 @@ export async function POST(req: NextRequest) {
           .rotate().resize(640, 640, { fit: 'inside', withoutEnlargement: true })
           .png({ compressionLevel: 9 }).toBuffer();
       } catch {
-        return reply('The company logo could not be processed. Upload a valid PNG, JPG or WebP image.', 422);
+        return fail('The company logo could not be processed. Upload a valid PNG, JPG or WebP image.', 422);
       }
       companyLogoKey = `alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/logos/${randomUUID()}.png`;
       await s3!.send(new PutObjectCommand({
@@ -158,7 +210,7 @@ export async function POST(req: NextRequest) {
     }
     const lifeFiles = form.getAll('lifePhotos').filter((f): f is File => f instanceof File && f.size > 0);
     if (lifeFiles.length > 4 || lifeFiles.some(f => f.size > STORY_MAX_PHOTO_BYTES))
-      return reply('Please choose up to four photographs, each under 4 MB.', 413);
+      return fail('Please choose up to four photographs, each under 4 MB.', 413);
     const album = [];
     for (let i=0; i<lifeFiles.length; i++) {
       const stored = await storeStoryPhoto(randomUUID(), i, Buffer.from(await lifeFiles[i].arrayBuffer()));
@@ -167,7 +219,7 @@ export async function POST(req: NextRequest) {
     const memoryPhotos:Record<string,Array<{web:string|null;full:string|null;thumb:string|null}>>={...(prior?.memory_photos_json||{})};
     for(const key of memoryKeys){
       const files=form.getAll('memoryPhoto_'+key).filter((f):f is File=>f instanceof File&&f.size>0);
-      if(files.length>4||files.some(file=>file.size>STORY_MAX_PHOTO_BYTES||!file.type.startsWith('image/')))return reply('Each memory can have up to four images under 4 MB.',413);
+      if(files.length>4||files.some(file=>file.size>STORY_MAX_PHOTO_BYTES||!file.type.startsWith('image/')))return fail('Each memory can have up to four images under 4 MB.',413);
       const cropValues=form.getAll('memoryCrop_'+key);
       const keep=form.getAll('keepMemoryPhoto_'+key).map(String);
       const preserved=Array.isArray(prior?.memory_photos_json?.[key])?prior.memory_photos_json[key].filter((p:{full:string})=>keep.includes(p.full)):[];
@@ -180,10 +232,10 @@ export async function POST(req: NextRequest) {
     }
     const year = fields.retirementYear ? Number(fields.retirementYear) : null;
     if (year !== null && (!Number.isInteger(year) || year < 1900 || year > new Date().getFullYear()))
-      return reply('Please enter a valid retirement year.');
+      return fail('Please enter a valid retirement year.');
     const publicBusiness = clean(form.get('businessPublic'), 8) === 'yes';
     const attested = clean(form.get('claimAttestation'),8) === 'yes';
-    if (!attested) return reply('Please confirm that you are the alumnus or are authorized to submit this update.');
+    if (!attested) return fail('Please confirm that you are the alumnus or are authorized to submit this update.');
     const sponsorship = clean(form.get('sponsorship'), 8) === 'yes';
     // The first Life After Baseball photo is also the flip-card's recent photo
     // unless a separate personal portrait was uploaded. This matches the proof.
@@ -229,7 +281,7 @@ export async function POST(req: NextRequest) {
         [result.rows[0].id,headshotUrl,headshotKey]);
     }
     await logContribution(who, 'contribute_where_yat_now', {
-      playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
+      playerid: playerId, hsid, details: { submissionId: result.rows[0]?.id, fingerprint, sponsorshipInterest: sponsorship, hasPersonalPhoto: !!photoKey, hasCompanyLogo: !!companyLogoKey },
     }).catch(() => {});
     const submissionId = result.rows[0]?.id;
     // Submission succeeds independently of notification delivery. Never disclose reviewer contact details.
@@ -245,6 +297,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, pending: true, published: false, submissionId, partnerHref: 'https://yatstats.com/partners/' });
   } catch (error) {
     console.error('[where-yat-now] submit failed', { playerId, error });
-    return reply('Unable to save this update. Please try again.', 500);
+
+    return fail('Unable to save this update. Please try again.', 500);
   }
 }

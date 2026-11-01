@@ -2,6 +2,7 @@ import 'server-only';
 import { query } from '@/lib/db';
 import { getGHLApiKey, getGHLLocationId, findOrCreateGhlContact, addTagToGHLContact } from '@/lib/gohighlevel';
 import { whereYatReviewUrl } from '@/lib/whereYatReviewNotifications';
+import { whereYatCrmSyncAllowed } from './whereYatSwitches';
 
 const OWNER_ID = 'tINEwNdSXZeJdjdpdJC0';
 type Submission = Record<string, any>;
@@ -31,7 +32,7 @@ function noteSections(s:Submission,reviewUrl:string) {
  ];
 }
 export async function syncWhereYatSubmissionToArms(id:number):Promise<boolean> {
- if(process.env.VERCEL_ENV!=='production')return false;
+ if(process.env.VERCEL_ENV!=='production'||!whereYatCrmSyncAllowed(id))return false;
  const rows=await query<Submission>('SELECT * FROM public.alumni_where_yat_now WHERE id=$1 LIMIT 1',[id]);
  const s=rows.rows[0];if(!s)return false;
  if(s.arms_sync_status==='sent')return true;

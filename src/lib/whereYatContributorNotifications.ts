@@ -3,9 +3,10 @@ import { findOrCreateGhlContact, sendGHLEmail } from './gohighlevel';
 import { resolveSchoolNewsOrigins } from './schoolNewsLinks';
 import { query } from './db';
 import {toSlugFromDisplay} from './slug';
+import { whereYatEmailsAllowed } from './whereYatSwitches';
 const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'} as Record<string,string>)[c]);
 export async function notifyWhereYatContributor(info:{id:number;hsid:string;email:string;name:string;outcome:'received'|'approved'|'rejected'}) {
- if(process.env.VERCEL_ENV!=='production')return false;
+ if(!whereYatEmailsAllowed(info.id))return false;
  const addresses=await resolveSchoolNewsOrigins([info.hsid],query);
  const origin=addresses.get(info.hsid);
  if(!origin)return false;

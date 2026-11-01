@@ -2,6 +2,7 @@ import 'server-only';
 import { query } from './db';
 import { getGHLApiKey, getGHLLocationId, findOrCreateGhlContact, sendGHLEmail } from './gohighlevel';
 import { resolveSchoolNewsOrigins } from './schoolNewsLinks';
+import { whereYatEmailsAllowed } from './whereYatSwitches';
 
 // Central, school-independent reviewer destinations. These are administrative
 // transaction alerts, not opt-in marketing subscriptions.
@@ -80,7 +81,7 @@ export async function notifyWhereYatReviewers(info: {
 }): Promise<{ emailQueued: boolean; smsQueued: boolean }> {
   // Preview environments can share the production database. Never generate
   // live admin messages containing a preview-only approval route.
-  if (process.env.VERCEL_ENV !== 'production') {
+  if (process.env.VERCEL_ENV !== 'production' || !whereYatEmailsAllowed(info.id)) {
     return { emailQueued: false, smsQueued: false };
   }
   const link = await whereYatReviewUrl(info.hsid, info.id).catch(() => null);
