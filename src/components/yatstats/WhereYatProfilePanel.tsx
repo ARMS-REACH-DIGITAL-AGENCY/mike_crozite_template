@@ -83,7 +83,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .where-yat-profile .wyn-panel-share-feedback {font:600 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif);max-width:85px;}
         @media(max-width:410px){.where-yat-profile .wyn-panel-title{font-size:20px;}.where-yat-profile .wyn-panel-share-btn{min-height:34px;padding:4px 6px;}}
         .wyn-story-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:12px; align-items:start; }
-        .wyn-story-feed { min-width:0; display:grid; gap:8px; }
+        .wyn-story-feed { min-width:0; display:grid; gap:8px; padding-bottom:120px; }
         .wyn-story-inline-ad{display:none;box-sizing:border-box;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:160px;width:100%;padding:16px;border:1px dashed var(--wyn-border);border-radius:8px;text-align:center;color:var(--wyn-card-text);background:var(--wyn-card-bg);}
         .wyn-story-inline-ad strong{font:800 20px/1.1 var(--yat-font-compact,Oswald,sans-serif);}
         .wyn-story-inline-ad :is(span,small){font:600 11px/1.3 var(--yat-font-ui,Arial,sans-serif);}
