@@ -331,7 +331,6 @@ async function fetchWebzNews(
     sort: "crawled",
     format: "json",
     size: String(RESULTS_PER_CALL),
-    order: "desc", // Most recently crawled first within the capped results.
     warning: "true", // Webz parser diagnostics.
   });
 
