@@ -5,6 +5,7 @@ import { identifyContributor } from '@/lib/contributeServer';
 import { moderateContributedTip } from '@/lib/contributeTipModeration';
 import { moderatePhoto } from '@/lib/contributeModeration';
 import { storeStoryPhoto, STORY_MAX_PHOTO_BYTES, storyAssetUrl } from '@/lib/stories';
+import { WHERE_YAT_MEMORY_MAX_CHARS } from '@/lib/whereYatPrompts';
 
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -22,12 +23,12 @@ export async function PATCH(req:NextRequest){
  const key=String(data.get('storyKey')||'') as Key;
  const story=String(data.get('story')||'').trim();
  if(!Number.isSafeInteger(id)||id<=0||!Object.prototype.hasOwnProperty.call(columns,key))return bad('Invalid memory.');
- if(!story||story.length>5000)return bad('A memory must contain text of 5,000 characters or less.');
+ if(!story||story.length>WHERE_YAT_MEMORY_MAX_CHARS)return bad('Keep this memory at '+WHERE_YAT_MEMORY_MAX_CHARS+' characters or fewer so the complete answer fits your flip card.');
  const found=await query<{id:number;contributor_uid:string;memory_photos_json:Record<string,Photo[]>|null;life_photos_json:Photo[]|null;photo_url:string|null}>(
-  "SELECT id,contributor_uid,memory_photos_json,life_photos_json,photo_url FROM public.alumni_where_yat_now WHERE id=$1 AND status='approved' AND contributor_uid=$2 LIMIT 1",
+  "SELECT id,contributor_uid,memory_photos_json,life_photos_json,photo_url FROM public.alumni_where_yat_now WHERE id=$1 AND status IN ('approved','pending') AND contributor_uid=$2 LIMIT 1",
   [id,who.uid]
  );
- const current=found.rows[0];if(!current)return bad('Only the original contributor may edit this approved memory.',403);
+ const current=found.rows[0];if(!current)return bad('Only the original contributor may edit this memory.',403);
  const existing=current.memory_photos_json||{};
  const legacy:Photo[]=key==='family'?(current.life_photos_json||[]):key==='story'&&current.photo_url?[{web:current.photo_url,full:current.photo_url,thumb:current.photo_url}]:[];
  const prior=Array.isArray(existing[key])?existing[key]:legacy;
@@ -50,7 +51,7 @@ export async function PATCH(req:NextRequest){
  const photos={...existing,[key]:[...kept,...uploaded]};
  const column=columns[key];
  const updated=await query(`UPDATE public.alumni_where_yat_now SET ${column}=$2,memory_photos_json=$3::jsonb,memory_updated_at=now()
- WHERE id=$1 AND contributor_uid=$4 AND status='approved' RETURNING id`,[id,story,JSON.stringify(photos),who.uid]);
+ WHERE id=$1 AND contributor_uid=$4 AND status IN ('approved','pending') RETURNING id`,[id,story,JSON.stringify(photos),who.uid]);
  if(!updated.rows.length)return bad('Memory changed before saving. Refresh and try again.',409);
  return NextResponse.json({ok:true,story,photos:photos[key]},{headers:{'Cache-Control':'no-store'}});
 }
