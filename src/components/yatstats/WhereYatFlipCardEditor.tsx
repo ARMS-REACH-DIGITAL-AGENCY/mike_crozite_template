@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {auth} from '@/lib/firebase';
 import WhereYatProofCard,{type WhereYatProof} from './WhereYatProofCard';
 import {WHERE_YAT_PROMPTS,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
@@ -14,6 +14,10 @@ export default function WhereYatFlipCardEditor({saved,playerId,hsid,name,school,
  businessEmail:saved.business_contact_email||'',businessPhone:saved.business_contact_phone||'',featuredMemory:saved.featured_memory_key||'story'
  });
  const [consent,setConsent]=useState(!!saved.business_public_opt_in),[logo,setLogo]=useState<File|null>(null),[headshot,setHeadshot]=useState<File|null>(null);
+ const logoPreview=useMemo(()=>logo?URL.createObjectURL(logo):null,[logo]);
+ const headshotPreview=useMemo(()=>headshot?URL.createObjectURL(headshot):null,[headshot]);
+ useEffect(()=>()=>{if(logoPreview)URL.revokeObjectURL(logoPreview)},[logoPreview]);
+ useEffect(()=>()=>{if(headshotPreview)URL.revokeObjectURL(headshotPreview)},[headshotPreview]);
  function value(k:string,v:string){setValues(old=>({...old,[k]:v}));setView(false)}
  const keys=WHERE_YAT_PROMPTS.filter(x=>String(saved[answers[x.key]]||'').trim());
  const featured=(keys.some(x=>x.key===values.featuredMemory)?values.featuredMemory:keys[0]?.key||'story') as WhereYatPromptKey;
@@ -21,7 +25,7 @@ export default function WhereYatFlipCardEditor({saved,playerId,hsid,name,school,
  const selected=WHERE_YAT_PROMPTS.find(x=>x.key===featured);
  const proof:WhereYatProof={playerId,hsid,displayName:name,city:values.city,state:values.state,occupation:values.occupation,company:values.company,
  website:values.website,linkedin:values.linkedin,facebook:values.facebook,instagram:values.instagram,x:values.x,businessEmail:values.businessEmail,businessPhone:values.businessPhone,
- logoUrl:logo?URL.createObjectURL(logo):saved.company_logo_url||null,businessHeadshotUrl:headshot?URL.createObjectURL(headshot):saved.business_headshot_url||null,
+ logoUrl:logoPreview||saved.company_logo_url||null,businessHeadshotUrl:headshotPreview||saved.business_headshot_url||null,
  story:String(saved[answers[featured]]||''),storyPrompt:selected?.label.replace('YOUR HIGH SCHOOL',school.toUpperCase()),photoUrl:photo,businessPublic:consent};
  async function save(){if(busy)return;setBusy(true);setError('');try{
   const token=await auth.currentUser?.getIdToken();if(!token)throw Error('Sign in to save your flip card.');
