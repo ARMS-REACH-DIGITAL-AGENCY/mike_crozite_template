@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
       missingStatuses: remaining.rows[0]?.blank ?? 0,
       retiredNCAAPlaceholders: remaining.rows[0]?.retired_ncaas ?? 0,
       batchLimit: 5000,
+      seasonRolloverRequired: new Date().getUTCFullYear() !== 2026,
     };
     console.log("[flip-card-status-reconciliation]", JSON.stringify(result));
     return NextResponse.json(result);
