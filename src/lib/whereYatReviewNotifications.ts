@@ -76,6 +76,7 @@ async function sendSms(contactId: string, message: string): Promise<boolean> {
 
 export async function notifyWhereYatReviewers(info: {
   id: number; hsid: string; playerId: string; displayName: string;
+  sendEmail?: boolean; sendSms?: boolean;
 }): Promise<{ emailQueued: boolean; smsQueued: boolean }> {
   // Preview environments can share the production database. Never generate
   // live admin messages containing a preview-only approval route.
@@ -101,10 +102,12 @@ export async function notifyWhereYatReviewers(info: {
   const sms = 'YAT?STATS review #' + info.id + ': ' + info.displayName + ' (' + school + '). Preview / approve after sign-in: ' + link;
   const [emailQueued, smsQueued] = await Promise.all([
     (async () => {
+      if(info.sendEmail===false)return false;
       const contact = await findOrCreateGhlContact(REVIEW_EMAIL, 'YAT?STATS', 'Alumni Review');
       return contact ? sendGHLEmail(contact, subject, html) : false;
     })().catch(() => false),
     (async () => {
+      if(info.sendSms===false)return false;
       const contact = await lookupSmsContact();
       return contact ? sendSms(contact, sms) : false;
     })().catch(() => false),
