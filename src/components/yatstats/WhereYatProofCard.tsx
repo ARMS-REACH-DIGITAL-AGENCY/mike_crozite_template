@@ -104,7 +104,7 @@ export default function WhereYatProofCard({
   const body = (
     <div className="wyn-body">
       <div className={'wyn-top-half'+(portrait?' wyn-top-has-headshot':'')}>
-        <div className="wyn-heading">YAT?STATS / WHERE YAT NOW?</div>
+        <div className="wyn-heading">WHERE YAT NOW?</div>
         <div className={'wyn-identity'+(portrait?' wyn-identity-has-headshot':'')}>
           <div className="wyn-identity-details">
             {showName && <div className="wyn-small-name">{proof.displayName}</div>}
