@@ -611,6 +611,13 @@ export async function GET(req: NextRequest) {
     results.push(await syncOneFeed(client, "batting"));
     results.push(await syncOneFeed(client, "pitching"));
     validateResults(results);
+    // New Team IDs are ALWAYS retained in the raw TBC feeds. Reconcile them
+    // separately; never insert fabricated PRO records into the canonical map
+    // or promote incomplete teams into a flip-card current assignment.
+    const { rows: discoveryRows } = await client.query(
+      "SELECT * FROM public.refresh_tbc_teamid_reconciliation_queue()"
+    );
+    const teamIdDiscovery = discoveryRows[0] ?? null;
 
     const baseline = await ensureFlipCardBaselineRows(client);
     const newFlipCardRows = baseline.created;
@@ -623,7 +630,7 @@ export async function GET(req: NextRequest) {
     const safeTeamIdsRecovered = Number(recoveredRows[0]?.recovered || 0);
     const heldForIdentityReview = baseline.held;
 
-    await recordIngestSuccess(client, { results, newFlipCardRows, collegeToIndyCorrected, previouslyUnclassifiedActivated, safeTeamIdsRecovered, heldForIdentityReview });
+    await recordIngestSuccess(client, { results, teamIdDiscovery, newFlipCardRows, collegeToIndyCorrected, previouslyUnclassifiedActivated, safeTeamIdsRecovered, heldForIdentityReview });
 
     await client.query("commit");
 
@@ -664,6 +671,7 @@ export async function GET(req: NextRequest) {
       ranAt: new Date().toISOString(),
       results,
       newFlipCardRows,
+      teamIdDiscovery,
       collegeToIndyCorrected,
       previouslyUnclassifiedActivated,
       safeTeamIdsRecovered,
