@@ -99,7 +99,7 @@ export default function WhereYatFunZonePanel({
           height:100%; min-height:0; overflow:hidden; padding:0;
           gap:clamp(2px,.7cqi,5px);
         }
-        .wyn-fz-approved-content .wyn-heading {display:none;}
+        .wyn-fz-approved-content .wyn-heading {display:block;color:#201a13;font:900 clamp(12px,4cqi,21px)/1.05 Oswald,'Arial Narrow',sans-serif;letter-spacing:.015em;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff;border-bottom:1px solid rgba(65,46,28,.35);}
         .wyn-fz-approved-content .wyn-identity {flex-shrink:0;}
         .wyn-fz-approved-content .wyn-identity p {font-size:clamp(7px,2.3cqi,12px);}
         .wyn-fz-approved-content .wyn-story {flex:1;min-height:0;font-size:clamp(8px,2.5cqi,13px);line-height:1.28;}
