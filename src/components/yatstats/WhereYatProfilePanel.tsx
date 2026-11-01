@@ -52,7 +52,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
       <div className="wyn-story-layout"><div className="wyn-story-feed">
       {entry ? <>
         {([['favoriteHs','MOST MEMORABLE MOMENT PLAYING AT '+schoolName.toUpperCase(),entry.favorite_hs_memory],['favoriteAfter','MOST MEMORABLE MOMENT AFTER GRADUATION',entry.favorite_post_hs_memory],['family','LIFE AND FAMILY',entry.family_life],['story','WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?',entry.story],['business','BUSINESS SPOTLIGHT',entry.business_public_opt_in?entry.business_message:null]] as const).map(([key,label,value])=>value&&
-        <WhereYatMemory key={key} id={entry.id} storyKey={key} label={label} initialText={value} playerId={playerId} hsid={hsid} initialPhotos={
+        <WhereYatMemory key={key} id={entry.id} storyKey={key} label={label} alumnusName={entry.display_name||name} initialText={value} playerId={playerId} hsid={hsid} initialPhotos={
           entry.memory_photos_json && Object.prototype.hasOwnProperty.call(entry.memory_photos_json,key)
             ? entry.memory_photos_json[key]||[]
             : key==='family' ? entry.life_photos_json||[]
