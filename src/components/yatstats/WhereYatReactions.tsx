@@ -37,10 +37,10 @@ export async function shareWhereYatMemory(storyKey: string): Promise<string | nu
 
 /** Stories action bar and full viewer comment thread, with retired memory storage. */
 export default function WhereYatReactions({
-  id,storyKey='legacy',mode='card',onOpenComment,content,focusComment=false,
+  id,storyKey='legacy',mode='card',onOpenComment,content,focusComment=false,enabled=true,
 }: {
   id:number;storyKey?:string;mode?:'card'|'viewer';
-  onOpenComment?:()=>void;content?:ReactNode;focusComment?:boolean;
+  onOpenComment?:()=>void;content?:ReactNode;focusComment?:boolean;enabled?:boolean;
 }) {
   const me=useFanMe();
   const [data,setData]=useState<Reactions>(EMPTY);
@@ -63,6 +63,7 @@ export default function WhereYatReactions({
   },[id,storyKey]);
 
   useEffect(()=>{
+    if(!enabled)return;
     void load();
     const refresh=()=>void load();
     window.addEventListener('yat-auth-success',refresh);
@@ -73,7 +74,7 @@ export default function WhereYatReactions({
       window.removeEventListener('yat-sign-out',refresh);
       window.removeEventListener('yat:where-yat-reaction',refresh);
     };
-  },[load]);
+  },[load,enabled]);
   useEffect(()=>{if(mode==='viewer'&&focusComment&&composerOpen)composerRef.current?.focus()},[mode,focusComment,composerOpen]);
 
   const act=async(action:'like'|'comment')=>{
@@ -133,6 +134,7 @@ export default function WhereYatReactions({
       </button></>:
       <button type="button" className="ysv-signin" onClick={openSignIn}>TO COMMENT ON THIS MEMORY YOU MUST BE SIGNED IN</button>}
   </div>;
+  if(!enabled)return mode==='viewer'?<div className="ysv-side"><div className="ysv-scroll">{content}</div></div>:null;
   if(mode==='viewer')return <div className="ysv-side">
     <div className="ysv-scroll">{content}
       {(data.likes>0||data.comments.length>0)&&<div className="ysv-counts">
