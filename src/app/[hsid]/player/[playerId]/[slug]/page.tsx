@@ -92,7 +92,58 @@ export async function generateMetadata({
   searchParams,
 }: Props & { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
   const { hsid, playerId, slug } = await params;
-  const storyParam = (await searchParams)?.story;
+  const search = await searchParams;
+  if (typeof search?.whereYatStory === 'string' && /^(favoriteHs|favoriteAfter|family|story|business)$/.test(search.whereYatStory)) {
+    try {
+      const {rows}=await query<{display_name:string;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;story:string|null;business_message:string|null;photo_url:string|null;life_photos_json:Array<{web:string}>|null}>(
+        `SELECT display_name,favorite_hs_memory,favorite_post_hs_memory,family_life,story,business_message,photo_url,life_photos_json FROM public.alumni_where_yat_now WHERE playerid=$1 AND hsid=$2 AND status='approved' ORDER BY reviewed_at DESC NULLS LAST,created_at DESC LIMIT 1`,[playerId,hsid]
+      );
+      const entry=rows[0];
+      if(entry){
+        const fields={favoriteHs:entry.favorite_hs_memory,favoriteAfter:entry.favorite_post_hs_memory,family:entry.family_life,story:entry.story,business:entry.business_message};
+        const answer=fields[search.whereYatStory as keyof typeof fields];
+        if(answer){
+          const base=await defaultPlayerShareMetadata(hsid,playerId,slug);
+          const title=entry.display_name+' — #YATABOY Memory | YAT?STATS';
+          const description=answer.slice(0,170);
+          const assets=entry.life_photos_json;
+          const photo=search.whereYatStory==='family' && Array.isArray(assets)?assets.find(x=>x.web)?.web:entry.photo_url;
+          const previous=base.openGraph?.images;
+          const image=photo|| (Array.isArray(previous)?String((previous[0] as {url?:string})?.url||''):'');
+          const images=image?[{url:image,width:1200,height:630,alt:title}]:previous;
+          return {...base,title,description,openGraph:{...base.openGraph,title,description,type:'article',images},twitter:{...base.twitter,title,description,card:'summary_large_image',...(image?{images:[image]}:{})}};
+        }
+      }
+    } catch(error){console.error('[where-yat-story-share] preview metadata failed',error);}
+  }
+  if (search?.yataboy === '1') {
+    try {
+      const { rows } = await query<{ display_name: string; story: string | null }>(
+        `SELECT display_name, story FROM public.alumni_where_yat_now
+         WHERE playerid=$1 AND hsid=$2 AND status='approved'
+         ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`,
+        [playerId, hsid]
+      );
+      if (rows[0]) {
+        const base = await defaultPlayerShareMetadata(hsid, playerId, slug);
+        const playerName = rows[0].display_name.trim() || slug.replace(/-/g, ' ');
+        const title = `#YATABOY ${playerName.toUpperCase()} | YAT?STATS`;
+        const description = `#YATABOY ${playerName} — discover where life after baseball took him on YAT?STATS.`;
+        const canonical = typeof base.alternates?.canonical === 'string'
+          ? base.alternates.canonical : '';
+        const shareUrl = canonical ? canonical + '?yataboy=1' : undefined;
+        return {
+          ...base, title, description,
+          openGraph: { ...base.openGraph, title, description, ...(shareUrl ? { url: shareUrl } : {}) },
+          twitter: { ...base.twitter, title, description },
+        };
+      }
+    } catch (error) {
+      console.error('[where-yat-share] approved preview unavailable', error);
+    }
+    // The share route must never expose unapproved questionnaire details.
+  }
+  const storyParam = search?.story;
   const storyId = typeof storyParam === 'string' && /^\d{1,18}$/.test(storyParam) ? storyParam : null;
   if (!storyId) return defaultPlayerShareMetadata(hsid, playerId, slug);
   try {

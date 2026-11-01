@@ -1,0 +1,34 @@
+// Guard the one-proof, one-drawer retired alumni flip-card workflow.
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const read=path=>fs.readFileSync(path,'utf8');
+const drawer=read('src/components/yatstats/RetiredCardDrawerForm.tsx');
+const editor=read('src/components/yatstats/WhereYatFlipCardEditor.tsx');
+const proof=read('src/components/yatstats/WhereYatProofCard.tsx');
+const photoApi=read('src/app/api/contribute/photo/route.ts');
+const memoryApi=read('src/app/api/contribute/where-yat-now/memory/route.ts');
+const cardApi=read('src/app/api/contribute/where-yat-now/card/route.ts');
+
+assert(drawer.includes('WhereYatFlipCardEditor'),'Retired drawer must use unified card editor');
+assert(!drawer.includes('openContribute('),'Never send retired-card photo uploads to a second generic proof drawer');
+assert(!drawer.includes('photoType:'),'Do not reintroduce the generic stats-card proof');
+assert(editor.includes('<WhereYatProofCard variant="full"'),'Show the real full 5x7 card together');
+assert(!editor.includes('<WhereYatProofCard variant="content"'),'Do not show a disconnected lower-half proof');
+assert(!editor.includes('aspect-ratio:1'),'Proof must never use the old square clipping');
+assert(editor.includes('PhotoCropper'),'Reuse working drag/zoom placement for the upper photo');
+assert(editor.includes("photoData.set('purpose','back_hero')"),'Upper playing image must target card BACK, not flip-card FRONT');
+assert(editor.includes("photoData.set('crop',JSON.stringify(heroCrop))"),'Send exactly the crop the user proofed');
+assert(editor.includes("fetch('/api/contribute/photo'"),'Reuse standard image safety and publishing pipeline');
+assert(editor.includes("fetch('/api/contribute/where-yat-now/memory'"),'All memory photo uploads belong in the same drawer');
+assert(editor.includes('memoryPhotos[featured]?.[0]?.src'),'The chosen memory image belongs in the complete proof');
+assert(editor.includes('businessHeadshotUrl:headshotPreview'),'Business headshot previews in the complete card');
+assert(editor.includes('logoUrl:logoPreview'),'Company logo previews in the complete card');
+assert(editor.includes('setHeroUploaded(true)'),'Do not resubmit an already processed hero on subsequent saves');
+assert(proof.includes('heroPreviewUrl?: string | null'),'Full proof supports temporary, unpublished hero previews');
+assert(proof.includes('heroCrop?: Crop | null'),'Full proof supports crop before upload');
+assert(proof.includes('previewImageUrl={proof.heroPreviewUrl||null}'),'The top hero shows the submitted candidate, not an unrelated existing image');
+assert(proof.includes('aspect-ratio:5 / 7'),'Keep published flip card proportions');
+assert(photoApi.includes("purpose === 'back_hero'"),'Keep existing back-hero pipeline');
+assert(memoryApi.includes('contributor_uid=$2'),'Memory upload must remain contributor-owned');
+assert(cardApi.includes('contributor_uid=$2'),'Card update must remain contributor-owned');
+console.log('PASS one complete retired-card proof, all designer uploads, crop and owner guards');

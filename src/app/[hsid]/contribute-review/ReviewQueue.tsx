@@ -14,6 +14,7 @@ type Photo = {
   details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; moderation?: { decision?: string; description?: string } | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
 type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
+type Alumni = { id: number; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; company_logo_url: string | null; sponsorship_interest: boolean; created_at: string; proof_confirmed_at:string|null; identity_review_method:string|null; identity_review_note:string|null; retirement_year:number|null;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;business_message:string|null;business_offer:string|null;business_contact_email:string|null;business_contact_phone:string|null;business_public_opt_in:boolean;private_teammate_tips:string|null;life_photos_json:Array<{web:string;full:string;thumb:string}>;alumni_claim_attested:boolean;arms_sync_status?:string;arms_sync_attempts?:number;arms_synced_at?:string|null;arms_sync_error?:string|null;arms_contact_id?:string|null;arms_task_id?:string|null; };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -56,6 +57,9 @@ function proposedCurrentTeam(tip: Tip): {teamId:string;teamName:string;level:str
 export default function ReviewQueue() {
   const [data, setData] = useState<{ photos: Photo[]; tips: Tip[]; missing: Missing[] } | null>(null);
   const [error, setError] = useState('');
+  const [alumni, setAlumni] = useState<Alumni[]>([]);
+  const [alumniError, setAlumniError] = useState('');
+  const [identity, setIdentity] = useState<Record<number,{method:string;note:string}>>({});
   const [busy, setBusy] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -66,6 +70,11 @@ export default function ReviewQueue() {
       if (!live) return;
       if (!res.ok) setError(body?.error || 'Could not load the queue.');
       else setData(body);
+      const alumniRes = await fetch('/api/contribute/where-yat-now/review', { credentials: 'include', cache: 'no-store', headers: await authHeaders() });
+      const alumniBody = await alumniRes.json().catch(() => ({}));
+      if (!live) return;
+      if (alumniRes.ok) setAlumni(alumniBody.submissions || []);
+      else setAlumniError(alumniBody.error || 'Could not load alumni review queue.');
     })();
     return () => { live = false; };
   }, []);
@@ -89,11 +98,75 @@ export default function ReviewQueue() {
     setBusy(b=>{const next={...b};delete next[id];return next;});
   };
 
+  useEffect(() => {
+    if (!alumni.length) return;
+    const id = new URLSearchParams(window.location.search).get('alumni');
+    if (!id || !alumni.some(item => String(item.id) === id)) return;
+    requestAnimationFrame(() => document.getElementById('alumni-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [alumni]);
+
+  const reviewAlumni = async (id: number, status: 'approved' | 'rejected') => {
+    const evidence=identity[id]||{method:'',note:''};
+    setBusy(b => ({ ...b, ['alumni-' + id]: 'Saving…' }));
+    const res = await fetch('/api/contribute/where-yat-now/review', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({ id, status,identityMethod:evidence.method,identityNote:evidence.note }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok || !result.ok) setBusy(b => ({ ...b, ['alumni-' + id]: result.error || 'Review failed.' }));
+    else { setAlumni(items => items.filter(item => item.id !== id)); setBusy(b => { const next={...b}; delete next['alumni-' + id]; return next; }); }
+  };
+  const focusId = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('alumni') || '';
   if (error) return <div className="ycr"><p className="ycr-error">{error}</p><Style /></div>;
   if (!data) return <div className="ycr"><p>Loading…</p><Style /></div>;
 
   return (
     <div className="ycr">
+      <h2>Where YAT Now? alumni updates waiting ({alumni.length})</h2>
+      {alumniError && <p className="ycr-error">{alumniError}</p>}
+      {alumni.length === 0 && !alumniError && <p className="ycr-muted">No pending alumni updates.</p>}
+      <div className="ycr-grid">
+        {alumni.map(item => <article key={item.id} id={'alumni-' + item.id} className="ycr-card" style={{ outline: focusId === String(item.id) ? '2px solid #e9bf56' : undefined, scrollMarginTop: 100 }}>
+          <h3 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 24 }}>{item.display_name}</h3>
+          <p className="ycr-muted">School #{item.hsid} · Submission #{item.id} · {when(item.created_at)}</p>
+          {item.photo_url && <img src={item.photo_url} alt={'Submitted photo of ' + item.display_name} />}
+          {item.company_logo_url && <div><strong>Submitted company logo (requires approval):</strong><img src={item.company_logo_url} alt={'Company logo for '+(item.company_name||item.display_name)} style={{width:130,height:95,objectFit:'contain',display:'block',background:'#eee'}} /></div>}
+          {item.story && <p style={{whiteSpace:'pre-wrap'}}>{item.story}</p>}
+          {item.occupation && <p>Occupation: {item.occupation}</p>}
+          {item.company_name && <p>Organization: {item.company_name}</p>}
+          {[item.location_city,item.location_state].filter(Boolean).length > 0 && <p>Location: {[item.location_city,item.location_state].filter(Boolean).join(', ')}</p>}
+          {[item.business_website,item.linkedin_url,item.instagram_url,item.facebook_url,item.x_url].filter(Boolean).map(url => <p key={url}><a href={url!} target="_blank" rel="noopener noreferrer" style={{color:'#e9bf56'}}>{url}</a></p>)}
+          {item.retirement_year&&<p>Retired from baseball: {item.retirement_year}</p>}
+          {([['High school memory',item.favorite_hs_memory],['Post-graduation baseball memory',item.favorite_post_hs_memory],['Family and life',item.family_life],['Business message',item.business_message],['Special offer',item.business_offer]] as const).map(([label,value])=>value&&<section key={label}><strong>{label}</strong><p style={{whiteSpace:'pre-wrap'}}>{value}</p></section>)}
+          {Array.isArray(item.life_photos_json)&&item.life_photos_json.length>0&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{item.life_photos_json.map((photo,i)=><img key={i} src={photo.web} alt={'Submitted life photo '+(i+1)} style={{width:130,height:110,objectFit:'contain'}} />)}</div>}
+          <p>Personal claim attested: {item.alumni_claim_attested?'Yes (not independently verified)':'No / legacy submission'}</p>
+          {item.business_public_opt_in&&<p>Authorized public business contact: {[item.business_contact_email,item.business_contact_phone].filter(Boolean).join(' / ')}</p>}
+          {item.private_teammate_tips&&<section style={{padding:12,border:'2px dashed #e9bf56'}}><strong>PRIVATE TEAMMATE LEADS — DO NOT PUBLISH</strong><p style={{whiteSpace:'pre-wrap'}}>{item.private_teammate_tips}</p></section>}
+          <p className="ycr-muted">Contact (private): {item.contact_email}</p>
+          <p className="ycr-muted" role="status">ARMS CRM: {item.arms_sync_status==='sent'?'SYNCED'+(item.arms_task_id?' · Review task created':'') : item.arms_sync_status==='failed'?'FAILED — '+(item.arms_sync_error||'Retry scheduled') : item.arms_sync_status==='syncing'?'SYNC IN PROGRESS':'NOT SYNCED'} · Attempts: {item.arms_sync_attempts||0}</p>
+          {item.arms_sync_status!=='sent'&&<p className="ycr-muted">Preview submissions do not send live ARMS contacts, emails, or SMS. Production sync and reviewer alerts are handled by the scheduled integration.</p>}
+          <p className="ycr-muted">Partnership interest: {item.sponsorship_interest ? 'Yes' : 'No'}</p>
+          <p style={{color:item.proof_confirmed_at?'#e9bf56':'#ffb3b3'}}>Contributor proof: {item.proof_confirmed_at?'CONFIRMED':'NOT CONFIRMED'}</p>
+          <label>IDENTITY CHECK (REQUIRED TO APPROVE)
+           <select value={identity[item.id]?.method||''} onChange={e=>setIdentity(prev=>({...prev,[item.id]:{method:e.target.value,note:prev[item.id]?.note||''}}))} style={{display:'block',width:'100%',padding:9,background:'#1c1c1c',color:'#fff'}}>
+             <option value="">Choose an independent check</option>
+             <option value="known-person">Reviewer personally knows the alumnus</option>
+             <option value="coach-roster">Coach/roster confirmation</option>
+             <option value="verified-school-contact">Verified school representative</option>
+             <option value="verified-direct-contact">Direct identity confirmation</option>
+           </select>
+          </label>
+          <label>IDENTITY VERIFICATION NOTES
+            <textarea value={identity[item.id]?.note||''} onChange={e=>setIdentity(prev=>({...prev,[item.id]:{method:prev[item.id]?.method||'',note:e.target.value}}))} placeholder="Who or what independently confirmed identity? (not just the contributor's own claim)" maxLength={1000} rows={3} style={{display:'block',width:'100%',padding:9,background:'#1c1c1c',color:'#fff'}}/>
+          </label>
+          {busy['alumni-' + item.id] && <p role="alert">{busy['alumni-' + item.id]}</p>}
+          <div className="ycr-actions">
+            <button type="button" className="ycr-btn ycr-yes" disabled={!!busy['alumni-' + item.id]||!item.proof_confirmed_at||!identity[item.id]?.method||(identity[item.id]?.note||'').trim().length<12} onClick={() => reviewAlumni(item.id,'approved')}>Approve update</button>
+            <button type="button" className="ycr-btn" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'rejected')}>Reject</button>
+          </div>
+        </article>)}
+      </div>
       <h2>Photos waiting ({data.photos.length})</h2>
       {data.photos.length === 0 ? <p className="ycr-muted">Nothing waiting.</p> : null}
       <div className="ycr-grid">

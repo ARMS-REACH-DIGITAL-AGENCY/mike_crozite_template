@@ -1,8 +1,8 @@
 'use client';
 
-import { Doto } from 'next/font/google';
 
-const tickerDateFont = Doto({ subsets: ['latin'], weight: ['700', '900'], display: 'swap', variable: '--ticker-date-doto' });
+
+const tickerDateFont = { variable: 'yat-runtime-doto' };
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
@@ -159,7 +159,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName, s
             {DOCK_TABS.map((tab) => (
               <a key={tab.id} href={`#${tab.id}`} className="pp-fz-tab">
                 <i className={tab.icon} aria-hidden="true" />
-                <span>{tab.id === "ppTab-schedule" && /RETIRED/i.test(statusLabel) ? "WHERE YAT NOW?" : tab.label}</span>
+                <span>{tab.id === "ppTab-schedule" && /RETIRED/i.test(statusLabel) ? "YAT?" : tab.label}</span>
               </a>
             ))}
           </nav>
@@ -201,7 +201,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName, s
     body .pp-fz-dock .pp-fz-tab { position:relative !important; box-sizing:border-box !important; width:auto !important; min-width:0 !important; max-width:none !important; height:100% !important; margin:0 !important; padding:3px 2px !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:3px !important; color:rgba(255,255,255,.66) !important; text-decoration:none !important; border:0 !important; background:transparent !important; -webkit-tap-highlight-color:transparent; }
     body .pp-fz-dock .pp-fz-tab::before, body .pp-fz-dock .pp-fz-tab::after { content:none !important; display:none !important; }
     body .pp-fz-dock .pp-fz-tab i { font-size:20px !important; line-height:1 !important; margin:0 !important; }
-    body .pp-fz-dock .pp-fz-tab span { display:block !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; font:700 11px/1 var(--ticker-date-doto), monospace !important; letter-spacing:0 !important; text-transform:none !important; }
+    body .pp-fz-dock .pp-fz-tab span { display:block !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; font:700 11px/1 'Doto', var(--ticker-date-doto), monospace !important; letter-spacing:0 !important; text-transform:none !important; }
     body .pp-fz-dock .pp-fz-tab:hover { color:#fff !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active { color:#fff !important; }
     body .pp-fz-dock .pp-fz-tab.pp-fz-tab-active::before { content:'' !important; display:block !important; position:absolute !important; left:22% !important; right:22% !important; top:0 !important; height:3px !important; border-radius:0 0 2px 2px; background:#d2b45c !important; }
@@ -227,7 +227,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName, s
     /* Exact ticker date treatment: Doto 700, 11px, #ff7a1a. */
     body .pp-fz-dock .pp-fz-tab span {
       color:#ff7a1a !important;
-      font-family:var(--ticker-date-doto), monospace !important;
+      font-family:'Doto', var(--ticker-date-doto), monospace !important;
       font-size:11px !important;
       font-weight:700 !important;
       line-height:1 !important;

@@ -504,6 +504,37 @@ export default function DrawerLayoutOverrides() {
           z-index:2147483199!important;
         }
       }
+      /* A docked contribution form takes priority over the 300px sponsor
+         tower. Keep the post column as the only content column and use its
+         existing in-feed placement. This also handles Android desktop-site
+         mode, where media queries report a misleadingly wide viewport. */
+      @media (min-width:780px) {
+        body.drawer-contribute-open #playerFunZone :is(#ppTab-news,#ppTab-connect,#ppTab-upload) .yp-profile-partner-columns,
+        body.drawer-contribute-open #playerFunZone #ppTab-upload .ysf-desktop-columns {
+          display:block!important;
+          grid-template-columns:minmax(0,1fr)!important;
+          width:100%!important;max-width:100%!important;
+        }
+        body.drawer-contribute-open #playerFunZone .yp-profile-partner-body,
+        body.drawer-contribute-open #playerFunZone .ysf-story-column {
+          min-width:0!important;width:100%!important;max-width:100%!important;
+        }
+        body.drawer-contribute-open #playerFunZone :is(.yp-profile-ad,.ysf-sponsor-column),
+        body.drawer-contribute-open .where-yat-profile .wyn-story-sponsor {
+          display:none!important;
+        }
+        body.drawer-contribute-open #playerFunZone :is(.yp-profile-infeed-ad,.yp-stories-feed-ad),
+        body.drawer-contribute-open .where-yat-profile .wyn-story-inline-ad {
+          display:flex!important;
+        }
+        body.drawer-contribute-open .where-yat-profile .wyn-story-layout,
+        body.drawer-contribute-open #sec-news .yp-school-news-layout {
+          display:block!important;grid-template-columns:minmax(0,1fr)!important;
+          width:100%!important;max-width:100%!important;
+        }
+        body.drawer-contribute-open #sec-news .yp-school-news-tower {display:none!important;}
+        body.drawer-contribute-open #sec-news .yp-school-news-inline-ad {display:flex!important;}
+      }
       /* Career Story uses Contribute's docked responsive geometry. */
       #drawerStory.yat-story-drawer {
         position:fixed!important;right:0!important;top:0!important;bottom:0!important;
