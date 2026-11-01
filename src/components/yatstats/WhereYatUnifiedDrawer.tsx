@@ -32,7 +32,7 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
  onSaved:(record:FlipCardSaved)=>void
 }){
  const [values,setValues]=useState<Record<string,string>>(()=>{
-  const s=saved as Record<string,unknown>|null;
+  const s=saved as unknown as Record<string,unknown>|null;
   return {...blank,
    displayName:String(s?.display_name||name),email:String(s?.contact_email||auth.currentUser?.email||''),
    contactPhone:String(s?.contact_phone||''),city:String(s?.location_city||''),
@@ -58,10 +58,10 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
  const [headshotCrop,setHeadshotCrop]=useState<Crop|null>(null);
  const [logo,setLogo]=useState<File|null>(null);
  const [photos,setPhotos]=useState<Record<string,Picture[]>>(()=>{
-  const s=saved||{};
+  const s=saved;
   return Object.fromEntries(WHERE_YAT_PROMPTS.map(({key})=>{
-   const existing=s.memory_photos_json?.[key];
-   const legacy=key==='family'?s.life_photos_json:key==='story'&&s.photo_url?
+   const existing=s?.memory_photos_json?.[key];
+   const legacy=key==='family'?s?.life_photos_json:key==='story'&&s?.photo_url?
     [{web:s.photo_url,full:s.photo_url,thumb:s.photo_url}]:[];
    return [key,(Array.isArray(existing)?existing:(legacy||[])).map(p=>({
     src:p.web||p.thumb||p.full,full:p.full||p.web
