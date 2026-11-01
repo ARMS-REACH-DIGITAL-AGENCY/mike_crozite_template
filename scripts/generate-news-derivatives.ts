@@ -474,10 +474,11 @@ async function writeDerivative(row: CandidateRow, d: ReturnType<typeof buildDeri
   if ((result.rowCount || 0) > 0) {
     await pool.query(
       `UPDATE public.news_articles
-          SET local_recap = CASE WHEN $4::boolean THEN $3 ELSE COALESCE(NULLIF(TRIM(local_recap), ''), $3) END
+          SET local_recap = CASE WHEN $4::boolean THEN $3 ELSE COALESCE(NULLIF(TRIM(local_recap), ''), $3) END,
+              newsworthiness = CASE WHEN $4::boolean THEN $5 ELSE newsworthiness END
         WHERE uuid = $1
           AND playerid = $2`,
-      [row.uuid, row.playerid, d.recap, editorialMode]
+      [row.uuid, row.playerid, d.recap, editorialMode, d.storyGrade === "A" ? "FEATURED" : "NORMAL"]
     );
     return true;
   }
