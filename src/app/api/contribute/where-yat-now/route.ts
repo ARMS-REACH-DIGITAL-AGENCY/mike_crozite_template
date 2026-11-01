@@ -255,10 +255,15 @@ export async function POST(req: NextRequest) {
       url: normalized.website || '', title: displayName, description: safetyText.slice(0, 2000), playerName: displayName,
     });
     let safeToPublish = textVerdict.decision === 'approve';
-    for (const imageUrl of [photoUrl, companyLogoUrl,headshotUrl, ...album.map(item => item.web),...Object.values(memoryPhotos).flatMap(items=>items.map(item=>item.web))].filter((url): url is string => Boolean(url))) {
-      if (!safeToPublish) break;
-      const verdict = await moderatePhoto({ imageUrl, purpose: 'other_photo', playerName: displayName });
-      if (verdict?.decision !== 'approve') safeToPublish = false;
+    // Check every image at the same time instead of one after another: the
+    // sequential checks made a photo-heavy submit take ~40 s (Nov 1 test).
+    if (safeToPublish) {
+      const images = [photoUrl, companyLogoUrl, headshotUrl, ...album.map(item => item.web),
+        ...Object.values(memoryPhotos).flatMap(items => items.map(item => item.web))]
+        .filter((url): url is string => Boolean(url));
+      const verdicts = await Promise.all(images.map(imageUrl =>
+        moderatePhoto({ imageUrl, purpose: 'other_photo', playerName: displayName }).catch(() => null)));
+      if (verdicts.some(verdict => verdict?.decision !== 'approve')) safeToPublish = false;
     }
     // Automated moderation is a safety filter, not independent identity
     // verification. Never auto-publish a newly claimed retired identity.

@@ -231,6 +231,8 @@ export default function WhereYatClaimForm({playerId,hsid,name,school}: {playerId
    const result=await response.json().catch(()=>({}));
    if(!response.ok)throw Error(result.error||'Submission failed');
    setReceipt(Number(result.submissionId));
+   // An edit is finished once it is saved: leave edit mode so the receipt shows.
+   setEditEnabled(false);
    setPublished(result.published===true);
    loadSaved();
    window.dispatchEvent(new CustomEvent('yat:where-yat-submitted',{detail:{playerId,hsid}}));

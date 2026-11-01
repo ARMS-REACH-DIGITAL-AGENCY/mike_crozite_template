@@ -28,3 +28,9 @@ assert.match(read('src/components/bracket/SchoolBracket.tsx'), /Roboto_Condensed
 assert.match(read('src/components/bracket/BracketTicker.tsx'), /Doto\(\{ subsets: \['latin'\], weight: \['700', '900'\]/, 'bracket ticker font');
 
 console.log('PASS Where YAT Now safety: delivery switches, double-submit guard, bracket fonts');
+
+// After a successful submit (including an edit) the receipt must show.
+const form = read('src/components/yatstats/WhereYatClaimForm.tsx');
+assert.match(form, /setReceipt\(Number\(result\.submissionId\)\);\s*\/\/[^\n]*\n\s*setEditEnabled\(false\);/, 'edit mode ends after a successful submit');
+assert.match(route, /await Promise\.all\(images\.map/, 'images are moderated in parallel');
+console.log('PASS Where YAT Now receipt after edit, parallel image checks');
