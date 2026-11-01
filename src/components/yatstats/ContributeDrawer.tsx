@@ -23,6 +23,7 @@ import { parseNewsVideo } from '@/lib/newsVideo';
 import { SchoolContext } from '@/context/SchoolContext';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import ContributePhotoFlow from '@/components/yatstats/ContributePhotoFlow';
+import RetiredCardDrawerForm from '@/components/yatstats/RetiredCardDrawerForm';
 import ContributePlayerInfoForm from '@/components/yatstats/ContributePlayerInfoForm';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
 import {
@@ -412,7 +413,7 @@ export default function ContributeDrawer() {
     <aside className="yat-drawer yat-drawer-right yat-contribute-drawer" id="drawerContribute" aria-label="Contribute to YAT?STATS" aria-hidden={!open}>
       <div className="ycd-header">
         <div>
-          <h3 className="ycd-title"><i className={tabIcon(tab)} aria-hidden="true" /><span>{tab === 'photo' ? 'Photo Contribution' : TABS.find((t) => t.id === tab)?.label}</span></h3>
+          <h3 className="ycd-title"><i className={tabIcon(tab)} aria-hidden="true" /><span>{tab === 'retired_card' ? 'Design Your Flip Card' : tab === 'photo' ? 'Photo Contribution' : TABS.find((t) => t.id === tab)?.label}</span></h3>
           {signedIn ? (
             <p className="ycd-hello">
               <span className="ycd-hello-account">{fanName || 'Fan'}{fanKind === 'SuperFan' ? ' · SuperFan' : ''}</span>
@@ -434,7 +435,7 @@ export default function ContributeDrawer() {
           </div>
         ) : null}
 
-        {tab === 'photo' ? (
+        {tab === 'retired_card' && player ? <RetiredCardDrawerForm playerId={player.playerId} hsid={player.schoolId||hubSchool?.hsid||''} name={player.displayName} school={player.schoolName||hubSchool?.name||''} onClose={close}/> : tab === 'photo' ? (
           <ContributePhotoFlow
             key={photoFlowKey}
             hubSchool={hubSchool}
