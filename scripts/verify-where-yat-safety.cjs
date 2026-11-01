@@ -24,8 +24,8 @@ const afterMarker = route.slice(route.indexOf("'where_yat_submit_started', $2"))
 assert.doesNotMatch(afterMarker.slice(afterMarker.indexOf('\n  try {')), /return reply\(/, 'every early exit after the marker releases the guard');
 
 // The bracket keeps its own fonts (Pete's bracket rules: no unapproved layout change).
-assert.match(read('src/components/bracket/SchoolBracket.tsx'), /Roboto_Condensed\(\{ subsets: \['latin'\], variable: '--yfp-sb'/, 'bracket scoreboard font');
-assert.match(read('src/components/bracket/BracketTicker.tsx'), /Doto\(\{ subsets: \['latin'\], weight: \['700', '900'\]/, 'bracket ticker font');
+assert.match(read('src/components/bracket/SchoolBracket.tsx'), /const scoreboardFont = localFont\(\{[^\n]*roboto-condensed-latin-500[^\n]*variable: '--yfp-sb'/, 'bracket scoreboard font (Roboto Condensed, --yfp-sb)');
+assert.match(read('src/components/bracket/BracketTicker.tsx'), /const dots = localFont\(\{[^\n]*doto-latin-700[^\n]*doto-latin-900/, 'bracket ticker font (Doto 700/900)');
 
 console.log('PASS Where YAT Now safety: delivery switches, double-submit guard, bracket fonts');
 
