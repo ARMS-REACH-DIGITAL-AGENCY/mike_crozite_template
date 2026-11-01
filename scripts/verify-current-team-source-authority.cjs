@@ -250,4 +250,14 @@ assert(statusCron.includes('SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL'),
 assert(cutoff.includes('EXTRACT(YEAR FROM CURRENT_DATE)=2026'),
   'Year-specific retirement rule must fail closed when 2027 begins');
 
+const expandedStageGuard = source('migrations/20261031_expand_guard_flip_card_canonical_identity.sql');
+assert(expandedStageGuard.includes('yatstats_guard_stage_name_org_edits') &&
+       expandedStageGuard.includes('BEFORE UPDATE OF current_team_name,current_org_or_conference_name') &&
+       expandedStageGuard.includes('NEW.current_team_name IS DISTINCT FROM OLD.current_team_name') &&
+       expandedStageGuard.includes('NEW.current_org_or_conference_name IS DISTINCT FROM OLD.current_org_or_conference_name') &&
+       expandedStageGuard.includes('NEW.level_label IS DISTINCT FROM OLD.level_label') &&
+       expandedStageGuard.includes('NEW.display_level_label IS DISTINCT FROM OLD.display_level_label') &&
+       expandedStageGuard.includes('NEW.display_level_label IS DISTINCT FROM canonical.level_label'),
+  'Block all name/org/level identity bypasses at the flip-card staging boundary');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
