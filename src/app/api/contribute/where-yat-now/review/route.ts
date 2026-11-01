@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
 }
 export async function POST(req: NextRequest) {
   if (!await reviewer(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  if (process.env.VERCEL_ENV === 'preview') return NextResponse.json({ error: 'Approval is disabled on preview deployments.' }, { status: 409 });
+  // Isolated previews (own database copy, no outside deliveries) may approve for testing.
+  if (process.env.VERCEL_ENV === 'preview' && process.env.YATSTATS_ISOLATED_PREVIEW !== '1') return NextResponse.json({ error: 'Approval is disabled on preview deployments.' }, { status: 409 });
   let data: { id?: number; status?: string; identityMethod?: string; identityNote?: string };
   try { data = await req.json(); } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }); }
   if (!Number.isSafeInteger(data.id) || !['approved', 'rejected'].includes(data.status || ''))

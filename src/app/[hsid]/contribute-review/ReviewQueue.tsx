@@ -161,7 +161,9 @@ export default function ReviewQueue() {
             <textarea value={identity[item.id]?.note||''} onChange={e=>setIdentity(prev=>({...prev,[item.id]:{method:prev[item.id]?.method||'',note:e.target.value}}))} placeholder="Who or what independently confirmed identity? (not just the contributor's own claim)" maxLength={1000} rows={3} style={{display:'block',width:'100%',padding:9,background:'#1c1c1c',color:'#fff'}}/>
           </label>
           {busy['alumni-' + item.id] && <p role="alert">{busy['alumni-' + item.id]}</p>}
+          {(!identity[item.id]?.method||(identity[item.id]?.note||'').trim().length<12) && <p style={{color:'#e9bf56',margin:'4px 0'}}>To enable APPROVE: choose an identity check and write at least 12 characters about who confirmed it.</p>}
           <div className="ycr-actions">
+            <a className="ycr-btn" href={'/' + item.hsid + '/where-yat-proof?submission=' + item.id} target="_blank" rel="noopener">View flip-card proof</a>
             <button type="button" className="ycr-btn ycr-yes" disabled={!!busy['alumni-' + item.id]||!item.proof_confirmed_at||!identity[item.id]?.method||(identity[item.id]?.note||'').trim().length<12} onClick={() => reviewAlumni(item.id,'approved')}>Approve update</button>
             <button type="button" className="ycr-btn" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'rejected')}>Reject</button>
           </div>
