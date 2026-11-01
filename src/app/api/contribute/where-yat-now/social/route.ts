@@ -12,12 +12,12 @@ export async function GET(req:NextRequest){
  const storyKey=keyOf(req.nextUrl.searchParams.get('storyKey'));
  const fan=await identifyContributor(req,req.headers.get('x-firebase-token'));
  const [likes,comments,liked]=await Promise.all([
-  query<{count:number}>('SELECT count(*)::int AS count FROM public.alumni_where_yat_story_likes WHERE submission_id=$1 AND story_key=$2',[id,storyKey]),
+  query<{count:number}>('SELECT count(*)::int AS count FROM public.alumni_where_yat_likes WHERE submission_id=$1 AND story_key=$2',[id,storyKey]),
   query<{id:string;body:string;created_at:string;first_name:string|null;last_name:string|null}>(
     `SELECT c.id::text,c.body,c.created_at,p.first_name,p.last_name FROM public.alumni_where_yat_comments c
     LEFT JOIN public.user_profiles p ON p.firebase_uid=c.firebase_uid
     WHERE c.submission_id=$1 AND c.story_key=$2 AND c.status='visible' ORDER BY c.created_at DESC LIMIT 100`,[id,storyKey]),
-  fan?query<{exists:boolean}>('SELECT EXISTS(SELECT 1 FROM public.alumni_where_yat_story_likes WHERE submission_id=$1 AND firebase_uid=$2 AND story_key=$3) AS exists',[id,fan.uid,storyKey]):Promise.resolve({rows:[{exists:false}]}),
+  fan?query<{exists:boolean}>('SELECT EXISTS(SELECT 1 FROM public.alumni_where_yat_likes WHERE submission_id=$1 AND firebase_uid=$2 AND story_key=$3) AS exists',[id,fan.uid,storyKey]):Promise.resolve({rows:[{exists:false}]}),
  ]);
  return NextResponse.json({likes:likes.rows[0]?.count||0,liked:!!liked.rows[0]?.exists,comments:comments.rows.map(c=>({id:c.id,text:c.body,when:c.created_at,author:[c.first_name,c.last_name].filter(Boolean).join(' ')||'YAT?STATS Fan'}))},{headers:{'Cache-Control':'no-store'}});
 }
@@ -29,8 +29,8 @@ export async function POST(req:NextRequest){
  if(!await live(id))return bad('Update unavailable',404);
  const storyKey=keyOf(body.storyKey||null);
  if(body.action==='like'){
-  const deleted=await query('DELETE FROM public.alumni_where_yat_story_likes WHERE submission_id=$1 AND firebase_uid=$2 AND story_key=$3 RETURNING submission_id',[id,fan.uid,storyKey]);
-  if(!deleted.rows.length)await query('INSERT INTO public.alumni_where_yat_story_likes(submission_id,firebase_uid,story_key) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[id,fan.uid,storyKey]);
+  const deleted=await query('DELETE FROM public.alumni_where_yat_likes WHERE submission_id=$1 AND firebase_uid=$2 AND story_key=$3 RETURNING submission_id',[id,fan.uid,storyKey]);
+  if(!deleted.rows.length)await query('INSERT INTO public.alumni_where_yat_likes(submission_id,firebase_uid,story_key) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[id,fan.uid,storyKey]);
  }else if(body.action==='comment'){
   const comment=String(body.text||'').trim();
   if(!comment||comment.length>2000)return bad('Write a comment up to 2,000 characters.');
