@@ -190,6 +190,19 @@ const statusCron = source('src/app/api/cron/flip-card-status-reconciliation/rout
 const schedule = source('vercel.json');
 const stageGuard = source('migrations/20261031_guard_flip_card_canonical_promotion.sql');
 const readTimeIdentity = source('src/lib/playerStageIdentity.ts');
+const careerHighBackfill = section(levels,
+  'export const SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL = `',
+  'SELECT COUNT(*)::int AS recovered FROM changed');
+assert(careerHighBackfill.includes('p.highlevel') &&
+       careerHighBackfill.includes('verified_level') &&
+       careerHighBackfill.includes("f.status_label='RETIRED'") &&
+       careerHighBackfill.includes('f.current_teamid IS NULL') &&
+       careerHighBackfill.includes('highest_level_label=e.verified_level') &&
+       !careerHighBackfill.includes("WHEN 'NCAA'") &&
+       !careerHighBackfill.includes("WHEN 'JRCOLLEGE'"),
+  'Retired career highs must use unambiguous TBC player highlevel, never infer NCAA division or junior-college level');
+assert(statusCron.includes('SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL'),
+  'Recurring job must catch missing career highs after imports');
 assert(statusCron.includes('SAFE_2025_RETIREMENT_BACKFILL_SQL') &&
        statusCron.includes('SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL') &&
        statusCron.includes('CRON_SECRET'),

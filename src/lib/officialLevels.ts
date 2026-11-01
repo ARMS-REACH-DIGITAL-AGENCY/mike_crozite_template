@@ -499,3 +499,57 @@ WITH fixed AS (
 )
 SELECT COUNT(*)::int AS corrected FROM fixed
 `;
+
+// Career-high is a TBC PLAYER fact, never a current team. Only explicit
+// unambiguous official TBC highlevel labels may fill the RETIRED career high.
+// NCAA (missing division), JrCollege (ambiguous NJCAA/CCCAA/NWAC) and '-'
+// are deliberately excluded until historical career stats arrive.
+export const SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL = `
+
+WITH src AS MATERIALIZED (
+ SELECT f.playerid,p.highlevel AS source_high,
+ CASE UPPER(BTRIM(p.highlevel))
+   WHEN 'MLB' THEN 'MLB'
+   WHEN 'AAA' THEN 'TRIPLE-A'
+   WHEN 'AA' THEN 'DOUBLE-A'
+   WHEN 'A+' THEN 'HIGH-A'
+   WHEN 'A' THEN 'SINGLE-A'
+   WHEN 'A-' THEN 'SINGLE-A'
+   WHEN 'RK' THEN 'ROOKIE'
+   WHEN 'INDY' THEN 'INDY'
+   WHEN 'INTL' THEN 'INTERNATIONAL'
+   WHEN 'NAIA' THEN 'NAIA'
+ END AS verified_level
+ FROM public.flip_card_front_stage f JOIN public.tbc_players_raw p USING(playerid)
+ WHERE f.status_label='RETIRED'
+   AND NULLIF(BTRIM(f.highest_level_label),'') IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+   AND p.highlevel IS NOT NULL
+), eligible AS MATERIALIZED (
+ SELECT playerid,source_high,verified_level FROM src
+ WHERE verified_level IS NOT NULL
+ ORDER BY playerid LIMIT 5000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   highest_level_label=e.verified_level,
+   highest_level_checked_at=NOW(),
+   level_label=e.verified_level,
+   display_level_label=e.verified_level,
+   current_team_level=NULL,
+   current_level_label=NULL,
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('career_high_classification',jsonb_build_object(
+       'source','tbc_players_raw.highlevel',
+       'source_value',e.source_high,
+       'resolved_level',e.verified_level,
+       'applied_at',NOW())),
+   stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED' AND f.highest_level_label IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS recovered FROM changed
+`;
