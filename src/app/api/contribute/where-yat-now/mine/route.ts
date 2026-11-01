@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       story, photo_url, company_logo_url, business_public_opt_in,
       business_message, business_offer, business_contact_email, business_contact_phone,
       retirement_year, favorite_hs_memory, favorite_post_hs_memory, family_life,
-      private_teammate_tips, life_photos_json, businesses_json, business_headshot_url
+      private_teammate_tips, life_photos_json, businesses_json, business_headshot_url, featured_memory_key, memory_photos_json, business_headshot_key
      FROM public.alumni_where_yat_now
      WHERE playerid=$1 AND hsid=$2 AND contributor_uid=$3 AND status IN ('approved','pending') AND ($4::bigint IS NULL OR id=$4)
      ORDER BY created_at DESC, id DESC LIMIT 1`,
