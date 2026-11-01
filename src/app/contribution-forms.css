@@ -198,3 +198,14 @@ body:not(.light-theme) .where-yat-claim .ycd-error{color:#ff9999;}
 .where-yat-claim .wyn-pending-card img{display:block;width:100%;height:auto;object-fit:contain}
 .where-yat-claim .wyn-pending-actions{display:flex;flex-wrap:wrap;gap:8px}
 .where-yat-claim .wyn-pending-actions .ycd-btn{flex:1 1 180px;text-align:center}
+
+/* Nov 1: every Where YAT form field uses the site font (Archivo) and one box
+   style. Some text boxes were picking up a condensed font from site-wide drawer
+   rules while the email box did not, so the fields looked different. Scoped to
+   the Where YAT form only. */
+:is(.where-yat-claim, .wyn-card-editor, .wyu) :is(input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea){
+  font-family:var(--yat-font-ui,"Archivo","Helvetica Neue",Arial,sans-serif)!important;
+  font-size:14px!important;font-weight:400!important;font-stretch:normal!important;
+  letter-spacing:normal!important;text-transform:none!important;line-height:1.4!important;
+  border-radius:6px!important;
+}

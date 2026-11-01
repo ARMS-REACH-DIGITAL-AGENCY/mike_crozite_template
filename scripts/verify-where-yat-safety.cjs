@@ -34,3 +34,8 @@ const form = read('src/components/yatstats/WhereYatClaimForm.tsx');
 assert.match(form, /setReceipt\(Number\(result\.submissionId\)\);\s*\/\/[^\n]*\n\s*setEditEnabled\(false\);/, 'edit mode ends after a successful submit');
 assert.match(route, /await Promise\.all\(images\.map/, 'images are moderated in parallel');
 console.log('PASS Where YAT Now receipt after edit, parallel image checks');
+
+// Where YAT form fields always use the site font (Pete, Nov 1: condensed text boxes).
+const formsCss = read('src/app/contribution-forms.css');
+assert.match(formsCss, /:is\(\.where-yat-claim, \.wyn-card-editor, \.wyu\) :is\(input:not\(\[type=checkbox\]\)[^{]*\{\s*font-family:var\(--yat-font-ui/, 'Where YAT fields use the site font');
+console.log('PASS Where YAT form fields use the site font');
