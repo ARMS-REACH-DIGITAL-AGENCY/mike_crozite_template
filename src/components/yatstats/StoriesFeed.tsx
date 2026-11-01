@@ -14,7 +14,6 @@ import SponsorTower from '@/components/yatstats/SponsorTower';
 // Teammates are accessible by the icon + count only (no visible word label).
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import StoryPhotoGrid from '@/components/yatstats/StoryPhotoGrid';
 import { createPortal } from 'react-dom';
 import { STORY_POSTED_EVENT } from '@/components/yatstats/StoryDrawer';
 import { openStoryDrawer, cancelPendingStoryDrawerOpen } from '@/lib/storyDrawer';
@@ -43,7 +42,18 @@ function sortKey(story: Story) {
 // A post's photos on desktop, laid out like Facebook's: one large; two side
 // by side; three as one large plus two; four as a 2x2 grid.
 function StoryPhotos({ story, onOpen }: { story: Story; onOpen: (index: number) => void }) {
-  return <StoryPhotoGrid photos={story.photos} onOpen={onOpen} />;
+  const photos = story.photos.slice(0, 4);
+  if (!photos.length) return null;
+  return (
+    <div className={`ysf-photos ysf-photos-${photos.length}${photos[0]?.logo ? ' ysf-photos-logo' : ''}`}>
+      {photos.map((p, i) => (
+        <button type="button" key={i} className="ysf-photos-item" onClick={() => onOpen(i)} aria-label={`Open photo ${i + 1}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={(photos.length === 1 ? p.full || p.web : p.web || p.full) || ''} alt="" loading="lazy" decoding="async" />
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // Story cards spell the month out ("April 2003").
