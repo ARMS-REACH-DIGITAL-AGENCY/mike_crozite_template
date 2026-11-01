@@ -553,3 +553,53 @@ WITH src AS MATERIALIZED (
 )
 SELECT COUNT(*)::int AS recovered FROM changed
 `;
+
+// Retired MLB transaction wins over a prior active/injury roster snapshot.
+// Clear stale CURRENT team fields only when retirement transaction chronology
+// is explicit. The transaction itself and verified career-high are preserved.
+export const SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL = `
+
+WITH eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label='RETIRED'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NOT NULL
+   AND f.last_transaction_type ILIKE '%retir%'
+   AND f.last_transaction_applied_at IS NOT NULL
+   AND f.current_team_last_verified IS NOT NULL
+   AND f.last_transaction_applied_at >= f.current_team_last_verified
+   AND f.current_team_source IN ('mlb_api','mlb_api_canonical_teamid')
+   AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f
+ SET current_teamid=NULL,
+     current_team_name=NULL,
+     current_org_or_conference_name=NULL,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     current_team_source=NULL,
+     current_team_source_team_id=NULL,
+     current_team_source_player_id=NULL,
+     current_team_roster_status=NULL,
+     current_team_last_verified=NULL,
+     next_game_date=NULL,
+     next_game_status_label=NULL,
+     next_game_opponent=NULL,
+     next_game_time_utc=NULL,
+     next_game_time_local=NULL,
+     next_game_home_away=NULL,
+     source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+       jsonb_build_object('retired_transaction_team_clear',jsonb_build_object(
+         'reason','retirement_transaction_postdates_last_verified_roster',
+         'source','mlb_api_transaction',
+         'applied_at',NOW())),
+     stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+  AND f.status_label='RETIRED'
+  AND f.last_transaction_applied_at >= f.current_team_last_verified
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS cleared FROM changed
+`;
