@@ -1,4 +1,4 @@
-import {NextRequest,NextResponse} from 'next/server';
+import {NextRequest,NextResponse,after} from 'next/server';
 import {query} from '@/lib/db';
 import {identifyContributor} from '@/lib/contributeServer';
 import {notifyWhereYatReviewers} from '@/lib/whereYatReviewNotifications';
@@ -24,11 +24,11 @@ export async function POST(req:NextRequest){
   [playerId,hsid,who.uid,email,name]
  );
  const id=created.rows[0].id;
- // The initial claim stays private until manual verification.
- void 0;
- await notifyWhereYatReviewers({id,hsid,playerId,displayName:name}).catch(e=>console.error('[where-yat] review notification',e));
- // Keep CRM work best effort; never prevent the alum from seeing the saved claim.
- await syncWhereYatSubmissionToArms(id).catch(e=>console.error('[where-yat] crm sync',e));
- await notifyWhereYatContributor({id,hsid,email,name,outcome:'received'}).catch(e=>console.error('[where-yat] receipt',e));
+ // Respond before slow CRM/email operations; the identity claim stays pending.
+ after(async()=>{
+  await notifyWhereYatReviewers({id,hsid,playerId,displayName:name}).catch(e=>console.error('[where-yat] review notification',e));
+  await syncWhereYatSubmissionToArms(id).catch(e=>console.error('[where-yat] crm sync',e));
+  await notifyWhereYatContributor({id,hsid,email,name,outcome:'received'}).catch(e=>console.error('[where-yat] receipt',e));
+ });
  return NextResponse.json({ok:true,id,status:'pending'},{headers:{'Cache-Control':'no-store'}});
 }
