@@ -30,6 +30,7 @@
 
 import { appendFileSync } from "fs";
 import { Pool } from "pg";
+import { writePlayerNewsEditorial } from "./lib/playerNewsEditorial";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -49,11 +50,15 @@ const limitArg = limitIdx !== -1 ? Number(args[limitIdx + 1]) : 0;
 const batchLimit = Number.isFinite(limitArg) && limitArg > 0 ? Math.floor(limitArg) : 0;
 const regenerate = args.includes("--regenerate");
 const dryRun = args.includes("--dry-run");
+const targetUuid = args.includes("--uuid") ? args[args.indexOf("--uuid") + 1] : "";
+const editorialMode = !args.includes("--legacy");
+const requireFeatured = args.includes("--require-featured");
 
 // Written into every derivative this script makes, so --regenerate can tell
 // its own work from a hand edit. (Untagged rows predate the tag; nothing but
 // this script has ever written derivatives, so those count as generated.)
 const GENERATOR = "auto-v2";
+const EDITORIAL_GENERATOR = "auto-v3-source-grounded";
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -360,7 +365,10 @@ function buildDerivative(row: CandidateRow) {
 
 async function loadCandidates(): Promise<CandidateRow[]> {
   const limitClause = batchLimit > 0 ? "LIMIT $2" : "";
-  const params = batchLimit > 0 ? [targetHsids, batchLimit] : [targetHsids];
+  const params = batchLimit > 0
+    ? (targetUuid ? [targetHsids, batchLimit, targetUuid] : [targetHsids, batchLimit])
+    : (targetUuid ? [targetHsids, targetUuid] : [targetHsids]);
+  const uuidFilter = targetUuid ? `AND na.uuid = ${batchLimit > 0 ? 3 : 2}` : "";
 
   const { rows } = await pool.query<CandidateRow>(
     `SELECT
@@ -379,6 +387,7 @@ async function loadCandidates(): Promise<CandidateRow[]> {
        ON nd.news_article_uuid = na.uuid
       AND nd.playerid = na.playerid
      WHERE na.hsid = ANY($1::text[])
+       ${uuidFilter}
        AND na.verification_status = 'VERIFIED'
        AND NULLIF(TRIM(COALESCE(na.playerid, '')), '') IS NOT NULL
        AND ${
@@ -469,10 +478,11 @@ async function writeDerivative(row: CandidateRow, d: ReturnType<typeof buildDeri
   if ((result.rowCount || 0) > 0) {
     await pool.query(
       `UPDATE public.news_articles
-          SET local_recap = COALESCE(NULLIF(TRIM(local_recap), ''), $3)
+          SET local_recap = CASE WHEN $4::boolean THEN $3 ELSE COALESCE(NULLIF(TRIM(local_recap), ''), $3) END,
+              newsworthiness = CASE WHEN $4::boolean THEN $5 ELSE newsworthiness END
         WHERE uuid = $1
           AND playerid = $2`,
-      [row.uuid, row.playerid, d.recap]
+      [row.uuid, row.playerid, d.recap, editorialMode, d.storyGrade === "A" ? "FEATURED" : "NORMAL"]
     );
     return true;
   }
@@ -496,6 +506,53 @@ async function main() {
   for (const row of candidates) {
     try {
       const d = buildDerivative(row);
+      if (editorialMode) {
+        const raw = row.raw_payload && typeof row.raw_payload === "object" ? row.raw_payload : {};
+        try {
+          const editorial = await writePlayerNewsEditorial({
+            playerName: d.fullName,
+            highSchool: null,
+            classOf: String(row.stage_class_of || row.class_of || "") || null,
+            currentTeam: row.stage_team_name || row.current_team_name,
+            currentOrg: row.stage_org_name || row.current_org_or_conference_name,
+            sourceTitle: row.title,
+            sourceName: row.source_full || row.source,
+            sourceUrl: row.url,
+            publishedAt: d.publishedDate,
+            articleText: String(raw.text || ""),
+          });
+          if (editorial.kind === "skip") {
+            console.log("Incidental player mention, not significant alumni news: " + row.uuid);
+            hidden++;
+            if (requireFeatured) failed++;
+            continue;
+          }
+          if (requireFeatured && editorial.newsworthiness !== "FEATURED") {
+            throw new Error("Regression: expected a major player-career development, received " + editorial.newsworthiness);
+          }
+          d.storyGrade = editorial.newsworthiness === "FEATURED" ? "A" : "B";
+          d.playerRelevance = editorial.newsworthiness === "FEATURED" ? "primary" : "secondary";
+          d.storyScope = editorial.newsworthiness === "FEATURED" ? "player_feature" : "player_update";
+          d.recap = editorial.recap;
+          d.profileBody = editorial.recap;
+          d.publishable = true;
+          d.tease.headline = editorial.headline;
+          d.tease.body = editorial.recap.slice(0, 300);
+          d.galleryFront.headline = editorial.headline;
+          d.galleryBack.generator = EDITORIAL_GENERATOR;
+          d.galleryBack.yati_recap = editorial.recap;
+          d.galleryBack.why_local = "";
+          d.profile.generator = EDITORIAL_GENERATOR;
+          d.profile.title = editorial.headline;
+          d.profile.body = editorial.recap;
+          d.profile.why_local_body = "";
+          d.share.share_text = editorial.headline + " via YAT?STATS";
+        } catch (error) {
+          failed++;
+          console.error("Editorial generation unavailable for " + row.uuid, error instanceof Error ? error.message : error);
+          continue;
+        }
+      }
       if (!d.publishable) hidden += 1;
       if (dryRun) {
         console.log(`\n── ${row.player_name || row.playerid} · ${row.title}`);
