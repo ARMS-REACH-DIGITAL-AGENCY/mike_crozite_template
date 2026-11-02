@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   let data: { id?: number | string; status?: string };
   try { data = await req.json(); } catch { return NextResponse.json({ error: 'Invalid request' }, { status: 400 }); }
   const id = String(data.id ?? '').trim();
-  if (!/^[1-9]\\d*$/.test(id) || !['approved', 'rejected'].includes(data.status || ''))
+  if (!/^[1-9]\d*$/.test(id) || !['approved', 'rejected'].includes(data.status || ''))
     return NextResponse.json({ error: 'Invalid review action' }, { status: 400 });
   const reviewerIdentity=await identifyContributor(req,req.headers.get('x-firebase-token'));
   const result = await query<{id:number;playerid:string;hsid:string;contact_email:string;display_name:string;status:string}>(
