@@ -266,7 +266,11 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
         }
       }
       const list = [...(real.size ? real : allDay.get(abs) || new Map<string, Real>()).values()];
-      if (!list.length || !list.every((x) => x.started)) return 'top';
+      // No scheduled game anywhere in the bracket that day (an off day, or
+      // only leagues the schedule doesn't list): nothing to wait for - the
+      // inning posts, unless a line from a game still going says otherwise.
+      if (!list.length) return open ? 'bottom' : 'posted';
+      if (!list.every((x) => x.started)) return 'top';
       return list.every((x) => x.done) && !open ? 'posted' : 'bottom';
     };
     const phase: LivePhase = cur < 7 ? phaseOf(from + cur) : 'posted';
