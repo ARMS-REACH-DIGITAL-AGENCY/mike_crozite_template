@@ -52,6 +52,7 @@ MAX_FILES_RAW = os.getenv("MAX_FILES", "").strip()
 MAX_FILES = int(MAX_FILES_RAW) if MAX_FILES_RAW.isdigit() else None
 ONLY_IDS = {item.strip() for item in os.getenv("ONLY_IDS", "").split(",") if item.strip()}
 INCLUDE_SOURCE_PNG = os.getenv("INCLUDE_SOURCE_PNG", "false").lower() == "true"
+ONLY_HEADSHOT_PATHS = os.getenv("ONLY_HEADSHOT_PATHS", "false").lower() == "true"
 
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
@@ -104,6 +105,10 @@ def list_source_keys(bucket: str, prefix: str) -> list[str]:
             key = obj.get("Key", "")
             if not key or key.endswith("/") or not is_source_image(key):
                 continue
+            if ONLY_HEADSHOT_PATHS and not (
+                "/business-headshots/" in key or "/headshot/" in key
+            ):
+                continue
             output_key = output_key_for(key)
             previous = newest_by_output.get(output_key)
             if previous is None or obj["LastModified"] > previous["LastModified"]:
@@ -138,6 +143,7 @@ def main() -> int:
     print(f"Region: {AWS_REGION}")
     print(f"Dry run: {DRY_RUN}")
     print(f"Process original PNG uploads: {INCLUDE_SOURCE_PNG}")
+    print(f"Only alumni business headshots: {ONLY_HEADSHOT_PATHS}")
     print(f"Overwrite generated PNG outputs: {OVERWRITE}")
     print(f"Max files: {MAX_FILES if MAX_FILES is not None else 'all'}")
     print(f"Only source filename stems: {', '.join(sorted(ONLY_IDS)) if ONLY_IDS else 'all'}")
