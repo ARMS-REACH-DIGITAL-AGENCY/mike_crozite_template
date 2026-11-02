@@ -203,9 +203,12 @@ export async function POST(req: NextRequest) {
     }
 
     if(businessHeadshot instanceof File&&businessHeadshot.size&&s3){
-      const prepared=await applyPositionedCrop(Buffer.from(await businessHeadshot.arrayBuffer()),requestedCrop(form.get('businessHeadshotCrop')),500,750);
-      headshotKey=`alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/business-headshots/${randomUUID()}.jpg`;
-      await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:headshotKey,Body:prepared,ContentType:'image/jpeg',CacheControl:'private, no-store'}));
+      // Preserve source alpha and use a PNG for the asynchronous rembg cutout job.
+      // Do not crop to JPEG: that bakes an opaque rectangle into the saved portrait.
+      const prepared=await sharp(Buffer.from(await businessHeadshot.arrayBuffer()),{failOn:'error',limitInputPixels:16_000_000})
+        .rotate().resize(900,900,{fit:'inside',withoutEnlargement:true}).png().toBuffer();
+      headshotKey=`alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/business-headshots/${randomUUID()}.png`;
+      await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:headshotKey,Body:prepared,ContentType:'image/png',CacheControl:'private, no-store'}));
       headshotUrl=storyAssetUrl(headshotKey);
     }
     const lifeFiles = form.getAll('lifePhotos').filter((f): f is File => f instanceof File && f.size > 0);
