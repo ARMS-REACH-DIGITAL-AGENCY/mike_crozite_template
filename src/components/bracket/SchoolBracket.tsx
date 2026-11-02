@@ -161,7 +161,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
             <span className="run">R</span>
-            <span className="stats">DAILY TOTALS</span>
+            <span className="stats">DAILY STATS</span>
           </div>
           {tbdRow('a')}
           {tbdRow('h')}
@@ -229,7 +229,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
           <span className="run">R</span>
-          <span className="stats">DAILY TOTALS</span>
+          <span className="stats">DAILY STATS</span>
         </div>
         {row('a')}
         {row('h')}
@@ -978,7 +978,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            grid column, so every board's template gets it). */
         .yfp-green-row { grid-auto-columns:24px; }
         .yfp-green-row>.yfp-green-stats, .yfp-green-row>.yfp-green-stats-cell, .yfp-green-row.head>.stats { grid-column:-1 / span 1; grid-row:1; }
-        /* "DAILY TOTALS" (Pete, Nov 2): white, one line, centered over the
+        /* "DAILY STATS" (Pete, Nov 2): white, one line, centered over the
            stats buttons' column. */
         .yfp-green-row.head .stats { color:#fff; font-size:.83em; letter-spacing:.02em; line-height:1; justify-self:center; width:auto; white-space:nowrap; }
         /* The daily-stats button, to Pete's Nov 2 mock: a white box the size
