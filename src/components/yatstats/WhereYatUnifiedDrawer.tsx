@@ -149,7 +149,8 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    if(saved?.id)form.set('replacesSubmissionId',String(saved.id));
    if(logo)form.set('companyLogo',logo);
    if(headshot){
-    form.set('businessHeadshot',await shrinkPhoto(headshot),'business-headshot.jpg');
+    const optimizedHeadshot=await shrinkPhoto(headshot,'webp');
+    form.set('businessHeadshot',optimizedHeadshot,optimizedHeadshot.type==='image/webp'?'business-headshot.webp':headshot.name);
     form.set('businessHeadshotCrop',JSON.stringify(headshotCrop));
    }
    if(hero){
