@@ -79,5 +79,8 @@ assert(fzPanel.includes('className="wyn-proof-cta"'), 'Published CTA must use th
 assert(!fzPanel.includes('.wyn-fz-approved-content .wyn-heading') && !fzPanel.includes('.wyn-fz-approved-content .wyn-story'), 'Published view must not shrink or restyle proof headings and story');
 assert(card.includes('wyn-business-names') && !card.includes('-webkit-line-clamp:2'), 'Company names must wrap rather than be clipped');
 assert(!card.includes('.wyn-embedded .wyn-social{'), 'Embedded published social icons must match the proof sizing');
+assert(card.includes('.split(/\\s*\\|\\s*/)') && card.includes('wyn-info-panel'), 'Each business name gets its own line in the mockup info panel');
+assert(!card.includes('clamp(') || !card.slice(card.indexOf('.wyn-body{'),card.indexOf('.wyn-footer{')).includes('clamp('), 'Card body scales purely with card width so proof and published match');
+assert(read('src/app/api/contribute/where-yat-now/route.ts').includes("500,750,'png'"), 'Business headshots must keep their transparent background');
 assert(card.includes('grid-template-columns:repeat(var(--wyn-business-link-count,1)'), 'Business and social links share equally sized tracks');
 console.log('PASS published retired flip card matches proof typography and spacing without duplicate branding');

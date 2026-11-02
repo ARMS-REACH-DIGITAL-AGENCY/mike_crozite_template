@@ -55,7 +55,7 @@ export default function WhereYatFunZonePanel({
           background-image:repeating-linear-gradient(170deg,transparent 0,transparent 5px,rgba(97,66,41,.045) 5px,rgba(97,66,41,.045) 6px),linear-gradient(135deg,#faf2df 0%,#ddd0ba 100%);
           color:#151d2c; container-type:inline-size;
         }
-        .wyn-fz-approved {padding:0;background:#f0e9dd;background-image:none;}
+        .wyn-fz-approved {padding:0;background:#e6e7da;background-image:none;}
         .wyn-fz-unclaimed,.wyn-fz-pending {
           padding:0; background:#f1e8d8; background-image:none;
         }
