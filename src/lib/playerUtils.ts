@@ -288,7 +288,7 @@ export const LEVEL_RANK: Record<string, number> = {
  * Derive the canonical level string from a merged player row.
  * Prefers level_label (stage, already normalised) over raw TBC level.
  */
-function resolvedLevel(p: Record<string, unknown>): string {
+export function resolvedLevel(p: Record<string, unknown>): string {
   return String(p.level_label || levelLabel(String(p.level || "")) || "");
 }
 

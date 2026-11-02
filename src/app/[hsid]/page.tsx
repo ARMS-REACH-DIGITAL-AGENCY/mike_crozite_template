@@ -34,6 +34,10 @@ import AllTimeOnDemandNavigation from "@/components/yatstats/AllTimeOnDemandNavi
 import NewsGallery from "@/components/yatstats/NewsGallery";
 import SchoolBracket from "@/components/bracket/SchoolBracket";
 import PartnerProgramPage from "@/components/yatstats/PartnerProgramPage";
+import SponsorFlipCard from "@/components/yatstats/SponsorFlipCard";
+import SponsorCardPlacer from "@/components/yatstats/SponsorCardPlacer";
+import { sponsorCardsFor, sponsorSlot, type SponsorFlipCard as SponsorCardData, type SponsorSection } from "@/lib/sponsorFlipCards";
+import { LEVEL_RANK, resolvedLevel } from "@/lib/playerUtils";
 
 export const runtime = "nodejs";
 
@@ -441,6 +445,16 @@ function Placeholder({ icon, title, body }: { icon: string; title: string; body:
   );
 }
 
+// Sponsor flip cards (src/lib/sponsorFlipCards.ts) go into a gallery's card
+// list at their slot; SponsorCardPlacer keeps them there after client sorts.
+function withSponsors(nodes: React.ReactNode[], at: number, cards: SponsorCardData[], section: SponsorSection) {
+  if (!cards.length) return nodes;
+  const sponsors = cards.map((card) => (
+    <SponsorFlipCard key={`sponsor-${section}-${card.id}`} sponsor={card} section={section} eager={at < 4} />
+  ));
+  return [...nodes.slice(0, at), ...sponsors, ...nodes.slice(at)];
+}
+
 function EmptyGrid({ icon, title, sub }: { icon: string; title: string; sub: React.ReactNode }) {
   return (
     <div className="yat-empty">
@@ -633,6 +647,12 @@ export default async function SchoolPage({
   });
 
   const activeSortedRoster = sortActivePlayers(activeMerged);
+  const levelRankOf = (row: Record<string, unknown>) => LEVEL_RANK[resolvedLevel(row)] ?? 99;
+  const statusOf = (row: Record<string, unknown>) => row.status_label || row.status;
+  const activeSponsors = sponsorCardsFor(String(resolvedHsid), "active");
+  const currentSponsors = sponsorCardsFor(String(resolvedHsid), "current");
+  const allTimeSponsors = sponsorCardsFor(String(resolvedHsid), "alltime");
+  const activeSponsorAt = sponsorSlot("active", activeSortedRoster, levelRankOf, statusOf);
   const allRosterIds = Array.from(new Set([
     ...activeMerged.map((p) => String(p.playerid)),
     ...allTimeMerged.map((p) => String(p.playerid)),
@@ -663,12 +683,16 @@ export default async function SchoolPage({
 
   return (
     <>
+      <SponsorCardPlacer />
       <section id="sec-active" className={`yat-section${teamYear ? '' : ' visible'}`}>
         <div className="yat-grid" id="active-grid">
           {activeSortedRoster.length === 0 ? (
-            <EmptyGrid icon="⚾" title="No active alumni found" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
+            <>
+              <EmptyGrid icon="⚾" title="No active alumni found" sub={<a href="#sec-alltime">View historical alumni in All-Time</a>} />
+              {withSponsors([], 0, activeSponsors, "active")}
+            </>
           ) : (
-            activeSortedRoster.map((p, i) => {
+            withSponsors(activeSortedRoster.map((p, i) => {
               const playerId = String(p.playerid);
 
               return (
@@ -695,7 +719,7 @@ export default async function SchoolPage({
                   />
                 </div>
               );
-            })
+            }), activeSponsorAt, activeSponsors, "active")
           )}
         </div>
         <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
@@ -713,7 +737,7 @@ export default async function SchoolPage({
           ) : allTimeFrontRoster.length === 0 ? (
             <EmptyGrid icon="⚾" title="No alumni found" sub="Check back as we continue building the database" />
           ) : (
-            allTimeCards.map(({ player: p, onTeam }, i) => {
+            withSponsors(allTimeCards.map(({ player: p, onTeam }, i) => {
               const playerId = String(p.playerid);
               const card = (
                 <PlayerCard deferScheduleSnapshot
@@ -742,7 +766,7 @@ export default async function SchoolPage({
                   {card}
                 </div>
               ) : card;
-            })
+            }), sponsorSlot("alltime", allTimeCards.map(({ player }) => player), levelRankOf, statusOf), allTimeSponsors, "alltime")
           )}
         </div>
         <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
@@ -758,9 +782,12 @@ export default async function SchoolPage({
       <section id="sec-current" className="yat-section">
         <div className="yat-grid" id="current-grid">
           {currentTeamRoster.length === 0 ? (
-            <EmptyGrid icon="🏟️" title="Current Team Roster" sub={`The current ${schoolName} varsity roster will appear here once the season begins.`} />
+            <>
+              <EmptyGrid icon="🏟️" title="Current Team Roster" sub={`The current ${schoolName} varsity roster will appear here once the season begins.`} />
+              {withSponsors([], 0, currentSponsors, "current")}
+            </>
           ) : (
-            currentTeamRoster.map((p) => {
+            withSponsors(currentTeamRoster.map((p) => {
               const playerId = String(p.playerid);
               return (
                 <PlayerCard deferScheduleSnapshot
@@ -774,7 +801,7 @@ export default async function SchoolPage({
                   schoolLocation={shareSchoolLocation}
                 />
               );
-            })
+            }), sponsorSlot("current", currentTeamRoster, levelRankOf, statusOf), currentSponsors, "current")
           )}
         </div>
         <div className="yat-gallery-end-runway" aria-hidden="true" style={{height:'clamp(96px, 16dvh, 180px)',pointerEvents:'none'}} />
