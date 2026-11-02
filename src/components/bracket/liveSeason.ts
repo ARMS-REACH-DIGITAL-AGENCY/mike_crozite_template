@@ -11,7 +11,8 @@
 // both); once those games are over its real runs go up in yellow, and at
 // 4 a.m. they turn white as the next inning starts. Until then the drawer
 // outlines who'd get each run if the day ended now. Innings 8 (the week) and
-// 9 (W-L) post with Sunday's runs; the game is final at 4 a.m. Monday.
+// 9 (W-L) post at 4 a.m. Monday, which makes the game final; once Sunday's
+// games are over it's the Top of the 8th.
 //
 // Scoring is 'adjusted', exactly as the 2027 season will be: every line is
 // measured against the league average for the player's level (the Rules'
@@ -276,12 +277,13 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
     const phase: LivePhase = cur < 7 ? phaseOf(from + cur) : 'posted';
     setLiveInning(g[0], cur, phase);
     // A day's runs count once posted: every day before today, and today's
-    // once its games are over. Innings 8 and 9 post with Sunday's.
+    // once its games are over. Innings 8 and 9 post at 4 a.m. Monday, when
+    // nothing more can come in for the week - that ends the game (Pete,
+    // Nov 2). Sunday's games all over is the Top of the 8th, not the end.
     const posted = (k: number) => k < cur || (k === cur && phase === 'posted');
     const f = Array.from({ length: 7 }, (_, d) => [posted(d), posted(d)] as [boolean, boolean]);
     const final = cur >= 7;
-    const weekPosted = final || (cur === 6 && phase === 'posted');
-    const weekDone: [boolean, boolean] = [weekPosted, weekPosted];
+    const weekDone: [boolean, boolean] = [final, final];
     const side = (h: number) => {
       const players = roster.get(String(h)) || [];
       const mine = lines.get(String(h)) || new Map();
@@ -320,7 +322,7 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
     g[5] = final
       ? result.innings.flatMap((i) => [i.home, i.away])
       : result.innings.slice(0, 9).flatMap((i, k) => {
-        if (k >= 7) return weekPosted ? [i.home, i.away] : [0, 0];
+        if (k >= 7) return final ? [i.home, i.away] : [0, 0];
         const off = f[k][0] ? holdRuns(i.homeOffense, i.awayOffense, AVERAGE, true) : [0, 0];
         const pitc = f[k][1] ? holdRuns(i.homePitching, i.awayPitching, AVERAGE, false) : [0, 0];
         return [off[0] + pitc[0], off[1] + pitc[1]];

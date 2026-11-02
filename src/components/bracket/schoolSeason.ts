@@ -131,7 +131,9 @@ export function liveBoard(g: GameRow): { status: string; cells: [InningCell[], I
   if (!lv || lv.day >= 7) return null;
   const { day, phase } = lv;
   const posted = phase === 'posted';
-  const weekPosted = day === 6 && posted;
+  // Sunday's games all over: the Top of the 8th. Innings 8 and 9 go up at
+  // 4 a.m. Monday, which ends the game (liveSeason.ts).
+  const eighth = day === 6 && posted;
   const side = (off: 0 | 1): InningCell[] => Array.from({ length: 9 }, (_, i) => {
     const run = g[5][i * 2 + off] || 0;
     if (i < 7 && i < day) return { v: run, now: false };
@@ -140,12 +142,13 @@ export function liveBoard(g: GameRow): { status: string; cells: [InningCell[], I
       // Visitors bat in the Top; both sides show a yellow 0 in the Bottom.
       return off === 1 || phase === 'bottom' ? { v: 0, now: true } : { v: '', now: false };
     }
-    if (i >= 7 && weekPosted) return { v: run, now: true };
+    // Visitors bat in the Top of the 8th.
+    if (i === 7 && eighth && off === 1) return { v: 0, now: true };
     return { v: '', now: false };
   });
   const away = side(1), home = side(0);
   const sum = (c: InningCell[]) => c.reduce((n, x) => n + (typeof x.v === 'number' ? x.v : 0), 0);
-  return { status: `${phase === 'top' ? 'TOP' : 'BOT'} ${day + 1}`, cells: [away, home], runs: [sum(home), sum(away)] };
+  return { status: eighth ? 'TOP 8' : `${phase === 'top' ? 'TOP' : 'BOT'} ${day + 1}`, cells: [away, home], runs: [sum(home), sum(away)] };
 }
 
 // A game's runs through the days in (innings 1-7 are the days; 8 and 9 the
