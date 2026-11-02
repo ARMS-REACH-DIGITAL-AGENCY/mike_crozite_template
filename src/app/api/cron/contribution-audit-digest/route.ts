@@ -11,10 +11,14 @@ export async function GET(req:NextRequest){
   const {rows}=await query<{
    id:string;occurred_at:string;entity_type:string;entity_id:string;playerid:string|null;hsid:string|null;
    actor_uid:string|null;actor_email:string|null;event_type:string;before_data:unknown;after_data:unknown;source:string|null;
+   player_name:string|null;school_name:string|null;school_location:string|null;
   }>(`SELECT a.id::text,a.occurred_at::text,a.entity_type,a.entity_id,a.playerid,a.hsid,
     COALESCE(a.actor_uid,fa.firebase_uid) actor_uid,
     COALESCE(a.actor_email,u.email) actor_email,
-    a.event_type,a.before_data,a.after_data,a.source
+    a.event_type,a.before_data,a.after_data,a.source,
+    COALESCE(NULLIF(BTRIM(p.display_name),''),NULLIF(BTRIM(CONCAT_WS(' ',p.first_name,p.last_name)),'')) AS player_name,
+    NULLIF(BTRIM(s.hsname),'') AS school_name,
+    NULLIF(BTRIM(s.hslocation),'') AS school_location
    FROM public.contribution_change_audit a
    LEFT JOIN LATERAL (
      SELECT f.firebase_uid FROM public.fan_activity f
@@ -23,6 +27,11 @@ export async function GET(req:NextRequest){
      ORDER BY f.created_at DESC LIMIT 1
    ) fa ON TRUE
    LEFT JOIN public.user_profiles u ON u.firebase_uid=COALESCE(a.actor_uid,fa.firebase_uid)
+   LEFT JOIN public.flip_card_front_stage p ON p.playerid=a.playerid
+   LEFT JOIN public.tbc_schools_raw s ON s.hsid=CASE
+     WHEN a.hsid ~ '^[0-9]{1,9}$' THEN a.hsid::integer
+     WHEN p.hsid ~ '^[0-9]{1,9}$' THEN p.hsid::integer
+     ELSE NULL END
    WHERE a.occurred_at >= (date_trunc('day',now() AT TIME ZONE 'America/Phoenix')-interval '1 day') AT TIME ZONE 'America/Phoenix'
      AND a.occurred_at < date_trunc('day',now() AT TIME ZONE 'America/Phoenix') AT TIME ZONE 'America/Phoenix'
    ORDER BY a.occurred_at DESC LIMIT 1000`);
@@ -30,7 +39,7 @@ export async function GET(req:NextRequest){
   const html=`<h2>YAT?STATS contribution and change audit — ${escape(date)}</h2>
    <p>${rows.length} recorded player/photo changes. This report includes changes from automated sources as well as user submissions. Blank user indicates the originating database job has not supplied an identity.</p>
    <p>Records are append-only, including previous and new states.</p>
-   <table border="1" cellpadding="5" style="border-collapse:collapse"><tr><th>Arizona time</th><th>Who</th><th>Event / source</th><th>Player / school</th><th>Before</th><th>After</th></tr>${rows.map(r=>`<tr><td>${escape(new Date(r.occurred_at).toLocaleString('en-US',{timeZone:'America/Phoenix'}))}</td><td>${escape(r.actor_email||r.actor_uid||'system/unknown')}</td><td>${escape(r.event_type)}<div>${escape(r.source)}</div></td><td>${escape(r.playerid)} / ${escape(r.hsid)}</td><td><pre>${escape(JSON.stringify(r.before_data))}</pre></td><td><pre>${escape(JSON.stringify(r.after_data))}</pre></td></tr>`).join('')}</table>
+   <table border="1" cellpadding="5" style="border-collapse:collapse"><tr><th>Arizona time</th><th>Who</th><th>Event / source</th><th>Player name / ID</th><th>School name / HSID</th><th>Before</th><th>After</th></tr>${rows.map(r=>`<tr><td>${escape(new Date(r.occurred_at).toLocaleString('en-US',{timeZone:'America/Phoenix'}))}</td><td>${escape(r.actor_email||r.actor_uid||'system/unknown')}</td><td>${escape(r.event_type)}<div>${escape(r.source)}</div></td><td><strong>${escape(r.player_name || 'Unknown player')}</strong><div style="font-size:12px">Player ID: ${escape(r.playerid || '—')}</div></td><td><strong>${escape(r.school_name || 'Unknown school')}</strong><div style="font-size:12px">${escape(r.school_location || '')}${r.school_location ? ' · ' : ''}HSID: ${escape(r.hsid || '—')}</div></td><td><pre>${escape(JSON.stringify(r.before_data))}</pre></td><td><pre>${escape(JSON.stringify(r.after_data))}</pre></td></tr>`).join('')}</table>
    ${rows.length===1000?'<p>Showing first 1,000 changes; additional entries remain in database.</p>':''}`;
   const contact=await findOrCreateGhlContact('pete@yatstats.com','Pete','DeLuca',undefined,'YAT?STATS Operations');
   if(!contact)throw Error('Unable to resolve daily audit email contact');
