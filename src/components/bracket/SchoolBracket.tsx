@@ -985,9 +985,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            of an inning box, filling its column, with a dark green circle in a
            thin gold ring (90% of the box's height) and the gold chart icon
            (31% of it). */
-        .yfp-green-stats { justify-self:stretch; align-self:stretch; width:auto; height:auto; min-height:15px; display:grid; place-items:center; padding:0; border:0; border-radius:3px;
-          background:#fff radial-gradient(circle closest-side, #0d2d20 81%, #ffd34f 81% 90%, #fff 90%); color:#ffd34f; cursor:pointer; transition:transform .15s; }
-        .yfp-green-stats svg { width:auto; height:31%; fill:currentColor; }
+        .yfp-green-stats { position:relative; justify-self:stretch; align-self:center; width:auto; height:20px; min-height:0; display:grid; place-items:center; padding:0; border:0; border-radius:3px;
+          background:#fff; color:#ffd34f; font-size:0; line-height:0; overflow:hidden; cursor:pointer; transition:transform .15s; }
+        .yfp-green-stats::before { content:""; position:absolute; top:50%; left:50%; height:90%; aspect-ratio:1; box-sizing:border-box; transform:translate(-50%,-50%); border-radius:50%; border:1px solid #ffd34f; background:#0d2d20; }
+        .yfp-green-stats svg { position:relative; z-index:1; width:auto; height:45%; fill:currentColor; }
         .yfp-green-stats:hover, .yfp-green-stats:focus-visible { transform:scale(1.06); }
         .yfp-green-stats:focus-visible { outline:2px solid #fff; outline-offset:1px; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
@@ -1020,7 +1021,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             justify-content:start;
           }
           .yfp-game-scorepane .yfp-green-slot,
-          .yfp-game-scorepane .yfp-green-run { height:22px; }
+          .yfp-game-scorepane .yfp-green-run,
+          .yfp-game-scorepane .yfp-green-stats { height:22px; }
           .yfp-game-scorepane .yfp-green-full {
             font-family:var(--yfp-sb),"Arial Narrow",Oswald,sans-serif;
             font-size:10px;
@@ -1184,6 +1186,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
           .yfp-game-scorepane .yfp-green-stats { height:36px; border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-stats::before { border-width:1.5px; }
           .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
@@ -1424,6 +1427,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-green-abbr { display:none; }
           .yfp-green-full { display:block; font:800 7.3px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
           .yfp-green-slot,.yfp-green-run { height:17px; font-size:9px; border-radius:2px; }
+          .yfp-green-stats { height:17px; border-radius:2px; }
           .yfp-green-status { font-size:5.5px; padding:1px 2px; }
           .fgs-inline .ysv-actions button { min-height:28px !important; font-size:11px !important; gap:3px !important; }
           .fgs-inline .ysv-actions button i { font-size:13px !important; }
@@ -1488,6 +1492,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-green-place { font-size:5px; line-height:1; letter-spacing:.02em; }
           .yfp-green-abbr { display:none; }
           .yfp-green-slot,.yfp-green-run { height:18px; font-size:10px; }
+          .yfp-green-stats { height:18px; }
           .yfp-green-row.head { font-size:6.5px; }
           .yfp-green-status { font-size:6px; padding:1px 3px; }
           .yfp-score-head { font-size:6px; padding:3px 4px 2px; }
