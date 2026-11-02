@@ -13,6 +13,7 @@ import { storeStoryPhoto, STORY_MAX_PHOTO_BYTES } from '@/lib/stories';
 import { moderateContributedTip } from '@/lib/contributeTipModeration';
 import { moderatePhoto } from '@/lib/contributeModeration';
 
+import { WHERE_YAT_PROMPTS, whereYatCardHeading, whereYatLimitProblem } from '@/lib/whereYatPrompts';
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 const reply = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -77,6 +78,13 @@ export async function POST(req: NextRequest) {
     teammateTips: clean(form.get('teammateTips'), 5000),
     contactPhone: clean(form.get('contactPhone'), 40),
   };
+  // One card layout for every retired alum: anything printed on the card
+  // must fit it (src/lib/whereYatPrompts.ts). Refuse, never cut off.
+  const tooLong = whereYatLimitProblem({
+    company: fields.company, occupation: fields.occupation, city: fields.city, state: fields.state,
+    memories: WHERE_YAT_PROMPTS.map(prompt => ({ label: whereYatCardHeading(prompt.key), text: fields[prompt.key] })),
+  });
+  if (tooLong) return reply(tooLong);
   const normalized: Record<string, string> = {};
   for (const field of WHERE_YAT_LINK_FIELDS) {
     const result = normalizeWhereYatLink(field, fields[field]);

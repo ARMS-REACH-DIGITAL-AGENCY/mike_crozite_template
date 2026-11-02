@@ -5,7 +5,7 @@ import {auth} from '@/lib/firebase';
 import {copyStoryPhoto,prepareStoryPhoto,createStoryUploadBody,type StoryPhotoData} from '@/lib/storyPhotoUpload';
 import {shrinkPhoto} from '@/lib/shrinkPhoto';
 import type {Crop} from '@/lib/contribute';
-import {WHERE_YAT_PROMPTS,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
+import {WHERE_YAT_PROMPTS,WHERE_YAT_LIMITS,splitBusinessNames,whereYatCardHeading,whereYatLimitProblem,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
 import PhotoCropper from './PhotoCropper';
 import WhereYatProofCard,{type WhereYatProof} from './WhereYatProofCard';
 import type {FlipCardSaved} from './WhereYatFlipCardEditor';
@@ -19,8 +19,13 @@ const blank:Record<string,string>={
  website:'',linkedin:'',facebook:'',instagram:'',x:'',businessEmail:'',businessPhone:'',
  businessMessage:'',businessOffer:'',teammateTips:'',favoriteHs:'',favoriteAfter:'',family:'',story:''
 };
+// Answers printed on the card have hard limits so one layout fits every alum.
+const cardLimits:Record<string,number>={
+ occupation:WHERE_YAT_LIMITS.occupation,city:WHERE_YAT_LIMITS.city,state:WHERE_YAT_LIMITS.state,
+ ...Object.fromEntries(WHERE_YAT_PROMPTS.map(p=>[p.key,WHERE_YAT_LIMITS.memory]))
+};
 const businessFields:[string,string][]=[
- ['occupation','NOW / PROFESSION'],['company','COMPANY / ORGANIZATION'],
+ ['occupation','NOW / PROFESSION'],
  ['website','BUSINESS WEBSITE (LINKED FROM LOGO)'],['businessEmail','PUBLIC BUSINESS EMAIL'],
  ['businessPhone','PUBLIC BUSINESS PHONE OR TEXT'],['linkedin','LINKEDIN'],
  ['facebook','FACEBOOK'],['x','X'],['instagram','INSTAGRAM'],
@@ -47,6 +52,11 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    ...Object.fromEntries(WHERE_YAT_PROMPTS.map(p=>[p.key,String(s?.[fields[p.key]]||'')]))
   };
  });
+ const [businessLines,setBusinessLines]=useState<string[]>(()=>{
+  const names=splitBusinessNames(String((saved as Record<string,unknown>|null)?.company_name||''));
+  return Array.from({length:WHERE_YAT_LIMITS.businessLines},(_,i)=>names[i]||'');
+ });
+ const company=businessLines.map(name=>name.trim()).filter(Boolean).join(' | ');
  const [consent,setConsent]=useState(!!saved?.business_public_opt_in);
  const [attested,setAttested]=useState(false);
  const [sponsorInterest,setSponsorInterest]=useState(!!(saved as Record<string,unknown>|null)?.sponsorship_interest);
@@ -92,13 +102,13 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
  const prompt=WHERE_YAT_PROMPTS.find(p=>p.key===selected);
  const proof:WhereYatProof={
   playerId,hsid,displayName:values.displayName||name,
-  city:values.city,state:values.state,occupation:values.occupation,company:values.company,
+  city:values.city,state:values.state,occupation:values.occupation,company,
   website:values.website,linkedin:values.linkedin,facebook:values.facebook,
   instagram:values.instagram,x:values.x,businessEmail:values.businessEmail,
   businessPhone:values.businessPhone,logoUrl:logoUrl||saved?.company_logo_url||null,
   businessHeadshotUrl:headshotUrl||saved?.business_headshot_url||null,
   businessHeadshotCrop:headshotUrl?headshotCrop:null,
-  story:values[selected],storyPrompt:prompt?.label.replace('YOUR HIGH SCHOOL',school.toUpperCase()),
+  story:values[selected],storyPrompt:whereYatCardHeading(selected),
   photoUrl:selectedPhoto?.src||null,memoryPhotoCrop:selectedPhoto?.crop,
   heroPreviewUrl:heroUrl,heroCrop,businessPublic:consent
  };
@@ -130,6 +140,9 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    setError('Enter your name and private contact email.');return;
   }
   if(!available.length){setError('Answer at least one memory question.');return;}
+  const limitProblem=whereYatLimitProblem({company,occupation:values.occupation,city:values.city,state:values.state,
+   memories:WHERE_YAT_PROMPTS.map(p=>({label:whereYatCardHeading(p.key),text:values[p.key]||''}))});
+  if(limitProblem){setError(limitProblem);return;}
   if(!attested){setError('Confirm you are the alumnus or have permission to submit.');return;}
   if(hero&&!heroCrop){setError('Position your top playing photo before submitting.');return;}
   if(headshot&&!headshotCrop){setError('Position your business headshot before submitting.');return;}
@@ -141,6 +154,7 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    if(!token)throw Error('Your sign-in expired. Sign in again to submit.');
    const form=new FormData();
    for(const [key,value] of Object.entries(values))form.set(key,value);
+   form.set('company',company);
    form.set('playerId',playerId);form.set('hsid',hsid);form.set('idToken',token);
    form.set('featuredMemory',selected);form.set('claimAttestation','yes');
    form.set('proofConfirmed','yes');
@@ -149,7 +163,11 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    if(saved?.id)form.set('replacesSubmissionId',String(saved.id));
    if(logo)form.set('companyLogo',logo);
    if(headshot){
-    form.set('businessHeadshot',await shrinkPhoto(headshot),'business-headshot.jpg');
+    // A PNG/WebP headshot keeps its transparent background; shrinking would
+    // flatten it to a JPEG with a black box behind the alum.
+    const keepAlpha=/^image\/(png|webp)$/.test(headshot.type)&&headshot.size<=8*1024*1024;
+    if(keepAlpha)form.set('businessHeadshot',headshot,'business-headshot.'+(headshot.type==='image/webp'?'webp':'png'));
+    else form.set('businessHeadshot',await shrinkPhoto(headshot),'business-headshot.jpg');
     form.set('businessHeadshotCrop',JSON.stringify(headshotCrop));
    }
    if(hero){
@@ -186,11 +204,16 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
   finally{setBusy(false);}
  }
  const disabled=busy||preparing;
- const input=(key:string,label:string,kind='text')=><label className="wyu-field" key={key}>
-  <span>{label}</span>
-  {kind==='textarea'?<textarea rows={3} maxLength={key==='story'?2400:5000} value={values[key]||''} disabled={disabled} onChange={e=>set(key,e.target.value)}/>:
-   <input type={kind} value={values[key]||''} disabled={disabled} onChange={e=>set(key,e.target.value)}/>}
- </label>;
+ const counter=(length:number,limit?:number)=>limit?<small className={'wyu-count'+(length>limit?' wyu-over':'')}>{length} / {limit}{length>limit?' - too long for the card':''}</small>:null;
+ const input=(key:string,label:string,kind='text')=>{
+  const limit=cardLimits[key],value=values[key]||'';
+  return <label className="wyu-field" key={key}>
+   <span>{label}</span>
+   {kind==='textarea'?<textarea rows={3} maxLength={limit||(key==='story'?2400:5000)} value={value} disabled={disabled} onChange={e=>set(key,e.target.value)}/>:
+    <input type={kind} maxLength={limit} value={value} disabled={disabled} onChange={e=>set(key,e.target.value)}/>}
+   {counter(value.length,limit)}
+  </label>;
+ };
  if(receipt)return <section className="wyu-receipt" role="status">
   <h3>YOUR FLIP CARD IS SUBMITTED FOR PUBLICATION</h3>
   <p>Submission #{submissionId} has been recorded. YAT?STATS will verify the identity claim and provide final corporate approval before publishing. No separate alumnus proof is required.</p>
@@ -215,6 +238,12 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
    {input('contactPhone','PRIVATE CALLBACK PHONE','tel')}
    {input('city','CITY')}{input('state','STATE')}
    {input('retirementYear','YEAR YOU RETIRED','number')}
+   {businessLines.map((name,i)=><label className="wyu-field" key={'business'+i}>
+    <span>{i===0?'BUSINESS / ORGANIZATION':'ANOTHER BUSINESS (OPTIONAL)'}</span>
+    <input type="text" maxLength={WHERE_YAT_LIMITS.businessLine} value={name} disabled={disabled}
+     onChange={e=>{const next=[...businessLines];next[i]=e.target.value.replace(/\|/g,'');setBusinessLines(next);setError('')}}/>
+    {counter(name.length,WHERE_YAT_LIMITS.businessLine)}
+   </label>)}
    {businessFields.map(([key,label])=>input(key,label,key==='businessMessage'||key==='businessOffer'?'textarea':key==='businessEmail'?'email':'text'))}
    <label className="wyu-field"><span>COMPANY LOGO (FULL LOGO, NO CROP)</span>
     <input type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={e=>setLogo(e.target.files?.[0]||null)}/></label>
@@ -266,6 +295,6 @@ export default function WhereYatUnifiedDrawer({saved,playerId,hsid,name,school,o
     {busy?'SUBMITTING…':preparing?'PREPARING PHOTOS…':'APPROVE THIS PROOF & SUBMIT FOR PUBLICATION'}
    </button>
   </div>
-  <style>{'.wyu{display:grid;gap:13px;min-width:0}.wyu-title{font:800 22px Oswald,Arial,sans-serif;margin:4px 0 0}.wyu-intro,.wyu-final p{font:400 13px/1.5 Archivo,Arial,sans-serif;margin:0}.wyu-live{border:2px solid #ac8a42;padding:8px;border-radius:8px;background:var(--wyn-card-bg,rgba(128,128,128,.1));min-width:0}.wyu-proof-toggle{display:block;width:100%;padding:10px;border:0;background:#e9bf56;color:#111;font:800 14px Oswald,Arial,sans-serif}.wyu-proof{max-width:500px;margin:9px auto 0;width:100%;min-width:0}.wyu-proof a{pointer-events:none}.wyu-part{min-width:0;display:grid;gap:10px;padding:12px;border:1px solid var(--wyn-border,rgba(128,128,128,.35));border-radius:8px}.wyu-part h4{font:800 17px Oswald,Arial,sans-serif;margin:0}.wyu-field{display:grid;min-width:0;gap:5px;font:700 12px/1.3 Archivo,Arial,sans-serif}body.light-theme .wyu .wyu-field input:not([type=file]),body.light-theme .wyu .wyu-field textarea,body.light-theme .wyu .wyu-field select{background:#fff!important;color:#171717!important;caret-color:#171717!important;border-color:#999!important}body.light-theme .wyu .wyu-field :is(input,textarea)::placeholder{color:#666!important}.wyu-field input,.wyu-field textarea,.wyu-field select{box-sizing:border-box;max-width:100%;width:100%;padding:10px;min-height:42px;background:var(--wyn-card-bg,#252525);color:inherit;border:1px solid #888;border-radius:5px;font:400 14px Archivo,Arial,sans-serif}.wyu-field input[type=file]{font-size:12px}.wyu-check{display:flex;align-items:flex-start;gap:9px;font:500 13px/1.5 Archivo,Arial,sans-serif}.wyu-check input{margin:3px 0 0;flex-shrink:0}.wyu-memory{display:grid;gap:10px;padding:10px;border:1px solid var(--wyn-border,rgba(128,128,128,.35));border-radius:5px}.wyu-crop{display:grid;gap:9px;min-width:0}.wyu-crop>span{font:700 12px Oswald,Arial,sans-serif}.wyu-crop .ypc{max-width:100%}.wyu-thumbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.wyu-thumb{min-width:0}.wyu-thumb img{display:block;width:100%;aspect-ratio:1;object-fit:contain;background:#111}.wyu-thumb>div{display:flex;gap:5px;margin-top:5px}.wyu-thumb button,.wyu-crop button,.wyu-review{flex:1;border:1px solid #888;padding:7px;background:transparent;color:inherit;font:700 12px Oswald,Arial,sans-serif}.wyu-submit{width:100%;min-height:55px;border:1px solid #79520a;border-radius:5px;background:#e9bf56;color:#111;font:900 16px Oswald,Arial,sans-serif}.wyu-submit:disabled{opacity:.55}.wyu-error{padding:8px;border:1px solid #be4848;color:#e06b6b}.wyu-receipt{padding:16px;border:1px solid #dcb348;border-radius:8px}.wyu-receipt h3{font:800 21px Oswald,Arial,sans-serif}'}</style>
+  <style>{'.wyu{display:grid;gap:13px;min-width:0}.wyu-title{font:800 22px Oswald,Arial,sans-serif;margin:4px 0 0}.wyu-intro,.wyu-final p{font:400 13px/1.5 Archivo,Arial,sans-serif;margin:0}.wyu-live{border:2px solid #ac8a42;padding:8px;border-radius:8px;background:var(--wyn-card-bg,rgba(128,128,128,.1));min-width:0}.wyu-proof-toggle{display:block;width:100%;padding:10px;border:0;background:#e9bf56;color:#111;font:800 14px Oswald,Arial,sans-serif}.wyu-proof{max-width:500px;margin:9px auto 0;width:100%;min-width:0}.wyu-proof a{pointer-events:none}.wyu-part{min-width:0;display:grid;gap:10px;padding:12px;border:1px solid var(--wyn-border,rgba(128,128,128,.35));border-radius:8px}.wyu-part h4{font:800 17px Oswald,Arial,sans-serif;margin:0}.wyu-field{display:grid;min-width:0;gap:5px;font:700 12px/1.3 Archivo,Arial,sans-serif}body.light-theme .wyu .wyu-field input:not([type=file]),body.light-theme .wyu .wyu-field textarea,body.light-theme .wyu .wyu-field select{background:#fff!important;color:#171717!important;caret-color:#171717!important;border-color:#999!important}body.light-theme .wyu .wyu-field :is(input,textarea)::placeholder{color:#666!important}.wyu-field input,.wyu-field textarea,.wyu-field select{box-sizing:border-box;max-width:100%;width:100%;padding:10px;min-height:42px;background:var(--wyn-card-bg,#252525);color:inherit;border:1px solid #888;border-radius:5px;font:400 14px Archivo,Arial,sans-serif}.wyu-field input[type=file]{font-size:12px}.wyu-check{display:flex;align-items:flex-start;gap:9px;font:500 13px/1.5 Archivo,Arial,sans-serif}.wyu-check input{margin:3px 0 0;flex-shrink:0}.wyu-memory{display:grid;gap:10px;padding:10px;border:1px solid var(--wyn-border,rgba(128,128,128,.35));border-radius:5px}.wyu-crop{display:grid;gap:9px;min-width:0}.wyu-crop>span{font:700 12px Oswald,Arial,sans-serif}.wyu-crop .ypc{max-width:100%}.wyu-thumbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.wyu-thumb{min-width:0}.wyu-thumb img{display:block;width:100%;aspect-ratio:1;object-fit:contain;background:#111}.wyu-thumb>div{display:flex;gap:5px;margin-top:5px}.wyu-thumb button,.wyu-crop button,.wyu-review{flex:1;border:1px solid #888;padding:7px;background:transparent;color:inherit;font:700 12px Oswald,Arial,sans-serif}.wyu-submit{width:100%;min-height:55px;border:1px solid #79520a;border-radius:5px;background:#e9bf56;color:#111;font:900 16px Oswald,Arial,sans-serif}.wyu-submit:disabled{opacity:.55}.wyu-count{font:500 11px Archivo,Arial,sans-serif;opacity:.75;justify-self:end}.wyu-over{color:#e06b6b;opacity:1}.wyu-error{padding:8px;border:1px solid #be4848;color:#e06b6b}.wyu-receipt{padding:16px;border:1px solid #dcb348;border-radius:8px}.wyu-receipt h3{font:800 21px Oswald,Arial,sans-serif}'}</style>
  </section>;
 }

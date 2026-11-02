@@ -6,6 +6,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import WhereYatProofCard, { type WhereYatProof } from './WhereYatProofCard';
 import { normalizeWhereYatLink, WHERE_YAT_LINK_FIELDS, type WhereYatLinkField } from '@/lib/whereYatLinks';
+import { WHERE_YAT_MEMORY_MAX_CHARS } from '@/lib/whereYatPrompts';
 
 type Target = { playerId: string; hsid: string; name: string; position?: string };
 export const WHERE_YAT_OPEN = 'yat:where-yat-now-open';
@@ -222,7 +223,7 @@ export default function WhereYatNowDrawer() {
             {field('FACEBOOK (OPTIONAL)', 'facebook', 'petedeluca')}
             {field('X / TWITTER (OPTIONAL)', 'x', '@pcdaction')}
             <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: '.055em', marginBottom: 15 }}>WHAT HAVE YOU BEEN UP TO?
-              <textarea name="story" maxLength={2400} rows={4} style={{ ...FIELD_STYLES, resize: 'vertical', marginTop: 6 }} placeholder="Family, work, memories, and what matters to you today..." />
+              <textarea name="story" maxLength={WHERE_YAT_MEMORY_MAX_CHARS} rows={4} style={{ ...FIELD_STYLES, resize: 'vertical', marginTop: 6 }} placeholder="Family, work, memories, and what matters to you today..." />
             </label>
             <label style={{ display: 'block', fontFamily: 'Oswald,Barlow Condensed,Arial Narrow,sans-serif', fontSize: 14, fontWeight: 700, marginBottom: 19, letterSpacing: '.055em' }}>ADD A RECENT PHOTO (OPTIONAL)
               <div style={{border:'2px dashed #e9bf56',padding:22,margin:'10px 0',background:'#222',textAlign:'center',minHeight:135}}>
