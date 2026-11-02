@@ -47,7 +47,7 @@ export default function SponsorFlipCard({ sponsor, section, eager = false }: {
           <div className="yat-flip">
             <div className="yat-face yat-front yat-sponsor-face">
               <img src={sponsor.frontImage} alt={sponsor.frontAlt} loading={eager ? 'eager' : 'lazy'} decoding="async" />
-              <span className="yat-sponsor-badge">SPONSOR</span>
+              <span className="yat-sponsor-badge">FOUNDING PARTNER</span>
             </div>
             <div className="yat-face yat-back yat-sponsor-face">
               <img src={sponsor.backImage} alt={sponsor.backAlt} loading="lazy" decoding="async" />
