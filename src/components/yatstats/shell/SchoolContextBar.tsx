@@ -98,10 +98,10 @@ export default function SchoolContextBar({
   const schoolData = useContext(SchoolContext);
   const playerProfile = useContext(PlayerProfileContext);
   const pathname = usePathname();
-  // Cycle: front -> Stats -> Game Log -> News -> Social -> Connect ->
-  // Stories -> front -> idle click -> Stats. Idle is an intentional
-  // extra click after returning to the front to avoid overshooting.
-  const FLIP_ALL_TABS = ['stats', 'schedule', 'news', 'social', 'connect', 'upload'] as const;
+  // Cycle: front -> 7-Day Snapshot / Where YAT Now? -> Stats -> News ->
+  // Social -> Connect -> Stories -> front -> idle click -> first tab.
+  // The extra idle click avoids overshooting on the next Flip All.
+  const FLIP_ALL_TABS = ['schedule', 'stats', 'news', 'social', 'connect', 'upload'] as const;
   const [flipAllStep, setFlipAllStep] = useState(0);
   const allCardsFlipped = flipAllStep >= 1 && flipAllStep <= FLIP_ALL_TABS.length;
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
@@ -170,6 +170,9 @@ export default function SchoolContextBar({
       const onBack = nextStep >= 1 && nextStep <= FLIP_ALL_TABS.length;
       const tab = onBack ? FLIP_ALL_TABS[nextStep - 1] : null;
       getVisibleGalleryCards().forEach((card) => {
+        // Mark the back visible before selecting the panel: the lazy 7-day
+        // loader must see is-flipped when the first tab becomes active.
+        card.classList.toggle('is-flipped', onBack);
         if (tab) {
           card.dispatchEvent(new CustomEvent('yat:flip-all-tab', { detail: { tab } }));
           // Cross-school favorites are inserted as unhydrated HTML.
@@ -178,7 +181,6 @@ export default function SchoolContextBar({
             card.querySelector<HTMLElement>(`.fz-tab-btn[data-fz-tab="${tab}"]`)?.click();
           }
         }
-        card.classList.toggle('is-flipped', onBack);
       });
     }
     setFlipAllStep(nextStep);
@@ -210,7 +212,7 @@ export default function SchoolContextBar({
         )}
         {isGallery && (
           <>
-            <button id="flipAllCards" className="yat-icon-btn" aria-label={flipAllStep === 7 ? 'Pause before flipping all cards again' : flipAllStep === 8 || flipAllStep === 0 ? 'Flip all cards to Stats' : flipAllStep === 6 ? 'Return all cards to front' : `Show all cards: ${FLIP_ALL_TABS[flipAllStep] === 'schedule' ? 'Game Log' : FLIP_ALL_TABS[flipAllStep] === 'upload' ? 'Stories' : FLIP_ALL_TABS[flipAllStep] || 'Stats'}`} aria-pressed={allCardsFlipped} title={flipAllStep === 7 ? 'Safety pause (no change)' : 'Cycle all flip cards through Fun Zone tabs'} onClick={handleFlipAll} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
+            <button id="flipAllCards" className="yat-icon-btn" aria-label={flipAllStep === 7 ? 'Pause before flipping all cards again' : flipAllStep === 8 || flipAllStep === 0 ? 'Flip all cards to 7-Day Snapshot or Where YAT Now' : flipAllStep === 6 ? 'Return all cards to front' : `Show all cards: ${FLIP_ALL_TABS[flipAllStep] === 'schedule' ? 'Game Log' : FLIP_ALL_TABS[flipAllStep] === 'upload' ? 'Stories' : FLIP_ALL_TABS[flipAllStep] || 'Stats'}`} aria-pressed={allCardsFlipped} title={flipAllStep === 7 ? 'Safety pause (no change)' : 'Cycle all flip cards through Fun Zone tabs'} onClick={handleFlipAll} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', padding: 0, border: 'none', background: 'transparent', color: 'inherit', opacity: 1 }}>
               <img data-flip-all-icon="true" src="/img/flip-all-icon.review.png" alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block', transform: allCardsFlipped ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }} />
             </button>
             <button id="openSort" className="yat-icon-btn" aria-label="Open sort"><i className="ri-sort-desc" /></button>

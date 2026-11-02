@@ -32,10 +32,10 @@ import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
 import FantasyGameSocial from './FantasyGameSocial';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { Roboto_Condensed } from 'next/font/google';
+import localFont from 'next/font/local';
 
 // The scoreboard type (the game cards), condensed like the MLB and ESPN apps.
-const scoreboardFont = Roboto_Condensed({ subsets: ['latin'], variable: '--yfp-sb', display: 'swap' });
+const scoreboardFont = localFont({ src: [{ path: '../../fonts/roboto-condensed-latin-400-normal.woff2', weight: '400' }, { path: '../../fonts/roboto-condensed-latin-500-normal.woff2', weight: '500' }, { path: '../../fonts/roboto-condensed-latin-700-normal.woff2', weight: '700' }], variable: '--yfp-sb', display: 'swap' });
 
 const dates = (index: Index, w: number) => (index.weeks[w - 1] ? fmtRange(index.weeks[w - 1][0], index.weeks[w - 1][1]) : '');
 const shareSchoolLabel=(raw:string)=>raw.replace(/,\s*/g,', ').trim();

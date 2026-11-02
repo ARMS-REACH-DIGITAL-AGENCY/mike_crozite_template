@@ -47,7 +47,9 @@ export default function PlayerCardFlipBehavior() {
 
       event.stopPropagation();
       startFlipLift();
+      const opening = !card.classList.contains("is-flipped");
       card.classList.toggle("is-flipped");
+      if (opening) card.dispatchEvent(new CustomEvent("yat:flip-all-tab", { detail: { tab: "schedule" } }));
     };
 
     card.addEventListener("click", handleCardClick);

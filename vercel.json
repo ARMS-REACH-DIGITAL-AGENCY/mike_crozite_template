@@ -79,6 +79,10 @@
     },
     {
       "path": "/api/cron/flip-card-status-reconciliation",
+        "schedule": "*/10 * * * *"
+      },
+      {
+      "path": "/api/cron/where-yat-arms-sync",
       "schedule": "*/10 * * * *"
     }
   ]

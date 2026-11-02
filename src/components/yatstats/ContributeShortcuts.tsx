@@ -12,7 +12,8 @@ function closeAccountDrawer() {
   if (!document.body.className.match(/drawer-(left|right|sort|favorites|story|contribute)-open/)) document.body.classList.remove('drawer-open');
   const drawer = document.getElementById('drawerAccount');
   drawer?.classList.remove('open', 'is-open', 'active');
-  drawer?.setAttribute('aria-hidden', 'true');
+  // The body class owns visibility; do not leave a stale aria-hidden on
+  // the account panel when the fan later reopens it.
   document.getElementById('drawerMask')?.classList.remove('open', 'is-open', 'active');
 }
 
@@ -24,6 +25,7 @@ export default function ContributeShortcuts() {
           key={option.id}
           type="button"
           className="ycs-item"
+          data-drawer-handoff="contribute"
           onClick={() => {
             closeAccountDrawer();
             openContribute({ tab: option.tab });

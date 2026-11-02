@@ -34,6 +34,9 @@ import type { ReactNode } from "react";
 import { installFunZoneSwipe } from "./funZoneSwipe";
 import SevenDaySnapshotView from "./SevenDaySnapshotView";
 import {openWhereYatNow} from "./WhereYatNowDrawer";
+import {auth} from "@/lib/firebase";
+import {onAuthStateChanged} from "firebase/auth";
+import WhereYatFunZonePanel from "./WhereYatFunZonePanel";
 import { parseNewsVideo } from "@/lib/newsVideo";
 import { PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 
@@ -720,7 +723,36 @@ export default function FunZone({
   lazySchedulePlayerId,
 }: FunZoneProps) {
   const retiredPlayer = /\bRETIRED\b/i.test(String(player.status_label || player.status || ""));
+  const imageId = String(player.playerid || "");
   const [activeTab, setActiveTab] = useState<TabId>("stats");
+  const [alumniUpdate,setAlumniUpdate]=useState<any>(null);
+  useEffect(()=>{
+    // Loading every retired player's status during a roster render produces
+    // thousands of unnecessary DB requests. Load only on the selected tab.
+    if(!retiredPlayer || activeTab!=='schedule') return;
+    let active=true;
+    const load=async()=>{
+      try {
+        await auth.authStateReady?.();
+        const token=await auth.currentUser?.getIdToken().catch(()=>'');
+        const url='/api/contribute/where-yat-now/status?playerId='+encodeURIComponent(imageId)+'&hsid='+encodeURIComponent(resolvedHsid);
+        const response=await fetch(url,{credentials:'include',cache:'no-store',
+          headers:token?{'x-firebase-token':token}:{}});
+        const data=response.ok?await response.json():null;
+        if(active)setAlumniUpdate(data?.update||null);
+      } catch {/* An unavailable status endpoint must not break the flip card. */}
+    };
+    load();
+    const onFocus=()=>{void load()};
+    const onSubmitted=(event:Event)=>{
+      const detail=(event as CustomEvent<{playerId:string;hsid:string}>).detail;
+      if(detail?.playerId===imageId && detail?.hsid===resolvedHsid)void load();
+    };
+    const unsubscribe=onAuthStateChanged(auth,()=>{void load()});
+    window.addEventListener('focus',onFocus);
+    window.addEventListener('yat:where-yat-submitted',onSubmitted);
+    return()=>{active=false;unsubscribe();window.removeEventListener('focus',onFocus);window.removeEventListener('yat:where-yat-submitted',onSubmitted)};
+  },[retiredPlayer,activeTab,imageId,resolvedHsid]);
   const [loadedSchedule, setLoadedSchedule] = useState<{items:import('./PlayerSevenDaySnapshot').SnapshotItem[];todayIso:string}|null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState(false);
@@ -774,7 +806,6 @@ export default function FunZone({
     setActiveStatsIndex(0);
   }
 
-  const imageId = String(player.playerid || "");
   const slug = String(player.slug || "");
   const firstName = displayName.split(" ")[0] || "this player";
   const lastName = String(player.lastname || player.last_name || displayName.split(" ").slice(1).join(" ") || "");
@@ -800,7 +831,7 @@ export default function FunZone({
         1. CTA strip - YaTi (left) + speech bubble (right)
            flex-shrink:1 - yields padding before the content panel.
       */}
-      <YatiCta ctaText={ctaText} profileHref={profileHref} />
+      {!(retiredPlayer && activeTab === "schedule") && <YatiCta ctaText={ctaText} profileHref={profileHref} />}
 
       {/*
         2. Content panels - flex:1 min-height:0
@@ -819,11 +850,27 @@ export default function FunZone({
         data-fz-tab="schedule"
       >
         {retiredPlayer ? (
-          <div className="fz-where-yat" style={{padding:'9px',textAlign:'center',fontFamily:'Oswald,sans-serif'}}>
-            <h3 style={{fontSize:'clamp(16px,5cqi,24px)',marginBottom:9}}>WHERE YAT NOW?</h3>
-            <p style={{fontSize:'clamp(10px,3cqi,14px)',marginBottom:12}}>Share what life looks like after baseball.</p>
-            <button type="button" onClick={() => openWhereYatNow({playerId:imageId,hsid:resolvedHsid,name:displayName})}
-              style={{background:'#145a3c',color:'#fff',border:0,borderRadius:3,padding:'8px 12px',fontWeight:800,cursor:'pointer'}}>SHARE YOUR UPDATE →</button>
+          <div className="fz-where-yat">
+            <WhereYatFunZonePanel
+              state={alumniUpdate?.status === 'approved' ? 'approved' : alumniUpdate?.status === 'pending' ? 'pending' : 'unclaimed'}
+              firstName={firstName}
+              playerId={imageId} hsid={resolvedHsid} displayName={displayName} schoolName={''}
+              profileHref={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`}
+              proof={alumniUpdate?.status === 'approved' ? {
+                playerId:imageId, hsid:resolvedHsid, displayName:alumniUpdate.display_name||displayName,
+                city:alumniUpdate.location_city||'', state:alumniUpdate.location_state||'',
+                occupation:alumniUpdate.occupation||'', company:alumniUpdate.company_name||'',
+                website:alumniUpdate.business_website||'', linkedin:alumniUpdate.linkedin_url||'',
+                instagram:alumniUpdate.instagram_url||'', facebook:alumniUpdate.facebook_url||'',
+                x:alumniUpdate.x_url||'',story:String(({favoriteHs:alumniUpdate.favorite_hs_memory,favoriteAfter:alumniUpdate.favorite_post_hs_memory,family:alumniUpdate.family_life,story:alumniUpdate.story} as Record<string,unknown>)[alumniUpdate.featured_memory_key||'story']||alumniUpdate.story||''),
+                storyPrompt:({favoriteHs:'MOST MEMORABLE HIGH SCHOOL BASEBALL MOMENT',favoriteAfter:'MOST MEMORABLE BASEBALL MOMENT AFTER GRADUATION',family:'LIFE AND FAMILY',story:'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?'} as Record<string,string>)[alumniUpdate.featured_memory_key||'story']||'WHAT HAS LIFE BEEN LIKE SINCE BASEBALL?',
+                photoUrl:alumniUpdate.memory_photos_json?.[alumniUpdate.featured_memory_key||'story']?.[0]?.web||alumniUpdate.photo_url||null,logoUrl:alumniUpdate.company_logo_url||null,
+                businessPublic:Boolean(alumniUpdate.business_public_opt_in),
+                 businesses:Array.isArray(alumniUpdate.businesses_json)?alumniUpdate.businesses_json:[],
+                 businessHeadshotUrl:alumniUpdate.business_headshot_url||null,
+                 businessEmail:alumniUpdate.business_contact_email||null,businessPhone:alumniUpdate.business_contact_phone||null,
+              } : null}
+            />
           </div>
         ) : lazySchedulePlayerId ? (
           loadedSchedule ? <SevenDaySnapshotView {...loadedSchedule} profileHref={`/${resolvedHsid}/player/${imageId}/${slug}#ppTab-schedule`} /> :
@@ -903,7 +950,7 @@ export default function FunZone({
             type="button"
           >
             <i className={tab.icon} aria-hidden="true" />
-            <span className="fz-tab-label">{retiredPlayer && tab.id === "schedule" ? "WHERE YAT NOW?" : tab.label}</span>
+            <span className="fz-tab-label">{retiredPlayer && tab.id === "schedule" ? "YAT?" : tab.label}</span>
           </button>
         ))}
       </nav>
@@ -1048,6 +1095,19 @@ export default function FunZone({
           background:transparent;
         }
 
+        /* Where YAT Now art occupies the existing panel only; tabs remain
+           outside it as six real navigation buttons, at every card size. */
+        .fz-where-yat{height:100%;min-height:0;display:flex;overflow:hidden;}
+        .fz-panel[data-fz-tab="schedule"]:has(.fz-where-yat){
+          padding:0;
+        }
+        .fz-root:has(.fz-where-yat){min-height:0;}
+        .fz-root:has(.fz-where-yat) .fz-tab-strip{
+          flex-shrink:0;
+          min-height:clamp(28px,9.5cqi,53px);
+          position:relative;
+          z-index:2;
+        }
         .fz-stats-shell{
           display:flex;
           flex-direction:column;

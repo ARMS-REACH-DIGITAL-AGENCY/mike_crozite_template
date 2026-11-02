@@ -7,13 +7,15 @@
 import { useEffect, useState } from 'react';
 import { auth } from '@/lib/firebase';
 import { photoTypeLabel } from '@/lib/contribute';
+import { toSlugFromDisplay } from '@/lib/slug';
 
 type Photo = {
   id: string; playerid: string; hsid: string; purpose: string; url: string | null; date_taken: string | null;
   uploaded_at: string; player_name: string | null; school_name: string | null;
   details: { note?: string | null; season?: { year?: number; team?: string; label?: string } | null; cropped?: boolean; moderation?: { decision?: string; description?: string } | null; playerName?: string | null; by?: { name?: string; email?: string | null } };
 };
-type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; article_url: string; notes: string | null; status: string };
+type Tip = { id: string; submitted_at: string; intake_source: string; sender_name: string | null; raw_player_name: string | null; matched_playerid?: string | null; matched_hsid?: string | null; article_url: string; notes: string | null; status: string };
+type Alumni = { id: number | string; playerid: string; hsid: string; display_name: string; contact_email: string; location_city: string | null; location_state: string | null; occupation: string | null; company_name: string | null; business_website: string | null; linkedin_url: string | null; instagram_url: string | null; facebook_url: string | null; x_url: string | null; story: string | null; photo_url: string | null; company_logo_url: string | null; sponsorship_interest: boolean; created_at: string; proof_confirmed_at:string|null; identity_review_method:string|null; identity_review_note:string|null; retirement_year:number|null;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;business_message:string|null;business_offer:string|null;business_contact_email:string|null;business_contact_phone:string|null;business_public_opt_in:boolean;private_teammate_tips:string|null;life_photos_json:Array<{web:string;full:string;thumb:string}>;alumni_claim_attested:boolean;arms_sync_status?:string;arms_sync_attempts?:number;arms_synced_at?:string|null;arms_sync_error?:string|null;arms_contact_id?:string|null;arms_task_id?:string|null; };
 type Missing = { id: string; created_at: string; player_name: string; grad_year: number | null; school_name: string | null; notes: string | null };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -56,6 +58,9 @@ function proposedCurrentTeam(tip: Tip): {teamId:string;teamName:string;level:str
 export default function ReviewQueue() {
   const [data, setData] = useState<{ photos: Photo[]; tips: Tip[]; missing: Missing[] } | null>(null);
   const [error, setError] = useState('');
+  const [alumni, setAlumni] = useState<Alumni[]>([]);
+  const [alumniError, setAlumniError] = useState('');
+  const [alumniReviewError, setAlumniReviewError] = useState<Record<string,string>>({});
   const [busy, setBusy] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -66,6 +71,11 @@ export default function ReviewQueue() {
       if (!live) return;
       if (!res.ok) setError(body?.error || 'Could not load the queue.');
       else setData(body);
+      const alumniRes = await fetch('/api/contribute/where-yat-now/review', { credentials: 'include', cache: 'no-store', headers: await authHeaders() });
+      const alumniBody = await alumniRes.json().catch(() => ({}));
+      if (!live) return;
+      if (alumniRes.ok) setAlumni(alumniBody.submissions || []);
+      else setAlumniError(alumniBody.error || 'Could not load alumni review queue.');
     })();
     return () => { live = false; };
   }, []);
@@ -89,11 +99,71 @@ export default function ReviewQueue() {
     setBusy(b=>{const next={...b};delete next[id];return next;});
   };
 
+  useEffect(() => {
+    if (!alumni.length) return;
+    const id = new URLSearchParams(window.location.search).get('alumni');
+    if (!id || !alumni.some(item => String(item.id) === id)) return;
+    requestAnimationFrame(() => document.getElementById('alumni-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [alumni]);
+
+  const reviewAlumni = async (id: number | string, status: 'approved' | 'rejected') => {
+    const key = 'alumni-' + id;
+    setAlumniReviewError(errors => { const next = {...errors}; delete next[key]; return next; });
+    setBusy(current => ({ ...current, [key]: status === 'approved' ? 'Approving…' : 'Rejecting…' }));
+    try {
+      const res = await fetch('/api/contribute/where-yat-now/review', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+        body: JSON.stringify({ id: String(id), status }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.ok) {
+        setAlumniReviewError(errors => ({ ...errors, [key]: result.error || 'Review failed. Please retry.' }));
+        return;
+      }
+      setAlumni(items => items.filter(item => String(item.id) !== String(id)));
+    } catch {
+      setAlumniReviewError(errors => ({ ...errors, [key]: 'Could not save the review. Please retry.' }));
+    } finally {
+      setBusy(current => { const next = {...current}; delete next[key]; return next; });
+    }
+  };
+  const focusId = typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('alumni') || '';
   if (error) return <div className="ycr"><p className="ycr-error">{error}</p><Style /></div>;
   if (!data) return <div className="ycr"><p>Loading…</p><Style /></div>;
 
   return (
     <div className="ycr">
+      <h2>Where YAT Now? alumni updates waiting ({alumni.length})</h2>
+      {alumniError && <p className="ycr-error">{alumniError}</p>}
+      {alumni.length === 0 && !alumniError && <p className="ycr-muted">No pending alumni updates.</p>}
+      <div className="ycr-grid ycr-alumni-grid">
+        {alumni.map(item => <article key={item.id} id={'alumni-' + item.id} className="ycr-card" style={{ outline: focusId === String(item.id) ? '2px solid #e9bf56' : undefined, scrollMarginTop: 100 }}>
+          <h3 style={{ fontFamily: 'Oswald,sans-serif', fontSize: 24 }}>{item.display_name}</h3>
+          <p className="ycr-muted">School #{item.hsid} · Submission #{item.id} · {when(item.created_at)}</p>
+          {item.photo_url && <img src={item.photo_url} alt={'Submitted photo of ' + item.display_name} />}
+          {item.company_logo_url && <div><strong>Submitted company logo:</strong><img src={item.company_logo_url} alt={'Company logo for '+(item.company_name||item.display_name)} style={{width:130,height:95,objectFit:'contain',display:'block',background:'#eee'}} /></div>}
+          {item.story && <section><strong>Story</strong><p style={{whiteSpace:'pre-wrap'}}>{item.story}</p></section>}
+          {item.occupation && <p>Occupation: {item.occupation}</p>}
+          {item.company_name && <p>Organization: {item.company_name}</p>}
+          {[item.location_city,item.location_state].filter(Boolean).length > 0 && <p>Location: {[item.location_city,item.location_state].filter(Boolean).join(', ')}</p>}
+          {[item.business_website,item.linkedin_url,item.instagram_url,item.facebook_url,item.x_url].filter(Boolean).map(url => <p key={url}><a href={url!} target="_blank" rel="noopener noreferrer" style={{color:'#e9bf56'}}>{url}</a></p>)}
+          {item.retirement_year&&<p>Retired from baseball: {item.retirement_year}</p>}
+          {([['High school memory',item.favorite_hs_memory],['Post-graduation baseball memory',item.favorite_post_hs_memory],['Family and life',item.family_life],['Business message',item.business_message],['Special offer',item.business_offer]] as const).map(([label,value])=>value&&<section key={label}><strong>{label}</strong><p style={{whiteSpace:'pre-wrap'}}>{value}</p></section>)}
+          {Array.isArray(item.life_photos_json)&&item.life_photos_json.length>0&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{item.life_photos_json.map((photo,i)=><img key={i} src={photo.web} alt={'Submitted life photo '+(i+1)} style={{width:130,height:110,objectFit:'contain'}} />)}</div>}
+          {item.business_public_opt_in && <p>Public business contact: {[item.business_contact_email,item.business_contact_phone].filter(Boolean).join(' / ')}</p>}
+          {item.private_teammate_tips && <section style={{padding:12,border:'2px dashed #e9bf56'}}><strong>Private teammate tips (do not publish)</strong><p style={{whiteSpace:'pre-wrap'}}>{item.private_teammate_tips}</p></section>}
+          <p>Contact email: {item.contact_email}</p>
+          <p>Partnership interest: {item.sponsorship_interest ? 'Yes' : 'No'}</p>
+          {busy['alumni-' + item.id] && <p role="status">{busy['alumni-' + item.id]}</p>}
+          {alumniReviewError['alumni-' + item.id] && <p className="ycr-error" role="alert">{alumniReviewError['alumni-' + item.id]}</p>}
+          <div className="ycr-actions">
+            <button type="button" className="ycr-btn ycr-yes" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'approved')}>Approve</button>
+            <button type="button" className="ycr-btn" disabled={!!busy['alumni-' + item.id]} onClick={() => reviewAlumni(item.id,'rejected')}>Reject</button>
+          </div>
+        </article>)}
+      </div>
       <h2>Photos waiting ({data.photos.length})</h2>
       {data.photos.length === 0 ? <p className="ycr-muted">Nothing waiting.</p> : null}
       <div className="ycr-grid">
@@ -143,7 +213,10 @@ export default function ReviewQueue() {
               : currentTeam ? <div><strong>{currentTeam.teamName || currentTeam.teamId}</strong>
                 {currentTeam.level ? ` · ${currentTeam.level}` : ''} · Team ID: {currentTeam.teamId}</div>
               : t.notes ? <div>{t.notes}</div> : null}
-            {t.article_url ? <div><a href={t.article_url} target="_blank" rel="noopener noreferrer">{t.article_url}</a></div> : null}
+            {t.intake_source === 'correction' && t.matched_playerid && t.matched_hsid
+              ? <div>Corrected player: <a href={'/' + t.matched_hsid + '/player/' + encodeURIComponent(t.matched_playerid) + '/' + toSlugFromDisplay(t.raw_player_name || 'player')} target="_blank" rel="noopener noreferrer">{t.raw_player_name || t.matched_playerid} (school {t.matched_hsid})</a></div>
+              : null}
+            {t.article_url ? <div>{t.intake_source === 'correction' ? 'Submitted from: ' : null}<a href={t.article_url} target="_blank" rel="noopener noreferrer">{t.article_url}</a></div> : null}
             {t.intake_source === 'social_scout' && t.status === 'published' ? <div className="ycr-actions">
               <button type="button" className="ycr-btn" disabled={!!busy[t.id]}
                 onClick={()=>act(t.id,'unpublish_scout')}>Remove from News</button>
@@ -190,6 +263,7 @@ function Style() {
       .ycr-muted { opacity: .65; }
       .ycr-error { color: #ff6b6b; }
       .ycr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+       .ycr-alumni-grid { grid-template-columns: minmax(0, 1fr); max-width: 760px; }
       .ycr-card { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
       .ycr-card img { width: 100%; aspect-ratio: 5/7; object-fit: contain; background: rgba(255,255,255,.05); border-radius: 6px; }
       .ycr-meta { display: flex; flex-direction: column; gap: 3px; font-size: 13px; line-height: 1.35; }
