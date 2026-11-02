@@ -1,6 +1,8 @@
 'use client';
 
 import PlayerCardBackHero from './PlayerCardBackHero';
+import { whereYatHeadshotCutoutUrl } from '@/lib/whereYatHeadshotCutout';
+import { useEffect, useState } from 'react';
 import type { Crop } from '@/lib/contribute';
 import type { CSSProperties } from 'react';
 import { WHERE_YAT_MEMORY_MAX_CHARS } from '@/lib/whereYatPrompts';
@@ -90,9 +92,11 @@ export default function WhereYatProofCard({
   const storyText=proof.story||'Visit the player profile to learn more about life after baseball.';
   // Never silently truncate a submitted memory. New entries have a clear authoring limit.
   const hasMore=storyText.length>WHERE_YAT_MEMORY_MAX_CHARS;
-  const portrait=showBusiness ? proof.businessHeadshotUrl : null;
+  const portrait=showBusiness ? whereYatHeadshotCutoutUrl(proof.businessHeadshotUrl) : null;
+  const [portraitReady,setPortraitReady] = useState(false);
+  useEffect(() => { setPortraitReady(false); }, [portrait]);
   const heroCrop=proof.heroPreviewUrl ? proof.heroCrop : null;
-  const headshotCrop=proof.businessHeadshotUrl&&proof.businessHeadshotCrop;
+  // Uploaded headshots use the same transparent PNG cutout in proofs and published cards.
   const memoryCrop=proof.photoUrl&&proof.memoryPhotoCrop;
   const heroStyle=heroCrop ? {
     '--wyn-hero-left': (-heroCrop.x / Math.max(0.001,heroCrop.w) * 100) + '%',
@@ -103,17 +107,17 @@ export default function WhereYatProofCard({
   const showBusinessArea=showBusiness && (businessNames||proof.logoUrl||businessLogos.length>0||businessHref||socialLinks.length>0||emailHref||textHref);
   const body = (
     <div className="wyn-body">
-      <div className={'wyn-top-half'+(portrait?' wyn-top-has-headshot':'')}>
+      <div className={'wyn-top-half'+(portraitReady?' wyn-top-has-headshot':'')}>
         <div className="wyn-heading">WHERE YAT NOW?</div>
         {showBusiness && businessNames && <div className="wyn-business-names">{businessNames}</div>}
-        <div className={'wyn-identity'+(portrait?' wyn-identity-has-headshot':'')}>
+        <div className={'wyn-identity'+(portraitReady?' wyn-identity-has-headshot':'')}>
           <div className="wyn-identity-details">
             {showName && <div className="wyn-small-name">{proof.displayName}</div>}
             {proof.occupation && <p>{proof.occupation}</p>}
             {location && <p>{location}</p>}
           </div>
         </div>
-        {portrait && <span className="wyn-headshot" role="img" aria-label={proof.displayName+' business portrait'}><img src={portrait} alt="" style={headshotCrop?{position:'absolute',maxWidth:'none',left:(-100*headshotCrop.x/headshotCrop.w)+'%',top:(-100*headshotCrop.y/headshotCrop.h)+'%',width:(100/headshotCrop.w)+'%',height:(100/headshotCrop.h)+'%',objectFit:'fill'}:{width:'100%',height:'100%',objectFit:'cover'}}/></span>}
+        {portrait && <span className="wyn-headshot" role="img" aria-label={proof.displayName+' business portrait'} style={{display:portraitReady?'block':'none'}}><img src={portrait} alt="" onLoad={() => setPortraitReady(true)} onError={() => setPortraitReady(false)} style={{width:'100%',height:'100%',objectFit:'contain',objectPosition:'center bottom',background:'transparent'}}/></span>}
         {showBusinessArea && <div className="wyn-business-links" style={{'--wyn-business-link-count':Math.max(1,businessLinkCount)} as CSSProperties} aria-label="Business logos and contact links">
           {(businessLogos.length>0||proof.logoUrl)&&<div className="wyn-business-list">
             {businessLogos.length>0 ? businessLogos.map((business,i)=>{
