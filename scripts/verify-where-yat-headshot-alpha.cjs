@@ -1,0 +1,20 @@
+// Regression gate: a black-backed portrait must never be displayed as a headshot.
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const read=p=>fs.readFileSync(p,'utf8');
+const card=read('src/components/yatstats/WhereYatProofCard.tsx');
+const legacy=read('src/app/api/contribute/where-yat-now/route.ts');
+const editor=read('src/app/api/contribute/where-yat-now/card/route.ts');
+const job=read('.github/workflows/hourly-player-image-cutouts.yml');
+const python=read('scripts/process-player-cutouts-s3.py');
+const urlMap=read('src/lib/whereYatHeadshotCutout.ts');
+assert(card.includes('whereYatHeadshotCutoutUrl(proof.businessHeadshotUrl)'), 'Card must not render raw headshot URLs');
+assert(card.includes('onError={() => setPortraitReady(false)}'), 'Missing cutouts must be hidden');
+assert(card.includes('objectFit:\'contain\''), 'Cutout should not be stretched or cropped');
+assert(!legacy.includes("business-headshots/${randomUUID()}.jpg"), 'New headshots cannot be flattened to JPEG');
+assert(legacy.includes("business-headshots/${randomUUID()}.png"), 'New headshots stored as PNG');
+assert(editor.includes(".png().toBuffer()"), 'Editor preserves alpha');
+assert(job.includes('YATSTATS_S3_OUTPUT_PREFIX: alumni-where-yat-now/headshot-cutouts/'), 'Hourly job must generate alumni cutouts');
+assert(job.includes('ONLY_HEADSHOT_PATHS: "true"'), 'Do not process unrelated submission photos');
+assert(python.includes('if ONLY_HEADSHOT_PATHS and not'), 'Python cutout job must filter');
+assert(urlMap.includes('headshot-cutouts'), 'Card URL should map to generated transparent PNG');
+console.log('PASS transparent alumni headshots from submission to rendered card, legacy backfill, missing-image fallback');
