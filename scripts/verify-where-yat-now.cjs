@@ -81,3 +81,6 @@ assert(card.includes('wyn-business-names') && !card.includes('-webkit-line-clamp
 assert(!card.includes('.wyn-embedded .wyn-social{'), 'Embedded published social icons must match the proof sizing');
 assert(card.includes('grid-template-columns:repeat(var(--wyn-business-link-count,1)'), 'Business and social links share equally sized tracks');
 console.log('PASS published retired flip card matches proof typography and spacing without duplicate branding');
+
+// Keep the published business portrait and memory layout from regressing.
+require('./verify-where-yat-headshot-alpha.cjs');
