@@ -235,7 +235,9 @@ export default function ContributeDrawer() {
         if (d.player === undefined) choosePlayer(null);
         setSchool(d.school || hubSchool);
       }
-      if (d.player !== undefined && d.player?.playerId !== player?.playerId) choosePlayer(d.player);
+      // A different school for the same player is a different card (the
+      // retired-card designer needs the school the button was pressed on).
+      if (d.player !== undefined && (d.player?.playerId !== player?.playerId || d.player?.schoolId !== player?.schoolId)) choosePlayer(d.player);
       if (d.school) setSchool(d.school);
       const wantsSchool = d.photoType === 'school_logo' || (d.dataKind ? DATA_KINDS.find((k) => k.id === d.dataKind)?.seasons === 'school' : false);
       setAboutSchool(Boolean(wantsSchool));
@@ -269,7 +271,7 @@ export default function ContributeDrawer() {
     };
     window.addEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(CONTRIBUTE_OPEN_EVENT, onOpen);
-  }, [resetForms, choosePlayer, show, status.kind, player?.playerId, hubSchool?.hsid]);
+  }, [resetForms, choosePlayer, show, status.kind, player?.playerId, player?.schoolId, hubSchool?.hsid]);
 
   // The Firebase identity may remain valid when the server cookie is missing or stale.
   // Submit still validates the Firebase ID token server-side.
@@ -435,7 +437,7 @@ export default function ContributeDrawer() {
           </div>
         ) : null}
 
-        {tab === 'retired_card' && player ? <RetiredCardDrawerForm playerId={player.playerId} hsid={player.schoolId||hubSchool?.hsid||''} name={player.displayName} school={player.schoolName||hubSchool?.name||''} onClose={close}/> : tab === 'photo' ? (
+        {tab === 'retired_card' && player ? <RetiredCardDrawerForm playerId={player.playerId} hsid={[player.schoolId,hubSchool?.hsid].map(id=>String(id||'').trim()).find(id=>/^\d{1,10}$/.test(id))||''} name={player.displayName} school={player.schoolName||hubSchool?.name||''} onClose={close}/> : tab === 'photo' ? (
           <ContributePhotoFlow
             key={photoFlowKey}
             hubSchool={hubSchool}
