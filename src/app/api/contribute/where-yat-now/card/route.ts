@@ -41,7 +41,8 @@ export async function PATCH(req:NextRequest){
   if(!(photo instanceof File)||!photo.size)continue;
   if(!s3)return fail('Image storage is temporarily unavailable.',503);
   if(photo.size>5_000_000||!['image/jpeg','image/png','image/webp'].includes(photo.type))return fail('Upload a JPG, PNG or WebP under 5 MB.',413);
-  const bytes=await sharp(Buffer.from(await photo.arrayBuffer()),{failOn:'error',limitInputPixels:16000000}).rotate().resize(900,900,{fit:'inside',withoutEnlargement:true}).png().toBuffer();
+  // PNG retains source alpha; background removal is produced by the hourly cutout job.
+   const bytes=await sharp(Buffer.from(await photo.arrayBuffer()),{failOn:'error',limitInputPixels:16000000}).rotate().resize(900,900,{fit:'inside',withoutEnlargement:true}).png().toBuffer();
   const key='alumni-where-yat-now/pending/'+id+'/'+prefix+'/'+randomUUID()+'.png';
   await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:key,Body:bytes,ContentType:'image/png'}));
   const url=storyAssetUrl(key);
