@@ -38,7 +38,8 @@ export const sponsorFlipCards: SponsorFlipCard[] = [
     backImage: '/img/sponsors/payroll-impact-back.webp',
     frontAlt: 'Business owners, stop leaving runners on base. Learn how your employees can score and you win too. Learn more.',
     backAlt: 'Payroll impact stats: about $600 in potential payroll savings per eligible employee per year, from $6,000 for 10 employees to $600,000 for 1,000. See if you qualify.',
-    destinationUrl: '',
+    // AW Sales landing page (HighLevel), Pete Nov 2 2026.
+    destinationUrl: 'https://armsreachdigital.agency/pcmp',
     schoolIds: '*',
     sections: ['active', 'current', 'alltime'],
   },
