@@ -99,3 +99,13 @@ console.log('PASS published retired flip card matches proof typography and spaci
   assert(unified.includes("form.set('businessHeadshot',headshot,"), 'Transparent PNG/WebP headshots are sent without flattening to JPEG');
 }
 console.log('PASS retired card limits keep one layout for every alum');
+
+// Pete, Nov 2 2026: the unclaimed "Where YAT now?" graphic on a retired card's
+// back takes the alum to their player profile on the YAT? tab (where the
+// questions are), not straight into the flip-card designer drawer.
+{
+  const panel = read('src/components/yatstats/WhereYatFunZonePanel.tsx');
+  assert(!panel.includes('openContribute') && !panel.includes('preventDefault'), 'Where YAT card graphic must link to the profile, not open the drawer');
+  assert(flip.includes('#ppTab-schedule`}'), 'Where YAT card graphic must open the profile on the YAT? tab');
+}
+console.log('PASS Where YAT card graphic opens the player profile YAT? tab');

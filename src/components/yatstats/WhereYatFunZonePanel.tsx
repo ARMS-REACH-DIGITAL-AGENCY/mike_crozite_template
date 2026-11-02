@@ -5,7 +5,6 @@
 // This is ONLY the content pane of the back of the flip card: the real player
 // hero above and the six working FunZone tabs below remain untouched.
 import WhereYatProofCard, { fitCqi, type WhereYatProof } from './WhereYatProofCard';
-import {openContribute} from '@/lib/contribute';
 
 export type WhereYatFunZoneState = 'unclaimed' | 'pending' | 'approved';
 
@@ -29,9 +28,11 @@ export default function WhereYatFunZonePanel({
     <section className={`wyn-fz wyn-fz-${state}`} aria-label="Where YAT Now? alumni card">
       {state !== 'approved' ? (
         // Both source graphics already contain their copy and call to action.
+        // Tapping goes to the alum's player profile on its YAT? tab, where the
+        // questions are answered (and the flip-card designer is offered).
         // Make the whole graphic one usable link; no duplicate styled CTA or
         // transparent text placed on top of the artwork.
-        <a href={profileHref} className="wyn-fz-graphic" aria-label={art.link} onClick={e=>{if(state==='unclaimed'&&playerId&&hsid){e.preventDefault();openContribute({tab:'retired_card',player:{playerId,displayName:displayName||firstName,schoolId:hsid,schoolName:schoolName||''}})}}}>
+        <a href={profileHref} className="wyn-fz-graphic" aria-label={art.link}>
           <img src={art.src} alt={art.alt} decoding="async" loading="eager" />
         </a>
       ) : proof ? (
