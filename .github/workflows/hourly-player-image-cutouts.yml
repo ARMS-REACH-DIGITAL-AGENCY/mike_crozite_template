@@ -100,3 +100,14 @@ jobs:
           YATSTATS_S3_OUTPUT_PREFIX: players/season-cutouts/
           INCLUDE_SOURCE_PNG: "true"
         run: python scripts/process-player-cutouts-s3.py
+
+      # Retired alumni business headshots use the same transparent cutout pipeline.
+      # Both legacy JPEGs and newer alpha PNGs are processed, without modifying sources.
+      - name: Where YAT business portraits (pending -> headshot-cutouts)
+        continue-on-error: true
+        env:
+          YATSTATS_S3_SOURCE_PREFIX: alumni-where-yat-now/pending/
+          YATSTATS_S3_OUTPUT_PREFIX: alumni-where-yat-now/headshot-cutouts/
+          INCLUDE_SOURCE_PNG: "true"
+          ONLY_HEADSHOT_PATHS: "true"
+        run: python scripts/process-player-cutouts-s3.py
