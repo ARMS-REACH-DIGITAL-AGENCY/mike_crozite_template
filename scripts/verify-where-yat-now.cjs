@@ -79,5 +79,23 @@ assert(fzPanel.includes('className="wyn-proof-cta"'), 'Published CTA must use th
 assert(!fzPanel.includes('.wyn-fz-approved-content .wyn-heading') && !fzPanel.includes('.wyn-fz-approved-content .wyn-story'), 'Published view must not shrink or restyle proof headings and story');
 assert(card.includes('wyn-business-names') && !card.includes('-webkit-line-clamp:2'), 'Company names must wrap rather than be clipped');
 assert(!card.includes('.wyn-embedded .wyn-social{'), 'Embedded published social icons must match the proof sizing');
+assert(card.includes('.split(/\\s*\\|\\s*/)') && card.includes('wyn-info-panel'), 'Each business name gets its own line in the mockup info panel');
+assert(!card.includes('clamp(') || !card.slice(card.indexOf('.wyn-body{'),card.indexOf('.wyn-footer{')).includes('clamp('), 'Card body scales purely with card width so proof and published match');
+assert(read('src/app/api/contribute/where-yat-now/route.ts').includes("500,750,'png'"), 'Business headshots must keep their transparent background');
 assert(card.includes('grid-template-columns:repeat(var(--wyn-business-link-count,1)'), 'Business and social links share equally sized tracks');
 console.log('PASS published retired flip card matches proof typography and spacing without duplicate branding');
+
+// One retired-alumni layout for everyone: printed answers have hard limits,
+// enforced in the drawer and on the server, and the proof uses the same
+// memory headings as the published card.
+{
+  const limits = read('src/lib/whereYatPrompts.ts');
+  const unified = read('src/components/yatstats/WhereYatUnifiedDrawer.tsx');
+  assert(/WHERE_YAT_MEMORY_MAX_CHARS = 300;/.test(limits) && /businessLine: 34,/.test(limits) && /occupation: 32,/.test(limits), 'Card limits measured on Nov 2 2026 (300-char memory, 34-char business lines, 32-char profession) must not be raised without re-measuring the card');
+  assert(submit.includes('whereYatLimitProblem(') && submit.includes('if (tooLong) return reply(tooLong);'), 'Server must refuse answers that do not fit the card');
+  assert(unified.includes('whereYatLimitProblem(') && unified.includes('cardLimits[key]') && unified.includes('WHERE_YAT_LIMITS.businessLine'), 'Drawer must show and enforce the card limits');
+  assert(unified.includes('storyPrompt:whereYatCardHeading(selected)') && flip.includes('whereYatCardHeading(alumniUpdate.featured_memory_key)'), 'Proof and published card must use the same memory heading');
+  assert(card.includes('storyText.length>WHERE_YAT_MEMORY_MAX_CHARS?'), 'Memories within the limit print at full size');
+  assert(unified.includes("form.set('businessHeadshot',headshot,"), 'Transparent PNG/WebP headshots are sent without flattening to JPEG');
+}
+console.log('PASS retired card limits keep one layout for every alum');

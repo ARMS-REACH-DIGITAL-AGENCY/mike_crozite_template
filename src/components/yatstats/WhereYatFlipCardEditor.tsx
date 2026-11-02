@@ -8,7 +8,7 @@ import {copyStoryPhoto,prepareStoryPhoto,type StoryPhotoData} from '@/lib/storyP
 import type {Crop} from '@/lib/contribute';
 import PhotoCropper from './PhotoCropper';
 import WhereYatProofCard,{type WhereYatProof} from './WhereYatProofCard';
-import {WHERE_YAT_PROMPTS,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
+import {WHERE_YAT_PROMPTS,whereYatCardHeading,type WhereYatPromptKey} from '@/lib/whereYatPrompts';
 
 type Photo={web:string;full:string;thumb:string};
 type MemoryPhoto={src:string;original?:Photo;upload?:StoryPhotoData};
@@ -105,7 +105,7 @@ export default function WhereYatFlipCardEditor({
   logoUrl:logoPreview||saved.company_logo_url||null,
   businessHeadshotUrl:headshotPreview||saved.business_headshot_url||null,
   story:String(saved[answers[featured]]||''),
-  storyPrompt:selected?.label.replace('YOUR HIGH SCHOOL',school.toUpperCase()),
+  storyPrompt:whereYatCardHeading(selected?.key),
   photoUrl:memoryPhotos[featured]?.[0]?.src||null,
   heroPreviewUrl:heroPreview,heroCrop,businessPublic:consent
  };

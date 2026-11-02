@@ -13,6 +13,7 @@ import { storeStoryPhoto, STORY_MAX_PHOTO_BYTES } from '@/lib/stories';
 import { moderateContributedTip } from '@/lib/contributeTipModeration';
 import { moderatePhoto } from '@/lib/contributeModeration';
 
+import { WHERE_YAT_PROMPTS, whereYatCardHeading, whereYatLimitProblem } from '@/lib/whereYatPrompts';
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 const reply = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -25,7 +26,7 @@ function requestedCrop(value:FormDataEntryValue|null):PhotoCrop|null{
  }catch{}
  return null;
 }
-async function applyPositionedCrop(raw:Buffer,c:PhotoCrop|null,w:number,h:number){
+async function applyPositionedCrop(raw:Buffer,c:PhotoCrop|null,w:number,h:number,format:'jpeg'|'png'='jpeg'){
  let img=sharp(raw,{failOn:'error',limitInputPixels:16_000_000}).rotate();
  const metadata=await img.metadata();const W=metadata.width||0,H=metadata.height||0;
  if(c&&W&&H){
@@ -33,7 +34,8 @@ async function applyPositionedCrop(raw:Buffer,c:PhotoCrop|null,w:number,h:number
   const top=Math.max(0,Math.min(H-1,Math.round(c.y*H)));
   img=img.extract({left,top,width:Math.max(1,Math.min(W-left,Math.round(c.w*W))),height:Math.max(1,Math.min(H-top,Math.round(c.h*H)))});
  }
- return img.resize(w,h,{fit:'cover',position:'centre'}).jpeg({quality:85,mozjpeg:true}).toBuffer();
+ const sized=img.resize(w,h,{fit:'cover',position:'centre'});
+ return format==='png'?sized.png({compressionLevel:9}).toBuffer():sized.jpeg({quality:85,mozjpeg:true}).toBuffer();
 }
 
 export async function POST(req: NextRequest) {
@@ -76,6 +78,13 @@ export async function POST(req: NextRequest) {
     teammateTips: clean(form.get('teammateTips'), 5000),
     contactPhone: clean(form.get('contactPhone'), 40),
   };
+  // One card layout for every retired alum: anything printed on the card
+  // must fit it (src/lib/whereYatPrompts.ts). Refuse, never cut off.
+  const tooLong = whereYatLimitProblem({
+    company: fields.company, occupation: fields.occupation, city: fields.city, state: fields.state,
+    memories: WHERE_YAT_PROMPTS.map(prompt => ({ label: whereYatCardHeading(prompt.key), text: fields[prompt.key] })),
+  });
+  if (tooLong) return reply(tooLong);
   const normalized: Record<string, string> = {};
   for (const field of WHERE_YAT_LINK_FIELDS) {
     const result = normalizeWhereYatLink(field, fields[field]);
@@ -203,9 +212,9 @@ export async function POST(req: NextRequest) {
     }
 
     if(businessHeadshot instanceof File&&businessHeadshot.size&&s3){
-      const prepared=await applyPositionedCrop(Buffer.from(await businessHeadshot.arrayBuffer()),requestedCrop(form.get('businessHeadshotCrop')),500,750);
-      headshotKey=`alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/business-headshots/${randomUUID()}.jpg`;
-      await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:headshotKey,Body:prepared,ContentType:'image/jpeg',CacheControl:'private, no-store'}));
+      const prepared=await applyPositionedCrop(Buffer.from(await businessHeadshot.arrayBuffer()),requestedCrop(form.get('businessHeadshotCrop')),500,750,'png');
+      headshotKey=`alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/business-headshots/${randomUUID()}.png`;
+      await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:headshotKey,Body:prepared,ContentType:'image/png',CacheControl:'private, no-store'}));
       headshotUrl=storyAssetUrl(headshotKey);
     }
     const lifeFiles = form.getAll('lifePhotos').filter((f): f is File => f instanceof File && f.size > 0);

@@ -4,7 +4,7 @@
 // than reconstructing the designer's lettering, colors and CTA with CSS.
 // This is ONLY the content pane of the back of the flip card: the real player
 // hero above and the six working FunZone tabs below remain untouched.
-import WhereYatProofCard, { type WhereYatProof } from './WhereYatProofCard';
+import WhereYatProofCard, { fitCqi, type WhereYatProof } from './WhereYatProofCard';
 import {openContribute} from '@/lib/contribute';
 
 export type WhereYatFunZoneState = 'unclaimed' | 'pending' | 'approved';
@@ -39,7 +39,7 @@ export default function WhereYatFunZonePanel({
           <div className="wyn-fz-approved-content">
             <WhereYatProofCard variant="content" showName={false} proof={proof} />
           </div>
-          <a className="wyn-proof-cta" href={profileHref}>
+          <a className="wyn-proof-cta" href={profileHref} style={fitCqi('READ MORE ABOUT '+firstName.toUpperCase()+'’S LIFE AFTER HIGH SCHOOL',3.4,48)}>
             READ MORE ABOUT {firstName.toUpperCase()}’S LIFE AFTER HIGH SCHOOL
             <i className="ri-arrow-right-s-line" aria-hidden="true" />
           </a>
@@ -55,7 +55,7 @@ export default function WhereYatFunZonePanel({
           background-image:repeating-linear-gradient(170deg,transparent 0,transparent 5px,rgba(97,66,41,.045) 5px,rgba(97,66,41,.045) 6px),linear-gradient(135deg,#faf2df 0%,#ddd0ba 100%);
           color:#151d2c; container-type:inline-size;
         }
-        .wyn-fz-approved {padding:0;background:#f0e9dd;background-image:none;}
+        .wyn-fz-approved {padding:0;background:#e6e7da;background-image:none;}
         .wyn-fz-unclaimed,.wyn-fz-pending {
           padding:0; background:#f1e8d8; background-image:none;
         }
