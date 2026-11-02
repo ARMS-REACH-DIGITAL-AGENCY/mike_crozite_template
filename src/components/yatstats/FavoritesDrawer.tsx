@@ -27,6 +27,8 @@ type FavoritePlayer = {
   /** school_success: the high school's short name ("Hamilton") and "City,ST". */
   hsname?: string | null;
   hslocation?: string | null;
+  /** Same headshot fallback chain Global Search uses (from /api/favorites). */
+  headshotSources?: string[] | null;
 };
 
 // "Hamilton · Chandler, AZ" - and the school logo's hover text.
@@ -195,8 +197,19 @@ function favoriteSortKey(player: FavoritePlayer, byLastName: boolean): string {
   return parts.length > 1 ? parts[parts.length - 1] : name;
 }
 
+const HEADSHOT_SILHOUETTE = '/img/headshot-silhouette.png';
+
 function playerHeadshotUrl(playerId: string) {
   return `https://yatstats-assets.s3.us-west-2.amazonaws.com/players/now/${encodeURIComponent(playerId)}.jpg`;
+}
+
+// Use the API's shared chain (same image as Global Search); older cached
+// responses without it keep the previous now/ URL.
+function headshotSourcesFor(player: FavoritePlayer): string[] {
+  const supplied = Array.isArray(player.headshotSources)
+    ? player.headshotSources.filter((url) => typeof url === 'string' && url.trim())
+    : [playerHeadshotUrl(String(player.playerid))];
+  return [...new Set([...supplied.filter((url) => url !== HEADSHOT_SILHOUETTE), HEADSHOT_SILHOUETTE])];
 }
 
 function cardContainerFromCard(card: HTMLElement): HTMLElement {
@@ -584,10 +597,18 @@ function FavoriteLinks({
             </button>
             <a href={profileHref} className="yat-favorite-headshot-link" title={`Open ${name} profile`}>
               <img
-                src={playerHeadshotUrl(playerId)}
+                src={headshotSourcesFor(player)[0]}
                 alt=""
                 className="yat-favorite-thumb yat-favorite-headshot"
-                onError={(event) => { event.currentTarget.src = '/img/headshot-silhouette.png'; }}
+                data-headshot-index="0"
+                onError={(event) => {
+                  // Step through the shared fallback chain, ending on the silhouette.
+                  const img = event.currentTarget;
+                  const sources = headshotSourcesFor(player);
+                  const next = Number(img.dataset.headshotIndex || 0) + 1;
+                  img.dataset.headshotIndex = String(next);
+                  if (sources[next]) img.src = sources[next];
+                }}
               />
             </a>
             <a href={profileHref} className="yat-favorite-text-link" title={`Open ${name} profile`}>

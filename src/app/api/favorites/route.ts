@@ -21,6 +21,8 @@ import { addTagToGHLContact } from "@/lib/gohighlevel";
 import { query } from "@/lib/db";
 import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
 import { isSuperfan as isSuperfanProfile } from "@/lib/entitlements";
+import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
+import { getPlayerHeadshotSources } from "@/lib/playerImage";
 
 const FAVORITES_FALLBACK_ATTEMPTS = 8;
 
@@ -299,6 +301,19 @@ export async function GET(req: NextRequest) {
     }
 
     const playerIds = favoritePlayers.map((p) => String(p.playerid));
+    // One headshot per player everywhere: the same lookup and fallback chain
+    // that Global Search uses (designated/approved photo, then verified MLB).
+    const headshots = playerIds.length
+      ? await getBatchPlayerHeadshots(playerIds).catch((error) => {
+          console.error("Favorites headshot lookup failed", { error });
+          return new Map<string, { image_url: string }>();
+        })
+      : new Map<string, { image_url: string }>();
+    favoritePlayers = favoritePlayers.map((p) => {
+      const id = String(p.playerid);
+      const url = headshots.get(id)?.image_url ?? "";
+      return { ...p, headshotUrl: url, headshotSources: getPlayerHeadshotSources(id, url) };
+    });
 
     return NextResponse.json({
       success: true,
