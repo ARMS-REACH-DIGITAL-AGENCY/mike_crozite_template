@@ -75,10 +75,13 @@ function ScoreHead({ index, card, games }: { index: Index; card: WeekCard; games
         ))}
       </span>
       <span className="yfp-score-dates">
-        {/* A bracket game: the bracket mark, in the board's yellow (Pete, Nov 2). */}
-        <svg className="yfp-bracket-mark" viewBox="0 0 24 20" role="img" aria-label="Bracket game">
-          <path d="M1 2H8V8H1M1 12H8V18H1M8 5H15V15H8M15 10H23" />
-        </svg>
+        {/* A bracket game shows the bracket mark in the board's yellow; a
+            knocked-out school's game shows nothing there (Pete, Nov 2). */}
+        {/^Round \d/.test(card.stage) && (
+          <svg className="yfp-bracket-mark" viewBox="0 0 24 20" role="img" aria-label="Bracket game">
+            <path d="M1 2H8V8H1M1 12H8V18H1M8 5H15V15H8M15 10H23" />
+          </svg>
+        )}
         Week {card.week} <i aria-hidden="true">|</i> {dates(index, card.week)}
       </span>
     </div>
