@@ -168,7 +168,13 @@ export function seriesName(name: string) {
     const withInitials = `${words.slice(0, k).join(' ')}${initials ? ` ${initials}` : ''}`;
     if (withInitials.length <= SERIES_NAME_MAX) return withInitials;
   }
-  return words[0];
+  const first = words[0];
+  if (first.length <= SERIES_NAME_MAX) return first;
+  // One word still too long: a hyphenated name goes to its initials
+  // ("Homewood-Flossmoor" -> "H-F"), anything else is cut with a period.
+  const parts = first.split('-').filter(Boolean);
+  if (parts.length > 1) return parts.map((w) => w[0]).join('-');
+  return `${first.slice(0, SERIES_NAME_MAX - 1)}.`;
 }
 
 // The series line over the hero's games: "Barbe Leads Series 1-0",
