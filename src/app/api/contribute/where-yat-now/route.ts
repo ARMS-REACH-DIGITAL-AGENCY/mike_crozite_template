@@ -25,7 +25,7 @@ function requestedCrop(value:FormDataEntryValue|null):PhotoCrop|null{
  }catch{}
  return null;
 }
-async function applyPositionedCrop(raw:Buffer,c:PhotoCrop|null,w:number,h:number){
+async function applyPositionedCrop(raw:Buffer,c:PhotoCrop|null,w:number,h:number,format:'jpeg'|'png'='jpeg'){
  let img=sharp(raw,{failOn:'error',limitInputPixels:16_000_000}).rotate();
  const metadata=await img.metadata();const W=metadata.width||0,H=metadata.height||0;
  if(c&&W&&H){
@@ -33,7 +33,8 @@ async function applyPositionedCrop(raw:Buffer,c:PhotoCrop|null,w:number,h:number
   const top=Math.max(0,Math.min(H-1,Math.round(c.y*H)));
   img=img.extract({left,top,width:Math.max(1,Math.min(W-left,Math.round(c.w*W))),height:Math.max(1,Math.min(H-top,Math.round(c.h*H)))});
  }
- return img.resize(w,h,{fit:'cover',position:'centre'}).jpeg({quality:85,mozjpeg:true}).toBuffer();
+ const resized=img.resize(w,h,{fit:'cover',position:'centre'});
+  return format==='png' ? resized.png({compressionLevel:9}).toBuffer() : resized.jpeg({quality:85,mozjpeg:true}).toBuffer();
 }
 
 export async function POST(req: NextRequest) {
@@ -204,9 +205,8 @@ export async function POST(req: NextRequest) {
 
     if(businessHeadshot instanceof File&&businessHeadshot.size&&s3){
       // Preserve source alpha and use a PNG for the asynchronous rembg cutout job.
-      // Do not crop to JPEG: that bakes an opaque rectangle into the saved portrait.
-      const prepared=await sharp(Buffer.from(await businessHeadshot.arrayBuffer()),{failOn:'error',limitInputPixels:16_000_000})
-        .rotate().resize(900,900,{fit:'inside',withoutEnlargement:true}).png().toBuffer();
+      // Retain the contributor's 2:3 crop without flattening transparency.
+      const prepared=await applyPositionedCrop(Buffer.from(await businessHeadshot.arrayBuffer()),requestedCrop(form.get('businessHeadshotCrop')),500,750,'png');
       headshotKey=`alumni-where-yat-now/pending/${encodeURIComponent(playerId)}/business-headshots/${randomUUID()}.png`;
       await s3.send(new PutObjectCommand({Bucket:S3_BUCKET,Key:headshotKey,Body:prepared,ContentType:'image/png',CacheControl:'private, no-store'}));
       headshotUrl=storyAssetUrl(headshotKey);
