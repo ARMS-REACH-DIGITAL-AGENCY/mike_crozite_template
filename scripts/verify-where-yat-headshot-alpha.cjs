@@ -15,7 +15,7 @@ assert(card.includes("mixBlendMode:isOriginalPortrait?'screen':'normal'"), 'Lega
 assert(card.includes('width:25%;height:auto;max-height:none;aspect-ratio:auto'), 'Photo must shrink and float so story wraps beneath it');
 assert(card.includes('display:block}.wyn-memory-inner'), 'Story should use the full card width, not stay in a side column');
 assert(card.includes('font:400 clamp(7px,1.9cqi,11px)/1.13'), 'Occupation and city must remain small compact accents');
-assert(card.includes('flex:0 0 41%'), 'Top section must leave more room for the lower memory');
+assert(card.includes('flex:0 0 52%'), 'Business section must have majority of card body so headshot and icons fit');
 assert(card.includes('font:900 clamp(9px,3.15cqi,18px)/1.1 Oswald'), 'Where YAT heading must match memory heading size');
 assert(card.includes('objectFit:\'contain\''), 'Cutout should not be stretched or cropped');
 assert(!legacy.includes("business-headshots/${randomUUID()}.jpg"), 'New headshots cannot be flattened to JPEG');
