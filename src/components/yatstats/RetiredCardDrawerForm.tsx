@@ -6,7 +6,8 @@ import WhereYatUnifiedDrawer from './WhereYatUnifiedDrawer';
 export default function RetiredCardDrawerForm({playerId,hsid,name,school,onClose}:{playerId:string;hsid:string;name:string;school:string;onClose:()=>void}){
  const [saved,setSaved]=useState<FlipCardSaved|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
  useEffect(()=>{let active=true;(async()=>{
-  try{await auth.authStateReady?.();const token=await auth.currentUser?.getIdToken();if(!token)throw Error('Sign in to save your flip-card design.');
+  try{if(!/^\d{1,10}$/.test(hsid))throw Error('This card could not tell which high school it belongs to. Close this drawer and press DESIGN YOUR FLIP CARD on your player profile again.');
+   await auth.authStateReady?.();const token=await auth.currentUser?.getIdToken();if(!token)throw Error('Sign in to save your flip-card design.');
    const r=await fetch('/api/contribute/where-yat-now/mine?playerId='+encodeURIComponent(playerId)+'&hsid='+encodeURIComponent(hsid),{headers:{'x-firebase-token':token},cache:'no-store'});
    const j=await r.json();if(!r.ok)throw Error(j.error||'Unable to find your saved memories.');
    if(active)setSaved(j.submission||null);
