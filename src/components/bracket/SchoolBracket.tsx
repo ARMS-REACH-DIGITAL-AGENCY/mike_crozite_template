@@ -74,7 +74,13 @@ function ScoreHead({ index, card, games }: { index: Index; card: WeekCard; games
           </button>
         ))}
       </span>
-      <span className="yfp-score-dates">Week {card.week} <i aria-hidden="true">|</i> {dates(index, card.week)}</span>
+      <span className="yfp-score-dates">
+        {/* A bracket game: the bracket mark, in the board's yellow (Pete, Nov 2). */}
+        <svg className="yfp-bracket-mark" viewBox="0 0 24 20" role="img" aria-label="Bracket game">
+          <path d="M1 2H8V8H1M1 12H8V18H1M8 5H15V15H8M15 10H23" />
+        </svg>
+        Week {card.week} <i aria-hidden="true">|</i> {dates(index, card.week)}
+      </span>
     </div>
   );
 }
@@ -972,8 +978,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* "DAILY / STATS", stacked and centered over the stats button (which
            sits at the right of its column, clear of the winner arrow). */
         .yfp-green-row.head .stats { color:#ffd34f; font-size:.72em; letter-spacing:.02em; line-height:1.1; justify-self:end; width:15px; }
-        .yfp-green-stats { justify-self:end; width:15px; height:15px; display:grid; place-items:center; padding:0; border:1px solid rgba(255,211,79,.8); border-radius:50%;
-          background:#0d2d20; color:#ffd34f; font-size:9px; line-height:1; cursor:pointer; transition:background .15s, color .15s, transform .15s; }
+        /* Easy to spot on the green board: a gold ring with a white halo. */
+        .yfp-green-stats { justify-self:end; width:15px; height:15px; display:grid; place-items:center; padding:0; border:1.5px solid #ffd34f; border-radius:50%;
+          background:#0d2d20; color:#ffd34f; font-size:9px; line-height:1; cursor:pointer; transition:background .15s, color .15s, transform .15s;
+          box-shadow:0 0 0 1.5px rgba(255,255,255,.9), 0 0 6px rgba(255,211,79,.55); }
         .yfp-green-stats svg { width:62%; height:62%; fill:currentColor; }
         .yfp-green-stats:hover, .yfp-green-stats:focus-visible { background:#ffd34f; color:#15251d; transform:scale(1.08); }
         .yfp-green-stats:focus-visible { outline:2px solid #fff; outline-offset:1px; }
@@ -1237,7 +1245,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-score-games button:hover:not(:disabled) { opacity:1; }
         .yfp-score-games button.on { opacity:1; background:#ffd34f; color:#123d29; }
         .yfp-score-games button:disabled { cursor:default; }
-        .yfp-score-dates { margin-left:auto; white-space:nowrap; }
+        .yfp-score-dates { margin-left:auto; white-space:nowrap; display:inline-flex; align-items:center; }
+        .yfp-bracket-mark { width:1.5em; height:1.25em; margin-right:.45em; flex:none; fill:none; stroke:#ffd34f; stroke-width:2.2; stroke-linejoin:round; }
         .yfp-score-dates i { margin:0 4px; }
 
         /* Every screen: one middle column - the game tabs and the game on
