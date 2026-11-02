@@ -115,7 +115,7 @@ export default function ReviewQueue() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-        body: JSON.stringify({ id: Number(id), status }),
+        body: JSON.stringify({ id: String(id), status }),
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || !result.ok) {
