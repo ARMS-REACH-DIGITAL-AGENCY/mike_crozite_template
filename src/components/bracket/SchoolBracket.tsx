@@ -74,7 +74,16 @@ function ScoreHead({ index, card, games }: { index: Index; card: WeekCard; games
           </button>
         ))}
       </span>
-      <span className="yfp-score-dates">Week {card.week} <i aria-hidden="true">|</i> {dates(index, card.week)}</span>
+      <span className="yfp-score-dates">
+        {/* A bracket game shows the bracket mark in the board's yellow; a
+            knocked-out school's game shows nothing there (Pete, Nov 2). */}
+        {/^Round \d/.test(card.stage) && (
+          <svg className="yfp-bracket-mark" viewBox="0 0 24 20" role="img" aria-label="Bracket game">
+            <path d="M1 2H8V8H1M1 12H8V18H1M8 5H15V15H8M15 10H23" />
+          </svg>
+        )}
+        Week {card.week} <i aria-hidden="true">|</i> {dates(index, card.week)}
+      </span>
     </div>
   );
 }
@@ -152,7 +161,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
             <span className="yfp-green-status tbd">UPCOMING</span>
             {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
             <span className="run">R</span>
-            <span className="stats">DAILY<br />STATS</span>
+            <span className="stats">DAILY STATS</span>
           </div>
           {tbdRow('a')}
           {tbdRow('h')}
@@ -220,7 +229,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
           <span className={`yfp-green-status ${card.state}`}>{pill}</span>
           {Array.from({ length: inningCount }, (_, i) => i + 1).map((n) => <span key={n}>{n}</span>)}
           <span className="run">R</span>
-          <span className="stats">DAILY<br />STATS</span>
+          <span className="stats">DAILY STATS</span>
         </div>
         {row('a')}
         {row('h')}
@@ -937,7 +946,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-card.yfp-scorecard { padding:0; overflow:hidden; border-radius:7px; background:rgba(255,255,255,.035); }
         .yfp-score-head { display:flex; justify-content:space-between; gap:6px; padding:3px 6px 2px; border-radius:5px; background:#2e8b5f; color:#fff; font:700 7px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-green-board { margin:0; padding:5px 6px 5px; background:linear-gradient(180deg,#1f6546,#174c35); border-top:1px solid rgba(255,255,255,.14); border-bottom:1px solid #0d3022; box-shadow:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -2px 5px rgba(0,0,0,.24); }
-        .yfp-green-row { display:grid; grid-template-columns:minmax(62px,1.1fr) repeat(var(--inning-count,9),minmax(18px,1fr)) minmax(24px,0.7fr); gap:2px; align-items:center; margin-top:2px; }
+        .yfp-green-row { display:grid; grid-template-columns:minmax(62px,1.1fr) repeat(var(--inning-count,9),minmax(18px,1fr)) minmax(24px,1fr); gap:2px; align-items:center; margin-top:2px; }
         .yfp-green-row.head { margin-top:0; color:#eef7ef; font:700 8px/1 Oswald,sans-serif; text-align:center; }
         .yfp-green-row.head>span:not(:first-child) { display:grid; place-items:center; }
         .yfp-green-row.head .run { color:#ffd34f; }
@@ -969,13 +978,18 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            grid column, so every board's template gets it). */
         .yfp-green-row { grid-auto-columns:24px; }
         .yfp-green-row>.yfp-green-stats, .yfp-green-row>.yfp-green-stats-cell, .yfp-green-row.head>.stats { grid-column:-1 / span 1; grid-row:1; }
-        /* "DAILY / STATS", stacked and centered over the stats button (which
-           sits at the right of its column, clear of the winner arrow). */
-        .yfp-green-row.head .stats { color:#ffd34f; font-size:.72em; letter-spacing:.02em; line-height:1.1; justify-self:end; width:15px; }
-        .yfp-green-stats { justify-self:end; width:15px; height:15px; display:grid; place-items:center; padding:0; border:1px solid rgba(255,211,79,.8); border-radius:50%;
-          background:#0d2d20; color:#ffd34f; font-size:9px; line-height:1; cursor:pointer; transition:background .15s, color .15s, transform .15s; }
-        .yfp-green-stats svg { width:62%; height:62%; fill:currentColor; }
-        .yfp-green-stats:hover, .yfp-green-stats:focus-visible { background:#ffd34f; color:#15251d; transform:scale(1.08); }
+        /* "DAILY STATS" (Pete, Nov 2): white, one line, centered over the
+           stats buttons' column. */
+        .yfp-green-row.head .stats { color:#fff; font-size:.83em; letter-spacing:.02em; line-height:1; justify-self:center; width:auto; white-space:nowrap; }
+        /* The daily-stats button, to Pete's Nov 2 mock: a white box the size
+           of an inning box, filling its column, with a dark green circle in a
+           thin gold ring (90% of the box's height) and the gold chart icon
+           (31% of it). */
+        .yfp-green-stats { position:relative; justify-self:stretch; align-self:center; width:auto; height:20px; min-height:0; display:grid; place-items:center; padding:0; border:0; border-radius:3px;
+          background:#fff; color:#ffd34f; font-size:0; line-height:0; overflow:hidden; cursor:pointer; transition:transform .15s; }
+        .yfp-green-stats::before { content:""; position:absolute; top:50%; left:50%; height:90%; aspect-ratio:1; box-sizing:border-box; transform:translate(-50%,-50%); border-radius:50%; border:1px solid #ffd34f; background:#0d2d20; }
+        .yfp-green-stats svg { position:relative; z-index:1; width:auto; height:45%; fill:currentColor; }
+        .yfp-green-stats:hover, .yfp-green-stats:focus-visible { transform:scale(1.06); }
         .yfp-green-stats:focus-visible { outline:2px solid #fff; outline-offset:1px; }
         .yfp-scorecard .yfp-star { margin:5px 8px 0; }
         .yfp-scorecard .yfp-social { margin-left:8px; margin-right:8px; }
@@ -1007,7 +1021,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
             justify-content:start;
           }
           .yfp-game-scorepane .yfp-green-slot,
-          .yfp-game-scorepane .yfp-green-run { height:22px; }
+          .yfp-game-scorepane .yfp-green-run,
+          .yfp-game-scorepane .yfp-green-stats { height:22px; }
           .yfp-game-scorepane .yfp-green-full {
             font-family:var(--yfp-sb),"Arial Narrow",Oswald,sans-serif;
             font-size:10px;
@@ -1170,8 +1185,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-game-scorepane .yfp-green-run { font-size:21px; }
           .yfp-game-scorepane .yfp-green-run i { right:-12px; font-size:11px; }
           .yfp-game-scorepane .yfp-green-row>.yfp-green-stats, .yfp-game-scorepane .yfp-green-row>.yfp-green-stats-cell, .yfp-game-scorepane .yfp-green-row.head>.stats { grid-column:auto; grid-row:auto; }
-          .yfp-game-scorepane .yfp-green-stats { width:26px; height:26px; font-size:15px; border-width:1.5px; }
-          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; width:26px; }
+          .yfp-game-scorepane .yfp-green-stats { height:36px; border-radius:4px; }
+          .yfp-game-scorepane .yfp-green-stats::before { border-width:1.5px; }
+          .yfp-game-scorepane .yfp-green-row.head .stats { font-size:9px; }
           .yfp-game-scorepane .yfp-green-full { font-size:17px; letter-spacing:0; }
           .yfp-game-scorepane .yfp-green-place { margin-top:3px; font-size:9px; }
 
@@ -1237,7 +1253,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-score-games button:hover:not(:disabled) { opacity:1; }
         .yfp-score-games button.on { opacity:1; background:#ffd34f; color:#123d29; }
         .yfp-score-games button:disabled { cursor:default; }
-        .yfp-score-dates { margin-left:auto; white-space:nowrap; }
+        .yfp-score-dates { margin-left:auto; white-space:nowrap; display:inline-flex; align-items:center; }
+        .yfp-bracket-mark { width:1.5em; height:1.25em; margin-right:.45em; flex:none; fill:none; stroke:#ffd34f; stroke-width:2.2; stroke-linejoin:round; }
         .yfp-score-dates i { margin:0 4px; }
 
         /* Every screen: one middle column - the game tabs and the game on
@@ -1410,6 +1427,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-green-abbr { display:none; }
           .yfp-green-full { display:block; font:800 7.3px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
           .yfp-green-slot,.yfp-green-run { height:17px; font-size:9px; border-radius:2px; }
+          .yfp-green-stats { height:17px; border-radius:2px; }
           .yfp-green-status { font-size:5.5px; padding:1px 2px; }
           .fgs-inline .ysv-actions button { min-height:28px !important; font-size:11px !important; gap:3px !important; }
           .fgs-inline .ysv-actions button i { font-size:13px !important; }
@@ -1474,6 +1492,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-green-place { font-size:5px; line-height:1; letter-spacing:.02em; }
           .yfp-green-abbr { display:none; }
           .yfp-green-slot,.yfp-green-run { height:18px; font-size:10px; }
+          .yfp-green-stats { height:18px; }
           .yfp-green-row.head { font-size:6.5px; }
           .yfp-green-status { font-size:6px; padding:1px 3px; }
           .yfp-score-head { font-size:6px; padding:3px 4px 2px; }

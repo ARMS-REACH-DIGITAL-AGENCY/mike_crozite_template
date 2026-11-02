@@ -89,12 +89,6 @@ type Story = DayStory & { label: string };
 const LIVE_STORY_MS = 10_000;
 const FINAL_STORY_MS = 6_000;
 
-function scoreFor(card: WeekCard, me: number): [number, number] | null {
-  if (!card.game || card.state !== 'final') return null;
-  const [hr, ar] = runsOf(card.game[5]);
-  return card.game[2] === me ? [hr, ar] : [ar, hr];
-}
-
 function starHeadline(star: Star | undefined, round: number, done: number, wins: number, losses: number) {
   if (!star) {
     if (!done) return `ROUND ${round}`;
@@ -154,6 +148,62 @@ function seriesStatus(slide: RoundSlide, schoolName: string, opponentName: strin
   return `${opponentName.toUpperCase()} LEADS SERIES ${slide.losses}-${slide.wins}`;
 }
 
+// A school's name for the hero's series column, at most 10 characters (what
+// fits beside the hero in Pete's mock): the short name if it fits; else with
+// the usual short forms (Abp., Mt., St. ...); else its leading words and the
+// initials of the rest ("Belen Jesuit Prep" -> "Belen JP"), or just the
+// leading words if even the initials won't fit.
+const SERIES_NAME_MAX = 10;
+const SHORT_FORMS: [RegExp, string][] = [
+  [/\s+(High\s+)?School$/i, ''], [/\bCountry Day\b/g, 'CD'], [/\bArchbishop\b/g, 'Abp.'], [/\bSaint\b/g, 'St.'],
+  [/\bMount\b/g, 'Mt.'], [/\bFort\b/g, 'Ft.'], [/\bCardinal\b/g, 'Card.'], [/\bCatholic\b/g, 'Cath.'], [/\bAcademy\b/g, 'Acad.'],
+];
+export function seriesName(name: string) {
+  if (name.length <= SERIES_NAME_MAX) return name;
+  const short = SHORT_FORMS.reduce((n, [re, to]) => n.replace(re, to), name).trim();
+  if (short.length <= SERIES_NAME_MAX) return short;
+  const words = short.split(/\s+/);
+  for (let k = words.length - 1; k >= 1; k--) {
+    const initials = words.slice(k).filter((w) => /^[A-Z]/.test(w)).map((w) => w[0]).join('');
+    const withInitials = `${words.slice(0, k).join(' ')}${initials ? ` ${initials}` : ''}`;
+    if (withInitials.length <= SERIES_NAME_MAX) return withInitials;
+  }
+  const first = words[0];
+  if (first.length <= SERIES_NAME_MAX) return first;
+  // One word still too long: a hyphenated name goes to its initials
+  // ("Homewood-Flossmoor" -> "H-F"), anything else is cut with a period.
+  const parts = first.split('-').filter(Boolean);
+  if (parts.length > 1) return parts.map((w) => w[0]).join('-');
+  return `${first.slice(0, SERIES_NAME_MAX - 1)}.`;
+}
+
+// The series line over the hero's games: "Barbe Leads Series 1-0",
+// "Series Tied 1-1", "Belen JP Wins Series 2-1".
+function seriesHeadline(wins: [number, number], names: [string, string]) {
+  const [a, b] = wins;
+  if (!a && !b) return 'Series 0-0';
+  if (a === b) return `Series Tied ${a}-${b}`;
+  const [lead, w, l] = a > b ? [names[0], a, b] : [names[1], b, a];
+  return `${lead} ${w >= 2 ? 'Wins' : 'Leads'} Series ${w}-${l}`;
+}
+
+// One game of a series column: visitors over home, each name right-justified
+// with its score in a column beside it, and the game number in red to the
+// right, between the two lines. A final's winner - name and runs - in gold.
+function SeriesGame({ n, away, home, runs, winner }: {
+  n: number; away: string; home: string; runs: number[] | null; winner: 'away' | 'home' | null;
+}) {
+  return (
+    <div className="yft-series-game">
+      <span className={`yft-sl-name${winner === 'away' ? ' win' : ''}`}>{away}</span>
+      <span className={`yft-sl-runs${winner === 'away' ? ' win' : ''}`}>{runs ? runs[1] : ''}</span>
+      <small className="yft-sl-game">G{n}</small>
+      <span className={`yft-sl-name${winner === 'home' ? ' win' : ''}`}>{home}</span>
+      <span className={`yft-sl-runs${winner === 'home' ? ' win' : ''}`}>{runs ? runs[0] : ''}</span>
+    </div>
+  );
+}
+
 function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSlide; me: number; week: number; onTap: () => void }) {
   const schoolName = shortName(index.schools[me]?.[0] || '');
   // The week's stories, newest first, then round and round.
@@ -175,12 +225,24 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
   const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
   const series = seriesStatus(slide, schoolName, oppLabel);
   const status = day ? `${series} · ${day.label}` : series;
+  // Each game, visitors over home as on the scoreboard: a game not yet
+  // drawn takes the series' home from its other games.
+  const homeGame = slide.cards.find((c) => c.game)?.game;
+  const myName = seriesName(schoolName);
   const games = slide.cards.map((card) => {
     const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
-    return { card, score: scoreFor(card, me), oppName: opp ? shortName(index.schools[opp]?.[0] || 'Opponent') : 'TBD', matchupKnown: Boolean(opp) };
+    const oppName = opp ? seriesName(shortName(index.schools[opp]?.[0] || 'Opponent')) : 'TBD';
+    const meHome = (card.game || homeGame) ? (card.game || homeGame)![2] === me : true;
+    const final = card.state === 'final' && card.game ? card.game : null;
+    return {
+      card, matchupKnown: Boolean(opp),
+      away: meHome ? oppName : myName, home: meHome ? myName : oppName,
+      runs: final ? runsOf(final[5]) : null,
+      winner: final && final[6] ? (final[6] === final[2] ? 'home' : 'away') as 'home' | 'away' : null,
+    };
   });
-  // The scores' column sits two spaces past the longest school name.
-  const nameCh = Math.max(schoolName.length, ...games.map((x) => x.oppName.length));
+  const oppShort = slide.opponent ? seriesName(oppLabel) : 'Opponent';
+  const headline = seriesHeadline([slide.wins, slide.losses], [myName, oppShort]);
 
   return (
     <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
@@ -214,19 +276,13 @@ function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSl
         ) : null}
       </div>
 
-      <aside className="yft-series" aria-label={`Round ${slide.round} series`} style={{ '--yft-name-ch': nameCh } as React.CSSProperties}>
+      <aside className="yft-series" aria-label={`Round ${slide.round} series`}
+        style={{ '--yft-name-ch': Math.max(...games.flatMap((x) => [x.away.length, x.home.length])) } as React.CSSProperties}>
+        <span className="yft-series-line">{headline}</span>
         <div className="yft-series-games">
-          {games.map(({ card, score, oppName, matchupKnown }, i) => {
-            return (
-              <div key={card.week} className="yft-series-game">
-                <small>G{i + 1}</small>
-                <span>{score || matchupKnown ? <span className="yft-scorelines">
-                    <span className="yft-scoreline"><b>{oppName}</b><i>{score ? score[1] : ''}</i></span>
-                    <span className="yft-scoreline home"><b>{schoolName}</b><i>{score ? score[0] : ''}</i></span>
-                  </span> : <>Week {card.week}<br /><em>TBD</em></>}</span>
-              </div>
-            );
-          })}
+          {games.map(({ card, matchupKnown, away, home, runs, winner }, i) => (matchupKnown
+            ? <SeriesGame key={card.week} n={i + 1} away={away} home={home} runs={runs} winner={winner} />
+            : <SeriesGame key={card.week} n={i + 1} away={`Week ${card.week}`} home="TBD" runs={null} winner={null} />))}
         </div>
       </aside>
     </div>
@@ -283,23 +339,15 @@ function PostSlide({ index, games, week, label, title, showScores, championName,
         <p>{story?.summary || (games.length ? 'Every fan can follow the complete field here.' : 'This stage is set when the prior stage is complete.')}</p>
       </div>
       <aside className="yft-series yft-post-scores" aria-label={`${title} scores`}
-        style={{ '--yft-name-ch': Math.max(0, ...games.flatMap((g) => [g[2], g[3]].map((h) => shortName(index.schools[h]?.[0] || 'Home').length))) } as React.CSSProperties}>
+        style={{ '--yft-name-ch': Math.max(label.length, ...games.flatMap((g) => [g[2], g[3]].map((h) => seriesName(shortName(index.schools[h]?.[0] || 'Home')).length))) } as React.CSSProperties}>
         <div className="yft-series-games">
-          {games.length ? games.map((g,i)=>{
-            const [hr,ar]=runsOf(g[5]);
-            const away=shortName(index.schools[g[3]]?.[0]||'Away');
-            const home=shortName(index.schools[g[2]]?.[0]||'Home');
-            return (
-              <div className="yft-series-game" key={g[0]}>
-                <small>G{i+1}</small>
-                <span className="yft-scorelines">
-                  <span className="yft-scoreline"><b>{away}</b><i>{showScores ? ar : ''}</i></span>
-                  <span className="yft-scoreline home"><b>{home}</b><i>{showScores ? hr : ''}</i></span>
-                </span>
-              </div>
-            );
-          }) : (
-            <div className="yft-series-game"><small>{label}</small><span>TBD<br/><em>Awaiting field</em></span></div>
+          {games.length ? games.map((g,i)=>(
+            <SeriesGame key={g[0]} n={i+1}
+              away={seriesName(shortName(index.schools[g[3]]?.[0]||'Away'))} home={seriesName(shortName(index.schools[g[2]]?.[0]||'Home'))}
+              runs={showScores ? runsOf(g[5]) : null}
+              winner={showScores && g[6] ? (g[6] === g[2] ? 'home' : 'away') : null} />
+          )) : (
+            <SeriesGame n={1} away={label} home="Awaiting field" runs={null} winner={null} />
           )}
         </div>
       </aside>
@@ -569,22 +617,29 @@ export default function FantasyTimeline() {
         .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
         .yft-shouts .yft-star span { color:rgba(255,255,255,.62); text-transform:none; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
-        /* The series, in the story's typeface: each score in a column two
-           spaces past the longest school name (--yft-name-ch, set from the
-           names), so it reads as a box score. Its games spread from level
-           with the headline to about level with the story's last line. */
-        .yft-series { position:absolute; z-index:2; right:3%; top:calc(var(--yft-up) + 26px); bottom:68px; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; text-align:left; }
-        .yft-series>b { color:#fff; font:700 22px/1 Oswald,sans-serif; }
-        .yft-series>span { margin-top:4px; color:rgba(255,255,255,.85); font:600 11px/1.2 Oswald,sans-serif; }
-        .yft-series-games { margin-top:0; height:100%; display:grid; align-content:space-between; gap:4px; }
-        .yft-series-game { display:grid; grid-template-columns:auto auto; gap:1ch; align-items:center; color:rgba(255,255,255,.78); font:500 12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; }
-        .yft-series-game small { color:var(--gold,#d5b44a); font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace; text-align:left; padding:0; }
-        .yft-series-game em { color:#fff; font-style:normal; font-weight:700; }
-        .yft-scorelines { display:grid; gap:1px; min-width:0; }
-        .yft-scoreline { display:grid; grid-template-columns:min(calc(var(--yft-name-ch, 10) * 1ch), 22ch) 2ch; column-gap:2ch; align-items:baseline; min-width:0; }
-        .yft-scoreline b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:rgba(255,255,255,.78); font-weight:500; }
-        .yft-scoreline.home b { color:#fff; font-weight:700; }
-        .yft-scoreline i { font-style:normal; text-align:right; color:#fff; font-variant-numeric:tabular-nums; }
+        /* The series beside the hero, laid out to Pete's Nov 2 mock (measured
+           on a 360-wide phone, then scaled by --u): the series line and the
+           names start at the hero's right edge; names right-justified to
+           31.25u past it, runs right-justified to 41.75u, the game number
+           centered at 49.75u, in red, between a game's two lines. Rows by the
+           slide's height: the series line at 38.5%, games at 46.2%, 60.4%
+           and 74.2%, a game's two lines 5% apart. A final's winner in gold. */
+        .yft-slide { --u:1.857px; --yft-hero-edge:calc(3% + 94% * 27 / 33 + 6px); }
+        .yft-series { position:absolute; z-index:2; left:var(--yft-hero-edge); top:0; bottom:0; width:calc(70 * var(--u)); }
+        .yft-series-line { position:absolute; left:0; top:calc(38.5% - var(--u)); color:#fff; font:400 calc(7.25 * var(--u))/1 Arial,Helvetica,sans-serif; white-space:nowrap; }
+        .yft-series-game { position:absolute; left:0; width:calc(70 * var(--u)); height:10%; display:grid;
+          grid-template-columns:calc(31.25 * var(--u)) calc(10.5 * var(--u)) calc(16 * var(--u)); grid-template-rows:1fr 1fr;
+          align-items:start; color:#fff; font:400 calc(7.25 * var(--u))/1 Arial,Helvetica,sans-serif; }
+        .yft-series-game:nth-child(1) { top:calc(46.2% - var(--u)); }
+        .yft-series-game:nth-child(2) { top:calc(60.4% - var(--u)); }
+        .yft-series-game:nth-child(3) { top:calc(74.2% - var(--u)); }
+        .yft-sl-name, .yft-sl-runs { justify-self:end; text-align:right; white-space:nowrap; }
+        .yft-sl-runs { font-variant-numeric:tabular-nums; }
+        .yft-sl-name.win, .yft-sl-runs.win { color:#fbbf10; }
+        .yft-sl-game { grid-column:3; grid-row:1 / span 2; align-self:center; justify-self:center; color:#f53a1c; font:700 calc(4.2 * var(--u))/1 Arial,Helvetica,sans-serif; }
+        /* The postseason slides' games (up to four) stack from the series line down. */
+        .yft-post-scores .yft-series-games { position:absolute; left:0; top:calc(38.5% - var(--u)); bottom:15%; display:grid; align-content:space-between; }
+        .yft-post-scores .yft-series-game { position:static; height:auto; row-gap:calc(3 * var(--u)); }
         .yft-raffle-cta { position:absolute; z-index:6; left:2.5%; top:calc((100% - 32px) / 2); bottom:auto; transform:translateY(-50%); width:150px; height:104px; display:block; padding:0; border:0; background:transparent; color:#fff; cursor:pointer; text-align:left; }
         .yft-raffle-trophy { position:absolute; left:0; bottom:0; width:92px; height:104px; flex:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.55)); transform:none; transform-origin:left bottom; }
         .yft-raffle-note { position:absolute; left:38px; bottom:5px; z-index:1; width:104px; color:#fff; font-family:Arial Black,Arial,Helvetica,sans-serif; font-weight:900; font-size:14px; line-height:.92; letter-spacing:-.045em; text-align:left; -webkit-text-stroke:.8px #000; paint-order:stroke fill; text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 3px rgba(0,0,0,.85); transform:none; }
@@ -650,13 +705,7 @@ export default function FantasyTimeline() {
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           /* Right of the card, never over it: from just past the R10 tick to the
              edge, the names cut short only if they can't fit. */
-          .yft-series { left:calc(4% + 92% * 27 / 33 + 8px); right:1%; top:calc(var(--yft-up) + 10px); bottom:34px; }
-          .yft-series-games { margin-top:0; gap:5px; }
-          .yft-series-game { grid-template-columns:auto minmax(0,1fr); gap:2px; font-size:6.5px; line-height:1.2; }
-          .yft-scoreline { grid-template-columns:minmax(0, calc(var(--yft-name-ch, 10) * 1ch)) auto; }
-          .yft-post-scores .yft-series-games { gap:4px; }
-          .yft-post-scores .yft-series-game { font-size:6.5px; line-height:1.1; }
-          .yft-series-game small { font-size:5px; line-height:1; text-align:left; padding:0; }
+          .yft-slide { --u:1px; --yft-hero-edge:calc(4% + 92% * 27 / 33 + 4px); }
           .yft-raffle-cta { left:2.5%; top:calc((100% - 23px) / 2); bottom:auto; width:112px; height:78px; transform:translateY(-50%); }
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }
           .yft-raffle-note { left:28px; bottom:4px; width:78px; font-size:10.5px; line-height:.92; letter-spacing:-.045em; -webkit-text-stroke:.6px #000; }
