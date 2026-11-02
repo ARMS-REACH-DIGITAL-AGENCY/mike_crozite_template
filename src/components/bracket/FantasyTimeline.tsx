@@ -148,11 +148,12 @@ function seriesStatus(slide: RoundSlide, schoolName: string, opponentName: strin
   return `${opponentName.toUpperCase()} LEADS SERIES ${slide.losses}-${slide.wins}`;
 }
 
-// A school's name for the hero's series column, at most 13 characters: the
-// short name if it fits; else with the usual short forms (Abp., Mt., St. ...);
-// else its leading words and the initials of the rest ("Belen Jesuit Prep" ->
-// "Belen JP"), or just the leading words if even the initials won't fit.
-const SERIES_NAME_MAX = 13;
+// A school's name for the hero's series column, at most 10 characters (what
+// fits beside the hero in Pete's mock): the short name if it fits; else with
+// the usual short forms (Abp., Mt., St. ...); else its leading words and the
+// initials of the rest ("Belen Jesuit Prep" -> "Belen JP"), or just the
+// leading words if even the initials won't fit.
+const SERIES_NAME_MAX = 10;
 const SHORT_FORMS: [RegExp, string][] = [
   [/\s+(High\s+)?School$/i, ''], [/\bCountry Day\b/g, 'CD'], [/\bArchbishop\b/g, 'Abp.'], [/\bSaint\b/g, 'St.'],
   [/\bMount\b/g, 'Mt.'], [/\bFort\b/g, 'Ft.'], [/\bCardinal\b/g, 'Card.'], [/\bCatholic\b/g, 'Cath.'], [/\bAcademy\b/g, 'Acad.'],
@@ -610,20 +611,29 @@ export default function FantasyTimeline() {
         .yft-shouts .yft-star { margin-top:0; white-space:nowrap; }
         .yft-shouts .yft-star span { color:rgba(255,255,255,.62); text-transform:none; }
         .yft-star { margin-top:8px; color:var(--gold,#d5b44a); font:600 10px/1.2 Oswald,sans-serif; letter-spacing:.06em; text-decoration:none; text-transform:uppercase; }
-        /* The series, in the story's typeface, set right against the hero:
-           the series line, then each game - visitors over home, names
-           right-justified in a column as wide as the longest (--yft-name-ch),
-           the runs two spaces past them, the game number in red between the
-           two lines. A final's winner in gold. Its games spread from level
-           with the headline to about level with the story's last line. */
-        .yft-series { position:absolute; z-index:2; left:calc(3% + 94% * 27 / 33 + 6px); right:auto; top:calc(var(--yft-up) + 26px); bottom:68px; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; }
-        .yft-series-line { margin-bottom:6px; color:#fff; font:600 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; }
-        .yft-series-games { margin-top:0; flex:1; display:grid; align-content:space-between; gap:4px; }
-        .yft-series-game { display:grid; grid-template-columns:calc(var(--yft-name-ch, 12) * 1ch) 2ch auto; column-gap:2ch; row-gap:1px; align-items:baseline; color:#fff; font:500 12px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; }
-        .yft-sl-name { min-width:0; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .yft-sl-runs { text-align:right; font-variant-numeric:tabular-nums; }
-        .yft-sl-name.win, .yft-sl-runs.win { color:var(--gold,#d5b44a); font-weight:700; }
-        .yft-sl-game { grid-column:3; grid-row:1 / span 2; align-self:center; padding:0; color:#e0453a; font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
+        /* The series beside the hero, laid out to Pete's Nov 2 mock (measured
+           on a 360-wide phone, then scaled by --u): the series line and the
+           names start at the hero's right edge; names right-justified to
+           31.25u past it, runs right-justified to 41.75u, the game number
+           centered at 49.75u, in red, between a game's two lines. Rows by the
+           slide's height: the series line at 38.5%, games at 46.2%, 60.4%
+           and 74.2%, a game's two lines 5% apart. A final's winner in gold. */
+        .yft-slide { --u:1.857px; --yft-hero-edge:calc(3% + 94% * 27 / 33 + 6px); }
+        .yft-series { position:absolute; z-index:2; left:var(--yft-hero-edge); top:0; bottom:0; width:calc(70 * var(--u)); }
+        .yft-series-line { position:absolute; left:0; top:calc(38.5% - var(--u)); color:#fff; font:400 calc(7.25 * var(--u))/1 Arial,Helvetica,sans-serif; white-space:nowrap; }
+        .yft-series-game { position:absolute; left:0; width:calc(70 * var(--u)); height:10%; display:grid;
+          grid-template-columns:calc(31.25 * var(--u)) calc(10.5 * var(--u)) calc(16 * var(--u)); grid-template-rows:1fr 1fr;
+          align-items:start; color:#fff; font:400 calc(7.25 * var(--u))/1 Arial,Helvetica,sans-serif; }
+        .yft-series-game:nth-child(1) { top:calc(46.2% - var(--u)); }
+        .yft-series-game:nth-child(2) { top:calc(60.4% - var(--u)); }
+        .yft-series-game:nth-child(3) { top:calc(74.2% - var(--u)); }
+        .yft-sl-name, .yft-sl-runs { justify-self:end; text-align:right; white-space:nowrap; }
+        .yft-sl-runs { font-variant-numeric:tabular-nums; }
+        .yft-sl-name.win, .yft-sl-runs.win { color:#fbbf10; }
+        .yft-sl-game { grid-column:3; grid-row:1 / span 2; align-self:center; justify-self:center; color:#f53a1c; font:700 calc(4.2 * var(--u))/1 Arial,Helvetica,sans-serif; }
+        /* The postseason slides' games (up to four) stack from the series line down. */
+        .yft-post-scores .yft-series-games { position:absolute; left:0; top:calc(38.5% - var(--u)); bottom:15%; display:grid; align-content:space-between; }
+        .yft-post-scores .yft-series-game { position:static; height:auto; row-gap:calc(3 * var(--u)); }
         .yft-raffle-cta { position:absolute; z-index:6; left:2.5%; top:calc((100% - 32px) / 2); bottom:auto; transform:translateY(-50%); width:150px; height:104px; display:block; padding:0; border:0; background:transparent; color:#fff; cursor:pointer; text-align:left; }
         .yft-raffle-trophy { position:absolute; left:0; bottom:0; width:92px; height:104px; flex:none; object-fit:contain; object-position:left bottom; filter:drop-shadow(0 5px 7px rgba(0,0,0,.55)); transform:none; transform-origin:left bottom; }
         .yft-raffle-note { position:absolute; left:38px; bottom:5px; z-index:1; width:104px; color:#fff; font-family:Arial Black,Arial,Helvetica,sans-serif; font-weight:900; font-size:14px; line-height:.92; letter-spacing:-.045em; text-align:left; -webkit-text-stroke:.8px #000; paint-order:stroke fill; text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 3px rgba(0,0,0,.85); transform:none; }
@@ -689,13 +699,7 @@ export default function FantasyTimeline() {
           .yft-star { margin-top:2px; font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
           /* Right of the card, never over it: from just past the R10 tick to the
              edge, the names cut short only if they can't fit. */
-          .yft-series { left:calc(4% + 92% * 27 / 33 + 4px); right:auto; top:calc(var(--yft-up) + 10px); bottom:34px; }
-          .yft-series-line { margin-bottom:3px; font-size:6.5px; }
-          .yft-series-games { margin-top:0; gap:5px; }
-          .yft-series-game { column-gap:1.5ch; font-size:6.5px; line-height:1.2; }
-          .yft-post-scores .yft-series-games { gap:4px; }
-          .yft-post-scores .yft-series-game { font-size:6.5px; line-height:1.1; }
-          .yft-sl-game { font-size:5.5px; }
+          .yft-slide { --u:1px; --yft-hero-edge:calc(4% + 92% * 27 / 33 + 4px); }
           .yft-raffle-cta { left:2.5%; top:calc((100% - 23px) / 2); bottom:auto; width:112px; height:78px; transform:translateY(-50%); }
           .yft-raffle-trophy { left:0; bottom:0; width:67px; height:78px; object-position:left bottom; }
           .yft-raffle-note { left:28px; bottom:4px; width:78px; font-size:10.5px; line-height:.92; letter-spacing:-.045em; -webkit-text-stroke:.6px #000; }
