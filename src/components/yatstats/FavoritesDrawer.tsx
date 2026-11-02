@@ -511,6 +511,30 @@ function setFavoritesGalleryRestriction(grid: HTMLElement, enabled: boolean, pla
   section.dataset.favoritesGalleryIds = playerIds.join(',');
 }
 
+// The favorites gallery borrows the visible section's grid. On a school
+// with no active alumni that grid also holds the page's own "No active
+// alumni found" box (and any non-card nodes other scripts add), which then
+// showed above the favorites. While the gallery is open, everything in the
+// grid that is not a player card is hidden, and put back when it closes.
+function hideGridExtras(grid: HTMLElement) {
+  Array.from(grid.children).forEach((child) => {
+    const node = child as HTMLElement;
+    const isCard = node.matches('[data-player-card-wrap="true"], .yat-card[data-playerid]');
+    if (isCard || node.dataset.favoritesHiddenExtra === 'true') return;
+    node.dataset.favoritesHiddenExtra = 'true';
+    node.dataset.favoritesPrevDisplay = node.style.display;
+    node.style.display = 'none';
+  });
+}
+
+function restoreGridExtras(grid: HTMLElement) {
+  grid.querySelectorAll<HTMLElement>('[data-favorites-hidden-extra="true"]').forEach((node) => {
+    node.style.display = node.dataset.favoritesPrevDisplay || '';
+    delete node.dataset.favoritesHiddenExtra;
+    delete node.dataset.favoritesPrevDisplay;
+  });
+}
+
 function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentHsid: string, crossSchoolContainers: Map<string, HTMLElement>): string[] {
   const grid = currentGrid();
   if (!grid) return [];
@@ -519,6 +543,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
   ensureOriginalOrder(items);
 
   if (!enabled) {
+    restoreGridExtras(grid);
     restoreOriginalGridOrder(grid, items);
     syncInteractionStrip([], false);
     setFavoritesGalleryRestriction(grid, false, []);
@@ -551,6 +576,7 @@ function applyFavoriteDeck(players: FavoritePlayer[], enabled: boolean, currentH
     missingIds.push(playerId);
   });
 
+  hideGridExtras(grid);
   syncInteractionStrip(players, true);
   const playerIds = players.map((p) => String(p.playerid));
   setFavoritesGalleryRestriction(grid, true, playerIds);
