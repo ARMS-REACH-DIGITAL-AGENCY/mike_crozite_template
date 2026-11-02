@@ -7,6 +7,8 @@ const editor=read('src/app/api/contribute/where-yat-now/card/route.ts');
 const job=read('.github/workflows/hourly-player-image-cutouts.yml');
 const python=read('scripts/process-player-cutouts-s3.py');
 const urlMap=read('src/lib/whereYatHeadshotCutout.ts');
+const mobile=read('src/components/yatstats/WhereYatUnifiedDrawer.tsx');
+const shrink=read('src/lib/shrinkPhoto.ts');
 assert(card.includes('whereYatHeadshotCutoutUrl(proof.businessHeadshotUrl)'), 'Card must not render raw headshot URLs');
 assert(card.includes('if(!isOriginalPortrait) setCutoutMissing(true)'), 'Failed cutouts must fall back to the original portrait');
 assert(card.includes("mixBlendMode:isOriginalPortrait?'screen':'normal'"), 'Legacy black photo backgrounds should blend away without hiding the headshot');
@@ -18,6 +20,9 @@ assert(card.includes('font:900 clamp(9px,3.15cqi,18px)/1.1 Oswald'), 'Where YAT 
 assert(card.includes('objectFit:\'contain\''), 'Cutout should not be stretched or cropped');
 assert(!legacy.includes("business-headshots/${randomUUID()}.jpg"), 'New headshots cannot be flattened to JPEG');
 assert(legacy.includes("business-headshots/${randomUUID()}.png"), 'New headshots stored as PNG');
+assert(legacy.includes("requestedCrop(form.get('businessHeadshotCrop')),500,750,'png'"), 'Positioned business portrait crop must be preserved with PNG alpha');
+assert(mobile.includes("shrinkPhoto(headshot,'webp')"), 'Mobile designer must not flatten alpha to JPEG');
+assert(shrink.includes("format === 'webp' ? 'image/webp'"), 'WebP shrinker must preserve alpha');
 assert(editor.includes(".png().toBuffer()"), 'Editor preserves alpha');
 assert(job.includes('YATSTATS_S3_OUTPUT_PREFIX: alumni-where-yat-now/headshot-cutouts/'), 'Hourly job must generate alumni cutouts');
 assert(job.includes('ONLY_HEADSHOT_PATHS: "true"'), 'Do not process unrelated submission photos');
