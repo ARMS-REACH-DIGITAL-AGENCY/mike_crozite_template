@@ -46,6 +46,10 @@
       "schedule": "10,25,40,55 * * * *"
     },
     {
+      "path": "/api/cron/mlb-transaction-news-coverage",
+      "schedule": "5,35 * * * *"
+    },
+    {
       "path": "/api/cron/level-qc",
       "schedule": "7 15 * * *"
     },
@@ -79,9 +83,9 @@
     },
     {
       "path": "/api/cron/flip-card-status-reconciliation",
-        "schedule": "*/10 * * * *"
-      },
-      {
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/where-yat-arms-sync",
       "schedule": "*/10 * * * *"
     }
