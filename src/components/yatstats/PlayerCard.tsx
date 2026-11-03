@@ -145,6 +145,11 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
   const org = normalizeOrg(display.orgConferenceName);
   const status = display.statusLabel;
+  // The visible commitment label may name the college (e.g. AUBURN COMMIT),
+  // but gallery filters use the canonical COMMIT status, not display copy.
+  const filterStatus = String(p.status_label || '').trim().toUpperCase() === 'COMMIT' && status.endsWith(' COMMIT')
+    ? 'COMMIT'
+    : status;
   const slug = toPlayerSlug(
     String(p.firstname || p.first_name || ""),
     String(p.lastname || p.last_name || "")
@@ -194,7 +199,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-org={org}
       data-gradclass={gc}
       data-rosteryears={Array.isArray(rosterYears) ? rosterYears.join(",") : ""}
-      data-status={status}
+      data-status={filterStatus}
       data-has-2026-stats={has2026Stats ? "true" : "false"}
       data-slug={slug}
       data-committed-teamid={committedTeamId}
