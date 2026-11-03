@@ -26,7 +26,7 @@ const resolveCachedSchoolHost = unstable_cache(
             ['https://' + hostname],
           );
           if (rows.length === 1 && normalizeSchoolHost(rows[0].microsite_url) === hostname)
-            return { hsid: rows[0].hsid, canonicalUrl: rows[0].microsite_url.replace(/\\/+$/, '') };
+            return { hsid: rows[0].hsid, canonicalUrl: rows[0].microsite_url.replace(/\/+$/, '') };
         } catch (error) {
           console.warn('School success fast lookup unavailable; using existing resolver', {
             name: error instanceof Error ? error.name : 'unknown',
