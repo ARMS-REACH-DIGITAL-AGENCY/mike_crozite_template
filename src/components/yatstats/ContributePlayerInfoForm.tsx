@@ -148,7 +148,9 @@ export default function ContributePlayerInfoForm({
           fields:player?changed:values,idToken:token||undefined,pageUrl:location.href})});
       const body=await res.json().catch(()=>({}));
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
-      setMessage(body.review === 'preview_only'
+      setMessage(body.review === 'published_player'
+        ? `Player created and searchable now. YAT ID: ${body.playerId}. Open Global Search to find the new profile.`
+        : body.review === 'preview_only'
         ? 'Preview test received. This commitment was NOT saved or published.'
         : body.review === 'published_commitment'
           ? (body.commitment?.status === 'COMMIT'
@@ -306,11 +308,13 @@ export default function ContributePlayerInfoForm({
     {error?<p className="ycd-error" role="alert">{error}</p>:null}
     {message?<p className="ycd-ok" role="status">{message}</p>:null}
     <button type="button" className="ycd-btn ycd-btn-primary" disabled={sending||loading} onClick={submit}>
-      {!signedIn?'Sign in to send':sending?'Sending…':'Submit player information'}
+      {!signedIn?'Sign in to send':sending?'Saving…':player?'Submit player information':'Create player now'}
     </button>
-    <small className="ycd-muted">{isHighSchoolPlayer
-      ? 'Valid high-school college commitments publish immediately. Other corrections may require verification.'
-      : 'Current-team transfers do not edit college commitments. Changes submitted by fans may require verification.'}</small>
+    <small className="ycd-muted">{!player
+      ? 'New players are created immediately, without an approval queue. If the player is already linked to this school, use his existing profile.'
+      : isHighSchoolPlayer
+        ? 'Valid high-school college commitments publish immediately. Other corrections may require verification.'
+        : 'Current-team transfers do not edit college commitments. Changes submitted by fans may require verification.'}</small>
     <style jsx>{`
       .ycd-profile-fields{display:flex;flex-direction:column;gap:13px;}
       .ycd-profile-year-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;padding:10px;border:1px solid var(--line);border-radius:6px}
