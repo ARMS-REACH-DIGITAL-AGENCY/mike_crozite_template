@@ -74,10 +74,15 @@ const hmac = (key: Buffer | string, data: string) => createHmac('sha256', key).u
  * plus the file (last) to `url`.
  */
 export function signConnectVideoUpload(pid: string, contentType: string) {
+  return signVideoPost(`${PREFIX}/${pid}/${randomUUID()}`, contentType);
+}
+
+/** A signed S3 POST form for a video at `keyBase` + its extension. */
+export function signVideoPost(keyBase: string, contentType: string) {
   const ext = CONNECT_VIDEO_TYPES[contentType];
   if (!ext) throw new Error('unsupported type');
   const { accessKeyId, secretAccessKey } = credentials();
-  const key = `${PREFIX}/${pid}/${randomUUID()}.${ext}`;
+  const key = `${keyBase}.${ext}`;
   const now = new Date();
   const amzDate = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); // 20261103T120000Z
   const day = amzDate.slice(0, 8);
