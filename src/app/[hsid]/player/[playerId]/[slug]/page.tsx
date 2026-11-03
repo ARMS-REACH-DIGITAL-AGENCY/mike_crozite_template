@@ -1,4 +1,5 @@
 import SponsorTower from '@/components/yatstats/SponsorTower';
+import PlayerConnectVideo from '@/components/yatstats/PlayerConnectVideo';
 import { publicNewsHeadline } from '@/lib/newsVideo';
 // src/app/[hsid]/player/[playerId]/[slug]/page.tsx
 // Player profile child page — lives inside the shared shell.
@@ -1090,11 +1091,7 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-connect" className="pp-fz-panel">
           <div className="yp-profile-partner-columns">
             <div className="yp-profile-partner-body yp-profile-partner-connect">
-              <div className="yp-player-video-placeholder" role="img" aria-label="Player video invitation placeholder">
-                <i className="ri-play-circle-line" aria-hidden="true" />
-                <strong>A PERSONAL MESSAGE FROM {firstName.toUpperCase()}</strong>
-                <span>PLAYER VIDEO PREVIEW COMING SOON</span>
-              </div>
+              <PlayerConnectVideo playerId={safePlayerId} firstName={firstName} />
               <p>Active and retired players can invite their fans to connect through personalized video messages.</p>
               <a className="yp-player-video-link" href={`/${hsid}/connect-contribute#cc-connect`}>LEARN ABOUT VIDEO EXCHANGES →</a>
               <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
@@ -1195,7 +1192,22 @@ export default async function ProfilePage({ params }: Props) {
         #playerFunZone .yp-profile-ad strong {font:800 clamp(17px,2vw,27px)/1.05 var(--yat-font-compact);}
         #playerFunZone .yp-profile-ad small {font:400 11px/1.4 var(--yat-font-ui);color:#bbb;}
         #playerFunZone .yp-profile-partner-connect {display:flex;flex-direction:column;align-items:center;gap:11px;justify-content:flex-start;padding:13px;}
-        #playerFunZone .yp-player-video-placeholder {display:flex;flex-direction:column;gap:9px;align-items:center;justify-content:center;min-height:190px;width:100%;padding:14px;border:1px solid #444;background:radial-gradient(circle at 50% 40%,#194b36,#0d1512 70%);color:#eee;text-align:center;}
+        /* Player video: a portrait (9:16) phone-shaped frame, like the
+           outgoing message a player records on a phone. */
+        #playerFunZone .yp-connect-video {display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;}
+        #playerFunZone .yp-connect-video-frame {position:relative;width:min(100%,340px,calc(62vh * 9 / 16));aspect-ratio:9/16;border:1px solid #444;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 8px 24px rgba(0,0,0,.45);}
+        #playerFunZone .yp-connect-video-player {display:block;width:100%;height:100%;object-fit:contain;background:#000;}
+        #playerFunZone .yp-connect-video-title {font:800 18px/1.1 var(--yat-font-compact);text-align:center;}
+        #playerFunZone .yp-connect-video-admin {display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px;max-width:340px;text-align:center;}
+        #playerFunZone .yp-connect-video-admin form {margin:0;}
+        #playerFunZone .yp-connect-video-btn {display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid #ffd21a;color:#ffd21a;padding:8px 12px;border-radius:4px;font:800 11px/1.1 var(--yat-font-compact);}
+        #playerFunZone .yp-connect-video-btn.is-busy {opacity:.7;cursor:progress;}
+        #playerFunZone .yp-connect-video-btn.is-busy i {display:inline-block;animation:ypSpin 1s linear infinite;}
+        @keyframes ypSpin {to{transform:rotate(360deg)}}
+        #playerFunZone .yp-connect-video-remove {border:1px solid #888;background:transparent;color:#bbb;padding:8px 10px;border-radius:4px;font:800 11px/1.1 var(--yat-font-compact);cursor:pointer;}
+        #playerFunZone .yp-connect-video-admin small {flex-basis:100%;color:#999;font:400 11px/1.4 var(--yat-font-ui);}
+        #playerFunZone .yp-connect-video-msg {flex-basis:100%;margin:0;color:#ffd21a;font:700 12px/1.4 var(--yat-font-ui);}
+        #playerFunZone .yp-player-video-placeholder {display:flex;flex-direction:column;gap:9px;align-items:center;justify-content:center;width:100%;height:100%;padding:18px;background:radial-gradient(circle at 50% 40%,#194b36,#0d1512 70%);color:#eee;text-align:center;}
         #playerFunZone .yp-player-video-placeholder i {font-size:40px;line-height:1;}
         #playerFunZone .yp-player-video-placeholder strong {font:800 21px/1.1 var(--yat-font-compact);}
         #playerFunZone .yp-player-video-placeholder span {color:#bbb;font:700 11px var(--yat-font-compact);}
