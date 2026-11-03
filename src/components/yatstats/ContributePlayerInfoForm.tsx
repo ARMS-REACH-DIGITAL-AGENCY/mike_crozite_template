@@ -151,7 +151,7 @@ export default function ContributePlayerInfoForm({
       setMessage(body.review === 'published_player'
         ? `Player created and searchable now. YAT ID: ${body.playerId}. Open Global Search to find the new profile.`
         : body.review === 'preview_only'
-        ? 'Preview test received. This commitment was NOT saved or published.'
+        ? 'Preview test only. No player or other data was created.'
         : body.review === 'published_commitment'
           ? (body.commitment?.status === 'COMMIT'
             ? `${body.commitment?.teamName || 'College'} COMMIT published! Row 3 will use the college logo after refresh.`
@@ -171,7 +171,7 @@ export default function ContributePlayerInfoForm({
   return <div className="ycd-profile-fields">
     <p className="ycd-muted ycd-small">{player
       ? 'Existing player: fields below are prefilled from the flip-card record. Edit only what needs correcting.'
-      : 'Add a player who is missing from the database. Use the known school and the fields below.'}</p>
+      : 'Create a missing player immediately. Choose the school and enter the available details.'}</p>
     {loading?<p>Loading current player information…</p>:null}
     <div className="ycd-pair">
       {(['first_name','last_name'] as const).map(k=><label className="ycd-field" key={k}>
