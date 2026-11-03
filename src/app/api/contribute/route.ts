@@ -14,6 +14,7 @@ import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears, publishQueue
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
+import { publishNewPlayerNow, NewPlayerPublicationError } from '@/lib/publishNewPlayer';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 import { parseNewsVideo, cleanNewsVideoTitle } from '@/lib/newsVideo';
@@ -161,6 +162,29 @@ export async function POST(req: NextRequest) {
         if (!/^\d+$/.test(hsid)) return fail('Select a high school.');
         playerName=[first,last].join(' ');
       } else if (!/^\d+$/.test(hsid)) return fail('Player school was not found.');
+      if (isNew) {
+        // Preview deployments share the production DB: never create a live
+        // player from a preview test.
+        if (process.env.VERCEL_ENV === 'preview') {
+          return NextResponse.json({ok:true,review:'preview_only'}, {status:200});
+        }
+        try {
+          const created=await publishNewPlayerNow({
+            hsid,fields:submitted,canonicalTeam:selectedCurrentTeam,
+          });
+          await logContribution(who,'contribute_profile',{
+            playerid:created.playerId,hsid,pageUrl,
+            details:{kind:'missing_player',fields:submitted,autoPublished:true,submissionId:created.submissionId},
+          }).catch(error=>console.error('[contribute/new-player] activity log failed',error));
+          return NextResponse.json({
+            ok:true,review:'published_player',playerId:created.playerId,
+            hsid,submissionId:created.submissionId,
+          },{status:201});
+        } catch (error) {
+          if (error instanceof NewPlayerPublicationError) return fail(error.message,error.status);
+          throw error;
+        }
+      }
       const hasCommitmentUpdate = !isNew && isHighSchool && teamIdSpecified
         && ['COMMIT','UNCOMMITTED'].includes(status);
       let savedCommitment: {teamName:string|null;changed:boolean}|null=null;
@@ -217,12 +241,7 @@ export async function POST(req: NextRequest) {
       const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
         by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
       let contributionQueueId: string | null = null;
-      if (isNew) {
-        await query(
-          `INSERT INTO missing_player_submission (hsid,player_name,grad_year,notes) VALUES ($1,$2,$3,$4)`,
-          [hsid,playerName,submitted.class_of?Number(submitted.class_of):null,JSON.stringify(details)]
-        );
-      } else {
+      {
         const queued=await query<{id:string}>(
           `INSERT INTO news_tip_queue (intake_source,sender_name,sender_contact_id,sender_role,raw_player_name,
                  matched_playerid,matched_hsid,article_url,notes,status)
