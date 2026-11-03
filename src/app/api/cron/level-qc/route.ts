@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
           <p><b>Reviewed canonical changes in past 24 hours:</b> ${canonicalChanges24h}</p>
           <p><b>TBC Team ID discovery and reconciliation:</b> ${esc(JSON.stringify(teamIdDiscovery))}</p>
           <p><b>Historical career-stat rows awaiting verified team-level mapping (${heldHistoricalStats}):</b></p>
-          ${table(["Source", "Imported stat rows", "Unresolved Team IDs", "Held out of competitive buckets"],
+          ${table(["Source", "Existing career stat rows (historical + 2026 feed)", "Unresolved Team IDs", "Held out of competitive buckets"],
             historicalLevelCoverage.map((r) => [esc(r.source), String(r.total_stat_rows),
               String(r.unresolved_teamids), String(r.held_stat_rows)]))}
           <p><b>Full-stage coverage:</b> ${esc(JSON.stringify(coverage))}</p>
