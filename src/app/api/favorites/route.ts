@@ -19,6 +19,7 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { addTagToGHLContact } from "@/lib/gohighlevel";
 import { query } from "@/lib/db";
+import { playerLabel } from "@/lib/armsLabels";
 import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/lib/userProfile";
 import { isSuperfan as isSuperfanProfile } from "@/lib/entitlements";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
@@ -223,10 +224,13 @@ export async function POST(req: NextRequest) {
     if (contactId) {
       const tagPrefix = isSuperfan ? "superfav" : "fav";
       const tag = `${tagPrefix}:${playerId}`;
-      const nameTag = `${tagPrefix}:${(playerName || playerId).replace(/\s+/g, "-").toLowerCase()}`;
+      // "superfav:cody bellinger — hamilton — chandler, az": the player's
+      // name and their own high school, looked up by playerid.
+      const label = await playerLabel(String(playerId)).catch(() => null);
+      const readable = label?.label || String(playerName || "").trim();
       await Promise.allSettled([
         addTagToGHLContact(contactId, tag),
-        addTagToGHLContact(contactId, nameTag),
+        ...(readable ? [addTagToGHLContact(contactId, `${tagPrefix}:${readable}`)] : []),
       ]);
     }
 

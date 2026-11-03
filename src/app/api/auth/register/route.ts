@@ -1,3 +1,4 @@
+import { fillHomeSchoolName, formatSchoolLabel } from "@/lib/armsLabels";
 import { NextRequest, NextResponse } from "next/server";
 import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
@@ -158,6 +159,7 @@ export async function POST(request: NextRequest) {
           homeSchoolName = school.hsname ?? null;
           homeSchoolLocation = school.hslocation ?? null;
           homeMicrositeUrl = normalizeMicrositeUrl(school.microsite_url);
+          await fillHomeSchoolName(body.uid, formatSchoolLabel(school.hsname, school.hslocation));
         }
       } catch (schoolErr) {
         console.error("School lookup failed (non-fatal):", schoolErr);

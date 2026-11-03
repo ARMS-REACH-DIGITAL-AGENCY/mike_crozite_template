@@ -1,5 +1,6 @@
+import { fillHomeSchoolName, formatSchoolLabel } from "@/lib/armsLabels";
 import { NextRequest, NextResponse } from "next/server";
-import { lookupGHLContactByEmail, getGHLLocationId } from "@/lib/gohighlevel";
+import { lookupGHLContactByEmail, getGHLLocationId, syncYatstatsContact } from "@/lib/gohighlevel";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
@@ -146,6 +147,13 @@ export async function POST(request: NextRequest) {
           homeSchoolName = school.hsname ?? null;
           homeSchoolLocation = school.hslocation ?? null;
           homeMicrositeUrl = normalizeMicrositeUrl(school.microsite_url);
+          await fillHomeSchoolName(body.uid, formatSchoolLabel(school.hsname, school.hslocation));
+          // One-time repair for contacts made before ARMS got the full
+          // "School — City, ST" label: sync the first time the name is filled.
+          if (!String(profile.home_school_name || '').trim() && profile.arms_contact_id) {
+            await syncYatstatsContact(profile.arms_contact_id, profile, school)
+              .catch((error) => console.error('ARMS school sync failed (non-fatal):', error));
+          }
         }
       } catch (schoolErr) {
         console.error("School lookup failed (non-fatal):", schoolErr);
