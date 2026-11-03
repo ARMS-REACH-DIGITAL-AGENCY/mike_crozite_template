@@ -105,7 +105,8 @@ async function main(){
     },null,2));
     if(!apply)return;
     if(plan.generated!==plan.eligible)throw Error('Incomplete URL coverage');
-    if(plan.collisions.length||plan.invalid.length)throw Error('Review all URL collisions before applying');
+    // Ambiguous or malformed URLs are quarantined, not written. Safe rows
+    // can proceed independently; the report lists every deferred candidate.
     await client.query('BEGIN');
     try{
       // Original school rows are never touched, even if their URL is missing.
