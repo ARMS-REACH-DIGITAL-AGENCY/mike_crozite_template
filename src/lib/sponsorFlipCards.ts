@@ -11,7 +11,14 @@
 //   All-Time        2nd after any retired coaches (1st if there are none)
 // SponsorCardPlacer keeps it there when the gallery scripts re-sort.
 
+import FANTASY_BRACKET_HSIDS from './fantasyBracketHsids.json';
+
 export type SponsorSection = 'active' | 'current' | 'alltime';
+
+// The 1,024 schools in the Fantasy Bracket Tournament field (the schools
+// in public/bracket-lab/2026/index.json; scripts/verify-sponsor-cards.cjs
+// fails the build if this list and that field ever differ).
+const FANTASY_FIELD = new Set<string>(FANTASY_BRACKET_HSIDS as string[]);
 
 export type SponsorFlipCard = {
   id: string;
@@ -23,8 +30,8 @@ export type SponsorFlipCard = {
   backAlt: string;
   /** Where the back's call to action goes. Empty: the card only flips. */
   destinationUrl?: string;
-  /** '*' = every school, or a list of hsids. */
-  schoolIds: '*' | string[];
+  /** '*' = every school, 'fantasy-bracket' = the 1,024 bracket schools, or a list of hsids. */
+  schoolIds: '*' | 'fantasy-bracket' | string[];
   sections: SponsorSection[];
   startsAt?: string;
   endsAt?: string;
@@ -40,7 +47,8 @@ export const sponsorFlipCards: SponsorFlipCard[] = [
     backAlt: 'Payroll impact stats: about $600 in potential payroll savings per eligible employee per year, from $6,000 for 10 employees to $600,000 for 1,000. See if you qualify.',
     // AW Sales landing page (HighLevel), Pete Nov 2 2026.
     destinationUrl: 'https://armsreachdigital.agency/pcmp',
-    schoolIds: '*',
+    // Founding Partner: the 1,024 Fantasy Bracket Tournament schools (Pete, Nov 3 2026).
+    schoolIds: 'fantasy-bracket',
     sections: ['active', 'current', 'alltime'],
   },
 ];
@@ -54,7 +62,8 @@ export function sponsorCardsFor(hsid: string, section: SponsorSection, now = new
   return sponsorFlipCards.filter((card) =>
     isLive(card, now)
     && card.sections.includes(section)
-    && (card.schoolIds === '*' || card.schoolIds.includes(String(hsid))));
+    && (card.schoolIds === '*'
+      || (card.schoolIds === 'fantasy-bracket' ? FANTASY_FIELD.has(String(hsid)) : card.schoolIds.includes(String(hsid)))));
 }
 
 // Level order used by the galleries (src/lib/playerUtils.ts LEVEL_RANK):
