@@ -428,11 +428,10 @@ function css() {
   </style>`;
 }
 
-// Every column sorts. The table opens sorted by YEAR, newest first (▼ on
-// YEAR); the first click on any column sorts it high to low, and clicking it
-// again flips it. Same rules as the Schedule tab's game log
-// (PlayerScheduleTable). Ties keep their order (Array.prototype.sort is
-// stable), so seasons with several stints stay in their usual order.
+// Every column sorts. The table opens sorted by YEAR, oldest first (▲ on
+// YEAR); the first click on another column sorts it high to low, and clicking
+// again flips it. Ties keep their order (Array.prototype.sort is stable),
+// so seasons with several stints stay in their usual order.
 function attachSortHandlers(panel: HTMLElement) {
   const tables = Array.from(panel.querySelectorAll<HTMLTableElement>('.psi-table'));
   tables.forEach((tableEl) => {
@@ -445,11 +444,11 @@ function attachSortHandlers(panel: HTMLElement) {
       headers[index].classList.add(direction === 'asc' ? 'is-sort-asc' : 'is-sort-desc');
       headers[index].setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
       const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('tr'));
-      // Newest season first, then the chosen column - so ties (seasons with
-      // the same value) stay newest first.
+      // Oldest season first, then the chosen column - so ties (seasons with
+      // the same value) stay oldest first.
       const yearAt = headers.findIndex((h) => h.dataset.sortKey === 'year');
       if (yearAt >= 0 && yearAt !== index) {
-        rows.sort((a, b) => (Number(b.children[yearAt]?.textContent) || 0) - (Number(a.children[yearAt]?.textContent) || 0));
+        rows.sort((a, b) => (Number(a.children[yearAt]?.textContent) || 0) - (Number(b.children[yearAt]?.textContent) || 0));
       }
       rows.sort((a, b) => {
         const av = a.children[index]?.textContent?.trim() || '';
@@ -470,7 +469,7 @@ function attachSortHandlers(panel: HTMLElement) {
     });
 
     const yearIndex = headers.findIndex((h) => h.dataset.sortKey === 'year');
-    if (yearIndex >= 0) sortBy(yearIndex, 'desc');
+    if (yearIndex >= 0) sortBy(yearIndex, 'asc');
   });
 }
 
