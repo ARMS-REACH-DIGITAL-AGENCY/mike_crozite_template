@@ -69,7 +69,8 @@ function isHighSchoolLevel(value: unknown): boolean {
 
 function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
   return isCurrentHighSchoolRosterStatus(p.status_label || p.status) ||
-    isHighSchoolLevel(p.current_level_label || p.display_level_label || p.level_label || p.level);
+    [p.current_level_label, p.display_level_label, p.level_label, p.level]
+      .some(isHighSchoolLevel);
 }
 
 function getStripImageForPlayer(
