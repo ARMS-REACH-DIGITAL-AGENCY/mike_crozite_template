@@ -132,6 +132,11 @@ function isRetiredCoachCard(p: Row | undefined): boolean {
 function isHighSchoolPlayer(p: Row | undefined): boolean {
   if (!p) return false;
 
+  // A verified commitment is a high-school roster status, even while the
+  // current level crosswalk is missing or disagrees. Both signals qualify.
+  const status = String(p.status_label || p.status || "").trim().toUpperCase();
+  if (status === "COMMIT" || status === "UNCOMMITTED") return true;
+
   const candidates = [
     p.level_label,
     p.display_level_label,
