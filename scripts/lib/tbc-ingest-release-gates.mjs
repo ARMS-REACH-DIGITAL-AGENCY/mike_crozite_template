@@ -1,93 +1,93 @@
-// Read-only release policy for the complete Baseball Cube player universe.
-// This file has no SQL and no I/O; status must be based on recorded evidence.
+/**
+ * Pure, read-only validation of a complete TBC feed release.
+ * PRE-PROMOTION and POST-PROMOTION have different gates so the pipeline
+ * never requires 208K production cards as a precondition for creating them.
+ */
 export const MIN_VERIFIED_PLAYER_IDS = 208427;
-
-const number = (value) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+const positiveOrZero = (v) => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : null;
 };
-
-export function evaluateTbcIngestionReleaseGate(metrics, {
+const verdict = (checks) => ({
+  ready: checks.every((x) => x.passed),
+  checks,
+  blockers: checks.filter((x) => !x.passed).map((x) => x.explanation),
+  sideEffects: "none",
+});
+function checksFactory() {
+  const checks = [];
+  return {
+    checks,
+    add(label, passed, explanation) {
+      checks.push({ label, passed: Boolean(passed), explanation });
+    },
+  };
+}
+/** Validate the immutable full-source snapshot independently of fan-facing tables. */
+export function evaluateTbcPrePromotionGate(metrics, {
   now = new Date(),
   performanceApproved = false,
   functionalParityApproved = false,
+  rollbackVerified = false,
   mappingExceptionsApproved = false,
 } = {}) {
-  const reasons = [];
+  const { checks, add } = checksFactory();
   const capture = metrics?.capture || {};
-  const production = metrics?.production || {};
   const crosswalk = metrics?.crosswalk || {};
   const season = metrics?.season || {};
-  const checks = [];
-
-  function check(label, condition, explanation) {
-    checks.push({ label, passed: Boolean(condition), explanation });
-    if (!condition) reasons.push(explanation);
+  const uniqueIds = positiveOrZero(capture.uniqueIds);
+  const rows = positiveOrZero(capture.sourceRows);
+  const saved = positiveOrZero(capture.savedRows);
+  const savedDistinct = positiveOrZero(capture.uniqueSaved);
+  const rejected = positiveOrZero(capture.quarantinedRows);
+  const capturedAt = new Date(capture.capturedAt || "").getTime();
+  const ageHours = Number.isFinite(capturedAt)
+    ? (new Date(now).getTime() - capturedAt) / 3_600_000 : NaN;
+  add("complete-source-identities", uniqueIds !== null &&
+      uniqueIds >= MIN_VERIFIED_PLAYER_IDS && uniqueIds === rows &&
+      uniqueIds === saved && uniqueIds === savedDistinct,
+    "Captured source lines, distinct IDs and saved landing rows must match and reach 208,427.");
+  add("source-freshness", Number.isFinite(ageHours) && ageHours >= 0 && ageHours <= 24,
+    "Full row-level source snapshot must be captured and verified within 24 hours.");
+  add("source-quarantine", rejected === 0 ||
+    (rejected !== null && mappingExceptionsApproved),
+    "Malformed source rows must be corrected or explicitly approved for quarantine.");
+  add("crosswalk-policy",
+    positiveOrZero(crosswalk.unmatched) === 0 && positiveOrZero(crosswalk.ambiguous) === 0 ||
+    mappingExceptionsApproved,
+    "Unmatched/ambiguous HSIDs require explicit review, not automatic assignment.");
+  add("2026-stats-reconciliation", Boolean(season.coverageReviewed),
+    "2026 statistics source coverage and its effect on active-roster counts must be reviewed.");
+  add("capacity-and-cost", performanceApproved,
+    "Scale, database/query cost and concurrency need signoff using isolated tests.");
+  add("fan-facing-parity", functionalParityApproved,
+    "Flip card, school, active/all-time, and profile parity must pass.");
+  add("rollback-rehearsal", rollbackVerified,
+    "Incremental publication must have a tested rollback mechanism.");
+  return { ...verdict(checks), sourceAgeHours: Number.isFinite(ageHours) ? +ageHours.toFixed(1) : null };
+}
+/** Completion gate. Not valid until controlled canonical publication has run. */
+export function evaluateTbcPostPromotionGate(metrics, { exceptionsApproved = false } = {}) {
+  const { checks, add } = checksFactory();
+  const production = metrics?.production || {};
+  const checkZero = (key, explanation) => add(key, positiveOrZero(production[key]) === 0, explanation);
+  checkZero("sourceMissingRaw", "Not all captured player IDs exist in tbc_players_raw.");
+  if (exceptionsApproved) {
+    add("sourceMissingCards", positiveOrZero(production.sourceMissingCards) !== null,
+      "Missing-card count must be explicitly audited and documented.");
+  } else {
+    checkZero("sourceMissingCards", "Not all publishable source player IDs have flip cards.");
   }
-
-  const ids = number(capture.uniqueIds);
-  const sourceRows = number(capture.sourceRows);
-  const savedRows = number(capture.savedRows);
-  const uniqueSaved = number(capture.uniqueSaved);
-  const quarantine = number(capture.quarantinedRows);
-  const capturedAt = new Date(capture.capturedAt || "");
-  const ageHours = Number.isFinite(capturedAt.getTime())
-    ? (new Date(now).getTime() - capturedAt.getTime()) / 3_600_000
-    : null;
-
-  check("complete-source-identities",
-    ids !== null && ids >= MIN_VERIFIED_PLAYER_IDS &&
-      ids === sourceRows && ids === savedRows && ids === uniqueSaved,
-    "Current source must contain at least 208,427 unique IDs and reconcile exactly to preserved landing rows.");
-
-  check("source-freshness",
-    ageHours !== null && ageHours >= 0 && ageHours <= 24,
-    "Full row-level source landing is older than 24 hours or has no validated capture timestamp.");
-
-  check("source-quarantine",
-    quarantine === 0 || (mappingExceptionsApproved && quarantine !== null),
-    "Malformed source rows are unresolved; quarantine requires documented and approved exceptions.");
-
-  check("player-raw-coverage",
-    number(production.sourceMissingRaw) === 0,
-    "Captured Player IDs are missing from tbc_players_raw.");
-
-  check("flip-card-coverage",
-    number(production.sourceMissingCards) === 0,
-    "Captured Player IDs are missing from flip_card_front_stage.");
-
-  check("school-link-integrity",
-    number(production.cardsWithoutHSID) === 0 &&
-      number(production.cardHSIDMismatches) === 0,
-    "Some player cards have a missing or inconsistent HSID.");
-
-  check("school-crosswalk-exceptions",
-    (number(crosswalk.unmatched) === 0 && number(crosswalk.ambiguous) === 0) ||
-      mappingExceptionsApproved,
-    "Unmatched and ambiguous school identities remain unresolved.");
-
-  check("fan-facing-enrichment",
-    number(production.cardsWithoutStatus) === 0 &&
-      number(production.cardsWithoutLevel) === 0,
-    "Some cards are missing authoritative player status or level.");
-
-  check("season-coverage-review",
-    Boolean(season.coverageReviewed),
-    "2026 season and historical ZIP coverage must be reconciled before active alumni counts are published.");
-
-  check("performance-and-cost-approval",
-    Boolean(performanceApproved),
-    "208K scale, SQL cost, caching, and staging throughput have not passed the performance release gate.");
-
-  check("functional-parity-approval",
-    Boolean(functionalParityApproved),
-    "School and player profile parity, filters, contributions, and rollback are not signed off.");
-
-  return {
-    ready: checks.every((c) => c.passed),
-    checks,
-    blockers: reasons,
-    sourceAgeHours: ageHours === null ? null : Math.round(ageHours * 10) / 10,
-    note: "This is a read-only release gate; it never promotes or modifies players.",
-  };
+  checkZero("cardsWithoutHSID", "Published cards have blank HSIDs.");
+  checkZero("cardHSIDMismatches", "Published cards have incorrect or conflicting HSIDs.");
+  if (!exceptionsApproved) {
+    checkZero("cardsWithoutStatus", "Published cards are missing an authoritative status.");
+    checkZero("cardsWithoutLevel", "Published cards are missing an authoritative level.");
+  } else {
+    add("enrichmentExceptionsAudited",
+      Boolean(production.enrichmentExceptionsAudited),
+      "Every unverified status/level must be flagged and excluded from unsupported filters.");
+  }
+  return verdict(checks);
 }
