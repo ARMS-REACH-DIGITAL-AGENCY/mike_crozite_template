@@ -650,21 +650,26 @@ export async function GET(req: NextRequest) {
       RETURNING ingest_run_id
     `, [randomUUID()]);
     auditRunId = String(auditStarted.rows[0].ingest_run_id);
-    await client.query("begin");
-
+    // Source fetch/validation happens before opening the write transaction.
     const capture = await fetchCsvRows(FEEDS.players.url);
     if (capture.uniquePlayerIds === undefined || capture.sourceRows === undefined || capture.validRows === undefined) {
       throw new Error("Full Players source validation failed");
     }
     if (capture.rejects.length > 50) throw new Error("Abnormally many malformed Players source rows");
-    const results = [
+    const results: Array<{
+      feed: FeedKey; downloadedRows: number; insertedRows: number; targetRows: number;
+      quarantinedRows: number; quarantinedPlayerIds?: string[];
+      uniquePlayerIds?: number; promotedToRaw?: boolean; status?: string;
+    }> = [
       { feed: "players" as const,
         downloadedRows: capture.sourceRows,
         uniquePlayerIds: capture.uniquePlayerIds,
         insertedRows: 0, targetRows: 0, quarantinedRows: capture.rejects.length,
         promotedToRaw: false, status: "capture_only" }
     ];
+    // Write transaction covers only 2026 batting/pitching + existing-stage updates.
     // Do not expand production raw players / flip cards before performance gates.
+    await client.query("begin");
     results.push(await syncOneFeed(client, "batting"));
     results.push(await syncOneFeed(client, "pitching"));
     validateResults(results);
