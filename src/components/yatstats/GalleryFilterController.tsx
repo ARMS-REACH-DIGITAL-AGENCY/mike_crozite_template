@@ -187,6 +187,10 @@ function applyFilters(section: string) {
   ).trim().toLowerCase();
 
   const statuses = getSelectedValues('filterStatus');
+  // "Select All" means no status restriction. In particular, a status
+  // that is not yet in the drawer's list must not disappear when all
+  // available choices are checked.
+  const allStatusesSelected = statuses.length > 0 && statuses.length === getGroupBoxes('filterStatus').length;
   const levels = getSelectedValues('filterLevels');
   const organizations = getSelectedValues('filterOrgs');
   const gradClasses = getSelectedValues('filterGradClass');
@@ -213,7 +217,7 @@ function applyFilters(section: string) {
     const show =
       (!favoritesGallery.enabled || favoritesGallery.playerIds.has(playerId))
       && (!nameFilter || name.includes(nameFilter))
-      && (!statuses.length || statuses.includes(status))
+      && (!statuses.length || allStatusesSelected || statuses.includes(status))
       && (!levels.length || levels.includes(level))
       && (!organizations.length || organizations.includes(organization))
       && matchesGraduatingClass(gradClass, gradClasses)
@@ -257,8 +261,10 @@ function applyPreset(section: string) {
   }
 
   if (section === 'current') {
+    // The server already populated this tab from HIGH SCHOOL level OR a
+    // COMMIT/UNCOMMITTED status. Do not add a level-only AND filter which
+    // would hide a valid commitment with missing/incorrect level metadata.
     setAll('filterStatus', true);
-    setValues('filterLevels', ['HIGH SCHOOL']);
   }
 
   // A team link (?team=2017, which the year strip also keeps in the address
@@ -306,7 +312,8 @@ function presetShows(section: string, card: HTMLElement): boolean {
   if (section === 'active') {
     return ACTIVE_GALLERY_STATUSES.includes(normalize(card.dataset.status));
   }
-  if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL';
+  if (section === 'current') return normalize(card.dataset.level) === 'HIGH SCHOOL'
+    || ['COMMIT', 'UNCOMMITTED'].includes(normalize(card.dataset.status));
   return true;
 }
 
