@@ -363,6 +363,34 @@ export default function DrawerLayoutOverrides() {
           margin-right: var(--yat-side-drawer-w) !important;
         }
 
+        /*
+         * A right margin alone is not a reliable content viewport: a row
+         * with a 100%-wide inner grid can keep laying out flip cards under
+         * the fixed Favorites rail. Reserve the actual rail width on the
+         * rows that contain content, so auto-fill reflows to fewer columns.
+         * Rows 1-2 and the fixed footer deliberately remain full width.
+         * Mobile (<780px) retains its normal overlay drawer.
+         */
+        body {
+          --yat-docked-left-space: 0px;
+          --yat-docked-right-space: 0px;
+        }
+        body.drawer-left-open {
+          --yat-docked-left-space: var(--yat-side-drawer-w);
+        }
+        body:is(.drawer-sort-open, .drawer-right-open, .drawer-account-open, .drawer-favorites-open) {
+          --yat-docked-right-space: var(--yat-side-drawer-w);
+        }
+        body:is(.drawer-left-open, .drawer-sort-open, .drawer-right-open, .drawer-account-open, .drawer-favorites-open)
+          :is(.yat-row3-shell, .yat-row4-shell, .yat-row5-shell) {
+          box-sizing: border-box !important;
+          width: calc(100% - var(--yat-docked-left-space) - var(--yat-docked-right-space)) !important;
+          max-width: calc(100% - var(--yat-docked-left-space) - var(--yat-docked-right-space)) !important;
+          min-width: 0 !important;
+          margin-left: var(--yat-docked-left-space) !important;
+          margin-right: var(--yat-docked-right-space) !important;
+        }
+
         body.drawer-left-open .yat-grid,
         body.drawer-sort-open .yat-grid,
         body.drawer-right-open .yat-grid,
