@@ -14,7 +14,7 @@ export const maxDuration = 20;
 const S3_BUCKET = process.env.YATSTATS_S3_BUCKET || process.env.S3_BUCKET || 'yatstats-assets';
 const S3_REGION = process.env.YATSTATS_AWS_REGION || process.env.AWS_REGION || 'us-west-2';
 const PLAYER_ID = /^[a-zA-Z0-9_-]{1,40}$/;
-const HS_ID = /^\\d{1,20}$/;
+const HS_ID = /^\d{1,20}$/;
 // Preserve already-produced actual timeline images, including the previews
 // people have seen in earlier text messages.
 const TIMELINE_CACHE_VERSION = 'timeline-v3-hero';
