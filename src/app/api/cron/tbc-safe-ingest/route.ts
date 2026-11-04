@@ -124,7 +124,7 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: string[][] }> {
+async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: string[][]; rejects: Array<{sourceRow:number;playerid:string;reason:string;rawLine:string}> }> {
   const res = await fetch(url, {
     cache: "no-store",
     headers: {
