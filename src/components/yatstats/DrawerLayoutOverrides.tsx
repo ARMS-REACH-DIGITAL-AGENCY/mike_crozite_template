@@ -801,6 +801,17 @@ export default function DrawerLayoutOverrides() {
           max-width:100%;
         }
       }
+      /* Android's "Desktop site" and touch tablets can have a desktop CSS
+         viewport. Favorites is explicitly docked at >=780px even with a
+         coarse pointer; restore its reserved side margins after the older
+         generic touch-overlay reset above. Native mobile (<780px) still
+         uses an overlay and full-width content. */
+      @media (min-width:780px) and (hover:none) and (pointer:coarse) {
+        body.drawer-favorites-open :is(.yat-row3-shell,.yat-row4-shell,.yat-row5-shell) {
+          margin-left:var(--yat-docked-left-space)!important;
+          margin-right:var(--yat-docked-right-space)!important;
+        }
+      }
       /* Authentication must appear above the already-open News reader.
          Its normal docked layout stays unchanged outside this state. */
       body.drawer-account-open .yat-content-drawer{z-index:60!important}
