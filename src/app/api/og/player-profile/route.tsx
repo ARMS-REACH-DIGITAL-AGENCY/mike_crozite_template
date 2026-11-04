@@ -1,55 +1,51 @@
-// Real Career Path Timeline image ONLY.
-// A cache miss queues one background screenshot job. Never return a fabricated
-// stand-in that looks unlike the player's actual profile, and never launch
-// Chromium from a Google Messages/social-preview request.
+// Real profile snapshot only: never fabricate a substitute card.
+// Captures happen on the bounded, scheduled worker, not in preview requests.
 import type { NextRequest } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import {
-  enqueueRealTimelineSnapshot, REAL_TIMELINE_S3_BUCKET,
-  snapshotCacheKey, snapshotS3, validSnapshotIds,
+  enqueueRealTimelineSnapshot, snapshotS3, snapshotCacheKey,
+  REAL_TIMELINE_S3_BUCKET, validSnapshotIds,
 } from '@/lib/realTimelineSnapshotQueue';
 
 export const runtime = 'nodejs';
 export const maxDuration = 12;
 
-function imageResponse(png: Buffer): Response {
+function response(png: Buffer) {
   return new Response(new Uint8Array(png), {
     headers: {
       'Content-Type': 'image/png',
-      'Cache-Control': 'public, max-age=120, s-maxage=120, stale-while-revalidate=3600',
-      'X-YAT-Share-Preview': 'real-timeline',
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
+      'X-YAT-Share-Preview': 'real-career-timeline',
     },
   });
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
+export async function GET(req: NextRequest) {
   const playerId = (req.nextUrl.searchParams.get('playerId') || '').trim();
   const hsid = (req.nextUrl.searchParams.get('hsid') || '').trim();
-  if (!validSnapshotIds(hsid, playerId)) {
-    return new Response('Invalid player or school ID', { status: 400, headers: { 'Cache-Control': 'no-store' } });
-  }
-
+  if (!validSnapshotIds(hsid, playerId)) return new Response('Invalid player or school ID', { status: 400 });
   const s3 = snapshotS3();
   if (!s3) return new Response('Preview storage unavailable', { status: 503, headers: { 'Cache-Control': 'no-store' } });
   try {
-    const image = await s3.send(new GetObjectCommand({
+    const obj = await s3.send(new GetObjectCommand({
       Bucket: REAL_TIMELINE_S3_BUCKET, Key: snapshotCacheKey(hsid, playerId),
-    }), { abortSignal: AbortSignal.timeout(2200) });
-    if (image.Body) {
-      const bytes = Buffer.from(await image.Body.transformToByteArray());
-      if (bytes.length > 10000) return imageResponse(bytes);
+    }), { abortSignal: AbortSignal.timeout(2500) });
+    if (obj.Body) {
+      const png = Buffer.from(await obj.Body.transformToByteArray());
+      if (png.length > 10000) return response(png);
     }
   } catch (error) {
     if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode !== 404) {
-      console.warn('[player-share] real screenshot read unavailable', { hsid, playerId, error });
+      console.warn('[player-share] real-timeline image unavailable', { hsid, playerId, error });
     }
   }
 
-  // Queue idempotently; no schema changes, no full-page rendering, no browser
-  // process on request. A cron worker saves the real screenshot in this key.
+  // Missing images enter an idempotent queue. Never return a made-up graphic.
+  // Avoid caching the temporary unavailable response, so a later preview can
+  // fetch the actual player's newly generated timeline screenshot.
   await enqueueRealTimelineSnapshot(hsid, playerId, s3);
-  return new Response('Real player timeline preview is being prepared', {
+  return new Response('Real player profile screenshot is being prepared', {
     status: 503,
-    headers: { 'Cache-Control': 'no-store', 'Retry-After': '90', 'X-YAT-Share-Preview': 'real-timeline-pending' },
+    headers: { 'Cache-Control': 'private, no-store, max-age=0', 'Retry-After': '300' },
   });
 }
