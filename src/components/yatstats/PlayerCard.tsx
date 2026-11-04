@@ -3,6 +3,7 @@
 
 import { gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
+import { normalizeGalleryStatus } from "@/lib/galleryStatuses";
 import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
@@ -145,6 +146,9 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const rosterYears = Array.isArray(p.roster_years) ? p.roster_years : varsityDots(p);
   const org = normalizeOrg(display.orgConferenceName);
   const status = display.statusLabel;
+  // Keep the decorative card label (e.g. "OKLAHOMA STATE COMMIT") for
+  // display, but expose the canonical status (COMMIT) to filtering/Row 3.
+  const galleryStatus = normalizeGalleryStatus(p.status_label || p.status);
   const slug = toPlayerSlug(
     String(p.firstname || p.first_name || ""),
     String(p.lastname || p.last_name || "")
@@ -194,7 +198,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       data-org={org}
       data-gradclass={gc}
       data-rosteryears={Array.isArray(rosterYears) ? rosterYears.join(",") : ""}
-      data-status={status}
+      data-status={galleryStatus}
       data-has-2026-stats={has2026Stats ? "true" : "false"}
       data-slug={slug}
       data-committed-teamid={committedTeamId}
