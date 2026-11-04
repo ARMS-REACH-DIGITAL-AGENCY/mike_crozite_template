@@ -185,7 +185,7 @@ export default async function HsidLayout({
     host.split(':')[0].toLowerCase() !== 'www.yatstats.com';
   const firstSegment = pathname.split('/')[1] || '';
   const previewHsid = !liveSchoolHost && /^[1-9][0-9]*$/.test(firstSegment) ? firstSegment : '';
-  const splashCookie = previewHsid ? `yat_splash_seen_${previewHsid}` : 'yat_splash_seen';
+  const splashCookie = `yat_splash_seen_${splashHsid}`;
   const seenSplash = (headersList.get('cookie') || '')
     .split(';').some((value) => value.trim() === `${splashCookie}=1`);
   const forceSplash = headersList.get('x-yat-force-splash') === '1';
