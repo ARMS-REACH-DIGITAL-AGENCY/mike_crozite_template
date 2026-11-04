@@ -561,6 +561,12 @@ function validateResults(results: Array<{ feed: FeedKey; downloadedRows: number;
     if (result.downloadedRows <= 0 || result.insertedRows <= 0) {
       throw new Error(`${result.feed} feed was empty; canonical tables were not changed`);
     }
+    // Prevent an incomplete Players feed being reported as a success.
+    // The complete 2026-11-03 source was independently verified at 208,427 IDs.
+    if (result.feed === "players" && result.downloadedRows < 208427) {
+      throw new Error("INCOMPLETE_PLAYERS_FEED: received " + result.downloadedRows +
+        " rows, expected at least 208427; import transaction rolled back");
+    }
 
     if (result.feed !== "players" && result.targetRows !== result.insertedRows) {
       throw new Error(`${result.feed} target count did not match the downloaded feed`);
