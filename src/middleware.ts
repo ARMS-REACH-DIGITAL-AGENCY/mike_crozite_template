@@ -45,6 +45,23 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const host = request.headers.get('host') || request.nextUrl.hostname;
+  // Link preview crawlers receive OG tags without rendering full PPP.
+  const shareCrawler = /GoogleMessages|facebookexternalhit|Twitterbot|WhatsApp|SkypeUriPreview|LinkedInBot|Slackbot|Discordbot|TelegramBot|BingPreview|Applebot|Pinterest|redditbot|vkShare/i.test(request.headers.get('user-agent') || '');
+  const shareMatch = path.match(/^\/(?:(\d{1,20})\/)?player\/([A-Za-z0-9_-]{1,40})\/([A-Za-z0-9_-]{1,160})\/?$/i);
+  if (shareCrawler && shareMatch &&
+      !request.nextUrl.searchParams.has('story') &&
+      !request.nextUrl.searchParams.has('whereYatStory') &&
+      !request.nextUrl.searchParams.has('yataboy')) {
+    const preview = request.nextUrl.clone();
+    preview.pathname = '/api/share/player';
+    preview.search = '';
+    if (shareMatch[1]) preview.searchParams.set('hsid', shareMatch[1]);
+    preview.searchParams.set('playerId', shareMatch[2]);
+    preview.searchParams.set('slug', shareMatch[3]);
+    preview.searchParams.set('path', path);
+    return NextResponse.rewrite(preview, { request: { headers: requestHeaders } });
+  }
+
   // Preserve the original school hostname for the standalone replay page.
   if (path === '/splash' && schoolHostnamePattern(host)) requestHeaders.set('x-yat-splash-school-host', host);
   // Only school hostnames are rewritten; homepage, global APIs and assets
