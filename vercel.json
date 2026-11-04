@@ -87,7 +87,7 @@
     },
     {
       "path": "/api/cron/player-profile-snapshot",
-      "schedule": "*/5 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
