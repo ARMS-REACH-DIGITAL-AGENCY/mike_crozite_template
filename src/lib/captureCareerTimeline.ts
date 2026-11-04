@@ -23,9 +23,10 @@ export async function captureCareerTimeline(input: { origin: string; hsid: strin
     // anchor slide rather than photographing a loading state.
     await page.waitForFunction(() => {
       const strip = document.querySelector('#playerCareerImages');
+      // New fan-created players may not have a THEN cutout yet. Capture the
+      // actual timeline as rendered instead of requiring a particular photo.
       return strip?.getAttribute('data-active-kind') === 'anchor'
-        && !!strip.querySelector('.zt-title')
-        && !!strip.querySelector('.zt-person-then');
+        && !!strip.querySelector('.zt-title');
     }, { timeout: 21000, polling: 250 });
 
     // Increase the ACTUAL timeline row and all of its ancestors together.

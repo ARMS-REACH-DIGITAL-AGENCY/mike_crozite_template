@@ -1,6 +1,8 @@
 import 'server-only';
 import { randomUUID } from 'crypto';
 import { revalidateTag } from 'next/cache';
+import { after } from 'next/server';
+import { enqueueRealTimelineSnapshot } from '@/lib/realTimelineSnapshotQueue';
 import { query } from '@/lib/db';
 import type { CanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 
@@ -107,5 +109,10 @@ export async function publishNewPlayerNow(input: {
   } catch (error) {
     console.error('[contribute/new-player] school cache refresh failed', error);
   }
+  // Capture the real Career Path slide after the response, not during fan
+  // submission. This is a single idempotent S3 job, not a browser launch.
+  after(async () => {
+    await enqueueRealTimelineSnapshot(hsid, rows[0].playerid);
+  });
   return { playerId: rows[0].playerid, submissionId };
 }

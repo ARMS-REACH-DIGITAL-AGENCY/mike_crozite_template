@@ -55,7 +55,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const title = name + ' | YAT?STATS Player Profile';
   const description = 'Explore ' + name + "'s baseball career timeline, photos, stats and stories on YAT?STATS.";
   const image = origin + '/api/og/player-profile?playerId=' +
-    encodeURIComponent(playerId) + '&hsid=' + encodeURIComponent(hsid);
+    encodeURIComponent(playerId) + '&hsid=' + encodeURIComponent(hsid) + '&v=real-timeline-only-v1';
   const esc = escapePlayerPreviewHtml;
 
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
