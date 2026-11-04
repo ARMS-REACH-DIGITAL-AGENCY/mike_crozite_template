@@ -190,6 +190,7 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
   const rows: string[][] = [];
   const rejects: Array<{ sourceRow: number; playerid: string; reason: string; rawLine: string }> = [];
   const seenIds = new Set<string>();
+  const allSourceIds = new Set<string>();
   for (let i = 1; i < physicalLines.length; i++) {
     const rawLine = physicalLines[i];
     // TBC has two instances of unpaired quotation marks after an unquoted
@@ -199,6 +200,7 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
       : rawLine;
     const row = parseCsv(cleanLine)[0] || [];
     const id = String(row[headers.indexOf("playerid")] || "").trim();
+    if (/^\d+$/.test(id)) allSourceIds.add(id);
     if (row.length !== headers.length || !/^\d+$/.test(id) || seenIds.has(id)) {
       if (!isPlayersFeed) {
         throw new Error(`Malformed ${url} source row ${i + 1}: expected ${headers.length} columns, got ${row.length}`);
@@ -216,8 +218,8 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
     seenIds.add(id);
     rows.push(row);
   }
-  if (isPlayersFeed && (seenIds.size + rejects.length) < 208427) {
-    throw new Error(`INCOMPLETE_PLAYERS_FEED: only ${seenIds.size + rejects.length} source lines, minimum 208427`);
+  if (isPlayersFeed && allSourceIds.size < 208427) {
+    throw new Error(`INCOMPLETE_PLAYERS_FEED: only ${allSourceIds.size} unique source player IDs, minimum 208427`);
   }
   return { headers, rows, rejects };
 }
