@@ -176,29 +176,50 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
     throw new Error(`TBC returned HTML instead of CSV. content-type=${contentType}. preview=${preview}`);
   }
 
-  const parsed = parseCsv(body);
-  if (!parsed.length) {
-    throw new Error(`CSV was empty for ${url}`);
+  // The TBC endpoint responds with HTML <br> row separators. Parsing the
+  // entire response with a quote-state parser can silently join TWO players
+  // when one malformed height/name contains a stray quote (seen for 248578).
+  // Parse each physical source row independently to prevent cross-row leaks.
+  const physicalLines = body.split("\n").filter((line) => line.trim() !== "");
+  const headerRow = parseCsv(physicalLines[0] || "")[0] || [];
+  const headers = headerRow.map((h, idx) => normalizeHeader(h) || `col_${idx + 1}`);
+  if (!headers.length || headers.length > 200 || !headers.includes("playerid")) {
+    throw new Error(`TBC CSV header invalid: columns=${headers.length}. preview=${preview}`);
   }
-
-  const rawHeaders = parsed[0].map(normalizeHeader);
-  const headers = rawHeaders.map((h, idx) => h || `col_${idx + 1}`);
-
-  if (headers.length > 200) {
-    throw new Error(
-      `Header sanity check failed: got ${headers.length} columns. This is not a valid TBC CSV header. preview=${preview}`,
-    );
+  const isPlayersFeed = url.includes("/players/");
+  const rows: string[][] = [];
+  const rejects: Array<{ sourceRow: number; playerid: string; reason: string; rawLine: string }> = [];
+  const seenIds = new Set<string>();
+  for (let i = 1; i < physicalLines.length; i++) {
+    const rawLine = physicalLines[i];
+    // TBC has two instances of unpaired quotation marks after an unquoted
+    // height, e.g. 6-2",170. Remove only those unmistakable stray marks.
+    const cleanLine = isPlayersFeed
+      ? rawLine.replace(/,(\d-\d)",(?=\d{2,3},)/g, ",$1,")
+      : rawLine;
+    const row = parseCsv(cleanLine)[0] || [];
+    const id = String(row[headers.indexOf("playerid")] || "").trim();
+    if (row.length !== headers.length || !/^\d+$/.test(id) || seenIds.has(id)) {
+      if (!isPlayersFeed) {
+        throw new Error(`Malformed ${url} source row ${i + 1}: expected ${headers.length} columns, got ${row.length}`);
+      }
+      rejects.push({
+        sourceRow: i + 1,
+        playerid: id,
+        reason: seenIds.has(id) ? "DUPLICATE_PLAYERID" :
+          !/^\d+$/.test(id) ? "INVALID_PLAYERID" :
+          `FIELD_COUNT_${row.length}_EXPECTED_${headers.length}`,
+        rawLine,
+      });
+      continue;
+    }
+    seenIds.add(id);
+    rows.push(row);
   }
-
-  if (!headers.includes("playerid")) {
-    throw new Error(`CSV header missing playerid. preview=${preview}`);
+  if (isPlayersFeed && (seenIds.size + rejects.length) < 208427) {
+    throw new Error(`INCOMPLETE_PLAYERS_FEED: only ${seenIds.size + rejects.length} source lines, minimum 208427`);
   }
-
-  const rows = parsed
-    .slice(1)
-    .filter((r) => r.some((v) => String(v || "").trim() !== ""));
-
-  return { headers, rows };
+  return { headers, rows, rejects };
 }
 
 async function recreateLandingTable(
@@ -354,8 +375,28 @@ async function mergePlayersFromLanding(
 
 async function syncOneFeed(client: any, feed: FeedKey) {
   const cfg = FEEDS[feed];
-  const { headers, rows } = await fetchCsvRows(cfg.url);
-
+  const { headers, rows, rejects } = await fetchCsvRows(cfg.url);
+  if (rejects.length) {
+    // Persist full source lines for supervised identity-safe correction.
+    // This quarantine table never changes canonical player identities.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.tbc_player_feed_row_quarantine (
+        id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        captured_at timestamptz NOT NULL DEFAULT now(),
+        playerid text,
+        source_row integer NOT NULL,
+        reason text NOT NULL,
+        raw_line text NOT NULL
+      )
+    `);
+    for (const r of rejects) {
+      await client.query(
+        `INSERT INTO public.tbc_player_feed_row_quarantine (playerid, source_row, reason, raw_line)
+         VALUES ($1, $2, $3, $4)`,
+        [r.playerid, r.sourceRow, r.reason, r.rawLine],
+      );
+    }
+  }
   await recreateLandingTable(client, cfg.landingTable, headers);
   const insertedRows = await insertLandingRows(client, cfg.landingTable, headers, rows);
 
@@ -365,9 +406,11 @@ async function syncOneFeed(client: any, feed: FeedKey) {
 
   return {
     feed,
-    downloadedRows: rows.length,
+    downloadedRows: rows.length + rejects.length,
     insertedRows,
     targetRows,
+    quarantinedRows: rejects.length,
+    quarantinedPlayerIds: rejects.map((r) => r.playerid),
   };
 }
 
