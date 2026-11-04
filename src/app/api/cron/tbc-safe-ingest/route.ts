@@ -370,9 +370,9 @@ async function syncOneFeed(client: any, feed: Exclude<FeedKey,"players">) {
   await recreateLandingTable(client, cfg.landingTable, headers);
   const insertedRows = await insertLandingRows(client, cfg.landingTable, headers, rows);
 
-  const targetRows = feed === "players"
-    ? await mergePlayersFromLanding(client, cfg.landingTable, cfg.targetTable, headers)
-    : await replaceTargetFromLanding(client, cfg.landingTable, cfg.targetTable, headers);
+  // This helper handles ONLY 2026 stats. Players are captured and validated
+  // separately; promoting their raw records requires a controlled release.
+  const targetRows = await replaceTargetFromLanding(client, cfg.landingTable, cfg.targetTable, headers);
 
   return {
     feed,
