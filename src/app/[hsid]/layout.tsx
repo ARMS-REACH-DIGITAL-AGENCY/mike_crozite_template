@@ -579,7 +579,20 @@ async function SchoolShell({
             />
             <i className="ri-search-line yat-gs-input-icon" aria-hidden="true" />
           </div>
+          {/* Search mode controls are part of the actual drawer DOM on first
+              paint. The shared search controller only attaches behavior;
+              it must not be responsible for making these controls exist. */}
+          <div id="yatSearchModeTabs" className="yat-search-mode-tabs">
+            <div className="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
+              <button type="button" className="yat-search-mode-btn active" data-search-mode="name">PLAYER NAME</button>
+              <button type="button" className="yat-search-mode-btn" data-search-mode="school">HIGH SCHOOL</button>
+              <button type="button" className="yat-search-mode-btn" data-search-mode="team">CURRENT TEAM</button>
+            </div>
+          </div>
           <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
+          {/* Hydrate the search behavior alongside the markup it controls,
+              instead of relying on a separate sibling hydration boundary. */}
+          <SearchDrawerTabs />
         </div>
       </aside>
 
@@ -707,7 +720,6 @@ async function SchoolShell({
       <div id="drawerMask" className="yat-drawer-mask" />
 
       <SortFilterDrawerControls />
-      <SearchDrawerTabs />
       <FilterAnchorGuard />
       <DrawerLayoutOverrides />
       <DrawerRailController />
