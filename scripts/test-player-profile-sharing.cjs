@@ -10,8 +10,9 @@ assert.match(page, /if \(!storyId\) return defaultPlayerShareMetadata\(/, 'ordin
 assert.match(page, /if \(!r\) return defaultPlayerShareMetadata\(/, 'missing stories must fall back to player metadata');
 assert.match(page, /openGraph:[\s\S]*images: \[\{ url: info\.image, width: 1200, height: 630/, 'player OG card must be large');
 assert.match(page, /twitter:[\s\S]*summary_large_image/, 'SMS/social sharing should use a large image');
-assert.match(short, /status: 307/, 'humans should be redirected to player profile');
-assert.match(short, /og:image/, 'preview crawlers need image metadata');
+assert.match(short, /status: 307/, 'all visitors, including preview user-agents, must redirect to player profile');
+assert.match(short, /Location: info.url/, 'short links must target the true player profile');
+assert.doesNotMatch(short, /PLAYER_PREVIEW_BOT|<html|og:image/, 'short links must never serve bare crawler HTML to visitors');
 assert.match(helper, /\/api\/og\/player-profile\?playerId=/, 'OG image endpoint must be used');
 const worker = read('src/app/api/cron/player-profile-snapshot/route.ts');
 const queue = read('src/lib/realTimelineSnapshotQueue.ts');
