@@ -18,7 +18,7 @@ export function playerProfileShareInfo(input: {
   const school = (input.schoolName || '').trim();
   const title = name + ' | YAT?STATS Player Profile';
   const description = 'Explore ' + name + "'s baseball career timeline, photos, stats and stories" + (school ? ' from ' + school : '') + ' on YAT?STATS.';
-  const image = input.origin + '/api/og/player-profile?playerId=' + encodeURIComponent(input.playerId) + '&hsid=' + encodeURIComponent(input.hsid);
+  const image = input.origin + '/api/og/player-profile?playerId=' + encodeURIComponent(input.playerId) + '&hsid=' + encodeURIComponent(input.hsid) + '&v=real-timeline-only-v1';
   const url = input.origin + '/' + encodeURIComponent(input.hsid) + '/player/' + encodeURIComponent(input.playerId) + '/' + encodeURIComponent(input.slug);
   return { title, description, image, url, name, school };
 }
