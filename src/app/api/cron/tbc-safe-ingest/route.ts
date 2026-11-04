@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
+import { randomUUID } from "node:crypto";
+import { parseTbcPlayersBody } from "@/lib/tbcPlayerCsv";
 import { sanitizeError, sendIngestAlert } from "@/lib/ingestAlerts";
 import { SAFE_2026_BLANK_STATUS_RECOVERY_SQL, SAFE_2026_STAGE_TEAM_RECOVERY_SQL } from "@/lib/officialLevels";
 
@@ -124,7 +126,7 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: string[][] }> {
+async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: string[][]; rejects: Array<{sourceRow:number;playerid:string;reason:string;rawLine:string}>; sourceRows?: number; uniquePlayerIds?: number; validRows?: number }> {
   const res = await fetch(url, {
     cache: "no-store",
     headers: {
@@ -176,29 +178,18 @@ async function fetchCsvRows(url: string): Promise<{ headers: string[]; rows: str
     throw new Error(`TBC returned HTML instead of CSV. content-type=${contentType}. preview=${preview}`);
   }
 
+  if (url.includes("/players/")) {
+    // Strict physical-line parser; never treat an invalid quote as a new line.
+    // Return counts only; canonical Players writes are explicitly paused.
+    return parseTbcPlayersBody(body, false);
+  }
   const parsed = parseCsv(body);
-  if (!parsed.length) {
-    throw new Error(`CSV was empty for ${url}`);
+  if (!parsed.length) throw new Error(`Empty CSV feed: ${url}`);
+  const headers = parsed[0].map(normalizeHeader);
+  if (!headers.includes("playerid") || headers.length > 200) {
+    throw new Error(`Invalid TBC stats header. preview=${preview}`);
   }
-
-  const rawHeaders = parsed[0].map(normalizeHeader);
-  const headers = rawHeaders.map((h, idx) => h || `col_${idx + 1}`);
-
-  if (headers.length > 200) {
-    throw new Error(
-      `Header sanity check failed: got ${headers.length} columns. This is not a valid TBC CSV header. preview=${preview}`,
-    );
-  }
-
-  if (!headers.includes("playerid")) {
-    throw new Error(`CSV header missing playerid. preview=${preview}`);
-  }
-
-  const rows = parsed
-    .slice(1)
-    .filter((r) => r.some((v) => String(v || "").trim() !== ""));
-
-  return { headers, rows };
+  return { headers, rows: parsed.slice(1).filter(r => r.some(v => String(v || "").trim() !== "")), rejects: [] };
 }
 
 async function recreateLandingTable(
@@ -352,22 +343,44 @@ async function mergePlayersFromLanding(
   return Number(rows[0]?.count || 0);
 }
 
-async function syncOneFeed(client: any, feed: FeedKey) {
+async function syncOneFeed(client: any, feed: Exclude<FeedKey,"players">) {
   const cfg = FEEDS[feed];
-  const { headers, rows } = await fetchCsvRows(cfg.url);
-
+  const { headers, rows, rejects } = await fetchCsvRows(cfg.url);
+  if (rejects.length) {
+    // Persist full source lines for supervised identity-safe correction.
+    // This quarantine table never changes canonical player identities.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.tbc_player_feed_row_quarantine (
+        id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        captured_at timestamptz NOT NULL DEFAULT now(),
+        playerid text,
+        source_row integer NOT NULL,
+        reason text NOT NULL,
+        raw_line text NOT NULL
+      )
+    `);
+    for (const r of rejects) {
+      await client.query(
+        `INSERT INTO public.tbc_player_feed_row_quarantine (playerid, source_row, reason, raw_line)
+         VALUES ($1, $2, $3, $4)`,
+        [r.playerid, r.sourceRow, r.reason, r.rawLine],
+      );
+    }
+  }
   await recreateLandingTable(client, cfg.landingTable, headers);
   const insertedRows = await insertLandingRows(client, cfg.landingTable, headers, rows);
 
-  const targetRows = feed === "players"
-    ? await mergePlayersFromLanding(client, cfg.landingTable, cfg.targetTable, headers)
-    : await replaceTargetFromLanding(client, cfg.landingTable, cfg.targetTable, headers);
+  // This helper handles ONLY 2026 stats. Players are captured and validated
+  // separately; promoting their raw records requires a controlled release.
+  const targetRows = await replaceTargetFromLanding(client, cfg.landingTable, cfg.targetTable, headers);
 
   return {
     feed,
-    downloadedRows: rows.length,
+    downloadedRows: rows.length + rejects.length,
     insertedRows,
     targetRows,
+    quarantinedRows: rejects.length,
+    quarantinedPlayerIds: rejects.map((r) => r.playerid),
   };
 }
 
@@ -537,6 +550,21 @@ async function recordIngestSuccess(client: any, result: unknown): Promise<void> 
   );
 }
 
+async function recordIngestPartial(client: any, summary: unknown, rejected: number): Promise<void> {
+  const message = `INCOMPLETE_PLAYERS_FEED: ${rejected} source rows quarantined; import is PARTIAL`;
+  await client.query(`
+    INSERT INTO public.ingest_job_health
+      (job_name, last_failure_at, consecutive_failures, last_error, last_result, updated_at)
+    VALUES ($1, now(), 1, $2, $3::jsonb, now())
+    ON CONFLICT (job_name) DO UPDATE SET
+      last_failure_at = excluded.last_failure_at,
+      consecutive_failures = public.ingest_job_health.consecutive_failures + 1,
+      last_error = excluded.last_error,
+      last_result = excluded.last_result,
+      updated_at = now()
+  `, [JOB_NAME, message, JSON.stringify(summary)]);
+}
+
 async function recordIngestFailure(client: any, error: unknown): Promise<number | null> {
   const safeError = sanitizeError(error);
   const { rows } = await client.query(
@@ -558,8 +586,14 @@ async function recordIngestFailure(client: any, error: unknown): Promise<number 
 
 function validateResults(results: Array<{ feed: FeedKey; downloadedRows: number; insertedRows: number; targetRows: number }>) {
   for (const result of results) {
-    if (result.downloadedRows <= 0 || result.insertedRows <= 0) {
+    if (result.downloadedRows <= 0 || (result.feed !== "players" && result.insertedRows <= 0)) {
       throw new Error(`${result.feed} feed was empty; canonical tables were not changed`);
+    }
+    // Prevent an incomplete Players feed being reported as a success.
+    // The complete 2026-11-03 source was independently verified at 208,427 IDs.
+    if (result.feed === "players" && result.downloadedRows < 208427) {
+      throw new Error("INCOMPLETE_PLAYERS_FEED: received " + result.downloadedRows +
+        " rows, expected at least 208427; import transaction rolled back");
     }
 
     if (result.feed !== "players" && result.targetRows !== result.insertedRows) {
@@ -598,19 +632,48 @@ export async function GET(req: NextRequest) {
   }
 
   let client: any;
+  let auditClient: any;
+  let auditRunId: string | null = null;
   let previousFailures = 0;
+  let auditResults: Array<{feed:FeedKey;downloadedRows:number;insertedRows:number;targetRows:number;quarantinedRows:number}> = [];
 
   try {
     client = await pool.connect();
     await ensureIngestHealthTable(client);
     previousFailures = await getConsecutiveFailures(client);
+    // A separate connection persists run evidence even after a rollback.
+    auditClient = await pool.connect();
+    const auditStarted = await auditClient.query(`
+      INSERT INTO public.tbc_ingest_runs
+        (ingest_run_id, feed_type, started_at, status, row_count, valid_count, invalid_count)
+      VALUES ($1::uuid, 'players', now(), 'running', 0, 0, 0)
+      RETURNING ingest_run_id
+    `, [randomUUID()]);
+    auditRunId = String(auditStarted.rows[0].ingest_run_id);
+    // Source fetch/validation happens before opening the write transaction.
+    const capture = await fetchCsvRows(FEEDS.players.url);
+    if (capture.uniquePlayerIds === undefined || capture.sourceRows === undefined || capture.validRows === undefined) {
+      throw new Error("Full Players source validation failed");
+    }
+    if (capture.rejects.length > 50) throw new Error("Abnormally many malformed Players source rows");
+    const results: Array<{
+      feed: FeedKey; downloadedRows: number; insertedRows: number; targetRows: number;
+      quarantinedRows: number; quarantinedPlayerIds?: string[];
+      uniquePlayerIds?: number; promotedToRaw?: boolean; status?: string;
+    }> = [
+      { feed: "players" as const,
+        downloadedRows: capture.sourceRows,
+        uniquePlayerIds: capture.uniquePlayerIds,
+        insertedRows: 0, targetRows: 0, quarantinedRows: capture.rejects.length,
+        promotedToRaw: false, status: "capture_only" }
+    ];
+    // Write transaction covers only 2026 batting/pitching + existing-stage updates.
+    // Do not expand production raw players / flip cards before performance gates.
     await client.query("begin");
-
-    const results = [];
-    results.push(await syncOneFeed(client, "players"));
     results.push(await syncOneFeed(client, "batting"));
     results.push(await syncOneFeed(client, "pitching"));
     validateResults(results);
+    auditResults = results;
     // New Team IDs are ALWAYS retained in the raw TBC feeds. Reconcile them
     // separately; never insert fabricated PRO records into the canonical map
     // or promote incomplete teams into a flip-card current assignment.
@@ -630,9 +693,26 @@ export async function GET(req: NextRequest) {
     const safeTeamIdsRecovered = Number(recoveredRows[0]?.recovered || 0);
     const heldForIdentityReview = baseline.held;
 
-    await recordIngestSuccess(client, { results, teamIdDiscovery, newFlipCardRows, collegeToIndyCorrected, previouslyUnclassifiedActivated, safeTeamIdsRecovered, heldForIdentityReview });
+    const quarantinedRows = capture.rejects.length;
+    const resultSummary = { results, teamIdDiscovery, newFlipCardRows, collegeToIndyCorrected, previouslyUnclassifiedActivated, safeTeamIdsRecovered, heldForIdentityReview };
+    // Full source was validated, but NO Players data was promoted.
+    await recordIngestSuccess(client, { ...resultSummary,
+      playersCapture: { sourceUniqueIds: capture.uniquePlayerIds,
+        sourceRows: capture.sourceRows, validRows: capture.validRows,
+        quarantinedRows, quarantinedPlayerIds: capture.rejects.map(x => x.playerid),
+        promotedToRaw: false, status: "capture_only" } });
 
     await client.query("commit");
+    if (auditClient && auditRunId) {
+      await auditClient.query(`
+        UPDATE public.tbc_ingest_runs
+        SET finished_at=now(), status=$2, row_count=$3, valid_count=$4, invalid_count=$5,
+            error_message=$6
+        WHERE ingest_run_id=$1
+      `, [auditRunId, "capture_only",
+          capture.sourceRows, capture.validRows,
+          quarantinedRows, "Source verified but not promoted; quarantined IDs: " + capture.rejects.map(x => x.playerid).join(",")]);
+    }
 
     if (heldForIdentityReview.length > 0) {
       console.warn("[tbc-safe-ingest] held new TBC players for identity review", heldForIdentityReview);
@@ -668,6 +748,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      partial: quarantinedRows > 0,
+      promotedToRaw: false,
+      auditRunId,
       ranAt: new Date().toISOString(),
       results,
       newFlipCardRows,
@@ -686,6 +769,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    if (auditClient && auditRunId) {
+      try {
+        const p = auditResults.find((r) => r.feed === "players");
+        await auditClient.query(`
+          UPDATE public.tbc_ingest_runs
+          SET finished_at=now(), status='failed',
+              row_count=$2,valid_count=$3,invalid_count=$4,error_message=$5
+          WHERE ingest_run_id=$1
+        `, [auditRunId,p?.downloadedRows||0,p?.insertedRows||0,p?.quarantinedRows||0,sanitizeError(error)]);
+      } catch (auditError) {
+        console.error("[tbc-safe-ingest] Could not retain failed-run audit", { message: sanitizeError(auditError) });
+      }
+    }
     let consecutiveFailures: number | null = null;
     if (client) {
       try {
@@ -723,6 +819,7 @@ export async function GET(req: NextRequest) {
       { status: 500 },
     );
   } finally {
+    auditClient?.release();
     client?.release();
   }
 }

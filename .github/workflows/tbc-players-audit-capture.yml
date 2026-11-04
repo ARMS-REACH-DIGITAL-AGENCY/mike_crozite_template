@@ -1,0 +1,112 @@
+name: TBC 208K players isolated audit capture
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/tbc-feed-completeness-20261103
+    paths:
+      - .github/workflows/tbc-players-audit-capture.yml
+permissions:
+  contents: read
+concurrency:
+  group: tbc-players-audit-capture
+  cancel-in-progress: false
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL client
+        run: python -m pip install --quiet "psycopg[binary]>=3.2,<4"
+      - name: Capture every player row into NEW audit tables only
+        run: |
+          python - <<'PY'
+          import csv, io, hashlib, os, re, urllib.request, uuid
+          from pathlib import Path
+          from datetime import datetime, timezone
+          import psycopg
+          configured = Path("src/app/api/cron/tbc-safe-ingest/route.ts").read_text()
+          match = re.search(r'players:\s*\{\s*url:\s*"([^"]+)"', configured)
+          if not match: raise RuntimeError("Configured feed URL missing")
+          url = match.group(1)
+          if not url.startswith("https://www.thebaseballcube.com/data/feed/yatstats/players/"):
+              raise RuntimeError("Unexpected feed origin")
+          request = urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0","Cache-Control":"no-cache","Referer":"https://www.thebaseballcube.com/"})
+          with urllib.request.urlopen(request,timeout=180) as response:
+              data=response.read()
+              if response.status != 200: raise RuntimeError("Non-200 source response")
+          if not data.startswith(b"playerid,"): raise RuntimeError("Invalid source header/HTML challenge")
+          raw_lines=data.decode("utf-8-sig").replace("<br>","\n").replace("<br/>","\n").replace("<br />","\n").splitlines()
+          headers=next(csv.reader([raw_lines[0]]))
+          if len(headers)!=13 or headers[0].strip().lower()!="playerid": raise RuntimeError("Unexpected source column schema")
+          rows=[]
+          seen=set()
+          held=0
+          repaired=0
+          for i,line in enumerate(raw_lines[1:],2):
+              if not line.strip(): continue
+              corrected=re.sub(r',(\d-\d)",(?=\d{2,3},)',r',\1,',line)
+              repaired+=int(corrected!=line)
+              parsed=next(csv.reader([corrected]))
+              pid=parsed[0].strip()
+              if not pid.isdecimal() or pid in seen: raise RuntimeError("Invalid/duplicate ID in source: row "+str(i))
+              seen.add(pid)
+              reason=None
+              if len(parsed)!=13:
+                  reason="COLUMN_COUNT_"+str(len(parsed))
+                  held+=1
+                  parsed=[pid]+[None]*12
+              rows.append((i,pid,*parsed[1:],reason,line))
+          if len(rows)!=len(seen) or len(seen)<208427:
+              raise RuntimeError(f"INCOMPLETE SOURCE: rows={len(rows)}, unique={len(seen)}, minimum=208427")
+          run_id=uuid.uuid4()
+          sha=hashlib.sha256(data).hexdigest()
+          print("SOURCE_HTTP_200_BYTES",len(data),"UNIQUE_IDS",len(seen),"HEIGHT_QUOTE_REPAIRS",repaired,"HELD_ROWS",held,"SHA256",sha,flush=True)
+          with psycopg.connect(os.environ["DATABASE_URL"],connect_timeout=30) as db:
+              with db.cursor() as cur:
+                  cur.execute("""
+                    CREATE TABLE IF NOT EXISTS public.tbc_players_full_feed_audit_runs (
+                      run_id uuid PRIMARY KEY, captured_at timestamptz NOT NULL,
+                      source_rows integer NOT NULL, unique_ids integer NOT NULL,
+                      corrected_height_quotes integer NOT NULL, quarantined_rows integer NOT NULL,
+                      source_bytes bigint NOT NULL, source_sha256 text NOT NULL,
+                      status text NOT NULL
+                    )
+                  """)
+                  cur.execute("""
+                    CREATE TABLE IF NOT EXISTS public.tbc_players_full_feed_audit_rows (
+                      run_id uuid NOT NULL, source_row integer NOT NULL, playerid text NOT NULL,
+                      firstname text,lastname text,highlevel text,ht text,wt text,bats text,
+                      throws text,posit text,borndate text,currentage text,place text,high_school text,
+                      rejection_reason text,raw_source_line text NOT NULL,
+                      PRIMARY KEY(run_id,source_row), UNIQUE(run_id,playerid)
+                    )
+                  """)
+                  with cur.copy("""
+                    COPY public.tbc_players_full_feed_audit_rows (
+                      run_id,source_row,playerid,firstname,lastname,highlevel,ht,wt,bats,
+                      throws,posit,borndate,currentage,place,high_school,rejection_reason,raw_source_line
+                    ) FROM STDIN
+                  """) as copy:
+                      for i,pid,*rest in rows:
+                          copy.write_row((run_id,i,pid,*rest))
+                  cur.execute("SELECT COUNT(*),COUNT(DISTINCT playerid) FROM public.tbc_players_full_feed_audit_rows WHERE run_id=%s",(run_id,))
+                  saved,distinct=cur.fetchone()
+                  if (saved,distinct)!=(len(rows),len(seen)):
+                      raise RuntimeError(f"CAPTURE VERIFICATION FAILED: {saved} rows {distinct} IDs")
+                  cur.execute("""
+                    INSERT INTO public.tbc_players_full_feed_audit_runs
+                      (run_id,captured_at,source_rows,unique_ids,corrected_height_quotes,
+                      quarantined_rows,source_bytes,source_sha256,status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                  """,(run_id,datetime.now(timezone.utc),len(rows),len(seen),repaired,held,len(data),sha,"partial" if held else "complete"))
+              db.commit()
+          print("AUDIT_LANDING_PERSISTED",run_id,"ROWS",len(rows),"UNIQUE",len(seen),"QUARANTINED",held,flush=True)
+          print("CANONICAL_TABLES_UNCHANGED",flush=True)
+          PY
