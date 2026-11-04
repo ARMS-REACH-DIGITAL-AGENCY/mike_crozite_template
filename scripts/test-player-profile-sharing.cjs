@@ -13,7 +13,9 @@ assert.match(page, /twitter:[\s\S]*summary_large_image/, 'SMS/social sharing sho
 assert.match(short, /status: 307/, 'humans should be redirected to player profile');
 assert.match(short, /og:image/, 'preview crawlers need image metadata');
 assert.match(helper, /\/api\/og\/player-profile\?playerId=/, 'OG image endpoint must be used');
-assert.match(og, /then-web/, 'preview should reuse the HS cutout');
-assert.match(og, /back-web/, 'preview should reuse the current-era cutout');
-assert.match(og, /new ImageResponse/, 'player-specific image must be rendered');
+assert.match(og, /fallbackPlayerProfileImage\(hsid, playerId, player\)/, 'preview must use the existing player-specific image renderer');
+assert.match(og, /cached-timeline/, 'previously captured career timelines must be retained');
+assert.match(og, /cached-fallback/, 'previously generated player cards must be reused');
+assert.doesNotMatch(og, /captureCareerTimeline|puppeteer|chromium/, 'an SMS preview must never launch a browser');
+assert.match(og, /imageResponse\(png, 'generated-fallback'\)/, 'first-time sharing must return an image');
 console.log('Player profile share preview contracts pass.');
