@@ -3,6 +3,7 @@ import { getPlayerThenCardUrl, getPlayerThenImageUrl, getThenSilhouetteUrl } fro
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 import CardPhoto from "./CardPhoto";
 import FavoriteButton from "./FavoriteButton";
+import SharePlayerCard from "./SharePlayerCard";
 
 interface PlayerCardFrontProps {
   player: Record<string, unknown>;
@@ -14,6 +15,7 @@ interface PlayerCardFrontProps {
   hsid?: string;
   /** One of a gallery's first cards: its photo loads with the page, not on scroll. */
   eager?: boolean;
+  shareBaseUrl?: string | null;
 }
 
 function asText(value: unknown): string {
@@ -325,6 +327,7 @@ export default function PlayerCardFront({
   gradClassEstimated = false,
   hsid = "",
   eager = false,
+  shareBaseUrl = null,
 }: PlayerCardFrontProps) {
   const imageId = String(p.playerid || "");
   const thenSilhouetteUrl = getThenSilhouetteUrl({
@@ -453,6 +456,7 @@ export default function PlayerCardFront({
         </div>
       )}
 
+      {imageId && <SharePlayerCard playerId={imageId} playerName={[first, last].filter(Boolean).join(" ")} shareBaseUrl={shareBaseUrl} />}
       <div className="yat-front-content">
         <div className="yat-front-bottom-row">
           <div className="yat-front-left-meta">

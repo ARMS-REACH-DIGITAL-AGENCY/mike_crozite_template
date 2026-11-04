@@ -236,7 +236,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       <PlayerCardFlipBehavior />
       <div className="yat-card-inner">
         <div className="yat-flip">
-          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} eager={eager} gradClassEstimated={gcEstimated} hsid={String(resolvedHsid ?? "")} />
+          <PlayerCardFront player={playerWithSlug} frontImageUrl={frontImageUrl} isAllTime={isAllTime} eager={eager} gradClassEstimated={gcEstimated} hsid={String(resolvedHsid ?? "")} shareBaseUrl={shareBaseUrl} />
           <PlayerCardBack
             player={playerWithSlug}
             resolvedHsid={resolvedHsid}
