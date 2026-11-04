@@ -5,7 +5,7 @@ import {
   DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
-import { getPlayerById } from '@/lib/db';
+import { getPlayerById, getSchoolByHsid } from '@/lib/db';
 import { captureCareerTimeline } from '@/lib/captureCareerTimeline';
 import {
   enqueueRealTimelineSnapshot, REAL_TIMELINE_S3_BUCKET, REAL_TIMELINE_QUEUE_PREFIX,
@@ -92,7 +92,13 @@ export async function GET(req: NextRequest) {
         if (!player) throw new Error('Player not found');
         const slug = [player.firstname || player.first_name, player.lastname || player.last_name]
           .filter(Boolean).join('-').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
-        const origin = process.env.YATSTATS_PUBLIC_ORIGIN || 'https://www.yatstats.com';
+        const school = await getSchoolByHsid(job.hsid).catch(() => null);
+        const schoolUrl = String(school?.microsite_url || '').trim();
+        let origin = 'https://yatstats.com';
+        try {
+          const parsed = new URL(schoolUrl);
+          if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.yatstats.com')) origin = parsed.origin;
+        } catch { /* Numeric school paths still work on the apex domain. */ }
         const png = await captureCareerTimeline({ origin, hsid: job.hsid, playerId: job.playerId, slug });
         await s3.send(new PutObjectCommand({
           Bucket: REAL_TIMELINE_S3_BUCKET, Key: cacheKey, Body: png,
