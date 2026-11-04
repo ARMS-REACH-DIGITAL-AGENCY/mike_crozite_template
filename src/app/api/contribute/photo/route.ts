@@ -223,9 +223,10 @@ export async function POST(req: NextRequest) {
   if (file.size > CONTRIBUTE_MAX_PHOTO_BYTES) return fail('That photo is too large. Please choose a smaller one.', 413);
 
   const thisYear = new Date().getFullYear();
-  // Flip-card back is a player-level current action image, not a season photo.
-  // Never reject it based on a season value from a cached or older client.
-  const year = purpose === 'back_hero'
+  // Card-front and card-back photos belong to the player, not a season.
+  // Ignore cached clients' years (including a future HS graduation year).
+  // date_taken still needs an internal storage date for these uploads.
+  const year = purpose === 'flip_card' || purpose === 'back_hero'
     ? thisYear
     : Number(text(form.get('year'))) || (type.asks === 'season' ? NaN : thisYear);
   if (!Number.isInteger(year) || year < 1900 || year > thisYear + 1) return fail('Pick the season.');

@@ -352,7 +352,7 @@ export default function ContributePhotoFlow({
 
   const yearToSend = (): number | null => {
     if (!type) return null;
-    if (type.id === 'flip_card') return info?.classOf || THIS_YEAR;
+    if (type.id === 'flip_card') return null;
     if (type.id === 'back_hero') return current?.year || THIS_YEAR;
     if (type.asks === 'season') return season?.year || (type.id === 'other_photo' ? THIS_YEAR : null);
     return THIS_YEAR;
@@ -428,7 +428,7 @@ export default function ContributePhotoFlow({
       form.set('photo', blob, blob.type === 'image/jpeg' ? uploadFile.name.replace(/\.[^.]+$/, '') + '.jpg' : uploadFile.name);
       form.set('purpose', type.id);
       if (type.id === 'timeline_hero' && editingHeroId) form.set('replaceUploadId',editingHeroId);
-      form.set('year', String(yearToSend() || THIS_YEAR));
+      if (type.id !== 'flip_card') form.set('year', String(yearToSend() || THIS_YEAR));
       form.set('playerId', type.id === 'school_logo' || type.id === 'team_logo' ? '' : main?.playerId || '');
       form.set('playerName', main?.displayName || '');
       form.set('hsid', submissionHsid);
