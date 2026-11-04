@@ -580,6 +580,21 @@ async function recordIngestSuccess(client: any, result: unknown): Promise<void> 
   );
 }
 
+async function recordIngestPartial(client: any, summary: unknown, rejected: number): Promise<void> {
+  const message = `INCOMPLETE_PLAYERS_FEED: ${rejected} source rows quarantined; import is PARTIAL`;
+  await client.query(`
+    INSERT INTO public.ingest_job_health
+      (job_name, last_failure_at, consecutive_failures, last_error, last_result, updated_at)
+    VALUES ($1, now(), 1, $2, $3::jsonb, now())
+    ON CONFLICT (job_name) DO UPDATE SET
+      last_failure_at = excluded.last_failure_at,
+      consecutive_failures = public.ingest_job_health.consecutive_failures + 1,
+      last_error = excluded.last_error,
+      last_result = excluded.last_result,
+      updated_at = now()
+  `, [JOB_NAME, message, JSON.stringify(summary)]);
+}
+
 async function recordIngestFailure(client: any, error: unknown): Promise<number | null> {
   const safeError = sanitizeError(error);
   const { rows } = await client.query(
@@ -647,12 +662,24 @@ export async function GET(req: NextRequest) {
   }
 
   let client: any;
+  let auditClient: any;
+  let auditRunId: string | null = null;
   let previousFailures = 0;
+  let auditResults: Array<{feed:FeedKey;downloadedRows:number;insertedRows:number;targetRows:number;quarantinedRows:number}> = [];
 
   try {
     client = await pool.connect();
     await ensureIngestHealthTable(client);
     previousFailures = await getConsecutiveFailures(client);
+    // A separate connection persists run evidence even after a rollback.
+    auditClient = await pool.connect();
+    const auditStarted = await auditClient.query(`
+      INSERT INTO public.tbc_ingest_runs
+        (feed_type, started_at, status, row_count, valid_count, invalid_count)
+      VALUES ('players', now(), 'running', 0, 0, 0)
+      RETURNING ingest_run_id
+    `);
+    auditRunId = String(auditStarted.rows[0].ingest_run_id);
     await client.query("begin");
 
     const results = [];
@@ -660,6 +687,7 @@ export async function GET(req: NextRequest) {
     results.push(await syncOneFeed(client, "batting"));
     results.push(await syncOneFeed(client, "pitching"));
     validateResults(results);
+    auditResults = results;
     // New Team IDs are ALWAYS retained in the raw TBC feeds. Reconcile them
     // separately; never insert fabricated PRO records into the canonical map
     // or promote incomplete teams into a flip-card current assignment.
@@ -679,9 +707,25 @@ export async function GET(req: NextRequest) {
     const safeTeamIdsRecovered = Number(recoveredRows[0]?.recovered || 0);
     const heldForIdentityReview = baseline.held;
 
-    await recordIngestSuccess(client, { results, teamIdDiscovery, newFlipCardRows, collegeToIndyCorrected, previouslyUnclassifiedActivated, safeTeamIdsRecovered, heldForIdentityReview });
+    const quarantinedRows = results.reduce((count, r) => count + (r.quarantinedRows || 0), 0);
+    const resultSummary = { results, teamIdDiscovery, newFlipCardRows, collegeToIndyCorrected, previouslyUnclassifiedActivated, safeTeamIdsRecovered, heldForIdentityReview };
+    if (quarantinedRows > 0) {
+      await recordIngestPartial(client, resultSummary, quarantinedRows);
+    } else {
+      await recordIngestSuccess(client, resultSummary);
+    }
 
     await client.query("commit");
+    if (auditClient && auditRunId) {
+      await auditClient.query(`
+        UPDATE public.tbc_ingest_runs
+        SET finished_at=now(), status=$2, row_count=$3, valid_count=$4, invalid_count=$5,
+            error_message=$6
+        WHERE ingest_run_id=$1
+      `, [auditRunId, quarantinedRows ? "partial" : "succeeded",
+          results[0].downloadedRows, results[0].insertedRows,
+          quarantinedRows, quarantinedRows ? "Source rows held in public.tbc_player_feed_row_quarantine" : null]);
+    }
 
     if (heldForIdentityReview.length > 0) {
       console.warn("[tbc-safe-ingest] held new TBC players for identity review", heldForIdentityReview);
@@ -716,7 +760,9 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      ok: true,
+      ok: quarantinedRows === 0,
+      partial: quarantinedRows > 0,
+      auditRunId,
       ranAt: new Date().toISOString(),
       results,
       newFlipCardRows,
@@ -735,6 +781,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    if (auditClient && auditRunId) {
+      try {
+        const p = auditResults.find((r) => r.feed === "players");
+        await auditClient.query(`
+          UPDATE public.tbc_ingest_runs
+          SET finished_at=now(), status='failed',
+              row_count=$2,valid_count=$3,invalid_count=$4,error_message=$5
+          WHERE ingest_run_id=$1
+        `, [auditRunId,p?.downloadedRows||0,p?.insertedRows||0,p?.quarantinedRows||0,sanitizeError(error)]);
+      } catch (auditError) {
+        console.error("[tbc-safe-ingest] Could not retain failed-run audit", { message: sanitizeError(auditError) });
+      }
+    }
     let consecutiveFailures: number | null = null;
     if (client) {
       try {
@@ -772,6 +831,7 @@ export async function GET(req: NextRequest) {
       { status: 500 },
     );
   } finally {
+    auditClient?.release();
     client?.release();
   }
 }
