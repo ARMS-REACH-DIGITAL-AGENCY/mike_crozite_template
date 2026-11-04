@@ -94,7 +94,7 @@ export default function PartnerProgramPage(){
  const [showAll,setShowAll]=useState(false);
  return <div className="yp-partner" id="yp-real-partner-program">
    <header className="yp-partner-header"><div><span>YAT?STATS · {school?.hsName||'HOMETOWN BASEBALL'}</span>
-      <h1>PARTNERSHIP PROGRAM</h1><p>Stories and Stats! <strong>Connect. Contribute. Reminisce.</strong></p></div>
+      <h1>PARTNERSHIP PROGRAM</h1><p>Stories and Stats! <strong>Connect. Contribute. Remember.</strong></p></div>
       <div className="yp-partner-header-right">5 PARTNER PACKAGES<br/><strong>RATES NOT YET ASSIGNED</strong></div></header>
    <div className="yp-partner-columns">
      <div className="yp-partner-left">
