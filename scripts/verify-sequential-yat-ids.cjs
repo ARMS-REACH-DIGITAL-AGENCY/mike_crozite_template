@@ -1,0 +1,16 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const source = fs.readFileSync(path.join(root,'src/lib/publishNewPlayer.ts'),'utf8');
+const migration = fs.readFileSync(path.join(root,'migrations/20261104_sequential_yat_player_ids.sql'),'utf8');
+assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.yat_player_id_counter/);
+assert.match(migration, /ON CONFLICT \(id\) DO NOTHING/);
+assert.match(source, /UPDATE public\.yat_player_id_counter c/);
+assert.match(source, /RETURNING c\.last_assigned/);
+assert.match(source, /lpad\(r\.last_assigned::text,6,'0'\)/);
+assert.match(source, /NOT EXISTS \(SELECT 1 FROM potential_duplicate\)/);
+assert.match(source, /ON CONFLICT|RETURNING playerid/);
+assert.doesNotMatch(source, /BigInt\('0x'|submissionId\.replace\(\/\-\/g/);
+console.log('PASS: sequential YAT player ID counter replaces random assignment, with duplicate guard');
