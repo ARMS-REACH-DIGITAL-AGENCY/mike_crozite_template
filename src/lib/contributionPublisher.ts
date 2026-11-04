@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash } from 'crypto';
 import { query } from '@/lib/db';
+import { enqueueRealTimelineSnapshot } from '@/lib/realTimelineSnapshotQueue';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { revalidateTag } from 'next/cache';
@@ -306,6 +307,7 @@ export async function publishPendingContributions(limit=35):Promise<Outcome>{
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,''),'fan-contributed; unverified',jsonb_build_object('submission_id',$13::text,'source','contribute'))
        ON CONFLICT(playerid) DO NOTHING`,[playerid,item.hsid,first,last,`${first} ${last}`,year(item.grad_year),position,status,level,team,canonicalTeam?.teamId||null,canonicalTeam?.orgName||'',item.id]);
      await query("UPDATE missing_player_submission SET processed_status='published',published_playerid=$2,processed_at=now(),error_message=NULL WHERE id=$1 AND processed_status='new'",[item.id,playerid]);
+     await enqueueRealTimelineSnapshot(item.hsid, playerid);
      outcome.published++;
    }catch(e){console.error('[contribution-publisher] missing player failed',{id:item.id,error:String(e)});outcome.failed++;}
  }
