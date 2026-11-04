@@ -88,6 +88,10 @@
     {
       "path": "/api/cron/player-profile-snapshot",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/real-player-preview-capture",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
