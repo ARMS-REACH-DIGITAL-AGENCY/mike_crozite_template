@@ -121,7 +121,7 @@ const ben = makeCard('YAT000083','COMMIT','HIGH SCHOOL');
 const striker = makeCard('YAT000086','COMMIT','HIGH SCHOOL');
 const unknownLevel = makeCard('YAT000100','UNCOMMITTED','');
 const filter = loadHelpers('src/components/yatstats/GalleryFilterController.tsx', [
-  'FILTERABLE_SECTIONS','normalize','getGroupBoxes','getSelectedValues',
+  'PLAYER_GALLERY_SECTIONS','FILTERABLE_SECTIONS','normalize','getGroupBoxes','getSelectedValues',
   'syncSelectAll','syncEverySelectAll','clearFilters','setAll','setValues',
   'getFavoritesGalleryRestriction','matchesGraduatingClass','applyFilters','applyPreset'
 ], {
