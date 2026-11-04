@@ -378,11 +378,10 @@ export default function DrawerLayoutOverrides() {
         body.drawer-left-open {
           --yat-docked-left-space: var(--yat-side-drawer-w);
         }
-        body:is(.drawer-sort-open, .drawer-right-open, .drawer-account-open, .drawer-favorites-open) {
+        body.drawer-favorites-open {
           --yat-docked-right-space: var(--yat-side-drawer-w);
         }
-        body:is(.drawer-left-open, .drawer-sort-open, .drawer-right-open, .drawer-account-open, .drawer-favorites-open)
-          :is(.yat-row3-shell, .yat-row4-shell, .yat-row5-shell) {
+        body.drawer-favorites-open :is(.yat-row3-shell, .yat-row4-shell, .yat-row5-shell) {
           box-sizing: border-box !important;
           width: calc(100% - var(--yat-docked-left-space) - var(--yat-docked-right-space)) !important;
           max-width: calc(100% - var(--yat-docked-left-space) - var(--yat-docked-right-space)) !important;
