@@ -1,42 +1,45 @@
-# YAT?STATS — 208,427-player source and player-stage audit (2026-11-03)
+# YAT?STATS — 208,427 Player Universe Audit
 
-## Audit scope and source
-- Direct live TBC Players-feed download at 2026-11-04 03:14:56 UTC: **208,427 distinct Player IDs**, 208,427 physical source data lines, **0 duplicated Player IDs**, 0 invalid Player IDs, HTTP 200, 20,608,141 bytes.
-- Original response SHA-256: `25e9fad9cf9f8f0e5197470a64a2c0b2db3db3483c8060f6f6b6252d18fcf76b`.
-- Source URL: https://www.thebaseballcube.com/data/feed/yatstats/players/?pw=yattbc
-- Entire original response and normalized CSV are preserved in isolated Vercel sandbox `tbc-universe-preserved-source-20261103` (persistent snapshot `snap_cWpZD2WRQJlC2heJow8LxihUtGKr`), **not** promoted to Neon or production.
-- The source contains **17,404 unique nonempty high-school text descriptions**, but those are *not* guaranteed to be unique HSIDs/programs; only 2 source records lack a school description.
-- The source includes Player IDs 180979 and 368402.
-- Three malformed physical CSV records: 248578 and 266578 (unpaired quote in unquoted height) and 214777 (14 instead of 13 fields; uncertain name alignment). **Never fabricate a name/HSID for 214777.** Report as quarantined pending verified correction.
+**Captured:** November 3, 2026 Arizona time. **Status:** Full isolated source capture and safe branch-only merge tested. **NOT production-promoted.**
 
-## Live production state BEFORE full import
-- `tbc_players_raw`: **124,937** records.
-- `flip_card_front_stage`: **124,369** cards.
-- Latest stored feed landing: 101,070 distinct IDs, so do not equate an HTTP 200 with complete ingestion.
-- At least one live record already corrupted: `tbc_players_raw.playerid=248578` has the next player's CSV line inside its high-school field. The adjacent Player ID 347384 is not present in that raw table.
-- Existing raw-player linkage issues: 674 distinct players: 663 missing flip cards, 9 unresolved/mismatched school crosswalks, 2 existing cards with blank HSIDs. See `raw_player_missing_flipcard_or_hsid_link.csv`.
-- Existing card data quality: 350 without usable status; 46,933 without usable level; 81 with a team ID but blank team name and organization; 124,162 without class_of; 124,116 without roster_years. **Graduation year and varsity roster years are not furnished by this Players feed and should not be fabricated.** Evaluate applicability by player type before declaring defects.
-- Current raw-linked school programs: 7,954; currently 1,026 have alumni with 2026 stat rows, and 1,031 have either 2026 stat rows or recorded IL/redshirt status without 2026 stats. These counts are the *existing* crosswalk only, not the eventual 208,427-player universe. See `school_program_directory_existing_crosswalk.csv`.
-- 2026 batting/pitching raw tables cover 14,266 distinct stat players, including 11 with no raw-player record/flip card. See `2026_stat_players_missing_raw_or_card.csv`.
-- 2026 raw stats reference 1,705 distinct Team IDs. Every ID has a mapping row; **Team ID 0** is invalid/placeholder (UNKNOWN TEAM 0, 2 players), missing conference/org. See `2026_teamid_directory.csv`.
+## Verified sources
+- **TBC live Players feed:** 208,427 distinct Player IDs, 208,427 source records, 20,608,141 bytes. SHA256 `25e9fad9cf9f8f0e5197470a64a2c0b2db3db3483c8060f6f6b6252d18fcf76b`.
+- Original raw response also preserved in persistent Vercel sandbox `tbc-universe-preserved-source-20261103` snapshot `snap_cWpZD2WRQJlC2heJow8LxihUtGKr`.
+- **Independent 208,427-row Neon capture completed** using GitHub Actions run [41770262029](https://github.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/actions/runs/41770262029). Canonical production player tables were not touched. New audit tables: `tbc_players_full_feed_audit_runs`, `tbc_players_full_feed_audit_rows`. Capture run ID `c771515b-cd92-49a0-a6e8-bb045bd9d8fa`.
+- Source CSV has 3 malformed rows `214777`, `248578`, `266578`, with source lines preserved and player IDs retained but other columns quarantined. `248578` previously corrupted an adjacent record in production `tbc_players_raw`. Treat no quarantined record as fully ingested.
 
-## Deliverables in this directory
-1. `2026_teamid_directory.csv` — **all 1,705 Team IDs** from existing 2026 batting and pitching, with mapped team name, level, conference/org, both stat row counts and unique-player counts, TBC link and review flag.
-2. `school_program_directory_existing_crosswalk.csv` — all **7,954 currently linked HS programs**, exact school name, HSID, location, current all-time alumni count, 2026-stat alumni, and documented IL/redshirt-without-2026-stat counts.
-3. `raw_player_missing_flipcard_or_hsid_link.csv` — **674 raw players** with missing card or unresolved/mismatched HSID crosswalk.
-4. `2026_stat_players_missing_raw_or_card.csv` — **11** named players with 2026 stats who lack raw-player/card entries.
+## Exact reconciliation to existing production
+- Production raw players: **124,937**; source IDs already in raw: **124,935**; source IDs missing from raw: **83,492**, of which **83,490** have syntactically valid source rows. Two legacy raw IDs are absent from today's source.
+- Production flip cards: **124,369**; source IDs already with cards **124,273**; source IDs with missing cards **84,154**.
+- Existing source-associated cards: 15 with HSID disagreement vs uniquely resolved source school, 350 missing usable status, 46,932 missing level, 81 with teamid but missing current team name, 124,160 without graduation year and 124,112 without varsity years. Birth/graduate and roster years must NOT be invented: source Players file does not supply them.
+- Full-source HSID resolution: **206,861 unique-match player IDs** across **17,052 school programs**, **848 no-match**, **715 ambiguous multi-HSID** (72 duplicate normalized school-name keys in canonical registry), and **3 source rows quarantined**. Total unresolved **1,566**. Home-schooled/no high school is not automatically an erroneous mapping or a site.
+- `audit_tbc_player_hsid_reconciliation_20261103`, `audit_complete_school_programs_20261103`, and `audit_complete_school_card_quality_20261103` are temporary audit/report tables in production. They do not modify canonical tables.
 
-## Important limitations
-- **This is NOT a completed 208,427-card audit.** No complete feed was inserted into production or the Neon audit branch. No claim of 208,427 properly linked cards can be made.
-- **There is not yet an exact Player ID set difference** between the 208,427 live source IDs and the 190,134 IDs in the historical batting/pitching ZIP. The 18,293 difference between totals does not establish 18,293 players missing statistics (different universes and players with no stats are possible).
-- IL/redshirt counts are based on documented existing status only. Blank status does not imply injured, redshirt, or inactive.
-- All 2026 stats are from current production season tables, not a fully reconciled combination of all historical provider exports.
-- The protective importer PR adds a minimum-count guard, per-record parsing, quarantining of malformed source lines, and append-only ingestion outcomes. It has not been merged or deployed to production; verify TypeScript, staging ingest performance and production transaction duration before release.
+## Safe shadow-branch promotion test — NOT production
+- Neon branch `br-frosty-sun-a4aowmn2` (`test-208427-player-and-card-merge-20261103`) copied from production.
+- Inserted 83,490 valid new raw players with `ON CONFLICT DO NOTHING`, resulting in **208,427 total raw players** on test branch, 2 captured source IDs still absent due to malformed fields.
+- Inserted **82,970** unique-HSID baseline flip cards, resulting in **207,339 total flip cards** on test branch; **1,184** captured source IDs still have no flip card, and **15** existing HSIDs disagree with unique source school.
+- Test cards remain incomplete: **83,320** missing status, **129,903** missing level. Do NOT promote this staged result as pristine, nor invent player status based on highest historical level.
 
-## Correct acceptance criteria for the eventual ingestion
-1. Complete current live response downloaded and source hash, timestamp, source-line count and 208,427 distinct playerids preserved.
-2. Strict schema validation and a quarantine list for source mistakes. A quarantined row is **not** a completed player import.
-3. All valid source IDs stored in a new immutable landing snapshot; raw player merge has reconciled IDs and no accidental overwrites of other provenance.
-4. For each intended player, either a verified HSID and flip card or an explicit named, reviewed exception. Unknown source HSIDs require official school registry reconciliation (e.g. Legendary Prep).
-5. All new cards pass fan-facing data quality checks; unknown grad year and varsity years remain unknown, not invented.
-6. Full all-time vs. 2026 status and school-program reports recomputed against the completed universe, with source attribution and repeatable delta tracking.
+## 2026 stats — critical separate gap
+- The historical batting/pitching ZIP has **44,428 distinct 2026 player IDs** and **52,348 2026 batting/pitching stat rows**, spanning **1,854 team IDs**.
+- Existing production `tbc_batting_2026_season_raw` and `tbc_pitching_2026_season_raw` cover only **14,266 distinct players** and **1,705 team IDs**. These are materially different from historical ZIP; a specific exact Player ID diff is still required to quantify uncovered IDs.
+- Existing school-program reports count only production 2026 stat activity; **they understate full 2026 historical ZIP coverage** and are intentionally labeled provisional.
+- All 14,266 players in current production 2026 stat tables appear in the captured 208,427 Players feed and are uniquely school-linked.
+- For historical ZIP 2026 team IDs, **1,829** have populated canonical name, level and conference/org; **4** have incomplete mappings; **21** are missing Team IDs entirely.
+
+## Available detailed CSV reports
+1. **`2026_historical_zip_all_1854_teamids_mapped.csv`**: all 1,854 historical ZIP 2026 team IDs, known mapped team names, levels, conference/org, source stat counts, 25 mapping exceptions.
+2. **`2026_teamid_directory.csv`**: all 1,705 team IDs from production 2026 season stats, mapped college/team names, level and conference.
+3. **`full_universe_school_rosters_and_card_gaps.csv`**: all 17,052 uniquely resolved HS programs, names, HSIDs, all-time alumni from full source, **provisional** 2026 active/IL coverage, and per-program card gap counts. These uniquely resolved schools account for 82,970 missing cards before branch test.
+4. **`complete_208427_source_unresolved_hsids.csv`**: 1,566 source player IDs with no or ambiguous HSID, source details, and quarantine reason.
+5. **`complete_208427_source_school_programs.csv`**: 17,052 school programs with unique-match source all-time counts and **provisional** current production 2026 stats/IL counts.
+6. **`raw_player_missing_flipcard_or_hsid_link.csv`**: 674 canonical production raw-player crosswalk/card errors before source expansion.
+7. **`2026_stat_players_missing_raw_or_card.csv`**: 11 player IDs with 2026 production stats but no raw player and flip card before expansion.
+8. **`school_program_directory_existing_crosswalk.csv`**: original 7,954 old raw-player-linked schools for before/after comparison.
+
+## Engineering status
+- Pull request **#677** proposes per-physical-source-record parsing, incomplete-feed count and unique-ID safeguards, quarantining malformed rows, permanent per-run auditing, and the isolated capture workflow.
+- Preview builds must pass and tests must validate replay of exact 208K source with no record bleed, preservation of source's existing fields and runtime duration before production merge.
+- The once-off audit workflow has succeeded. It is **not** an automatic canonical 208K ingestion pipeline. Do not claim it has fixed production yet.
+- Critical work remaining: map 1,566 HSID exceptions (including 72 ambiguous school names); fix and verify 3 malformed source rows; perform safe bulk promotion with rollback checkpoint; source-authoritative status/level enrichment for all new cards; 2026 ZIP-to-Neon stats reconciliation; recalc all-school active and all-time counts; run production QA and monitor next 3 AM/3 PM feeds.
