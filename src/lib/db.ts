@@ -520,7 +520,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         playyears
       FROM (
         SELECT raw_b.*, canonical.level_label AS canonical_level
-        FROM public.tbc_complete_batting_history raw_b
+        FROM public.v_tbc_batting_all_seasons_resolved raw_b
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_b.teamid::text
       ) tbc_bat
@@ -676,7 +676,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
       FROM (
         SELECT raw_p.*, canonical.level_label AS canonical_level
-        FROM public.tbc_complete_pitching_history raw_p
+        FROM public.v_tbc_pitching_all_seasons_resolved raw_p
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_p.teamid::text
       ) tbc_pitch
@@ -1115,7 +1115,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
   `;
 }
 
-export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-complete-2026-v1', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-merged-2026-v2', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   // All returned rows belong to school_players; filter raw season inputs first.
   // This avoids aggregating every team's 2026 stats on each school cache miss.
   const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text IN (SELECT playerid::text FROM school_players)');
@@ -1164,7 +1164,7 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // statement timeout", a blank All-Time list and an ~18s page). Same rows
 // either way: Hamilton's 107 rows fingerprint identically before and after;
 // a trimmed version for Perry went from 2.74s to 0.44s.
-export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-complete-2026-v1', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-merged-2026-v2', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
@@ -1804,7 +1804,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     ORDER BY b.year ASC, b.teamid ASC
   `;
   try {
-    const rows = await cachedPlayerStatRows('batting-seasons-full-2026-v1', historicalPlayerId, sql);
+    const rows = await cachedPlayerStatRows('batting-seasons-merged-2026-v2', historicalPlayerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerBattingStats failed:', error);
@@ -1837,7 +1837,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     ORDER BY p.year ASC, p.teamid ASC
   `;
   try {
-    const rows = await cachedPlayerStatRows('pitching-seasons-full-2026-v1', historicalPlayerId, sql);
+    const rows = await cachedPlayerStatRows('pitching-seasons-merged-2026-v2', historicalPlayerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerPitchingStats failed:', error);
@@ -1881,7 +1881,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
     WHERE playerid::text = $1
   `;
   try {
-    const rows = await cachedPlayerStatRows('career-batting-full-2026-v1', historicalPlayerId, sql);
+    const rows = await cachedPlayerStatRows('career-batting-merged-2026-v2', historicalPlayerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerBatting failed:', error);
@@ -2016,7 +2016,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
     WHERE playerid::text = $1
   `;
   try {
-    const rows = await cachedPlayerStatRows('career-pitching-full-2026-v1', historicalPlayerId, sql);
+    const rows = await cachedPlayerStatRows('career-pitching-merged-2026-v2', historicalPlayerId, sql);
     return rows[0] || null;
   } catch (error) {
     console.error('getPlayerCareerPitching failed:', error);
@@ -2881,7 +2881,7 @@ if (!global.__pgPoolShutdownRegistered) {
 
 // Canonical Active Alumni membership. The gallery, Row 3, school-search
 // tally and footer tally all use the same owner-approved status preset.
-export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-full-2026-v1', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
+export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-merged-2026-v2', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
   if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return { playerIds: [], statsPending: false };
   const { rows } = await query(`
     SELECT ARRAY_AGG(DISTINCT f.playerid::text ORDER BY f.playerid::text) AS player_ids
