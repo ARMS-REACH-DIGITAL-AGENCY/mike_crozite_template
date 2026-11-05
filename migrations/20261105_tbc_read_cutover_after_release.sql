@@ -14,7 +14,7 @@ BEGIN
   SELECT count(*) INTO v_pitching FROM public.tbc_complete_pitching_history;
   SELECT count(*) INTO v_2026 FROM public.tbc_verified_2026_participation;
   SELECT count(*) INTO v_links FROM public.tbc_player_verified_school_links;
-  IF v_batting<>501242 OR v_pitching<>438097 OR v_2026<>44428
+  IF v_batting<>501242 OR v_pitching<>438097 OR v_2026<44428
     OR v_links<206846 THEN
     RAISE EXCEPTION 'Unverified cutover: batting %, pitching %, 2026 %, links %',
       v_batting,v_pitching,v_2026,v_links;
@@ -25,7 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_tbc_complete_batting_player_year
   ON public.tbc_complete_batting_history(playerid,year);
 CREATE INDEX IF NOT EXISTS idx_tbc_complete_pitching_player_year
   ON public.tbc_complete_pitching_history(playerid,year);
--- Matching 46/40 source and view column lists were verified on 2026-11-05.
+-- The complete archive holds 44,428 unique 2026 players; the daily overlay can add more.\n-- Require that baseline rather than freezing eligibility at exactly 44,428.\n-- Matching 46/40 source and view column lists were verified on 2026-11-05.
 -- The complete 2026 archive is included exactly once (no double-counting the
 -- overlapping, narrower daily 2026 feeds).
 CREATE OR REPLACE VIEW public.v_tbc_batting_all_seasons_resolved AS
