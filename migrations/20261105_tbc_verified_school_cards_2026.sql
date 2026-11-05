@@ -240,8 +240,10 @@ BEGIN
        status_label,display_status_label,level_label,display_level_label,
        highest_level_label,highest_level_checked_at,source_summary)
     SELECT c.playerid,c.matched_hsid::text,
-           BTRIM(coalesce(c.firstname,'')||' '||coalesce(c.lastname,'')),
-           c.firstname,c.lastname,c.posit,
+           BTRIM(regexp_replace(coalesce(c.firstname,'')||' '||coalesce(c.lastname,''),
+                                '[[:space:]]+', ' ', 'g')),
+           BTRIM(regexp_replace(coalesce(c.firstname,''), '[[:space:]]+', ' ', 'g')),
+           BTRIM(regexp_replace(coalesce(c.lastname,''), '[[:space:]]+', ' ', 'g')),c.posit,
            CASE WHEN c.played_2026 THEN 'ACTIVE'
                 WHEN c.has_history THEN 'RETIRED' ELSE 'UNKNOWN' END,
            CASE WHEN c.played_2026 THEN 'ACTIVE'
