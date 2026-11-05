@@ -23,8 +23,16 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
   const report:ScoutReport={scanned:0,signals:0,matched:0,alreadyCovered:0,
     published:0,previewCandidates:0,unresolved:0,failures:0,aiReviewed:0,
     ignored:0,alreadyEvaluated:0,aiUnavailable:0,activeRoster:0};
-  const schoolIds=[...new Set((process.env.SOCIAL_NEWS_SCOUT_HSIDS||'5004')
+  const configured=[...new Set((process.env.SOCIAL_NEWS_SCOUT_HSIDS||'')
     .split(',').map(x=>x.trim()).filter(x=>/^\d+$/.test(x)))];
+  // Default to all schools with a registered, Meta-resolved professional source.
+  // A list of HSIDs can still explicitly narrow a controlled deployment.
+  const schoolIds=configured.length ? configured : (
+    await query<{hsid:string}>(`SELECT DISTINCT hsid::text AS hsid FROM social_sources
+      WHERE platform='instagram' AND status='active'
+        AND external_account_id IS NOT NULL AND hsid ~ '^[0-9]+$'
+      ORDER BY hsid::text LIMIT 500`)
+  ).rows.map(r=>r.hsid);
   if(!schoolIds.length) return report;
   const writeAudit = async (post:ScoutPost,outcome:string,subject:string|null) => {
     if(dryRun) return;
