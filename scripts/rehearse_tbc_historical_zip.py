@@ -5,7 +5,7 @@ No database connection in default mode. --apply requires a non-production
 branch label AND explicit exact Neon host. Does not modify live player/cards.
 Run the matching isolated migration before --apply.
 """
-import argparse,csv,hashlib,io,json,os,uuid,zipfile
+import argparse,csv,hashlib,io,json,os,re,uuid,zipfile
 from pathlib import Path
 
 HASH='03dc689f07efed73d8410bd12c9722bbf3f5210ccaede9c11637be48999cb31b'
@@ -35,7 +35,7 @@ def rows(archive,kind):
    payload=json.dumps(dict(zip(head,row)),ensure_ascii=False,separators=(',',':'))
    year=row[2].strip()
    yield {'line':num,'playerid':row[1].strip(),'teamid':row[0].strip(),
-          'year':int(year) if year.isdigit() else None,'payload':payload}
+          'year':int(year.split('.',1)[0]) if re.fullmatch(r'[0-9]{4}(?:\.[0-9]+)?',year) else None,'payload':payload}
 
 def inspect_zip(path):
  digest=sha_file(path)
