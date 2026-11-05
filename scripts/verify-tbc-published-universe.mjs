@@ -29,8 +29,8 @@ try{
   `,[runId]);
   check("historical source complete",counts.batting===501242&&counts.pitching===438097,counts);
   // Five additional players occur only in the continuing daily 2026 feeds.
-  // The post-cutover overlay refresh must include all 44,433 identities.
-  check("merged historical + daily 2026 coverage",counts.played2026===44433);
+  // The post-cutover overlay refresh must include at least 44,433 identities,\n  // with the independent daily-coverage check preventing omissions as feed grows.
+  check("merged historical + daily 2026 coverage",counts.played2026>=44433);
   check("verified school associations",counts.school_links>=206846);
   check("all publishable new cards exist",counts.publishable===counts.cards_created);
   const [dailyCoverage]=await query(`
