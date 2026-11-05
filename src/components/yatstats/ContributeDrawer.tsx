@@ -732,7 +732,7 @@ export default function ContributeDrawer() {
         .ycd-close { position: static !important; flex: none; }
         .ycd-body { flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px 14px 28px; font-family: var(--yat-font-ui); font-size: 13px; }
         .ycd-main { display: grid; grid-template-columns: 1fr; gap: 20px; }
-        @media (min-width: 900px) { .ycd-main { grid-template-columns: minmax(300px, 380px) 1fr; gap: 28px; } }
+        /* This component is a 360px docked rail at desktop breakpoints. Never switch\n           its form to two columns: Android Desktop site uses a 980px CSS viewport\n           even on a phone and the second column collapses to vertical letters. */\n        #drawerContribute .ycd-main { grid-template-columns: minmax(0, 1fr) !important; gap: 16px; }
         .ycd-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
         .ycd-narrow { display: flex; flex-direction: column; gap: 14px; max-width: 640px; }
         .ycd-muted { opacity: .65; }
