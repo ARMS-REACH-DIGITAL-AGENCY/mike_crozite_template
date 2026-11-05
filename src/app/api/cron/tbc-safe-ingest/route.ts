@@ -709,9 +709,9 @@ export async function GET(req: NextRequest) {
         SET finished_at=now(), status=$2, row_count=$3, valid_count=$4, invalid_count=$5,
             error_message=$6
         WHERE ingest_run_id=$1
-      `, [auditRunId, "capture_only",
+      `, [auditRunId, "succeeded",
           capture.sourceRows, capture.validRows,
-          quarantinedRows, "Source verified but not promoted; quarantined IDs: " + capture.rejects.map(x => x.playerid).join(",")]);
+          quarantinedRows, "CAPTURE_ONLY: source verified but not promoted to tbc_players_raw or flip_card_front_stage; quarantined IDs: " + capture.rejects.map(x => x.playerid).join(",")]);
     }
 
     if (heldForIdentityReview.length > 0) {
