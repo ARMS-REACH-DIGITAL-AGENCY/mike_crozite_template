@@ -83,7 +83,7 @@ BEGIN
   WITH school_names AS MATERIALIZED (
     SELECT
       hsid,
-      regexp_replace(lower(trim(hs_lookup_key)), '[.\\s]+', ' ', 'g') AS normalized_school
+      regexp_replace(lower(trim(hs_lookup_key)), '[.[:space:]]+', ' ', 'g') AS normalized_school
     FROM public.tbc_schools_raw
     WHERE hs_lookup_key IS NOT NULL AND trim(hs_lookup_key) <> ''
   ),
@@ -96,7 +96,7 @@ BEGIN
         FILTER (WHERE sn.hsid IS NOT NULL) AS hsids
     FROM public.tbc_players_full_feed_audit_rows a
     LEFT JOIN school_names sn
-      ON regexp_replace(lower(trim(a.high_school)), '[.\\s]+', ' ', 'g') = sn.normalized_school
+      ON regexp_replace(lower(trim(a.high_school)), '[.[:space:]]+', ' ', 'g') = sn.normalized_school
     WHERE a.run_id=p_run_id
     GROUP BY a.playerid, a.source_row, a.firstname, a.lastname,
              a.high_school, a.rejection_reason
