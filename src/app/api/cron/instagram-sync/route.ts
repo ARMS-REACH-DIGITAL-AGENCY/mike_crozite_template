@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { syncInstagramSource, type SourceResult } from '@/lib/instagramSync';
+import { isInstagramRateLimit } from '@/lib/instagramVideo';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -44,7 +45,11 @@ export async function GET(req: NextRequest) {
 
   const results: SourceResult[] = [];
   for (const source of sources) {
-    results.push(await syncInstagramSource(pool, source));
+    const result = await syncInstagramSource(pool, source);
+    results.push(result);
+    // Stop the batch immediately if Meta throttles this app. Retrying every
+    // source on the same blocked token only prolongs the application limit.
+    if (!result.ok && isInstagramRateLimit(result.error)) break;
   }
   const failed = results.filter((r) => !r.ok);
   if (failed.length) console.error('instagram-sync failures', failed);
