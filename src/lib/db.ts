@@ -549,7 +549,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         FROM public.indy_iscore_batting_2026_season_raw
         WHERE season_year = 2026
           AND yatstats_playerid IS NOT NULL
-          AND yatstats_playerid::text IN (SELECT playerid::text FROM school_players)
+          AND yatstats_playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
         ORDER BY
           yatstats_playerid,
           season_year,
@@ -708,7 +708,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         FROM public.indy_iscore_pitching_2026_season_raw
         WHERE season_year = 2026
           AND yatstats_playerid IS NOT NULL
-          AND yatstats_playerid::text IN (SELECT playerid::text FROM school_players)
+          AND yatstats_playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
         ORDER BY
           yatstats_playerid,
           season_year,
@@ -1003,11 +1003,11 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
     active_playerids AS (
       SELECT DISTINCT playerid::text AS playerid
       FROM batting_2026_rows
-      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
       UNION
       SELECT DISTINCT playerid::text AS playerid
       FROM pitching_2026_rows
-      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
       UNION
       SELECT playerid FROM confirmed_game_log_players
     )
@@ -1115,10 +1115,15 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
   `;
 }
 
-export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-merged-2026-v2', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+// Using a scalar ARRAY subquery rather than IN (SELECT ... FROM school_players)
+// keeps the school player IDs as an indexable PostgreSQL initplan. This avoids
+// planning a hash scan of ~939K source rows per school. Verified exact result
+// fingerprints on Hamilton (5004) and HSID 14385, and timed against the full
+// isolated 2026 read model before merge. No source-data changes.
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v3', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   // All returned rows belong to school_players; filter raw season inputs first.
   // This avoids aggregating every team's 2026 stats on each school cache miss.
-  const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text IN (SELECT playerid::text FROM school_players)');
+  const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))');
   const { rows } = await query(sql, [hsid]);
   return rows;
 }, ACTIVE_ROSTER_TTL_SECONDS));
@@ -1164,7 +1169,7 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // statement timeout", a blank All-Time list and an ~18s page). Same rows
 // either way: Hamilton's 107 rows fingerprint identically before and after;
 // a trimmed version for Perry went from 2.74s to 0.44s.
-export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-merged-2026-v2', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-indexed-school-scope-v3', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
@@ -1216,7 +1221,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         draft_info,
         playyears
       FROM public.v_tbc_batting_all_seasons_resolved
-      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
@@ -1228,7 +1233,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         draft_info     AS pit_draft_info,
         playyears      AS pit_playyears
       FROM public.v_tbc_pitching_all_seasons_resolved
-      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
       ORDER BY playerid, year DESC, teamid DESC
     ),
 
@@ -1292,7 +1297,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       FROM public.v_tbc_batting_all_seasons_resolved career_stats
       LEFT JOIN public.teamid_universe_mapping canonical_team
         ON canonical_team.teamid = career_stats.teamid::text
-      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
       GROUP BY playerid::text, bucket
     ),
 
@@ -1546,7 +1551,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       FROM public.v_tbc_pitching_all_seasons_resolved career_stats
       LEFT JOIN public.teamid_universe_mapping canonical_team
         ON canonical_team.teamid = career_stats.teamid::text
-      WHERE playerid::text IN (SELECT playerid::text FROM school_players)
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
       GROUP BY playerid::text, bucket
     ),
 
