@@ -28,9 +28,24 @@ try{
           AND source_summary->>'source_run_id'=$1::text) AS cards_created
   `,[runId]);
   check("historical source complete",counts.batting===501242&&counts.pitching===438097,counts);
-  check("verified 2026 coverage",counts.played2026===44428);
+  // Five additional players occur only in the continuing daily 2026 feeds.
+  // The post-cutover overlay refresh must include all 44,433 identities.
+  check("merged historical + daily 2026 coverage",counts.played2026===44433);
   check("verified school associations",counts.school_links>=206846);
   check("all publishable new cards exist",counts.publishable===counts.cards_created);
+  const [dailyCoverage]=await query(`
+    SELECT COUNT(DISTINCT daily.playerid)::int AS omitted
+    FROM (
+      SELECT playerid FROM public.tbc_batting_2026_season_raw WHERE year='2026'
+      UNION
+      SELECT playerid FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+    ) daily
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.tbc_verified_2026_participation e
+      WHERE e.playerid=daily.playerid
+    )
+  `);
+  check("daily 2026 players included in activity evidence",dailyCoverage.omitted===0,{dailyCoverage});
   const [progress]=await query(`
     SELECT r.completed AS raw_done,r.processed_valid_rows::int AS raw_processed,
            f.completed AS cards_done,f.newly_created_cards::int AS cards_created
