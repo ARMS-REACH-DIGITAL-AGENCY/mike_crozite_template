@@ -1,0 +1,34 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const ts=require('typescript');
+const vm=require('node:vm');
+const root=path.resolve(__dirname,'..');
+const read=(p)=>fs.readFileSync(path.join(root,p),'utf8');
+const output={exports:{}};
+vm.runInNewContext(ts.transpileModule(read('src/lib/instagramSyncHealth.ts'),{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}
+}).outputText,{exports:output.exports});
+const h=output.exports;
+assert.equal(h.classifyInstagramSyncError('Error validating access token: The session has been invalidated'),'auth_invalid');
+assert.equal(h.classifyInstagramSyncError('(#4) Application request limit reached'),'rate_limited');
+assert.equal(h.classifyInstagramSyncError('Invalid user id'),'unavailable_account');
+assert.equal(h.classifyInstagramSyncError('image download 404'),'other');
+assert.equal(h.isGlobalInstagramFailure('auth_invalid'),true);
+assert.equal(h.isGlobalInstagramFailure('rate_limited'),true);
+assert.equal(h.isGlobalInstagramFailure('unavailable_account'),false);
+const sync=read('src/app/api/cron/instagram-sync/route.ts');
+assert.match(sync,/isGlobalInstagramFailure\(result\.errorCategory\)/);
+assert.match(sync,/last_polled_at < now\(\)-interval '6 hours'/);
+assert.match(sync,/process\.env\.VERCEL_ENV === 'preview'/);
+assert.match(sync,/instagram_sync_run/);
+assert.match(sync,/status=stoppedReason==='rate_limited'\?429/);
+const digest=read('src/app/api/cron/social-news-digest/route.ts');
+assert.match(digest,/AUTHENTICATION FAILED/);
+assert.match(digest,/Last successful account sync/);
+assert.match(digest,/News Scout activity/);
+const scout=read('src/lib/socialNewsScout.ts');
+assert.match(scout,/SELECT DISTINCT hsid::text AS hsid FROM social_sources/);
+const vercel=JSON.parse(read('vercel.json'));
+assert.equal(vercel.crons.find(x=>x.path==='/api/cron/instagram-sync').schedule,'7 0,6,12,18 * * *');
+console.log('PASS: Meta failure classification, fail-fast, six-hour backoff, preview safety and digest health');

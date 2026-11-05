@@ -25,6 +25,12 @@ type Story = {
 type Totals = {
   found: number; posted: number; removed: number; monitored: number;
 };
+type ScoutStats = {runs:number;scanned:number;already_evaluated:number;unresolved:number;ai_reviewed:number;published:number};
+type Health = {
+  status:string; latestRunAt:string|null; latestSuccessAt:string|null;
+  lastPostAt:string|null; registered:number; attempted:number;
+  succeeded:number; failed:number; failedHandles:string[];
+};
 const boundaries = `WITH bounds AS (
   SELECT
     (date_trunc('day',now() AT TIME ZONE 'America/Phoenix')-interval '1 day')
@@ -43,7 +49,8 @@ function azTime(timestamp: string): string {
     timeZone:tz,month:'short',day:'numeric',hour:'numeric',minute:'2-digit',
   });
 }
-function emailHtml(day: string, totals: Totals, rows: Story[], schoolOrigins: Map<string, string>): string {
+function emailHtml(day: string, totals: Totals, rows: Story[], schoolOrigins: Map<string, string>,
+  health: Health, scout: ScoutStats): string {
   const visible = rows.slice(0,200);
   const details = visible.map((story) => {
     const schoolBase = schoolOrigins.get(story.hsid);
@@ -71,8 +78,28 @@ function emailHtml(day: string, totals: Totals, rows: Story[], schoolOrigins: Ma
     '<p><b>News tips captured: ',String(totals.found),
     ' &nbsp; | &nbsp; Stories currently published: ',String(totals.posted),
     ' &nbsp; | &nbsp; Stories removed: ',String(totals.removed),'</b></p>',
-    '<p>Professional player accounts currently resolved by Meta across monitored schools: ',
-    String(totals.monitored),'. Instagram personal accounts are not accessible through Business Discovery.</p>',
+    '<p>Previously Meta-resolved professional player accounts (not a live health check): ',
+    String(totals.monitored),'. Personal Instagram accounts cannot be read via Business Discovery.</p>',
+    '<h3>Instagram sync health</h3>',
+    '<p><b>Status: ',esc(health.status),'</b></p>',
+    '<p>Registered handles: ',String(health.registered),
+    ' | Latest sync attempted: ',String(health.attempted),
+    ' | Succeeded: ',String(health.succeeded),
+    ' | Failed: ',String(health.failed),'</p>',
+    '<p>Latest sync attempt: ',esc(health.latestRunAt||'Not recorded'),
+    ' | Last successful account sync: ',esc(health.latestSuccessAt||'Never recorded'),
+    ' | Last Instagram post imported: ',esc(health.lastPostAt||'No posts imported'),'</p>',
+    health.failedHandles.length
+      ? '<p>Failed handles in latest attempt: '+esc(health.failedHandles.join(', '))+'</p>' : '',
+    health.status==='AUTHENTICATION FAILED' || health.status==='TOKEN MISSING'
+      ? '<p><b>Action required: Reauthorize Meta Instagram access and update META_IG_ACCESS_TOKEN in the Vercel production environment. Do not send the token by email.</b></p>' : '',
+    health.status==='META RATE LIMITED'
+      ? '<p><b>Meta rate limit reached. The sync stopped additional lookups; investigate quotas and retry after cooldown.</b></p>' : '',
+    '<h3>News Scout activity (previous Arizona day)</h3>',
+    '<p>Runs: ',String(scout.runs),' | Post checks (includes repeated checks): ',String(scout.scanned),
+    ' | Previously evaluated: ',String(scout.already_evaluated),
+    ' | Unresolved player matches: ',String(scout.unresolved),
+    ' | AI reviews: ',String(scout.ai_reviewed),' | Published: ',String(scout.published),'</p>',
     '<h3>Stories discovered and posted</h3>',
     visible.length ? '<ol>' + details + '</ol>' :
       '<p>No new Instagram Scout stories were recorded for this day. Existing fan-submitted News is not counted here.</p>',
@@ -115,6 +142,45 @@ export async function GET(req: NextRequest) {
            WHERE s.owner_type='player'
              AND s.external_account_id IS NOT NULL AND s.status='active') AS monitored`),
     ]);
+    // Health is backed by explicit sync outcome audits; last_polled_at is only an attempt.
+    const [syncLatest,syncSuccess,postLatest,sourceCounts,scoutCounts]=await Promise.all([
+      query<{created_at:string;details:{attempted?:number;succeeded?:number;failed?:number;stoppedReason?:string|null;failures?:Array<{handle:string;category:string}>}}>(
+        "SELECT created_at::text,details FROM fan_activity WHERE firebase_uid='system:instagram-sync' AND action='instagram_sync_run' ORDER BY id DESC LIMIT 1"),
+      query<{created_at:string}>(
+        "SELECT created_at::text FROM fan_activity WHERE firebase_uid='system:instagram-sync' AND action='instagram_sync_run' AND COALESCE((details->>'succeeded')::int,0)>0 ORDER BY id DESC LIMIT 1"),
+      query<{last_post_at:string|null}>(
+        "SELECT MAX(ingested_at)::text AS last_post_at FROM social_posts WHERE platform='instagram'"),
+      query<{registered:number}>(
+        "SELECT COUNT(*)::int AS registered FROM social_sources WHERE platform='instagram' AND status='active'"),
+      query<ScoutStats>(boundaries + `
+        SELECT COUNT(*)::int AS runs,
+          COALESCE(SUM((a.details->>'scanned')::int),0)::int AS scanned,
+          COALESCE(SUM((a.details->>'alreadyEvaluated')::int),0)::int AS already_evaluated,
+          COALESCE(SUM((a.details->>'unresolved')::int),0)::int AS unresolved,
+          COALESCE(SUM((a.details->>'aiReviewed')::int),0)::int AS ai_reviewed,
+          COALESCE(SUM((a.details->>'published')::int),0)::int AS published
+        FROM fan_activity a CROSS JOIN bounds b
+        WHERE a.firebase_uid='system:social-news-scout' AND a.action='social_news_scout_run'
+          AND a.created_at>=b.start_at AND a.created_at<b.end_at`),
+    ]);
+    const latest=syncLatest.rows[0];
+    const raw=latest?.details||{};
+    const status=raw.stoppedReason==='auth_invalid'?'AUTHENTICATION FAILED'
+      :raw.stoppedReason==='missing_token'?'TOKEN MISSING'
+      :raw.stoppedReason==='rate_limited'?'META RATE LIMITED'
+      :!latest?'NO SYNC AUDIT AVAILABLE'
+      :raw.failed?'PARTIAL SYNC FAILURES':'OPERATIONAL';
+    const health:Health={
+      status,latestRunAt:latest?.created_at||null,
+      latestSuccessAt:syncSuccess.rows[0]?.created_at||null,
+      lastPostAt:postLatest.rows[0]?.last_post_at||null,
+      registered:sourceCounts.rows[0]?.registered||0,
+      attempted:raw.attempted||0,succeeded:raw.succeeded||0,failed:raw.failed||0,
+      failedHandles:(raw.failures||[]).map(x=>x.handle+' ('+x.category+')').slice(0,20),
+    };
+    const scout:ScoutStats=scoutCounts.rows[0]||{
+      runs:0,scanned:0,already_evaluated:0,unresolved:0,ai_reviewed:0,published:0,
+    };
     // Resolve every school from the same canonical directory used by player
     // profiles and global search; this supports 8,000+ school subdomains.
     const schoolOrigins = await resolveSchoolNewsOrigins(
@@ -128,7 +194,8 @@ export async function GET(req: NextRequest) {
       console.error('[social-news-digest] unresolved school microsite URLs', unresolvedSchools);
     }
     const totals = counts.rows[0] || {found:0,posted:0,removed:0,monitored:0};
-    const result = {date:day,...totals,listLength:stories.rows.length,unresolvedSchools};
+    const result = {date:day,...totals,listLength:stories.rows.length,unresolvedSchools,
+      syncStatus:health.status,scoutRuns:scout.runs,scoutAiReviews:scout.ai_reviewed};
     // Preview never sends mail or creates a delivery-log record.
     if (process.env.VERCEL_ENV === 'preview') {
       return NextResponse.json({ok:true,dryRun:true,...result});
@@ -144,8 +211,9 @@ export async function GET(req: NextRequest) {
     if (!contactId) throw new Error('Unable to resolve YAT?STATS daily report contact');
     const ok = await sendGHLEmail(contactId,
       'YAT?STATS Instagram Scout Daily Report — ' + day +
-        ' (' + totals.posted + ' posted)',
-      emailHtml(day,totals,stories.rows,schoolOrigins));
+        ' (' + totals.posted + ' posted)' +
+        (health.status==='AUTHENTICATION FAILED' || health.status==='TOKEN MISSING' ? ' — ACTION REQUIRED' : ''),
+      emailHtml(day,totals,stories.rows,schoolOrigins,health,scout));
     if (!ok) throw new Error('HighLevel rejected the daily Instagram Scout report');
     await writerQuery(`
       INSERT INTO fan_activity(firebase_uid,action,details)
