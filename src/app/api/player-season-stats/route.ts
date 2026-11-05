@@ -10,8 +10,8 @@ import { getAflSeasonStatsForPlayer } from '@/lib/aflSeasonStats';
 
 type StatRecord = Record<string, unknown>;
 
-const BATTING_TABLES = ['tbc_batting_raw', 'tbc_batting_2026_season_raw'] as const;
-const PITCHING_TABLES = ['tbc_pitching_raw', 'tbc_pitching_2026_season_raw'] as const;
+const BATTING_TABLES = ['v_tbc_batting_all_seasons_resolved', 'tbc_batting_2026_season_raw'] as const;
+const PITCHING_TABLES = ['v_tbc_pitching_all_seasons_resolved', 'tbc_pitching_2026_season_raw'] as const;
 const LIVE_SEASON_YEAR = 2026;
 
 function value(row: any, ...keys: string[]) {
