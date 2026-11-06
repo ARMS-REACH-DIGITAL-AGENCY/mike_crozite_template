@@ -703,6 +703,54 @@ export async function GET(req: NextRequest) {
         promotedToRaw: false, status: "capture_only" } });
 
     await client.query("commit");
+    // Optional post-commit activity refresh: isolated until release approval.
+    // Do not retry already-committed source feeds on a derived-index failure.
+    let activityRefresh: { players: number; corrected: number; activated: number } | null = null;
+    let activityRefreshError: string | null = null;
+    if (process.env.YATSTATS_TBC_DAILY_OVERLAY_REFRESH === "true") {
+      try {
+        const { rows: refreshed } = await client.query(
+          "SELECT players FROM public.prepare_tbc_verified_2026_participation()"
+        );
+        // Drain both bounded, resumable update queues instead of silently
+        // leaving everyone after the first 2,000 players stale until tomorrow.
+        // A hard limit prevents a bad feed from monopolizing cron runtime.
+        const drain = async (sql: string, label: string): Promise<number> => {
+          let total = 0;
+          for (let batch = 0; batch < 16; batch++) {
+            const { rows } = await client.query(sql);
+            const changed = Number(rows[0]?.n || 0);
+            total += changed;
+            if (changed < 2000) return total;
+          }
+          throw new Error(`Post-commit ${label} queue exceeds 32,000 rows; resume on next scheduled run`);
+        };
+        const correctedCount = await drain(
+          "SELECT public.reconcile_auto_retired_2026_batch(2000) AS n",
+          "automatic retirement correction",
+        );
+        const activatedCount = await drain(
+          "SELECT public.reconcile_pending_tbc_2026_batch(2000) AS n",
+          "pending 2026 participation",
+        );
+        activityRefresh = {
+          players: Number(refreshed[0]?.players || 0),
+          corrected: correctedCount,
+          activated: activatedCount,
+        };
+      } catch (error) {
+        activityRefreshError = sanitizeError(error);
+        console.error("[tbc-safe-ingest] post-commit activity refresh failed", activityRefreshError);
+        try {
+          await sendIngestAlert({
+            event: "yatstats_ingest_failed", job: "tbc_post_commit_activity_refresh",
+            occurredAt: new Date().toISOString(), error: activityRefreshError,
+          });
+        } catch (alertError) {
+          console.error("[tbc-safe-ingest] refresh alert failed", sanitizeError(alertError));
+        }
+      }
+    }
     if (auditClient && auditRunId) {
       await auditClient.query(`
         UPDATE public.tbc_ingest_runs
@@ -754,6 +802,8 @@ export async function GET(req: NextRequest) {
       ranAt: new Date().toISOString(),
       results,
       newFlipCardRows,
+      activityRefresh,
+      activityRefreshError,
       teamIdDiscovery,
       collegeToIndyCorrected,
       previouslyUnclassifiedActivated,

@@ -477,8 +477,11 @@ export default function ProfileStatsInjector({ playerId, meta }: { playerId: str
   useEffect(() => {
     let cancelled = false;
     const panel = document.querySelector('#ppTab-stats') as HTMLElement | null;
-    if (!panel) return;
-    panel.innerHTML = `${css()}<div class="psi-empty">Loading season stats...</div>`;
+    // Never replace #ppTab-stats itself: Next/React still owns its children.
+    // Overwriting the parent during hydration can crash the player profile.
+    const mount = panel?.querySelector<HTMLElement>('#pp-stats-injector-target');
+    if (!panel || !mount) return;
+    mount.innerHTML = `${css()}<div class="psi-empty">Loading season stats...</div>`;
     fetch(`/api/player-season-stats?playerId=${encodeURIComponent(playerId)}`, { cache: 'no-store' })
       .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data?.error || 'Unable to load stats'); return data; })
       .then((data) => {
@@ -489,10 +492,14 @@ export default function ProfileStatsInjector({ playerId, meta }: { playerId: str
         const html = primary === 'pitching'
           ? `${table('pitching', pitching, pitchingColumns)}${table('batting', batting, battingColumns)}`
           : `${table('batting', batting, battingColumns)}${table('pitching', pitching, pitchingColumns)}`;
-        panel.innerHTML = html ? `${css()}<div class="psi-shell">${html}</div>` : `${css()}<div class="psi-empty">No season-by-season stats found for this player yet.</div>`;
-        attachSortHandlers(panel);
+        mount.innerHTML = html ? `${css()}<div class="psi-shell">${html}</div>` : `${css()}<div class="psi-empty">No season-by-season stats found for this player yet.</div>`;
+        // Preserve the React-rendered fallback in the DOM, but hide it once
+        // the verified source-of-truth season view is ready.
+        const fallback = panel.querySelector<HTMLElement>('#pp-stats-server-fallback');
+        if (fallback) fallback.hidden = true;
+        attachSortHandlers(mount);
       })
-      .catch((err) => { if (!cancelled) panel.innerHTML = `${css()}<div class="psi-empty">Stats failed to load: ${esc(err?.message || 'Unknown error')}</div>`; });
+      .catch((err) => { if (!cancelled) mount.innerHTML = `${css()}<div class="psi-empty">Stats failed to load: ${esc(err?.message || 'Unknown error')}</div>`; });
     return () => { cancelled = true; };
   }, [playerId, meta]);
   return null;

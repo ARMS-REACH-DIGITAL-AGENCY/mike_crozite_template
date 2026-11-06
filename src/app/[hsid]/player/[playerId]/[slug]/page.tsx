@@ -901,6 +901,9 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── STATS tab (default visible) ───────────────────────────────────── */}
         <div id="ppTab-stats" className="pp-fz-panel">
+          {/* Keep server-owned markup intact; the client stats view mounts separately. */}
+          <div id="pp-stats-injector-target" />
+          <div id="pp-stats-server-fallback">
 
           {/* Current / career headline grid */}
           {currentStatsGrid.length > 0 && (
@@ -1026,6 +1029,7 @@ export default async function ProfilePage({ params }: Props) {
               <p>Stats will appear here once available.</p>
             </div>
           )}
+          </div>{/* /pp-stats-server-fallback */}
         </div>
 
         {/* ── NEWS tab ─────────────────────────────────────────────────────── */}
