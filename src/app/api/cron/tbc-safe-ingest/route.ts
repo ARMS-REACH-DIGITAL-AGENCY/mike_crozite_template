@@ -1,4 +1,3 @@
-import { TBC_PLAYER_FEED_URL } from "@/lib/tbcPlayerFeedSource";
 import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
@@ -21,7 +20,7 @@ const pool = new Pool({
 
 const FEEDS = {
   players: {
-    url: TBC_PLAYER_FEED_URL,
+    url: "https://www.thebaseballcube.com/data/feed/yatstats/players/?pw=yattbc",
     landingTable: "public.tbc_players_landing_latest",
     targetTable: "public.tbc_players_raw",
   },
