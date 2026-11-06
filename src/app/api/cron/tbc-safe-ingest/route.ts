@@ -712,16 +712,31 @@ export async function GET(req: NextRequest) {
         const { rows: refreshed } = await client.query(
           "SELECT players FROM public.prepare_tbc_verified_2026_participation()"
         );
-        const { rows: corrected } = await client.query(
-          "SELECT public.reconcile_auto_retired_2026_batch(2000) AS n"
+        // Drain both bounded, resumable update queues instead of silently
+        // leaving everyone after the first 2,000 players stale until tomorrow.
+        // A hard limit prevents a bad feed from monopolizing cron runtime.
+        const drain = async (sql: string, label: string): Promise<number> => {
+          let total = 0;
+          for (let batch = 0; batch < 16; batch++) {
+            const { rows } = await client.query(sql);
+            const changed = Number(rows[0]?.n || 0);
+            total += changed;
+            if (changed < 2000) return total;
+          }
+          throw new Error(`Post-commit ${label} queue exceeds 32,000 rows; resume on next scheduled run`);
+        };
+        const correctedCount = await drain(
+          "SELECT public.reconcile_auto_retired_2026_batch(2000) AS n",
+          "automatic retirement correction",
         );
-        const { rows: activated } = await client.query(
-          "SELECT public.reconcile_pending_tbc_2026_batch(2000) AS n"
+        const activatedCount = await drain(
+          "SELECT public.reconcile_pending_tbc_2026_batch(2000) AS n",
+          "pending 2026 participation",
         );
         activityRefresh = {
           players: Number(refreshed[0]?.players || 0),
-          corrected: Number(corrected[0]?.n || 0),
-          activated: Number(activated[0]?.n || 0),
+          corrected: correctedCount,
+          activated: activatedCount,
         };
       } catch (error) {
         activityRefreshError = sanitizeError(error);
