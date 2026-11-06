@@ -16,6 +16,7 @@
 // is not) and the
 // profile only ever loads our copy.
 import sharp from 'sharp';
+import { classifyInstagramSyncError, type InstagramSyncErrorCategory } from './instagramSyncHealth';
 import type { Pool } from 'pg';
 import { putPublicAsset } from './stories';
 import { storyAssetUrl } from './storyAssets';
@@ -40,6 +41,7 @@ export type SourceResult = {
   posts?: number;
   newImages?: number;
   error?: string;
+  errorCategory?: InstagramSyncErrorCategory;
 };
 
 async function graph<T>(path: string, params: Record<string, string>): Promise<T> {
@@ -171,6 +173,7 @@ export async function syncInstagramSource(
     return { handle, ok: true, posts: media.length, newImages };
   } catch (error) {
     await pool.query('UPDATE social_sources SET last_polled_at = now() WHERE id = $1', [source.id]).catch(() => {});
-    return { handle, ok: false, error: error instanceof Error ? error.message : String(error) };
+    const message = error instanceof Error ? error.message : String(error);
+    return { handle, ok: false, error: message, errorCategory: classifyInstagramSyncError(message) };
   }
 }

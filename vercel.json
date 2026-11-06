@@ -31,7 +31,7 @@
     },
     {
       "path": "/api/cron/instagram-sync",
-      "schedule": "7,22,37,52 * * * *"
+      "schedule": "7 0,6,12,18 * * *"
     },
     {
       "path": "/api/cron/contribute-photo-recovery",

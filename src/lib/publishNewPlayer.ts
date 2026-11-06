@@ -50,9 +50,8 @@ export async function publishNewPlayerNow(input: {
     ? fields.roster_years.map(String).filter(Boolean)
     : [];
   const submissionId = randomUUID();
-  // Preserve the established YAT player-only ID format; never manufacture TBC IDs.
-  const playerId = 'YAT' + (BigInt('0x' + submissionId.replace(/-/g, '').slice(0, 15)) %
-    BigInt('1000000000000000')).toString().padStart(15, '0');
+  // The submission token is only for audit; Postgres assigns the permanent ID.
+  // Both allocation and stage insertion happen in one atomic SQL statement.
 
   const sql = [
     'WITH identity_lock AS MATERIALIZED (',
@@ -66,36 +65,62 @@ export async function publishNewPlayerNow(input: {
     ' JOIN public.player_hsids ph ON ph.hsid::text=$1',
     ' JOIN public.tbc_players_raw tp ON tp.playerid::text=ph.playerid::text',
     ' WHERE lower(trim(tp.firstname))=lower($2) AND lower(trim(tp.lastname))=lower($3)',
+    '), reserved AS (',
+    ' UPDATE public.yat_player_id_counter c',
+    ' SET last_assigned = (',
+    '   SELECT candidate FROM generate_series(c.last_assigned + 1, 999999) AS seq(candidate)',
+    "   WHERE NOT EXISTS (SELECT 1 FROM public.flip_card_front_stage existing WHERE existing.playerid = 'YAT' || lpad(candidate::text,6,'0'))",
+    '   LIMIT 1',
+    ' )',
+    ' FROM identity_lock l',
+    ' WHERE c.id=1 AND c.last_assigned < 999999',
+    '   AND EXISTS (SELECT 1 FROM public.school_success s WHERE s.hsid::text=$1)',
+    '   AND NOT EXISTS (SELECT 1 FROM potential_duplicate)',
+    ' RETURNING c.last_assigned',
     '), inserted AS (',
     ' INSERT INTO public.flip_card_front_stage',
     ' (playerid,hsid,first_name,last_name,display_name,class_of,position,',
     '  status_label,display_status_label,level_label,display_level_label,',
     '  roster_years,roster_years_count,current_team_name,current_teamid,',
     '  current_org_or_conference_name,source_notes,source_summary)',
-    ' SELECT $4,$1,$2,$3,trim($2::text || \' \' || $3::text),$5,$6,',
-    '        $7,$7,$8,$8,$12::text[],',
-    '        CASE WHEN $12::text[] IS NULL THEN NULL ELSE cardinality($12::text[]) END,',
-    "        $9,$10,NULLIF($11,''),'fan-contributed; unverified',",
-    "        jsonb_build_object('source','contribute','submission_id',$13::text,'submitted_fields',$14::jsonb)",
-    ' FROM identity_lock',
-    ' WHERE EXISTS (SELECT 1 FROM public.school_success s WHERE s.hsid::text=$1)',
-    '   AND NOT EXISTS (SELECT 1 FROM potential_duplicate)',
-    ' ON CONFLICT(playerid) DO NOTHING',
+    " SELECT 'YAT' || lpad(r.last_assigned::text,6,'0'),$1,$2,$3,trim($2::text || ' ' || $3::text),$4,$5,",
+    '        $6,$6,$7,$7,$11::text[],',
+    '        CASE WHEN $11::text[] IS NULL THEN NULL ELSE cardinality($11::text[]) END,',
+    "        $8,$9,NULLIF($10,''),'fan-contributed; unverified',",
+    "        jsonb_build_object('source','contribute','submission_id',$12::text,'submitted_fields',$13::jsonb)",
+    ' FROM reserved r',
     ' RETURNING playerid',
     ') SELECT playerid FROM inserted',
   ].join('\n');
-  const { rows } = await query<{ playerid: string }>(sql, [
-    hsid, first, last, playerId, graduationYear || null,
-    String(fields.position || '').trim() || null, status, level,
-    canonicalTeam?.name || null, canonicalTeam?.teamId || null,
-    canonicalTeam?.orgName || null, rosterYears.length ? rosterYears : null,
-    submissionId, JSON.stringify(fields),
-  ]);
+  let rows: { playerid: string }[];
+  try {
+    const result = await query<{ playerid: string }>(sql, [
+      hsid, first, last, graduationYear || null,
+      String(fields.position || '').trim() || null, status, level,
+      canonicalTeam?.name || null, canonicalTeam?.teamId || null,
+      canonicalTeam?.orgName || null, rosterYears.length ? rosterYears : null,
+      submissionId, JSON.stringify(fields),
+    ]);
+    rows = result.rows;
+  } catch (error) {
+    if ((error as { code?: string })?.code === '23505') {
+      throw new NewPlayerPublicationError(
+        'A YAT player ID is already allocated. No player was created. The ID counter needs an administrator check.', 503
+      );
+    }
+    throw error;
+  }
   if (!rows[0]?.playerid) {
     const { rows: school } = await query<{ exists: boolean }>(
       'SELECT EXISTS(SELECT 1 FROM public.school_success WHERE hsid::text=$1) AS exists', [hsid]
     );
     if (!school[0]?.exists) throw new NewPlayerPublicationError('That high school was not found.');
+    const { rows: counter } = await query<{ last_assigned: number }>(
+      'SELECT last_assigned FROM public.yat_player_id_counter WHERE id=1'
+    );
+    if (!counter.length || Number(counter[0].last_assigned) >= 999999) {
+      throw new NewPlayerPublicationError('YAT ID counter unavailable; no player was created.', 503);
+    }
     throw new NewPlayerPublicationError(
       'A player with that name is already linked to the school. Find the existing player instead of adding a duplicate.',
       409
