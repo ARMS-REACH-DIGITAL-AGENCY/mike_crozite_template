@@ -93,6 +93,12 @@ function filterRowsToExpectedPlayer(rows: any[], expectedPlayerName: string) {
   return rows.filter((row) => rowMatchesExpectedPlayer(row, expectedPlayerName));
 }
 
+// Never expose an unresolved TBC team ID in the public TEAM column.
+function seasonTeamName(row: any): string {
+  const name = String(value(row, 'current_team_name') ?? '').trim();
+  return name && !/^\d+$/.test(name) ? name : 'Team name not yet identified';
+}
+
 function battingRow(row: any): StatRecord {
   const orgOrConference = value(row, 'current_org_or_conference_abbrev', 'current_org_or_conference_name');
   const teamId = value(row, 'teamid');
@@ -101,7 +107,7 @@ function battingRow(row: any): StatRecord {
     year: value(row, 'year'),
     teamid: teamId,
     team_id: teamId,
-    team: value(row, 'current_team_name', 'teamid'),
+    team: seasonTeamName(row),
     league: orgOrConference,
     level: value(row, 'level_label', 'highlevel'),
     org_conf: orgOrConference,
@@ -150,7 +156,7 @@ function pitchingRow(row: any): StatRecord {
     year: value(row, 'year'),
     teamid: teamId,
     team_id: teamId,
-    team: value(row, 'current_team_name', 'teamid'),
+    team: seasonTeamName(row),
     league: orgOrConference,
     level: value(row, 'level_label', 'highlevel'),
     org_conf: orgOrConference,
@@ -257,16 +263,24 @@ async function readPlayerRows(tableName: string, playerId: string) {
   const { rows } = await query(
     `select
        r.*,
-       m.current_team_name,
+       coalesce(
+         nullif(btrim(m.current_team_name), ''),
+         nullif(btrim(c.collegename), ''),
+         nullif(btrim(p.teamname), '')
+       ) as current_team_name,
        m.current_org_or_conference_name,
        m.current_org_or_conference_abbrev,
        m.level_label,
        $2::text as _source
      from public.${tableName} r
      left join public.teamid_universe_mapping m on m.teamid::text = r.teamid::text
+     -- Raw source catalogs provide an additional name fallback when a new
+     -- team ID has not yet been copied to the canonical universe mapping.
+     left join public.tbc_college_teams_map_raw c on c.teamid::text = r.teamid::text
+     left join public.tbc_pro_teams_map_raw p on p.teamid::text = r.teamid::text
      where r.playerid::text = $1
      order by nullif(regexp_replace(coalesce(r.year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
-              coalesce(m.current_team_name, r.teamid::text)`,
+              coalesce(m.current_team_name, c.collegename, p.teamname, r.teamid::text)`,
     [playerId, tableName]
   );
 
