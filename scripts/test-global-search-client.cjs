@@ -411,6 +411,36 @@ function rendererChecks() {
   passed('School rendering changes only with the Global option: visible URL plus separate actual count; default and crest markup remain identical; no fake numeric links or implicit bracket eligibility');
 }
 
+function previewLinkChecks() {
+  const player = {
+    playerId: '240673', schoolId: '5976', firstName: 'Matt',
+    lastName: 'Bergevin', statusLabel: 'RETIRED',
+    micrositeUrl: 'https://marcos-de-niza.az.yatstats.com',
+  };
+  const live = createEnvironment();
+  const liveHtml = live.exports.renderPlayerRows([player], 'Empty');
+  assert.match(liveHtml, /href="https:\/\/marcos-de-niza\.az\.yatstats\.com\/player\/240673\/matt-bergevin"/,
+    'Public-domain search keeps canonical player profiles');
+  assert.match(liveHtml, /view=alltime&amp;player=240673/,
+    'Retired player card links to the All-Time gallery');
+
+  const preview = createEnvironment();
+  preview.window.location.hostname = 'mike-crozite-template-p3cxetf5j-arms-reach-digital-agency.vercel.app';
+  const previewHtml = preview.exports.renderPlayerRows([player], 'Empty');
+  assert.match(previewHtml, /href="\/5976\/player\/240673\/matt-bergevin"/,
+    'Preview player links stay in the isolated deployment');
+  assert.match(previewHtml, /href="\/5976\?view=alltime&amp;player=240673/,
+    'Preview retired flip-card link opens the correct local All-Time gallery');
+  assert.doesNotMatch(previewHtml, /href="https:\/\/marcos-de-niza\.az\.yatstats\.com/,
+    'Preview never redirects this unpublished player to the production subdomain');
+  const previewSchool = preview.exports.renderSchoolRows([{
+    hsid: '5976', hsname: 'Marcos de Niza', microsite_url: 'https://marcos-de-niza.az.yatstats.com',
+  }], 'Empty');
+  assert.match(previewSchool, /href="\/5976/,
+    'Preview school search stays inside the isolated deployment');
+  passed('Search preview keeps unpublished players on its own database and retired cards open All-Time; production remains canonical');
+}
+
 function headshotChecks() {
   const actual = createEnvironment().exports;
   const sources = [
@@ -471,6 +501,7 @@ async function crestChecks() {
 
 (async () => {
   rendererChecks();
+  previewLinkChecks();
   headshotChecks();
   await invalidationChecks();
   await duplicateChecks();
