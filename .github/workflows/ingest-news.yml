@@ -22,6 +22,10 @@ on:
         options:
           - "false"
           - "true"
+      news_uuid:
+        description: "Optional single news article UUID to rewrite safely (summaries=preview-rewrite or rewrite-all)."
+        required: false
+        default: ""
       summaries:
         description: "new = normal run. preview-rewrite / rewrite-all skip the Webz.io search (no credits) and only redo recaps; preview-rewrite writes nothing."
         required: false
@@ -41,6 +45,10 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       WEBZ_API_TOKEN: ${{ secrets.WEBZ_API_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # Keep legacy writer until the isolated AI canary is explicitly approved.
+      NEWS_AI_EDITORIAL_ENABLED: ${{ vars.NEWS_AI_EDITORIAL_ENABLED || '0' }}
+      NEWS_DISCOVERY_V2_ENABLED: ${{ vars.NEWS_DISCOVERY_V2_ENABLED || '0' }}
       # Schools with news turned on.
       NEWS_HSIDS: "5004"
       # Stop once the Webz.io balance (USD) falls below this.
@@ -59,6 +67,12 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm install --no-save tsx @types/node
+
+      - name: Verify discovery and editorial release contracts
+        run: |
+          node scripts/test-webz-discovery-plan.mjs
+          node scripts/test-news-release-contract.cjs
+          npx tsx scripts/test-news-editorial-validator.ts
 
       - name: Ingest news
         if: ${{ github.event.inputs.summaries == '' || github.event.inputs.summaries == 'new' }}
@@ -98,4 +112,10 @@ jobs:
             preview-rewrite) ARGS="--regenerate --dry-run" ;;
             rewrite-all) ARGS="--regenerate" ;;
           esac
+          if [ -n "${{ github.event.inputs.news_uuid }}" ]; then
+            ARGS="$ARGS --uuid ${{ github.event.inputs.news_uuid }}"
+            if [ "${{ github.event.inputs.summaries }}" = "preview-rewrite" ]; then
+              ARGS="$ARGS --require-featured"
+            fi
+          fi
           npx tsx scripts/generate-news-derivatives.ts --hsid "$TARGET_HSID" $ARGS
