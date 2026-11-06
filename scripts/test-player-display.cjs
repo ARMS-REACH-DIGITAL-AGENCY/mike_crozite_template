@@ -146,6 +146,15 @@ test('Explicit display/status values retain precedence and do not infer free age
   assert.equal(resolvePlayerDisplay({ display_status_label: '--', status_label: 'ACTIVE' }).statusLabel, 'ACTIVE');
 });
 
+test('College-commit labels remain visible while the 2027 gallery filters on canonical COMMIT', () => {
+  const row = { ...identity, hsid: '386', level_label: 'HIGH SCHOOL', display_level_label: 'HIGH SCHOOL', status_label: 'COMMIT', display_status_label: 'AUBURN COMMIT', committed_teamid: '20071', committed_team_name: 'Auburn' };
+  const html = renderCard(row);
+  assert.match(html, /data-status="COMMIT"/);
+  assert.match(html, /data-level="HIGH SCHOOL"/);
+  assert.match(html, /data-committed-teamid="20071"/);
+  assert.doesNotMatch(html, /data-status="AUBURN COMMIT"/);
+});
+
 test('Explicit MLB roster departures show previous affiliation without inventing transactions', () => {
   for (const status of ['FREE AGENT', 'RETIRED']) {
     const display = resolvePlayerDisplay({ ...rosterDeparture, status_label: status, display_status_label: status, team_affiliation_status: status });
