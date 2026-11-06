@@ -1,0 +1,32 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
+
+const library = read('src/lib/teammates.ts');
+const component = read('src/components/yatstats/TeammatesList.tsx');
+const stories = read('src/components/yatstats/StoriesFeed.tsx');
+const indexes = read('migrations/20261105_teammates_complete_history_indexes.sql');
+const api = read('src/app/api/teammates/route.ts');
+
+assert.match(library, /'tbc_complete_batting_history'/, 'Pro teammates use complete batting history');
+assert.match(library, /'tbc_complete_pitching_history'/, 'Pro teammates use complete pitching history');
+assert.match(library, /'tbc_batting_2026_season_raw'/, 'Latest batting feed remains included');
+assert.match(library, /'tbc_pitching_2026_season_raw'/, 'Latest pitching feed remains included');
+assert.doesNotMatch(library, /'tbc_batting_raw'|'tbc_pitching_raw'/, 'Never silently fall back to truncated old archive');
+assert.match(library, /FROM mates m[\\s\\S]*?JOIN flip_card_front_stage f/, 'Only published player cards are linked');
+assert.match(library, /f\\.roster_years && me\\.roster_years/, 'High-school matches still require overlapping roster years');
+const seasonsBlock = library.slice(library.indexOf('const seasons ='), library.indexOf('const [seasonRows'));
+assert.doesNotMatch(seasonsBlock, /roster_years|class_of/, 'College/pro matching does not depend on high-school years');
+assert.match(library, /WITH seasons AS MATERIALIZED/, 'Player seasons are selected once');
+assert.match(indexes, /CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tbc_complete_batting_team_year_player/, 'Batting team/season index present');
+assert.match(indexes, /CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tbc_complete_pitching_team_year_player/, 'Pitching team/season index present');
+assert.match(component, /if \\(!res\\.ok\\) throw new Error/, 'HTTP failure is not an empty teammate list');
+assert.match(component, /setFailed\\(true\\)/, 'Lookup failure is observable');
+assert.match(stories, /teammatesTotal > 0 \\|\\| teammatesFailed/, 'Retry remains accessible after lookup failure');
+assert.match(stories, /retryTeammates\\(\\)/, 'Retry button actually reloads teammates');
+assert.match(api, /getTeammates\\(playerId\\)/, 'Existing public API remains wired');
+assert.doesNotMatch(library, /playerId === ['"]764['"]|playerId === ['"]800['"]/, 'No player-specific patches');
+console.log('Teammates complete-history and lookup-error contracts passed');
