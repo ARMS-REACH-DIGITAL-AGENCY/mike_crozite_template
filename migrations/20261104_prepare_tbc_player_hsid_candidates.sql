@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS public.tbc_player_hsid_candidates (
 );
 CREATE INDEX IF NOT EXISTS tbc_hsid_candidates_review_by_run_idx
   ON public.tbc_player_hsid_candidates (source_run_id, review_reason);
+-- Publication traverses only publishable rows in deterministic source order.
+CREATE INDEX IF NOT EXISTS idx_tbc_hsid_candidates_run_review_source_row
+  ON public.tbc_player_hsid_candidates (source_run_id, review_reason, source_row);
 CREATE INDEX IF NOT EXISTS tbc_hsid_candidates_hsid_by_run_idx
   ON public.tbc_player_hsid_candidates (source_run_id, matched_hsid)
   WHERE matched_hsid IS NOT NULL;
