@@ -54,7 +54,34 @@ export async function GET(req: NextRequest) {
     );
     const statSql = present
       .map(({ t }) => `SELECT CASE
-                                WHEN r.year::text ~ '^[0-9]{4}([.][0-9]+)?
+                                WHEN LEFT(r.year::text,4) ~ '^[0-9]{4}'
+                                THEN LEFT(r.year::text,4)::int ELSE NULL END AS year,
+                              ${PUBLIC_TEAM_NAME_SQL} AS team,
+                              ${VERIFIED_TEAM_LEVEL_SQL} AS level,
+                              r.teamid::text AS teamid,
+                              ${IS_COLLEGE_SOURCE_SQL} AS is_college_source,
+                              0 AS source_rank
+                         FROM public.${t} r
+                         ${teamIdentityJoins('r')}
+                        WHERE r.playerid::text = $1`)
+      .join(' UNION ALL ');
+    const { rows } = await query<Row>(
+      `SELECT DISTINCT ON (year, teamid) year, team, level, teamid, is_college_source FROM (
+         ${statSql ? `${statSql} UNION ALL ` : ''}
+         SELECT s.season AS year,
+                ${PUBLIC_TEAM_NAME_SQL} AS team,
+                ${VERIFIED_TEAM_LEVEL_SQL} AS level,
+                s.teamid::text AS teamid,
+                ${IS_COLLEGE_SOURCE_SQL} AS is_college_source,
+                1 AS source_rank
+         FROM public.player_team_stints s
+         ${teamIdentityJoins('s')}
+         WHERE s.playerid::text = $1
+       ) seasons
+       WHERE year IS NOT NULL
+       ORDER BY year, teamid, source_rank, team`,
+      [playerId]
+    );
 
     const seasons: Season[] = [];
     const school = p.hsname || 'High School';
