@@ -69,7 +69,11 @@ function playerFlipCardUrl(player: any) {
   const playerId = encodeURIComponent(playerIdOf(player));
   const microsite = String(player.micrositeUrl || player.microsite_url || '').trim().replace(/\/$/, '');
   const base = isolatedPreviewSchoolPath(schoolIdOf(player)) || microsite || `/${encodeURIComponent(schoolIdOf(player))}`;
-  return `${base}?view=active&player=${playerId}#player-${playerId}`;
+  // A retired player's school crest opens his All-Time card, not an empty
+  // Active Alumni gallery. The status comes from his actual school card.
+  const status = String(player.statusLabel || player.status_label || player.status || '').trim().toUpperCase();
+  const view = status.startsWith('RETIRED') || status === 'UNKNOWN' ? 'alltime' : 'active';
+  return `${base}?view=${view}&player=${playerId}#player-${playerId}`;
 }
 
 function schoolUrl(program: any) {
