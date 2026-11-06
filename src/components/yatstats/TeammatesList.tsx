@@ -31,7 +31,7 @@ export function useTeammates(playerId: string) {
     let cancelled = false;
     setRows(null);
     setFailed(false);
-    fetch(`/api/teammates?playerId=${encodeURIComponent(playerId)}`)
+    fetch(`/api/teammates?playerId=${encodeURIComponent(playerId)}&v=complete-history-2`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
