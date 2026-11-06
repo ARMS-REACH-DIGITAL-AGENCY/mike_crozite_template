@@ -16,6 +16,22 @@ function verify(source) {
   assert.equal(matches.length, 0,
     'Ambiguous stage columns: ' + matches.join(', ') + '; qualify fs.level_label or fs.status_label');
   assert.match(sql, /\bSELECT\s+fs\.\*/, 'Shared stage SELECT must still load player rows');
+
+  // PR #691: an IN (SELECT ... FROM school_players) here previously forced
+  // historical 939K-row scans for every school request. Require an indexable
+  // scalar-array initplan for the Active and All-Time season aggregation paths.
+  const rosterStart = source.indexOf('function buildActiveRosterSql(');
+  const allTimeStart = source.indexOf('export const getAllTimeRosterByHsid');
+  assert.ok(rosterStart >= 0 && allTimeStart >= 0, 'School roster readers must exist');
+  for (const [name, block] of [
+    ['Active', source.slice(rosterStart, source.indexOf('\n}', rosterStart) + 2)],
+    ['All-Time', source.slice(allTimeStart, allTimeStart + 45000)],
+  ]) {
+    assert.match(block, /playerid::text\s*=\s*ANY\(ARRAY\(SELECT playerid::text FROM school_players\)\)/,
+      name + ' must use indexed school-scoped player IDs');
+    assert.doesNotMatch(block, /playerid::text\s+IN\s*\(SELECT playerid::text FROM school_players\)/,
+      name + ' must not regress to all-history school roster scans');
+  }
   return true;
 }
 if (require.main === module) {
