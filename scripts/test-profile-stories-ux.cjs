@@ -19,7 +19,8 @@ assert.match(jsx,/openStoryDrawer\(\{ playerId, year: null \}, storyOpenOwner\)/
 assert.doesNotMatch(jsx,/>\s*Teammates\s*</i,'No visible Teammates label');
 assert.doesNotMatch(bar,/yat-profile-memory-cta|openStoryDrawer/,'Upload CTA does not return to school header');
 assert.match(timeline,/webCutoutUrl\('then', playerId\)/,'Primary HS front cutout retained');
-assert.match(timeline,/webCutoutUrl\('back', playerId\)/,'Secondary image prefers action cutout');
+// Current cutout source is the API-backed transparent action image, not the retired webCutoutUrl('back') path.
+assert.match(timeline,/apiCutoutUrl\('back', playerId\)/,'Secondary image prefers action cutout');
 assert.match(timeline,/players\/back-card\//,'Falls back to actual card-back action photo');
 assert.match(timeline,/players\/back\//,'Falls back to original action photo');
 assert.match(timeline,/fallbackAt=\{4\}/,'Headshot only after 4 back photo sources');
