@@ -2609,7 +2609,7 @@ const FLIP_CARD_STAGE_SELECT = `
      AND UPPER(BTRIM(COALESCE(fs.status_label, ''))) = 'COMMIT'
 `;
 
-export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-commit-short-name-20261025', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-expanded-universe-20261105', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `WITH ${PLAYER_STAGE_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
@@ -2886,7 +2886,7 @@ if (!global.__pgPoolShutdownRegistered) {
 
 // Canonical Active Alumni membership. The gallery, Row 3, school-search
 // tally and footer tally all use the same owner-approved status preset.
-export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-merged-2026-v2', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
+export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-expanded-universe-v3', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
   if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return { playerIds: [], statsPending: false };
   const { rows } = await query(`
     SELECT ARRAY_AGG(DISTINCT f.playerid::text ORDER BY f.playerid::text) AS player_ids
