@@ -1,0 +1,28 @@
+// Deterministic release contract: catches regressions without using paid APIs.
+const fs=require("node:fs"), assert=require("node:assert/strict");
+const read=p=>fs.readFileSync(p,"utf8");
+const generate=read("scripts/generate-news-derivatives.ts");
+const editorial=read("scripts/lib/playerNewsEditorial.ts");
+const ingest=read("scripts/ingest-news.ts");
+const workflow=read(".github/workflows/ingest-news.yml");
+assert(generate.includes("NEWS_AI_EDITORIAL_ENABLED"),"AI writer must be opt-in");
+assert(generate.includes("!process.env.ANTHROPIC_API_KEY"),"missing credentials must fail closed");
+assert(generate.includes('const uuidFilter = targetUuid ? "AND na.uuid = $" +'),"UUID query uses SQL parameter, not literal integer");
+assert(generate.includes("AND na.verification_status = 'VERIFIED'"),"identity verification required");
+assert(generate.includes("nd.gallery_back_json->>'generator'"),"regenerate must protect human-edited news");
+assert(generate.includes('EDITORIAL_GENERATOR = "auto-v3-source-grounded"'),"generation provenance");
+assert(generate.includes('d.publishable = false'),"incidental news skipped");
+assert(generate.includes('if (failed > 0) process.exitCode = 1'),"editorial failures reported");
+assert(editorial.includes("validateNewsEditorial"),"source grounding validator");
+assert(editorial.includes("supportsPromotion"),"promotion certainty guard");
+assert(editorial.includes("evidence_quotes"),"quote evidence");
+assert(ingest.includes("planWebzNewsBatches(schoolPlayers)"),"discovery planning enabled");
+assert(ingest.includes("MAX_SEARCHES_PER_SCHOOL"),"credit-aware query ceiling");
+assert(ingest.includes("NEWS_DISCOVERY_V2_ENABLED"),"redesigned discovery is opt-in");
+assert(ingest.includes("MIN_BALANCE"),"account floor protected");
+assert(ingest.includes("discovery_plan: discoveryV2 ? WEBZ_PLAN_VERSION"),"per-run audit available");
+assert(workflow.includes("ANTHROPIC_API_KEY"),"runtime secret must be forwarded");
+assert(workflow.includes("NEWS_AI_EDITORIAL_ENABLED"),"editorial gate must be plumbed");
+assert(workflow.includes("NEWS_DISCOVERY_V2_ENABLED"),"discovery gate must be plumbed");
+assert(workflow.includes("test-webz-discovery-plan.mjs"),"Webz planner test must run during nightly job");
+console.log("PASS: news release safety, discovery, provenance, and AI editorial gates");
