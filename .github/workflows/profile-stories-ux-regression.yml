@@ -10,6 +10,7 @@ on:
       - 'src/app/api/teams/search/route.ts'
       - 'scripts/test-profile-stories-ux.cjs'
       - 'scripts/test-teammates-complete-history.cjs'
+      - 'scripts/test-teammates-sticky-header.cjs'
       - 'src/lib/teammates.ts'
       - 'src/components/yatstats/TeammatesList.tsx'
       - 'migrations/20261105_teammates_complete_history_indexes.sql'
@@ -23,6 +24,7 @@ on:
       - 'src/app/api/teams/search/route.ts'
       - 'scripts/test-profile-stories-ux.cjs'
       - 'scripts/test-teammates-complete-history.cjs'
+      - 'scripts/test-teammates-sticky-header.cjs'
       - 'src/lib/teammates.ts'
       - 'src/components/yatstats/TeammatesList.tsx'
       - 'migrations/20261105_teammates_complete_history_indexes.sql'
@@ -36,3 +38,4 @@ jobs:
           node-version: '20'
       - run: node scripts/test-profile-stories-ux.cjs
       - run: node scripts/test-teammates-complete-history.cjs
+      - run: node scripts/test-teammates-sticky-header.cjs
