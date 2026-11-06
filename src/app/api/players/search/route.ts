@@ -116,11 +116,11 @@ export async function GET(req: NextRequest) {
           ) then 0 when c.source_rank = 'stage' then 1 else 2 end,
           c.hsid
       )
-      select c.*, t.current_team_name
+      select c.*, t.current_team_name, t.status_label
       from canonical_matches c
       -- His current team (the row's second line in the search drawer).
       left join lateral (
-        select f.current_team_name from ${PLAYER_STAGE_IDENTITY_SOURCE} f
+        select f.current_team_name, f.status_label from ${PLAYER_STAGE_IDENTITY_SOURCE} f
          where f.playerid::text = c.playerid and f.hsid::text = c.hsid
          limit 1
       ) t on true
@@ -156,6 +156,7 @@ export async function GET(req: NextRequest) {
         headshotSources: getPlayerHeadshotSources(String(r.playerid), headshots.get(String(r.playerid))?.image_url),
         micrositeUrl,
         currentTeamName: r.current_team_name ?? "",
+        statusLabel: r.status_label ?? "",
       };
     });
 
