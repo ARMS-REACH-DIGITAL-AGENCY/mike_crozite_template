@@ -41,6 +41,7 @@ import { randomUUID } from "crypto";
 import { appendFileSync } from "fs";
 import { Pool } from "pg";
 import { verifyNewsIdentity, type VerificationResult } from "./lib/newsIdentity";
+import { planWebzNewsBatches, WEBZ_PLAN_VERSION } from "./lib/webzDiscoveryPlan.mjs";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -60,7 +61,7 @@ if (!WEBZ_TOKEN) {
 // Leave headroom in the monthly Webz.io credits for manual runs.
 const MIN_BALANCE = Number(process.env.NEWS_MIN_BALANCE || 0.5);
 
-const BATCH_SIZE = 8; // max player names per Webz.io query
+const MAX_SEARCHES_PER_SCHOOL = Number(process.env.NEWS_MAX_SEARCHES_PER_SCHOOL || 10);
 const DELAY_BETWEEN_CALLS_MS = 1000; // rate-limit courtesy delay
 
 // Parse CLI args
@@ -89,6 +90,8 @@ interface PlayerRow {
   current_level: string | null;
   college_path: string | null;
   career_teams: string | null;
+  recent_news_count: number;
+  recent_verified_count: number;
 }
 
 interface WebzPost {
@@ -126,6 +129,7 @@ interface WebzResponse {
   // the balance left. It sends no requests_left.
   balance: number;
   cost: number;
+  warnings: string[];
 }
 
 // The News API sends its envelope in snake_case (total_results).
@@ -135,6 +139,7 @@ interface WebzRawResponse {
   totalResults?: number;
   balance?: number;
   cost?: number;
+  warnings?: unknown[];
 }
 
 // ---------------------------------------------------------------------------
@@ -198,10 +203,22 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
        f.current_org_or_conference_name AS current_org,
        f.level_label AS current_level,
        ctx.college_path_text AS college_path,
-       ctx.career_team_names AS career_teams
+       ctx.career_team_names AS career_teams,
+       COALESCE(coverage.recent_news_count, 0)::int AS recent_news_count,
+       COALESCE(coverage.recent_verified_count, 0)::int AS recent_verified_count
      FROM flip_card_front_stage f
      LEFT JOIN tbc_players_raw tp ON tp.playerid::text = f.playerid::text
      LEFT JOIN v_news_player_context ctx ON ctx.playerid::text = f.playerid::text
+     LEFT JOIN (
+       SELECT playerid,
+         COUNT(*)::int AS recent_news_count,
+         COUNT(*) FILTER (WHERE verification_status = 'VERIFIED')::int AS recent_verified_count
+       FROM news_articles
+       WHERE hsid = ANY($1::text[])
+         AND discovery_source = 'webz'
+         AND published_at >= NOW() - INTERVAL '30 days'
+       GROUP BY playerid
+     ) coverage ON coverage.playerid = f.playerid::text
      WHERE f.hsid::text = ANY($1::text[])
        AND (
          NULLIF(TRIM(f.status_label), '') IS NOT NULL
@@ -246,7 +263,7 @@ const RESULTS_PER_CALL = 10;
 // betting previews, sportsbook promos. Excluded in the query so we don't
 // pay for them. ("odds" and "picks" are left out on purpose - they appear
 // in real stories: "against the odds", "draft picks".)
-const EXCLUDED_TERMS = ["fantasy", "betting", "sportsbook", "\"promo code\"", "\"best bets\"", "\"prop bets\"", "PrizePicks", "DFS"];
+// Shared topic terms and exclusions are tested in webzDiscoveryPlan.mjs.
 
 // Where a school's search window starts: what Webz.io crawled since that
 // school's last completed run began (less an hour of overlap for posts
@@ -314,6 +331,7 @@ async function fetchWebzNews(
     sort: "crawled",
     format: "json",
     size: String(RESULTS_PER_CALL),
+    warning: "true", // Webz parser diagnostics.
   });
 
   try {
@@ -332,6 +350,7 @@ async function fetchWebzNews(
       totalResults: Number(data.total_results ?? data.totalResults),
       balance: Number(data.balance),
       cost: Number(data.cost),
+      warnings: Array.isArray(data.warnings) ? data.warnings.map(String) : [],
     };
   } catch (err) {
     if (err instanceof WebzAuthError) throw err;
@@ -539,6 +558,8 @@ async function main() {
   let totalReview = 0;
   let totalRejected = 0;
   let totalReceived = 0;
+  let saturatedQueries = 0;
+  const searchAudits: Record<string, unknown>[] = [];
 
   schools: for (const [hsid, schoolPlayers] of schoolGroups) {
     console.log(
@@ -548,6 +569,11 @@ async function main() {
     // This school's run: its search window, and a source_ingest_runs row
     // that marks where the next run's window starts - only if every batch
     // was searched, so a stopped or failed run is simply covered again.
+    const plannedBatches = planWebzNewsBatches(schoolPlayers);
+    if (!Number.isFinite(MAX_SEARCHES_PER_SCHOOL) || plannedBatches.length > MAX_SEARCHES_PER_SCHOOL) {
+      throw new Error("Webz discovery requires " + plannedBatches.length + " queries for " + schoolPlayers.length + " alumni, above configured limit " + MAX_SEARCHES_PER_SCHOOL);
+    }
+    console.log("Discovery plan " + WEBZ_PLAN_VERSION + ": " + plannedBatches.length + " batches");
     const since = dryRun ? Date.now() - FIRST_RUN_LOOKBACK_MS : await windowStart(hsid);
     const runId = dryRun ? null : await startSchoolRun(hsid);
     const before = { received: totalReceived, stored: totalArticlesInserted, matched: totalArticlesMatched, unmatched: totalUnattributed, cost: runCost };
@@ -563,23 +589,21 @@ async function main() {
           matched: totalArticlesMatched - before.matched,
           unmatched: totalUnattributed - before.unmatched,
         },
-        { since: new Date(since).toISOString(), cost: Number((runCost - before.cost).toFixed(3)), balance }
+        { since: new Date(since).toISOString(), cost: Number((runCost - before.cost).toFixed(3)), balance, discovery_plan: WEBZ_PLAN_VERSION, planned_queries: plannedBatches.length, search_audits: searchAudits.filter(a => a.hsid === hsid) }
       );
     };
     console.log(`  Searching stories crawled since ${new Date(since).toISOString()}`);
 
-    // Split into batches of BATCH_SIZE
-    for (let i = 0; i < schoolPlayers.length; i += BATCH_SIZE) {
-      const batch = schoolPlayers.slice(i, i + BATCH_SIZE);
-      const names = batch.map((p) => `"${p.firstname} ${p.lastname}"`);
-      const queryString = `(${names.join(" OR ")}) baseball NOT (${EXCLUDED_TERMS.join(" OR ")})`;
-
+    for (let i = 0; i < plannedBatches.length; i++) {
+      const planned = plannedBatches[i];
+      const batch = planned.players as PlayerRow[];
+      const queryString = planned.query;
       console.log(
-        `  Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch
+        `  Batch ${i + 1}: ${batch
           .map((p) => `${p.firstname} ${p.lastname}`)
           .join(", ")}`
       );
-      console.log(`  Query: ${queryString}`);
+      console.log(`  Search mode: ${planned.kind}; Query: ${queryString}`);
 
       if (dryRun) {
         console.log(`  [DRY RUN] Would call Webz.io API`);
@@ -613,6 +637,11 @@ async function main() {
       if (Number.isFinite(data.balance)) balance = data.balance;
       if (Number.isFinite(data.cost)) runCost += data.cost;
       totalReceived += data.posts.length;
+      const truncated = data.posts.length >= RESULTS_PER_CALL && data.totalResults > data.posts.length;
+      if (truncated) saturatedQueries++;
+      searchAudits.push({ hsid, names: planned.names, mode: planned.kind, returned: data.posts.length, available: Number.isFinite(data.totalResults) ? data.totalResults : null, truncated, cost: data.cost, warnings: data.warnings });
+      if (truncated) console.warn("Webz query saturated: " + data.totalResults + " matches, only " + data.posts.length + " returned; possible missed coverage.");
+      if (data.warnings.length) console.warn("Webz query warnings: " + data.warnings.join("; "));
 
       // Match and insert each article
       // Gather candidates per player, then keep the best few for each.
@@ -670,6 +699,7 @@ async function main() {
         const seen = new Set<string>(existing);
         const ranked = list.sort(
           (a, b) =>
+            Number(b.verification.status === "VERIFIED") - Number(a.verification.status === "VERIFIED") ||
             Number(b.headline) - Number(a.headline) ||
             (a.post.thread?.domain_rank ?? 1e9) - (b.post.thread?.domain_rank ?? 1e9)
         );
@@ -702,13 +732,13 @@ async function main() {
           `  ! Webz.io balance is $${balance} (< $${MIN_BALANCE.toFixed(2)}); stopping to leave headroom.`
         );
         stoppedForBudget = true;
-        if (i + BATCH_SIZE < schoolPlayers.length) schoolComplete = false;
+        if (i + 1 < plannedBatches.length) schoolComplete = false;
         await finishRun();
         break schools;
       }
 
       // Rate-limit courtesy delay
-      if (i + BATCH_SIZE < schoolPlayers.length) {
+      if (i + 1 < plannedBatches.length) {
         await new Promise((r) => setTimeout(r, DELAY_BETWEEN_CALLS_MS));
       }
     }
@@ -730,6 +760,7 @@ async function main() {
   console.log(`Identity REJECTED:    ${totalRejected}`);
   console.log(`Webz.io cost this run: ${runCost.toFixed(3)}`);
   console.log(`Webz.io balance left: ${balance ?? "unknown"}`);
+  console.log(`Saturated queries: ${saturatedQueries}`);
   if (failedCalls > 0) console.log(`Failed calls: ${failedCalls}`);
   // Every call failed: fail the run so it's noticed, not a quiet "success".
   if (!dryRun && totalApiCalls > 0 && failedCalls === totalApiCalls) process.exitCode = 1;
