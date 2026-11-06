@@ -25,15 +25,30 @@ function Name({ t }: { t: TeammateSeason }) {
 // the count for its button before the drawer is opened.
 export function useTeammates(playerId: string) {
   const [rows, setRows] = useState<TeammateSeason[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retryNumber, setRetryNumber] = useState(0);
   useEffect(() => {
     let cancelled = false;
+    setRows(null);
+    setFailed(false);
     fetch(`/api/teammates?playerId=${encodeURIComponent(playerId)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (!cancelled) setRows(Array.isArray(data?.teammates) ? data.teammates : []); })
-      .catch(() => { if (!cancelled) setRows([]); });
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!Array.isArray(data?.teammates)) throw new Error('Invalid teammates response');
+        if (!cancelled) setRows(data.teammates);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('[teammates] request failed', playerId, error);
+        setRows([]);
+        setFailed(true);
+      });
     return () => { cancelled = true; };
-  }, [playerId]);
-  return rows;
+  }, [playerId, retryNumber]);
+  return { rows, failed, retry: () => setRetryNumber((value) => value + 1) };
 }
 
 export function teammateCount(rows: TeammateSeason[] | null) {
