@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { toPlayerSlug } from '@/lib/slug';
 import { PLAYER_ID, type Season } from '@/lib/contribute';
+import { teamIdentityJoins, PUBLIC_TEAM_NAME_SQL, VERIFIED_TEAM_LEVEL_SQL, IS_COLLEGE_SOURCE_SQL } from '@/lib/teamIdentitySql';
 
 export const runtime = 'nodejs';
 
@@ -24,7 +25,7 @@ const COLLEGE_YEARS = ['College Freshman', 'College Sophomore', 'College Junior'
 const GRAD_YEAR = '5th Year / Grad Student';
 const COLLEGE_LEVEL = /NCAA|NJCAA|NAIA|JUCO|CCCAA|NWAC|USCAA|COLLEGE|^D[123]$/i;
 
-type Row = { year: number; team: string | null; level: string | null; teamid: string | null };
+type Row = { year: number; team: string | null; level: string | null; teamid: string | null; is_college_source: boolean };
 
 export async function GET(req: NextRequest) {
   const playerId = String(req.nextUrl.searchParams.get('playerId') || '').trim();
@@ -39,23 +40,46 @@ export async function GET(req: NextRequest) {
     const p = stage[0];
     if (!p) return NextResponse.json({ error: 'That player was not found.' }, { status: 404 });
 
-    // Every season in the stat tables (whichever exist) and the pro stints.
-    const tables = ['tbc_batting_raw', 'tbc_pitching_raw', 'tbc_batting_2026_season_raw', 'tbc_pitching_2026_season_raw'];
+    // Use the same merged historical + daily season views as the public Stats
+    // tab. Legacy tbc_*_raw alone excludes the expanded historical universe.
+    // Team IDs always resolve through the canonical mapping before any
+    // source-name fallback; only the canonical table supplies official levels.
+    const tables = [
+      'v_tbc_batting_all_seasons_resolved',
+      'v_tbc_pitching_all_seasons_resolved',
+    ];
     const { rows: present } = await query<{ t: string }>(
       `SELECT t FROM unnest($1::text[]) AS t WHERE to_regclass('public.' || t) IS NOT NULL`,
       [tables]
     );
     const statSql = present
-      .map(({ t }) => `SELECT NULLIF(regexp_replace(r.year::text, '[^0-9]', '', 'g'), '')::int AS year,
-                              COALESCE(m.current_team_name, r.teamid::text) AS team, m.level_label AS level, r.teamid::text AS teamid
-                         FROM public.${t} r LEFT JOIN teamid_universe_mapping m ON m.teamid::text = r.teamid::text
+      .map(({ t }) => `SELECT CASE
+                                WHEN LEFT(r.year::text,4) ~ '^[0-9]{4}'
+                                THEN LEFT(r.year::text,4)::int ELSE NULL END AS year,
+                              ${PUBLIC_TEAM_NAME_SQL} AS team,
+                              ${VERIFIED_TEAM_LEVEL_SQL} AS level,
+                              r.teamid::text AS teamid,
+                              ${IS_COLLEGE_SOURCE_SQL} AS is_college_source,
+                              0 AS source_rank
+                         FROM public.${t} r
+                         ${teamIdentityJoins('r')}
                         WHERE r.playerid::text = $1`)
-      .join(' UNION ');
+      .join(' UNION ALL ');
     const { rows } = await query<Row>(
-      `SELECT DISTINCT ON (year, team) year, team, level, teamid FROM (
-         ${statSql ? `${statSql} UNION ` : ''}
-         SELECT season AS year, team_name AS team, level, teamid FROM player_team_stints WHERE playerid = $1
-       ) s WHERE year IS NOT NULL ORDER BY year, team, teamid NULLS LAST`,
+      `SELECT DISTINCT ON (year, teamid) year, team, level, teamid, is_college_source FROM (
+         ${statSql ? `${statSql} UNION ALL ` : ''}
+         SELECT s.season AS year,
+                ${PUBLIC_TEAM_NAME_SQL} AS team,
+                ${VERIFIED_TEAM_LEVEL_SQL} AS level,
+                s.teamid::text AS teamid,
+                ${IS_COLLEGE_SOURCE_SQL} AS is_college_source,
+                1 AS source_rank
+         FROM public.player_team_stints s
+         ${teamIdentityJoins('s')}
+         WHERE s.playerid::text = $1
+       ) seasons
+       WHERE year IS NOT NULL
+       ORDER BY year, teamid, source_rank, team`,
       [playerId]
     );
 
@@ -80,10 +104,10 @@ export async function GET(req: NextRequest) {
         seasons.push({ key: `hs-${year}`, year, stage: 'hs', team: school, level: 'High School', label, current: false });
       });
     }
-    const collegeYears = Array.from(new Set(rows.filter((r) => COLLEGE_LEVEL.test(r.level || '')).map((r) => r.year))).sort((a, b) => a - b);
+    const collegeYears = Array.from(new Set(rows.filter((r) => r.is_college_source || COLLEGE_LEVEL.test(r.level || '')).map((r) => r.year))).sort((a, b) => a - b);
     for (const r of rows) {
       const team = r.team || 'Unknown team';
-      const isCollege = COLLEGE_LEVEL.test(r.level || '');
+      const isCollege = r.is_college_source || COLLEGE_LEVEL.test(r.level || '');
       const label = isCollege ? COLLEGE_YEARS[collegeYears.indexOf(r.year)] || GRAD_YEAR : r.level || 'Pro';
       const key = `${isCollege ? 'college' : 'pro'}-${r.year}-${team}`;
       if (seasons.some((s) => s.key === key)) continue;
@@ -112,3 +136,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'His seasons could not be loaded.' }, { status: 500 });
   }
 }
+

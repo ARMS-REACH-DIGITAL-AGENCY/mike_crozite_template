@@ -3,6 +3,7 @@
 // Reads directly from canonical TBC tables and appends source-flexible external stats.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { teamIdentityJoins, VERIFIED_TEAM_SOURCE_NAME_SQL, VERIFIED_TEAM_ORG_SQL, VERIFIED_TEAM_ORG_ABBR_SQL, VERIFIED_TEAM_LEVEL_SQL } from '@/lib/teamIdentitySql';
 import { query, resolveVerifiedTbcPlayerId } from '@/lib/db';
 import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
 import { getIndyIscoreStatsForPlayer } from '@/lib/indyIscore';
@@ -263,24 +264,16 @@ async function readPlayerRows(tableName: string, playerId: string) {
   const { rows } = await query(
     `select
        r.*,
-       coalesce(
-         nullif(btrim(m.current_team_name), ''),
-         nullif(btrim(c.collegename), ''),
-         nullif(btrim(p.teamname), '')
-       ) as current_team_name,
-       m.current_org_or_conference_name,
-       m.current_org_or_conference_abbrev,
-       m.level_label,
+       ${VERIFIED_TEAM_SOURCE_NAME_SQL} as current_team_name,
+       ${VERIFIED_TEAM_ORG_SQL} AS current_org_or_conference_name,
+       ${VERIFIED_TEAM_ORG_ABBR_SQL} AS current_org_or_conference_abbrev,
+       ${VERIFIED_TEAM_LEVEL_SQL} AS level_label,
        $2::text as _source
      from public.${tableName} r
-     left join public.teamid_universe_mapping m on m.teamid::text = r.teamid::text
-     -- Raw source catalogs provide an additional name fallback when a new
-     -- team ID has not yet been copied to the canonical universe mapping.
-     left join public.tbc_college_teams_map_raw c on c.teamid::text = r.teamid::text
-     left join public.tbc_pro_teams_map_raw p on p.teamid::text = r.teamid::text
+     ${teamIdentityJoins('r')}
      where r.playerid::text = $1
      order by nullif(regexp_replace(coalesce(r.year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
-              coalesce(m.current_team_name, c.collegename, p.teamname, r.teamid::text)`,
+              ${VERIFIED_TEAM_SOURCE_NAME_SQL}`,
     [playerId, tableName]
   );
 

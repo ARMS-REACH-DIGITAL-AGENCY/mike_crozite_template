@@ -28,6 +28,7 @@ import { resolvePlayerDisplay } from '@/lib/playerDisplay';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
 import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
+import { teamIdentityJoins, PUBLIC_TEAM_NAME_SQL, VERIFIED_TEAM_LEVEL_SQL } from '@/lib/teamIdentitySql';
 
 // A school's page data, kept across requests (and across server instances)
 // for 10 minutes: its roster, All-Time list, flip card rows, season results
@@ -1795,21 +1796,20 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
     SELECT
       b.year,
       b.teamid,
-      COALESCE(t.current_team_name, b.teamid::text) AS team_name,
-      t.level_label AS level,
+      ${PUBLIC_TEAM_NAME_SQL} AS team_name,
+      ${VERIFIED_TEAM_LEVEL_SQL} AS level,
       b.g, b.ab, b.r, b.h,
       b.dbl AS "2b", b.tpl AS "3b",
       b.hr, b.rbi, b.sb, b.bb, b.so,
       b.bavg AS avg, b.obp, b.slg, b.ops,
       b.draft_info
     FROM public.v_tbc_batting_all_seasons_resolved b
-    LEFT JOIN public.teamid_universe_mapping t
-      ON t.teamid = b.teamid::text
+    ${teamIdentityJoins('b')}
     WHERE b.playerid::text = $1
     ORDER BY b.year ASC, b.teamid ASC
   `;
   try {
-    const rows = await cachedPlayerStatRows('batting-seasons-merged-2026-v2', historicalPlayerId, sql);
+    const rows = await cachedPlayerStatRows('batting-seasons-canonical-identity-v3', historicalPlayerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerBattingStats failed:', error);
@@ -1826,8 +1826,8 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
     SELECT
       p.year,
       p.teamid,
-      COALESCE(t.current_team_name, p.teamid::text) AS team_name,
-      t.level_label AS level,
+      ${PUBLIC_TEAM_NAME_SQL} AS team_name,
+      ${VERIFIED_TEAM_LEVEL_SQL} AS level,
       p.g, p.gs, p.w, p.l,
       p.sv AS saves, p.ip,
       p.h AS hits_allowed, p.er,
@@ -1836,13 +1836,12 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       p.so9 AS k9, p.so_bb AS kbb,
       p.draft_info
     FROM public.v_tbc_pitching_all_seasons_resolved p
-    LEFT JOIN public.teamid_universe_mapping t
-      ON t.teamid = p.teamid::text
+    ${teamIdentityJoins('p')}
     WHERE p.playerid::text = $1
     ORDER BY p.year ASC, p.teamid ASC
   `;
   try {
-    const rows = await cachedPlayerStatRows('pitching-seasons-merged-2026-v2', historicalPlayerId, sql);
+    const rows = await cachedPlayerStatRows('pitching-seasons-canonical-identity-v3', historicalPlayerId, sql);
     return rows;
   } catch (error) {
     console.error('getPlayerPitchingStats failed:', error);
