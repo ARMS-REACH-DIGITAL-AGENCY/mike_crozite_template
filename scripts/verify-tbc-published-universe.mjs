@@ -28,6 +28,33 @@ try{
           AND source_summary->>'source_run_id'=$1::text) AS cards_created
   `,[runId]);
   check("historical source complete",counts.batting===501242&&counts.pitching===438097,counts);
+  const [sourceAudit]=await query(`
+    SELECT captured_at,source_rows,unique_ids,quarantined_rows,status
+    FROM public.tbc_players_full_feed_audit_runs WHERE run_id=$1::uuid
+  `,[runId]);
+  const ageHours=sourceAudit?.captured_at
+    ? (Date.now()-new Date(sourceAudit.captured_at).getTime())/3600000 : Infinity;
+  check("immutable source is no older than 24 hours",ageHours>=0&&ageHours<=24,
+    {sourceCapturedAt:sourceAudit?.captured_at,ageHours:Math.round(ageHours*10)/10});
+  check("source contains the latest observed 208465-player feed",
+    Number(sourceAudit?.source_rows)>=208465 &&
+    Number(sourceAudit?.source_rows)===Number(sourceAudit?.unique_ids) &&
+    ["complete","partial"].includes(sourceAudit?.status),
+    {sourceRows:sourceAudit?.source_rows,uniqueIds:sourceAudit?.unique_ids,
+     quarantined:sourceAudit?.quarantined_rows});
+  const [knownProfiles]=await query(`
+    SELECT
+      (SELECT count(*)::int FROM public.v_tbc_batting_all_seasons_resolved
+         WHERE playerid='240673') AS matt_batting,
+      (SELECT count(*)::int FROM public.v_tbc_batting_all_seasons_resolved
+         WHERE playerid='12401') AS greg_batting,
+      (SELECT count(*)::int FROM public.v_tbc_pitching_all_seasons_resolved
+         WHERE playerid='12401') AS greg_pitching
+  `);
+  check("known retired player profiles retain complete career-season history",
+    knownProfiles.matt_batting>=5 &&
+    knownProfiles.greg_batting>=9 && knownProfiles.greg_pitching>=22,
+    {knownProfiles});
   // Five additional players occur only in the continuing daily 2026 feeds.
   // The post-cutover overlay refresh must include at least 44,433 identities,\n  // with the independent daily-coverage check preventing omissions as feed grows.
   check("merged historical + daily 2026 coverage",counts.played2026>=44433);
