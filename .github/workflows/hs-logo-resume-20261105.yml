@@ -22,11 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
-      published: \${{ steps.pilot_result.outputs.published }}
+      published: ${{ steps.pilot_result.outputs.published }}
     env:
-      DATABASE_URL: \${{ secrets.DATABASE_URL }}
-      AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
       HS_LOGO_SCOPE: linked
     steps:
@@ -102,15 +102,15 @@ jobs:
 
   plan:
     needs: pilot
-    if: \${{ needs.pilot.outputs.published != '0' }}
+    if: ${{ needs.pilot.outputs.published != '0' }}
     runs-on: ubuntu-latest
     outputs:
-      matrix: \${{ steps.plan.outputs.matrix }}
-      batches: \${{ steps.plan.outputs.batch_count }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      batches: ${{ steps.plan.outputs.batch_count }}
     env:
-      DATABASE_URL: \${{ secrets.DATABASE_URL }}
-      AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
       HS_LOGO_SCOPE: linked
     steps:
@@ -131,20 +131,20 @@ jobs:
 
   collect-verify-publish:
     needs: plan
-    if: \${{ needs.plan.outputs.batches != '0' }}
+    if: ${{ needs.plan.outputs.batches != '0' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
       max-parallel: 2
-      matrix: \${{ fromJson(needs.plan.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     env:
-      DATABASE_URL: \${{ secrets.DATABASE_URL }}
-      AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
       HS_LOGO_SCOPE: linked
-      HSIDS: \${{ matrix.hsids }}
+      HSIDS: ${{ matrix.hsids }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -159,7 +159,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hs-logo-resume-batch-\${{ matrix.batch }}
+          name: hs-logo-resume-batch-${{ matrix.batch }}
           retention-days: 90
           if-no-files-found: ignore
           path: |
@@ -170,7 +170,7 @@ jobs:
 
   exceptions-only:
     needs: [plan, collect-verify-publish]
-    if: \${{ always() && needs.plan.result == 'success' && needs.plan.outputs.batches != '0' }}
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.batches != '0' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
