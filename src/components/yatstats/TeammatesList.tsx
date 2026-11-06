@@ -120,7 +120,7 @@ export default function TeammatesList({ rows }: { rows: TeammateSeason[] | null 
       <style jsx>{`
         /* Contribute standard: compact Archivo and a dense two-column directory. */
         .ytm { min-width:0;color:var(--ytm-text,#eee);font:400 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); }
-        .ytm-sticky { position:sticky;top:0;z-index:2;padding:0 34px 10px 0;background:var(--ytm-bg,#111); }
+        .ytm-sticky { position:sticky;top:0;z-index:2;padding:22px 34px 10px 0;background:var(--ytm-bg,#111); }
         .ytm-title { margin:0 0 4px;color:var(--ytm-strong,#fff);font:800 20px/1.14 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:-.025em; }
         .ytm-sub { margin:0 0 10px;color:var(--ytm-muted,#aaa);font:400 11px/1.3 var(--yat-font-ui,Archivo,Arial,sans-serif); }
         .ytm-sub b { font-weight:800;color:var(--ytm-strong,#fff); }
