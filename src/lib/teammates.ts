@@ -3,9 +3,9 @@
 //   High school: players from the same school whose varsity years
 //                (flip_card_front_stage.roster_years) overlap his.
 //   College/pro: players with a stat line for the same team in the same
-//                season (the TBC batting/pitching tables, 2026 included).
-// Only players on the platform are in those tables, so every name has a
-// profile; a name without a school (no hsid) is listed without a link.
+//                season (complete TBC history plus 2026 updates).
+// List only teammates with a published platform flip-card; the complete
+// historical archive includes additional players not yet assigned profiles.
 import 'server-only';
 import { query } from './db';
 import { toPlayerSlug } from './slug';
@@ -35,7 +35,10 @@ type HsRow = {
   shared: string[] | null;
 };
 
-const SEASON_TABLES = ['tbc_batting_raw', 'tbc_pitching_raw', 'tbc_batting_2026_season_raw', 'tbc_pitching_2026_season_raw'];
+// The player Stats tab reads the complete TBC history; teammate matching must
+// use the same career universe, plus the live 2026 feed for newer additions.
+// Do not depend on high-school graduation or roster_years for college/pro mates.
+const SEASON_TABLES = ['tbc_complete_batting_history', 'tbc_complete_pitching_history', 'tbc_batting_2026_season_raw', 'tbc_pitching_2026_season_raw'];
 
 function season(playerId: string, first: string | null, last: string | null, display: string | null, hsid: string | null, year: number, team: string): TeammateSeason {
   const name = (display || `${first || ''} ${last || ''}`).trim() || 'Unknown';
@@ -54,7 +57,7 @@ export async function getTeammates(playerId: string): Promise<TeammateSeason[]> 
 
   const [seasonRows, hsRows] = await Promise.all([
     query<MateRow>(
-      `WITH seasons AS (${seasons}), mates AS (${mates})
+      `WITH seasons AS MATERIALIZED (${seasons}), mates AS MATERIALIZED (${mates})
        SELECT m.teamid, u.current_team_name AS team_name, m.year, m.playerid,
               coalesce(f.first_name, p.firstname) AS first_name,
               coalesce(f.last_name, p.lastname) AS last_name,
@@ -62,7 +65,7 @@ export async function getTeammates(playerId: string): Promise<TeammateSeason[]> 
          FROM mates m
          LEFT JOIN teamid_universe_mapping u ON u.teamid = m.teamid
          LEFT JOIN tbc_players_raw p ON p.playerid = m.playerid
-         LEFT JOIN flip_card_front_stage f ON f.playerid = m.playerid
+         JOIN flip_card_front_stage f ON f.playerid = m.playerid
         WHERE m.playerid <> $1`,
       [playerId]
     ),
