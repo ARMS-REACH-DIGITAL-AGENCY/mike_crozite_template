@@ -10,8 +10,8 @@ import { getAflSeasonStatsForPlayer } from '@/lib/aflSeasonStats';
 
 type StatRecord = Record<string, unknown>;
 
-const BATTING_TABLES = ['v_tbc_batting_all_seasons_resolved', 'tbc_batting_2026_season_raw'] as const;
-const PITCHING_TABLES = ['v_tbc_pitching_all_seasons_resolved', 'tbc_pitching_2026_season_raw'] as const;
+const BATTING_TABLE = 'v_tbc_batting_all_seasons_resolved';
+const PITCHING_TABLE = 'v_tbc_pitching_all_seasons_resolved';
 const LIVE_SEASON_YEAR = 2026;
 
 function value(row: any, ...keys: string[]) {
@@ -285,11 +285,9 @@ export async function GET(req: NextRequest) {
     // TBC historical rows retain the source ID, while the player profile,
     // external feeds, and card URLs keep the single canonical YAT identity.
     const tbcPlayerId = await resolveVerifiedTbcPlayerId(playerId);
-    const [battingRawAll, batting2026All, pitchingRawAll, pitching2026All, externalRecentRaw, indyIscore, aflSeasons] = await Promise.all([
-      readPlayerRows(BATTING_TABLES[0], tbcPlayerId),
-      readPlayerRows(BATTING_TABLES[1], tbcPlayerId),
-      readPlayerRows(PITCHING_TABLES[0], tbcPlayerId),
-      readPlayerRows(PITCHING_TABLES[1], tbcPlayerId),
+    const [battingRawAll, pitchingRawAll, externalRecentRaw, indyIscore, aflSeasons] = await Promise.all([
+      readPlayerRows(BATTING_TABLE, tbcPlayerId),
+      readPlayerRows(PITCHING_TABLE, tbcPlayerId),
       getRecentExternalStatsForPlayer(playerId, 10).catch((error) => {
         console.warn('external stats lookup failed:', error);
         return [];
@@ -302,14 +300,16 @@ export async function GET(req: NextRequest) {
     ]);
 
     const battingRawMatched = filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
-    const batting2026 = filterRowsToExpectedPlayer(batting2026All, expectedPlayerName);
+    const batting2026 = battingRawMatched.filter((row) => numericYear(value(row, 'year')) === LIVE_SEASON_YEAR);
     const pitchingRawMatched = filterRowsToExpectedPlayer(pitchingRawAll, expectedPlayerName);
-    const pitching2026 = filterRowsToExpectedPlayer(pitching2026All, expectedPlayerName);
+    const pitching2026 = pitchingRawMatched.filter((row) => numericYear(value(row, 'year')) === LIVE_SEASON_YEAR);
 
     const battingHistorical = battingRawMatched.filter(useHistoricalRow);
     const pitchingHistorical = pitchingRawMatched.filter(useHistoricalRow);
-    const battingHistorical2026Excluded = battingRawMatched.length - battingHistorical.length;
-    const pitchingHistorical2026Excluded = pitchingRawMatched.length - pitchingHistorical.length;
+    // The merged views already replace archive 2026 stints with daily-feed
+    // rows when the player/team/year matches; no extra merge or exclusion.
+    const battingHistorical2026Excluded = 0;
+    const pitchingHistorical2026Excluded = 0;
 
     const battingBaseRows: StatRecord[] = [...battingHistorical, ...batting2026].map(battingRow);
     const pitchingBaseRows: StatRecord[] = [...pitchingHistorical, ...pitching2026].map(pitchingRow);
@@ -345,9 +345,7 @@ export async function GET(req: NextRequest) {
         indyIscoreRecentGames: indyRecentGameRows.length,
         filteredOutNameMismatches:
           (battingRawAll.length - battingRawMatched.length) +
-          (batting2026All.length - batting2026.length) +
-          (pitchingRawAll.length - pitchingRawMatched.length) +
-          (pitching2026All.length - pitching2026.length),
+          (pitchingRawAll.length - pitchingRawMatched.length),
       },
       batting,
       pitching,
