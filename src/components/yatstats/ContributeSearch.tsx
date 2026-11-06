@@ -195,6 +195,97 @@ export default function ContributeSearch(props: Props) {
           top:50% !important; transform:translateY(-50%) !important;
           z-index:1; font-size:18px; pointer-events:none; opacity:.8;
         }
+        /* The story editor mounts in a portal outside #drawerLeft/#drawerContribute/
+           #drawerStory. Shared search styles are scoped to those drawers, so
+           player rows otherwise lose their grid and expand into giant images
+           and full-width links. Keep picker results self-contained here. */
+        .ycs { width:100%; min-width:0; box-sizing:border-box; }
+        .ycs .yat-search-mode-buttons {
+          display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+          gap:5px; margin:10px 0 12px; width:100%;
+        }
+        .ycs .yat-search-mode-btn {
+          box-sizing:border-box; width:100%; min-width:0; min-height:34px;
+          padding:5px 3px; border:1px solid var(--line,rgba(128,128,128,.3));
+          border-radius:6px; background:transparent; color:inherit;
+          font:700 clamp(10px,2.7vw,12px)/1.15 Oswald,Arial,sans-serif;
+          text-transform:uppercase; letter-spacing:0; white-space:nowrap;
+          cursor:pointer;
+        }
+        .ycs .yat-search-mode-btn.active {
+          border-color:var(--fg,currentColor); background:rgba(128,128,128,.15);
+        }
+        .ycs .yat-search-empty { padding:9px 2px; font:400 13px/1.4 Arial,sans-serif; opacity:.75; }
+        .ycs .yat-search-section-label {
+          margin:10px 0 6px; font:700 11px/1.2 Oswald,Arial,sans-serif;
+          text-transform:uppercase; letter-spacing:.08em; opacity:.72;
+        }
+        .ycs .yat-search-card-list { display:flex; flex-direction:column; gap:6px; min-width:0; width:100%; }
+        .ycs .yat-search-player-result {
+          display:grid !important; grid-template-columns:26px 46px minmax(0,1fr) 40px;
+          gap:8px; align-items:center; box-sizing:border-box; width:100%;
+          min-width:0; min-height:64px; padding:8px;
+          border:1px solid var(--line,rgba(128,128,128,.3));
+          border-radius:9px; background:rgba(128,128,128,.07);
+          color:inherit; text-align:left; cursor:pointer;
+        }
+        .ycs .yat-search-player-result:is(:hover,:focus-within) { background:rgba(128,128,128,.17); }
+        .ycs .yat-search-player-result a { color:inherit; text-decoration:none; min-width:0; }
+        .ycs .yat-search-fav-btn {
+          display:flex; align-items:center; justify-content:center; flex:none;
+          width:26px; height:34px; padding:0; border:0; background:transparent;
+          color:inherit; font-size:19px; cursor:pointer;
+        }
+        .ycs .yat-search-player-headshot-link,
+        .ycs .yat-search-player-flip-link {
+          display:flex; align-items:center; justify-content:center;
+          width:100%; min-width:0;
+        }
+        .ycs .yat-search-player-headshot {
+          display:block; box-sizing:border-box; flex:none;
+          width:46px !important; height:46px !important;
+          max-width:100%; object-fit:cover; border-radius:5px;
+        }
+        .ycs .yat-search-player-hs-logo {
+          display:block; flex:none; width:38px !important; height:38px !important;
+          max-width:100%; object-fit:contain;
+        }
+        .ycs .yat-search-player-text-link {
+          display:flex; flex-direction:column; justify-content:center; gap:3px;
+          min-width:0; overflow:hidden;
+        }
+        .ycs .yat-search-player-text-link strong {
+          display:block; font:800 15px/1.12 Oswald,Arial,sans-serif;
+          text-transform:uppercase; overflow-wrap:anywhere;
+        }
+        .ycs .yat-search-player-text-link small {
+          display:block; font:500 11px/1.2 var(--yat-font-compact,Arial,sans-serif);
+          text-transform:none; white-space:normal; overflow-wrap:anywhere;
+        }
+        .ycs .yat-search-player-text-link .yat-search-hs-line { color:var(--accent,#c8a96e); }
+        .ycs .yat-search-school-card {
+          display:block; box-sizing:border-box; width:100%; padding:8px;
+          border:1px solid var(--line,rgba(128,128,128,.3));
+          border-radius:9px; background:rgba(128,128,128,.07);
+          color:inherit; cursor:pointer;
+        }
+        .ycs .yat-search-school-topline {
+          display:grid; grid-template-columns:48px minmax(0,1fr) auto;
+          align-items:center; gap:8px; width:100%;
+        }
+        .ycs .yat-search-school-crest-link { display:flex; align-items:center; justify-content:center; width:48px; }
+        .ycs .yat-search-school-thumb { display:block; width:44px !important; height:44px !important; object-fit:contain; }
+        .ycs .yat-search-school-identity { min-width:0; display:flex; flex-direction:column; gap:3px; }
+        .ycs .yat-search-school-identity strong { font:800 14px/1.15 Oswald,Arial,sans-serif; overflow-wrap:anywhere; }
+        .ycs .yat-search-school-identity small { font:500 11px/1.2 Arial,sans-serif; overflow-wrap:anywhere; }
+        .ycs .yat-search-team-heading { display:flex; align-items:center; gap:8px; min-width:0; font:700 13px/1.2 Oswald,Arial,sans-serif; }
+        .ycs .yat-search-team-heading .yat-search-team-thumb { display:block; width:40px; height:40px; object-fit:contain; }
+        @media (max-width:420px) {
+          .ycs .yat-search-player-result { grid-template-columns:24px 42px minmax(0,1fr) 34px; gap:6px; }
+          .ycs .yat-search-player-headshot { width:42px !important; height:42px !important; }
+          .ycs .yat-search-player-hs-logo { width:32px !important; height:32px !important; }
+          .ycs .yat-search-player-text-link strong { font-size:14px; }
+        }
         .ycs-results { max-height: none !important; overflow: visible !important; }
         /* Contribute school picker renders crest + identity, without the active-alumni
            counter used by Global Search. Override the shared two-column grid
