@@ -20,7 +20,7 @@ assert(ingest.includes("planWebzNewsBatches(schoolPlayers)"),"discovery planning
 assert(ingest.includes("MAX_SEARCHES_PER_SCHOOL"),"credit-aware query ceiling");
 assert(ingest.includes("NEWS_DISCOVERY_V2_ENABLED"),"redesigned discovery is opt-in");
 assert(ingest.includes("MIN_BALANCE"),"account floor protected");
-assert(ingest.includes("discovery_plan: WEBZ_PLAN_VERSION"),"per-run audit available");
+assert(ingest.includes("discovery_plan: discoveryV2 ? WEBZ_PLAN_VERSION"),"per-run audit available");
 assert(workflow.includes("ANTHROPIC_API_KEY"),"runtime secret must be forwarded");
 assert(workflow.includes("NEWS_AI_EDITORIAL_ENABLED"),"editorial gate must be plumbed");
 assert(workflow.includes("NEWS_DISCOVERY_V2_ENABLED"),"discovery gate must be plumbed");
