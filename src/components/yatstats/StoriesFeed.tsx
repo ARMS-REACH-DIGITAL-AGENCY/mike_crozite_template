@@ -163,7 +163,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
   const [openPhoto, setOpenPhoto] = useState(0);
   const [openForComment, setOpenForComment] = useState(false);
   const [note, setNote] = useState('');
-  const teammates = useTeammates(playerId);
+  const { rows: teammates, failed: teammatesFailed, retry: retryTeammates } = useTeammates(playerId);
   const teammatesTotal = teammateCount(teammates);
   const [teammatesOpen, setTeammatesOpen] = useState(false);
   const closeTeammates = useCallback(() => setTeammatesOpen(false), []);
@@ -447,10 +447,12 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
             <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search stories" aria-label="Search stories" />
           </label>
           <div className="ysf-sort"><SortToggle dir={sort} onChange={setSort} compact /></div>
-          {teammatesTotal > 0 && (
-            <button type="button" className="ysf-tm-btn" onClick={() => setTeammatesOpen(true)}
-              aria-haspopup="dialog" aria-expanded={teammatesOpen} aria-label={`Show ${teammatesTotal} teammates`}>
-              <i className="ri-team-line" aria-hidden="true" /><span className="ysf-tm-count">{teammatesTotal}</span>
+          {(teammatesTotal > 0 || teammatesFailed) && (
+            <button type="button" className="ysf-tm-btn" onClick={() => teammatesFailed ? retryTeammates() : setTeammatesOpen(true)}
+              aria-haspopup={teammatesFailed ? undefined : 'dialog'} aria-expanded={teammatesFailed ? undefined : teammatesOpen}
+              aria-label={teammatesFailed ? 'Teammates unavailable. Retry loading' : `Show ${teammatesTotal} teammates`}
+              title={teammatesFailed ? 'Teammates could not load. Tap to retry.' : undefined}>
+              <i className="ri-team-line" aria-hidden="true" /><span className="ysf-tm-count">{teammatesFailed ? '!' : teammatesTotal}</span>
             </button>
           )}
         </div>
