@@ -43,6 +43,15 @@ function teamIdOf(item: any) {
   return String(item.currentTeamId || item.current_team_id || item.currentTeamid || item.current_teamid || item.teamid || item.teamId || item.team_id || '').trim();
 }
 
+// Keep search navigation inside the deployed preview instead of sending
+// unpublished player IDs to their production school subdomains.
+function isolatedPreviewSchoolPath(hsid: string): string | null {
+  if (typeof window === 'undefined') return null;
+  const hostname = String(window.location?.hostname || '').toLowerCase();
+  if (!hostname.endsWith('.vercel.app') || !/^\d+$/.test(hsid)) return null;
+  return `/${encodeURIComponent(hsid)}`;
+}
+
 function playerUrl(player: any) {
   const hsid = encodeURIComponent(schoolIdOf(player));
   const playerId = encodeURIComponent(playerIdOf(player));
@@ -50,6 +59,8 @@ function playerUrl(player: any) {
   const slug = encodeURIComponent(String(player.slug || fallbackSlug));
   const microsite = String(player.micrositeUrl || player.microsite_url || '').trim().replace(/\/$/, '');
 
+  const previewBase = isolatedPreviewSchoolPath(schoolIdOf(player));
+  if (previewBase) return `${previewBase}/player/${playerId}/${slug}`;
   if (microsite) return `${microsite}/player/${playerId}/${slug}`;
   return `/${hsid}/player/${playerId}/${slug}`;
 }
@@ -57,11 +68,13 @@ function playerUrl(player: any) {
 function playerFlipCardUrl(player: any) {
   const playerId = encodeURIComponent(playerIdOf(player));
   const microsite = String(player.micrositeUrl || player.microsite_url || '').trim().replace(/\/$/, '');
-  const base = microsite || `/${encodeURIComponent(schoolIdOf(player))}`;
+  const base = isolatedPreviewSchoolPath(schoolIdOf(player)) || microsite || `/${encodeURIComponent(schoolIdOf(player))}`;
   return `${base}?view=active&player=${playerId}#player-${playerId}`;
 }
 
 function schoolUrl(program: any) {
+  const previewBase = isolatedPreviewSchoolPath(String(program.hsid || program.schoolId || '').trim());
+  if (previewBase) return previewBase;
   const microsite = String(program.microsite_url || program.micrositeUrl || '');
   if (microsite) return microsite;
   return `/${encodeURIComponent(String(program.hsid || program.schoolId || ''))}`;
