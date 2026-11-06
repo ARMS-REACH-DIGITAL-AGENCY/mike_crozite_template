@@ -1,0 +1,189 @@
+name: Resume Verified High School Logo Backfill
+
+# Run once on this isolated operations branch. Does NOT deploy web code.
+# High-confidence logos alone may be copied to S3 schools/{hsid}.png.
+on:
+  push:
+    branches:
+      - ops/hs-logo-resume-20261105
+    paths:
+      - .github/workflows/hs-logo-resume-20261105.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yatstats-production-school-logos
+  cancel-in-progress: false
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      published: \${{ steps.pilot_result.outputs.published }}
+    env:
+      DATABASE_URL: \${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      HS_LOGO_SCOPE: linked
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install reviewed collector dependencies
+        run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Validate credentials and publisher safety tests
+        run: |
+          test -n "$DATABASE_URL" && test -n "$AWS_ACCESS_KEY_ID" && test -n "$AWS_SECRET_ACCESS_KEY"
+          python -m unittest discover -s tests -p 'test_hs_logo*.py' -v
+      - name: Record current coverage and select a small bounded pilot
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import boto3
+          import sys
+          sys.path.insert(0, "scripts")
+          from fetch_hs_logos_expanded import load_schools, existing_hsids
+          schools=load_schools()
+          s3=boto3.client("s3", region_name="us-west-2")
+          live=existing_hsids(s3,"yatstats-assets","schools/")
+          staged=existing_hsids(s3,"yatstats-assets","schools-candidates/")
+          staged_pending=[s["hsid"] for s in schools if s["hsid"] in staged and s["hsid"] not in live]
+          new_pending=[s["hsid"] for s in schools if s["hsid"] not in live and s["hsid"] not in staged]
+          ids=staged_pending[:10]+new_pending[:20]
+          Path("pilot_hsids.txt").write_text(",".join(ids), encoding="utf-8")
+          counts={"canonical_linked_schools":len(schools),"live_existing":sum(s["hsid"] in live for s in schools),"staged_pending":len(staged_pending),"not_yet_collected":len(new_pending),"pilot_staged_existing":min(10,len(staged_pending)),"pilot_new_missing":min(20,len(new_pending))}
+          Path("hs_logo_coverage_before.json").write_text(json.dumps(counts,indent=2)+"\n")
+          print("HS_LOGO_COVERAGE_BEFORE",json.dumps(counts))
+          print("PILOT_HSIDS",",".join(ids))
+          PY
+      - name: Collect missing candidates to staging only
+        run: |
+          if test -s pilot_hsids.txt; then
+            python scripts/fetch_hs_logos_expanded.py --mode stage --limit 30 --hsids "$(cat pilot_hsids.txt)"
+          fi
+      - name: Publish only source-verified, high-confidence, never-overwrite logos
+        run: |
+          if test -s pilot_hsids.txt; then
+            python scripts/publish_verified_hs_logos.py --hsids "$(cat pilot_hsids.txt)" --report logo_report.csv
+          fi
+      - name: Check pilot yield before any bulk expansion
+        id: pilot_result
+        run: |
+          python - <<'PY'
+          import csv,os
+          from pathlib import Path
+          rows=list(csv.DictReader(open("logo_batch_summary.csv",newline=""))) if Path("logo_batch_summary.csv").is_file() else []
+          published=sum(r.get("status")=="published" for r in rows)
+          errors=sum(r.get("status")=="exception" for r in rows)
+          print(f"PILOT_RESULT processed={len(rows)} published={published} exceptions={errors}")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as out:
+            out.write(f"published={published}\n")
+          PY
+      - name: Archive pilot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-resume-pilot
+          if-no-files-found: ignore
+          retention-days: 90
+          path: |
+            hs_logo_coverage_before.json
+            pilot_hsids.txt
+            logo_batch_summary.csv
+            logo_exceptions.csv
+            logo_report.csv
+            fetch_logos.log
+
+  plan:
+    needs: pilot
+    if: \${{ needs.pilot.outputs.published != '0' }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: \${{ steps.plan.outputs.matrix }}
+      batches: \${{ steps.plan.outputs.batch_count }}
+    env:
+      DATABASE_URL: \${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      HS_LOGO_SCOPE: linked
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Recheck publisher tests after pilot
+        run: python -m unittest discover -s tests -p 'test_hs_logo*.py' -v
+      - name: Plan remaining canonical HSIDs using live S3 status
+        id: plan
+        run: python scripts/plan_hs_logo_publication.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-resume-plan
+          path: bulk_logo_plan.json
+
+  collect-verify-publish:
+    needs: plan
+    if: \${{ needs.plan.outputs.batches != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: \${{ fromJson(needs.plan.outputs.matrix) }}
+    env:
+      DATABASE_URL: \${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: \${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: \${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      HS_LOGO_SCOPE: linked
+      HSIDS: \${{ matrix.hsids }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install boto3 requests pillow numpy scipy "psycopg[binary]"
+      - name: Stage missing logos, preserving already published and staged
+        run: python scripts/fetch_hs_logos_expanded.py --mode stage --limit 100 --hsids "$HSIDS"
+      - name: Publish independently verified exact matches only
+        run: python scripts/publish_verified_hs_logos.py --hsids "$HSIDS" --report logo_report.csv
+      - name: Archive exceptions and per-school outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-resume-batch-\${{ matrix.batch }}
+          retention-days: 90
+          if-no-files-found: ignore
+          path: |
+            logo_batch_summary.csv
+            logo_exceptions.csv
+            logo_report.csv
+            fetch_logos.log
+
+  exceptions-only:
+    needs: [plan, collect-verify-publish]
+    if: \${{ always() && needs.plan.result == 'success' && needs.plan.outputs.batches != '0' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hs-logo-resume-batch-*
+          path: batch-reports
+      - name: Consolidate failed/unmatched IDs for manual source review
+        run: python scripts/aggregate_hs_logo_exceptions.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hs-logo-resume-exceptions-only
+          if-no-files-found: ignore
+          retention-days: 90
+          path: hs_logo_exceptions_only.csv
