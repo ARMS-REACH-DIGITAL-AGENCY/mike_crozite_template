@@ -55,9 +55,13 @@ jobs:
           staged=existing_hsids(s3,"yatstats-assets","schools-candidates/")
           staged_pending=[s["hsid"] for s in schools if s["hsid"] in staged and s["hsid"] not in live]
           new_pending=[s["hsid"] for s in schools if s["hsid"] not in live and s["hsid"] not in staged]
-          ids=staged_pending[:10]+new_pending[:20]
+          us_states=set("AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC".split())
+          new_us_pending=[s["hsid"] for s in schools if s["hsid"] not in live and s["hsid"] not in staged and s["state"] in us_states]
+          # Stratified HSID spread: avoid the known problem schools with the lowest IDs.
+          n=min(30,len(new_us_pending))
+          ids=[new_us_pending[(i*len(new_us_pending))//n] for i in range(n)]
           Path("pilot_hsids.txt").write_text(",".join(ids), encoding="utf-8")
-          counts={"canonical_linked_schools":len(schools),"live_existing":sum(s["hsid"] in live for s in schools),"staged_pending":len(staged_pending),"not_yet_collected":len(new_pending),"pilot_staged_existing":min(10,len(staged_pending)),"pilot_new_missing":min(20,len(new_pending))}
+          counts={"canonical_linked_schools":len(schools),"live_existing":sum(s["hsid"] in live for s in schools),"staged_pending":len(staged_pending),"not_yet_collected":len(new_pending),"unprocessed_us_schools":len(new_us_pending),"pilot_staged_existing":0,"pilot_new_missing":len(ids)}
           Path("hs_logo_coverage_before.json").write_text(json.dumps(counts,indent=2)+"\n")
           print("HS_LOGO_COVERAGE_BEFORE",json.dumps(counts))
           print("PILOT_HSIDS",",".join(ids))
