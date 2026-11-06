@@ -106,7 +106,8 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
         }
         /* Keep the close control outside the scrolling roster so it stays
            reachable alongside the sticky heading on long teammate lists. */
-        .ytd-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px 22px calc(28px + env(safe-area-inset-bottom)); }
+        /* Keep top padding on the opaque sticky header, never on the scroll viewport: rows must not bleed above the header while scrolling. */
+        .ytd-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 0 22px calc(28px + env(safe-area-inset-bottom)); }
         body.light-theme .ytd-panel {
           --ytm-bg: #fbf8f2; --ytm-text: rgba(31,25,18,.88); --ytm-muted: rgba(31,25,18,.55); --ytm-strong: rgba(31,25,18,.95);
           --ytm-border: rgba(53,43,30,.18); --ytm-accent: #555;
@@ -135,7 +136,7 @@ function TeammatesDrawer({ rows, onClose }: { rows: TeammateSeason[] | null; onC
             pointer-events:auto;
             animation:none;
           }
-          .ytd-scroll { padding-top:16px; }
+          .ytd-panel .ytm-sticky { padding-top:16px; }
         }
         @keyframes ytd-in { from { transform: translateX(100%); } to { transform: none; } }
         @keyframes ytd-fade { from { opacity: 0; } to { opacity: 1; } }
