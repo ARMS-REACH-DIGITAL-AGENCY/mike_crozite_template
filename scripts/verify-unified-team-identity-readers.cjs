@@ -36,7 +36,7 @@ assert.match(contribute,/teamIdentityJoins\('r'\)/);
 assert.match(contribute,/teamIdentityJoins\('s'\)/);
 assert.match(contribute,/IS_COLLEGE_SOURCE_SQL/);
 assert.match(contribute,/r\.is_college_source \|\| COLLEGE_LEVEL/);
-assert.match(contribute,/LEFT\(r\.year::text, 4\)::int/);
+assert.match(contribute,/LEFT\(r\.year::text,\s*4\)::int/);
 assert.doesNotMatch(contribute,/COALESCE\(m\.current_team_name, r\.teamid/);
 assert.doesNotMatch(contribute,/\['tbc_batting_raw', 'tbc_pitching_raw'/);
 
