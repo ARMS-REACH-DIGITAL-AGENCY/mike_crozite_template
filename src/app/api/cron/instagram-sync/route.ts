@@ -10,7 +10,9 @@ export const dynamic = 'force-dynamic';
 // Meta Business Discovery is account-scoped and rate limited. A failed global token
 // or application quota is not 40 independent failures. Stop immediately and report it.
 // Last_polled_at means attempted (including failed attempts), never last success.
-const ACCOUNTS_PER_RUN = 40;
+// Spread Meta calls across the day: two accounts per 15-minute run, not one
+// burst of 25+ queries every six hours. The per-account cooldown remains six hours.
+const ACCOUNTS_PER_RUN = 2;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },

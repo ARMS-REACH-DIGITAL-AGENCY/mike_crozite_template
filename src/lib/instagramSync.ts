@@ -22,7 +22,9 @@ import { putPublicAsset } from './stories';
 import { storyAssetUrl } from './storyAssets';
 
 const GRAPH = 'https://graph.facebook.com/v23.0';
-export const POSTS_PER_ACCOUNT = 12;
+// Include enough history to recover multi-day outages (13+ posts can arrive
+// between successful polls); conflict-upsert preserves existing posts.
+export const POSTS_PER_ACCOUNT = 30;
 
 type GraphMedia = {
   id: string;
