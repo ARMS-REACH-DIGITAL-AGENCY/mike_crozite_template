@@ -221,6 +221,13 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
               WHEN current_team_name IS NOT NULL THEN COALESCE($4, current_team_name)
               ELSE previous_team_name
             END,
+            -- Preserve the canonical ID of the last verified team before
+            -- removing the current assignment. Never leave a stale current
+            -- team ID on a FREE AGENT/RETIRED player.
+            previous_teamid = CASE
+              WHEN current_team_name IS NOT NULL THEN COALESCE(current_teamid, previous_teamid)
+              ELSE previous_teamid
+            END,
             previous_org_or_conference_name = CASE
               WHEN current_team_name IS NOT NULL THEN current_org_or_conference_name
               ELSE previous_org_or_conference_name
@@ -240,7 +247,14 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             level_label = COALESCE($6, level_label),
             display_level_label = COALESCE($6, display_level_label),
             current_team_name = NULL,
+            current_teamid = NULL,
             current_org_or_conference_name = NULL,
+            current_team_source = NULL,
+            current_team_source_team_id = NULL,
+            current_team_source_player_id = NULL,
+            current_team_roster_status = NULL,
+            current_team_level = NULL,
+            current_level_label = NULL,
             -- A departed player can't still be on the 40-man roster.
             -- Without this, PlayerCardFront's 40-MAN chip (which takes
             -- priority over the RELEASED note) would keep claiming a
