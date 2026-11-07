@@ -23,7 +23,7 @@ import { unstable_cache } from 'next/cache';
 import { activeAlumniSummaryCtes, confirmed2026GameLogPlayersSql } from '@/lib/activeAlumni';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { currentFranchiseSql } from '@/lib/mlbFranchise';
-import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE, PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES } from '@/lib/playerStageIdentity';
+import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE, PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES, PLAYER_STAGE_SCHOOL_IDENTITY_CTES } from '@/lib/playerStageIdentity';
 import { resolvePlayerDisplay } from '@/lib/playerDisplay';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
@@ -2609,7 +2609,7 @@ const FLIP_CARD_STAGE_SELECT = `
 `;
 
 export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-expanded-universe-20261105', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
-  const sql = `WITH ${PLAYER_STAGE_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
+  const sql = `WITH ${PLAYER_STAGE_SCHOOL_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
 }));
