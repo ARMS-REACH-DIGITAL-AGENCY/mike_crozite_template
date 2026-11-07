@@ -14,7 +14,7 @@ function variable(source,name) {
 function sqlQueries() {
   const parse=file=>ts.createSourceFile(file,fs.readFileSync(path.join(root,file),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
   const identity=parse('src/lib/playerStageIdentity.ts'),stage=parse('src/lib/db.ts'),ctx={};
-  for(const name of ['PLAYER_STAGE_IDENTITY_CTES','PLAYER_STAGE_IDENTITY_SOURCE','PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES'])
+  for(const name of ['PLAYER_STAGE_IDENTITY_CTES','PLAYER_STAGE_IDENTITY_SOURCE','PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES','PLAYER_STAGE_SCHOOL_IDENTITY_CTES'])
     ctx[name]=vm.runInNewContext('('+variable(identity,name)+')',ctx,{timeout:1500});
   ctx.FLIP_CARD_STAGE_SELECT=vm.runInNewContext('('+variable(stage,'FLIP_CARD_STAGE_SELECT')+')',ctx,{timeout:1500});
   const expressions=[];
@@ -27,7 +27,9 @@ function sqlQueries() {
   const school=expressions.find(q=>/WHERE\s+fs\.hsid\s*=\s*\$1/.test(q));
   const player=expressions.find(q=>/WHERE\s+fs\.playerid\s*=\s*\$1/.test(q));
   assert.ok(school&&player,'Cannot identify stage reader SQL');
-  return {school,player};
+  const schoolLegacy=school.replace(ctx.PLAYER_STAGE_SCHOOL_IDENTITY_CTES,ctx.PLAYER_STAGE_IDENTITY_CTES);
+  assert.notEqual(schoolLegacy,school,'School query must actually use the scoped identity CTE');
+  return {school,player,schoolLegacy};
 }
 const fixture=`
 CREATE TABLE public.flip_card_front_stage (
@@ -72,10 +74,44 @@ async function run(){
    assert.equal(school.find(x=>x.playerid==='YAT000055').resolved_committed_team_short_name,'CSUN');
    assert.equal((await db.query(q.school,['9001'])).rows.length,1,'Other schools load');
    assert.equal((await db.query(q.player,['YAT000063'])).rows[0].resolved_committed_team_name,'Morehead State University');
+
+   // Exercise the legacy MLB read-time reconciliation with a real stale link
+   // at this school and at a different school. The optimized reader must
+   // match the original global reader exactly for both.
+   await db.query(`
+     INSERT INTO public.flip_card_front_stage
+       (playerid,hsid,first_name,last_name,status_label,display_status_label,
+        level_label,display_level_label,current_team_name,current_teamid,source_notes)
+     VALUES
+       ('YAT000071','5004','Identity','Candidate','ACTIVE','ACTIVE','MLB','MLB',
+        'Old MLB Team','773','MLB refresh: player_current_team'),
+       ('YAT900002','9001','Other','Candidate','ACTIVE','ACTIVE','MLB','MLB',
+        'Old MLB Team','773','MLB refresh: player_current_team');
+     INSERT INTO public.player_current_team
+       (playerid,source,last_verified,source_team_id,team_name)
+     VALUES
+       ('YAT000071','mlb_api','2026-01-01','773','Old MLB Team'),
+       ('YAT900002','mlb_api','2026-01-01','773','Old MLB Team');
+     INSERT INTO public.tbc_batting_2026_season_raw(playerid,year,teamid)
+     VALUES ('YAT000071','2026','20588'),('YAT900002','2026','20106');
+   `);
+   const byPlayerId=rows=>rows.sort((a,b)=>String(a.playerid).localeCompare(String(b.playerid)));
+   for(const hsid of ['5004','9001']){
+     const scoped=byPlayerId((await db.query(q.school,[hsid])).rows);
+     const global=byPlayerId((await db.query(q.schoolLegacy,[hsid])).rows);
+     assert.deepEqual(scoped,global,'Scoped/global flip-card output mismatch for school '+hsid);
+     assert.equal(scoped.length,hsid==='5004'?4:2,'Cross-school records must not leak');
+     const repaired=scoped.find(row=>row.playerid===(hsid==='5004'?'YAT000071':'YAT900002'));
+     assert.ok(repaired,'Legacy repair candidate must remain in its school');
+     assert.equal(repaired.current_team_name,hsid==='5004'?'Morehead State University':'Cal State Northridge',
+       'Approved collegiate evidence must override stale legacy MLB assignment');
+     assert.equal(repaired.status_label,'ACTIVE','2026 participation must remain ACTIVE');
+   }
+
    const bad=q.school.replace("COALESCE(fs.level_label, '')","COALESCE(level_label, '')");
    assert.notEqual(bad,q.school,'Mutant must alter real source SQL');
    await assert.rejects(db.query(bad,['5004']),e=>e.code==='42702','Old ambiguous query must fail');
-   console.log('PASS: school/player queries, both colleges, active roster, all schools, and SQLSTATE 42702 regression');
+   console.log('PASS: school/player queries, college mapping, real legacy repairs, school scope, exact output parity, and SQLSTATE 42702 regression');
  }finally{await db.query('ROLLBACK').catch(()=>{});await db.end()}
 }
 run().catch(err=>{console.error(err);process.exitCode=1});

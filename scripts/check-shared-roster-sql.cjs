@@ -17,6 +17,19 @@ function verify(source) {
     'Ambiguous stage columns: ' + matches.join(', ') + '; qualify fs.level_label or fs.status_label');
   assert.match(sql, /\bSELECT\s+fs\.\*/, 'Shared stage SELECT must still load player rows');
 
+  // Post-Nov-5 scale guard: a single school request must not scan every
+  // flip-card row in the global MLB identity repair CTE.
+  const stageHsid = source.slice(source.indexOf('export const getFlipCardFrontStageByHsid'));
+  assert.match(stageHsid, /WITH \${PLAYER_STAGE_SCHOOL_IDENTITY_CTES}/,
+    'School gallery must use the school-scoped identity CTE');
+  const scopedIdentity = fs.readFileSync(path.join(__dirname, '..', 'src/lib/playerStageIdentity.ts'), 'utf8');
+  assert.match(scopedIdentity, /WHERE f\.hsid = \$1 AND ct\.source = 'mlb_api'/,
+    'Legacy MLB candidate discovery must be school-scoped');
+  assert.match(scopedIdentity, /WHERE f\.hsid = \$1 AND NOT EXISTS/,
+    'Unrepaired stage rows must be school-scoped');
+  assert.ok(scopedIdentity.includes(String.raw`FROM public.flip_card_front_stage f JOIN identity_stage_repairs r USING (playerid)\n  WHERE f.hsid = $1`),
+    'Repaired stage rows must be school-scoped');
+
   // PR #691: an IN (SELECT ... FROM school_players) here previously forced
   // historical 939K-row scans for every school request. Require an indexable
   // scalar-array initplan for the Active and All-Time season aggregation paths.
