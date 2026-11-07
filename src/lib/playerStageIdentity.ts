@@ -105,6 +105,21 @@ identity_reconciled_player_stage AS NOT MATERIALIZED (
   FROM public.flip_card_front_stage f JOIN identity_stage_repairs r USING (playerid)
 )`;
 
+// The school gallery reads a single HSID. The legacy MLB reconciliation
+// never changes a player's HSID, so prune all three stage branches before
+// building the gallery; preserve the identical row and identity rules.
+// Other cross-school and single-player readers retain their original CTEs.
+export const PLAYER_STAGE_SCHOOL_IDENTITY_CTES = PLAYER_STAGE_IDENTITY_CTES
+  .replace("WHERE ct.source = 'mlb_api'", "WHERE f.hsid = $1 AND ct.source = 'mlb_api'")
+  .replace(
+    "SELECT f.* FROM public.flip_card_front_stage f\n  WHERE NOT EXISTS",
+    "SELECT f.* FROM public.flip_card_front_stage f\n  WHERE f.hsid = $1 AND NOT EXISTS",
+  )
+  .replace(
+    "FROM public.flip_card_front_stage f JOIN identity_stage_repairs r USING (playerid)",
+    "FROM public.flip_card_front_stage f JOIN identity_stage_repairs r USING (playerid)\n  WHERE f.hsid = $1",
+  );
+
 export const PLAYER_STAGE_IDENTITY_SOURCE = 'identity_reconciled_player_stage';
 
 // Single-player readers already bind the canonical player ID as $1. Scope
