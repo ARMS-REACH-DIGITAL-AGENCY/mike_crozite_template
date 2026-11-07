@@ -1,0 +1,30 @@
+name: Contribute Cutout Queue
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+concurrency:
+  group: contribute-cutout-queue
+  cancel-in-progress: false
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install boto3 pillow rembg onnxruntime
+      - uses: actions/cache@v4
+        with:
+          path: ~/.u2net
+          key: rembg-u2net-models
+      - name: Process pending cutouts only
+        run: python scripts/process-contribute-cutout-queue.py

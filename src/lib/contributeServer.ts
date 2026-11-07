@@ -530,5 +530,26 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
   } else {
     throw new Error(`Unknown photo type: ${u.purpose}`);
   }
+  // Queue only missing cutouts; the hourly scanner remains a recovery path.
+  const sourceKey = purpose === 'flip_card' ? `players/then/${pid}.jpg`
+    : purpose === 'back_hero' ? `players/back/${pid}.jpg`
+    : purpose === 'headshot' ? written.find(k => k === `players/now/${pid}.jpg`)
+    : purpose === 'timeline_hero' ? written.find(k => k.startsWith('players/season-photos/'))
+    : undefined;
+  if (sourceKey) {
+    const destination = sourceKey.replace('players/then/', 'players/then-cutouts/')
+      .replace('players/back/', 'players/back-cutouts/')
+      .replace('players/now/', 'players/now-cutouts/')
+      .replace('players/season-photos/', 'players/season-cutouts/')
+      .replace(/\.[^.]+$/, '.png');
+    if (!written.includes(destination)) {
+      try {
+        await put(`cutout-queue/pending/${u.id}-${Date.now()}.json`,
+          Buffer.from(JSON.stringify({ sourceKey, destination, uploadId: u.id })), 'application/json');
+      } catch (error) {
+        console.error('[contribute/photo] cutout queue enqueue failed', { sourceKey, error });
+      }
+    }
+  }
   return written;
 }
