@@ -400,7 +400,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
   const todayIdx = weekStart ? Math.round((Date.parse(`${previewDate()}T00:00:00Z`) - Date.parse(`${weekStart}T00:00:00Z`)) / 86400000) : -1;
   const openDay: 'week' | number = todayIdx >= 0 && todayIdx <= 6 ? todayIdx : 'week';
   return (
-      <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
+      <aside className={`bl bl-embed yfp-drawer yfp-stat-ledger ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head yfp-drawer-head-line">
           <span className="yfp-drawer-who">
@@ -426,7 +426,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
 function TeamDrawer({ index, open, me, onClose, onSwitch }: { index: Index; open: Open; me: number; onClose: () => void; onSwitch: () => void }) {
   return (
     <DrawerWrap onClose={onClose} sides={[open.side === 'h' ? 'r' : 'l']}>
-      <TeamDrawerPanel index={index} open={open} me={me} onClose={onClose} onSwitch={onSwitch} />
+      <TeamDrawerPanel key={`${open.card.week}:${open.side}`} index={index} open={open} me={me} onClose={onClose} onSwitch={onSwitch} />
     </DrawerWrap>
   );
 }
@@ -1490,18 +1490,20 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              surface. Its natural scrollHeight follows each school's actual
              player rows, including late-loading rosters and all scoring rules.
              No fixed roster height or guessed bottom padding on the panel. */
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer {
-            width: min(410px, 100vw);
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width:min(410px,100vw); }
+          /* Only the Stat Ledger has a dedicated scroll child. Rules keeps
+             its established scrollable panel instead of being clipped. */
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer.yfp-stat-ledger {
             display:flex;
             flex-direction:column;
             overflow:hidden;
             padding:0;
           }
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer > .yfp-drawer-head {
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer.yfp-stat-ledger > .yfp-drawer-head {
             position:relative;
             flex:0 0 auto;
           }
-          .yfp-drawer-wrap .yfp-drawer-scroll {
+          .yfp-drawer-wrap .yfp-stat-ledger > .yfp-drawer-scroll {
             display:block;
             flex:1 1 0%;
             min-height:0;
@@ -1515,7 +1517,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           }
           /* A real final child, not padding on an absolute-positioned panel,
              keeps the last rules paragraph scrollable above the phone inset. */
-          .yfp-drawer-wrap .yfp-drawer-end {
+          .yfp-drawer-wrap .yfp-stat-ledger .yfp-drawer-end {
             display:block;
             height:calc(20px + env(safe-area-inset-bottom, 0px));
           }
