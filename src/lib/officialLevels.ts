@@ -208,14 +208,14 @@ export const CANONICAL_ACTIVE_STAGE_MISMATCH_SQL = `
 // or fictitious roster-verification timestamp. Safe to rerun daily.
 export const SAFE_2026_STAGE_TEAM_RECOVERY_SQL = `
 WITH missing_stage AS MATERIALIZED (
-  SELECT f.playerid
+  SELECT f.playerid, f.level_label
   FROM public.flip_card_front_stage f
   WHERE EXTRACT(YEAR FROM CURRENT_DATE)=2026
     AND f.status_label='ACTIVE'
     AND f.current_teamid IS NULL
     AND f.current_team_name IS NULL
     AND f.current_team_source IS NULL
-    AND f.level_label IS NULL
+    AND (f.level_label IS NULL OR f.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'))
     AND f.current_team_last_verified IS NULL
     AND f.current_team_source_player_id IS NULL
     AND f.current_team_source_team_id IS NULL
@@ -271,6 +271,7 @@ verified AS MATERIALIZED (
   FROM missing_stage m JOIN one_team u USING(playerid)
   JOIN public.teamid_universe_mapping t ON t.teamid=u.teamid
   WHERE t.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+    AND (m.level_label IS NULL OR m.level_label=t.level_label)
     AND NULLIF(BTRIM(t.current_team_name),'') IS NOT NULL
     AND NULLIF(BTRIM(t.current_org_or_conference_name),'') IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM public.school_player_profile_submission_raw s
@@ -295,12 +296,1671 @@ changed AS (
   FROM verified v
   WHERE f.playerid=v.playerid AND f.status_label='ACTIVE'
     AND f.current_teamid IS NULL AND f.current_team_name IS NULL
-    AND f.current_team_source IS NULL AND f.level_label IS NULL
+    AND f.current_team_source IS NULL AND (f.level_label IS NULL OR f.level_label=v.level_label)
     AND f.last_transaction_applied_at IS NULL
     AND f.last_transaction_type IS NULL
     AND f.current_team_absent_since IS NULL
     AND f.is_on_40man IS NOT TRUE
     AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS recovered FROM changed
+`;
+
+// Restore missing provenance, without changing a player's existing team ID,
+// team, level, playing status, or verification timestamp. A match requires a
+// single 2026 TBC team ID that exactly equals the existing canonical Team ID.
+// Current feed wins over duplicate 2026 history; conflicts remain unresolved.
+// 2026 is season evidence, NOT proof of a live 2027 roster.
+export const SAFE_2026_COLLEGE_PROVENANCE_RECOVERY_SQL = `
+WITH missing_source AS MATERIALIZED (
+  SELECT f.playerid, f.current_teamid
+  FROM public.flip_card_front_stage f
+  JOIN public.teamid_universe_mapping u ON u.teamid=f.current_teamid
+  WHERE EXTRACT(YEAR FROM CURRENT_DATE)=2026
+    AND f.status_label='ACTIVE'
+    AND f.current_teamid IS NOT NULL
+    AND f.current_team_source IS NULL
+    AND (f.current_team_source_team_id IS NULL OR f.current_team_source_team_id=f.current_teamid)
+    AND f.current_team_last_verified IS NULL
+    AND f.current_team_source_player_id IS NULL
+    AND f.last_transaction_applied_at IS NULL
+    AND f.last_transaction_type IS NULL
+    AND f.level_label=u.level_label
+    AND f.current_team_name=u.current_team_name
+    AND f.current_org_or_conference_name IS NOT DISTINCT FROM u.current_org_or_conference_name
+    AND u.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+    AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+    AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+    AND NOT EXISTS (SELECT 1 FROM public.player_source_map m
+      WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified=true)
+    AND NOT EXISTS (SELECT 1 FROM public.school_player_profile_submission_raw s
+      WHERE s.approved_playerid=f.playerid AND s.is_reviewed=true AND s.is_verified=true)
+), feed_teams AS MATERIALIZED (
+  SELECT b.playerid, b.teamid FROM public.tbc_batting_2026_season_raw b
+  JOIN missing_source f ON f.playerid=b.playerid
+  WHERE b.year='2026' AND b.teamid ~ '^[0-9]+
+// IDs and assigned-but-unmapped IDs need investigation.
+export const STAGE_TEAM_COVERAGE_SQL = `
+SELECT COUNT(*)::int AS stage_rows,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NULL)::int AS null_team_ids,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE')::int AS active_rows,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NULL)::int AS active_null_team_ids,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NOT NULL AND u.teamid IS NULL)::int AS unmapped_team_ids,
+  COUNT(*) FILTER (
+    WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NOT NULL
+      AND f.current_team_source IS NULL
+  )::int AS active_team_id_without_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+`;
+
+export const UNRESOLVED_ACTIVE_TEAM_SQL = `
+SELECT f.playerid, f.display_name, f.status_label, f.current_teamid,
+  f.current_team_name, f.level_label, f.current_team_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+WHERE f.status_label = 'ACTIVE'
+  AND (f.current_teamid IS NULL OR u.teamid IS NULL)
+ORDER BY f.display_name, f.playerid
+LIMIT 100
+`;
+
+// Only 2026 COLLEGE participation may establish ACTIVE from season statistics.
+// MLB/MiLB status comes from the MLB Organization API; independent pro status
+// needs an authoritative current league roster. Historic pro stats are NOT a
+// status or current-team signal. Unmatched/multi-team records are held.
+// Historical career-high labels NEVER become current display levels.
+// This is season activity evidence, not a live roster verification timestamp.
+export const SAFE_2026_BLANK_STATUS_RECOVERY_SQL = `
+WITH evidence AS MATERIALIZED (
+  SELECT playerid::text AS playerid, teamid::text AS teamid,
+         'tbc_2026'::text AS evidence_source
+    FROM public.tbc_batting_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+  UNION
+  SELECT playerid::text, teamid::text, 'tbc_2026'
+    FROM public.tbc_pitching_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+
+), unique_evidence AS MATERIALIZED (
+  SELECT playerid, MIN(teamid) AS teamid, MIN(evidence_source) AS evidence_source
+    FROM evidence
+   GROUP BY playerid
+  HAVING COUNT(DISTINCT teamid)=1 AND COUNT(DISTINCT evidence_source)=1
+), eligible AS MATERIALIZED (
+  SELECT f.playerid, u.teamid, u.current_team_name AS team_name,
+         u.current_org_or_conference_name AS org_name, u.level_label AS team_level,
+         e.evidence_source
+    FROM public.flip_card_front_stage f
+    JOIN unique_evidence e ON e.playerid=f.playerid
+    JOIN public.teamid_universe_mapping u ON u.teamid=e.teamid
+   WHERE f.status_label IS NULL
+     AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL
+     AND f.current_team_last_verified IS NULL
+     AND f.current_team_source_player_id IS NULL
+     AND f.current_team_source_team_id IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND f.is_on_40man IS NOT TRUE
+     AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT')
+     AND u.current_team_name IS NOT NULL
+     AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+     AND e.evidence_source='tbc_2026'
+     AND u.level_label IN
+       ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+     AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+     AND NOT EXISTS (
+       SELECT 1 FROM public.player_source_map m
+       WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM public.mlb_org_roster_resolution r
+       WHERE r.playerid=f.playerid AND r.match_status='matched'
+     )
+
+), changed AS (
+  UPDATE public.flip_card_front_stage f SET
+    status_label='ACTIVE', display_status_label='ACTIVE',
+    current_teamid=e.teamid, current_team_source_team_id=e.teamid,
+    current_team_name=e.team_name,
+    current_org_or_conference_name=e.org_name,
+    current_team_level=e.team_level, current_level_label=e.team_level,
+    level_label=e.team_level, display_level_label=e.team_level,
+    current_team_source='tbc_2026_college_participation',
+    updated_at=NOW(), stage_updated_at=NOW()
+    FROM eligible e
+   WHERE f.playerid=e.playerid
+     AND f.status_label IS NULL AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS activated FROM changed
+`;
+
+/** Strict canonical-reference coverage. Missing org/level is never auto-filled
+ * from historical Baseball Cube player stats or PRO placeholders. */
+export const TEAM_UNIVERSE_INTEGRITY_SQL = `
+ SELECT COUNT(*)::int AS total_teams,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL)::int AS missing_names,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL)::int AS missing_orgs,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(level_label),'') IS NULL)::int AS missing_levels,
+ COUNT(*) FILTER(WHERE level_label NOT IN (
+   'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+   'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+   'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+ ))::int AS unofficial_levels,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL OR
+   NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL OR
+   level_label NOT IN (
+     'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+     'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+     'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+   ) OR level_label IS NULL)::int AS teams_needing_review
+ FROM public.teamid_universe_mapping
+`;
+export const TEAM_UNIVERSE_AUDIT_24H_SQL = `
+ SELECT COUNT(*)::int AS changes_past_24h
+ FROM public.teamid_universe_change_audit
+ WHERE changed_at >= NOW() - INTERVAL '24 hours'
+`;
+
+/** Every imported stat row must resolve by exact Team ID before it can enter a
+ * competitive career bucket. These counts are for visibility and reconciliation:
+ * raw archives are never modified, and PRO/UNKNOWN never become MINORS by range. */
+export const HISTORICAL_TBC_LEVEL_COVERAGE_SQL = `
+WITH imported AS (
+  SELECT teamid::text AS teamid, 'batting' AS source
+  FROM public.v_tbc_batting_all_seasons_resolved
+  UNION ALL
+  SELECT teamid::text, 'pitching'
+  FROM public.v_tbc_pitching_all_seasons_resolved
+), grouped AS (
+  SELECT teamid, source, COUNT(*)::bigint AS stat_rows
+  FROM imported GROUP BY teamid, source
+)
+SELECT source,
+  COALESCE(SUM(stat_rows),0)::bigint AS total_stat_rows,
+  COUNT(DISTINCT g.teamid) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  )::int AS unresolved_teamids,
+  COALESCE(SUM(stat_rows) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  ),0)::bigint AS held_stat_rows
+FROM grouped g
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid=g.teamid
+GROUP BY source ORDER BY source
+`;
+
+// Explicit 2025 cutoff: absence of playing activity after 2025 => RETIRED.
+// Protect any 2026-season activity, live MLB identities, and manual overrides.
+// Independent professional players require separate current-roster authority;
+// recent stats block retirement but do not establish ACTIVE by themselves.
+// No age criterion, no fabricated last team, and no invented career-high level.
+// Run in bounded batches; provenance trigger records every change.
+export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `
+
+WITH season2026 AS MATERIALIZED (
+  SELECT playerid FROM public.tbc_batting_2026_season_raw WHERE year='2026'
+  UNION SELECT playerid FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_batting_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_pitching_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT playerid FROM public.player_game_logs WHERE game_date>=DATE '2026-01-01' AND game_date<DATE '2027-01-01'
+), eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label IS NULL
+  AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+  AND f.current_team_source_player_id IS NULL AND f.current_team_source_team_id IS NULL
+  AND f.current_team_last_verified IS NULL
+  AND f.last_transaction_applied_at IS NULL AND f.current_team_absent_since IS NULL
+  AND f.is_on_40man IS NOT TRUE
+  AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT','ACTIVE','40-MAN')
+  AND NOT EXISTS(SELECT 1 FROM season2026 s WHERE s.playerid=f.playerid)
+  AND NOT EXISTS(SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+  AND NOT EXISTS(SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
+  AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 5000
+), classified AS (
+ UPDATE public.flip_card_front_stage f SET
+  status_label='RETIRED', display_status_label='RETIRED',
+  team_affiliation_status='RETIRED',
+  source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','no_activity_after_2025',
+      'evidence','no_documented_2026_participation',
+      'source','yatstats_retirement_cutoff',
+      'applied_at',NOW())),
+  updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid AND f.status_label IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS retired FROM classified
+`;
+
+// Restore existing verified career high where legacy NCAA placeholder persisted.
+export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL = `
+
+WITH fixed AS (
+ UPDATE public.flip_card_front_stage f
+ SET level_label=f.highest_level_label,
+     display_level_label=f.highest_level_label,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     updated_at=NOW(),stage_updated_at=NOW()
+ WHERE f.status_label='RETIRED' AND f.level_label='NCAA'
+ AND f.highest_level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+ AND f.current_teamid IS NULL AND f.current_team_name IS NULL AND f.current_team_source IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS corrected FROM fixed
+`;
+
+// Career-high is a TBC PLAYER fact, never a current team. Only explicit
+// unambiguous official TBC highlevel labels may fill the RETIRED career high.
+// NCAA (missing division), JrCollege (ambiguous NJCAA/CCCAA/NWAC) and '-'
+// are deliberately excluded until historical career stats arrive.
+export const SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL = `
+
+WITH src AS MATERIALIZED (
+ SELECT f.playerid,p.highlevel AS source_high,
+ CASE UPPER(BTRIM(p.highlevel))
+   WHEN 'MLB' THEN 'MLB'
+   WHEN 'AAA' THEN 'TRIPLE-A'
+   WHEN 'AA' THEN 'DOUBLE-A'
+   WHEN 'A+' THEN 'HIGH-A'
+   WHEN 'A' THEN 'SINGLE-A'
+   WHEN 'A-' THEN 'SINGLE-A'
+   WHEN 'RK' THEN 'ROOKIE'
+   WHEN 'INDY' THEN 'INDY'
+   WHEN 'INTL' THEN 'INTERNATIONAL'
+   WHEN 'NAIA' THEN 'NAIA'
+ END AS verified_level
+ FROM public.flip_card_front_stage f JOIN public.tbc_players_raw p USING(playerid)
+ WHERE f.status_label='RETIRED'
+   AND NULLIF(BTRIM(f.highest_level_label),'') IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+   AND p.highlevel IS NOT NULL
+), eligible AS MATERIALIZED (
+ SELECT playerid,source_high,verified_level FROM src
+ WHERE verified_level IS NOT NULL
+ ORDER BY playerid LIMIT 5000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   highest_level_label=e.verified_level,
+   highest_level_checked_at=NOW(),
+   level_label=e.verified_level,
+   display_level_label=e.verified_level,
+   current_team_level=NULL,
+   current_level_label=NULL,
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('career_high_classification',jsonb_build_object(
+       'source','tbc_players_raw.highlevel',
+       'source_value',e.source_high,
+       'resolved_level',e.verified_level,
+       'applied_at',NOW())),
+   stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED' AND f.highest_level_label IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS recovered FROM changed
+`;
+
+// Retired MLB transaction wins over a prior active/injury roster snapshot.
+// Clear stale CURRENT team fields only when retirement transaction chronology
+// is explicit. The transaction itself and verified career-high are preserved.
+export const SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL = `
+
+WITH eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label='RETIRED'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NOT NULL
+   AND f.last_transaction_type ILIKE '%retir%'
+   AND f.last_transaction_applied_at IS NOT NULL
+   AND f.current_team_last_verified IS NOT NULL
+   AND f.last_transaction_applied_at >= f.current_team_last_verified
+   AND f.current_team_source IN ('mlb_api','mlb_api_canonical_teamid')
+   AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f
+ SET current_teamid=NULL,
+     current_team_name=NULL,
+     current_org_or_conference_name=NULL,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     current_team_source=NULL,
+     current_team_source_team_id=NULL,
+     current_team_source_player_id=NULL,
+     current_team_roster_status=NULL,
+     current_team_last_verified=NULL,
+     next_game_date=NULL,
+     next_game_status_label=NULL,
+     next_game_opponent=NULL,
+     next_game_time_utc=NULL,
+     next_game_time_local=NULL,
+     next_game_home_away=NULL,
+     source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+       jsonb_build_object('retired_transaction_team_clear',jsonb_build_object(
+         'reason','retirement_transaction_postdates_last_verified_roster',
+         'source','mlb_api_transaction',
+         'applied_at',NOW())),
+     stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+  AND f.status_label='RETIRED'
+  AND f.last_transaction_applied_at >= f.current_team_last_verified
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS cleared FROM changed
+`;
+
+// Correct a previous automated 2025 retirement when late, verified 2026
+// COLLEGE season data is imported. Never infer a professional ACTIVE status.
+// Only original auto-retired, source-untainted players are eligible.
+export const SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL = `
+
+WITH season_rows AS MATERIALIZED (
+ SELECT playerid,teamid FROM public.tbc_batting_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+ UNION SELECT playerid,teamid FROM public.tbc_pitching_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+), unique_teams AS MATERIALIZED (
+ SELECT playerid,MIN(teamid) AS teamid FROM season_rows GROUP BY playerid
+ HAVING COUNT(DISTINCT teamid)=1
+), eligible AS MATERIALIZED (
+ SELECT f.playerid,u.teamid,u.current_team_name,u.current_org_or_conference_name,u.level_label
+ FROM public.flip_card_front_stage f
+ JOIN unique_teams s ON s.playerid=f.playerid
+ JOIN public.teamid_universe_mapping u ON u.teamid=s.teamid
+ WHERE f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.source_summary->'status_classification'->>'source'='yatstats_retirement_cutoff'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+   AND f.last_transaction_applied_at IS NULL AND f.last_transaction_type IS NULL
+   AND f.is_on_40man IS NOT TRUE
+   AND u.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+   AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+   AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.player_source_map m
+     WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+   AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
+     WHERE r.playerid=f.playerid AND r.match_status='matched')
+   AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   status_label='ACTIVE', display_status_label='ACTIVE',
+   team_affiliation_status=NULL,
+   current_teamid=e.teamid,current_team_source_team_id=e.teamid,
+   current_team_name=e.current_team_name,
+   current_org_or_conference_name=e.current_org_or_conference_name,
+   level_label=e.level_label,display_level_label=e.level_label,
+   current_team_level=e.level_label,current_level_label=e.level_label,
+   current_team_source='tbc_2026_college_participation',
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','verified_2026_college_participation',
+      'source','tbc_2026_college_participation',
+      'previous_rule','no_activity_after_2025',
+      'applied_at',NOW())),
+   updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS reactivated FROM changed
+`;
+
+  UNION
+  SELECT p.playerid, p.teamid FROM public.tbc_pitching_2026_season_raw p
+  JOIN missing_source f ON f.playerid=p.playerid
+  WHERE p.year='2026' AND p.teamid ~ '^[0-9]+
+// IDs and assigned-but-unmapped IDs need investigation.
+export const STAGE_TEAM_COVERAGE_SQL = `
+SELECT COUNT(*)::int AS stage_rows,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NULL)::int AS null_team_ids,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE')::int AS active_rows,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NULL)::int AS active_null_team_ids,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NOT NULL AND u.teamid IS NULL)::int AS unmapped_team_ids,
+  COUNT(*) FILTER (
+    WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NOT NULL
+      AND f.current_team_source IS NULL
+  )::int AS active_team_id_without_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+`;
+
+export const UNRESOLVED_ACTIVE_TEAM_SQL = `
+SELECT f.playerid, f.display_name, f.status_label, f.current_teamid,
+  f.current_team_name, f.level_label, f.current_team_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+WHERE f.status_label = 'ACTIVE'
+  AND (f.current_teamid IS NULL OR u.teamid IS NULL)
+ORDER BY f.display_name, f.playerid
+LIMIT 100
+`;
+
+// Only 2026 COLLEGE participation may establish ACTIVE from season statistics.
+// MLB/MiLB status comes from the MLB Organization API; independent pro status
+// needs an authoritative current league roster. Historic pro stats are NOT a
+// status or current-team signal. Unmatched/multi-team records are held.
+// Historical career-high labels NEVER become current display levels.
+// This is season activity evidence, not a live roster verification timestamp.
+export const SAFE_2026_BLANK_STATUS_RECOVERY_SQL = `
+WITH evidence AS MATERIALIZED (
+  SELECT playerid::text AS playerid, teamid::text AS teamid,
+         'tbc_2026'::text AS evidence_source
+    FROM public.tbc_batting_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+  UNION
+  SELECT playerid::text, teamid::text, 'tbc_2026'
+    FROM public.tbc_pitching_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+
+), unique_evidence AS MATERIALIZED (
+  SELECT playerid, MIN(teamid) AS teamid, MIN(evidence_source) AS evidence_source
+    FROM evidence
+   GROUP BY playerid
+  HAVING COUNT(DISTINCT teamid)=1 AND COUNT(DISTINCT evidence_source)=1
+), eligible AS MATERIALIZED (
+  SELECT f.playerid, u.teamid, u.current_team_name AS team_name,
+         u.current_org_or_conference_name AS org_name, u.level_label AS team_level,
+         e.evidence_source
+    FROM public.flip_card_front_stage f
+    JOIN unique_evidence e ON e.playerid=f.playerid
+    JOIN public.teamid_universe_mapping u ON u.teamid=e.teamid
+   WHERE f.status_label IS NULL
+     AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL
+     AND f.current_team_last_verified IS NULL
+     AND f.current_team_source_player_id IS NULL
+     AND f.current_team_source_team_id IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND f.is_on_40man IS NOT TRUE
+     AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT')
+     AND u.current_team_name IS NOT NULL
+     AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+     AND e.evidence_source='tbc_2026'
+     AND u.level_label IN
+       ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+     AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+     AND NOT EXISTS (
+       SELECT 1 FROM public.player_source_map m
+       WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM public.mlb_org_roster_resolution r
+       WHERE r.playerid=f.playerid AND r.match_status='matched'
+     )
+
+), changed AS (
+  UPDATE public.flip_card_front_stage f SET
+    status_label='ACTIVE', display_status_label='ACTIVE',
+    current_teamid=e.teamid, current_team_source_team_id=e.teamid,
+    current_team_name=e.team_name,
+    current_org_or_conference_name=e.org_name,
+    current_team_level=e.team_level, current_level_label=e.team_level,
+    level_label=e.team_level, display_level_label=e.team_level,
+    current_team_source='tbc_2026_college_participation',
+    updated_at=NOW(), stage_updated_at=NOW()
+    FROM eligible e
+   WHERE f.playerid=e.playerid
+     AND f.status_label IS NULL AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS activated FROM changed
+`;
+
+/** Strict canonical-reference coverage. Missing org/level is never auto-filled
+ * from historical Baseball Cube player stats or PRO placeholders. */
+export const TEAM_UNIVERSE_INTEGRITY_SQL = `
+ SELECT COUNT(*)::int AS total_teams,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL)::int AS missing_names,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL)::int AS missing_orgs,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(level_label),'') IS NULL)::int AS missing_levels,
+ COUNT(*) FILTER(WHERE level_label NOT IN (
+   'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+   'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+   'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+ ))::int AS unofficial_levels,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL OR
+   NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL OR
+   level_label NOT IN (
+     'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+     'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+     'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+   ) OR level_label IS NULL)::int AS teams_needing_review
+ FROM public.teamid_universe_mapping
+`;
+export const TEAM_UNIVERSE_AUDIT_24H_SQL = `
+ SELECT COUNT(*)::int AS changes_past_24h
+ FROM public.teamid_universe_change_audit
+ WHERE changed_at >= NOW() - INTERVAL '24 hours'
+`;
+
+/** Every imported stat row must resolve by exact Team ID before it can enter a
+ * competitive career bucket. These counts are for visibility and reconciliation:
+ * raw archives are never modified, and PRO/UNKNOWN never become MINORS by range. */
+export const HISTORICAL_TBC_LEVEL_COVERAGE_SQL = `
+WITH imported AS (
+  SELECT teamid::text AS teamid, 'batting' AS source
+  FROM public.v_tbc_batting_all_seasons_resolved
+  UNION ALL
+  SELECT teamid::text, 'pitching'
+  FROM public.v_tbc_pitching_all_seasons_resolved
+), grouped AS (
+  SELECT teamid, source, COUNT(*)::bigint AS stat_rows
+  FROM imported GROUP BY teamid, source
+)
+SELECT source,
+  COALESCE(SUM(stat_rows),0)::bigint AS total_stat_rows,
+  COUNT(DISTINCT g.teamid) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  )::int AS unresolved_teamids,
+  COALESCE(SUM(stat_rows) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  ),0)::bigint AS held_stat_rows
+FROM grouped g
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid=g.teamid
+GROUP BY source ORDER BY source
+`;
+
+// Explicit 2025 cutoff: absence of playing activity after 2025 => RETIRED.
+// Protect any 2026-season activity, live MLB identities, and manual overrides.
+// Independent professional players require separate current-roster authority;
+// recent stats block retirement but do not establish ACTIVE by themselves.
+// No age criterion, no fabricated last team, and no invented career-high level.
+// Run in bounded batches; provenance trigger records every change.
+export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `
+
+WITH season2026 AS MATERIALIZED (
+  SELECT playerid FROM public.tbc_batting_2026_season_raw WHERE year='2026'
+  UNION SELECT playerid FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_batting_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_pitching_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT playerid FROM public.player_game_logs WHERE game_date>=DATE '2026-01-01' AND game_date<DATE '2027-01-01'
+), eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label IS NULL
+  AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+  AND f.current_team_source_player_id IS NULL AND f.current_team_source_team_id IS NULL
+  AND f.current_team_last_verified IS NULL
+  AND f.last_transaction_applied_at IS NULL AND f.current_team_absent_since IS NULL
+  AND f.is_on_40man IS NOT TRUE
+  AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT','ACTIVE','40-MAN')
+  AND NOT EXISTS(SELECT 1 FROM season2026 s WHERE s.playerid=f.playerid)
+  AND NOT EXISTS(SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+  AND NOT EXISTS(SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
+  AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 5000
+), classified AS (
+ UPDATE public.flip_card_front_stage f SET
+  status_label='RETIRED', display_status_label='RETIRED',
+  team_affiliation_status='RETIRED',
+  source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','no_activity_after_2025',
+      'evidence','no_documented_2026_participation',
+      'source','yatstats_retirement_cutoff',
+      'applied_at',NOW())),
+  updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid AND f.status_label IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS retired FROM classified
+`;
+
+// Restore existing verified career high where legacy NCAA placeholder persisted.
+export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL = `
+
+WITH fixed AS (
+ UPDATE public.flip_card_front_stage f
+ SET level_label=f.highest_level_label,
+     display_level_label=f.highest_level_label,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     updated_at=NOW(),stage_updated_at=NOW()
+ WHERE f.status_label='RETIRED' AND f.level_label='NCAA'
+ AND f.highest_level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+ AND f.current_teamid IS NULL AND f.current_team_name IS NULL AND f.current_team_source IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS corrected FROM fixed
+`;
+
+// Career-high is a TBC PLAYER fact, never a current team. Only explicit
+// unambiguous official TBC highlevel labels may fill the RETIRED career high.
+// NCAA (missing division), JrCollege (ambiguous NJCAA/CCCAA/NWAC) and '-'
+// are deliberately excluded until historical career stats arrive.
+export const SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL = `
+
+WITH src AS MATERIALIZED (
+ SELECT f.playerid,p.highlevel AS source_high,
+ CASE UPPER(BTRIM(p.highlevel))
+   WHEN 'MLB' THEN 'MLB'
+   WHEN 'AAA' THEN 'TRIPLE-A'
+   WHEN 'AA' THEN 'DOUBLE-A'
+   WHEN 'A+' THEN 'HIGH-A'
+   WHEN 'A' THEN 'SINGLE-A'
+   WHEN 'A-' THEN 'SINGLE-A'
+   WHEN 'RK' THEN 'ROOKIE'
+   WHEN 'INDY' THEN 'INDY'
+   WHEN 'INTL' THEN 'INTERNATIONAL'
+   WHEN 'NAIA' THEN 'NAIA'
+ END AS verified_level
+ FROM public.flip_card_front_stage f JOIN public.tbc_players_raw p USING(playerid)
+ WHERE f.status_label='RETIRED'
+   AND NULLIF(BTRIM(f.highest_level_label),'') IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+   AND p.highlevel IS NOT NULL
+), eligible AS MATERIALIZED (
+ SELECT playerid,source_high,verified_level FROM src
+ WHERE verified_level IS NOT NULL
+ ORDER BY playerid LIMIT 5000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   highest_level_label=e.verified_level,
+   highest_level_checked_at=NOW(),
+   level_label=e.verified_level,
+   display_level_label=e.verified_level,
+   current_team_level=NULL,
+   current_level_label=NULL,
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('career_high_classification',jsonb_build_object(
+       'source','tbc_players_raw.highlevel',
+       'source_value',e.source_high,
+       'resolved_level',e.verified_level,
+       'applied_at',NOW())),
+   stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED' AND f.highest_level_label IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS recovered FROM changed
+`;
+
+// Retired MLB transaction wins over a prior active/injury roster snapshot.
+// Clear stale CURRENT team fields only when retirement transaction chronology
+// is explicit. The transaction itself and verified career-high are preserved.
+export const SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL = `
+
+WITH eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label='RETIRED'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NOT NULL
+   AND f.last_transaction_type ILIKE '%retir%'
+   AND f.last_transaction_applied_at IS NOT NULL
+   AND f.current_team_last_verified IS NOT NULL
+   AND f.last_transaction_applied_at >= f.current_team_last_verified
+   AND f.current_team_source IN ('mlb_api','mlb_api_canonical_teamid')
+   AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f
+ SET current_teamid=NULL,
+     current_team_name=NULL,
+     current_org_or_conference_name=NULL,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     current_team_source=NULL,
+     current_team_source_team_id=NULL,
+     current_team_source_player_id=NULL,
+     current_team_roster_status=NULL,
+     current_team_last_verified=NULL,
+     next_game_date=NULL,
+     next_game_status_label=NULL,
+     next_game_opponent=NULL,
+     next_game_time_utc=NULL,
+     next_game_time_local=NULL,
+     next_game_home_away=NULL,
+     source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+       jsonb_build_object('retired_transaction_team_clear',jsonb_build_object(
+         'reason','retirement_transaction_postdates_last_verified_roster',
+         'source','mlb_api_transaction',
+         'applied_at',NOW())),
+     stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+  AND f.status_label='RETIRED'
+  AND f.last_transaction_applied_at >= f.current_team_last_verified
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS cleared FROM changed
+`;
+
+// Correct a previous automated 2025 retirement when late, verified 2026
+// COLLEGE season data is imported. Never infer a professional ACTIVE status.
+// Only original auto-retired, source-untainted players are eligible.
+export const SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL = `
+
+WITH season_rows AS MATERIALIZED (
+ SELECT playerid,teamid FROM public.tbc_batting_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+ UNION SELECT playerid,teamid FROM public.tbc_pitching_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+), unique_teams AS MATERIALIZED (
+ SELECT playerid,MIN(teamid) AS teamid FROM season_rows GROUP BY playerid
+ HAVING COUNT(DISTINCT teamid)=1
+), eligible AS MATERIALIZED (
+ SELECT f.playerid,u.teamid,u.current_team_name,u.current_org_or_conference_name,u.level_label
+ FROM public.flip_card_front_stage f
+ JOIN unique_teams s ON s.playerid=f.playerid
+ JOIN public.teamid_universe_mapping u ON u.teamid=s.teamid
+ WHERE f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.source_summary->'status_classification'->>'source'='yatstats_retirement_cutoff'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+   AND f.last_transaction_applied_at IS NULL AND f.last_transaction_type IS NULL
+   AND f.is_on_40man IS NOT TRUE
+   AND u.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+   AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+   AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.player_source_map m
+     WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+   AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
+     WHERE r.playerid=f.playerid AND r.match_status='matched')
+   AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   status_label='ACTIVE', display_status_label='ACTIVE',
+   team_affiliation_status=NULL,
+   current_teamid=e.teamid,current_team_source_team_id=e.teamid,
+   current_team_name=e.current_team_name,
+   current_org_or_conference_name=e.current_org_or_conference_name,
+   level_label=e.level_label,display_level_label=e.level_label,
+   current_team_level=e.level_label,current_level_label=e.level_label,
+   current_team_source='tbc_2026_college_participation',
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','verified_2026_college_participation',
+      'source','tbc_2026_college_participation',
+      'previous_rule','no_activity_after_2025',
+      'applied_at',NOW())),
+   updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS reactivated FROM changed
+`;
+
+), archive_teams AS (
+  SELECT b.playerid, b.teamid FROM public.tbc_complete_batting_history b
+  JOIN missing_source f ON f.playerid=b.playerid
+  WHERE b.year='2026' AND b.teamid ~ '^[0-9]+
+// IDs and assigned-but-unmapped IDs need investigation.
+export const STAGE_TEAM_COVERAGE_SQL = `
+SELECT COUNT(*)::int AS stage_rows,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NULL)::int AS null_team_ids,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE')::int AS active_rows,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NULL)::int AS active_null_team_ids,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NOT NULL AND u.teamid IS NULL)::int AS unmapped_team_ids,
+  COUNT(*) FILTER (
+    WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NOT NULL
+      AND f.current_team_source IS NULL
+  )::int AS active_team_id_without_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+`;
+
+export const UNRESOLVED_ACTIVE_TEAM_SQL = `
+SELECT f.playerid, f.display_name, f.status_label, f.current_teamid,
+  f.current_team_name, f.level_label, f.current_team_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+WHERE f.status_label = 'ACTIVE'
+  AND (f.current_teamid IS NULL OR u.teamid IS NULL)
+ORDER BY f.display_name, f.playerid
+LIMIT 100
+`;
+
+// Only 2026 COLLEGE participation may establish ACTIVE from season statistics.
+// MLB/MiLB status comes from the MLB Organization API; independent pro status
+// needs an authoritative current league roster. Historic pro stats are NOT a
+// status or current-team signal. Unmatched/multi-team records are held.
+// Historical career-high labels NEVER become current display levels.
+// This is season activity evidence, not a live roster verification timestamp.
+export const SAFE_2026_BLANK_STATUS_RECOVERY_SQL = `
+WITH evidence AS MATERIALIZED (
+  SELECT playerid::text AS playerid, teamid::text AS teamid,
+         'tbc_2026'::text AS evidence_source
+    FROM public.tbc_batting_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+  UNION
+  SELECT playerid::text, teamid::text, 'tbc_2026'
+    FROM public.tbc_pitching_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+
+), unique_evidence AS MATERIALIZED (
+  SELECT playerid, MIN(teamid) AS teamid, MIN(evidence_source) AS evidence_source
+    FROM evidence
+   GROUP BY playerid
+  HAVING COUNT(DISTINCT teamid)=1 AND COUNT(DISTINCT evidence_source)=1
+), eligible AS MATERIALIZED (
+  SELECT f.playerid, u.teamid, u.current_team_name AS team_name,
+         u.current_org_or_conference_name AS org_name, u.level_label AS team_level,
+         e.evidence_source
+    FROM public.flip_card_front_stage f
+    JOIN unique_evidence e ON e.playerid=f.playerid
+    JOIN public.teamid_universe_mapping u ON u.teamid=e.teamid
+   WHERE f.status_label IS NULL
+     AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL
+     AND f.current_team_last_verified IS NULL
+     AND f.current_team_source_player_id IS NULL
+     AND f.current_team_source_team_id IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND f.is_on_40man IS NOT TRUE
+     AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT')
+     AND u.current_team_name IS NOT NULL
+     AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+     AND e.evidence_source='tbc_2026'
+     AND u.level_label IN
+       ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+     AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+     AND NOT EXISTS (
+       SELECT 1 FROM public.player_source_map m
+       WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM public.mlb_org_roster_resolution r
+       WHERE r.playerid=f.playerid AND r.match_status='matched'
+     )
+
+), changed AS (
+  UPDATE public.flip_card_front_stage f SET
+    status_label='ACTIVE', display_status_label='ACTIVE',
+    current_teamid=e.teamid, current_team_source_team_id=e.teamid,
+    current_team_name=e.team_name,
+    current_org_or_conference_name=e.org_name,
+    current_team_level=e.team_level, current_level_label=e.team_level,
+    level_label=e.team_level, display_level_label=e.team_level,
+    current_team_source='tbc_2026_college_participation',
+    updated_at=NOW(), stage_updated_at=NOW()
+    FROM eligible e
+   WHERE f.playerid=e.playerid
+     AND f.status_label IS NULL AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS activated FROM changed
+`;
+
+/** Strict canonical-reference coverage. Missing org/level is never auto-filled
+ * from historical Baseball Cube player stats or PRO placeholders. */
+export const TEAM_UNIVERSE_INTEGRITY_SQL = `
+ SELECT COUNT(*)::int AS total_teams,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL)::int AS missing_names,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL)::int AS missing_orgs,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(level_label),'') IS NULL)::int AS missing_levels,
+ COUNT(*) FILTER(WHERE level_label NOT IN (
+   'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+   'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+   'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+ ))::int AS unofficial_levels,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL OR
+   NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL OR
+   level_label NOT IN (
+     'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+     'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+     'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+   ) OR level_label IS NULL)::int AS teams_needing_review
+ FROM public.teamid_universe_mapping
+`;
+export const TEAM_UNIVERSE_AUDIT_24H_SQL = `
+ SELECT COUNT(*)::int AS changes_past_24h
+ FROM public.teamid_universe_change_audit
+ WHERE changed_at >= NOW() - INTERVAL '24 hours'
+`;
+
+/** Every imported stat row must resolve by exact Team ID before it can enter a
+ * competitive career bucket. These counts are for visibility and reconciliation:
+ * raw archives are never modified, and PRO/UNKNOWN never become MINORS by range. */
+export const HISTORICAL_TBC_LEVEL_COVERAGE_SQL = `
+WITH imported AS (
+  SELECT teamid::text AS teamid, 'batting' AS source
+  FROM public.v_tbc_batting_all_seasons_resolved
+  UNION ALL
+  SELECT teamid::text, 'pitching'
+  FROM public.v_tbc_pitching_all_seasons_resolved
+), grouped AS (
+  SELECT teamid, source, COUNT(*)::bigint AS stat_rows
+  FROM imported GROUP BY teamid, source
+)
+SELECT source,
+  COALESCE(SUM(stat_rows),0)::bigint AS total_stat_rows,
+  COUNT(DISTINCT g.teamid) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  )::int AS unresolved_teamids,
+  COALESCE(SUM(stat_rows) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  ),0)::bigint AS held_stat_rows
+FROM grouped g
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid=g.teamid
+GROUP BY source ORDER BY source
+`;
+
+// Explicit 2025 cutoff: absence of playing activity after 2025 => RETIRED.
+// Protect any 2026-season activity, live MLB identities, and manual overrides.
+// Independent professional players require separate current-roster authority;
+// recent stats block retirement but do not establish ACTIVE by themselves.
+// No age criterion, no fabricated last team, and no invented career-high level.
+// Run in bounded batches; provenance trigger records every change.
+export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `
+
+WITH season2026 AS MATERIALIZED (
+  SELECT playerid FROM public.tbc_batting_2026_season_raw WHERE year='2026'
+  UNION SELECT playerid FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_batting_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_pitching_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT playerid FROM public.player_game_logs WHERE game_date>=DATE '2026-01-01' AND game_date<DATE '2027-01-01'
+), eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label IS NULL
+  AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+  AND f.current_team_source_player_id IS NULL AND f.current_team_source_team_id IS NULL
+  AND f.current_team_last_verified IS NULL
+  AND f.last_transaction_applied_at IS NULL AND f.current_team_absent_since IS NULL
+  AND f.is_on_40man IS NOT TRUE
+  AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT','ACTIVE','40-MAN')
+  AND NOT EXISTS(SELECT 1 FROM season2026 s WHERE s.playerid=f.playerid)
+  AND NOT EXISTS(SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+  AND NOT EXISTS(SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
+  AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 5000
+), classified AS (
+ UPDATE public.flip_card_front_stage f SET
+  status_label='RETIRED', display_status_label='RETIRED',
+  team_affiliation_status='RETIRED',
+  source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','no_activity_after_2025',
+      'evidence','no_documented_2026_participation',
+      'source','yatstats_retirement_cutoff',
+      'applied_at',NOW())),
+  updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid AND f.status_label IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS retired FROM classified
+`;
+
+// Restore existing verified career high where legacy NCAA placeholder persisted.
+export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL = `
+
+WITH fixed AS (
+ UPDATE public.flip_card_front_stage f
+ SET level_label=f.highest_level_label,
+     display_level_label=f.highest_level_label,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     updated_at=NOW(),stage_updated_at=NOW()
+ WHERE f.status_label='RETIRED' AND f.level_label='NCAA'
+ AND f.highest_level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+ AND f.current_teamid IS NULL AND f.current_team_name IS NULL AND f.current_team_source IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS corrected FROM fixed
+`;
+
+// Career-high is a TBC PLAYER fact, never a current team. Only explicit
+// unambiguous official TBC highlevel labels may fill the RETIRED career high.
+// NCAA (missing division), JrCollege (ambiguous NJCAA/CCCAA/NWAC) and '-'
+// are deliberately excluded until historical career stats arrive.
+export const SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL = `
+
+WITH src AS MATERIALIZED (
+ SELECT f.playerid,p.highlevel AS source_high,
+ CASE UPPER(BTRIM(p.highlevel))
+   WHEN 'MLB' THEN 'MLB'
+   WHEN 'AAA' THEN 'TRIPLE-A'
+   WHEN 'AA' THEN 'DOUBLE-A'
+   WHEN 'A+' THEN 'HIGH-A'
+   WHEN 'A' THEN 'SINGLE-A'
+   WHEN 'A-' THEN 'SINGLE-A'
+   WHEN 'RK' THEN 'ROOKIE'
+   WHEN 'INDY' THEN 'INDY'
+   WHEN 'INTL' THEN 'INTERNATIONAL'
+   WHEN 'NAIA' THEN 'NAIA'
+ END AS verified_level
+ FROM public.flip_card_front_stage f JOIN public.tbc_players_raw p USING(playerid)
+ WHERE f.status_label='RETIRED'
+   AND NULLIF(BTRIM(f.highest_level_label),'') IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+   AND p.highlevel IS NOT NULL
+), eligible AS MATERIALIZED (
+ SELECT playerid,source_high,verified_level FROM src
+ WHERE verified_level IS NOT NULL
+ ORDER BY playerid LIMIT 5000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   highest_level_label=e.verified_level,
+   highest_level_checked_at=NOW(),
+   level_label=e.verified_level,
+   display_level_label=e.verified_level,
+   current_team_level=NULL,
+   current_level_label=NULL,
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('career_high_classification',jsonb_build_object(
+       'source','tbc_players_raw.highlevel',
+       'source_value',e.source_high,
+       'resolved_level',e.verified_level,
+       'applied_at',NOW())),
+   stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED' AND f.highest_level_label IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS recovered FROM changed
+`;
+
+// Retired MLB transaction wins over a prior active/injury roster snapshot.
+// Clear stale CURRENT team fields only when retirement transaction chronology
+// is explicit. The transaction itself and verified career-high are preserved.
+export const SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL = `
+
+WITH eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label='RETIRED'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NOT NULL
+   AND f.last_transaction_type ILIKE '%retir%'
+   AND f.last_transaction_applied_at IS NOT NULL
+   AND f.current_team_last_verified IS NOT NULL
+   AND f.last_transaction_applied_at >= f.current_team_last_verified
+   AND f.current_team_source IN ('mlb_api','mlb_api_canonical_teamid')
+   AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f
+ SET current_teamid=NULL,
+     current_team_name=NULL,
+     current_org_or_conference_name=NULL,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     current_team_source=NULL,
+     current_team_source_team_id=NULL,
+     current_team_source_player_id=NULL,
+     current_team_roster_status=NULL,
+     current_team_last_verified=NULL,
+     next_game_date=NULL,
+     next_game_status_label=NULL,
+     next_game_opponent=NULL,
+     next_game_time_utc=NULL,
+     next_game_time_local=NULL,
+     next_game_home_away=NULL,
+     source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+       jsonb_build_object('retired_transaction_team_clear',jsonb_build_object(
+         'reason','retirement_transaction_postdates_last_verified_roster',
+         'source','mlb_api_transaction',
+         'applied_at',NOW())),
+     stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+  AND f.status_label='RETIRED'
+  AND f.last_transaction_applied_at >= f.current_team_last_verified
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS cleared FROM changed
+`;
+
+// Correct a previous automated 2025 retirement when late, verified 2026
+// COLLEGE season data is imported. Never infer a professional ACTIVE status.
+// Only original auto-retired, source-untainted players are eligible.
+export const SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL = `
+
+WITH season_rows AS MATERIALIZED (
+ SELECT playerid,teamid FROM public.tbc_batting_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+ UNION SELECT playerid,teamid FROM public.tbc_pitching_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+), unique_teams AS MATERIALIZED (
+ SELECT playerid,MIN(teamid) AS teamid FROM season_rows GROUP BY playerid
+ HAVING COUNT(DISTINCT teamid)=1
+), eligible AS MATERIALIZED (
+ SELECT f.playerid,u.teamid,u.current_team_name,u.current_org_or_conference_name,u.level_label
+ FROM public.flip_card_front_stage f
+ JOIN unique_teams s ON s.playerid=f.playerid
+ JOIN public.teamid_universe_mapping u ON u.teamid=s.teamid
+ WHERE f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.source_summary->'status_classification'->>'source'='yatstats_retirement_cutoff'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+   AND f.last_transaction_applied_at IS NULL AND f.last_transaction_type IS NULL
+   AND f.is_on_40man IS NOT TRUE
+   AND u.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+   AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+   AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.player_source_map m
+     WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+   AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
+     WHERE r.playerid=f.playerid AND r.match_status='matched')
+   AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   status_label='ACTIVE', display_status_label='ACTIVE',
+   team_affiliation_status=NULL,
+   current_teamid=e.teamid,current_team_source_team_id=e.teamid,
+   current_team_name=e.current_team_name,
+   current_org_or_conference_name=e.current_org_or_conference_name,
+   level_label=e.level_label,display_level_label=e.level_label,
+   current_team_level=e.level_label,current_level_label=e.level_label,
+   current_team_source='tbc_2026_college_participation',
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','verified_2026_college_participation',
+      'source','tbc_2026_college_participation',
+      'previous_rule','no_activity_after_2025',
+      'applied_at',NOW())),
+   updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS reactivated FROM changed
+`;
+
+    AND NOT EXISTS (SELECT 1 FROM feed_teams d WHERE d.playerid=b.playerid)
+  UNION
+  SELECT p.playerid, p.teamid FROM public.tbc_complete_pitching_history p
+  JOIN missing_source f ON f.playerid=p.playerid
+  WHERE p.year='2026' AND p.teamid ~ '^[0-9]+
+// IDs and assigned-but-unmapped IDs need investigation.
+export const STAGE_TEAM_COVERAGE_SQL = `
+SELECT COUNT(*)::int AS stage_rows,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NULL)::int AS null_team_ids,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE')::int AS active_rows,
+  COUNT(*) FILTER (WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NULL)::int AS active_null_team_ids,
+  COUNT(*) FILTER (WHERE f.current_teamid IS NOT NULL AND u.teamid IS NULL)::int AS unmapped_team_ids,
+  COUNT(*) FILTER (
+    WHERE f.status_label = 'ACTIVE' AND f.current_teamid IS NOT NULL
+      AND f.current_team_source IS NULL
+  )::int AS active_team_id_without_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+`;
+
+export const UNRESOLVED_ACTIVE_TEAM_SQL = `
+SELECT f.playerid, f.display_name, f.status_label, f.current_teamid,
+  f.current_team_name, f.level_label, f.current_team_source
+FROM public.flip_card_front_stage f
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid = f.current_teamid
+WHERE f.status_label = 'ACTIVE'
+  AND (f.current_teamid IS NULL OR u.teamid IS NULL)
+ORDER BY f.display_name, f.playerid
+LIMIT 100
+`;
+
+// Only 2026 COLLEGE participation may establish ACTIVE from season statistics.
+// MLB/MiLB status comes from the MLB Organization API; independent pro status
+// needs an authoritative current league roster. Historic pro stats are NOT a
+// status or current-team signal. Unmatched/multi-team records are held.
+// Historical career-high labels NEVER become current display levels.
+// This is season activity evidence, not a live roster verification timestamp.
+export const SAFE_2026_BLANK_STATUS_RECOVERY_SQL = `
+WITH evidence AS MATERIALIZED (
+  SELECT playerid::text AS playerid, teamid::text AS teamid,
+         'tbc_2026'::text AS evidence_source
+    FROM public.tbc_batting_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+  UNION
+  SELECT playerid::text, teamid::text, 'tbc_2026'
+    FROM public.tbc_pitching_2026_season_raw
+   WHERE year='2026' AND playerid ~ '^[0-9]+$' AND teamid ~ '^[0-9]+$'
+
+), unique_evidence AS MATERIALIZED (
+  SELECT playerid, MIN(teamid) AS teamid, MIN(evidence_source) AS evidence_source
+    FROM evidence
+   GROUP BY playerid
+  HAVING COUNT(DISTINCT teamid)=1 AND COUNT(DISTINCT evidence_source)=1
+), eligible AS MATERIALIZED (
+  SELECT f.playerid, u.teamid, u.current_team_name AS team_name,
+         u.current_org_or_conference_name AS org_name, u.level_label AS team_level,
+         e.evidence_source
+    FROM public.flip_card_front_stage f
+    JOIN unique_evidence e ON e.playerid=f.playerid
+    JOIN public.teamid_universe_mapping u ON u.teamid=e.teamid
+   WHERE f.status_label IS NULL
+     AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL
+     AND f.current_team_last_verified IS NULL
+     AND f.current_team_source_player_id IS NULL
+     AND f.current_team_source_team_id IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND f.is_on_40man IS NOT TRUE
+     AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT')
+     AND u.current_team_name IS NOT NULL
+     AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+     AND e.evidence_source='tbc_2026'
+     AND u.level_label IN
+       ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+     AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+     AND NOT EXISTS (
+       SELECT 1 FROM public.player_source_map m
+       WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM public.mlb_org_roster_resolution r
+       WHERE r.playerid=f.playerid AND r.match_status='matched'
+     )
+
+), changed AS (
+  UPDATE public.flip_card_front_stage f SET
+    status_label='ACTIVE', display_status_label='ACTIVE',
+    current_teamid=e.teamid, current_team_source_team_id=e.teamid,
+    current_team_name=e.team_name,
+    current_org_or_conference_name=e.org_name,
+    current_team_level=e.team_level, current_level_label=e.team_level,
+    level_label=e.team_level, display_level_label=e.team_level,
+    current_team_source='tbc_2026_college_participation',
+    updated_at=NOW(), stage_updated_at=NOW()
+    FROM eligible e
+   WHERE f.playerid=e.playerid
+     AND f.status_label IS NULL AND f.current_teamid IS NULL
+     AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+     AND f.last_transaction_applied_at IS NULL
+     AND f.current_team_absent_since IS NULL
+     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS activated FROM changed
+`;
+
+/** Strict canonical-reference coverage. Missing org/level is never auto-filled
+ * from historical Baseball Cube player stats or PRO placeholders. */
+export const TEAM_UNIVERSE_INTEGRITY_SQL = `
+ SELECT COUNT(*)::int AS total_teams,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL)::int AS missing_names,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL)::int AS missing_orgs,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(level_label),'') IS NULL)::int AS missing_levels,
+ COUNT(*) FILTER(WHERE level_label NOT IN (
+   'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+   'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+   'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+ ))::int AS unofficial_levels,
+ COUNT(*) FILTER(WHERE NULLIF(BTRIM(current_team_name),'') IS NULL OR
+   NULLIF(BTRIM(current_org_or_conference_name),'') IS NULL OR
+   level_label NOT IN (
+     'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+     'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3',
+     'NAIA','NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+   ) OR level_label IS NULL)::int AS teams_needing_review
+ FROM public.teamid_universe_mapping
+`;
+export const TEAM_UNIVERSE_AUDIT_24H_SQL = `
+ SELECT COUNT(*)::int AS changes_past_24h
+ FROM public.teamid_universe_change_audit
+ WHERE changed_at >= NOW() - INTERVAL '24 hours'
+`;
+
+/** Every imported stat row must resolve by exact Team ID before it can enter a
+ * competitive career bucket. These counts are for visibility and reconciliation:
+ * raw archives are never modified, and PRO/UNKNOWN never become MINORS by range. */
+export const HISTORICAL_TBC_LEVEL_COVERAGE_SQL = `
+WITH imported AS (
+  SELECT teamid::text AS teamid, 'batting' AS source
+  FROM public.v_tbc_batting_all_seasons_resolved
+  UNION ALL
+  SELECT teamid::text, 'pitching'
+  FROM public.v_tbc_pitching_all_seasons_resolved
+), grouped AS (
+  SELECT teamid, source, COUNT(*)::bigint AS stat_rows
+  FROM imported GROUP BY teamid, source
+)
+SELECT source,
+  COALESCE(SUM(stat_rows),0)::bigint AS total_stat_rows,
+  COUNT(DISTINCT g.teamid) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  )::int AS unresolved_teamids,
+  COALESCE(SUM(stat_rows) FILTER(
+    WHERE u.teamid IS NULL OR u.level_label IS NULL
+       OR u.level_label NOT IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A',
+         'SINGLE-A','ROOKIE','INDY','INTERNATIONAL','NCAA-D1',
+         'NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+  ),0)::bigint AS held_stat_rows
+FROM grouped g
+LEFT JOIN public.teamid_universe_mapping u ON u.teamid=g.teamid
+GROUP BY source ORDER BY source
+`;
+
+// Explicit 2025 cutoff: absence of playing activity after 2025 => RETIRED.
+// Protect any 2026-season activity, live MLB identities, and manual overrides.
+// Independent professional players require separate current-roster authority;
+// recent stats block retirement but do not establish ACTIVE by themselves.
+// No age criterion, no fabricated last team, and no invented career-high level.
+// Run in bounded batches; provenance trigger records every change.
+export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `
+
+WITH season2026 AS MATERIALIZED (
+  SELECT playerid FROM public.tbc_batting_2026_season_raw WHERE year='2026'
+  UNION SELECT playerid FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_batting_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT yatstats_playerid FROM public.indy_iscore_pitching_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
+  UNION SELECT playerid FROM public.player_game_logs WHERE game_date>=DATE '2026-01-01' AND game_date<DATE '2027-01-01'
+), eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label IS NULL
+  AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+  AND f.current_team_source_player_id IS NULL AND f.current_team_source_team_id IS NULL
+  AND f.current_team_last_verified IS NULL
+  AND f.last_transaction_applied_at IS NULL AND f.current_team_absent_since IS NULL
+  AND f.is_on_40man IS NOT TRUE
+  AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT','ACTIVE','40-MAN')
+  AND NOT EXISTS(SELECT 1 FROM season2026 s WHERE s.playerid=f.playerid)
+  AND NOT EXISTS(SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+  AND NOT EXISTS(SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
+  AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 5000
+), classified AS (
+ UPDATE public.flip_card_front_stage f SET
+  status_label='RETIRED', display_status_label='RETIRED',
+  team_affiliation_status='RETIRED',
+  source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','no_activity_after_2025',
+      'evidence','no_documented_2026_participation',
+      'source','yatstats_retirement_cutoff',
+      'applied_at',NOW())),
+  updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid AND f.status_label IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS retired FROM classified
+`;
+
+// Restore existing verified career high where legacy NCAA placeholder persisted.
+export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL = `
+
+WITH fixed AS (
+ UPDATE public.flip_card_front_stage f
+ SET level_label=f.highest_level_label,
+     display_level_label=f.highest_level_label,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     updated_at=NOW(),stage_updated_at=NOW()
+ WHERE f.status_label='RETIRED' AND f.level_label='NCAA'
+ AND f.highest_level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+ AND f.current_teamid IS NULL AND f.current_team_name IS NULL AND f.current_team_source IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS corrected FROM fixed
+`;
+
+// Career-high is a TBC PLAYER fact, never a current team. Only explicit
+// unambiguous official TBC highlevel labels may fill the RETIRED career high.
+// NCAA (missing division), JrCollege (ambiguous NJCAA/CCCAA/NWAC) and '-'
+// are deliberately excluded until historical career stats arrive.
+export const SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL = `
+
+WITH src AS MATERIALIZED (
+ SELECT f.playerid,p.highlevel AS source_high,
+ CASE UPPER(BTRIM(p.highlevel))
+   WHEN 'MLB' THEN 'MLB'
+   WHEN 'AAA' THEN 'TRIPLE-A'
+   WHEN 'AA' THEN 'DOUBLE-A'
+   WHEN 'A+' THEN 'HIGH-A'
+   WHEN 'A' THEN 'SINGLE-A'
+   WHEN 'A-' THEN 'SINGLE-A'
+   WHEN 'RK' THEN 'ROOKIE'
+   WHEN 'INDY' THEN 'INDY'
+   WHEN 'INTL' THEN 'INTERNATIONAL'
+   WHEN 'NAIA' THEN 'NAIA'
+ END AS verified_level
+ FROM public.flip_card_front_stage f JOIN public.tbc_players_raw p USING(playerid)
+ WHERE f.status_label='RETIRED'
+   AND NULLIF(BTRIM(f.highest_level_label),'') IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+   AND p.highlevel IS NOT NULL
+), eligible AS MATERIALIZED (
+ SELECT playerid,source_high,verified_level FROM src
+ WHERE verified_level IS NOT NULL
+ ORDER BY playerid LIMIT 5000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   highest_level_label=e.verified_level,
+   highest_level_checked_at=NOW(),
+   level_label=e.verified_level,
+   display_level_label=e.verified_level,
+   current_team_level=NULL,
+   current_level_label=NULL,
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('career_high_classification',jsonb_build_object(
+       'source','tbc_players_raw.highlevel',
+       'source_value',e.source_high,
+       'resolved_level',e.verified_level,
+       'applied_at',NOW())),
+   stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED' AND f.highest_level_label IS NULL
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS recovered FROM changed
+`;
+
+// Retired MLB transaction wins over a prior active/injury roster snapshot.
+// Clear stale CURRENT team fields only when retirement transaction chronology
+// is explicit. The transaction itself and verified career-high are preserved.
+export const SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL = `
+
+WITH eligible AS MATERIALIZED (
+ SELECT f.playerid
+ FROM public.flip_card_front_stage f
+ WHERE f.status_label='RETIRED'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NOT NULL
+   AND f.last_transaction_type ILIKE '%retir%'
+   AND f.last_transaction_applied_at IS NOT NULL
+   AND f.current_team_last_verified IS NOT NULL
+   AND f.last_transaction_applied_at >= f.current_team_last_verified
+   AND f.current_team_source IN ('mlb_api','mlb_api_canonical_teamid')
+   AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f
+ SET current_teamid=NULL,
+     current_team_name=NULL,
+     current_org_or_conference_name=NULL,
+     current_team_level=NULL,
+     current_level_label=NULL,
+     current_team_source=NULL,
+     current_team_source_team_id=NULL,
+     current_team_source_player_id=NULL,
+     current_team_roster_status=NULL,
+     current_team_last_verified=NULL,
+     next_game_date=NULL,
+     next_game_status_label=NULL,
+     next_game_opponent=NULL,
+     next_game_time_utc=NULL,
+     next_game_time_local=NULL,
+     next_game_home_away=NULL,
+     source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+       jsonb_build_object('retired_transaction_team_clear',jsonb_build_object(
+         'reason','retirement_transaction_postdates_last_verified_roster',
+         'source','mlb_api_transaction',
+         'applied_at',NOW())),
+     stage_updated_at=NOW(),updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+  AND f.status_label='RETIRED'
+  AND f.last_transaction_applied_at >= f.current_team_last_verified
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS cleared FROM changed
+`;
+
+// Correct a previous automated 2025 retirement when late, verified 2026
+// COLLEGE season data is imported. Never infer a professional ACTIVE status.
+// Only original auto-retired, source-untainted players are eligible.
+export const SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL = `
+
+WITH season_rows AS MATERIALIZED (
+ SELECT playerid,teamid FROM public.tbc_batting_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+ UNION SELECT playerid,teamid FROM public.tbc_pitching_2026_season_raw
+ WHERE year='2026' AND NULLIF(BTRIM(teamid),'') IS NOT NULL
+), unique_teams AS MATERIALIZED (
+ SELECT playerid,MIN(teamid) AS teamid FROM season_rows GROUP BY playerid
+ HAVING COUNT(DISTINCT teamid)=1
+), eligible AS MATERIALIZED (
+ SELECT f.playerid,u.teamid,u.current_team_name,u.current_org_or_conference_name,u.level_label
+ FROM public.flip_card_front_stage f
+ JOIN unique_teams s ON s.playerid=f.playerid
+ JOIN public.teamid_universe_mapping u ON u.teamid=s.teamid
+ WHERE f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.source_summary->'status_classification'->>'source'='yatstats_retirement_cutoff'
+   AND f.team_affiliation_status='RETIRED'
+   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
+   AND f.current_team_source IS NULL AND f.current_team_last_verified IS NULL
+   AND f.last_transaction_applied_at IS NULL AND f.last_transaction_type IS NULL
+   AND f.is_on_40man IS NOT TRUE
+   AND u.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+   AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
+   AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.player_source_map m
+     WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
+   AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
+     WHERE r.playerid=f.playerid AND r.match_status='matched')
+   AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+ AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
+ ORDER BY f.playerid LIMIT 1000
+), changed AS (
+ UPDATE public.flip_card_front_stage f SET
+   status_label='ACTIVE', display_status_label='ACTIVE',
+   team_affiliation_status=NULL,
+   current_teamid=e.teamid,current_team_source_team_id=e.teamid,
+   current_team_name=e.current_team_name,
+   current_org_or_conference_name=e.current_org_or_conference_name,
+   level_label=e.level_label,display_level_label=e.level_label,
+   current_team_level=e.level_label,current_level_label=e.level_label,
+   current_team_source='tbc_2026_college_participation',
+   source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+    jsonb_build_object('status_classification',jsonb_build_object(
+      'rule','verified_2026_college_participation',
+      'source','tbc_2026_college_participation',
+      'previous_rule','no_activity_after_2025',
+      'applied_at',NOW())),
+   updated_at=NOW(),stage_updated_at=NOW()
+ FROM eligible e WHERE f.playerid=e.playerid
+   AND f.status_label='RETIRED'
+   AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+   AND f.last_transaction_applied_at IS NULL
+ RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS reactivated FROM changed
+`;
+
+    AND NOT EXISTS (SELECT 1 FROM feed_teams d WHERE d.playerid=p.playerid)
+), unique_2026 AS (
+  SELECT playerid, MIN(teamid) teamid
+  FROM (SELECT * FROM feed_teams UNION SELECT * FROM archive_teams) x
+  GROUP BY playerid
+  HAVING COUNT(DISTINCT teamid)=1
+), verified AS MATERIALIZED (
+  SELECT f.playerid, f.current_teamid
+  FROM missing_source f JOIN unique_2026 x
+    ON x.playerid=f.playerid AND x.teamid=f.current_teamid
+), changed AS (
+  UPDATE public.flip_card_front_stage f
+  SET current_team_source='tbc_2026_college_participation',
+      current_team_source_team_id=COALESCE(f.current_team_source_team_id,v.current_teamid),
+      source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+        jsonb_build_object('current_team_resolution',jsonb_build_object(
+          'source','unique_2026_college_participation',
+          'season',2026,'teamid',v.current_teamid,
+          'assignment_unchanged',true,'provenance_recovered_at',NOW())),
+      updated_at=NOW(),stage_updated_at=NOW()
+  FROM verified v
+  WHERE f.playerid=v.playerid AND f.status_label='ACTIVE'
+    AND f.current_teamid=v.current_teamid AND f.current_team_source IS NULL
+    AND (f.current_team_source_team_id IS NULL OR f.current_team_source_team_id=v.current_teamid)
+    AND f.current_team_last_verified IS NULL
+    AND f.last_transaction_applied_at IS NULL AND f.last_transaction_type IS NULL
+    AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
   RETURNING f.playerid
 )
 SELECT COUNT(*)::int AS recovered FROM changed
