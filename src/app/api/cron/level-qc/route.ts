@@ -1,3 +1,4 @@
+import { SAFE_2026_COLLEGE_PROVENANCE_RECOVERY_SQL } from "@/lib/verifiedCollegeProvenance";
 import { NextRequest, NextResponse } from "next/server";
 // Rewrites levels: the writer connection, not the site's read-only pool.
 import { writerQuery as query } from "@/lib/dbWriter";
@@ -7,7 +8,6 @@ import {
   CANONICAL_ACTIVE_STAGE_MISMATCH_SQL,
   CANONICAL_STAGE_REPAIR_SQL,
   SAFE_2026_STAGE_TEAM_RECOVERY_SQL,
-  SAFE_2026_COLLEGE_PROVENANCE_RECOVERY_SQL,
   SAFE_2026_BLANK_STATUS_RECOVERY_SQL,
   STAGE_TEAM_COVERAGE_SQL,
   UNRESOLVED_ACTIVE_TEAM_SQL,
