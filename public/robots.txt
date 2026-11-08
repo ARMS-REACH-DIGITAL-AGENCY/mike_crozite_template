@@ -1,6 +1,12 @@
 # Search engines are welcome. The API and the heavy-crawling AI/SEO
 # scrapers are not: each player page reads a career's worth of stats, and
 # crawlers walking every page took the database down (Oct 2026).
+#
+# Every school subdomain serves this same file. The Sitemap line below is
+# Google's cross-site sitemap method: it lets the sitemaps.yatstats.com index
+# list each school's hub and Active Alumni profiles on that school's subdomain.
+Sitemap: https://sitemaps.yatstats.com/sitemap.xml
+
 User-agent: *
 Allow: /
 # Share images: link previews (X, iMessage, Slack) must reach these.

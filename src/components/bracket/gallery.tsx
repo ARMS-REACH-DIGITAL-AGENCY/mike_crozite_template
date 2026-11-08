@@ -41,7 +41,7 @@ export type Index = {
   champion: number;
   lbLeaders: number[]; // the Season Championship Tournament's 8, seed order
   // The postseason schools' alumni [name, level], best level first: each
-  // nominates one fan for the World Series Tickets Raffle.
+  // nominates one fan for the World Series Tickets Sweepstakes.
   alumni?: Record<string, [string, string][]>;
   lbChampion: number;
   grandChampion: number;
@@ -796,7 +796,7 @@ function CardShell({ front, back, flipped }: { front: ReactNode; back?: ReactNod
   );
 }
 
-// One school's fans in the World Series Tickets Raffle. The Bracket Champ's
+// One school's fans in the World Series Tickets Sweepstakes. The Bracket Champ's
 // are its registered fans; the Season Championship Tournament schools' are
 // the fans their alumni nominate (one each). No fans are in the simulation
 // yet, so the slots are empty.
@@ -826,7 +826,7 @@ function ExtraCard({ extra, index }: { extra: Extra; index: Index }) {
   if (extra.kind === 'fans') {
     // One side per game in the row: both schools' fan picks.
     const side = (g: GameRow | undefined) => g && (
-      <Pane label={`World Series Tickets Raffle · Week ${g[1]}`} dates={dates(g[1])} onFlip={extra.games.length > 1 ? flip : undefined}>
+      <Pane label={`World Series Tickets Sweepstakes · Week ${g[1]}`} dates={dates(g[1])} onFlip={extra.games.length > 1 ? flip : undefined}>
         <div className="bl-fans-kick">Fan picks · {shortName(S[g[2]]?.[0] || '')} vs {shortName(S[g[3]]?.[0] || '')}{extra.games.length > 1 ? ' ⟳' : ''}</div>
         <div className="bl-scroll-y">
           <RaffleFans index={index} h={g[2]} registered={false} />
@@ -894,7 +894,7 @@ export function FlipCard({ game, label, index, box, loading, front = 'h', back }
         <div className="bl-face bl-front">{face(front)}</div>
         <div className="bl-face bl-back">
           {back ? (
-            <Pane label={`World Series Tickets Raffle · Week ${week}`} dates={ws ? fmtRange(ws, we) : ''} onFlip={flip}>
+            <Pane label={`World Series Tickets Sweepstakes · Week ${week}`} dates={ws ? fmtRange(ws, we) : ''} onFlip={flip}>
               <div className="bl-fans-kick">Fans hoping to win a trip to the World Series ⟳</div>
               <div className="bl-scroll-y">{back}</div>
             </Pane>
