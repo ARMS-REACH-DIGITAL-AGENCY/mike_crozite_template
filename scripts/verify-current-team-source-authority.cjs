@@ -128,6 +128,13 @@ assert(recovery.includes("f.current_teamid IS NULL") &&
 assert(recovery.includes('public.player_team_override') &&
        recovery.includes('f.last_transaction_applied_at IS NULL'),
   'Recovery must protect overrides and transaction departures');
+assert(recovery.includes('public.mlb_org_roster_resolution') &&
+       recovery.includes("r.match_status='matched'"),
+  'College Team ID recovery must exclude any authoritative MLB roster resolution');
+const provenanceRecovery = source('src/lib/verifiedCollegeProvenance.ts');
+assert(provenanceRecovery.includes('public.mlb_org_roster_resolution') &&
+       provenanceRecovery.includes("r.match_status='matched'"),
+  'College source attribution must exclude any authoritative MLB roster resolution');
 assert(!/current_team_last_verified\s*=/i.test(recovery),
   '2026 stats evidence must not be misrepresented as a live verified roster');
 assert(recovery.includes("'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'") &&
