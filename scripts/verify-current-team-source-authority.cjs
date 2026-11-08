@@ -268,6 +268,25 @@ assert(statusCron.includes('SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL'),
 assert(cutoff.includes('EXTRACT(YEAR FROM CURRENT_DATE)=2026'),
   'Year-specific retirement rule must fail closed when 2027 begins');
 
+const staleAffiliation = section(levels,
+  'export const SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL = \`',
+  'SELECT COUNT(*)::int AS stale_affiliations_corrected FROM changed');
+assert(staleAffiliation.includes("f.status_label='ACTIVE'") &&
+       staleAffiliation.includes("f.team_affiliation_status='RETIRED'") &&
+       staleAffiliation.includes("verified_2026_participation") &&
+       staleAffiliation.includes("tbc_complete_history_2026") &&
+       staleAffiliation.includes("yatstats_retirement_cutoff") &&
+       staleAffiliation.includes("f.current_teamid IS NULL") &&
+       staleAffiliation.includes("f.current_team_source IS NULL") &&
+       staleAffiliation.includes('player_team_override') &&
+       staleAffiliation.includes("f.last_transaction_applied_at IS NULL") &&
+       !staleAffiliation.includes("SET status_label=") &&
+       !staleAffiliation.includes("current_teamid=") &&
+       !staleAffiliation.includes("current_team_last_verified="),
+  'Clear only superseded auto-retirement affiliation without guessing team or changing status');
+assert(statusCron.includes('SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL'),
+  'Recurring status reconciliation must clear verified stale retirement affiliation');
+
 const expandedStageGuard = source('migrations/20261031_expand_guard_flip_card_canonical_identity.sql');
 assert(expandedStageGuard.includes('yatstats_guard_stage_name_org_edits') &&
        expandedStageGuard.includes('BEFORE UPDATE OF current_team_name,current_org_or_conference_name') &&
