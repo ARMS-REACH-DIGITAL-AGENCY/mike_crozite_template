@@ -105,12 +105,23 @@ for (const variable of ['GALLERY_STATUS_OPTIONS','ROSTER_STATUSES','ACTIVE_GALLE
 const recovery = section(levels,
   'export const SAFE_2026_STAGE_TEAM_RECOVERY_SQL = `',
   'export const STAGE_TEAM_COVERAGE_SQL');
-assert(recovery.includes("year = '2026'"),
-  'Recovery must use only current-season 2026 records');
-assert(recovery.includes('COUNT(DISTINCT teamid) = 1'),
+assert(/year\s*=\s*'2026'/.test(recovery) &&
+       recovery.includes('EXTRACT(YEAR FROM CURRENT_DATE)=2026'),
+  'Recovery must use 2026 seasons and fail closed at 2027 rollover');
+assert(recovery.includes('public.tbc_complete_batting_history') &&
+       recovery.includes('public.tbc_complete_pitching_history') &&
+       recovery.includes('public.tbc_batting_2026_season_raw') &&
+       recovery.includes('public.tbc_pitching_2026_season_raw') &&
+       recovery.includes('NOT EXISTS(SELECT 1 FROM feed_teams'),
+  'Recovery must include verified 2026 history but prefer the daily feed');
+assert(/COUNT\(DISTINCT teamid\)\s*=\s*1/.test(recovery),
   'Ambiguous multi-team 2026 assignments must not be guessed');
-assert(!/public\.player_current_team\b/i.test(recovery),
-  'Recovery must never read the obsolete MLB snapshot');
+assert(recovery.includes('NOT EXISTS (SELECT 1 FROM public.player_current_team ct'),
+  'Recovery must exclude stale legacy MLB snapshot holders, not read them as current teams');
+assert(recovery.includes("f.source_summary#>>'{status_classification,source}'='tbc_complete_history_2026'") &&
+       recovery.includes("f.source_summary#>>'{status_classification,supersedes}'='yatstats_retirement_cutoff'") &&
+       recovery.includes("team_affiliation_status='CURRENT'"),
+  'Only auditable auto-retirement reversals may clear an obsolete RETIRED affiliation');
 assert(recovery.includes("f.current_teamid IS NULL") &&
        recovery.includes("f.current_team_source IS NULL"),
   'Recovery must not overwrite an existing verified assignment');
