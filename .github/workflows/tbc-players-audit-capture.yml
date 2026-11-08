@@ -82,9 +82,9 @@ jobs:
           if previous:
               previous_id,raw_done,cards_done=previous
               if raw_done and cards_done:
-                  print("FULLY_PUBLISHED_UNCHANGED_SOURCE",previous_id,flush=True)
+                  print("FULLY_PUBLISHED_UNCHANGED_SOURCE_REVERIFY",previous_id,flush=True)
                   with open(os.environ["GITHUB_OUTPUT"],"a") as output:
-                      print("run_id=",file=output)
+                      print(f"run_id={previous_id}",file=output)
                   sys.exit(0)
               print("RESUMING_INCOMPLETE_SOURCE",previous_id,flush=True)
               with open(os.environ["GITHUB_OUTPUT"],"a") as output:
