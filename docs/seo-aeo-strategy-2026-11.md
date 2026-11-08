@@ -27,6 +27,15 @@ order; each item names what changes and how we know it worked.
   24h, so reading the sitemap costs one DB query per school per day. If the DB
   is down, the sitemap returns 503 instead of an empty list.
 
+Verified on the branch's Vercel preview (Nov 8): the index lists 1,025
+school sitemaps; Hamilton's (`/sitemaps/school/5004.xml`) lists the hub and
+48 profiles, and a listed profile URL loads with a matching `og:url`.
+
+**Before submitting to Search Console, check after the production deploy:**
+`https://yatstats.com/sitemap.xml` renders the index; 2-3 school sitemaps
+list real URLs; `robots.txt` on the root and on 2 school subdomains shows the
+`Sitemap:` line.
+
 ## Phase 1: this week (setup only, no code)
 
 1. **Google Search Console: Domain property for `yatstats.com`** (DNS TXT
@@ -40,7 +49,21 @@ order; each item names what changes and how we know it worked.
    Googlebot adapts its crawl rate to how fast pages respond. If profile pages
    slow down, cache them before adding more URLs.
 
+### Checkpoint after 14 days (decides whether to start Phase 3)
+
+| Signal (GSC / Bing / Vercel / Neon) | Moving | Stalled: fix first |
+|---|---|---|
+| Sitemap status | "Success", 0 errors | Fetch or parse errors |
+| Submitted URLs indexed | 30%+ and rising | Under 10%: check "Crawled - not indexed" reasons |
+| Impressions for school/player queries | Up on the Phase 1 baseline | Flat |
+| Googlebot crawl stats | Avg response under 1s | Rising response time |
+| Neon connections / Vercel function errors | No change from baseline | Timeouts: cache profiles first |
+
 ## Phase 2: AEO crawler policy (Pete's decision)
+
+Record the decision and its reasoning as a dated entry in this doc and in
+the `robots.txt` comment, the same way the Oct 2026 blocks were explained.
+Change it with a reviewed PR, never as a side edit.
 
 The October bot blocks prevented outages, but they also make us invisible to
 answer engines. There are two kinds of AI bot:
@@ -72,7 +95,9 @@ already loads (no new queries):
   where we already store it.
 - **yatstats.com:** `Organization` + `WebSite` with a `SearchAction`.
 
-Validate with Google's Rich Results Test on Hamilton before rolling out.
+Roll out in order: Hamilton first (validate with Google's Rich Results
+Test), then the 20-30 hero schools with the most Active Alumni, then all
+hubs once Search Console's Enhancements report shows no errors.
 
 ## Phase 4: content answer engines can quote (ongoing)
 
