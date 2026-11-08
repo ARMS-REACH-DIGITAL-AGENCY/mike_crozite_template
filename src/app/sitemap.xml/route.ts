@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const schools = await getLiveSchools();
     return xmlResponse(sitemapIndexXml([
-      ...schools.map((s) => `${SITEMAP_ROOT}/sitemaps/school/${s.hsid}.xml`),
+      ...schools.filter((s) => !s.retiredInto).map((s) => `${SITEMAP_ROOT}/sitemaps/school/${s.hsid}.xml`),
     ]));
   } catch {
     // Never cache an empty index when the database is unavailable.

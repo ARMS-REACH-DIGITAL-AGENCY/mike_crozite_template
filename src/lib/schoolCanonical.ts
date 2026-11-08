@@ -12,6 +12,7 @@ import { unstable_cache } from 'next/cache';
 import { query } from '@/lib/db';
 import { getCanonicalBaseUrl } from '@/lib/canonicalUrl';
 import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
+import { getRetiredSchoolTwins } from '@/lib/sitemap';
 
 const generatedSchoolUrl = unstable_cache(async (hsid: string): Promise<string> => {
   const urls = await canonicalSchoolUrls([hsid], (sql, params = []) => query(sql, params));
@@ -25,6 +26,9 @@ export async function getSchoolCanonicalUrl(
   const curated = getCanonicalBaseUrl(school, hsid);
   if (school?.microsite_url || !/^[1-9]\d*$/.test(hsid)) return curated;
   try {
+    // A retired duplicate school points search engines to the kept one.
+    const keep = (await getRetiredSchoolTwins())[hsid];
+    if (keep) return (await generatedSchoolUrl(keep)) || curated;
     return (await generatedSchoolUrl(hsid)) || curated;
   } catch {
     return curated;

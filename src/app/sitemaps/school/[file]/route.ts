@@ -9,10 +9,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ fil
   const hsid = (file.match(/^([1-9]\d*)\.xml$/) || [])[1];
   if (!hsid) return new Response('Not found', { status: 404 });
   try {
-    const school = (await getLiveSchools()).find((s) => s.hsid === hsid);
-    if (!school) return new Response('Not found', { status: 404 });
-    const players = await getSitemapPlayers(hsid);
-    return xmlResponse(urlSetXml(schoolSitemapEntries(school, players)));
+    const schools = await getLiveSchools();
+    const school = schools.find((s) => s.hsid === hsid);
+    if (!school || school.retiredInto) return new Response('Not found', { status: 404 });
+    const twinSchools = schools.filter((s) => s.retiredInto === hsid);
+    const [players, ...twinPlayers] = await Promise.all([
+      getSitemapPlayers(hsid),
+      ...twinSchools.map((t) => getSitemapPlayers(t.hsid)),
+    ]);
+    const twins = twinSchools.map((t, i) => ({ school: t, players: twinPlayers[i] }));
+    return xmlResponse(urlSetXml(schoolSitemapEntries(school, players, twins)));
   } catch {
     return new Response('Sitemap temporarily unavailable', { status: 503, headers: { 'Retry-After': '3600' } });
   }
