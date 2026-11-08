@@ -142,6 +142,7 @@ interface LatestTransactionRow {
   from_team_name: string | null;
   to_team_name: string | null;
   effective_date: string | null;
+  mlb_person_id: string | null;
 }
 
 async function getLatestTransactionPerPlayer(): Promise<LatestTransactionRow[]> {
@@ -151,8 +152,10 @@ async function getLatestTransactionPerPlayer(): Promise<LatestTransactionRow[]> 
       transaction_type,
       from_team_name,
       to_team_name,
-      effective_date::text AS effective_date
+      effective_date::text AS effective_date,
+      payload#>>'{person,id}' AS mlb_person_id
     FROM public.player_transactions
+    WHERE source='mlb_api'
     ORDER BY playerid, effective_date DESC NULLS LAST, created_at DESC
   `);
   return rows;
@@ -184,6 +187,7 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
                 OR last_transaction_type IS DISTINCT FROM $2
                 OR last_transaction_date IS DISTINCT FROM $3::date
                 OR last_transaction_team_name IS DISTINCT FROM $4
+                OR status_label IS DISTINCT FROM $5
               THEN NOW()
               ELSE last_transaction_applied_at
             END,
@@ -200,35 +204,21 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
               THEN NOW()
               ELSE highest_level_checked_at
             END,
-            -- previous_team_name/previous_org_or_conference_name/
-            -- previous_level_label are the SAME columns the site's
-            -- existing retired-player rows already use to show a "last
-            -- known" team+org, so a FREE AGENT/RETIRED card here looks
-            -- like every other one instead of using a bespoke field.
-            -- previous_team_name prefers the transaction's own specific
-            -- team ($4, e.g. "Iowa Cubs") — the most authoritative source
-            -- for "who actually had him last" — but falls back to
-            -- whatever current_team_name already held when the
-            -- transaction itself carries no team (e.g. some retirement
-            -- records have neither fromTeam nor toTeam), so we don't
-            -- overwrite a perfectly good known team with null.
-            -- Guarded by current_team_name IS NOT NULL so a repeat,
-            -- no-op application of the same departure (this script runs
-            -- every 3h regardless of whether anything changed) doesn't
-            -- re-snapshot from an already-nulled current_team_name and
-            -- wipe out the real captured value.
-            previous_team_name = CASE
-              WHEN current_team_name IS NOT NULL THEN COALESCE($4, current_team_name)
-              ELSE previous_team_name
+            -- Preserve the departing MLB team's identity without copying
+            -- the organization of a different, stale roster assignment.
+            -- Never overwrite an earlier verified previous-team value with NULL.
+            previous_team_name = COALESCE($4, current_team_name, previous_team_name),
+            previous_teamid = CASE
+              WHEN current_team_name IS NOT DISTINCT FROM $4
+              THEN COALESCE(current_teamid, previous_teamid)
+              ELSE previous_teamid
             END,
             previous_org_or_conference_name = CASE
-              WHEN current_team_name IS NOT NULL THEN current_org_or_conference_name
+              WHEN current_team_name IS NOT DISTINCT FROM $4
+              THEN COALESCE(current_org_or_conference_name, previous_org_or_conference_name)
               ELSE previous_org_or_conference_name
             END,
-            previous_level_label = CASE
-              WHEN current_team_name IS NOT NULL THEN COALESCE($6, level_label)
-              ELSE previous_level_label
-            END,
+            previous_level_label = COALESCE($6, level_label, previous_level_label),
             -- level_label/display_level_label are what PlayerCardFront's
             -- visible LEVEL chip actually reads (not previous_level_label,
             -- which nothing displays) — deliberately NOT nulled like
@@ -239,8 +229,17 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             -- lookupLevelForPlayerAtTeam's comment).
             level_label = COALESCE($6, level_label),
             display_level_label = COALESCE($6, display_level_label),
+            current_teamid = NULL,
             current_team_name = NULL,
             current_org_or_conference_name = NULL,
+            current_team_level = NULL,
+            current_level_label = NULL,
+            current_team_source = NULL,
+            current_team_source_player_id = NULL,
+            current_team_source_team_id = NULL,
+            current_team_roster_status = NULL,
+            current_team_last_verified = NULL,
+            current_team_absent_since = COALESCE(current_team_absent_since, $3::timestamptz),
             -- A departed player can't still be on the 40-man roster.
             -- Without this, PlayerCardFront's 40-MAN chip (which takes
             -- priority over the RELEASED note) would keep claiming a
@@ -249,10 +248,25 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             -- is_on_40man/forty_man_org_* for any transaction-owned row.
             is_on_40man = false,
             forty_man_org_name = NULL,
-            forty_man_org_abbr = NULL
+            forty_man_org_abbr = NULL,
+            stage_updated_at = NOW(),
+            updated_at = NOW()
       WHERE playerid::text = $1
-        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = $1)`,
-    [row.playerid, row.transaction_type, row.effective_date, teamName, status, resolvedLevel]
+        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = $1)
+        AND (EXISTS (SELECT 1 FROM public.player_source_map s
+                     WHERE s.playerid = $1 AND s.source = 'mlb_api'
+                       AND s.source_player_id = $7 AND s.is_verified = TRUE)
+             OR EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
+                        WHERE r.playerid = $1 AND r.source_player_id = $7
+                          AND r.match_status = 'matched'))
+        AND (last_transaction_type IS DISTINCT FROM $2
+             OR last_transaction_date IS DISTINCT FROM $3::date
+             OR last_transaction_team_name IS DISTINCT FROM $4
+             OR status_label IS DISTINCT FROM $5
+             OR team_affiliation_status IS DISTINCT FROM $5
+             OR current_team_name IS NOT NULL OR current_teamid IS NOT NULL
+             OR current_team_source IS NOT NULL OR is_on_40man IS TRUE)`,
+    [row.playerid, row.transaction_type, row.effective_date, teamName, status, resolvedLevel, row.mlb_person_id]
   );
 }
 
