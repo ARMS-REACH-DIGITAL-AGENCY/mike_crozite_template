@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: tbc-players-audit-capture
+  group: tbc-players-verified-publication
   cancel-in-progress: false
 jobs:
   capture:
@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Validate publication worker Python syntax
+        run: python -m py_compile scripts/promote-verified-tbc-player-feed.py
       - name: Install PostgreSQL client
         run: python -m pip install --quiet "psycopg[binary]>=3.2,<4"
       - name: Capture a verified immutable Players snapshot
