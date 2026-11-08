@@ -105,8 +105,9 @@ for (const variable of ['GALLERY_STATUS_OPTIONS','ROSTER_STATUSES','ACTIVE_GALLE
 const recovery = section(levels,
   'export const SAFE_2026_STAGE_TEAM_RECOVERY_SQL = `',
   'export const STAGE_TEAM_COVERAGE_SQL');
-assert(/year\s*=\s*'2026'/.test(recovery),
-  'Recovery must be limited to explicit 2026 season records');
+assert(/year\s*=\s*'2026'/.test(recovery) &&
+       recovery.includes('EXTRACT(YEAR FROM CURRENT_DATE)=2026'),
+  'Recovery must use 2026 seasons and fail closed at 2027 rollover');
 assert(recovery.includes('public.tbc_complete_batting_history') &&
        recovery.includes('public.tbc_complete_pitching_history') &&
        recovery.includes('public.tbc_batting_2026_season_raw') &&
