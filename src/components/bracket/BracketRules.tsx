@@ -74,10 +74,10 @@ export default function BracketRules() {
       </section>
 
       <section>
-        <h4>Fans and the raffle</h4>
+        <h4>Fans and the sweepstakes</h4>
         <ul>
           <li>The bracket champion&apos;s registered fans are entered: one entry for each round they&apos;ve been registered (a fan since Round 1 has 10; one who joined before Round 10 has 1).</li>
-          <li>SuperFans get 3× the entries.</li>
+          <li>Every fan can earn up to 3 entries a round. Each approved high school photo of a player adds 1 entry, up to 2 a round, and a free mail-in entry counts the same. SuperFans get 3 a round without uploading.</li>
           <li>Before the Season Championship Tournament starts, each active alumnus of those 8 schools nominates one fan (one entry each).</li>
         </ul>
       </section>
