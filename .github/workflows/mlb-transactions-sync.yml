@@ -70,4 +70,9 @@ jobs:
           npx tsx ./scripts/sync-mlb-transactions.ts "${ARGS[@]}"
 
       - name: Apply MLB transaction status to flip cards
+        # Even a partial or failed MLB API fetch must not strand previously
+        # imported, verified transactions in player_transactions. Preserve
+        # the sync failure as a failed workflow while still reconciling the
+        # last authoritative transactions already stored in Neon.
+        if: ${{ !cancelled() }}
         run: npx tsx ./scripts/apply-mlb-transaction-status.ts
