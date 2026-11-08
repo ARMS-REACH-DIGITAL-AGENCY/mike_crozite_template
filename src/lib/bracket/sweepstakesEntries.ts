@@ -5,13 +5,13 @@
 //   - registeredAt: when the fan registered (Fan or Super Fan)
 //   - superFanWeeks: tournament weeks (1-30) the paid Super Fan plan was active
 //   - bonusDates: dates of the fan's approved high school player photos
-//     (media_upload, status 'approved') and any free mail-in requests
+//     (media_upload, status 'approved') of any player on the site
 //
 // Rule (Nov 2026, pending the lawyer's review of the Official Rules): every
 // fan can reach the same 3 entries a round. Paying is a shortcut, never better
 // odds. Per bracket round:
 //   - a registered Fan gets 1 entry
-//   - each approved photo or mail-in request adds 1, at most 2 a round
+//   - each approved high school photo of any player adds 1, at most 2 a round
 //   - a Super Fan week counts 1, and a round never exceeds 3 entries
 // Lucky Fan nominations (1 entry each) are added separately.
 import { TOURNAMENT_2027, TOURNAMENT_2027_WEEKS, bracketRoundWeeks } from './tournamentCalendar';
@@ -25,7 +25,7 @@ export const ENTRIES_CLOSE = `${TOURNAMENT_2027.end}T23:59:59-07:00`; // Arizona
 export type FanEntryInput = {
   registeredAt: string;          // ISO date or timestamp
   superFanWeeks?: number[];      // tournament weeks 1-30
-  bonusDates?: string[];         // approved photo / mail-in dates (ISO)
+  bonusDates?: string[];         // approved photo upload dates (ISO)
 };
 
 export type RoundEntries = { round: number; base: number; superFan: number; bonus: number; total: number };

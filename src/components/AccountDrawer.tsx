@@ -154,7 +154,7 @@ function FallClassicRaffle() {
             <p style={{ margin: '0 0 10px', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
               You must register as a YAT?STATS Fan or Super Fan to be included in the sweepstakes. Simply visiting does not enter you.
               If your school wins the 30-week Bracket, registered Fans receive <strong style={{ color: '#fff' }}>1 entry per 3-week round (up to 10)</strong>.
-              Every Fan can earn <strong style={{ color: '#fff' }}>up to 2 more entries per round</strong>: 1 for each approved high school photo of a player you upload, or by free mail-in.
+              Every Fan can earn <strong style={{ color: '#fff' }}>up to 2 more entries per round</strong>: 1 for each approved high school photo you upload of any player on YAT?STATS.
               Registered Super Fans receive <strong style={{ color: '#fff' }}>1 entry per eligible week, 3 per round (up to 30)</strong> instead of the Fan entry.
               No one can have more than 3 entries in a round.
               Join as a Fan in Round 10 and your school wins? You can still earn 1 entry.
@@ -167,7 +167,7 @@ function FallClassicRaffle() {
             <p style={{ margin: '7px 0 0', color: '#e5e5e5', fontSize: '12px', lineHeight: 1.5 }}>
               Prize: <strong style={{ color: '#fff' }}>four 2027 MLB World Series tickets</strong> for one game or two tickets each for two games,
               plus one local hotel night. <strong style={{ color: '#fff' }}>Airfare not included.</strong>
-              No purchase necessary. Eligibility, the free mail-in method and prize restrictions are in the{' '}
+              No purchase necessary. Eligibility, entry details and prize restrictions are in the{' '}
               <a href="https://yatstats.com/sweepstakes-rules" style={{ color: '#fff', textDecoration: 'underline' }}>Official Rules</a>.
             </p>
           </section>

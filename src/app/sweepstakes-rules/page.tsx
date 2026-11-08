@@ -45,9 +45,8 @@ export default function SweepstakesRulesPage() {
         <p>Entries are counted per bracket round. No one may receive more than <strong>3 entries in any round</strong> (30 for the season), however they enter.</p>
         <ul>
           <li><strong>Registration:</strong> 1 entry for each round in which you are registered on or before the round&apos;s last day. A fan registered since Round 1 has 10; a fan who joins in Round 10 has 1.</li>
-          <li><strong>Photo bonus (free):</strong> 1 additional entry for each high school photo of a player that you upload and that YAT?STATS approves, up to 2 per round. A photo counts in the round in which it was uploaded. You must own the photo or have permission to share it.</li>
-          <li><strong>Free mail-in (no photo needed):</strong> mail a 3x5 card with your name, email used to register, school and the round number to [address]. Each card earns 1 additional entry for that round, up to 2 per round, counted together with photo entries. One card per envelope. Cards must be received by [date] for each round.</li>
-          <li><strong>Super Fan:</strong> 1 entry for each week of the round your Super Fan plan is active, in place of the registration entry. Photo or mail-in entries can top up a round, but never above 3.</li>
+          <li><strong>Photo bonus (free):</strong> 1 additional entry for each high school photo of any player on YAT?STATS that you upload and that YAT?STATS approves, up to 2 per round. Uploading photos is free. A photo counts in the round in which it was uploaded. You must own the photo or have permission to share it.</li>
+          <li><strong>Super Fan:</strong> 1 entry for each week of the round your Super Fan plan is active, in place of the registration entry. Photo entries can top up a round, but never above 3.</li>
           <li><strong>Lucky Fan:</strong> before the Season Championship Tournament, each active alumnus of the eight Regional Champions may nominate one fan, who receives 1 entry. Nominees must register to be eligible.</li>
         </ul>
 
