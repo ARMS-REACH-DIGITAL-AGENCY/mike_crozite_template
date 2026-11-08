@@ -23,7 +23,7 @@ const mlbClip = "https://www.mlb.com/rays/video/casey-legumina-s-tribute-tattoo?
 const parsedMlb = parseNewsVideo(mlbClip);
 assert.equal(parsedMlb?.provider, "MLB");
 assert.equal(parsedMlb?.watchUrl, mlbClip);
-assert.equal(parsedMlb?.embedUrl, "https://www.mlb.com/unified-player/embed/casey-legumina-s-tribute-tattoo");
+assert.equal(parsedMlb?.embedUrl, "https://streamable.com/m/casey-legumina-s-tribute-tattoo");
 assert.equal(parseNewsVideo("https://www.mlb.com/video/casey-legumina-s-tribute-tattoo")?.provider, "MLB");
 for (const badUrl of [
   "https://mlb.com.evil.example/rays/video/casey-legumina-s-tribute-tattoo",
