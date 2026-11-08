@@ -30,7 +30,18 @@ export type FanEntryInput = {
 
 export type RoundEntries = { round: number; base: number; superFan: number; bonus: number; total: number };
 
-const day = (iso: string) => String(iso).slice(0, 10);
+// The sweepstakes runs on Arizona dates (UTC-7 all year, no DST). A plain
+// YYYY-MM-DD is already an Arizona date; a timestamp is converted first, so
+// 10 PM Arizona on Feb 21 (05:00Z Feb 22) stays in Round 1.
+const ARIZONA_OFFSET_MS = 7 * 60 * 60 * 1000;
+export function arizonaDay(iso: string): string {
+  const s = String(iso).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const t = Date.parse(s);
+  if (Number.isNaN(t)) return s.slice(0, 10);
+  return new Date(t - ARIZONA_OFFSET_MS).toISOString().slice(0, 10);
+}
+const day = arizonaDay;
 
 /** The bracket round (1-10) a date falls in, or 0 outside the bracket weeks. */
 export function roundForDate(iso: string): number {

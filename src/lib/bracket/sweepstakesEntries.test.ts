@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roundForDate, sweepstakesEntries, MAX_PER_ROUND } from './sweepstakesEntries';
+import { arizonaDay, roundForDate, sweepstakesEntries, MAX_PER_ROUND } from './sweepstakesEntries';
 
 test('rounds follow the 3-week bracket calendar', () => {
   assert.equal(roundForDate('2027-02-01'), 1);
@@ -47,6 +47,14 @@ test('a Super Fan for 1 week of a round can top up with 1 photo', () => {
   const r = sweepstakesEntries({ registeredAt: '2027-01-15', superFanWeeks: [1], bonusDates: ['2027-02-03', '2027-02-04'] });
   assert.equal(r.rounds[0].total, 3);
   assert.equal(r.rounds[0].bonus, 2);
+});
+
+test('timestamps use the Arizona date, not the UTC date', () => {
+  // 10 PM Arizona, Sunday Feb 21 = 05:00Z Feb 22: still Round 1.
+  assert.equal(arizonaDay('2027-02-22T05:00:00Z'), '2027-02-21');
+  assert.equal(arizonaDay('2027-02-21T22:00:00-07:00'), '2027-02-21');
+  assert.equal(sweepstakesEntries({ registeredAt: '2027-02-22T05:00:00Z' }).rounds[0].total, 1);
+  assert.equal(sweepstakesEntries({ registeredAt: '2027-01-15', bonusDates: ['2027-02-22T05:00:00Z'] }).rounds[0].bonus, 1);
 });
 
 test('photos before registering or outside the bracket do not count', () => {

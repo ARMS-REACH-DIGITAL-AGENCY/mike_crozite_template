@@ -1082,7 +1082,7 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
                     </p>
                     <p style={{ fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5, marginTop: '4px' }}>
                       Following players from any school is a Superfan perk. Upgrade below and you also get
-                      the All-Schools favorites filter and the full 3 Fall Classic sweepstakes entries every round.
+                      the All-Schools favorites filter and 1 Fall Classic sweepstakes entry for every week you are a Superfan (up to 3 a round).
                     </p>
                   </div>
                 </div>
