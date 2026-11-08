@@ -1,7 +1,7 @@
 // Sitemaps for search engines.
 //
 // One index at https://sitemaps.yatstats.com/sitemap.xml lists one child sitemap per
-// live school microsite (school_success.microsite_url). Each child lists that
+// school with linked players (curated or generated subdomain). Each child lists that
 // school's hub and its Active Alumni player profiles on the school's own
 // subdomain. The bare yatstats.com is a separate Vercel project (the
 // landing page), so the index lives on sitemaps.yatstats.com, which the
@@ -17,6 +17,7 @@ import { unstable_cache } from 'next/cache';
 import { query } from '@/lib/db';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { toPlayerSlug } from '@/lib/slug';
+import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
 
 export const SITEMAP_ROOT = 'https://sitemaps.yatstats.com';
 const SITEMAP_TTL_SECONDS = 60 * 60 * 24;
@@ -38,23 +39,28 @@ export function normalizeMicrositeUrl(raw: unknown): string {
   }
 }
 
+// Every school with linked players has a live subdomain (about 17,000 in
+// Nov 2026), not only the ~1,000 with a curated school_success.microsite_url.
+// canonicalSchoolUrls is the same resolver the player pages use: the curated
+// URL wins, otherwise the generated <school>.<state>.yatstats.com hostname.
 export const getLiveSchools = unstable_cache(async (): Promise<LiveSchool[]> => {
-  const { rows } = await query<{ hsid: string; microsite_url: string }>(`
-    SELECT hsid::text AS hsid, microsite_url
-      FROM public.school_success
-     WHERE NULLIF(BTRIM(microsite_url), '') IS NOT NULL
-     ORDER BY hsid
+  const { rows } = await query<{ hsid: string }>(`
+    SELECT hsid::text AS hsid FROM public.player_hsids
+    UNION
+    SELECT hsid::text FROM public.flip_card_front_stage
   `);
+  const ids = rows.map((r) => r.hsid).filter((id) => /^[1-9]\d*$/.test(id) && Number(id) <= 2147483647);
+  const urls = await canonicalSchoolUrls(ids, (sql, params = []) => query(sql, params));
   const seen = new Set<string>();
   const schools: LiveSchool[] = [];
-  for (const row of rows) {
-    const url = normalizeMicrositeUrl(row.microsite_url);
-    if (!url || !/^\d+$/.test(row.hsid) || seen.has(row.hsid)) continue;
-    seen.add(row.hsid);
-    schools.push({ hsid: row.hsid, url });
+  for (const id of ids.sort((a, b) => Number(a) - Number(b))) {
+    const url = normalizeMicrositeUrl(urls.get(id));
+    if (!url || seen.has(id)) continue;
+    seen.add(id);
+    schools.push({ hsid: id, url });
   }
   return schools;
-}, ['sitemap', 'live-schools-v1'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
+}, ['sitemap', 'live-schools-v2'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
 
 export type SitemapPlayer = { playerId: string; slug: string; lastModified: string | null };
 
