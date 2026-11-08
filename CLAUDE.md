@@ -24,5 +24,8 @@
   `src/lib/bracket/tournamentCalendar.ts`, the bracket components) and the
   earlier Claude Code sessions (`list_sessions` / `list_events`, e.g.
   "Bracket tournament platform audit"). Ask only what neither answers.
+- **`public.schools` is a dead table (Pete, Nov 2026).** Never read or write
+  it. School data lives in `school_success` (official microsite URLs),
+  `tbc_schools_raw` and `player_hsids`.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
