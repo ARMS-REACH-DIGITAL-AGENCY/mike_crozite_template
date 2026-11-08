@@ -188,7 +188,7 @@ export async function GET(req: NextRequest) {
           <p><b>Every value in the database that still isn't official:</b></p>
           ${table(["Table", "Column", "Value", "Rows"], scan.map((r) => [esc(r.table_name), esc(r.column_name), `<b>${esc(r.value)}</b>`, String(r.rows)]))}
           <p>NCAA without a division needs the division. PRO needs MLB, the affiliate level, INDY or INTERNATIONAL.</p>`;
-        await sendGHLEmail(contactId, `YAT?STATS daily identity check: ${coverage?.active_null_team_ids ?? 0} ACTIVE missing Team ID; ${coverage?.active_team_id_without_source ?? 0} missing source; ${teamUniverse?.teams_needing_review ?? 0} teams unresolved`, html);
+        await sendGHLEmail(contactId, `YAT?STATS daily identity check: ${cards.length + mismatches.length + identityMismatches.length} card mismatches; ${coverage?.active_null_team_ids ?? 0} ACTIVE missing Team ID; ${coverage?.active_team_id_without_source ?? 0} missing source; ${teamUniverse?.teams_needing_review ?? 0} teams unresolved`, html);
       }
     }
     console.log("[level-qc]", JSON.stringify({ ...result, scan: scan.length }));
