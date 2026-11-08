@@ -19,6 +19,22 @@ assert.equal(parseNewsVideo(`https://x.com/PrepBaseballNV/status/${liveId}?s=09`
 assert.equal(parseNewsVideo("https://www.youtube.com/watch?v=dQw4w9WgXcQ")?.provider, "YouTube");
 assert.equal(parseNewsVideo("https://www.instagram.com/reel/Cx123Ab2/")?.provider, "Instagram");
 
+const mlbClip = "https://www.mlb.com/rays/video/casey-legumina-s-tribute-tattoo?partnerId=web_video-playback-page_video-share";
+const parsedMlb = parseNewsVideo(mlbClip);
+assert.equal(parsedMlb?.provider, "MLB");
+assert.equal(parsedMlb?.watchUrl, mlbClip);
+assert.equal(parsedMlb?.embedUrl, "https://streamable.com/m/casey-legumina-s-tribute-tattoo");
+assert.equal(parseNewsVideo("https://www.mlb.com/video/casey-legumina-s-tribute-tattoo")?.provider, "MLB");
+for (const badUrl of [
+  "https://mlb.com.evil.example/rays/video/casey-legumina-s-tribute-tattoo",
+  "http://www.mlb.com/rays/video/casey-legumina-s-tribute-tattoo",
+  "https://www.mlb.com/rays/news/casey-legumina-s-tribute-tattoo",
+  "https://www.mlb.com/rays/video/casey-legumina-s-tribute-tattoo/extra",
+  "https://www.mlb.com@evil.example/rays/video/casey-legumina-s-tribute-tattoo",
+]) {
+  assert.equal(parseNewsVideo(badUrl), null, `invalid MLB URL: ${badUrl}`);
+}
+
 const valid = [
   `https://x.com/Ben13Porter/status/${id}/video/1`,
   `https://x.com/Ben13Porter/status/${id}`,
@@ -54,6 +70,8 @@ assert.match(widget, /createTweet/);
 assert.match(widget, /Watch original video on X/);
 assert.match(widget, /setTimeout/);
 assert.match(reader, /<XPostEmbed/);
+assert.match(reader, /PLAY MLB VIDEO/);
+assert.match(reader, /WATCH ON MLB.COM IF PLAYER DOES NOT LOAD/);
 assert.ok(reader.includes('selectedVideo?.provider === "X"'));
 assert.ok(reader.includes('selectedVideo.provider !== "X"'));
 assert.match(reader, /<NewsEngagement/);

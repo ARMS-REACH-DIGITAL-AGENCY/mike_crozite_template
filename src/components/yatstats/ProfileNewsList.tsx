@@ -57,6 +57,8 @@ function formatDate(value: string | null): string {
 function NewsVideoPlayer({ video, title }: { video: NewsVideo; title: string }) {
   const [playing, setPlaying] = useState(false);
   const youtube = video.provider === 'YouTube';
+  const mlb = video.provider === 'MLB';
+  const clickToPlay = youtube || mlb;
   const instagram = video.provider === 'Instagram';
   const reel = instagram && /\/reel\//.test(video.watchUrl);
   const classes = [
@@ -69,10 +71,11 @@ function NewsVideoPlayer({ video, title }: { video: NewsVideo; title: string }) 
   }
   return (
     <div className={classes}>
-      {youtube && !playing && video.thumbnailUrl ? (
+      {clickToPlay && !playing ? (
         <button type="button" className="pp-news-video-start" onClick={() => setPlaying(true)} aria-label={`Play ${title} on YAT?STATS`}>
-          <img src={video.thumbnailUrl} alt="" />
+          {video.thumbnailUrl ? <img src={video.thumbnailUrl} alt="" /> : null}
           <span className="pp-news-video-play-icon" aria-hidden="true" />
+          {mlb ? <span className="pp-news-video-start-label">PLAY MLB VIDEO</span> : null}
         </button>
       ) : (
         <iframe
@@ -296,11 +299,11 @@ export default function ProfileNewsList({
           openStory ? (
             <div className="pp-news-modal-actions">
               <NewsEngagement uuid={openStory.uuid} hsid={hsid} title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} />
-              {/* Embedded videos play here. Do not place a competing off-site
-                  call to action under an already usable player. */}
-              {!selectedVideo?.embedUrl && selectedVideo?.provider !== "X" ? (
+              {/* MLB playback may be blocked by third-party framing/cookies.
+                  Always preserve a direct MLB.com fallback for this source. */}
+              {(!selectedVideo?.embedUrl || selectedVideo?.provider === 'MLB') && selectedVideo?.provider !== "X" ? (
                 <a className="pp-news-modal-source" href={/^MLB Transactions$/i.test(openStory.source || "") && openStory.publishedAt ? `https://www.mlb.com/transactions/${new Date(openStory.publishedAt).toISOString().slice(0, 10).replace(/-/g, "/")}` : openStory.url} target="_blank" rel="noopener noreferrer">
-                  {/^MLB Transactions$/i.test(openStory.source || "") ? "VIEW ALL TRANSACTIONS ON MLB.COM" : selectedVideo ? "Original video (external)" : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
+                  {/^MLB Transactions$/i.test(openStory.source || "") ? "VIEW ALL TRANSACTIONS ON MLB.COM" : selectedVideo?.provider === 'MLB' ? "WATCH ON MLB.COM IF PLAYER DOES NOT LOAD" : selectedVideo ? "Original video (external)" : `Read the original story at ${(openStory.source || "the source").toUpperCase()}`}
                   <i className="ri-external-link-line" aria-hidden="true" />
                 </a>
               ) : null}
@@ -335,6 +338,7 @@ export default function ProfileNewsList({
         .pp-news-video-player iframe{display:block;width:100%;height:100%;border:0}
         .pp-news-video-start{position:relative;display:grid;place-items:center;width:100%;height:100%;padding:0;border:0;background:#080808;cursor:pointer;overflow:hidden}
         .pp-news-video-start img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.84)}
+        .pp-news-video-start-label{position:absolute;top:calc(50% + 37px);font:800 12px/1.25 var(--yat-font-ui,Archivo,Arial,sans-serif);letter-spacing:.07em;color:white}
         .pp-news-video-play-icon{position:relative;z-index:1;width:76px;height:52px;border-radius:15px;background:#f22;display:grid;place-items:center;box-shadow:0 3px 24px #0009}
         .pp-news-video-play-icon:after{content:"";display:block;width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;border-left:22px solid #fff;margin-left:4px}
         .pp-news-video-start:is(:hover,:focus-visible) .pp-news-video-play-icon{background:#d11}
