@@ -1231,9 +1231,21 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            of its way rather than dimming and covering it with a modal mask.
            Closing the ledger brings the game back into view. */
         @media (max-width:819px) {
+          /* Keep both mobile drawers above the persistent site footer/ticker.
+             Previously their scroll viewport extended behind these fixed bars,
+             making the final rules appear unreachable on real phones. */
+          .yfp-drawer-wrap:not(.row5) {
+            bottom:calc(var(--footerH, 66px) + var(--yat-message-h, 36px) + env(safe-area-inset-bottom, 0px));
+          }
+          .yfp-drawer-wrap:not(.row5) .bl.bl-embed.yfp-drawer { bottom:0; }
           .yfz { transition:transform .22s ease-out; }
-          body.yfp-dock-l .yfz { transform:translateX(min(410px, 100vw)); }
-          body.yfp-dock-r .yfz { transform:translateX(calc(-1 * min(410px, 100vw))); }
+          /* Mobile drawers overlay the existing page. Translating the page by
+             a full viewport created horizontal overflow and Chrome auto-fit
+             scaling, especially for the left-side visitor drawer. */
+          body.yfp-dock-l .yfz,
+          body.yfp-dock-r .yfz { transform:none; }
+          .yfp-drawer-wrap:not(.row5) { left:0; right:0; width:100%; max-width:100vw; overflow:hidden; }
+          .yfp-drawer-wrap:not(.row5) .bl.bl-embed.yfp-drawer.yfp-stat-ledger { left:0; right:0; width:100%; max-width:100%; box-sizing:border-box; }
           .yfp-drawer-wrap { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { pointer-events:auto; }
         }
