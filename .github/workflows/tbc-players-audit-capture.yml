@@ -134,6 +134,14 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"],"a") as output:
               print(f"run_id={run_id}",file=output)
           PY
+      - name: Setup Node for canonical 2026 team reconciliation
+        if: ${{ steps.capture.outputs.run_id != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install validated reconciliation dependencies
+        if: ${{ steps.capture.outputs.run_id != '' }}
+        run: npm install
       - name: Promote verified Players and publish flip cards with reconciled outcome
         if: ${{ steps.capture.outputs.run_id != '' }}
         env:
