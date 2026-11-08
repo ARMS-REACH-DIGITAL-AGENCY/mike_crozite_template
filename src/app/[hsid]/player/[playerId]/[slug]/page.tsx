@@ -74,8 +74,10 @@ async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: 
   // team, read live from the profile's own identity data. See playerJourneySeo.
   const journey = playerJourneyMeta({
     playerName,
-    schoolName: String(school?.hsname || identity?.hsname || player?.high_school || ''),
-    schoolLocation: String(school?.hslocation || identity?.hslocation || ''),
+    // The player's own identity school wins over the school in the URL, so a
+    // stale or mismatched HSID in an old link never names the wrong school.
+    schoolName: String(identity?.hsname || school?.hsname || player?.high_school || ''),
+    schoolLocation: String(identity?.hsname ? identity?.hslocation || '' : school?.hslocation || ''),
     teamName: identity?.currentTeamName,
     levelLabel: identity?.levelLabel,
     statusLabel: identity?.statusLabel,
