@@ -25,7 +25,7 @@ def execute(sql, params=()):
     with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SET LOCAL lock_timeout = '5s'")
-            cursor.execute("SET LOCAL statement_timeout = %s", (str(PG_TIMEOUT) + "ms",))
+            cursor.execute("SET LOCAL statement_timeout = '90000ms'")
             cursor.execute(sql, params)
             result = cursor.fetchone()
             conn.commit()
