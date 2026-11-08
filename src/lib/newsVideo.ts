@@ -1,7 +1,7 @@
 // Shared, allowlisted parsing for fan-contributed video links.
 // A pasted URL is never used directly as an iframe source.
 export type NewsVideo = {
-  provider: 'YouTube' | 'Vimeo' | 'Instagram' | 'TikTok' | 'Facebook' | 'X';
+  provider: 'YouTube' | 'Vimeo' | 'Instagram' | 'TikTok' | 'Facebook' | 'X' | 'MLB';
   watchUrl: string;
   embedUrl: string | null;
   thumbnailUrl: string | null;
@@ -50,6 +50,16 @@ export function parseNewsVideo(rawUrl: string | null | undefined): NewsVideo | n
       'https://www.youtube-nocookie.com/embed/' + id + '?rel=0&playsinline=1',
       'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg'
     );
+  }
+
+  if (host === 'mlb.com') {
+    // MLB watch pages aren't iframe sources. The league offers a dedicated
+    // unified-player embed; only accept a slug from an expected video path.
+    const isLeagueVideo = parts.length === 2 && parts[0] === 'video';
+    const isTeamVideo = parts.length === 3 && /^[a-z0-9-]{2,40}$/.test(parts[0]) && parts[1] === 'video';
+    const slug = isLeagueVideo ? parts[1] : (isTeamVideo ? parts[2] : null);
+    if (!slug || !/^[a-z0-9][a-z0-9-]{2,180}$/.test(slug)) return null;
+    return video('MLB', 'https://www.mlb.com/unified-player/embed/' + slug, null);
   }
 
   if (host === 'vimeo.com' || host === 'player.vimeo.com') {
