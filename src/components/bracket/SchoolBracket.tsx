@@ -410,12 +410,15 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           <span className="yfp-drawer-game">{drawerGameLabel}</span>
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
+        <div className="yfp-drawer-scroll" data-drawer-scroll="stat-ledger">
+          <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
           names={[nameOf(homeId), nameOf(awayId)]}
           locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
           score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
           decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
-          homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} openDay={openDay} />
+            homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} openDay={openDay} />
+          <div className="yfp-drawer-end" aria-hidden="true" />
+        </div>
       </aside>
   );
 }
@@ -1453,6 +1456,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
         .yfp-drawer-wrap.row5 { bottom: calc(var(--footerH, 66px) + var(--yat-message-h, 36px)); background: transparent; } /* docked beside the game: never dim it */
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
+        /* The desktop drawer retains its existing single scroll surface.
+           Phones use an independent scroll viewport BELOW the fixed header. */
+        .yfp-drawer-scroll { display:contents; }
+        .yfp-drawer-end { height:0; }
         .bl.bl-embed.yfp-drawer.right { right: 0; }
         .bl.bl-embed.yfp-drawer.left { left: 0; animation-name: yfp-in-l; }
         @keyframes yfp-in-r { from { transform: translateX(100%); } to { transform: none; } }
@@ -1479,7 +1486,39 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer .ybr-scroll { max-width:100%; overflow-x:auto; }
 
         @media (max-width: 819px) {
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width: min(410px, 100vw); }
+          /* On phones the header is outside a bounded, independent scroll
+             surface. Its natural scrollHeight follows each school's actual
+             player rows, including late-loading rosters and all scoring rules.
+             No fixed roster height or guessed bottom padding on the panel. */
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer {
+            width: min(410px, 100vw);
+            display:flex;
+            flex-direction:column;
+            overflow:hidden;
+            padding:0;
+          }
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer > .yfp-drawer-head {
+            position:relative;
+            flex:0 0 auto;
+          }
+          .yfp-drawer-wrap .yfp-drawer-scroll {
+            display:block;
+            flex:1 1 0%;
+            min-height:0;
+            min-width:0;
+            overflow-x:hidden;
+            overflow-y:auto;
+            overscroll-behavior-y:contain;
+            -webkit-overflow-scrolling:touch;
+            scrollbar-width:thin;
+            --yfp-head-h:0px;
+          }
+          /* A real final child, not padding on an absolute-positioned panel,
+             keeps the last rules paragraph scrollable above the phone inset. */
+          .yfp-drawer-wrap .yfp-drawer-end {
+            display:block;
+            height:calc(20px + env(safe-area-inset-bottom, 0px));
+          }
           .yfp-drawer-head { padding: 6px 10px; }
           .yfp-drawer-head .yfp-drawer-school { font-size: 13px; }
           .yfp-drawer-head .yfp-drawer-location { font-size: 9px; }

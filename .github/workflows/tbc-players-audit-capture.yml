@@ -1,20 +1,17 @@
-name: TBC 208K players isolated audit capture
+name: TBC Players verified capture and publication
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - fix/tbc-feed-completeness-20261103
-    paths:
-      - .github/workflows/tbc-players-audit-capture.yml
+  schedule:
+    - cron: "30 10,22 * * *"
 permissions:
   contents: read
 concurrency:
-  group: tbc-players-audit-capture
+  group: tbc-players-verified-publication
   cancel-in-progress: false
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 55
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
@@ -22,12 +19,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Validate publication worker Python syntax
+        run: python -m py_compile scripts/promote-verified-tbc-player-feed.py
       - name: Install PostgreSQL client
         run: python -m pip install --quiet "psycopg[binary]>=3.2,<4"
-      - name: Capture every player row into NEW audit tables only
+      - name: Capture a verified immutable Players snapshot
+        id: capture
         run: |
           python - <<'PY'
-          import csv, io, hashlib, os, re, urllib.request, uuid
+          import csv, io, hashlib, os, re, urllib.request, uuid, sys
           from pathlib import Path
           from datetime import datetime, timezone
           import psycopg
@@ -68,6 +68,30 @@ jobs:
           run_id=uuid.uuid4()
           sha=hashlib.sha256(data).hexdigest()
           print("SOURCE_HTTP_200_BYTES",len(data),"UNIQUE_IDS",len(seen),"HEIGHT_QUOTE_REPAIRS",repaired,"HELD_ROWS",held,"SHA256",sha,flush=True)
+          # A repeated/partially processed identical source must resume its durable
+          # snapshot, not create a second competing 208K-row source run.
+          with psycopg.connect(os.environ["DATABASE_URL"],connect_timeout=30) as probe:
+              with probe.cursor() as cur:
+                  cur.execute("""
+                    SELECT a.run_id,COALESCE(r.completed,FALSE),COALESCE(f.completed,FALSE)
+                    FROM public.tbc_players_full_feed_audit_runs a
+                    LEFT JOIN public.tbc_player_raw_promotion_progress r ON r.source_run_id=a.run_id
+                    LEFT JOIN public.tbc_flip_card_publication_progress f ON f.source_run_id=a.run_id
+                    WHERE a.source_sha256=%s AND a.source_rows=%s
+                    ORDER BY a.captured_at DESC LIMIT 1
+                  """,(sha,len(rows)))
+                  previous=cur.fetchone()
+          if previous:
+              previous_id,raw_done,cards_done=previous
+              if raw_done and cards_done:
+                  print("FULLY_PUBLISHED_UNCHANGED_SOURCE_REVERIFY",previous_id,flush=True)
+                  with open(os.environ["GITHUB_OUTPUT"],"a") as output:
+                      print(f"run_id={previous_id}",file=output)
+                  sys.exit(0)
+              print("RESUMING_INCOMPLETE_SOURCE",previous_id,flush=True)
+              with open(os.environ["GITHUB_OUTPUT"],"a") as output:
+                  print(f"run_id={previous_id}",file=output)
+              sys.exit(0)
           with psycopg.connect(os.environ["DATABASE_URL"],connect_timeout=30) as db:
               with db.cursor() as cur:
                   cur.execute("""
@@ -108,5 +132,42 @@ jobs:
                   """,(run_id,datetime.now(timezone.utc),len(rows),len(seen),repaired,held,len(data),sha,"partial" if held else "complete"))
               db.commit()
           print("AUDIT_LANDING_PERSISTED",run_id,"ROWS",len(rows),"UNIQUE",len(seen),"QUARANTINED",held,flush=True)
-          print("CANONICAL_TABLES_UNCHANGED",flush=True)
+          print("VERIFIED_SOURCE_CAPTURE_COMPLETE",flush=True)
+          with open(os.environ["GITHUB_OUTPUT"],"a") as output:
+              print(f"run_id={run_id}",file=output)
+          PY
+      - name: Setup Node for canonical 2026 team reconciliation
+        if: ${{ steps.capture.outputs.run_id != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install validated reconciliation dependencies
+        if: ${{ steps.capture.outputs.run_id != '' }}
+        run: npm install
+      - name: Promote verified Players and publish flip cards with reconciled outcome
+        if: ${{ steps.capture.outputs.run_id != '' }}
+        env:
+          TBC_SOURCE_RUN_ID: ${{ steps.capture.outputs.run_id }}
+        run: python scripts/promote-verified-tbc-player-feed.py
+      - name: Record failed capture, promotion, or publication
+        if: ${{ failure() }}
+        run: |
+          python - <<'PY'
+          import os, psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"],connect_timeout=30) as conn:
+              with conn.cursor() as cur:
+                  cur.execute("""
+                  INSERT INTO public.ingest_job_health
+                    (job_name,last_failure_at,consecutive_failures,last_error,last_result,updated_at)
+                  VALUES ('tbc_players_canonical_publication',now(),1,
+                    'GitHub verified Players publication workflow failed',
+                    '{"workflow":"tbc-players-audit-capture","complete":false}'::jsonb,now())
+                  ON CONFLICT (job_name) DO UPDATE SET
+                    last_failure_at=now(),
+                    consecutive_failures=ingest_job_health.consecutive_failures+1,
+                    last_error=excluded.last_error,
+                    last_result=excluded.last_result,
+                    updated_at=now()
+                  """)
+              conn.commit()
           PY
