@@ -1479,7 +1479,13 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-drawer .ybr-scroll { max-width:100%; overflow-x:auto; }
 
         @media (max-width: 819px) {
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width: min(410px, 100vw); }
+          /* Mobile has a fixed ticker/footer below the Stat Ledger and Rules.
+             Give the drawer's existing scroll area enough trailing space to
+             lift the final content above those fixed bars. No behavior changes. */
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer {
+            width: min(410px, 100vw);
+            padding-bottom: calc(32px + var(--footerH, 66px) + var(--yat-message-h, 36px) + env(safe-area-inset-bottom, 0px));
+          }
           .yfp-drawer-head { padding: 6px 10px; }
           .yfp-drawer-head .yfp-drawer-school { font-size: 13px; }
           .yfp-drawer-head .yfp-drawer-location { font-size: 9px; }
