@@ -210,7 +210,8 @@ export const SAFE_2026_STAGE_TEAM_RECOVERY_SQL = `
 WITH missing_stage AS MATERIALIZED (
   SELECT f.playerid
   FROM public.flip_card_front_stage f
-  WHERE f.status_label='ACTIVE'
+  WHERE EXTRACT(YEAR FROM CURRENT_DATE)=2026
+    AND f.status_label='ACTIVE'
     AND f.current_teamid IS NULL
     AND f.current_team_name IS NULL
     AND f.current_team_source IS NULL
