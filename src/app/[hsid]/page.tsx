@@ -15,6 +15,7 @@ import {
   getFlipCardFrontStageByHsid,
   getVerifiedTbcCanonicalPlayerIds,
   getPlayerById,
+  getActiveAlumniCountByHsid,
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
@@ -261,8 +262,6 @@ export async function generateMetadata({
   const name = String(school?.hsname || "Your School");
   const loc = String(school?.hslocation || "");
   const locParts = loc.split(",").map((s) => s.trim());
-  const stateAbbr = locParts.length > 1 ? locParts[locParts.length - 1].toUpperCase() : "";
-  const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
   const schoolHsid = String(school?.hsid || hsid);
   const crestUrl = getSchoolCrestUrl(schoolHsid);
   const canonicalUrl = await getSchoolCanonicalUrl(school, schoolHsid);
@@ -405,13 +404,22 @@ export async function generateMetadata({
   // crawlers and gives the whole All-Time list a dedicated preview card.
   const allTimeShare = qp?.share === 'alltime';
   const schoolShareImage = `${host ? `https://${host}` : canonicalUrl}/api/og/school?hsid=${encodeURIComponent(schoolHsid)}${allTimeShare ? '&section=alltime' : ''}`;
-  const schoolShareTitle = allTimeShare ? `${name.toUpperCase()} | ALL-TIME NEXT-LEVEL ALUMNI | YAT?STATS` : titleParts.join(" | ");
+  // Search titles and descriptions use the words fans search for ("<school>
+  // baseball alumni", city, state) and the school's own Active Alumni count,
+  // so 17,000 school pages read as distinct pages, not one template.
+  const cityState = locParts.filter(Boolean).join(", ");
+  const activeCount = allTimeShare ? 0 : await getActiveAlumniCountByHsid(schoolHsid).catch(() => 0);
+  const schoolShareTitle = allTimeShare
+    ? `${name.toUpperCase()} | ALL-TIME NEXT-LEVEL ALUMNI | YAT?STATS`
+    : `${name} Baseball Alumni${cityState ? ` - ${cityState}` : ""} | YAT?STATS`;
   const schoolShareDescription = allTimeShare
     ? `Explore all-time next-level baseball alumni from ${name} (${loc}). Connect. Contribute. Remember.`
-    : `Track active and all-time baseball alumni from ${name} (${loc}).`;
+    : activeCount > 0
+      ? `Where ${name}${cityState ? ` (${cityState})` : ""} baseball alumni play now: ${activeCount} active in college and pro baseball, with live stats, news and career timelines.`
+      : `Where ${name}${cityState ? ` (${cityState})` : ""} baseball alumni went: college and pro careers, stats, news and timelines.`;
   const schoolShareUrl = allTimeShare ? `${canonicalUrl}/?share=alltime#sec-alltime` : canonicalUrl;
   return {
-    title: schoolShareTitle,
+    title: { absolute: schoolShareTitle },
     description: schoolShareDescription,
     alternates: { canonical: schoolShareUrl },
     openGraph: {

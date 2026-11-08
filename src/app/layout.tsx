@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     default: "YAT?STATS",
     template: "%s | YAT?STATS",
   },
-  description: "YAT?STATS school microsites — Track active and all-time baseball alumni.",
+  description: "Where high school baseball alumni play now: live college and pro stats, news and career timelines for 17,000 high school programs.",
   manifest: "/manifest.webmanifest",
 };
 

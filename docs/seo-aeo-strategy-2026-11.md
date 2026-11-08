@@ -65,6 +65,14 @@ Record the decision and its reasoning as a dated entry in this doc and in
 the `robots.txt` comment, the same way the Oct 2026 blocks were explained.
 Change it with a reviewed PR, never as a side edit.
 
+**Decision, Nov 8 2026 (Pete): step 1 approved.** OAI-SearchBot, ChatGPT-User,
+PerplexityBot, Perplexity-User, Claude-SearchBot and Claude-User may read
+school sites; player pages (`/*/player/`) and `/api/` stay blocked for them.
+Training bots stay blocked. Reason: AI assistants already sent 3 users and 24
+sessions in the 30 days before (GA4), with every search bot blocked; being
+readable lets them cite YAT?STATS. Step 2 (player pages) after 2 weeks of flat
+database load.
+
 The October bot blocks prevented outages, but they also make us invisible to
 answer engines. There are two kinds of AI bot:
 
