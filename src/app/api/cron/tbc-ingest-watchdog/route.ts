@@ -44,7 +44,50 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ ok: true, stale, lastSuccessAt });
+    // Capture success is NOT player publication success. The independent
+    // full-universe pipeline must finish raw promotion, identity reconciliation
+    // and flip-card publication (or explicitly hold an identity).
+    const publicationJob = "tbc_players_canonical_publication";
+    const { rows: publicationRows } = await pool.query<{
+      last_success_at: Date | null;
+      last_failure_at: Date | null;
+      consecutive_failures: number;
+      last_error: string | null;
+      last_result: unknown;
+    }>(
+      `SELECT last_success_at,last_failure_at,consecutive_failures,last_error,last_result
+         FROM public.ingest_job_health WHERE job_name=$1`,
+      [publicationJob],
+    );
+    const published = publicationRows[0];
+    const lastPublicationAt = published?.last_success_at
+      ? new Date(published.last_success_at).toISOString() : null;
+    // Twelve-hour scheduling with one full day to tolerate a missed slot.
+    const publicationStale = !lastPublicationAt ||
+      Date.now() - new Date(lastPublicationAt).getTime() > 26 * 60 * 60 * 1000;
+    const publicationFailed = Number(published?.consecutive_failures ?? 0) > 0;
+    if (publicationStale || publicationFailed) {
+      await sendIngestAlert({
+        event: "yatstats_ingest_stale",
+        job: publicationJob,
+        occurredAt: new Date().toISOString(),
+        lastSuccessAt: lastPublicationAt,
+        error: publicationFailed
+          ? "TBC Players downloaded but canonical publication failed: " + (published?.last_error || "incomplete")
+          : "No verified end-to-end TBC player publication in the last 26 hours",
+      });
+    }
+    return NextResponse.json({
+      ok: !(stale || publicationStale || publicationFailed),
+      stale,
+      lastSuccessAt,
+      publication: {
+        stale: publicationStale,
+        failed: publicationFailed,
+        lastSuccessAt: lastPublicationAt,
+        lastResult: published?.last_result ?? null,
+      },
+    }, { status: stale || publicationStale || publicationFailed ? 503 : 200 });
   } catch (error) {
     const message = sanitizeError(error);
     console.error("[tbc-ingest-watchdog] check failed", { message });
