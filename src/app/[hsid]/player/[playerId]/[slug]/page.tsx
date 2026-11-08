@@ -33,6 +33,8 @@ import {
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { playerProfileShareInfo, playerShareOrigin } from "@/lib/playerProfileShare";
+import { playerJourneyMeta } from "@/lib/playerJourneySeo";
+import { getPlayerIdentityMetaOnce } from "@/lib/playerIdentityCached";
 import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
@@ -55,9 +57,10 @@ type Props = {
 async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: string): Promise<Metadata> {
   const h = await headers();
   const origin = playerShareOrigin(h.get('x-forwarded-host') || h.get('host') || '', h.get('x-forwarded-proto') || 'https');
-  const [player, byIdSchool] = await Promise.all([
+  const [player, byIdSchool, identity] = await Promise.all([
     getPlayerById(playerId).catch(() => null),
     /^\d+$/.test(hsid) ? getSchoolByHsid(hsid).catch(() => null) : Promise.resolve(null),
+    getPlayerIdentityMetaOnce(playerId).catch(() => null),
   ]);
   const school = byIdSchool || await getSchoolByUrl(origin).catch(() => null);
   const resolvedHsid = String(school?.hsid || hsid);
@@ -67,8 +70,20 @@ async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: 
     origin, hsid: resolvedHsid, playerId, slug, playerName,
     schoolName: String(school?.hsname || player?.high_school || ''),
   });
+  // Search result tells the journey: high school (city, state) to the current
+  // team, read live from the profile's own identity data. See playerJourneySeo.
+  const journey = playerJourneyMeta({
+    playerName,
+    schoolName: String(school?.hsname || identity?.hsname || player?.high_school || ''),
+    schoolLocation: String(school?.hslocation || identity?.hslocation || ''),
+    teamName: identity?.currentTeamName,
+    levelLabel: identity?.levelLabel,
+    statusLabel: identity?.statusLabel,
+  });
+  info.title = journey.title;
+  info.description = journey.description;
   return {
-    title: info.title,
+    title: { absolute: info.title },
     description: info.description,
     alternates: { canonical: info.url },
     openGraph: {
