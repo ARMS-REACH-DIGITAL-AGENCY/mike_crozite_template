@@ -8,6 +8,7 @@ or overwrite independently verified player status, current team, or fan edits.
 import json
 import os
 import sys
+import subprocess
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -144,6 +145,16 @@ def main():
             break
     if not cards_done:
         raise RuntimeError("Flip-card publication did not complete within bounded batches")
+
+    # Run the same evidence-aware 2026 college-team/status recovery that the
+    # regular level-QC job uses. Fail the entire publication workflow if it
+    # cannot complete; a card existing with a blank recoverable team is not done.
+    subprocess.run(
+        ["npx", "tsx", "./scripts/reconcile-tbc-stage-after-publication.ts"],
+        check=True,
+        timeout=240,
+    )
+    pulse("source_backed_stage_reconciliation", {"completed": True})
 
     # No source-backed, publishable identity is permitted to vanish between
     # raw and stage. Exception holds are recorded by player ID.
