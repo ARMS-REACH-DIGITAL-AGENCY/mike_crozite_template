@@ -519,6 +519,41 @@ WITH season2026 AS MATERIALIZED (
 SELECT COUNT(*)::int AS retired FROM classified
 `;
 
+// Clear only a stale affiliation that an explicitly documented 2026 participation
+// status reversal superseded. This does not establish a current team, verify a
+// current roster, change ACTIVE/RETIRED status, or alter career statistics.
+export const SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL = `
+WITH eligible AS MATERIALIZED (
+  SELECT f.playerid
+  FROM public.flip_card_front_stage f
+  WHERE f.status_label='ACTIVE'
+    AND f.team_affiliation_status='RETIRED'
+    AND f.current_teamid IS NULL
+    AND f.current_team_source IS NULL
+    AND f.last_transaction_applied_at IS NULL
+    AND f.last_transaction_type IS NULL
+    AND f.is_on_40man IS NOT TRUE
+    AND f.source_summary#>>'{status_classification,source}'='tbc_complete_history_2026'
+    AND f.source_summary#>>'{status_classification,rule}'='verified_2026_participation'
+    AND f.source_summary#>>'{status_classification,supersedes}'='yatstats_retirement_cutoff'
+    AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+), changed AS (
+  UPDATE public.flip_card_front_stage f
+  SET team_affiliation_status=NULL,
+    source_summary=COALESCE(f.source_summary,'{}'::jsonb)||jsonb_build_object(
+      'stale_affiliation_cleanup',jsonb_build_object(
+      'prior_affiliation','RETIRED','reason','2026_participation_superseded_automatic_retirement',
+      'current_team_unverified',true,'cleared_at',NOW())),
+    updated_at=NOW(),stage_updated_at=NOW()
+  FROM eligible e WHERE f.playerid=e.playerid
+    AND f.status_label='ACTIVE' AND f.team_affiliation_status='RETIRED'
+    AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+    AND f.last_transaction_applied_at IS NULL AND f.last_transaction_type IS NULL
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS stale_affiliations_corrected FROM changed
+`;
+
 // Restore existing verified career high where legacy NCAA placeholder persisted.
 export const SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL = `
 

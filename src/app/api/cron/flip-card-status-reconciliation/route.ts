@@ -6,6 +6,7 @@ import {
   SAFE_RETIRED_TBC_CAREER_HIGH_BACKFILL_SQL,
   SAFE_RETIRED_POST_TRANSACTION_TEAM_CLEAR_SQL,
   SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL,
+  SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL,
 } from "@/lib/officialLevels";
 
 // Strictly bounded catch-up after fresh TBC imports. Separate from the TBC
@@ -30,9 +31,12 @@ export async function GET(req: NextRequest) {
     let verifiedCareerHighFixed = 0;
     let staleRetiredTeamsCleared = 0;
     let collegesReactivated = 0;
+    let staleAffiliationsCorrected = 0;
     if (!dry) {
       const college = await writerQuery<{ reactivated: number }>(SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL);
       collegesReactivated = Number(college.rows[0]?.reactivated ?? 0);
+      const staleAffiliations = await writerQuery<{ stale_affiliations_corrected: number }>(SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL);
+      staleAffiliationsCorrected = Number(staleAffiliations.rows[0]?.stale_affiliations_corrected ?? 0);
       const levels = await writerQuery<{ corrected: number }>(SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL);
       verifiedLevelsFixed = Number(levels.rows[0]?.corrected ?? 0);
       const status = await writerQuery<{ retired: number }>(SAFE_2025_RETIREMENT_BACKFILL_SQL);
@@ -51,7 +55,7 @@ export async function GET(req: NextRequest) {
       FROM public.flip_card_front_stage
     `);
     const result = {
-      ok: true, dry, retired, verifiedLevelsFixed, verifiedCareerHighFixed, staleRetiredTeamsCleared, collegesReactivated,
+      ok: true, dry, retired, verifiedLevelsFixed, verifiedCareerHighFixed, staleRetiredTeamsCleared, collegesReactivated, staleAffiliationsCorrected,
       missingStatuses: remaining.rows[0]?.blank ?? 0,
       retiredNCAAPlaceholders: remaining.rows[0]?.retired_ncaas ?? 0,
       batchLimit: 5000,
