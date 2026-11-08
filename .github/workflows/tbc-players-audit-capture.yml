@@ -133,9 +133,9 @@ jobs:
           print("VERIFIED_SOURCE_CAPTURE_COMPLETE",flush=True)
           with open(os.environ["GITHUB_OUTPUT"],"a") as output:
               print(f"run_id={run_id}",file=output)
+          PY
       - name: Promote verified Players and publish flip cards with reconciled outcome
         if: ${{ steps.capture.outputs.run_id != '' }}
         env:
           TBC_SOURCE_RUN_ID: ${{ steps.capture.outputs.run_id }}
         run: python scripts/promote-verified-tbc-player-feed.py
-          PY
