@@ -19,5 +19,10 @@
   school is also a team (its 2027 High School Team Page), and its teamid is
   `C` + hsid: `C5004` is the current teamid of Hamilton's 2027 high school
   players (hsid `5004`). Never give a team a `YAT` id.
+- **Look before you ask Pete (Nov 2026).** Before asking Pete about dates,
+  rules, prizes or past decisions, search the repo (`docs/`,
+  `src/lib/bracket/tournamentCalendar.ts`, the bracket components) and the
+  earlier Claude Code sessions (`list_sessions` / `list_events`, e.g.
+  "Bracket tournament platform audit"). Ask only what neither answers.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
