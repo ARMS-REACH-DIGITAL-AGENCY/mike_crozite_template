@@ -21,6 +21,7 @@ export const SAFE_2026_COLLEGE_PROVENANCE_RECOVERY_SQL = `WITH missing_source AS
     AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
     AND NOT EXISTS (SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified=true)
+    AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
     AND NOT EXISTS (SELECT 1 FROM public.school_player_profile_submission_raw s WHERE s.approved_playerid=f.playerid AND s.is_reviewed=true AND s.is_verified=true)
 ), feed_teams AS MATERIALIZED (
   SELECT b.playerid,b.teamid FROM public.tbc_batting_2026_season_raw b JOIN missing_source f ON f.playerid=b.playerid
