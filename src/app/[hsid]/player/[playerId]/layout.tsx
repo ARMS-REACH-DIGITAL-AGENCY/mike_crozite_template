@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById, getPlayerIdentityMeta, query, type PlayerIdentityMeta } from '@/lib/db';
+import { getPlayerById, getPlayerIdentityMeta, query, resolveLegacyPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
 import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import StoryDrawer from '@/components/yatstats/StoryDrawer';
@@ -52,6 +52,12 @@ export default async function PlayerLayout({
   params: Promise<{ hsid: string; playerId: string }>;
 }) {
   const { hsid, playerId } = await params;
+  // Old bookmarks/share links must move to the same player's canonical ID
+  // before rendering any profile context or 2025-placeholder timeline.
+  const legacy = await resolveLegacyPlayerRedirect(playerId);
+  if (legacy) {
+    redirect(`/${encodeURIComponent(legacy.hsid)}/player/${encodeURIComponent(legacy.playerId)}/${slugifySchoolName(legacy.displayName)}`);
+  }
   const requestHeaders = await headers();
   const currentHost = requestHeaders.get('x-forwarded-host') || requestHeaders.get('host') || '';
   let playerName = '';
