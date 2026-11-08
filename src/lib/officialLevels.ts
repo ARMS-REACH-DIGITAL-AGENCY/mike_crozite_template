@@ -307,40 +307,7 @@ changed AS (
 SELECT COUNT(*)::int AS recovered FROM changed
 `;
 
-// Restore missing provenance, without changing a player's existing team ID,
-// team, level, playing status, or verification timestamp. A match requires a
-// single 2026 TBC team ID that exactly equals the existing canonical Team ID.
-// Current feed wins over duplicate 2026 history; conflicts remain unresolved.
-// 2026 is season evidence, NOT proof of a live 2027 roster.
-export const SAFE_2026_COLLEGE_PROVENANCE_RECOVERY_SQL = `
-WITH missing_source AS MATERIALIZED (
-  SELECT f.playerid, f.current_teamid
-  FROM public.flip_card_front_stage f
-  JOIN public.teamid_universe_mapping u ON u.teamid=f.current_teamid
-  WHERE EXTRACT(YEAR FROM CURRENT_DATE)=2026
-    AND f.status_label='ACTIVE'
-    AND f.current_teamid IS NOT NULL
-    AND f.current_team_source IS NULL
-    AND (f.current_team_source_team_id IS NULL OR f.current_team_source_team_id=f.current_teamid)
-    AND f.current_team_last_verified IS NULL
-    AND f.current_team_source_player_id IS NULL
-    AND f.last_transaction_applied_at IS NULL
-    AND f.last_transaction_type IS NULL
-    AND f.level_label=u.level_label
-    AND f.current_team_name=u.current_team_name
-    AND f.current_org_or_conference_name IS NOT DISTINCT FROM u.current_org_or_conference_name
-    AND u.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
-    AND NULLIF(BTRIM(u.current_team_name),'') IS NOT NULL
-    AND NULLIF(BTRIM(u.current_org_or_conference_name),'') IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
-    AND NOT EXISTS (SELECT 1 FROM public.player_source_map m
-      WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified=true)
-    AND NOT EXISTS (SELECT 1 FROM public.school_player_profile_submission_raw s
-      WHERE s.approved_playerid=f.playerid AND s.is_reviewed=true AND s.is_verified=true)
-), feed_teams AS MATERIALIZED (
-  SELECT b.playerid, b.teamid FROM public.tbc_batting_2026_season_raw b
-  JOIN missing_source f ON f.playerid=b.playerid
-  WHERE b.year='2026' AND b.teamid ~ '^[0-9]+
+// Full-stage coverage metrics. Historical NULL IDs are expected; active NULL
 // IDs and assigned-but-unmapped IDs need investigation.
 export const STAGE_TEAM_COVERAGE_SQL = `
 SELECT COUNT(*)::int AS stage_rows,
