@@ -259,6 +259,28 @@ export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<stri
   }
 }
 
+// Redirect old YAT profile links after a manual identity correction.
+// Only verified aliases backed by a live canonical card qualify; a legacy
+// ID must never produce a second profile or resolve across the wrong school.
+// Numeric TBC IDs and ordinary player visits never add this lookup.
+export async function resolveLegacyPlayerRedirect(playerId: string): Promise<{
+  playerId: string; hsid: string; displayName: string;
+} | null> {
+  if (!/^YAT[0-9]{6,}$/i.test(playerId)) return null;
+  const { rows } = await query<{ playerid: string; hsid: string; display_name: string }>(
+    `SELECT s.playerid, s.hsid, s.display_name
+       FROM public.player_source_map m
+       JOIN public.flip_card_front_stage s ON s.playerid=m.playerid
+      WHERE m.source='yat_legacy' AND m.source_player_id=$1
+        AND m.is_verified IS TRUE
+        AND s.hsid IS NOT NULL
+      LIMIT 1`,
+    [playerId]
+  );
+  const hit=rows[0];
+  return hit ? {playerId:hit.playerid,hsid:hit.hsid,displayName:hit.display_name || hit.playerid} : null;
+}
+
 // Read aliases only for the people on this school's roster, not the full crosswalk.
 export async function getVerifiedTbcCanonicalPlayerIds(sourceIds: string[]): Promise<Map<string, string>> {
   const ids = [...new Set(sourceIds.filter(Boolean))];
