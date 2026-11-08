@@ -18,6 +18,7 @@ import {
 } from "@/lib/db";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { getCanonicalBaseUrl } from "@/lib/canonicalUrl";
+import { getSchoolCanonicalUrl } from "@/lib/schoolCanonical";
 import { query } from "@/lib/db";
 import { parseNewsVideo, publicNewsHeadline } from "@/lib/newsVideo";
 import { fetchInstagramPostPreview } from "@/lib/instagramPostPreview";
@@ -264,7 +265,7 @@ export async function generateMetadata({
   const titleParts = [name.toUpperCase(), stateAbbr, "YAT?STATS - Where They YAT?"].filter(Boolean);
   const schoolHsid = String(school?.hsid || hsid);
   const crestUrl = getSchoolCrestUrl(schoolHsid);
-  const canonicalUrl = getCanonicalBaseUrl(school, schoolHsid);
+  const canonicalUrl = await getSchoolCanonicalUrl(school, schoolHsid);
   // Shared News links use the school route so named school subdomains do not
   // resolve /n/:uuid as an unknown school. Supply article-specific previews.
   if (qp.story && /^[A-Za-z0-9_:-]{1,120}$/.test(qp.story)) {
