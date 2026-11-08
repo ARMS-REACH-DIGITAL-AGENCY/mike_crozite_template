@@ -1,4 +1,4 @@
-// https://yatstats.com/sitemap.xml - the sitemap index: one child sitemap
+// https://sitemaps.yatstats.com/sitemap.xml - the sitemap index: one child sitemap
 // per live school microsite. See src/lib/sitemap.ts.
 import { getLiveSchools, sitemapIndexXml, SITEMAP_ROOT, xmlResponse } from '@/lib/sitemap';
 
@@ -8,7 +8,6 @@ export async function GET() {
   try {
     const schools = await getLiveSchools();
     return xmlResponse(sitemapIndexXml([
-      `${SITEMAP_ROOT}/sitemaps/root.xml`,
       ...schools.map((s) => `${SITEMAP_ROOT}/sitemaps/school/${s.hsid}.xml`),
     ]));
   } catch {

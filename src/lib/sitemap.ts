@@ -1,11 +1,12 @@
 // Sitemaps for search engines.
 //
-// One index at https://yatstats.com/sitemap.xml lists one child sitemap per
+// One index at https://sitemaps.yatstats.com/sitemap.xml lists one child sitemap per
 // live school microsite (school_success.microsite_url). Each child lists that
 // school's hub and its Active Alumni player profiles on the school's own
-// subdomain. Every subdomain serves the same robots.txt, whose
-// "Sitemap: https://yatstats.com/sitemap.xml" line is Google's cross-site
-// sitemap method; a Search Console Domain property for yatstats.com covers
+// subdomain. The bare yatstats.com is a separate Vercel project (the
+// landing page), so the index lives on sitemaps.yatstats.com, which the
+// *.yatstats.com wildcard routes to this app. Every subdomain serves the same
+// robots.txt, whose Sitemap line is Google's cross-site sitemap method; a Search Console Domain property for yatstats.com covers
 // every subdomain as well.
 //
 // Crawl load: crawlers sweeping the microsites took the database down
@@ -17,7 +18,7 @@ import { query } from '@/lib/db';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { toPlayerSlug } from '@/lib/slug';
 
-export const SITEMAP_ROOT = 'https://yatstats.com';
+export const SITEMAP_ROOT = 'https://sitemaps.yatstats.com';
 const SITEMAP_TTL_SECONDS = 60 * 60 * 24;
 
 export type LiveSchool = { hsid: string; url: string };

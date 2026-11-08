@@ -16,10 +16,10 @@ order; each item names what changes and how we know it worked.
 
 ## Phase 0: shipped today
 
-- `https://yatstats.com/sitemap.xml` is a sitemap index with one child per live
+- `https://sitemaps.yatstats.com/sitemap.xml` is a sitemap index with one child per live
   school (`school_success.microsite_url`): `/sitemaps/school/<hsid>.xml` lists
   the hub and its Active Alumni profile URLs on the school's own subdomain.
-- `robots.txt` now has `Sitemap: https://yatstats.com/sitemap.xml`. Every
+- `robots.txt` now has `Sitemap: https://sitemaps.yatstats.com/sitemap.xml`. Every
   subdomain serves that file, which is Google's documented cross-site sitemap
   method.
 - **Crawl-load guard.** The sitemap only lists the Active Alumni players already
@@ -32,7 +32,7 @@ school sitemaps; Hamilton's (`/sitemaps/school/5004.xml`) lists the hub and
 48 profiles, and a listed profile URL loads with a matching `og:url`.
 
 **Before submitting to Search Console, check after the production deploy:**
-`https://yatstats.com/sitemap.xml` renders the index; 2-3 school sitemaps
+`https://sitemaps.yatstats.com/sitemap.xml` renders the index; 2-3 school sitemaps
 list real URLs; `robots.txt` on the root and on 2 school subdomains shows the
 `Sitemap:` line.
 
@@ -40,7 +40,7 @@ list real URLs; `robots.txt` on the root and on 2 school subdomains shows the
 
 1. **Google Search Console: Domain property for `yatstats.com`** (DNS TXT
    verification). One property covers every school subdomain. Submit
-   `https://yatstats.com/sitemap.xml`.
+   `https://sitemaps.yatstats.com/sitemap.xml`.
 2. **Bing Webmaster Tools.** Import the GSC property. Bing's index also feeds
    ChatGPT Search and Copilot.
 3. **Baseline.** Record indexed pages, impressions and the top queries for

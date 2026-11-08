@@ -1,4 +1,4 @@
-// https://yatstats.com/sitemaps/school/<hsid>.xml - one live school's hub
+// https://sitemaps.yatstats.com/sitemaps/school/<hsid>.xml - one live school's hub
 // and its Active Alumni player profiles, on the school's own subdomain.
 import { getLiveSchools, getSitemapPlayers, schoolSitemapEntries, urlSetXml, xmlResponse } from '@/lib/sitemap';
 
