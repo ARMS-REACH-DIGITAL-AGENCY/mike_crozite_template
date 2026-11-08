@@ -486,8 +486,36 @@ export function loadIndex({ simulation = false }: { simulation?: boolean } = {})
         idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
         return idx;
       }
-      // The 2027 season, scored from live lines once its weeks start.
-      return applyLive(blankSeason(idx), simulationAsOf());
+      // The 2027 tournament field is separate from the historical fixture:
+      // replace only school identities in the fixed Round 1 slots.
+      // All game IDs, game weeks and advancement slots remain unchanged.
+      return fetch('/bracket-lab/2027/field.json', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`2027 field HTTP ${r.status}`))))
+        .then((field: { season: number; schools: Index['schools'] }) => {
+          if (field.season !== 2027 || Object.keys(field.schools || {}).length !== 1024) {
+            throw new Error('Invalid 2027 tournament field');
+          }
+          const bySlot = new Map<string, number>();
+          for (const [hsid, school] of Object.entries(field.schools)) {
+            const key = `${school[1]}:${school[2]}`;
+            if (bySlot.has(key)) throw new Error(`Duplicate 2027 bracket slot ${key}`);
+            bySlot.set(key, Number(hsid));
+          }
+          const first = idx.rounds.find((round: Round) => round.r === 1);
+          if (!first || first.series.length !== 512 || bySlot.size !== 1024) {
+            throw new Error('Invalid 2027 Round 1 bracket');
+          }
+          for (const series of first.series as SeriesRow[]) {
+            const home = bySlot.get(`${series[0]}:${series[3]}`);
+            const away = bySlot.get(`${series[0]}:${series[4]}`);
+            if (!home || !away) throw new Error(`Missing Round 1 team at region ${series[0]}`);
+            series[1] = home;
+            series[2] = away;
+            for (const game of series[7]) { game[2] = home; game[3] = away; }
+          }
+          idx.schools = field.schools;
+          return applyLive(blankSeason(idx), simulationAsOf());
+        });
     });
     indexPromise.catch(() => { indexPromise = null; });
   }
