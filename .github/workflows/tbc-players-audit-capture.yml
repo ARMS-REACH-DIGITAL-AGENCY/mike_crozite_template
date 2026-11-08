@@ -149,3 +149,25 @@ jobs:
         env:
           TBC_SOURCE_RUN_ID: ${{ steps.capture.outputs.run_id }}
         run: python scripts/promote-verified-tbc-player-feed.py
+      - name: Record failed capture, promotion, or publication
+        if: ${{ failure() }}
+        run: |
+          python - <<'PY'
+          import os, psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"],connect_timeout=30) as conn:
+              with conn.cursor() as cur:
+                  cur.execute("""
+                  INSERT INTO public.ingest_job_health
+                    (job_name,last_failure_at,consecutive_failures,last_error,last_result,updated_at)
+                  VALUES ('tbc_players_canonical_publication',now(),1,
+                    'GitHub verified Players publication workflow failed',
+                    '{"workflow":"tbc-players-audit-capture","complete":false}'::jsonb,now())
+                  ON CONFLICT (job_name) DO UPDATE SET
+                    last_failure_at=now(),
+                    consecutive_failures=ingest_job_health.consecutive_failures+1,
+                    last_error=excluded.last_error,
+                    last_result=excluded.last_result,
+                    updated_at=now()
+                  """)
+              conn.commit()
+          PY
