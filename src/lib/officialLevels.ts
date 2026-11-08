@@ -226,6 +226,7 @@ WITH missing_stage AS MATERIALIZED (
     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
     AND NOT EXISTS (SELECT 1 FROM public.player_current_team ct WHERE ct.playerid=f.playerid)
     AND NOT EXISTS (SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified=true)
+    AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
     AND (
       COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT')
       OR (
