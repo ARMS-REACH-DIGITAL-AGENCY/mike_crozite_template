@@ -1,6 +1,12 @@
 name: TBC Players verified capture and publication
 on:
   workflow_dispatch:
+  # A reviewed change to this workflow triggers a one-time release smoke run.
+  # Routine player captures remain on the twice-daily schedule.
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - .github/workflows/tbc-players-audit-capture.yml
   schedule:
     - cron: "30 10,22 * * *"
 permissions:
