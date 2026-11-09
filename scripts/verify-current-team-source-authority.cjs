@@ -338,13 +338,20 @@ assert(!mlbBackfillGuard.includes('SET status_label =') &&
        !mlbBackfillGuard.includes('current_team_last_verified ='),
   'Metadata backfill must never change status or fake current-roster verification');
 
+const mlbColumnProvision = section(mlb,
+  'async function ensureStageColumns(): Promise<void>', '// Where MLB itself says');
+assert(mlbColumnProvision.includes('ADD COLUMN IF NOT EXISTS previous_teamid text'),
+  'Roster sync must provision previous_teamid before the departure SQL uses it');
+
 const mlbDeparturesGuard = section(mlb,
   'async function applyDepartures(', '// Roster-exit detection');
-assert(mlbDeparturesGuard.includes('previous_teamid = CASE') &&
+assert(mlbDeparturesGuard.includes('previous_teamid = COALESCE(stage.current_teamid, stage.previous_teamid)') &&
        mlbDeparturesGuard.includes('current_teamid = NULL') &&
        mlbDeparturesGuard.includes('current_team_name = NULL') &&
        mlbDeparturesGuard.includes('current_org_or_conference_name = NULL'),
   'Confirmed roster departures must move the last current team to history and clear its full canonical identity');
+assert(mlbDeparturesGuard.includes('ELSE COALESCE(stage.previous_team_name, pd.departed_team_name)'),
+  'Departure repair must preserve an existing previous-team name or recover it from MLB when prior current name is already cleared');
 assert(mlbDeparturesGuard.includes('current_team_source_team_id = NULL') &&
        mlbDeparturesGuard.includes('current_team_source = NULL') &&
        mlbDeparturesGuard.includes('stage.last_transaction_applied_at IS NULL') &&

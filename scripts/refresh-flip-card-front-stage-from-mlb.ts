@@ -63,6 +63,7 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS last_transaction_date date,
       ADD COLUMN IF NOT EXISTS last_transaction_team_name text,
       ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz,
+      ADD COLUMN IF NOT EXISTS previous_teamid text,
       ADD COLUMN IF NOT EXISTS previous_team_name text,
       ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
       ADD COLUMN IF NOT EXISTS previous_level_label text
@@ -1251,13 +1252,12 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
         SET status_label = pd.departed,
             display_status_label = pd.departed,
             team_affiliation_status = pd.departed,
-            previous_teamid = CASE
-              WHEN stage.current_team_name IS NOT NULL THEN stage.current_teamid
-              ELSE stage.previous_teamid
-            END,
+            -- Earlier roster syncs sometimes cleared the name but retained
+            -- the TeamID. Carry that ID into history before clearing it.
+            previous_teamid = COALESCE(stage.current_teamid, stage.previous_teamid),
             previous_team_name = CASE
               WHEN stage.current_team_name IS NOT NULL THEN COALESCE(pd.departed_team_name, stage.current_team_name)
-              ELSE stage.previous_team_name
+              ELSE COALESCE(stage.previous_team_name, pd.departed_team_name)
             END,
             previous_org_or_conference_name = CASE
               WHEN stage.current_team_name IS NOT NULL THEN stage.current_org_or_conference_name
