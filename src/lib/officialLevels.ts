@@ -208,14 +208,14 @@ export const CANONICAL_ACTIVE_STAGE_MISMATCH_SQL = `
 // or fictitious roster-verification timestamp. Safe to rerun daily.
 export const SAFE_2026_STAGE_TEAM_RECOVERY_SQL = `
 WITH missing_stage AS MATERIALIZED (
-  SELECT f.playerid
+  SELECT f.playerid, f.level_label
   FROM public.flip_card_front_stage f
   WHERE EXTRACT(YEAR FROM CURRENT_DATE)=2026
     AND f.status_label='ACTIVE'
     AND f.current_teamid IS NULL
     AND f.current_team_name IS NULL
     AND f.current_team_source IS NULL
-    AND f.level_label IS NULL
+    AND (f.level_label IS NULL OR f.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'))
     AND f.current_team_last_verified IS NULL
     AND f.current_team_source_player_id IS NULL
     AND f.current_team_source_team_id IS NULL
@@ -226,6 +226,7 @@ WITH missing_stage AS MATERIALIZED (
     AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
     AND NOT EXISTS (SELECT 1 FROM public.player_current_team ct WHERE ct.playerid=f.playerid)
     AND NOT EXISTS (SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified=true)
+    AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
     AND (
       COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'') NOT IN ('RETIRED','FREE AGENT')
       OR (
@@ -271,6 +272,7 @@ verified AS MATERIALIZED (
   FROM missing_stage m JOIN one_team u USING(playerid)
   JOIN public.teamid_universe_mapping t ON t.teamid=u.teamid
   WHERE t.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC')
+    AND (m.level_label IS NULL OR m.level_label=t.level_label)
     AND NULLIF(BTRIM(t.current_team_name),'') IS NOT NULL
     AND NULLIF(BTRIM(t.current_org_or_conference_name),'') IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM public.school_player_profile_submission_raw s
@@ -295,7 +297,7 @@ changed AS (
   FROM verified v
   WHERE f.playerid=v.playerid AND f.status_label='ACTIVE'
     AND f.current_teamid IS NULL AND f.current_team_name IS NULL
-    AND f.current_team_source IS NULL AND f.level_label IS NULL
+    AND f.current_team_source IS NULL AND (f.level_label IS NULL OR f.level_label=v.level_label)
     AND f.last_transaction_applied_at IS NULL
     AND f.last_transaction_type IS NULL
     AND f.current_team_absent_since IS NULL
@@ -515,6 +517,41 @@ WITH season2026 AS MATERIALIZED (
  RETURNING f.playerid
 )
 SELECT COUNT(*)::int AS retired FROM classified
+`;
+
+// Clear only a stale affiliation that an explicitly documented 2026 participation
+// status reversal superseded. This does not establish a current team, verify a
+// current roster, change ACTIVE/RETIRED status, or alter career statistics.
+export const SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL = `
+WITH eligible AS MATERIALIZED (
+  SELECT f.playerid
+  FROM public.flip_card_front_stage f
+  WHERE f.status_label='ACTIVE'
+    AND f.team_affiliation_status='RETIRED'
+    AND f.current_teamid IS NULL
+    AND f.current_team_source IS NULL
+    AND f.last_transaction_applied_at IS NULL
+    AND f.last_transaction_type IS NULL
+    AND f.is_on_40man IS NOT TRUE
+    AND f.source_summary#>>'{status_classification,source}'='tbc_complete_history_2026'
+    AND f.source_summary#>>'{status_classification,rule}'='verified_2026_participation'
+    AND f.source_summary#>>'{status_classification,supersedes}'='yatstats_retirement_cutoff'
+    AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+), changed AS (
+  UPDATE public.flip_card_front_stage f
+  SET team_affiliation_status=NULL,
+    source_summary=COALESCE(f.source_summary,'{}'::jsonb)||jsonb_build_object(
+      'stale_affiliation_cleanup',jsonb_build_object(
+      'prior_affiliation','RETIRED','reason','2026_participation_superseded_automatic_retirement',
+      'current_team_unverified',true,'cleared_at',NOW())),
+    updated_at=NOW(),stage_updated_at=NOW()
+  FROM eligible e WHERE f.playerid=e.playerid
+    AND f.status_label='ACTIVE' AND f.team_affiliation_status='RETIRED'
+    AND f.current_teamid IS NULL AND f.current_team_source IS NULL
+    AND f.last_transaction_applied_at IS NULL AND f.last_transaction_type IS NULL
+  RETURNING f.playerid
+)
+SELECT COUNT(*)::int AS stale_affiliations_corrected FROM changed
 `;
 
 // Restore existing verified career high where legacy NCAA placeholder persisted.

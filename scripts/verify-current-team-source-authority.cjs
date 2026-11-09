@@ -128,6 +128,13 @@ assert(recovery.includes("f.current_teamid IS NULL") &&
 assert(recovery.includes('public.player_team_override') &&
        recovery.includes('f.last_transaction_applied_at IS NULL'),
   'Recovery must protect overrides and transaction departures');
+assert(recovery.includes('public.mlb_org_roster_resolution') &&
+       recovery.includes("r.match_status='matched'"),
+  'College Team ID recovery must exclude any authoritative MLB roster resolution');
+const provenanceRecovery = source('src/lib/verifiedCollegeProvenance.ts');
+assert(provenanceRecovery.includes('public.mlb_org_roster_resolution') &&
+       provenanceRecovery.includes("r.match_status='matched'"),
+  'College source attribution must exclude any authoritative MLB roster resolution');
 assert(!/current_team_last_verified\s*=/i.test(recovery),
   '2026 stats evidence must not be misrepresented as a live verified roster');
 assert(recovery.includes("'NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'") &&
@@ -260,6 +267,25 @@ assert(statusCron.includes('SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL'),
   'Late college season imports must be able to reverse automated retirement');
 assert(cutoff.includes('EXTRACT(YEAR FROM CURRENT_DATE)=2026'),
   'Year-specific retirement rule must fail closed when 2027 begins');
+
+const staleAffiliation = section(levels,
+  'export const SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL = \`',
+  'SELECT COUNT(*)::int AS stale_affiliations_corrected FROM changed');
+assert(staleAffiliation.includes("f.status_label='ACTIVE'") &&
+       staleAffiliation.includes("f.team_affiliation_status='RETIRED'") &&
+       staleAffiliation.includes("verified_2026_participation") &&
+       staleAffiliation.includes("tbc_complete_history_2026") &&
+       staleAffiliation.includes("yatstats_retirement_cutoff") &&
+       staleAffiliation.includes("f.current_teamid IS NULL") &&
+       staleAffiliation.includes("f.current_team_source IS NULL") &&
+       staleAffiliation.includes('player_team_override') &&
+       staleAffiliation.includes("f.last_transaction_applied_at IS NULL") &&
+       !staleAffiliation.includes("SET status_label=") &&
+       !staleAffiliation.includes("current_teamid=") &&
+       !staleAffiliation.includes("current_team_last_verified="),
+  'Clear only superseded auto-retirement affiliation without guessing team or changing status');
+assert(statusCron.includes('SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL'),
+  'Recurring status reconciliation must clear verified stale retirement affiliation');
 
 const expandedStageGuard = source('migrations/20261031_expand_guard_flip_card_canonical_identity.sql');
 assert(expandedStageGuard.includes('yatstats_guard_stage_name_org_edits') &&

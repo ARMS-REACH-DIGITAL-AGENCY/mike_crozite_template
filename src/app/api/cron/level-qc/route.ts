@@ -1,3 +1,4 @@
+import { SAFE_2026_COLLEGE_PROVENANCE_RECOVERY_SQL } from "@/lib/verifiedCollegeProvenance";
 import { NextRequest, NextResponse } from "next/server";
 // Rewrites levels: the writer connection, not the site's read-only pool.
 import { writerQuery as query } from "@/lib/dbWriter";
@@ -71,6 +72,7 @@ export async function GET(req: NextRequest) {
     const fixed: Record<string, number> = {};
     let canonicalFixed = 0;
     let teamIdsRecovered = 0;
+    let collegeProvenanceRecovered = 0;
     let participantsRecovered = 0;
     if (!dry) {
       const { rows: participants } = await query<{ activated: number }>(SAFE_2026_BLANK_STATUS_RECOVERY_SQL);
@@ -79,6 +81,9 @@ export async function GET(req: NextRequest) {
       const { rows: recoveryRows } = await query<{ recovered: number }>(SAFE_2026_STAGE_TEAM_RECOVERY_SQL);
       teamIdsRecovered = recoveryRows[0]?.recovered ?? 0;
       if (teamIdsRecovered) fixed["flip_card_front_stage safe 2026 team recovery"] = teamIdsRecovered;
+      const { rows: provenanceRows } = await query<{ recovered: number }>(SAFE_2026_COLLEGE_PROVENANCE_RECOVERY_SQL);
+      collegeProvenanceRecovered = provenanceRows[0]?.recovered ?? 0;
+      if (collegeProvenanceRecovered) fixed["flip_card_front_stage verified 2026 source attribution"] = collegeProvenanceRecovered;
       const { rows: canonicalRows } = await query<{ fixed: number }>(CANONICAL_STAGE_REPAIR_SQL);
       canonicalFixed = canonicalRows[0]?.fixed ?? 0;
       if (canonicalFixed) fixed["flip_card_front_stage canonical identity"] = canonicalFixed;
@@ -139,6 +144,7 @@ export async function GET(req: NextRequest) {
       fixedTotal,
       canonicalFixed,
       teamIdsRecovered,
+      collegeProvenanceRecovered,
       participantsRecovered,
       coverage,
       teamUniverse,
@@ -155,7 +161,7 @@ export async function GET(req: NextRequest) {
 
     // Email when something changed, an active player needs a decision, or
     // any table still holds an unofficial level; a clean week stays quiet.
-    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0 || (coverage?.active_null_team_ids ?? 0) > 0 || (coverage?.unmapped_team_ids ?? 0) > 0 || (teamUniverse?.teams_needing_review ?? 0) > 0 || canonicalChanges24h > 0 || heldHistoricalStats > 0 || (teamIdDiscovery?.unmapped ?? 0) > 0 || (teamIdDiscovery?.invalid_id ?? 0) > 0) {
+    if (fixedTotal > 0 || cards.length > 0 || mismatches.length > 0 || identityMismatches.length > 0 || scan.length > 0 || (coverage?.active_null_team_ids ?? 0) > 0 || (coverage?.active_team_id_without_source ?? 0) > 0 || (coverage?.unmapped_team_ids ?? 0) > 0 || (teamUniverse?.teams_needing_review ?? 0) > 0 || canonicalChanges24h > 0 || heldHistoricalStats > 0 || (teamIdDiscovery?.unmapped ?? 0) > 0 || (teamIdDiscovery?.invalid_id ?? 0) > 0) {
       const contactId = await findOrCreateGhlContact(REPORT_EMAIL, "Pete", "DeLuca", undefined, "YAT?STATS Operations");
       if (contactId) {
         const fixedRows = Object.entries(fixed).map(([k, n]) => [esc(k), String(n)]);
@@ -176,12 +182,13 @@ export async function GET(req: NextRequest) {
             historicalLevelCoverage.map((r) => [esc(r.source), String(r.total_stat_rows),
               String(r.unresolved_teamids), String(r.held_stat_rows)]))}
           <p><b>Full-stage coverage:</b> ${esc(JSON.stringify(coverage))}</p>
+          <p><b>ACTIVE team assignment gaps:</b> missing Team ID: ${coverage?.active_null_team_ids ?? 0}; assigned Team ID without source attribution: ${coverage?.active_team_id_without_source ?? 0}. Zero identity disagreements only covers assigned, comparable IDs and does not imply complete team coverage.</p>
           <p><b>Unresolved ACTIVE assignments (first ${unresolvedActiveTeams.length}):</b></p>
           ${unresolvedActiveTeams.length ? table(["Player", "Team ID", "Team", "Level", "Source"], unresolvedActiveTeams.map((r) => [esc(r.display_name), esc(r.current_teamid), esc(r.current_team_name), esc(r.level_label), esc(r.current_team_source)])) : "<p>None.</p>"}
           <p><b>Every value in the database that still isn't official:</b></p>
           ${table(["Table", "Column", "Value", "Rows"], scan.map((r) => [esc(r.table_name), esc(r.column_name), `<b>${esc(r.value)}</b>`, String(r.rows)]))}
           <p>NCAA without a division needs the division. PRO needs MLB, the affiliate level, INDY or INTERNATIONAL.</p>`;
-        await sendGHLEmail(contactId, `YAT?STATS daily identity check: ${cards.length + mismatches.length + identityMismatches.length} active to review`, html);
+        await sendGHLEmail(contactId, `YAT?STATS daily identity check: ${cards.length + mismatches.length + identityMismatches.length} card mismatches; ${coverage?.active_null_team_ids ?? 0} ACTIVE missing Team ID; ${coverage?.active_team_id_without_source ?? 0} missing source; ${teamUniverse?.teams_needing_review ?? 0} teams unresolved`, html);
       }
     }
     console.log("[level-qc]", JSON.stringify({ ...result, scan: scan.length }));

@@ -400,7 +400,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
   const todayIdx = weekStart ? Math.round((Date.parse(`${previewDate()}T00:00:00Z`) - Date.parse(`${weekStart}T00:00:00Z`)) / 86400000) : -1;
   const openDay: 'week' | number = todayIdx >= 0 && todayIdx <= 6 ? todayIdx : 'week';
   return (
-      <aside className={`bl bl-embed yfp-drawer ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
+      <aside className={`bl bl-embed yfp-drawer yfp-stat-ledger ${side === 'h' ? 'right' : 'left'}`} role="dialog" aria-modal="true"
         aria-label={`${nameOf(h)}, week ${card.week}`} onClick={(e) => e.stopPropagation()}>
         <div className="yfp-drawer-head yfp-drawer-head-line">
           <span className="yfp-drawer-who">
@@ -426,7 +426,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
 function TeamDrawer({ index, open, me, onClose, onSwitch }: { index: Index; open: Open; me: number; onClose: () => void; onSwitch: () => void }) {
   return (
     <DrawerWrap onClose={onClose} sides={[open.side === 'h' ? 'r' : 'l']}>
-      <TeamDrawerPanel index={index} open={open} me={me} onClose={onClose} onSwitch={onSwitch} />
+      <TeamDrawerPanel key={`${open.card.week}:${open.side}`} index={index} open={open} me={me} onClose={onClose} onSwitch={onSwitch} />
     </DrawerWrap>
   );
 }
@@ -1231,9 +1231,21 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            of its way rather than dimming and covering it with a modal mask.
            Closing the ledger brings the game back into view. */
         @media (max-width:819px) {
+          /* Keep both mobile drawers above the persistent site footer/ticker.
+             Previously their scroll viewport extended behind these fixed bars,
+             making the final rules appear unreachable on real phones. */
+          .yfp-drawer-wrap:not(.row5) {
+            bottom:calc(var(--footerH, 66px) + var(--yat-message-h, 36px) + env(safe-area-inset-bottom, 0px));
+          }
+          .yfp-drawer-wrap:not(.row5) .bl.bl-embed.yfp-drawer { bottom:0; }
           .yfz { transition:transform .22s ease-out; }
-          body.yfp-dock-l .yfz { transform:translateX(min(410px, 100vw)); }
-          body.yfp-dock-r .yfz { transform:translateX(calc(-1 * min(410px, 100vw))); }
+          /* Mobile drawers overlay the existing page. Translating the page by
+             a full viewport created horizontal overflow and Chrome auto-fit
+             scaling, especially for the left-side visitor drawer. */
+          body.yfp-dock-l .yfz,
+          body.yfp-dock-r .yfz { transform:none; }
+          .yfp-drawer-wrap:not(.row5) { left:0; right:0; width:100%; max-width:100vw; overflow:hidden; }
+          .yfp-drawer-wrap:not(.row5) .bl.bl-embed.yfp-drawer.yfp-stat-ledger { left:0; right:0; width:100%; max-width:100%; box-sizing:border-box; }
           .yfp-drawer-wrap { background:transparent; pointer-events:none; }
           .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { pointer-events:auto; }
         }
@@ -1490,18 +1502,20 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
              surface. Its natural scrollHeight follows each school's actual
              player rows, including late-loading rosters and all scoring rules.
              No fixed roster height or guessed bottom padding on the panel. */
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer {
-            width: min(410px, 100vw);
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer { width:min(410px,100vw); }
+          /* Only the Stat Ledger has a dedicated scroll child. Rules keeps
+             its established scrollable panel instead of being clipped. */
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer.yfp-stat-ledger {
             display:flex;
             flex-direction:column;
             overflow:hidden;
             padding:0;
           }
-          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer > .yfp-drawer-head {
+          .yfp-drawer-wrap .bl.bl-embed.yfp-drawer.yfp-stat-ledger > .yfp-drawer-head {
             position:relative;
             flex:0 0 auto;
           }
-          .yfp-drawer-wrap .yfp-drawer-scroll {
+          .yfp-drawer-wrap .yfp-stat-ledger > .yfp-drawer-scroll {
             display:block;
             flex:1 1 0%;
             min-height:0;
@@ -1515,7 +1529,7 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           }
           /* A real final child, not padding on an absolute-positioned panel,
              keeps the last rules paragraph scrollable above the phone inset. */
-          .yfp-drawer-wrap .yfp-drawer-end {
+          .yfp-drawer-wrap .yfp-stat-ledger .yfp-drawer-end {
             display:block;
             height:calc(20px + env(safe-area-inset-bottom, 0px));
           }

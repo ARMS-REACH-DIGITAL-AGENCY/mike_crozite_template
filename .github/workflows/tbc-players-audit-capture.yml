@@ -1,6 +1,12 @@
 name: TBC Players verified capture and publication
 on:
   workflow_dispatch:
+  # A reviewed workflow change also resumes partially completed source runs.
+  # Routine player captures remain on the twice-daily schedule.
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - .github/workflows/tbc-players-audit-capture.yml
   schedule:
     - cron: "30 10,22 * * *"
 permissions:
@@ -164,9 +170,18 @@ jobs:
                     '{"workflow":"tbc-players-audit-capture","complete":false}'::jsonb,now())
                   ON CONFLICT (job_name) DO UPDATE SET
                     last_failure_at=now(),
-                    consecutive_failures=ingest_job_health.consecutive_failures+1,
-                    last_error=excluded.last_error,
-                    last_result=excluded.last_result,
+                    consecutive_failures=CASE
+                      WHEN ingest_job_health.last_result ? 'error'
+                      THEN ingest_job_health.consecutive_failures
+                      ELSE ingest_job_health.consecutive_failures+1 END,
+                    last_error=CASE
+                      WHEN ingest_job_health.last_result ? 'error'
+                      THEN ingest_job_health.last_error
+                      ELSE excluded.last_error END,
+                    last_result=CASE
+                      WHEN ingest_job_health.last_result ? 'error'
+                      THEN ingest_job_health.last_result
+                      ELSE excluded.last_result END,
                     updated_at=now()
                   """)
               conn.commit()
