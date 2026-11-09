@@ -40,5 +40,10 @@
   released by an MLB organization who then plays INDY / INTERNATIONAL ball is
   ACTIVE with that team. Every other status shows the level he actually
   plays. Do not infer other status rules: Pete sets them.
+- **Explain every approval request first (Pete, Nov 2026).** Before any
+  action that will ask Pete to approve it (a Run SQL card, a network card,
+  any "Allow Claude to…" prompt), first tell him in one plain sentence what
+  it does and why it needs his approval. Example: "Next I'll look up who MLB
+  drafted in 1968, round 4, named Smith, to check Stephen Smith's draft line."
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
