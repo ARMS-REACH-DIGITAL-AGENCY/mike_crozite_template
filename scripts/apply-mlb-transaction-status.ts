@@ -128,6 +128,7 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS last_transaction_team_name text,
       ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz,
       ADD COLUMN IF NOT EXISTS team_affiliation_status text,
+      ADD COLUMN IF NOT EXISTS previous_teamid text,
       ADD COLUMN IF NOT EXISTS previous_team_name text,
       ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
       ADD COLUMN IF NOT EXISTS previous_level_label text,
@@ -210,12 +211,23 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             previous_team_name = COALESCE($4, current_team_name, previous_team_name),
             previous_teamid = CASE
               WHEN current_team_name IS NOT DISTINCT FROM $4
+                OR (current_team_name IS NULL AND current_teamid IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM public.teamid_universe_mapping m
+                    WHERE m.teamid = current_teamid
+                      AND m.current_team_name IS NOT DISTINCT FROM $4))
               THEN COALESCE(current_teamid, previous_teamid)
               ELSE previous_teamid
             END,
             previous_org_or_conference_name = CASE
               WHEN current_team_name IS NOT DISTINCT FROM $4
-              THEN COALESCE(current_org_or_conference_name, previous_org_or_conference_name)
+                OR (current_team_name IS NULL AND current_teamid IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM public.teamid_universe_mapping m
+                    WHERE m.teamid = current_teamid
+                      AND m.current_team_name IS NOT DISTINCT FROM $4))
+              THEN COALESCE(current_org_or_conference_name,
+                (SELECT m.current_org_or_conference_name
+                 FROM public.teamid_universe_mapping m WHERE m.teamid=current_teamid),
+                previous_org_or_conference_name)
               ELSE previous_org_or_conference_name
             END,
             previous_level_label = COALESCE($6, level_label, previous_level_label),

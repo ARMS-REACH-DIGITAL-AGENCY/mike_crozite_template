@@ -12,6 +12,7 @@ const source = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const levels = source('src/lib/officialLevels.ts');
 const cron = source('src/app/api/cron/level-qc/route.ts');
 const mlb = source('scripts/refresh-flip-card-front-stage-from-mlb.ts');
+const transactionSync = source('scripts/apply-mlb-transaction-status.ts');
 const gallery = source('src/lib/galleryStatuses.ts');
 
 const section = (text, head, tail) => {
@@ -357,5 +358,25 @@ assert(mlbDeparturesGuard.includes('current_team_source_team_id = NULL') &&
        mlbDeparturesGuard.includes('stage.last_transaction_applied_at IS NULL') &&
        mlbDeparturesGuard.includes('public.player_team_override'),
   'MLB departures must not leave a current source team or overwrite transaction/manual authority');
+
+// Transaction-sourced FREE AGENT records are handled by the transaction
+// pipeline, not the roster pipeline. Preserve the old TeamID even when the
+// current-team name was cleared by an earlier run, but only if the canonical
+// mapped team matches the transaction's reported departing team.
+const transactionColumns = section(transactionSync,
+  'async function ensureStageColumns(): Promise<void>', 'interface LatestTransactionRow');
+assert(transactionColumns.includes('ADD COLUMN IF NOT EXISTS previous_teamid text'),
+  'Transaction sync must also initialize previous_teamid independently');
+const transactionDeparture = section(transactionSync,
+  'async function applyDepartureFact(', '// Self-healing:');
+assert(transactionDeparture.includes('m.current_team_name IS NOT DISTINCT FROM $4') &&
+       transactionDeparture.includes('m.teamid = current_teamid') &&
+       transactionDeparture.includes('THEN COALESCE(current_teamid, previous_teamid)') &&
+       transactionDeparture.includes('current_teamid = NULL'),
+  'Transaction sync must recover a stale departing TeamID only after canonical name confirmation');
+assert(transactionDeparture.includes('previous_org_or_conference_name') &&
+       transactionDeparture.includes('public.teamid_universe_mapping') &&
+       transactionDeparture.includes('last_transaction_applied_at'),
+  'Transaction sync must preserve previous organization and transaction provenance');
 
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
