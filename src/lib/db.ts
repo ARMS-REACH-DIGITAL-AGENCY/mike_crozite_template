@@ -259,6 +259,32 @@ export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<stri
   }
 }
 
+// One player can hold several Baseball Cube IDs when The Baseball Cube split
+// his career across duplicate records (e.g. Al / Quentin Harley). Each
+// duplicate is a verified source='tbc' row pointing at the kept card; his
+// season and career stats read every one of those IDs (Pete, Nov 2026).
+const duplicateTbcIds = unstable_cache(async (playerId: string): Promise<string[]> => {
+  const { rows } = await query<{ source_player_id: string }>(
+    `SELECT source_player_id FROM public.player_source_map
+      WHERE playerid = $1 AND source = 'tbc' AND is_verified IS TRUE
+        AND match_method = 'duplicate_tbc_record'
+      ORDER BY source_player_id`,
+    [playerId]
+  );
+  return rows.map((r) => r.source_player_id);
+}, ['duplicate-tbc-ids-v1'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
+
+async function resolveHistoricalTbcIds(playerId: string): Promise<string> {
+  const primary = await resolveVerifiedTbcPlayerId(playerId);
+  try {
+    const extra = await duplicateTbcIds(playerId);
+    return [primary, ...extra.filter((id) => id !== primary)].join(',');
+  } catch (error) {
+    console.warn('Duplicate TBC record lookup failed; using the primary ID', { playerId, error });
+    return primary;
+  }
+}
+
 // Redirect old YAT profile links after a manual identity correction.
 // Only verified aliases backed by a live canonical card qualify; a legacy
 // ID must never produce a second profile or resolve across the wrong school.
@@ -272,6 +298,28 @@ export async function resolveLegacyPlayerRedirect(playerId: string): Promise<{
        FROM public.player_source_map m
        JOIN public.flip_card_front_stage s ON s.playerid=m.playerid
       WHERE m.source='yat_legacy' AND m.source_player_id=$1
+        AND m.is_verified IS TRUE
+        AND s.hsid IS NOT NULL
+      LIMIT 1`,
+    [playerId]
+  );
+  const hit=rows[0];
+  return hit ? {playerId:hit.playerid,hsid:hit.hsid,displayName:hit.display_name || hit.playerid} : null;
+}
+
+// A merged duplicate Baseball Cube record opens the kept card. Called only
+// after a profile found no card for the requested ID, so normal page loads
+// run no extra query.
+export async function resolveMergedTbcPlayerRedirect(playerId: string): Promise<{
+  playerId: string; hsid: string; displayName: string;
+} | null> {
+  if (!/^[0-9]+$/.test(playerId)) return null;
+  const { rows } = await query<{ playerid: string; hsid: string; display_name: string }>(
+    `SELECT s.playerid, s.hsid, s.display_name
+       FROM public.player_source_map m
+       JOIN public.flip_card_front_stage s ON s.playerid=m.playerid
+      WHERE m.source='tbc' AND m.source_player_id=$1
+        AND m.match_method='duplicate_tbc_record'
         AND m.is_verified IS TRUE
         AND s.hsid IS NOT NULL
       LIMIT 1`,
@@ -1813,7 +1861,7 @@ export async function getPlayerSchool(playerId: string): Promise<any | null> {
 // SEASON-BY-SEASON BATTING STATS - all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
-  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
   const sql = `
     SELECT
       b.year,
@@ -1827,7 +1875,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
       b.draft_info
     FROM public.v_tbc_batting_all_seasons_resolved b
     ${teamIdentityJoins('b')}
-    WHERE b.playerid::text = $1
+    WHERE b.playerid::text = ANY(string_to_array($1, ','))
     ORDER BY b.year ASC, b.teamid ASC
   `;
   try {
@@ -1843,7 +1891,7 @@ export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
 // SEASON-BY-SEASON PITCHING STATS - all years for a player
 // ---------------------------------------------------------------------------
 export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
-  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
   const sql = `
     SELECT
       p.year,
@@ -1859,7 +1907,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
       p.draft_info
     FROM public.v_tbc_pitching_all_seasons_resolved p
     ${teamIdentityJoins('p')}
-    WHERE p.playerid::text = $1
+    WHERE p.playerid::text = ANY(string_to_array($1, ','))
     ORDER BY p.year ASC, p.teamid ASC
   `;
   try {
@@ -1875,7 +1923,7 @@ export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
 // CAREER AGGREGATE STATS - totals across all seasons
 // ---------------------------------------------------------------------------
 export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
-  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
   const sql = `
@@ -1904,7 +1952,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
         ELSE NULL
       END AS ops
     FROM public.v_tbc_batting_all_seasons_resolved
-    WHERE playerid::text = $1
+    WHERE playerid::text = ANY(string_to_array($1, ','))
   `;
   try {
     const rows = await cachedPlayerStatRows('career-batting-merged-2026-v2', historicalPlayerId, sql);
@@ -1916,7 +1964,7 @@ export async function getPlayerCareerBatting(playerId: string): Promise<any | nu
 }
 
 export async function getPlayerCareerPitching(playerId: string): Promise<any | null> {
-  const historicalPlayerId = await resolveVerifiedTbcPlayerId(playerId);
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
   const sql = `
@@ -2039,7 +2087,7 @@ export async function getPlayerCareerPitching(playerId: string): Promise<any | n
       END AS k9,
       CASE WHEN SUM(${n('bb')}) > 0 THEN ROUND(SUM(${n('so')}) / SUM(${n('bb')}), 2) ELSE NULL END AS kbb
     FROM public.v_tbc_pitching_all_seasons_resolved
-    WHERE playerid::text = $1
+    WHERE playerid::text = ANY(string_to_array($1, ','))
   `;
   try {
     const rows = await cachedPlayerStatRows('career-pitching-merged-2026-v2', historicalPlayerId, sql);

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById, query, resolveLegacyPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
+import { getPlayerById, query, resolveLegacyPlayerRedirect, resolveMergedTbcPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
 import { getPlayerIdentityMetaOnce } from '@/lib/playerIdentityCached';
 import { playerJourneyJsonLd, jsonLdScript } from '@/lib/playerJourneySeo';
 import { toPlayerSlug } from '@/lib/slug';
@@ -90,6 +90,14 @@ export default async function PlayerLayout({
     const lastName = String(player?.lastname || player?.last_name || '').trim();
     playerName = `${firstName} ${lastName}`.trim();
   } catch {}
+
+  // No card under this ID: it may be a merged duplicate Baseball Cube record.
+  if (!meta.hsid) {
+    const merged = await resolveMergedTbcPlayerRedirect(playerId).catch(() => null);
+    if (merged) {
+      redirect(`/${encodeURIComponent(merged.hsid)}/player/${encodeURIComponent(merged.playerId)}/${slugifySchoolName(merged.displayName)}`);
+    }
+  }
 
   const playerSlug = slugifySchoolName(playerName || playerId);
   const canonicalPlayerUrl = playerSchoolUrl
