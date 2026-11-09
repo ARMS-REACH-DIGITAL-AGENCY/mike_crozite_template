@@ -369,8 +369,10 @@ assert(mlbDeparturesGuard.includes('current_team_source_team_id = NULL') &&
 // mapped team matches the transaction's reported departing team.
 const transactionColumns = section(transactionSync,
   'async function ensureStageColumns(): Promise<void>', 'interface LatestTransactionRow');
-assert(transactionColumns.includes('ADD COLUMN IF NOT EXISTS previous_teamid text'),
-  'Transaction sync must also initialize previous_teamid independently');
+assert(transactionColumns.includes('ADD COLUMN IF NOT EXISTS previous_teamid text') &&
+       transactionColumns.includes('ADD COLUMN IF NOT EXISTS next_game_date text') &&
+       transactionColumns.includes('ADD COLUMN IF NOT EXISTS next_game_time_utc timestamptz'),
+  'Transaction sync must initialize previous TeamID and the game-schedule fields it clears');
 const transactionDeparture = section(transactionSync,
   'async function applyDepartureFact(', '// Self-healing:');
 assert(transactionDeparture.includes('m.current_team_name IS NOT DISTINCT FROM $4') &&
@@ -382,6 +384,11 @@ assert(transactionDeparture.includes('previous_org_or_conference_name') &&
        transactionDeparture.includes('public.teamid_universe_mapping') &&
        transactionDeparture.includes('last_transaction_applied_at'),
   'Transaction sync must preserve previous organization and transaction provenance');
+
+assert(transactionDeparture.includes('next_game_date = NULL') &&
+       transactionDeparture.includes('next_game_opponent = NULL') &&
+       transactionDeparture.includes('current_team_absent_since = NULL'),
+  'Transaction departure handler must clear games and absence state even if legacy cleanup is bypassed');
 
 const clearedDepartureFlags = section(transactionSync,
   'async function clearStaleDepartureFlags(', '// Repair legacy transaction-owned departures');

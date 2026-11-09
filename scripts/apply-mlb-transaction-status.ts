@@ -129,6 +129,12 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz,
       ADD COLUMN IF NOT EXISTS team_affiliation_status text,
       ADD COLUMN IF NOT EXISTS previous_teamid text,
+      ADD COLUMN IF NOT EXISTS next_game_date text,
+      ADD COLUMN IF NOT EXISTS next_game_time_local text,
+      ADD COLUMN IF NOT EXISTS next_game_time_utc timestamptz,
+      ADD COLUMN IF NOT EXISTS next_game_home_away text,
+      ADD COLUMN IF NOT EXISTS next_game_opponent text,
+      ADD COLUMN IF NOT EXISTS next_game_status_label text,
       ADD COLUMN IF NOT EXISTS previous_team_name text,
       ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
       ADD COLUMN IF NOT EXISTS previous_level_label text,
@@ -251,7 +257,13 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             current_team_source_team_id = NULL,
             current_team_roster_status = NULL,
             current_team_last_verified = NULL,
-            current_team_absent_since = COALESCE(current_team_absent_since, $3::timestamptz),
+            current_team_absent_since = NULL,
+            next_game_date = NULL,
+            next_game_time_local = NULL,
+            next_game_time_utc = NULL,
+            next_game_home_away = NULL,
+            next_game_opponent = NULL,
+            next_game_status_label = NULL,
             -- A departed player can't still be on the 40-man roster.
             -- Without this, PlayerCardFront's 40-MAN chip (which takes
             -- priority over the RELEASED note) would keep claiming a
