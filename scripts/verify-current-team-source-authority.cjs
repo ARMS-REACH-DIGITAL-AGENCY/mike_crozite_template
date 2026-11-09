@@ -406,29 +406,39 @@ assert(!clearedDepartureFlags.includes('previous_team_name = NULL') &&
   'Re-signing must preserve previous-team history and career-high label while invalidating its old computation watermark');
 
 const staleDepartureRepair = section(transactionSync,
-  'async function reconcileStaleTransactionDepartureTeamIds(): Promise<number>',
+  'async function reconcileStaleTransactionDepartureTeamIds(): Promise<{',
   'async function retireStaleFreeAgents()');
 assert(staleDepartureRepair.includes('public.teamid_universe_mapping') &&
-       staleDepartureRepair.includes('f.previous_team_name = m.current_team_name') &&
-       staleDepartureRepair.includes('f.last_transaction_team_name = m.current_team_name'),
-  'Legacy departed TeamIDs must be matched against canonical team and recorded transaction team');
-assert(staleDepartureRepair.includes("f.status_label='FREE AGENT'") &&
-       staleDepartureRepair.includes("f.team_affiliation_status='FREE AGENT'") &&
+       staleDepartureRepair.includes('f.previous_team_name=m.current_team_name') &&
+       staleDepartureRepair.includes('f.last_transaction_team_name=m.current_team_name'),
+  'Recovered departed TeamIDs must match the recorded departure club through canonical mapping');
+assert(staleDepartureRepair.includes("f.status_label IN ('FREE AGENT','RETIRED')") &&
+       staleDepartureRepair.includes('f.team_affiliation_status=f.status_label') &&
        staleDepartureRepair.includes('f.last_transaction_applied_at IS NOT NULL') &&
+       staleDepartureRepair.includes('f.current_team_last_verified <= f.last_transaction_applied_at') &&
+       staleDepartureRepair.includes('t.transaction_type=f.last_transaction_type') &&
+       staleDepartureRepair.includes('t.effective_date::date=f.last_transaction_date') &&
+       staleDepartureRepair.includes('NOT EXISTS (') &&
+       staleDepartureRepair.includes('public.player_team_override'),
+  'Metadata self-healing must require recorded authoritative departures, no newer roster, and no manual override');
+assert(staleDepartureRepair.includes('previous_teamid=CASE WHEN e.recover_teamid THEN e.current_teamid') &&
+       staleDepartureRepair.includes('current_teamid=CASE WHEN e.recover_teamid THEN NULL') &&
        staleDepartureRepair.includes('f.previous_teamid IS NULL') &&
-       staleDepartureRepair.includes('public.player_transactions'),
-  'Repair must touch only transaction-backed existing FREE AGENT departures');
-assert(staleDepartureRepair.includes('previous_teamid=e.current_teamid') &&
-       staleDepartureRepair.includes('current_teamid=NULL') &&
-       staleDepartureRepair.includes('current_team_source_team_id=NULL') &&
-       staleDepartureRepair.includes('public.player_team_override') &&
-       !staleDepartureRepair.includes('SET status_label ='),
-  'Legacy cleanup must preserve prior TeamID, never set status, and protect manual overrides');
-assert(staleDepartureRepair.includes('next_game_date=NULL') &&
+       staleDepartureRepair.includes('current_team_source_team_id=NULL'),
+  'Only canonical-matched legacy departures can move a stale current TeamID into history');
+assert(staleDepartureRepair.includes('s.stale_schedule AND f.current_teamid IS NULL') &&
+       staleDepartureRepair.includes('f.current_team_name IS NULL') &&
+       staleDepartureRepair.includes('next_game_date=NULL') &&
        staleDepartureRepair.includes('next_game_opponent=NULL') &&
-       staleDepartureRepair.includes('current_team_absent_since=NULL'),
-  'Legacy free-agent cleanup must also clear obsolete next-game and roster-absence metadata');
-assert(transactionSync.includes('staleTeamIdsRecovered = await reconcileStaleTransactionDepartureTeamIds()'),
-  'Transaction sync must execute the legacy departure repair after transaction reprocessing');
+       staleDepartureRepair.includes('current_team_absent_since=NULL') &&
+       staleDepartureRepair.includes('stale_departure_schedule_repair'),
+  'Existing transaction-owned departures with no current team must have stale games cleared without status changes');
+assert(!staleDepartureRepair.includes('SET status_label =') &&
+       !staleDepartureRepair.includes('SET team_affiliation_status ='),
+  'Scheduled metadata recovery may not change player statuses');
+assert(transactionSync.includes('const repaired = await reconcileStaleTransactionDepartureTeamIds()') &&
+       transactionSync.includes('staleTeamIdsRecovered = repaired.teamIdsRecovered') &&
+       transactionSync.includes('staleSchedulesCleared = repaired.schedulesCleared'),
+  'Transaction ingestion must report both historical ID repairs and stale schedule cleanups');
 
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');

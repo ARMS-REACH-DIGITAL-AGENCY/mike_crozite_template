@@ -359,50 +359,78 @@ async function clearStaleDepartureFlags(
 // cleared while a stale current_teamid survived. This is a single write-time
 // batch, never a fan-facing query. It never infers a new player status or
 // alters MLB/TBC crosswalk identities.
-async function reconcileStaleTransactionDepartureTeamIds(): Promise<number> {
+// One batch of write-time self-healing, never a fan-page query. Historical
+// TeamIDs are recovered only when the source transaction and canonical team
+// name agree. Already-departed cards may also have stale next-game metadata
+// even when the old current team fields are already empty.
+async function reconcileStaleTransactionDepartureTeamIds(): Promise<{
+  teamIdsRecovered: number;
+  schedulesCleared: number;
+}> {
   const result = await pool.query(`
-    WITH eligible AS MATERIALIZED (
+    WITH source_backed AS MATERIALIZED (
       SELECT f.playerid, f.current_teamid,
              m.current_team_name AS mapped_team,
              m.current_org_or_conference_name AS mapped_org,
-             m.level_label AS mapped_level
+             m.level_label AS mapped_level,
+             (
+               f.status_label='FREE AGENT'
+               AND f.current_teamid IS NOT NULL
+               AND f.current_team_name IS NULL
+               AND f.previous_teamid IS NULL
+               AND f.previous_team_name IS NOT NULL
+               AND f.previous_team_name=m.current_team_name
+               AND f.last_transaction_team_name=m.current_team_name
+             ) AS recover_teamid,
+             (
+               f.next_game_date IS NOT NULL
+               OR f.next_game_time_local IS NOT NULL
+               OR f.next_game_time_utc IS NOT NULL
+               OR f.next_game_home_away IS NOT NULL
+               OR f.next_game_opponent IS NOT NULL
+               OR f.next_game_status_label IS NOT NULL
+               OR f.current_team_absent_since IS NOT NULL
+             ) AS stale_schedule
       FROM public.flip_card_front_stage f
-      JOIN public.teamid_universe_mapping m ON m.teamid=f.current_teamid
-      WHERE f.status_label='FREE AGENT'
-        AND f.team_affiliation_status='FREE AGENT'
+      LEFT JOIN public.teamid_universe_mapping m ON m.teamid=f.current_teamid
+      WHERE f.status_label IN ('FREE AGENT','RETIRED')
+        AND f.team_affiliation_status=f.status_label
         AND f.last_transaction_applied_at IS NOT NULL
         AND f.last_transaction_date IS NOT NULL
         AND f.last_transaction_type IS NOT NULL
-        AND f.current_teamid IS NOT NULL
-        AND f.current_team_name IS NULL
-        AND f.previous_teamid IS NULL
-        AND f.previous_team_name IS NOT NULL
-        AND f.previous_team_name = m.current_team_name
-        AND f.last_transaction_team_name = m.current_team_name
+        AND (f.current_team_last_verified IS NULL
+             OR f.current_team_last_verified <= f.last_transaction_applied_at)
         AND NOT EXISTS (
           SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid
         )
         AND EXISTS (
           SELECT 1 FROM public.player_transactions t
-          WHERE t.playerid=f.playerid
-            AND t.source='mlb_api'
+          WHERE t.playerid=f.playerid AND t.source='mlb_api'
             AND t.transaction_type=f.last_transaction_type
             AND t.effective_date::date=f.last_transaction_date
         )
         AND NOT EXISTS (
           SELECT 1 FROM public.player_transactions newer
-          WHERE newer.playerid=f.playerid
-            AND newer.source='mlb_api'
+          WHERE newer.playerid=f.playerid AND newer.source='mlb_api'
             AND newer.effective_date::date>f.last_transaction_date
         )
     ),
+    eligible AS MATERIALIZED (
+      SELECT s.* FROM source_backed s
+      JOIN public.flip_card_front_stage f ON f.playerid=s.playerid
+      WHERE s.recover_teamid
+         OR (s.stale_schedule AND f.current_teamid IS NULL
+                             AND f.current_team_name IS NULL)
+    ),
     changed AS (
       UPDATE public.flip_card_front_stage f SET
-        previous_teamid=e.current_teamid,
-        previous_org_or_conference_name=COALESCE(
-          f.previous_org_or_conference_name,e.mapped_org),
-        previous_level_label=COALESCE(f.previous_level_label,e.mapped_level),
-        current_teamid=NULL,
+        previous_teamid=CASE WHEN e.recover_teamid THEN e.current_teamid
+                             ELSE f.previous_teamid END,
+        previous_org_or_conference_name=CASE WHEN e.recover_teamid
+          THEN e.mapped_org ELSE f.previous_org_or_conference_name END,
+        previous_level_label=CASE WHEN e.recover_teamid
+          THEN e.mapped_level ELSE f.previous_level_label END,
+        current_teamid=CASE WHEN e.recover_teamid THEN NULL ELSE f.current_teamid END,
         current_team_source=NULL,
         current_team_source_player_id=NULL,
         current_team_source_team_id=NULL,
@@ -411,7 +439,8 @@ async function reconcileStaleTransactionDepartureTeamIds(): Promise<number> {
         current_team_level=NULL,
         current_level_label=NULL,
         current_team_absent_since=NULL,
-        current_org_or_conference_name=NULL,
+        current_org_or_conference_name=CASE WHEN e.recover_teamid
+          THEN NULL ELSE f.current_org_or_conference_name END,
         next_game_date=NULL,
         next_game_time_local=NULL,
         next_game_time_utc=NULL,
@@ -422,31 +451,40 @@ async function reconcileStaleTransactionDepartureTeamIds(): Promise<number> {
         forty_man_org_name=NULL,
         forty_man_org_abbr=NULL,
         source_summary=COALESCE(f.source_summary,'{}'::jsonb)||
-          jsonb_build_object('stale_departure_teamid_repair',
-            jsonb_build_object('source','mlb_transaction_canonical_last_team',
-              'former_teamid',e.current_teamid,
-              'former_team_name',e.mapped_team,
-              'status_preserved',TRUE,
-              'applied_at',NOW())),
+          CASE WHEN e.recover_teamid THEN
+            jsonb_build_object('stale_departure_teamid_repair',
+              jsonb_build_object('source','mlb_transaction_canonical_last_team',
+                'former_teamid',e.current_teamid,'former_team_name',e.mapped_team,
+                'status_preserved',TRUE,'applied_at',NOW()))
+          ELSE jsonb_build_object('stale_departure_schedule_repair',
+            jsonb_build_object('source','recorded_mlb_departure',
+              'status_preserved',TRUE,'applied_at',NOW()))
+          END,
         updated_at=NOW(),
         stage_updated_at=NOW()
       FROM eligible e
       WHERE f.playerid=e.playerid
-        AND f.status_label='FREE AGENT'
-        AND f.team_affiliation_status='FREE AGENT'
-        AND f.current_teamid=e.current_teamid
-        AND f.current_team_name IS NULL
-        AND f.previous_teamid IS NULL
+        AND f.status_label IN('FREE AGENT','RETIRED')
+        AND f.team_affiliation_status=f.status_label
         AND f.last_transaction_applied_at IS NOT NULL
+        AND (e.recover_teamid OR
+             (e.stale_schedule AND f.current_teamid IS NULL
+                               AND f.current_team_name IS NULL))
         AND NOT EXISTS (
           SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid
         )
-      RETURNING f.playerid
+      RETURNING f.playerid,e.recover_teamid,e.stale_schedule
     )
-    SELECT COUNT(*)::int AS recovered FROM changed
+    SELECT COUNT(*) FILTER(WHERE recover_teamid)::int AS team_ids_recovered,
+           COUNT(*) FILTER(WHERE stale_schedule)::int AS schedules_cleared
+    FROM changed
   `);
-  return Number(result.rows[0]?.recovered ?? 0);
+  return {
+    teamIdsRecovered: Number(result.rows[0]?.team_ids_recovered ?? 0),
+    schedulesCleared: Number(result.rows[0]?.schedules_cleared ?? 0),
+  };
 }
+
 
 async function retireStaleFreeAgents(): Promise<number> {
   // Owner rule: a sourced FREE AGENT remains in Active Alumni for one year.
@@ -526,9 +564,12 @@ async function main() {
     let cleared = 0;
     let agedOut = 0;
     let staleTeamIdsRecovered = 0;
+    let staleSchedulesCleared = 0;
     if (!dryRun) {
       cleared = await clearStaleDepartureFlags(nonDepartures);
-      staleTeamIdsRecovered = await reconcileStaleTransactionDepartureTeamIds();
+      const repaired = await reconcileStaleTransactionDepartureTeamIds();
+      staleTeamIdsRecovered = repaired.teamIdsRecovered;
+      staleSchedulesCleared = repaired.schedulesCleared;
       agedOut = await retireStaleFreeAgents();
     }
 
@@ -537,6 +578,7 @@ async function main() {
     console.log(`Flip cards updated: ${dryRun ? 0 : applied} (would update: ${applied})`);
     console.log(`Stale FREE AGENT/RETIRED flags cleared (player active again per latest transaction): ${cleared}`);
     console.log(`Legacy departed TeamIDs preserved and cleared from current assignment: ${staleTeamIdsRecovered}`);
+    console.log(`Sourced departed-player schedules/absence fields cleared: ${staleSchedulesCleared}`);
     console.log(`FREE AGENT rows aged to RETIRED after one year with no newer MLB transaction: ${agedOut}`);
   } catch (err) {
     console.error("ERROR applying MLB transaction status:", err);
