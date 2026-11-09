@@ -1,3 +1,4 @@
+import { SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL } from "@/lib/college2026Continuity";
 import { NextRequest, NextResponse } from "next/server";
 import { writerQuery } from "@/lib/dbWriter";
 import {
@@ -31,10 +32,13 @@ export async function GET(req: NextRequest) {
     let verifiedCareerHighFixed = 0;
     let staleRetiredTeamsCleared = 0;
     let collegesReactivated = 0;
+    let collegeContinuityRestored = 0;
     let staleAffiliationsCorrected = 0;
     if (!dry) {
       const college = await writerQuery<{ reactivated: number }>(SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL);
       collegesReactivated = Number(college.rows[0]?.reactivated ?? 0);
+      const continuity = await writerQuery<{ restored: number }>(SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL);
+      collegeContinuityRestored = Number(continuity.rows[0]?.restored ?? 0);
       const staleAffiliations = await writerQuery<{ stale_affiliations_corrected: number }>(SAFE_STALE_AUTO_RETIRED_AFFILIATION_CLEAR_SQL);
       staleAffiliationsCorrected = Number(staleAffiliations.rows[0]?.stale_affiliations_corrected ?? 0);
       const levels = await writerQuery<{ corrected: number }>(SAFE_RETIRED_VERIFIED_LEVEL_CLEANUP_SQL);
@@ -55,7 +59,7 @@ export async function GET(req: NextRequest) {
       FROM public.flip_card_front_stage
     `);
     const result = {
-      ok: true, dry, retired, verifiedLevelsFixed, verifiedCareerHighFixed, staleRetiredTeamsCleared, collegesReactivated, staleAffiliationsCorrected,
+      ok: true, dry, retired, verifiedLevelsFixed, verifiedCareerHighFixed, staleRetiredTeamsCleared, collegesReactivated, collegeContinuityRestored, staleAffiliationsCorrected,
       missingStatuses: remaining.rows[0]?.blank ?? 0,
       retiredNCAAPlaceholders: remaining.rows[0]?.retired_ncaas ?? 0,
       batchLimit: 5000,
