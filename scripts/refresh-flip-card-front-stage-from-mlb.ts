@@ -63,6 +63,7 @@ async function ensureStageColumns(): Promise<void> {
       ADD COLUMN IF NOT EXISTS last_transaction_date date,
       ADD COLUMN IF NOT EXISTS last_transaction_team_name text,
       ADD COLUMN IF NOT EXISTS last_transaction_applied_at timestamptz,
+      ADD COLUMN IF NOT EXISTS previous_teamid text,
       ADD COLUMN IF NOT EXISTS previous_team_name text,
       ADD COLUMN IF NOT EXISTS previous_org_or_conference_name text,
       ADD COLUMN IF NOT EXISTS previous_level_label text
@@ -431,71 +432,120 @@ async function ensureCurrentProTeamMappings(): Promise<{
 }
 
 
-// Backfill every existing MLB-owned stage row from the canonical team map.
-// The roster refresh only touches players present in the newest source run;
-// mappings can be added later, so older rows otherwise stay null/stale forever.
-// This pass is safe because it keys on MLB's stable source_team_id and only
-// writes the authoritative TBC team id plus a missing organization label.
+// Promote only verified, non-departed MLB assignments through the exact
+// canonical teamid_universe_mapping identity. The previous ID-only backfill
+// fired the canonical stage guard when a different name, org or level was
+// still on the row, causing EVERY 3-hour MLB Roster Sync to report failure.
+// Set Team ID + canonical name + org together; never bypass the guard.
+// Preserve current level/40-man display semantics: incompatible levels are
+// held for review rather than silently changing the roster status or tag.
 async function backfillMappedCurrentTeamIdentity(): Promise<{
   teamIds: number;
   orgs: number;
+  held: number;
+  departuresSkipped: number;
 }> {
-  // Free agents and released or retired players have no team (Pete, Nov
-  // 2026). Clear a Team ID left on such a card when its team name was
-  // cleared - 31 FREE AGENT cards were left that way on Nov 8, 2026.
-  await pool.query(`
-    UPDATE public.flip_card_front_stage f
-       SET current_teamid = NULL,
-           stage_updated_at = NOW()
-     WHERE f.current_team_source = 'mlb_api'
-       AND f.current_teamid IS NOT NULL
-       AND NULLIF(BTRIM(f.current_team_name), '') IS NULL
-       AND UPPER(BTRIM(COALESCE(f.team_affiliation_status, f.status_label, ''))) IN ('FREE AGENT', 'RELEASED', 'RETIRED')
-  `);
-
-  // Only cards that still name a team get its Team ID from the map; a card
-  // whose team was cleared is not given one back.
-  const teamIds = await pool.query(`
-    WITH mapped AS (
-      SELECT f.ctid, m.tbc_teamid::text AS tbc_teamid
+  const result = await pool.query<{
+    team_ids: number;
+    orgs: number;
+    held: number;
+    departures_skipped: number;
+  }>(`
+    WITH unique_source_team_map AS MATERIALIZED (
+      SELECT mlb_stats_api_id::text AS mlb_id, MIN(tbc_teamid)::text AS tbc_teamid
+      FROM public.team_id_map
+      WHERE mlb_stats_api_id IS NOT NULL
+      GROUP BY mlb_stats_api_id
+      HAVING COUNT(DISTINCT tbc_teamid) = 1
+    ),
+    candidates AS MATERIALIZED (
+      SELECT f.ctid AS stage_ctid, f.playerid::text AS playerid,
+             f.current_teamid AS old_teamid,
+             f.current_org_or_conference_name AS old_org,
+             f.level_label, f.display_level_label, f.last_transaction_applied_at,
+             f.status_label, f.team_affiliation_status,
+             m.tbc_teamid,
+             canonical.current_team_name AS canonical_name,
+             canonical.current_org_or_conference_name AS canonical_org,
+             canonical.level_label AS canonical_level
       FROM public.flip_card_front_stage f
-      JOIN public.team_id_map m
-        ON m.mlb_stats_api_id::text = f.current_team_source_team_id::text
+      JOIN unique_source_team_map m
+        ON m.mlb_id = f.current_team_source_team_id::text
+      LEFT JOIN public.teamid_universe_mapping canonical
+        ON canonical.teamid = m.tbc_teamid
       WHERE f.current_team_source = 'mlb_api'
         AND NULLIF(BTRIM(f.current_team_source_team_id::text), '') IS NOT NULL
-        AND NULLIF(BTRIM(f.current_team_name), '') IS NOT NULL
+        AND (
+          f.current_teamid IS DISTINCT FROM m.tbc_teamid
+          OR f.current_team_name IS DISTINCT FROM canonical.current_team_name
+          OR f.current_org_or_conference_name IS DISTINCT FROM canonical.current_org_or_conference_name
+        )
+    ),
+    eligible AS MATERIALIZED (
+      SELECT c.* FROM candidates c
+      WHERE c.last_transaction_applied_at IS NULL
+        AND c.status_label IS DISTINCT FROM 'FREE AGENT'
+        AND c.status_label IS DISTINCT FROM 'RETIRED'
+        AND c.team_affiliation_status IS DISTINCT FROM 'FREE AGENT'
+        AND c.team_affiliation_status IS DISTINCT FROM 'RETIRED'
+        AND c.canonical_level IN (
+          'MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE',
+          'INDY','INTERNATIONAL','NCAA-D1','NCAA-D2','NCAA-D3','NAIA',
+          'NJCAA','CCCAA','NWAC','HIGH SCHOOL'
+        )
+        AND NULLIF(BTRIM(c.canonical_name), '') IS NOT NULL
+        AND NULLIF(BTRIM(c.canonical_org), '') IS NOT NULL
+        AND c.level_label IS NOT DISTINCT FROM c.canonical_level
+        AND (
+          c.display_level_label IS NULL
+          OR c.display_level_label IS NOT DISTINCT FROM c.canonical_level
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM public.player_team_override o WHERE o.playerid = c.playerid
+        )
+    ),
+    changed AS (
+      UPDATE public.flip_card_front_stage f
+         SET current_teamid = e.tbc_teamid,
+             current_team_name = e.canonical_name,
+             current_org_or_conference_name = e.canonical_org,
+             stage_updated_at = NOW()
+        FROM eligible e
+       WHERE f.ctid = e.stage_ctid
+         AND f.current_team_source = 'mlb_api'
+         AND f.last_transaction_applied_at IS NULL
+         AND f.status_label IS DISTINCT FROM 'FREE AGENT'
+         AND f.status_label IS DISTINCT FROM 'RETIRED'
+         AND f.team_affiliation_status IS DISTINCT FROM 'FREE AGENT'
+         AND f.team_affiliation_status IS DISTINCT FROM 'RETIRED'
+         AND NOT EXISTS (
+           SELECT 1 FROM public.player_team_override o WHERE o.playerid = e.playerid
+         )
+      RETURNING (e.old_teamid IS DISTINCT FROM e.tbc_teamid) AS changed_teamid,
+                (e.old_org IS DISTINCT FROM e.canonical_org) AS changed_org
     )
-    UPDATE public.flip_card_front_stage f
-       SET current_teamid = mapped.tbc_teamid,
-           stage_updated_at = NOW()
-      FROM mapped
-     WHERE f.ctid = mapped.ctid
-       AND f.current_teamid IS DISTINCT FROM mapped.tbc_teamid
+    SELECT (SELECT COUNT(*)::int FROM changed WHERE changed_teamid) AS team_ids,
+           (SELECT COUNT(*)::int FROM changed WHERE changed_org) AS orgs,
+           (SELECT COUNT(*)::int FROM candidates c
+            WHERE c.last_transaction_applied_at IS NULL
+              AND c.status_label IS DISTINCT FROM 'FREE AGENT'
+              AND c.status_label IS DISTINCT FROM 'RETIRED'
+              AND c.team_affiliation_status IS DISTINCT FROM 'FREE AGENT'
+              AND c.team_affiliation_status IS DISTINCT FROM 'RETIRED'
+              AND NOT EXISTS (
+                SELECT 1 FROM eligible e WHERE e.stage_ctid = c.stage_ctid
+              )) AS held,
+           (SELECT COUNT(*)::int FROM candidates c
+            WHERE c.last_transaction_applied_at IS NOT NULL
+               OR c.status_label IN ('FREE AGENT','RETIRED')
+               OR c.team_affiliation_status IN ('FREE AGENT','RETIRED')
+           ) AS departures_skipped
   `);
-
-  // The organization comes from the card's own canonical Team ID, and only
-  // when the card's team name and level already match that Team ID - the
-  // same rule guard_flip_card_canonical_promotion enforces. A card with a
-  // stale Team ID but no team name (a FREE AGENT whose team was cleared)
-  // is left alone: filling in an organization there made the guard reject
-  // the whole update, and every MLB Roster Sync run failed from Nov 1, 2026.
-  const orgs = await pool.query(`
-    UPDATE public.flip_card_front_stage f
-       SET current_org_or_conference_name = u.current_org_or_conference_name,
-           stage_updated_at = NOW()
-      FROM public.teamid_universe_mapping u
-     WHERE u.teamid = f.current_teamid
-       AND f.current_team_source = 'mlb_api'
-       AND NULLIF(BTRIM(f.current_org_or_conference_name), '') IS NULL
-       AND NULLIF(BTRIM(u.current_org_or_conference_name), '') IS NOT NULL
-       AND f.current_team_name = u.current_team_name
-       AND f.level_label = u.level_label
-       AND (f.display_level_label IS NULL OR f.display_level_label = u.level_label)
-  `);
-
   return {
-    teamIds: teamIds.rowCount ?? 0,
-    orgs: orgs.rowCount ?? 0,
+    teamIds: Number(result.rows[0]?.team_ids ?? 0),
+    orgs: Number(result.rows[0]?.orgs ?? 0),
+    held: Number(result.rows[0]?.held ?? 0),
+    departuresSkipped: Number(result.rows[0]?.departures_skipped ?? 0),
   };
 }
 
@@ -1185,9 +1235,19 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
      player_departures AS (
        SELECT stage.playerid::text AS playerid,
               d.departed,
-              d.departed_team_name
+              d.departed_team_name,
+              canonical.teamid AS verified_previous_teamid,
+              canonical.current_team_name AS verified_previous_team_name,
+              canonical.current_org_or_conference_name AS verified_previous_org,
+              canonical.level_label AS verified_previous_level
          FROM public.flip_card_front_stage stage
          JOIN departed d ON d.mlb_id = stage.current_team_source_player_id::text
+         -- Preserve the ID only if canonical mapping proves it belongs
+         -- to the club identified by the departure.
+         LEFT JOIN public.teamid_universe_mapping canonical
+           ON canonical.teamid=stage.current_teamid
+          AND canonical.current_team_name=COALESCE(
+            d.departed_team_name,stage.current_team_name,stage.previous_team_name)
         WHERE NOT EXISTS (
           SELECT 1
             FROM public.mlb_org_roster_resolution res
@@ -1197,27 +1257,48 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
              AND res.playerid::text = stage.playerid::text
              AND LOWER(COALESCE(raw.roster_type, '')) IN ('active', '40man')
         )
+          -- A player only becomes a FREE AGENT or RETIRED through the MLB
+          -- transactions feed (Pete, Nov 2026). Missing from the active and
+          -- 40-man rosters is not a departure when his latest MLB
+          -- transaction puts him on a team: Jake Meyers was outrighted to
+          -- Sugar Land on Nov 2, 2026 and was wrongly marked FREE AGENT.
+          AND NOT EXISTS (
+            SELECT 1 FROM (
+              SELECT t.transaction_type, t.to_team_name
+                FROM public.player_transactions t
+               WHERE t.playerid::text = stage.playerid::text
+                 AND t.source = 'mlb_api'
+               ORDER BY t.effective_date DESC, t.id DESC
+               LIMIT 1
+            ) latest_tx
+            WHERE NULLIF(BTRIM(latest_tx.to_team_name), '') IS NOT NULL
+              AND LOWER(COALESCE(latest_tx.transaction_type, '')) NOT LIKE '%retired%'
+              AND LOWER(COALESCE(latest_tx.transaction_type, '')) NOT LIKE '%released%'
+              AND LOWER(COALESCE(latest_tx.transaction_type, '')) NOT LIKE '%declared free agency%'
+          )
      )
      UPDATE public.flip_card_front_stage stage
         SET status_label = pd.departed,
             display_status_label = pd.departed,
             team_affiliation_status = pd.departed,
-            previous_team_name = CASE
-              WHEN stage.current_team_name IS NOT NULL THEN COALESCE(pd.departed_team_name, stage.current_team_name)
-              ELSE stage.previous_team_name
-            END,
-            previous_org_or_conference_name = CASE
-              WHEN stage.current_team_name IS NOT NULL THEN stage.current_org_or_conference_name
-              ELSE stage.previous_org_or_conference_name
-            END,
-            previous_level_label = CASE
-              WHEN stage.current_team_name IS NOT NULL THEN stage.level_label
-              ELSE stage.previous_level_label
-            END,
-            -- A released player / free agent has no team (Pete, Nov 2026),
-            -- so his old Team ID goes too, as the transaction sync does.
+            -- Update the previous team as one canonical identity; never
+            -- combine a stale TeamID with another club's departure name.
+            previous_teamid = COALESCE(pd.verified_previous_teamid, stage.previous_teamid),
+            previous_team_name = COALESCE(pd.verified_previous_team_name, stage.previous_team_name),
+            previous_org_or_conference_name = COALESCE(
+              pd.verified_previous_org, stage.previous_org_or_conference_name),
+            previous_level_label = COALESCE(
+              pd.verified_previous_level, stage.previous_level_label),
             current_teamid = NULL,
             current_team_name = NULL,
+            current_team_source = NULL,
+            current_team_source_player_id = NULL,
+            current_team_source_team_id = NULL,
+            current_team_roster_status = NULL,
+            current_team_last_verified = NULL,
+            current_team_level = NULL,
+            current_level_label = NULL,
+            current_team_absent_since = NULL,
             current_org_or_conference_name = NULL,
             is_on_40man = false,
             forty_man_org_name = NULL,
@@ -1238,6 +1319,7 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
           stage.status_label IS DISTINCT FROM pd.departed
           OR stage.current_team_name IS NOT NULL
           OR stage.current_teamid IS NOT NULL
+          OR stage.current_team_source_team_id IS NOT NULL
         )`,
     [JSON.stringify(departed)]
   );
@@ -1405,8 +1487,11 @@ async function main() {
     console.log(`40-man-only organization corrections (not active-roster promotions): ${fortyManAffiliations}`);
     console.log(`Legacy canonical team source-ID types normalized without team changes: ${normalizedIds}`);
     console.log(
-      `Canonical MLB team backfill: ${backfill.teamIds} team ids, ${backfill.orgs} organization labels`
+      `Canonical MLB team backfill: ${backfill.teamIds} team ids, ${backfill.orgs} organization labels; ${backfill.departuresSkipped} transaction/departure-owned rows protected`
     );
+    if (backfill.held > 0) {
+      console.warn(`Canonical MLB backfill held ${backfill.held} active rows for source/level/manual-override review (no unsafe promotion)`);
+    }
     console.log(`Departed (retired/released per MLB roster entries): ${departed}`);
     console.log(`Loaded next-game assignments refreshed by MLB team ID: ${scheduled}`);
     console.log(

@@ -12,6 +12,7 @@ const source = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const levels = source('src/lib/officialLevels.ts');
 const cron = source('src/app/api/cron/level-qc/route.ts');
 const mlb = source('scripts/refresh-flip-card-front-stage-from-mlb.ts');
+const transactionSync = source('scripts/apply-mlb-transaction-status.ts');
 const gallery = source('src/lib/galleryStatuses.ts');
 
 const section = (text, head, tail) => {
@@ -311,5 +312,133 @@ assert(ingest.includes('refresh_tbc_teamid_reconciliation_queue') &&
        cron.includes('refresh_tbc_teamid_reconciliation_queue') &&
        ingest.includes('teamIdDiscovery'),
   'Both ingestion and daily QC must report new Team IDs without rejecting TBC raw rows');
+
+
+// Regression: MLB roster post-import maintenance must not breach the canonical
+// stage trigger, reactivate a transaction-owned free agent, or erase a 40-man tag.
+const mlbBackfillGuard = section(mlb,
+  'async function backfillMappedCurrentTeamIdentity()',
+  '// Everyone matched in the latest roster run');
+assert(mlbBackfillGuard.includes('public.teamid_universe_mapping') &&
+       mlbBackfillGuard.includes('HAVING COUNT(DISTINCT tbc_teamid) = 1'),
+  'MLB backfill must require unambiguous canonical Team ID mappings');
+assert(mlbBackfillGuard.includes('current_teamid = e.tbc_teamid') &&
+       mlbBackfillGuard.includes('current_team_name = e.canonical_name') &&
+       mlbBackfillGuard.includes('current_org_or_conference_name = e.canonical_org'),
+  'MLB backfill must promote canonical team ID/name/org in one guarded update');
+assert(mlbBackfillGuard.includes("c.level_label IS NOT DISTINCT FROM c.canonical_level") &&
+       mlbBackfillGuard.includes('c.display_level_label IS NOT DISTINCT FROM c.canonical_level'),
+  'MLB backfill must not invent a level or erase the 40-man display tag');
+assert(mlbBackfillGuard.includes('f.last_transaction_applied_at IS NULL') &&
+       mlbBackfillGuard.includes("c.team_affiliation_status IS DISTINCT FROM 'FREE AGENT'") &&
+       mlbBackfillGuard.includes("c.status_label IS DISTINCT FROM 'RETIRED'") &&
+       mlbBackfillGuard.includes('public.player_team_override'),
+  'MLB backfill must exclude departures and manual team overrides');
+assert(!mlbBackfillGuard.includes('SET status_label =') &&
+       !mlbBackfillGuard.includes('SET display_status_label =') &&
+       !mlbBackfillGuard.includes('current_team_last_verified ='),
+  'Metadata backfill must never change status or fake current-roster verification');
+
+const mlbColumnProvision = section(mlb,
+  'async function ensureStageColumns(): Promise<void>', '// Where MLB itself says');
+assert(mlbColumnProvision.includes('ADD COLUMN IF NOT EXISTS previous_teamid text'),
+  'Roster sync must provision previous_teamid before the departure SQL uses it');
+
+const mlbDeparturesGuard = section(mlb,
+  'async function applyDepartures(', '// Roster-exit detection');
+assert(mlbDeparturesGuard.includes('canonical.teamid=stage.current_teamid') &&
+       mlbDeparturesGuard.includes('canonical.current_team_name=COALESCE(') &&
+       mlbDeparturesGuard.includes('previous_teamid = COALESCE(pd.verified_previous_teamid, stage.previous_teamid)') &&
+       mlbDeparturesGuard.includes('current_teamid = NULL') &&
+       mlbDeparturesGuard.includes('current_team_name = NULL') &&
+       mlbDeparturesGuard.includes('current_org_or_conference_name = NULL'),
+  'Confirmed roster departures must move the last current team to history and clear its full canonical identity');
+assert(mlbDeparturesGuard.includes('previous_team_name = COALESCE(pd.verified_previous_team_name, stage.previous_team_name)') &&
+       mlbDeparturesGuard.includes('pd.verified_previous_org') &&
+       mlbDeparturesGuard.includes('pd.verified_previous_level'),
+  'Roster departure history must remain canonical and unchanged if source TeamID does not match the reported departure club');
+assert(mlbDeparturesGuard.includes('current_team_source_team_id = NULL') &&
+       mlbDeparturesGuard.includes('current_team_source = NULL') &&
+       mlbDeparturesGuard.includes('stage.last_transaction_applied_at IS NULL') &&
+       mlbDeparturesGuard.includes('public.player_team_override'),
+  'MLB departures must not leave a current source team or overwrite transaction/manual authority');
+
+// Transaction-sourced FREE AGENT records are handled by the transaction
+// pipeline, not the roster pipeline. Preserve the old TeamID even when the
+// current-team name was cleared by an earlier run, but only if the canonical
+// mapped team matches the transaction's reported departing team.
+const transactionColumns = section(transactionSync,
+  'async function ensureStageColumns(): Promise<void>', 'interface LatestTransactionRow');
+assert(transactionColumns.includes('ADD COLUMN IF NOT EXISTS previous_teamid text') &&
+       transactionColumns.includes('ADD COLUMN IF NOT EXISTS next_game_date text') &&
+       transactionColumns.includes('ADD COLUMN IF NOT EXISTS next_game_time_utc timestamptz'),
+  'Transaction sync must initialize previous TeamID and the game-schedule fields it clears');
+const transactionDeparture = section(transactionSync,
+  'async function applyDepartureFact(', '// Self-healing:');
+assert(transactionDeparture.includes('WITH departure_identity AS MATERIALIZED') &&
+       transactionDeparture.includes('mapped.teamid=f.current_teamid') &&
+       transactionDeparture.includes('mapped.current_team_name=COALESCE(') &&
+       transactionDeparture.includes('WHEN d.canonical_previous_teamid IS NOT NULL THEN d.canonical_previous_teamid') &&
+       transactionDeparture.includes('WHEN d.newer_departure_team THEN NULL') &&
+       transactionDeparture.includes('previous_team_name = COALESCE(d.target_team_name, previous_team_name)') &&
+       transactionDeparture.includes('current_teamid = NULL'),
+  'A new departure must map TeamID and name as one identity, clearing an obsolete ID when the new club is unmapped');
+assert(transactionDeparture.includes('WHEN d.canonical_previous_teamid IS NOT NULL THEN d.canonical_previous_level'),
+  'Canonical TeamID mapping must determine the departed club playing level');
+assert(transactionDeparture.includes('previous_org_or_conference_name') &&
+       transactionDeparture.includes('public.teamid_universe_mapping') &&
+       transactionDeparture.includes('last_transaction_applied_at'),
+  'Transaction sync must preserve previous organization and transaction provenance');
+
+assert(transactionDeparture.includes('next_game_date = NULL') &&
+       transactionDeparture.includes('next_game_opponent = NULL') &&
+       transactionDeparture.includes('current_team_absent_since = NULL'),
+  'Transaction departure handler must clear games and absence state even if legacy cleanup is bypassed');
+
+const clearedDepartureFlags = section(transactionSync,
+  'async function clearStaleDepartureFlags(', '// Repair legacy transaction-owned departures');
+assert(!clearedDepartureFlags.includes('previous_team_name = NULL') &&
+       !clearedDepartureFlags.includes('previous_teamid = NULL') &&
+       !clearedDepartureFlags.includes('previous_org_or_conference_name = NULL') &&
+       !clearedDepartureFlags.includes('previous_level_label = NULL') &&
+       !clearedDepartureFlags.includes('highest_level_label = NULL') &&
+       clearedDepartureFlags.includes('highest_level_checked_at = NULL'),
+  'Re-signing must preserve previous-team history and career-high label while invalidating its old computation watermark');
+
+const staleDepartureRepair = section(transactionSync,
+  'async function reconcileStaleTransactionDepartureTeamIds(): Promise<{',
+  'async function retireStaleFreeAgents()');
+assert(staleDepartureRepair.includes('public.teamid_universe_mapping') &&
+       staleDepartureRepair.includes('f.previous_team_name=m.current_team_name') &&
+       staleDepartureRepair.includes('f.last_transaction_team_name=m.current_team_name'),
+  'Recovered departed TeamIDs must match the recorded departure club through canonical mapping');
+assert(staleDepartureRepair.includes("f.status_label IN ('FREE AGENT','RETIRED')") &&
+       staleDepartureRepair.includes('f.team_affiliation_status=f.status_label') &&
+       staleDepartureRepair.includes('f.last_transaction_applied_at IS NOT NULL') &&
+       staleDepartureRepair.includes('f.current_team_last_verified <= f.last_transaction_applied_at') &&
+       staleDepartureRepair.includes('t.transaction_type=f.last_transaction_type') &&
+       staleDepartureRepair.includes('t.effective_date::date=f.last_transaction_date') &&
+       staleDepartureRepair.includes('NOT EXISTS (') &&
+       staleDepartureRepair.includes('public.player_team_override'),
+  'Metadata self-healing must require recorded authoritative departures, no newer roster, and no manual override');
+assert(staleDepartureRepair.includes('previous_teamid=CASE WHEN e.recover_teamid THEN e.current_teamid') &&
+       staleDepartureRepair.includes('current_teamid=CASE WHEN e.recover_teamid THEN NULL') &&
+       staleDepartureRepair.includes('f.previous_teamid IS NULL') &&
+       staleDepartureRepair.includes('current_team_source_team_id=NULL'),
+  'Only canonical-matched legacy departures can move a stale current TeamID into history');
+assert(staleDepartureRepair.includes('s.stale_schedule AND f.current_teamid IS NULL') &&
+       staleDepartureRepair.includes('f.current_team_name IS NULL') &&
+       staleDepartureRepair.includes('next_game_date=NULL') &&
+       staleDepartureRepair.includes('next_game_opponent=NULL') &&
+       staleDepartureRepair.includes('current_team_absent_since=NULL') &&
+       staleDepartureRepair.includes('stale_departure_schedule_repair'),
+  'Existing transaction-owned departures with no current team must have stale games cleared without status changes');
+assert(!staleDepartureRepair.includes('SET status_label =') &&
+       !staleDepartureRepair.includes('SET team_affiliation_status ='),
+  'Scheduled metadata recovery may not change player statuses');
+assert(transactionSync.includes('const repaired = await reconcileStaleTransactionDepartureTeamIds()') &&
+       transactionSync.includes('staleTeamIdsRecovered = repaired.teamIdsRecovered') &&
+       transactionSync.includes('staleSchedulesCleared = repaired.schedulesCleared'),
+  'Transaction ingestion must report both historical ID repairs and stale schedule cleanups');
 
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
