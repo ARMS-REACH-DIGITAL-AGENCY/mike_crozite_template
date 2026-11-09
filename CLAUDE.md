@@ -27,5 +27,10 @@
 - **`public.schools` is a dead table (Pete, Nov 2026).** Never read or write
   it. School data lives in `school_success` (official microsite URLs),
   `tbc_schools_raw` and `player_hsids`.
+- **Every player's team is cross-checked through `teamid_universe_mapping`
+  (Pete, Nov 2026).** The team name, level and organization/conference on a
+  card or profile come from that table's row for the player's Team ID. An
+  ACTIVE 2026 player always has a team (from his stat line's Team ID); only
+  a FREE AGENT declared through the MLB transactions API has none.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
