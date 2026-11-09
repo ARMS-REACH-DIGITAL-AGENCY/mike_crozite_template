@@ -316,11 +316,10 @@ async function clearStaleDepartureFlags(
             team_affiliation_status = NULL,
             status_label = NULL,
             display_status_label = NULL,
-            previous_team_name = NULL,
-            previous_org_or_conference_name = NULL,
-            previous_level_label = NULL,
-            highest_level_label = NULL,
-            highest_level_checked_at = NULL
+            -- A new signing clears a stale departure status, not historical
+            -- team identity or the player's verified career-high level.
+            stage_updated_at = NOW(),
+            updated_at = NOW()
       WHERE playerid::text = ANY($1::text[])
         AND last_transaction_applied_at IS NOT NULL
         AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = flip_card_front_stage.playerid::text)`,

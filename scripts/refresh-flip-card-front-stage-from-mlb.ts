@@ -1235,9 +1235,19 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
      player_departures AS (
        SELECT stage.playerid::text AS playerid,
               d.departed,
-              d.departed_team_name
+              d.departed_team_name,
+              canonical.teamid AS verified_previous_teamid,
+              canonical.current_team_name AS verified_previous_team_name,
+              canonical.current_org_or_conference_name AS verified_previous_org,
+              canonical.level_label AS verified_previous_level
          FROM public.flip_card_front_stage stage
          JOIN departed d ON d.mlb_id = stage.current_team_source_player_id::text
+         -- Preserve the ID only if canonical mapping proves it belongs
+         -- to the club identified by the departure.
+         LEFT JOIN public.teamid_universe_mapping canonical
+           ON canonical.teamid=stage.current_teamid
+          AND canonical.current_team_name=COALESCE(
+            d.departed_team_name,stage.current_team_name,stage.previous_team_name)
         WHERE NOT EXISTS (
           SELECT 1
             FROM public.mlb_org_roster_resolution res
@@ -1252,21 +1262,14 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
         SET status_label = pd.departed,
             display_status_label = pd.departed,
             team_affiliation_status = pd.departed,
-            -- Earlier roster syncs sometimes cleared the name but retained
-            -- the TeamID. Carry that ID into history before clearing it.
-            previous_teamid = COALESCE(stage.current_teamid, stage.previous_teamid),
-            previous_team_name = CASE
-              WHEN stage.current_team_name IS NOT NULL THEN COALESCE(pd.departed_team_name, stage.current_team_name)
-              ELSE COALESCE(stage.previous_team_name, pd.departed_team_name)
-            END,
-            previous_org_or_conference_name = CASE
-              WHEN stage.current_team_name IS NOT NULL THEN stage.current_org_or_conference_name
-              ELSE stage.previous_org_or_conference_name
-            END,
-            previous_level_label = CASE
-              WHEN stage.current_team_name IS NOT NULL THEN stage.level_label
-              ELSE stage.previous_level_label
-            END,
+            -- Update the previous team as one canonical identity; never
+            -- combine a stale TeamID with another club's departure name.
+            previous_teamid = COALESCE(pd.verified_previous_teamid, stage.previous_teamid),
+            previous_team_name = COALESCE(pd.verified_previous_team_name, stage.previous_team_name),
+            previous_org_or_conference_name = COALESCE(
+              pd.verified_previous_org, stage.previous_org_or_conference_name),
+            previous_level_label = COALESCE(
+              pd.verified_previous_level, stage.previous_level_label),
             current_teamid = NULL,
             current_team_name = NULL,
             current_team_source = NULL,

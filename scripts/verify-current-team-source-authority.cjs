@@ -346,13 +346,17 @@ assert(mlbColumnProvision.includes('ADD COLUMN IF NOT EXISTS previous_teamid tex
 
 const mlbDeparturesGuard = section(mlb,
   'async function applyDepartures(', '// Roster-exit detection');
-assert(mlbDeparturesGuard.includes('previous_teamid = COALESCE(stage.current_teamid, stage.previous_teamid)') &&
+assert(mlbDeparturesGuard.includes('canonical.teamid=stage.current_teamid') &&
+       mlbDeparturesGuard.includes('canonical.current_team_name=COALESCE(') &&
+       mlbDeparturesGuard.includes('previous_teamid = COALESCE(pd.verified_previous_teamid, stage.previous_teamid)') &&
        mlbDeparturesGuard.includes('current_teamid = NULL') &&
        mlbDeparturesGuard.includes('current_team_name = NULL') &&
        mlbDeparturesGuard.includes('current_org_or_conference_name = NULL'),
   'Confirmed roster departures must move the last current team to history and clear its full canonical identity');
-assert(mlbDeparturesGuard.includes('ELSE COALESCE(stage.previous_team_name, pd.departed_team_name)'),
-  'Departure repair must preserve an existing previous-team name or recover it from MLB when prior current name is already cleared');
+assert(mlbDeparturesGuard.includes('previous_team_name = COALESCE(pd.verified_previous_team_name, stage.previous_team_name)') &&
+       mlbDeparturesGuard.includes('pd.verified_previous_org') &&
+       mlbDeparturesGuard.includes('pd.verified_previous_level'),
+  'Roster departure history must remain canonical and unchanged if source TeamID does not match the reported departure club');
 assert(mlbDeparturesGuard.includes('current_team_source_team_id = NULL') &&
        mlbDeparturesGuard.includes('current_team_source = NULL') &&
        mlbDeparturesGuard.includes('stage.last_transaction_applied_at IS NULL') &&
@@ -378,6 +382,15 @@ assert(transactionDeparture.includes('previous_org_or_conference_name') &&
        transactionDeparture.includes('public.teamid_universe_mapping') &&
        transactionDeparture.includes('last_transaction_applied_at'),
   'Transaction sync must preserve previous organization and transaction provenance');
+
+const clearedDepartureFlags = section(transactionSync,
+  'async function clearStaleDepartureFlags(', '// Repair legacy transaction-owned departures');
+assert(!clearedDepartureFlags.includes('previous_team_name = NULL') &&
+       !clearedDepartureFlags.includes('previous_teamid = NULL') &&
+       !clearedDepartureFlags.includes('previous_org_or_conference_name = NULL') &&
+       !clearedDepartureFlags.includes('previous_level_label = NULL') &&
+       !clearedDepartureFlags.includes('highest_level_label = NULL'),
+  'New signing must never erase previous-team history or career-high playing level');
 
 const staleDepartureRepair = section(transactionSync,
   'async function reconcileStaleTransactionDepartureTeamIds(): Promise<number>',
