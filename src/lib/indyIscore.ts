@@ -842,12 +842,9 @@ async function ingestLeaderboard(league: IndyLeagueConfig, kind: LeaderboardKind
   // even when a larger size is requested. Page until the requested ceiling is
   // reached so late-season additions and lower-volume players are not silently
   // excluded from the YAT?STATS Indy universe.
-  // Pete (Nov 2026): every INDY player matters - released MLB players land
-  // here. The old ceiling (size, default 500) cut each league off at its
-  // top 500 by plate appearances. Page until the league runs out of players
-  // (a short or repeat page), with a 50-page safety limit.
   const pageSize = Math.min(Math.max(size || DEFAULT_SIZE, 50), 100);
-  const maxPages = 50;
+  const requestedLimit = Math.max(size || DEFAULT_SIZE, pageSize);
+  const maxPages = Math.max(1, Math.ceil(requestedLimit / pageSize));
   const seenPlayerIds = new Set<string>();
 
   let rowsSeen = 0;
@@ -886,7 +883,7 @@ async function ingestLeaderboard(league: IndyLeagueConfig, kind: LeaderboardKind
       }
     }
 
-    if (rows.length < pageSize) break;
+    if (rows.length < pageSize || seenPlayerIds.size >= requestedLimit) break;
   }
 
   return { rowsSeen, playersSeen };
