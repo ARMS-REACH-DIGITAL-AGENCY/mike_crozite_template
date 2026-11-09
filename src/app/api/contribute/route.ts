@@ -9,6 +9,7 @@
 // Tips publish during the request after automatic screening. Corrections and
 // missing players retain their own separate data-validation workflows.
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { query } from '@/lib/db';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears, publishQueuedTipNow } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
@@ -238,6 +239,78 @@ export async function POST(req: NextRequest) {
         });
         return NextResponse.json({ok:true,review:'published_team'}, {status:201});
       }
+
+      // A verified YAT?STATS reviewer can publish an explicit status-only (or
+      // status + level) correction immediately. Do NOT grant that privilege to
+      // ordinary fans. Team/identity/commitment changes retain their own
+      // canonical verification or review workflows.
+      //
+      // Use the displayed form baseline as a compare-and-set guard so a
+      // stale browser tab cannot silently replace a newer MLB/college update.
+      const statusOnlyFields=['status_label','level_label'];
+      const directStatusUpdate=!isNew && isReviewer(who) && process.env.VERCEL_ENV !== 'preview'
+        && typeof submitted.status_label==='string'
+        && Object.keys(submitted).every(k=>statusOnlyFields.includes(k))
+        && Object.keys(submitted).length>0;
+      if (directStatusUpdate) {
+        const baseline=body.expectedProfile && typeof body.expectedProfile==='object'
+          && !Array.isArray(body.expectedProfile)
+          ? body.expectedProfile as Record<string,unknown> : null;
+        if (!baseline || typeof baseline.status_label!=='string' || typeof baseline.level_label!=='string') {
+          return fail('Reload the player before applying an immediate correction.',409);
+        }
+        const nextStatus=String(submitted.status_label);
+        const nextLevel=typeof submitted.level_label==='string' ? submitted.level_label : null;
+        // Retiring/freeing a player who still has a current affiliation needs a
+        // separate team transition, not a contradictory badge-only change.
+        // An ACTIVE status with an existing canonical team may not replace its
+        // playing level with an unrelated team level.
+        const result=await query<{playerid:string}>(`
+          WITH updated AS (
+            UPDATE flip_card_front_stage f SET
+              status_label=$3,display_status_label=$3,
+              team_affiliation_status=CASE
+                WHEN $3::text='RETIRED' THEN 'RETIRED'
+                WHEN $3::text='FREE AGENT' THEN 'FREE AGENT'
+                WHEN $3::text='ACTIVE' AND COALESCE(f.team_affiliation_status,'') ILIKE 'RETIRED%' THEN NULL
+                ELSE f.team_affiliation_status END,
+              level_label=COALESCE($4::text,f.level_label),
+              display_level_label=COALESCE($4::text,f.display_level_label),
+              source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
+                jsonb_build_object('reviewer_profile_update',jsonb_build_object(
+                  'status_label',$3::text,'level_label',COALESCE($4::text,f.level_label),
+                  'actor_uid',$7::text,'updated_at',now())),
+              updated_at=now(),stage_updated_at=now()
+            WHERE f.playerid::text=$1 AND f.hsid::text=$2
+              AND COALESCE(NULLIF(BTRIM(f.display_status_label),''),f.status_label,'')=$5
+              AND COALESCE(NULLIF(BTRIM(f.display_level_label),''),f.level_label,'')=$6
+              AND ($3::text NOT IN ('RETIRED','FREE AGENT')
+                   OR (f.current_teamid IS NULL AND NULLIF(BTRIM(COALESCE(f.current_team_name,'')),'') IS NULL))
+              AND ($3::text<>'ACTIVE' OR COALESCE(f.team_affiliation_status,'')<>'RETIRED')
+              AND ($4::text IS NULL OR $3::text<>'ACTIVE' OR f.current_teamid IS NULL
+                   OR EXISTS (SELECT 1 FROM teamid_universe_mapping u
+                      WHERE u.teamid=f.current_teamid AND u.level_label=$4))
+            RETURNING f.playerid::text AS playerid,f.hsid::text AS hsid
+          ), audited AS (
+            INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
+              SELECT $7,'contribute_published',playerid,hsid,
+                jsonb_build_object('source','reviewer_profile_status','status_label',$3::text,
+                  'level_label',$4::text,'previous_status',$5::text,'previous_level',$6::text)
+              FROM updated RETURNING id
+          )
+          SELECT playerid FROM updated
+        `,[playerId,hsid,nextStatus,nextLevel,baseline.status_label,baseline.level_label,who.uid]);
+        if (result.rows.length!==1) {
+          return fail('Player record changed or the requested status conflicts with current affiliation. Reload and review before trying again.',409);
+        }
+        revalidateTag('school-data:' + hsid,{expire:0});
+        await logContribution(who,'contribute_profile',{
+          playerid:playerId,hsid,pageUrl,
+          details:{autoPublished:true,fields:submitted,source:'reviewer_profile_status'},
+        });
+        return NextResponse.json({ok:true,review:'published_profile'}, {status:201});
+      }
+
       const details={kind:isNew?'missing_player':'profile_update',playerId:playerId||null,hsid,fields:submitted,
         by:{uid:who.uid,name:who.name,email:who.email||null},submittedAt:new Date().toISOString()};
       let contributionQueueId: string | null = null;

@@ -60,6 +60,7 @@ import { bracketOrder, pairEliminated } from '@/lib/bracket/engine';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { COMMISSIONER_DECISIONS } from '@/lib/bracket/commissioner';
 import { scoreLive, type Live } from '@/components/bracket/liveSeason';
+import { fetchBracketLiveBatches as fetchLive } from '@/lib/bracket/fetchLiveBatches';
 import type { GameBox, GameRow, Index, SeriesRow } from '@/components/bracket/gallery';
 import { tieNote } from '@/lib/bracket/tieNote';
 
@@ -96,32 +97,6 @@ function arg(name: string) {
   return i > 0 ? process.argv[i + 1] : undefined;
 }
 const flag = (name: string) => process.argv.includes(`--${name}`);
-
-// The live data for a set of schools, asked 64 at a time (the route's limit)
-// and merged.
-async function fetchLive(base: string, start: string, weeks: number, hsids: number[]): Promise<Live> {
-  const out: Live = { asOf: '', roster: {}, lines: [], clubs: {}, games: {}, fans: {} } as unknown as Live;
-  for (let i = 0; i < hsids.length; i += 64) {
-    const url = `${base}/api/bracket/live?start=${start}&weeks=${weeks}&h=${hsids.slice(i, i + 64).join(',')}`;
-    const res = await fetch(url, { headers: { 'cache-control': 'no-cache' } });
-    if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-    mergeLive(out, await res.json() as Live);
-  }
-  return out;
-}
-function mergeLive(into: Live, part: Live) {
-  into.asOf = into.asOf || part.asOf;
-  Object.assign(into.roster, part.roster);
-  into.lines.push(...part.lines);
-  Object.assign(into.fans || (into.fans = {}), part.fans || {});
-  for (const key of ['clubs', 'games'] as const) {
-    const target = (into[key] || (into[key] = {})) as Record<string, unknown[][]>;
-    for (const [club, list] of Object.entries((part[key] || {}) as Record<string, unknown[][]>)) {
-      const have = new Set((target[club] || []).map((g) => String(g[1])));
-      target[club] = [...(target[club] || []), ...list.filter((g) => !have.has(String(g[1])))];
-    }
-  }
-}
 
 // The scoreboard's index for a set of rows: the season's weeks, its
 // schools and every series whose two schools are known - the bracket's, the

@@ -27,6 +27,7 @@ import { autoRuling } from '@/lib/bracket/autoRuling';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
+import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
@@ -134,9 +135,8 @@ export function applyLive(idx: Index, asof: string) {
     const hsids = Object.keys(idx.schools);
     const started = idx.weeks.filter(([a]) => a <= asof).length;
     livePromise = (started
-      ? fetch(`/api/bracket/live?start=${start}&weeks=${started}&h=${hsids.join(',')}`, { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() as Promise<Live> : null))
-        .catch(() => null)
+      ? fetchBracketLiveBatches('', start, started, hsids)
+        .catch((error) => { console.error('[bracket/live] Complete-field fetch failed:', error); return null; })
       : Promise.resolve(null))
       .then((live) => {
         const boxes = live ? scoreLive(idx, live, asof) : {};

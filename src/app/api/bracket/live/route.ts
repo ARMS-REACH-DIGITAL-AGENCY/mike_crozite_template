@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
 import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
+import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
 
 // Live bracket lines: every game line (player_game_logs - the 10-minute MLB
 // feed plus the 4-hourly game-log sync, Arizona Fall League included) that a
@@ -79,9 +80,12 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const start = sp.get('start') || '';
   const weeks = Math.min(40, Math.max(1, Number(sp.get('weeks')) || 1));
-  const hsids = [...new Set((sp.get('h') || '').split(',').map((x) => x.trim()).filter((x) => /^\d{1,7}$/.test(x)))].slice(0, 64);
+  const hsids = [...new Set((sp.get('h') || '').split(',').map((x) => x.trim()).filter((x) => /^\d{1,7}$/.test(x)))];
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !hsids.length) {
     return NextResponse.json({ error: 'start=YYYY-MM-DD and h=<hsid,...> are required' }, { status: 400 });
+  }
+  if (hsids.length > BRACKET_LIVE_BATCH_SIZE) {
+    return NextResponse.json({ error: `Maximum ${BRACKET_LIVE_BATCH_SIZE} schools per live request; send batches.` }, { status: 400 });
   }
 
   try {
@@ -98,7 +102,7 @@ export async function GET(req: NextRequest) {
     // batting-only, so the live test bracket must not create zero pitching
     // rows for his off days. Pitching-only "UT" players still stay pitchers.
     const usage = await getSeasonUsageByPlayerIds(active.map((r) => r.playerid)).catch(() => ({} as Record<string, { ab: number; pg: number }>));
-    const roster: Record<string, [string, string, string, 0 | 1, string][]> = {};
+    const roster: Record<string, [string, string, string, 0 | 1, string][]> = Object.fromEntries(hsids.map((id) => [id, []]));
     const schoolOf = new Map<string, string>();
     for (const r of active) {
       const name = text(r.display_name) || [text(r.first_name), text(r.last_name)].filter(Boolean).join(' ') || r.playerid;
