@@ -1119,7 +1119,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            ad and the pinned round buttons - one round at a time, no page
            scrolling (like the profile's FunZone). */
         .yfp:has(.yfz) { padding: 0; }
-        .yfz { --yfz-dock-h:0px; container-type:inline-size; position:relative; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,66px)); min-height:318px; max-height:none; overflow:hidden; }
+        /* The fixed footer is the dock (--footerH) plus the message strip and the
+           contact line; the panel ends above all three so the leaderboard's last
+           rows (127 and 128) aren't hidden behind them (Pete, Nov 9). */
+        .yfz { --yfz-dock-h:0px; container-type:inline-size; position:relative; height:calc(100dvh - var(--row1-h,36px) - var(--row2-h,54px) - var(--row3-h,100px) - var(--row4-h,56px) - var(--footerH,66px) - var(--yat-facts-h,32px) - var(--yat-contact-h,14px)); min-height:318px; max-height:none; overflow:hidden; }
         .yfz-panel { position:absolute; inset:0 0 var(--yfz-dock-h) 0; display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:16px; padding:8px; }
         .yfz-panel.all { grid-template-columns: minmax(0, 1fr); }
         .yfz-panel > .yfp-lb { position: static; max-height: none; height: 100%; overflow-y: auto; }
