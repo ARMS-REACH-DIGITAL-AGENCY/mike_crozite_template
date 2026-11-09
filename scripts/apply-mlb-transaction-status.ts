@@ -486,6 +486,38 @@ async function reconcileStaleTransactionDepartureTeamIds(): Promise<{
 }
 
 
+// Pete (Nov 2026): a released player who plays no games in the rest of that
+// season is RETIRED, not a free agent, once the season is over (Vinny
+// Nittoli: released Mar 24, 2026, no 2026 games). A release in the winter
+// stays FREE AGENT until the following season ends without a game. One
+// batched query per run, not one per player.
+async function silentSeasonRetirements(rows: { playerid: string; effective_date: string }[]): Promise<Set<string>> {
+  if (rows.length === 0) return new Set();
+  const { rows: hits } = await pool.query<{ playerid: string }>(
+    `WITH d AS (
+       SELECT x.playerid,
+              -- the season a release belongs to: the same calendar year, or
+              -- the next one for an off-season (Nov-Dec) release
+              CASE WHEN EXTRACT(MONTH FROM x.effective_date::date) >= 11
+                   THEN EXTRACT(YEAR FROM x.effective_date::date)::int + 1
+                   ELSE EXTRACT(YEAR FROM x.effective_date::date)::int END AS season
+         FROM jsonb_to_recordset($1::jsonb) AS x(playerid text, effective_date text)
+     )
+     SELECT d.playerid FROM d
+      WHERE CURRENT_DATE >= make_date(d.season, 11, 1)
+        AND NOT EXISTS (SELECT 1 FROM public.player_game_logs g
+                         WHERE g.playerid::text = d.playerid AND EXTRACT(YEAR FROM g.game_date) = d.season)
+        AND NOT EXISTS (SELECT 1 FROM public.stat_lines s
+                         WHERE s.playerid::text = d.playerid AND EXTRACT(YEAR FROM s.game_date) = d.season)
+        AND NOT EXISTS (SELECT 1 FROM public.tbc_complete_batting_history b
+                         WHERE b.playerid::text = d.playerid AND split_part(b.year::text, '.', 1) = d.season::text)
+        AND NOT EXISTS (SELECT 1 FROM public.tbc_complete_pitching_history p
+                         WHERE p.playerid::text = d.playerid AND split_part(p.year::text, '.', 1) = d.season::text)`,
+    [JSON.stringify(rows)]
+  );
+  return new Set(hits.map((h) => h.playerid));
+}
+
 async function retireStaleFreeAgents(): Promise<number> {
   // Owner rule: a sourced FREE AGENT remains in Active Alumni for one year.
   // If no newer MLB transaction has changed that status by then, treat the
@@ -548,7 +580,14 @@ async function main() {
 
     let applied = 0;
 
-    for (const { row, status } of departures) {
+    const retiredBySilence = await silentSeasonRetirements(
+      departures.filter((d) => d.status === "FREE AGENT")
+        .map((d) => ({ playerid: String(d.row.playerid), effective_date: String(d.row.effective_date) }))
+    );
+    console.log(`Released with no games for the rest of that (finished) season -> RETIRED: ${retiredBySilence.size}`);
+    for (const { row, status: rawStatus } of departures) {
+      const status: DepartureStatus =
+        rawStatus === "FREE AGENT" && retiredBySilence.has(String(row.playerid)) ? "RETIRED" : rawStatus;
       if (dryRun) {
         console.log(
           `  [DRY RUN] Would mark ${status}: playerid=${row.playerid} type="${row.transaction_type}" date=${row.effective_date} team=${row.from_team_name ?? row.to_team_name ?? "?"}`

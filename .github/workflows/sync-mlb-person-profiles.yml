@@ -1,0 +1,58 @@
+name: Sync MLB Person Profiles
+
+# Keeps mlb_person_profile current (MLB bio, debut date, last game, high
+# school) for every verified MLB-linked player, and adds +1 to a school's
+# stored MLB alumni count (school_success.mlb) when one of its alumni makes
+# his MLB debut (Pete, Nov 2026). A pull request that changes the job gets a
+# dry run: MLB is read, nothing is written.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Fetch and report only, write nothing."
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    # Daily 12:10 UTC, between the morning MLB transaction and headshot jobs.
+    - cron: "10 12 * * *"
+  pull_request:
+    paths:
+      - scripts/sync-mlb-person-profiles.ts
+      - .github/workflows/sync-mlb-person-profiles.yml
+
+# One run at a time, so a debut is never counted by two runs.
+concurrency:
+  group: sync-mlb-person-profiles
+  cancel-in-progress: false
+
+jobs:
+  sync-mlb-person-profiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || 'Easter-NEWS' }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Sync profiles (dry run)
+        if: github.event_name == 'pull_request' || github.event.inputs.dry_run == 'true'
+        run: npx tsx ./scripts/sync-mlb-person-profiles.ts --dry-run
+
+      - name: Sync profiles and count new MLB debuts
+        if: github.event_name != 'pull_request' && github.event.inputs.dry_run != 'true'
+        run: npx tsx ./scripts/sync-mlb-person-profiles.ts

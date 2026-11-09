@@ -94,10 +94,10 @@ export function resolvePlayerDisplay(player: PlayerRow): PlayerDisplayMetadata {
   return {
     statusLabel,
     levelLabel,
-    teamName: isSourcedDeparture ? previousTeam || currentTeam : currentTeam,
-    orgConferenceName: text(isSourcedDeparture
-      ? player.previous_org_or_conference_name
-      : player.current_org_or_conference_name),
+    // A FREE AGENT or RETIRED player has no team (Pete, Nov 2026): no team
+    // and no organization on the card, never his previous club.
+    teamName: isSourcedDeparture ? '' : currentTeam,
+    orgConferenceName: isSourcedDeparture ? '' : text(player.current_org_or_conference_name),
     isSourcedDeparture,
     isTransactionDeparture,
   };
