@@ -14,8 +14,18 @@ export const SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL = `WITH missing AS MATERIA
    AND f.current_team_absent_since IS NULL AND f.is_on_40man IS NOT TRUE
    AND (f.level_label IS NULL OR f.level_label IN
      ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC'))
-   AND COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'')
-     NOT IN ('FREE AGENT','RETIRED','RETIRED_LAST_KNOWN')
+   AND (
+     COALESCE(UPPER(BTRIM(f.team_affiliation_status)),'')
+       NOT IN ('FREE AGENT','RETIRED','RETIRED_LAST_KNOWN')
+     OR (
+       f.status_label='RETIRED'
+       AND f.team_affiliation_status='RETIRED'
+       AND f.source_summary#>>'{status_classification,rule}'='no_activity_after_2025'
+       AND f.source_summary#>>'{status_classification,source}'='yatstats_retirement_cutoff'
+     )
+   )
+   -- A RETIRED classification may only be reversed when its stored
+   -- provenance proves it came from the automatic cutoff, never manually.
    AND NOT EXISTS (SELECT 1 FROM public.player_current_team ct
      WHERE ct.playerid=f.playerid)
    AND NOT EXISTS (SELECT 1 FROM public.player_team_override o
@@ -57,7 +67,7 @@ export const SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL = `WITH missing AS MATERIA
    -- An explicit newer college roster transfer supersedes the 2026 team.
    AND NOT EXISTS (SELECT 1 FROM public.college_roster_players_raw r
       WHERE r.matched_playerid=m.playerid AND r.roster_season='2027'
-        AND r.is_current=true AND r.teamid<>p.teamid)
+        AND r.is_current=true AND r.teamid IS DISTINCT FROM p.teamid)
 ), updated AS (
  UPDATE public.flip_card_front_stage f
  SET status_label='ACTIVE',display_status_label='ACTIVE',
@@ -76,7 +86,14 @@ export const SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL = `WITH missing AS MATERIA
    updated_at=NOW(),stage_updated_at=NOW()
  FROM verified v
  WHERE f.playerid=v.playerid
-  AND (f.status_label IS NULL OR f.status_label IN ('ACTIVE','RETIRED'))
+  AND (f.status_label IS NULL OR f.status_label='ACTIVE' OR
+      (f.status_label='RETIRED'
+       AND f.team_affiliation_status='RETIRED'
+       AND f.source_summary#>>'{status_classification,rule}'='no_activity_after_2025'
+       AND f.source_summary#>>'{status_classification,source}'='yatstats_retirement_cutoff'))
+  AND NOT EXISTS (SELECT 1 FROM public.college_roster_players_raw r
+      WHERE r.matched_playerid=f.playerid AND r.roster_season='2027'
+        AND r.is_current=true AND r.teamid IS DISTINCT FROM v.teamid)
   AND f.current_teamid IS NULL AND f.current_team_name IS NULL
   AND f.current_team_source IS NULL AND f.last_transaction_type IS NULL
   AND f.last_transaction_applied_at IS NULL
