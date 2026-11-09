@@ -109,21 +109,7 @@ async function lookupLevelForPlayerAtTeam(
      LIMIT 1`,
     [playerid, teamName]
   );
-  if (rows[0]?.normalized_level) return rows[0].normalized_level;
-  // Roster snapshots only go back a few weeks, so an older release (Vinny
-  // Nittoli, Worcester Red Sox, Mar 2026) finds none there. Fall back to the
-  // releasing team's own level in teamid_universe_mapping (Pete: a FREE
-  // AGENT shows the level he actually played; only RETIRED shows his
-  // highest level). Only an unambiguous affiliated team name qualifies.
-  const { rows: mapped } = await pool.query<{ level_label: string }>(
-    `SELECT MIN(level_label) AS level_label
-       FROM public.teamid_universe_mapping
-      WHERE lower(current_team_name) = lower($1)
-        AND level_label IN ('MLB','TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE')
-     HAVING COUNT(DISTINCT level_label) = 1`,
-    [teamName]
-  );
-  return mapped[0]?.level_label ?? null;
+  return rows[0]?.normalized_level ?? null;
 }
 
 async function ensureStageColumns(): Promise<void> {
@@ -313,8 +299,7 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
              OR status_label IS DISTINCT FROM $5
              OR team_affiliation_status IS DISTINCT FROM $5
              OR current_team_name IS NOT NULL OR current_teamid IS NOT NULL
-             OR current_team_source IS NOT NULL OR is_on_40man IS TRUE
-             OR level_label IS DISTINCT FROM COALESCE($6, level_label))`,
+             OR current_team_source IS NOT NULL OR is_on_40man IS TRUE)`,
     [row.playerid, row.transaction_type, row.effective_date, teamName, status, resolvedLevel, row.mlb_person_id]
   );
 }
