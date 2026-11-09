@@ -45,5 +45,13 @@
   any "Allow Claude to…" prompt), first tell him in one plain sentence what
   it does and why it needs his approval. Example: "Next I'll look up who MLB
   drafted in 1968, round 4, named Smith, to check Stephen Smith's draft line."
+- **The truth is there. Find it (Pete, Nov 2026).** When data seems
+  missing or wrong, assume it exists and the search is wrong. Never tell
+  Pete "we don't have it" or "the source is wrong" until you have stopped,
+  checked how you asked (the API call, the table, the ID, a nickname, a
+  draft phase) and tried the obvious other ways. Say how you checked.
+  Example: MLB's draft API had every secondary-phase pick; it only needed
+  `?draftType=JS`. Slow down, use common sense, and don't let a narrow
+  query become a conclusion.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
