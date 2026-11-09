@@ -312,4 +312,43 @@ assert(ingest.includes('refresh_tbc_teamid_reconciliation_queue') &&
        ingest.includes('teamIdDiscovery'),
   'Both ingestion and daily QC must report new Team IDs without rejecting TBC raw rows');
 
+
+// Regression: MLB roster post-import maintenance must not breach the canonical
+// stage trigger, reactivate a transaction-owned free agent, or erase a 40-man tag.
+const mlbBackfillGuard = section(mlb,
+  'async function backfillMappedCurrentTeamIdentity()',
+  '// Everyone matched in the latest roster run');
+assert(mlbBackfillGuard.includes('public.teamid_universe_mapping') &&
+       mlbBackfillGuard.includes('HAVING COUNT(DISTINCT tbc_teamid) = 1'),
+  'MLB backfill must require unambiguous canonical Team ID mappings');
+assert(mlbBackfillGuard.includes('current_teamid = e.tbc_teamid') &&
+       mlbBackfillGuard.includes('current_team_name = e.canonical_name') &&
+       mlbBackfillGuard.includes('current_org_or_conference_name = e.canonical_org'),
+  'MLB backfill must promote canonical team ID/name/org in one guarded update');
+assert(mlbBackfillGuard.includes("c.level_label IS NOT DISTINCT FROM c.canonical_level") &&
+       mlbBackfillGuard.includes('c.display_level_label IS NOT DISTINCT FROM c.canonical_level'),
+  'MLB backfill must not invent a level or erase the 40-man display tag');
+assert(mlbBackfillGuard.includes('f.last_transaction_applied_at IS NULL') &&
+       mlbBackfillGuard.includes("c.team_affiliation_status IS DISTINCT FROM 'FREE AGENT'") &&
+       mlbBackfillGuard.includes("c.status_label IS DISTINCT FROM 'RETIRED'") &&
+       mlbBackfillGuard.includes('public.player_team_override'),
+  'MLB backfill must exclude departures and manual team overrides');
+assert(!mlbBackfillGuard.includes('SET status_label =') &&
+       !mlbBackfillGuard.includes('SET display_status_label =') &&
+       !mlbBackfillGuard.includes('current_team_last_verified ='),
+  'Metadata backfill must never change status or fake current-roster verification');
+
+const mlbDeparturesGuard = section(mlb,
+  'async function applyDepartures(', '// Roster-exit detection');
+assert(mlbDeparturesGuard.includes('previous_teamid = CASE') &&
+       mlbDeparturesGuard.includes('current_teamid = NULL') &&
+       mlbDeparturesGuard.includes('current_team_name = NULL') &&
+       mlbDeparturesGuard.includes('current_org_or_conference_name = NULL'),
+  'Confirmed roster departures must move the last current team to history and clear its full canonical identity');
+assert(mlbDeparturesGuard.includes('current_team_source_team_id = NULL') &&
+       mlbDeparturesGuard.includes('current_team_source = NULL') &&
+       mlbDeparturesGuard.includes('stage.last_transaction_applied_at IS NULL') &&
+       mlbDeparturesGuard.includes('public.player_team_override'),
+  'MLB departures must not leave a current source team or overwrite transaction/manual authority');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
