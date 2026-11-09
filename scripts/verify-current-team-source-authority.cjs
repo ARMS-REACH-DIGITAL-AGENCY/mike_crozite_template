@@ -40,6 +40,26 @@ assert(ownerCollege.includes('COUNT(DISTINCT teamid)=1') &&
 assert(ownerCollege.includes("status_label='ACTIVE'") &&
        ownerCollege.includes("current_team_source='tbc_2026_college_participation'"),
   '2026 college players retain ACTIVE status and the 2026 college');
+// Regression: neither college reactivation path can overwrite an official
+// 2027 transfer, and only provenance-backed automatic retirements are reversible.
+const olderReactivation = section(levels,
+  'export const SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL = `',
+  'SELECT COUNT(*)::int AS reactivated FROM changed');
+assert(olderReactivation.includes("cr.roster_season='2027'") &&
+       olderReactivation.includes('cr.teamid IS DISTINCT FROM s.teamid') &&
+       olderReactivation.includes('cr.teamid IS DISTINCT FROM e.teamid'),
+  'Feed-based reactivation must protect newer 2027 transfers in eligibility and UPDATE');
+assert(olderReactivation.includes('public.player_transactions') &&
+       olderReactivation.includes("'yatstats_retirement_cutoff'"),
+  'Feed-based reactivation must protect MLB transactions and require automatic-retirement provenance');
+assert(ownerCollege.includes("f.source_summary#>>'{status_classification,rule}'='no_activity_after_2025'") &&
+       ownerCollege.includes("f.source_summary#>>'{status_classification,source}'='yatstats_retirement_cutoff'") &&
+       ownerCollege.includes("f.team_affiliation_status='RETIRED'"),
+  'Archive-based reversal must admit only provenance-backed automatic retirements');
+assert(ownerCollege.includes('r.teamid IS DISTINCT FROM v.teamid') &&
+       ownerCollege.includes('r.teamid IS DISTINCT FROM p.teamid'),
+  'Archive-based reactivation must reject 2027 transfers both before and during UPDATE');
+
 const retirementCutoff = section(levels,
   'export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `',
   'SELECT COUNT(*)::int AS retired FROM classified');
