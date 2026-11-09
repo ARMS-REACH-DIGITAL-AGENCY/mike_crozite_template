@@ -4,7 +4,7 @@ This list is built from every message Pete sent in session
 session_01JbCbTx7jQy3xZACZs449Uy (Nov 8-9, 2026). Claude updates it whenever
 something is added, finished or blocked. Nothing gets dropped silently.
 
-Last updated: 2026-11-09 17:40 UTC
+Last updated: 2026-11-09 18:30 UTC
 
 ## Pete asked for it, and it is NOT done
 
@@ -17,8 +17,10 @@ Last updated: 2026-11-09 17:40 UTC
 | 5 | Scan INDY rosters every day and catch released FREE AGENTS who sign there. | Nov 9 13:54 | **Not built.** Part 1 (read all players, not the top 500) is on branch `ccr-0323126e-3ihtzc`, commit 26478a53, with no PR yet. Part 2 needs a roster source: the iScore API test needs Pete's network approval. |
 | 6 | Enrichment, step 3: retired vs. active from MLB's last-game date. | Nov 9 08:43 ("All of them") | Not started |
 | 7 | Enrichment, step 4: bios (bats, throws, position, height, weight, draft info) and career stats into `flip_card_front_stage`. | Nov 9 06:23-06:25 | Not started |
-| 25 | Long Beach Poly (hsid 637, teamid C637) drafted list: TBC page has 46 draft rows (43 drafted + 3 UDFA), stored 46. Our stat tables have draft_info for only 30 of LB Poly's 85 players: 15 drafted players never played pro, so they have no stat line and no draft_info. Pete: may need a table to cross-check. | Nov 9 17:23 | Waiting on Pete: source for the non-pro draftees (#26). |
+| 25 | **DONE (table built):** `mlb_draft_picks_all` = every MLB draft pick 1965-2026 (69,747), matched to our players by verified MLB ID (40,000 picks) or name + high school + city (4,322 picks, 20/20 spot-check correct). Long Beach Poly: 32 of TBC's 43 drafted now found. Was: Long Beach Poly (hsid 637, teamid C637) drafted list: TBC page has 46 draft rows (43 drafted + 3 UDFA), stored 46. Our stat tables have draft_info for only 30 of LB Poly's 85 players: 15 drafted players never played pro, so they have no stat line and no draft_info. Pete: may need a table to cross-check. | Nov 9 17:23 | Waiting on Pete: source for the non-pro draftees (#26). |
 | 27 | Ryan Jensen (1975, playerid 754, MLB 2001-2005) shows FREE AGENT from the 1997 Ryan Jensen's July 2026 release: 2 stale transactions saved under the wrong player from an old link. Ryan Walker (164576) has 5 the same way. | Nov 9 17:35 found | Waiting on Pete OK to delete the 7 rows (backed up) and fix card 754. |
+| 28 | Draft table follow-ups: (a) MLB's `team_name` is today's franchise name (1996 Milton Bradley shows "Washington Nationals", not Expos): use the era name before showing it. (b) Make the pull a repo script/workflow that reruns after each July draft. (c) Compare all 9,597 schools' drafted counts (4,276 agree, 5,162 MLB lower, 159 MLB higher) and report. (d) Feed the new matches into Draft Day stories. | Nov 9 | Not started |
+| 29 | Long Beach Poly's 8 still unmatched: Stephen Smith (MLB "Steve"), Sam Houston (MLB "Rowland"), Robert Wiswell (MLB: UCLA), Raymond Colin (MLB: Long Beach City College), James George (MLB: USC), Robert George (MLB says Poly HS, Arleta), Stanley Butler (MLB says "Long Beach HS"), Emanuel Andrews (looks like a duplicate TBC record of EJ Andrews: same 2018 PIT pick). | Nov 9 | For Pete, one at a time |
 | 8 | Enrichment, step 5: minor-league stats from 1988, and awards. First test what MLB actually has. | Nov 9 08:43 | Not started |
 
 ## In progress
