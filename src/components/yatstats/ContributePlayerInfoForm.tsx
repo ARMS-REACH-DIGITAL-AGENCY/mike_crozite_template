@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import type { ContributePlayer, ContributeSchool, ContributeTeam } from '@/lib/contribute';
 import ContributeSearch from './ContributeSearch';
@@ -36,6 +37,7 @@ export default function ContributePlayerInfoForm({
   player:ContributePlayer|null; school:ContributeSchool|null;
   signedIn:boolean; onSignIn:()=>void;
 }) {
+  const router = useRouter();
   const [values,setValues] = useState<Fields>(EMPTY);
   const [initial,setInitial] = useState<Fields>(EMPTY);
   const [loading,setLoading] = useState(false);
@@ -159,7 +161,7 @@ export default function ContributePlayerInfoForm({
             : 'UNCOMMITTED status published! Row 3 will show the uncommitted image after refresh.') +
             (body.otherFieldsQueued ? ' Your other profile edits were submitted separately.' : '')
         : body.review === 'published_profile'
-        ? 'Player status and level saved immediately. Refresh the school page to see the updated card.'
+        ? 'Player status and level saved. The school page is updating now.'
         : body.review === 'published_team'
         ? 'Current team, playing level, and conference published. The college commitment record was not changed. Refresh to view the updated card.'
         : body.review === 'published'
@@ -168,6 +170,7 @@ export default function ContributePlayerInfoForm({
           ? 'Received. These years need verification before appearing on the school page.'
           : 'Received. Your information is queued for processing. Updates that need verification are held for review.');
       setInitial(values);
+      if (body.review === 'published_profile') router.refresh();
     }catch(e){setError(e instanceof Error?e.message:'Unable to send.');}finally{setSending(false);}
   }
 
