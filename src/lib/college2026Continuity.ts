@@ -2,11 +2,11 @@
 // with that college until reliable newer college/pro evidence says otherwise.
 // Stage repair uses all four 2026 batting/pitching sources and does not infer
 // a college when multiple teams, MLB evidence or explicit overrides exist.
+// This continuity persists into 2027 until a reliable newer source supersedes it.
 export const SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL = `WITH missing AS MATERIALIZED (
  SELECT f.playerid,f.status_label AS prior_status,f.level_label AS prior_level
  FROM public.flip_card_front_stage f
- WHERE EXTRACT(YEAR FROM CURRENT_DATE)=2026
-   AND (f.status_label IS NULL OR f.status_label IN ('ACTIVE','RETIRED'))
+ WHERE (f.status_label IS NULL OR f.status_label IN ('ACTIVE','RETIRED'))
    AND f.current_teamid IS NULL AND f.current_team_name IS NULL
    AND f.current_team_source IS NULL AND f.current_team_source_team_id IS NULL
    AND f.current_team_source_player_id IS NULL AND f.current_team_last_verified IS NULL
