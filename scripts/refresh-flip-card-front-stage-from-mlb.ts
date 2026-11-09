@@ -440,6 +440,21 @@ async function backfillMappedCurrentTeamIdentity(): Promise<{
   teamIds: number;
   orgs: number;
 }> {
+  // Free agents and released or retired players have no team (Pete, Nov
+  // 2026). Clear a Team ID left on such a card when its team name was
+  // cleared - 31 FREE AGENT cards were left that way on Nov 8, 2026.
+  await pool.query(`
+    UPDATE public.flip_card_front_stage f
+       SET current_teamid = NULL,
+           stage_updated_at = NOW()
+     WHERE f.current_team_source = 'mlb_api'
+       AND f.current_teamid IS NOT NULL
+       AND NULLIF(BTRIM(f.current_team_name), '') IS NULL
+       AND UPPER(BTRIM(COALESCE(f.team_affiliation_status, f.status_label, ''))) IN ('FREE AGENT', 'RELEASED', 'RETIRED')
+  `);
+
+  // Only cards that still name a team get its Team ID from the map; a card
+  // whose team was cleared is not given one back.
   const teamIds = await pool.query(`
     WITH mapped AS (
       SELECT f.ctid, m.tbc_teamid::text AS tbc_teamid
@@ -448,6 +463,7 @@ async function backfillMappedCurrentTeamIdentity(): Promise<{
         ON m.mlb_stats_api_id::text = f.current_team_source_team_id::text
       WHERE f.current_team_source = 'mlb_api'
         AND NULLIF(BTRIM(f.current_team_source_team_id::text), '') IS NOT NULL
+        AND NULLIF(BTRIM(f.current_team_name), '') IS NOT NULL
     )
     UPDATE public.flip_card_front_stage f
        SET current_teamid = mapped.tbc_teamid,
@@ -1198,6 +1214,9 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
               WHEN stage.current_team_name IS NOT NULL THEN stage.level_label
               ELSE stage.previous_level_label
             END,
+            -- A released player / free agent has no team (Pete, Nov 2026),
+            -- so his old Team ID goes too, as the transaction sync does.
+            current_teamid = NULL,
             current_team_name = NULL,
             current_org_or_conference_name = NULL,
             is_on_40man = false,
@@ -1218,6 +1237,7 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
         AND (
           stage.status_label IS DISTINCT FROM pd.departed
           OR stage.current_team_name IS NOT NULL
+          OR stage.current_teamid IS NOT NULL
         )`,
     [JSON.stringify(departed)]
   );
