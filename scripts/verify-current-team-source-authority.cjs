@@ -379,4 +379,26 @@ assert(transactionDeparture.includes('previous_org_or_conference_name') &&
        transactionDeparture.includes('last_transaction_applied_at'),
   'Transaction sync must preserve previous organization and transaction provenance');
 
+const staleDepartureRepair = section(transactionSync,
+  'async function reconcileStaleTransactionDepartureTeamIds(): Promise<number>',
+  'async function retireStaleFreeAgents()');
+assert(staleDepartureRepair.includes('public.teamid_universe_mapping') &&
+       staleDepartureRepair.includes('f.previous_team_name = m.current_team_name') &&
+       staleDepartureRepair.includes('f.last_transaction_team_name = m.current_team_name'),
+  'Legacy departed TeamIDs must be matched against canonical team and recorded transaction team');
+assert(staleDepartureRepair.includes("f.status_label='FREE AGENT'") &&
+       staleDepartureRepair.includes("f.team_affiliation_status='FREE AGENT'") &&
+       staleDepartureRepair.includes('f.last_transaction_applied_at IS NOT NULL') &&
+       staleDepartureRepair.includes('f.previous_teamid IS NULL') &&
+       staleDepartureRepair.includes('public.player_transactions'),
+  'Repair must touch only transaction-backed existing FREE AGENT departures');
+assert(staleDepartureRepair.includes('previous_teamid=e.current_teamid') &&
+       staleDepartureRepair.includes('current_teamid=NULL') &&
+       staleDepartureRepair.includes('current_team_source_team_id=NULL') &&
+       staleDepartureRepair.includes('public.player_team_override') &&
+       !staleDepartureRepair.includes('SET status_label ='),
+  'Legacy cleanup must preserve prior TeamID, never set status, and protect manual overrides');
+assert(transactionSync.includes('staleTeamIdsRecovered = await reconcileStaleTransactionDepartureTeamIds()'),
+  'Transaction sync must execute the legacy departure repair after transaction reprocessing');
+
 console.log('PASS: current-team precedence, provider IDs, 40-man affiliation, manual overrides and shared UI status');
