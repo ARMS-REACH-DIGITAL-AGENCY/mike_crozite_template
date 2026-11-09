@@ -11,6 +11,17 @@ const source = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
 const levels = source('src/lib/officialLevels.ts');
 const cron = source('src/app/api/cron/level-qc/route.ts');
+const mlb = source('scripts/refresh-flip-card-front-stage-from-mlb.ts');
+const gallery = source('src/lib/galleryStatuses.ts');
+
+const section = (text, head, tail) => {
+  const start = text.indexOf(head);
+  assert(start >= 0, 'Missing section: ' + head);
+  const end = text.indexOf(tail, start + head.length);
+  assert(end > start, 'Missing end of ' + head);
+  return text.slice(start, end);
+};
+
 const ownerCollege = source('src/lib/college2026Continuity.ts');
 const statusCron = source('src/app/api/cron/flip-card-status-reconciliation/route.ts');
 assert(statusCron.includes('SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL'),
@@ -38,17 +49,6 @@ assert(retirementCutoff.includes('public.tbc_complete_batting_history') &&
        retirementCutoff.includes("LIKE '%redshirt%'"),
   'Retirement requires checking archived 2026 play and explicit college redshirt roster');
 
-
-const mlb = source('scripts/refresh-flip-card-front-stage-from-mlb.ts');
-const gallery = source('src/lib/galleryStatuses.ts');
-
-const section = (text, head, tail) => {
-  const start = text.indexOf(head);
-  assert(start >= 0, 'Missing section: ' + head);
-  const end = text.indexOf(tail, start + head.length);
-  assert(end > start, 'Missing end of ' + head);
-  return text.slice(start, end);
-};
 
 const qc = section(levels,
   'export const CANONICAL_STAGE_REPAIR_SQL = `',
