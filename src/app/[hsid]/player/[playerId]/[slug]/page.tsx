@@ -439,12 +439,14 @@ export default async function ProfilePage({ params }: Props) {
   const lastTransactionType = String(transactionStatus?.last_transaction_type || "").trim();
   const isSourcedDeparture =
     (affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED") && !!lastTransactionType;
-  const previousTeamName = String(transactionStatus?.previous_team_name || "").trim();
-  const previousOrgOrConferenceName = String(transactionStatus?.previous_org_or_conference_name || "").trim();
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
   const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
-  const ctxTeam = isSourcedDeparture ? previousTeamName || rawCtxTeam : rawCtxTeam;
+  // FREE AGENT / RETIRED: no team on the profile either (Pete, Nov 2026),
+  // whether the departure came from a transaction or from the roster sync.
+  const hasNoTeam = /^(FREE AGENT|RETIRED)\b/.test(String(statusLabel).trim().toUpperCase())
+    || affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED";
+  const ctxTeam = hasNoTeam ? '' : rawCtxTeam;
 
   // getTeamContext (removed) queried teams.organization/conference, columns
   // that table doesn't have, so it failed on every profile load and always
@@ -452,9 +454,7 @@ export default async function ProfilePage({ params }: Props) {
   // table's team ids don't line up with TBC's, so it would attach the wrong
   // organization. Same (empty) result as before, minus a failing query.
   const rawCurrentOrgOrConference = "";
-  const currentOrgOrConference = isSourcedDeparture
-    ? previousOrgOrConferenceName
-    : rawCurrentOrgOrConference;
+  const currentOrgOrConference = hasNoTeam ? '' : rawCurrentOrgOrConference;
 
   const draftInfo =
     ([...battingSeasons, ...pitchingSeasons] as any[]).find((s) => s.draft_info)

@@ -32,5 +32,13 @@
   card or profile come from that table's row for the player's Team ID. An
   ACTIVE 2026 player always has a team (from his stat line's Team ID); only
   a FREE AGENT declared through the MLB transactions API has none.
+- **FREE AGENT / RETIRED cards (Pete, Nov 2026).** A FREE AGENT or RETIRED
+  player has no team: no team and no organization on the card or profile,
+  and both show his HIGHEST level. A FREE AGENT is treated like RETIRED on
+  the card, without the RETIRED label. A released player stays FREE AGENT for
+  one year, unless an official retirement notice comes first. A player
+  released by an MLB organization who then plays INDY / INTERNATIONAL ball is
+  ACTIVE with that team. Every other status shows the level he actually
+  plays. Do not infer other status rules: Pete sets them.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.

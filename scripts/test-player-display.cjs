@@ -146,16 +146,25 @@ test('Explicit display/status values retain precedence and do not infer free age
   assert.equal(resolvePlayerDisplay({ display_status_label: '--', status_label: 'ACTIVE' }).statusLabel, 'ACTIVE');
 });
 
-test('Explicit MLB roster departures show previous affiliation without inventing transactions', () => {
+test('FREE AGENT and RETIRED roster departures show no team or organization (Pete, Nov 2026)', () => {
   for (const status of ['FREE AGENT', 'RETIRED']) {
     const display = resolvePlayerDisplay({ ...rosterDeparture, status_label: status, display_status_label: status, team_affiliation_status: status });
-    assert.equal(display.teamName, 'Iowa Cubs');
-    assert.equal(display.orgConferenceName, 'Chicago Cubs');
+    assert.equal(display.teamName, '');
+    assert.equal(display.orgConferenceName, '');
     assert.equal(display.statusLabel, status);
     assert.equal(display.levelLabel, 'TRIPLE-A');
     assert.equal(display.isSourcedDeparture, true);
     assert.equal(display.isTransactionDeparture, false);
   }
+});
+
+test('A FREE AGENT shows his highest level, like a RETIRED player (Pete, Nov 2026)', () => {
+  const display = resolvePlayerDisplay({ ...rosterDeparture, level_label: 'AA', highest_level_label: 'MLB' });
+  assert.equal(display.statusLabel, 'FREE AGENT');
+  assert.equal(display.levelLabel, 'MLB');
+  assert.equal(display.teamName, '');
+  const active = resolvePlayerDisplay({ ...rosterDeparture, status_label: 'ACTIVE', display_status_label: 'ACTIVE', team_affiliation_status: 'ACTIVE', level_label: 'AA', highest_level_label: 'MLB', current_team_name: 'Team' });
+  assert.equal(active.levelLabel, 'DOUBLE-A');
 });
 
 test('Previous-team fields cannot displace a current assignment or create unsupported departures', () => {
@@ -179,8 +188,8 @@ test('Transaction-owned departures still outrank stale current fields and retain
     last_transaction_type: 'Released', last_transaction_applied_at: '2026-10-01',
   });
   assert.equal(display.statusLabel, 'FREE AGENT');
-  assert.equal(display.teamName, 'Iowa Cubs');
-  assert.equal(display.orgConferenceName, 'Chicago Cubs');
+  assert.equal(display.teamName, '');
+  assert.equal(display.orgConferenceName, '');
   assert.equal(display.isTransactionDeparture, true);
 });
 
@@ -201,7 +210,7 @@ test('Official level aliases never promote generic career NCAA to a team level',
   assert.ok(LEVEL_RANK.NCAA > LEVEL_RANK.INTERNATIONAL && LEVEL_RANK.NCAA < LEVEL_RANK.NAIA);
 });
 
-test('Recorded baseline metadata for an explicitly retired player renders its previous team without a transaction', () => {
+test('Recorded baseline metadata for an explicitly retired player shows no team without a transaction', () => {
   const player = { ...identity, status_label: 'RETIRED', display_status_label: 'RETIRED',
     team_affiliation_status: 'RETIRED', current_team_source: 'baseline_metadata',
     current_team_name: null, previous_team_name: 'Iowa Cubs',
@@ -211,11 +220,11 @@ test('Recorded baseline metadata for an explicitly retired player renders its pr
   assert.equal(player.current_team_name, null);
   const display = resolvePlayerDisplay(player);
   assert.equal(display.statusLabel, 'RETIRED');
-  assert.equal(display.teamName, 'Iowa Cubs');
-  assert.equal(display.orgConferenceName, 'Chicago Cubs');
+  assert.equal(display.teamName, '');
+  assert.equal(display.orgConferenceName, '');
   assert.equal(display.isTransactionDeparture, false);
   const html = renderCard(player);
-  assert.match(html, /class="yat-front-team-name">Iowa Cubs<\/div>/);
+  assert.doesNotMatch(html, /Iowa Cubs|Chicago Cubs/);
   assert.match(html, /data-back-status-line="P - TRIPLE-A - RETIRED"/);
   assert.doesNotMatch(html, /RELEASED|front-chip--departure-note/);
 });
@@ -224,11 +233,7 @@ test('Card front, back and filter attributes all show the same roster departure 
   const html = renderCard(rosterDeparture);
   assert.match(html, /data-status="FREE AGENT"/);
   assert.match(html, /data-level="TRIPLE-A"/);
-  assert.match(html, /data-org="CHICAGO CUBS"/);
-  assert.match(html, /class="yat-front-team-name">Iowa Cubs<\/div>/);
-  assert.match(html, /class="yat-front-org-name">Chicago Cubs<\/div>/);
-  assert.match(html, /data-back-team="Iowa Cubs"/);
-  assert.match(html, /data-back-org="Chicago Cubs"/);
+  assert.doesNotMatch(html, /Iowa Cubs|Chicago Cubs|CHICAGO CUBS/);
   assert.match(html, /data-back-status-line="P - TRIPLE-A - FREE AGENT"/);
   assert.doesNotMatch(html, /RELEASED|front-chip--departure-note/);
 });

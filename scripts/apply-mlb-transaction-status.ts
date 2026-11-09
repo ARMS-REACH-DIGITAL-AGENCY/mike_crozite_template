@@ -520,6 +520,58 @@ async function retireStaleFreeAgents(): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+// Pete (Nov 2026): a player released by an MLB organization who then plays
+// independent or international ball that season is ACTIVE with that team
+// (Nick Senzel: released by Oklahoma City May 11, 2026, then Lexington
+// Legends). His team, level and organization come from his stat line's Team
+// ID in teamid_universe_mapping. Only an unambiguous single INDY /
+// INTERNATIONAL team qualifies; season lines carry no dates, so two such
+// teams are left for review. One batched query per run.
+type MovedOn = { teamid: string; team: string; org: string | null; level: string };
+async function releasedThenPlayedElsewhere(playerIds: string[]): Promise<Map<string, MovedOn>> {
+  const out = new Map<string, MovedOn>();
+  if (playerIds.length === 0) return out;
+  const { rows } = await pool.query<{ playerid: string; teamid: string; team: string; org: string | null; level: string }>(
+    `WITH lines AS (
+       SELECT b.playerid::text AS playerid, b.teamid::text AS teamid FROM public.tbc_batting_2026_season_raw b WHERE BTRIM(b.year) = '2026'
+       UNION SELECT p.playerid::text, p.teamid::text FROM public.tbc_pitching_2026_season_raw p WHERE BTRIM(p.year) = '2026'
+       UNION SELECT i.yatstats_playerid::text, i.teamid::text FROM public.indy_iscore_batting_2026_season_raw i
+              WHERE i.yatstats_playerid IS NOT NULL AND i.season_year = 2026
+     ),
+     moved AS (
+       SELECT l.playerid, MIN(u.teamid) AS teamid, COUNT(DISTINCT u.teamid) AS n
+         FROM lines l
+         JOIN public.teamid_universe_mapping u ON u.teamid = l.teamid AND u.level_label IN ('INDY', 'INTERNATIONAL')
+        WHERE l.playerid = ANY($1::text[])
+        GROUP BY l.playerid
+     )
+     SELECT m.playerid, u.teamid, u.current_team_name AS team, u.current_org_or_conference_name AS org, u.level_label AS level
+       FROM moved m JOIN public.teamid_universe_mapping u ON u.teamid = m.teamid
+      WHERE m.n = 1 AND NULLIF(BTRIM(u.current_team_name), '') IS NOT NULL`,
+    [playerIds]
+  );
+  for (const r of rows) out.set(r.playerid, { teamid: r.teamid, team: r.team, org: r.org, level: r.level });
+  return out;
+}
+
+async function applyMovedOn(playerid: string, m: MovedOn): Promise<void> {
+  await pool.query(
+    `UPDATE public.flip_card_front_stage
+        SET status_label = 'ACTIVE', display_status_label = 'ACTIVE', team_affiliation_status = 'ACTIVE',
+            current_teamid = $2, current_team_name = $3, current_org_or_conference_name = $4,
+            level_label = $5, display_level_label = $5, current_team_level = $5, current_level_label = $5,
+            current_team_source = 'released_then_' || lower($5), current_team_source_player_id = NULL,
+            current_team_source_team_id = $2, current_team_roster_status = NULL, current_team_last_verified = NULL,
+            is_on_40man = false, forty_man_org_name = NULL, forty_man_org_abbr = NULL,
+            stage_updated_at = NOW(), updated_at = NOW()
+      WHERE playerid::text = $1
+        AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = $1)
+        AND (status_label IS DISTINCT FROM 'ACTIVE' OR current_teamid IS DISTINCT FROM $2)`,
+    [playerid, m.teamid, m.team, m.org, m.level]
+  );
+}
+
+
 async function main() {
   console.log("=== Apply MLB Transaction Status to Flip Cards ===");
   console.log(`Mode: ${dryRun ? "DRY RUN" : "LIVE"}`);
@@ -548,7 +600,16 @@ async function main() {
 
     let applied = 0;
 
-    for (const { row, status } of departures) {
+    const movedOn = await releasedThenPlayedElsewhere(departures.map((d) => String(d.row.playerid)));
+    console.log(`Released, then played INDY / INTERNATIONAL that season -> ACTIVE with that team: ${movedOn.size}`);
+    for (const { row, status: rawStatus } of departures) {
+      const moved = movedOn.get(String(row.playerid));
+      if (moved) {
+        if (!dryRun) await applyMovedOn(String(row.playerid), moved);
+        applied++;
+        continue;
+      }
+      const status: DepartureStatus = rawStatus;
       if (dryRun) {
         console.log(
           `  [DRY RUN] Would mark ${status}: playerid=${row.playerid} type="${row.transaction_type}" date=${row.effective_date} team=${row.from_team_name ?? row.to_team_name ?? "?"}`
