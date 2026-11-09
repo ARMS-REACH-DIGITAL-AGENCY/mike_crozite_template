@@ -716,6 +716,12 @@ WITH season_rows AS MATERIALIZED (
    AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
      WHERE r.playerid=f.playerid AND r.match_status='matched')
    AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+   AND NOT EXISTS (SELECT 1 FROM public.player_transactions tx
+     WHERE tx.playerid=f.playerid AND tx.source='mlb_api')
+   -- An official 2027 roster is newer than a 2026 participation record.
+   AND NOT EXISTS (SELECT 1 FROM public.college_roster_players_raw cr
+     WHERE cr.matched_playerid=f.playerid AND cr.roster_season='2027'
+       AND cr.is_current=true AND cr.teamid IS DISTINCT FROM s.teamid)
  AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
  ORDER BY f.playerid LIMIT 1000
 ), changed AS (
@@ -738,6 +744,13 @@ WITH season_rows AS MATERIALIZED (
  FROM eligible e WHERE f.playerid=e.playerid
    AND f.status_label='RETIRED'
    AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.source_summary->'status_classification'->>'source'='yatstats_retirement_cutoff'
+   AND f.team_affiliation_status='RETIRED'
+   AND NOT EXISTS (SELECT 1 FROM public.college_roster_players_raw cr
+     WHERE cr.matched_playerid=f.playerid AND cr.roster_season='2027'
+       AND cr.is_current=true AND cr.teamid IS DISTINCT FROM e.teamid)
+   AND NOT EXISTS (SELECT 1 FROM public.player_transactions tx
+     WHERE tx.playerid=f.playerid AND tx.source='mlb_api')
    AND f.current_teamid IS NULL AND f.current_team_source IS NULL
    AND f.last_transaction_applied_at IS NULL
  RETURNING f.playerid
