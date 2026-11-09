@@ -24,7 +24,7 @@ const departureSql = sqlFrom('async function applyDepartureFact(',
   '// Self-healing:', '`WITH departure_identity AS MATERIALIZED',
   '`,\n    [row.playerid');
 const cleanupSql = sqlFrom('async function reconcileStaleTransactionDepartureTeamIds(',
-  'async function retireStaleFreeAgents()', '`WITH source_backed AS MATERIALIZED',
+  'async function retireStaleFreeAgents()', '`\n    WITH source_backed AS MATERIALIZED',
   '`);');
 
 const fixture = `
