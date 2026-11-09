@@ -2,7 +2,10 @@ import { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById, getPlayerIdentityMeta, query, resolveLegacyPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
+import { getPlayerById, query, resolveLegacyPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
+import { getPlayerIdentityMetaOnce } from '@/lib/playerIdentityCached';
+import { playerJourneyJsonLd, jsonLdScript } from '@/lib/playerJourneySeo';
+import { toPlayerSlug } from '@/lib/slug';
 import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import StoryDrawer from '@/components/yatstats/StoryDrawer';
@@ -72,7 +75,7 @@ export default async function PlayerLayout({
   try {
     const [player, identityMeta] = await Promise.all([
       getPlayerById(playerId),
-      getPlayerIdentityMeta(playerId),
+      getPlayerIdentityMetaOnce(playerId),
     ]);
 
     meta = identityMeta;
@@ -97,6 +100,21 @@ export default async function PlayerLayout({
     redirect(canonicalPlayerUrl);
   }
 
+  // Structured data (invisible): the player's alma mater and current team,
+  // for search engines and AI answers. No layout change.
+  const journeyJsonLd = playerJourneyJsonLd({
+    playerName,
+    schoolName: meta.hsname,
+    schoolLocation: meta.hslocation,
+    schoolUrl: playerSchoolUrl.startsWith('https://') ? playerSchoolUrl : undefined,
+    teamName: meta.currentTeamName,
+    levelLabel: meta.levelLabel,
+    statusLabel: meta.statusLabel,
+    profileUrl: playerSchoolUrl.startsWith('https://') && playerName
+      ? `${playerSchoolUrl}/${encodeURIComponent(canonicalPlayerHsid)}/player/${encodeURIComponent(playerId)}/${toPlayerSlug(playerName.split(' ')[0], playerName.split(' ').slice(1).join(' '))}`
+      : undefined,
+  });
+
   return (
     <PlayerProfileContextProvider
       playerId={playerId}
@@ -116,6 +134,9 @@ export default async function PlayerLayout({
     >
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} statusLabel={meta.statusLabel} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
+      {journeyJsonLd ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(journeyJsonLd) }} />
+      ) : null}
       {children}
       <ProfileFunZoneCleanupStyles />
       <StoryDrawer />
