@@ -80,11 +80,16 @@ export function resolvePlayerDisplay(player: PlayerRow): PlayerDisplayMetadata {
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : explicitStatus;
   const isRetired = /^RETIRED(?:\b|$)/.test(statusLabel);
-  // Retired career high and a team's season level are distinct facts.
-  // Never rank, scan, or infer a retired career high while rendering a card.
+  // Pete (Nov 2026): a FREE AGENT is treated like a RETIRED player on the
+  // card - no team, and his highest level - without the RETIRED label.
+  const isFreeAgent = /^FREE AGENT(?:\b|$)/.test(statusLabel);
+  // Career high and a team's season level are distinct facts.
+  // Never rank, scan, or infer a career high while rendering a card.
   const levelLabel = isRetired
     ? officialPlayerLevel(player.highest_level_label)
-    : [
+    : isFreeAgent && officialPlayerLevel(player.highest_level_label)
+      ? officialPlayerLevel(player.highest_level_label)
+      : [
         player.display_level_label,
         player.level_label,
         isSourcedDeparture ? player.previous_level_label : null,

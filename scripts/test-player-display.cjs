@@ -158,6 +158,15 @@ test('FREE AGENT and RETIRED roster departures show no team or organization (Pet
   }
 });
 
+test('A FREE AGENT shows his highest level, like a RETIRED player (Pete, Nov 2026)', () => {
+  const display = resolvePlayerDisplay({ ...rosterDeparture, level_label: 'AA', highest_level_label: 'MLB' });
+  assert.equal(display.statusLabel, 'FREE AGENT');
+  assert.equal(display.levelLabel, 'MLB');
+  assert.equal(display.teamName, '');
+  const active = resolvePlayerDisplay({ ...rosterDeparture, status_label: 'ACTIVE', display_status_label: 'ACTIVE', team_affiliation_status: 'ACTIVE', level_label: 'AA', highest_level_label: 'MLB', current_team_name: 'Team' });
+  assert.equal(active.levelLabel, 'DOUBLE-A');
+});
+
 test('Previous-team fields cannot displace a current assignment or create unsupported departures', () => {
   const current = resolvePlayerDisplay({ ...rosterDeparture, status_label: 'ACTIVE', display_status_label: 'ACTIVE', current_team_name: 'New Team', current_org_or_conference_name: 'New Organization' });
   assert.equal(current.teamName, 'New Team');
