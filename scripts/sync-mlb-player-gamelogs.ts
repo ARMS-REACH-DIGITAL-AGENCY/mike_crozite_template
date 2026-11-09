@@ -129,12 +129,18 @@ async function getMappedPlayers(): Promise<SourceMapRow[]> {
     return rows;
   }
 
+  // Only players with a current team pull game logs. Every pro alumnus is
+  // matched to his MLB ID (Nov 2026: ~35,000 links, most of them retired);
+  // looping over all of them at ~1s each would never finish a 4-hour run.
   const { rows } = await pool.query<SourceMapRow>(
-    `SELECT playerid, source_player_id
-       FROM public.player_source_map
-      WHERE source = 'mlb_api'
+    `SELECT m.playerid, m.source_player_id
+       FROM public.player_source_map m
+       JOIN public.flip_card_front_stage f ON f.playerid::text = m.playerid::text
+      WHERE m.source = 'mlb_api'
         -- a link rejected as a different person (same name) never pulls games
-        AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'`
+        AND m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
+        AND UPPER(COALESCE(f.status_label, '')) NOT IN ('RETIRED', 'FREE AGENT')
+        AND NULLIF(BTRIM(f.current_team_name), '') IS NOT NULL`
   );
   return rows;
 }
