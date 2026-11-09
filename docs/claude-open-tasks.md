@@ -4,26 +4,28 @@ This list is built from every message Pete sent in session
 session_01JbCbTx7jQy3xZACZs449Uy (Nov 8-9, 2026). Claude updates it whenever
 something is added, finished or blocked. Nothing gets dropped silently.
 
-Last updated: 2026-11-09 14:35 UTC
+Last updated: 2026-11-09 17:40 UTC
 
 ## Pete asked for it, and it is NOT done
 
 | # | Task | Asked | Status |
 |---|------|-------|--------|
-| 1 | Update the ~200 schools whose stored MLB count (`school_success.mlb`) is lower than their real MLB debuts. Back up first. | Nov 9 08:53 ("Yes" to step 2) | **Dropped by Claude. Not done.** |
-| 2 | Find out why the Monday draft import didn't run on its own (last scheduled run Nov 2). | Claude promised Nov 9 13:55 | **Not done.** |
-| 3 | 561 cards are ACTIVE with no team and no level. Pete's rule: an ACTIVE 2026 player always has a team from his stat line's Team ID. | Nov 9 06:31 | **Not done.** Found during this list check. |
+| 1 | Update the ~200 schools whose stored MLB count is too low. | Nov 9 08:53 | **DONE Nov 9 ~14:30.** 200 schools, +203 major leaguers. Backup: `school_success_mlb_backup_20261109`. |
+| 2 | Why the Monday draft import didn't run on its own. | Nov 9 13:55 | **ANSWERED.** Not broken: GitHub starts it 6-10 hours after 10:40 UTC (ran 16:58-20:29 the last 4 Mondays). |
+| 3 | 561 cards are ACTIVE with no team and no level. | Nov 9 06:31 | **Investigated.** 528 have no 2026 stat line at all (353 highest INDY). 32 have 2026 lines on 2+ teams, 1 on one team. Needs Pete's rule for the 528 (#24). |
 | 4 | 3 FREE AGENT / RETIRED cards still show a team. | Nov 9 06:39 rule | **Not done.** Found during this list check. |
 | 5 | Scan INDY rosters every day and catch released FREE AGENTS who sign there. | Nov 9 13:54 | **Not built.** Part 1 (read all players, not the top 500) is on branch `ccr-0323126e-3ihtzc`, commit 26478a53, with no PR yet. Part 2 needs a roster source: the iScore API test needs Pete's network approval. |
 | 6 | Enrichment, step 3: retired vs. active from MLB's last-game date. | Nov 9 08:43 ("All of them") | Not started |
 | 7 | Enrichment, step 4: bios (bats, throws, position, height, weight, draft info) and career stats into `flip_card_front_stage`. | Nov 9 06:23-06:25 | Not started |
+| 25 | Long Beach Poly (hsid 637, teamid C637) drafted list: TBC page has 46 draft rows (43 drafted + 3 UDFA), stored 46. Our stat tables have draft_info for only 30 of LB Poly's 85 players: 15 drafted players never played pro, so they have no stat line and no draft_info. Pete: may need a table to cross-check. | Nov 9 17:23 | Waiting on Pete: source for the non-pro draftees (#26). |
+| 27 | Ryan Jensen (1975, playerid 754, MLB 2001-2005) shows FREE AGENT from the 1997 Ryan Jensen's July 2026 release: 2 stale transactions saved under the wrong player from an old link. Ryan Walker (164576) has 5 the same way. | Nov 9 17:35 found | Waiting on Pete OK to delete the 7 rows (backed up) and fix card 754. |
 | 8 | Enrichment, step 5: minor-league stats from 1988, and awards. First test what MLB actually has. | Nov 9 08:43 | Not started |
 
 ## In progress
 
 | # | Task | Status |
 |---|------|--------|
-| 9 | Check that the post-#727 transaction sync worked: Senzel ACTIVE with Lexington Legends (INDY), Nittoli FREE AGENT · MLB with no team, Ryan Jensen FREE AGENT · TRIPLE-A with no team. | Run 42629897830 is running. Check scheduled for 15:15 UTC. |
+| 9 | DONE: post-#727 sync green. Senzel ACTIVE Lexington Legends INDY; Nittoli FREE AGENT, highest MLB; Ryan Jensen (1997) FREE AGENT, highest TRIPLE-A. Was: Check that the post-#727 transaction sync worked: Senzel ACTIVE with Lexington Legends (INDY), Nittoli FREE AGENT · MLB with no team, Ryan Jensen FREE AGENT · TRIPLE-A with no team. | Run 42629897830 is running. Check scheduled for 15:15 UTC. |
 | 22 | FREE AGENT cards must read "HIGHEST LEVEL: {level}" exactly like RETIRED cards, with no team and no organization (Pete, Nov 9 14:30). | Fixed on branch, commit 71b5ce22. PR open, waiting for "merge it". |
 | 10 | Nov 22: check whether letting AI search bots onto school sites strained the database. If not, propose opening player pages to them. Compare Google and AI visitors with the Nov 8 numbers. | Scheduled for Nov 22 16:00 UTC |
 
@@ -42,6 +44,8 @@ Last updated: 2026-11-09 14:35 UTC
 | 19 | Google Search Console: the `google-site-verification=` value, so Google can read the sitemap. |
 | 21 | A player Designated for Assignment keeps his team on the card until the next transaction. Show anything different while he waits? |
 | 23 | Card back and profile page show the bare level for both RETIRED and FREE AGENT (only the card front says "HIGHEST LEVEL"). Add "HIGHEST LEVEL" there too? |
+| 24 | ACTIVE cards with no 2026 stat line (528): what status should they have? |
+| 26 | Draft info for drafted players who never played pro (15 at Long Beach Poly): get TBC's High School Alumni CSV / draft list from Gary, or another source? |
 | 20 | Possibly rotate the Neon database password: it was shown in this session. |
 
 ## Done (Nov 8-9)
