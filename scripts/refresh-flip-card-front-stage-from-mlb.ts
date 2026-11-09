@@ -1257,6 +1257,25 @@ async function applyDepartures(mlbCurrent: MlbCurrent[]): Promise<number> {
              AND res.playerid::text = stage.playerid::text
              AND LOWER(COALESCE(raw.roster_type, '')) IN ('active', '40man')
         )
+          -- A player only becomes a FREE AGENT or RETIRED through the MLB
+          -- transactions feed (Pete, Nov 2026). Missing from the active and
+          -- 40-man rosters is not a departure when his latest MLB
+          -- transaction puts him on a team: Jake Meyers was outrighted to
+          -- Sugar Land on Nov 2, 2026 and was wrongly marked FREE AGENT.
+          AND NOT EXISTS (
+            SELECT 1 FROM (
+              SELECT t.transaction_type, t.to_team_name
+                FROM public.player_transactions t
+               WHERE t.playerid::text = stage.playerid::text
+                 AND t.source = 'mlb_api'
+               ORDER BY t.effective_date DESC, t.id DESC
+               LIMIT 1
+            ) latest_tx
+            WHERE NULLIF(BTRIM(latest_tx.to_team_name), '') IS NOT NULL
+              AND LOWER(COALESCE(latest_tx.transaction_type, '')) NOT LIKE '%retired%'
+              AND LOWER(COALESCE(latest_tx.transaction_type, '')) NOT LIKE '%released%'
+              AND LOWER(COALESCE(latest_tx.transaction_type, '')) NOT LIKE '%declared free agency%'
+          )
      )
      UPDATE public.flip_card_front_stage stage
         SET status_label = pd.departed,
