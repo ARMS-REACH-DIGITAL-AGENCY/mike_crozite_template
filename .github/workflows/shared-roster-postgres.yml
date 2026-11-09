@@ -47,3 +47,5 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Execute actual shared SQL against isolated PostgreSQL
         run: node scripts/test-shared-roster-postgres.cjs
+      - name: Execute real MLB departure lifecycle SQL against isolated PostgreSQL
+        run: node scripts/test-mlb-departure-lifecycle-postgres.cjs
