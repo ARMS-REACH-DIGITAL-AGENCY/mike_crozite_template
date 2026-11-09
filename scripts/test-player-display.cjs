@@ -162,9 +162,12 @@ test('A FREE AGENT shows his highest level, like a RETIRED player (Pete, Nov 202
   const display = resolvePlayerDisplay({ ...rosterDeparture, level_label: 'AA', highest_level_label: 'MLB' });
   assert.equal(display.statusLabel, 'FREE AGENT');
   assert.equal(display.levelLabel, 'MLB');
+  assert.equal(display.levelIsHighest, true); // card reads "HIGHEST LEVEL: MLB"
   assert.equal(display.teamName, '');
+  assert.equal(display.orgConferenceName, '');
   const active = resolvePlayerDisplay({ ...rosterDeparture, status_label: 'ACTIVE', display_status_label: 'ACTIVE', team_affiliation_status: 'ACTIVE', level_label: 'AA', highest_level_label: 'MLB', current_team_name: 'Team' });
   assert.equal(active.levelLabel, 'DOUBLE-A');
+  assert.equal(active.levelIsHighest, false);
 });
 
 test('Previous-team fields cannot displace a current assignment or create unsupported departures', () => {

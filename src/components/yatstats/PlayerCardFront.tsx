@@ -348,7 +348,9 @@ export default function PlayerCardFront({
   const display = resolvePlayerDisplay(p);
   const statusLabel = display.statusLabel;
   const isRetired = /^RETIRED(?:\b|\s*-)/i.test(statusLabel);
-  const showFortyManPill = asBoolean(p.is_on_40man) && !isRetired;
+  // FREE AGENT and RETIRED: no team, no organization, no 40-man pill.
+  const hasNoTeam = isRetired || display.hasNoTeam;
+  const showFortyManPill = asBoolean(p.is_on_40man) && !hasNoTeam;
   const visibleLevelLabel = display.levelLabel;
   const fortyManOrgName = asText(p.forty_man_org_name);
   const fortyManOrgAbbr = asText(p.forty_man_org_abbr);
@@ -357,8 +359,8 @@ export default function PlayerCardFront({
     : "MLB 40-man roster";
   const fortyManPillLabel = fortyManOrgAbbr ? `${fortyManOrgAbbr} 40-MAN` : "40-MAN";
 
-  const displayTeamName = isRetired ? "" : display.teamName;
-  const displayOrgLine = isRetired ? "" : display.orgConferenceName;
+  const displayTeamName = hasNoTeam ? "" : display.teamName;
+  const displayOrgLine = hasNoTeam ? "" : display.orgConferenceName;
   const lastTransactionType = asText(p.last_transaction_type);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
   const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
@@ -486,7 +488,7 @@ export default function PlayerCardFront({
 
               {visibleLevelLabel && (
                 <span className="front-chip" style={chipStyle}>
-                  {isRetired ? `HIGHEST LEVEL: ${visibleLevelLabel}` : visibleLevelLabel}
+                  {isRetired || display.levelIsHighest ? `HIGHEST LEVEL: ${visibleLevelLabel}` : visibleLevelLabel}
                 </span>
               )}
 
