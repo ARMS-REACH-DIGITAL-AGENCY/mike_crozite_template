@@ -178,7 +178,23 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
   const resolvedLevel = await lookupLevelForPlayerAtTeam(row.playerid, teamName);
 
   await pool.query(
-    `UPDATE public.flip_card_front_stage
+    `WITH departure_identity AS MATERIALIZED (
+       SELECT f.playerid AS target_playerid,
+              COALESCE($4::text,f.current_team_name,f.previous_team_name) AS target_team_name,
+              mapped.teamid AS canonical_previous_teamid,
+              mapped.current_org_or_conference_name AS canonical_previous_org,
+              mapped.level_label AS canonical_previous_level,
+              (COALESCE($4::text,f.current_team_name) IS NOT NULL
+                AND COALESCE($4::text,f.current_team_name) IS DISTINCT FROM f.previous_team_name)
+                AS newer_departure_team
+         FROM public.flip_card_front_stage f
+         LEFT JOIN public.teamid_universe_mapping mapped
+           ON mapped.teamid=f.current_teamid
+          AND mapped.current_team_name=COALESCE(
+            $4::text,f.current_team_name,f.previous_team_name)
+        WHERE f.playerid::text=$1
+     )
+     UPDATE public.flip_card_front_stage
         SET last_transaction_type = $2,
             last_transaction_date = $3::date,
             last_transaction_team_name = $4,
@@ -214,29 +230,22 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             -- Preserve the departing MLB team's identity without copying
             -- the organization of a different, stale roster assignment.
             -- Never overwrite an earlier verified previous-team value with NULL.
-            previous_team_name = COALESCE($4, current_team_name, previous_team_name),
+            previous_team_name = COALESCE(d.target_team_name, previous_team_name),
             previous_teamid = CASE
-              WHEN current_team_name IS NOT DISTINCT FROM $4
-                OR (current_team_name IS NULL AND current_teamid IS NOT NULL
-                  AND EXISTS (SELECT 1 FROM public.teamid_universe_mapping m
-                    WHERE m.teamid = current_teamid
-                      AND m.current_team_name IS NOT DISTINCT FROM $4))
-              THEN COALESCE(current_teamid, previous_teamid)
+              WHEN d.canonical_previous_teamid IS NOT NULL THEN d.canonical_previous_teamid
+              WHEN d.newer_departure_team THEN NULL
               ELSE previous_teamid
             END,
             previous_org_or_conference_name = CASE
-              WHEN current_team_name IS NOT DISTINCT FROM $4
-                OR (current_team_name IS NULL AND current_teamid IS NOT NULL
-                  AND EXISTS (SELECT 1 FROM public.teamid_universe_mapping m
-                    WHERE m.teamid = current_teamid
-                      AND m.current_team_name IS NOT DISTINCT FROM $4))
-              THEN COALESCE(current_org_or_conference_name,
-                (SELECT m.current_org_or_conference_name
-                 FROM public.teamid_universe_mapping m WHERE m.teamid=current_teamid),
-                previous_org_or_conference_name)
+              WHEN d.canonical_previous_teamid IS NOT NULL THEN d.canonical_previous_org
+              WHEN d.newer_departure_team THEN NULL
               ELSE previous_org_or_conference_name
             END,
-            previous_level_label = COALESCE($6, level_label, previous_level_label),
+            previous_level_label = CASE
+              WHEN d.canonical_previous_teamid IS NOT NULL THEN d.canonical_previous_level
+              WHEN d.newer_departure_team THEN $6::text
+              ELSE previous_level_label
+            END,
             -- level_label/display_level_label are what PlayerCardFront's
             -- visible LEVEL chip actually reads (not previous_level_label,
             -- which nothing displays) — deliberately NOT nulled like
@@ -275,7 +284,8 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
             forty_man_org_abbr = NULL,
             stage_updated_at = NOW(),
             updated_at = NOW()
-      WHERE playerid::text = $1
+      FROM departure_identity d
+      WHERE playerid::text = $1 AND d.target_playerid=playerid::text
         AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = $1)
         AND (EXISTS (SELECT 1 FROM public.player_source_map s
                      WHERE s.playerid = $1 AND s.source = 'mlb_api'
@@ -330,6 +340,9 @@ async function clearStaleDepartureFlags(
             display_status_label = NULL,
             -- A new signing clears a stale departure status, not historical
             -- team identity or the player's verified career-high level.
+            -- Invalidate only the computation watermark: future retirement
+            -- must recompute the career high after a new professional stint.
+            highest_level_checked_at = NULL,
             stage_updated_at = NOW(),
             updated_at = NOW()
       WHERE playerid::text = ANY($1::text[])

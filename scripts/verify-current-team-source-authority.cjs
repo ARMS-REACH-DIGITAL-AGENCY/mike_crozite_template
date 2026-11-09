@@ -375,11 +375,16 @@ assert(transactionColumns.includes('ADD COLUMN IF NOT EXISTS previous_teamid tex
   'Transaction sync must initialize previous TeamID and the game-schedule fields it clears');
 const transactionDeparture = section(transactionSync,
   'async function applyDepartureFact(', '// Self-healing:');
-assert(transactionDeparture.includes('m.current_team_name IS NOT DISTINCT FROM $4') &&
-       transactionDeparture.includes('m.teamid = current_teamid') &&
-       transactionDeparture.includes('THEN COALESCE(current_teamid, previous_teamid)') &&
+assert(transactionDeparture.includes('WITH departure_identity AS MATERIALIZED') &&
+       transactionDeparture.includes('mapped.teamid=f.current_teamid') &&
+       transactionDeparture.includes('mapped.current_team_name=COALESCE(') &&
+       transactionDeparture.includes('WHEN d.canonical_previous_teamid IS NOT NULL THEN d.canonical_previous_teamid') &&
+       transactionDeparture.includes('WHEN d.newer_departure_team THEN NULL') &&
+       transactionDeparture.includes('previous_team_name = COALESCE(d.target_team_name, previous_team_name)') &&
        transactionDeparture.includes('current_teamid = NULL'),
-  'Transaction sync must recover a stale departing TeamID only after canonical name confirmation');
+  'A new departure must map TeamID and name as one identity, clearing an obsolete ID when the new club is unmapped');
+assert(transactionDeparture.includes('WHEN d.canonical_previous_teamid IS NOT NULL THEN d.canonical_previous_level'),
+  'Canonical TeamID mapping must determine the departed club playing level');
 assert(transactionDeparture.includes('previous_org_or_conference_name') &&
        transactionDeparture.includes('public.teamid_universe_mapping') &&
        transactionDeparture.includes('last_transaction_applied_at'),
@@ -396,8 +401,9 @@ assert(!clearedDepartureFlags.includes('previous_team_name = NULL') &&
        !clearedDepartureFlags.includes('previous_teamid = NULL') &&
        !clearedDepartureFlags.includes('previous_org_or_conference_name = NULL') &&
        !clearedDepartureFlags.includes('previous_level_label = NULL') &&
-       !clearedDepartureFlags.includes('highest_level_label = NULL'),
-  'New signing must never erase previous-team history or career-high playing level');
+       !clearedDepartureFlags.includes('highest_level_label = NULL') &&
+       clearedDepartureFlags.includes('highest_level_checked_at = NULL'),
+  'Re-signing must preserve previous-team history and career-high label while invalidating its old computation watermark');
 
 const staleDepartureRepair = section(transactionSync,
   'async function reconcileStaleTransactionDepartureTeamIds(): Promise<number>',
