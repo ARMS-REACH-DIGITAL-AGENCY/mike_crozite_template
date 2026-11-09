@@ -23,8 +23,8 @@ const section = (text, head, tail) => {
 };
 
 const ownerCollege = source('src/lib/college2026Continuity.ts');
-const statusCron = source('src/app/api/cron/flip-card-status-reconciliation/route.ts');
-assert(statusCron.includes('SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL'),
+const ownerStatusCron = source('src/app/api/cron/flip-card-status-reconciliation/route.ts');
+assert(ownerStatusCron.includes('SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL'),
   'Daily status reconciliation must restore 2026 college status/team under owner rule');
 assert(ownerCollege.includes('public.tbc_complete_batting_history') &&
        ownerCollege.includes('public.tbc_complete_pitching_history') &&
