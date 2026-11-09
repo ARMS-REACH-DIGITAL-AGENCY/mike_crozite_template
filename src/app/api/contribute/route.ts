@@ -269,6 +269,11 @@ export async function POST(req: NextRequest) {
           WITH updated AS (
             UPDATE flip_card_front_stage f SET
               status_label=$3,display_status_label=$3,
+              team_affiliation_status=CASE
+                WHEN $3::text='RETIRED' THEN 'RETIRED'
+                WHEN $3::text='FREE AGENT' THEN 'FREE AGENT'
+                WHEN $3::text='ACTIVE' AND COALESCE(f.team_affiliation_status,'') ILIKE 'RETIRED%' THEN NULL
+                ELSE f.team_affiliation_status END,
               level_label=COALESCE($4::text,f.level_label),
               display_level_label=COALESCE($4::text,f.display_level_label),
               source_summary=COALESCE(f.source_summary,'{}'::jsonb) ||
