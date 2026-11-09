@@ -73,10 +73,10 @@ const { fetchBracketLiveBatches, BRACKET_LIVE_BATCH_SIZE } = exportsObj;
   const route = fs.readFileSync(path.join(root, 'src/app/api/bracket/live/route.ts'), 'utf8');
   const client = fs.readFileSync(path.join(root, 'src/components/bracket/liveSeason.ts'), 'utf8');
   const results = fs.readFileSync(path.join(root, 'scripts/master-bracket-results.ts'), 'utf8');
-  assert.doesNotMatch(route, /\\.slice\\(0,\\s*64\\)/, 'API must not silently truncate school IDs');
-  assert.match(route, /hsids\\.length > BRACKET_LIVE_BATCH_SIZE/, 'API must reject oversized requests');
-  assert.match(route, /Object\\.fromEntries\\(hsids\\.map/, 'Empty-roster schools must be represented');
-  assert.match(client, /fetchBracketLiveBatches\\('', start, started, hsids\\)/, 'Public client must use batched transport');
+  assert.doesNotMatch(route, /\.slice\(0,\s*64\)/, 'API must not silently truncate school IDs');
+  assert.match(route, /hsids\.length > BRACKET_LIVE_BATCH_SIZE/, 'API must reject oversized requests');
+  assert.match(route, /Object\.fromEntries\(hsids\.map/, 'Empty-roster schools must be represented');
+  assert.match(client, /fetchBracketLiveBatches\('', start, started, hsids\)/, 'Public client must use batched transport');
   assert.match(results, /fetchBracketLiveBatches as fetchLive/, 'Results job must use the same batch transport');
 
   console.log('PASS: 2027 tournament 1024/1024 schools, 16 bounded batches; Bullard, Hamilton, Lewisburg; zero-roster coverage, no duplicate club games, truncation and HTTP failures rejected');
