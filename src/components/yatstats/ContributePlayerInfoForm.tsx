@@ -145,7 +145,8 @@ export default function ContributePlayerInfoForm({
       const token=await auth.currentUser?.getIdToken().catch(()=>'');
       const res=await fetch('/api/contribute',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
         body:JSON.stringify({kind:'profile',playerId:player?.playerId || null,hsid:player?.schoolId || school?.hsid,
-          fields:player?changed:values,idToken:token||undefined,pageUrl:location.href})});
+          fields:player?changed:values,expectedProfile:player?{status_label:initial.status_label,level_label:initial.level_label}:undefined,
+          idToken:token||undefined,pageUrl:location.href})});
       const body=await res.json().catch(()=>({}));
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
       setMessage(body.review === 'published_player'
@@ -157,6 +158,8 @@ export default function ContributePlayerInfoForm({
             ? `${body.commitment?.teamName || 'College'} COMMIT published! Row 3 will use the college logo after refresh.`
             : 'UNCOMMITTED status published! Row 3 will show the uncommitted image after refresh.') +
             (body.otherFieldsQueued ? ' Your other profile edits were submitted separately.' : '')
+        : body.review === 'published_profile'
+        ? 'Player status and level saved immediately. Refresh the school page to see the updated card.'
         : body.review === 'published_team'
         ? 'Current team, playing level, and conference published. The college commitment record was not changed. Refresh to view the updated card.'
         : body.review === 'published'
