@@ -19,6 +19,12 @@
   school is also a team (its 2027 High School Team Page), and its teamid is
   `C` + hsid: `C5004` is the current teamid of Hamilton's 2027 high school
   players (hsid `5004`). Never give a team a `YAT` id.
+- **YAT? Baseball Registry (Pete, Nov 2026).** Every player is one person
+  with a YAT ID (`YAT` + 6 digits) in `yat_registry`. The YAT ID is ours;
+  every outside number (TBC playerid, MLB ID, Perfect Game, MaxPreps, NCAA,
+  INDY, ...) attaches to it in `yat_registry_ids` (one outside number = one
+  person). New sources add rows there; never re-key a person. Model:
+  geni.com. Goal: one ID per player from his first organized game on.
 - **Look before you ask Pete (Nov 2026).** Before asking Pete about dates,
   rules, prizes or past decisions, search the repo (`docs/`,
   `src/lib/bracket/tournamentCalendar.ts`, the bracket components) and the
