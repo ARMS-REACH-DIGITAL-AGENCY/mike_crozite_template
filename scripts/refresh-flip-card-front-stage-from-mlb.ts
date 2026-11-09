@@ -457,24 +457,24 @@ async function backfillMappedCurrentTeamIdentity(): Promise<{
        AND f.current_teamid IS DISTINCT FROM mapped.tbc_teamid
   `);
 
+  // The organization comes from the card's own canonical Team ID, and only
+  // when the card's team name and level already match that Team ID - the
+  // same rule guard_flip_card_canonical_promotion enforces. A card with a
+  // stale Team ID but no team name (a FREE AGENT whose team was cleared)
+  // is left alone: filling in an organization there made the guard reject
+  // the whole update, and every MLB Roster Sync run failed from Nov 1, 2026.
   const orgs = await pool.query(`
-    WITH org_ref AS (
-      SELECT
-        m.mlb_stats_api_id::text AS mlb_id,
-        NULLIF(BTRIM(MAX(l.current_org_or_conference_name)), '') AS organization
-      FROM public.team_id_map m
-      LEFT JOIN public.teamid_universe_mapping l
-        ON l.teamid = m.tbc_teamid::text
-      GROUP BY m.mlb_stats_api_id
-    )
     UPDATE public.flip_card_front_stage f
-       SET current_org_or_conference_name = org_ref.organization,
+       SET current_org_or_conference_name = u.current_org_or_conference_name,
            stage_updated_at = NOW()
-      FROM org_ref
-     WHERE f.current_team_source = 'mlb_api'
-       AND f.current_team_source_team_id::text = org_ref.mlb_id
+      FROM public.teamid_universe_mapping u
+     WHERE u.teamid = f.current_teamid
+       AND f.current_team_source = 'mlb_api'
        AND NULLIF(BTRIM(f.current_org_or_conference_name), '') IS NULL
-       AND org_ref.organization IS NOT NULL
+       AND NULLIF(BTRIM(u.current_org_or_conference_name), '') IS NOT NULL
+       AND f.current_team_name = u.current_team_name
+       AND f.level_label = u.level_label
+       AND (f.display_level_label IS NULL OR f.display_level_label = u.level_label)
   `);
 
   return {
