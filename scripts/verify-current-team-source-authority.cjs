@@ -398,6 +398,10 @@ assert(staleDepartureRepair.includes('previous_teamid=e.current_teamid') &&
        staleDepartureRepair.includes('public.player_team_override') &&
        !staleDepartureRepair.includes('SET status_label ='),
   'Legacy cleanup must preserve prior TeamID, never set status, and protect manual overrides');
+assert(staleDepartureRepair.includes('next_game_date=NULL') &&
+       staleDepartureRepair.includes('next_game_opponent=NULL') &&
+       staleDepartureRepair.includes('current_team_absent_since=NULL'),
+  'Legacy free-agent cleanup must also clear obsolete next-game and roster-absence metadata');
 assert(transactionSync.includes('staleTeamIdsRecovered = await reconcileStaleTransactionDepartureTeamIds()'),
   'Transaction sync must execute the legacy departure repair after transaction reprocessing');
 
