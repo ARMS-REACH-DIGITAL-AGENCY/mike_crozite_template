@@ -4,7 +4,7 @@ This list is built from every message Pete sent in session
 session_01JbCbTx7jQy3xZACZs449Uy (Nov 8-9, 2026). Claude updates it whenever
 something is added, finished or blocked. Nothing gets dropped silently.
 
-Last updated: 2026-11-09 14:10 UTC
+Last updated: 2026-11-09 14:35 UTC
 
 ## Pete asked for it, and it is NOT done
 
@@ -24,6 +24,7 @@ Last updated: 2026-11-09 14:10 UTC
 | # | Task | Status |
 |---|------|--------|
 | 9 | Check that the post-#727 transaction sync worked: Senzel ACTIVE with Lexington Legends (INDY), Nittoli FREE AGENT · MLB with no team, Ryan Jensen FREE AGENT · TRIPLE-A with no team. | Run 42629897830 is running. Check scheduled for 15:15 UTC. |
+| 22 | FREE AGENT cards must read "HIGHEST LEVEL: {level}" exactly like RETIRED cards, with no team and no organization (Pete, Nov 9 14:30). | Fixed on branch, commit 71b5ce22. PR open, waiting for "merge it". |
 | 10 | Nov 22: check whether letting AI search bots onto school sites strained the database. If not, propose opening player pages to them. Compare Google and AI visitors with the Nov 8 numbers. | Scheduled for Nov 22 16:00 UTC |
 
 ## Waiting on Pete
@@ -39,6 +40,8 @@ Last updated: 2026-11-09 14:10 UTC
 | 17 | Hamilton sponsor sheet says 44 active alumni, the site says 47 (3 on the injured list). Change the sheet to 47? |
 | 18 | Unmatched MLB IDs: 10 players with two INDY/INTERNATIONAL teams, Chris Clark (two different men), the unclear pairs Frazier, Gibbs, Hunter and Gregg, and 38 held common names. |
 | 19 | Google Search Console: the `google-site-verification=` value, so Google can read the sitemap. |
+| 21 | A player Designated for Assignment keeps his team on the card until the next transaction. Show anything different while he waits? |
+| 23 | Card back and profile page show the bare level for both RETIRED and FREE AGENT (only the card front says "HIGHEST LEVEL"). Add "HIGHEST LEVEL" there too? |
 | 20 | Possibly rotate the Neon database password: it was shown in this session. |
 
 ## Done (Nov 8-9)
