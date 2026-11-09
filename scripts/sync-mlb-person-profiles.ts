@@ -39,12 +39,14 @@ async function ensureTables(): Promise<void> {
       mlb_debut_date date, last_played_date date, draft_year integer, mlb_active boolean,
       high_schools jsonb, colleges jsonb, fetched_at timestamptz NOT NULL DEFAULT now())`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mlb_person_profile_playerid ON public.mlb_person_profile (playerid)`);
+  // One row per (debut, high school): a school with no school_success row
+  // yet is left pending and counted on a later run, once its row exists.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS public.mlb_debut_events (
-      mlb_id text PRIMARY KEY, playerid text NOT NULL, mlb_debut_date date NOT NULL,
-      hsids text[] NOT NULL DEFAULT '{}', counted boolean NOT NULL DEFAULT false,
-      applied_at timestamptz NOT NULL DEFAULT now())`);
-  await pool.query(`ALTER TABLE public.mlb_debut_events ADD COLUMN IF NOT EXISTS counted boolean NOT NULL DEFAULT false`);
+      mlb_id text NOT NULL, hsid text NOT NULL, playerid text NOT NULL,
+      mlb_debut_date date NOT NULL, counted boolean NOT NULL DEFAULT false,
+      applied_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (mlb_id, hsid))`);
 }
 
 async function fetchPeople(ids: string[]): Promise<any[]> {
@@ -99,34 +101,38 @@ const UPSERT = `
     mlb_active = EXCLUDED.mlb_active, high_schools = EXCLUDED.high_schools, colleges = EXCLUDED.colleges,
     fetched_at = now()`;
 
-// New debuts: a profile with a debut date and no logged event yet. Only a
-// debut in the last 30 days adds +1 to each of the player's high schools;
-// an older debut (e.g. a 1995 major leaguer linked today) is logged without
-// a bump, because school_success.mlb already counts him. The event row makes
-// every debut count at most once.
+// New debuts, per (player, high school) that has a school_success row and
+// no logged event yet. Only a debut in the last 30 days adds +1; an older
+// debut (e.g. a 1995 major leaguer linked today) is logged without a bump,
+// because school_success.mlb already counts him. A school without a
+// school_success row is not logged, so it is counted once its row exists.
 const APPLY_DEBUTS = `
-  WITH new_debuts AS (
-    SELECT p.mlb_id, p.playerid, p.mlb_debut_date,
-           ARRAY(SELECT DISTINCT ph.hsid::text FROM public.player_hsids ph WHERE ph.playerid::text = p.playerid) AS hsids
+  WITH pending AS (
+    SELECT DISTINCT p.mlb_id, ph.hsid::text AS hsid, p.playerid, p.mlb_debut_date,
+           p.mlb_debut_date >= CURRENT_DATE - 30 AS counted
       FROM public.mlb_person_profile p
+      JOIN public.player_hsids ph ON ph.playerid::text = p.playerid
      WHERE p.mlb_debut_date IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM public.mlb_debut_events e WHERE e.mlb_id = p.mlb_id)
+       AND EXISTS (SELECT 1 FROM public.school_success s WHERE s.hsid::text = ph.hsid::text)
+       AND NOT EXISTS (SELECT 1 FROM public.mlb_debut_events e
+                        WHERE e.mlb_id = p.mlb_id AND e.hsid = ph.hsid::text)
   ),
   logged AS (
-    INSERT INTO public.mlb_debut_events (mlb_id, playerid, mlb_debut_date, hsids, counted)
-    SELECT mlb_id, playerid, mlb_debut_date, hsids, mlb_debut_date >= CURRENT_DATE - 30 FROM new_debuts
-    ON CONFLICT (mlb_id) DO NOTHING
-    RETURNING hsids, counted
+    INSERT INTO public.mlb_debut_events (mlb_id, hsid, playerid, mlb_debut_date, counted)
+    SELECT mlb_id, hsid, playerid, mlb_debut_date, counted FROM pending
+    ON CONFLICT (mlb_id, hsid) DO NOTHING
+    RETURNING hsid, counted
   ),
   bumps AS (
-    SELECT h AS hsid, COUNT(*)::int AS n FROM logged, unnest(hsids) AS h WHERE logged.counted GROUP BY h
+    SELECT hsid, COUNT(*)::int AS n FROM logged WHERE counted GROUP BY hsid
   ),
   updated AS (
     UPDATE public.school_success s SET mlb = COALESCE(NULLIF(s.mlb::text, '')::int, 0) + b.n
       FROM bumps b WHERE s.hsid::text = b.hsid
     RETURNING s.hsid
   )
-  SELECT (SELECT COUNT(*) FROM logged WHERE counted)::int AS debuts, (SELECT COUNT(*) FROM logged WHERE NOT counted)::int AS logged_only,
+  SELECT (SELECT COUNT(*) FROM logged WHERE counted)::int AS debuts,
+         (SELECT COUNT(*) FROM logged WHERE NOT counted)::int AS logged_only,
          (SELECT COUNT(*) FROM updated)::int AS schools`;
 
 async function main() {

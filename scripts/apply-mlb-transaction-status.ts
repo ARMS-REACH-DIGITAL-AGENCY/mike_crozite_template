@@ -512,7 +512,12 @@ async function silentSeasonRetirements(rows: { playerid: string; effective_date:
         AND NOT EXISTS (SELECT 1 FROM public.tbc_complete_batting_history b
                          WHERE b.playerid::text = d.playerid AND split_part(b.year::text, '.', 1) = d.season::text)
         AND NOT EXISTS (SELECT 1 FROM public.tbc_complete_pitching_history p
-                         WHERE p.playerid::text = d.playerid AND split_part(p.year::text, '.', 1) = d.season::text)`,
+                         WHERE p.playerid::text = d.playerid AND split_part(p.year::text, '.', 1) = d.season::text)
+        -- independent-league games are stored apart from MLB / Baseball Cube lines
+        AND NOT EXISTS (SELECT 1 FROM public.indy_iscore_player_game_stats_raw i
+                         WHERE i.yatstats_playerid::text = d.playerid AND EXTRACT(YEAR FROM i.game_date) = d.season)
+        AND NOT EXISTS (SELECT 1 FROM public.indy_iscore_batting_2026_season_raw ib
+                         WHERE ib.yatstats_playerid::text = d.playerid AND ib.season_year = d.season)`,
     [JSON.stringify(rows)]
   );
   return new Set(hits.map((h) => h.playerid));
@@ -581,7 +586,8 @@ async function main() {
     let applied = 0;
 
     const retiredBySilence = await silentSeasonRetirements(
-      departures.filter((d) => d.status === "FREE AGENT")
+      // An undated release cannot be placed in a season: it stays FREE AGENT.
+      departures.filter((d) => d.status === "FREE AGENT" && d.row.effective_date)
         .map((d) => ({ playerid: String(d.row.playerid), effective_date: String(d.row.effective_date) }))
     );
     console.log(`Released with no games for the rest of that (finished) season -> RETIRED: ${retiredBySilence.size}`);
