@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
 
   const who = await identifyContributor(req, text(body.idToken, 4000));
   if (!who) return fail('Please sign in to send this.', 401);
-  if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT) {
+  if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT &&
+      !isReviewer(who) && !(who.publishingRoles || []).length) {
     return fail("You've sent a lot today. Thank you! Please send the rest tomorrow.", 429);
   }
 
