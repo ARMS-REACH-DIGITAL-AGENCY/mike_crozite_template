@@ -231,7 +231,10 @@ export async function POST(req: NextRequest) {
       // scoped user_roles grant. Their edits do not enter the fan approval queue.
       // Reject noncanonical team/status combinations rather than silently
       // publishing contradictory roster data.
-      if (!isNew && process.env.VERCEL_ENV !== 'preview' && canPublishFor(who, hsid, playerId)) {
+      const statusOnlySubmission = typeof submitted.status_label === 'string' &&
+        Object.keys(submitted).every(key => key === 'status_label' || key === 'level_label');
+      if (!isNew && process.env.VERCEL_ENV !== 'preview' &&
+          canPublishFor(who, hsid, playerId) && !statusOnlySubmission) {
         const profile = { ...submitted };
         if (selectedCurrentTeam) {
           if (status && status !== 'ACTIVE') {
