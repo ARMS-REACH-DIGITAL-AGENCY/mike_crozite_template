@@ -75,23 +75,13 @@ PR #732 ported a stored-results reader to `Easter-NEWS`. A suggested check was t
 
 Worse, suggesting that test statistics or game results be passed through `Easter-NEWS` or the Production database violates the central separation that the test brackets were created to enforce. **Do not perform that test on Production.**
 
-The handoff for PR #732 reports **three fixes already implemented in the 1A–6A test branches that PR #732 did not fully carry into Production**. The code comparison now identifies all three precisely:
+### Historical PR #732 review — not an open task list
 
-1. **Live TOP / BOT / posted phase:** Test `src/components/bracket/liveSeason.ts` writes the phase into the stored game box as `lv`; test `src/lib/bracket/preparedIndex.ts` reads it and supports `top | bottom | posted`. Production's scoring box omits `lv`, while its prepared reader only reconstructs `top | posted` from settled flags.
-2. **In-action real-life game status:** Test `liveSeason.ts` stores `ia` alongside `lv`; the test prepared reader returns `inAction`, and test `preparedSeason.ts` restores it using `setInAction`. Production's scoring box omits `ia`, and its prepared reader/client do not return or restore `inAction`.
-3. **Retry after a failed Stat Ledger request:** Test `gallery.tsx` deletes a rejected promise from `boxCache` so the next visit to that game can retry. Production's gallery retains the rejected promise in the cache.
+PR #732 initially left out three behaviors that were already present in the isolated 1A–6A implementations: the live `TOP` / `BOT` / posted phase, the real-life alumni `In Action Today` state, and retry after a transient Stat Ledger request failure. The post-merge [Codex review of PR #732](https://github.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/pull/732) raised these same three items.
 
-These are **verified differences in GitHub source code**, not independently reproduced 2027 runtime failures. The handoff says the behaviors were tested on 1A–6A; that historical test evidence should still be cross-checked before any selective Production patch. **Do not wholesale merge a test branch or send test records through Production.**
+**Subsequent status:** The project owner has confirmed that all three corrections were merged after PR #732. This section is a *historical lesson about transferring and verifying all tested behavior*, **not a list of outstanding fixes**. Never infer the current state of a feature from the age of a review comment: compare the actual target branch, merged commits, and isolated test evidence before reporting a present-day defect.
 
-### Post-merge Codex review: same three missing test-branch fixes
-
-The automated Codex review of PR #732 posted **after the merge** and independently identified the same three gaps already present in the test-branch comparison above:
-
-1. [BOT / bottom-half phase omitted](https://github.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/pull/732#discussion_r4524304295).
-2. [In-action game status not restored](https://github.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/pull/732#discussion_r4524304305).
-3. [Failed Stat Ledger request not evicted from cache](https://github.com/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/pull/732#discussion_r4524304317).
-
-**Do not describe these as three unrelated or unidentified additional defects.** The differences are demonstrable in the merged `Easter-NEWS` source versus the 1A–6A release branches. Actual fan-facing reproduction and correctness of a Production-specific adaptation still require testing on the isolated test environments. These findings are not authorization to change Production code or data.
+No change to the 2027 scoring, dates, data, or site is authorized or required by this documentation.
 
 ## 5. What "ready for February 1" means
 
@@ -102,7 +92,7 @@ Before calling a relevant integration verified, demonstrate:
 - The correct code version runs the scheduled scoring writer and the stored-results reader in an isolated test bracket.
 - Real ingested test-period stats produce the expected official stored game result, with locks and innings preserved.
 - The fan-facing test preview displays that exact result and its Stat Ledger without scoring again in the browser.
-- The three identified 1A–6A fixes (BOT phase, in-action status, and retryable Stat Ledger loads) are selectively verified and preserved in the proposed Production implementation; relevant review findings have been addressed before merge.
+- Relevant fixes are confirmed in the actual proposed release commit and isolated tests, with no regression in the verified 1A–6A behaviors. Previously addressed review findings are not treated as unresolved merely because they appear in a historical PR.
 - The proposed Production change is limited to the tested code, with unchanged 2027 dates and no test data in Production.
 - The actual release is reviewed and authorized. A successful CI/build alone is not final approval.
 
