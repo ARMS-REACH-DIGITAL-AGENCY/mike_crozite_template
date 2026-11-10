@@ -36,7 +36,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [posts, setPosts] = useState<InstagramViewerPost[] | null>(externalPosts || null);
   const [open, setOpen] = useState<number | null>(null);
-  const [showInstagramEmbed, setShowInstagramEmbed] = useState(false);
   const [brokenPictureId, setBrokenPictureId] = useState<string | null>(null);
   const touchX = useRef<number | null>(null);
   const [viewerScale, setViewerScale] = useState(1);
@@ -117,7 +116,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
     const index = externalPosts.findIndex(p => p.id === initialPostId);
     setOpenedFor(initialPostId);
     setOpen(index >= 0 ? index : externalPosts.length ? 0 : null);
-    setShowInstagramEmbed(false);
   }
 
   const close = useCallback(() => { setOpen(null); onClose?.(); }, [onClose]);
@@ -125,8 +123,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const count = posts?.length || 0;
   const step = useCallback(
     (by: number) => {
-      setShowInstagramEmbed(false);
-      setOpen((i) => (i === null || !count ? i : (i + by + count) % count));
+        setOpen((i) => (i === null || !count ? i : (i + by + count) % count));
     },
     [count]
   );
@@ -154,13 +151,15 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // No picture of the post itself (never a stand-in photo): show Instagram's
   // own player instead, once we know no picture is coming.
   const hasPicture = Boolean(current?.thumbnail_url?.trim() && brokenPictureId !== current?.id);
-  // News opens the real Instagram post immediately; Social tiles retain their established preview behavior.
-  // A photo news post uses its own uncropped stored image rather than Instagram's clipped iframe.
-  // Reels and carousels open the native interactive embed immediately.
+  // A single tap opens playable video/carousel media for BOTH Social and News.
+  // The October 2021-like image-then-"PLAY REEL" step was introduced on Oct 21,
+  // 2026 and must not be reintroduced. Still photos retain uncropped originals.
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
   // Render the original Instagram post for all News media, never substitute that thumbnail.
-  const embedShown = Boolean(embedUrl && (externalPosts ? (isInteractiveNews || !hasPicture) : (showInstagramEmbed || (!hasPicture && !current?.media_pending))));
+  const embedShown = Boolean(embedUrl && (externalPosts
+    ? (isInteractiveNews || !hasPicture)
+    : (hasInteractiveMedia || (!hasPicture && !current?.media_pending))));
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
@@ -171,7 +170,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const pictureShape = current ? aspects[current.id] : undefined;
   // News reels use a 9:16 viewport; standard posts/carousels retain Instagram's post proportions.
   // Social-tab sizing stays unchanged.
-  const heightPerWidth = isReel && externalPosts ? 16 / 9 : (!isReel && pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
+  const heightPerWidth = isReel ? 16 / 9 : (pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
   // Instagram photo embeds include an additional action/footer region after the
   // media. Keep that region outside our crop while preserving full media height.
   const embedBox = mediaBox
@@ -210,7 +209,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                   className="pp-ig-tile"
                   role="listitem"
                   aria-label={`Open post ${i + 1} of ${posts.length}`}
-                  onClick={() => { setShowInstagramEmbed(false); setOpen(i); }}
+                  onClick={() => setOpen(i)}
                 >
                   {body}
                 </button>
@@ -299,16 +298,6 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               )}
             </div>
             <div className={`pp-ig-post-details${renderFooter ? ' pp-ig-post-details-news' : ''}`}>
-              {!externalPosts && hasInteractiveMedia && hasPicture && (
-                <button
-                  type="button"
-                  className="pp-ig-embed-toggle"
-                  onClick={() => setShowInstagramEmbed((shown) => !shown)}
-                >
-                  <i className={showInstagramEmbed ? 'ri-image-line' : current.media_type === 'video' ? 'ri-play-circle-line' : 'ri-stack-line'} aria-hidden="true" />
-                  {showInstagramEmbed ? 'VIEW UNCROPPED PHOTO' : current.media_type === 'video' ? 'PLAY REEL' : 'VIEW CAROUSEL'}
-                </button>
-              )}
               {!embedShown && current.caption && (
                 <p className="pp-ig-caption">{current.caption}</p>
               )}
