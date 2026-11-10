@@ -54,7 +54,7 @@ export async function identifyContributor(req: NextRequest, idToken?: string | n
 // Every publisher grant is tied to a verified Firebase UID, and can later be
 // scoped to one school or player. Paid membership never grants editing rights.
 export function canPublishFor(c: Contributor | null, hsid: string, playerId?: string): boolean {
-  if (!c || !/^\\d{1,10}$/.test(hsid)) return false;
+  if (!c || !/^\d{1,10}$/.test(hsid)) return false;
   return (c.publishingRoles || []).some(r =>
     r.role === 'publisher'
     && (r.hsid == null || r.hsid === hsid)
