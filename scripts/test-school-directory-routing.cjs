@@ -121,7 +121,7 @@ const query=async (sql,params=[])=>{
     {hsid:'111',hsname:'Lincoln',hslocation:'City,CA',microsite_url:urls.get('111'),bracket_eligible:false,current_aa:11},
   ],'No results',true);
   assert.ok(html.includes('href="https://melbourne.fl.yatstats.com"'), 'Melbourne must link');
-  assert.ok(html.includes('href="https://lincoln.san-jose.ca.yatstats.com"'), 'collision must link uniquely');
+  assert.ok(html.includes('href="https://lincoln-san-jose.ca.yatstats.com"'), 'Unprovisioned collision retains the reachable legacy hostname');
   assert.equal((html.match(/yat-search-school-bracket-link"/g)||[]).length,1,'only seeded Hamilton gets bracket');
   assert.ok(!html.includes('SCHOOL PAGE NOT AVAILABLE YET'),'active schools must not appear unavailable');
   console.log('PASS hostname resolution, canonical collisions, existing domains, safe integer IDs, complete statewide URL batches, numeric aliases, and Global Search links.');
