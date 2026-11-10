@@ -12,6 +12,9 @@ const routing=out.exports;
 
 assert.equal(routing.schoolNameSlug('St. Mary & Joseph'), 'st-mary-joseph');
 assert.equal(routing.schoolHostnamePattern('hamilton.az.yatstats.com').slug,'hamilton');
+assert.equal(routing.schoolHostnamePattern('st-francis.mountain-view.ca.yatstats.com').city,'mountain-view');
+assert.equal(routing.schoolHostnamePattern('st-francis.la-canada.ca.yatstats.com').slug,'st-francis');
+assert.equal(routing.schoolHostnamePattern('st-francis.watsonville.ca.yatstats.com').state,'CA');
 assert.equal(routing.schoolHostnamePattern('5004.yatstats.com').hsid,'5004');
 assert.equal(routing.schoolHostnamePattern('yatstats.com'),null);
 assert.equal(routing.schoolHostnamePattern('www.yatstats.com'),null);
@@ -36,7 +39,9 @@ const query=async (sql,params=[])=>{
   if(sql.includes('LIMIT 30')) {
     const state=params[0];
     return {rows:schools.filter(s=>s.regionid===state && (
-      s.name_slug===params[1] || (s.name_slug+'-'+s.city_slug)===params[1] || (s.name_slug+'-'+s.hsid)===params[1]
+      params[2]
+        ? s.name_slug===params[1] && (s.city_slug===params[2] || s.city_slug+'-'+s.hsid===params[2])
+        : s.name_slug===params[1] || (s.name_slug+'-'+s.city_slug)===params[1] || (s.name_slug+'-'+s.hsid)===params[1]
     )).map(s=>({hsid:s.hsid,name_slug:s.name_slug}))};
   }
   throw Error('Unhandled mocked SQL: '+sql.slice(0,130));
@@ -45,10 +50,10 @@ const query=async (sql,params=[])=>{
   const urls=await routing.canonicalSchoolUrls(['5004','4','111','112','887'],query);
   assert.equal(urls.get('5004'),'https://hamilton.az.yatstats.com');
   assert.equal(urls.get('4'),'https://melbourne.fl.yatstats.com');
-  assert.equal(urls.get('111'),'https://lincoln-san-jose.ca.yatstats.com');
-  assert.equal(urls.get('112'),'https://lincoln-los-angeles.ca.yatstats.com');
+  assert.equal(urls.get('111'),'https://lincoln.san-jose.ca.yatstats.com');
+  assert.equal(urls.get('112'),'https://lincoln.los-angeles.ca.yatstats.com');
   assert.ok(!urls.get('111').includes('-111'), 'School ID must not replace a readable city');
-  assert.equal(urls.get('887'),'https://hillsboro-hillsboro.or.yatstats.com');
+  assert.equal(urls.get('887'),'https://hillsboro.hillsboro.or.yatstats.com');
   // Invalid and oversized IDs must remain no-match inputs, never PostgreSQL
   // integer-cast errors or a reason to run the expensive player-link lookup.
   let invalidCalls=0;
@@ -67,7 +72,7 @@ const query=async (sql,params=[])=>{
   assert.equal(mixedUrls.has('2147483647'),false,'An unmatched ID must not gain a generated URL.');
   // A single requested school still sees collisions with unrequested schools.
   const oneCollision=await routing.canonicalSchoolUrls(['111'],query);
-  assert.equal(oneCollision.get('111'),'https://lincoln-san-jose.ca.yatstats.com');
+  assert.equal(oneCollision.get('111'),'https://lincoln.san-jose.ca.yatstats.com');
   // URL enrichment must handle the complete statewide list, including IDs
   // without player links, rather than truncating results to a 30-row page.
   const statewideIds=Array.from({length:207},(_,i)=>String(20000+i));
@@ -89,10 +94,16 @@ const query=async (sql,params=[])=>{
     ['5004.yatstats.com','5004'],
     ['melbourne.fl.yatstats.com','4'],
     ['lincoln-111.ca.yatstats.com','111'],
+    ['lincoln.san-jose.ca.yatstats.com','111'],
+    ['lincoln.los-angeles.ca.yatstats.com','112'],
+    ['lincoln.la-canada.ca.yatstats.com',null],
     ['lincoln-112.ca.yatstats.com','112'],
     ['hillsboro-887.or.yatstats.com','887'],
     ['lincoln.ca.yatstats.com',null],
     ['lincoln-111.ca.yatstats.com','111'],
+    ['lincoln.san-jose.ca.yatstats.com','111'],
+    ['lincoln.los-angeles.ca.yatstats.com','112'],
+    ['lincoln.la-canada.ca.yatstats.com',null],
     ['arbitrary.ca.yatstats.com',null],
     ['admin.yatstats.com',null],
   ]) {
