@@ -192,6 +192,37 @@ export async function GET(req: NextRequest) {
         }
       }
     }
+    // Bracket membership is the published 2027 Round 1 field, not the old
+    // school_success.bracket_seeding roster. Use canonical HSIDs (including
+    // IDs recovered above) and two indexed, season-scoped lookups. Keep all
+    // school-search result rows, rankings, and active alumni counts unchanged.
+    const candidateHsids = Array.from(new Set(resolvedRows
+      .map((row: any) => Number(row.hsid))
+      .filter((hsid: number) => Number.isSafeInteger(hsid) && hsid > 0)));
+    let currentBracketHsids = new Set<string>();
+    if (candidateHsids.length) {
+      try {
+        const { rows: entrants } = await query(
+          `SELECT home_hsid AS hsid
+             FROM master_bracket
+            WHERE season_key = '2027'
+              AND stage = 'bracket' AND round = 1
+              AND home_hsid = ANY($1::integer[])
+           UNION
+           SELECT away_hsid AS hsid
+             FROM master_bracket
+            WHERE season_key = '2027'
+              AND stage = 'bracket' AND round = 1
+              AND away_hsid = ANY($1::integer[])`,
+          [candidateHsids]
+        );
+        currentBracketHsids = new Set(entrants.map((row: any) => String(row.hsid)));
+      } catch (error) {
+        // Preserve search results but never show obsolete/unsupported icons
+        // if the 2027 eligibility lookup is temporarily unavailable.
+        console.warn('[school-search] 2027 bracket lookup failed; hiding unverified bracket icons', error);
+      }
+    }
     // URL-ONLY ENRICHMENT START. Never filter, reorder, cap or append results here.
     // URL lookup is independent of Active membership: historical schools stay live.
     let derivedUrls = new Map<string, string>();
@@ -221,7 +252,7 @@ export async function GET(req: NextRequest) {
       drafted: r.drafted ?? null,
       drafted_ratio: r.drafted_hs && r.drafted ? `${r.drafted_hs}/${r.drafted}` : null,
       microsite_url: derivedUrls.get(String(r.hsid || '')) || r.microsite_url || null,
-      bracket_eligible: Boolean(r.bracket_seeding),
+      bracket_eligible: r.hsid != null && currentBracketHsids.has(String(r.hsid)),
     }));
     return NextResponse.json(
       { programs },
