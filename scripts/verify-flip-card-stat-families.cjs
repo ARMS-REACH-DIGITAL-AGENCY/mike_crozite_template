@@ -55,8 +55,10 @@ assert(card.includes('orderByPrimaryStatFamily<FunZoneStatBucket>([...battingTab
 assert(zone.includes('aria-label="Batting or pitching statistics"'));
 assert(zone.includes('{family === "batting" ? "HITTING" : "PITCHING"}'));
 assert(card.includes("if (mapped.length === 1) return mapped;"), "Single-level stat bucket must retain true classification");
-assert(zone.includes('className="fz-stat-single-level-label"'), "Single pitching/hitting level needs visible label");
-assert(zone.includes('{activeStatsBucket.label}'), "Display classification from stat data, never guessed");
+assert(!zone.includes('className="fz-stat-single-level-label"'), "Do not render a redundant third tab/caption row");
+assert(zone.includes('fz-show-single-level'), "Keep single-level classification in existing StatsPanel heading");
+assert(zone.includes('display:flex !important;'), "Expose heading otherwise hidden next to tabs");
+assert(zone.includes('statBarLabel={activeStatsBucket.label}'), "Display the true classification from the stat bucket");
 
 assert(!card.includes("215409"));
 assert(!zone.includes("215409"));
