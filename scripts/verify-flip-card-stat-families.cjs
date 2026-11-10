@@ -54,6 +54,10 @@ const zone = fs.readFileSync("src/components/yatstats/FunZone.tsx", "utf8");
 assert(card.includes('orderByPrimaryStatFamily<FunZoneStatBucket>([...battingTabs, ...pitchingTabs], primaryFamily)'));
 assert(zone.includes('aria-label="Batting or pitching statistics"'));
 assert(zone.includes('{family === "batting" ? "HITTING" : "PITCHING"}'));
+assert(card.includes("if (mapped.length === 1) return mapped;"), "Single-level stat bucket must retain true classification");
+assert(zone.includes('className="fz-stat-single-level-label"'), "Single pitching/hitting level needs visible label");
+assert(zone.includes('{activeStatsBucket.label}'), "Display classification from stat data, never guessed");
+
 assert(!card.includes("215409"));
 assert(!zone.includes("215409"));
 console.log("PASS platform-wide flip-card batting/pitching tabs and primary-role regressions");
