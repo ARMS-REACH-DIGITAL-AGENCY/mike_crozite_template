@@ -31,7 +31,8 @@ for (const api of [playerApi, schoolApi]) {
 }
 assert.match(sync, /POSTS_PER_ACCOUNT = 30/);
 assert.match(contribution, /registerPlayerInstagram\(created.playerId, hsid, submitted.instagram\)/);
-assert.match(contribution, /registerPlayerInstagram\(playerId, hsid, submitted.instagram\)/);
+assert.match(contribution, /registerPlayerInstagram\(playerId, hsid, profile.instagram\)/);
+assert.match(contribution, /const instagramState = 'queued' as const/);
 assert.match(registration, /return 'needs_review'/);
 assert.match(registration, /ON CONFLICT \(platform,handle\) DO NOTHING/);
 assert.match(prefill, /getPlayerSocialHandles\(playerId\)/);
