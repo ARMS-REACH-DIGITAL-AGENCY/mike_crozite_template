@@ -156,7 +156,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // own player instead, once we know no picture is coming.
   const hasPicture = Boolean(current?.thumbnail_url?.trim() && brokenPictureId !== current?.id);
   // A single tap opens playable video/carousel media for BOTH Social and News.
-  // The image-then-"PLAY REEL" step was introduced on October 21,
+  // The image-first plus second-button step was introduced on October 21,
   // 2026 and must not be reintroduced. Still photos retain uncropped originals.
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
