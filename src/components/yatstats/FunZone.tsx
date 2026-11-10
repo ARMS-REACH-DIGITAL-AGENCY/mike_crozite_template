@@ -55,6 +55,7 @@ interface StatItem {
 interface StatBucket {
   label: string;
   stats: StatItem[];
+  family?: "batting" | "pitching";
 }
 
 interface FunZoneProps {
@@ -798,6 +799,12 @@ export default function FunZone({
       ? statBuckets
       : [{ label: statBarLabel, stats }];
   const activeStatsBucket = resolvedStatBuckets[Math.min(activeStatsIndex, resolvedStatBuckets.length - 1)];
+  const statFamilies = [...new Set(resolvedStatBuckets.map((bucket) => bucket.family).filter((family): family is "batting" | "pitching" => Boolean(family)))];
+  const hasBothStatFamilies = statFamilies.length === 2;
+  const selectedFamily = activeStatsBucket.family ?? statFamilies[0];
+  const activeFamilyBuckets = hasBothStatFamilies
+    ? resolvedStatBuckets.map((bucket, idx) => ({ bucket, idx })).filter(({ bucket }) => bucket.family === selectedFamily)
+    : resolvedStatBuckets.map((bucket, idx) => ({ bucket, idx }));
 
   // Reset during render (not in an effect) when the bucket count changes,
   // to avoid the extra render pass a useEffect-based reset would cause.
@@ -883,9 +890,25 @@ export default function FunZone({
         data-fz-tab="stats"
       >
         <div className="fz-stats-shell">
-          {resolvedStatBuckets.length > 1 && (
+          {hasBothStatFamilies && (
+            <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Batting or pitching statistics">
+              {statFamilies.map((family) => (
+                <button
+                  key={family}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedFamily === family}
+                  className={`fz-stat-bucket-btn${selectedFamily === family ? " active" : ""}`}
+                  onClick={() => setActiveStatsIndex(resolvedStatBuckets.findIndex((bucket) => bucket.family === family))}
+                >
+                  {family === "batting" ? "HITTING" : "PITCHING"}
+                </button>
+              ))}
+            </div>
+          )}
+          {activeFamilyBuckets.length > 1 && (
             <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Stats level buckets">
-              {resolvedStatBuckets.map((bucket, idx) => (
+              {activeFamilyBuckets.map(({ bucket, idx }) => (
                 <button
                   key={`${bucket.label}-${idx}`}
                   type="button"
