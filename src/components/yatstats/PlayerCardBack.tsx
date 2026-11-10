@@ -25,6 +25,7 @@ import FunZone from "@/components/yatstats/FunZone";
 import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
+import { familyEvidence, orderByPrimaryStatFamily, primaryStatFamily } from "@/lib/flipCardStatSelection";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
@@ -70,6 +71,7 @@ interface RawStatBucket {
 interface FunZoneStatBucket {
   label: string;
   stats: { k: string; v: string }[];
+  family?: "batting" | "pitching";
 }
 
 function asBucketArray(value: unknown): RawStatBucket[] {
@@ -168,7 +170,7 @@ function buildFunZoneBuckets(
     .filter((bucket) => bucket.stats.some((item) => item.v !== "--"));
 
   if (mapped.length > 1) return mapped;
-  if (mapped.length === 1) return [{ label: fallbackLabel, stats: mapped[0].stats }];
+  if (mapped.length === 1) return mapped; // Keep the actual level label, even without level choices.
 
   return [{ label: fallbackLabel, stats: fallbackStats }];
 }
@@ -229,21 +231,37 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
     { k: "SAVES", v: fmt("SV", p.saves) },
     { k: "GP", v: fmt("GP", p.pg ?? p.g) },
   ];
-  const stats = isPitcher ? pitcherStats : batterStats;
-
+  // Select each stat family independently for every player; never suppress
+  // one because the latest year happened to be a pitching appearance.
   const seasonPitchingBuckets = asBucketArray(p.season_pitching_buckets);
   const seasonBattingBuckets = asBucketArray(p.season_batting_buckets);
   const careerPitchingBuckets = asBucketArray(p.career_pitching_buckets);
   const careerBattingBuckets = asBucketArray(p.career_batting_buckets);
-
-  const statBuckets =
-    has2026Stats && isPitcher
-      ? buildFunZoneBuckets(seasonPitchingBuckets, statBarLabel, pitcherStats, "pitching", true)
-      : has2026Stats
-        ? buildFunZoneBuckets(seasonBattingBuckets, statBarLabel, batterStats, "batting", true)
-        : isPitcher
-          ? buildFunZoneBuckets(careerPitchingBuckets, statBarLabel, pitcherStats, "pitching", false)
-          : buildFunZoneBuckets(careerBattingBuckets, statBarLabel, batterStats, "batting", false);
+  const hittingSource = has2026Stats ? seasonBattingBuckets : careerBattingBuckets;
+  const pitchingSource = has2026Stats ? seasonPitchingBuckets : careerPitchingBuckets;
+  const hitting = familyEvidence(hittingSource, "batting", { games: p.g, appearances: p.ab });
+  const pitching = familyEvidence(pitchingSource, "pitching", { games: p.pg, appearances: p.ip });
+  const primaryFamily = primaryStatFamily({
+    position: p.position,
+    legacyIsPitcher: isPitcher,
+    battingGames: hitting.games,
+    pitchingGames: pitching.games,
+  });
+  const primaryPitcher = primaryFamily === "pitching";
+  const stats = primaryPitcher ? pitcherStats : batterStats;
+  const battingTabs: FunZoneStatBucket[] = hitting.present
+    ? buildFunZoneBuckets(hittingSource, statBarLabel, batterStats, "batting", has2026Stats)
+        .map((bucket) => ({ ...bucket, family: "batting" }))
+    : [];
+  const pitchingTabs: FunZoneStatBucket[] = pitching.present
+    ? buildFunZoneBuckets(pitchingSource, statBarLabel, pitcherStats, "pitching", has2026Stats)
+        .map((bucket) => ({ ...bucket, family: "pitching" }))
+    : [];
+  // Family selection is an outer pair of tabs; existing per-level buckets
+  // remain accessible within each family (MLB/MiLB/College, etc.).
+  const statBuckets: FunZoneStatBucket[] = battingTabs.length || pitchingTabs.length
+    ? orderByPrimaryStatFamily<FunZoneStatBucket>([...battingTabs, ...pitchingTabs], primaryFamily)
+    : [{ label: statBarLabel, stats }];
 
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
@@ -283,7 +301,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
 
           <FunZone
             player={p}
-            isPitcher={isPitcher}
+            isPitcher={primaryPitcher}
             isAllTime={isAllTime ?? false}
             resolvedHsid={resolvedHsid}
             stats={seasonStatsPending ? stats.map((stat) => ({ ...stat, v: "—" })) : stats}
