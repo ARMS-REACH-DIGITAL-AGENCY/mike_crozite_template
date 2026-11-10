@@ -73,6 +73,23 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/contribute-review')
   );
   if (isSchoolPagePath && schoolHostnamePattern(host)) {
+    // Three explicitly verified, provisioned St. Francis domains. Resolve
+    // their immutable TBC HSIDs directly to avoid a stale/failed Edge-to-Node
+    // resolver fetch leaving the school homepage on the wrong route.
+    // All other schools continue through the existing canonical resolver.
+    const verifiedStFrancisHsids: Record<string, string> = {
+      'st-francis.la-canada.ca.yatstats.com': '2123',
+      'st-francis.mountain-view.ca.yatstats.com': '2122',
+      'st-francis.watsonville.ca.yatstats.com': '9559',
+    };
+    const verifiedHsid = verifiedStFrancisHsids[String(host).toLowerCase().replace(/:\\d+$/, '')];
+    if (verifiedHsid) {
+      const dest = request.nextUrl.clone();
+      dest.pathname = path === '/' ? `/${verifiedHsid}` : `/${verifiedHsid}${path}`;
+      requestHeaders.set('x-yat-resolved-host-hsid', verifiedHsid);
+      requestHeaders.set('x-yat-internal-school-rewrite', '1');
+      return NextResponse.rewrite(dest, { request: { headers: requestHeaders } });
+    }
     try {
       // Edge middleware cannot use pg. Resolve via the app's small read-only
       // Node route, then internally rewrite to the canonical HSID page.
