@@ -23,12 +23,15 @@ export function schoolNameSlug(input: string): string {
 }
 
 export function schoolHostnamePattern(host: string):
-  | { type: 'named'; slug: string; state: string }
+  | { type: 'named'; slug: string; state: string; city?: string }
   | { type: 'numeric'; hsid: string }
   | null {
   const h = normalizeSchoolHost(host);
   const numeric = h.match(/^([1-9][0-9]*)\.yatstats\.com$/);
   if (numeric) return { type: 'numeric', hsid: numeric[1] };
+  // City is a separate hostname label ONLY for a same-name/state collision.
+  const duplicate = h.match(/^([a-z0-9]+(?:-[a-z0-9]+)*)\.([a-z0-9]+(?:-[a-z0-9]+)*)\.([a-z]{2})\.yatstats\.com$/);
+  if (duplicate) return { type: 'named', slug: duplicate[1], city: duplicate[2], state: duplicate[3].toUpperCase() };
   const named = h.match(/^([a-z0-9]+(?:-[a-z0-9]+)*)\.([a-z]{2})\.yatstats\.com$/);
   if (named) return { type: 'named', slug: named[1], state: named[2].toUpperCase() };
   return null;
@@ -114,7 +117,7 @@ export async function canonicalSchoolUrls(
     const root = String(r.name_slug);
     const city = String(r.city_slug || 'city');
     candidates.add(`https://${root}.${state}.yatstats.com`);
-    candidates.add(`https://${root}-${city}.${state}.yatstats.com`);
+    candidates.add(`https://${root}.${city}.${state}.yatstats.com`);
   }
   const claimed = new Set<string>();
   if (candidates.size) {
@@ -138,18 +141,20 @@ export async function canonicalSchoolUrls(
     const city = String(r.city_slug || 'city');
     if (!/^[a-z]{2}$/.test(state)) continue;
     const base = `https://${root}.${state}.yatstats.com`;
-    const cityBase = `https://${root}-${city}.${state}.yatstats.com`;
+    const cityBase = `https://${root}.${city}.${state}.yatstats.com`;
     const needsCity = Number(r.same_state_name_count) > 1 || claimed.has(base);
     // Two records with identical name, city and state cannot be identified
     // uniquely by those public fields. Preserve both real HSIDs rather than
     // sending one school's fans to the other school's roster.
     const needsId = needsCity && (Number(r.same_name_city_count) > 1 || claimed.has(cityBase));
-    let label = root + (needsCity ? `-${city}${needsId ? `-${id}` : ''}` : '');
-    if (label.length > 63) {
-      const suffix = `-${city}-${id}`;
-      label = (root.slice(0, Math.max(1, 63 - suffix.length)).replace(/-+$/, '') || 'school') + suffix;
+    // Only schools sharing a name in one state get a city label.
+    // An HSID suffix disambiguates genuinely identical name+city+state.
+    if (needsCity) {
+      const cityLabel = needsId ? `${city}-${id}` : city;
+      mapped.set(id, `https://${root}.${cityLabel}.${state}.yatstats.com`);
+    } else {
+      mapped.set(id, base);
     }
-    mapped.set(id, `https://${label}.${state}.yatstats.com`);
   }
   return mapped;
 }
@@ -189,15 +194,21 @@ export async function resolveSchoolHsidFromHost(
     `SELECT t.hsid::text AS hsid, ${slug} AS name_slug
        FROM public.tbc_schools_raw t
       WHERE UPPER(t.regionid) = $1
-        AND (${slug} = $2 OR ${slug} || '-' || ${PG_CITY_SLUG('t')} = $2
-             OR ${slug} || '-' || t.hsid::text = $2
-             OR ${slug} || '-' || ${PG_CITY_SLUG('t')} || '-' || t.hsid::text = $2)
+        AND (
+          ($3::text IS NOT NULL AND ${slug} = $2
+            AND (${PG_CITY_SLUG('t')} = $3 OR ${PG_CITY_SLUG('t')} || '-' || t.hsid::text = $3))
+          OR ($3::text IS NULL AND (
+            ${slug} = $2 OR ${slug} || '-' || ${PG_CITY_SLUG('t')} = $2
+            OR ${slug} || '-' || t.hsid::text = $2
+            OR ${slug} || '-' || ${PG_CITY_SLUG('t')} || '-' || t.hsid::text = $2
+          ))
+        )
         AND (
           EXISTS (SELECT 1 FROM public.player_hsids p WHERE p.hsid = t.hsid)
           OR EXISTS (SELECT 1 FROM public.flip_card_front_stage f WHERE f.hsid = t.hsid::text)
         )
       LIMIT 30`,
-    [parsed.state, parsed.slug],
+    [parsed.state, parsed.slug, parsed.city || null],
   );
   if (!rows.length) return null;
   const urls = await canonicalSchoolUrls(rows.map((r) => String(r.hsid)), run);
