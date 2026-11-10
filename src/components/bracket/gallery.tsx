@@ -24,7 +24,7 @@ import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
 import { TEST_BRACKET, TEST_SEASON_KEY } from '@/lib/bracket/testSeason';
 import { loadPreparedIndex, preparedBoxes, preparedLb } from './preparedSeason';
-import { inActionToday } from './inAction';
+import { inActionToday, type InAction } from './inAction';
 import { ScoringRulesPanel } from './BracketRules';
 
 export type SchoolRow = [name: string, region: number, seed: number];
@@ -57,7 +57,14 @@ export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] |
 export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?: PlayerRow[][] };
 // f (live boxes): is each inning's [offensive, pitching] run settled yet;
 // 1-8, then the W-L inning. Unsettled cells show who leads, but no run.
-export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
+export type GameBox = {
+  d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][];
+  // A week in progress, as of the results job's run: the bracket day it was
+  // scored on, that day's inning (0-6) and where it stood (Top, Bottom or
+  // posted), and each school's "in action today" strip (home, away).
+  lv?: [date: string, day: number, phase: 'top' | 'bottom' | 'posted'];
+  ia?: [InAction | null, InAction | null];
+};
 export type ActiveRosterPlayer = {
   playerid: string | number;
   display_name?: string | null;
@@ -94,7 +101,12 @@ export { TIE_NOTE, tieNote } from '@/lib/bracket/tieNote';
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
   // Every round's boxes are the prepared (stored) ones.
-  if (!boxCache.has(file)) boxCache.set(file, preparedBoxes());
+  // A load that fails isn't kept: the next open asks again.
+  if (!boxCache.has(file)) {
+    const p = preparedBoxes();
+    p.catch(() => { if (boxCache.get(file) === p) boxCache.delete(file); });
+    boxCache.set(file, p);
+  }
   return boxCache.get(file)!;
 }
 
