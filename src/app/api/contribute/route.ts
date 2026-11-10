@@ -12,17 +12,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { query } from '@/lib/db';
 import { registerPlayerInstagram } from '@/lib/playerInstagramRegistration';
+import { scheduleNewInstagramImport } from '@/lib/scheduleNewInstagramImport';
+import { publishAuthorizedPlayerInfo } from '@/lib/publishAuthorizedPlayerInfo';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears, publishQueuedTipNow } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { publishNewPlayerNow, NewPlayerPublicationError } from '@/lib/publishNewPlayer';
-import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
+import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, canPublishFor, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 import { parseNewsVideo, cleanNewsVideoTitle } from '@/lib/newsVideo';
 import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
 
 export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const text = (v: unknown, max = 500) => String(v ?? '').trim().slice(0, max);
@@ -180,6 +183,7 @@ export async function POST(req: NextRequest) {
           const instagramState = typeof submitted.instagram === 'string'
             ? await registerPlayerInstagram(created.playerId, hsid, submitted.instagram)
             : 'queued';
+          if (instagramState === 'registered') scheduleNewInstagramImport(created.playerId, String(submitted.instagram));
           await logContribution(who,'contribute_profile',{
             playerid:created.playerId,hsid,pageUrl,
             details:{kind:'missing_player',fields:submitted,autoPublished:true,
@@ -223,6 +227,62 @@ export async function POST(req: NextRequest) {
             commitment:{status,teamId,teamName:savedCommitment.teamName}}, {status:201});
         }
       }
+      // Authorized publishers are identified by their verified Firebase UID and
+      // scoped user_roles grant. Their edits do not enter the fan approval queue.
+      // Reject noncanonical team/status combinations rather than silently
+      // publishing contradictory roster data.
+      if (!isNew && process.env.VERCEL_ENV !== 'preview' && canPublishFor(who, hsid, playerId)) {
+        const profile = { ...submitted };
+        if (selectedCurrentTeam) {
+          if (status && status !== 'ACTIVE') {
+            return fail('Changing a current team requires an ACTIVE playing status.', 409);
+          }
+          const saved = await publishCurrentTeamChange({
+            playerId, hsid, team: selectedCurrentTeam, reviewerUid: who.uid,
+          });
+          if (!saved) return fail('Current team update failed. No other fields were changed.', 409);
+          for (const key of ['current_teamid','current_team_name','level_label','status_label']) delete profile[key];
+        } else if (profile.status_label || profile.level_label || profile.committed_teamid !== undefined) {
+          // Commitment/status edits have dedicated canonical procedures and
+          // cannot be combined with unrelated fields through a raw stage write.
+          return fail('Publish the playing-status or college-commitment change separately from other fields.', 409);
+        }
+
+        try {
+          const ok = await publishAuthorizedPlayerInfo({
+            playerId, hsid, uid: who.uid, fields: profile,
+          });
+          if (!ok) return fail('Player record changed. Reload the profile and try again.', 409);
+        } catch (error) {
+          return fail(error instanceof Error ? error.message : 'Player information was not saved.', 400);
+        }
+
+        const instagramState = typeof profile.instagram === 'string'
+          ? await registerPlayerInstagram(playerId, hsid, profile.instagram) : 'queued';
+        if (instagramState === 'registered') scheduleNewInstagramImport(playerId, String(profile.instagram));
+        if (typeof profile.x === 'string') {
+          const xHandle = String(profile.x).trim().replace(/^@/, '')
+            .replace(/^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\//i, '').replace(/[/?#].*$/, '');
+          if (/^[a-zA-Z0-9_]{1,15}$/.test(xHandle)) {
+            await query(
+              "INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status) " +
+              "SELECT 'x',$1,'player',$2,$3,'publisher','active' " +
+              "WHERE NOT EXISTS (SELECT 1 FROM social_sources WHERE platform='x' AND lower(handle)=lower($1)) " +
+              "ON CONFLICT(platform,handle) DO NOTHING",
+              [xHandle,hsid,playerId],
+            );
+          }
+        }
+        revalidateTag('school-data:' + hsid, { expire: 0 });
+        await logContribution(who,'contribute_profile',{
+          playerid:playerId,hsid,pageUrl,
+          details:{autoPublished:true,source:'verified_publisher',fields:submitted,
+            instagram:instagramState},
+        });
+        return NextResponse.json({ok:true,review:'published_profile',
+          instagram:instagramState}, {status:201});
+      }
+
       // Owner/reviewer emails are configured as production environment settings.
       // Site-authorized reviewer submissions publish current affiliations directly.
       // Ordinary fan edits remain queued; a public form must not overwrite player truth.
@@ -338,6 +398,7 @@ export async function POST(req: NextRequest) {
         !isNew && typeof submitted.instagram === 'string'
         ? await registerPlayerInstagram(playerId, hsid, submitted.instagram)
         : 'queued';
+      if (instagramState === 'registered') scheduleNewInstagramImport(playerId, String(submitted.instagram));
       const varsityOnly=!isNew && Object.keys(submitted).length===1 && Array.isArray(submitted.roster_years);
       const varsityPublication=varsityOnly && contributionQueueId
         ? await publishQueuedVarsityYears(contributionQueueId)
