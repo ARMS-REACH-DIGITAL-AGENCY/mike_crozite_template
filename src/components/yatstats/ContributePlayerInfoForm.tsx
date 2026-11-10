@@ -67,6 +67,7 @@ export default function ContributePlayerInfoForm({
           position:clean(p.position),current_team_name:clean(p.current_team_name),
           current_teamid:clean(p.current_teamid),
           committed_teamid:clean(p.committed_teamid),
+          instagram:clean(p.instagram), x:clean(p.x),
         };
         setValues(next);setInitial(next);
         if (next.current_teamid && next.current_team_name) setSelectedCurrentTeam({
@@ -168,7 +169,9 @@ export default function ContributePlayerInfoForm({
         ? 'Varsity years saved. The school’s team-year filters will update on your next page refresh.'
         : body.review === 'needs_review'
           ? 'Received. These years need verification before appearing on the school page.'
-          : 'Received. Your information is queued for processing. Updates that need verification are held for review.');
+          : 'Received. Your information is queued for processing. Updates that need verification are held for review.' +
+          (body.instagram === 'registered' ? ' Instagram connected to the Social tab; eligible professional posts sync automatically.' :
+            body.instagram === 'needs_review' ? ' Instagram handle needs verification before it can be linked.' : ''));
       setInitial(values);
       if (body.review === 'published_profile') router.refresh();
     }catch(e){setError(e instanceof Error?e.message:'Unable to send.');}finally{setSending(false);}
