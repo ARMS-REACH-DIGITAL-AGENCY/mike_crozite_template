@@ -17,6 +17,11 @@ assert.match(playerFeed, /const heightPerWidth = isReel \? 16 \/ 9/);
 assert.doesNotMatch(playerFeed, /PLAY REEL|showInstagramEmbed|pp-ig-embed-toggle/);
 assert.match(playerFeed, /\{ cache: 'no-store' \}/);
 assert.match(playerFeed, /<iframe/);
+assert.match(playerFeed, /<video/);
+assert.match(playerFeed, /autoPlay/);
+assert.match(playerFeed, /onError=\{\(\) => setBrokenVideoId\(current.id\)\}/);
+assert.match(playerApi, /p.media_url_expires_at > now\(\)/);
+assert.match(sync, /media_url_expires_at = EXCLUDED.media_url_expires_at/);
 assert.match(playerFeed, /role="dialog"/);
 assert.match(playerFeed, /ORIGINAL POST/);
 for (const api of [playerApi, schoolApi]) {
