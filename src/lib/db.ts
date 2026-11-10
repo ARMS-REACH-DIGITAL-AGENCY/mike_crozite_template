@@ -1257,12 +1257,16 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // either way: Hamilton's 107 rows fingerprint identically before and after;
 // a trimmed version for Perry went from 2.74s to 0.44s.
 export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-indexed-school-scope-v3', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+  // The shared cross-request cache forwards one string key only. Namespaced
+  // player keys prevent collisions with school IDs and preserve old school caches.
+  const scope = hsid.startsWith('player:') ? 'player' : 'school';
+  const lookupId = scope === 'player' ? hsid.slice('player:'.length) : hsid;
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
   const sql = `
     WITH school_players AS (
-      SELECT
+      SELECT ${scope === 'player' ? 'DISTINCT' : ''}
         ph.playerid,
         tp.firstname,
         tp.lastname,
@@ -1275,7 +1279,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       FROM player_hsids ph
       JOIN tbc_players_raw tp
         ON ph.playerid::text = tp.playerid::text
-      WHERE ph.hsid = $1
+      WHERE ${scope === 'school' ? 'ph.hsid = $1' : 'ph.playerid::text = $1::text'}
 
       UNION ALL
       -- First-party contributed players have a verified school identity
@@ -1292,7 +1296,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         NULL::text AS throws,
         f.position
       FROM public.flip_card_front_stage f
-      WHERE f.hsid::text = $1::text
+      WHERE ${scope === 'school' ? 'f.hsid::text' : 'f.playerid::text'} = $1::text
         AND f.source_summary->>'source' = 'contribute'
         AND NOT EXISTS (
           SELECT 1 FROM public.tbc_players_raw tp
@@ -1825,9 +1829,17 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       sp.lastname,
       sp.firstname
   `;
-  const { rows } = await query(sql, [hsid]);
+  const { rows } = await query(sql, [lookupId]);
   return rows;
 }, ALL_TIME_ROSTER_TTL_SECONDS));
+
+// The school and cross-school embedded flip card must use the SAME
+// all-time career/level aggregation, scoped by the player ID for a single
+// favorite. Do not query an entire school's roster for each favorite.
+export async function getAllTimeRosterRowByPlayerId(playerId: string): Promise<any | null> {
+  const rows = await getAllTimeRosterByHsid(`player:${playerId}`);
+  return rows.find((row) => String(row.playerid) === playerId) || null;
+}
 
 export interface PlayerSlugMatch {
   playerid: string;

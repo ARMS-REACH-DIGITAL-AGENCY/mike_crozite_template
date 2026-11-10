@@ -18,6 +18,7 @@ import { notFound } from "next/navigation";
 import {
   getFlipCardFrontStageByPlayerId,
   getActiveRosterRowByPlayerId,
+  getAllTimeRosterRowByPlayerId,
   getBatchDesignatedPlayerImages,
   getSchoolByHsid,
 } from "@/lib/db";
@@ -41,9 +42,13 @@ export default async function PlayerCardEmbedPage({
   if (!stageRow) notFound();
 
   const activeRow = await getActiveRosterRowByPlayerId(id);
+  // The favorite embed must use the same scoped All-Time career buckets as
+  // the native school gallery. Stage-only retired cards have no statistics.
+  // Fetch one player's historical rows, never an entire school's roster.
+  const allTimeRow = activeRow ? null : await getAllTimeRosterRowByPlayerId(id);
   const player = activeRow
     ? { ...stageRow, ...activeRow, has_2026_stats: true }
-    : { ...stageRow, has_2026_stats: false };
+    : { ...stageRow, ...(allTimeRow || {}), has_2026_stats: false };
 
   const resolvedHsid = String(stageRow.hsid || "");
 
@@ -69,6 +74,7 @@ export default async function PlayerCardEmbedPage({
         resolvedHsid={resolvedHsid}
         frontImageUrl={frontImageMap.get(id)?.image_url ?? null}
         headshotUrl={headshotMap.get(id)?.image_url ?? null}
+        isAllTime={!activeRow}
         shareBaseUrl={shareBaseUrl}
         schoolName={schoolName}
         schoolLocation={schoolLocation}

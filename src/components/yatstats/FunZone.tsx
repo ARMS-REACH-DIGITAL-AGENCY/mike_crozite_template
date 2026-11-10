@@ -55,6 +55,7 @@ interface StatItem {
 interface StatBucket {
   label: string;
   stats: StatItem[];
+  family?: "batting" | "pitching";
 }
 
 interface FunZoneProps {
@@ -798,6 +799,12 @@ export default function FunZone({
       ? statBuckets
       : [{ label: statBarLabel, stats }];
   const activeStatsBucket = resolvedStatBuckets[Math.min(activeStatsIndex, resolvedStatBuckets.length - 1)];
+  const statFamilies = [...new Set(resolvedStatBuckets.map((bucket) => bucket.family).filter((family): family is "batting" | "pitching" => Boolean(family)))];
+  const hasBothStatFamilies = statFamilies.length === 2;
+  const selectedFamily = activeStatsBucket.family ?? statFamilies[0];
+  const activeFamilyBuckets = hasBothStatFamilies
+    ? resolvedStatBuckets.map((bucket, idx) => ({ bucket, idx })).filter(({ bucket }) => bucket.family === selectedFamily)
+    : resolvedStatBuckets.map((bucket, idx) => ({ bucket, idx }));
 
   // Reset during render (not in an effect) when the bucket count changes,
   // to avoid the extra render pass a useEffect-based reset would cause.
@@ -882,14 +889,32 @@ export default function FunZone({
         className={`fz-panel${activeTab === "stats" ? " fz-panel-active" : ""}`}
         data-fz-tab="stats"
       >
-        <div className="fz-stats-shell">
-          {resolvedStatBuckets.length > 1 && (
-            <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Stats level buckets">
-              {resolvedStatBuckets.map((bucket, idx) => (
+        <div className={`fz-stats-shell${hasBothStatFamilies && activeFamilyBuckets.length === 1 ? " fz-show-single-level" : ""}`} data-fz-stat-buckets={JSON.stringify(resolvedStatBuckets)}>
+          {hasBothStatFamilies && (
+            <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Batting or pitching statistics">
+              {statFamilies.map((family) => (
+                <button
+                  key={family}
+                  type="button"
+                  role="tab"
+                  data-fz-stat-family={family}
+                  aria-selected={selectedFamily === family}
+                  className={`fz-stat-bucket-btn${selectedFamily === family ? " active" : ""}`}
+                  onClick={() => setActiveStatsIndex(resolvedStatBuckets.findIndex((bucket) => bucket.family === family))}
+                >
+                  {family === "batting" ? "HITTING" : "PITCHING"}
+                </button>
+              ))}
+            </div>
+          )}
+          {activeFamilyBuckets.length > 1 && (
+            <div className="fz-stat-bucket-tabs fz-stat-level-tabs" role="tablist" aria-label="Stats level buckets">
+              {activeFamilyBuckets.map(({ bucket, idx }) => (
                 <button
                   key={`${bucket.label}-${idx}`}
                   type="button"
                   role="tab"
+                  data-fz-stat-index={idx}
                   aria-selected={activeStatsIndex === idx}
                   className={`fz-stat-bucket-btn${activeStatsIndex === idx ? " active" : ""}`}
                   onClick={() => setActiveStatsIndex(idx)}
@@ -1117,6 +1142,12 @@ export default function FunZone({
           min-height:0;
         }
 
+        /* The StatsPanel bar is the single-level caption; do not render
+           another label row. The global topbar ordinarily hides this bar
+           next to a tab row, so explicitly restore it only in this case. */
+        .fz-stats-shell.fz-show-single-level > .fz-stats .yat-stats-bar{
+          display:flex !important;
+        }
         .fz-stat-bucket-tabs{
           display:grid;
           grid-template-columns:repeat(auto-fit,minmax(0,1fr));
