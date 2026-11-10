@@ -124,5 +124,48 @@ const query=async (sql,params=[])=>{
   assert.ok(html.includes('href="https://lincoln-san-jose.ca.yatstats.com"'), 'Unprovisioned collision retains the reachable legacy hostname');
   assert.equal((html.match(/yat-search-school-bracket-link"/g)||[]).length,1,'only seeded Hamilton gets bracket');
   assert.ok(!html.includes('SCHOOL PAGE NOT AVAILABLE YET'),'active schools must not appear unavailable');
+  // Runtime contract: verify the three production custom domains still
+  // rewrite to the correct HSIDs even when the Edge-to-Node resolver fails.
+  // This catches accidentally deleting/reassigning direct host mappings.
+  const middlewareSource=fs.readFileSync(path.resolve(__dirname,'../src/middleware.ts'),'utf8');
+  const middlewareJs=ts.transpileModule(middlewareSource,{
+    compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}
+  }).outputText;
+  const mwExports={};
+  let resolverCalls=0;
+  const NextResponse={
+    next: ({request})=>({kind:'next',request}),
+    rewrite: (dest, options)=>({kind:'rewrite',path:dest.pathname,search:dest.search,headers:options.request.headers}),
+    redirect: (dest,code)=>({kind:'redirect',url:String(dest),status:code})
+  };
+  vm.runInNewContext(middlewareJs,{
+    exports:mwExports,
+    require:(name)=>{
+      if(name==='next/server')return {NextResponse};
+      if(name==='./lib/schoolDirectoryRouting')return {schoolHostnamePattern:routing.schoolHostnamePattern};
+      return require(name);
+    },
+    URL, Headers, console,
+    fetch:async()=>{resolverCalls++;throw Error('Edge resolver unavailable')},
+    AbortSignal
+  },{filename:'middleware.js'});
+  for(const [domain,id] of [
+    ['st-francis.la-canada.ca.yatstats.com','2123'],
+    ['st-francis.mountain-view.ca.yatstats.com','2122'],
+    ['st-francis.watsonville.ca.yatstats.com','9559']
+  ]){
+    for(const pathname of ['/','/player/215409/andrew-martinez']){
+      const url=new URL('https://'+domain+pathname+'?verify=1');
+      url.clone=function(){const copy=new URL(this);copy.clone=this.clone;return copy};
+      const headers=new Headers({host:domain,'user-agent':'Mozilla/5.0'});
+      const result=await mwExports.middleware({headers,nextUrl:url,url:String(url)});
+      assert.equal(result.kind,'rewrite',domain+' '+pathname+' must rewrite');
+      assert.equal(result.path,'/'+id+(pathname==='/'?'':pathname),domain+' must use its verified HSID');
+      assert.equal(result.search,'?verify=1','query string must survive rewrite');
+      assert.equal(result.headers.get('x-yat-resolved-host-hsid'),id);
+    }
+  }
+  assert.equal(resolverCalls,0,'Known verified domains must not depend on Edge resolver availability');
+
   console.log('PASS hostname resolution, canonical collisions, existing domains, safe integer IDs, complete statewide URL batches, numeric aliases, and Global Search links.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
