@@ -134,7 +134,7 @@ const query=async (sql,params=[])=>{
   const mwExports={};
   let resolverCalls=0;
   const NextResponse={
-    next: ({request})=>({kind:'next',request}),
+    next: (options={})=>({kind:'next',request:options.request}),
     rewrite: (dest, options)=>({kind:'rewrite',path:dest.pathname,search:dest.search,headers:options.request.headers}),
     redirect: (dest,code)=>({kind:'redirect',url:String(dest),status:code})
   };
@@ -166,6 +166,39 @@ const query=async (sql,params=[])=>{
     }
   }
   assert.equal(resolverCalls,0,'Known verified domains must not depend on Edge resolver availability');
+
+  // The repo contains BOTH src/middleware.ts and root middleware.ts.
+  // The root version takes precedence for live subdomain routing. Test
+  // the real active implementation to prevent a recurrence of the 404.
+  const rootMiddlewareSource=fs.readFileSync(path.resolve(__dirname,'../middleware.ts'),'utf8');
+  const rootJs=ts.transpileModule(rootMiddlewareSource,{
+    compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}
+  }).outputText;
+  const rootExports={};
+  vm.runInNewContext(rootJs,{
+    exports:rootExports,require:(name)=>name==='next/server'?{NextResponse}:require(name),
+    URL, Headers, console, process:{env:{ROOT_DOMAIN:'yatstats.com'}}
+  },{filename:'root-middleware.js'});
+  for(const [domain,id] of [
+    ['st-francis.la-canada.ca.yatstats.com','2123'],
+    ['st-francis.mountain-view.ca.yatstats.com','2122'],
+    ['st-francis.watsonville.ca.yatstats.com','9559']
+  ]){
+    for(const pathname of ['/','/player/215409/andrew-martinez']){
+      const url=new URL('https://'+domain+pathname+'?view=alltime&player=215409');
+      url.clone=function(){const copy=new URL(this);copy.clone=this.clone;return copy};
+      const request={headers:new Headers({host:domain}),nextUrl:url,url:String(url)};
+      const result=rootExports.middleware(request);
+      assert.equal(result.kind,'rewrite',domain+' should rewrite in active root middleware');
+      assert.equal(result.path,'/'+id+(pathname==='/'?'':pathname),domain+' routed to wrong school');
+      assert.equal(result.search,'?view=alltime&player=215409','player selection preserved');
+    }
+  }
+  // No changes to the unrelated/default school URL behavior.
+  const hamilton=new URL('https://hamilton.az.yatstats.com/');
+  hamilton.clone=function(){const copy=new URL(this);copy.clone=this.clone;return copy};
+  const existingResult=rootExports.middleware({headers:new Headers({host:hamilton.hostname}),nextUrl:hamilton,url:String(hamilton)});
+  assert.equal(existingResult.path,'/hamilton/','Other school hosts retain prior routing.');
 
   console.log('PASS hostname resolution, canonical collisions, existing domains, safe integer IDs, complete statewide URL batches, numeric aliases, and Global Search links.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
