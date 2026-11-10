@@ -55,26 +55,9 @@ export function middleware(request: NextRequest) {
     if (nonLiveRedirect) return nonLiveRedirect;
   }
 
-  // Three provisioned canonical St. Francis city hosts have distinct TBC
-  // HSIDs. The legacy first-label router below would route every one as
-  // /st-francis and may render another school's profile (or a 404).
-  // Limit the exception to these verified hosts; unique school names and
-  // every other hostname retain existing behavior.
-  const verifiedStFrancisHostIds: Record<string, string> = {
-    "st-francis.la-canada.ca.yatstats.com": "2123",
-    "st-francis.mountain-view.ca.yatstats.com": "2122",
-    "st-francis.watsonville.ca.yatstats.com": "9559",
-  };
-  const verifiedSchoolId = verifiedStFrancisHostIds[host];
-  if (verifiedSchoolId) {
-    // Numeric routes already identify the intended school; do not rewrite
-    // them or alter other request/query information.
-    if (/^[0-9]+$/.test(firstSegment)) return NextResponse.next();
-    const staticPath = /\.(png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|ttf|eot|otf|css|js|json|txt|xml|webmanifest)$/i;
-    if (staticPath.test(path)) return NextResponse.next();
-    url.pathname = path === "/" ? `/${verifiedSchoolId}` : `/${verifiedSchoolId}${path}`;
-    return NextResponse.rewrite(url);
-  }
+  // No per-school shortcuts (Pete, Nov 2026). A hard-coded St. Francis map
+  // here rewrote its hosts to /{hsid} without the internal-rewrite header,
+  // so the page redirected each one to itself in an endless loop.
 
   if (!routePrefix || routePrefix === "www") return NextResponse.next();
 

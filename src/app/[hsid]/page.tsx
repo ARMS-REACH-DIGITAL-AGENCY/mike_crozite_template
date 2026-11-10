@@ -495,7 +495,11 @@ export default async function SchoolPage({
   const isNumericHsid = /^\d+$/.test(hsid);
   const isPreview = host.includes("vercel.app") || host.includes("localhost");
   const isHostRewrite = headersList.get('x-yat-internal-school-rewrite') === '1';
-  if (micrositeUrl && isNumericHsid && !isPreview && !isHostRewrite) {
+  const requestHostOnly = host.toLowerCase().split(':')[0];
+  let micrositeHostOnly = '';
+  try { micrositeHostOnly = micrositeUrl ? new URL(micrositeUrl).hostname.toLowerCase() : ''; } catch { /* keep serving */ }
+  // Never redirect a visitor to the address they are already on: that loops.
+  if (micrositeUrl && isNumericHsid && !isPreview && !isHostRewrite && micrositeHostOnly !== requestHostOnly) {
     permanentRedirect(micrositeUrl.replace(/\/$/, ""));
   }
   // A school's previous address forwards to its current one (Pete, Nov 2026:
