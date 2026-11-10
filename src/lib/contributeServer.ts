@@ -27,23 +27,48 @@ import { PLAYER_ID, photoTypeLabel, type Crop, type PhotoPurpose } from './contr
 
 export { storyAssetUrl as assetUrl };
 
-export type Contributor = { uid: string; email: string; name: string; profile: UserProfile | null };
+export type Contributor = {
+  uid: string; email: string; name: string; profile: UserProfile | null;
+  // Server-verified permissions from user_roles; never accept these in request JSON.
+  publishingRoles?: Array<{ role: string; hsid: string | null; playerid: string | null }>;
+};
 
 // Who is contributing: a verified Firebase token or the signed pass (never
 // the plain session cookie, which the browser could edit).
 export async function identifyContributor(req: NextRequest, idToken?: string | null): Promise<Contributor | null> {
   const identity = await identifyFan(req, idToken);
   if (!identity) return null;
-  const profile = await getUserProfile(identity.uid).catch(() => null);
+  const [profile, roles] = await Promise.all([
+    getUserProfile(identity.uid).catch(() => null),
+    query<{ role: string; hsid: string | null; playerid: string | null }>(
+      "SELECT role,hsid,playerid FROM user_roles WHERE firebase_uid=$1 AND role='publisher'",
+      [identity.uid],
+    ).then(r => r.rows).catch(() => []),
+  ]);
   const name =
     [profile?.first_name, profile?.last_name].map((v) => String(v || '').trim()).filter(Boolean).join(' ') ||
     'A YAT?STATS fan';
-  return { uid: identity.uid, email: identity.email || profile?.email || '', name, profile };
+  return { uid: identity.uid, email: identity.email || profile?.email || '', name, profile, publishingRoles: roles };
 }
 
+// Every publisher grant is tied to a verified Firebase UID, and can later be
+// scoped to one school or player. Paid membership never grants editing rights.
+export function canPublishFor(c: Contributor | null, hsid: string, playerId?: string): boolean {
+  if (!c || !/^\\d{1,10}$/.test(hsid)) return false;
+  return (c.publishingRoles || []).some(r =>
+    r.role === 'publisher'
+    && (r.hsid == null || r.hsid === hsid)
+    && (r.playerid == null || r.playerid === playerId)
+  );
+}
+
+// Existing reviewer endpoints keep their global-authority meaning. A school-
+// scoped publisher must not gain access to other schools' moderation queues.
 // Reviewers: the emails in CONTRIBUTE_REVIEWER_EMAILS (comma-separated).
 export function isReviewer(c: Contributor | null): boolean {
-  if (!c?.email) return false;
+  if (!c) return false;
+  if ((c.publishingRoles || []).some(r => r.role === 'publisher' && r.hsid == null && r.playerid == null)) return true;
+  if (!c.email) return false;
   const list = String(process.env.CONTRIBUTE_REVIEWER_EMAILS || '')
     .split(',')
     .map((v) => v.trim().toLowerCase())
