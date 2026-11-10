@@ -398,11 +398,11 @@ export async function POST(req: NextRequest) {
       // Keep fan correction review rules independent from the social link.
       // Shared registration enforces ownership and correctly queues professional
       // eligibility checks; do not infer eligibility from Instagram verification.
-      const instagramState = process.env.VERCEL_ENV !== 'preview' &&
-        !isNew && typeof submitted.instagram === 'string'
-        ? await registerPlayerInstagram(playerId, hsid, submitted.instagram)
-        : 'queued';
-      if (instagramState === 'registered') scheduleNewInstagramImport(playerId, String(submitted.instagram));
+      // Ordinary fan corrections continue through their established verification
+      // workflow. Only authenticated publishers may immediately claim a public
+      // handle and start a Meta check; otherwise anyone could attach another
+      // person's Instagram account to a player without authorization.
+      const instagramState = 'queued' as const;
       const varsityOnly=!isNew && Object.keys(submitted).length===1 && Array.isArray(submitted.roster_years);
       const varsityPublication=varsityOnly && contributionQueueId
         ? await publishQueuedVarsityYears(contributionQueueId)
