@@ -82,7 +82,7 @@ export async function middleware(request: NextRequest) {
       'st-francis.mountain-view.ca.yatstats.com': '2122',
       'st-francis.watsonville.ca.yatstats.com': '9559',
     };
-    const verifiedHsid = verifiedStFrancisHsids[String(host).toLowerCase().replace(/:\\d+$/, '')];
+    const verifiedHsid = verifiedStFrancisHsids[String(host).toLowerCase().split(':')[0]];
     if (verifiedHsid) {
       const dest = request.nextUrl.clone();
       dest.pathname = path === '/' ? `/${verifiedHsid}` : `/${verifiedHsid}${path}`;
