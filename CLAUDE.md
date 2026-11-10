@@ -25,6 +25,15 @@
   INDY, ...) attaches to it in `yat_registry_ids` (one outside number = one
   person). New sources add rows there; never re-key a person. Model:
   geni.com. Goal: one ID per player from his first organized game on.
+- **School addresses (Pete, Nov 2026).** A school whose name is unique in its
+  state: `school.state.yatstats.com` (`hamilton.az`). A school that shares its
+  name with another school in the same state: `school-city.state`
+  (`liberty-bakersfield.ca`), with a DASH, never `school.city.state`; add
+  `-hsid` only when name, city and state are all identical. One rule, no
+  exceptions (not even the original 1,024). Never change an address that
+  already follows the rule. A changed address keeps its old one in
+  `school_url_aliases`, which redirects. School addresses and routing have
+  one owner at a time; check `docs/claude-open-tasks.md` before touching them.
 - **Look before you ask Pete (Nov 2026).** Before asking Pete about dates,
   rules, prizes or past decisions, search the repo (`docs/`,
   `src/lib/bracket/tournamentCalendar.ts`, the bracket components) and the

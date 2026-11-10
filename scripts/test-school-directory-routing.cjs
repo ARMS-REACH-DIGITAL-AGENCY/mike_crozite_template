@@ -35,6 +35,8 @@ const query=async (sql,params=[])=>{
     return {rows:[{url:'https://hillsboro.or.yatstats.com'}]};
   if(sql.includes('LOWER(BTRIM(microsite_url') && sql.includes('LIMIT 2'))
     return {rows:params[0]==='https://hamilton.az.yatstats.com'?[{hsid:'5004'}]:[]};
+  if(sql.includes('school_url_aliases'))
+    return {rows:params[0]==='https://liberty.ca.yatstats.com'?[{hsid:'90'}]:[]};
   if(sql.includes('EXISTS') && sql.includes('LIMIT 1'))
     return {rows:params[0]==='5004'?[{hsid:'5004'}]:[]};
   if(sql.includes('LIMIT 30')) {
@@ -103,6 +105,7 @@ const query=async (sql,params=[])=>{
     ['lincoln-111.ca.yatstats.com','111'],
     ['lincoln.la-canada.ca.yatstats.com',null],
     ['st-francis.mountain-view.ca.yatstats.com','2122'],
+    ['liberty.ca.yatstats.com','90'],
     ['arbitrary.ca.yatstats.com',null],
     ['admin.yatstats.com',null],
   ]) {

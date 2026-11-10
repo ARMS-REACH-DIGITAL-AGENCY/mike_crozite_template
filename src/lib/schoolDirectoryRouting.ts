@@ -189,6 +189,17 @@ export async function resolveSchoolHsidFromHost(
   if (legacy.rows.length === 1) return String(legacy.rows[0].hsid);
   if (legacy.rows.length > 1) return null;
 
+  // A school's previous address keeps working (Pete, Nov 2026): when a school
+  // that shares its name in its state moves to school-city.state, the old
+  // address resolves here and the middleware 308-redirects to the new one.
+  const alias = await run(
+    `SELECT hsid::text AS hsid FROM public.school_url_aliases
+      WHERE old_url = $1
+      LIMIT 1`,
+    [`https://${hostname}`],
+  );
+  if (alias.rows.length === 1) return String(alias.rows[0].hsid);
+
   const slug = PG_NAME_SLUG('t');
   const { rows } = await run(
     `SELECT t.hsid::text AS hsid, ${slug} AS name_slug
