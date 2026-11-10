@@ -19,12 +19,12 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ player
         WHERE s.playerid = $1 AND s.platform = 'instagram' AND s.status = 'active'
           AND p.thumbnail_url IS NOT NULL
         ORDER BY p.published_at DESC NULLS LAST
-        LIMIT 12`,
+        LIMIT 30`,
       [playerId]
     );
     return NextResponse.json(
       { posts: rows },
-      { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=900, stale-while-revalidate=3600' } }
+      { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (error) {
     console.error('player social posts failed', { playerId, error });
