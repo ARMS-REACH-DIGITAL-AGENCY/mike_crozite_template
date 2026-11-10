@@ -25,6 +25,7 @@ import FunZone from "@/components/yatstats/FunZone";
 import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
+import { familyEvidence, orderByPrimaryStatFamily, primaryStatFamily } from "@/lib/flipCardStatSelection";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
@@ -70,6 +71,7 @@ interface RawStatBucket {
 interface FunZoneStatBucket {
   label: string;
   stats: { k: string; v: string }[];
+  family?: "batting" | "pitching";
 }
 
 function asBucketArray(value: unknown): RawStatBucket[] {
@@ -229,46 +231,36 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
     { k: "SAVES", v: fmt("SV", p.saves) },
     { k: "GP", v: fmt("GP", p.pg ?? p.g) },
   ];
-  // A position player's incidental pitching appearance must never hide his hitting.
-  // Keep both stat families independently available, rather than selecting one
-  // exclusively using is_pitcher (which can be true on a latest-year tie).
-  const declaredPosition = asText(p.position).toUpperCase();
-  const pitcherPosition = /^(?:P|SP|RP|LHP|RHP|PITCHER)$/.test(declaredPosition);
-  const positionPlayer = /(?:^|[^A-Z])(?:C|1B|2B|3B|SS|IF|OF|LF|CF|RF|DH)(?:$|[^A-Z])/.test(declaredPosition);
+  // Select each stat family independently for every player; never suppress
+  // one because the latest year happened to be a pitching appearance.
   const seasonPitchingBuckets = asBucketArray(p.season_pitching_buckets);
   const seasonBattingBuckets = asBucketArray(p.season_batting_buckets);
   const careerPitchingBuckets = asBucketArray(p.career_pitching_buckets);
   const careerBattingBuckets = asBucketArray(p.career_batting_buckets);
   const hittingSource = has2026Stats ? seasonBattingBuckets : careerBattingBuckets;
   const pitchingSource = has2026Stats ? seasonPitchingBuckets : careerPitchingBuckets;
-  const hasHitting = hittingSource.some((bucket) => bucket.stats && (
-    Number(bucket.stats.ab) > 0 || Number(bucket.stats.g) > 0
-  )) || (!hittingSource.length && !has2026Stats && (Number(p.ab) > 0 || Number(p.g) > 0));
-  const hasPitching = pitchingSource.some((bucket) => bucket.stats && (
-    Number(bucket.stats.ip) > 0 || Number(bucket.stats.pg ?? bucket.stats.g) > 0
-  )) || (!pitchingSource.length && !has2026Stats && (Number(p.ip) > 0 || Number(p.pg) > 0));
-  const primaryPitcher = pitcherPosition ? true : positionPlayer ? false : isPitcher;
+  const hitting = familyEvidence(hittingSource, "batting", { games: p.g, appearances: p.ab });
+  const pitching = familyEvidence(pitchingSource, "pitching", { games: p.pg, appearances: p.ip });
+  const primaryFamily = primaryStatFamily({
+    position: p.position,
+    legacyIsPitcher: isPitcher,
+    battingGames: hitting.games,
+    pitchingGames: pitching.games,
+  });
+  const primaryPitcher = primaryFamily === "pitching";
   const stats = primaryPitcher ? pitcherStats : batterStats;
-
-  const battingTabs = hasHitting
+  const battingTabs: FunZoneStatBucket[] = hitting.present
     ? buildFunZoneBuckets(hittingSource, statBarLabel, batterStats, "batting", has2026Stats)
-        .map((bucket) => ({ ...bucket, label: `HITTING · ${bucket.label}` }))
+        .map((bucket) => ({ ...bucket, family: "batting" }))
     : [];
-  const pitchingTabs = hasPitching
+  const pitchingTabs: FunZoneStatBucket[] = pitching.present
     ? buildFunZoneBuckets(pitchingSource, statBarLabel, pitcherStats, "pitching", has2026Stats)
-        .map((bucket) => ({ ...bucket, label: `PITCHING · ${bucket.label}` }))
+        .map((bucket) => ({ ...bucket, family: "pitching" }))
     : [];
-
-  // Preserve the established per-level tabs within each family, and the
-  // existing single-family presentation when no opposite-family stats exist.
-  const statBuckets = hasHitting && hasPitching
-    ? primaryPitcher ? [...pitchingTabs, ...battingTabs] : [...battingTabs, ...pitchingTabs]
-    : hasHitting ? battingTabs.map((bucket) => ({
-        ...bucket, label: bucket.label.replace(/^HITTING · /, ""),
-      }))
-    : hasPitching ? pitchingTabs.map((bucket) => ({
-        ...bucket, label: bucket.label.replace(/^PITCHING · /, ""),
-      }))
+  // Family selection is an outer pair of tabs; existing per-level buckets
+  // remain accessible within each family (MLB/MiLB/College, etc.).
+  const statBuckets: FunZoneStatBucket[] = battingTabs.length || pitchingTabs.length
+    ? orderByPrimaryStatFamily([...battingTabs, ...pitchingTabs], primaryFamily)
     : [{ label: statBarLabel, stats }];
 
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
