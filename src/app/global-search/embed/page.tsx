@@ -3,6 +3,7 @@
 // the school drawer; this route does not duplicate search queries or renderers.
 import type { Metadata } from "next";
 import SearchDrawerTabs from "@/components/yatstats/SearchDrawerTabs";
+import AccountDrawer from "@/components/yatstats/AccountDrawer";
 import YatStyles from "@/components/yatstats/YatStyles";
 import SearchEmbedBridge from "./SearchEmbedBridge";
 
@@ -37,6 +38,8 @@ export default function GlobalSearchEmbedPage() {
           <div id="gsResults" className="yat-gs-results" role="listbox" aria-label="Search results" aria-live="polite" aria-atomic="true" />
         </div>
       </div>
+      <div className="yat-drawer-mask" id="drawerMask" />
+      <AccountDrawer subdomain="" />
       <SearchDrawerTabs />
       <SearchEmbedBridge />
       <style>{`
