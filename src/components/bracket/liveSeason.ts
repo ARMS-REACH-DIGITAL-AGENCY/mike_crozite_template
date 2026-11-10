@@ -27,7 +27,7 @@ import { commissionerRuling } from '@/lib/bracket/commissioner';
 import { autoRuling } from '@/lib/bracket/autoRuling';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
-import { setInAction } from './inAction';
+import { inActionToday, setInAction } from './inAction';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
@@ -336,6 +336,12 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
       f: [...f, weekDone, weekDone],
       h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], rd: home.week.runDiff, days: home.dayRows },
       a: { p: away.weekRows, wl: [away.week.wins, away.week.losses], rd: away.week.runDiff, days: away.dayRows },
+      // Where the week stood when this was scored, for the pages that show
+      // the stored results (lib/bracket/preparedIndex.ts).
+      ...(final ? {} : {
+        lv: [asof, cur, phase] as [string, number, LivePhase],
+        ia: [inActionToday(Number(g[2])) ?? null, inActionToday(Number(g[3])) ?? null] as GameBox['ia'],
+      }),
     };
   };
 
