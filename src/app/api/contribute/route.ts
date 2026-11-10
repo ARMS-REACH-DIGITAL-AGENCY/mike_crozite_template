@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { query } from '@/lib/db';
+import { registerPlayerInstagram } from '@/lib/playerInstagramRegistration';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears, publishQueuedTipNow } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
@@ -173,13 +174,20 @@ export async function POST(req: NextRequest) {
           const created=await publishNewPlayerNow({
             hsid,fields:submitted,canonicalTeam:selectedCurrentTeam,
           });
+          // The same Instagram registration workflow applies to newly created
+          // player IDs. A non-professional account still receives its profile link;
+          // Meta eligibility is resolved asynchronously by the existing sync.
+          const instagramState = typeof submitted.instagram === 'string'
+            ? await registerPlayerInstagram(created.playerId, hsid, submitted.instagram)
+            : 'queued';
           await logContribution(who,'contribute_profile',{
             playerid:created.playerId,hsid,pageUrl,
-            details:{kind:'missing_player',fields:submitted,autoPublished:true,submissionId:created.submissionId},
+            details:{kind:'missing_player',fields:submitted,autoPublished:true,
+              submissionId:created.submissionId,instagram:instagramState},
           }).catch(error=>console.error('[contribute/new-player] activity log failed',error));
           return NextResponse.json({
             ok:true,review:'published_player',playerId:created.playerId,
-            hsid,submissionId:created.submissionId,
+            hsid,submissionId:created.submissionId,instagram:instagramState,
           },{status:201});
         } catch (error) {
           if (error instanceof NewPlayerPublicationError) return fail(error.message,error.status);
@@ -323,29 +331,13 @@ export async function POST(req: NextRequest) {
         );
         contributionQueueId=queued.rows[0]?.id||null;
       }
-      // A public Instagram handle is immediately registered for the existing
-      // Business Discovery sync. The submitted handle must not already belong
-      // to another player; all other profile fields keep their review rules.
-      let instagramState: 'queued' | 'registered' | 'needs_review' = 'queued';
-      if (process.env.VERCEL_ENV !== 'preview' && !isNew && typeof submitted.instagram === 'string') {
-        const handle = String(submitted.instagram).trim().replace(/^@/,'')
-          .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
-        if (/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
-          const {rows: matches}=await query<{playerid:string|null}>(
-            'SELECT playerid FROM social_sources WHERE platform=$1 AND lower(handle)=lower($2) LIMIT 1',
-            ['instagram',handle]);
-          if (matches.length && matches[0].playerid !== playerId) {
-            instagramState='needs_review';
-          } else if (!matches.length) {
-            await query(`INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status)
-              VALUES('instagram',$1,'player',$2,$3,'business_discovery','active')
-              ON CONFLICT (platform,handle) DO NOTHING`,[handle,hsid,playerId]);
-            instagramState='registered';
-          } else {
-            instagramState='registered';
-          }
-        } else instagramState='needs_review';
-      }
+      // Keep fan correction review rules independent from the social link.
+      // Shared registration enforces ownership and correctly queues professional
+      // eligibility checks; do not infer eligibility from Instagram verification.
+      const instagramState = process.env.VERCEL_ENV !== 'preview' &&
+        !isNew && typeof submitted.instagram === 'string'
+        ? await registerPlayerInstagram(playerId, hsid, submitted.instagram)
+        : 'queued';
       const varsityOnly=!isNew && Object.keys(submitted).length===1 && Array.isArray(submitted.roster_years);
       const varsityPublication=varsityOnly && contributionQueueId
         ? await publishQueuedVarsityYears(contributionQueueId)
