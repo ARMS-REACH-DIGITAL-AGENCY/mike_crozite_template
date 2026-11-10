@@ -889,7 +889,7 @@ export default function FunZone({
         className={`fz-panel${activeTab === "stats" ? " fz-panel-active" : ""}`}
         data-fz-tab="stats"
       >
-        <div className="fz-stats-shell">
+        <div className={`fz-stats-shell${hasBothStatFamilies && activeFamilyBuckets.length === 1 ? " fz-show-single-level" : ""}`}>
           {hasBothStatFamilies && (
             <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Batting or pitching statistics">
               {statFamilies.map((family) => (
@@ -904,11 +904,6 @@ export default function FunZone({
                   {family === "batting" ? "HITTING" : "PITCHING"}
                 </button>
               ))}
-            </div>
-          )}
-          {hasBothStatFamilies && activeFamilyBuckets.length === 1 && (
-            <div className="fz-stat-single-level-label" aria-label="Statistics level">
-              {activeStatsBucket.label}
             </div>
           )}
           {activeFamilyBuckets.length > 1 && (
@@ -1145,20 +1140,11 @@ export default function FunZone({
           min-height:0;
         }
 
-        .fz-stat-single-level-label{
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          min-height:clamp(18px,5cqi,28px);
-          padding:clamp(2px,.7cqi,5px) clamp(3px,1cqi,7px);
-          border:1px solid rgba(30,22,14,0.22);
-          border-radius:clamp(3px,1cqi,6px);
-          color:rgba(30,22,14,.9);
-          background:rgba(255,255,255,0.25);
-          font:700 clamp(6px,2.1cqi,10px)/1.05 "Bebas Neue",Oswald,sans-serif;
-          letter-spacing:.05em;
-          text-transform:uppercase;
-          flex-shrink:0;
+        /* The StatsPanel bar is the single-level caption; do not render
+           another label row. The global topbar ordinarily hides this bar
+           next to a tab row, so explicitly restore it only in this case. */
+        .fz-stats-shell.fz-show-single-level > .fz-stats .yat-stats-bar{
+          display:flex !important;
         }
         .fz-stat-bucket-tabs{
           display:grid;
