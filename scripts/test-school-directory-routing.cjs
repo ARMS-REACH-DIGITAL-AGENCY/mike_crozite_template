@@ -53,7 +53,7 @@ const query=async (sql,params=[])=>{
   assert.equal(urls.get('111'),'https://lincoln.san-jose.ca.yatstats.com');
   assert.equal(urls.get('112'),'https://lincoln.los-angeles.ca.yatstats.com');
   assert.ok(!urls.get('111').includes('-111'), 'School ID must not replace a readable city');
-  assert.equal(urls.get('887'),'https://hillsboro.hillsboro.or.yatstats.com');
+  assert.equal(urls.get('887'),'https://hillsboro.or.yatstats.com', 'A unique school never acquires a city label even when the base URL is already claimed.');
   // Invalid and oversized IDs must remain no-match inputs, never PostgreSQL
   // integer-cast errors or a reason to run the expensive player-link lookup.
   let invalidCalls=0;
