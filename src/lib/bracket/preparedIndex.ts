@@ -100,10 +100,15 @@ export async function preparedIndex(season: string, now = Date.now()): Promise<P
   const world = rows.filter(g => g.stage === 'world_series' &&
     g.home_hsid != null && g.away_hsid != null);
   const gf = world.map(toGame);
-  const bracketFinal = rows.find(g => g.stage === 'bracket' && g.round === 10 && g.series_no === 9 && g.game_no === 3);
-  const bracketWinner = bracketFinal?.winner_hsid ||
-    rounds[9].series.find(s => s[0] === 0 && rows.some(g => g.round === 10 && g.series_no === 9 &&
-      g.home_hsid === s[1] && g.away_hsid === s[2]))?.[5] || 0;
+  // The bracket champion is the best-of-three SERIES winner, not the
+  // winner of Game 3. Game 3 is still played even if a team won Games 1-2.
+  const finalSeriesGames = rows.filter(g => g.stage === 'bracket' && g.round === 10 &&
+    g.series_no === 9 && g.home_hsid != null && g.away_hsid != null);
+  const finalHome = Number(finalSeriesGames[0]?.home_hsid) || 0;
+  const finalAway = Number(finalSeriesGames[0]?.away_hsid) || 0;
+  const finalHomeWins = finalSeriesGames.filter(g => g.status === 'final' && g.winner_hsid === finalHome).length;
+  const finalAwayWins = finalSeriesGames.filter(g => g.status === 'final' && g.winner_hsid === finalAway).length;
+  const bracketWinner = finalHomeWins >= 2 ? finalHome : finalAwayWins >= 2 ? finalAway : 0;
   const championshipFinal = championship.find(g => g.week === 33);
   const lbLeaders = championship.filter(g => g.week === 31)
     .flatMap(g => [[Number(g.home_seed), Number(g.home_hsid)], [Number(g.away_seed), Number(g.away_hsid)]])
