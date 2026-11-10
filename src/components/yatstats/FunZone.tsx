@@ -889,7 +889,7 @@ export default function FunZone({
         className={`fz-panel${activeTab === "stats" ? " fz-panel-active" : ""}`}
         data-fz-tab="stats"
       >
-        <div className={`fz-stats-shell${hasBothStatFamilies && activeFamilyBuckets.length === 1 ? " fz-show-single-level" : ""}`}>
+        <div className={`fz-stats-shell${hasBothStatFamilies && activeFamilyBuckets.length === 1 ? " fz-show-single-level" : ""}`} data-fz-stat-buckets={JSON.stringify(resolvedStatBuckets)}>
           {hasBothStatFamilies && (
             <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Batting or pitching statistics">
               {statFamilies.map((family) => (
@@ -897,6 +897,7 @@ export default function FunZone({
                   key={family}
                   type="button"
                   role="tab"
+                  data-fz-stat-family={family}
                   aria-selected={selectedFamily === family}
                   className={`fz-stat-bucket-btn${selectedFamily === family ? " active" : ""}`}
                   onClick={() => setActiveStatsIndex(resolvedStatBuckets.findIndex((bucket) => bucket.family === family))}
@@ -907,12 +908,13 @@ export default function FunZone({
             </div>
           )}
           {activeFamilyBuckets.length > 1 && (
-            <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Stats level buckets">
+            <div className="fz-stat-bucket-tabs fz-stat-level-tabs" role="tablist" aria-label="Stats level buckets">
               {activeFamilyBuckets.map(({ bucket, idx }) => (
                 <button
                   key={`${bucket.label}-${idx}`}
                   type="button"
                   role="tab"
+                  data-fz-stat-index={idx}
                   aria-selected={activeStatsIndex === idx}
                   className={`fz-stat-bucket-btn${activeStatsIndex === idx ? " active" : ""}`}
                   onClick={() => setActiveStatsIndex(idx)}
