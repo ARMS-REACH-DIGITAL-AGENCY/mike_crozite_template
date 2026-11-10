@@ -60,6 +60,16 @@ assert(zone.includes('fz-show-single-level'), "Keep single-level classification 
 assert(zone.includes('display:flex !important;'), "Expose heading otherwise hidden next to tabs");
 assert(zone.includes('statBarLabel={activeStatsBucket.label}'), "Display the true classification from the stat bucket");
 
+// Injected cross-school Favorites cards have no React hydration.
+const favorites = fs.readFileSync("src/components/yatstats/FavoritesDrawer.tsx", "utf8");
+assert(zone.includes('data-fz-stat-buckets={JSON.stringify(resolvedStatBuckets)}'), "Server HTML must carry all family and level data");
+assert(zone.includes('data-fz-stat-family={family}'), "Family controls must be identifiable without hydration");
+assert(zone.includes('data-fz-stat-index={idx}'), "Level controls must identify the selected bucket");
+assert(favorites.includes("attachFunZoneTabListener(injectedCard)"), "Injected cards must install delegated listener");
+assert(favorites.includes("'.fz-stat-bucket-btn[data-fz-stat-family], .fz-stat-bucket-btn[data-fz-stat-index]'"), "Listener handles both stat control types");
+assert(favorites.includes('grid.replaceChildren()'), "Injected card refreshes stats rather than just switching a class");
+assert(favorites.includes("levelRow.replaceChildren()"), "Injected cards reconstruct the proper per-family level tabs");
+assert(!favorites.includes("215409"), "No player-specific favorite exceptions");
 assert(!card.includes("215409"));
 assert(!zone.includes("215409"));
 console.log("PASS platform-wide flip-card batting/pitching tabs and primary-role regressions");
