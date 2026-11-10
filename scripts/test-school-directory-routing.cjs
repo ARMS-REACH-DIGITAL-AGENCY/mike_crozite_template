@@ -135,7 +135,7 @@ const query=async (sql,params=[])=>{
   let resolverCalls=0;
   const NextResponse={
     next: (options={})=>({kind:'next',request:options.request}),
-    rewrite: (dest, options)=>({kind:'rewrite',path:dest.pathname,search:dest.search,headers:options.request.headers}),
+    rewrite: (dest, options={})=>({kind:'rewrite',path:dest.pathname,search:dest.search,headers:options.request?.headers}),
     redirect: (dest,code)=>({kind:'redirect',url:String(dest),status:code})
   };
   vm.runInNewContext(middlewareJs,{
