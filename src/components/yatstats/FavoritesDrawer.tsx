@@ -377,6 +377,93 @@ function attachFunZoneTabListener(card: HTMLElement) {
     const target = event.target;
     if (!(target instanceof Element)) return;
 
+    // Cross-school favorites inject server HTML without React hydration.
+    // Their family/level buttons must select the same bucket data as native cards.
+    const statButton = target.closest<HTMLElement>('.fz-stat-bucket-btn[data-fz-stat-family], .fz-stat-bucket-btn[data-fz-stat-index]');
+    if (statButton) {
+      const shell = statButton.closest<HTMLElement>('.fz-stats-shell[data-fz-stat-buckets]');
+      if (!shell) return;
+      let buckets: Array<{label: string; family?: string; stats: Array<{k: string; v: string}> }> = [];
+      try {
+        const parsed: unknown = JSON.parse(shell.dataset.fzStatBuckets || '[]');
+        if (!Array.isArray(parsed)) return;
+        buckets = parsed;
+      } catch { return; }
+      const family = statButton.dataset.fzStatFamily;
+      const exactIndex = statButton.dataset.fzStatIndex;
+      const index = family
+        ? buckets.findIndex(bucket => bucket.family === family)
+        : exactIndex === undefined ? -1 : Number(exactIndex);
+      if (!Number.isInteger(index) || index < 0 || index >= buckets.length) return;
+      const chosen = buckets[index];
+      if (!chosen || !Array.isArray(chosen.stats)) return;
+      event.stopPropagation();
+      const chosenFamily = chosen.family;
+      shell.querySelectorAll<HTMLElement>('.fz-stat-bucket-btn[data-fz-stat-family]').forEach(btn => {
+        const active = btn.dataset.fzStatFamily === chosenFamily;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+      });
+      const byFamily = buckets.map((bucket, idx) => ({ bucket, idx }))
+        .filter(entry => entry.bucket.family === chosenFamily);
+      const existingLevels = shell.querySelector<HTMLElement>('.fz-stat-level-tabs');
+      if (existingLevels) {
+        existingLevels.querySelectorAll<HTMLElement>('.fz-stat-bucket-btn[data-fz-stat-index]').forEach(btn => {
+          const active = Number(btn.dataset.fzStatIndex) === index;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-selected', String(active));
+          btn.hidden = !byFamily.some(entry => String(entry.idx) === btn.dataset.fzStatIndex);
+        });
+      }
+      // Render one existing level row, and only when the selected
+      // stat family has multiple categories.
+      if (byFamily.length > 1 && !existingLevels) {
+        const row = document.createElement('div');
+        row.className = 'fz-stat-bucket-tabs fz-stat-level-tabs';
+        row.setAttribute('role', 'tablist');
+        row.setAttribute('aria-label', 'Stats level buckets');
+        const firstRow = shell.querySelector('.fz-stat-bucket-tabs');
+        firstRow?.insertAdjacentElement('afterend', row);
+      }
+      const levelRow = shell.querySelector<HTMLElement>('.fz-stat-level-tabs');
+      if (levelRow) {
+        levelRow.hidden = byFamily.length < 2;
+        levelRow.replaceChildren();
+        if (byFamily.length > 1) {
+          for (const {bucket, idx} of byFamily) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'fz-stat-bucket-btn' + (idx === index ? ' active' : '');
+            button.dataset.fzStatIndex = String(idx);
+            button.setAttribute('role', 'tab');
+            button.setAttribute('aria-selected', String(idx === index));
+            button.textContent = bucket.label;
+            levelRow.appendChild(button);
+          }
+        }
+      }
+      shell.classList.toggle('fz-show-single-level', buckets.some(bucket => bucket.family && bucket.family !== chosenFamily) && byFamily.length === 1);
+      const label = shell.querySelector<HTMLElement>('.fz-stats .yat-stats-bar');
+      if (label) label.textContent = chosen.label;
+      const grid = shell.querySelector<HTMLElement>('.fz-stats-grid, .yat-stats-grid');
+      if (grid) {
+        grid.replaceChildren();
+        for (const stat of chosen.stats) {
+          const tile = document.createElement('div');
+          tile.className = 'yat-stat';
+          const key = document.createElement('div');
+          key.className = 'yat-stat-label';
+          key.textContent = String(stat.k);
+          const val = document.createElement('div');
+          val.className = 'yat-stat-val';
+          val.textContent = String(stat.v);
+          tile.append(key, val);
+          grid.appendChild(tile);
+        }
+      }
+      return;
+    }
+
     const tabBtn = target.closest<HTMLElement>('.fz-tab-btn[data-fz-tab]');
     if (!tabBtn) return;
 
