@@ -22,9 +22,8 @@
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
-import { applyLive, liveBoxes } from './liveSeason';
+import { loadPreparedIndex, loadPreparedBoxes, preparedLb } from './preparedSeason';
 import { inActionToday } from './inAction';
-import { TOURNAMENT_2027, tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { ScoringRulesPanel } from './BracketRules';
 
 export type SchoolRow = [name: string, region: number, seed: number];
@@ -94,11 +93,11 @@ export { TIE_NOTE, tieNote } from '@/lib/bracket/tieNote';
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
   if (!boxCache.has(file)) {
-    // The bracket lab: the 2026 simulation's box scores. A school's
-    // bracket: every round's boxes come from the live lines.
+    // The bracket lab keeps its existing simulated boxes.
+    // The 2027 site fetches only the selected stored Stat Ledger from Neon.
     boxCache.set(file, simulatedSeason
       ? fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
-      : liveBoxes());
+      : loadPreparedBoxes(file));
   }
   return boxCache.get(file)!;
 }
@@ -479,69 +478,20 @@ let indexPromise: Promise<Index> | null = null;
 export function loadIndex({ simulation = false }: { simulation?: boolean } = {}) {
   if (simulation) simulatedSeason = true;
   if (!indexPromise) {
-    indexPromise = fetch(`${BASE}/index.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((idx: any) => {
-      if (!idx || !Array.isArray(idx.weeks)) return idx;
-      if (simulatedSeason) {
-        // Shift 2026 weeks back by 1 day: Week 1 starts Feb 1 (not Feb 2).
-        idx.weeks = idx.weeks.map(([a, b]: [string, string]) => [shiftDate(a, -1), shiftDate(b, -1)]);
-        return idx;
-      }
-      // The 2027 tournament field is separate from the historical fixture:
-      // replace only school identities in the fixed Round 1 slots.
-      // All game IDs, game weeks and advancement slots remain unchanged.
-      return fetch('/bracket-lab/2027/field.json', { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`2027 field HTTP ${r.status}`))))
-        .then((field: { season: number; schools: Index['schools'] }) => {
-          if (field.season !== 2027 || Object.keys(field.schools || {}).length !== 1024) {
-            throw new Error('Invalid 2027 tournament field');
-          }
-          const bySlot = new Map<string, number>();
-          for (const [hsid, school] of Object.entries(field.schools)) {
-            const key = `${school[1]}:${school[2]}`;
-            if (bySlot.has(key)) throw new Error(`Duplicate 2027 bracket slot ${key}`);
-            bySlot.set(key, Number(hsid));
-          }
-          const first = idx.rounds.find((round: Round) => round.r === 1);
-          if (!first || first.series.length !== 512 || bySlot.size !== 1024) {
-            throw new Error('Invalid 2027 Round 1 bracket');
-          }
-          for (const series of first.series as SeriesRow[]) {
-            const home = bySlot.get(`${series[0]}:${series[3]}`);
-            const away = bySlot.get(`${series[0]}:${series[4]}`);
-            if (!home || !away) throw new Error(`Missing Round 1 team at region ${series[0]}`);
-            series[1] = home;
-            series[2] = away;
-            for (const game of series[7]) { game[2] = home; game[3] = away; }
-          }
-          idx.schools = field.schools;
-          return applyLive(blankSeason(idx), simulationAsOf());
-        });
-    });
+    // The test lab keeps its historical simulation fixture. Public school
+    // pages read the official 2027 results prepared by the backend cron.
+    indexPromise = simulatedSeason
+      ? fetch(`${BASE}/index.json`)
+          .then((r) => r.ok ? r.json() as Promise<Index> : Promise.reject(new Error(`HTTP ${r.status}`)))
+          .then((idx: Index) => {
+            if (idx && Array.isArray(idx.weeks)) idx.weeks = idx.weeks.map(([a, b]) => [shiftDate(a, -1), shiftDate(b, -1)]);
+            return idx;
+          })
+      : loadPreparedIndex();
     indexPromise.catch(() => { indexPromise = null; });
   }
   return indexPromise;
 }
-// The 2027 season before a pitch is thrown (see loadIndex).
-function blankSeason(idx: any): Index {
-  idx.season = TOURNAMENT_2027.season;
-  idx.weeks = tournamentWeeks(TOURNAMENT_2027.start, idx.weeks.length);
-  idx.rounds = idx.rounds.map((round: Round) => {
-    const [a, b] = [idx.weeks[(round.r - 1) * 3]?.[0] || '', idx.weeks[round.r * 3 - 1]?.[1] || ''];
-    const series = round.r === 1
-      ? round.series.map((s) => {
-        const games = s[7].map((g): GameRow => [g[0], g[1], g[2], g[3], '', [], null]);
-        return [s[0], s[1], s[2], s[3], s[4], 0, [0, 0], games] as SeriesRow;
-      })
-      : [];
-    return { ...round, start: a, end: b, series };
-  });
-  idx.lbt = [];
-  idx.gf = [];
-  idx.lbLeaders = [];
-  idx.champion = 0; idx.lbChampion = 0; idx.grandChampion = 0;
-  return idx as Index;
-}
-// Shift an ISO date string by N days.
 function shiftDate(iso: string, days: number): string {
   const d = new Date(iso + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + days);
@@ -549,10 +499,12 @@ function shiftDate(iso: string, days: number): string {
 }
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
-  // Leaderboard games are played by schools out of the bracket - none yet.
-  if (!simulatedSeason) return Promise.resolve([] as LbGame[]);
   if (!lbPromise) {
-    lbPromise = fetch(`${BASE}/lb.json`).then((r) => (r.ok ? r.json() : { games: [] })).then((d: { games: LbGame[] }) => d.games).catch(() => []);
+    lbPromise = simulatedSeason
+      ? fetch(`${BASE}/lb.json`).then((r) => r.ok ? r.json() : { games: [] })
+          .then((d: { games: LbGame[] }) => d.games).catch(() => [])
+      : loadIndex().then(() => preparedLb());
+    lbPromise.catch(() => { lbPromise = null; });
   }
   return lbPromise;
 }
