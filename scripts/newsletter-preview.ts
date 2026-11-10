@@ -136,9 +136,13 @@ ${row('Warnings', warn)}
 </table></div>`;
 }
 
-const SPONSOR_HTML = `<div style="margin:22px 0 0;padding:14px;border:1px dashed #9a9a9a;color:#666;text-align:center;font:12px Arial,Helvetica,sans-serif">
-SPONSOR SLOT: not filled. No sponsor source is approved for the newsletter yet (sponsor-incomplete).</div>`;
-const SPONSOR_TEXT = '[SPONSOR SLOT: not filled. No sponsor source is approved for the newsletter yet (sponsor-incomplete).]';
+// The global sponsor for the test runs (Pete, Nov 2026): the splash page's
+// global sponsor logo, public/img/splash-sponsors/global/american_new_logo.png.
+const SPONSOR_LOGO = 'https://yatstats.com/img/splash-sponsors/global/american_new_logo.png';
+const SPONSOR_HTML = `<div style="margin:22px 0 0;padding:14px;text-align:center;font:11px Arial,Helvetica,sans-serif;color:#666">
+<div style="margin-bottom:6px;letter-spacing:.08em">PRESENTED BY</div>
+<img src="${SPONSOR_LOGO}" alt="Global sponsor" width="220" style="max-width:220px;height:auto;border:0"></div>`;
+const SPONSOR_TEXT = '[Presented by our global sponsor]';
 
 const h2 = (s: string) => `<h2 style="margin:26px 0 8px;padding-bottom:4px;border-bottom:2px solid #1d1d1b;font-size:19px;letter-spacing:.03em">${esc(s)}</h2>`;
 const masthead = (name: string, sub: string) => `<div style="text-align:center;border-bottom:4px double #1d1d1b;padding-bottom:10px">
@@ -180,7 +184,7 @@ function boardTopHtml() {
   return `<table style="border-collapse:collapse;width:100%"><tr>
 ${bar('YAT?STATS ALUMNI BASEBALL', 'left')}
 <td style="width:124px;padding:0;vertical-align:bottom;text-align:center;background:linear-gradient(to bottom,transparent 76px,#173b21 76px)">
-<div style="box-sizing:border-box;width:108px;height:108px;margin:0 auto 6px;padding-top:38px;border-radius:50%;background:#fff;border:5px solid #173b21;box-shadow:0 0 0 2px #f5d76e;text-align:center;font:bold 11px/1.3 Arial,Helvetica,sans-serif;color:#8a8a8a">SPONSOR<br><span style="font-weight:normal;font-size:10px">not filled</span></div></td>
+<div style="box-sizing:border-box;width:108px;height:108px;margin:0 auto 6px;padding:16px 10px 0;border-radius:50%;background:#fff;border:5px solid #173b21;box-shadow:0 0 0 2px #f5d76e;text-align:center"><img src="${SPONSOR_LOGO}" alt="Global sponsor" width="78" style="width:78px;height:auto;border:0"></div></td>
 ${bar('BRACKET TOURNAMENT (2027)', 'right')}
 </tr></table>`;
 }
@@ -427,10 +431,9 @@ async function main() {
           season_key: ed.season_key, season_label: s.label, region: s.region, week: ed.week,
           ready_row: `edition_ready (${ed.cadence}, ${ed.period_start}), ready_at ${new Date(ed.ready_at).toISOString()}, cutoff ${new Date(ed.cutoff_at).toISOString()}`,
           subject: made.subject, counts: made.counts, warnings: made.warnings, keys: made.keys,
-          sponsor: 'sponsor-incomplete: no sponsor source approved for the newsletter; nothing printed in the slot',
+          sponsor: `global sponsor (test runs): ${SPONSOR_LOGO}`,
         };
-        p.incomplete_because = ['sponsor-incomplete'];
-        p.complete = false;
+        p.complete = !made.warnings?.length;
         const base = join(out, cadence, fileName(r.email));
         p.html_path = `${base}.html`;
         p.text_path = `${base}.txt`;
