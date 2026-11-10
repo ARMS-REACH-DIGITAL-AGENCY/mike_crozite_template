@@ -1246,7 +1246,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
 
   const sql = `
     WITH school_players AS (
-      SELECT
+      SELECT ${scope === 'player' ? 'DISTINCT' : ''}
         ph.playerid,
         tp.firstname,
         tp.lastname,
