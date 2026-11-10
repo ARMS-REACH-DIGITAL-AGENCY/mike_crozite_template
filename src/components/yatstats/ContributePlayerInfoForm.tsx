@@ -153,7 +153,9 @@ export default function ContributePlayerInfoForm({
       const body=await res.json().catch(()=>({}));
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
       setMessage(body.review === 'published_player'
-        ? `Player created and searchable now. YAT ID: ${body.playerId}. Open Global Search to find the new profile.`
+        ? `Player created and searchable now. YAT ID: ${body.playerId}. Open Global Search to find the new profile.` +
+          (body.instagram === 'registered' ? ' Instagram linked and the professional-account check started.' :
+            body.instagram === 'needs_review' ? ' Instagram handle needs verification before linking.' : '')
         : body.review === 'preview_only'
         ? 'Preview test only. No player or other data was created.'
         : body.review === 'published_commitment'
@@ -162,7 +164,9 @@ export default function ContributePlayerInfoForm({
             : 'UNCOMMITTED status published! Row 3 will show the uncommitted image after refresh.') +
             (body.otherFieldsQueued ? ' Your other profile edits were submitted separately.' : '')
         : body.review === 'published_profile'
-        ? 'Player status and level saved. The school page is updating now.'
+        ? 'Player information published. The school page is updating now.' +
+          (body.instagram === 'registered' ? ' Instagram connected; the professional-account check is running.' :
+            body.instagram === 'needs_review' ? ' Instagram handle could not be linked and needs verification.' : '')
         : body.review === 'published_team'
         ? 'Current team, playing level, and conference published. The college commitment record was not changed. Refresh to view the updated card.'
         : body.review === 'published'
