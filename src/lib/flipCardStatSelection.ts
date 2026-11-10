@@ -73,7 +73,7 @@ export function primaryStatFamily(input: {
   return input.legacyIsPitcher ? "pitching" : "batting";
 }
 
-export function orderByPrimaryStatFamily<T extends { family: FlipCardStatFamily }>(
+export function orderByPrimaryStatFamily<T extends { family?: FlipCardStatFamily }>(
   buckets: T[],
   primary: FlipCardStatFamily
 ): T[] {
