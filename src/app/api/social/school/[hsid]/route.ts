@@ -15,7 +15,9 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ hsid: 
   try {
     const { rows } = await query(
       `SELECT p.external_post_id AS id, p.media_type, p.caption, p.permalink,
-              p.thumbnail_url, p.published_at, s.handle
+              p.thumbnail_url,
+              CASE WHEN p.media_url_expires_at > now() THEN p.media_url ELSE NULL END AS media_url,
+              p.published_at, s.handle
          FROM social_sources s
          JOIN social_posts p ON p.social_source_id = s.id
         WHERE s.hsid = $1 AND s.owner_type = 'school'
