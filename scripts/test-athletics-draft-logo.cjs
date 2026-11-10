@@ -41,7 +41,7 @@ for (const id of ['1','12','18','31','10011','10013','10014','10018']) {
 // Guard against silently rewriting IDs or unrelated photo paths.
 assert.equal(assetUrl('teams/37.png'), s3 + 'teams/37.png');
 assert.equal(assetUrl('teams-web/37.webp'), s3 + 'teams-web/37.webp');
-assert.equal(assetUrl('teams/10011.png'), s3 + 'teams/10011.png');
+assert.equal(assetUrl('teams/10011.png'), '/img/ys-crest.png');
 assert.equal(assetUrl('teams/21.jpg'), s3 + 'teams/21.jpg');
 assert.equal(assetUrl('teams-web/21.png'), s3 + 'teams-web/21.png');
 assert.equal(assetUrl('players/21.png'), s3 + 'players/21.png');
