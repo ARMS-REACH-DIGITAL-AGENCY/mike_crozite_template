@@ -22,12 +22,12 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ hsid: 
           AND s.platform = 'instagram' AND s.status = 'active'
           AND p.thumbnail_url IS NOT NULL
         ORDER BY p.published_at DESC NULLS LAST
-        LIMIT 12`,
+        LIMIT 30`,
       [hsid],
     );
     return NextResponse.json(
       { posts: rows },
-      { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=900, stale-while-revalidate=3600' } },
+      { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
     console.error('school social posts failed', { hsid, error });
