@@ -309,7 +309,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
 
           <FunZone
             player={p}
-            isPitcher={isPitcher}
+            isPitcher={primaryPitcher}
             isAllTime={isAllTime ?? false}
             resolvedHsid={resolvedHsid}
             stats={seasonStatsPending ? stats.map((stat) => ({ ...stat, v: "—" })) : stats}
