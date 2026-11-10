@@ -260,7 +260,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   // Family selection is an outer pair of tabs; existing per-level buckets
   // remain accessible within each family (MLB/MiLB/College, etc.).
   const statBuckets: FunZoneStatBucket[] = battingTabs.length || pitchingTabs.length
-    ? orderByPrimaryStatFamily([...battingTabs, ...pitchingTabs], primaryFamily)
+    ? orderByPrimaryStatFamily<FunZoneStatBucket>([...battingTabs, ...pitchingTabs], primaryFamily)
     : [{ label: statBarLabel, stats }];
 
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
