@@ -44,6 +44,7 @@ const route = compile('src/app/api/contribute/photo/route.ts', {
     identifyContributor: async () => signedIn ? { uid: 'test', name: 'Test Fan' } : null,
     contributionsToday: async () => 0,
     isReviewer: () => false,
+    canPublishFor: () => false,
     logContribution: async () => {},
     notifyContributor: async () => {},
     photoLinkPath: () => '/test-player',
