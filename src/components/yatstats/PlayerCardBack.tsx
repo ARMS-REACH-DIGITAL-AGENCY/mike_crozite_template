@@ -170,7 +170,7 @@ function buildFunZoneBuckets(
     .filter((bucket) => bucket.stats.some((item) => item.v !== "--"));
 
   if (mapped.length > 1) return mapped;
-  if (mapped.length === 1) return [{ label: fallbackLabel, stats: mapped[0].stats }];
+  if (mapped.length === 1) return mapped; // Keep the actual level label, even without level choices.
 
   return [{ label: fallbackLabel, stats: fallbackStats }];
 }
