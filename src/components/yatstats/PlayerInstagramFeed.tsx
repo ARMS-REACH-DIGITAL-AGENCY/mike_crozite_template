@@ -90,7 +90,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
     const load = () => {
       if (done) return;
       done = true;
-      fetch(schoolHsid ? `/api/social/school/${encodeURIComponent(schoolHsid)}` : `/api/social/player/${encodeURIComponent(playerId)}`)
+      fetch(schoolHsid ? `/api/social/school/${encodeURIComponent(schoolHsid)}` : `/api/social/player/${encodeURIComponent(playerId)}`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : { posts: [] }))
         .then((d) => setPosts(Array.isArray(d?.posts) ? d.posts : []))
         .catch(() => setPosts([]));
@@ -123,7 +123,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const count = posts?.length || 0;
   const step = useCallback(
     (by: number) => {
-        setOpen((i) => (i === null || !count ? i : (i + by + count) % count));
+      setOpen((i) => (i === null || !count ? i : (i + by + count) % count));
     },
     [count]
   );
@@ -152,7 +152,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // own player instead, once we know no picture is coming.
   const hasPicture = Boolean(current?.thumbnail_url?.trim() && brokenPictureId !== current?.id);
   // A single tap opens playable video/carousel media for BOTH Social and News.
-  // The October 2021-like image-then-"PLAY REEL" step was introduced on Oct 21,
+  // The image-then-"PLAY REEL" step was introduced on October 21,
   // 2026 and must not be reintroduced. Still photos retain uncropped originals.
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
@@ -168,8 +168,8 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // Instagram limits to between 1.91:1 and 4:5.
   const isReel = /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video';
   const pictureShape = current ? aspects[current.id] : undefined;
-  // News reels use a 9:16 viewport; standard posts/carousels retain Instagram's post proportions.
-  // Social-tab sizing stays unchanged.
+  // Reels use the same 9:16 viewport in Social and News; still images
+  // retain their original proportions.
   const heightPerWidth = isReel ? 16 / 9 : (pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
   // Instagram photo embeds include an additional action/footer region after the
   // media. Keep that region outside our crop while preserving full media height.
