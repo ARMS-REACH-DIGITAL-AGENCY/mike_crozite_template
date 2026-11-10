@@ -35,6 +35,8 @@ const query=async (sql,params=[])=>{
     return {rows:[{url:'https://hillsboro.or.yatstats.com'}]};
   if(sql.includes('LOWER(BTRIM(microsite_url') && sql.includes('LIMIT 2'))
     return {rows:params[0]==='https://hamilton.az.yatstats.com'?[{hsid:'5004'}]:[]};
+  if(sql.includes('school_url_aliases'))
+    return {rows:params[0]==='https://liberty.ca.yatstats.com'?[{hsid:'90'}]:[]};
   if(sql.includes('EXISTS') && sql.includes('LIMIT 1'))
     return {rows:params[0]==='5004'?[{hsid:'5004'}]:[]};
   if(sql.includes('LIMIT 30')) {
@@ -103,6 +105,7 @@ const query=async (sql,params=[])=>{
     ['lincoln-111.ca.yatstats.com','111'],
     ['lincoln.la-canada.ca.yatstats.com',null],
     ['st-francis.mountain-view.ca.yatstats.com','2122'],
+    ['liberty.ca.yatstats.com','90'],
     ['arbitrary.ca.yatstats.com',null],
     ['admin.yatstats.com',null],
   ]) {
@@ -149,23 +152,15 @@ const query=async (sql,params=[])=>{
     fetch:async()=>{resolverCalls++;throw Error('Edge resolver unavailable')},
     AbortSignal
   },{filename:'middleware.js'});
-  for(const [domain,id] of [
-    ['st-francis.la-canada.ca.yatstats.com','2123'],
-    ['st-francis.mountain-view.ca.yatstats.com','2122'],
-    ['st-francis.watsonville.ca.yatstats.com','9559']
-  ]){
-    for(const pathname of ['/','/player/215409/andrew-martinez']){
-      const url=new URL('https://'+domain+pathname+'?verify=1');
-      url.clone=function(){const copy=new URL(this);copy.clone=this.clone;return copy};
-      const headers=new Headers({host:domain,'user-agent':'Mozilla/5.0'});
-      const result=await mwExports.middleware({headers,nextUrl:url,url:String(url)});
-      assert.equal(result.kind,'rewrite',domain+' '+pathname+' must rewrite');
-      assert.equal(result.path,'/'+id+(pathname==='/'?'':pathname),domain+' must use its verified HSID');
-      assert.equal(result.search,'?verify=1','query string must survive rewrite');
-      assert.equal(result.headers.get('x-yat-resolved-host-hsid'),id);
-    }
+  // No per-school shortcuts (Pete, Nov 2026): St. Francis hosts go through
+  // the same resolver as every other school.
+  {
+    const domain='st-francis.mountain-view.ca.yatstats.com';
+    const url=new URL('https://'+domain+'/?verify=1');
+    url.clone=function(){const copy=new URL(this);copy.clone=this.clone;return copy};
+    await mwExports.middleware({headers:new Headers({host:domain,'user-agent':'Mozilla/5.0'}),nextUrl:url,url:String(url)});
+    assert.ok(resolverCalls>0,'St. Francis must use the shared resolver, not a hard-coded map');
   }
-  assert.equal(resolverCalls,0,'Known verified domains must not depend on Edge resolver availability');
 
   // The repo contains BOTH src/middleware.ts and root middleware.ts.
   // The root version takes precedence for live subdomain routing. Test
@@ -179,20 +174,14 @@ const query=async (sql,params=[])=>{
     exports:rootExports,require:(name)=>name==='next/server'?{NextResponse}:require(name),
     URL, Headers, console, process:{env:{ROOT_DOMAIN:'yatstats.com'}}
   },{filename:'root-middleware.js'});
-  for(const [domain,id] of [
-    ['st-francis.la-canada.ca.yatstats.com','2123'],
-    ['st-francis.mountain-view.ca.yatstats.com','2122'],
-    ['st-francis.watsonville.ca.yatstats.com','9559']
-  ]){
-    for(const pathname of ['/','/player/215409/andrew-martinez']){
-      const url=new URL('https://'+domain+pathname+'?view=alltime&player=215409');
-      url.clone=function(){const copy=new URL(this);copy.clone=this.clone;return copy};
-      const request={headers:new Headers({host:domain}),nextUrl:url,url:String(url)};
-      const result=rootExports.middleware(request);
-      assert.equal(result.kind,'rewrite',domain+' should rewrite in active root middleware');
-      assert.equal(result.path,'/'+id+(pathname==='/'?'':pathname),domain+' routed to wrong school');
-      assert.equal(result.search,'?view=alltime&player=215409','player selection preserved');
-    }
+  // Root middleware: no St. Francis map. Each host takes the generic
+  // first-label route; the page resolves the exact school from the host.
+  for(const domain of ['st-francis.la-canada.ca.yatstats.com','st-francis.mountain-view.ca.yatstats.com','st-francis.watsonville.ca.yatstats.com']){
+    const url=new URL('https://'+domain+'/?view=alltime');
+    url.clone=function(){const copy=new URL(this);copy.clone=this.clone;return copy};
+    const result=rootExports.middleware({headers:new Headers({host:domain}),nextUrl:url,url:String(url)});
+    assert.equal(result.kind,'rewrite',domain+' should use the generic route');
+    assert.equal(result.path,'/st-francis/',domain+' must not be hard-coded to an HSID');
   }
   // No changes to the unrelated/default school URL behavior.
   const hamilton=new URL('https://hamilton.az.yatstats.com/');

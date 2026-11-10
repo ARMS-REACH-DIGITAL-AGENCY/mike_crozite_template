@@ -523,6 +523,22 @@ export const getSchoolByHsid = cache(keptAcrossRequests('getSchoolByHsid', async
   return raw[0] || null;
 }));
 
+// A school's previous address (school_url_aliases, Pete Nov 2026). The page
+// 308-redirects a visitor who arrives on it to the school's current address.
+export const isSchoolAliasHost = cache(async function isSchoolAliasHost(host: string): Promise<boolean> {
+  const h = String(host || '').toLowerCase().split(':')[0].trim();
+  if (!h.endsWith('.yatstats.com')) return false;
+  try {
+    const { rows } = await query(
+      'SELECT 1 FROM public.school_url_aliases WHERE old_url = $1 LIMIT 1',
+      [`https://${h}`],
+    );
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+});
+
 export const getSchoolByUrl = cache(keptAcrossRequests('getSchoolByUrl', async function getSchoolByUrl(hostOrUrl: string) {
   const { hostOnly, httpsUrl } = normalizeHostOrUrl(hostOrUrl);
   if (!hostOnly || !httpsUrl) return null;
