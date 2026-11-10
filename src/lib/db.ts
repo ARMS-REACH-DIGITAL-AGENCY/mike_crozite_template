@@ -1263,7 +1263,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       FROM player_hsids ph
       JOIN tbc_players_raw tp
         ON ph.playerid::text = tp.playerid::text
-      WHERE ${scope === 'school' ? 'ph.hsid::text' : 'ph.playerid::text'} = $1::text
+      WHERE ${scope === 'school' ? 'ph.hsid = $1' : 'ph.playerid::text = $1::text'}
 
       UNION ALL
       -- First-party contributed players have a verified school identity
