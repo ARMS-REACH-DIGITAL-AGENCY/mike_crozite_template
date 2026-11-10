@@ -117,7 +117,7 @@ export async function canonicalSchoolUrls(
     const root = String(r.name_slug);
     const city = String(r.city_slug || 'city');
     candidates.add(`https://${root}.${state}.yatstats.com`);
-    candidates.add(`https://${root}.${city}.${state}.yatstats.com`);
+    candidates.add(`https://${root}-${city}.${state}.yatstats.com`);
   }
   const claimed = new Set<string>();
   if (candidates.size) {
@@ -141,20 +141,20 @@ export async function canonicalSchoolUrls(
     const city = String(r.city_slug || 'city');
     if (!/^[a-z]{2}$/.test(state)) continue;
     const base = `https://${root}.${state}.yatstats.com`;
-    const cityBase = `https://${root}.${city}.${state}.yatstats.com`;
+    const cityBase = `https://${root}-${city}.${state}.yatstats.com`;
     const needsCity = Number(r.same_state_name_count) > 1;
     // Two records with identical name, city and state cannot be identified
     // uniquely by those public fields. Preserve both real HSIDs rather than
     // sending one school's fans to the other school's roster.
     const needsId = needsCity && (Number(r.same_name_city_count) > 1 || claimed.has(cityBase));
-    // Only schools sharing a name in one state get a city label.
-    // An HSID suffix disambiguates genuinely identical name+city+state.
-    if (needsCity) {
-      const cityLabel = needsId ? `${city}-${id}` : city;
-      mapped.set(id, `https://${root}.${cityLabel}.${state}.yatstats.com`);
-    } else {
-      mapped.set(id, base);
-    }
+    // Do not publish unprovisioned extra-depth domains for the rest of the
+    // directory. Existing generated one-label collision URLs stay reachable.
+    // Confirmed dot-city schools are curated in school_success and take the
+    // explicit existing-URL path above. Migrate further groups only after
+    // their Vercel domains are provisioned and individual HSIDs verified.
+    mapped.set(id, needsCity
+      ? `https://${root}-${city}${needsId ? `-${id}` : ''}.${state}.yatstats.com`
+      : base);
   }
   return mapped;
 }
