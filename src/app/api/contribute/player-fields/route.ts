@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, getPlayerSocialHandles } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
@@ -26,7 +26,8 @@ export async function GET(req: NextRequest) {
       (SELECT u.current_team_name FROM teamid_universe_mapping u WHERE u.teamid=f.committed_teamid LIMIT 1) AS committed_team_name
       FROM flip_card_front_stage f WHERE f.playerid = $1 LIMIT 1`, [playerId]);
     if (!rows[0]) return NextResponse.json({ error: 'Player not found.' }, { status: 404 });
-    return NextResponse.json({ player: rows[0] }, { headers: { 'Cache-Control': 'no-store' } });
+    const social = await getPlayerSocialHandles(playerId);
+    return NextResponse.json({ player: { ...rows[0], ...social } }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[player-fields] prefill failed', error);
     return NextResponse.json({ error: 'Player details are unavailable.' }, { status: 500 });
