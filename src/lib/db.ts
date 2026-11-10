@@ -1240,7 +1240,7 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // statement timeout", a blank All-Time list and an ~18s page). Same rows
 // either way: Hamilton's 107 rows fingerprint identically before and after;
 // a trimmed version for Perry went from 2.74s to 0.44s.
-export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-indexed-school-scope-v3', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-indexed-school-scope-v3', async function getAllTimeRosterByHsid(hsid: string, scope: 'school' | 'player' = 'school'): Promise<any[]> {
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
@@ -1259,7 +1259,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       FROM player_hsids ph
       JOIN tbc_players_raw tp
         ON ph.playerid::text = tp.playerid::text
-      WHERE ph.hsid = $1
+      WHERE ${scope === 'school' ? 'ph.hsid::text' : 'ph.playerid::text'} = $1::text
 
       UNION ALL
       -- First-party contributed players have a verified school identity
@@ -1276,7 +1276,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
         NULL::text AS throws,
         f.position
       FROM public.flip_card_front_stage f
-      WHERE f.hsid::text = $1::text
+      WHERE ${scope === 'school' ? 'f.hsid::text' : 'f.playerid::text'} = $1::text
         AND f.source_summary->>'source' = 'contribute'
         AND NOT EXISTS (
           SELECT 1 FROM public.tbc_players_raw tp
@@ -1812,6 +1812,14 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
   const { rows } = await query(sql, [hsid]);
   return rows;
 }, ALL_TIME_ROSTER_TTL_SECONDS));
+
+// The school and cross-school embedded flip card must use the SAME
+// all-time career/level aggregation, scoped by the player ID for a single
+// favorite. Do not query an entire school's roster for each favorite.
+export async function getAllTimeRosterRowByPlayerId(playerId: string): Promise<any | null> {
+  const rows = await getAllTimeRosterByHsid(playerId, 'player');
+  return rows.find((row) => String(row.playerid) === playerId) || null;
+}
 
 export interface PlayerSlugMatch {
   playerid: string;
