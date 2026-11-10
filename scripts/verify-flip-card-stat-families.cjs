@@ -70,6 +70,15 @@ assert(favorites.includes("'.fz-stat-bucket-btn[data-fz-stat-family], .fz-stat-b
 assert(favorites.includes('grid.replaceChildren()'), "Injected card refreshes stats rather than just switching a class");
 assert(favorites.includes("levelRow.replaceChildren()"), "Injected cards reconstruct the proper per-family level tabs");
 assert(!favorites.includes("215409"), "No player-specific favorite exceptions");
+// Favorites must retrieve the canonical career buckets for retired athletes,
+// not a stage-only record with every statistic "--".
+const db = fs.readFileSync("src/lib/db.ts", "utf8");
+const embed = fs.readFileSync("src/app/embed/player-card/[playerId]/page.tsx", "utf8");
+assert(db.includes('getAllTimeRosterRowByPlayerId(playerId: string)'), "Player-scoped historical reader must exist");
+assert(db.includes("getAllTimeRosterByHsid(`player:${playerId}`)"), "Cache keys for players and schools must not collide");
+assert(db.includes("scope === 'school' ? 'ph.hsid = $1'"), "Keep original indexed school predicate");
+assert(embed.includes('getAllTimeRosterRowByPlayerId(id)'), "Retired embed must read actual career buckets");
+assert(embed.includes('isAllTime={!activeRow}'), "Retired embed uses the same all-time layout as native school gallery");
 assert(!card.includes("215409"));
 assert(!zone.includes("215409"));
 console.log("PASS platform-wide flip-card batting/pitching tabs and primary-role regressions");
