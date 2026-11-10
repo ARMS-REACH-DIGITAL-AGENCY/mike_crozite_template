@@ -434,6 +434,7 @@ async function main() {
           sponsor: `global sponsor (test runs): ${SPONSOR_LOGO}`,
         };
         p.complete = !made.warnings?.length;
+        p.incomplete_because = p.complete ? [] : made.warnings;
         const base = join(out, cadence, fileName(r.email));
         p.html_path = `${base}.html`;
         p.text_path = `${base}.txt`;
