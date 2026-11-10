@@ -312,7 +312,8 @@ export async function POST(req: NextRequest) {
         return fail(`A yearly hero already exists for ${year}. Choose Edit / Replace beside that photo in the Contribute form.`,409);
     }
 
-    if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT) {
+    if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT &&
+        !isReviewer(who) && !canPublishFor(who, hsid, playerId || undefined)) {
       return fail("You've sent a lot today. Thank you! Please send the rest tomorrow.", 429);
     }
 
