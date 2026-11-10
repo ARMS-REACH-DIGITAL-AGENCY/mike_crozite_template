@@ -16,6 +16,7 @@ export type InstagramViewerPost = {
   caption?: string | null;
   permalink?: string | null;
   thumbnail_url: string;
+  media_url?: string | null;
   published_at?: string | null;
   handle?: string | null;
   /** News only: the post's own picture is still being looked up. */
@@ -37,6 +38,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const [posts, setPosts] = useState<InstagramViewerPost[] | null>(externalPosts || null);
   const [open, setOpen] = useState<number | null>(null);
   const [brokenPictureId, setBrokenPictureId] = useState<string | null>(null);
+  const [brokenVideoId, setBrokenVideoId] = useState<string | null>(null);
   const touchX = useRef<number | null>(null);
   const [viewerScale, setViewerScale] = useState(1);
   // Each post's width:height, read from its picture, so Instagram's player
@@ -146,6 +148,8 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   }, [open, step, close]);
 
   const current = open !== null && posts ? posts[open] : null;
+  const nativeVideoUrl = current?.media_type === 'video' && current.media_url && brokenVideoId !== current.id
+    ? current.media_url : null;
   const embedUrl = current?.permalink ? `${current.permalink.replace(/\/?$/, '/')}embed/` : null;
   const hasInteractiveMedia = Boolean(embedUrl && (current?.media_type === 'video' || current?.media_type === 'carousel'));
   // No picture of the post itself (never a stand-in photo): show Instagram's
@@ -157,7 +161,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
   // Render the original Instagram post for all News media, never substitute that thumbnail.
-  const embedShown = Boolean(embedUrl && (externalPosts
+  const embedShown = Boolean(!nativeVideoUrl && embedUrl && (externalPosts
     ? (isInteractiveNews || !hasPicture)
     : (hasInteractiveMedia || (!hasPicture && !current?.media_pending))));
   // Instagram's player (measured): a 54px account bar with "View profile",
@@ -256,7 +260,20 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               )}
             </div>
             <div className="pp-ig-media" ref={mediaRef}>
-              {embedShown && embedUrl ? (
+              {nativeVideoUrl ? (
+                <video
+                  key={current.id}
+                  src={nativeVideoUrl}
+                  autoPlay
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster={current.thumbnail_url || undefined}
+                  onError={() => setBrokenVideoId(current.id)}
+                  aria-label={'Play Instagram Reel by @' + (current.handle || 'unknown')}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#050505' }}
+                />
+              ) : embedShown && embedUrl ? (
                 embedBox && (
                   <div className="pp-ig-embed-crop" style={{ width: embedBox.width, height: embedBox.height }}>
                     <iframe
