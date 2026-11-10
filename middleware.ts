@@ -69,8 +69,8 @@ export function middleware(request: NextRequest) {
   if (verifiedSchoolId) {
     // Numeric routes already identify the intended school; do not rewrite
     // them or alter other request/query information.
-    if (/^\\/\\d+(?:\\/|$)/.test(path)) return NextResponse.next();
-    const staticPath = /\\.(png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|ttf|eot|otf|css|js|json|txt|xml|webmanifest)$/i;
+    if (/^[0-9]+$/.test(firstSegment)) return NextResponse.next();
+    const staticPath = /\.(png|jpg|jpeg|gif|svg|ico|webp|avif|woff2?|ttf|eot|otf|css|js|json|txt|xml|webmanifest)$/i;
     if (staticPath.test(path)) return NextResponse.next();
     url.pathname = path === "/" ? `/${verifiedSchoolId}` : `/${verifiedSchoolId}${path}`;
     return NextResponse.rewrite(url);
