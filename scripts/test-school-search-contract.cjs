@@ -23,8 +23,12 @@ function loadRoute(code, rows, failUrls = false) {
   const mocks = {
     'next/server': { NextResponse: { json: (body, init = {}) => ({ body, ...init }) } },
     '@/lib/db': { query: async (sql, params) => {
-      calls.push({ sql: sql.replace('s.microsite_url, s.bracket_seeding', 's.microsite_url')
-        .replace('        microsite_url,\n        bracket_seeding', '        microsite_url'), params });
+      calls.push({ sql, params });
+      if (sql.includes('FROM master_bracket')) {
+        // 2027 field, NOT the original 1,024-school bracket_seeding column.
+        const eligibleHsids = new Set([102, 104]);
+        return { rows: params[0].filter(id => eligibleHsids.has(id)).map(hsid => ({ hsid })) };
+      }
       return { rows: structuredClone(rows) };
     } },
     '@/lib/activeAlumni': helper.exports,
@@ -48,7 +52,7 @@ const withoutLinks = programs => plain(programs).map(({ microsite_url, bracket_e
   const rows = Array.from({ length: 65 }, (_, i) => ({ hsid: 100 + i,
     hsname: `School ${i}`, hslocation: 'City,AZ', regionid: 'AZ',
     active_stats_pending: i === 3, current_aa: i === 3 ? 0 : 74 - i, mlb: i % 4, atnla: 90 - i, drafted_hs: i % 3,
-    drafted: i % 7, bracket_seeding: i === 2 ? 12 : null,
+    drafted: i % 7, bracket_seeding: (i === 2 || i === 3) ? 'R1' : null,
     microsite_url: i === 0 ? 'https://existing.az.yatstats.com/' : '',
   }));
   const cases = ['Ar', 'Ari', 'Ariz', 'Arizo', 'Arizon', 'Arizona', 'AZ', 'Hamilton', ''];
@@ -78,8 +82,12 @@ const withoutLinks = programs => plain(programs).map(({ microsite_url, bracket_e
       assert.doesNotMatch(sql, /status_label[^]*?ANY\(\$/);
       assert.equal(after.body.programs.length, 65, 'Do not truncate or append result rows during URL activation.');
       assert.equal(after.body.programs[0].microsite_url, rows[0].microsite_url, 'Preserve existing URLs.');
-      assert.equal(after.body.programs[2].bracket_eligible, true);
+      assert.equal(after.body.programs[2].bracket_eligible, true, '2027 school retains bracket icon.');
+      assert.equal(after.body.programs[3].bracket_eligible, false, 'Old 1024 school removed from 2027 has NO icon.');
+      assert.equal(after.body.programs[4].bracket_eligible, true, 'New 2027 school gains icon without old seeding.');
       assert.equal(after.body.programs[1].bracket_eligible, false, 'A new URL does not grant a tournament berth.');
+      assert.equal(newRoute.calls.filter(call => call.sql.includes('FROM master_bracket')).length, 1,
+        'Only one bounded eligibility lookup per search response.');
       if (!failUrls) assert.equal(after.body.programs[1].microsite_url, 'https://test-101.az.yatstats.com');
       passed++;
     }
