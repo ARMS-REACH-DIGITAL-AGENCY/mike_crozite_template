@@ -51,7 +51,7 @@ assert.equal(orderByPrimaryStatFamily(buckets, "pitching")[0].family, "pitching"
 // Verify the global renderer offers both tabs; never add a player-specific exemption.
 const card = fs.readFileSync("src/components/yatstats/PlayerCardBack.tsx", "utf8");
 const zone = fs.readFileSync("src/components/yatstats/FunZone.tsx", "utf8");
-assert(card.includes('orderByPrimaryStatFamily([...battingTabs, ...pitchingTabs], primaryFamily)'));
+assert(card.includes('orderByPrimaryStatFamily<FunZoneStatBucket>([...battingTabs, ...pitchingTabs], primaryFamily)'));
 assert(zone.includes('aria-label="Batting or pitching statistics"'));
 assert(zone.includes('{family === "batting" ? "HITTING" : "PITCHING"}'));
 assert(!card.includes("215409"));
