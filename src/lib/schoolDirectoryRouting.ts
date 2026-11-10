@@ -142,7 +142,7 @@ export async function canonicalSchoolUrls(
     if (!/^[a-z]{2}$/.test(state)) continue;
     const base = `https://${root}.${state}.yatstats.com`;
     const cityBase = `https://${root}.${city}.${state}.yatstats.com`;
-    const needsCity = Number(r.same_state_name_count) > 1 || claimed.has(base);
+    const needsCity = Number(r.same_state_name_count) > 1;
     // Two records with identical name, city and state cannot be identified
     // uniquely by those public fields. Preserve both real HSIDs rather than
     // sending one school's fans to the other school's roster.
