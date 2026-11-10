@@ -906,6 +906,11 @@ export default function FunZone({
               ))}
             </div>
           )}
+          {hasBothStatFamilies && activeFamilyBuckets.length === 1 && (
+            <div className="fz-stat-single-level-label" aria-label="Statistics level">
+              {activeStatsBucket.label}
+            </div>
+          )}
           {activeFamilyBuckets.length > 1 && (
             <div className="fz-stat-bucket-tabs" role="tablist" aria-label="Stats level buckets">
               {activeFamilyBuckets.map(({ bucket, idx }) => (
@@ -1140,6 +1145,21 @@ export default function FunZone({
           min-height:0;
         }
 
+        .fz-stat-single-level-label{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          min-height:clamp(18px,5cqi,28px);
+          padding:clamp(2px,.7cqi,5px) clamp(3px,1cqi,7px);
+          border:1px solid rgba(30,22,14,0.22);
+          border-radius:clamp(3px,1cqi,6px);
+          color:rgba(30,22,14,.9);
+          background:rgba(255,255,255,0.25);
+          font:700 clamp(6px,2.1cqi,10px)/1.05 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.05em;
+          text-transform:uppercase;
+          flex-shrink:0;
+        }
         .fz-stat-bucket-tabs{
           display:grid;
           grid-template-columns:repeat(auto-fit,minmax(0,1fr));
