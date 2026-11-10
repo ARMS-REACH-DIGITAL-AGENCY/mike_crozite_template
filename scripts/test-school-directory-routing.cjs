@@ -12,6 +12,9 @@ const routing=out.exports;
 
 assert.equal(routing.schoolNameSlug('St. Mary & Joseph'), 'st-mary-joseph');
 assert.equal(routing.schoolHostnamePattern('hamilton.az.yatstats.com').slug,'hamilton');
+assert.equal(routing.schoolHostnamePattern('st-francis.mountain-view.ca.yatstats.com').city,'mountain-view');
+assert.equal(routing.schoolHostnamePattern('st-francis.la-canada.ca.yatstats.com').slug,'st-francis');
+assert.equal(routing.schoolHostnamePattern('st-francis.watsonville.ca.yatstats.com').state,'CA');
 assert.equal(routing.schoolHostnamePattern('5004.yatstats.com').hsid,'5004');
 assert.equal(routing.schoolHostnamePattern('yatstats.com'),null);
 assert.equal(routing.schoolHostnamePattern('www.yatstats.com'),null);
@@ -23,6 +26,7 @@ const schools=[
   {hsid:'111',name_slug:'lincoln',city_slug:'san-jose',regionid:'CA',existing:null,same_state_name_count:2,same_name_city_count:1},
   {hsid:'112',name_slug:'lincoln',city_slug:'los-angeles',regionid:'CA',existing:null,same_state_name_count:2,same_name_city_count:1},
   {hsid:'887',name_slug:'hillsboro',city_slug:'hillsboro',regionid:'OR',existing:null,same_state_name_count:1,same_name_city_count:1},
+  {hsid:'2122',name_slug:'st-francis',city_slug:'mountain-view',regionid:'CA',existing:'https://st-francis.mountain-view.ca.yatstats.com',same_state_name_count:3,same_name_city_count:1},
 ];
 const query=async (sql,params=[])=>{
   if(sql.includes('same_name_city_count'))
@@ -36,7 +40,9 @@ const query=async (sql,params=[])=>{
   if(sql.includes('LIMIT 30')) {
     const state=params[0];
     return {rows:schools.filter(s=>s.regionid===state && (
-      s.name_slug===params[1] || (s.name_slug+'-'+s.city_slug)===params[1] || (s.name_slug+'-'+s.hsid)===params[1]
+      params[2]
+        ? s.name_slug===params[1] && (s.city_slug===params[2] || s.city_slug+'-'+s.hsid===params[2])
+        : s.name_slug===params[1] || (s.name_slug+'-'+s.city_slug)===params[1] || (s.name_slug+'-'+s.hsid)===params[1]
     )).map(s=>({hsid:s.hsid,name_slug:s.name_slug}))};
   }
   throw Error('Unhandled mocked SQL: '+sql.slice(0,130));
@@ -48,7 +54,9 @@ const query=async (sql,params=[])=>{
   assert.equal(urls.get('111'),'https://lincoln-san-jose.ca.yatstats.com');
   assert.equal(urls.get('112'),'https://lincoln-los-angeles.ca.yatstats.com');
   assert.ok(!urls.get('111').includes('-111'), 'School ID must not replace a readable city');
-  assert.equal(urls.get('887'),'https://hillsboro-hillsboro.or.yatstats.com');
+  assert.equal(urls.get('887'),'https://hillsboro.or.yatstats.com', 'A unique school never acquires a city label even when the base URL is already claimed.');
+  const curated=await routing.canonicalSchoolUrls(['2122'],query);
+  assert.equal(curated.get('2122'),'https://st-francis.mountain-view.ca.yatstats.com','Verified curated same-name city host wins.');
   // Invalid and oversized IDs must remain no-match inputs, never PostgreSQL
   // integer-cast errors or a reason to run the expensive player-link lookup.
   let invalidCalls=0;
@@ -93,6 +101,8 @@ const query=async (sql,params=[])=>{
     ['hillsboro-887.or.yatstats.com','887'],
     ['lincoln.ca.yatstats.com',null],
     ['lincoln-111.ca.yatstats.com','111'],
+    ['lincoln.la-canada.ca.yatstats.com',null],
+    ['st-francis.mountain-view.ca.yatstats.com','2122'],
     ['arbitrary.ca.yatstats.com',null],
     ['admin.yatstats.com',null],
   ]) {
@@ -111,7 +121,7 @@ const query=async (sql,params=[])=>{
     {hsid:'111',hsname:'Lincoln',hslocation:'City,CA',microsite_url:urls.get('111'),bracket_eligible:false,current_aa:11},
   ],'No results',true);
   assert.ok(html.includes('href="https://melbourne.fl.yatstats.com"'), 'Melbourne must link');
-  assert.ok(html.includes('href="https://lincoln-san-jose.ca.yatstats.com"'), 'collision must link uniquely');
+  assert.ok(html.includes('href="https://lincoln-san-jose.ca.yatstats.com"'), 'Unprovisioned collision retains the reachable legacy hostname');
   assert.equal((html.match(/yat-search-school-bracket-link"/g)||[]).length,1,'only seeded Hamilton gets bracket');
   assert.ok(!html.includes('SCHOOL PAGE NOT AVAILABLE YET'),'active schools must not appear unavailable');
   console.log('PASS hostname resolution, canonical collisions, existing domains, safe integer IDs, complete statewide URL batches, numeric aliases, and Global Search links.');
