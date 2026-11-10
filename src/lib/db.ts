@@ -1240,7 +1240,11 @@ export const getActiveRosterRowByPlayerId = cache(async function getActiveRoster
 // statement timeout", a blank All-Time list and an ~18s page). Same rows
 // either way: Hamilton's 107 rows fingerprint identically before and after;
 // a trimmed version for Perry went from 2.74s to 0.44s.
-export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-indexed-school-scope-v3', async function getAllTimeRosterByHsid(hsid: string, scope: 'school' | 'player' = 'school'): Promise<any[]> {
+export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-indexed-school-scope-v3', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+  // The shared cross-request cache forwards one string key only. Namespaced
+  // player keys prevent collisions with school IDs and preserve old school caches.
+  const scope = hsid.startsWith('player:') ? 'player' : 'school';
+  const lookupId = scope === 'player' ? hsid.slice('player:'.length) : hsid;
   const n = (col: string) =>
     `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
 
@@ -1809,7 +1813,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
       sp.lastname,
       sp.firstname
   `;
-  const { rows } = await query(sql, [hsid]);
+  const { rows } = await query(sql, [lookupId]);
   return rows;
 }, ALL_TIME_ROSTER_TTL_SECONDS));
 
@@ -1817,7 +1821,7 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
 // all-time career/level aggregation, scoped by the player ID for a single
 // favorite. Do not query an entire school's roster for each favorite.
 export async function getAllTimeRosterRowByPlayerId(playerId: string): Promise<any | null> {
-  const rows = await getAllTimeRosterByHsid(playerId, 'player');
+  const rows = await getAllTimeRosterByHsid(`player:${playerId}`);
   return rows.find((row) => String(row.playerid) === playerId) || null;
 }
 
