@@ -6,6 +6,7 @@
 import { query } from '@/lib/db';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import type { GameBox, GameRow, Index, LbGame, SeriesRow } from '@/components/bracket/gallery';
+import type { InAction } from '@/components/bracket/inAction';
 
 type Stored = {
   stage: string; round: number; series_no: number; game_no: number; game_id: number; week: number;
@@ -15,9 +16,11 @@ type Stored = {
   computed_at: string | null; box: GameBox | null;
 };
 // A week in progress: its game, the inning it's in (0-6 = Monday-Sunday) and
-// whether that day's runs are posted (yellow until the day closes).
-export type LiveInning = [gameId: number, day: number, phase: 'top' | 'posted'];
-export type Prepared = { index: Index; boxes: Record<string, GameBox>; lb: LbGame[]; live: LiveInning[] };
+// where that day stands: the Top, the Bottom (its games under way) or posted
+// (its runs up, yellow until the day closes).
+export type LiveInning = [gameId: number, day: number, phase: 'top' | 'bottom' | 'posted'];
+// Each school's "in action today" strip, as of the results job's run today.
+export type Prepared = { index: Index; boxes: Record<string, GameBox>; lb: LbGame[]; live: LiveInning[]; inAction: [hsid: number, info: InAction][] };
 
 // The bracket pages draw Rounds 1-10 and Weeks 1-34 (C1, C2, CG, YWS).
 const ROUNDS = 10;
@@ -54,6 +57,7 @@ export async function preparedIndex(season: string, region: number, now = Date.n
 
   const boxes: Record<string, GameBox> = {};
   const live: LiveInning[] = [];
+  const inAction = new Map<number, InAction>();
   const toGame = (g: Stored): GameRow => {
     const final = g.status === 'final';
     const [ws] = weeks[g.week - 1] || [];
@@ -61,7 +65,15 @@ export async function preparedIndex(season: string, region: number, now = Date.n
       // Shown as of the job's last run: through its day, never past today.
       const through = g.computed_at ? bracketDay(Date.parse(g.computed_at)) : ws;
       const day = Math.max(0, Math.min(6, daysFrom(ws, through < today ? through : today)));
-      live.push([g.game_id, day, g.box?.f?.[day]?.[0] ? 'posted' : 'top']);
+      // The job's own word on today's inning when it ran today (Top, Bottom
+      // or posted); otherwise posted if that day's runs are in, else the Top.
+      const lv = g.box?.lv;
+      const fresh = !!lv && lv[0] === today && lv[1] === day;
+      live.push([g.game_id, day, fresh ? lv![2] : g.box?.f?.[day]?.[0] ? 'posted' : 'top']);
+      if (fresh && g.box?.ia) {
+        if (g.box.ia[0] && g.home_hsid != null) inAction.set(Number(g.home_hsid), g.box.ia[0]);
+        if (g.box.ia[1] && g.away_hsid != null) inAction.set(Number(g.away_hsid), g.box.ia[1]);
+      }
     }
     if (g.box) boxes[String(g.game_id)] = g.box;
     return [g.game_id, g.week, Number(g.home_hsid), Number(g.away_hsid), final ? g.decided_by || 'runs' : '', (g.innings || []).map(Number), final ? Number(g.winner_hsid) : null];
@@ -91,6 +103,6 @@ export async function preparedIndex(season: string, region: number, now = Date.n
       season: Number(s.opening_day.slice(0, 4)), weeks, schools, rounds,
       lbt: [], gf: [], champion: 0, lbLeaders: [], alumni: {}, lbChampion: 0, grandChampion: 0,
     },
-    boxes, lb, live,
+    boxes, lb, live, inAction: [...inAction],
   };
 }
