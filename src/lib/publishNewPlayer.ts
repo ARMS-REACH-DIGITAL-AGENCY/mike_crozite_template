@@ -70,6 +70,7 @@ export async function publishNewPlayerNow(input: {
     ' SET last_assigned = (',
     '   SELECT candidate FROM generate_series(c.last_assigned + 1, 999999) AS seq(candidate)',
     "   WHERE NOT EXISTS (SELECT 1 FROM public.flip_card_front_stage existing WHERE existing.playerid = 'YAT' || lpad(candidate::text,6,'0'))",
+    "     AND NOT EXISTS (SELECT 1 FROM public.yat_registry reg WHERE reg.yatid = 'YAT' || lpad(candidate::text,6,'0'))",
     '   LIMIT 1',
     ' )',
     ' FROM identity_lock l',
@@ -90,7 +91,17 @@ export async function publishNewPlayerNow(input: {
     "        jsonb_build_object('source','contribute','submission_id',$12::text,'submitted_fields',$13::jsonb)",
     ' FROM reserved r',
     ' RETURNING playerid',
-    ') SELECT playerid FROM inserted',
+    // YAT? Baseball Registry (Pete, Nov 2026): every YAT ID is one person in
+    // yat_registry; outside numbers (TBC, MLB, ...) attach in yat_registry_ids.
+    '), registered AS (',
+    " INSERT INTO public.yat_registry (yatid,first_name,last_name,notes)",
+    " SELECT playerid,$2,$3,'site-added player' FROM inserted",
+    ' RETURNING yatid',
+    '), registered_id AS (',
+    " INSERT INTO public.yat_registry_ids (yatid,source,source_id,match_method)",
+    " SELECT yatid,'yat_card',yatid,'site playerid' FROM registered",
+    ' RETURNING yatid',
+    ') SELECT playerid FROM inserted WHERE EXISTS (SELECT 1 FROM registered_id)',
   ].join('\n');
   let rows: { playerid: string }[];
   try {

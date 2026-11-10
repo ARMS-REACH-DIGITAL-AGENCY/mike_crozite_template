@@ -46,6 +46,10 @@ function officialPlayerLevel(value: unknown): string {
 export type PlayerDisplayMetadata = {
   statusLabel: string;
   levelLabel: string;
+  // FREE AGENT / RETIRED: the level is his highest ("HIGHEST LEVEL: X").
+  levelIsHighest: boolean;
+  // FREE AGENT / RETIRED: no team and no organization.
+  hasNoTeam: boolean;
   teamName: string;
   orgConferenceName: string;
   isSourcedDeparture: boolean;
@@ -96,13 +100,23 @@ export function resolvePlayerDisplay(player: PlayerRow): PlayerDisplayMetadata {
         player.level,
       ].map(officialPlayerLevel).find(Boolean) || '';
 
+  // A FREE AGENT or RETIRED player has no team (Pete, Nov 2026): no team
+  // and no organization on the card, never his previous club.
+  const hasNoTeam = isRetired || isFreeAgent || isSourcedDeparture;
+  // Pete (Nov 2026): a FREE AGENT's level reads "HIGHEST LEVEL: {level}",
+  // exactly like a RETIRED player's. Only when the level shown really is
+  // his recorded highest level.
+  const levelIsHighest = (isRetired || isFreeAgent)
+    && Boolean(levelLabel)
+    && levelLabel === officialPlayerLevel(player.highest_level_label);
+
   return {
     statusLabel,
     levelLabel,
-    // A FREE AGENT or RETIRED player has no team (Pete, Nov 2026): no team
-    // and no organization on the card, never his previous club.
-    teamName: isSourcedDeparture ? '' : currentTeam,
-    orgConferenceName: isSourcedDeparture ? '' : text(player.current_org_or_conference_name),
+    levelIsHighest,
+    hasNoTeam,
+    teamName: hasNoTeam ? '' : currentTeam,
+    orgConferenceName: hasNoTeam ? '' : text(player.current_org_or_conference_name),
     isSourcedDeparture,
     isTransactionDeparture,
   };

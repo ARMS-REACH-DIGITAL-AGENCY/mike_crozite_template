@@ -19,6 +19,12 @@
   school is also a team (its 2027 High School Team Page), and its teamid is
   `C` + hsid: `C5004` is the current teamid of Hamilton's 2027 high school
   players (hsid `5004`). Never give a team a `YAT` id.
+- **YAT? Baseball Registry (Pete, Nov 2026).** Every player is one person
+  with a YAT ID (`YAT` + 6 digits) in `yat_registry`. The YAT ID is ours;
+  every outside number (TBC playerid, MLB ID, Perfect Game, MaxPreps, NCAA,
+  INDY, ...) attaches to it in `yat_registry_ids` (one outside number = one
+  person). New sources add rows there; never re-key a person. Model:
+  geni.com. Goal: one ID per player from his first organized game on.
 - **Look before you ask Pete (Nov 2026).** Before asking Pete about dates,
   rules, prizes or past decisions, search the repo (`docs/`,
   `src/lib/bracket/tournamentCalendar.ts`, the bracket components) and the
@@ -40,5 +46,18 @@
   released by an MLB organization who then plays INDY / INTERNATIONAL ball is
   ACTIVE with that team. Every other status shows the level he actually
   plays. Do not infer other status rules: Pete sets them.
+- **Explain every approval request first (Pete, Nov 2026).** Before any
+  action that will ask Pete to approve it (a Run SQL card, a network card,
+  any "Allow Claude to…" prompt), first tell him in one plain sentence what
+  it does and why it needs his approval. Example: "Next I'll look up who MLB
+  drafted in 1968, round 4, named Smith, to check Stephen Smith's draft line."
+- **The truth is there. Find it (Pete, Nov 2026).** When data seems
+  missing or wrong, assume it exists and the search is wrong. Never tell
+  Pete "we don't have it" or "the source is wrong" until you have stopped,
+  checked how you asked (the API call, the table, the ID, a nickname, a
+  draft phase) and tried the obvious other ways. Say how you checked.
+  Example: MLB's draft API had every secondary-phase pick; it only needed
+  `?draftType=JS`. Slow down, use common sense, and don't let a narrow
+  query become a conclusion.
 - **Never guess a level or a team.** Every stat line has a teamid: look it up.
   Never use fuzzy name matching or a high school's state.
