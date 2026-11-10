@@ -146,12 +146,16 @@ export async function syncInstagramSource(
         `INSERT INTO social_posts
            (social_source_id, platform, external_post_id, media_type, caption, permalink,
             media_url, thumbnail_url, media_url_expires_at, published_at, raw_payload, ingested_at)
-         VALUES ($1, 'instagram', $2, $3, $4, $5, NULL, $6, NULL, $7, $8::jsonb, now())
+         VALUES ($1, 'instagram', $2, $3, $4, $5, $9, $6,
+                 CASE WHEN $9 IS NOT NULL THEN now() + interval '6 hours' ELSE NULL END,
+                 $7, $8::jsonb, now())
          ON CONFLICT (social_source_id, external_post_id) DO UPDATE SET
            media_type = EXCLUDED.media_type,
            caption = EXCLUDED.caption,
            permalink = EXCLUDED.permalink,
            thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, social_posts.thumbnail_url),
+           media_url = EXCLUDED.media_url,
+           media_url_expires_at = EXCLUDED.media_url_expires_at,
            published_at = EXCLUDED.published_at,
            raw_payload = EXCLUDED.raw_payload`,
         [
@@ -162,8 +166,11 @@ export async function syncInstagramSource(
           m.permalink || null,
           picture,
           m.timestamp || null,
-          // Instagram's own media links expire; keep only what doesn't.
+          // Never persist the long-lived access token or video bytes.
           JSON.stringify({ id: m.id, media_type: m.media_type, permalink: m.permalink, timestamp: m.timestamp }),
+          // Meta's expiring signed CDN URL enables first-tap native video on
+          // YAT?STATS. Never copy the video or keep this URL indefinitely.
+          m.media_type === 'VIDEO' && /^https:\/\//i.test(m.media_url || '') ? m.media_url : null,
         ]
       );
     }

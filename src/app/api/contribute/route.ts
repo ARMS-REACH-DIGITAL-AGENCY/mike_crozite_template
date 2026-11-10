@@ -11,17 +11,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { query } from '@/lib/db';
+import { registerPlayerInstagram } from '@/lib/playerInstagramRegistration';
+import { scheduleNewInstagramImport } from '@/lib/scheduleNewInstagramImport';
+import { publishAuthorizedPlayerInfo } from '@/lib/publishAuthorizedPlayerInfo';
 import { normalizeSubmittedVarsityYears, publishQueuedVarsityYears, publishQueuedTipNow } from '@/lib/contributionPublisher';
 import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { publishNewPlayerNow, NewPlayerPublicationError } from '@/lib/publishNewPlayer';
-import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
+import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, canPublishFor, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 import { parseNewsVideo, cleanNewsVideoTitle } from '@/lib/newsVideo';
 import { fetchYouTubeVideoTitle } from '@/lib/youtubeVideoTitle';
 
 export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const text = (v: unknown, max = 500) => String(v ?? '').trim().slice(0, max);
@@ -36,7 +40,8 @@ export async function POST(req: NextRequest) {
 
   const who = await identifyContributor(req, text(body.idToken, 4000));
   if (!who) return fail('Please sign in to send this.', 401);
-  if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT) {
+  if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT &&
+      !isReviewer(who) && !(who.publishingRoles || []).length) {
     return fail("You've sent a lot today. Thank you! Please send the rest tomorrow.", 429);
   }
 
@@ -173,13 +178,21 @@ export async function POST(req: NextRequest) {
           const created=await publishNewPlayerNow({
             hsid,fields:submitted,canonicalTeam:selectedCurrentTeam,
           });
+          // The same Instagram registration workflow applies to newly created
+          // player IDs. A non-professional account still receives its profile link;
+          // Meta eligibility is resolved asynchronously by the existing sync.
+          const instagramState = typeof submitted.instagram === 'string'
+            ? await registerPlayerInstagram(created.playerId, hsid, submitted.instagram)
+            : 'queued';
+          if (instagramState === 'registered') scheduleNewInstagramImport(created.playerId, String(submitted.instagram));
           await logContribution(who,'contribute_profile',{
             playerid:created.playerId,hsid,pageUrl,
-            details:{kind:'missing_player',fields:submitted,autoPublished:true,submissionId:created.submissionId},
+            details:{kind:'missing_player',fields:submitted,autoPublished:true,
+              submissionId:created.submissionId,instagram:instagramState},
           }).catch(error=>console.error('[contribute/new-player] activity log failed',error));
           return NextResponse.json({
             ok:true,review:'published_player',playerId:created.playerId,
-            hsid,submissionId:created.submissionId,
+            hsid,submissionId:created.submissionId,instagram:instagramState,
           },{status:201});
         } catch (error) {
           if (error instanceof NewPlayerPublicationError) return fail(error.message,error.status);
@@ -215,6 +228,65 @@ export async function POST(req: NextRequest) {
             commitment:{status,teamId,teamName:savedCommitment.teamName}}, {status:201});
         }
       }
+      // Authorized publishers are identified by their verified Firebase UID and
+      // scoped user_roles grant. Their edits do not enter the fan approval queue.
+      // Reject noncanonical team/status combinations rather than silently
+      // publishing contradictory roster data.
+      const statusOnlySubmission = typeof submitted.status_label === 'string' &&
+        Object.keys(submitted).every(key => key === 'status_label' || key === 'level_label');
+      if (!isNew && process.env.VERCEL_ENV !== 'preview' &&
+          canPublishFor(who, hsid, playerId) && !statusOnlySubmission) {
+        const profile = { ...submitted };
+        if (selectedCurrentTeam) {
+          if (status && status !== 'ACTIVE') {
+            return fail('Changing a current team requires an ACTIVE playing status.', 409);
+          }
+          const saved = await publishCurrentTeamChange({
+            playerId, hsid, team: selectedCurrentTeam, reviewerUid: who.uid,
+          });
+          if (!saved) return fail('Current team update failed. No other fields were changed.', 409);
+          for (const key of ['current_teamid','current_team_name','level_label','status_label']) delete profile[key];
+        } else if (profile.status_label || profile.level_label || profile.committed_teamid !== undefined) {
+          // Commitment/status edits have dedicated canonical procedures and
+          // cannot be combined with unrelated fields through a raw stage write.
+          return fail('Publish the playing-status or college-commitment change separately from other fields.', 409);
+        }
+
+        try {
+          const ok = await publishAuthorizedPlayerInfo({
+            playerId, hsid, uid: who.uid, fields: profile,
+          });
+          if (!ok) return fail('Player record changed. Reload the profile and try again.', 409);
+        } catch (error) {
+          return fail(error instanceof Error ? error.message : 'Player information was not saved.', 400);
+        }
+
+        const instagramState = typeof profile.instagram === 'string'
+          ? await registerPlayerInstagram(playerId, hsid, profile.instagram) : 'queued';
+        if (instagramState === 'registered') scheduleNewInstagramImport(playerId, String(profile.instagram));
+        if (typeof profile.x === 'string') {
+          const xHandle = String(profile.x).trim().replace(/^@/, '')
+            .replace(/^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\//i, '').replace(/[/?#].*$/, '');
+          if (/^[a-zA-Z0-9_]{1,15}$/.test(xHandle)) {
+            await query(
+              "INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status) " +
+              "SELECT 'x',$1,'player',$2,$3,'publisher','active' " +
+              "WHERE NOT EXISTS (SELECT 1 FROM social_sources WHERE platform='x' AND lower(handle)=lower($1)) " +
+              "ON CONFLICT(platform,handle) DO NOTHING",
+              [xHandle,hsid,playerId],
+            );
+          }
+        }
+        revalidateTag('school-data:' + hsid, { expire: 0 });
+        await logContribution(who,'contribute_profile',{
+          playerid:playerId,hsid,pageUrl,
+          details:{autoPublished:true,source:'verified_publisher',fields:submitted,
+            instagram:instagramState},
+        });
+        return NextResponse.json({ok:true,review:'published_profile',
+          instagram:instagramState}, {status:201});
+      }
+
       // Owner/reviewer emails are configured as production environment settings.
       // Site-authorized reviewer submissions publish current affiliations directly.
       // Ordinary fan edits remain queued; a public form must not overwrite player truth.
@@ -323,29 +395,14 @@ export async function POST(req: NextRequest) {
         );
         contributionQueueId=queued.rows[0]?.id||null;
       }
-      // A public Instagram handle is immediately registered for the existing
-      // Business Discovery sync. The submitted handle must not already belong
-      // to another player; all other profile fields keep their review rules.
-      let instagramState: 'queued' | 'registered' | 'needs_review' = 'queued';
-      if (process.env.VERCEL_ENV !== 'preview' && !isNew && typeof submitted.instagram === 'string') {
-        const handle = String(submitted.instagram).trim().replace(/^@/,'')
-          .replace(/^https?:\/\/(?:www\.)?instagram\.com\//i,'').replace(/[/?#].*$/,'');
-        if (/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
-          const {rows: matches}=await query<{playerid:string|null}>(
-            'SELECT playerid FROM social_sources WHERE platform=$1 AND lower(handle)=lower($2) LIMIT 1',
-            ['instagram',handle]);
-          if (matches.length && matches[0].playerid !== playerId) {
-            instagramState='needs_review';
-          } else if (!matches.length) {
-            await query(`INSERT INTO social_sources(platform,handle,owner_type,hsid,playerid,authorization_type,status)
-              VALUES('instagram',$1,'player',$2,$3,'business_discovery','active')
-              ON CONFLICT (platform,handle) DO NOTHING`,[handle,hsid,playerId]);
-            instagramState='registered';
-          } else {
-            instagramState='registered';
-          }
-        } else instagramState='needs_review';
-      }
+      // Keep fan correction review rules independent from the social link.
+      // Shared registration enforces ownership and correctly queues professional
+      // eligibility checks; do not infer eligibility from Instagram verification.
+      // Ordinary fan corrections continue through their established verification
+      // workflow. Only authenticated publishers may immediately claim a public
+      // handle and start a Meta check; otherwise anyone could attach another
+      // person's Instagram account to a player without authorization.
+      const instagramState = 'queued' as const;
       const varsityOnly=!isNew && Object.keys(submitted).length===1 && Array.isArray(submitted.roster_years);
       const varsityPublication=varsityOnly && contributionQueueId
         ? await publishQueuedVarsityYears(contributionQueueId)

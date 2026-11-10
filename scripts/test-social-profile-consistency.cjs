@@ -1,0 +1,57 @@
+// Regressions: shared Social-tab behavior must remain consistent for every player.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const read = p => fs.readFileSync(path.resolve(__dirname, '..', p), 'utf8');
+const playerFeed = read('src/components/yatstats/PlayerInstagramFeed.tsx');
+const playerApi = read('src/app/api/social/player/[playerId]/route.ts');
+const schoolApi = read('src/app/api/social/school/[hsid]/route.ts');
+const sync = read('src/lib/instagramSync.ts');
+const form = read('src/components/yatstats/ContributePlayerInfoForm.tsx');
+const contribution = read('src/app/api/contribute/route.ts');
+const registration = read('src/lib/playerInstagramRegistration.ts');
+const prefill = read('src/app/api/contribute/player-fields/route.ts');
+
+assert.match(playerFeed, /hasInteractiveMedia \|\| \(!hasPicture/);
+assert.match(playerFeed, /const heightPerWidth = isReel \? 16 \/ 9/);
+assert.doesNotMatch(playerFeed, /PLAY REEL|showInstagramEmbed|pp-ig-embed-toggle/);
+assert.match(playerFeed, /\{ cache: 'no-store' \}/);
+assert.match(playerFeed, /<iframe/);
+assert.match(playerFeed, /<video/);
+assert.match(playerFeed, /autoPlay/);
+assert.match(playerFeed, /onError=\{\(\) => setBrokenVideoId\(current.id\)\}/);
+assert.match(playerApi, /p.media_url_expires_at > now\(\)/);
+assert.match(sync, /media_url_expires_at = EXCLUDED.media_url_expires_at/);
+assert.match(playerFeed, /role="dialog"/);
+assert.match(playerFeed, /ORIGINAL POST/);
+for (const api of [playerApi, schoolApi]) {
+  assert.match(api, /LIMIT 30/);
+  assert.match(api, /'Cache-Control': 'no-store'/);
+  assert.match(api, /ORDER BY p.published_at DESC/);
+}
+assert.match(sync, /POSTS_PER_ACCOUNT = 30/);
+assert.match(contribution, /registerPlayerInstagram\(created.playerId, hsid, submitted.instagram\)/);
+assert.match(contribution, /registerPlayerInstagram\(playerId, hsid, profile.instagram\)/);
+assert.match(contribution, /const instagramState = 'queued' as const/);
+assert.match(registration, /return 'needs_review'/);
+assert.match(registration, /ON CONFLICT \(platform,handle\) DO NOTHING/);
+assert.match(prefill, /getPlayerSocialHandles\(playerId\)/);
+assert.match(form, /instagram:clean\(p.instagram\)/);
+const auth=read('src/lib/contributeServer.ts');
+const direct=read('src/lib/publishAuthorizedPlayerInfo.ts');
+const photo=read('src/app/api/contribute/photo/route.ts');
+const immediate=read('src/lib/scheduleNewInstagramImport.ts');
+assert.match(auth, /user_roles WHERE firebase_uid=\$1 AND role='publisher'/);
+assert.match(auth, /function canPublishFor/);
+assert.match(auth, /r.hsid == null \|\| r.hsid === hsid/);
+assert.match(contribution, /canPublishFor\(who, hsid, playerId\)/);
+assert.match(contribution, /publishAuthorizedPlayerInfo\(/);
+assert.match(contribution, /scheduleNewInstagramImport\(playerId/);
+assert.match(immediate, /after\(async \(\) =>/);
+assert.match(immediate, /process.env.VERCEL_ENV !== 'production'/);
+assert.match(direct, /contribute_published/);
+assert.match(direct, /f.playerid::text=\$1 AND f.hsid::text=\$2/);
+assert.match(photo, /trustedPublisher/);
+assert.match(photo, /moderatePhoto/);
+assert.match(photo, /purpose === 'timeline_hero'/);
+console.log('PASS: common video viewer, fresh posts, instant publisher edits, verified roles, photos and Meta sync');

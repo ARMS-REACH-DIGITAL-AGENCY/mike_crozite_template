@@ -22,6 +22,7 @@ import {
   contributionsToday,
   identifyContributor,
   isReviewer,
+  canPublishFor,
   logContribution,
   notifyContributor,
   photoLinkPath,
@@ -311,7 +312,8 @@ export async function POST(req: NextRequest) {
         return fail(`A yearly hero already exists for ${year}. Choose Edit / Replace beside that photo in the Contribute form.`,409);
     }
 
-    if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT) {
+    if ((await contributionsToday(who.uid)) >= CONTRIBUTE_DAILY_LIMIT &&
+        !isReviewer(who) && !canPublishFor(who, hsid, playerId || undefined)) {
       return fail("You've sent a lot today. Thank you! Please send the rest tomorrow.", 429);
     }
 
@@ -353,13 +355,19 @@ export async function POST(req: NextRequest) {
 
     // Automatic review. Approved: on the site now. Rejected: the fan is told
     // why. Unsure (or the check is unavailable): it waits for a person.
-    const verdict = await moderatePhoto({
-      imageUrl: assetUrl(staged.key) || '',
-      purpose,
-      playerName,
-      season: details.season,
-      note: note || null,
-    });
+    const trustedPublisher = isReviewer(who) ||
+      (hsid && canPublishFor(who, hsid, playerId || undefined));
+    const verdict = trustedPublisher
+      ? { decision: 'approve' as const, appropriate: true, matches_type: true,
+          watermark: false, quality_ok: true, reason_for_fan: '',
+          description: 'Published directly by an authenticated authorized publisher.' }
+      : await moderatePhoto({
+          imageUrl: assetUrl(staged.key) || '',
+          purpose,
+          playerName,
+          season: details.season,
+          note: note || null,
+        });
     // Do not publish an AI-approved photo until the moderation outcome can
     // actually be persisted. The runtime database role may have INSERT but
     // no UPDATE policy on media_upload. Previously this silently left
