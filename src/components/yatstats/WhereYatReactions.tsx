@@ -3,6 +3,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { auth } from '@/lib/firebase';
 import { openSignIn, useFanMe } from './StoryViewer';
+import PlayerTagging from './PlayerTagging';
 
 type Comment = { id: string; text: string; when: string; author: string };
 type Reactions = { likes: number; liked: boolean; comments: Comment[] };
@@ -111,6 +112,9 @@ export default function WhereYatReactions({
     </button>
     <button type="button" onClick={comment}><i className="ri-chat-3-line" aria-hidden="true"/> Comment{mode==='card'&&data.comments.length>0?' · '+data.comments.length:''}</button>
     <button type="button" onClick={()=>void share()}><i className="ri-share-forward-line" aria-hidden="true"/> Share</button>
+    <PlayerTagging endpoint={'/api/contribute/where-yat-now/tags?id='+encodeURIComponent(String(id))+'&storyKey='+encodeURIComponent(storyKey)}
+      payload={{id,storyKey}} label="Tag"
+    />
   </div>;
   const comments=<div className="ysv-comments">
     {data.comments.map(c=><div className="ysv-comment" key={c.id}>
