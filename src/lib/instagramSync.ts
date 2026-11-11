@@ -146,8 +146,8 @@ export async function syncInstagramSource(
         `INSERT INTO social_posts
            (social_source_id, platform, external_post_id, media_type, caption, permalink,
             media_url, thumbnail_url, media_url_expires_at, published_at, raw_payload, ingested_at)
-         VALUES ($1, 'instagram', $2, $3, $4, $5, $9, $6,
-                 CASE WHEN $9 IS NOT NULL THEN now() + interval '6 hours' ELSE NULL END,
+         VALUES ($1, 'instagram', $2, $3, $4, $5, $9::text, $6,
+                 CASE WHEN $9::text IS NOT NULL THEN now() + interval '6 hours' ELSE NULL END,
                  $7, $8::jsonb, now())
          ON CONFLICT (social_source_id, external_post_id) DO UPDATE SET
            media_type = EXCLUDED.media_type,
