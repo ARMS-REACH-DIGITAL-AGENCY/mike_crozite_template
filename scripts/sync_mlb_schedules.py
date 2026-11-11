@@ -208,7 +208,8 @@ def fetch_complete_pro_schedule() -> list[dict[str, Any]]:
     afl_start = max(START_DATE, date(SCHEDULE_SEASON, 9, 1))
     afl_end = min(END_DATE, date(SCHEDULE_SEASON, 12, 15))
     if afl_start <= afl_end:
-        afl_count_before = len(all_rows_by_game_pk)
+        afl_by_game_pk: dict[int, dict[str, Any]] = {}
+        afl_failures: list[str] = []
         for team_id in AFL_TEAM_IDS:
             try:
                 res = session.get(API_BASE_URL, params={
@@ -230,14 +231,17 @@ def fetch_complete_pro_schedule() -> list[dict[str, Any]]:
                     # Preserve the existing official MLB-level classification.
                     row["sport_id"] = 17
                     row["level"] = "MLB"
-                    all_rows_by_game_pk[int(game_pk)] = row
+                    afl_by_game_pk[int(game_pk)] = row
             except Exception as exc:
-                # Fail before any DB writes instead of silently continuing with
-                # stale schedules; the nightly run can retry safely.
-                raise RuntimeError(
-                    f"AFL schedule fetch failed for MLB team {team_id}: {exc}"
-                ) from exc
-        print(f"Fetched {len(all_rows_by_game_pk) - afl_count_before} Arizona Fall League games (six clubs)")
+                afl_failures.append(f"teamId={team_id}: {exc}")
+        if afl_failures:
+            # Never let an AFL API outage break the canonical MLB/MiLB schedule
+            # ingestion. Also avoid saving a partial six-team AFL schedule.
+            print("WARNING: retaining prior AFL schedule; one or more AFL "
+                  f"requests failed: {'; '.join(afl_failures)}")
+        else:
+            all_rows_by_game_pk.update(afl_by_game_pk)
+            print(f"Fetched {len(afl_by_game_pk)} Arizona Fall League games (six clubs)")
 
     return list(all_rows_by_game_pk.values())
 
