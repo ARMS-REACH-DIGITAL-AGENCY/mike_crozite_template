@@ -324,17 +324,19 @@ export default async function ProfilePage({ params }: Props) {
   // source; never identify a profile by its player ID or hardcode a school.
   const coachAtSchool = String(player.status_label || '').trim().toUpperCase() === 'COACH'
     && String(player.hsid || '') === String(hsid);
-  const schoolInstagramFeed: { hsid: string; name: string } | undefined = coachAtSchool
-    ? await query<{ school_name: string | null }>(
-        `SELECT NULLIF(TRIM(t.hsname), '') AS school_name
+  const schoolInstagramFeed: { hsid: string; name: string; handle: string } | undefined = coachAtSchool
+    ? await query<{ school_name: string | null; handle: string }>(
+        `SELECT NULLIF(TRIM(t.hsname), '') AS school_name, s.handle
            FROM public.social_sources s
            LEFT JOIN public.tbc_schools_raw t ON t.hsid::text = s.hsid
           WHERE s.hsid = $1 AND s.owner_type = 'school'
             AND s.platform = 'instagram' AND s.status = 'active'
+            AND NULLIF(TRIM(s.handle), '') IS NOT NULL
+          ORDER BY s.last_polled_at DESC NULLS LAST, s.id
           LIMIT 1`,
         [String(hsid)],
       ).then(({ rows }) => rows.length
-        ? { hsid: String(hsid), name: rows[0].school_name || 'School Baseball' }
+        ? { hsid: String(hsid), name: rows[0].school_name || 'School Baseball', handle: rows[0].handle }
         : undefined).catch(() => undefined)
     : undefined;
 
@@ -1097,6 +1099,18 @@ export default async function ProfilePage({ params }: Props) {
                 className="pp-social-link"
               >
                 <i className="ri-instagram-line" /> @{igHandle}
+              </a>
+            )}
+            {schoolInstagramFeed && (
+              <a
+                href={`https://www.instagram.com/${encodeURIComponent(schoolInstagramFeed.handle)}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pp-social-link"
+                aria-label={`Official school baseball Instagram @${schoolInstagramFeed.handle}`}
+              >
+                <i className="ri-instagram-line" /> @{schoolInstagramFeed.handle}
+                <span> · OFFICIAL SCHOOL INSTAGRAM</span>
               </a>
             )}
             {!xHandle && !igHandle && !schoolInstagramFeed && (

@@ -12,6 +12,13 @@ const contribution = read('src/app/api/contribute/route.ts');
 const registration = read('src/lib/playerInstagramRegistration.ts');
 const prefill = read('src/app/api/contribute/player-fields/route.ts');
 
+const profilePage=read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
+assert.match(profilePage, /coachAtSchool/, 'Official school feed belongs to an actual school coach');
+assert.match(profilePage, /s.owner_type = 'school'/, 'Official school account ownership is not transferred to a personal player');
+assert.match(profilePage, /s.platform = 'instagram' AND s.status = 'active'/, 'Only active school Instagram accounts qualify');
+assert.match(profilePage, /s.handle/, 'Look up school handle dynamically');
+assert.match(profilePage, /schoolInstagramFeed.handle/, 'Render link from the actual registered school handle');
+assert.match(profilePage, /OFFICIAL SCHOOL INSTAGRAM/, 'Label shared account as school-owned, never the coach personal account');
 assert.match(playerFeed, /Boolean\(externalPosts && !nativeVideoUrl && embedUrl/);
 assert.match(playerFeed, /Video preview only — in-page playback unavailable/);
 assert.match(playerFeed, /const heightPerWidth = isReel && externalPosts \? 16 \/ 9/);
