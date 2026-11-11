@@ -14,6 +14,8 @@ API_BASE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 AZ_TZ = ZoneInfo("America/Phoenix")
 
 PRO_SPORT_IDS = [1, 11, 12, 13, 14, 16]
+AFL_TEAM_IDS = (454, 490, 527, 542, 544, 555)
+AFL_TEAM_ID_SET = set(AFL_TEAM_IDS)
 
 SPORT_LEVELS = {
     1: "MLB",
@@ -251,6 +253,30 @@ def fetch_live_window_schedule() -> list[dict[str, Any]]:
             all_rows_by_game_pk[int(game_pk)] = row
 
         print(f"Fetched {len(rows)} {level} rows in live window")
+
+    afl_games: set[int] = set()
+    for team_id in AFL_TEAM_IDS:
+        try:
+            res = session.get(API_BASE_URL, params={
+                "sportId": "17", "teamId": str(team_id),
+                "startDate": start_date.isoformat(),
+                "endDate": end_date.isoformat(),
+            }, timeout=90)
+            res.raise_for_status()
+            for row in parse_schedule_payload(res.json(), 17):
+                if (row.get("home_team_id") not in AFL_TEAM_ID_SET
+                        or row.get("away_team_id") not in AFL_TEAM_ID_SET):
+                    continue
+                game_pk = row.get("game_pk")
+                if game_pk is None:
+                    continue
+                row["sport_id"] = 17
+                row["level"] = "MLB"
+                all_rows_by_game_pk[int(game_pk)] = row
+                afl_games.add(int(game_pk))
+        except Exception as exc:
+            print(f"WARNING: AFL live fetch failed for MLB team {team_id}: {exc}")
+    print(f"Fetched {len(afl_games)} AFL games in live window")
 
     return list(all_rows_by_game_pk.values())
 
