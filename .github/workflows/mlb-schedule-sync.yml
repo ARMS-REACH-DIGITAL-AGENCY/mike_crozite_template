@@ -1,6 +1,14 @@
 name: MLB/MiLB Full Schedule Sync
 
 on:
+  # First production rollout: ingest official AFL games before roster overlay.
+  # Future schedule code changes also get an immediate safe refresh.
+  push:
+    branches: ["Easter-NEWS"]
+    paths:
+      - "scripts/sync_mlb_schedules.py"
+      - "scripts/sync_afl_rosters.py"
+      - ".github/workflows/mlb-schedule-sync.yml"
   workflow_dispatch:
     inputs:
       season:
