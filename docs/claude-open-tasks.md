@@ -44,7 +44,7 @@ Last updated: 2026-11-09 18:30 UTC
 | 16 | Player 194745: old team ID is the Houston Astros, but his card's previous team is the Sugar Land Space Cowboys. Which is right? |
 | 17 | Hamilton sponsor sheet says 44 active alumni, the site says 47 (3 on the injured list). Change the sheet to 47? |
 | 18 | Unmatched MLB IDs: 10 players with two INDY/INTERNATIONAL teams, Chris Clark (two different men), the unclear pairs Frazier, Gibbs, Hunter and Gregg, and 38 held common names. |
-| 19 | Google Search Console: the `google-site-verification=` value, so Google can read the sitemap. |
+| 19 | DONE Nov 11: Search Console verified for yatstats.com (all subdomains), sitemap submitted to Google and Bing. |
 | 21 | A player Designated for Assignment keeps his team on the card until the next transaction. Show anything different while he waits? |
 | 23 | Card back and profile page show the bare level for both RETIRED and FREE AGENT (only the card front says "HIGHEST LEVEL"). Add "HIGHEST LEVEL" there too? |
 | 24 | ACTIVE cards with no 2026 stat line (528): what status should they have? |
