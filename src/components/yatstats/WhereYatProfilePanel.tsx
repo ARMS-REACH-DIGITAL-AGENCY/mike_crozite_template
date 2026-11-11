@@ -6,6 +6,7 @@ import { StoryStyles } from './StoryViewer';
 import SponsorTower from './SponsorTower';
 import WhereYatShareButton from './WhereYatShareButton';
 import WhereYatMemory from './WhereYatMemory';
+import WhereYatTaggedMemories from './WhereYatTaggedMemories';
 
 type AlumniUpdate = {
   id:number;
@@ -65,6 +66,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         </aside>
 
       </> : <WhereYatPromptedStories playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      <WhereYatTaggedMemories playerId={playerId} />
       <WhereYatDesignCTA playerId={playerId} hsid={hsid} name={name} school={schoolName} />
       </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div>
       <style>{`
