@@ -29,8 +29,11 @@
   state: `school.state.yatstats.com` (`hamilton.az`). A school that shares its
   name with another school in the same state: `school-city.state`
   (`liberty-bakersfield.ca`), with a DASH, never `school.city.state`; add
-  `-hsid` only when name, city and state are all identical. One rule, no
-  exceptions (not even the original 1,024). Never change an address that
+  `-hsid` only when name, city and state are all identical. Punctuation is
+  dropped (`st-marks`, `odea`, `jh-rose`). One rule, no exceptions (not
+  even the original 1,024). Every school with players has its address SAVED
+  in `school_success.microsite_url` (unique; Nov 11 2026: 17,172 schools);
+  the site reads the saved address and never re-derives an existing one. Never change an address that
   already follows the rule. A changed address keeps its old one in
   `school_url_aliases`, which redirects. School addresses and routing have
   one owner at a time; check `docs/claude-open-tasks.md` before touching them.
