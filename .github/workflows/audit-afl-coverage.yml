@@ -29,6 +29,14 @@ jobs:
         with:
           node-version: 20
       - run: npm install --no-save pg tsx
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate AFL roster and schedule Python syntax
+        run: python -m py_compile scripts/sync_afl_rosters.py scripts/sync_mlb_schedules.py scripts/refresh_live_schedule_status.py
+      - run: pip install requests psycopg[binary]
+      - name: Dry-run AFL roster assignments (production read-only)
+        run: python scripts/sync_afl_rosters.py --dry-run
       - run: npx tsx scripts/audit-afl-coverage.ts --season 2026 --name "${{ inputs.name || 'hansell' }}"
       - name: Dry-run the game log sync for one player
         run: npx tsx scripts/sync-mlb-player-gamelogs.ts --season 2026 --player "${{ inputs.sync_player || '700985' }}" --dry-run
