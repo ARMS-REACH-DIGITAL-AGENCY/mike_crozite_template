@@ -69,7 +69,8 @@ async function main() {
           roster.push({ personId, name: r.person?.fullName || "", team: t.name, pos: r.position?.abbreviation || "" });
         }
       }
-      if (data?.roster?.length) break;
+      // fullSeason and active can contain different players. Query BOTH and
+      // take their union; do not break after a non-empty fullSeason response.
     }
     console.log(`${t.name}: ${currentCount} active, ${seasonCount} in season roster`);
     await delay(150);
