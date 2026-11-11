@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 // or application quota is not 40 independent failures. Stop immediately and report it.
 // Last_polled_at means attempted (including failed attempts), never last success.
 // Spread Meta calls across the day: two accounts per 15-minute run, not one
-// burst of 25+ queries every six hours. The per-account cooldown remains six hours.
+// burst of 25+ queries every six hours. Refresh existing accounts before their six-hour video URL lease expires.
 const ACCOUNTS_PER_RUN = 2;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     // Do not repeatedly burn Meta quota on the same handle every 15 minutes.
     const {rows:sources} = await pool.query<{id:number;handle:string}>(
       "SELECT id,handle FROM social_sources WHERE platform='instagram' AND status='active' " +
-      "AND COALESCE(handle,'')<>'' AND (last_polled_at IS NULL OR last_polled_at < now()-interval '6 hours') " +
+      "AND COALESCE(handle,'')<>'' AND (last_polled_at IS NULL OR last_polled_at < now()-interval '4 hours') " +
       "ORDER BY last_polled_at NULLS FIRST,id LIMIT $1", [ACCOUNTS_PER_RUN]
     );
     const results:SourceResult[]=[];
