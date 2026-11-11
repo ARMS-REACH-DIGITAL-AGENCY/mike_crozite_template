@@ -360,7 +360,15 @@ export default function PlayerCardFront({
   const fortyManPillLabel = fortyManOrgAbbr ? `${fortyManOrgAbbr} 40-MAN` : "40-MAN";
 
   const displayTeamName = hasNoTeam ? "" : display.teamName;
-  const displayOrgLine = hasNoTeam ? "" : display.orgConferenceName;
+  const isArizonaFallLeague = asText(p.current_team_source) === "mlb_api_afl";
+  const aflParentOrg = asText(p.afl_parent_org_name);
+  // Preserve the official AFL league identity and the prospect's parent MLB
+  // organization without changing either canonical team or level mappings.
+  const displayOrgLine = hasNoTeam
+    ? ""
+    : isArizonaFallLeague && aflParentOrg
+      ? `Arizona Fall League · ${aflParentOrg}`
+      : display.orgConferenceName;
   const lastTransactionType = asText(p.last_transaction_type);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
   const statusPillLabel = formatCommitStatusLabel(p, statusLabel);
