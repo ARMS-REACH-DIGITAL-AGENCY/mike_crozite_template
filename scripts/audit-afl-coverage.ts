@@ -52,9 +52,13 @@ async function main() {
 
   // Every AFL roster player.
   const roster: { personId: string; name: string; team: string; pos: string }[] = [];
+  const activePeople = new Set<string>();
   for (const t of teams) {
     const activeData = await json(`${MLB}/teams/${t.id}/roster?season=${SEASON}&rosterType=active`).catch(() => null);
     const currentCount = (activeData?.roster || []).length;
+    for (const r of activeData?.roster || []) {
+      if (r.person?.id) activePeople.add(String(r.person.id));
+    }
     let seasonCount = 0;
     for (const type of ["fullSeason", "active"]) {
       const data = await json(`${MLB}/teams/${t.id}/roster?season=${SEASON}&rosterType=${type}`).catch(() => null);
@@ -72,6 +76,7 @@ async function main() {
   }
   console.log(`AFL 2026 unique roster players (all six clubs): ${roster.length}`);
   console.log(`AFL roster players: ${roster.length}`);
+  console.log(`AFL CURRENT active roster distinct players: ${activePeople.size}`);
 
   const { rows: mapped } = await pool.query<{ source_player_id: string; playerid: string; match_method: string | null; display_name: string | null; hsid: string | null }>(
     `SELECT m.source_player_id, m.playerid::text AS playerid, m.match_method,
@@ -100,6 +105,8 @@ async function main() {
   const verifiedLinks = inUniverse.filter((r) => mapped.some((m) => m.source_player_id === r.personId && !!m.display_name && m.match_method !== 'rejected_bad_identity_match'));
   console.log(`In our universe (mapped): ${inUniverse.length}`);
   console.log(`In YAT?STATS flip cards: ${mappedWithCard.length} / ${roster.length} (${(100 * mappedWithCard.length / roster.length).toFixed(1)}%)`);
+  const activeLinked = mappedWithCard.filter((r) => activePeople.has(r.personId));
+  console.log(`CURRENT active AFL players with YAT flip cards: ${activeLinked.length} / ${activePeople.size} (${(100 * activeLinked.length / activePeople.size).toFixed(1)}%)`);
   console.log(`Matched MLB identity links with a flip card: ${verifiedLinks.length}\n`);
   console.log(["player", "AFL team", "pos", "playerid", "hsid", "MLB AFL games (bat/pit)", "stored AFL games", "MLB current team (sport)", "status"].join(" | "));
 
@@ -122,6 +129,8 @@ async function main() {
   // Not mapped: AFL players we couldn't link to anyone in our universe.
   const unmapped = roster.filter((r) => !byPerson.has(r.personId));
   console.log(`\nAFL players not linked to our universe: ${unmapped.length}`);
+  console.log("Unlinked MLB IDs and names (verify identity before any card creation):");
+  for (const r of unmapped) console.log(`  ${r.team} | ${r.name} | MLB ${r.personId}`);
 
   if (NAME) {
     console.log(`\nLookup "${NAME}":`);
