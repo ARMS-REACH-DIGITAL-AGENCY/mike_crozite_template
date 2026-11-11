@@ -25,7 +25,7 @@ type Story = {
 type Totals = {
   found: number; posted: number; removed: number; monitored: number;
 };
-type ScoutStats = {runs:number;scanned:number;already_evaluated:number;unresolved:number;ai_reviewed:number;published:number};
+type ScoutStats = {runs:number;scanned:number;already_evaluated:number;unresolved:number;ai_reviewed:number;published:number;no_roster_subject:number;ignored:number;failures:number;ai_unavailable:number};
 type Health = {
   status:string; latestRunAt:string|null; latestSuccessAt:string|null;
   lastPostAt:string|null; registered:number; attempted:number;
@@ -98,8 +98,13 @@ function emailHtml(day: string, totals: Totals, rows: Story[], schoolOrigins: Ma
     '<h3>News Scout activity (previous Arizona day)</h3>',
     '<p>Runs: ',String(scout.runs),' | Post checks (includes repeated checks): ',String(scout.scanned),
     ' | Previously evaluated: ',String(scout.already_evaluated),
-    ' | Unresolved player matches: ',String(scout.unresolved),
-    ' | AI reviews: ',String(scout.ai_reviewed),' | Published: ',String(scout.published),'</p>',
+    ' | No active-alumni subject: ',String(scout.no_roster_subject),
+    ' | Truly unresolved matches: ',String(scout.unresolved),
+    ' | AI reviews: ',String(scout.ai_reviewed),
+    ' | AI rejected: ',String(scout.ignored),
+    ' | Published: ',String(scout.published),
+    ' | Failures: ',String(scout.failures),
+    ' | AI unavailable: ',String(scout.ai_unavailable),'</p>',
     '<h3>Stories discovered and posted</h3>',
     visible.length ? '<ol>' + details + '</ol>' :
       '<p>No new Instagram Scout stories were recorded for this day. Existing fan-submitted News is not counted here.</p>',
@@ -157,7 +162,11 @@ export async function GET(req: NextRequest) {
           COALESCE(SUM((a.details->>'scanned')::int),0)::int AS scanned,
           COALESCE(SUM((a.details->>'alreadyEvaluated')::int),0)::int AS already_evaluated,
           COALESCE(SUM((a.details->>'unresolved')::int),0)::int AS unresolved,
+          COALESCE(SUM((a.details->>'noRosterSubject')::int),0)::int AS no_roster_subject,
           COALESCE(SUM((a.details->>'aiReviewed')::int),0)::int AS ai_reviewed,
+          COALESCE(SUM((a.details->>'ignored')::int),0)::int AS ignored,
+          COALESCE(SUM((a.details->>'failures')::int),0)::int AS failures,
+          COALESCE(SUM((a.details->>'aiUnavailable')::int),0)::int AS ai_unavailable,
           COALESCE(SUM((a.details->>'published')::int),0)::int AS published
         FROM fan_activity a CROSS JOIN bounds b
         WHERE a.firebase_uid='system:social-news-scout' AND a.action='social_news_scout_run'
@@ -180,6 +189,7 @@ export async function GET(req: NextRequest) {
     };
     const scout:ScoutStats=scoutCounts.rows[0]||{
       runs:0,scanned:0,already_evaluated:0,unresolved:0,ai_reviewed:0,published:0,
+      no_roster_subject:0,ignored:0,failures:0,ai_unavailable:0,
     };
     // Resolve every school from the same canonical directory used by player
     // profiles and global search; this supports 8,000+ school subdomains.
@@ -195,7 +205,8 @@ export async function GET(req: NextRequest) {
     }
     const totals = counts.rows[0] || {found:0,posted:0,removed:0,monitored:0};
     const result = {date:day,...totals,listLength:stories.rows.length,unresolvedSchools,
-      syncStatus:health.status,scoutRuns:scout.runs,scoutAiReviews:scout.ai_reviewed};
+      syncStatus:health.status,scoutRuns:scout.runs,scoutAiReviews:scout.ai_reviewed,
+      scoutIgnored:scout.ignored,scoutNoRosterSubject:scout.no_roster_subject,scoutFailures:scout.failures,scoutAiUnavailable:scout.ai_unavailable};
     // Preview never sends mail or creates a delivery-log record.
     if (process.env.VERCEL_ENV === 'preview') {
       return NextResponse.json({ok:true,dryRun:true,...result});

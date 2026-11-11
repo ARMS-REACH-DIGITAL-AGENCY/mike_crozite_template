@@ -2,7 +2,7 @@ import 'server-only';
 import { writerQuery as query } from '@/lib/dbWriter';
 import { canonicalInstagramPostUrl, instagramPostKey } from '@/lib/socialNewsScoutRules';
 import { evaluateInstagramNews, scoutModelAvailable } from '@/lib/socialNewsScoutJudge';
-import { SCOUT_POLICY_VERSION, SCOUT_ACTIVE_STATUSES, postIsFresh, findAlumniCandidates, approvedNews, scoutHeadline, type ScoutPlayer, type ScoutPost } from '@/lib/socialNewsScoutPolicy';
+import { SCOUT_POLICY_VERSION, SCOUT_ACTIVE_STATUSES, postIsFresh, findAlumniCandidates, approvedNews, newsApprovalIssue, scoutHeadline, sourceIsPlayerOwned, type ScoutPlayer, type ScoutPost } from '@/lib/socialNewsScoutPolicy';
 
 type Existing = {hsid:string;playerid:string|null;url:string};
 type NewsContext = {hsid:string;playerid:string;title:string;published_at:string};
@@ -11,6 +11,7 @@ export type ScoutReport = {
   scanned:number;signals:number;matched:number;alreadyCovered:number;
   published:number;previewCandidates:number;unresolved:number;failures:number;
   aiReviewed:number;ignored:number;alreadyEvaluated:number;aiUnavailable:number;activeRoster:number;
+  noRosterSubject:number;
 };
 const MAX_AI_PER_RUN = 20;
 const MAX_PUBLISH_PER_RUN = 10;
@@ -22,7 +23,7 @@ const key = (hsid:string,playerid:string,url:string) => {
 export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promise<ScoutReport> {
   const report:ScoutReport={scanned:0,signals:0,matched:0,alreadyCovered:0,
     published:0,previewCandidates:0,unresolved:0,failures:0,aiReviewed:0,
-    ignored:0,alreadyEvaluated:0,aiUnavailable:0,activeRoster:0};
+    ignored:0,alreadyEvaluated:0,aiUnavailable:0,activeRoster:0,noRosterSubject:0};
   const configured=[...new Set((process.env.SOCIAL_NEWS_SCOUT_HSIDS||'')
     .split(',').map(x=>x.trim()).filter(x=>/^\d+$/.test(x)))];
   // Default to all schools with a registered, Meta-resolved professional source.
@@ -34,13 +35,13 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
       ORDER BY hsid::text LIMIT 500`)
   ).rows.map(r=>r.hsid);
   if(!schoolIds.length) return report;
-  const writeAudit = async (post:ScoutPost,outcome:string,subject:string|null) => {
+  const writeAudit = async (post:ScoutPost,outcome:string,subject:string|null,metadata:Record<string,unknown>={}) => {
     if(dryRun) return;
     await query(`INSERT INTO fan_activity(firebase_uid,action,playerid,hsid,details)
       VALUES('system:social-news-scout','social_news_scout_evaluated',$1,$2,$3::jsonb)`,
       [post.playerid,post.hsid,JSON.stringify({policyVersion:SCOUT_POLICY_VERSION,
         postId:post.id,outcome,subjectPlayerId:subject,sourceHandle:post.handle,
-        sourceUrl:post.permalink,originalPublishedAt:post.published_at})]);
+        sourceUrl:post.permalink,originalPublishedAt:post.published_at,...metadata})]);
   };
   try {
     if(!scoutModelAvailable()) {
@@ -50,19 +51,25 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
     }
     const [posts,roster,articles,tips,context,decisions]=await Promise.all([
       query<ScoutPost>(`
-        SELECT p.id::text,s.hsid::text,s.playerid::text,s.owner_type,
+        SELECT p.id::text,s.hsid::text,s.playerid::text,s.owner_type,s.authorization_type,
           s.handle,p.permalink,p.caption,p.published_at::text,p.thumbnail_url
         FROM social_posts p JOIN social_sources s ON s.id=p.social_source_id
         WHERE s.platform='instagram' AND s.status='active' AND s.external_account_id IS NOT NULL
           AND s.hsid::text=ANY($1::text[])
           AND p.permalink IS NOT NULL AND p.published_at>=now()-interval '7 days'
           AND p.published_at<=now()+interval '5 minutes'
-        ORDER BY p.published_at DESC LIMIT 350`,[schoolIds]),
+          AND (s.owner_type='school'
+            OR s.authorization_type ~* '(team|club|organization|league)_account'
+            OR EXISTS(SELECT 1 FROM flip_card_front_stage f
+              WHERE f.hsid=s.hsid AND f.playerid=s.playerid
+                AND f.status_label=ANY($2::text[])))
+        ORDER BY p.published_at DESC LIMIT 350`,[schoolIds,[...SCOUT_ACTIVE_STATUSES]]),
       query<ScoutPlayer>(`
         SELECT f.hsid::text,f.playerid::text,f.first_name,f.last_name,f.current_team_name,
           f.status_label,array_remove(array_agg(DISTINCT lower(s.handle)),NULL) AS handles
         FROM flip_card_front_stage f LEFT JOIN social_sources s ON
           s.hsid=f.hsid AND s.playerid=f.playerid AND s.status='active'
+          AND s.authorization_type !~* '(team|club|organization|league)_account'
         WHERE f.hsid::text=ANY($1::text[]) AND f.status_label=ANY($2::text[])
         GROUP BY f.hsid,f.playerid,f.first_name,f.last_name,f.current_team_name,f.status_label`,
         [schoolIds,[...SCOUT_ACTIVE_STATUSES]]),
@@ -90,9 +97,16 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
       report.scanned++;
       const url=canonicalInstagramPostUrl(post.permalink);
       if(!url || !postIsFresh(post.published_at)) continue;
-      const candidates=findAlumniCandidates(post,roster.rows);
-      if(!candidates.length){report.unresolved++;continue;}
       if(seen.has(post.id)){report.alreadyEvaluated++;continue;}
+      const candidates=findAlumniCandidates(post,roster.rows);
+      if(!candidates.length){
+        report.noRosterSubject++;
+        await writeAudit(post,'outside_active_alumni_scope',null,{
+          reason:'No verified active alumnus as subject',
+          sourceIsPlayerOwned:sourceIsPlayerOwned(post.owner_type,post.authorization_type)
+        });
+        continue;
+      }
       if(candidates.every(p=>covered.has(key(p.hsid,p.playerid,url)||''))){
         report.alreadyCovered++; await writeAudit(post,'already_covered',null); continue;
       }
@@ -104,7 +118,11 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
       report.aiReviewed++;
       if(verdict.decision==='publish') report.signals++;
       if(!approvedNews(verdict,candidates)){
-        report.ignored++;await writeAudit(post,'ignored',verdict.subject_playerid||null);continue;
+        report.ignored++;await writeAudit(post,'ignored',verdict.subject_playerid||null,{
+          approvalIssue:newsApprovalIssue(verdict,candidates),aiReason:verdict.reason.slice(0,700),
+          category:verdict.category,confidence:verdict.confidence,
+          headline:verdict.headline.slice(0,200),evidence:verdict.evidence.slice(0,600)
+        });continue;
       }
       const player=candidates.find(p=>p.playerid===verdict.subject_playerid)!;
       const unique=key(player.hsid,player.playerid,url);
@@ -164,7 +182,7 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
         ]);
         if(result.rows.length) report.published++;else report.alreadyCovered++;
         covered.add(unique);
-        await writeAudit(post,result.rows.length?'published':'already_covered',player.playerid);
+        await writeAudit(post,result.rows.length?'published':'already_covered',player.playerid,{category:verdict.category,confidence:verdict.confidence});
       }catch(error){
         report.failures++;
         console.error('[social-news-scout] post publish failed',{
