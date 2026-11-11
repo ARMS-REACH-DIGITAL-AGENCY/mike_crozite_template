@@ -326,7 +326,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               ) : (
                 <div className="pp-ig-media-unavailable">
                   <p>Instagram preview unavailable.</p>
-                  {current.permalink && <a href={current.permalink} target="_blank" rel="noopener noreferrer">Open the original Instagram post</a>}
+                  {externalPosts && current.permalink && <a href={current.permalink} target="_blank" rel="noopener noreferrer">Open the original Instagram post</a>}
                 </div>
               )}
             </div>
