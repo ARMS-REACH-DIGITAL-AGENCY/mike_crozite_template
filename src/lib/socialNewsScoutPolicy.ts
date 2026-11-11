@@ -1,5 +1,5 @@
 // Pure, school-agnostic safeguards for automatic Instagram news publishing.
-export const SCOUT_POLICY_VERSION = '3';
+export const SCOUT_POLICY_VERSION = '4';
 export const SCOUT_WINDOW_DAYS = 7;
 export const SCOUT_ACTIVE_STATUSES = [
   'ACTIVE', 'INJURED - FULL SEASON', 'INJURED 60-DAY',
@@ -20,6 +20,7 @@ export type ScoutPost = {
   hsid: string;
   playerid: string | null;
   owner_type: string;
+  authorization_type?: string;
   handle: string;
   permalink: string;
   caption: string;
@@ -31,7 +32,7 @@ export type ScoutDecision = {
   subject_playerid: string;
   category: 'commitment' | 'transfer' | 'signing' | 'draft' |
     'promotion' | 'award' | 'milestone' | 'performance' |
-    'injury' | 'feature' | 'other';
+    'injury' | 'feature' | 'league_status' | 'other';
   confidence: number;
   headline: string;
   summary: string;
@@ -47,6 +48,15 @@ export function postIsFresh(date: string | null, now = Date.now()): boolean {
     timestamp >= now - SCOUT_WINDOW_DAYS * 86400000 &&
     timestamp <= now + 5 * 60000;
 }
+// An account curated as a team/school/league source can be associated with a
+// player for the Social tab, but it is NOT a personal announcement from him.
+// Never infer the speaker from playerid for these registered sources.
+export function sourceIsPlayerOwned(ownerType: string, authorizationType?: string): boolean {
+  const provenance=String(authorizationType || '').toLowerCase();
+  return ownerType === 'player' &&
+    !/(team|school|club|organization|league)_account/.test(provenance);
+}
+
 export function findAlumniCandidates(post: ScoutPost, roster: ScoutPlayer[]): ScoutPlayer[] {
   const caption = String(post.caption || '');
   const mentions = [...caption.matchAll(/(?:^|[^A-Za-z0-9_.])@([A-Za-z0-9._]{2,30})/g)]
@@ -57,7 +67,7 @@ export function findAlumniCandidates(post: ScoutPost, roster: ScoutPlayer[]): Sc
     if (player.hsid !== post.hsid ||
         !SCOUT_ACTIVE_STATUSES.includes(player.status_label as typeof SCOUT_ACTIVE_STATUSES[number]))
       return false;
-    const owner = post.owner_type === 'player' && post.playerid === player.playerid;
+    const owner = sourceIsPlayerOwned(post.owner_type, post.authorization_type) && post.playerid === player.playerid;
     const tagged = (player.handles || []).some(h => mentions.includes(h.toLowerCase()));
     const fullName = (player.first_name + ' ' + player.last_name).toLowerCase()
       .replace(/[^a-z0-9]+/g,' ').trim();
@@ -65,16 +75,24 @@ export function findAlumniCandidates(post: ScoutPost, roster: ScoutPlayer[]): Sc
     return owner || tagged || named;
   });
 }
+// One transparent reason for every rejected potential story. The daily report
+// can distinguish an actual AI rejection from a separate publication gate.
+export function newsApprovalIssue(decision: ScoutDecision, candidates: ScoutPlayer[]): string | null {
+  if (decision.decision !== 'publish') return 'ai_ignored';
+  if (!candidates.some(player => player.playerid === decision.subject_playerid))
+    return 'unverified_player_subject';
+  if (!decision.family_safe) return 'family_safety';
+  if (decision.duplicate) return 'already_reported';
+  if (decision.category === 'other') return 'no_news_category';
+  if (!Number.isFinite(decision.confidence) || decision.confidence < 0.9)
+    return 'insufficient_confidence';
+  if (decision.headline.trim().length < 12) return 'missing_headline';
+  if (decision.summary.trim().length < 20) return 'insufficient_summary';
+  if (decision.evidence.trim().length < 12) return 'insufficient_source_evidence';
+  return null;
+}
 export function approvedNews(decision: ScoutDecision, candidates: ScoutPlayer[]): boolean {
-  return Boolean(
-    candidates.some(player => player.playerid === decision.subject_playerid) &&
-    decision.decision === 'publish' && decision.family_safe &&
-    !decision.duplicate && decision.category !== 'other' &&
-    Number.isFinite(decision.confidence) && decision.confidence >= 0.9 &&
-    decision.headline.trim().length >= 12 &&
-    decision.summary.trim().length >= 20 &&
-    decision.evidence.trim().length >= 12
-  );
+  return newsApprovalIssue(decision, candidates) === null;
 }
 export function scoutHeadline(player: ScoutPlayer, raw: string): string {
   const name = (player.first_name + ' ' + player.last_name).trim();
