@@ -351,7 +351,11 @@ export default function PlayerCardFront({
   // FREE AGENT and RETIRED: no team, no organization, no 40-man pill.
   const hasNoTeam = isRetired || display.hasNoTeam;
   const showFortyManPill = asBoolean(p.is_on_40man) && !hasNoTeam;
-  const visibleLevelLabel = display.levelLabel;
+  // AFL is an exhibition-league roster assignment, not an MLB debut.
+  // Only the visible chip says AFL; canonical backend levels remain intact.
+  const visibleLevelLabel = asText(p.current_team_source) === "mlb_api_afl"
+    ? "AFL"
+    : display.levelLabel;
   const fortyManOrgName = asText(p.forty_man_org_name);
   const fortyManOrgAbbr = asText(p.forty_man_org_abbr);
   const fortyManPillTitle = fortyManOrgName
