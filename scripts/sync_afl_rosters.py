@@ -109,6 +109,8 @@ SELECT f.playerid, x.mlb_player_id, %s, x.afl_mlb_team_id,
          'display_level_label', f.display_level_label,
          'status_label', f.status_label,
          'display_status_label', f.display_status_label,
+         'team_affiliation_status', f.team_affiliation_status,
+         'current_team_absent_since', f.current_team_absent_since,
          'current_team_affiliation', f.current_team_affiliation
        ),
        true, now(), now()
@@ -161,6 +163,8 @@ UPDATE public.flip_card_front_stage f
        display_level_label = u.level_label,
        status_label = 'ACTIVE',
        display_status_label = 'ACTIVE',
+       team_affiliation_status = 'ACTIVE',
+       current_team_absent_since = NULL,
        next_game_date = CASE WHEN ng.game_time_utc IS NOT NULL
          THEN to_char(ng.game_time_utc AT TIME ZONE
            coalesce(f.school_timezone, 'America/Phoenix'),
@@ -230,6 +234,8 @@ SET current_teamid = a.previous_team_state ->> 'current_teamid',
     display_level_label = a.previous_team_state ->> 'display_level_label',
     status_label = a.previous_team_state ->> 'status_label',
     display_status_label = a.previous_team_state ->> 'display_status_label',
+    team_affiliation_status = a.previous_team_state ->> 'team_affiliation_status',
+    current_team_absent_since = (a.previous_team_state ->> 'current_team_absent_since')::timestamptz,
     next_game_date = null, next_game_time_local = null,
     next_game_time_utc = null, next_game_home_away = null,
     next_game_opponent = null, next_game_status_label = null,
