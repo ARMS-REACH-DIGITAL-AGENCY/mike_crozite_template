@@ -15,6 +15,8 @@ const args = process.argv.slice(2);
 const SEASON = Number(args[args.indexOf("--season") + 1]) || new Date().getUTCFullYear();
 const NAME = args.includes("--name") ? String(args[args.indexOf("--name") + 1] || "").toLowerCase() : "";
 const AFL = 17;
+// MLB sportId 17 covers international winter leagues too. AFL is these six teams only.
+export const AFL_TEAM_IDS = new Set([454, 490, 527, 542, 544, 555]);
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -40,32 +42,49 @@ async function currentTeam(personId: string): Promise<{ name: string; sport: num
 }
 
 async function main() {
-  const teams: { id: number; name: string }[] = (await json(`${MLB}/teams?sportId=${AFL}&season=${SEASON}`)).teams || [];
+  const teams: { id: number; name: string }[] = ((await json(`${MLB}/teams?sportId=${AFL}&season=${SEASON}`)).teams || [])
+    .filter((team: { id: number }) => AFL_TEAM_IDS.has(team.id));
+  if (teams.length !== AFL_TEAM_IDS.size) {
+    throw new Error(`Expected 6 Arizona Fall League teams; received ${teams.length}`);
+  }
   console.log(`AFL ${SEASON}: ${teams.length} teams - ${teams.map((t) => t.name).join(", ")}`);
   const aflTeamIds = teams.map((t) => String(t.id));
 
   // Every AFL roster player.
   const roster: { personId: string; name: string; team: string; pos: string }[] = [];
+  const activePeople = new Set<string>();
   for (const t of teams) {
+    const activeData = await json(`${MLB}/teams/${t.id}/roster?season=${SEASON}&rosterType=active`).catch(() => null);
+    const currentCount = (activeData?.roster || []).length;
+    for (const r of activeData?.roster || []) {
+      if (r.person?.id) activePeople.add(String(r.person.id));
+    }
+    let seasonCount = 0;
     for (const type of ["fullSeason", "active"]) {
       const data = await json(`${MLB}/teams/${t.id}/roster?season=${SEASON}&rosterType=${type}`).catch(() => null);
+      if (data?.roster?.length) seasonCount = data.roster.length;
       for (const r of data?.roster || []) {
         const personId = String(r.person?.id || "");
         if (personId && !roster.some((x) => x.personId === personId)) {
           roster.push({ personId, name: r.person?.fullName || "", team: t.name, pos: r.position?.abbreviation || "" });
         }
       }
-      if (data?.roster?.length) break;
+      // fullSeason and active can contain different players. Query BOTH and
+      // take their union; do not break after a non-empty fullSeason response.
     }
+    console.log(`${t.name}: ${currentCount} active, ${seasonCount} in season roster`);
     await delay(150);
   }
+  console.log(`AFL ${SEASON} unique roster players (all six clubs): ${roster.length}`);
   console.log(`AFL roster players: ${roster.length}`);
+  console.log(`AFL CURRENT active roster distinct players: ${activePeople.size}`);
 
   const { rows: mapped } = await pool.query<{ source_player_id: string; playerid: string; match_method: string | null; display_name: string | null; hsid: string | null }>(
     `SELECT m.source_player_id, m.playerid::text AS playerid, m.match_method,
             (SELECT f.display_name FROM flip_card_front_stage f WHERE f.playerid::text = m.playerid::text LIMIT 1) AS display_name,
             (SELECT f.hsid::text FROM flip_card_front_stage f WHERE f.playerid::text = m.playerid::text LIMIT 1) AS hsid
-       FROM player_source_map m WHERE m.source = 'mlb_api' AND m.source_player_id = ANY($1::text[])`,
+       FROM player_source_map m WHERE m.source = 'mlb_api' AND m.source_player_id = ANY($1::text[])
+         AND COALESCE(m.match_method,'') <> 'rejected_bad_identity_match'`,
     [roster.map((r) => r.personId)]
   );
   // One MLB person can be linked to more than one of our player ids (an
@@ -83,7 +102,13 @@ async function main() {
   const storedBy = new Map(stored.map((s) => [s.playerid, s.n]));
 
   const inUniverse = roster.filter((r) => byPerson.has(r.personId));
-  console.log(`In our universe (mapped): ${inUniverse.length}\n`);
+  const mappedWithCard = inUniverse.filter((r) => !!byPerson.get(r.personId)?.display_name);
+  const verifiedLinks = inUniverse.filter((r) => mapped.some((m) => m.source_player_id === r.personId && !!m.display_name && m.match_method !== 'rejected_bad_identity_match'));
+  console.log(`In our universe (mapped): ${inUniverse.length}`);
+  console.log(`In YAT?STATS flip cards: ${mappedWithCard.length} / ${roster.length} (${(100 * mappedWithCard.length / roster.length).toFixed(1)}%)`);
+  const activeLinked = mappedWithCard.filter((r) => activePeople.has(r.personId));
+  console.log(`CURRENT active AFL players with YAT flip cards: ${activeLinked.length} / ${activePeople.size} (${(100 * activeLinked.length / activePeople.size).toFixed(1)}%)`);
+  console.log(`Matched MLB identity links with a flip card: ${verifiedLinks.length}\n`);
   console.log(["player", "AFL team", "pos", "playerid", "hsid", "MLB AFL games (bat/pit)", "stored AFL games", "MLB current team (sport)", "status"].join(" | "));
 
   let complete = 0, missing = 0, partial = 0, none = 0;
@@ -105,6 +130,8 @@ async function main() {
   // Not mapped: AFL players we couldn't link to anyone in our universe.
   const unmapped = roster.filter((r) => !byPerson.has(r.personId));
   console.log(`\nAFL players not linked to our universe: ${unmapped.length}`);
+  console.log("Unlinked MLB IDs and names (verify identity before any card creation):");
+  for (const r of unmapped) console.log(`  ${r.team} | ${r.name} | MLB ${r.personId}`);
 
   if (NAME) {
     console.log(`\nLookup "${NAME}":`);

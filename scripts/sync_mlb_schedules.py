@@ -16,6 +16,10 @@ END_DATE = date.fromisoformat(os.environ.get("SCHEDULE_END_DATE", f"{SCHEDULE_SE
 
 API_BASE_URL = "https://statsapi.mlb.com/api/v1/schedule"
 PRO_SPORT_IDS = [1, 11, 12, 13, 14, 16]
+# MLB sportId 17 contains dozens of unrelated winter leagues. Never treat all of
+# sportId 17 as Arizona Fall League: only these six exact MLB team IDs qualify.
+AFL_TEAM_IDS = (454, 490, 527, 542, 544, 555)
+AFL_TEAM_ID_SET = set(AFL_TEAM_IDS)
 SPORT_LEVELS = {
     1: "MLB",
     11: "TRIPLE-A",
@@ -197,6 +201,47 @@ def fetch_complete_pro_schedule() -> list[dict[str, Any]]:
 
         sport_total = len(all_rows_by_game_pk) - sport_count_before
         print(f"Fetched {sport_total} unique {level} games")
+
+    # Request AFL games by exact club, not by the 46-team sportId=17 universe.
+    # This captures their regular-season and postseason matchups and keeps all
+    # unrelated winter-league games out of team_schedules. No duplicate games.
+    afl_start = max(START_DATE, date(SCHEDULE_SEASON, 9, 1))
+    afl_end = min(END_DATE, date(SCHEDULE_SEASON, 12, 15))
+    if afl_start <= afl_end:
+        afl_by_game_pk: dict[int, dict[str, Any]] = {}
+        afl_failures: list[str] = []
+        for team_id in AFL_TEAM_IDS:
+            try:
+                res = session.get(API_BASE_URL, params={
+                    "sportId": "17",
+                    "teamId": str(team_id),
+                    "startDate": afl_start.isoformat(),
+                    "endDate": afl_end.isoformat(),
+                }, timeout=90)
+                res.raise_for_status()
+                for row in parse_schedule_payload(res.json(), 17):
+                    # MLB occasionally includes games against non-AFL opponents.
+                    # A game is an AFL game only when BOTH teams are AFL clubs.
+                    if (row.get("home_team_id") not in AFL_TEAM_ID_SET
+                            or row.get("away_team_id") not in AFL_TEAM_ID_SET):
+                        continue
+                    game_pk = row.get("game_pk")
+                    if game_pk is None:
+                        continue
+                    # Preserve the existing official MLB-level classification.
+                    row["sport_id"] = 17
+                    row["level"] = "MLB"
+                    afl_by_game_pk[int(game_pk)] = row
+            except Exception as exc:
+                afl_failures.append(f"teamId={team_id}: {exc}")
+        if afl_failures:
+            # Never let an AFL API outage break the canonical MLB/MiLB schedule
+            # ingestion. Also avoid saving a partial six-team AFL schedule.
+            print("WARNING: retaining prior AFL schedule; one or more AFL "
+                  f"requests failed: {'; '.join(afl_failures)}")
+        else:
+            all_rows_by_game_pk.update(afl_by_game_pk)
+            print(f"Fetched {len(afl_by_game_pk)} Arizona Fall League games (six clubs)")
 
     return list(all_rows_by_game_pk.values())
 

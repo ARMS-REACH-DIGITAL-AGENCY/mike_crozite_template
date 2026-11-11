@@ -1,12 +1,18 @@
 name: MLB Roster Sync
 
 on:
+  # Run once after the AFL schedule-import push completes. Normal daily cron
+  # runs are NOT retriggered: the existing 3-hour roster schedule handles them.
+  workflow_run:
+    workflows: ["MLB/MiLB Full Schedule Sync"]
+    types: [completed]
   workflow_dispatch:
   schedule:
     - cron: "0 */3 * * *"
 
 jobs:
   sync-mlb-rosters:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
 
     env:
@@ -36,3 +42,14 @@ jobs:
         
       - name: Refresh flip card front stage from MLB roster resolution
         run: npx tsx ./scripts/refresh-flip-card-front-stage-from-mlb.ts
+
+      - name: Setup Python for Arizona Fall League rosters
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install AFL sync dependencies
+        run: pip install requests psycopg[binary]
+
+      - name: Overlay official AFL active assignments and next games
+        run: python scripts/sync_afl_rosters.py
