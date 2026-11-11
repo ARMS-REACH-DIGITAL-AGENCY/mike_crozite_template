@@ -6,6 +6,7 @@ import { StoryStyles } from './StoryViewer';
 import SponsorTower from './SponsorTower';
 import WhereYatShareButton from './WhereYatShareButton';
 import WhereYatMemory from './WhereYatMemory';
+import WhereYatTaggedMemories from './WhereYatTaggedMemories';
 
 type AlumniUpdate = {
   id:number;
@@ -65,6 +66,7 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         </aside>
 
       </> : <WhereYatPromptedStories playerId={playerId} hsid={hsid} name={name} school={schoolName} />}
+      <WhereYatTaggedMemories playerId={playerId} />
       <WhereYatDesignCTA playerId={playerId} hsid={hsid} name={name} school={schoolName} />
       </div><aside className="wyn-story-sponsor"><SponsorTower placement="player-stories" /></aside></div>
       <style>{`
@@ -104,9 +106,9 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
         .wyn-story-body { padding:12px; font:400 13px/1.4 var(--yat-news-font,Georgia,serif); }
         .wyn-story-actions { padding:0; border-top:0; }
         .where-yat-profile .wyn-reactions {margin:0;padding:0;border:0;color:inherit;}
-        .where-yat-profile .ysf-card-actions {border-top:1px solid var(--wyn-border);border-bottom:1px solid var(--wyn-border);}
-        .where-yat-profile .ysf-card-actions button {color:var(--wyn-card-text);font:600 13px/1 var(--yat-font-ui,Arial,sans-serif);}
-        .where-yat-profile .ysf-card-actions button i {font-size:15px;}
+        .where-yat-profile .ysf-card-actions {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--wyn-border);border-bottom:1px solid var(--wyn-border);}
+        .where-yat-profile .ysf-card-actions > button, .where-yat-profile .ysf-card-actions > .ypt-wrap > button {color:var(--wyn-card-text);font:600 13px/1 var(--yat-font-ui,Arial,sans-serif);}
+        .where-yat-profile .ysf-card-actions > button i, .where-yat-profile .ysf-card-actions > .ypt-wrap > button i {font-size:15px;}
         .where-yat-profile .ysf-card-actions button.ysf-liked {color:var(--ysv-gold-text);}
         .where-yat-profile .ysv-comments {padding:12px;}
         .where-yat-profile .ysv-composer {padding:10px 12px 12px;}

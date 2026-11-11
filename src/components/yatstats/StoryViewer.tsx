@@ -16,6 +16,7 @@ import { auth } from '@/lib/firebase';
 import { toPlayerSlug } from '@/lib/slug';
 import FanConfirm from '@/components/yatstats/FanConfirm';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
+import PlayerTagging, {type TaggedPerson} from '@/components/yatstats/PlayerTagging';
 import { track } from '@/lib/analytics';
 import { jpegName, shrinkPhoto } from '@/lib/shrinkPhoto';
 
@@ -575,6 +576,11 @@ export function StoryThread({
         <button type="button" onClick={share}>
           <i className="ri-share-forward-line" /> Share
         </button>
+        <PlayerTagging
+          endpoint={`/api/stories/${story.id}/tags`}
+          initial={story.players as TaggedPerson[]}
+          onUpdated={(players) => onChange({ ...story, players: players.map(p => ({ playerId:p.playerId, name:p.name, hsid:p.hsid || null, isPrimary:Boolean(p.isPrimary) })) })}
+        />
       </div>
     </>
   );
@@ -961,10 +967,10 @@ export function StoryStyles() {
       .ysv-btn:disabled { opacity: .55; cursor: default; }
       .ysv-counts { display: flex; justify-content: space-between; align-items: center; padding: 8px 2px; color: var(--ysv-muted); font: 400 13px/1 system-ui, sans-serif; }
       .ysv-like-dot { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--ysv-gold); color: #000; font-size: 11px; vertical-align: -3px; }
-      .ysv-actions { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--ysv-line); border-bottom: 1px solid var(--ysv-line); }
-      .ysv-actions button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border: 0; background: transparent; color: var(--ysv-text); font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; cursor: pointer; border-radius: 6px; }
-      .ysv-actions button i { font-size: 18px; }
-      .ysv-actions button:hover { background: var(--ysv-hover); }
+      .ysv-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ysv-line); border-bottom: 1px solid var(--ysv-line); }
+      .ysv-actions > button, .ysv-actions > .ypt-wrap > button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border: 0; background: transparent; color: var(--ysv-text); font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; cursor: pointer; border-radius: 6px; }
+      .ysv-actions > button i, .ysv-actions > .ypt-wrap > button i { font-size: 18px; }
+      .ysv-actions > button:hover, .ysv-actions > .ypt-wrap > button:hover { background: var(--ysv-hover); }
       .ysv-actions .ysv-liked { color: var(--ysv-gold-text); }
       .ysv-comments { display: flex; flex-direction: column; gap: 12px; padding: 12px 0 4px; }
       .ysv-comments:empty { display: none; }

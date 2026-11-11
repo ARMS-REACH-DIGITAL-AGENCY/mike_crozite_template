@@ -20,6 +20,7 @@ import { openStoryDrawer, cancelPendingStoryDrawerOpen } from '@/lib/storyDrawer
 import SortToggle from '@/components/yatstats/SortToggle';
 import TeammatesList, { teammateCount, useTeammates, type TeammateSeason } from '@/components/yatstats/TeammatesList';
 import StoryViewer, { AlbumStrip, StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
+import PlayerTagging from '@/components/yatstats/PlayerTagging';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
 function useIsDesktop() {
@@ -417,6 +418,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                     <button type="button" onClick={() => shareFromCard(s)}>
                       <i className="ri-share-forward-line" /> Share
                     </button>
+                    <PlayerTagging endpoint={`/api/stories/${s.id}/tags`}
+                      initial={s.players}
+                      onUpdated={(players)=>updateStory({...s,players:players.map(p=>({playerId:p.playerId,hsid:p.hsid||null,name:p.name,isPrimary:Boolean(p.isPrimary)}))})}
+                    />
                   </div>
                   </div>
                   {index === (list.length <= 2 ? 0 : 1) ? sponsorCard : null}
@@ -561,10 +566,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card { width: 100%; display: flex; flex-direction: column; align-items: stretch; min-width: 0; margin: 0; padding: 0; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; overflow: hidden; }
         .ysf-card-open { appearance: none; display: flex; flex-direction: column; align-items: stretch; gap: 7px; width: 100%; min-width: 0; margin: 0; padding: 8px 8px 6px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
         /* Like · Comment · Share on each card. */
-        .ysf-card-actions { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--ysf-card-border); }
-        .ysf-card-actions button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 600 13px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; cursor: pointer; }
-        .ysf-card-actions button i { font-size: 15px; }
-        .ysf-card-actions button:hover { color: var(--ysf-strong); }
+        .ysf-card-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ysf-card-border); }
+        .ysf-card-actions > button, .ysf-card-actions > .ypt-wrap > button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 600 13px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; cursor: pointer; }
+        .ysf-card-actions > button i, .ysf-card-actions > .ypt-wrap > button i { font-size: 15px; }
+        .ysf-card-actions > button:hover, .ysf-card-actions > .ypt-wrap > button:hover { color: var(--ysf-strong); }
         .ysf-card-actions .ysf-liked { color: var(--ysf-when); }
         .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #fff; border: 1px solid rgba(255,255,255,.26); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
         .ysf-card:hover { border-color: var(--ysf-strong); }
