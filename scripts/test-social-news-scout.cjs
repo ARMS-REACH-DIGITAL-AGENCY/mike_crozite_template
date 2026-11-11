@@ -81,7 +81,9 @@ assert.equal(p.newsApprovalIssue(directVerdict,[Bauer],directPost),null,
 assert.equal(p.approvedNews(directVerdict,[Bauer],directPost),true);
 assert.equal(p.newsApprovalIssue(directVerdict,[Bauer]),'insufficient_confidence',
   'Lower-confidence lane needs the original verified post');
-assert.equal(p.newsApprovalIssue({...directVerdict,confidence:0.79},[Bauer],directPost),'insufficient_confidence');
+assert.equal(p.newsApprovalIssue({...directVerdict,confidence:0.72},[Bauer],directPost),null,
+  'A verified direct statement with the observed model confidence 0.72 passes');
+assert.equal(p.newsApprovalIssue({...directVerdict,confidence:0.69},[Bauer],directPost),'insufficient_confidence');
 assert.equal(p.newsApprovalIssue({...directVerdict,headline:'Trevor Bauer reinstated by MLB'},[Bauer],directPost),'insufficient_confidence',
   'Self-reported status must be attributed in the headline');
 assert.equal(p.newsApprovalIssue({...directVerdict,evidence:'He was reinstated by the league'},[Bauer],directPost),'insufficient_confidence',
@@ -94,6 +96,6 @@ assert.equal(p.newsApprovalIssue({...directVerdict,subject_playerid:'195486'},[B
   'Wrong subject may never publish');
 assert.ok(read('src/lib/socialNewsScout.ts').includes('previouslyHeld'));
 assert.ok(read('src/lib/socialNewsScout.ts').includes('approvedNews(verdict,candidates,post)'));
-assert.equal(p.SCOUT_POLICY_VERSION,'5');
+assert.equal(p.SCOUT_POLICY_VERSION,'6');
 
 console.log('PASS: Active Alumni 7-day AI Scout, roster identity, deduping, 15-minute cron and audit safeguards');

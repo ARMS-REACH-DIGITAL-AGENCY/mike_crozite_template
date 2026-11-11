@@ -1,5 +1,5 @@
 // Pure, school-agnostic safeguards for automatic Instagram news publishing.
-export const SCOUT_POLICY_VERSION = '5';
+export const SCOUT_POLICY_VERSION = '6';
 export const SCOUT_WINDOW_DAYS = 7;
 export const SCOUT_ACTIVE_STATUSES = [
   'ACTIVE', 'INJURED - FULL SEASON', 'INJURED 60-DAY',
@@ -111,7 +111,10 @@ export function newsApprovalIssue(decision: ScoutDecision, candidates: ScoutPlay
   if (!decision.family_safe) return 'family_safety';
   if (decision.duplicate) return 'already_reported';
   if (decision.category === 'other') return 'no_news_category';
-  const minimumConfidence = verifiedDirectCareerStatement(decision,post) ? 0.8 : 0.9;
+  // Exact first-person source evidence and roster identity are stronger proof
+  // of attribution than a model's variable subjective confidence score.
+  // Keep a numerical floor, but do not demand 90% for self-reported news.
+  const minimumConfidence = verifiedDirectCareerStatement(decision,post) ? 0.7 : 0.9;
   if (!Number.isFinite(decision.confidence) || decision.confidence < minimumConfidence)
     return 'insufficient_confidence';
   if (decision.headline.trim().length < 12) return 'missing_headline';
