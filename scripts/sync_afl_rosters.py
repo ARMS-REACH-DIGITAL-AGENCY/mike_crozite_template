@@ -286,10 +286,36 @@ def main() -> None:
 
     with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            # A zero-player roster during the season is usually a feed failure;
-            # don't replace hundreds of legitimate assignments with blanks.
-            if 9 <= today.month <= 11 and not rosters:
-                raise RuntimeError("All six AFL active rosters empty during Fall League; "
+            cur.execute("""
+                SELECT min(game_date)::date AS first_game,
+                       max(game_date)::date AS last_game
+                  FROM public.team_schedules
+                 WHERE sport_id = 17
+                   AND home_team_id = ANY(%s)
+                   AND away_team_id = ANY(%s)
+                   AND game_date >= make_date(%s, 1, 1)
+                   AND game_date < make_date(%s + 1, 1, 1)
+            """, (list(AFL_TEAMS), list(AFL_TEAMS), SEASON, SEASON))
+            season_schedule = cur.fetchone()
+            first_game = season_schedule["first_game"]
+            last_game = season_schedule["last_game"]
+            print(f"AFL league game dates: {first_game} to {last_game}")
+
+            # Historical rosterType=active endpoints can remain populated after
+            # the championship. Once the last scheduled 2026 AFL game is past,
+            # stop displaying the AFL assignment even if its endpoint is stale.
+            if (last_game and today > last_game
+                    or SEASON < today.year or today.month == 12):
+                rosters = []
+
+            # A zero feed in season is NOT proof every player departed. Only
+            # allow a bulk restore when the league really has ended.
+            if (not rosters and first_game and last_game
+                    and first_game <= today <= last_game):
+                raise RuntimeError("All six AFL active rosters empty during the "
+                                   "official AFL schedule; refusing unsafe bulk removal")
+            if not rosters and today.month in (10, 11) and not last_game:
+                raise RuntimeError("AFL rosters and schedule both unavailable; "
                                    "refusing unsafe bulk removal")
             if DRY_RUN:
                 if rosters:
