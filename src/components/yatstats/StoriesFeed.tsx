@@ -562,9 +562,9 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card-open { appearance: none; display: flex; flex-direction: column; align-items: stretch; gap: 7px; width: 100%; min-width: 0; margin: 0; padding: 8px 8px 6px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
         /* Like · Comment · Share on each card. */
         .ysf-card-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ysf-card-border); }
-        .ysf-card-actions button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 600 13px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; cursor: pointer; }
-        .ysf-card-actions button i { font-size: 15px; }
-        .ysf-card-actions button:hover { color: var(--ysf-strong); }
+        .ysf-card-actions > button, .ysf-card-actions > .ypt-wrap > button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 600 13px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; cursor: pointer; }
+        .ysf-card-actions > button i, .ysf-card-actions > .ypt-wrap > button i { font-size: 15px; }
+        .ysf-card-actions > button:hover, .ysf-card-actions > .ypt-wrap > button:hover { color: var(--ysf-strong); }
         .ysf-card-actions .ysf-liked { color: var(--ysf-when); }
         .ysf-toast { position: fixed; left: 50%; bottom: calc(var(--footerH, 66px) + var(--pp-dock-h, 58px) + 12px); transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 999px; background: #111; color: #fff; border: 1px solid rgba(255,255,255,.26); font: 400 13px/1.3 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
         .ysf-card:hover { border-color: var(--ysf-strong); }
