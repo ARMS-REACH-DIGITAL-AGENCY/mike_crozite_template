@@ -36,3 +36,14 @@ jobs:
         
       - name: Refresh flip card front stage from MLB roster resolution
         run: npx tsx ./scripts/refresh-flip-card-front-stage-from-mlb.ts
+
+      - name: Setup Python for Arizona Fall League rosters
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install AFL sync dependencies
+        run: pip install requests psycopg[binary]
+
+      - name: Overlay official AFL active assignments and next games
+        run: python scripts/sync_afl_rosters.py
