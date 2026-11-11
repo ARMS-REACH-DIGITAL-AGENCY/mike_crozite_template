@@ -5,9 +5,9 @@ import {authHeaders,openSignIn,useFanMe} from './StoryViewer';
 import ContributeSearch from './ContributeSearch';
 
 export type TaggedPerson={playerId:string;name:string;hsid?:string|null;isPrimary?:boolean;taggedByMe?:boolean;canRemove?:boolean};
-type Props={endpoint:string;initial?:TaggedPerson[];onUpdated?:(players:TaggedPerson[])=>void;buttonClass?:string;compact?:boolean;label?:string};
+type Props={endpoint:string;initial?:TaggedPerson[];onUpdated?:(players:TaggedPerson[])=>void;buttonClass?:string;compact?:boolean;label?:string;payload?:Record<string,string|number>};
 
-export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass='',compact=false,label='Tag'}:Props){
+export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass='',compact=false,label='Tag',payload={}}:Props){
   const me=useFanMe();
   const [open,setOpen]=useState(false);
   const [tags,setTags]=useState<TaggedPerson[]>(initial);
@@ -27,7 +27,7 @@ export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass
     if(busy)return;
     setBusy(true);setNote('');
     try{
-      const r=await fetch(endpoint,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',...(await authHeaders())},body:JSON.stringify({action,playerId})});
+      const r=await fetch(endpoint,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',...(await authHeaders())},body:JSON.stringify({...payload,action,playerId})});
       const j=await r.json().catch(()=>({}));
       if(r.status===401){openSignIn();return;}
       if(!r.ok)throw Error(j.error||'Could not update tags.');
