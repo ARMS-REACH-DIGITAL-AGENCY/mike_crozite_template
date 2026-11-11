@@ -288,8 +288,10 @@ def fetch_afl_rosters() -> list[dict]:
 
 def main() -> None:
     today = datetime.now(timezone.utc).date()
-    if today.month < 9 and SEASON == today.year:
-        print("Before AFL season. Will only restore any prior-year stale overlays.")
+    if SEASON < today.year or today.month < 9 or today.month == 12:
+        # Do not query a historical year's active roster endpoint. It may be
+        # stale or unavailable after the season, and is not current evidence.
+        print("Outside AFL roster season. Restoring any stale AFL overlays.")
         rosters = []
     else:
         rosters = fetch_afl_rosters()
@@ -314,8 +316,11 @@ def main() -> None:
             # Historical rosterType=active endpoints can remain populated after
             # the championship. Once the last scheduled 2026 AFL game is past,
             # stop displaying the AFL assignment even if its endpoint is stale.
-            if (last_game and today > last_game
+            if ((last_game and today > last_game + timedelta(days=3))
                     or SEASON < today.year or today.month == 12):
+                # MLB can leave stale season-long active rosters after the
+                # championship. Allow 3 days for postseason date changes
+                # before treating the completed schedule as a reliable end.
                 rosters = []
 
             # A zero feed in season is NOT proof every player departed. Only
