@@ -35,6 +35,13 @@ CREATE TABLE IF NOT EXISTS public.afl_current_roster_overlays (
 );
 """
 
+# AFL parent organization is metadata separate from the canonical league.
+# It is not an alternate team identity or an edit to teamid_universe_mapping.
+ALTER_STAGE = """
+ALTER TABLE public.flip_card_front_stage
+  ADD COLUMN IF NOT EXISTS afl_parent_org_name text
+"""
+
 # One verified MLB identity points to the same existing TBC player card.
 # A 2026 AFL game played under that SAME TBC ID is acceptable corroboration
 # of an older, not-yet-verified MLB crosswalk, but a rejected identity never is.
@@ -90,6 +97,7 @@ SELECT f.playerid, x.mlb_player_id, %s, x.afl_mlb_team_id,
          'current_teamid', f.current_teamid,
          'current_team_name', f.current_team_name,
          'current_org_or_conference_name', f.current_org_or_conference_name,
+         'current_team_affiliation', f.current_team_affiliation,
          'current_team_source', f.current_team_source,
          'current_team_source_player_id', f.current_team_source_player_id,
          'current_team_source_team_id', f.current_team_source_team_id,
@@ -141,6 +149,7 @@ UPDATE public.flip_card_front_stage f
        current_team_name = u.current_team_name,
        current_org_or_conference_name = u.current_org_or_conference_name,
        current_team_affiliation = u.current_org_or_conference_name,
+       afl_parent_org_name = NULLIF(BTRIM(a.previous_team_state ->> 'current_org_or_conference_name'),''),
        current_team_source = 'mlb_api_afl',
        current_team_source_player_id = a.mlb_player_id,
        current_team_source_team_id = a.afl_mlb_team_id::text,
@@ -205,6 +214,7 @@ SET current_teamid = a.previous_team_state ->> 'current_teamid',
       a.previous_team_state ->> 'current_org_or_conference_name',
     current_team_affiliation =
       a.previous_team_state ->> 'current_team_affiliation',
+    afl_parent_org_name = null,
     current_team_source = a.previous_team_state ->> 'current_team_source',
     current_team_source_player_id =
       a.previous_team_state ->> 'current_team_source_player_id',
@@ -314,9 +324,10 @@ def main() -> None:
                     and first_game <= today <= last_game):
                 raise RuntimeError("All six AFL active rosters empty during the "
                                    "official AFL schedule; refusing unsafe bulk removal")
-            if not rosters and today.month in (10, 11) and not last_game:
-                raise RuntimeError("AFL rosters and schedule both unavailable; "
-                                   "refusing unsafe bulk removal")
+            if today.month in (10, 11) and not last_game:
+                raise RuntimeError("No authoritative AFL games loaded yet. Run the "
+                                   "full six-team schedule ingestion before "
+                                   "updating AFL flip-card assignments.")
             if DRY_RUN:
                 if rosters:
                     cur.execute(MAP_PLAYERS, (json.dumps(rosters), SEASON, SEASON))
@@ -326,6 +337,7 @@ def main() -> None:
                 return
 
             cur.execute(CREATE_TABLE)
+            cur.execute(ALTER_STAGE)
             if rosters:
                 cur.execute(MAP_PLAYERS, (json.dumps(rosters), SEASON, SEASON))
                 candidates = cur.fetchall()
