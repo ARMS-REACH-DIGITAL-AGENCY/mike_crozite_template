@@ -11,6 +11,8 @@ vm.runInNewContext(js,{exports:out.exports,URL,console}, {filename:'schoolDirect
 const routing=out.exports;
 
 assert.equal(routing.schoolNameSlug('St. Mary & Joseph'), 'st-mary-joseph');
+assert.equal(routing.schoolNameSlug("St. Mark's"), 'st-marks', 'punctuation is dropped');
+assert.equal(routing.schoolNameSlug('J.H. Rose'), 'jh-rose', 'initials are joined');
 assert.equal(routing.schoolHostnamePattern('hamilton.az.yatstats.com').slug,'hamilton');
 assert.equal(routing.schoolHostnamePattern('st-francis.mountain-view.ca.yatstats.com').city,'mountain-view');
 assert.equal(routing.schoolHostnamePattern('st-francis.la-canada.ca.yatstats.com').slug,'st-francis');

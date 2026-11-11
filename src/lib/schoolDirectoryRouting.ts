@@ -16,8 +16,11 @@ export function normalizeSchoolHost(input: string): string {
   }
 }
 
+// Address rule (Pete, Nov 11 2026): punctuation is dropped, not turned into a
+// dash (St. Mark's -> st-marks, O'Dea -> odea, J.H. Rose -> jh-rose).
 export function schoolNameSlug(input: string): string {
   return String(input || '').toLowerCase()
+    .replace(/['\u2019.]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'school';
 }
@@ -38,12 +41,12 @@ export function schoolHostnamePattern(host: string):
 }
 
 const PG_NAME_SLUG = (alias: string) =>
-  `COALESCE(NULLIF(BTRIM(REGEXP_REPLACE(LOWER(${alias}.hsname), '[^a-z0-9]+', '-', 'g'), '-'), ''), 'school')`;
+  `COALESCE(NULLIF(BTRIM(REGEXP_REPLACE(REGEXP_REPLACE(LOWER(${alias}.hsname), '[''\u2019.]', '', 'g'), '[^a-z0-9]+', '-', 'g'), '-'), ''), 'school')`;
 
 // City is the first human-readable disambiguator for duplicate names.
 // Cityname is authoritative; hslocation supplies a fallback for legacy rows.
 const PG_CITY_SLUG = (alias: string) =>
-  `COALESCE(NULLIF(BTRIM(REGEXP_REPLACE(LOWER(COALESCE(NULLIF(BTRIM(${alias}.cityname), ''), NULLIF(BTRIM(SPLIT_PART(${alias}.hslocation, ',', 1)), ''), 'city')), '[^a-z0-9]+', '-', 'g'), '-'), ''), 'city')`;
+  `COALESCE(NULLIF(BTRIM(REGEXP_REPLACE(REGEXP_REPLACE(LOWER(COALESCE(NULLIF(BTRIM(${alias}.cityname), ''), NULLIF(BTRIM(SPLIT_PART(${alias}.hslocation, ',', 1)), ''), 'city')), '[''\u2019.]', '', 'g'), '[^a-z0-9]+', '-', 'g'), '-'), ''), 'city')`;
 
 /** Candidate schools must have linked players. Name collisions are checked
  * against the full master reference, including currently inactive schools.
