@@ -367,7 +367,7 @@ export default function PlayerCardFront({
   const displayOrgLine = hasNoTeam
     ? ""
     : isArizonaFallLeague && aflParentOrg
-      ? `Arizona Fall League · ${aflParentOrg}`
+      ? `AFL · ${aflParentOrg}`
       : display.orgConferenceName;
   const lastTransactionType = asText(p.last_transaction_type);
   const lastTransactionDateLabel = formatTransactionDate(p.last_transaction_date);
