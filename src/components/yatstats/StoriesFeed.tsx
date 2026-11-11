@@ -566,7 +566,7 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
         .ysf-card { width: 100%; display: flex; flex-direction: column; align-items: stretch; min-width: 0; margin: 0; padding: 0; border: 1px solid var(--ysf-card-border); border-radius: 8px; background: var(--ysf-card-bg); box-shadow: var(--ysf-card-shadow); color: var(--ysf-text); transition: border-color .15s ease; overflow: hidden; }
         .ysf-card-open { appearance: none; display: flex; flex-direction: column; align-items: stretch; gap: 7px; width: 100%; min-width: 0; margin: 0; padding: 8px 8px 6px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
         /* Like · Comment · Share on each card. */
-        .ysf-card-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ysf-card-border); }
+        .ysf-card-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--ysf-card-border); }
         .ysf-card-actions > button, .ysf-card-actions > .ypt-wrap > button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; border: 0; background: transparent; color: var(--ysf-muted); font: 600 13px/1 var(--yat-font-ui, Arial, sans-serif); letter-spacing: 0; cursor: pointer; }
         .ysf-card-actions > button i, .ysf-card-actions > .ypt-wrap > button i { font-size: 15px; }
         .ysf-card-actions > button:hover, .ysf-card-actions > .ypt-wrap > button:hover { color: var(--ysf-strong); }
