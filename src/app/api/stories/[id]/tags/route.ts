@@ -14,6 +14,16 @@ async function players(id:string,uid:string){
   return rows.map(r=>({playerId:r.playerid,hsid:r.hsid,name:r.name||'Player',isPrimary:r.is_primary,taggedByMe:r.tagged_by_me}));
 }
 
+export async function GET(req:NextRequest,{params}:Params){
+  const id=parseStoryId((await params).id);
+  if(!id)return fail('Story not found.',404);
+  const {rows:access}=await query<{ok:boolean}>(
+    "SELECT NOT COALESCE(is_private,false) AS ok FROM player_moment_submissions WHERE id=$1 AND status='live'",[id]);
+  if(!access[0]?.ok)return fail('Story unavailable.',404);
+  const fan=await identifyFan(req);
+  return NextResponse.json({players:await players(id,fan?.uid||'')},{headers:{'Cache-Control':'no-store'}});
+}
+
 export async function POST(req:NextRequest,{params}:Params){
   const id=parseStoryId((await params).id);
   if(!id)return fail('Story not found.',404);
