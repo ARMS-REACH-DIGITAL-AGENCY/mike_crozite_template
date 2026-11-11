@@ -17,6 +17,8 @@
 // school_id.
 
 export const GA_MEASUREMENT_ID = 'G-WQHT9SNHLC';
+// Meta pixel: dataset "The YAT?STATS Platform" in the YAT?Stats business.
+export const META_PIXEL_ID = '1953184939397879';
 
 type Params = Record<string, string | number | boolean | null | undefined>;
 
@@ -24,6 +26,7 @@ declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
+    fbq?: (...args: unknown[]) => void;
     yatTrack?: (event: string, params?: Params) => void;
   }
 }
@@ -79,6 +82,11 @@ function gtag(...args: unknown[]) {
   window.gtag(...args);
 }
 
+function fbq(...args: unknown[]) {
+  if (typeof window === 'undefined' || typeof window.fbq !== 'function') return;
+  window.fbq(...args);
+}
+
 // Called on every route change (AnalyticsPageViews).
 export function trackPageView(pathname: string, hash: string) {
   const context = pageContext(pathname, hash);
@@ -91,6 +99,9 @@ export function trackPageView(pathname: string, hash: string) {
     page_path: pathname,
     page_title: document.title,
   });
+  // Meta gets the page view only (no school/player details); its audiences
+  // are built from the page address.
+  fbq('track', 'PageView');
 }
 
 export function track(event: string, params: Params = {}) {

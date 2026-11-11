@@ -3,12 +3,17 @@ import "./globals.css";
 import "./contribution-forms.css";
 import StyledJsxRegistry from "./registry";
 import { AnalyticsPageViews } from "@/components/analytics/Analytics";
-import { GA_MEASUREMENT_ID } from "@/lib/analytics";
+import { GA_MEASUREMENT_ID, META_PIXEL_ID } from "@/lib/analytics";
 
 // Google Analytics, on the live yatstats.com sites only (not Vercel
 // previews or localhost). Page views are sent by AnalyticsPageViews so each
 // carries the school, player and tab, so GA's own automatic one is off.
-const GA_BOOTSTRAP = `(function(){var h=location.hostname.toLowerCase();if(h!=='yatstats.com'&&!/\\.yatstats\\.com$/.test(h))return;try{var q=new URLSearchParams(location.search),flag=q.get('yat_internal');if(flag==='1'){document.cookie='yat_ga_internal=1;path=/;max-age=31536000;SameSite=Lax;Secure;domain=.yatstats.com';}else if(flag==='0'){document.cookie='yat_ga_internal=;path=/;max-age=0;SameSite=Lax;Secure;domain=.yatstats.com';}if(flag==='1'||flag==='0'){q.delete('yat_internal');var qs=q.toString();history.replaceState(null,'',location.pathname+(qs?'?'+qs:'')+location.hash);}}catch(e){}if(/(?:^|;\\s*)yat_ga_internal=1(?:;|$)/.test(document.cookie))return;window.dataLayer=window.dataLayer||[];window.gtag=function(){window.dataLayer.push(arguments);};window.gtag('js',new Date());window.gtag('config','${GA_MEASUREMENT_ID}',{send_page_view:false});var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}';document.head.appendChild(s);})();`;
+// The Meta pixel ("The YAT?STATS Platform" dataset, YAT?Stats business,
+// Pete Nov 11 2026) loads with it under the same rules, so internal visits
+// (?yat_internal=1) and previews stay out of the ad audiences too. One
+// pixel covers yatstats.com and every school site; audiences are split by
+// URL in Meta. Its PageView is sent by AnalyticsPageViews, like GA's.
+const GA_BOOTSTRAP = `(function(){var h=location.hostname.toLowerCase();if(h!=='yatstats.com'&&!/\\.yatstats\\.com$/.test(h))return;try{var q=new URLSearchParams(location.search),flag=q.get('yat_internal');if(flag==='1'){document.cookie='yat_ga_internal=1;path=/;max-age=31536000;SameSite=Lax;Secure;domain=.yatstats.com';}else if(flag==='0'){document.cookie='yat_ga_internal=;path=/;max-age=0;SameSite=Lax;Secure;domain=.yatstats.com';}if(flag==='1'||flag==='0'){q.delete('yat_internal');var qs=q.toString();history.replaceState(null,'',location.pathname+(qs?'?'+qs:'')+location.hash);}}catch(e){}if(/(?:^|;\\s*)yat_ga_internal=1(?:;|$)/.test(document.cookie))return;window.dataLayer=window.dataLayer||[];window.gtag=function(){window.dataLayer.push(arguments);};window.gtag('js',new Date());window.gtag('config','${GA_MEASUREMENT_ID}',{send_page_view:false});var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}';document.head.appendChild(s);if(!window.fbq){var f=window.fbq=function(){f.callMethod?f.callMethod.apply(f,arguments):f.queue.push(arguments);};if(!window._fbq)window._fbq=f;f.push=f;f.loaded=true;f.version='2.0';f.queue=[];var m=document.createElement('script');m.async=true;m.src='https://connect.facebook.net/en_US/fbevents.js';document.head.appendChild(m);window.fbq('init','${META_PIXEL_ID}');}})();`;
 
 export const metadata: Metadata = {
   title: {
