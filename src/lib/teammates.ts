@@ -4,6 +4,10 @@
 //                (flip_card_front_stage.roster_years) overlap his.
 //   College/pro: players with a stat line for the same team in the same
 //                season (complete TBC history plus 2026 updates).
+//   MLB-sourced 2026 games and verified active Arizona Fall League rosters:
+//                ADD teammates for every team/year a player belonged to.
+//                This must not replace a minor-league team when a player
+//                also joins a Fall League team in the SAME year.
 // List only teammates with a published platform flip-card; the complete
 // historical archive includes additional players not yet assigned profiles.
 import 'server-only';
@@ -55,7 +59,7 @@ export async function getTeammates(playerId: string): Promise<TeammateSeason[]> 
   const seasons = SEASON_TABLES.map((t) => `SELECT teamid, year FROM ${t} WHERE playerid = $1`).join(' UNION ');
   const mates = SEASON_TABLES.map((t) => `SELECT r.playerid, r.teamid, r.year FROM ${t} r JOIN seasons s USING (teamid, year)`).join(' UNION ');
 
-  const [seasonRows, hsRows] = await Promise.all([
+  const [seasonRows, hsRows, mlbRows] = await Promise.all([
     query<MateRow>(
       `WITH seasons AS MATERIALIZED (${seasons}), mates AS MATERIALIZED (${mates})
        SELECT m.teamid, u.current_team_name AS team_name, m.year, m.playerid,
@@ -77,6 +81,75 @@ export async function getTeammates(playerId: string): Promise<TeammateSeason[]> 
            ON f.hsid = me.hsid AND f.roster_years && me.roster_years AND f.playerid <> me.playerid
          LEFT JOIN school_success ss ON ss.hsid::text = f.hsid
         WHERE me.playerid = $1`,
+      [playerId]
+    ),
+    // The TBC historical stat universe does not include every MLB API game
+    // (notably the Arizona Fall League), so union verified MLB game rosters
+    // and the official six-club active AFL roster overlay. Team/year is the
+    // identity: never let 2026 AFL membership erase 2026 MiLB membership.
+    // Query by team + year, not graduation year, and resolve names through
+    // the canonical teamid_universe_mapping crosswalk.
+    query<MateRow>(
+      `WITH my_teams AS MATERIALIZED (
+          SELECT DISTINCT gl.source_team_id AS mlb_teamid,
+                  EXTRACT(YEAR FROM gl.game_date)::int AS year
+            FROM player_game_logs gl
+           WHERE gl.playerid=$1 AND gl.source_team_id ~ '^[0-9]+
+  const hsName = String(hsRows.rows[0]?.hsname || '').trim();
+  const hsTeam = hsName ? (/high school|\bhs\b|academy|prep/i.test(hsName) ? hsName : `${hsName} HS`) : 'High School';
+  for (const r of hsRows.rows) {
+    for (const y of r.shared || []) {
+      const year = Number(y);
+      if (year) rows.push(season(r.playerid, r.first_name, r.last_name, r.display_name, r.hsid, year, hsTeam));
+    }
+  }
+  // Keep each verified teammate once per real team and season, even when
+  // TBC and MLB game logs both report the same roster; preserve separate
+  // teams in the same year. H.S. varsity cohorts are separate team groups.
+  const seen = new Set(rows.map(r => `${r.playerId}|${r.year}|${r.team.trim().toLowerCase()}`));
+  for (const r of [...seasonRows.rows, ...mlbRows.rows]) {
+    const year=Number(r.year);
+    if (!year) continue;
+    const team=String(r.team_name || '').trim() || 'Team';
+    const key=`${r.playerid}|${year}|${team.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(season(r.playerid,r.first_name,r.last_name,r.display_name,r.hsid,year,team));
+  }
+  return rows;
+}
+
+          UNION
+          SELECT a.afl_mlb_team_id::text AS mlb_teamid,a.season AS year
+            FROM afl_current_roster_overlays a
+           WHERE a.playerid=$1 AND a.active=true
+       ), mlb_mates AS MATERIALIZED (
+          SELECT DISTINCT g.playerid, g.source_team_id AS mlb_teamid,
+                  EXTRACT(YEAR FROM g.game_date)::int AS year
+            FROM my_teams my
+            JOIN player_game_logs g
+              ON g.source_team_id=my.mlb_teamid
+             AND g.game_date>=make_date(my.year,1,1)
+             AND g.game_date<make_date(my.year+1,1,1)
+           WHERE g.playerid<>$1
+          UNION
+          SELECT a.playerid, a.afl_mlb_team_id::text, a.season
+            FROM my_teams my
+            JOIN afl_current_roster_overlays a
+              ON a.afl_mlb_team_id::text=my.mlb_teamid
+             AND a.season=my.year
+           WHERE a.active=true AND a.playerid<>$1
+       )
+       SELECT DISTINCT tim.tbc_teamid AS teamid,
+              COALESCE(NULLIF(TRIM(u.current_team_name), ''),
+                       NULLIF(TRIM(tim.team_name), ''), 'Team') AS team_name,
+              mm.year::text AS year, mm.playerid,
+              f.first_name, f.last_name, f.display_name, f.hsid
+         FROM mlb_mates mm
+         JOIN flip_card_front_stage f ON f.playerid=mm.playerid
+         LEFT JOIN team_id_map tim
+           ON tim.mlb_stats_api_id=mm.mlb_teamid::int
+         LEFT JOIN teamid_universe_mapping u ON u.teamid=tim.tbc_teamid`,
       [playerId]
     ),
   ]);
