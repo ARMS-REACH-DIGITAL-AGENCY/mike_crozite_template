@@ -51,13 +51,11 @@ export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass
       {note&&<div className="ypt-note" role="status">{note}</div>}
     </div>}
     <style jsx global>{`
-      /* Restore the pre-tag three-button alignment, adding Tag as an
-         equal fourth action. The picker must NOT be contained inside that
-         fourth action's one-quarter-width column. With display:contents,
-         the trigger is row 1 / column 4 and the open picker is a separate
-         grid item spanning the full width beneath all four actions. */
+      /* Restore the pre-tag three-button Like / Comment / Share layout.
+         Tag uses its own unobtrusive row; its search panel spans the entire
+         card below it, instead of squeezing into a fourth grid cell. */
       .ypt-wrap{display:contents}
-      .ypt-wrap>button{width:100%;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 5px;white-space:nowrap;background:transparent;border:0;color:inherit;font:inherit;cursor:pointer}
+      .ypt-wrap>button{grid-column:1/-1;justify-self:end;width:auto;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 14px;white-space:nowrap;background:transparent;border:0;color:inherit;font:inherit;cursor:pointer}
       .ypt-panel{position:relative;grid-column:1/-1;z-index:5;box-sizing:border-box;width:100%;min-width:0;max-width:100%;padding:12px;margin:0 0 12px;border:1px solid var(--ysv-input-border,#777);border-radius:8px;background:var(--ysv-menu-bg,#191919);color:var(--ysv-fg,#fff);box-shadow:0 8px 16px #0004;overflow:visible}
       .ypt-panel .ycs{min-width:0;max-width:100%}
       .ypt-panel .ycs .yat-gs-input-wrap input.yat-gs-input{box-sizing:border-box;width:100%;min-width:0;padding:10px 34px 10px 43px}
