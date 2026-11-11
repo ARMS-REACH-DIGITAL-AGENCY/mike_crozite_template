@@ -31,11 +31,13 @@ The full plan lives in `docs/seo-aeo-strategy-2026-11.md`. Read it and
 
 ## Waiting on Pete
 
-1. **Google Search Console:** add a Domain property for `yatstats.com`, send
-   Claude the `google-site-verification=...` value (Claude adds the DNS TXT
-   record on Vercel), click Verify, then submit
-   `https://sitemaps.yatstats.com/sitemap.xml`. Then Bing Webmaster Tools:
-   import from Google. Then link Search Console to GA4.
+1. **Done Nov 11, 2026:** Google Search Console Domain property for
+   `yatstats.com` verified (DNS TXT record on Vercel; do not remove it), and
+   `https://sitemaps.yatstats.com/sitemap.xml` submitted. Bing Webmaster
+   Tools imported from Google and the same sitemap submitted there. Still
+   open: link Search Console to GA4; look at the 2 older sitemaps in Search
+   Console (`hamilton.az.yatstats.com/sitemap.xml`,
+   `yatstats.com/sitemap.website.xml`).
 2. **Your own visits inflate GA4:** open any YAT?STATS page once with
    `?yat_internal=1` on each of your devices so GA stops counting them.
    Realistic Hamilton outside traffic was ~50 people, not 136.
