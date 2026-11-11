@@ -161,9 +161,10 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
   // Render the original Instagram post for all News media, never substitute that thumbnail.
-  const embedShown = Boolean(!nativeVideoUrl && embedUrl && (externalPosts
-    ? (isInteractiveNews || !hasPicture)
-    : (hasInteractiveMedia || (!hasPicture && !current?.media_pending))));
+  // News retains its official embed; the player Social tab must never
+  // render an outbound-playing Instagram iframe. A missing authorized media
+  // URL is a preview-only state, not a fake Play control.
+  const embedShown = Boolean(externalPosts && !nativeVideoUrl && embedUrl && (isInteractiveNews || !hasPicture));
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
@@ -205,7 +206,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.thumbnail_url} alt={p.caption ? p.caption.slice(0, 120) : `Instagram post by @${p.handle}`} loading="lazy" />
-                  {p.media_type === 'video' && <i className="ri-play-fill pp-ig-kind" aria-label="Video" />}
+                  {p.media_type === 'video' && <i className={p.media_url ? 'ri-play-fill pp-ig-kind' : 'ri-image-line pp-ig-kind'} aria-label={p.media_url ? 'Video available' : 'Preview only'} />}
                   {p.media_type === 'carousel' && <i className="ri-stack-line pp-ig-kind" aria-label="Several photos" />}
                 </>
               );
@@ -268,6 +269,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                   key={current.id}
                   src={nativeVideoUrl}
                   autoPlay
+                  muted
                   controls
                   playsInline
                   preload="metadata"
@@ -295,6 +297,17 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                     />
                   </div>
                 )
+              ) : !externalPosts && current.media_type === 'video' && hasPicture ? (
+                <div className="pp-ig-native-unavailable">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    key={current.id}
+                    src={current.thumbnail_url}
+                    alt={current.caption ? current.caption.slice(0, 140) : 'Reel preview'}
+                    onError={() => setBrokenPictureId(current.id)}
+                  />
+                  <span>Video preview only — in-page playback unavailable</span>
+                </div>
               ) : hasPicture ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -313,7 +326,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               ) : (
                 <div className="pp-ig-media-unavailable">
                   <p>Instagram preview unavailable.</p>
-                  {current.permalink && <a href={current.permalink} target="_blank" rel="noopener noreferrer">Open the original Instagram post</a>}
+                  {externalPosts && current.permalink && <a href={current.permalink} target="_blank" rel="noopener noreferrer">Open the original Instagram post</a>}
                 </div>
               )}
             </div>
@@ -362,6 +375,9 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
         .pp-ig-post-source a { white-space:nowrap; font:700 10px/1.2 var(--yat-font-ui,Archivo,Arial,sans-serif); letter-spacing:.04em; color:#e6c34c; text-decoration:none; }
         .pp-ig-media { min-height:0; min-width:0; flex:1 1 auto; display:flex; align-items:center; justify-content:center; background:#050505; }
         .pp-ig-media img { width:100%; height:100%; display:block; object-fit:contain; object-position:center; }
+        .pp-ig-native-unavailable { position:relative; width:100%; height:100%; min-height:0; display:flex; justify-content:center; align-items:center; }
+        .pp-ig-native-unavailable img { width:100%; height:100%; object-fit:contain; filter:brightness(.72); }
+        .pp-ig-native-unavailable span { position:absolute; bottom:16px; left:12px; right:12px; text-align:center; padding:10px 8px; background:rgba(0,0,0,.8); border-radius:6px; font:600 12px/1.4 var(--yat-font-ui,Archivo,Arial,sans-serif); color:#fff; }
         .pp-ig-embed-crop { position:relative; flex:none; overflow:hidden; background:#050505; }
         .pp-ig-embed-crop iframe { position:absolute; top:0; left:0; display:block; border:0; background:#050505; transform-origin:0 0; }
         .pp-ig-post-details { flex:0 0 auto; max-height:128px; overflow-y:auto; overscroll-behavior:contain; padding:9px 13px 11px; }
