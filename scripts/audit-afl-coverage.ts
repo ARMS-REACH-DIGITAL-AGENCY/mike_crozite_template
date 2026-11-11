@@ -75,7 +75,7 @@ async function main() {
     console.log(`${t.name}: ${currentCount} active, ${seasonCount} in season roster`);
     await delay(150);
   }
-  console.log(`AFL 2026 unique roster players (all six clubs): ${roster.length}`);
+  console.log(`AFL ${SEASON} unique roster players (all six clubs): ${roster.length}`);
   console.log(`AFL roster players: ${roster.length}`);
   console.log(`AFL CURRENT active roster distinct players: ${activePeople.size}`);
 
