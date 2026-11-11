@@ -20,6 +20,7 @@ import { openStoryDrawer, cancelPendingStoryDrawerOpen } from '@/lib/storyDrawer
 import SortToggle from '@/components/yatstats/SortToggle';
 import TeammatesList, { teammateCount, useTeammates, type TeammateSeason } from '@/components/yatstats/TeammatesList';
 import StoryViewer, { AlbumStrip, StoryStyles, StoryThread, openSignIn, shareStory, storyWhen, toggleStoryLike, useFanMe, type Story } from '@/components/yatstats/StoryViewer';
+import PlayerTagging from '@/components/yatstats/PlayerTagging';
 
 const DESKTOP_QUERY = '(min-width: 900px)';
 function useIsDesktop() {
@@ -417,6 +418,10 @@ export default function StoriesFeed({ playerId, playerName }: { playerId: string
                     <button type="button" onClick={() => shareFromCard(s)}>
                       <i className="ri-share-forward-line" /> Share
                     </button>
+                    <PlayerTagging endpoint={`/api/stories/${s.id}/tags`}
+                      initial={s.players}
+                      onUpdated={(players)=>updateStory({...s,players:players.map(p=>({playerId:p.playerId,hsid:p.hsid||null,name:p.name,isPrimary:Boolean(p.isPrimary)}))})}
+                    />
                   </div>
                   </div>
                   {index === (list.length <= 2 ? 0 : 1) ? sponsorCard : null}
