@@ -330,9 +330,14 @@ def main() -> None:
                 raise RuntimeError("All six AFL active rosters empty during the "
                                    "official AFL schedule; refusing unsafe bulk removal")
             if today.month in (10, 11) and not last_game:
-                raise RuntimeError("No authoritative AFL games loaded yet. Run the "
-                                   "full six-team schedule ingestion before "
-                                   "updating AFL flip-card assignments.")
+                if DRY_RUN:
+                    print("DRY RUN WARNING: official AFL schedule not yet loaded; "
+                          "production card writes would be blocked.")
+                else:
+                    raise RuntimeError(
+                        "No authoritative AFL games loaded yet. Run the full "
+                        "six-team schedule ingestion before updating cards."
+                    )
             if DRY_RUN:
                 if rosters:
                     cur.execute(MAP_PLAYERS, (json.dumps(rosters), SEASON, SEASON))
