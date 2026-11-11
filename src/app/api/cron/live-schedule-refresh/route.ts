@@ -24,6 +24,9 @@ const pool = new Pool({
 
 const SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule";
 const AZ_TZ = "America/Phoenix";
+// Sport 17 includes international winter leagues. These are the SIX AFL clubs.
+const AFL_TEAM_IDS = [454, 490, 527, 542, 544, 555] as const;
+const AFL_TEAM_SET = new Set<number>(AFL_TEAM_IDS);
 
 const SPORT_LEVELS: Record<number, string> = {
   1: "MLB",
@@ -112,11 +115,16 @@ async function fetchLiveWindow(): Promise<{ rows: ScheduleRow[]; warnings: strin
   const byGamePk = new Map<number, ScheduleRow>();
   const warnings: string[] = [];
 
+  const sources: { sportId: number; teamId: number | null }[] = [
+    ...Object.keys(SPORT_LEVELS).map((key) => ({ sportId: Number(key), teamId: null })),
+    ...AFL_TEAM_IDS.map((teamId) => ({ sportId: 17, teamId })),
+  ];
   await Promise.all(
-    Object.keys(SPORT_LEVELS).map(async (key) => {
-      const sportId = Number(key);
+    sources.map(async ({ sportId, teamId }) => {
       try {
-        const url = `${SCHEDULE_URL}?sportId=${sportId}&startDate=${startDate}&endDate=${endDate}`;
+        // Request AFL by exact team ID so the other 40 winter-league teams
+        // are never ingested or counted as Arizona Fall League games.
+        const url = `${SCHEDULE_URL}?sportId=${sportId}&startDate=${startDate}&endDate=${endDate}${teamId == null ? "" : `&teamId=${teamId}`}`;
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const payload = (await res.json()) as { dates?: { date?: string; games?: any[] }[] };
@@ -125,6 +133,10 @@ async function fetchLiveWindow(): Promise<{ rows: ScheduleRow[]; warnings: strin
             if (game?.gamePk == null) continue;
             const home = game.teams?.home ?? {};
             const away = game.teams?.away ?? {};
+            if (teamId != null && (
+              !AFL_TEAM_SET.has(Number(home.team?.id)) ||
+              !AFL_TEAM_SET.has(Number(away.team?.id))
+            )) continue;
             const resolvedSportId = Number(game.sport?.id ?? sportId);
             byGamePk.set(Number(game.gamePk), {
               game_pk: Number(game.gamePk),
@@ -137,14 +149,16 @@ async function fetchLiveWindow(): Promise<{ rows: ScheduleRow[]; warnings: strin
               away_team_name: away.team?.name ?? null,
               venue_name: game.venue?.name ?? null,
               sport_id: resolvedSportId,
-              level: SPORT_LEVELS[resolvedSportId] ?? SPORT_LEVELS[sportId] ?? null,
+              // AFL has an MLB-level classification; the team name supplies
+              // the separate Arizona Fall League identity on the card.
+              level: teamId == null ? (SPORT_LEVELS[resolvedSportId] ?? SPORT_LEVELS[sportId] ?? null) : "MLB",
               home_score: home.score ?? null,
               away_score: away.score ?? null,
             });
           }
         }
       } catch (error) {
-        warnings.push(`sportId=${sportId}: ${error instanceof Error ? error.message : String(error)}`);
+        warnings.push(`sportId=${sportId}${teamId == null ? "" : ` teamId=${teamId}`}: ${error instanceof Error ? error.message : String(error)}`);
       }
     })
   );
