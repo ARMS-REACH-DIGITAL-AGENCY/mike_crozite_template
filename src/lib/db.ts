@@ -2362,6 +2362,15 @@ export async function getTeamIdMap(): Promise<Map<string, string>> {
 // ingest learned to skip repeated headlines. Show one copy per player and
 // headline: hide a row when a newer visible copy exists. Headlines are
 // compared the way scripts/ingest-news.ts normalizes them.
+// A fan contribution already verified and published by the contribution gate
+// must not vanish because the separate auto-v2 editorial derivative was
+// rejected as a news summary. This does NOT bypass article verification.
+function acceptedFanNews(alias: string): string {
+  return `(${alias}.discovery_source = 'contribute'
+    AND ${alias}.verification_status = 'VERIFIED'
+    AND ${alias}.raw_payload->>'contributor_source' = 'fan_drawer')`;
+}
+
 // lowVisible: SQL that is true when LOW-newsworthiness stories are shown in
 // this feed. A copy the feed hides must not hide the one it would show.
 function syndicatedCopyFilter(alias: string, lowVisible: string): string {
@@ -2371,11 +2380,11 @@ function syndicatedCopyFilter(alias: string, lowVisible: string): string {
             WHERE dup.playerid = ${alias}.playerid
               AND dup.verification_status = 'VERIFIED'
               AND (${lowVisible} OR COALESCE(dup.newsworthiness, 'NORMAL') <> 'LOW')
-              AND NOT EXISTS (
-                SELECT 1 FROM news_article_derivatives dup_rejected
+              AND (${acceptedFanNews('dup')} OR NOT EXISTS (
+                 SELECT 1 FROM news_article_derivatives dup_rejected
                  WHERE dup_rejected.news_article_uuid = dup.uuid
                    AND dup_rejected.approval_status = 'rejected'
-              )
+              ))
               AND ${headline('dup')} = ${headline(alias)}
               AND (COALESCE(dup.published_at, 'epoch'), dup.id) > (COALESCE(${alias}.published_at, 'epoch'), ${alias}.id)
          )`;
@@ -2447,11 +2456,11 @@ export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promi
          ON f.playerid::text = CASE WHEN na.hsid = $1 THEN na.playerid
                                    ELSE tagged_school.first_playerid END
        WHERE na.verification_status = 'VERIFIED'
-         AND NOT EXISTS (
-           SELECT 1 FROM news_article_derivatives rejected
+         AND (${acceptedFanNews('na')} OR NOT EXISTS (
+            SELECT 1 FROM news_article_derivatives rejected
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
-         )
+          ))
          -- An explicitly tagged UUID must not disappear just because another
          -- syndicated copy has a newer headline timestamp.
          AND (tagged_school.uuid IS NOT NULL OR ${syndicatedCopyFilter('na', 'true')})
@@ -2530,11 +2539,11 @@ export async function getNewsByPlayer(
        LEFT JOIN flip_card_front_stage f
          ON f.playerid::text = $1
        WHERE na.verification_status = 'VERIFIED'
-         AND NOT EXISTS (
-           SELECT 1 FROM news_article_derivatives rejected
+         AND (${acceptedFanNews('na')} OR NOT EXISTS (
+            SELECT 1 FROM news_article_derivatives rejected
             WHERE rejected.news_article_uuid = na.uuid
               AND rejected.approval_status = 'rejected'
-         )
+          ))
          -- Tagging a verified story should make it visible even if the
          -- original publisher assigned LOW newsworthiness to its subject.
          AND (${lowRelevanceParam}::boolean OR na.playerid <> $1 OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')

@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const db=fs.readFileSync(path.join(__dirname,'..','src/lib/db.ts'),'utf8');
+const source=db.slice(db.indexOf('function acceptedFanNews('),db.indexOf('// PLAYER PHOTOS - uploaded career-progression'));
+assert.match(source,/function acceptedFanNews\(alias: string\)/,'One shared trust rule for published fan contributions');
+assert.match(source,/discovery_source = 'contribute'/,'Only fan-contributed articles exempted from derivative rejection');
+assert.match(source,/verification_status = 'VERIFIED'/,'Verification is still required');
+assert.match(source,/contributor_source' = 'fan_drawer'/,'Scoped to moderated fan-drawer contribution source');
+assert.match(source,/AND \(\$\{acceptedFanNews\('na'\)\} OR NOT EXISTS/g,'Both school and player news readers restore verified contributed news');
+assert.match(source,/AND \(\$\{acceptedFanNews\('dup'\)\} OR NOT EXISTS/,'Syndication dedupe uses same trust rule');
+const publicFilters=[...source.matchAll(/acceptedFanNews\('na'\)/g)].length;
+assert.equal(publicFilters,2,'Both school and player news share the same policy');
+assert.match(source,/approval_status = 'rejected'/,'Non-contributed rejected editorials remain excluded');
+assert.match(source,/na\.verification_status = 'VERIFIED'/,'Public queries still enforce global verification');
+console.log('PASS: previously published VERIFIED fan submissions remain visible in school and player news feeds; rejected unverified news still hidden.');
