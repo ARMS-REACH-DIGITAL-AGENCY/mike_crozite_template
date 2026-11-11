@@ -30,7 +30,7 @@ const POLICY = [
   'Subject_playerid MUST be one of the supplied verifiedCandidates. If no listed alumnus is clearly the subject, return ignore and subject_playerid="" even if the post is interesting baseball news.',
   'Compare the recent existing News titles about the candidates. Mark duplicate=true if the same event is already covered, regardless of social-media URL.',
   'Reject pornographic, hateful, abusive or graphically violent posts by setting family_safe=false. Do not invent that you inspected video playback: a thumbnail is not the video.',
-  'If you publish, give a factual concise headline and a 1-2 sentence summary grounded in the post. evidence is a supporting exact excerpt from caption or readable post image (no hallucinated quotes). Choose confidence conservatively; uncertain attribution -> ignore.',
+  'If you publish, give a factual concise headline and a 1-2 sentence summary grounded in the post. evidence is a supporting exact excerpt from caption or readable post image (no hallucinated quotes). A verified player describing HIS OWN status in the first person is newsworthy if the development is specific and material, even when his claim has not been independently corroborated; the headline and summary must say the player SAYS or REPORTS it. Confidence measures suitability of the source-grounded story, not whether the player statement was independently verified. Choose confidence conservatively; uncertain attribution -> ignore.',
   'Return only the requested structured object.',
 ].join('\n');
 

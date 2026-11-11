@@ -38,7 +38,7 @@ caption:'@oldalumnus and @other'},people).length,0);
 const scout=read('src/lib/socialNewsScout.ts');
 assert.match(scout,/p\.published_at>=now\(\)-interval '7 days'/);
 assert.match(scout,/f\.status_label=ANY\(\$2::text\[\]\)/);
-assert.match(scout,/approvedNews\(verdict,candidates\)/);
+assert.match(scout,/approvedNews\(verdict,candidates,post\)/);
 assert.match(scout,/social_news_scout_run/);
 assert.match(scout,/social_news_scout_evaluated/);
 assert.doesNotMatch(scout,/classifySocialNewsCaption/);
@@ -60,5 +60,40 @@ assert.match(read('src/lib/socialNewsScout.ts'), /sourceIsPlayerOwned/);
 assert.match(read('src/lib/socialNewsScout.ts'), /approvalIssue/);
 assert.match(read('src/lib/socialNewsScout.ts'), /s\.authorization_type/);
 assert.match(read('src/lib/socialNewsScoutJudge.ts'), /league_status/);
+
+
+const directPost={
+  hsid:'2039',playerid:'150704',owner_type:'player',
+  authorization_type:'user_requested_public_reference',handle:'baueroutage',
+  caption:"I went to the commissioner's office and apologized face to face. We had a good conversation. I'm still not allowed to play.",
+  published_at:'2026-11-10T19:04:34Z'
+};
+const directVerdict={
+  ...verdict,subject_playerid:'150704',category:'league_status',confidence:0.8,
+  headline:'Trevor Bauer says he met with commissioner and remains unable to play',
+  summary:'Bauer says he met the commissioner in person and remains unable to play.',
+  evidence:"I went to the commissioner's office and apologized face to face."
+};
+assert.equal(p.verifiedDirectCareerStatement(directVerdict,directPost),true,
+  'Exact first-person evidence on a verified player account is attributable');
+assert.equal(p.newsApprovalIssue(directVerdict,[Bauer],directPost),null,
+  'A specific and attributed league-status statement should not be blocked at 80%');
+assert.equal(p.approvedNews(directVerdict,[Bauer],directPost),true);
+assert.equal(p.newsApprovalIssue(directVerdict,[Bauer]),'insufficient_confidence',
+  'Lower-confidence lane needs the original verified post');
+assert.equal(p.newsApprovalIssue({...directVerdict,confidence:0.79},[Bauer],directPost),'insufficient_confidence');
+assert.equal(p.newsApprovalIssue({...directVerdict,headline:'Trevor Bauer reinstated by MLB'},[Bauer],directPost),'insufficient_confidence',
+  'Self-reported status must be attributed in the headline');
+assert.equal(p.newsApprovalIssue({...directVerdict,evidence:'He was reinstated by the league'},[Bauer],directPost),'insufficient_confidence',
+  'Invented quotes must not be published');
+assert.equal(p.newsApprovalIssue(directVerdict,[Bauer],{...directPost,authorization_type:'user_requested_team_account'}),'insufficient_confidence',
+  'Team posts cannot use the personal first-person evidence lane');
+assert.equal(p.newsApprovalIssue({...directVerdict,category:'performance',confidence:0.72},[Bauer],directPost),'insufficient_confidence',
+  'An ambiguous poor performance recap must not auto-publish');
+assert.equal(p.newsApprovalIssue({...directVerdict,subject_playerid:'195486'},[Bauer],directPost),'unverified_player_subject',
+  'Wrong subject may never publish');
+assert.ok(read('src/lib/socialNewsScout.ts').includes('previouslyHeld'));
+assert.ok(read('src/lib/socialNewsScout.ts').includes('approvedNews(verdict,candidates,post)'));
+assert.equal(p.SCOUT_POLICY_VERSION,'5');
 
 console.log('PASS: Active Alumni 7-day AI Scout, roster identity, deduping, 15-minute cron and audit safeguards');

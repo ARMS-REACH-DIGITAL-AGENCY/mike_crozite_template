@@ -49,7 +49,7 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
       console.error('[social-news-scout] no AI model configured; fail closed');
       return report;
     }
-    const [posts,roster,articles,tips,context,decisions]=await Promise.all([
+    const [posts,roster,articles,tips,context,decisions,previouslyHeld]=await Promise.all([
       query<ScoutPost>(`
         SELECT p.id::text,s.hsid::text,s.playerid::text,s.owner_type,s.authorization_type,
           s.handle,p.permalink,p.caption,p.published_at::text,p.thumbnail_url
@@ -88,12 +88,23 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
         WHERE firebase_uid='system:social-news-scout' AND action='social_news_scout_evaluated'
         AND details->>'policyVersion'=$1 AND created_at>=now()-interval '10 days'`,
         [SCOUT_POLICY_VERSION]),
+      query<{postid:string}>(`SELECT DISTINCT details->>'postId' AS postid FROM fan_activity
+        WHERE firebase_uid='system:social-news-scout' AND action='social_news_scout_evaluated'
+          AND details->>'approvalIssue'='insufficient_confidence'
+          AND details->>'policyVersion'<>$1
+          AND created_at>=now()-interval '7 days' LIMIT 500`,[SCOUT_POLICY_VERSION]),
     ]);
     report.activeRoster=roster.rows.length;
     const covered=new Set([...articles.rows,...tips.rows]
       .map(row=>row.playerid?key(row.hsid,row.playerid,row.url):null).filter(Boolean));
     const seen=new Set(decisions.rows.map(row=>row.postid));
-    for(const post of posts.rows){
+    const heldIds=new Set(previouslyHeld.rows.map(row=>row.postid));
+    // On a policy upgrade, revisit AI-positive but gate-held posts first.
+    // Otherwise thousands of recurring posts can starve material recent news.
+    const orderedPosts=[...posts.rows].sort((a,b)=>
+      Number(heldIds.has(b.id))-Number(heldIds.has(a.id)) ||
+      new Date(b.published_at||0).getTime()-new Date(a.published_at||0).getTime());
+    for(const post of orderedPosts){
       report.scanned++;
       const url=canonicalInstagramPostUrl(post.permalink);
       if(!url || !postIsFresh(post.published_at)) continue;
@@ -117,9 +128,9 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
       if(!verdict){report.aiUnavailable++;report.failures++;continue;}
       report.aiReviewed++;
       if(verdict.decision==='publish') report.signals++;
-      if(!approvedNews(verdict,candidates)){
+      if(!approvedNews(verdict,candidates,post)){
         report.ignored++;await writeAudit(post,'ignored',verdict.subject_playerid||null,{
-          approvalIssue:newsApprovalIssue(verdict,candidates),aiReason:verdict.reason.slice(0,700),
+          approvalIssue:newsApprovalIssue(verdict,candidates,post),aiReason:verdict.reason.slice(0,700),
           category:verdict.category,confidence:verdict.confidence,
           headline:verdict.headline.slice(0,200),evidence:verdict.evidence.slice(0,600)
         });continue;

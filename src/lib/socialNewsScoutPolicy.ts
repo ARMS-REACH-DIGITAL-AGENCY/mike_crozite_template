@@ -1,5 +1,5 @@
 // Pure, school-agnostic safeguards for automatic Instagram news publishing.
-export const SCOUT_POLICY_VERSION = '4';
+export const SCOUT_POLICY_VERSION = '5';
 export const SCOUT_WINDOW_DAYS = 7;
 export const SCOUT_ACTIVE_STATUSES = [
   'ACTIVE', 'INJURED - FULL SEASON', 'INJURED 60-DAY',
@@ -77,22 +77,50 @@ export function findAlumniCandidates(post: ScoutPost, roster: ScoutPlayer[]): Sc
 }
 // One transparent reason for every rejected potential story. The daily report
 // can distinguish an actual AI rejection from a separate publication gate.
-export function newsApprovalIssue(decision: ScoutDecision, candidates: ScoutPlayer[]): string | null {
+// Do not treat a model's general confidence score as a fact-check of a
+// player's first-person statement. A lower confidence lane is allowed only
+// when the registered player is clearly speaking and the evidence is an
+// exact excerpt of the collected caption, not inferred from a video.
+const DIRECT_CAREER_EVENTS = new Set([
+  'commitment', 'transfer', 'signing', 'draft', 'promotion', 'injury', 'league_status'
+]);
+const normalizedExcerpt = (value: string) =>
+  String(value || '').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
+
+export function verifiedDirectCareerStatement(
+  decision: ScoutDecision, post: ScoutPost | undefined
+): boolean {
+  if (!post || !sourceIsPlayerOwned(post.owner_type,post.authorization_type) ||
+      post.playerid !== decision.subject_playerid ||
+      !DIRECT_CAREER_EVENTS.has(decision.category)) return false;
+  const caption=normalizedExcerpt(post.caption);
+  const evidence=normalizedExcerpt(decision.evidence);
+  if (evidence.length < 20 || !caption.includes(evidence)) return false;
+  if (!/\b(?:i|my|me|i've|i'm|i'd)\b/i.test(caption)) return false;
+  // Claims about league restrictions must remain attributed to the player.
+  if (decision.category === 'league_status' &&
+      !/\b(?:says|states|reports|announces|according to)\b/i.test(decision.headline))
+    return false;
+  return true;
+}
+
+export function newsApprovalIssue(decision: ScoutDecision, candidates: ScoutPlayer[], post?: ScoutPost): string | null {
   if (decision.decision !== 'publish') return 'ai_ignored';
   if (!candidates.some(player => player.playerid === decision.subject_playerid))
     return 'unverified_player_subject';
   if (!decision.family_safe) return 'family_safety';
   if (decision.duplicate) return 'already_reported';
   if (decision.category === 'other') return 'no_news_category';
-  if (!Number.isFinite(decision.confidence) || decision.confidence < 0.9)
+  const minimumConfidence = verifiedDirectCareerStatement(decision,post) ? 0.8 : 0.9;
+  if (!Number.isFinite(decision.confidence) || decision.confidence < minimumConfidence)
     return 'insufficient_confidence';
   if (decision.headline.trim().length < 12) return 'missing_headline';
   if (decision.summary.trim().length < 20) return 'insufficient_summary';
   if (decision.evidence.trim().length < 12) return 'insufficient_source_evidence';
   return null;
 }
-export function approvedNews(decision: ScoutDecision, candidates: ScoutPlayer[]): boolean {
-  return newsApprovalIssue(decision, candidates) === null;
+export function approvedNews(decision: ScoutDecision, candidates: ScoutPlayer[], post?: ScoutPost): boolean {
+  return newsApprovalIssue(decision, candidates, post) === null;
 }
 export function scoutHeadline(player: ScoutPlayer, raw: string): string {
   const name = (player.first_name + ' ' + player.last_name).trim();
