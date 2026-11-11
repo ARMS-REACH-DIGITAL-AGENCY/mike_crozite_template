@@ -50,7 +50,7 @@ export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass
       {loaded&&<small>{secondary.length} of 20 tagged</small>}
       {note&&<div className="ypt-note" role="status">{note}</div>}
     </div>}
-    <style jsx global>{\`
+    <style jsx global>{`
       .ypt-wrap{position:relative;min-width:0;flex:1}
       .ypt-wrap>button{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;background:transparent;border:0;color:inherit;font:inherit;cursor:pointer}
       .ypt-panel{position:relative;z-index:5;box-sizing:border-box;width:100%;padding:12px;margin:6px 0 12px;border:1px solid var(--ysv-input-border,#777);border-radius:8px;background:var(--ysv-menu-bg,#191919);color:var(--ysv-fg,#fff);box-shadow:0 8px 16px #0004}
@@ -60,6 +60,6 @@ export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass
       .ypt-person button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:19px;padding:0 3px}
       .ypt-note{font:500 12px/1.4 Arial,sans-serif;margin-top:8px}
       .ypt-panel .ycs-results{max-height:180px;overflow:auto}
-    \`}</style>
+    `}</style>
   </div>;
 }
