@@ -4,7 +4,7 @@ import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import type { ScoutPost, ScoutPlayer, ScoutDecision } from './socialNewsScoutPolicy';
+import { sourceIsPlayerOwned, type ScoutPost, type ScoutPlayer, type ScoutDecision } from './socialNewsScoutPolicy';
 
 const Verdict = z.object({
   decision: z.enum(['publish','ignore']),
@@ -47,8 +47,9 @@ export async function evaluateInstagramNews(input: {
   const data = JSON.stringify({
     account: {
       handle:input.post.handle,
-      owner_type:input.post.owner_type,
-      owner_playerid:input.post.owner_type === 'player' ? input.post.playerid : null
+      owner_type:sourceIsPlayerOwned(input.post.owner_type,input.post.authorization_type) ? 'player' : 'team_or_school',
+      owner_playerid:sourceIsPlayerOwned(input.post.owner_type,input.post.authorization_type) ? input.post.playerid : null,
+      source_provenance:input.post.authorization_type || null
     },
     instagramPost: {
       permalink:input.post.permalink,

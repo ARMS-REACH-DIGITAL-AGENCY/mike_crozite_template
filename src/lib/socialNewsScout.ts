@@ -69,6 +69,7 @@ export async function scoutSocialNews({dryRun=false}:{dryRun?:boolean}={}):Promi
           f.status_label,array_remove(array_agg(DISTINCT lower(s.handle)),NULL) AS handles
         FROM flip_card_front_stage f LEFT JOIN social_sources s ON
           s.hsid=f.hsid AND s.playerid=f.playerid AND s.status='active'
+          AND s.authorization_type !~* '(team|club|organization|league)_account'
         WHERE f.hsid::text=ANY($1::text[]) AND f.status_label=ANY($2::text[])
         GROUP BY f.hsid,f.playerid,f.first_name,f.last_name,f.current_team_name,f.status_label`,
         [schoolIds,[...SCOUT_ACTIVE_STATUSES]]),
