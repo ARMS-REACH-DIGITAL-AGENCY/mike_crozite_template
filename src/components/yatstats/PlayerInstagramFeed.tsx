@@ -172,9 +172,12 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // Instagram limits to between 1.91:1 and 4:5.
   const isReel = /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video';
   const pictureShape = current ? aspects[current.id] : undefined;
-  // Reels use the same 9:16 viewport in Social and News; still images
-  // retain their original proportions.
-  const heightPerWidth = isReel ? 16 / 9 : (pictureShape ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
+  // Social and News have separate crop requirements; never make
+  // news styling alter the previously working Social-tab embed.
+  // Social reels use the previously working 4:5 media-only crop. A 9:16
+  // iframe exposes the Instagram engagement/footer area (regression #741).
+  // News articles retain their dedicated 9:16 reel viewport.
+  const heightPerWidth = isReel && externalPosts ? 16 / 9 : (pictureShape && !isReel ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
   // Instagram photo embeds include an additional action/footer region after the
   // media. Keep that region outside our crop while preserving full media height.
   const embedBox = mediaBox
@@ -253,7 +256,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
             <div className="pp-ig-post-source">
               <i className="ri-instagram-line" aria-hidden="true" />
               <strong>{current.handle ? '@' + current.handle : 'Instagram'}</strong>
-              {current.permalink && (
+              {externalPosts && current.permalink && (
                 <a href={current.permalink} target="_blank" rel="noopener noreferrer">
                   ORIGINAL POST <i className="ri-external-link-line" aria-hidden="true" />
                 </a>
