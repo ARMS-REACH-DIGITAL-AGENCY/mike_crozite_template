@@ -13,7 +13,7 @@ const registration = read('src/lib/playerInstagramRegistration.ts');
 const prefill = read('src/app/api/contribute/player-fields/route.ts');
 
 assert.match(playerFeed, /hasInteractiveMedia \|\| \(!hasPicture/);
-assert.match(playerFeed, /const heightPerWidth = isReel \? 16 \/ 9/);
+assert.match(playerFeed, /const heightPerWidth = isReel && externalPosts \? 16 \/ 9/);
 assert.doesNotMatch(playerFeed, /PLAY REEL|showInstagramEmbed|pp-ig-embed-toggle/);
 assert.match(playerFeed, /\{ cache: 'no-store' \}/);
 assert.match(playerFeed, /<iframe/);
