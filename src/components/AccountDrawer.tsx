@@ -14,6 +14,7 @@ import { track } from '@/lib/analytics';
 import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
 import GuidedTourArtwork from '@/components/yatstats/GuidedTourArtwork';
 import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent, schoolSmsTopic } from '@/lib/fanConsent';
+import { EVENT_SMS_OFFERS } from '@/lib/eventSmsOffers';
 
 interface AccountDrawerProps {
   subdomain: string;
@@ -199,6 +200,16 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
   const [promoBusy, setPromoBusy] = useState(false);
   // JOIN form: the code checked with APPLY before the account exists.
   // 'valid' switches the Superfan button to FREE (Pete, Nov 2026).
+  // Event sign-up offer note (src/lib/eventSmsOffers.ts), read after mount.
+  // `subdomain` is the school's hsid (app/[hsid]/layout.tsx).
+  const [eventOfferNote, setEventOfferNote] = useState('');
+  useEffect(() => {
+    try {
+      const campaign = (new URLSearchParams(window.location.search).get('utm_campaign') || '').trim().toLowerCase();
+      const offer = EVENT_SMS_OFFERS[campaign];
+      if (offer && String(subdomain) === offer.hsid) setEventOfferNote(offer.formNote);
+    } catch {}
+  }, [subdomain]);
   const [joinPromoState, setJoinPromoState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
 
   const effectiveEmail = firebaseUser?.email || sessionUser?.email || '';
@@ -1354,6 +1365,9 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
               <div style={{ marginBottom: '8px' }}>
                 <input name="registerPhone" type="tel" autoComplete="tel" placeholder="Mobile phone (optional)" aria-label="Mobile phone (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'rgba(255, 255, 255, .06)', color: 'var(--ink)', fontSize: '13px' }} />
               </div>
+              {eventOfferNote && (
+                <p style={{ fontSize: '12px', lineHeight: 1.45, margin: '0 0 8px', color: 'var(--ink)', fontWeight: 600 }}>{eventOfferNote}</p>
+              )}
               <fieldset style={{ border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', margin: '0 0 10px' }}>
                 <legend style={{ fontSize: '12px', fontWeight: 700 }}>{schoolSmsTopic(schoolName)} powered by YAT?STATS</legend>
                 <label style={{ display: 'flex', gap: '8px', fontSize: '12px', marginBottom: '10px', lineHeight: 1.4 }}><input type="checkbox" name="smsInformational" defaultChecked={false} style={{ flexShrink: 0 }} />{fanInformationalConsent(schoolName)}</label>
