@@ -37,7 +37,8 @@ assert.match(plain, /Welcome to Hamilton Baseball!/);
 assert.match(event, /golf tournament/);
 
 const route = fs.readFileSync(path.resolve(__dirname, '../src/app/api/auth/register/route.ts'), 'utf8');
-assert.match(route, /if \(synced\) \{[\s\S]*?sendYatstatsSms\(profile\.arms_contact_id, welcomeSmsMessage\(/, 'the thank-you is sent only after consent is saved and the phone is on the ARMS contact');
+assert.match(route, /if \(synced\) \{[\s\S]*?after\(async \(\) => \{[\s\S]*?sendYatstatsSms\(contactId, message\)/, 'the thank-you is sent after the response, only once consent is saved and the phone is on the ARMS contact');
+assert.match(route, /const offer = smsPromotional \? eventSignupOfferFor\(/, 'the event offer line needs promotional consent');
 const drawer = fs.readFileSync(path.resolve(__dirname, '../src/components/AccountDrawer.tsx'), 'utf8');
 assert.match(drawer, /setPromoCode\(offer\.promoCode\);\s*setJoinPromoState\('valid'\);/, 'the event link fills in and applies the code');
 console.log('event sign-ups and thank-you text: ok');

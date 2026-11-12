@@ -1,5 +1,5 @@
 import { fillHomeSchoolName, formatSchoolLabel } from "@/lib/armsLabels";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent, sendYatstatsSms } from "@/lib/gohighlevel";
 import { eventSignupOfferFor, welcomeSmsMessage } from "@/lib/eventSmsOffers";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
@@ -241,12 +241,17 @@ export async function POST(request: NextRequest) {
         if (!synced) console.error("[sms-consent] Consent saved locally; ARMS phone/tag sync pending");
         // Thank-you text (Pete, Nov 2026): one text to a fan who just gave a
         // mobile number and checked a text box, once the phone is on the ARMS
-        // contact. Event sign-ups (golf QR) get the event's extra line.
-        // Never blocks registration.
+        // contact. The event's extra line is an offer, so only PROMOTIONAL
+        // consent gets it; informational-only gets the plain thank-you.
+        // Sent after the response (after()), so it never slows the JOIN form.
         if (synced) {
-          const offer = eventSignupOfferFor(fullSourceUrl, profile.home_hsid);
-          const sent = await sendYatstatsSms(profile.arms_contact_id, welcomeSmsMessage(homeSchoolName, offer));
-          if (!sent) console.error("[welcome-sms] Thank-you text not sent");
+          const contactId = profile.arms_contact_id;
+          const offer = smsPromotional ? eventSignupOfferFor(fullSourceUrl, profile.home_hsid) : null;
+          const message = welcomeSmsMessage(homeSchoolName, offer);
+          after(async () => {
+            const sent = await sendYatstatsSms(contactId, message);
+            if (!sent) console.error("[welcome-sms] Thank-you text not sent");
+          });
         }
       }
     }
