@@ -3,6 +3,7 @@
 import { CSSProperties, Fragment, MouseEvent, PointerEvent as ReactPointerEvent, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlayerProfile } from '@/context/PlayerProfileContext';
+import { teamLogoPath } from '@/lib/teamLogo';
 import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
 import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
@@ -243,19 +244,8 @@ function seasonOrderRank(level: string): number {
 }
 
 function teamLogoCandidates(row: StatRow) {
-  const teamId = String(row.teamid || row.team_id || '').trim();
-  if (!teamId || !/^\d+$/.test(teamId)) return [];
-  return [
-    // Prefer background-removed team logos; preserve originals as fallback.
-    `${S3_BASE}/teams/cutouts/${teamId}.png`,
-    `${S3_BASE}/teams-web/${teamId}.webp`,
-    `${S3_BASE}/teams/${teamId}.png`,
-    `${S3_BASE}/teams/${teamId}.jpg`,
-    `${S3_BASE}/teams/${teamId}.jpeg`,
-    `${S3_BASE}/teams/${teamId}.webp`,
-    `${S3_BASE}/teams/${teamId}.PNG`,
-    `${S3_BASE}/teams/${teamId}.JPG`,
-  ];
+  const logo = teamLogoPath(row.teamid || row.team_id);
+  return logo ? [logo] : [];
 }
 
 // Season-specific hero assets, keyed by {playerId}_{year}. Prefer the
