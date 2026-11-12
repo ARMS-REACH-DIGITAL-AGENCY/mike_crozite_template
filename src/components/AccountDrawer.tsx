@@ -1729,7 +1729,10 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
         #drawerAccount .yat-account-identity p:first-child{margin:0 0 4px!important;font:800 22px/1.15 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:-.035em!important;color:var(--ink);}
         #drawerAccount .yat-account-identity p:last-child{margin:0!important;font:400 12px/1.35 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;overflow-wrap:anywhere;color:var(--muted);}
         #drawerAccount .yat-account-superfan{padding:8px 10px!important;margin-bottom:3px!important;border:0!important;background:var(--line)!important;}
-        #drawerAccount .yat-account-signout{margin-top:4px!important;margin-bottom:0!important;min-height:44px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
+        /* Pete (Nov 12 2026): on phones the panel's bottom sat behind the
+           footer and ticker, so Sign Out (the last item) could not be
+           scrolled into view. Leave room under it for the footer stack. */
+        #drawerAccount .yat-account-signout{margin-top:4px!important;margin-bottom:calc(var(--footerH, 56px) + 72px + env(safe-area-inset-bottom, 0px))!important;min-height:44px!important;font:800 12px/1.1 var(--yat-font-ui,Archivo,Arial,sans-serif)!important;letter-spacing:.025em!important;border-radius:8px!important;}
         #drawerAccount .yat-account-content input,#drawerAccount .yat-account-content button{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif)!important;}
         #drawerAccount .yat-account-content form{font-family:var(--yat-font-ui,Archivo,Arial,sans-serif);}
         @media(max-width:779px){#drawerAccount .yat-account-signed-in{padding:8px 14px 14px!important;}#drawerAccount .yat-account-identity{margin-top:0!important;}#drawerAccount .yat-account-identity p:first-child{font-size:20px!important;}}
