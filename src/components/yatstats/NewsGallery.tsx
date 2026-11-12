@@ -24,6 +24,7 @@ import { EMPTY_NEWS_FILTERS, matchesNewsStory, type NewsFilterSelection } from "
 import { dismissSchoolNewsStoryParam } from "@/lib/newsStoryNavigation";
 
 type NewsPost = {
+  id?: number | null;
   uuid: string;
   title: string;
   source: string | null;
@@ -400,6 +401,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   if (sharedPost && !displayPosts.some(p => p.uuid === sharedStoryId)) displayPosts.unshift(sharedPost);
   const rows: ProfileNewsStory[] = displayPosts.map((post) => ({
     uuid: post.uuid,
+    articleId: post.id ?? null,
     title: stripHtml(post.displayHeadline || post.title) || 'Alumni news',
     url: post.url,
     source: post.displaySourceLabel || post.source,
