@@ -27,7 +27,7 @@ const draft = loadTs('src/lib/draftTeamLogoSql.ts');
 const key = (id) => Array.from(logo.teamLogoAssetKeys(id));
 const urls = (id) => Array.from(logo.teamLogoAssetUrls(id));
 const base = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/';
-const endpoint = 'https://yatstats.com/api/team-logo/';
+const endpoint = 'https://hamilton.az.yatstats.com/api/team-logo/';
 
 assert.equal(logo.teamLogoPath('10032'), '/api/team-logo/10032');
 assert.equal(logo.teamLogoPath('0'), null);
