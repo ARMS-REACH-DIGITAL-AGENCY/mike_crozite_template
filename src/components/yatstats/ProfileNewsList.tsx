@@ -121,7 +121,7 @@ export default function ProfileNewsList({
   useEffect(() => {
     let cancelled = false;
     for (const s of instagramStories) {
-      fetch(`/api/social/instagram-post?url=${encodeURIComponent(s.url)}`)
+      fetch(`/api/social/instagram-post?url=${encodeURIComponent(s.url)}&newsUuid=${encodeURIComponent(s.uuid)}`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => d?.post || null, () => null)
         .then((post) => {
@@ -139,6 +139,7 @@ export default function ProfileNewsList({
       caption: post?.caption || newsVideoHeadline(s.title, s.playerName || playerName),
       permalink: post?.permalink || video?.watchUrl.replace(/embed\/$/, '') || s.url,
       thumbnail_url: post?.thumbnail_url || '',
+      media_url: post?.media_url || null,
       published_at: post?.published_at || s.publishedAt, handle: post?.handle || null };
   }), [instagramStories, instagramDetails, playerName]);
   const instagramSelected = Boolean(instagramPosts.some(p => p.id === openUuid));

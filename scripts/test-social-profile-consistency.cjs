@@ -21,7 +21,7 @@ assert.match(profilePage, /schoolInstagramFeed.handle/, 'Render link from the ac
 assert.match(profilePage, /OFFICIAL SCHOOL INSTAGRAM/, 'Label shared account as school-owned, never the coach personal account');
 assert.match(playerFeed, /Boolean\(externalPosts && !nativeVideoUrl && embedUrl/);
 assert.match(playerFeed, /Video preview only — in-page playback unavailable/);
-assert.match(playerFeed, /const heightPerWidth = isReel && externalPosts \? 16 \/ 9/);
+assert.match(playerFeed, /const heightPerWidth = pictureShape && !isReel/);
 assert.doesNotMatch(playerFeed, /PLAY REEL|showInstagramEmbed|pp-ig-embed-toggle/);
 assert.match(playerFeed, /\{ cache: 'no-store' \}/);
 assert.match(playerFeed, /<iframe/);
