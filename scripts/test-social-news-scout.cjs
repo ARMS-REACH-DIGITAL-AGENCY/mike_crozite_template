@@ -96,6 +96,8 @@ assert.equal(p.newsApprovalIssue({...directVerdict,subject_playerid:'195486'},[B
   'Wrong subject may never publish');
 assert.ok(read('src/lib/socialNewsScout.ts').includes('previouslyHeld'));
 assert.ok(read('src/lib/socialNewsScout.ts').includes('approvedNews(verdict,candidates,post)'));
-assert.equal(p.SCOUT_POLICY_VERSION,'6');
+assert.equal(p.SCOUT_POLICY_VERSION,'7');
+assert.equal(p.newsApprovalIssue({...verdict,category:'community',confidence:.8},candidates,{...post,authorization_type:'user_requested_public_reference'}),null);
+assert.equal(p.newsApprovalIssue({...verdict,category:'community',confidence:.8},candidates),'insufficient_confidence');
 
 console.log('PASS: Active Alumni 7-day AI Scout, roster identity, deduping, 15-minute cron and audit safeguards');
