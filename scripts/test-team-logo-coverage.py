@@ -43,7 +43,10 @@ class LogoTests(unittest.TestCase):
         src = (ROOT / "import-player-draft-picks.ts").read_text()
         self.assertIn("tbc_pro_teams_map_raw p", src)
         self.assertIn("lower(trim(p.teamname)) = lower(trim(d.draft_team_name))", src)
-        self.assertIn("ORDER BY priority,teamid LIMIT 1", src)
+        self.assertIn("draftTeamLogoLateralSql()", src)
+        resolver = (ROOT.parent / "src/lib/draftTeamLogoSql.ts").read_text()
+        self.assertIn("LIMIT 1", resolver)
+        self.assertIn("washington senators", resolver)
 
     def test_audit_is_read_only_and_uses_all_season_sources(self):
         src = (ROOT / "audit-team-logo-coverage.py").read_text()
