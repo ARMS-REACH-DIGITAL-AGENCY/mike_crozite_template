@@ -258,7 +258,7 @@ export function getTeamLogoUrl(teamId: string): string {
  */
 export function getOriginalForCardCopy(src?: string | null): string {
   const text = String(src || '');
-  if (/^\/api\/team-logo\/\d+$/.test(text)) return text;
+  if (/^\/api\/team-logo\/\d+$/.test(text)) return ''; // route already tries all valid formats
   const logo = text.match(/^(.*\/)teams-web\/([^/?#]+)\.webp(?=$|[?#])/);
   if (logo) return `${logo[1]}teams/${logo[2]}.png`;
   const match = text.match(/^(.*\/players\/)(then-card|back-card|now-thumb)\/([^/?#]+)\.webp(?=$|[?#])/);
