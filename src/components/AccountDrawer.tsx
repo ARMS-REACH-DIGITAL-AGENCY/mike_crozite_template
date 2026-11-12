@@ -1400,7 +1400,6 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
                 <PasswordInput name="registerPassword" placeholder="Create a Password" />
               </div>
               <fieldset style={{ border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', margin: '0 0 10px' }}>
-                <legend style={{ fontSize: '12px', fontWeight: 700 }}>{schoolSmsTopic(schoolName)} powered by YAT?STATS</legend>
                 <label style={{ display: 'flex', gap: '8px', fontSize: '12px', marginBottom: '10px', lineHeight: 1.4 }}><input type="checkbox" name="smsInformational" defaultChecked={false} style={{ flexShrink: 0 }} />{fanInformationalConsent(schoolName)}</label>
                 <label style={{ display: 'flex', gap: '8px', fontSize: '12px', marginBottom: '10px', lineHeight: 1.4 }}><input type="checkbox" name="smsPromotional" defaultChecked={false} style={{ flexShrink: 0 }} />{fanPromotionalConsent(schoolName)}</label>
                 <p style={{ fontSize: '11px', lineHeight: 1.45, margin: 0 }}>{FAN_SMS_DISCLOSURE}</p>
@@ -1428,9 +1427,10 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
                   marginBottom: '8px',
                 }}
               >
-                {isLoading ? 'Setting Up...' : joinPromoState === 'valid'
-                  ? <>BECOME A SUPER FAN — <s style={{ opacity: 0.6 }}>$2.99/MO</s> FREE</>
-                  : 'BECOME A SUPER FAN — $2.99/MO'}
+                {/* Pete (Nov 12 2026): always the price here; the green FREE FOR ...
+                    FANS! button is the free one. A valid code still makes this
+                    button free too (see handleRegister). */}
+                {isLoading ? 'Setting Up...' : 'BECOME A SUPER FAN — $2.99/MO'}
               </button>
               <button
                 className="yat-account-membership-cta"
