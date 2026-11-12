@@ -1,4 +1,5 @@
 'use client';
+import { teamLogoPath } from '@/lib/teamLogo';
 
 // src/components/bracket/gallery.tsx
 // Shared pieces of the bracket gallery (the private /bracket-lab page and
@@ -139,16 +140,12 @@ export function loadActiveRoster(hsid: number) {
   return activeRosterCache.get(hsid)!;
 }
 
-// A player's current team logo, by our (Baseball Cube) team id - college and
-// pro alike: teams-web/<id>.webp, then teams/<id>.png. No logo: an empty slot
-// of the same size, so the names stay lined up.
-const TEAM_LOGO_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
+// Use the same cross-platform logo identity and fallback policy as profiles.
 function TeamLogo({ id }: { id?: string }) {
-  const [step, setStep] = useState(0);
-  const srcs = id && /^\d+$/.test(id) ? [`${TEAM_LOGO_BASE}/teams-web/${id}.webp`, `${TEAM_LOGO_BASE}/teams/${id}.png`] : [];
-  if (step >= srcs.length) return <span className="bl-tlogo" aria-hidden="true" />;
+  const src = teamLogoPath(id);
+  if (!src) return <span className="bl-tlogo" aria-hidden="true" />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className="bl-tlogo" src={srcs[step]} alt="" loading="lazy" onError={() => setStep((n) => n + 1)} />;
+  return <img className="bl-tlogo" src={src} alt="" loading="lazy" />;
 }
 
 export const shortName = (name: string) => name

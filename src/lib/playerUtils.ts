@@ -48,12 +48,14 @@ export function fmt(key: string, value: unknown): string {
  * here rather than in db.ts because db.ts has 'use server' at module scope,
  * which forces every export to be an async Server Action.
  */
+import { teamLogoPath } from '@/lib/teamLogo';
+
 export function mlbTeamLogoUrl(logoMap: Map<string, string>, mlbTeamId: unknown): string | null {
   const key = String(mlbTeamId || "").trim();
   if (!key) return null;
   const teamid = logoMap.get(key);
   if (!teamid) return null;
-  return `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${teamid}.png`;
+  return teamLogoPath(teamid);
 }
 
 /** Resolve a schedule's canonical team id without confusing source ids with it. */

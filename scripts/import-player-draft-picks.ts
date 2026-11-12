@@ -37,7 +37,7 @@
 // Env: DATABASE_URL.
 
 import { Pool } from "pg";
-import { currentFranchiseSql } from "../src/lib/mlbFranchise";
+import { draftTeamLogoLateralSql } from "../src/lib/draftTeamLogoSql";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -170,19 +170,7 @@ const WANT = `
          ) AS caption,
          t.teamid, f.hsid, f.player_name
     FROM player_draft_picks d
-    LEFT JOIN LATERAL (
-      -- Preserve the historical team identity for period-correct artwork.
-      -- Successor franchise lookup is only for names without a direct TBC ID.
-      SELECT candidate.teamid FROM (
-        SELECT p.teamid::text AS teamid, 0 AS priority
-          FROM tbc_pro_teams_map_raw p
-         WHERE lower(trim(p.teamname)) = lower(trim(d.draft_team_name))
-        UNION ALL
-        SELECT u.teamid::text AS teamid, 1 AS priority
-          FROM teamid_universe_mapping u
-         WHERE u.level_label = 'MLB' AND lower(u.current_team_name) = ${currentFranchiseSql('d.draft_team_name')}
-      ) candidate ORDER BY priority,teamid LIMIT 1
-    ) t ON true
+    ${draftTeamLogoLateralSql()}
     LEFT JOIN LATERAL (
       SELECT f.hsid::text AS hsid, nullif(trim(coalesce(f.first_name, '') || ' ' || coalesce(f.last_name, '')), '') AS player_name
         FROM flip_card_front_stage f WHERE f.playerid::text = d.playerid

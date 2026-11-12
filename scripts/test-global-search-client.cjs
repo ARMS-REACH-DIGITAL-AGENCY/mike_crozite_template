@@ -179,6 +179,7 @@ function createEnvironment({ queryString = '', code = fs.readFileSync(sourcePath
       if (name === 'react') return { useEffect: callback => effects.push(callback) };
       if (name === 'react/jsx-runtime') return { jsx: (...args) => args, jsxs: (...args) => args };
       if (name === '@/lib/analytics') return { track: (...args) => tracks.push(args) };
+      if (name === '@/lib/teamLogo') return { teamLogoPath: id => /^\d+$/.test(String(id)) ? '/api/team-logo/' + id : null };
       if (name === './FavoriteButton') return { loadFavoriteIds: async () => new Set() };
       throw new Error('Unexpected fixture dependency: ' + name);
     },

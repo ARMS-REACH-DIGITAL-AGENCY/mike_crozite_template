@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { teamLogoPath } from "@/lib/teamLogo";
 import { query } from "@/lib/db";
 import { canonicalSchoolUrls } from "@/lib/schoolDirectoryRouting";
 import { toPlayerSlug } from "@/lib/slug";
@@ -143,7 +144,7 @@ export async function GET(req: NextRequest) {
         currentTeamId,
         current_team_id: currentTeamId,
         teamid: currentTeamId,
-        teamLogoUrl: currentTeamId ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${currentTeamId}.png` : "",
+        teamLogoUrl: teamLogoPath(currentTeamId) || "",
         currentOrgOrConferenceName: r.current_org_or_conference_name || "",
         levelLabel: r.level_label || "",
       };

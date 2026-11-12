@@ -79,6 +79,8 @@
 //   them and the legacy path fallback below will not be reached.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { teamLogoPath } from "@/lib/teamLogo";
+
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
 // ─── LEGACY WIRED PATHS ───────────────────────────────────────────────────────
@@ -247,7 +249,7 @@ const CARD_COPY_ORIGINAL: Record<string, string> = {
  * since the last converter run.
  */
 export function getTeamLogoUrl(teamId: string): string {
-  return `${S3_BASE}/teams-web/${encodeURIComponent(teamId)}.webp`;
+  return teamLogoPath(teamId) || "";
 }
 
 /**
@@ -256,6 +258,7 @@ export function getTeamLogoUrl(teamId: string): string {
  */
 export function getOriginalForCardCopy(src?: string | null): string {
   const text = String(src || '');
+  if (/^\/api\/team-logo\/\d+$/.test(text)) return ''; // route already tries all valid formats
   const logo = text.match(/^(.*\/)teams-web\/([^/?#]+)\.webp(?=$|[?#])/);
   if (logo) return `${logo[1]}teams/${logo[2]}.png`;
   const match = text.match(/^(.*\/players\/)(then-card|back-card|now-thumb)\/([^/?#]+)\.webp(?=$|[?#])/);

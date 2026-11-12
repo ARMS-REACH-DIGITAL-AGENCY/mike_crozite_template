@@ -1,4 +1,5 @@
 'use client';
+import { teamLogoPath } from '@/lib/teamLogo';
 
 // The proof a fan checks before a photo is sent: their photo, cropped the
 // way they placed it, shown in the spot it will fill on the site - his flip
@@ -101,7 +102,7 @@ export function FlipCardBack({ src, crop, p }: { src: string; crop: Crop | null;
 
 export function TimelineSlide({ src, crop, p, s, landscape }: { src: string; crop: Crop | null; p: ProofPlayer; s: Season | null; landscape: boolean }) {
   return (
-    <div className="ypf-slide" style={s?.teamId ? { ['--ypf-logo' as string]: `url(${S3}/teams-web/${s.teamId}.webp)` } : undefined}>
+    <div className="ypf-slide" style={s?.teamId ? { ['--ypf-logo' as string]: `url(${teamLogoPath(s.teamId) || '/img/ys-crest.png'})` } : undefined}>
       <div className="ypf-slide-left">
         <b>{p.name}</b>
         <small>{[s?.level, s?.label].filter(Boolean).join(' · ')}</small>

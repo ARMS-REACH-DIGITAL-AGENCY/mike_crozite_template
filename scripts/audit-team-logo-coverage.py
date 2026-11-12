@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only inventory of team-logo gaps for career timelines.
+"""Read-only inventory of team logos for career timelines and Draft Day.
 
 Reports all distinct team IDs used in the four canonical batting/pitching
 tables, checks all supported S3 logo paths, and preserves historic names.
@@ -34,6 +34,11 @@ def inventory(s3, prefix: str) -> set[str]:
 
 def rows_from_database(conn):
     used = " UNION ".join(f"SELECT DISTINCT teamid FROM public.{table} WHERE teamid ~ '^[0-9]+$'" for table in SOURCE_TABLES)
+    # Include Draft Day identities, even if the player never joined the drafting club.
+    used += (
+        " UNION SELECT DISTINCT substring(s3_key from 'teams/([0-9]+)') AS teamid"
+        " FROM public.player_moment_photos WHERE s3_key ~ '^teams/[0-9]+[.]png$'"
+    )
     sql = f"""
         WITH used AS ({used})
         SELECT u.teamid,

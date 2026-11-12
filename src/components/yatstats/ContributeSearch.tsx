@@ -1,4 +1,5 @@
 'use client';
+import { teamLogoPath } from '@/lib/teamLogo';
 
 // The site's Global Search inside the Connect & Contribute drawer: the same
 // search box, the same Player Name / High School / Current Team buttons and
@@ -85,7 +86,7 @@ export default function ContributeSearch(props: Props) {
               const name = String(t.name || t.currentTeamName || t.current_team_name || '').trim();
               const level = String(t.level || t.levelLabel || t.level_label || '').trim();
               const org = String(t.orgName || t.currentOrgOrConferenceName || t.current_org_or_conference_name || '').trim();
-              const logo = String(t.logoUrl || '').trim() || `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(teamId)}.png`;
+              const logo = String(t.logoUrl || '').trim() || teamLogoPath(teamId) || '/img/ys-crest.png';
               const safeName = escapeTeamText(name);
               const safeLevel = escapeTeamText(level);
               const safeOrg = escapeTeamText(org);
@@ -131,7 +132,7 @@ export default function ContributeSearch(props: Props) {
             name: d.teamName || '',
             level: d.teamLevel || '',
             orgName: d.teamOrg || '',
-            logoUrl: d.teamId ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(d.teamId)}.png` : '',
+            logoUrl: teamLogoPath(d.teamId) || '',
           });
         }
         return;

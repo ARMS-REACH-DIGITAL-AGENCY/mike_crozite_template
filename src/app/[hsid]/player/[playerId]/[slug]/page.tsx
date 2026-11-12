@@ -835,7 +835,7 @@ export default async function ProfilePage({ params }: Props) {
         dateLabel: formatDisplayDate(d) || d,
         opponent: g.opponent || g.away_team || "--",
         logoUrl: g.opponent_teamid
-          ? getOriginalForCardCopy(getTeamLogoUrl(String(g.opponent_teamid)))
+          ? getTeamLogoUrl(String(g.opponent_teamid))
           : mlbTeamLogoUrl(teamIdMap, opponentMlbId ?? log?.opponent_mlb_id),
         resultLetter: badge?.letter ?? null,
         resultClass: badge?.className ?? "",

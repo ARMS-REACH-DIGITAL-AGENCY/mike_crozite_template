@@ -110,7 +110,7 @@ function buildGameSummary(
   const isHome = game.is_home === true || game.home_away === 'Home';
   const opponentRawId = isHome ? game.away_team_id : game.home_team_id;
   const logoUrl = game.opponent_teamid
-    ? getOriginalForCardCopy(getTeamLogoUrl(game.opponent_teamid))
+    ? getTeamLogoUrl(game.opponent_teamid)
     : opponentRawId ? mlbTeamLogoUrl(teamIdMap, opponentRawId) : null;
   const abbr = mlbTeamAbbreviation(opponentRawId);
   const opponentLabel = abbr || String(game.opponent || 'TBD').trim();
