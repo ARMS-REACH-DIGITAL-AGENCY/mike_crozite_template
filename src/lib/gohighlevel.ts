@@ -519,3 +519,22 @@ export async function sendYatstatsSms(contactId: string, message: string): Promi
     return false;
   }
 }
+
+/** Add tags to a YAT?STATS ARMS contact, keeping its existing tags. Never throws. */
+export async function addGHLContactTags(contactId: string, newTags: string[]): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey || !contactId || !newTags.length) return false;
+  const headers = { Authorization: `Bearer ${apiKey}`, Accept: 'application/json', 'Content-Type': 'application/json', Version: '2021-07-28' };
+  const url = `https://services.leadconnectorhq.com/contacts/${encodeURIComponent(contactId)}`;
+  try {
+    const read = await fetch(url, { headers, cache: 'no-store' });
+    if (!read.ok) return false;
+    const current = (await read.json()) as { contact?: { tags?: string[] } };
+    const tags = new Set((current.contact?.tags || []).filter((tag): tag is string => typeof tag === 'string'));
+    newTags.forEach((tag) => tags.add(tag));
+    const update = await fetch(url, { method: 'PUT', headers, cache: 'no-store', body: JSON.stringify({ tags: [...tags] }) });
+    return update.ok;
+  } catch {
+    return false;
+  }
+}

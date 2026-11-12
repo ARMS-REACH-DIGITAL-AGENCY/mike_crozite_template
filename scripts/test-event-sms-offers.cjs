@@ -28,13 +28,15 @@ for (const [campaign, offer] of Object.entries(offers.EVENT_SIGNUP_OFFERS)) {
 const plain = offers.welcomeSmsMessage('Hamilton High School', null);
 const event = offers.welcomeSmsMessage('Hamilton High School', offers.eventSignupOfferFor(golf, '5004'));
 for (const text of [plain, event, offers.welcomeSmsMessage(null, null)]) {
-  assert.match(text, /^YAT\?STATS: /, 'names the sender first');
-  assert.match(text, /Reply HELP for help, STOP to opt out\./, 'HELP and STOP');
-  assert.match(text, /Msg & data rates may apply/, 'rates');
-  assert.ok(text.length <= 320, 'fits in 2 SMS segments: ' + text.length);
+  assert.match(text, /YAT\?STATS/, 'names YAT?STATS');
+  assert.ok(text.endsWith(offers.SMS_DISCLOSURE), 'ends with frequency, rates, HELP and STOP');
 }
-assert.match(plain, /Welcome to Hamilton Baseball!/);
-assert.match(event, /golf tournament/);
+assert.match(plain, /^YAT\?STATS: Welcome to Hamilton Baseball!/);
+assert.ok(plain.length <= 320, 'plain thank-you fits 2 segments');
+assert.match(event, /14th Annual Golf Tournament/);
+assert.match(event, /WOODY10RINGS/);
+assert.match(offers.EVENT_SIGNUP_OFFERS.golf_2026.formNote, /^FORE!/);
+assert.equal(offers.eventOfferCampaign(golf), 'golf_2026');
 
 const route = fs.readFileSync(path.resolve(__dirname, '../src/app/api/auth/register/route.ts'), 'utf8');
 assert.match(route, /if \(synced\) \{[\s\S]*?after\(async \(\) => \{[\s\S]*?sendYatstatsSms\(contactId, message\)/, 'the thank-you is sent after the response, only once consent is saved and the phone is on the ARMS contact');
@@ -44,4 +46,12 @@ assert.match(drawer, /setPromoCode\(offer\.promoCode\);\s*setJoinPromoState\('va
 assert.match(route, /const contactId = synced;/, 'the text goes to the contact that holds the phone');
 const ghl = fs.readFileSync(path.resolve(__dirname, '../src/lib/gohighlevel.ts'), 'utf8');
 assert.match(ghl, /const owner = await lookupGHLContactIdByPhone\(phoneE164\);[\s\S]*?if \(second\.ok\) return owner;/, 'a phone already on another contact: tag and text that contact');
+// JOIN form layout (Pete, Nov 12 2026)
+const order = ['name="registerPhone"', 'placeholder="Create a Password"', 'name="smsInformational"', 'value="superfan"', 'value="fan"', 'className="yat-account-promo-code"', "'school_fans'"].map((needle) => drawer.indexOf(needle));
+order.forEach((at, i) => assert.ok(at > 0, 'missing piece ' + i));
+assert.deepEqual([...order].sort((a, b) => a - b), order, 'phone, password, text boxes, Super Fan, Fan, promo code, FREE FOR ... FANS!');
+assert.match(drawer, /join_cta: joinCta/, 'GA sign_up records the button');
+assert.match(route, /yatstats:join-button:\$\{cta\}/, 'ARMS tag records the button');
+assert.match(route, /yatstats:event:/, 'ARMS tag records the event');
+assert.equal((drawer.match(/finishJoinDrawer\(\);/g) || []).length, 2, 'the drawer closes after both sign-up successes');
 console.log('event sign-ups and thank-you text: ok');

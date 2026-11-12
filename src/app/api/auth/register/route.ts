@@ -1,7 +1,7 @@
 import { fillHomeSchoolName, formatSchoolLabel } from "@/lib/armsLabels";
 import { NextRequest, NextResponse, after } from "next/server";
-import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent, sendYatstatsSms } from "@/lib/gohighlevel";
-import { eventSignupOfferFor, welcomeSmsMessage } from "@/lib/eventSmsOffers";
+import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent, sendYatstatsSms, addGHLContactTags } from "@/lib/gohighlevel";
+import { eventSignupOfferFor, eventOfferCampaign, welcomeSmsMessage } from "@/lib/eventSmsOffers";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
@@ -26,6 +26,7 @@ interface RegisterRequestBody {
   disclosureVersion?: string;
   idToken?: string;
   sourceUrl?: string;
+  joinCta?: string;
 }
 
 async function getSchoolByHsid(hsid: string) {
@@ -192,6 +193,17 @@ export async function POST(request: NextRequest) {
         hsname: homeSchoolName,
         hslocation: homeSchoolLocation,
       });
+      // Which JOIN button the fan used, and the event link they came from
+      // (Pete, Nov 2026), so ARMS can filter e.g. golf_2026 sign-ups.
+      const joinTags: string[] = [];
+      const cta = String(body.joinCta || '');
+      if (['superfan', 'fan', 'school_fans'].includes(cta)) joinTags.push(`yatstats:join-button:${cta}`);
+      const eventOffer = eventSignupOfferFor(String(body.sourceUrl || '').slice(0, 2048), profile.home_hsid);
+      if (eventOffer) joinTags.push(`yatstats:event:${eventOfferCampaign(String(body.sourceUrl || '').slice(0, 2048))}`);
+      if (joinTags.length) {
+        const tagged = await addGHLContactTags(profile.arms_contact_id, joinTags);
+        if (!tagged) console.error("[join-tags] ARMS tags not added");
+      }
     }
 
     // Save evidence before permitting any contact to enter an SMS workflow.
