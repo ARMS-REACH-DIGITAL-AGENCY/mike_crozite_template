@@ -1,7 +1,7 @@
 import { fillHomeSchoolName, formatSchoolLabel } from "@/lib/armsLabels";
-import { NextRequest, NextResponse } from "next/server";
-import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent, sendYatstatsSms } from "@/lib/gohighlevel";
-import { eventSmsOfferFor } from "@/lib/eventSmsOffers";
+import { NextRequest, NextResponse, after } from "next/server";
+import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent, sendYatstatsSms, addGHLContactTags } from "@/lib/gohighlevel";
+import { eventSignupOfferFor, eventOfferCampaign, welcomeSmsMessage } from "@/lib/eventSmsOffers";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
@@ -26,6 +26,7 @@ interface RegisterRequestBody {
   disclosureVersion?: string;
   idToken?: string;
   sourceUrl?: string;
+  joinCta?: string;
 }
 
 async function getSchoolByHsid(hsid: string) {
@@ -192,6 +193,17 @@ export async function POST(request: NextRequest) {
         hsname: homeSchoolName,
         hslocation: homeSchoolLocation,
       });
+      // Which JOIN button the fan used, and the event link they came from
+      // (Pete, Nov 2026), so ARMS can filter e.g. golf_2026 sign-ups.
+      const joinTags: string[] = [];
+      const cta = String(body.joinCta || '');
+      if (['superfan', 'fan', 'school_fans'].includes(cta)) joinTags.push(`yatstats:join-button:${cta}`);
+      const eventOffer = eventSignupOfferFor(String(body.sourceUrl || '').slice(0, 2048), profile.home_hsid);
+      if (eventOffer) joinTags.push(`yatstats:event:${eventOfferCampaign(String(body.sourceUrl || '').slice(0, 2048))}`);
+      if (joinTags.length) {
+        const tagged = await addGHLContactTags(profile.arms_contact_id, joinTags);
+        if (!tagged) console.error("[join-tags] ARMS tags not added");
+      }
     }
 
     // Save evidence before permitting any contact to enter an SMS workflow.
@@ -238,14 +250,22 @@ export async function POST(request: NextRequest) {
           informational: smsInformational,
           promotional: smsPromotional,
         });
+        // `synced` is the ARMS contact now holding the phone and consent tags:
+        // the fan's own, or the contact that already had this number.
         if (!synced) console.error("[sms-consent] Consent saved locally; ARMS phone/tag sync pending");
-        // Event offer (e.g. the Hamilton golf tournament QR code): one text
-        // with a free Superfan code, only with PROMOTIONAL consent just given
-        // and the phone saved on the ARMS contact. Never blocks registration.
-        const offer = smsPromotional && synced ? eventSmsOfferFor(fullSourceUrl, profile.home_hsid) : null;
-        if (offer) {
-          const sent = await sendYatstatsSms(profile.arms_contact_id, offer.message);
-          if (!sent) console.error("[event-sms] Offer text not sent", offer.promoCode);
+        // Thank-you text (Pete, Nov 2026): one text to a fan who just gave a
+        // mobile number and checked a text box, once the phone is on the ARMS
+        // contact. The event's extra line is an offer, so only PROMOTIONAL
+        // consent gets it; informational-only gets the plain thank-you.
+        // Sent after the response (after()), so it never slows the JOIN form.
+        if (synced) {
+          const contactId = synced;
+          const offer = smsPromotional ? eventSignupOfferFor(fullSourceUrl, profile.home_hsid) : null;
+          const message = welcomeSmsMessage(homeSchoolName, offer);
+          after(async () => {
+            const sent = await sendYatstatsSms(contactId, message);
+            if (!sent) console.error("[welcome-sms] Thank-you text not sent");
+          });
         }
       }
     }

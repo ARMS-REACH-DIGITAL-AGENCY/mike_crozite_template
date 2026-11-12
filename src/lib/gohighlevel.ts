@@ -428,38 +428,68 @@ export async function syncYatstatsSmsConsent(
   contactId: string,
   phoneE164: string,
   consents: { informational: boolean; promotional: boolean }
-): Promise<boolean> {
+): Promise<string | null> {
   const apiKey = getGHLApiKey();
-  if (!apiKey || !contactId || !phoneE164) return false;
+  if (!apiKey || !contactId || !phoneE164) return null;
   const headers = {
     Authorization: `Bearer ${apiKey}`,
     Accept: 'application/json',
     'Content-Type': 'application/json',
     Version: '2021-07-28',
   };
-  const url = `https://services.leadconnectorhq.com/contacts/${encodeURIComponent(contactId)}`;
-  try {
-    const read = await fetch(url, { headers, cache: 'no-store' });
-    if (!read.ok) {
-      console.error('[sms-consent] ARMS contact read failed', read.status);
-      return false;
-    }
+  const contactUrl = (id: string) => `https://services.leadconnectorhq.com/contacts/${encodeURIComponent(id)}`;
+  // Add the consent tags to one contact (and its phone when given).
+  const tagContact = async (id: string, phone?: string): Promise<{ ok: boolean; status: number }> => {
+    const read = await fetch(contactUrl(id), { headers, cache: 'no-store' });
+    if (!read.ok) return { ok: false, status: read.status };
     const current = (await read.json()) as { contact?: { tags?: string[] } };
     const tags = new Set((current.contact?.tags || []).filter((tag): tag is string => typeof tag === 'string'));
     if (consents.informational) tags.add('yatstats:sms-info-opt-in');
     if (consents.promotional) tags.add('yatstats:sms-promo-opt-in');
-    const update = await fetch(url, {
+    const update = await fetch(contactUrl(id), {
       method: 'PUT', headers, cache: 'no-store',
-      body: JSON.stringify({ phone: phoneE164, tags: [...tags] }),
+      body: JSON.stringify(phone ? { phone, tags: [...tags] } : { tags: [...tags] }),
     });
-    if (!update.ok) {
-      console.error('[sms-consent] ARMS consent tags and phone update failed', update.status);
-      return false;
+    return { ok: update.ok, status: update.status };
+  };
+  try {
+    const first = await tagContact(contactId, phoneE164);
+    if (first.ok) return contactId;
+    // The YAT?STATS sub-account allows one contact per phone (Nov 2026), so a
+    // number already on another contact (a parent, a booster, a re-signup)
+    // is refused. The person who owns that phone just gave consent: record it
+    // on the contact that holds the number, and text that contact.
+    const owner = await lookupGHLContactIdByPhone(phoneE164);
+    if (owner && owner !== contactId) {
+      const second = await tagContact(owner);
+      if (second.ok) return owner;
     }
-    return true;
+    console.error('[sms-consent] ARMS consent tags and phone update failed', first.status);
+    return null;
   } catch (error) {
     console.error('[sms-consent] ARMS contact sync unavailable', error instanceof Error ? error.message : error);
-    return false;
+    return null;
+  }
+}
+
+/** The ARMS contact that holds a phone number (HighLevel's duplicate lookup), or null. */
+export async function lookupGHLContactIdByPhone(phoneE164: string): Promise<string | null> {
+  const apiKey = getGHLApiKey();
+  const locationId = getGHLLocationId();
+  if (!apiKey || !locationId || !phoneE164) return null;
+  try {
+    const url = new URL('https://services.leadconnectorhq.com/contacts/search/duplicate');
+    url.searchParams.set('number', phoneE164);
+    url.searchParams.set('locationId', locationId);
+    const response = await fetch(url.toString(), {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}`, Version: '2021-07-28' },
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { contact?: { id?: string } | null };
+    return data.contact?.id || null;
+  } catch {
+    return null;
   }
 }
 
@@ -486,6 +516,25 @@ export async function sendYatstatsSms(contactId: string, message: string): Promi
     return response.ok;
   } catch (error) {
     console.error('[event-sms] ARMS text failed', error instanceof Error ? error.message : 'unknown');
+    return false;
+  }
+}
+
+/** Add tags to a YAT?STATS ARMS contact, keeping its existing tags. Never throws. */
+export async function addGHLContactTags(contactId: string, newTags: string[]): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey || !contactId || !newTags.length) return false;
+  const headers = { Authorization: `Bearer ${apiKey}`, Accept: 'application/json', 'Content-Type': 'application/json', Version: '2021-07-28' };
+  const url = `https://services.leadconnectorhq.com/contacts/${encodeURIComponent(contactId)}`;
+  try {
+    const read = await fetch(url, { headers, cache: 'no-store' });
+    if (!read.ok) return false;
+    const current = (await read.json()) as { contact?: { tags?: string[] } };
+    const tags = new Set((current.contact?.tags || []).filter((tag): tag is string => typeof tag === 'string'));
+    newTags.forEach((tag) => tags.add(tag));
+    const update = await fetch(url, { method: 'PUT', headers, cache: 'no-store', body: JSON.stringify({ tags: [...tags] }) });
+    return update.ok;
+  } catch {
     return false;
   }
 }

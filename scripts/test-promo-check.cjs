@@ -21,7 +21,7 @@ assert.equal(checkPromoCode('').ok, false);
 
 const drawer = fs.readFileSync(path.resolve(__dirname, '../src/components/AccountDrawer.tsx'), 'utf8');
 assert.match(drawer, /fetch\('\/api\/promo\/check'/, 'the JOIN form checks the code');
-assert.match(drawer, /joinPromoState === 'valid' \? 'BECOME A SUPER FAN — FREE' : 'BECOME A SUPER FAN — \$2\.99\/MO'/, 'the Superfan button reads FREE only after a valid code');
+assert.match(drawer, /joinPromoState === 'valid'\s*\? <>BECOME A SUPER FAN — <s[^>]*>\$2\.99\/MO<\/s> FREE<\/>\s*: 'BECOME A SUPER FAN — \$2\.99\/MO'/, 'the Superfan button reads FREE (with $2.99/MO struck through) only after a valid code');
 const route = fs.readFileSync(path.resolve(__dirname, '../src/app/api/promo/check/route.ts'), 'utf8');
 assert.doesNotMatch(route, /redeemPromoCode|query\(/, 'checking never redeems or writes');
 console.log('promo check: ok');
