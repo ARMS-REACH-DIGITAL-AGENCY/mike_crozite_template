@@ -17,7 +17,7 @@ const compile = source => ts.transpileModule(source, {
 }).outputText;
 
 function loadPureModule(relativePath) {
-  const scope = { exports: {} };
+  const scope = { exports: {}, require: name => name === '@/lib/teamLogo' ? { teamLogoPath: id => /^\d+$/.test(String(id)) ? '/api/team-logo/' + id : null } : require(name) };
   vm.runInNewContext(compile(fs.readFileSync(path.join(root, relativePath), 'utf8')), scope);
   return scope.exports;
 }
@@ -185,7 +185,7 @@ test('Unmapped independent source UUIDs never become schedule keys, while profil
 
 test('Canonical opponent ids use the existing team image helper in both consumers', () => {
   const game = { ...pastGame, opponent_teamid: '54321' };
-  const expected = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/54321.png';
+  const expected = '/api/team-logo/54321';
   assert.equal(profileGames(game)[0].logoUrl, expected);
   assert.equal(gameSummary(game).logoUrl, expected);
 });
