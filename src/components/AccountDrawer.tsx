@@ -14,7 +14,7 @@ import { track } from '@/lib/analytics';
 import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
 import GuidedTourArtwork from '@/components/yatstats/GuidedTourArtwork';
 import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent, schoolSmsTopic } from '@/lib/fanConsent';
-import { EVENT_SMS_OFFERS } from '@/lib/eventSmsOffers';
+import { eventSignupOfferFor } from '@/lib/eventSmsOffers';
 
 interface AccountDrawerProps {
   subdomain: string;
@@ -200,17 +200,18 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
   const [promoBusy, setPromoBusy] = useState(false);
   // JOIN form: the code checked with APPLY before the account exists.
   // 'valid' switches the Superfan button to FREE (Pete, Nov 2026).
-  // Event sign-up offer note (src/lib/eventSmsOffers.ts), read after mount.
-  // `subdomain` is the school's hsid (app/[hsid]/layout.tsx).
+  const [joinPromoState, setJoinPromoState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  // Event link (src/lib/eventSmsOffers.ts, e.g. the golf QR code): show the
+  // event note and fill in + apply the event's free Superfan code, so the
+  // button already reads FREE. `subdomain` is the school's hsid.
   const [eventOfferNote, setEventOfferNote] = useState('');
   useEffect(() => {
-    try {
-      const campaign = (new URLSearchParams(window.location.search).get('utm_campaign') || '').trim().toLowerCase();
-      const offer = EVENT_SMS_OFFERS[campaign];
-      if (offer && String(subdomain) === offer.hsid) setEventOfferNote(offer.formNote);
-    } catch {}
+    const offer = eventSignupOfferFor(window.location.href, subdomain);
+    if (!offer) return;
+    setEventOfferNote(offer.formNote);
+    setPromoCode(offer.promoCode);
+    setJoinPromoState('valid');
   }, [subdomain]);
-  const [joinPromoState, setJoinPromoState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
 
   const effectiveEmail = firebaseUser?.email || sessionUser?.email || '';
   const effectiveUid = firebaseUser?.uid || sessionUser?.uid || '';

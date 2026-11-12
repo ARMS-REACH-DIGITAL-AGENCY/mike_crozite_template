@@ -1,7 +1,7 @@
 import { fillHomeSchoolName, formatSchoolLabel } from "@/lib/armsLabels";
 import { NextRequest, NextResponse } from "next/server";
 import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent, sendYatstatsSms } from "@/lib/gohighlevel";
-import { eventSmsOfferFor } from "@/lib/eventSmsOffers";
+import { eventSignupOfferFor, welcomeSmsMessage } from "@/lib/eventSmsOffers";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
@@ -239,13 +239,14 @@ export async function POST(request: NextRequest) {
           promotional: smsPromotional,
         });
         if (!synced) console.error("[sms-consent] Consent saved locally; ARMS phone/tag sync pending");
-        // Event offer (e.g. the Hamilton golf tournament QR code): one text
-        // with a free Superfan code, only with PROMOTIONAL consent just given
-        // and the phone saved on the ARMS contact. Never blocks registration.
-        const offer = smsPromotional && synced ? eventSmsOfferFor(fullSourceUrl, profile.home_hsid) : null;
-        if (offer) {
-          const sent = await sendYatstatsSms(profile.arms_contact_id, offer.message);
-          if (!sent) console.error("[event-sms] Offer text not sent", offer.promoCode);
+        // Thank-you text (Pete, Nov 2026): one text to a fan who just gave a
+        // mobile number and checked a text box, once the phone is on the ARMS
+        // contact. Event sign-ups (golf QR) get the event's extra line.
+        // Never blocks registration.
+        if (synced) {
+          const offer = eventSignupOfferFor(fullSourceUrl, profile.home_hsid);
+          const sent = await sendYatstatsSms(profile.arms_contact_id, welcomeSmsMessage(homeSchoolName, offer));
+          if (!sent) console.error("[welcome-sms] Thank-you text not sent");
         }
       }
     }
