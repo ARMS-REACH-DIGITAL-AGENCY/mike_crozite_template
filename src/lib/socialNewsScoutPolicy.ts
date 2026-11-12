@@ -118,7 +118,7 @@ export function newsApprovalIssue(decision: ScoutDecision, candidates: ScoutPlay
   const playerOwned = Boolean(post && sourceIsPlayerOwned(post.owner_type,post.authorization_type)
     && post.playerid === decision.subject_playerid);
   const minimumConfidence = verifiedDirectCareerStatement(decision,post) ? 0.7 :
-    decision.category === 'league_status' ? 0.9 : playerOwned ? 0.75 : 0.85;
+    ['community','personal_update','other'].includes(decision.category) && playerOwned ? 0.75 : 0.9;
   if (!Number.isFinite(decision.confidence) || decision.confidence < minimumConfidence)
     return 'insufficient_confidence';
   if (decision.headline.trim().length < 12) return 'missing_headline';
