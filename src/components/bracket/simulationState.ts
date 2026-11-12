@@ -9,5 +9,8 @@ export function arizonaToday(now = Date.now()) {
 // The bracket's day turns over at 4 a.m. Arizona, not midnight: that's when
 // the day before goes final and the next inning starts (see liveSeason.ts).
 export function simulationAsOf() {
-  return arizonaToday(Date.now() - 4 * 3600000);
+  // 2026 simulation preview: the clock is frozen at Monday Apr 13, 2026, the
+  // morning after Round 1 (Weeks 1-3) - Round 2 is paired but not played.
+  return SIM_2026_TODAY;
 }
+export const SIM_2026_TODAY = '2026-04-13';
