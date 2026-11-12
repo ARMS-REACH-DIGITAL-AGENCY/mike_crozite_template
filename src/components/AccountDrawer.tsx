@@ -14,7 +14,29 @@ import { track } from '@/lib/analytics';
 import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
 import GuidedTourArtwork from '@/components/yatstats/GuidedTourArtwork';
 import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent, schoolSmsTopic } from '@/lib/fanConsent';
-import { EVENT_SMS_OFFERS } from '@/lib/eventSmsOffers';
+import { eventSignupOfferFor } from '@/lib/eventSmsOffers';
+
+// "HAMILTON" for the FREE FOR ... FANS! button (from the school's SMS topic).
+function schoolFansName(schoolName?: string | null): string {
+  const topic = schoolSmsTopic(schoolName);
+  return topic === 'MY HOME SCHOOL BASEBALL' ? 'HOME SCHOOL' : topic.replace(/ BASEBALL$/, '');
+}
+
+// After a new fan joins: show the top of the drawer, then close it so they
+// land on the school site (Pete, Nov 2026: first-time visitors may not know
+// to scroll up to the X).
+function finishJoinDrawer() {
+  try {
+    const drawer = document.getElementById('drawerAccount');
+    drawer?.scrollTo?.({ top: 0, behavior: 'smooth' });
+    drawer?.querySelectorAll<HTMLElement>('*').forEach((el) => { if (el.scrollTop > 0) el.scrollTop = 0; });
+    window.setTimeout(() => {
+      document.body.classList.remove('drawer-account-open', 'drawer-open');
+      drawer?.classList.remove('open', 'is-open', 'active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 2500);
+  } catch {}
+}
 
 interface AccountDrawerProps {
   subdomain: string;
@@ -200,17 +222,18 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
   const [promoBusy, setPromoBusy] = useState(false);
   // JOIN form: the code checked with APPLY before the account exists.
   // 'valid' switches the Superfan button to FREE (Pete, Nov 2026).
-  // Event sign-up offer note (src/lib/eventSmsOffers.ts), read after mount.
-  // `subdomain` is the school's hsid (app/[hsid]/layout.tsx).
+  const [joinPromoState, setJoinPromoState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  // Event link (src/lib/eventSmsOffers.ts, e.g. the golf QR code): show the
+  // event note and fill in + apply the event's free Superfan code, so the
+  // button already reads FREE. `subdomain` is the school's hsid.
   const [eventOfferNote, setEventOfferNote] = useState('');
   useEffect(() => {
-    try {
-      const campaign = (new URLSearchParams(window.location.search).get('utm_campaign') || '').trim().toLowerCase();
-      const offer = EVENT_SMS_OFFERS[campaign];
-      if (offer && String(subdomain) === offer.hsid) setEventOfferNote(offer.formNote);
-    } catch {}
+    const offer = eventSignupOfferFor(window.location.href, subdomain);
+    if (!offer) return;
+    setEventOfferNote(offer.formNote);
+    setPromoCode(offer.promoCode);
+    setJoinPromoState('valid');
   }, [subdomain]);
-  const [joinPromoState, setJoinPromoState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
 
   const effectiveEmail = firebaseUser?.email || sessionUser?.email || '';
   const effectiveUid = firebaseUser?.uid || sessionUser?.uid || '';
@@ -735,7 +758,9 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
       if (!auth) throw new Error('Firebase auth not initialized');
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
-      track('sign_up', { method: 'email' });
+      // Which JOIN button was used (Pete, Nov 2026): superfan / fan / school_fans.
+      const joinCta = (() => { try { return sessionStorage.getItem('join_cta') || ''; } catch { return ''; } })();
+      track('sign_up', { method: 'email', join_cta: joinCta });
 
       if (auth.currentUser) {
         try {
@@ -757,6 +782,7 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
           disclosureVersion: FAN_CONSENT_VERSION,
           idToken: await cred.user.getIdToken(),
           sourceUrl: window.location.href,
+          joinCta,
         }),
       });
 
@@ -821,6 +847,7 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
             setMessage('Promo applied — welcome, Superfan!');
             setMessageType('success');
             setTimeout(() => setMessage(''), 2500);
+            finishJoinDrawer();
             return;
           }
           // Bad or failed code: stay on the form so it can be fixed.
@@ -852,6 +879,7 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
       setMessage('Registration successful! Welcome to YAT?STATS.');
       setMessageType('success');
       setTimeout(() => setMessage(''), 1500);
+      finishJoinDrawer();
     } catch (error) {
       const firebaseCode = (error as { code?: string })?.code;
 
@@ -1311,6 +1339,9 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
 
           {activeTab === 'register' && (
             <form onSubmit={handleRegister} style={{ padding: '12px 15px' }}>
+              {eventOfferNote && (
+                <p className="yat-join-event-note" style={{ fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px', color: 'var(--ink)', fontWeight: 600, whiteSpace: 'pre-line' }}>{eventOfferNote}</p>
+              )}
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                 <input
                   type="text"
@@ -1365,9 +1396,9 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
               <div style={{ marginBottom: '8px' }}>
                 <input name="registerPhone" type="tel" autoComplete="tel" placeholder="Mobile phone (optional)" aria-label="Mobile phone (optional)" style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'rgba(255, 255, 255, .06)', color: 'var(--ink)', fontSize: '13px' }} />
               </div>
-              {eventOfferNote && (
-                <p style={{ fontSize: '12px', lineHeight: 1.45, margin: '0 0 8px', color: 'var(--ink)', fontWeight: 600 }}>{eventOfferNote}</p>
-              )}
+              <div style={{ marginBottom: '10px' }}>
+                <PasswordInput name="registerPassword" placeholder="Create a Password" />
+              </div>
               <fieldset style={{ border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', margin: '0 0 10px' }}>
                 <legend style={{ fontSize: '12px', fontWeight: 700 }}>{schoolSmsTopic(schoolName)} powered by YAT?STATS</legend>
                 <label style={{ display: 'flex', gap: '8px', fontSize: '12px', marginBottom: '10px', lineHeight: 1.4 }}><input type="checkbox" name="smsInformational" defaultChecked={false} style={{ flexShrink: 0 }} />{fanInformationalConsent(schoolName)}</label>
@@ -1375,17 +1406,39 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
                 <p style={{ fontSize: '11px', lineHeight: 1.45, margin: 0 }}>{FAN_SMS_DISCLOSURE}</p>
                 <p style={{ fontSize: '11px', margin: '8px 0 0' }}><a href="https://yatstats.com/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> · <a href="https://yatstats.com/terms-and-conditions" target="_blank" rel="noopener noreferrer">Terms &amp; Conditions</a></p>
               </fieldset>
-              <div style={{ marginBottom: '10px' }}>
-                <PasswordInput name="registerPassword" placeholder="Password" />
-              </div>
-
+              <button
+                className="yat-account-membership-cta"
+                type="submit"
+                name="intent"
+                value="superfan"
+                disabled={isLoading}
+                onClick={() => { sessionStorage.setItem('pending_superfan', '1'); sessionStorage.setItem('join_cta', 'superfan'); }}
+                style={{
+                  width: '100%',
+                  padding: '11px',
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                  fontSize: '13px',
+                  letterSpacing: '.07em',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.6 : 1,
+                  marginBottom: '8px',
+                }}
+              >
+                {isLoading ? 'Setting Up...' : joinPromoState === 'valid'
+                  ? <>BECOME A SUPER FAN — <s style={{ opacity: 0.6 }}>$2.99/MO</s> FREE</>
+                  : 'BECOME A SUPER FAN — $2.99/MO'}
+              </button>
               <button
                 className="yat-account-membership-cta"
                 type="submit"
                 name="intent"
                 value="fan"
                 disabled={isLoading}
-                onClick={() => sessionStorage.removeItem('pending_superfan')}
+                onClick={() => { sessionStorage.removeItem('pending_superfan'); sessionStorage.setItem('join_cta', 'fan'); }}
                 style={{
                   width: '100%',
                   padding: '11px',
@@ -1459,29 +1512,32 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
                 )}
               </div>
 
-              <button
-                className="yat-account-membership-cta"
-                type="submit"
-                name="intent"
-                value="superfan"
-                disabled={isLoading}
-                onClick={() => sessionStorage.setItem('pending_superfan', '1')}
-                style={{
-                  width: '100%',
-                  padding: '11px',
-                  background: 'var(--fg)',
-                  color: 'var(--bg)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
-                  fontSize: '13px',
-                  letterSpacing: '.07em',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  opacity: isLoading ? 0.6 : 1,
-                }}
-              >
-                {isLoading ? 'Setting Up...' : joinPromoState === 'valid' ? 'BECOME A SUPER FAN — FREE' : 'BECOME A SUPER FAN — $2.99/MO'}
-              </button>
+
+              {joinPromoState === 'valid' && (
+                <button
+                  className="yat-account-membership-cta yat-account-school-fans-cta"
+                  type="submit"
+                  name="intent"
+                  value="superfan"
+                  disabled={isLoading}
+                  onClick={() => { sessionStorage.setItem('pending_superfan', '1'); sessionStorage.setItem('join_cta', 'school_fans'); }}
+                  style={{
+                    width: '100%',
+                    padding: '11px',
+                    background: '#3ba55d',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                    fontSize: '13px',
+                    letterSpacing: '.07em',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    opacity: isLoading ? 0.6 : 1,
+                  }}
+                >
+                  {isLoading ? 'Setting Up...' : `FREE FOR ${schoolFansName(schoolName)} FANS!`}
+                </button>
+              )}
             </form>
           )}
 
