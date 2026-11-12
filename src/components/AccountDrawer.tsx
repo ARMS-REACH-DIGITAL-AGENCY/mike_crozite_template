@@ -197,6 +197,9 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [promoBusy, setPromoBusy] = useState(false);
+  // JOIN form: the code checked with APPLY before the account exists.
+  // 'valid' switches the Superfan button to FREE (Pete, Nov 2026).
+  const [joinPromoState, setJoinPromoState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
 
   const effectiveEmail = firebaseUser?.email || sessionUser?.email || '';
   const effectiveUid = firebaseUser?.uid || sessionUser?.uid || '';
@@ -553,6 +556,23 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
       setMessage('Network error starting checkout. Please try again.');
       setMessageType('error');
       setSuperfanLaunching(false);
+    }
+  };
+
+  const checkJoinPromo = async () => {
+    const code = promoCode.trim();
+    if (!code) return;
+    setJoinPromoState('checking');
+    try {
+      const res = await fetch('/api/promo/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setJoinPromoState(res.ok && data?.ok ? 'valid' : 'invalid');
+    } catch {
+      setJoinPromoState('invalid');
     }
   };
 
@@ -1371,24 +1391,58 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
               </button>
 
               <div style={{ marginBottom: '10px' }}>
-                <input
-                  className="yat-account-promo-code"
-                  type="text"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="SUPER FAN PROMO CODE (OPTIONAL)"
-                  aria-label="Superfan promo code"
-                  style={{
-                    width: '100%',
-                    padding: '11px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--line)',
-                    background: 'rgba(255, 255, 255, .06)',
-                    color: 'var(--ink)',
-                    fontSize: '13px',
-                    textTransform: 'uppercase',
-                  }}
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    className="yat-account-promo-code"
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => { setPromoCode(e.target.value); setJoinPromoState('idle'); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void checkJoinPromo(); } }}
+                    placeholder="SUPER FAN PROMO CODE (OPTIONAL)"
+                    aria-label="Superfan promo code"
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: '11px',
+                      borderRadius: '8px',
+                      border: '1px solid ' + (joinPromoState === 'valid' ? '#3ba55d' : joinPromoState === 'invalid' ? '#d9534f' : 'var(--line)'),
+                      background: 'rgba(255, 255, 255, .06)',
+                      color: 'var(--ink)',
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="yat-account-promo-apply"
+                    onClick={() => void checkJoinPromo()}
+                    disabled={!promoCode.trim() || joinPromoState === 'checking' || joinPromoState === 'valid'}
+                    style={{
+                      padding: '0 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--line)',
+                      background: 'transparent',
+                      color: 'var(--ink)',
+                      fontFamily: 'var(--yat-font-ui, Archivo, Arial, sans-serif)',
+                      fontSize: '12px',
+                      letterSpacing: '.07em',
+                      cursor: !promoCode.trim() || joinPromoState === 'checking' || joinPromoState === 'valid' ? 'default' : 'pointer',
+                      opacity: !promoCode.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    {joinPromoState === 'checking' ? '...' : joinPromoState === 'valid' ? 'APPLIED' : 'APPLY'}
+                  </button>
+                </div>
+                {joinPromoState === 'valid' && (
+                  <p role="status" style={{ margin: '6px 0 0', fontSize: '12px', color: '#3ba55d' }}>
+                    Code applied: Super Fan is free. No card needed.
+                  </p>
+                )}
+                {joinPromoState === 'invalid' && (
+                  <p role="alert" style={{ margin: '6px 0 0', fontSize: '12px', color: '#d9534f' }}>
+                    That code is not valid. Check the spelling and try again.
+                  </p>
+                )}
               </div>
 
               <button
@@ -1412,7 +1466,7 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
                   opacity: isLoading ? 0.6 : 1,
                 }}
               >
-                {isLoading ? 'Setting Up...' : 'BECOME A SUPER FAN — $2.99/MO'}
+                {isLoading ? 'Setting Up...' : joinPromoState === 'valid' ? 'BECOME A SUPER FAN — FREE' : 'BECOME A SUPER FAN — $2.99/MO'}
               </button>
             </form>
           )}

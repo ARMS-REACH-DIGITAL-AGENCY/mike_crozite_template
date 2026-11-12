@@ -25,6 +25,13 @@ const PROMO_CODES: Record<string, PromoDef> = {
   WOODY10RINGS: { durationMonths: null, label: 'Hamilton founding fans — lifetime Superfan' },
 };
 
+/** Checks a code without redeeming it (the JOIN form's APPLY button, before
+ * the account exists). Same table as redeemPromoCode, so the two never disagree. */
+export function checkPromoCode(rawCode: string): { ok: true; label: string; lifetime: boolean } | { ok: false } {
+  const def = PROMO_CODES[String(rawCode || '').trim().toUpperCase()];
+  return def ? { ok: true, label: def.label, lifetime: def.durationMonths == null } : { ok: false };
+}
+
 export type RedeemResult =
   | { ok: true; expiresAt: string | null }
   | { ok: false; reason: 'invalid' | 'already_redeemed'; error: string; status: number };
