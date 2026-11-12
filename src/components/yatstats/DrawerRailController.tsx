@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { touchLoadDrawerClassesToClear } from '@/lib/touchDrawerReset';
 
 const RAIL_MIN_WIDTH = 780;
 // Two 360px rails must leave a practical, centered reading surface.
@@ -133,17 +134,9 @@ function restoreDrawerState() {
   // remaining touch-only. Never resurrect a remembered desktop side rail
   // there: it can reserve an empty right column across the school rows.
   // A rail opened deliberately with a tap still works until navigation.
-  // Exception: a ?join=1 link (event QR codes, Nov 2026) opens the JOIN
-  // drawer on purpose (AccountDrawer); closing it here hid the sign-up on
-  // every real phone. The visitor can still close it with its X.
+  // A ?join=1 link keeps the JOIN drawer (see touchLoadDrawerClassesToClear).
   if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) {
-    const joining = new URLSearchParams(window.location.search).get('join') === '1';
-    document.body.classList.remove(
-      'drawer-left-open', 'yat-left-search-mode', 'drawer-sort-open',
-      'drawer-right-open', 'drawer-favorites-open',
-      'yat-desktop-docked-drawers'
-    );
-    if (!joining) document.body.classList.remove('drawer-account-open');
+    document.body.classList.remove(...touchLoadDrawerClassesToClear(window.location.search));
     return;
   }
   const saved = readSavedDrawerState();
