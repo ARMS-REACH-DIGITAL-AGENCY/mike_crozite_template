@@ -1,5 +1,5 @@
 // Pure, school-agnostic safeguards for automatic Instagram news publishing.
-export const SCOUT_POLICY_VERSION = '6';
+export const SCOUT_POLICY_VERSION = '7';
 export const SCOUT_WINDOW_DAYS = 7;
 export const SCOUT_ACTIVE_STATUSES = [
   'ACTIVE', 'INJURED - FULL SEASON', 'INJURED 60-DAY',
@@ -32,7 +32,7 @@ export type ScoutDecision = {
   subject_playerid: string;
   category: 'commitment' | 'transfer' | 'signing' | 'draft' |
     'promotion' | 'award' | 'milestone' | 'performance' |
-    'injury' | 'feature' | 'league_status' | 'other';
+    'injury' | 'feature' | 'league_status' | 'community' | 'personal_update' | 'other';
   confidence: number;
   headline: string;
   summary: string;
@@ -110,11 +110,14 @@ export function newsApprovalIssue(decision: ScoutDecision, candidates: ScoutPlay
     return 'unverified_player_subject';
   if (!decision.family_safe) return 'family_safety';
   if (decision.duplicate) return 'already_reported';
-  if (decision.category === 'other') return 'no_news_category';
+  // 'other' is allowed when the verified active player is clearly the subject;
+  // the AI must still identify a concrete public update and supply evidence.
   // Exact first-person source evidence and roster identity are stronger proof
   // of attribution than a model's variable subjective confidence score.
   // Keep a numerical floor, but do not demand 90% for self-reported news.
-  const minimumConfidence = verifiedDirectCareerStatement(decision,post) ? 0.7 : 0.9;
+  const playerOwned = Boolean(post && sourceIsPlayerOwned(post.owner_type,post.authorization_type)
+    && post.playerid === decision.subject_playerid);
+  const minimumConfidence = verifiedDirectCareerStatement(decision,post) ? 0.7 : playerOwned ? 0.75 : 0.85;
   if (!Number.isFinite(decision.confidence) || decision.confidence < minimumConfidence)
     return 'insufficient_confidence';
   if (decision.headline.trim().length < 12) return 'missing_headline';
