@@ -1,39 +1,71 @@
+// Shareable News link with crawler-readable image/headline. Every school uses
+// the same route. Human visitors move to the REAL school's News section.
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { query } from '@/lib/db';
-import { parseNewsVideo } from '@/lib/newsVideo';
+import { parseNewsVideo, publicNewsHeadline } from '@/lib/newsVideo';
+import { isNewsArticleId } from '@/lib/newsShare';
 import { resolveSchoolNewsOrigins, schoolNewsStoryUrl } from '@/lib/schoolNewsLinks';
 
 type Context = { params: Promise<{ uuid: string }> };
-async function story(uuid: string) {
-  if (!/^[A-Za-z0-9_-]{1,100}$/.test(uuid)) return null;
+type NewsLink = {
+  id: number;
+  title: string;
+  hsid: string;
+  uuid: string;
+  url: string;
+  snippet: string | null;
+  player_name: string | null;
+};
+
+async function story(reference: string): Promise<NewsLink | null> {
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(reference)) return null;
   try {
-    const { rows } = await query<{ title:string; hsid:string; uuid:string; url:string; display_image_url:string|null; image_url:string|null; snippet:string|null; player_name:string|null }>(
-      "SELECT title, hsid, uuid, url, display_image_url, image_url, snippet, player_name FROM news_articles WHERE uuid=$1 AND verification_status='VERIFIED' LIMIT 1", [uuid]
+    // All new Share actions use the short, unique numeric news_articles.id.
+    // Existing full-UUID links remain valid, including historic links.
+    const byId = isNewsArticleId(reference);
+    const condition = byId ? 'id=$1' : 'uuid=$1';
+    const { rows } = await query<NewsLink>(
+      'SELECT id,title,hsid,uuid,url,snippet,player_name FROM news_articles WHERE '+
+      condition+" AND verification_status='VERIFIED' LIMIT 1",
+      [byId ? Number(reference) : reference],
     );
     return rows[0] || null;
   } catch { return null; }
 }
-export async function generateMetadata({params}:Context):Promise<Metadata> {
-  const {uuid}=await params;
-  const item=await story(uuid);
-  if (!item) return { title:'Story not found | YAT?STATS',robots:{index:false} };
-  const host=(await headers()).get('host') || 'yatstats.com';
-  const image=`https://${host}/api/og/news?hsid=${encodeURIComponent(item.hsid)}&story=${encodeURIComponent(uuid)}`;
-  const title=item.title || 'Alumni News | YAT?STATS';
-  const description=(item.snippet || `Alumni news featuring ${item.player_name || 'YAT?STATS'}`).slice(0,250);
-  return {title,description,openGraph:{type:'article',title,description,images:[{url:image,width:1200,height:630,type:'image/png'}]},twitter:{card:'summary_large_image',title,description,images:[image]}};
+
+export async function generateMetadata({params}: Context): Promise<Metadata> {
+  const { uuid: reference } = await params;
+  const item = await story(reference);
+  if (!item) return { title:'News story unavailable | YAT?STATS', robots:{index:false} };
+  const canonical = 'https://yatstats.com/n/' + reference;
+  const image = 'https://yatstats.com/api/og/news?hsid='+
+    encodeURIComponent(item.hsid)+'&story='+encodeURIComponent(item.uuid);
+  const title = publicNewsHeadline(item.title,item.url) || 'Alumni News';
+  const action = parseNewsVideo(item.url) ? 'Watch' : 'Read';
+  const teaser = String(item.snippet || 'Follow high school baseball alumni, their news and their journeys.')
+    .replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  const description = (action+' this alumni story on YAT?STATS. '+teaser).slice(0,200);
+  return {
+    title, description, alternates:{canonical},
+    openGraph:{
+      type:'article',siteName:'YAT?STATS',url:canonical,title,description,
+      images:[{url:image,width:1200,height:630,type:'image/png',alt:'YAT?STATS Alumni News story'}]
+    },
+    twitter:{card:'summary_large_image',title,description,images:[image]},
+  };
 }
-export default async function NewsShareLanding({params}:Context) {
-  const {uuid}=await params, item=await story(uuid);
-  const schoolUrls = item
-    ? await resolveSchoolNewsOrigins([item.hsid], (sql, params = []) => query(sql, params))
-    : new Map<string, string>();
-  const href = item ? schoolNewsStoryUrl(schoolUrls.get(item.hsid), uuid) : null;
+export default async function NewsShareLanding({params}: Context) {
+  const {uuid: reference}=await params;
+  const item=await story(reference);
+  const schoolUrls=item
+    ? await resolveSchoolNewsOrigins([item.hsid],(sql,values=[])=>query(sql,values))
+    : new Map<string,string>();
+  // The deep link ALWAYS needs the actual UUID, never the numeric short ID.
+  const href=item?schoolNewsStoryUrl(schoolUrls.get(item.hsid),item.uuid):null;
   return <main style={{background:'#101010',color:'#fff',minHeight:'100vh',padding:'3rem',fontFamily:'Arial,sans-serif'}}>
-    <h1>{item?.title || 'News story not found'}</h1>
+    <h1>{item?.title || 'News story unavailable'}</h1>
     <p>{item ? 'Opening this Alumni News story on YAT?STATS…' : 'This story is unavailable.'}</p>
-    {href ? <a href={href} style={{color:'#ffb21c'}}>Open the school's News story</a> : null}
-    {href ? <script dangerouslySetInnerHTML={{__html:`window.location.replace(${JSON.stringify(href)})`}}/> : null}
+    {href ? <a href={href} style={{color:'#ffb21c'}}>WATCH OR READ THIS STORY</a> : null}
+    {href ? <script dangerouslySetInnerHTML={{__html:'window.location.replace('+JSON.stringify(href)+')'}}/> : null}
   </main>;
 }

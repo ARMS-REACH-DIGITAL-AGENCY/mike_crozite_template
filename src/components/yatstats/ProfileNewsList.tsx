@@ -15,6 +15,7 @@ import { parseNewsVideo, newsVideoHeadline, newsVideoDescription, type NewsVideo
 
 export type ProfileNewsStory = {
   uuid: string;
+  articleId?: number | null;
   title: string;
   url: string;
   source: string | null;
@@ -269,6 +270,7 @@ export default function ProfileNewsList({
               : "";
             return <div className="pp-news-instagram-footer">
               <NewsEngagement key={post.id} compactInViewer uuid={post.id} hsid={hsid}
+                articleId={story?.articleId} hasVideo
                 title={newsVideoHeadline(story?.title || "", profileName)} />
               {profileHref ? <a className="pp-news-modal-profile" href={profileHref}
                 aria-label={`View ${profileName || "player"}'s YAT?STATS profile`}>
@@ -299,7 +301,9 @@ export default function ProfileNewsList({
         footer={
           openStory ? (
             <div className="pp-news-modal-actions">
-              <NewsEngagement uuid={openStory.uuid} hsid={hsid} title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} />
+              <NewsEngagement uuid={openStory.uuid} hsid={hsid} articleId={openStory.articleId}
+                hasVideo={Boolean(selectedVideo)}
+                title={newsVideoHeadline(openStory.title, openStory.playerName || playerName)} />
               {/* MLB playback may be blocked by third-party framing/cookies.
                   Always preserve a direct MLB.com fallback for this source. */}
               {(!selectedVideo?.embedUrl || selectedVideo?.provider === 'MLB') && selectedVideo?.provider !== "X" ? (

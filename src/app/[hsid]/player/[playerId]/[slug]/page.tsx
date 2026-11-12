@@ -357,6 +357,7 @@ export default async function ProfilePage({ params }: Props) {
 
   const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, null, true)).map((row: any) => ({
     uuid: String(row.uuid),
+    articleId: Number.isSafeInteger(Number(row.id)) && Number(row.id)>0 ? Number(row.id) : null,
     title: publicNewsHeadline(row.title, row.url, row.discovery_source === "contribute", row.gallery_front_json?.headline),
     url: row.url,
     source: row.source_full ?? row.source ?? null,
