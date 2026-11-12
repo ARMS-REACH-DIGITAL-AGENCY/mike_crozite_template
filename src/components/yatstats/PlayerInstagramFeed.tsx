@@ -4,7 +4,8 @@
 // their latest posts (our S3 copies, refreshed by the instagram-sync cron).
 // News stories that link to Instagram open in this same viewer.
 // Social tiles open an uncropped S3 image and can switch to the interactive embed.
-// News articles open the interactive Instagram embed directly, with no preview step. Navigation
+// News articles use the same authorized native media as Social when available;
+// otherwise they display a clipped official Instagram embed without its social footer. Navigation
 // stays on the profile and arrows/swipe step through posts. Loads only once the Social tab
 // is actually shown, and renders nothing when there are no stored posts.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -161,7 +162,7 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   const isInteractiveNews = Boolean(externalPosts && (current?.media_type === 'carousel' || /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video'));
   // Instagram's cached link-preview thumbnail can be square-cropped even when the actual post is 4:5.
   // Render the original Instagram post for all News media, never substitute that thumbnail.
-  // News retains its official embed; the player Social tab must never
+  // News prefers the authorized synced video's native player. The player Social tab must never
   // render an outbound-playing Instagram iframe. A missing authorized media
   // URL is a preview-only state, not a fake Play control.
   const embedShown = Boolean(externalPosts && !nativeVideoUrl && embedUrl && (isInteractiveNews || !hasPicture));
@@ -169,16 +170,14 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
   // be laid out narrower than 326px, so a smaller box scales it down.
-  // Social embeds use Instagram's 4:5 frame; News uses the requested 9:16 media viewport. Photos keep their own shape, which
+  // Fallback embeds use the same compact 4:5 media-only crop in News and Social; native videos keep their uncropped portrait frame. Photos keep their own shape, which
   // Instagram limits to between 1.91:1 and 4:5.
   const isReel = /\/(reel|tv)\//.test(current?.permalink || '') || current?.media_type === 'video';
   const pictureShape = current ? aspects[current.id] : undefined;
-  // Social and News have separate crop requirements; never make
-  // news styling alter the previously working Social-tab embed.
-  // Social reels use the previously working 4:5 media-only crop. A 9:16
-  // iframe exposes the Instagram engagement/footer area (regression #741).
-  // News articles retain their dedicated 9:16 reel viewport.
-  const heightPerWidth = isReel && externalPosts ? 16 / 9 : (pictureShape && !isReel ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4);
+  // A 9:16 embedded Instagram frame includes its engagement/footer panel;
+  // crop both News and Social fallback embeds at 4:5. This does NOT affect
+  // the full-height 9:16 native video path when a valid Meta URL is present.
+  const heightPerWidth = pictureShape && !isReel ? Math.min(5 / 4, Math.max(1 / 1.91, pictureShape)) : 5 / 4;
   // Instagram photo embeds include an additional action/footer region after the
   // media. Keep that region outside our crop while preserving full media height.
   const embedBox = mediaBox
@@ -331,10 +330,10 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
               )}
             </div>
             <div className={`pp-ig-post-details${renderFooter ? ' pp-ig-post-details-news' : ''}`}>
-              {!embedShown && current.caption && (
+              {(externalPosts || !embedShown) && current.caption && (
                 <p className="pp-ig-caption">{current.caption}</p>
               )}
-              {!embedShown && publishedDate && (
+              {(externalPosts || !embedShown) && publishedDate && (
                 <time dateTime={current.published_at || undefined} className="pp-ig-post-date">{publishedDate}</time>
               )}
               {renderFooter && <div className="pp-ig-extra" key={current.id}>{renderFooter(current)}</div>}

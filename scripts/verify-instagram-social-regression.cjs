@@ -7,7 +7,8 @@ const read = file => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'
 const viewer = read('src/components/yatstats/PlayerInstagramFeed.tsx');
 const sync = read('src/lib/instagramSync.ts');
 const playerApi = read('src/app/api/social/player/[playerId]/route.ts');
-assert.match(viewer, /isReel && externalPosts \? 16 \/ 9/);
+assert.doesNotMatch(viewer, /isReel && externalPosts \? 16 \/ 9/);
+assert.match(viewer, /const heightPerWidth = pictureShape && !isReel/);
 assert.match(viewer, /: 5 \/ 4\);/);
 assert.match(viewer, /externalPosts && current\.permalink && \(/);
 assert.match(viewer, /nativeVideoUrl \? \(/);
@@ -25,4 +26,15 @@ assert.match(sync, /CASE WHEN \$9::text IS NOT NULL/);
 assert.match(sync, /media_url_expires_at = EXCLUDED\.media_url_expires_at/);
 assert.match(playerApi, /ORDER BY p\.published_at DESC/);
 assert.match(playerApi, /LIMIT 30/);
+const news=read('src/components/yatstats/ProfileNewsList.tsx');
+const api=read('src/app/api/social/instagram-post/route.ts');
+assert.match(news,/newsUuid=\\$\\{encodeURIComponent\\(s.uuid\\)\\}/);
+assert.match(news,/media_url: post\\?\\.media_url \\|\\| null/);
+assert.match(api,/JOIN social_posts p ON p.id = CASE/);
+assert.match(api,/n.uuid=\\$1 AND n.url=\\$2/);
+assert.match(api,/p.media_url_expires_at > now\\(\\)/);
+assert.match(api,/private, no-store/);
+assert.match(viewer,/\\(externalPosts \\|\\| !embedShown\\) && current.caption/);
+assert.match(viewer,/\\(externalPosts \\|\\| !embedShown\\) && publishedDate/);
+
 console.log('PASS Instagram media crop, no Social outbound CTA, native video, typed Meta sync SQL');
