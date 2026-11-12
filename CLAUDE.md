@@ -10,7 +10,9 @@
   SINGLE-A, ROOKIE, INDY, INTERNATIONAL, NCAA-D1, NCAA-D2, NCAA-D3, NAIA,
   NJCAA, CCCAA, NWAC, HIGH SCHOOL - in data, code and in what you write to
   Pete (never "Triple-A", "AAA", "Low-A", "JUCO"). JUCO is NJCAA; CCCAA and
-  NWAC are separate levels.
+  NWAC are separate levels. Exception (Pete, Nov 12 2026): a proper name or
+  title that contains the word stays as written (Eric Sim's "King of JUCO"
+  video); any level label for stats is NJCAA.
 - **`teamid_universe_mapping` is canonical:** Pete's own research. No
   scripts, no seeding, no automated writes. Correcting an obvious error (a
   level not spelled the official way) is fine; anything else, report it and
