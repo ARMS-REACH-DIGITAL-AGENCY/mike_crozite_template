@@ -326,16 +326,20 @@ export default function AccountDrawer({ subdomain, schoolName }: AccountDrawerPr
           overflow:visible!important;
           border:0!important;
         }
+        /* Pete (Nov 12 2026): after a new fan joined, the signed-in panel's
+           top section covered the X. Keep it above the scrolling content
+           with its own backing so it always shows. */
         #drawerAccount .yat-account-header-signed #closeAccount {
           position:absolute!important;
           top:8px!important;
           right:9px!important;
           width:36px!important;
           height:36px!important;
-          border:0!important;
-          border-radius:6px!important;
-          background:transparent!important;
-          z-index:5!important;
+          border:1px solid var(--line)!important;
+          border-radius:50%!important;
+          background:var(--bg, #000)!important;
+          box-shadow:0 2px 8px rgba(0,0,0,.35)!important;
+          z-index:80!important;
         }
         #drawerAccount .yat-account-header-signed #closeAccount:hover,
         #drawerAccount .yat-account-header-signed #closeAccount:focus-visible {
