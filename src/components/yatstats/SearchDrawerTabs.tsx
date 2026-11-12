@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { track } from '@/lib/analytics';
+import { teamLogoPath } from '@/lib/teamLogo';
 import { loadFavoriteIds } from './FavoriteButton';
 
 type SearchMode = 'name' | 'school' | 'team';
@@ -134,7 +135,8 @@ function teamLogoUrl(item: any) {
   const custom = String(item.teamLogoUrl || item.team_logo_url || item.currentTeamLogoUrl || item.current_team_logo_url || '').trim();
   if (custom) return custom;
   const id = teamIdOf(item);
-  if (/^\d+$/.test(id)) return `${S3_BASE}/teams/${esc(id)}.png`;
+  const url = teamLogoPath(id);
+  if (url) return url;
   return YAT_CIRCLE_CREST_FALLBACK;
 }
 
