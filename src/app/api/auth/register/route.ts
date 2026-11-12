@@ -1,6 +1,7 @@
 import { fillHomeSchoolName, formatSchoolLabel } from "@/lib/armsLabels";
 import { NextRequest, NextResponse } from "next/server";
-import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent } from "@/lib/gohighlevel";
+import { lookupGHLContactByEmail, createGHLContact, getGHLLocationId, syncYatstatsContact, syncYatstatsSmsConsent, sendYatstatsSms } from "@/lib/gohighlevel";
+import { eventSmsOfferFor } from "@/lib/eventSmsOffers";
 import { getUserProfile, upsertUserProfile } from "@/lib/userProfile";
 import { isSuperfan } from "@/lib/entitlements";
 import { query } from "@/lib/db";
@@ -200,6 +201,7 @@ export async function POST(request: NextRequest) {
       // state, or other personal information in query strings.
       let sourceUrl = "";
       let sourceHost = "";
+      const fullSourceUrl = String(body.sourceUrl || "").slice(0, 2048);
       try {
         const form = new URL(String(body.sourceUrl || "").slice(0, 2048));
         sourceHost = form.hostname.toLowerCase();
@@ -237,6 +239,14 @@ export async function POST(request: NextRequest) {
           promotional: smsPromotional,
         });
         if (!synced) console.error("[sms-consent] Consent saved locally; ARMS phone/tag sync pending");
+        // Event offer (e.g. the Hamilton golf tournament QR code): one text
+        // with a free Superfan code, only with PROMOTIONAL consent just given
+        // and the phone saved on the ARMS contact. Never blocks registration.
+        const offer = smsPromotional && synced ? eventSmsOfferFor(fullSourceUrl, profile.home_hsid) : null;
+        if (offer) {
+          const sent = await sendYatstatsSms(profile.arms_contact_id, offer.message);
+          if (!sent) console.error("[event-sms] Offer text not sent", offer.promoCode);
+        }
       }
     }
 
