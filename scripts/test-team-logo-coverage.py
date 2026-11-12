@@ -55,6 +55,8 @@ class LogoTests(unittest.TestCase):
         self.assertNotIn("put_object(", src)
         self.assertNotIn("UPDATE public.", src)
         self.assertIn("historical_artwork_needed", src)
+        self.assertIn("player_moment_photos", src)
+        self.assertIn("s3_key", src)
 
 if __name__ == "__main__":
     unittest.main()
