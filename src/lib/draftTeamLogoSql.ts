@@ -25,5 +25,5 @@ export function draftTeamLogoLateralSql(alias: 'd' = 'd'): string {
       CASE WHEN length(candidate.teamid) <= 2 THEN 0 ELSE 1 END,
       length(candidate.teamid), candidate.teamid
     LIMIT 1
-  ) draft_logo ON TRUE`;
+  ) t ON TRUE`;
 }
