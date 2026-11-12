@@ -9,10 +9,11 @@ const path = require('node:path');
 const read = (rel) => fs.readFileSync(path.resolve(__dirname, '..', rel), 'utf8');
 
 const drawer = read('src/components/AccountDrawer.tsx');
-const rule = drawer.match(/#drawerAccount \.yat-account-signout\{[^}]*\}/);
-assert.ok(rule, 'Sign Out has its drawer rule');
-assert.match(rule[0], /margin-bottom:calc\(var\(--footerH, 56px\) \+ \d+px \+ env\(safe-area-inset-bottom, 0px\)\)!important/, 'Sign Out keeps footer-height room below it');
-assert.doesNotMatch(rule[0], /margin-bottom:0!important/, 'no zero bottom margin');
+const phone = drawer.match(/@media \(max-width:779px\)\{#drawerAccount \.yat-account-signout\{[^}]*\}\}/);
+assert.ok(phone, 'Sign Out has a phone-only rule');
+assert.match(phone[0], /margin-bottom:calc\(var\(--footerH, 56px\) \+ \d+px \+ env\(safe-area-inset-bottom, 0px\)\)!important/, 'on phones Sign Out keeps footer-height room below it');
+const base = drawer.match(/^\s*#drawerAccount \.yat-account-signout\{[^}]*\}/m);
+assert.ok(base && /margin-bottom:0!important/.test(base[0]), 'wider layouts keep no extra blank tail');
 
 // Sign Out stays the last control in the signed-in panel, inside the scroller.
 const signedIn = drawer.slice(drawer.indexOf('<GuidedTourArtwork />'));
