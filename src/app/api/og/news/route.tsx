@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   const [school, news] = await Promise.all([
     getSchoolByHsid(hsid).catch(() => null),
     query<NewsRow>(
-      'SELECT title,snippet,url,display_image_url,image_url FROM news_articles WHERE uuid=$1 AND hsid=$2 LIMIT 1',
+      'SELECT title,snippet,url,display_image_url,image_url FROM news_articles WHERE uuid=$1 AND hsid=$2 AND verification_status=\'VERIFIED\' LIMIT 1',
       [story, hsid],
     ).then(r => r.rows[0] || null).catch(() => null),
   ]);
@@ -67,20 +67,19 @@ export async function GET(request: NextRequest) {
   const title = (publicNewsHeadline(news.title, news.url) || 'ALUMNI NEWS').trim().slice(0, 132);
   const snippet = String(news.snippet || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 145);
   const video = parseNewsVideo(news.url);
-  const instagram = video?.provider === 'Instagram'
-    ? await fetchInstagramPostPreview(news.url || '').catch(() => null) : null;
-  const candidates = [
-    news.display_image_url,
-    news.image_url,
-    instagram?.thumbnail_url,
-    video?.thumbnailUrl,
-  ];
+  // Don't block Google Messages/RCS crawlers behind Instagram oEmbed.
+  // The synced S3 photo is already available for a Scout story.
   let photo: string | null = null;
-  for (const candidate of candidates) {
+  for (const candidate of [news.display_image_url,news.image_url,video?.thumbnailUrl]) {
     photo = await loadImage(candidate);
     if (photo) break;
   }
+  if (!photo && video?.provider === 'Instagram') {
+    const instagram = await fetchInstagramPostPreview(news.url || '').catch(() => null);
+    photo = await loadImage(instagram?.thumbnail_url);
+  }
   const crest = await loadImage(getSchoolCrestUrl(hsid));
+  const action = video ? 'WATCH THE VIDEO' : 'READ THE STORY';
   const leftWidth = photo ? 620 : 710;
   return new ImageResponse(
     <div style={{ display: 'flex', width: SIZE.width, height: SIZE.height, background: '#0c1119', color: 'white', fontFamily: 'Arial, sans-serif', padding: '43px 50px', flexDirection: 'column' }}>
@@ -107,9 +106,14 @@ export async function GET(request: NextRequest) {
             ? <div style={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center' }}><img src={crest} width={270} height={270} style={{ objectFit: 'contain' }} alt="" /></div>
             : null}
       </div>
-      <div style={{ display: 'flex', borderTop: '1px solid #35404c', paddingTop: 18, justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', fontSize: 24, color: GOLD, fontWeight: 900 }}>CONNECT. CONTRIBUTE. REMEMBER.</div>
-        <div style={{ display: 'flex', fontSize: 20, color: '#d6dce4' }}>WHERE THEY YAT? STORIES & STATS.</div>
+      <div style={{ display: 'flex', borderTop: '1px solid #35404c', paddingTop: 15, justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', fontSize: 22, color: GOLD, fontWeight: 900 }}>CONNECT. CONTRIBUTE. REMEMBER.</div>
+          <div style={{ display: 'flex', fontSize: 17, color: '#d6dce4' }}>WHERE THEY YAT? STORIES & STATS.</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', borderRadius: 10, background: GOLD, color: '#101010', padding: '14px 22px', fontSize: 25, fontWeight: 900 }}>
+          {action}  ›
+        </div>
       </div>
     </div>,
     { ...SIZE, headers: { 'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600' } },

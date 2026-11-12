@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react';
 import { authHeaders, openSignIn, useFanMe } from '@/components/yatstats/StoryViewer';
 import { useRef } from 'react';
+import { newsShareMessage, newsShareUrl } from '@/lib/newsShare';
 type Comment={id:string;text:string;createdAt:string;author:string};
 type Tag={playerid:string;name:string;canRemove:boolean};
 type Data={likeCount:number;commentCount:number;likedByMe:boolean;comments:Comment[];tags:Tag[]};
-export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{uuid:string;hsid:string;title:string;compactInViewer?:boolean}){
+export default function NewsEngagement({uuid,hsid,title,articleId,hasVideo=false,compactInViewer=false}:{uuid:string;hsid:string;title:string;articleId?:number|string|null;hasVideo?:boolean;compactInViewer?:boolean}){
  const me=useFanMe();
  const hasValidSession=async()=>{
    const headers=await authHeaders();
@@ -37,24 +38,22 @@ export default function NewsEngagement({uuid,hsid,title,compactInViewer=false}:{
  },[mention,mentionOpen]);
  const [shareMessage,setShareMessage]=useState('');
  const shareNews=async()=>{
-   if(!me && !(await hasValidSession())){openSignIn();return;}
-   // Share the school route directly: /n/:uuid can be captured as an invalid
-   // school segment on school subdomains. The school page renders story OG metadata.
-   const schoolPath=window.location.pathname.match(/^\/([0-9]+)(?:\/|$)/)?.[1];
-   const url=new URL(schoolPath?'/'+schoolPath:'/',window.location.origin);
-   url.searchParams.set('news','1');
-   url.searchParams.set('story',uuid);
-   url.hash='sec-news';
-   const nativeShare = typeof navigator.share === 'function';
+   // Sharing is public; likes, comments and tags still require sign-in.
+   // The global /n/:id link has an OG photo, headline and action banner.
+   const link=newsShareUrl(articleId,uuid);
+   if(!link){setShareMessage('Share link unavailable');return;}
+   const text=newsShareMessage(title,hasVideo);
+   const nativeShare=typeof navigator.share === 'function';
    try{
-     if(nativeShare)await navigator.share({title,url:url.toString()});
-     else{await navigator.clipboard.writeText(url.toString());setShareMessage('Link copied');}
+     if(nativeShare) await navigator.share({title:title+' | YAT?STATS',text,url:link});
+     else {await navigator.clipboard.writeText(text+'\n'+link);setShareMessage('Share message copied');}
+     // Analytics is optional: anonymous viewers can share too.
      void fetch('/api/news/interact/'+encodeURIComponent(uuid),{
        method:'POST',credentials:'include',
        headers:{'Content-Type':'application/json',...(await authHeaders())},
-       body:JSON.stringify({action:'share',method:typeof navigator.share === 'function'?'native':'copy'})
+       body:JSON.stringify({action:'share',method:nativeShare?'native':'copy'})
      }).catch(()=>{});
-   }catch{ /* Share was cancelled. */ }
+   }catch{ /* Share cancelled or the user did not grant clipboard permission. */ }
  };
  const [busy,setBusy]=useState(false);
  const url='/api/news/interact/'+encodeURIComponent(uuid);
