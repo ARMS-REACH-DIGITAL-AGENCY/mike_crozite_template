@@ -49,6 +49,9 @@ for (const id of ['12','31','10011','10013','10014','10018','10020','10021']) {
   assert.ok(!key(id).some(k => /\/(?:17|29|32|36|37)\./.test(k)), id + ' must not inherit successor');
 }
 assert.equal(story.storyAssetUrl('teams/10032.png'), endpoint+'10032');
+const image = loadTs('src/lib/playerImage.ts', { '@/lib/teamLogo': logo });
+assert.equal(image.getTeamLogoUrl('10032'), '/api/team-logo/10032');
+assert.equal(image.getOriginalForCardCopy('/api/team-logo/10032'), '');
 assert.equal(story.storyAssetUrl('teams-web/21.webp'), endpoint+'21');
 assert.equal(story.storyAssetUrl('teams/18.png'), endpoint+'18');
 assert.equal(story.storyAssetUrl('teams/cutouts/4.png'), endpoint+'4');
