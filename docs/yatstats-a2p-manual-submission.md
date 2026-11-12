@@ -1,7 +1,10 @@
 # YAT?STATS — A2P 10DLC Campaign Manual Setup
 
-Status: preparation only. **No campaign has been resubmitted or approved.**
-Updated October 21, 2026.
+Status: **APPROVED (Pete, Nov 12 2026).** Verified: a test SMS from the
+YAT?STATS number +1 928-928-2228 was delivered to Pete's phone on Nov 12,
+2026. (The Sep 4, 2026 missed-call texts failed with "no eligible SMS
+sender", which was before approval.) The notes below are the Oct 21
+preparation record.
 
 ## Important: choose Manual Setup, not Chat Widget Setup
 

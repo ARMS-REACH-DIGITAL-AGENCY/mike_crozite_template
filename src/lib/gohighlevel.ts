@@ -462,3 +462,30 @@ export async function syncYatstatsSmsConsent(
     return false;
   }
 }
+
+/** The YAT?STATS sub-account's texting number (A2P approved, Nov 2026). */
+export const YATSTATS_SMS_FROM = '+19289282228';
+
+/**
+ * Send one text to a YAT?STATS contact through ARMS. Callers must only use
+ * this for a contact whose matching SMS consent was just recorded; HighLevel
+ * still applies the contact's DND/STOP. Never throws; returns delivery-queued.
+ */
+export async function sendYatstatsSms(contactId: string, message: string): Promise<boolean> {
+  const apiKey = getGHLApiKey();
+  if (!apiKey || !contactId || !message) return false;
+  try {
+    const response = await fetch('https://services.leadconnectorhq.com/conversations/messages', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json', 'Content-Type': 'application/json', Version: '2021-04-15' },
+      body: JSON.stringify({ type: 'SMS', contactId, fromNumber: YATSTATS_SMS_FROM, message }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) console.error('[event-sms] ARMS text not queued', response.status, (await response.text()).slice(0, 220));
+    return response.ok;
+  } catch (error) {
+    console.error('[event-sms] ARMS text failed', error instanceof Error ? error.message : 'unknown');
+    return false;
+  }
+}
