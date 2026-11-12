@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { teamLogoPath } from '@/lib/teamLogo';
 import { query } from '@/lib/db';
 import { COLLEGE_COMMIT_LEVELS } from '@/lib/collegeCommitments';
 
