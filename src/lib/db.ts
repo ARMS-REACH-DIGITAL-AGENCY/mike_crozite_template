@@ -22,7 +22,7 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { activeAlumniSummaryCtes, confirmed2026GameLogPlayersSql } from '@/lib/activeAlumni';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
-import { currentFranchiseSql } from '@/lib/mlbFranchise';
+import { draftTeamLogoLateralSql } from '@/lib/draftTeamLogoSql';
 import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE, PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES, PLAYER_STAGE_SCHOOL_IDENTITY_CTES } from '@/lib/playerStageIdentity';
 import { resolvePlayerDisplay } from '@/lib/playerDisplay';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
@@ -2867,10 +2867,9 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
       ).catch(() => ({ rows: [] as any[] })),
       query<PlayerDraftPick>(
         `select d.draft_year, d.draft_round, d.draft_round_pick, d.draft_overall_pick, d.draft_team_name, d.drafted_from,
-                u.teamid
+                t.teamid
            from player_draft_picks d
-           left join teamid_universe_mapping u
-             on u.level_label = 'MLB' and lower(u.current_team_name) = ${currentFranchiseSql('d.draft_team_name')}
+           ${draftTeamLogoLateralSql()}
           where d.playerid = $1
           order by d.draft_year asc`,
         [playerId]
