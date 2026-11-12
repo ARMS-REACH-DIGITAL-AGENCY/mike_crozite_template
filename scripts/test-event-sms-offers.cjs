@@ -41,4 +41,7 @@ assert.match(route, /if \(synced\) \{[\s\S]*?after\(async \(\) => \{[\s\S]*?send
 assert.match(route, /const offer = smsPromotional \? eventSignupOfferFor\(/, 'the event offer line needs promotional consent');
 const drawer = fs.readFileSync(path.resolve(__dirname, '../src/components/AccountDrawer.tsx'), 'utf8');
 assert.match(drawer, /setPromoCode\(offer\.promoCode\);\s*setJoinPromoState\('valid'\);/, 'the event link fills in and applies the code');
+assert.match(route, /const contactId = synced;/, 'the text goes to the contact that holds the phone');
+const ghl = fs.readFileSync(path.resolve(__dirname, '../src/lib/gohighlevel.ts'), 'utf8');
+assert.match(ghl, /const owner = await lookupGHLContactIdByPhone\(phoneE164\);[\s\S]*?if \(second\.ok\) return owner;/, 'a phone already on another contact: tag and text that contact');
 console.log('event sign-ups and thank-you text: ok');

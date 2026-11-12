@@ -238,6 +238,8 @@ export async function POST(request: NextRequest) {
           informational: smsInformational,
           promotional: smsPromotional,
         });
+        // `synced` is the ARMS contact now holding the phone and consent tags:
+        // the fan's own, or the contact that already had this number.
         if (!synced) console.error("[sms-consent] Consent saved locally; ARMS phone/tag sync pending");
         // Thank-you text (Pete, Nov 2026): one text to a fan who just gave a
         // mobile number and checked a text box, once the phone is on the ARMS
@@ -245,7 +247,7 @@ export async function POST(request: NextRequest) {
         // consent gets it; informational-only gets the plain thank-you.
         // Sent after the response (after()), so it never slows the JOIN form.
         if (synced) {
-          const contactId = profile.arms_contact_id;
+          const contactId = synced;
           const offer = smsPromotional ? eventSignupOfferFor(fullSourceUrl, profile.home_hsid) : null;
           const message = welcomeSmsMessage(homeSchoolName, offer);
           after(async () => {
