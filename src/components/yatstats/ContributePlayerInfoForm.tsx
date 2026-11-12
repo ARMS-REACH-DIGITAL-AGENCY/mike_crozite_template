@@ -1,4 +1,5 @@
 'use client';
+import { teamLogoPath } from '@/lib/teamLogo';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
@@ -261,7 +262,7 @@ export default function ContributePlayerInfoForm({
           <div className="ycd-chosen-wrap">
             <div className="ycd-chosen">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={selectedCommitTeam.logoUrl || `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(selectedCommitTeam.teamId)}.png`}
+              <img src={selectedCommitTeam.logoUrl || teamLogoPath(selectedCommitTeam.teamId) || '/img/ys-crest.png'}
                 alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/img/yatstats-logo-circle.png';}} />
               <span className="ycd-chosen-text"><b>{selectedCommitTeam.name} COMMIT</b>
                 <small>{[selectedCommitTeam.level, `Team ID: ${selectedCommitTeam.teamId}`].filter(Boolean).join(' · ')}</small>
@@ -284,7 +285,7 @@ export default function ContributePlayerInfoForm({
         <div className="ycd-chosen-wrap">
           <div className="ycd-chosen">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={selectedCurrentTeam.logoUrl || `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(selectedCurrentTeam.teamId)}.png`}
+            <img src={selectedCurrentTeam.logoUrl || teamLogoPath(selectedCurrentTeam.teamId) || '/img/ys-crest.png'}
               alt="" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/img/yatstats-logo-circle.png';}} />
             <span className="ycd-chosen-text"><b>{selectedCurrentTeam.name}</b>
               <small>{[selectedCurrentTeam.level, selectedCurrentTeam.orgName, `Team ID: ${selectedCurrentTeam.teamId}`].filter(Boolean).join(' · ')}</small>
