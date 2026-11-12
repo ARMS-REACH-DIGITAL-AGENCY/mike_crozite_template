@@ -9,7 +9,7 @@ const sync = read('src/lib/instagramSync.ts');
 const playerApi = read('src/app/api/social/player/[playerId]/route.ts');
 assert.doesNotMatch(viewer, /isReel && externalPosts \? 16 \/ 9/);
 assert.match(viewer, /const heightPerWidth = pictureShape && !isReel/);
-assert.match(viewer, /: 5 \/ 4\);/);
+assert.match(viewer, /: 5 \/ 4;/);
 assert.match(viewer, /externalPosts && current\.permalink && \(/);
 assert.match(viewer, /nativeVideoUrl \? \(/);
 assert.match(viewer, /Boolean\(externalPosts && !nativeVideoUrl && embedUrl/);
