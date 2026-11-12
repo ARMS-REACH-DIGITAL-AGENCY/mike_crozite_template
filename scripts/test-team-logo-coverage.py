@@ -41,10 +41,10 @@ class LogoTests(unittest.TestCase):
 
     def test_period_accurate_draft_team_mapping(self):
         src = (ROOT / "import-player-draft-picks.ts").read_text()
-        self.assertIn("tbc_pro_teams_map_raw p", src)
-        self.assertIn("lower(trim(p.teamname)) = lower(trim(d.draft_team_name))", src)
         self.assertIn("draftTeamLogoLateralSql()", src)
         resolver = (ROOT.parent / "src/lib/draftTeamLogoSql.ts").read_text()
+        self.assertIn("tbc_pro_teams_map_raw p", resolver)
+        self.assertIn("lower(trim(p.teamname)) = lower(trim(d.draft_team_name))", resolver)
         self.assertIn("LIMIT 1", resolver)
         self.assertIn("washington senators", resolver)
 
