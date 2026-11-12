@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       orgAbbrev: String(r.current_org_or_conference_abbrev || ''),
       level: String(r.level_label || ''),
       location: String(r.locationlong || ''),
-      logoUrl: r.teamid ? `https://yatstats-assets.s3.us-west-2.amazonaws.com/teams/${encodeURIComponent(String(r.teamid))}.png` : '',
+      logoUrl: teamLogoPath(r.teamid) || '',
     }));
 
     return NextResponse.json({ teams }, { headers: { 'Cache-Control': 'no-store' } });
