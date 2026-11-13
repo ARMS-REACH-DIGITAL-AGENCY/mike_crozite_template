@@ -10,7 +10,7 @@
 // Uploading and removing are for reviewers (CONTRIBUTE_REVIEWER_EMAILS)
 // until players can manage their own videos.
 import { NextRequest, NextResponse } from 'next/server';
-import { identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
+import { contributionsToday, identifyContributor, isReviewer, logContribution } from '@/lib/contributeServer';
 import {
   CONNECT_VIDEO_MAX_BYTES,
   CONNECT_VIDEO_TYPES,
@@ -19,6 +19,10 @@ import {
   removeConnectVideo,
   signConnectVideoUpload,
   validPlayerId,
+  signPendingIntroUpload,
+  submitPendingIntro,
+  listPendingIntros,
+  reviewPendingIntro,
 } from '@/lib/playerConnectVideo';
 
 export const runtime = 'nodejs';
@@ -39,6 +43,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ video }, { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' } });
   }
   const who = await identifyContributor(req, req.headers.get('x-firebase-token')).catch(() => null);
+  if(req.nextUrl.searchParams.get('review') === '1') {
+    if(!isReviewer(who))return fail('Reviewer access required.',403);
+    return NextResponse.json({ submissions: await listPendingIntros() }, { headers: { 'Cache-Control':'no-store' } });
+  }
   return NextResponse.json({ video, canUpload: isReviewer(who) }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
@@ -48,7 +56,37 @@ export async function POST(req: NextRequest) {
   if (!pid) return fail('Missing player.');
   const who = await identifyContributor(req, req.headers.get('x-firebase-token')).catch(() => null);
   if (!who) return fail('Please sign in.', 401);
-  if (!isReviewer(who)) return fail('Only YAT?STATS can add player videos right now.', 403);
+  // Anyone signed in may propose an introductory video, but only a reviewer
+  // may publish it. The self-selected player record is not identity proof.
+  if(body.action === 'sign-intro') {
+    if(await contributionsToday(who.uid)>=3)return fail('Daily contribution limit reached. Please try tomorrow.',429);
+    const contentType=String(body.contentType||'').toLowerCase();
+    if(!CONNECT_VIDEO_TYPES[contentType])return fail('Choose an MP4, MOV or WebM video.');
+    const size=Number(body.size);
+    if(!Number.isFinite(size)||size<=0||size>CONNECT_VIDEO_MAX_BYTES)
+      return fail('Video must be under 500 MB.',413);
+    return NextResponse.json(signPendingIntroUpload(pid,who.uid,contentType),{headers:{'Cache-Control':'no-store'}});
+  }
+  if(body.action === 'submit-intro') {
+    if(await contributionsToday(who.uid)>=3)return fail('Daily contribution limit reached. Please try tomorrow.',429);
+    const item=await submitPendingIntro(pid,who.uid,String(body.key||''));
+    if(!item)return fail('Video did not reach storage or does not belong to this account.',409);
+    await logContribution(who,'contribute_connect_intro_pending',{
+      playerid:pid,pageUrl:null,details:{submission:item.id,key:item.key},
+    });
+    return NextResponse.json({submitted:true,reviewId:item.id},{headers:{'Cache-Control':'no-store'}});
+  }
+  if(body.action === 'review-intro') {
+    if(!isReviewer(who))return fail('Reviewer access required.',403);
+    const decision=body.decision==='approve'?'approve':body.decision==='reject'?'reject':null;
+    if(!decision)return fail('Choose approve or reject.');
+    const item=await reviewPendingIntro(String(body.reviewId||''),decision,who.email);
+    await logContribution(who,`contribute_connect_intro_${decision}`,{
+      playerid:item.playerId,pageUrl:null,details:{reviewId:item.id,key:item.key},
+    });
+    return NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});
+  }
+  if (!isReviewer(who)) return fail('Only YAT?STATS reviewers can publish player videos.', 403);
 
   try {
     if (body.action === 'sign') {
