@@ -320,7 +320,7 @@ export function renderTeamRows(players: any[], emptyText: string) {
     return `
       <div class="yat-search-team-group">
         <div class="yat-search-team-heading">
-          <img src="${esc(teamLogoUrl(first))}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+          <img src="${esc(teamLogoUrl(first))}" data-team-logo-id="${esc(teamIdOf(first))}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
           <span>${esc(teamLevel)}</span>
         </div>
         <div class="yat-search-card-list yat-search-team-player-list">
