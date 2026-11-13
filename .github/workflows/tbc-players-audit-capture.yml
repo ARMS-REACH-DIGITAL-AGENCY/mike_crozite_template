@@ -29,6 +29,28 @@ jobs:
         run: python -m py_compile scripts/promote-verified-tbc-player-feed.py
       - name: Install PostgreSQL client
         run: python -m pip install --quiet "psycopg[binary]>=3.2,<4"
+      - name: Verify indexed verified-school publication gate is installed
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30) as db:
+              with db.cursor() as cur:
+                  cur.execute("""
+                    SELECT to_regclass('public.tbc_verified_school_link_preparation_runs') IS NOT NULL,
+                           COALESCE(strpos(pg_get_functiondef(
+                             'public.publish_verified_tbc_flip_cards_batch(uuid,integer)'::regprocedure
+                           ), 'tbc_verified_school_link_preparation_runs') > 0, FALSE)
+                  """)
+                  table_ready, guard_ready = cur.fetchone()
+                  if not (table_ready and guard_ready):
+                      raise RuntimeError(
+                          "Verified-school publication gate migration missing. "
+                          "Apply migrations/20261112_tbc_verified_link_publication_gate.sql "
+                          "after an isolated-branch rehearsal before running production publication."
+                      )
+          print("INDEXED_SCHOOL_LINK_PREPARATION_GATE_READY", flush=True)
+          PY
       - name: Capture a verified immutable Players snapshot
         id: capture
         run: |
