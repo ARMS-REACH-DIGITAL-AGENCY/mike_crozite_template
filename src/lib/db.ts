@@ -25,6 +25,8 @@ import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { draftTeamLogoLateralSql } from '@/lib/draftTeamLogoSql';
 import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE, PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES, PLAYER_STAGE_SCHOOL_IDENTITY_CTES } from '@/lib/playerStageIdentity';
 import { resolvePlayerDisplay } from '@/lib/playerDisplay';
+import { approvedPublishedPlayerImageKey } from '@/lib/approvedPublishedPlayerImage';
+import { storyAssetUrl } from '@/lib/storyAssets';
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
 import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
@@ -2673,22 +2675,71 @@ export const getBatchDesignatedPlayerImages = cache(async function getBatchDesig
 ): Promise<Map<string, any>> {
   if (imageIds.length === 0) return new Map();
   try {
-    const { rows } = await query(
-      `SELECT DISTINCT ON (playerid::text) playerid, image_url
-         FROM player_photos
-        WHERE playerid::text = ANY($1::text[])
-          AND image_role = $2
-          AND approval_status = 'APPROVED'
-          AND (is_active IS NULL OR is_active = TRUE)
-        ORDER BY playerid::text, is_primary DESC NULLS LAST, date_taken DESC NULLS LAST`,
+    // One indexed batch query, including approved front-card uploads as a
+    // fallback when a player has no designated image-role row. The publication
+    // record's immutable S3 path survives a later YAT ID correction; guessing
+    // players/then/{newYatId}.jpg loses the original photo.
+    //
+    // Slot ownership is strict: only an APPROVED flip_card upload attached to
+    // the requested player can fill YATSTATS_FRONT. HEADSHOT and other roles
+    // never inherit a different image type.
+    const { rows } = await query<{
+      playerid: string;
+      image_url: string | null;
+      description: string | null;
+      source_priority: number;
+    }>(
+      `WITH designated AS (
+         SELECT DISTINCT ON (p.playerid::text)
+                p.playerid::text AS playerid,
+                p.image_url,
+                NULL::text AS description,
+                0 AS source_priority
+           FROM public.player_photos p
+          WHERE p.playerid::text = ANY($1::text[])
+            AND p.image_role=$2
+            AND p.approval_status='APPROVED'
+            AND (p.is_active IS NULL OR p.is_active = TRUE)
+          ORDER BY p.playerid::text,
+                   p.is_primary DESC NULLS LAST,
+                   p.date_taken DESC NULLS LAST
+       ), approved_uploads AS (
+         SELECT DISTINCT ON (m.playerid)
+                m.playerid::text AS playerid,
+                NULL::text AS image_url,
+                m.description,
+                1 AS source_priority
+           FROM public.media_upload m
+          WHERE $2='YATSTATS_FRONT'
+            AND m.playerid = ANY($1::text[])
+            AND m.purpose='flip_card'
+            AND m.status='approved'
+            AND m.description LIKE '%"published_assets"%'
+          ORDER BY m.playerid, m.uploaded_at DESC, m.id DESC
+       )
+       SELECT * FROM designated
+       UNION ALL
+       SELECT * FROM approved_uploads
+       ORDER BY source_priority, playerid`,
       [imageIds, role]
     );
     const map = new Map<string, any>();
     for (const row of rows) {
-      map.set(String(row.playerid), row);
+      const id = String(row.playerid);
+      if (map.has(id)) continue;
+      const designatedUrl = String(row.image_url || '').trim();
+      if (designatedUrl) {
+        map.set(id, { playerid: id, image_url: designatedUrl });
+        continue;
+      }
+      if (role !== 'YATSTATS_FRONT' || !row.description) continue;
+      const approvedKey = approvedPublishedPlayerImageKey(row.description, 'flip_card');
+      const fallbackUrl = approvedKey ? storyAssetUrl(approvedKey) : null;
+      if (fallbackUrl) map.set(id, { playerid: id, image_url: fallbackUrl });
     }
     return map;
-  } catch {
+  } catch (error) {
+    console.error('[getBatchDesignatedPlayerImages] failed', { role, error });
     return new Map();
   }
 });
