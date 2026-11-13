@@ -7,6 +7,7 @@
 // checks it arrived and makes it live.
 import { useEffect, useRef, useState } from 'react';
 import { auth } from '@/lib/firebase';
+import ConnectOccasionGallery from '@/components/yatstats/ConnectOccasionGallery';
 
 type Video = { url: string; contentType: string; uploadedAt: string };
 type Signed = { url: string; key: string; fields: Record<string, string> };
@@ -20,7 +21,7 @@ async function token() {
   return (await auth.currentUser?.getIdToken().catch(() => '')) || '';
 }
 
-export default function PlayerConnectVideo({ playerId, firstName }: { playerId: string; firstName: string }) {
+export default function PlayerConnectVideo({ playerId, firstName, portalHref = '/connect-contribute#sec-video-request' }: { playerId: string; firstName: string; portalHref?: string }) {
   const [video, setVideo] = useState<Video | null>(null);
   const [canUpload, setCanUpload] = useState(false);
   const [status, setStatus] = useState<'idle' | 'signing' | 'uploading' | 'saving'>('idle');
@@ -123,27 +124,41 @@ export default function PlayerConnectVideo({ playerId, firstName }: { playerId: 
 
   return (
     <div className="yp-connect-video">
-      <div className="yp-connect-video-frame">
-        {video ? (
-          <video
-            key={video.url}
-            className="yp-connect-video-player"
-            src={`${video.url}#t=0.1`}
-            controls
-            playsInline
-            preload="metadata"
-            aria-label={`A personal message from ${firstName || 'the player'}`}
-          />
-        ) : (
-          <div className="yp-player-video-placeholder" role="img" aria-label="Player video coming soon">
-            <i className="ri-play-circle-line" aria-hidden="true" />
-            <strong>A PERSONAL MESSAGE FROM {name}</strong>
-            <span>PLAYER VIDEO COMING SOON</span>
-          </div>
-        )}
-      </div>
-      {video && <strong className="yp-connect-video-title">A PERSONAL MESSAGE FROM {name}</strong>}
+      <header className="yp-connect-program-intro">
+        <div className="yp-connect-program-eyebrow"><i className="ri-video-chat-line" aria-hidden="true" /> YAT-A-BOY PLAYER CONNECT <span>COMING SOON</span></div>
+        <h2>CONNECT WITH {name}</h2>
+      </header>
 
+      <ConnectOccasionGallery playerName={firstName || undefined} />
+      <p className="yp-connect-program-description">Celebrate the people and moments that matter with a personal video message from a hometown baseball alumnus.</p>
+
+      {video ? (
+        <div className="yp-connect-recorded">
+          <div className="yp-connect-video-frame">
+            <video key={video.url} className="yp-connect-video-player"
+              src={`${video.url}#t=0.1`} controls playsInline preload="metadata"
+              aria-label={`A personal message from ${firstName || 'the player'}`} />
+          </div>
+          <div className="yp-connect-recorded-copy">
+            <strong>A MESSAGE FROM {name}</strong>
+            <p>Watch this introduction from {firstName || 'the player'}. Personal video requests are not open yet.</p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="yp-connect-program-availability" role="status">
+        <i className="ri-calendar-check-line" aria-hidden="true" />
+        <div>
+          <strong>PERSONALIZED VIDEO REQUESTS · COMING SOON</strong>
+          <span>Player participation, pricing and turnaround will be announced before bookings open.</span>
+        </div>
+      </div>
+      <div className="yp-connect-program-actions">
+        <a className="yp-connect-program-cta" href={portalHref}>
+          GET LAUNCH UPDATES <i className="ri-arrow-right-line" aria-hidden="true" />
+        </a>
+        <small>No orders or payments are being taken today.</small>
+      </div>
       {canUpload && (
         <div className="yp-connect-video-admin">
           <form ref={formRef} action={signed?.url || '#'} method="post" encType="multipart/form-data" target={frameName}>
@@ -162,6 +177,31 @@ export default function PlayerConnectVideo({ playerId, firstName }: { playerId: 
           {message && <p className="yp-connect-video-msg" role="status">{message}</p>}
         </div>
       )}
+      <style jsx>{`
+        .yp-connect-program-description{align-self:stretch;max-width:620px;margin:0;text-align:left!important;color:var(--muted,#bcbcbc);font:400 13px/1.5 var(--yat-font-ui,Arial,sans-serif);}
+        .yp-connect-program-intro{align-self:stretch;display:flex;flex-direction:column;gap:7px;text-align:left;}
+        .yp-connect-program-eyebrow{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font:800 11px/1.25 var(--yat-font-compact,'Arial Narrow',sans-serif);letter-spacing:.08em;}
+        .yp-connect-program-eyebrow i{color:#ffbc36;font-size:19px;}
+        .yp-connect-program-eyebrow span{border:1px solid #f2b736;color:#e7aa28;border-radius:99px;padding:3px 7px;font-size:10px;}
+        .yp-connect-program-intro h2{margin:0;font:900 clamp(25px,4vw,37px)/1.05 var(--yat-font-compact,'Arial Narrow',sans-serif);letter-spacing:.02em;}
+        .yp-connect-program-intro p{margin:0;max-width:600px;text-align:left!important;color:var(--muted,#bcbcbc);font:400 13px/1.5 var(--yat-font-ui,Arial,sans-serif);}
+        .yp-connect-recorded{display:flex;gap:14px;align-items:center;align-self:stretch;padding:12px;border:1px solid #ffffff45;border-radius:12px;background:#ffffff09;}
+        .yp-connect-recorded .yp-connect-video-frame{flex:0 0 auto;width:clamp(105px,28%,150px)!important;aspect-ratio:9/16;height:auto!important;max-height:265px;box-shadow:none!important;}
+        .yp-connect-recorded-copy{display:flex;flex-direction:column;gap:7px;text-align:left;}
+        .yp-connect-recorded-copy strong{font:900 18px/1.1 var(--yat-font-compact,'Arial Narrow',sans-serif);}
+        .yp-connect-recorded-copy p{margin:0;text-align:left!important;font:400 12px/1.45 var(--yat-font-ui,Arial,sans-serif);color:var(--muted,#bcbcbc);}
+        .yp-connect-program-availability{display:flex;align-items:center;gap:12px;align-self:stretch;padding:12px;border:1px solid #8a6b34;border-radius:10px;background:#ffc34f13;}
+        .yp-connect-program-availability i{color:#ffbd3c;font-size:25px;flex:none;}
+        .yp-connect-program-availability div{display:flex;flex-direction:column;gap:5px;}
+        .yp-connect-program-availability strong{font:800 14px/1.1 var(--yat-font-compact,'Arial Narrow',sans-serif);}
+        .yp-connect-program-availability span{font:400 11px/1.4 var(--yat-font-ui,Arial,sans-serif);color:var(--muted,#bcbcbc);}
+        .yp-connect-program-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;align-self:stretch;}
+        .yp-connect-program-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:10px 17px;border:1px solid #ffbe38;border-radius:999px;background:#ffbe38;color:#161410!important;text-decoration:none;font:900 16px/1.1 var(--yat-font-compact,'Arial Narrow',sans-serif);letter-spacing:.025em;}
+        .yp-connect-program-cta:hover{background:#ffd275;}
+        .yp-connect-program-cta:focus-visible{outline:2px solid currentColor;outline-offset:3px;}
+        .yp-connect-program-actions small{font:400 11px/1.35 var(--yat-font-ui,Arial,sans-serif);color:var(--muted,#bcbcbc);}
+        @media(max-width:550px){.yp-connect-program-actions{align-items:stretch;flex-direction:column;}.yp-connect-program-actions small{text-align:center;}.yp-connect-recorded{align-items:flex-start;}.yp-connect-program-intro h2{font-size:27px;}}
+      `}</style>
     </div>
   );
 }

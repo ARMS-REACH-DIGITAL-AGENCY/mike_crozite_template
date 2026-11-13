@@ -1127,9 +1127,8 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-connect" className="pp-fz-panel">
           <div className="yp-profile-partner-columns">
             <div className="yp-profile-partner-body yp-profile-partner-connect">
-              <PlayerConnectVideo playerId={safePlayerId} firstName={firstName} />
-              <p>Active and retired players can invite their fans to connect through personalized video messages.</p>
-              <a className="yp-player-video-link" href={`/${hsid}/connect-contribute#cc-connect`}>LEARN ABOUT VIDEO EXCHANGES →</a>
+              <PlayerConnectVideo playerId={safePlayerId} firstName={firstName}
+                portalHref={`/${hsid}/connect-contribute#sec-video-request`} />
               <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
                 <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>
@@ -1230,7 +1229,7 @@ export default async function ProfilePage({ params }: Props) {
         #playerFunZone .yp-profile-partner-connect {display:flex;flex-direction:column;align-items:center;gap:11px;justify-content:flex-start;padding:13px;}
         /* Player video: a portrait (9:16) phone-shaped frame, like the
            outgoing message a player records on a phone. */
-        #playerFunZone .yp-connect-video {display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;}
+        #playerFunZone .yp-connect-video {display:flex;flex-direction:column;align-items:stretch;gap:15px;width:100%;min-width:0;}
         #playerFunZone .yp-connect-video-frame {position:relative;width:min(100%,340px,calc(62vh * 9 / 16));aspect-ratio:9/16;border:1px solid #444;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 8px 24px rgba(0,0,0,.45);}
         #playerFunZone .yp-connect-video-player {display:block;width:100%;height:100%;object-fit:contain;background:#000;}
         #playerFunZone .yp-connect-video-title {font:800 18px/1.1 var(--yat-font-compact);text-align:center;}

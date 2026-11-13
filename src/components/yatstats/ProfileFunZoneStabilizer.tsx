@@ -2,7 +2,17 @@
 
 
 
-const tickerDateFont = { variable: 'yat-runtime-doto' };
+import localFont from 'next/font/local';
+
+// Load the exact, bundled ticker font rather than an undefined CSS font variable.
+const tickerDateFont = localFont({
+  src: [
+    { path: '../../fonts/doto-latin-700-normal.woff2', weight: '700' },
+    { path: '../../fonts/doto-latin-900-normal.woff2', weight: '900' },
+  ],
+  display: 'swap',
+  variable: '--ticker-date-doto',
+});
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
@@ -22,6 +32,27 @@ const DOCK_TABS = [
   { id: 'ppTab-connect', icon: 'ri-group-line', label: 'Connect' },
   { id: 'ppTab-upload', icon: 'ri-upload-cloud-line', label: 'Stories' },
 ];
+
+// The original Connect speech-bubble / video camera redrawn as actual LED dots.
+// A mask keeps both shapes faithful while letting individual ticker lamps show.
+function ConnectTickerIcon() {
+  return (
+    <svg className="pp-fz-connect-led" viewBox="0 0 48 48" width="30" height="30"
+      role="img" aria-label="Connect video messages">
+      <defs>
+        <pattern id="pp-fz-connect-pixels" width="3.8" height="3.8" patternUnits="userSpaceOnUse">
+          <circle cx="1.9" cy="1.9" r="1.18" fill="#ffb238"/>
+        </pattern>
+        <mask id="pp-fz-connect-shape">
+          <path d="M8 6 H40 Q44 6 44 11 V34 Q44 38 40 38 H17 L5 46 V39 Q3 37 3 34 V11 Q3 6 8 6 Z"
+            fill="none" stroke="white" strokeWidth="4.5" strokeLinejoin="round"/>
+          <path d="M14 16 H29 V30 H14 Z M29 20 L38 15 V31 L29 26 Z" fill="white"/>
+        </mask>
+      </defs>
+      <rect width="48" height="48" fill="url(#pp-fz-connect-pixels)" mask="url(#pp-fz-connect-shape)"/>
+    </svg>
+  );
+}
 
 // Swiping the Fun Zone left/right moves to the next/previous tab. A swipe
 // that starts in something that scrolls sideways (the stats table) scrolls
@@ -158,7 +189,7 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName, s
           <nav className="pp-fz-dock-tabs" aria-label="Player profile tabs">
             {DOCK_TABS.map((tab) => (
               <a key={tab.id} href={`#${tab.id}`} className="pp-fz-tab">
-                <i className={tab.icon} aria-hidden="true" />
+                {tab.id === 'ppTab-connect' ? <ConnectTickerIcon /> : <i className={tab.icon} aria-hidden="true" />}
                 <span>{tab.id === "ppTab-schedule" && /RETIRED/i.test(statusLabel) ? "YAT?" : tab.label}</span>
               </a>
             ))}
@@ -269,6 +300,8 @@ export default function ProfileFunZoneStabilizer({ playerId, hsid, playerName, s
       max-width:none !important;
       flex-shrink:0 !important;
     }
-    @media (max-width:760px) { :root { --pp-dock-h:var(--yat-dock-h,62px); } }
+    body .pp-fz-dock .pp-fz-connect-led{display:block;flex:none;width:30px;height:30px;overflow:visible;filter:drop-shadow(0 0 2px rgba(255,166,39,.72));}
+    body .pp-fz-dock .pp-fz-tab span{font-family:var(--ticker-date-doto),monospace!important;font-weight:900!important;font-size:clamp(10px,2.4vw,12px)!important;line-height:1.1!important;}
+    @media (max-width:760px) { :root { --pp-dock-h:var(--yat-dock-h,62px); } body .pp-fz-dock .pp-fz-connect-led{width:27px;height:27px;} }
   `}</style></>;
 }
