@@ -257,13 +257,14 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
   const school = useContext(SchoolContext);
   const [form, setForm] = useState({ name: '', email: '', phone: '', business: '', message: '', website: '' });
   const [choice, setChoice] = useState<SponsorInterest>(interest);
+  const [videoPlayer, setVideoPlayer] = useState<ContributePlayer | null>(null);
   const [state, setState] = useState<{ kind: 'idle' | 'sending' | 'sent' | 'error'; text?: string }>({ kind: 'idle' });
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   if (state.kind === 'sent') {
     return (
       <div className="ccg-form">
-        <p className="ccg-form-done">Thank you{form.name ? `, ${form.name.split(' ')[0]}` : ''}! The YAT?STATS Partner Program Team will be in touch.</p>
+        <p className="ccg-form-done">Thank you{form.name ? `, ${form.name.split(' ')[0]}` : ''}! {interest === 'video' ? `We'll contact you about requesting a personalized video from ${videoPlayer?.displayName || 'your selected player'} when the program launches.` : 'The YAT?STATS Partner Program Team will be in touch.'}</p>
         <button type="button" className="ccg-link" onClick={onClose}>Close</button>
       </div>
     );
@@ -274,12 +275,23 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
       className="ccg-form"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (interest === 'video' && !videoPlayer?.playerId) {
+          setState({ kind: 'error', text: 'Find and select the player you would like a video message from.' });
+          return;
+        }
         setState({ kind: 'sending' });
         try {
           const res = await fetch('/api/contribute/sponsor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...form, interest: choice, hsid: school?.hsid || '', schoolName: school?.hsName || '', pageUrl: window.location.href }),
+            body: JSON.stringify({
+              ...form, interest: choice,
+              playerId: interest === 'video' ? videoPlayer?.playerId : undefined,
+              playerName: interest === 'video' ? videoPlayer?.displayName : undefined,
+              hsid: interest === 'video' ? (videoPlayer?.schoolId || school?.hsid || '') : (school?.hsid || ''),
+              schoolName: interest === 'video' ? (videoPlayer?.schoolName || school?.hsName || '') : (school?.hsName || ''),
+              pageUrl: window.location.href,
+            }),
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(body?.error || 'That did not go through.');
@@ -291,14 +303,29 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
     >
       <div className="ccg-form-title">{interest === 'video' ? 'Video exchange request · pilot interest form' : 'Contact the YAT?STATS Partner Program Team'}</div>
       {interest === 'video' ? <p className="ccg-video-notice">Video checkout and delivery are not yet active. Leave your details to register interest in the program.</p> : null}
-      <label>I&apos;m interested in
-        <select value={choice} onChange={(e) => setChoice(e.target.value as SponsorInterest)}>
-          {(interest === 'video' ? ([['video', 'Video message exchange']] as const) : Object.entries(SPONSOR_INTERESTS)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </label>
+      {interest === 'video' ? (
+        <div className="ccg-video-player-select">
+          <div className="ccg-form-title">WHICH PLAYER WOULD YOU LIKE A PERSONALIZED VIDEO FROM?</div>
+          {videoPlayer ? (
+            <div className="ccg-video-player-picked">
+              <span><strong>{videoPlayer.displayName}</strong><small>{videoPlayer.schoolName || 'YAT?STATS alumnus'}</small></span>
+              <button type="button" onClick={() => setVideoPlayer(null)}>Change player</button>
+            </div>
+          ) : (
+            <ContributeSearch mode="player" onPlayer={setVideoPlayer} />
+          )}
+          <small className="ccg-video-player-note">Selecting a player records your interest. Video ordering and checkout are not yet available.</small>
+        </div>
+      ) : (
+        <label>I&apos;m interested in
+          <select value={choice} onChange={(e) => setChoice(e.target.value as SponsorInterest)}>
+            {Object.entries(SPONSOR_INTERESTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+      )}
       <div className="ccg-form-row">
         <label>Name<input required value={form.name} onChange={set('name')} autoComplete="name" /></label>
-        <label>Business<input value={form.business} onChange={set('business')} autoComplete="organization" /></label>
+        {interest !== 'video' ? <label>Business<input value={form.business} onChange={set('business')} autoComplete="organization" /></label> : null}
       </div>
       <div className="ccg-form-row">
         <label>Email<input required type="email" value={form.email} onChange={set('email')} autoComplete="email" /></label>
@@ -694,6 +721,15 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccg-form-row { display:flex; flex-wrap:wrap; gap:8px; }
         .ccg-form input,.ccg-form textarea,.ccg-form select { width:100%; padding:8px; border:1px solid var(--line); border-radius:4px; background:var(--bg); color:var(--fg); font:400 13px var(--yat-font-ui); }
         .ccg-hp { position:absolute; left:-9999px; width:1px; height:1px; }
+        .ccg-video-player-select { display:flex; flex-direction:column; gap:8px; min-width:0; }
+        .ccg-video-player-select .ycs .yat-gs-input-wrap input.yat-gs-input { box-sizing:border-box; padding:10px 35px 10px 42px!important; text-indent:0!important; }
+        .ccg-video-player-select .ycs .yat-gs-input-icon { position:absolute; left:12px; right:auto; top:50%; transform:translateY(-50%); pointer-events:none; }
+        .ccg-video-player-select .ycs-results { max-height:205px; overflow-y:auto; overscroll-behavior:contain; }
+        .ccg-video-player-picked { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:9px; border:1px solid var(--line); border-radius:5px; }
+        .ccg-video-player-picked span { display:flex; flex-direction:column; gap:3px; }
+        .ccg-video-player-picked strong { font:800 14px var(--yat-font-compact); }
+        .ccg-video-player-picked small,.ccg-video-player-note { font:400 11px/1.4 var(--yat-font-ui); color:var(--muted); }
+        .ccg-video-player-picked button { border:0; background:none; color:inherit; text-decoration:underline; cursor:pointer; }
         .ccg-form-error { color:#e35b5b; margin:0; font-size:12px; }
         .ccg-btn,.ccd-inquiry-panel .ccg-btn { background:var(--fg); color:var(--bg); border:1px solid var(--fg); font:700 12px var(--yat-font-ui); padding:8px 12px; border-radius:4px; cursor:pointer; }
         .ccg-link,.ccd-inquiry-panel .ccg-link { color:var(--fg); background:none; border:0; text-decoration:underline; font:600 12px var(--yat-font-ui); cursor:pointer; }
