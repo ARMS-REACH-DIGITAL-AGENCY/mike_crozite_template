@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { teamIdentityJoins, VERIFIED_TEAM_SOURCE_NAME_SQL, VERIFIED_TEAM_ORG_SQL, VERIFIED_TEAM_ORG_ABBR_SQL, VERIFIED_TEAM_LEVEL_SQL } from '@/lib/teamIdentitySql';
-import { query, resolveVerifiedTbcPlayerId } from '@/lib/db';
+import { query, resolveHistoricalTbcIds } from '@/lib/db';
 import { getRecentExternalStatsForPlayer } from '@/lib/externalStats';
 import { getIndyIscoreStatsForPlayer } from '@/lib/indyIscore';
 import { getAflSeasonStatsForPlayer } from '@/lib/aflSeasonStats';
@@ -271,7 +271,7 @@ async function readPlayerRows(tableName: string, playerId: string) {
        $2::text as _source
      from public.${tableName} r
      ${teamIdentityJoins('r')}
-     where r.playerid::text = $1
+     where r.playerid::text = ANY(string_to_array($1, ','))
      order by nullif(regexp_replace(coalesce(r.year::text, ''), '[^0-9]', '', 'g'), '')::int nulls last,
               ${VERIFIED_TEAM_SOURCE_NAME_SQL}`,
     [playerId, tableName]
@@ -291,10 +291,11 @@ export async function GET(req: NextRequest) {
 
     // TBC historical rows retain the source ID, while the player profile,
     // external feeds, and card URLs keep the single canonical YAT identity.
-    const tbcPlayerId = await resolveVerifiedTbcPlayerId(playerId);
+    const tbcPlayerIds = await resolveHistoricalTbcIds(playerId);
+    const verifiedMultiSourceIdentity = tbcPlayerIds.includes(',');
     const [battingRawAll, pitchingRawAll, externalRecentRaw, indyIscore, aflSeasons] = await Promise.all([
-      readPlayerRows(BATTING_TABLE, tbcPlayerId),
-      readPlayerRows(PITCHING_TABLE, tbcPlayerId),
+      readPlayerRows(BATTING_TABLE, tbcPlayerIds),
+      readPlayerRows(PITCHING_TABLE, tbcPlayerIds),
       getRecentExternalStatsForPlayer(playerId, 10).catch((error) => {
         console.warn('external stats lookup failed:', error);
         return [];
@@ -306,9 +307,15 @@ export async function GET(req: NextRequest) {
       getAflSeasonStatsForPlayer(playerId),
     ]);
 
-    const battingRawMatched = filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
+    // The profile name can be Al while a second verified TBC record uses
+    // Quentin. Once the source IDs have been verified as one identity, do not
+    // discard that legitimate historical record for its different name.
+    // Single-ID players retain the existing strict name-mismatch protection.
+    const battingRawMatched = verifiedMultiSourceIdentity
+      ? battingRawAll : filterRowsToExpectedPlayer(battingRawAll, expectedPlayerName);
     const batting2026 = battingRawMatched.filter((row) => numericYear(value(row, 'year')) === LIVE_SEASON_YEAR);
-    const pitchingRawMatched = filterRowsToExpectedPlayer(pitchingRawAll, expectedPlayerName);
+    const pitchingRawMatched = verifiedMultiSourceIdentity
+      ? pitchingRawAll : filterRowsToExpectedPlayer(pitchingRawAll, expectedPlayerName);
     const pitching2026 = pitchingRawMatched.filter((row) => numericYear(value(row, 'year')) === LIVE_SEASON_YEAR);
 
     const battingHistorical = battingRawMatched.filter(useHistoricalRow);
