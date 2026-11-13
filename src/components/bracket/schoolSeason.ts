@@ -62,7 +62,11 @@ export function schoolSeason(index: Index, lb: LbGame[], h: number, asof: string
         // weeks in this round. A new opponent may be drawn next round.
         const g = myLb.get(w);
         const stage = `Region ${region} leaderboard game`;
-        if (g && w <= Math.max(week, final)) out.push({ week: w, stage, state: state(w), game: g.slice(0, 7) as GameRow, file: `d-lb-${w}-${g[7]}`, days: daysIn(w) });
+        // Pete (Nov 13): the pairing holds for the whole three-game round,
+        // so once the round's draw is in (its previous round final, or the
+        // round under way) all three games show the opponent, not just the
+        // week in progress. Only the NEXT round's opponent is unknown.
+        if (g && (known || w <= Math.max(week, final))) out.push({ week: w, stage, state: state(w), game: g.slice(0, 7) as GameRow, file: `d-lb-${w}-${g[7]}`, days: daysIn(w) });
         else if (!g && w <= final) out.push({ week: w, stage, state: 'bye', days: 0, note: 'No game this week' });
         else out.push({ week: w, stage, state: 'tbd', days: 0, note: `Round opponent drawn from Region ${region} · ${REGIONS[region]} and fixed for all three games` });
       } else {
