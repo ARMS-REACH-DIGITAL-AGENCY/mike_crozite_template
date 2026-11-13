@@ -21,7 +21,8 @@ function loadTs(relPath, mocks = {}) {
   return mod.exports;
 }
 
-const logo = loadTs('src/lib/teamLogo.ts');
+const eras = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/historical-team-logo-eras.json'), 'utf8'));
+const logo = loadTs('src/lib/teamLogo.ts', { '../../data/historical-team-logo-eras.json': eras });
 const story = loadTs('src/lib/storyAssets.ts', { '@/lib/teamLogo': logo });
 const draft = loadTs('src/lib/draftTeamLogoSql.ts');
 const key = (id) => Array.from(logo.teamLogoAssetKeys(id));
@@ -30,6 +31,18 @@ const base = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/';
 const endpoint = 'https://hamilton.az.yatstats.com/api/team-logo/';
 
 assert.equal(logo.teamLogoPath('10032'), '/api/team-logo/10032');
+assert.equal(logo.teamLogoPath('31', 1989), '/api/team-logo/31?year=1989');
+assert.equal(logo.teamLogoPath('31', 1987), '/api/team-logo/31?year=1987');
+assert.equal(logo.teamLogoPath('31', -5), '/api/team-logo/31');
+assert.equal(logo.teamLogoAssetKeys('31',1989)[0], 'teams-history/31/1989-1992.webp');
+assert.equal(logo.teamLogoAssetKeys('31',1987)[0], 'teams-history/31/1972-1988.webp');
+assert.equal(logo.teamLogoAssetKeys('31',1995)[0], 'teams-history/31/1993-1996.webp');
+assert.equal(logo.teamLogoAssetKeys('31',1967)[0], 'teams-history/31/1966-1970.webp');
+assert.equal(logo.teamLogoAssetKeys('31',1971)[0], 'teams-history/31/1971-1971.webp');
+assert.equal(logo.teamLogoAssetKeys('31',1965)[0], 'teams-web/31.webp');
+assert.equal(story.storyAssetUrl('teams/31.png',1989), endpoint+'31?year=1989');
+assert.equal(story.storyAssetUrl('teams-web/31.webp',1988), endpoint+'31?year=1988');
+assert.equal(story.storyAssetUrl('players/31.jpg',1989),base+'players/31.jpg');
 assert.equal(logo.teamLogoPath('0'), null);
 assert.equal(logo.teamLogoPath('../20'), null);
 assert.equal(logo.teamLogoPath('C5004'), null);
