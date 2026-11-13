@@ -685,10 +685,13 @@ async function loadTeams(db: Pool | PoolClient, rows: Row[], live: Live, asof: s
   if (!rows.some((r) => r.stage === 'total_runs' && r.status === 'tbd')) return new Map<string, string>();
   const ids = Object.values(live.roster || {}).flat().map((p) => p[0]);
   const { rows: teams } = await db.query<{ playerid: string; teamid: string }>(
-    `SELECT DISTINCT ON (playerid) playerid, teamid
-       FROM public.player_team_stints
-      WHERE playerid = ANY($1) AND stint_start <= $2::date AND level IS DISTINCT FROM 'HIGH SCHOOL'
-      ORDER BY playerid, stint_start DESC, teamid`,
+    `SELECT DISTINCT ON (ids.yatid) ids.yatid AS playerid, s.teamid
+       FROM public.player_team_stints s
+       JOIN public.yat_registry_ids ids
+         ON ids.source='tbc' AND ids.source_id=s.playerid
+      WHERE ids.yatid = ANY($1::text[]) AND s.stint_start <= $2::date
+        AND s.level IS DISTINCT FROM 'HIGH SCHOOL'
+      ORDER BY ids.yatid, s.stint_start DESC, s.teamid`,
     [ids, asof],
   );
   return new Map(teams.map((t) => [String(t.playerid), String(t.teamid)]));
