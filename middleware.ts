@@ -50,6 +50,25 @@ export function middleware(request: NextRequest) {
   const path = url.pathname;
   const firstSegment = path.split("/").filter(Boolean)[0] || "";
 
+  // Player share previews must be handled before the school-hostname route
+  // prefix is added. The root middleware is the active routing entrypoint;
+  // a second src/middleware.ts does not run alongside it.
+  const shareCrawler = /GoogleMessages|Google-PageRenderer|facebookexternalhit|Twitterbot|WhatsApp|SkypeUriPreview|LinkedInBot|Slackbot|Discordbot|TelegramBot|BingPreview|Applebot|Pinterest|redditbot|vkShare/i;
+  const shareMatch = path.match(/^\/(?:(\d{1,20})\/)?player\/([A-Za-z0-9_-]{1,40})\/([A-Za-z0-9_-]{1,160})\/?$/i);
+  if (shareMatch && shareCrawler.test(request.headers.get("user-agent") || "") &&
+      !url.searchParams.has("story") &&
+      !url.searchParams.has("whereYatStory") &&
+      !url.searchParams.has("yataboy")) {
+    const preview = request.nextUrl.clone();
+    preview.pathname = "/api/share/player";
+    preview.search = "";
+    if (shareMatch[1]) preview.searchParams.set("hsid", shareMatch[1]);
+    preview.searchParams.set("playerId", shareMatch[2]);
+    preview.searchParams.set("slug", shareMatch[3]);
+    preview.searchParams.set("path", path);
+    return NextResponse.rewrite(preview);
+  }
+
   if (/^\d+$/.test(firstSegment)) {
     const nonLiveRedirect = redirectNonLiveSchoolSearchResult(request, firstSegment);
     if (nonLiveRedirect) return nonLiveRedirect;
