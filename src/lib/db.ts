@@ -344,7 +344,7 @@ const verifiedTbcCareerSourceIds = unstable_cache(async (playerId: string): Prom
   );
   const canonical = rows[0]?.canonical_id || sourceId;
   return [...new Set([canonical, ...rows.map((r) => r.source_player_id).filter((id): id is string => Boolean(id))])];
-}, ['verified-tbc-career-source-ids-v2'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
+}, ['verified-tbc-career-source-ids-v3'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
 
 // CSV matches the existing indexed ANY(string_to_array(...)) readers on the
 // flip-card backs and profile timeline. The Stats API splits it into a
@@ -652,21 +652,43 @@ export const getSchoolByUrl = cache(keptAcrossRequests('getSchoolByUrl', async f
 // arbitrary player it must be scoped too, or every cross-school favorite
 // card re-aggregates the entire league's season on every fetch.
 function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: string): string {
+  // A verified YAT card may predate its TBC source registration (for example,
+  // an owner-created high-school alumnus card). Canonicalize source season rows
+  // before joining stats to school cards; leave raw TBC IDs untouched.
+  const verifiedSourceFilter = statsRowsFilter.replaceAll('playerid::text', 'canonical_playerid::text');
+  const verifiedSchoolFilter = schoolPlayersFilter
+    .replaceAll('ph.playerid', 'f.playerid')
+    .replaceAll('ph.hsid', 'f.hsid');
   return `
     WITH school_players AS (
       SELECT
         ph.playerid,
         tp.firstname,
         tp.lastname,
-        tp.highlevel    AS career_highlevel,
-        tp.ht           AS height,
-        tp.wt           AS weight,
-        tp.bats,
-        tp.throws,
-        tp.posit        AS position
+        tp.highlevel AS career_highlevel,
+        tp.ht AS height, tp.wt AS weight, tp.bats, tp.throws,
+        tp.posit AS position
       FROM player_hsids ph
       JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
       WHERE ${schoolPlayersFilter}
+
+      UNION ALL
+
+      -- Only verified duplicate-source mappings may lend their TBC identity
+      -- to an existing YAT school card. A raw duplicate without an HSID never
+      -- creates a second card. This works for any school and any player.
+      SELECT f.playerid, tp.firstname, tp.lastname,
+        tp.highlevel, tp.ht, tp.wt, tp.bats, tp.throws, tp.posit
+      FROM public.flip_card_front_stage f
+      JOIN public.player_source_map m
+        ON m.playerid=f.playerid AND m.source='tbc'
+       AND m.is_verified IS TRUE AND m.match_method='duplicate_tbc_record'
+      JOIN public.tbc_players_raw tp ON tp.playerid=m.source_player_id
+      WHERE f.hsid IS NOT NULL AND ${verifiedSchoolFilter}
+        AND NOT EXISTS (
+          SELECT 1 FROM public.player_hsids ph2
+          WHERE ph2.playerid=f.playerid AND ph2.hsid::text=f.hsid
+        )
     ),
 
     confirmed_game_log_players AS MATERIALIZED (
@@ -675,7 +697,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 
     batting_2026_rows AS (
       SELECT
-        playerid::text AS playerid,
+        canonical_playerid::text AS playerid,
         year::text AS year,
         canonical_level::text AS season_level,
         teamid::text AS teamid,
@@ -683,12 +705,19 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         draft_info,
         playyears
       FROM (
-        SELECT raw_b.*, canonical.level_label AS canonical_level
+        SELECT raw_b.*,
+          COALESCE(source_map.playerid, raw_b.playerid) AS canonical_playerid,
+          canonical.level_label AS canonical_level
         FROM public.v_tbc_batting_all_seasons_resolved raw_b
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_b.teamid::text
+        LEFT JOIN public.player_source_map source_map
+          ON source_map.source='tbc'
+         AND source_map.source_player_id=raw_b.playerid
+         AND source_map.is_verified IS TRUE
+         AND source_map.match_method='duplicate_tbc_record'
       ) tbc_bat
-      WHERE year = '2026' AND ${statsRowsFilter}
+      WHERE year = '2026' AND ${verifiedSourceFilter}
 
       UNION ALL
 
@@ -821,7 +850,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 
     pitching_2026_rows AS (
       SELECT
-        playerid::text AS playerid,
+        canonical_playerid::text AS playerid,
         year::text AS year,
         canonical_level::text AS season_level,
         teamid::text AS teamid,
@@ -839,12 +868,19 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
       FROM (
-        SELECT raw_p.*, canonical.level_label AS canonical_level
+        SELECT raw_p.*,
+          COALESCE(source_map.playerid, raw_p.playerid) AS canonical_playerid,
+          canonical.level_label AS canonical_level
         FROM public.v_tbc_pitching_all_seasons_resolved raw_p
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_p.teamid::text
+        LEFT JOIN public.player_source_map source_map
+          ON source_map.source='tbc'
+         AND source_map.source_player_id=raw_p.playerid
+         AND source_map.is_verified IS TRUE
+         AND source_map.match_method='duplicate_tbc_record'
       ) tbc_pitch
-      WHERE year = '2026' AND ${statsRowsFilter}
+      WHERE year = '2026' AND ${verifiedSourceFilter}
 
       UNION ALL
 
