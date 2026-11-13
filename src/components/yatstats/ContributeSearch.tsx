@@ -26,11 +26,12 @@ function escapeTeamText(value: unknown) {
 }
 
 type Props =
-  | { mode?: 'player'; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
+  | { mode?: 'player'; playerOnly?: boolean; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
   | { mode: 'school'; onSchool: (s: ContributeSchool) => void; onPlayer?: never; onTeam?: never }
   | { mode: 'team' | 'college'; onTeam: (t: ContributeTeam) => void; onPlayer?: never; onSchool?: never };
 
 export default function ContributeSearch(props: Props) {
+  const playerOnly = props.mode !== 'school' && props.mode !== 'team' && props.mode !== 'college' && Boolean(props.playerOnly);
   const schoolOnly = props.mode === 'school';
   const teamOnly = props.mode === 'team' || props.mode === 'college';
   const collegeOnly = props.mode === 'college';
@@ -165,13 +166,13 @@ export default function ContributeSearch(props: Props) {
           className="yat-gs-input"
           value={q}
           onChange={(e) => { setQ(e.target.value); setRosterOf(null); }}
-          placeholder={schoolOnly ? 'Search high schools...' : collegeOnly ? 'Search colleges by name or team ID...' : teamOnly ? 'Search college or pro teams...' : 'Search by name, school, or team...'}
+          placeholder={schoolOnly ? 'Search high schools...' : collegeOnly ? 'Search colleges by name or team ID...' : teamOnly ? 'Search college or pro teams...' : playerOnly ? 'Search player name...' : 'Search by name, school, or team...'}
           autoComplete="off"
           aria-label={schoolOnly ? 'Search high schools' : collegeOnly ? 'Search colleges' : teamOnly ? 'Search college or pro teams' : 'Search players'}
         />
         <i className="ri-search-line yat-gs-input-icon" aria-hidden="true" />
       </div>
-      {!schoolOnly && !teamOnly && (
+      {!schoolOnly && !teamOnly && !playerOnly && (
         <div className="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
           {([['name', 'PLAYER NAME'], ['school', 'HIGH SCHOOL'], ['team', 'CURRENT TEAM']] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} className={`yat-search-mode-btn${mode === m ? ' active' : ''}`} onClick={() => { setMode(m); setRosterOf(null); }}>{label}</button>
