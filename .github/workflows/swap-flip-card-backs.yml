@@ -1,0 +1,35 @@
+name: Swap flip-card back photos
+
+# Uploads data/flip-card-back-swaps/{id}.jpg as that player's flip-card back
+# (players/back + back-card on S3), archiving the old files first. Runs when
+# a swap lands on Easter-NEWS, or by hand.
+on:
+  push:
+    branches: [Easter-NEWS]
+    paths: ['data/flip-card-back-swaps/**', 'scripts/swap-flip-card-backs.py']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print only, upload nothing"
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+permissions:
+  contents: read
+
+jobs:
+  swap:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install boto3 pillow
+      - run: python scripts/swap-flip-card-backs.py
