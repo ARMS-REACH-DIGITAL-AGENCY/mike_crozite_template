@@ -23,6 +23,7 @@ import {
   type Baselines, type BatTotals, type GameResult, type LevelBuckets, type PitTotals, type PlayerLines, type SideWeek,
 } from '@/lib/bracket/engine';
 import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
+import { battedIn, pitchedIn } from '@/lib/bracket/appearance';
 import { commissionerRuling } from '@/lib/bracket/commissioner';
 import { autoRuling } from '@/lib/bracket/autoRuling';
 import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
@@ -105,8 +106,8 @@ function fipOf(lines: LevelBuckets) {
 // each level's average for the games he played there); without it, his
 // listed level.
 function playerRow(p: RosterEntry, b: number[] | 0, q: number[] | 0, wl: [number, number] | null, lv?: LevelBuckets): PlayerRow {
-  const batted = b && b[0] > 0;
-  const pitched = q && (q[0] > 0 || q[1] > 0 || q[2] > 0 || q[3] > 0 || q[4] > 0);
+  const batted = battedIn(b);
+  const pitched = pitchedIn(q);
   const lines = lv && lv.size ? lv : buckets(levelKey(p[2]), batted ? b : 0, pitched ? q : 0);
   const fip = pitched ? fipOf(lines) : 0;
   // Everyone stays in his usual group with a zero line on a day off.
