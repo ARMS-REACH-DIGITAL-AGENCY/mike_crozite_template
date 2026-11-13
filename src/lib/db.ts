@@ -344,7 +344,7 @@ const verifiedTbcCareerSourceIds = unstable_cache(async (playerId: string): Prom
   );
   const canonical = rows[0]?.canonical_id || sourceId;
   return [...new Set([canonical, ...rows.map((r) => r.source_player_id).filter((id): id is string => Boolean(id))])];
-}, ['verified-tbc-career-source-ids-v2'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
+}, ['verified-tbc-career-source-ids-v3'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
 
 // CSV matches the existing indexed ANY(string_to_array(...)) readers on the
 // flip-card backs and profile timeline. The Stats API splits it into a
@@ -652,21 +652,53 @@ export const getSchoolByUrl = cache(keptAcrossRequests('getSchoolByUrl', async f
 // arbitrary player it must be scoped too, or every cross-school favorite
 // card re-aggregates the entire league's season on every fetch.
 function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: string): string {
+  // Verified source IDs are resolved to the canonical school card without
+  // rewriting or attaching the duplicate TBC record to the high school.
+  const canonicalSourceFilter = statsRowsFilter.replace('playerid::text', 'canonical_playerid::text');
+  const canonicalSchoolFilter = schoolPlayersFilter
+    .replaceAll('ph.playerid', 'f.playerid')
+    .replaceAll('ph.hsid', 'f.hsid');
   return `
     WITH school_players AS (
       SELECT
-        ph.playerid,
-        tp.firstname,
-        tp.lastname,
-        tp.highlevel    AS career_highlevel,
-        tp.ht           AS height,
-        tp.wt           AS weight,
-        tp.bats,
-        tp.throws,
-        tp.posit        AS position
+        ph.playerid, tp.firstname, tp.lastname,
+        tp.highlevel AS career_highlevel,
+        tp.ht AS height, tp.wt AS weight,
+        tp.bats, tp.throws, tp.posit AS position
       FROM player_hsids ph
       JOIN tbc_players_raw tp ON ph.playerid::text = tp.playerid::text
       WHERE ${schoolPlayersFilter}
+
+      UNION ALL
+
+      -- Generic verified aliases only; never infer identities by name alone.
+      SELECT f.playerid, tp.firstname, tp.lastname,
+        tp.highlevel, tp.ht, tp.wt, tp.bats, tp.throws, tp.posit
+      FROM public.flip_card_front_stage f
+      JOIN public.player_source_map m
+        ON m.playerid=f.playerid AND m.source='tbc'
+       AND m.is_verified IS TRUE AND m.match_method='duplicate_tbc_record'
+      JOIN public.tbc_players_raw tp ON tp.playerid=m.source_player_id
+      WHERE f.hsid IS NOT NULL AND ${canonicalSchoolFilter}
+        AND NOT EXISTS (
+          SELECT 1 FROM public.player_hsids ph2
+          WHERE ph2.playerid=f.playerid AND ph2.hsid::text=f.hsid
+        )
+    ),
+
+    // Restrict source IDs before reading the million-row archive.
+    school_stat_sources AS MATERIALIZED (
+      SELECT sp.playerid::text AS source_playerid,
+             sp.playerid::text AS canonical_playerid
+      FROM school_players sp
+      WHERE sp.playerid::text ~ '^[0-9]+$'
+      UNION
+      SELECT m.source_player_id AS source_playerid,
+             sp.playerid::text AS canonical_playerid
+      FROM school_players sp
+      JOIN public.player_source_map m ON m.playerid=sp.playerid
+       AND m.source='tbc' AND m.is_verified IS TRUE
+       AND m.match_method='duplicate_tbc_record'
     ),
 
     confirmed_game_log_players AS MATERIALIZED (
@@ -675,7 +707,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 
     batting_2026_rows AS (
       SELECT
-        playerid::text AS playerid,
+        canonical_playerid::text AS playerid,
         year::text AS year,
         canonical_level::text AS season_level,
         teamid::text AS teamid,
@@ -683,12 +715,15 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         draft_info,
         playyears
       FROM (
-        SELECT raw_b.*, canonical.level_label AS canonical_level
-        FROM public.v_tbc_batting_all_seasons_resolved raw_b
+        SELECT raw_b.*, source_map.canonical_playerid,
+          canonical.level_label AS canonical_level
+        FROM school_stat_sources source_map
+        JOIN public.v_tbc_batting_all_seasons_resolved raw_b
+          ON raw_b.playerid=source_map.source_playerid
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_b.teamid::text
       ) tbc_bat
-      WHERE year = '2026' AND ${statsRowsFilter}
+      WHERE year = '2026' AND ${canonicalSourceFilter}
 
       UNION ALL
 
@@ -821,7 +856,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 
     pitching_2026_rows AS (
       SELECT
-        playerid::text AS playerid,
+        canonical_playerid::text AS playerid,
         year::text AS year,
         canonical_level::text AS season_level,
         teamid::text AS teamid,
@@ -839,12 +874,15 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
       FROM (
-        SELECT raw_p.*, canonical.level_label AS canonical_level
-        FROM public.v_tbc_pitching_all_seasons_resolved raw_p
+        SELECT raw_p.*, source_map.canonical_playerid,
+          canonical.level_label AS canonical_level
+        FROM school_stat_sources source_map
+        JOIN public.v_tbc_pitching_all_seasons_resolved raw_p
+          ON raw_p.playerid=source_map.source_playerid
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_p.teamid::text
       ) tbc_pitch
-      WHERE year = '2026' AND ${statsRowsFilter}
+      WHERE year = '2026' AND ${canonicalSourceFilter}
 
       UNION ALL
 
@@ -1284,7 +1322,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 // planning a hash scan of ~939K source rows per school. Verified exact result
 // fingerprints on Hamilton (5004) and HSID 14385, and timed against the full
 // isolated 2026 read model before merge. No source-data changes.
-export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v3', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v4', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   // All returned rows belong to school_players; filter raw season inputs first.
   // This avoids aggregating every team's 2026 stats on each school cache miss.
   const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))');
