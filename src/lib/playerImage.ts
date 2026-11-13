@@ -132,6 +132,10 @@ export function getApprovedFrontPhotoSources(imageUrl: string): string[] {
   return [
     `${S3_BASE}/players/then-card/${match[2]}.webp${match[3] || ''}`,
     url,
+    // Last-resort same-origin optimized image of that SAME approved JPEG.
+    // Only requested when both direct S3 renditions fail in the browser;
+    // avoids silently showing a silhouette behind a valid approved upload.
+    `/_next/image?url=${encodeURIComponent(url)}&w=640&q=75`,
   ];
 }
 
