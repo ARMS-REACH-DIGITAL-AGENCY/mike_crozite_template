@@ -33,14 +33,14 @@ export default function ConnectOccasionGallery({ playerName }: { playerName?: st
       </div>
       <p className="yat-connect-occasions-note">
         These are examples of what fans could request{playerName ? ` from ${playerName}` : ''}.
-        No sample videos or bookings are available yet.
+        Sample videos will appear when alumni introductions are approved. Bookings are not open yet.
       </p>
       <style jsx>{`
         .yat-connect-occasions{width:100%;min-width:0;}
         .yat-connect-occasions-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 9px;color:inherit;}
         .yat-connect-occasions-head>span{font:800 13px/1.1 var(--yat-font-compact,'Arial Narrow',sans-serif);letter-spacing:.075em;}
         .yat-connect-occasions-head>small{display:flex;align-items:center;gap:4px;color:var(--muted,#a8a8a8);font:700 10px/1.1 var(--yat-font-ui,Arial,sans-serif);white-space:nowrap;}
-        .yat-connect-occasions-track{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(125px, min(38%, 175px));gap:10px;width:100%;padding:0 0 8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#c99832 transparent;}
+        .yat-connect-occasions-track{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(125px, min(38%, 175px));gap:16px;width:100%;padding:0 7px 10px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#c99832 transparent;}
         .yat-connect-occasion{position:relative;isolation:isolate;display:flex;flex-direction:column;justify-content:space-between;min-width:0;aspect-ratio:4/5;min-height:150px;padding:10px;border:1px solid #ffffff57;border-radius:15px;color:#fff;overflow:hidden;scroll-snap-align:start;box-shadow:inset 0 -35px 55px #0009;}
         .yat-connect-occasion::before{content:'';position:absolute;z-index:-1;inset:20% -30% auto;aspect-ratio:1;border:1px solid #ffffff25;border-radius:50%;box-shadow:0 0 0 23px #ffffff09,0 0 0 58px #ffffff06;transform:rotate(-14deg);}
         .yat-connect-occasion-gold{background:radial-gradient(circle at 35% 35%,#a77b32,#493016 58%,#17120e);}
@@ -55,7 +55,7 @@ export default function ConnectOccasionGallery({ playerName }: { playerName?: st
         .yat-connect-occasion-footer small{font:500 10px/1.3 var(--yat-font-ui,Arial,sans-serif);color:#eee;}
         .yat-connect-occasions-note{margin:5px 0 0;color:var(--muted,#a8a8a8);font:400 11px/1.4 var(--yat-font-ui,Arial,sans-serif);}
         @media(max-width:600px){
-          .yat-connect-occasions-track{grid-auto-columns:minmax(118px,46%);gap:9px;}
+          .yat-connect-occasions-track{grid-auto-columns:minmax(118px,41%);gap:16px;padding:0 9px 10px;}
           .yat-connect-occasion{padding:10px;min-height:160px;}
           .yat-connect-occasion-visual{width:60px;height:60px;}
         }
