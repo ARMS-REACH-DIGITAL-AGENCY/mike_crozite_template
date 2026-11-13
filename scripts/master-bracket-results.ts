@@ -685,13 +685,24 @@ async function loadTeams(db: Pool | PoolClient, rows: Row[], live: Live, asof: s
   if (!rows.some((r) => r.stage === 'total_runs' && r.status === 'tbd')) return new Map<string, string>();
   const ids = Object.values(live.roster || {}).flat().map((p) => p[0]);
   const { rows: teams } = await db.query<{ playerid: string; teamid: string }>(
-    `SELECT DISTINCT ON (ids.yatid) ids.yatid AS playerid, s.teamid
-       FROM public.player_team_stints s
-       JOIN public.yat_registry_ids ids
-         ON ids.source='tbc' AND ids.source_id=s.playerid
-      WHERE ids.yatid = ANY($1::text[]) AND s.stint_start <= $2::date
-        AND s.level IS DISTINCT FROM 'HIGH SCHOOL'
-      ORDER BY ids.yatid, s.stint_start DESC, s.teamid`,
+    `WITH linked AS (
+         SELECT ids.yatid, ids.source_id AS lookup_id
+           FROM public.yat_registry_ids ids
+          WHERE ids.source='tbc' AND ids.yatid=ANY($1::text[])
+         UNION ALL
+         -- Presto/SIDEARM-only players have no TBC ID: import their
+         -- application-owned team stints under the permanent YAT key.
+         SELECT y.yatid, y.yatid AS lookup_id
+           FROM public.yat_registry y
+          WHERE y.yatid=ANY($1::text[]) AND y.merged_into IS NULL
+       ), stints AS (
+         SELECT linked.yatid,s.teamid,s.stint_start
+           FROM linked
+           JOIN public.player_team_stints s ON s.playerid=linked.lookup_id
+          WHERE s.stint_start <= $2::date AND s.level IS DISTINCT FROM 'HIGH SCHOOL'
+       )
+       SELECT DISTINCT ON (yatid) yatid AS playerid,teamid
+         FROM stints ORDER BY yatid,stint_start DESC,teamid`,
     [ids, asof],
   );
   return new Map(teams.map((t) => [String(t.playerid), String(t.teamid)]));
