@@ -691,6 +691,2494 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         )
     ),
 
+    // Restrict lookups to this roster before scanning season views.
+    school_stat_sources AS MATERIALIZED (
+      SELECT sp.playerid::text AS source_playerid,
+             sp.playerid::text AS canonical_playerid
+      FROM school_players sp
+      WHERE sp.playerid::text ~ '^[0-9]+
+
+    batting_2026_rows AS (
+      SELECT
+        canonical_playerid::text AS playerid,
+        year::text AS year,
+        canonical_level::text AS season_level,
+        teamid::text AS teamid,
+        g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so,
+        draft_info,
+        playyears
+      FROM (
+        SELECT raw_b.*,
+          source_map.canonical_playerid,
+          canonical.level_label AS canonical_level
+        FROM school_stat_sources source_map
+        JOIN public.v_tbc_batting_all_seasons_resolved raw_b
+          ON raw_b.playerid=source_map.source_playerid
+        LEFT JOIN public.teamid_universe_mapping canonical
+          ON canonical.teamid = raw_b.teamid::text
+      ) tbc_bat
+      WHERE year = '2026' AND ${verifiedSourceFilter}
+
+      UNION ALL
+
+      SELECT
+        yatstats_playerid::text AS playerid,
+        season_year::text AS year,
+        indy_map.level_label::text AS season_level,
+        indy_bat.teamid::text AS teamid,
+        COALESCE(
+          raw_stats #>> '{stats,GP}',
+          raw_stats #>> '{stats,G}',
+          raw_stats #>> '{GP}',
+          raw_stats #>> '{G}'
+        )::text AS g,
+        ab::text, r::text, h::text, dbl::text, tpl::text, hr::text, rbi::text,
+        sb::text, bb::text, so::text,
+        NULL::text AS draft_info,
+        NULL::text AS playyears
+      FROM (
+        SELECT DISTINCT ON (yatstats_playerid, season_year, teamid)
+          *
+        FROM public.indy_iscore_batting_2026_season_raw
+        WHERE season_year = 2026
+          AND yatstats_playerid IS NOT NULL
+          AND yatstats_playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+        ORDER BY
+          yatstats_playerid,
+          season_year,
+          teamid,
+          CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
+          updated_at DESC
+      ) indy_bat
+      LEFT JOIN public.teamid_universe_mapping indy_map
+        ON indy_map.teamid = indy_bat.teamid::text
+    ),
+
+    batting_2026_by_level AS (
+      SELECT
+        playerid::text AS playerid,
+        MAX(year)      AS stat_year,
+        season_level      AS bat_level,
+        MAX(teamid)    AS teamid,
+
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS g,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(ab::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS ab,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(r::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS r,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(h::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS h,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(dbl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS "2b",
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(tpl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS "3b",
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(hr::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hr,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(rbi::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS rbi,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS sb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS so,
+
+        MAX(draft_info) AS draft_info,
+        MAX(playyears)  AS playyears
+      FROM batting_2026_rows
+      GROUP BY playerid::text, season_level
+    ),
+
+    latest_batting AS (
+      SELECT DISTINCT ON (playerid)
+        playerid,
+        stat_year,
+        teamid,
+        bat_level,
+        g, ab, r, h, "2b", "3b", hr, rbi, sb, bb, so,
+
+        CASE
+          WHEN ab > 0 THEN ROUND(h / ab, 3)
+          ELSE NULL
+        END AS avg,
+
+        CASE
+          WHEN (ab + bb) > 0 THEN ROUND((h + bb) / (ab + bb), 3)
+          ELSE NULL
+        END AS obp,
+
+        CASE
+          WHEN ab > 0 THEN ROUND((h + "2b" + ("3b" * 2) + (hr * 3)) / ab, 3)
+          ELSE NULL
+        END AS slg,
+
+        CASE
+          WHEN ab > 0 AND (ab + bb) > 0 THEN
+            ROUND(
+              ((h + bb) / (ab + bb)) +
+              ((h + "2b" + ("3b" * 2) + (hr * 3)) / ab),
+              3
+            )
+          ELSE NULL
+        END AS ops,
+
+        draft_info,
+        playyears
+      FROM batting_2026_by_level
+      ORDER BY
+        playerid,
+        CASE UPPER(COALESCE(bat_level, ''))
+          WHEN 'MLB'           THEN 1
+          WHEN 'TRIPLE-A'      THEN 2
+          WHEN 'AAA'           THEN 2
+          WHEN 'DOUBLE-A'      THEN 3
+          WHEN 'AA'            THEN 3
+          WHEN 'HIGH-A'        THEN 4
+          WHEN 'A+'            THEN 4
+          WHEN 'LOW-A'         THEN 5
+          WHEN 'SINGLE-A'      THEN 5
+          WHEN 'A'             THEN 5
+          WHEN 'ROOKIE'        THEN 6
+          WHEN 'INT''L'        THEN 7
+          WHEN 'INTERNATIONAL' THEN 7
+          WHEN 'INDY'          THEN 8
+          WHEN 'INDEPENDENT'   THEN 8
+          WHEN 'NCAA-D1'       THEN 9
+          WHEN 'D1'            THEN 9
+          WHEN 'NCAA-D2'       THEN 10
+          WHEN 'D2'            THEN 10
+          WHEN 'NCAA-D3'       THEN 11
+          WHEN 'D3'            THEN 11
+          WHEN 'NAIA'          THEN 12
+          WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
+          ELSE 99
+        END
+    ),
+
+    pitching_2026_rows AS (
+      SELECT
+        canonical_playerid::text AS playerid,
+        year::text AS year,
+        canonical_level::text AS season_level,
+        teamid::text AS teamid,
+        g::text AS g,
+        gs::text AS gs,
+        w::text AS w,
+        l::text AS l,
+        sv::text AS sv,
+        ip::text AS ip,
+        h::text AS h,
+        er::text AS er,
+        bb::text AS bb,
+        so::text AS so,
+        draft_info,
+        playyears,
+        NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
+      FROM (
+        SELECT raw_p.*,
+          source_map.canonical_playerid,
+          canonical.level_label AS canonical_level
+        FROM school_stat_sources source_map
+        JOIN public.v_tbc_pitching_all_seasons_resolved raw_p
+          ON raw_p.playerid=source_map.source_playerid
+        LEFT JOIN public.teamid_universe_mapping canonical
+          ON canonical.teamid = raw_p.teamid::text
+      ) tbc_pitch
+      WHERE year = '2026' AND ${verifiedSourceFilter}
+
+      UNION ALL
+
+      SELECT
+        yatstats_playerid::text AS playerid,
+        season_year::text AS year,
+        indy_map.level_label::text AS season_level,
+        indy_pitch.teamid::text AS teamid,
+        g::text,
+        gs::text,
+        w::text,
+        l::text,
+        sv::text,
+        ip::text,
+        h::text,
+        er::text,
+        bb::text,
+        so::text,
+        NULL::text AS draft_info,
+        NULL::text AS playyears,
+        NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
+      FROM (
+        SELECT DISTINCT ON (yatstats_playerid, season_year, teamid)
+          *
+        FROM public.indy_iscore_pitching_2026_season_raw
+        WHERE season_year = 2026
+          AND yatstats_playerid IS NOT NULL
+          AND yatstats_playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+        ORDER BY
+          yatstats_playerid,
+          season_year,
+          teamid,
+          CASE WHEN source_system = 'iscore_central' THEN 0 ELSE 1 END,
+          updated_at DESC
+      ) indy_pitch
+      LEFT JOIN public.teamid_universe_mapping indy_map
+        ON indy_map.teamid = indy_pitch.teamid::text
+    ),
+
+    pitching_2026_by_level AS (
+      SELECT
+        playerid,
+        MAX(year)   AS pitch_year,
+        season_level   AS pit_level,
+        MAX(teamid) AS pit_teamid,
+
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS pg,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(gs::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS gs,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(w::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS w,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(l::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS l,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sv::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS saves,
+
+        /* Baseball IP is not decimal math: 1.1 = 1 inning + 1 out, 1.2 = 1 inning + 2 outs. */
+        COALESCE(
+          SUM(
+            (FLOOR(COALESCE(ip_clean::numeric, 0))::int * 3) +
+            CASE split_part(COALESCE(ip_clean, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ),
+          0
+        ) AS outs,
+
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(h::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hits_allowed,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(er::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS er,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS ko,
+
+        MAX(draft_info) AS pit_draft_info,
+        MAX(playyears)  AS pit_playyears
+      FROM pitching_2026_rows
+      GROUP BY playerid, season_level
+    ),
+
+    latest_pitching AS (
+      SELECT DISTINCT ON (playerid)
+        playerid,
+        pitch_year,
+        pit_teamid,
+        pit_level,
+        pg,
+        gs,
+        w,
+        l,
+        saves,
+
+        (FLOOR(outs / 3)::numeric + ((outs % 3)::numeric / 10)) AS ip,
+        er,
+        bb,
+        ko,
+
+        CASE
+          WHEN outs > 0 THEN ROUND((er * 9) / (outs::numeric / 3), 2)
+          ELSE NULL
+        END AS era,
+
+        CASE
+          WHEN outs > 0 THEN ROUND((hits_allowed + bb) / (outs::numeric / 3), 2)
+          ELSE NULL
+        END AS whip,
+
+        CASE
+          WHEN outs > 0 THEN ROUND((hits_allowed * 9) / (outs::numeric / 3), 2)
+          ELSE NULL
+        END AS h9,
+
+        CASE
+          WHEN outs > 0 THEN ROUND((bb * 9) / (outs::numeric / 3), 2)
+          ELSE NULL
+        END AS bb9,
+
+        CASE
+          WHEN outs > 0 THEN ROUND((ko * 9) / (outs::numeric / 3), 2)
+          ELSE NULL
+        END AS so9,
+
+        CASE
+          WHEN bb > 0 THEN ROUND(ko / bb, 2)
+          ELSE NULL
+        END AS so_bb,
+
+        pit_draft_info,
+        pit_playyears
+      FROM pitching_2026_by_level
+      ORDER BY
+        playerid,
+        CASE UPPER(COALESCE(pit_level, ''))
+          WHEN 'MLB'           THEN 1
+          WHEN 'TRIPLE-A'      THEN 2
+          WHEN 'AAA'           THEN 2
+          WHEN 'DOUBLE-A'      THEN 3
+          WHEN 'AA'            THEN 3
+          WHEN 'HIGH-A'        THEN 4
+          WHEN 'A+'            THEN 4
+          WHEN 'LOW-A'         THEN 5
+          WHEN 'SINGLE-A'      THEN 5
+          WHEN 'A'             THEN 5
+          WHEN 'ROOKIE'        THEN 6
+          WHEN 'INT''L'        THEN 7
+          WHEN 'INTERNATIONAL' THEN 7
+          WHEN 'INDY'          THEN 8
+          WHEN 'INDEPENDENT'   THEN 8
+          WHEN 'NCAA-D1'       THEN 9
+          WHEN 'D1'            THEN 9
+          WHEN 'NCAA-D2'       THEN 10
+          WHEN 'D2'            THEN 10
+          WHEN 'NCAA-D3'       THEN 11
+          WHEN 'D3'            THEN 11
+          WHEN 'NAIA'          THEN 12
+          WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
+          ELSE 99
+        END
+    ),
+
+
+    batting_2026_bucket_rows AS (
+      SELECT
+        playerid::text AS playerid,
+        CASE
+          WHEN season_level = 'MLB' THEN 'mlb'
+          WHEN season_level IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN season_level = 'INDY' THEN 'indy'
+          WHEN season_level = 'INTERNATIONAL' THEN 'international'
+          WHEN season_level IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
+          ELSE 'other'
+        END AS bucket,
+        year,
+        g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so
+      FROM batting_2026_rows
+    ),
+
+    batting_2026_by_bucket AS (
+      SELECT
+        playerid,
+        bucket,
+        MAX(year) AS stat_year,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS g,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(ab::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS ab,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(r::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS r,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(h::text,   '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS h,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(dbl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS "2b",
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(tpl::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS "3b",
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(hr::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hr,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(rbi::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS rbi,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS sb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS so
+      FROM batting_2026_bucket_rows
+      WHERE bucket <> 'other'
+      GROUP BY playerid, bucket
+    ),
+
+    season_batting_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'label', CASE bucket
+              WHEN 'mlb' THEN '2026 MLB BATTING'
+              WHEN 'minors' THEN '2026 MINOR LEAGUE BATTING'
+              WHEN 'indy' THEN '2026 INDY BATTING'
+              WHEN 'international' THEN '2026 INTERNATIONAL BATTING'
+              WHEN 'college' THEN '2026 COLLEGE BATTING'
+              ELSE '2026 BATTING'
+            END,
+            'type', 'batting',
+            'stats', jsonb_build_object(
+              'avg', CASE WHEN ab > 0 THEN ROUND(h / ab, 3) ELSE NULL END,
+              'ab', ab,
+              'h', h,
+              'obp', CASE WHEN (ab + bb) > 0 THEN ROUND((h + bb) / (ab + bb), 3) ELSE NULL END,
+              'r', r,
+              'bb', bb,
+              'slg', CASE WHEN ab > 0 THEN ROUND((h + "2b" + ("3b" * 2) + (hr * 3)) / ab, 3) ELSE NULL END,
+              'hr', hr,
+              'rbi', rbi,
+              'ops', CASE
+                WHEN ab > 0 AND (ab + bb) > 0 THEN ROUND(((h + bb) / (ab + bb)) + ((h + "2b" + ("3b" * 2) + (hr * 3)) / ab), 3)
+                ELSE NULL
+              END,
+              'sb', sb,
+              'g', g
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
+        ) AS season_batting_buckets
+      FROM batting_2026_by_bucket
+      GROUP BY playerid
+    ),
+
+    pitching_2026_bucket_rows AS (
+      SELECT
+        playerid,
+        CASE
+          WHEN season_level = 'MLB' THEN 'mlb'
+          WHEN season_level IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN season_level = 'INDY' THEN 'indy'
+          WHEN season_level = 'INTERNATIONAL' THEN 'international'
+          WHEN season_level IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
+          ELSE 'other'
+        END AS bucket,
+        year,
+        g, gs, w, l, sv, ip, h, er, bb, so, ip_clean
+      FROM pitching_2026_rows
+    ),
+
+    pitching_2026_by_bucket AS (
+      SELECT
+        playerid,
+        bucket,
+        MAX(year) AS pitch_year,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(g::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS pg,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(gs::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS gs,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(w::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS w,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(l::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS l,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sv::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS saves,
+        COALESCE(
+          SUM(
+            (FLOOR(COALESCE(ip_clean::numeric, 0))::int * 3) +
+            CASE split_part(COALESCE(ip_clean, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ),
+          0
+        ) AS outs,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(h::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hits_allowed,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(er::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS er,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS ko
+      FROM pitching_2026_bucket_rows
+      WHERE bucket <> 'other'
+      GROUP BY playerid, bucket
+    ),
+
+    season_pitching_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'label', CASE bucket
+              WHEN 'mlb' THEN '2026 MLB PITCHING'
+              WHEN 'minors' THEN '2026 MINOR LEAGUE PITCHING'
+              WHEN 'indy' THEN '2026 INDY PITCHING'
+              WHEN 'international' THEN '2026 INTERNATIONAL PITCHING'
+              WHEN 'college' THEN '2026 COLLEGE PITCHING'
+              ELSE '2026 PITCHING'
+            END,
+            'type', 'pitching',
+            'stats', jsonb_build_object(
+              'ip', (FLOOR(outs / 3)::numeric + ((outs % 3)::numeric / 10)),
+              'er', er,
+              'era', CASE WHEN outs > 0 THEN ROUND((er * 9) / (outs::numeric / 3), 2) ELSE NULL END,
+              'ko', ko,
+              'bb', bb,
+              'whip', CASE WHEN outs > 0 THEN ROUND((hits_allowed + bb) / (outs::numeric / 3), 2) ELSE NULL END,
+              'so9', CASE WHEN outs > 0 THEN ROUND((ko * 9) / (outs::numeric / 3), 2) ELSE NULL END,
+              'bb9', CASE WHEN outs > 0 THEN ROUND((bb * 9) / (outs::numeric / 3), 2) ELSE NULL END,
+              'so_bb', CASE WHEN bb > 0 THEN ROUND(ko / bb, 2) ELSE NULL END,
+              'w', w,
+              'l', l,
+              'saves', saves,
+              'pg', pg
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
+        ) AS season_pitching_buckets
+      FROM pitching_2026_by_bucket
+      GROUP BY playerid
+    ),
+
+    active_playerids AS (
+      SELECT DISTINCT playerid::text AS playerid
+      FROM batting_2026_rows
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+      UNION
+      SELECT DISTINCT playerid::text AS playerid
+      FROM pitching_2026_rows
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+      UNION
+      SELECT playerid FROM confirmed_game_log_players
+    )
+
+    SELECT
+      sp.playerid,
+      sp.firstname,
+      sp.lastname,
+      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      -- Years compare as numeric: TBC labels the Mexican League's 2018
+      -- spring and fall seasons "2018.1" and "2018.2".
+      COALESCE(
+        CASE
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
+          THEN lp.pit_level
+          ELSE lb.bat_level
+        END,
+        NULL::text
+      )                                     AS level,
+      sp.height,
+      sp.weight,
+      sp.bats,
+      sp.throws,
+      sp.position,
+      TRUE AS has_2026_stats,
+      (lb.stat_year IS NULL AND lp.pitch_year IS NULL) AS season_stats_pending,
+      lb.stat_year,
+      lb.g, lb.ab, lb.r, lb.h,
+      lb."2b", lb."3b", lb.hr, lb.rbi, lb.sb,
+      CASE
+        WHEN lp.pitch_year IS NOT NULL AND (
+          lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric
+        ) THEN lp.bb
+        ELSE lb.bb
+      END AS bb,
+      -- bb above is one column shared by both feeds (pitching walks allowed
+      -- for a pitcher, batting walks otherwise). The sort drawer needs each
+      -- one on its own, so they're also exposed separately.
+      lb.bb AS bat_bb,
+      lp.bb AS pit_bb,
+      lb.so,
+      lb.avg, lb.obp, lb.slg, lb.ops,
+      COALESCE(lb.draft_info, lp.pit_draft_info)  AS draft_info,
+      COALESCE(lb.playyears, lp.pit_playyears)    AS playyears,
+      lp.pitch_year,
+      lp.pg, lp.gs, lp.w, lp.l, lp.saves,
+      lp.ip, lp.er, lp.ko,
+      lp.era, lp.whip, lp.h9, lp.bb9, lp.so9, lp.so_bb,
+      COALESCE(sbb.season_batting_buckets, '[]'::jsonb) AS season_batting_buckets,
+      COALESCE(spb.season_pitching_buckets, '[]'::jsonb) AS season_pitching_buckets,
+      CASE
+        WHEN lp.pitch_year IS NOT NULL AND (
+          lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric
+        ) THEN true
+        WHEN lb.stat_year IS NULL THEN COALESCE(cg.has_pitching, false)
+        ELSE false
+      END AS is_pitcher
+    FROM school_players sp
+    JOIN active_playerids ap ON sp.playerid::text = ap.playerid
+    LEFT JOIN latest_batting  lb ON sp.playerid::text = lb.playerid
+    LEFT JOIN latest_pitching lp ON sp.playerid::text = lp.playerid
+    LEFT JOIN confirmed_game_log_players cg ON cg.playerid = sp.playerid::text
+    LEFT JOIN season_batting_buckets sbb ON sp.playerid::text = sbb.playerid
+    LEFT JOIN season_pitching_buckets spb ON sp.playerid::text = spb.playerid
+    ORDER BY
+      CASE COALESCE(
+        CASE
+          WHEN lp.pitch_year IS NOT NULL AND (lb.stat_year IS NULL OR lp.pitch_year::numeric >= lb.stat_year::numeric)
+          THEN lp.pit_level ELSE lb.bat_level
+        END, NULL::text)
+        WHEN 'MLB'           THEN 1
+        WHEN 'TRIPLE-A'      THEN 2
+        WHEN 'AAA'           THEN 2
+        WHEN 'DOUBLE-A'      THEN 3
+        WHEN 'AA'            THEN 3
+        WHEN 'HIGH-A'        THEN 4
+        WHEN 'A+'            THEN 4
+        WHEN 'LOW-A'         THEN 5
+        WHEN 'A'             THEN 5
+        WHEN 'ROOKIE'        THEN 6
+        WHEN 'INT''L'        THEN 7
+        WHEN 'INTERNATIONAL' THEN 7
+        WHEN 'Indy'          THEN 8
+        WHEN 'INDEPENDENT'   THEN 8
+        WHEN 'NCAA-D1'       THEN 9
+        WHEN 'NCAA'          THEN 9
+        WHEN 'D1'            THEN 9
+        WHEN 'NCAA-D2'       THEN 10
+        WHEN 'D2'            THEN 10
+        WHEN 'NCAA-D3'       THEN 11
+        WHEN 'D3'            THEN 11
+        WHEN 'NAIA'          THEN 12
+        WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
+        WHEN 'JrCollege'     THEN 13
+        WHEN 'NJCAA'         THEN 13
+        WHEN 'HIGH SCHOOL'   THEN 14
+        WHEN 'HS'            THEN 14
+        ELSE 15
+      END,
+      sp.lastname,
+      sp.firstname
+  `;
+}
+
+// Using a scalar ARRAY subquery rather than IN (SELECT ... FROM school_players)
+// keeps the school player IDs as an indexable PostgreSQL initplan. This avoids
+// planning a hash scan of ~939K source rows per school. Verified exact result
+// fingerprints on Hamilton (5004) and HSID 14385, and timed against the full
+// isolated 2026 read model before merge. No source-data changes.
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v3', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+  // All returned rows belong to school_players; filter raw season inputs first.
+  // This avoids aggregating every team's 2026 stats on each school cache miss.
+  const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))');
+  const { rows } = await query(sql, [hsid]);
+  return rows;
+}, ACTIVE_ROSTER_TTL_SECONDS));
+
+// Each player's latest season usage, for telling pitchers from batters by
+// what they actually did rather than the listed position alone (a "UT" who
+// only pitched this season is a pitcher): his latest batting at-bats and
+// pitching appearances, from the same season computation as the roster.
+export const getSeasonUsageByPlayerIds = cache(async function getSeasonUsageByPlayerIds(playerIds: string[]): Promise<Record<string, { ab: number; pg: number }>> {
+  if (!playerIds.length) return {};
+  const sql = buildActiveRosterSql('ph.playerid::text = ANY($1)', 'playerid::text = ANY($1)');
+  const { rows } = await query(sql, [playerIds]);
+  const out: Record<string, { ab: number; pg: number }> = {};
+  for (const r of rows as Record<string, unknown>[]) {
+    const ab = Number(r.ab) || 0, pg = Number(r.pg) || 0;
+    if (r.stat_year == null && r.pitch_year == null) continue;
+    out[String(r.playerid)] = { ab, pg };
+  }
+  return out;
+});
+
+// Same 2026-season stat computation as getActiveRosterByHsid, but for one
+// arbitrary player regardless of which school's page is currently being
+// viewed - used to build a real flip card for a cross-school favorite
+// instead of the current subdomain's own roster. Also scopes the raw
+// season-stat table scans to that one player (see buildActiveRosterSql),
+// so this stays a single-row lookup instead of a league-wide aggregation.
+export const getActiveRosterRowByPlayerId = cache(async function getActiveRosterRowByPlayerId(playerId: string): Promise<any | null> {
+  const sql = buildActiveRosterSql('ph.playerid::text = $1', 'playerid::text = $1');
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+});
+
+// ---------------------------------------------------------------------------
+// ALL-TIME ROSTER - every alumni ever tagged to a school (all-time page)
+// ---------------------------------------------------------------------------
+// Every stats step below is limited to this school's players
+// (school_players). They used to roll up batting/pitching history for every
+// player in the database (~250k rows, ~15 text-to-number conversions each)
+// and only then join to the school -- about 2.7s+ per call, called by both
+// the [hsid] layout and page, which ran past the database's statement
+// timeout on busy schools (Perry, 13562: "canceling statement due to
+// statement timeout", a blank All-Time list and an ~18s page). Same rows
+// either way: Hamilton's 107 rows fingerprint identically before and after;
+// a trimmed version for Perry went from 2.74s to 0.44s.
+export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRosterByHsid-indexed-school-scope-v3', async function getAllTimeRosterByHsid(hsid: string): Promise<any[]> {
+  // The shared cross-request cache forwards one string key only. Namespaced
+  // player keys prevent collisions with school IDs and preserve old school caches.
+  const scope = hsid.startsWith('player:') ? 'player' : 'school';
+  const lookupId = scope === 'player' ? hsid.slice('player:'.length) : hsid;
+  const n = (col: string) =>
+    `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
+
+  const sql = `
+    WITH school_players AS (
+      SELECT ${scope === 'player' ? 'DISTINCT' : ''}
+        ph.playerid,
+        tp.firstname,
+        tp.lastname,
+        tp.highlevel    AS career_highlevel,
+        tp.ht           AS height,
+        tp.wt           AS weight,
+        tp.bats,
+        tp.throws,
+        tp.posit        AS position
+      FROM player_hsids ph
+      JOIN tbc_players_raw tp
+        ON ph.playerid::text = tp.playerid::text
+      WHERE ${scope === 'school' ? 'ph.hsid = $1' : 'ph.playerid::text = $1::text'}
+
+      UNION ALL
+      -- First-party contributed players have a verified school identity
+      -- record but no legacy TBC player row. Include them in the All-Time
+      -- gallery without writing synthetic data into imported TBC tables.
+      SELECT
+        f.playerid,
+        f.first_name AS firstname,
+        f.last_name AS lastname,
+        f.level_label AS career_highlevel,
+        NULL::text AS height,
+        NULL::text AS weight,
+        NULL::text AS bats,
+        NULL::text AS throws,
+        f.position
+      FROM public.flip_card_front_stage f
+      WHERE ${scope === 'school' ? 'f.hsid::text' : 'f.playerid::text'} = $1::text
+        AND f.source_summary->>'source' = 'contribute'
+        AND NOT EXISTS (
+          SELECT 1 FROM public.tbc_players_raw tp
+          WHERE tp.playerid::text = f.playerid::text
+        )
+    ),
+
+    latest_batting_level AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text AS playerid,
+        year           AS stat_year,
+        highlevel      AS bat_level,
+        draft_info,
+        playyears
+      FROM public.v_tbc_batting_all_seasons_resolved
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+      ORDER BY playerid, year DESC, teamid DESC
+    ),
+
+    latest_pitching_level AS (
+      SELECT DISTINCT ON (playerid)
+        playerid::text AS playerid,
+        year           AS pitch_year,
+        highlevel      AS pit_level,
+        draft_info     AS pit_draft_info,
+        playyears      AS pit_playyears
+      FROM public.v_tbc_pitching_all_seasons_resolved
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+      ORDER BY playerid, year DESC, teamid DESC
+    ),
+
+    -- Career stat buckets are ALWAYS derived from the canonical Team ID level,
+    -- never from numeric ID ranges or TBC highlevel (which is a career maximum).
+    -- An unresolved/PRO Team ID remains 'other' and is excluded from the wrong
+    -- league bucket until the authoritative mapping is repaired.
+    career_batting_by_bucket AS (
+      SELECT
+        playerid::text AS playerid,
+        CASE
+          WHEN canonical_team.level_label = 'MLB' THEN 'mlb'
+          WHEN canonical_team.level_label IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN canonical_team.level_label = 'INDY' THEN 'indy'
+          WHEN canonical_team.level_label = 'INTERNATIONAL' THEN 'international'
+          WHEN canonical_team.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
+          ELSE 'other'
+        END AS bucket,
+        COUNT(DISTINCT year) AS batting_seasons,
+        SUM(${n("g")})   AS g,
+        SUM(${n("ab")})  AS ab,
+        SUM(${n("r")})   AS r,
+        SUM(${n("h")})   AS h,
+        SUM(${n("dbl")}) AS "2b",
+        SUM(${n("tpl")}) AS "3b",
+        SUM(${n("hr")})  AS hr,
+        SUM(${n("rbi")}) AS rbi,
+        SUM(${n("sb")})  AS sb,
+        SUM(${n("bb")})  AS bb,
+        SUM(${n("so")})  AS so,
+        SUM(${n("tb")})  AS tb,
+        CASE
+          WHEN SUM(${n("ab")}) > 0
+          THEN ROUND(SUM(${n("h")}) / SUM(${n("ab")}), 3)
+          ELSE NULL
+        END AS avg,
+        CASE
+          WHEN SUM(${n("ab")}) + SUM(${n("bb")}) > 0
+          THEN ROUND(
+            (SUM(${n("h")}) + SUM(${n("bb")})) /
+            (SUM(${n("ab")}) + SUM(${n("bb")})),
+            3
+          )
+          ELSE NULL
+        END AS obp,
+        CASE
+          WHEN SUM(${n("ab")}) > 0
+          THEN ROUND(SUM(${n("tb")}) / SUM(${n("ab")}), 3)
+          ELSE NULL
+        END AS slg,
+        CASE
+          WHEN SUM(${n("ab")}) > 0 AND SUM(${n("ab")}) + SUM(${n("bb")}) > 0
+          THEN ROUND(
+            ((SUM(${n("h")}) + SUM(${n("bb")})) /
+             (SUM(${n("ab")}) + SUM(${n("bb")}))) +
+            (SUM(${n("tb")}) / SUM(${n("ab")})),
+            3
+          )
+          ELSE NULL
+        END AS ops
+      FROM public.v_tbc_batting_all_seasons_resolved career_stats
+      LEFT JOIN public.teamid_universe_mapping canonical_team
+        ON canonical_team.teamid = career_stats.teamid::text
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+      GROUP BY playerid::text, bucket
+    ),
+
+    career_batting AS (
+      SELECT DISTINCT ON (playerid)
+        *,
+        CASE bucket
+          WHEN 'mlb' THEN 'MLB CAREER'
+          WHEN 'minors' THEN 'MINOR LEAGUE CAREER'
+          WHEN 'indy' THEN 'INDEPENDENT CAREER'
+          WHEN 'international' THEN 'INTERNATIONAL CAREER'
+          WHEN 'college' THEN 'COLLEGE CAREER'
+          ELSE 'CAREER'
+        END AS career_bucket_label
+      FROM career_batting_by_bucket
+      WHERE bucket <> 'other'
+      ORDER BY
+        playerid,
+        CASE bucket
+          WHEN 'mlb' THEN 1
+          WHEN 'minors' THEN 2
+          WHEN 'indy' THEN 3
+          WHEN 'international' THEN 4
+          WHEN 'college' THEN 5
+          ELSE 6
+        END
+    ),
+
+    career_batting_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'type', 'batting',
+            'label', CASE bucket
+              WHEN 'mlb' THEN 'MLB CAREER BATTING'
+              WHEN 'minors' THEN 'MINOR LEAGUE CAREER BATTING'
+              WHEN 'indy' THEN 'INDEPENDENT CAREER BATTING'
+              WHEN 'international' THEN 'INTERNATIONAL CAREER BATTING'
+              WHEN 'college' THEN 'COLLEGE CAREER BATTING'
+              ELSE 'CAREER BATTING'
+            END,
+            'stats', jsonb_build_object(
+              'g', g,
+              'ab', ab,
+              'r', r,
+              'h', h,
+              '2b', "2b",
+              '3b', "3b",
+              'hr', hr,
+              'rbi', rbi,
+              'sb', sb,
+              'bb', bb,
+              'so', so,
+              'tb', tb,
+              'avg', avg,
+              'obp', obp,
+              'slg', slg,
+              'ops', ops
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
+        ) AS career_batting_buckets
+      FROM career_batting_by_bucket
+      WHERE bucket <> 'other'
+      GROUP BY playerid
+    ),
+
+    career_pitching_by_bucket AS (
+      SELECT
+        playerid::text AS playerid,
+        CASE
+          WHEN canonical_team.level_label = 'MLB' THEN 'mlb'
+          WHEN canonical_team.level_label IN ('TRIPLE-A','DOUBLE-A','HIGH-A','SINGLE-A','ROOKIE') THEN 'minors'
+          WHEN canonical_team.level_label = 'INDY' THEN 'indy'
+          WHEN canonical_team.level_label = 'INTERNATIONAL' THEN 'international'
+          WHEN canonical_team.level_label IN ('NCAA-D1','NCAA-D2','NCAA-D3','NAIA','NJCAA','CCCAA','NWAC') THEN 'college'
+          ELSE 'other'
+        END AS bucket,
+        COUNT(DISTINCT year) AS pitching_seasons,
+        SUM(${n("g")})   AS pg,
+        SUM(${n("gs")})  AS gs,
+        SUM(${n("w")})   AS w,
+        SUM(${n("l")})   AS l,
+        SUM(${n("sv")})  AS saves,
+        /* Baseball IP is not decimal math: 1.1 = 1 inning + 1 out, 1.2 = 1 inning + 2 outs. */
+        COALESCE(
+          SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ),
+          0
+        ) AS outs,
+        SUM(${n("h")})   AS h_allowed,
+        SUM(${n("er")})  AS er,
+        SUM(${n("bb")})  AS bb,
+        SUM(${n("so")})  AS ko,
+        (FLOOR(
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) / 3
+        )::numeric + (
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) % 3
+        )::numeric / 10) AS ip,
+        CASE
+          WHEN COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) > 0
+          THEN ROUND(
+            SUM(${n("er")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
+          ELSE NULL
+        END AS era,
+        CASE
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            (SUM(${n("bb")}) + SUM(${n("h")})) /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
+          ELSE NULL
+        END AS whip,
+        CASE
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            SUM(${n("h")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
+          ELSE NULL
+        END AS h9,
+        CASE
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            SUM(${n("bb")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
+          ELSE NULL
+        END AS bb9,
+        CASE
+          WHEN COALESCE(SUM(
+            (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0) > 0
+          THEN ROUND(
+            SUM(${n("so")}) * 9 /
+            (COALESCE(SUM(
+              (FLOOR(COALESCE(${n("ip")}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n("ip")}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ), 0)::numeric / 3),
+            2
+          )
+          ELSE NULL
+        END AS so9,
+        CASE
+          WHEN SUM(${n("bb")}) > 0
+          THEN ROUND(SUM(${n("so")}) / SUM(${n("bb")}), 2)
+          ELSE NULL
+        END AS so_bb
+      FROM public.v_tbc_pitching_all_seasons_resolved career_stats
+      LEFT JOIN public.teamid_universe_mapping canonical_team
+        ON canonical_team.teamid = career_stats.teamid::text
+      WHERE playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))
+      GROUP BY playerid::text, bucket
+    ),
+
+    career_pitching AS (
+      SELECT DISTINCT ON (playerid)
+        *,
+        CASE bucket
+          WHEN 'mlb' THEN 'MLB CAREER'
+          WHEN 'minors' THEN 'MINOR LEAGUE CAREER'
+          WHEN 'indy' THEN 'INDEPENDENT CAREER'
+          WHEN 'international' THEN 'INTERNATIONAL CAREER'
+          WHEN 'college' THEN 'COLLEGE CAREER'
+          ELSE 'CAREER'
+        END AS career_bucket_label
+      FROM career_pitching_by_bucket
+      WHERE bucket <> 'other'
+      ORDER BY
+        playerid,
+        CASE bucket
+          WHEN 'mlb' THEN 1
+          WHEN 'minors' THEN 2
+          WHEN 'indy' THEN 3
+          WHEN 'international' THEN 4
+          WHEN 'college' THEN 5
+          ELSE 6
+        END
+    ),
+
+    career_pitching_buckets AS (
+      SELECT
+        playerid,
+        jsonb_agg(
+          jsonb_build_object(
+            'bucket', bucket,
+            'type', 'pitching',
+            'label', CASE bucket
+              WHEN 'mlb' THEN 'MLB CAREER PITCHING'
+              WHEN 'minors' THEN 'MINOR LEAGUE CAREER PITCHING'
+              WHEN 'indy' THEN 'INDEPENDENT CAREER PITCHING'
+              WHEN 'international' THEN 'INTERNATIONAL CAREER PITCHING'
+              WHEN 'college' THEN 'COLLEGE CAREER PITCHING'
+              ELSE 'CAREER PITCHING'
+            END,
+            'stats', jsonb_build_object(
+              'pg', pg,
+              'g', pg,
+              'gs', gs,
+              'w', w,
+              'l', l,
+              'saves', saves,
+              'outs', outs,
+              'ip', ip,
+              'h_allowed', h_allowed,
+              'er', er,
+              'bb', bb,
+              'ko', ko,
+              'era', era,
+              'whip', whip,
+              'h9', h9,
+              'bb9', bb9,
+              'so9', so9,
+              'so_bb', so_bb
+            )
+          )
+          ORDER BY CASE bucket WHEN 'mlb' THEN 1 WHEN 'minors' THEN 2 WHEN 'indy' THEN 3 WHEN 'international' THEN 4 WHEN 'college' THEN 5 ELSE 6 END
+        ) AS career_pitching_buckets
+      FROM career_pitching_by_bucket
+      WHERE bucket <> 'other'
+      GROUP BY playerid
+    ),
+
+    active_2026 AS (
+      SELECT e.playerid::text AS playerid
+      FROM public.tbc_verified_2026_participation e
+      WHERE e.playerid IN (SELECT playerid::text FROM school_players)
+    )
+
+    SELECT
+      sp.playerid,
+      sp.firstname,
+      sp.lastname,
+      COALESCE(NULLIF(TRIM(sp.firstname || ' ' || sp.lastname), ''), sp.playerid::text) AS display_name,
+      sp.career_highlevel AS level,
+      sp.height,
+      sp.weight,
+      sp.bats,
+      sp.throws,
+      sp.position,
+
+      lbl.stat_year,
+      lbl.bat_level AS current_level,
+      lpl.pitch_year,
+      COALESCE(cp.career_bucket_label, cb.career_bucket_label, 'CAREER') AS career_bucket_label,
+      cbb.career_batting_buckets,
+      cpb.career_pitching_buckets,
+
+      cb.g,
+      cb.ab,
+      cb.r,
+      cb.h,
+      cb."2b",
+      cb."3b",
+      cb.hr,
+      cb.rbi,
+      cb.sb,
+      CASE
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::numeric >= lbl.stat_year::numeric)
+        THEN cp.bb
+        ELSE cb.bb
+      END AS bb,
+      cb.so,
+      cb.avg,
+      cb.obp,
+      cb.slg,
+      cb.ops,
+
+      cp.pg,
+      cp.gs,
+      cp.w,
+      cp.l,
+      cp.saves,
+      cp.ip,
+      cp.er,
+      cp.ko,
+      cp.era,
+      cp.whip,
+      cp.h9,
+      cp.bb9,
+      cp.so9,
+      cp.so_bb,
+
+      COALESCE(lbl.draft_info, lpl.pit_draft_info) AS draft_info,
+      COALESCE(lbl.playyears, lpl.pit_playyears)   AS playyears,
+
+      CASE WHEN a26.playerid IS NOT NULL THEN true ELSE false END AS is_active_2025,
+      CASE
+        WHEN cp.playerid IS NOT NULL AND (cb.playerid IS NULL OR lpl.pitch_year::numeric >= lbl.stat_year::numeric)
+        THEN true
+        ELSE false
+      END AS is_pitcher
+
+    FROM school_players sp
+    LEFT JOIN latest_batting_level  lbl ON sp.playerid::text = lbl.playerid
+    LEFT JOIN latest_pitching_level lpl ON sp.playerid::text = lpl.playerid
+    LEFT JOIN career_batting        cb  ON sp.playerid::text = cb.playerid
+    LEFT JOIN career_pitching       cp  ON sp.playerid::text = cp.playerid
+    LEFT JOIN career_batting_buckets  cbb ON sp.playerid::text = cbb.playerid
+    LEFT JOIN career_pitching_buckets cpb ON sp.playerid::text = cpb.playerid
+    LEFT JOIN active_2026           a26 ON sp.playerid::text = a26.playerid
+
+    ORDER BY
+      CASE sp.career_highlevel
+        WHEN 'MLB'           THEN 1
+        WHEN 'TRIPLE-A'      THEN 2
+        WHEN 'AAA'           THEN 2
+        WHEN 'DOUBLE-A'      THEN 3
+        WHEN 'AA'            THEN 3
+        WHEN 'HIGH-A'        THEN 4
+        WHEN 'A+'            THEN 4
+        WHEN 'LOW-A'         THEN 5
+        WHEN 'A'             THEN 5
+        WHEN 'ROOKIE'        THEN 6
+        WHEN 'INT''L'        THEN 7
+        WHEN 'INTERNATIONAL' THEN 7
+        WHEN 'Indy'          THEN 8
+        WHEN 'INDEPENDENT'   THEN 8
+        WHEN 'NCAA-D1'       THEN 9
+        WHEN 'D1'            THEN 9
+        WHEN 'NCAA-D2'       THEN 10
+        WHEN 'D2'            THEN 10
+        WHEN 'NCAA-D3'       THEN 11
+        WHEN 'D3'            THEN 11
+        WHEN 'NAIA'          THEN 12
+        WHEN 'JUCO'          THEN 13
+          WHEN 'NJCAA'         THEN 13
+          WHEN 'CCCAA'         THEN 13
+          WHEN 'NWAC'          THEN 13
+        WHEN 'JrCollege'     THEN 13
+        WHEN 'NJCAA'         THEN 13
+        WHEN 'HIGH SCHOOL'   THEN 14
+        WHEN 'HS'            THEN 14
+        ELSE 15
+      END,
+      sp.lastname,
+      sp.firstname
+  `;
+  const { rows } = await query(sql, [lookupId]);
+  return rows;
+}, ALL_TIME_ROSTER_TTL_SECONDS));
+
+// The school and cross-school embedded flip card must use the SAME
+// all-time career/level aggregation, scoped by the player ID for a single
+// favorite. Do not query an entire school's roster for each favorite.
+export async function getAllTimeRosterRowByPlayerId(playerId: string): Promise<any | null> {
+  const rows = await getAllTimeRosterByHsid(`player:${playerId}`);
+  return rows.find((row) => String(row.playerid) === playerId) || null;
+}
+
+export interface PlayerSlugMatch {
+  playerid: string;
+  firstname: string;
+  lastname: string;
+  hsid: string | null;
+}
+
+export async function findPlayersBySlug(slug: string, hsid?: string): Promise<PlayerSlugMatch[]> {
+  const sql = `
+    SELECT
+      COALESCE(m.playerid, tp.playerid)::text AS playerid,
+      tp.firstname,
+      tp.lastname,
+      ph.hsid::text AS hsid
+    FROM tbc_players_raw tp
+    LEFT JOIN player_hsids ph ON ph.playerid::text = tp.playerid::text
+    LEFT JOIN public.player_source_map m
+      ON m.source = 'tbc' AND m.source_player_id = tp.playerid::text
+      AND m.is_verified IS TRUE
+      AND m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
+    WHERE trim(both '-' from regexp_replace(lower(trim(coalesce(tp.firstname,'') || ' ' || coalesce(tp.lastname,''))), '-+', '-', 'g')) = $1
+      ${hsid ? "AND (ph.hsid::text = $2 OR ph.hsid IS NULL)" : ""}
+    LIMIT 10
+  `;
+  const params = hsid ? [slug.toLowerCase(), hsid] : [slug.toLowerCase()];
+  const { rows } = await query(sql, params);
+  return rows as PlayerSlugMatch[];
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER SCHOOL - which school(s) a player is linked to
+// ---------------------------------------------------------------------------
+export async function getPlayerSchool(playerId: string): Promise<any | null> {
+  const sql = `
+    SELECT ph.hsid, ss.hsname, ss.hslocation, ss.nickname
+    FROM player_hsids ph
+    JOIN school_success ss ON ph.hsid::text = ss.hsid::text
+    WHERE ph.playerid::text = $1
+    LIMIT 1
+  `;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+}
+
+// ---------------------------------------------------------------------------
+// SEASON-BY-SEASON BATTING STATS - all years for a player
+// ---------------------------------------------------------------------------
+export async function getPlayerBattingStats(playerId: string): Promise<any[]> {
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
+  const sql = `
+    SELECT
+      b.year,
+      b.teamid,
+      ${PUBLIC_TEAM_NAME_SQL} AS team_name,
+      ${VERIFIED_TEAM_LEVEL_SQL} AS level,
+      b.g, b.ab, b.r, b.h,
+      b.dbl AS "2b", b.tpl AS "3b",
+      b.hr, b.rbi, b.sb, b.bb, b.so,
+      b.bavg AS avg, b.obp, b.slg, b.ops,
+      b.draft_info
+    FROM public.v_tbc_batting_all_seasons_resolved b
+    ${teamIdentityJoins('b')}
+    WHERE b.playerid::text = ANY(string_to_array($1, ','))
+    ORDER BY b.year ASC, b.teamid ASC
+  `;
+  try {
+    const rows = await cachedPlayerStatRows('batting-seasons-canonical-identity-v3', historicalPlayerId, sql);
+    return rows;
+  } catch (error) {
+    console.error('getPlayerBattingStats failed:', error);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SEASON-BY-SEASON PITCHING STATS - all years for a player
+// ---------------------------------------------------------------------------
+export async function getPlayerPitchingStats(playerId: string): Promise<any[]> {
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
+  const sql = `
+    SELECT
+      p.year,
+      p.teamid,
+      ${PUBLIC_TEAM_NAME_SQL} AS team_name,
+      ${VERIFIED_TEAM_LEVEL_SQL} AS level,
+      p.g, p.gs, p.w, p.l,
+      p.sv AS saves, p.ip,
+      p.h AS hits_allowed, p.er,
+      p.bb, p.so AS ko,
+      p.era, p.whip, p.h9, p.bb9,
+      p.so9 AS k9, p.so_bb AS kbb,
+      p.draft_info
+    FROM public.v_tbc_pitching_all_seasons_resolved p
+    ${teamIdentityJoins('p')}
+    WHERE p.playerid::text = ANY(string_to_array($1, ','))
+    ORDER BY p.year ASC, p.teamid ASC
+  `;
+  try {
+    const rows = await cachedPlayerStatRows('pitching-seasons-canonical-identity-v3', historicalPlayerId, sql);
+    return rows;
+  } catch (error) {
+    console.error('getPlayerPitchingStats failed:', error);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CAREER AGGREGATE STATS - totals across all seasons
+// ---------------------------------------------------------------------------
+export async function getPlayerCareerBatting(playerId: string): Promise<any | null> {
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
+  const n = (col: string) =>
+    `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
+  const sql = `
+    SELECT
+      COUNT(DISTINCT split_part(year::text, '.', 1)) AS seasons,
+      SUM(${n('g')}) AS g, SUM(${n('ab')}) AS ab, SUM(${n('r')}) AS r, SUM(${n('h')}) AS h,
+      SUM(${n('dbl')}) AS "2b", SUM(${n('tpl')}) AS "3b",
+      SUM(${n('hr')}) AS hr, SUM(${n('rbi')}) AS rbi, SUM(${n('sb')}) AS sb,
+      SUM(${n('bb')}) AS bb, SUM(${n('so')}) AS so,
+      SUM(${n('tb')}) AS tb,
+      CASE WHEN SUM(${n('ab')}) > 0 THEN ROUND(SUM(${n('h')}) / SUM(${n('ab')}), 3) ELSE NULL END AS avg,
+      CASE WHEN SUM(${n('ab')}) + SUM(${n('bb')}) > 0
+        THEN ROUND((SUM(${n('h')}) + SUM(${n('bb')})) / (SUM(${n('ab')}) + SUM(${n('bb')})), 3)
+        ELSE NULL
+      END AS obp,
+      CASE WHEN SUM(${n('ab')}) > 0
+        THEN ROUND(SUM(${n('tb')}) / SUM(${n('ab')}), 3)
+        ELSE NULL
+      END AS slg,
+      CASE WHEN SUM(${n('ab')}) > 0 AND SUM(${n('ab')}) + SUM(${n('bb')}) > 0
+        THEN ROUND(
+          (SUM(${n('h')}) + SUM(${n('bb')})) / (SUM(${n('ab')}) + SUM(${n('bb')})) +
+          SUM(${n('tb')}) / SUM(${n('ab')}),
+          3
+        )
+        ELSE NULL
+      END AS ops
+    FROM public.v_tbc_batting_all_seasons_resolved
+    WHERE playerid::text = ANY(string_to_array($1, ','))
+  `;
+  try {
+    const rows = await cachedPlayerStatRows('career-batting-merged-2026-v2', historicalPlayerId, sql);
+    return rows[0] || null;
+  } catch (error) {
+    console.error('getPlayerCareerBatting failed:', error);
+    return null;
+  }
+}
+
+export async function getPlayerCareerPitching(playerId: string): Promise<any | null> {
+  const historicalPlayerId = await resolveHistoricalTbcIds(playerId);
+  const n = (col: string) =>
+    `NULLIF(regexp_replace(COALESCE(${col}::text,'0'), '[^0-9.]', '', 'g'), '')::numeric`;
+  const sql = `
+    SELECT
+      COUNT(DISTINCT split_part(year::text, '.', 1)) AS seasons,
+      SUM(${n('g')}) AS g, SUM(${n('gs')}) AS gs,
+      SUM(${n('w')}) AS w, SUM(${n('l')}) AS l,
+      SUM(${n('sv')}) AS saves,
+      COALESCE(
+        SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ),
+        0
+      ) AS outs,
+      (
+        FLOOR(
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) / 3
+        )::numeric
+        +
+        (
+          COALESCE(
+            SUM(
+              (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+              CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+                WHEN '1' THEN 1
+                WHEN '2' THEN 2
+                ELSE 0
+              END
+            ),
+            0
+          ) % 3
+        )::numeric / 10
+      ) AS ip,
+      SUM(${n('h')}) AS h,
+      SUM(${n('er')}) AS er,
+      SUM(${n('so')}) AS ko, SUM(${n('bb')}) AS bb,
+      CASE
+        WHEN COALESCE(SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ), 0) > 0
+        THEN ROUND(
+          SUM(${n('er')}) * 9 /
+          (COALESCE(SUM(
+            (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0)::numeric / 3),
+          2
+        )
+        ELSE NULL
+      END AS era,
+      CASE
+        WHEN COALESCE(SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ), 0) > 0
+        THEN ROUND(
+          (SUM(${n('bb')}) + SUM(${n('h')})) /
+          (COALESCE(SUM(
+            (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0)::numeric / 3),
+          2
+        )
+        ELSE NULL
+      END AS whip,
+      CASE
+        WHEN COALESCE(SUM(
+          (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+          CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+            WHEN '1' THEN 1
+            WHEN '2' THEN 2
+            ELSE 0
+          END
+        ), 0) > 0
+        THEN ROUND(
+          SUM(${n('so')}) * 9 /
+          (COALESCE(SUM(
+            (FLOOR(COALESCE(${n('ip')}, 0))::int * 3) +
+            CASE split_part(COALESCE(${n('ip')}::text, '0'), '.', 2)
+              WHEN '1' THEN 1
+              WHEN '2' THEN 2
+              ELSE 0
+            END
+          ), 0)::numeric / 3),
+          2
+        )
+        ELSE NULL
+      END AS k9,
+      CASE WHEN SUM(${n('bb')}) > 0 THEN ROUND(SUM(${n('so')}) / SUM(${n('bb')}), 2) ELSE NULL END AS kbb
+    FROM public.v_tbc_pitching_all_seasons_resolved
+    WHERE playerid::text = ANY(string_to_array($1, ','))
+  `;
+  try {
+    const rows = await cachedPlayerStatRows('career-pitching-merged-2026-v2', historicalPlayerId, sql);
+    return rows[0] || null;
+  } catch (error) {
+    console.error('getPlayerCareerPitching failed:', error);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// TEAM SCHEDULE - chronological game feed for a given team_id.
+// `range` limits it to game dates from/to (inclusive, 'YYYY-MM-DD', either
+// optional) - e.g. one stint on a team, or a week around today - so a team
+// with more than one season loaded never runs past `limit` into the wrong one.
+// Real games only: no spring training or exhibitions. game_type says which
+// games are postseason.
+// ---------------------------------------------------------------------------
+export async function getTeamSchedule(
+  teamId: string,
+  limit = 300,
+  range: { from?: string | null; to?: string | null } = {}
+): Promise<any[]> {
+  try {
+    // v_team_schedule_feed only covers the pro/MLB pipeline (team_id_map <->
+    // team_schedules). College teams' games live in college_schedule_games_raw,
+    // a separate pipeline. Independent schedules use verified source-team
+    // mappings and retain their own game identities. Union the feeds into
+    // one display contract without mixing provider IDs or stat coverage.
+    const { rows } = await query(
+      `WITH combined AS (
+         SELECT
+           tbc_teamid::text AS tbc_teamid,
+           team_name,
+           game_date,
+           game_time_utc,
+           status,
+           venue_name,
+           home_team_name,
+           away_team_name,
+           home_away,
+           opponent,
+           home_score,
+           away_score,
+           game_pk,
+           home_team_id,
+           away_team_id,
+           (SELECT ts.game_type FROM team_schedules ts WHERE ts.game_pk = v_team_schedule_feed.game_pk) AS game_type,
+           'mlb_api'::text AS schedule_source,
+           game_pk::text AS source_game_id,
+           NULL::text AS source_season_id,
+           NULL::text AS source_league_code,
+           true AS tracks_player_lines,
+           NULL::text AS opponent_teamid
+         FROM v_team_schedule_feed
+         WHERE tbc_teamid::text = $1
+
+         UNION ALL
+
+         SELECT
+           g.teamid::text AS tbc_teamid,
+           g.team AS team_name,
+           g.game_date,
+           g.game_time_utc,
+           g.status,
+           g.venue_name,
+           g.home_team_name,
+           g.away_team_name,
+           CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN 'Home' ELSE 'Away' END AS home_away,
+           CASE WHEN lower(trim(g.home_team_name)) = lower(trim(g.team)) THEN g.away_team_name ELSE g.home_team_name END AS opponent,
+           g.home_score,
+           g.away_score,
+           NULL::bigint AS game_pk,
+           NULL::integer AS home_team_id,
+           NULL::integer AS away_team_id,
+           NULL::text AS game_type,
+           'college'::text AS schedule_source,
+           NULL::text AS source_game_id,
+           NULL::text AS source_season_id,
+           NULL::text AS source_league_code,
+           false AS tracks_player_lines,
+           NULL::text AS opponent_teamid
+         FROM college_schedule_games_raw g
+         WHERE g.teamid::text = $1
+
+         UNION ALL
+
+         SELECT
+           tbc_teamid, team_name, game_date, game_time_utc, status,
+           venue_name, home_team_name, away_team_name, home_away, opponent,
+           home_score, away_score, game_pk, home_team_id, away_team_id,
+           game_type, schedule_source, source_game_id, source_season_id,
+           source_league_code, tracks_player_lines, opponent_teamid
+         FROM public.v_indy_team_schedule_feed
+         WHERE tbc_teamid = $1
+       )
+       SELECT
+         *,
+         COALESCE(venue_name, upper(home_away)) AS location,
+         (home_away = 'Home') AS is_home,
+         CASE
+           -- A live boxscore populates home_score/away_score as soon as the
+           -- game starts, long before it's final - checking scores alone
+           -- would call a "W"/"L" on a game still in progress. Require a
+           -- terminal status too, so an in-progress game falls through to
+           -- NULL here and the app layer's live-status branch (checking
+           -- status text for "in progress"/etc) is the one that renders it.
+           WHEN home_score IS NOT NULL AND away_score IS NOT NULL
+             AND lower(trim(coalesce(status, ''))) IN ('final', 'game over', 'completed early') THEN
+             CASE
+               WHEN home_away = 'Home' AND home_score > away_score THEN 'W ' || home_score || '-' || away_score
+               WHEN home_away = 'Home' AND home_score < away_score THEN 'L ' || home_score || '-' || away_score
+               WHEN home_away = 'Home' AND home_score = away_score THEN 'T ' || home_score || '-' || away_score
+               WHEN home_away = 'Away' AND away_score > home_score THEN 'W ' || away_score || '-' || home_score
+               WHEN home_away = 'Away' AND away_score < home_score THEN 'L ' || away_score || '-' || home_score
+               ELSE 'T ' || away_score || '-' || home_score
+             END
+           ELSE NULL
+         END AS result
+       FROM combined
+       WHERE ($3::date IS NULL OR game_date::date >= $3::date)
+         AND ($4::date IS NULL OR game_date::date <= $4::date)
+         -- Spring training, exhibitions and intrasquad games aren't real
+         -- games (game_type: see migrations/20260929_team_schedules_game_type.sql).
+         AND coalesce(game_type, 'R') NOT IN ('S', 'E', 'I')
+       ORDER BY game_date ASC
+       LIMIT $2`,
+      [teamId, limit, range.from || null, range.to || null]
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER TEAM STINTS - which team a player was on, from when to when, every
+// season (scripts/build-player-team-stints.ts). stint_end NULL = still on
+// that team. Oldest first.
+// ---------------------------------------------------------------------------
+export type PlayerTeamStint = {
+  teamid: string;
+  team_name: string | null;
+  level: string | null;
+  season: number;
+  stint_start: string; // 'YYYY-MM-DD'
+  stint_end: string | null;
+  start_source: string;
+};
+
+export async function getPlayerTeamStints(playerId: string): Promise<PlayerTeamStint[]> {
+  try {
+    const { rows } = await query(
+      `SELECT teamid, team_name, level, season,
+              stint_start::text AS stint_start, stint_end::text AS stint_end, start_source
+         FROM public.player_team_stints
+        WHERE playerid = $1
+        ORDER BY stint_start ASC, season ASC`,
+      [playerId]
+    );
+    return rows as PlayerTeamStint[];
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER GAME LOG - per-game line scores for a player, any source/team.
+// Populated by scripts/sync-mlb-player-gamelogs.ts (source = 'mlb_api');
+// source is source-agnostic so a future Presto Sports (JUCO/NAIA/D2/D3) feed
+// can land in the same table. Not scoped by team_id - a player traded
+// mid-season should still show his pre-trade games on the same schedule.
+// ---------------------------------------------------------------------------
+export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT
+         playerid,
+         source,
+         source_game_id,
+         source_team_id,
+         stat_type,
+         game_date,
+         game_status,
+         team_name,
+         opponent_name,
+         home_away,
+         line_summary,
+         stats,
+         raw_payload->'opponent'->>'id' AS opponent_mlb_id,
+         raw_payload->>'isWin' AS is_win,
+         raw_payload->>'gameType' AS raw_game_type
+       FROM public.player_game_logs
+       WHERE playerid::text = $1
+       ORDER BY game_date ASC`,
+      [playerId]
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// MLB TEAM ID CROSSWALK
+//
+// public.team_id_map is the provider-ID crosswalk between each team's own
+// MLB Stats API team id and the canonical TBC teamid. It is not an identity
+// authority: display team name, organization/conference, and level come from
+// public.teamid_universe_mapping after the canonical teamid is resolved.
+//
+// The same crosswalk works for MLB clubs and affiliated minor-league teams.
+// ---------------------------------------------------------------------------
+// The whole table, on every player page: kept per server instance for 6
+// hours (it changes when the schedule sync adds teams, not by the minute).
+let teamIdMapCache: { at: number; map: Map<string, string> } | null = null;
+const TEAM_ID_MAP_TTL_MS = 6 * 60 * 60 * 1000;
+
+export async function getTeamIdMap(): Promise<Map<string, string>> {
+  if (teamIdMapCache && Date.now() - teamIdMapCache.at < TEAM_ID_MAP_TTL_MS) return teamIdMapCache.map;
+  const map = new Map<string, string>();
+  try {
+    const { rows } = await query(
+      `SELECT mlb_stats_api_id, tbc_teamid
+       FROM public.team_id_map
+       WHERE mlb_stats_api_id IS NOT NULL AND tbc_teamid IS NOT NULL`
+    );
+    for (const row of rows as { mlb_stats_api_id: string; tbc_teamid: string }[]) {
+      map.set(String(row.mlb_stats_api_id), String(row.tbc_teamid));
+    }
+    if (map.size) teamIdMapCache = { at: Date.now(), map };
+  } catch {
+    // fall through with whatever was collected
+  }
+  return map;
+}
+
+// ---------------------------------------------------------------------------
+// NEWS ARTICLES - from news_articles table (populated by Webz.io cron job)
+// ---------------------------------------------------------------------------
+// The same story is often syndicated across sites (Yahoo and AOL, a
+// newspaper group's sister papers) and was saved once per site before the
+// ingest learned to skip repeated headlines. Show one copy per player and
+// headline: hide a row when a newer visible copy exists. Headlines are
+// compared the way scripts/ingest-news.ts normalizes them.
+// A fan contribution already verified and published by the contribution gate
+// must not vanish because the separate auto-v2 editorial derivative was
+// rejected as a news summary. This does NOT bypass article verification.
+function acceptedFanNews(alias: string): string {
+  return `(${alias}.discovery_source = 'contribute'
+    AND ${alias}.verification_status = 'VERIFIED'
+    AND ${alias}.raw_payload->>'contributor_source' = 'fan_drawer')`;
+}
+
+// lowVisible: SQL that is true when LOW-newsworthiness stories are shown in
+// this feed. A copy the feed hides must not hide the one it would show.
+function syndicatedCopyFilter(alias: string, lowVisible: string): string {
+  const headline = (a: string) => `TRIM(LOWER(REGEXP_REPLACE(COALESCE(${a}.title, ''), '[^a-zA-Z0-9]+', ' ', 'g')))`;
+  return `NOT EXISTS (
+           SELECT 1 FROM news_articles dup
+            WHERE dup.playerid = ${alias}.playerid
+              AND dup.verification_status = 'VERIFIED'
+              AND (${lowVisible} OR COALESCE(dup.newsworthiness, 'NORMAL') <> 'LOW')
+              AND (${acceptedFanNews('dup')} OR NOT EXISTS (
+                 SELECT 1 FROM news_article_derivatives dup_rejected
+                 WHERE dup_rejected.news_article_uuid = dup.uuid
+                   AND dup_rejected.approval_status = 'rejected'
+              ))
+              AND ${headline('dup')} = ${headline(alias)}
+              AND (COALESCE(dup.published_at, 'epoch'), dup.id) > (COALESCE(${alias}.published_at, 'epoch'), ${alias}.id)
+         )`;
+}
+
+export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `WITH tagged_school AS MATERIALIZED (
+         -- Keep the original article unchanged. A tag grants a second school
+         -- access to the story via that school's verified player records.
+         SELECT activity.details->>'news_uuid' AS uuid,
+                MIN(tagged_player.playerid::text) AS first_playerid,
+                jsonb_agg(DISTINCT jsonb_build_object(
+                  'playerId', tagged_player.playerid::text,
+                  'playerName', tagged_player.display_name,
+                  'level', tagged_player.level_label,
+                  'status', tagged_player.status_label,
+                  'gradClass', tagged_player.class_of,
+                  'rosterYears', tagged_player.roster_years,
+                  'orgName', tagged_player.current_org_or_conference_name
+                )) AS players
+           FROM fan_activity activity
+           JOIN flip_card_front_stage tagged_player
+             ON tagged_player.playerid::text = activity.details->>'playerId'
+          WHERE activity.action = 'news_tagged'
+            AND tagged_player.hsid::text = $1
+            AND activity.details->>'news_uuid' IS NOT NULL
+          GROUP BY activity.details->>'news_uuid'
+       ),
+       scoped_uuids AS (
+         SELECT uuid FROM news_articles WHERE hsid = $1
+         UNION
+         SELECT uuid FROM tagged_school
+       )
+       SELECT
+         na.*,
+         nd.tease_json,
+         nd.gallery_front_json,
+         nd.gallery_back_json,
+         nd.profile_json,
+         nd.share_json,
+         nd.story_grade,
+         nd.story_scope,
+         nd.player_relevance,
+         nd.match_confidence,
+         nd.generation_status,
+         nd.approval_status,
+         nd.updated_at AS derivatives_updated_at,
+         f.level_label AS stage_level_label,
+         f.status_label AS stage_status_label,
+         f.current_team_name AS stage_team_name,
+         f.current_org_or_conference_name AS stage_org_name,
+         f.class_of AS stage_class_of,
+         f.roster_years AS stage_roster_years,
+         CASE WHEN na.hsid = $1 THEN na.playerid
+              ELSE tagged_school.first_playerid END AS associated_playerid,
+         f.display_name AS associated_player_name,
+         COALESCE(tagged_school.players, '[]'::jsonb) AS tagged_players,
+         (na.hsid <> $1) AS tagged_to_school
+       FROM scoped_uuids scoped
+       JOIN news_articles na ON na.uuid = scoped.uuid
+       LEFT JOIN tagged_school ON tagged_school.uuid = na.uuid
+       LEFT JOIN news_article_derivatives nd
+         ON nd.news_article_uuid = na.uuid
+        AND nd.generation_status IN ('staged','published')
+        AND nd.approval_status IN ('approved','published')
+       LEFT JOIN flip_card_front_stage f
+         ON f.playerid::text = CASE WHEN na.hsid = $1 THEN na.playerid
+                                   ELSE tagged_school.first_playerid END
+       WHERE na.verification_status = 'VERIFIED'
+         AND (${acceptedFanNews('na')} OR NOT EXISTS (
+            SELECT 1 FROM news_article_derivatives rejected
+            WHERE rejected.news_article_uuid = na.uuid
+              AND rejected.approval_status = 'rejected'
+          ))
+         -- An explicitly tagged UUID must not disappear just because another
+         -- syndicated copy has a newer headline timestamp.
+         AND (tagged_school.uuid IS NOT NULL OR ${syndicatedCopyFilter('na', 'true')})
+       ORDER BY na.published_at DESC NULLS LAST, na.id DESC
+       LIMIT $2 OFFSET $3`,
+      [hsid, limit, offset]
+    );
+    return rows;
+  } catch (error) {
+    console.error('[getNewsByHsid] failed', { hsid, error });
+    throw error;
+  }
+}
+
+// bestFirst: the back of his flip card. The stories most about him, in the
+// best light, lead:
+//   1. FEATURED (his name is in the headline) that isn't negative
+//   2. other stories that aren't negative - positive before neutral, then
+//      the most mentions of him, then the newest
+//   3. negative stories, only if there's nothing else
+// Every order: repeated headlines (syndicated copies) collapse to the newest.
+export async function getNewsByPlayer(
+  playerId: string,
+  limit: number | null = 10,
+  includeLowRelevance = false,
+  bestFirst = false
+): Promise<any[]> {
+  try {
+    const hasLimit = typeof limit === 'number' && Number.isFinite(limit) && limit > 0;
+    const lowRelevanceParam = hasLimit ? '$3' : '$2';
+    const limitClause = hasLimit ? 'LIMIT $2' : '';
+    const params = hasLimit
+      ? [playerId, limit, includeLowRelevance]
+      : [playerId, includeLowRelevance];
+
+    const { rows } = await query(
+      `WITH associated_uuids AS (
+         SELECT uuid FROM news_articles WHERE playerid = $1
+         UNION
+         -- The same existing engagement event that records a News tag now
+         -- also grants the tagged player a feed association. No new table.
+         SELECT details->>'news_uuid' AS uuid
+           FROM fan_activity
+          WHERE action = 'news_tagged'
+            AND details->>'playerId' = $1
+       )
+       SELECT
+         na.*,
+         nd.tease_json,
+         nd.gallery_front_json,
+         nd.gallery_back_json,
+         nd.profile_json,
+         nd.share_json,
+         nd.story_grade,
+         nd.story_scope,
+         nd.player_relevance,
+         nd.match_confidence,
+         nd.generation_status,
+         nd.approval_status,
+         nd.updated_at AS derivatives_updated_at,
+         f.level_label AS stage_level_label,
+         f.status_label AS stage_status_label,
+         f.current_team_name AS stage_team_name,
+         f.current_org_or_conference_name AS stage_org_name,
+         f.class_of AS stage_class_of,
+         f.roster_years AS stage_roster_years,
+         $1::text AS associated_playerid,
+         f.display_name AS associated_player_name,
+         (na.playerid <> $1) AS tagged_to_player
+       FROM associated_uuids associated
+       JOIN news_articles na ON na.uuid = associated.uuid
+       LEFT JOIN news_article_derivatives nd
+         ON nd.news_article_uuid = na.uuid
+        AND nd.generation_status IN ('staged','published')
+        AND nd.approval_status IN ('approved','published')
+       LEFT JOIN flip_card_front_stage f
+         ON f.playerid::text = $1
+       WHERE na.verification_status = 'VERIFIED'
+         AND (${acceptedFanNews('na')} OR NOT EXISTS (
+            SELECT 1 FROM news_article_derivatives rejected
+            WHERE rejected.news_article_uuid = na.uuid
+              AND rejected.approval_status = 'rejected'
+          ))
+         -- Tagging a verified story should make it visible even if the
+         -- original publisher assigned LOW newsworthiness to its subject.
+         AND (${lowRelevanceParam}::boolean OR na.playerid <> $1 OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
+         AND (na.playerid <> $1 OR ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)})
+       ORDER BY
+         ${bestFirst ? `CASE
+           WHEN LOWER(COALESCE(na.sentiment, '')) = 'negative' THEN 2
+           WHEN na.newsworthiness = 'FEATURED' THEN 0
+           ELSE 1
+         END,
+         CASE LOWER(COALESCE(na.sentiment, '')) WHEN 'positive' THEN 0 WHEN 'negative' THEN 2 ELSE 1 END,
+         COALESCE((na.verification_evidence->>'nameMentions')::int, 0) DESC,` : ''}
+         na.published_at DESC NULLS LAST, na.id DESC
+       ${limitClause}`,
+      params
+    );
+    return rows;
+  } catch (error) {
+    console.error('[getNewsByPlayer] failed', { playerId, error });
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER PHOTOS - uploaded career-progression photos for the filmstrip.
+// ---------------------------------------------------------------------------
+export async function getDesignatedPlayerImage(
+  imageId: string,
+  role: string
+): Promise<any | null> {
+  try {
+    const { rows } = await query(
+      `SELECT *
+         FROM player_photos
+        WHERE playerid::text = $1
+          AND image_role = $2
+          AND approval_status = 'APPROVED'
+          AND (is_active IS NULL OR is_active = TRUE)
+        ORDER BY is_primary DESC NULLS LAST, date_taken DESC NULLS LAST, id DESC
+        LIMIT 1`,
+      [imageId, role]
+    );
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+export const getBatchDesignatedPlayerImages = cache(async function getBatchDesignatedPlayerImages(
+  imageIds: string[],
+  role: string
+): Promise<Map<string, any>> {
+  if (imageIds.length === 0) return new Map();
+  try {
+    // One indexed batch query, including approved front-card uploads as a
+    // fallback when a player has no designated image-role row. The publication
+    // record's immutable S3 path survives a later YAT ID correction; guessing
+    // players/then/{newYatId}.jpg loses the original photo.
+    //
+    // Slot ownership is strict: only an APPROVED flip_card upload attached to
+    // the requested player can fill YATSTATS_FRONT. HEADSHOT and other roles
+    // never inherit a different image type.
+    const { rows } = await query<{
+      playerid: string;
+      image_url: string | null;
+      description: string | null;
+      source_priority: number;
+    }>(
+      `WITH designated AS (
+         SELECT DISTINCT ON (p.playerid::text)
+                p.playerid::text AS playerid,
+                p.image_url,
+                NULL::text AS description,
+                0 AS source_priority
+           FROM public.player_photos p
+          WHERE p.playerid::text = ANY($1::text[])
+            AND p.image_role=$2
+            AND p.approval_status='APPROVED'
+            AND (p.is_active IS NULL OR p.is_active = TRUE)
+          ORDER BY p.playerid::text,
+                   p.is_primary DESC NULLS LAST,
+                   p.date_taken DESC NULLS LAST
+       ), approved_uploads AS (
+         SELECT DISTINCT ON (m.playerid)
+                m.playerid::text AS playerid,
+                NULL::text AS image_url,
+                m.description,
+                1 AS source_priority
+           FROM public.media_upload m
+          WHERE $2='YATSTATS_FRONT'
+            AND m.playerid = ANY($1::text[])
+            AND m.purpose='flip_card'
+            AND m.status='approved'
+            AND m.description LIKE '%"published_assets"%'
+          ORDER BY m.playerid, m.uploaded_at DESC, m.id DESC
+       )
+       SELECT * FROM designated
+       UNION ALL
+       SELECT * FROM approved_uploads
+       ORDER BY source_priority, playerid`,
+      [imageIds, role]
+    );
+    const map = new Map<string, any>();
+    for (const row of rows) {
+      const id = String(row.playerid);
+      if (map.has(id)) continue;
+      const designatedUrl = String(row.image_url || '').trim();
+      if (designatedUrl) {
+        map.set(id, { playerid: id, image_url: designatedUrl });
+        continue;
+      }
+      if (role !== 'YATSTATS_FRONT' || !row.description) continue;
+      const approvedKey = approvedPublishedPlayerImageKey(row.description, 'flip_card');
+      const fallbackUrl = approvedKey ? storyAssetUrl(approvedKey) : null;
+      if (fallbackUrl) map.set(id, { playerid: id, image_url: fallbackUrl });
+    }
+    return map;
+  } catch (error) {
+    console.error('[getBatchDesignatedPlayerImages] failed', { role, error });
+    return new Map();
+  }
+});
+
+export async function getPlayerPhotos(imageId: string): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT *
+         FROM player_photos
+        WHERE playerid::text = $1
+          AND (
+            (show_on_pp_timeline = TRUE AND approval_status = 'APPROVED')
+          )
+          AND (image_role IS NULL OR image_role = 'TIMELINE')
+          AND (is_active IS NULL OR is_active = TRUE)
+        ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
+      [imageId]
+    );
+    return rows;
+  } catch {
+    try {
+      const { rows } = await query(
+        `SELECT * FROM player_photos WHERE playerid::text = $1
+         ORDER BY date_taken ASC NULLS LAST, season_year ASC NULLS LAST`,
+        [imageId]
+      );
+      return rows;
+    } catch {
+      return [];
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FLIP CARD FRONT STAGE - staging table for UI rendering
+// ---------------------------------------------------------------------------
+// Shared by getFlipCardFrontStageByHsid and getFlipCardFrontStageByPlayerId
+// so both normalize level_label/status_label identically instead of
+// drifting into two resolvers for the same "truth" table.
+const FLIP_CARD_STAGE_SELECT = `
+    SELECT fs.*,
+      -- Look up the canonical college name only for a COMMIT missing its
+      -- stored name (e.g. automatically published announcements). Reuse the
+      -- indexed teamid mapping in this same roster query: no extra page-load
+      -- round trips or per-player fetches.
+      COALESCE(NULLIF(BTRIM(fs.committed_team_name), ''), commit_map.current_team_name)
+        AS resolved_committed_team_name,
+      NULLIF(BTRIM(commit_map.current_team_short_name), '') AS resolved_committed_team_short_name,
+      -- Staging does not store bats/throws and often has NULL position.
+      -- Pull the canonical TBC metadata so stage-only cards choose the right silhouette.
+      tp.bats,
+      tp.throws,
+      COALESCE(NULLIF(BTRIM(fs.position), ''), NULLIF(BTRIM(tp.posit), '')) AS position,
+      -- Every alumnus we know of gets a card: one with no status yet is
+      -- UNKNOWN (until someone tells us), never left off the page.
+      COALESCE(NULLIF(UPPER(TRIM(fs.status_label)), ''), 'UNKNOWN') AS status_label,
+      -- Official levels only (Oct 18, 2026): every alias, any capitalisation.
+      CASE UPPER(TRIM(COALESCE(fs.level_label, '')))
+        WHEN 'AAA'           THEN 'TRIPLE-A'
+        WHEN 'TRIPLE-A'      THEN 'TRIPLE-A'
+        WHEN 'TRIPLE-A (40-MAN)' THEN 'TRIPLE-A'
+        WHEN 'AA'            THEN 'DOUBLE-A'
+        WHEN 'DOUBLE-A'      THEN 'DOUBLE-A'
+        WHEN 'HIGH-A'        THEN 'HIGH-A'
+        WHEN 'A+'            THEN 'HIGH-A'
+        WHEN 'SINGLE-A'      THEN 'SINGLE-A'
+        WHEN 'LOW-A'         THEN 'SINGLE-A'
+        WHEN 'A'             THEN 'SINGLE-A'
+        WHEN 'A-'            THEN 'SINGLE-A'
+        WHEN 'RK'            THEN 'ROOKIE'
+        WHEN 'ROOKIE'        THEN 'ROOKIE'
+        WHEN 'INTL'          THEN 'INTERNATIONAL'
+        WHEN 'INT''L'        THEN 'INTERNATIONAL'
+        WHEN 'INTERNATIONAL' THEN 'INTERNATIONAL'
+        WHEN 'INDY'          THEN 'INDY'
+        WHEN 'INDEPENDENT'   THEN 'INDY'
+        WHEN 'NCAA-D1'       THEN 'NCAA-D1'
+        WHEN 'D1'            THEN 'NCAA-D1'
+        WHEN 'NCAA'          THEN 'NCAA'
+        WHEN 'NCAA-D2'       THEN 'NCAA-D2'
+        WHEN 'D2'            THEN 'NCAA-D2'
+        WHEN 'NCAA-D3'       THEN 'NCAA-D3'
+        WHEN 'D3'            THEN 'NCAA-D3'
+        WHEN 'NAIA'          THEN 'NAIA'
+        WHEN 'JRCOLLEGE'     THEN 'NJCAA'
+        WHEN 'JUCO'          THEN 'NJCAA'
+        WHEN 'NJCAA'         THEN 'NJCAA'
+        WHEN 'CCCAA'         THEN 'CCCAA'
+        WHEN 'NWAC'          THEN 'NWAC'
+        WHEN 'HS'            THEN 'HIGH SCHOOL'
+        WHEN 'HIGH SCHOOL'   THEN 'HIGH SCHOOL'
+        WHEN '-'             THEN ''
+        ELSE UPPER(TRIM(COALESCE(fs.level_label, '')))
+      END AS level_label
+    FROM ${PLAYER_STAGE_IDENTITY_SOURCE} fs
+    LEFT JOIN tbc_players_raw tp ON tp.playerid = fs.playerid
+    LEFT JOIN public.teamid_universe_mapping commit_map
+      ON commit_map.teamid = fs.committed_teamid
+     AND UPPER(BTRIM(COALESCE(fs.status_label, ''))) = 'COMMIT'
+`;
+
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-expanded-universe-20261105', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+  const sql = `WITH ${PLAYER_STAGE_SCHOOL_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
+  const { rows } = await query(sql, [hsid]);
+  return rows;
+}));
+
+// Same normalization as getFlipCardFrontStageByHsid, for one arbitrary
+// player regardless of which school's page is currently being viewed -
+// used to build a real flip card for a cross-school favorite.
+export const getFlipCardFrontStageByPlayerId = cache(async function getFlipCardFrontStageByPlayerId(playerId: string): Promise<any | null> {
+  const sql = `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.playerid = $1 LIMIT 1`;
+  const { rows } = await query(sql, [playerId]);
+  return rows[0] || null;
+});
+
+// ---------------------------------------------------------------------------
+// ROSTER TRUTH - resolved current team + transactions
+// ---------------------------------------------------------------------------
+// flip_card_front_stage is THE reconciled current team - the same row the
+// flip card front and back render, refreshed from MLB every 3 hours by
+// .github/workflows/mlb_roster-sync.yml. This used to read
+// v_player_current_team_resolved (player_current_team), which the roster
+// sync stopped writing on 2026-04-25 - so the profile page showed a frozen
+// April team for every player who moved since (757 players, e.g. Casey
+// Legumina as Seattle Mariners while his flip card said Tampa Bay Rays).
+// Profile header, profile page, and the share image all read through
+// here, so they can never disagree with the flip card again.
+export async function getResolvedCurrentTeam(playerid: string): Promise<any | null> {
+  try {
+    const stage = await getFlipCardFrontStageByPlayerId(playerid);
+    const teamName = String(stage?.current_team_name || '').trim();
+    if (!teamName) return null;
+    return {
+      playerid: stage.playerid,
+      teamid: stage.current_teamid ?? null,
+      team_name: teamName,
+      level: stage.level_label || '',
+      source: stage.current_team_source ?? null,
+      last_verified: stage.current_team_last_verified ?? null,
+    };
+  } catch (error) {
+    console.error(`[getResolvedCurrentTeam] flip_card_front_stage read failed for playerid=${playerid}:`, error);
+    return null;
+  }
+}
+
+export type PlayerIdentityMeta = {
+  currentTeamName: string;
+  orgConferenceName: string;
+  levelLabel: string;
+  statusLabel: string;
+  position: string;
+  bats: string;
+  throws: string;
+  height: string;
+  weight: string;
+  classOf: string;
+  hsid: string;
+  hsname: string;
+  hslocation: string;
+  // Years on the high school's varsity roster (from the coach), e.g.
+  // ["2017","2016"]; empty when the school hasn't shared them.
+  rosterYears: string[];
+  // Every time he was drafted (player_draft_picks, oldest first) - the
+  // Career Path Timeline's "DRAFTED" milestone. Fields keep their column names.
+  draftPicks: PlayerDraftPick[];
+};
+
+export type PlayerDraftPick = {
+  draft_year: number;
+  draft_round: string | null;
+  draft_round_pick: number | null;
+  draft_overall_pick: number | null;
+  draft_team_name: string | null;
+  drafted_from: string | null;
+  // Our teamid for the drafting club (for its logo), matched by its current
+  // name only - a pick under a former name (e.g. Montreal Expos) has none,
+  // so the draft slide never shows today's logo for yesterday's club.
+  teamid: string | null;
+};
+
+// The single source of truth for "this player's identity/status facts,
+// exactly as shown on the back of his flip card" - shared by the player
+// profile layout (which puts it in PlayerProfileContext for anything
+// rendered as {children} under it) and anything rendered as a SIBLING of
+// {children} instead (SharedShell's row3 ZoomableCareerTimeline is the
+// confirmed case: it sits outside the context provider's subtree in the
+// component tree, so usePlayerProfile() there always returns null - not
+// because the data doesn't exist, but because nothing above it in the
+// tree can provide it). Anything that can't rely on that context should
+// call this directly (see /api/player-identity/[playerId]) rather than
+// re-deriving its own copy of this resolution logic, which is how the
+// two ended up silently disagreeing in the first place.
+export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIdentityMeta> {
+  const empty: PlayerIdentityMeta = {
+    currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: 'UNKNOWN',
+    position: '', bats: '', throws: '', height: '', weight: '', classOf: '',
+    hsid: '', hsname: '', hslocation: '', rosterYears: [], draftPicks: [],
+  };
+
+  try {
+    const stagePlayerId = await resolveStagePlayerId(playerId);
+    const [player, stageResult, draftResult] = await Promise.all([
+      getPlayerById(stagePlayerId),
+      query<{
+        hsid: string;
+        hsname: string | null;
+        hslocation: string | null;
+        current_team_name: string | null;
+        current_org_or_conference_name: string | null;
+        level_label: string | null;
+        status_label: string | null;
+        display_status_label: string | null;
+        display_level_label: string | null;
+        highest_level_label: string | null;
+        team_affiliation_status: string | null;
+        current_team_source: string | null;
+        last_transaction_type: string | null;
+        last_transaction_applied_at: unknown;
+        previous_team_name: string | null;
+        previous_org_or_conference_name: string | null;
+        previous_level_label: string | null;
+        roster_years: string[] | null;
+      }>(
+        `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES}
+         select
+           f.hsid::text as hsid,
+           ss.hsname,
+           ss.hslocation,
+           f.current_team_name,
+           f.current_org_or_conference_name,
+           f.level_label,
+           f.status_label,
+           f.display_status_label,
+           f.display_level_label,
+           f.highest_level_label,
+           f.team_affiliation_status,
+           f.current_team_source,
+           f.last_transaction_type,
+           f.last_transaction_applied_at,
+           f.previous_team_name,
+           f.previous_org_or_conference_name,
+           f.previous_level_label,
+           f.roster_years
+         from ${PLAYER_STAGE_IDENTITY_SOURCE} f
+         left join school_success ss on ss.hsid::text = f.hsid::text
+         where f.playerid::text = $1
+         order by f.updated_at desc nulls last
+         limit 1`,
+        [stagePlayerId]
+      ).catch(() => ({ rows: [] as any[] })),
+      query<PlayerDraftPick>(
+        `select d.draft_year, d.draft_round, d.draft_round_pick, d.draft_overall_pick, d.draft_team_name, d.drafted_from,
+                t.teamid
+           from player_draft_picks d
+           ${draftTeamLogoLateralSql()}
+          where d.playerid = $1
+          order by d.draft_year asc`,
+        [stagePlayerId]
+      ).catch(() => ({ rows: [] as PlayerDraftPick[] })),
+    ]);
+
+    const stage = stageResult.rows[0];
+
+    // Use the same explicit, reconciled stage facts as both card faces.
+    // Missing statistics or a career level never invent a playing status.
+    const display = resolvePlayerDisplay({ ...player, ...stage });
+
+    return {
+      currentTeamName: display.teamName,
+      orgConferenceName: display.orgConferenceName,
+      levelLabel: display.levelLabel,
+      statusLabel: display.statusLabel,
+      position: String(player?.position || '').trim(),
+      bats: String(player?.bats || '').trim(),
+      throws: String(player?.throws || '').trim(),
+      height: String(player?.height || '').trim(),
+      weight: String(player?.weight || '').trim(),
+      classOf: String(player?.class_of || '').trim(),
+      hsid: String(stage?.hsid || player?.hsid || '').trim(),
+      hsname: String(stage?.hsname || '').trim(),
+      hslocation: String(stage?.hslocation || '').trim(),
+      rosterYears: Array.isArray(stage?.roster_years) ? stage.roster_years.map((y: unknown) => String(y).trim()).filter(Boolean) : [],
+      draftPicks: draftResult.rows.map((d) => ({
+        draft_year: Number(d.draft_year),
+        draft_round: d.draft_round,
+        draft_round_pick: d.draft_round_pick == null ? null : Number(d.draft_round_pick),
+        draft_overall_pick: d.draft_overall_pick == null ? null : Number(d.draft_overall_pick),
+        draft_team_name: d.draft_team_name,
+        drafted_from: d.drafted_from,
+        teamid: d.teamid ? String(d.teamid) : null,
+      })),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+// The sourced-fact signal from the MLB transactions pipeline
+// (scripts/apply-mlb-transaction-status.ts) and the roster-absence
+// fallback (scripts/refresh-flip-card-front-stage-from-mlb.ts). This
+// outranks both v_player_current_team_resolved and a plain
+// current_team_name read, since neither of those notices when a player
+// leaves affiliated baseball — see the roster-accuracy audit.
+export async function getFlipCardTransactionStatus(playerid: string): Promise<any | null> {
+  try {
+    const { rows } = await query(
+      `WITH ${PLAYER_STAGE_SINGLE_PLAYER_IDENTITY_CTES}
+       SELECT
+         playerid,
+         current_team_name,
+         current_team_source,
+         current_team_source_team_id,
+         current_teamid,
+         team_affiliation_status,
+         last_transaction_type,
+         previous_team_name,
+         previous_org_or_conference_name,
+         school_timezone,
+         status_label
+       FROM ${PLAYER_STAGE_IDENTITY_SOURCE}
+       WHERE playerid::text = $1
+       LIMIT 1`,
+      [playerid]
+    );
+    return rows[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getPlayerTransactions(playerid: string, limit = 20): Promise<any[]> {
+  try {
+    const { rows } = await query(
+      `SELECT *
+       FROM player_transactions
+       WHERE playerid::text = $1
+       ORDER BY effective_date DESC NULLS LAST, created_at DESC
+       LIMIT $2`,
+      [playerid, limit]
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Schema changes belong in migrations and ingest scripts, not at module import time.
+// Avoiding import-time database writes prevents build/static-generation workers from
+// opening PostgreSQL connections before a request actually needs data.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Graceful shutdown
+// ---------------------------------------------------------------------------
+declare global {
+  var __pgPoolShutdownRegistered: any;
+}
+if (!global.__pgPoolShutdownRegistered) {
+  global.__pgPoolShutdownRegistered = true;
+  const shutdown = async () => {
+    try {
+      await pool.end();
+    } catch {
+      /* ignore */
+    }
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', async () => {
+    await shutdown();
+    process.exit(0);
+  });
+}
+
+// Canonical Active Alumni membership. The gallery, Row 3, school-search
+// tally and footer tally all use the same owner-approved status preset.
+export const getActiveAlumniSummaryByHsid = cache(keptAcrossRequests('getActiveAlumniSummaryByHsid-expanded-universe-v3', async function getActiveAlumniSummaryByHsid(hsid: string): Promise<{ playerIds: string[]; statsPending: boolean }> {
+  if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return { playerIds: [], statsPending: false };
+  const { rows } = await query(`
+    SELECT ARRAY_AGG(DISTINCT f.playerid::text ORDER BY f.playerid::text) AS player_ids
+      FROM public.flip_card_front_stage f
+     WHERE f.hsid::text = $1
+       AND UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY($2::text[])
+  `, [hsid, [...ACTIVE_GALLERY_STATUSES]]);
+  return { playerIds: (rows[0]?.player_ids ?? []).map(String), statsPending: false };
+}));
+
+export async function getActiveAlumniPlayerIdsByHsid(hsid: string): Promise<string[]> {
+  return (await getActiveAlumniSummaryByHsid(hsid)).playerIds;
+}
+
+export async function getActiveAlumniCountByHsid(hsid: string): Promise<number> {
+  return (await getActiveAlumniPlayerIdsByHsid(hsid)).length;
+}
+
+      UNION
+      SELECT m.source_player_id AS source_playerid,
+             sp.playerid::text AS canonical_playerid
+      FROM school_players sp
+      JOIN public.player_source_map m ON m.playerid=sp.playerid
+       AND m.source='tbc' AND m.is_verified IS TRUE
+       AND m.match_method='duplicate_tbc_record'
+    ),
+
     confirmed_game_log_players AS MATERIALIZED (
       ${confirmed2026GameLogPlayersSql('SELECT playerid::text FROM school_players')}
     ),
