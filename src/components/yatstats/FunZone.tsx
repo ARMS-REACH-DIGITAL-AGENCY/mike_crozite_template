@@ -1512,7 +1512,7 @@ export default function FunZone({
         /* Real PPP snapshot at the same aspect ratio as the career-path hero. */
         .fz-story-preview { width:100%; height:100%; min-width:0; min-height:0; display:flex; flex-direction:column; gap:clamp(5px,1.4cqi,8px); }
         .fz-story-preview-image { display:block; width:100%; flex:1; min-height:0; overflow:hidden; background:#07120e; border-radius:5px; }
-        .fz-story-preview-image img { display:block; width:100%; height:100%; object-fit:cover; }
+        .fz-story-preview-image img { display:block; width:100%; height:100%; object-fit:contain; }
         .fz-story-preview-loading { display:flex; flex-direction:column; gap:5px; height:100%; align-items:center; justify-content:center; text-align:center; padding:7px; box-sizing:border-box; color:#f1f1f1; }
         .fz-story-preview-loading i { color:#ffb21a; font-size:clamp(18px,5cqi,30px); }
         .fz-story-preview-loading strong { font:800 clamp(12px,3.7cqi,20px) "Bebas Neue",Oswald,sans-serif; }
