@@ -73,9 +73,16 @@ export async function GET(req: NextRequest) {
           f.current_team_name,
           f.current_org_or_conference_name,
           f.level_label,
-          -- An existing stage Team ID wins; a unique college registry ID
-          -- fills an absent one even when the stage's conference is outdated.
-          coalesce(nullif(btrim(f.current_teamid), ''), college.teamid::text, m.teamid::text) as current_teamid,
+          -- College records keep the known TeamID, or use the uniquely
+          -- verified college registry when conference labels are obsolete.
+          -- Pro roster stages can retain a stale pre-trade/pre-promotion ID;
+          -- preserve the existing canonical name-mapping precedence for them.
+          case when upper(btrim(coalesce(f.level_label, ''))) in
+            ('NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'CCCAA', 'NWAC')
+            then coalesce(nullif(btrim(f.current_teamid), ''), college.teamid::text, m.teamid::text)
+            else coalesce(m.teamid::text,
+              case when f.current_team_source = 'identity_reconciled_2026' then f.current_teamid end)
+          end as current_teamid,
           ss.hsname,
           ss.hslocation
         from ${PLAYER_STAGE_IDENTITY_SOURCE} f
