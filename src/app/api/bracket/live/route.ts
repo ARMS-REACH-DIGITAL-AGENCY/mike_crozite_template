@@ -35,7 +35,7 @@ import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
 export const dynamic = 'force-dynamic';
 
 type StageRow = {
-  playerid: string; hsid: string; display_name: string | null; first_name: string | null; last_name: string | null;
+  playerid: string; yatid: string | null; hsid: string; display_name: string | null; first_name: string | null; last_name: string | null;
   status_label: string | null; level_label: string | null; display_level_label: string | null;
   position: string | null; current_team_name: string | null;
 };
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const { rows: stage } = await query<StageRow>(
-      `SELECT playerid::text AS playerid, hsid::text AS hsid, display_name, first_name, last_name, status_label,
+      `SELECT playerid::text AS playerid, yatid, hsid::text AS hsid, display_name, first_name, last_name, status_label,
               level_label, display_level_label, position, current_team_name
          FROM flip_card_front_stage
         WHERE hsid::text = ANY($1)`,
@@ -104,6 +104,12 @@ export async function GET(req: NextRequest) {
     const usage = await getSeasonUsageByPlayerIds(active.map((r) => r.playerid)).catch(() => ({} as Record<string, { ab: number; pg: number }>));
     const roster: Record<string, [string, string, string, 0 | 1, string][]> = Object.fromEntries(hsids.map((id) => [id, []]));
     const schoolOf = new Map<string, string>();
+    // Additive identity envelope. Game-log joins and legacy score tuples
+    // retain their original source keys and produce identical contributions.
+    const yatIdentityBySourceId: Record<string, string> = {};
+    for (const r of active) {
+      if (r.yatid) yatIdentityBySourceId[r.playerid] = r.yatid;
+    }
     for (const r of active) {
       const name = text(r.display_name) || [text(r.first_name), text(r.last_name)].filter(Boolean).join(' ') || r.playerid;
       (roster[r.hsid] ||= []).push([r.playerid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0, text(r.current_team_name)]);
@@ -206,7 +212,8 @@ export async function GET(req: NextRequest) {
     for (const r of fanRows) (fans[r.hsid] ||= Array(weeks).fill(0))[Number(r.w) - 1] = Number(r.n);
 
     return NextResponse.json(
-      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games, fans },
+      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games, fans,
+        yatIdentityBySourceId },
       { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
     );
   } catch (error) {

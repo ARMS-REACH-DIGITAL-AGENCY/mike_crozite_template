@@ -1,0 +1,28 @@
+name: YAT identity compatibility regression
+
+on:
+  pull_request:
+    branches: [Easter-NEWS]
+    paths:
+      - 'src/lib/db.ts'
+      - 'src/lib/yatPlayerIdentity.ts'
+      - 'src/app/api/players/**'
+      - 'src/app/api/bracket/live/route.ts'
+      - 'migrations/20261113_yat_*'
+      - 'scripts/test-yat-identity-cutover.cjs'
+      - '.github/workflows/yat-identity-regression.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  identity-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify YAT identifiers and stable bracket scoring keys
+        run: node scripts/test-yat-identity-cutover.cjs

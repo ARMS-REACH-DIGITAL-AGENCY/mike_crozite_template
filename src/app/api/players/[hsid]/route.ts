@@ -144,7 +144,8 @@ export async function GET(
         const isPitcher = isPitcherRole(stats, position);
 
         return {
-          playerid: id,
+          playerid: id, // Historical gameplay/source key; never silently renumber.
+          yatid: text(stage.yatid) || null, // Permanent YAT identity for integrations.
           display_name: displayName,
           firstname: firstName || null,
           lastname: lastName || null,

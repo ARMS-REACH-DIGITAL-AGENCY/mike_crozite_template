@@ -116,11 +116,11 @@ export async function GET(req: NextRequest) {
           ) then 0 when c.source_rank = 'stage' then 1 else 2 end,
           c.hsid
       )
-      select c.*, t.current_team_name, t.status_label
+      select c.*, t.current_team_name, t.status_label, t.yatid
       from canonical_matches c
       -- His current team (the row's second line in the search drawer).
       left join lateral (
-        select f.current_team_name, f.status_label from ${PLAYER_STAGE_IDENTITY_SOURCE} f
+        select f.current_team_name, f.status_label, f.yatid from ${PLAYER_STAGE_IDENTITY_SOURCE} f
          where f.playerid::text = c.playerid and f.hsid::text = c.hsid
          limit 1
       ) t on true
@@ -142,7 +142,8 @@ export async function GET(req: NextRequest) {
       const micrositeUrl = canonicalUrls.get(String(schoolId)) || `https://yatstats.com/${encodeURIComponent(String(schoolId))}`;
 
       return {
-        playerId: r.playerid ?? "",
+        playerId: r.playerid ?? "", // Historical profile/share ID
+        yatId: r.yatid ?? null, // Universal YAT person identity
         firstName: r.firstname ?? "",
         lastName: r.lastname ?? "",
         displayName: `${r.firstname ?? ""} ${r.lastname ?? ""}`.trim(),
