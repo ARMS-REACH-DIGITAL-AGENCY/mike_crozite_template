@@ -660,7 +660,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
     .replaceAll('ph.hsid', 'f.hsid')
     // player_hsids.hsid is integer; flip_card_front_stage.hsid is text.
     // $1 is inferred as integer in the original school roster predicate.
-    .replace(/f\\.hsid\\s*=\\s*\\$1\\b/g, 'f.hsid = $1::text');
+    .replace(/f\.hsid\s*=\s*\$1\b/g, 'f.hsid = $1::text');
   return `
     WITH school_players AS (
       SELECT
