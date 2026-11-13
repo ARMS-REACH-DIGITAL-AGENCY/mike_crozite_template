@@ -68,9 +68,11 @@ function Fallback({ srcs, className, alt, fitHeight }: { srcs: string[]; classNa
   // box 1.7x as wide instead, reaching left under the headline with a soft
   // fade, so his head lands about where a full-figure picture's does.
   const onLoad = fitHeight ? (e: React.SyntheticEvent<HTMLImageElement>) => {
+    // The picture's own box (.yft-person, before yft-wide applies) is the
+    // player box; object-fit:contain draws the picture box.width wide.
     const el = e.currentTarget;
-    const box = el.parentElement ? el.getBoundingClientRect() : null;
-    setWide(Boolean(box && el.naturalWidth && el.naturalHeight && box.height && box.width / (el.naturalWidth / el.naturalHeight) < 0.5 * box.height));
+    const box = el.getBoundingClientRect();
+    setWide(Boolean(el.naturalWidth && el.naturalHeight && box.height && box.width / (el.naturalWidth / el.naturalHeight) < 0.5 * box.height));
   } : undefined;
   // eslint-disable-next-line @next/next/no-img-element
   return <img className={`${className}${wide ? ' yft-wide' : ''}`} src={srcs[i]} alt={alt} loading="lazy" decoding="async" onLoad={onLoad}
