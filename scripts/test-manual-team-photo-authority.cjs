@@ -18,7 +18,8 @@ const key = 'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then/180
 assert.deepEqual(front(key), [
   'https://yatstats-assets.s3.us-west-2.amazonaws.com/players/then-card/180634.webp?v=approved-20261030',
   key,
-], 'Jamie uses two renditions of the SAME approved photo');
+  '/_next/image?url='+encodeURIComponent(key)+'&w=640&q=75',
+], 'Jamie uses two direct renditions and same-asset on-domain fallback');
 assert.deepEqual(front('https://example.com/photo.jpg'), ['https://example.com/photo.jpg'],
   'Do not guess alternate images from external or non-designated URLs');
 assert.deepEqual(front(''), []);
