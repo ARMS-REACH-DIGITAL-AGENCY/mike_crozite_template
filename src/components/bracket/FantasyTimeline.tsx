@@ -534,12 +534,17 @@ export default function FantasyTimeline() {
       setWeekSel((x) => ({ ...x, [r.round]: w }));
       return w;
     }
-    const next = rounds[r.round];  // rounds[] is 0-based: the round after r
-    if (r.round < currentRound && next) {
+    // The next round to play: skip rounds with no stories (byes, TBD), which
+    // would never start a timer, but always stop at the current round.
+    const at2 = rounds.indexOf(r);
+    const ni = r.round < currentRound ? rounds.findIndex((x, j) => j > at2 && (x.round >= currentRound || x.cards.some((c) => x.stories[c.week]?.length))) : -1;
+    const next = ni >= 0 ? rounds[ni] : undefined;
+    if (next) {
       const w = next.startWeek;
       setWeekSel((x) => ({ ...x, [next.round]: w }));
       const key = `r${next.round}` as FantasyStageKey;
-      selectStage(key); go(r.round); setActive(r.round);
+      const si = stageKeys.indexOf(key);
+      selectStage(key); go(si); setActive(si);
       return -1;
     }
     const w = played[0] ?? r.startWeek;
