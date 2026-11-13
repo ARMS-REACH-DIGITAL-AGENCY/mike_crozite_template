@@ -2737,13 +2737,15 @@ export const getBatchDesignatedPlayerImages = cache(async function getBatchDesig
       image_url: string | null;
       description: string | null;
       source_priority: number;
+      asset_updated_at: string | null;
     }>(
       `WITH designated AS (
          SELECT DISTINCT ON (p.playerid::text)
                 p.playerid::text AS playerid,
                 p.image_url,
                 NULL::text AS description,
-                0 AS source_priority
+                0 AS source_priority,
+                p.updated_at::text AS asset_updated_at
            FROM public.player_photos p
           WHERE p.playerid::text = ANY($1::text[])
             AND p.image_role=$2
@@ -2757,7 +2759,8 @@ export const getBatchDesignatedPlayerImages = cache(async function getBatchDesig
                 m.playerid::text AS playerid,
                 NULL::text AS image_url,
                 m.description,
-                1 AS source_priority
+                1 AS source_priority,
+                m.uploaded_at::text AS asset_updated_at
            FROM public.media_upload m
           WHERE $2='YATSTATS_FRONT'
             AND m.playerid = ANY($1::text[])
@@ -2784,7 +2787,14 @@ export const getBatchDesignatedPlayerImages = cache(async function getBatchDesig
       if (role !== 'YATSTATS_FRONT' || !row.description) continue;
       const approvedKey = approvedPublishedPlayerImageKey(row.description, 'flip_card');
       const fallbackUrl = approvedKey ? storyAssetUrl(approvedKey) : null;
-      if (fallbackUrl) map.set(id, { playerid: id, image_url: fallbackUrl });
+      if (fallbackUrl) {
+        // Approved S3 keys are immutable, but old missing-image responses
+        // can remain cached across an upload or YAT rename. The publication
+        // timestamp is a stable revision (no per-request cache bust).
+        const revision = row.asset_updated_at
+          ? `?v=${encodeURIComponent(row.asset_updated_at)}` : '';
+        map.set(id, { playerid: id, image_url: fallbackUrl + revision });
+      }
     }
     return map;
   } catch (error) {
