@@ -6,6 +6,15 @@ const page = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
 const short = read('src/app/[hsid]/p/[playerId]/route.ts');
 const og = read('src/app/api/og/player-profile/route.tsx');
 const helper = read('src/lib/playerProfileShare.ts');
+const middleware = read('src/middleware.ts');
+const nextConfig = read('next.config.ts');
+const lightweight = read('src/app/api/share/player/route.ts');
+assert.match(middleware, /Google-PageRenderer/, 'Google Messages renderer must receive lightweight player metadata');
+assert.match(nextConfig, /Google-PageRenderer/, 'Google renderer needs OG metadata in the initial HTML head');
+assert.match(lightweight, /og:image:secure_url/, 'messaging crawlers need a secure image URL');
+assert.match(lightweight, /og:image:type.*image\/png/, 'messaging crawlers need the PNG image MIME type');
+assert.match(helper, /schoolHostnamePattern\(hostname\)\?\.type === 'named'/, 'named school links must not prepend duplicate HSID in canonical URLs');
+
 assert.match(page, /if \(!storyId\) return defaultPlayerShareMetadata\(/, 'ordinary player links must have metadata');
 assert.match(page, /if \(!r\) return defaultPlayerShareMetadata\(/, 'missing stories must fall back to player metadata');
 assert.match(page, /openGraph:[\s\S]*images: \[\{ url: info\.image, width: 1200, height: 630/, 'player OG card must be large');

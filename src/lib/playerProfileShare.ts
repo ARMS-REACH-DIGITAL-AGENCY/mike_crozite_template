@@ -1,5 +1,6 @@
 // Shared Open Graph details for player-profile links and short /p/{id} links.
 // Keep this module pure so the profile page and short-link handler agree.
+import { schoolHostnamePattern } from './schoolDirectoryRouting';
 export const PLAYER_PREVIEW_BOT = /bot|crawler|spider|facebookexternalhit|twitterbot|slackbot|discord|whatsapp|telegram|linkedinbot|skypeuripreview|google-structured-data|pinterest|vkshare|redditbot|preview/i;
 
 export function escapePlayerPreviewHtml(value: string): string {
@@ -19,7 +20,13 @@ export function playerProfileShareInfo(input: {
   const title = name + ' | YAT?STATS Player Profile';
   const description = 'Explore ' + name + "'s baseball career timeline, photos, stats and stories" + (school ? ' from ' + school : '') + ' on YAT?STATS.';
   const image = input.origin + '/api/og/player-profile?playerId=' + encodeURIComponent(input.playerId) + '&hsid=' + encodeURIComponent(input.hsid) + '&v=real-timeline-only-v1';
-  const url = input.origin + '/' + encodeURIComponent(input.hsid) + '/player/' + encodeURIComponent(input.playerId) + '/' + encodeURIComponent(input.slug);
+  // On named school domains the host already identifies the school.
+  // Adding /{hsid} makes og:url differ from the link shared by fans.
+  // Numeric staging hosts and the apex keep the explicit school prefix.
+  const hostname = new URL(input.origin).hostname;
+  const prefix = schoolHostnamePattern(hostname)?.type === 'named'
+    ? '' : '/' + encodeURIComponent(input.hsid);
+  const url = input.origin + prefix + '/player/' + encodeURIComponent(input.playerId) + '/' + encodeURIComponent(input.slug);
   return { title, description, image, url, name, school };
 }
 

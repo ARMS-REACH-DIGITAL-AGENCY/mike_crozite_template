@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // uses the GoogleMessages fetcher and cannot rely on late body metadata.
   // Preserve the full Next.js default HTML-limited bot list when extending it.
   // Never block metadata for human browsers: gallery performance depends on it.
-  htmlLimitedBots: /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|GoogleMessages|TelegramBot/i,
+  htmlLimitedBots: /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|GoogleMessages|Google-PageRenderer|TelegramBot/i,
   outputFileTracingIncludes: {
     '/api/cron/player-profile-snapshot': [
       './chromium-bin/**/*',

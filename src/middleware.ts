@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const host = request.headers.get('host') || request.nextUrl.hostname;
   // Link preview crawlers receive OG tags without rendering full PPP.
-  const shareCrawler = /GoogleMessages|facebookexternalhit|Twitterbot|WhatsApp|SkypeUriPreview|LinkedInBot|Slackbot|Discordbot|TelegramBot|BingPreview|Applebot|Pinterest|redditbot|vkShare/i.test(request.headers.get('user-agent') || '');
+  const shareCrawler = /GoogleMessages|Google-PageRenderer|facebookexternalhit|Twitterbot|WhatsApp|SkypeUriPreview|LinkedInBot|Slackbot|Discordbot|TelegramBot|BingPreview|Applebot|Pinterest|redditbot|vkShare/i.test(request.headers.get('user-agent') || '');
   const shareMatch = path.match(/^\/(?:(\d{1,20})\/)?player\/([A-Za-z0-9_-]{1,40})\/([A-Za-z0-9_-]{1,160})\/?$/i);
   if (shareCrawler && shareMatch &&
       !request.nextUrl.searchParams.has('story') &&
