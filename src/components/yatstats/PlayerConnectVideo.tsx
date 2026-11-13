@@ -127,10 +127,10 @@ export default function PlayerConnectVideo({ playerId, firstName, portalHref = '
       <header className="yp-connect-program-intro">
         <div className="yp-connect-program-eyebrow"><i className="ri-video-chat-line" aria-hidden="true" /> YAT-A-BOY PLAYER CONNECT <span>COMING SOON</span></div>
         <h2>CONNECT WITH {name}</h2>
-        <p>Celebrate the people and moments that matter with a personal video message from a hometown baseball alumnus.</p>
       </header>
 
       <ConnectOccasionGallery playerName={firstName || undefined} />
+      <p className="yp-connect-program-description">Celebrate the people and moments that matter with a personal video message from a hometown baseball alumnus.</p>
 
       {video ? (
         <div className="yp-connect-recorded">
@@ -178,6 +178,7 @@ export default function PlayerConnectVideo({ playerId, firstName, portalHref = '
         </div>
       )}
       <style jsx>{`
+        .yp-connect-program-description{align-self:stretch;max-width:620px;margin:0;text-align:left!important;color:var(--muted,#bcbcbc);font:400 13px/1.5 var(--yat-font-ui,Arial,sans-serif);}
         .yp-connect-program-intro{align-self:stretch;display:flex;flex-direction:column;gap:7px;text-align:left;}
         .yp-connect-program-eyebrow{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font:800 11px/1.25 var(--yat-font-compact,'Arial Narrow',sans-serif);letter-spacing:.08em;}
         .yp-connect-program-eyebrow i{color:#ffbc36;font-size:19px;}
