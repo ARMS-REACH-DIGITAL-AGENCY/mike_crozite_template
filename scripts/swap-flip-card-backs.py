@@ -18,10 +18,14 @@ DRY = os.environ.get('DRY_RUN', 'false').lower() == 'true'
 s3 = boto3.client('s3', region_name='us-west-2')
 
 def exists(key):
+    # Only a real 404 means "absent"; any other error stops the run, so an
+    # original is never overwritten without its archive copy.
     try:
         return s3.head_object(Bucket=BUCKET, Key=key)
-    except ClientError:
-        return None
+    except ClientError as e:
+        if e.response.get('Error', {}).get('Code') in ('404', 'NoSuchKey', 'NotFound'):
+            return None
+        raise
 
 def main():
     files = sorted(pathlib.Path('data/flip-card-back-swaps').glob('*.jpg'))
@@ -30,8 +34,11 @@ def main():
         if not pid.isdigit():
             continue
         data = f.read_bytes()
-        cur = exists(f'players/back/{pid}.jpg')
-        if cur and cur.get('Metadata', {}).get('sha256') == hashlib.sha256(data).hexdigest():
+        sha = hashlib.sha256(data).hexdigest()
+        # Current only when BOTH files carry this swap's hash, so a run that
+        # failed between the two uploads is retried in full.
+        done = [exists(k) for k in (f'players/back/{pid}.jpg', f'players/back-card/{pid}.webp')]
+        if all(d and d.get('Metadata', {}).get('sha256') == sha for d in done):
             print(pid, 'already current'); continue
         for k, ext in (('back', 'jpg'), ('back-card', 'webp')):
             src, arc = f'players/{k}/{pid}.{ext}', f'players/back-archive/{k}-{pid}-before-swap.{ext}'
@@ -44,9 +51,8 @@ def main():
         ImageOps.fit(img, (1200, 420), Image.LANCZOS).save(card, 'WEBP', quality=85)
         print('upload', pid, len(data), 'bytes;', 'card', card.tell(), 'bytes')
         if not DRY:
-            s3.put_object(Bucket=BUCKET, Key=f'players/back/{pid}.jpg', Body=data, ContentType='image/jpeg', CacheControl=CC,
-                          Metadata={'sha256': hashlib.sha256(data).hexdigest()})
-            s3.put_object(Bucket=BUCKET, Key=f'players/back-card/{pid}.webp', Body=card.getvalue(), ContentType='image/webp', CacheControl=CC)
+            s3.put_object(Bucket=BUCKET, Key=f'players/back/{pid}.jpg', Body=data, ContentType='image/jpeg', CacheControl=CC, Metadata={'sha256': sha})
+            s3.put_object(Bucket=BUCKET, Key=f'players/back-card/{pid}.webp', Body=card.getvalue(), ContentType='image/webp', CacheControl=CC, Metadata={'sha256': sha})
     return 0
 
 if __name__ == '__main__':
