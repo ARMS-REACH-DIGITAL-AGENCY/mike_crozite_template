@@ -1,5 +1,6 @@
 'use client';
 import { teamLogoPath } from '@/lib/teamLogo';
+import { refreshPublishedTeamLogo } from '@/lib/teamLogoRefresh';
 
 // The Photo Contribution drawer, top to bottom:
 //   1. Upload +
@@ -457,8 +458,11 @@ export default function ContributePhotoFlow({
         // The timeline listens for this event; router.refresh covers server
         // rendered card/headshot/logo slots without requiring a manual reload.
         window.dispatchEvent(new CustomEvent('yat:contribute-photo-published', {
-          detail: { playerId: main?.playerId || '', purpose: type.id, uploadId: body?.id || '' },
+          detail: { playerId: main?.playerId || '', purpose: type.id, teamId: type.id === 'team_logo' ? teamId : '', uploadId: body?.id || '' },
         }));
+        // Keep the open page's images in sync without making the contributor
+        // manually reload. The server also returns uncached logo decisions.
+        if (type.id === 'team_logo' && teamId) refreshPublishedTeamLogo(teamId, String(body?.id || Date.now()));
         router.refresh();
         if (type.id === 'timeline_hero') setHeroRefresh((value) => value + 1);
       }
