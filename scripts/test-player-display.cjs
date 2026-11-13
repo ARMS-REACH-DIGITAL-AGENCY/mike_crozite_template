@@ -87,6 +87,7 @@ function load(relativePath) {
     exports: exported, process: { env: {} }, global: { __pgPoolShutdownRegistered: true },
     console: { ...console, error: () => {} },
     require(name) {
+      if (name.endsWith('.css')) return {};
       if (name === 'react/jsx-runtime') return testJsxRuntime;
       if (name === 'pg') return database;
       if (name === 'server-only') return {};
