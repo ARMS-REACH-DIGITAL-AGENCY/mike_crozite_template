@@ -12,8 +12,8 @@ const lightweight = read('src/app/api/share/player/route.ts');
 assert.match(middleware, /Google-PageRenderer/, 'Google Messages renderer must receive lightweight player metadata');
 assert.match(nextConfig, /Google-PageRenderer/, 'Google renderer needs OG metadata in the initial HTML head');
 assert.match(lightweight, /og:image:secure_url/, 'messaging crawlers need a secure image URL');
-assert.match(lightweight, /og:image:type.*image\\/png/, 'messaging crawlers need the PNG image MIME type');
-assert.match(helper, /schoolHostnamePattern\\(hostname\\)\\?\\.type === 'named'/, 'named school links must not prepend duplicate HSID in canonical URLs');
+assert.match(lightweight, /og:image:type.*image\/png/, 'messaging crawlers need the PNG image MIME type');
+assert.match(helper, /schoolHostnamePattern\(hostname\)\?\.type === 'named'/, 'named school links must not prepend duplicate HSID in canonical URLs');
 
 assert.match(page, /if \(!storyId\) return defaultPlayerShareMetadata\(/, 'ordinary player links must have metadata');
 assert.match(page, /if \(!r\) return defaultPlayerShareMetadata\(/, 'missing stories must fall back to player metadata');
