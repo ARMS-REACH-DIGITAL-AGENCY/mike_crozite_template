@@ -10,4 +10,11 @@ assert(favorites.includes("if (opening) card.querySelector<HTMLElement>('.fz-tab
 assert(zone.includes('if(!retiredPlayer || activeTab!==\'schedule\') return'));
 assert(zone.includes('if (!card?.classList.contains(\'is-flipped\')) return'));
 assert(zone.includes('activeTab === "schedule" ? " fz-panel-active"'));
-console.log('PASS first-tab flip ordering, active/retired content and lazy loading');
+// Every News placeholder must link to a REAL school-scoped portal route on
+// bare Vercel preview hosts and on canonical school domains alike.
+assert(zone.includes('const tipsHref = `/${encodeURIComponent(resolvedHsid)}/connect-contribute?contribute=tip&playerId=${encodeURIComponent(playerId)}`'));
+const portal=read('src/components/yatstats/ContributeGuide.tsx');
+assert(portal.includes("const action = params.get('contribute')"));
+assert(portal.includes("action === 'tip'"));
+assert(portal.includes("openContribute({ tab, photoType, ...(player ? { player } : {}) })"));
+console.log('PASS first-tab flip ordering, active/retired content, lazy loading and school-scoped News tip links');

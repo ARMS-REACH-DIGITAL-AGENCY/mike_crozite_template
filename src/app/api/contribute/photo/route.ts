@@ -33,6 +33,7 @@ import {
 } from '@/lib/contributeServer';
 import { CONTRIBUTE_MODERATION_POLICY_VERSION, moderatePhoto } from '@/lib/contributeModeration';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
+import { refreshRealTimelineSnapshot } from '@/lib/realTimelineSnapshotQueue';
 
 export const runtime = 'nodejs';
 // The automatic review (Claude) and putting an approved photo on the site
@@ -149,6 +150,11 @@ export async function PATCH(req: NextRequest) {
     [id, `${year}-01-01`, JSON.stringify(corrected), record.date_taken.slice(0,10)]
   );
   if (!updated.length) return fail('That year already has a hero, or the photo changed. Refresh and choose another year.', 409);
+  // Refresh the flip-card Stories preview from the now-updated PPP.
+  const refreshedSchool = await query<{hsid:string | null}>(
+    'SELECT hsid::text AS hsid FROM flip_card_front_stage WHERE playerid::text=$1 LIMIT 1', [record.playerid]
+  ).catch(() => ({ rows: [] as {hsid:string | null}[] }));
+  if (refreshedSchool.rows[0]?.hsid) await refreshRealTimelineSnapshot(refreshedSchool.rows[0].hsid!, record.playerid);
   await logContribution(who,'contribute_photo_year_correction',{
     playerid:record.playerid,hsid:null,pageUrl:req.nextUrl.href,
     details:{upload_id:id,from_year:oldYear,to_year:year},
@@ -195,6 +201,10 @@ export async function DELETE(req: NextRequest) {
     [id,playerId,JSON.stringify(archived),`${year}-01-01`]
   );
   if (!updated.length) return fail('The image changed before removal. Refresh and try again.', 409);
+  const refreshedSchool = await query<{hsid:string | null}>(
+    'SELECT hsid::text AS hsid FROM flip_card_front_stage WHERE playerid::text=$1 LIMIT 1', [record.playerid]
+  ).catch(() => ({ rows: [] as {hsid:string | null}[] }));
+  if (refreshedSchool.rows[0]?.hsid) await refreshRealTimelineSnapshot(refreshedSchool.rows[0].hsid!, record.playerid);
   await logContribution(who, 'contribute_photo_hero_archive', {
     playerid:playerId,hsid:null,pageUrl:req.nextUrl.href,
     details:{upload_id:id,year,mode:'archive_preserve_original'},
@@ -484,6 +494,9 @@ export async function POST(req: NextRequest) {
       );
     }
     if (status === 'approved') {
+      if (PLAYER_ID.test(playerId) && /^\d+$/.test(hsid) && (purpose === 'timeline_hero' || purpose === 'flip_card' || purpose === 'back_hero' || purpose === 'headshot' || purpose === 'other_photo')) {
+        await refreshRealTimelineSnapshot(hsid, playerId);
+      }
       await notifyContributor(details.by, 'posted', { purpose, playerId, playerName, hsid, year, pageUrl });
     }
     // Approved: where to see it (a path on this school's site).

@@ -61,6 +61,7 @@ const route = compile('src/app/api/contribute/photo/route.ts', {
     moderatePhoto: async () => ({ decision: 'approve' }),
   },
   '@/lib/gohighlevel': { findOrCreateGhlContact: async () => null, sendGHLEmail: async () => {} },
+  '@/lib/realTimelineSnapshotQueue': { refreshRealTimelineSnapshot: async () => {} },
 }, { File, Buffer, Date: FixedDate });
 
 async function send(purpose, year) {
