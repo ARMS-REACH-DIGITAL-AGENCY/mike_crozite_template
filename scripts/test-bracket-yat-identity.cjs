@@ -34,8 +34,8 @@ assert.doesNotMatch(route, /WHERE playerid::text = ANY\(\$1\)/,
   'Tournament line collection must not use provider source identity');
 assert.match(live, /yatIdentityBySourceId\?: Record<string, string>/);
 assert.match(batches, /Object\.assign\(into\.yatIdentityBySourceId/);
-assert.match(resultJob, /JOIN public.yat_registry_ids ids/);
-assert.match(resultJob, /ids.yatid = ANY\(\$1::text\[\]\)/);
+assert.match(resultJob, /FROM public.yat_registry_ids ids/);
+assert.match(resultJob, /ids.yatid=ANY\(\$1::text\[\]\)/);
 assert.match(gallery, /id: String\(r.yatid \|\| r.playerid\)/);
 assert.match(gallery, /current.get\(id\) \|\| current.get\(legacyId\)/);
 assert.match(gallery, /next\[0\] = id/);
