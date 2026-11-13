@@ -80,14 +80,16 @@ type RoundSlide = {
   lastWeek: number;
   complete: boolean;
   stories: Record<number, (DayStory & { label: string })[]>; // each week's stories, in order
-  defaultWeek: number; // the week the slide opens on
+  defaultWeek: number; // the week the slide's title/summary lead with
+  startWeek: number; // the week playback starts on: the round's first game with stories
 };
 
 type Story = DayStory & { label: string };
-// How long each story shows before dissolving into the next: a game in
-// progress 10s, a finished one 6s.
-const LIVE_STORY_MS = 10_000;
-const FINAL_STORY_MS = 6_000;
+// How long each story shows before dissolving into the next (Pete, Nov 13:
+// twice as long, so a story can be read before it changes): a game in
+// progress 20s, a finished one 12s.
+const LIVE_STORY_MS = 20_000;
+const FINAL_STORY_MS = 12_000;
 
 function starHeadline(star: Star | undefined, round: number, done: number, wins: number, losses: number) {
   if (!star) {
@@ -112,7 +114,7 @@ function starHeadline(star: Star | undefined, round: number, done: number, wins:
   return `${surname} DELIVERS`;
 }
 
-function buildSummary(index: Index, slide: Omit<RoundSlide, 'summary' | 'title' | 'heroIdentity' | 'stories' | 'defaultWeek'>, me: number, stars: Record<number, Star>) {
+function buildSummary(index: Index, slide: Omit<RoundSlide, 'summary' | 'title' | 'heroIdentity' | 'stories' | 'defaultWeek' | 'startWeek'>, me: number, stars: Record<number, Star>) {
   const schoolName = shortName(index.schools[me]?.[0] || 'This school');
   const oppName = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || '') : '';
   if (!slide.done.length) {
@@ -204,19 +206,29 @@ function SeriesGame({ n, away, home, runs, winner }: {
   );
 }
 
-function Slide({ index, slide, me, week, onTap }: { index: Index; slide: RoundSlide; me: number; week: number; onTap: () => void }) {
+function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
+  index: Index; slide: RoundSlide; me: number; week: number; onTap: () => void;
+  // Only the slide on screen plays. At the end of a week's stories the
+  // timeline picks what comes next (see onWeekEnd there); the week it returns
+  // replays from its first story when it is this same week.
+  playing: boolean; onWeekEnd: () => number;
+}) {
   const schoolName = shortName(index.schools[me]?.[0] || '');
-  // The week's stories, newest first, then round and round.
+  // The week's stories in order: Game N's innings, then its final.
   const list = slide.stories[week] || [];
   const live = slide.cards.find((c) => c.week === week)?.state === 'live';
   const [turn, setTurn] = useState({ key: '', i: 0 });
   const listKey = `${week}:${list.length}`;
-  const i = turn.key === listKey ? turn.i : Math.max(0, list.length - 1);
+  const i = turn.key === listKey ? Math.min(turn.i, Math.max(0, list.length - 1)) : 0;
   useEffect(() => {
-    if (list.length < 2) return;
-    const t = window.setTimeout(() => setTurn({ key: listKey, i: (i + 1) % list.length }), live ? LIVE_STORY_MS : FINAL_STORY_MS);
+    if (!playing || !list.length) return;
+    const t = window.setTimeout(() => {
+      if (i + 1 < list.length) { setTurn({ key: listKey, i: i + 1 }); return; }
+      // Last story of this game: on to the next game (or back to the round's first).
+      if (onWeekEnd() === week) setTurn({ key: listKey, i: 0 });
+    }, live ? LIVE_STORY_MS : FINAL_STORY_MS);
     return () => window.clearTimeout(t);
-  }, [i, listKey, list.length, live]);
+  }, [i, listKey, list.length, live, playing, onWeekEnd, week]);
   const day: Story | undefined = list[i];
   const title = day?.title || slide.title;
   const summary = day?.summary || slide.summary;
@@ -447,12 +459,14 @@ export default function FantasyTimeline() {
       });
       const withNews = list.filter((c) => stories[c.week]?.length).map((c) => c.week);
       const defaultWeek = lead >= firstWeek && lead <= lastWeek ? lead : withNews[withNews.length - 1] || firstWeek;
+      const startWeek = withNews[0] || firstWeek;
       const latest = stories[defaultWeek] || [];
       const day = latest[latest.length - 1];
       return {
         ...base,
         stories,
         defaultWeek,
+        startWeek,
         title: day?.title || starHeadline(heroStar, round, done.length, wins, losses),
         summary: day?.summary || buildSummary(data.index, base, me, stars),
         heroIdentity: heroStar ? identities[heroStar[5]] : undefined,
@@ -504,6 +518,35 @@ export default function FantasyTimeline() {
     if(key&&key!==nav.stageKey)selectStage(key);
   };
 
+  // Recap playback (Pete, Nov 13): a round plays its games in order - Game 1
+  // inning by inning to its final, then Game 2, then Game 3 - and after the
+  // latest game played, starts over at that round's Game 1. It opens on the
+  // current round. Picking an earlier round plays forward from there, round
+  // after round, up to the current round, which then loops.
+  const weekOf = (r: RoundSlide) => weekSel[r.round] ?? r.startWeek;
+  const leadNow = cal ? leadWeek(cards, cal.week) : 1;
+  const currentRound = Math.max(1, Math.min(10, Math.ceil(Math.max(1, leadNow) / 3)));
+  const nextAfter = (r: RoundSlide) => (): number => {
+    const played = r.cards.filter((c) => r.stories[c.week]?.length).map((c) => c.week);
+    const at = played.indexOf(weekOf(r));
+    if (at >= 0 && at < played.length - 1) {
+      const w = played[at + 1];
+      setWeekSel((x) => ({ ...x, [r.round]: w }));
+      return w;
+    }
+    const next = rounds[r.round];  // rounds[] is 0-based: the round after r
+    if (r.round < currentRound && next) {
+      const w = next.startWeek;
+      setWeekSel((x) => ({ ...x, [next.round]: w }));
+      const key = `r${next.round}` as FantasyStageKey;
+      selectStage(key); go(r.round); setActive(r.round);
+      return -1;
+    }
+    const w = played[0] ?? r.startWeek;
+    setWeekSel((x) => ({ ...x, [r.round]: w }));
+    return w;
+  };
+
   if (!data || !rounds.length) return <section className="yft-hero" aria-label="The season, round by round"><BallparkScene /></section>;
 
   return (
@@ -513,8 +556,9 @@ export default function FantasyTimeline() {
         {rounds.map((r)=>{
           const focus=r.cards.find(c=>c.week===(cal?leadWeek(cards,cal.week):0))||[...r.done].reverse()[0]||r.cards[0];
           const key=`r${r.round}` as FantasyStageKey;
-          const week=weekSel[r.round]??r.defaultWeek;
-          return <Slide key={key} index={data.index} slide={r} me={me} week={week} onTap={()=>{selectStage(key);focusWeek(week||focus?.week||r.firstWeek);}}/>;
+          const week=weekOf(r);
+          return <Slide key={key} index={data.index} slide={r} me={me} week={week} playing={stageKeys[active]===key} onWeekEnd={nextAfter(r)}
+            onTap={()=>{selectStage(key);focusWeek(week||focus?.week||r.firstWeek);}}/>;
         })}
         {postStages.map((s)=>{
           const stageKnown=(cal?.final||0)>=s.week-1;
@@ -542,7 +586,7 @@ export default function FantasyTimeline() {
           const big=w>30||(w-1)%3===0;
           const label=i<10?`R${i+1}`:i===10?'C1':i===11?'C2':i===12?'CG':'YWS';
           const r=i<10?rounds[i]:null;
-          const picked=i===active&&(!r||(weekSel[r.round]??r.defaultWeek)===w);
+          const picked=i===active&&(!r||weekOf(r)===w);
           const cls=`${big?'':' wk'}${big&&r?.complete&&r.wins>=2?' W':big&&r?.complete&&r.losses>=2?' L':''}${picked?' on':''}${w===(cal?.week||0)?' now':''}`;
           return <button key={w} type="button" className={`yft-tick${cls}`} style={{left:`${(k/33)*100}%`}}
             onClick={()=>{selectStage(key);go(i);if(r)setWeekSel((x)=>({...x,[r.round]:w}));focusWeek(w);}} aria-label={`Week ${w}`}>{big?<span className="yft-tick-label">{label}</span>:null}</button>;
