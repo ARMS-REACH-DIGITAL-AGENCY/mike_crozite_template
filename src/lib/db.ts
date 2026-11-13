@@ -686,7 +686,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
         )
     ),
 
-    // Restrict source IDs before reading the million-row archive.
+    -- Restrict source IDs before reading the million-row archive.
     school_stat_sources AS MATERIALIZED (
       SELECT sp.playerid::text AS source_playerid,
              sp.playerid::text AS canonical_playerid
