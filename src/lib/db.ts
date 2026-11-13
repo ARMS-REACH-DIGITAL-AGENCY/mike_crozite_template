@@ -2890,7 +2890,7 @@ const FLIP_CARD_STAGE_SELECT = `
      AND UPPER(BTRIM(COALESCE(fs.status_label, ''))) = 'COMMIT'
 `;
 
-export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-expanded-universe-20261105', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-yat-stage-authority-20261113', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `WITH ${PLAYER_STAGE_SCHOOL_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
