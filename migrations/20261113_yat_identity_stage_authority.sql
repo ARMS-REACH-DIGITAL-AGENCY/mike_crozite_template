@@ -39,6 +39,26 @@ CREATE TRIGGER trg_stage_player_yatid
   BEFORE INSERT OR UPDATE OF playerid ON public.flip_card_front_stage
   FOR EACH ROW EXECUTE FUNCTION public.resolve_flip_card_yatid_on_identity_change();
 
+CREATE OR REPLACE FUNCTION public.refresh_flip_card_yatid_on_source_link()
+RETURNS trigger LANGUAGE plpgsql AS $linked$
+BEGIN
+  -- A new TBC player may be staged before his YAT registry association is
+  -- imported. Propagate the association once it is verified and attached.
+  -- One stage PK lookup; no request-time school or global identity scan.
+  IF NEW.source IN ('tbc','yat_card') THEN
+    UPDATE public.flip_card_front_stage f SET yatid=NEW.yatid
+      WHERE f.playerid=NEW.source_id AND f.yatid IS DISTINCT FROM NEW.yatid;
+  END IF;
+  RETURN NEW;
+END;
+$linked$;
+
+DROP TRIGGER IF EXISTS trg_yat_source_link_updates_stage ON public.yat_registry_ids;
+
+CREATE TRIGGER trg_yat_source_link_updates_stage
+  AFTER INSERT OR UPDATE OF yatid,source,source_id ON public.yat_registry_ids
+  FOR EACH ROW EXECUTE FUNCTION public.refresh_flip_card_yatid_on_source_link();
+
 DO $check$
 BEGIN
  IF EXISTS (SELECT 1 FROM public.flip_card_front_stage WHERE yatid IS NULL) THEN
