@@ -15,8 +15,8 @@ import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
 //   GET /api/bracket/live?start=2026-10-05&weeks=3&h=25,1546,...
 //
 // Response:
-//   roster: { [hsid]: [playerid, name, level, isPitcher (0|1), club][] }
-//   lines:  [hsid, playerid, day, 'b'|'p', stats[], gameId, club, final (0|1), level][]
+//   roster: { [hsid]: [yatid, name, level, isPitcher (0|1), club][] }
+//   lines:  [hsid, yatid, day, 'b'|'p', stats[], gameId, club, final (0|1), level][]
 //           level: the game's level per MLB's feed (MLB, AAA, AA, A+, A,
 //           ROK, IND, WIN), '' when the line's source doesn't say
 //           day: 0 = start; batting stats [PA AB H 2B 3B HR BB HBP SF],
@@ -103,31 +103,41 @@ export async function GET(req: NextRequest) {
     // rows for his off days. Pitching-only "UT" players still stay pitchers.
     const usage = await getSeasonUsageByPlayerIds(active.map((r) => r.playerid)).catch(() => ({} as Record<string, { ab: number; pg: number }>));
     const roster: Record<string, [string, string, string, 0 | 1, string][]> = Object.fromEntries(hsids.map((id) => [id, []]));
+    // The YAT Registry owns player identity. A TBC/Presto/MLB number is an
+    // external source reference, not a second bracket player. Historical
+    // source keys survive in the separate aliases map for deep links.
     const schoolOf = new Map<string, string>();
-    // Additive identity envelope. Game-log joins and legacy score tuples
-    // retain their original source keys and produce identical contributions.
     const yatIdentityBySourceId: Record<string, string> = {};
     for (const r of active) {
       if (r.yatid) yatIdentityBySourceId[r.playerid] = r.yatid;
     }
     for (const r of active) {
+      // Never silently score an unresolved identity or invent a YAT ID.
+      // A registered source whose stage mapping failed is an audit failure.
+      if (!r.yatid) throw new Error('Bracket roster has missing YAT ID for source player ' + r.playerid);
       const name = text(r.display_name) || [text(r.first_name), text(r.last_name)].filter(Boolean).join(' ') || r.playerid;
-      (roster[r.hsid] ||= []).push([r.playerid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0, text(r.current_team_name)]);
-      schoolOf.set(r.playerid, r.hsid);
+      (roster[r.hsid] ||= []).push([r.yatid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0, text(r.current_team_name)]);
+      const existingSchool = schoolOf.get(r.yatid);
+      if (existingSchool && existingSchool !== r.hsid) {
+        // Multiple simultaneous active school affiliations must be adjudicated,
+        // never assigned by the iteration order of a 64-school API batch.
+        throw new Error('Conflicting active school affiliations for YAT player ' + r.yatid);
+      }
+      schoolOf.set(r.yatid, r.hsid);
     }
 
     const ids = [...schoolOf.keys()];
     const { rows: logRows } = ids.length
       ? await query<LineRow>(
         // One row per player, game and stat type: the newest copy.
-        `SELECT DISTINCT ON (playerid, source_game_id, stat_type)
-                playerid::text AS playerid, (game_date::date - $2::date) AS day, stat_type, stats,
+        `SELECT DISTINCT ON (yatid, source, source_game_id, stat_type)
+                yatid AS playerid, (game_date::date - $2::date) AS day, stat_type, stats,
                 source_game_id::text AS game, team_name AS team, game_status AS status,
                 raw_payload->'sport'->>'abbreviation' AS level
            FROM player_game_logs
-          WHERE playerid::text = ANY($1) AND game_date >= $2::date AND game_date < $2::date + $3::int
+          WHERE yatid = ANY($1::text[]) AND game_date >= $2::date AND game_date < $2::date + $3::int
             AND stat_type IN ('batting', 'pitching')
-          ORDER BY playerid, source_game_id, stat_type, updated_at DESC`,
+          ORDER BY yatid, source, source_game_id, stat_type, updated_at DESC`,
         [ids, start, weeks * 7],
       )
       : { rows: [] as LineRow[] };
