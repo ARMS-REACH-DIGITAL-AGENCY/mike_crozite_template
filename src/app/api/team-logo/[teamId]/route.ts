@@ -28,7 +28,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tea
 
   // Optimized WebP is almost always the first match. Missing artwork can
   // be uploaded under its OWN TeamID and becomes visible after short CDN TTL.
-  for (const url of teamLogoAssetUrls(teamId)) {
+  const candidateYear = request.nextUrl.searchParams.get('year');
+  const year = candidateYear && /^\d{4}$/.test(candidateYear) ? Number(candidateYear) : undefined;
+  for (const url of teamLogoAssetUrls(teamId, year)) {
     if (await isPublishedImage(url)) {
       return NextResponse.redirect(url, {
         status: 302,
