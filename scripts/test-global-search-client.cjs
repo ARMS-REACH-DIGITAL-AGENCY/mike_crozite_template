@@ -478,7 +478,9 @@ function canonicalTeamLogoChecks() {
   assert.match(sql, /unique_college_names as \(/);
   assert.match(sql, /having count\(distinct teamid\) = 1/);
   assert.match(sql, /join public\.teamid_universe_mapping m/);
-  assert.match(sql, /coalesce\(nullif\(btrim\(f\.current_teamid\), ''\), college\.teamid::text, m\.teamid::text\)/);
+  assert.match(sql, /then coalesce\\(nullif\\(btrim\\(f\\.current_teamid\\), ''\\), college\\.teamid::text, m\\.teamid::text\\)/);
+  assert.match(sql, /else coalesce\\(m\\.teamid::text,/);
+  assert.match(sql, /f\\.current_team_source = 'identity_reconciled_2026'/);
   const actual = createEnvironment().exports;
   const rows = [
     { playerId: '359198', firstName: 'AJ', lastName: 'Diaz', currentTeamName: 'College of Southern Nevada', currentTeamId: '20942', levelLabel: 'NJCAA' },
