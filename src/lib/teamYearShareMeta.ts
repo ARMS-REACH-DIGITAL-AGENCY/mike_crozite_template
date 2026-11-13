@@ -27,9 +27,12 @@ export async function teamYearShareMeta(schoolHsid: string, schoolName: string, 
   };
 }
 
-// Only recognize actual link-preview crawlers. App names such as "Telegram", 
-// "Discord", and the generic word "preview" can appear in human webviews.
-const LINK_PREVIEW_BOT = /bot\b|crawler\b|spider\b|facebookexternalhit|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|skypeuripreview|google-structured-data/i;
+// Only recognize actual link-preview crawlers. Google's SMS fetchers use
+// "GoogleMessages" and "Google-PageRenderer" (neither contains "bot").
+// Keep this aligned with middleware.ts and next.config.ts: a 307 redirect
+// instead of OG HTML makes shared team-year URLs appear as plain SMS links.
+// Do not match generic app names or the word "preview" in human webviews.
+const LINK_PREVIEW_BOT = /bot\b|crawler\b|spider\b|GoogleMessages|Google-PageRenderer|BingPreview|facebookexternalhit|slackbot|discordbot|whatsapp|telegrambot|linkedinbot|skypeuripreview|google-structured-data/i;
 const esc = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 // The short team link: link-preview fetchers get the team card; people are

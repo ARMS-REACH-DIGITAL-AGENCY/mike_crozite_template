@@ -42,12 +42,31 @@ export function middleware(request: NextRequest) {
   const host = getHost(request);
   const url = request.nextUrl.clone();
 
+  // Link-preview crawlers must receive player OG metadata before any
+  // school hostname route rewriting. The active middleware entrypoint lives
+  // at the repository root, not src/middleware.ts.
+  const path = url.pathname;
+  const shareMatch = path.match(/^\/(?:(\d{1,20})\/)?player\/([A-Za-z0-9_-]{1,40})\/([A-Za-z0-9_-]{1,160})\/?$/i);
+  const shareCrawler = /GoogleMessages|Google-PageRenderer|facebookexternalhit|Twitterbot|WhatsApp|SkypeUriPreview|LinkedInBot|Slackbot|Discordbot|TelegramBot|BingPreview|Applebot|Pinterest|redditbot|vkShare/i;
+  if (shareMatch && shareCrawler.test(request.headers.get("user-agent") || "") &&
+      !url.searchParams.has("story") &&
+      !url.searchParams.has("whereYatStory") &&
+      !url.searchParams.has("yataboy")) {
+    const preview = request.nextUrl.clone();
+    preview.pathname = "/api/share/player";
+    preview.search = "";
+    if (shareMatch[1]) preview.searchParams.set("hsid", shareMatch[1]);
+    preview.searchParams.set("playerId", shareMatch[2]);
+    preview.searchParams.set("slug", shareMatch[3]);
+    preview.searchParams.set("path", path);
+    return NextResponse.rewrite(preview);
+  }
+
   const rootDomain = getRootDomainForHost(host);
   if (!rootDomain) return NextResponse.next();
 
   const subdomain = host === rootDomain ? "" : host.slice(0, -(rootDomain.length + 1));
   const routePrefix = getRoutePrefixForSubdomain(subdomain);
-  const path = url.pathname;
   const firstSegment = path.split("/").filter(Boolean)[0] || "";
 
   if (/^\d+$/.test(firstSegment)) {
