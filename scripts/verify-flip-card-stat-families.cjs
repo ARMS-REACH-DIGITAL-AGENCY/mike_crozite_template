@@ -51,13 +51,14 @@ assert.equal(orderByPrimaryStatFamily(buckets, "pitching")[0].family, "pitching"
 // Verify the global renderer offers both tabs; never add a player-specific exemption.
 const card = fs.readFileSync("src/components/yatstats/PlayerCardBack.tsx", "utf8");
 const zone = fs.readFileSync("src/components/yatstats/FunZone.tsx", "utf8");
+const zoneCss = fs.readFileSync("src/components/yatstats/FunZone.css", "utf8");
 assert(card.includes('orderByPrimaryStatFamily<FunZoneStatBucket>([...battingTabs, ...pitchingTabs], primaryFamily)'));
 assert(zone.includes('aria-label="Batting or pitching statistics"'));
 assert(zone.includes('{family === "batting" ? "HITTING" : "PITCHING"}'));
 assert(card.includes("if (mapped.length === 1) return mapped;"), "Single-level stat bucket must retain true classification");
 assert(!zone.includes('className="fz-stat-single-level-label"'), "Do not render a redundant third tab/caption row");
 assert(zone.includes('fz-show-single-level'), "Keep single-level classification in existing StatsPanel heading");
-assert(zone.includes('display:flex !important;'), "Expose heading otherwise hidden next to tabs");
+assert(zoneCss.includes('display:flex !important;'), "Expose heading otherwise hidden next to tabs");
 assert(zone.includes('statBarLabel={activeStatsBucket.label}'), "Display the true classification from the stat bucket");
 
 // Injected cross-school Favorites cards have no React hydration.
