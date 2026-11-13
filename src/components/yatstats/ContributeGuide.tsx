@@ -9,6 +9,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SchoolContext } from '@/context/SchoolContext';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
+import { authHeaders, openSignIn, useFanMe } from '@/components/yatstats/StoryViewer';
 import ConnectOccasionGallery from '@/components/yatstats/ConnectOccasionGallery';
 import ConnectIntroSubmission from '@/components/yatstats/ConnectIntroSubmission';
 import type { ContributePlayer } from '@/lib/contribute';
@@ -257,16 +258,24 @@ function Transaction({ item, onPreview, selected, schoolName, crestUrl, schoolLo
 
 function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onClose: () => void }) {
   const school = useContext(SchoolContext);
+  const me = useFanMe();
+  const isVideoInterest = interest === 'video';
+  const signedInName = me ? [me.firstName, me.lastName].filter(Boolean).join(' ').trim() : '';
   const [form, setForm] = useState({ name: '', email: '', phone: '', business: '', message: '', website: '' });
   const [choice, setChoice] = useState<SponsorInterest>(interest);
+  const [requestedPlayer, setRequestedPlayer] = useState<ContributePlayer | null>(null);
   const [state, setState] = useState<{ kind: 'idle' | 'sending' | 'sent' | 'error'; text?: string }>({ kind: 'idle' });
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   if (state.kind === 'sent') {
     return (
       <div className="ccg-form">
-        <p className="ccg-form-done">Thank you{form.name ? `, ${form.name.split(' ')[0]}` : ''}! The YAT?STATS Partner Program Team will be in touch.</p>
-        <button type="button" className="ccg-link" onClick={onClose}>Close</button>
+        <p className="ccg-form-done">
+          {isVideoInterest
+            ? `You're on the interest list for ${requestedPlayer?.displayName || 'your selected player'}. We'll notify you about launch availability.`
+            : `Thank you${form.name ? `, ${form.name.split(' ')[0]}` : ''}! The YAT?STATS Partner Program Team will be in touch.`}
+        </p>
+        {!isVideoInterest ? <button type="button" className="ccg-link" onClick={onClose}>Close</button> : null}
       </div>
     );
   }
@@ -276,14 +285,41 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
       className="ccg-form"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (isVideoInterest && !me) {
+          openSignIn();
+          setState({ kind: 'error', text: 'Join or sign in to YAT?STATS before registering your interest.' });
+          return;
+        }
+        if (isVideoInterest && !requestedPlayer) {
+          setState({ kind: 'error', text: 'Choose the player you would like a video message from.' });
+          return;
+        }
         setState({ kind: 'sending' });
         try {
+          const headers = isVideoInterest ? await authHeaders() : {};
           const res = await fetch('/api/contribute/sponsor', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...form, interest: interest === 'video' ? 'video' : choice, hsid: school?.hsid || '', schoolName: school?.hsName || '', pageUrl: window.location.href }),
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify({
+              ...form,
+              ...(isVideoInterest ? {
+                name: signedInName,
+                email: me?.email || '',
+                playerId: requestedPlayer?.playerId || '',
+                playerName: requestedPlayer?.displayName || '',
+                hsid: requestedPlayer?.schoolId || school?.hsid || '',
+                schoolName: requestedPlayer?.schoolName || school?.hsName || '',
+              } : {
+                hsid: school?.hsid || '',
+                schoolName: school?.hsName || '',
+              }),
+              interest: isVideoInterest ? 'video' : choice,
+              pageUrl: window.location.href,
+            }),
           });
           const body = await res.json().catch(() => ({}));
+          if (res.status === 401) openSignIn();
           if (!res.ok) throw new Error(body?.error || 'That did not go through.');
           setState({ kind: 'sent' });
         } catch (error) {
@@ -291,34 +327,64 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
         }
       }}
     >
-      <div className="ccg-form-title">{interest === 'video' ? 'Video exchange request · pilot interest form' : 'Contact the YAT?STATS Partner Program Team'}</div>
-      {interest === 'video' ? <p className="ccg-video-notice">Video checkout and delivery are not yet active. Leave your details to register interest in the program.</p> : null}
-      {interest !== 'video' ? (
-        <label>I&apos;m interested in
-          <select value={choice} onChange={(e) => setChoice(e.target.value as SponsorInterest)}>
-            {Object.entries(SPONSOR_INTERESTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </label>
-      ) : null}
-      <div className="ccg-form-row">
-        <label>Name<input required value={form.name} onChange={set('name')} autoComplete="name" /></label>
-        <label>Business<input value={form.business} onChange={set('business')} autoComplete="organization" /></label>
-      </div>
-      <div className="ccg-form-row">
-        <label>Email<input required type="email" value={form.email} onChange={set('email')} autoComplete="email" /></label>
-        <label>Phone<input type="tel" value={form.phone} onChange={set('phone')} autoComplete="tel" /></label>
-      </div>
-      <label>Anything we should know?<textarea rows={3} value={form.message} onChange={set('message')} /></label>
+      <div className="ccg-form-title">{isVideoInterest ? 'VIDEO MESSAGE INTEREST · LAUNCH NOTIFICATION' : 'Contact the YAT?STATS Partner Program Team'}</div>
+      {isVideoInterest ? (
+        <>
+          <p className="ccg-video-notice">Bookings and delivery are coming soon. Choose the player you want to hear from and we'll let you know when requests become available.</p>
+          <div className="ccg-form-title">WHO WOULD YOU LIKE A VIDEO MESSAGE FROM?</div>
+          {requestedPlayer ? (
+            <div className="ccd-player-chosen">
+              <strong>{requestedPlayer.displayName}</strong>
+              <small>{requestedPlayer.schoolName || 'YAT?STATS alumni'}</small>
+              <button type="button" onClick={() => { setRequestedPlayer(null); setState({ kind:'idle' }); }}>CHANGE PLAYER</button>
+            </div>
+          ) : (
+            <ContributeSearch mode="player" playerOnly onPlayer={setRequestedPlayer} />
+          )}
+          {me ? (
+            <div className="ccg-video-identity">
+              <span>REQUESTED BY YOUR YAT?STATS ACCOUNT</span>
+              <strong>{signedInName || 'Name not set in your account'}</strong>
+              <small>{me.email || 'Email not set in your account'}</small>
+              <small>No need to enter your name or email again.</small>
+            </div>
+          ) : (
+            <div className="ccg-video-signin">
+              <p>To register interest, join or sign in to your YAT?STATS account. Your registered name and email will be used automatically.</p>
+              <button type="button" className="ccg-btn" onClick={openSignIn}>JOIN / SIGN IN TO CONTINUE</button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <label>I'm interested in
+            <select value={choice} onChange={(e) => setChoice(e.target.value as SponsorInterest)}>
+              {Object.entries(SPONSOR_INTERESTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
+          <div className="ccg-form-row">
+            <label>Name<input required value={form.name} onChange={set('name')} autoComplete="name" /></label>
+            <label>Business<input value={form.business} onChange={set('business')} autoComplete="organization" /></label>
+          </div>
+          <div className="ccg-form-row">
+            <label>Email<input required type="email" value={form.email} onChange={set('email')} autoComplete="email" /></label>
+            <label>Phone<input type="tel" value={form.phone} onChange={set('phone')} autoComplete="tel" /></label>
+          </div>
+        </>
+      )}
+      {isVideoInterest ? <label>Phone (optional)<input type="tel" value={form.phone} onChange={set('phone')} autoComplete="tel" /></label> : null}
+      <label>{isVideoInterest ? 'Anything you would like us to know? (optional)' : 'Anything we should know?'}<textarea rows={3} value={form.message} onChange={set('message')} /></label>
       <input className="ccg-hp" tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} aria-hidden="true" />
-      {state.kind === 'error' ? <p className="ccg-form-error">{state.text}</p> : null}
+      {state.kind === 'error' ? <p className="ccg-form-error" role="alert">{state.text}</p> : null}
       <div className="ccg-actions">
-        <button type="submit" className="ccg-btn" disabled={state.kind === 'sending'}>{state.kind === 'sending' ? 'Sending…' : 'Send'}</button>
-        <button type="button" className="ccg-link" onClick={onClose}>Cancel</button>
+        <button type="submit" className="ccg-btn" disabled={state.kind === 'sending' || (isVideoInterest && (!me || !requestedPlayer || !signedInName || !me.email))}>
+          {state.kind === 'sending' ? 'SENDING…' : isVideoInterest ? 'NOTIFY ME WHEN VIDEO REQUESTS LAUNCH' : 'Send'}
+        </button>
+        {!isVideoInterest ? <button type="button" className="ccg-link" onClick={onClose}>Cancel</button> : null}
       </div>
     </form>
   );
 }
-
 
 export default function ContributeGuide({ schoolName, realFrontExamples }: {
   schoolName: string; realFrontExamples?: React.ReactNode;
@@ -831,6 +897,19 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-video-request p{font:400 12px/1.4 var(--yat-font-ui);color:var(--muted);margin:0 0 12px;}
         .ccd-video-request .ccg-link{display:none;}
         .ccd-video-request .ccg-form{padding:12px;margin:0;}
+        .ccd-video-request .ycs{margin:8px 0 14px;min-width:0;max-width:100%;}
+        .ccd-video-request .ycs-results{max-height:280px!important;overflow-y:auto!important;}
+        .ccd-video-request .ccd-player-chosen{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px;border:1px solid var(--line);border-radius:9px;margin:9px 0 14px;}
+        .ccd-video-request .ccd-player-chosen strong{font:800 16px/1.15 var(--yat-font-compact);}
+        .ccd-video-request .ccd-player-chosen small{font:400 11px var(--yat-font-ui);color:var(--muted);flex:1 1 110px;}
+        .ccd-video-request .ccd-player-chosen button{background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px;cursor:pointer;font:800 11px var(--yat-font-ui);}
+        .ccd-video-request .ccg-video-identity{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--line);border-radius:9px;margin:10px 0;background:rgba(127,127,127,.045);}
+        .ccd-video-request .ccg-video-identity span{color:var(--muted);font:800 11px var(--yat-font-compact);}
+        .ccd-video-request .ccg-video-identity strong{font:800 16px var(--yat-font-ui);}
+        .ccd-video-request .ccg-video-identity small{color:var(--muted);font:400 12px var(--yat-font-ui);}
+        .ccd-video-request .ccg-video-signin{padding:12px;margin:8px 0;border:1px solid var(--line);border-radius:9px;}
+        .ccd-video-request .ccg-video-signin p{margin:0 0 10px;}
+        .ccd-video-request .ccg-actions .ccg-btn{min-height:43px;white-space:normal;line-height:1.25;}
         .ccd-video-transaction{display:flex;flex-direction:column;gap:11px;margin-top:15px;padding-top:17px;border-top:1px solid var(--line);}
         .ccd-video-transaction h3{font:800 17px/1.1 var(--yat-font-compact);margin:0;}
         .ccd-video-transaction label{display:flex;flex-direction:column;gap:4px;font:700 11px var(--yat-font-ui);}
