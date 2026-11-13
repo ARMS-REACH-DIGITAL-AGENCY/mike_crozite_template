@@ -26,6 +26,7 @@ import { simulationAsOf } from './simulationState';
 import { loadPreparedIndex, loadPreparedBoxes, preparedLb } from './preparedSeason';
 import { inActionToday } from './inAction';
 import { ScoringRulesPanel } from './BracketRules';
+import { battedIn, pitchedIn } from '@/lib/bracket/appearance';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -1193,7 +1194,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const dayWl = statDay !== 'week' && viewPlayers.some((p) => p[8]) ? sumRosterWl(viewPlayers) : null;
   const wlVal = (p: PlayerRow) => (p[8] && p[8][0] + p[8][1] ? p[8][0] / (p[8][0] + p[8][1]) + (p[8][0] + p[8][1]) / 1e4 : null);
   const bat = (p: PlayerRow) => p[4] as number[];
-  const batted = (p: PlayerRow) => Array.isArray(p[4]) && Number(p[4][0] || 0) > 0;
+  const batted = (p: PlayerRow) => battedIn(p[4]);
   const batCols: SortCol[] = [
     // No plate appearances: no OPS+ (a dash, not a 0 that reads like a real, terrible number).
     { key: 'ops+', label: 'OPS+', cls: 'plus', val: (p) => (batted(p) ? p[6] ?? null : null), show: (p) => (batted(p) ? p[6] ?? '—' : '—') },
@@ -1204,7 +1205,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'ops', label: 'OPS', cls: 'rate', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
   ];
   const pit = (p: PlayerRow) => p[5] as number[];
-  const pitched = (p: PlayerRow) => Array.isArray(p[5]) && [0, 2, 3, 5].some((i) => Number((p[5] as number[])[i] || 0) > 0);
+  const pitched = (p: PlayerRow) => pitchedIn(p[5]);
   const whip = (p: PlayerRow) => {
     const x = pit(p), outs = x[0] || 0;
     return outs ? ((x[5] || 0) + (x[2] || 0)) / (outs / 3) : 0;
@@ -1215,7 +1216,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   };
   const fipRaw = (p: PlayerRow) => Number(pit(p)[8] || 0);
   const pitCols: SortCol[] = [
-    // Didn't pitch (no outs, no batter reached): no FIP-, a dash rather than a 0.
+    // Didn't pitch (no out and no FIP event, the engine's own test): no FIP-, a dash rather than a 0.
     { key: 'fip-', label: 'FIP-', cls: 'plus', val: (p) => (pitched(p) ? p[7] ?? null : null), show: (p) => (pitched(p) ? p[7] ?? '—' : '—') },
     { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
     { key: 'ip', label: 'IP', val: (p) => pit(p)[0] || 0, show: (p) => ip(pit(p)[0] || 0) },
