@@ -2714,6 +2714,7 @@ export const getBatchDesignatedPlayerImages = cache(async function getBatchDesig
             AND m.playerid = ANY($1::text[])
             AND m.purpose='flip_card'
             AND m.status='approved'
+            AND m.description LIKE '%"published_assets"%'
           ORDER BY m.playerid, m.uploaded_at DESC, m.id DESC
        )
        SELECT * FROM designated
