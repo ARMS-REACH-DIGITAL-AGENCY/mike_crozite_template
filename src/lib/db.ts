@@ -240,10 +240,47 @@ export async function getPlayerSocialHandles(playerId: string): Promise<Record<s
   }
 }
 
+// An internal YAT identity may own a TBC-keyed card while the original
+// TBC ID remains necessary for imports, game logs, and existing URLs.
+// Resolve that card from the precomputed indexed YAT ID only for YAT inputs;
+// numeric legacy routes remain zero-extra-query reads.
+export const resolveStagePlayerId = cache(async (playerId: string): Promise<string> => {
+  if (!/^YAT[0-9]{6,}$/i.test(playerId)) return playerId;
+  try {
+    const { rows } = await query<{ playerid: string }>(
+      `SELECT f.playerid FROM public.flip_card_front_stage f
+        WHERE f.yatid=$1
+        ORDER BY CASE WHEN f.playerid=$1 THEN 0 ELSE 1 END, f.playerid
+        LIMIT 1`,
+      [playerId]
+    );
+    return rows[0]?.playerid || playerId;
+  } catch (error) {
+    console.warn('YAT card identity resolution failed; preserving original key', { playerId, error });
+    return playerId;
+  }
+});
+
 // A person has one YAT identity even when Baseball Cube used an older ID.
 // Keep the source ID for historical stat joins; never rewrite imported raw files.
 export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<string> {
   if (/^\d+$/.test(playerId)) return playerId;
+  if (/^YAT[0-9]{6,}$/i.test(playerId)) {
+    try {
+      const { rows } = await query<{ source_id: string }>(
+        `SELECT ids.source_id FROM public.yat_registry_ids ids
+         LEFT JOIN public.flip_card_front_stage f
+           ON f.playerid=ids.source_id AND f.yatid=ids.yatid
+        WHERE ids.yatid=$1 AND ids.source='tbc'
+        ORDER BY (f.playerid IS NOT NULL) DESC, ids.source_id
+        LIMIT 1`,
+        [playerId]
+      );
+      if (rows[0]?.source_id) return rows[0].source_id;
+    } catch (error) {
+      console.warn('YAT TBC identity lookup unavailable; using legacy resolution', { playerId, error });
+    }
+  }
   try {
     const { rows } = await query<{ source_player_id: string }>(
       `SELECT source_player_id FROM public.player_source_map
@@ -381,7 +418,8 @@ export async function getVerifiedTbcCanonicalPlayerIds(sourceIds: string[]): Pro
 }
 
 export async function getPlayerById(playerId: string): Promise<any | null> {
-  const tbcPlayerId = await resolveVerifiedTbcPlayerId(playerId);
+  const stagePlayerId = await resolveStagePlayerId(playerId);
+  const tbcPlayerId = await resolveVerifiedTbcPlayerId(stagePlayerId);
   const [tbcResult, stageResult] = await Promise.all([
     query<{
       playerid: string;
@@ -415,6 +453,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
       last_name: string | null;
       display_name: string | null;
       position: string | null;
+      yatid: string | null;
       hsid: string | null;
       class_of: string | null;
       roster_years: string[] | null;
@@ -430,6 +469,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
          last_name,
          display_name,
          position,
+         yatid,
          hsid::text as hsid,
          class_of::text as class_of,
          roster_years,
@@ -440,7 +480,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
        from ${PLAYER_STAGE_IDENTITY_SOURCE}
        where playerid::text = $1
        limit 1`,
-      [playerId]
+      [stagePlayerId]
     ),
   ]);
 
@@ -456,7 +496,8 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
     null;
 
   return {
-    playerid: fs?.playerid || tp?.playerid || playerId,
+    playerid: fs?.playerid || tp?.playerid || stagePlayerId,
+    yatid: fs?.yatid || (/^YAT[0-9]{6,}$/i.test(stagePlayerId) ? stagePlayerId : null),
     firstname,
     lastname,
     display_name,
@@ -2850,8 +2891,9 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
   };
 
   try {
+    const stagePlayerId = await resolveStagePlayerId(playerId);
     const [player, stageResult, draftResult] = await Promise.all([
-      getPlayerById(playerId),
+      getPlayerById(stagePlayerId),
       query<{
         hsid: string;
         hsname: string | null;
@@ -2897,7 +2939,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
          where f.playerid::text = $1
          order by f.updated_at desc nulls last
          limit 1`,
-        [playerId]
+        [stagePlayerId]
       ).catch(() => ({ rows: [] as any[] })),
       query<PlayerDraftPick>(
         `select d.draft_year, d.draft_round, d.draft_round_pick, d.draft_overall_pick, d.draft_team_name, d.drafted_from,
@@ -2906,7 +2948,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
            ${draftTeamLogoLateralSql()}
           where d.playerid = $1
           order by d.draft_year asc`,
-        [playerId]
+        [stagePlayerId]
       ).catch(() => ({ rows: [] as PlayerDraftPick[] })),
     ]);
 
