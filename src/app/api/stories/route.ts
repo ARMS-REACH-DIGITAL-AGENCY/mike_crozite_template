@@ -112,9 +112,9 @@ export async function GET(req: NextRequest) {
         // club logo is never cut out.
         cutout: p.full && !draft ? storyAssetUrl(cutoutKeyFor(p.full)) : null,
         source: draft ? null : p.full,
-        web: storyAssetUrl(p.web),
-        thumb: storyAssetUrl(p.thumb),
-        full: storyAssetUrl(p.full),
+        web: storyAssetUrl(p.web, draft ? r.photo_taken_year : null),
+        thumb: storyAssetUrl(p.thumb, draft ? r.photo_taken_year : null),
+        full: storyAssetUrl(p.full, draft ? r.photo_taken_year : null),
         width: p.width,
         height: p.height,
         ...(draft ? { logo: true } : {}),
