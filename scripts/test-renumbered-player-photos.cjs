@@ -47,5 +47,5 @@ assert.doesNotMatch(batch,/SELECT.*FROM player_source_map/i,
  'gallery photo batches must not scan provider/source aliases');
 const front = fs.readFileSync('src/components/yatstats/PlayerCardFront.tsx','utf8');
 assert.match(front,/normalizeImageUrl\(frontImageUrl\)/);
-assert.match(front,/\[designatedPhotoUrl\]/);
+assert.match(front,/getApprovedFrontPhotoSources\(designatedPhotoUrl\)/);
 console.log('PASS renamed YAT player retains immutable, approved original front photo');

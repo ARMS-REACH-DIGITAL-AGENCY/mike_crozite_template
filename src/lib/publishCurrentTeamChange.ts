@@ -57,6 +57,17 @@ export async function publishCurrentTeamChange(input: {
         level_label=$5, display_level_label=$5, current_level_label=$5, current_team_level=$5,
         current_team_source='contribute_direct', current_team_roster_status=NULL,
         current_team_last_verified=NOW(), current_team_absent_since=NULL,
+        -- Obsolete next-game details from the prior club must not survive a
+        -- verified transfer. Retain unrelated source history.
+        source_notes=CASE WHEN f.source_summary->>'seed_type'='region1_college_next_game'
+          THEN NULL ELSE f.source_notes END,
+        source_summary=CASE WHEN f.source_summary->>'seed_type'='region1_college_next_game'
+          THEN COALESCE(f.source_summary,'{}'::jsonb)
+            - 'seed_type' - 'source_table' - 'source_system' - 'teamid' - 'team'
+            - 'game_date' - 'game_time_utc' - 'home_away' - 'opponent'
+            - 'venue_name' - 'schedule_url' - 'boxscore_url'
+            - 'recap_url' - 'livestats_url' - 'seeded_at'
+          ELSE f.source_summary END,
         is_on_40man=FALSE, forty_man_org_name=NULL, forty_man_org_abbr=NULL,
         next_game_date=NULL, next_game_time_local=NULL, next_game_time_utc=NULL,
         next_game_home_away=NULL, next_game_opponent=NULL, next_game_status_label=NULL,

@@ -117,6 +117,28 @@ export function getPlayerThenCardUrl(imageId: string): string {
   return `${S3_BASE}/players/then-card/${imageId}.webp`;
 }
 
+/**
+ * Same immutable approved flip-card asset in two encodings. A card-size WebP
+ * can be missing during an image job; the already-approved JPEG must remain
+ * usable. Query-string revisions are propagated to both encodings so an
+ * old cached 404 does not hide a later published upload.
+ * Never substitute a photo belonging to a different player or image role.
+ */
+export function getApprovedFrontPhotoSources(imageUrl: string): string[] {
+  const url = String(imageUrl || '').trim();
+  if (!url) return [];
+  const match = url.match(/^(https:\/\/yatstats-assets\.s3\.us-west-2\.amazonaws\.com\/players\/then\/)([A-Za-z0-9_-]+)\.jpg(\?[^#]*)?$/);
+  if (!match) return [url];
+  return [
+    `${S3_BASE}/players/then-card/${match[2]}.webp${match[3] || ''}`,
+    url,
+    // Last-resort same-origin optimized image of that SAME approved JPEG.
+    // Only requested when both direct S3 renditions fail in the browser;
+    // avoids silently showing a silhouette behind a valid approved upload.
+    `/_next/image?url=${encodeURIComponent(url)}&w=640&q=75`,
+  ];
+}
+
 export function getPlayerBackCardUrl(imageId: string): string {
   return `${S3_BASE}/players/back-card/${imageId}.webp`;
 }
