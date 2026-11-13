@@ -323,7 +323,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
   const [inquiry, setInquiry] = useState<{ id: string; interest: SponsorInterest } | null>(null);
   const [view, setView] = useState<'contribute' | 'connect'>('contribute');
   const [playerApplication, setPlayerApplication] = useState<ContributePlayer | null>(null);
-  const [applicant, setApplicant] = useState({name:'',email:'',phone:'',message:'',website:''});
+  const [applicant, setApplicant] = useState({email:'',phone:'',message:'',website:''});
   const [applicationStatus, setApplicationStatus] = useState<{kind:'idle'|'sending'|'sent'|'error';message?:string}>({kind:'idle'});
   const [selectedId, setSelectedId] = useState('cc-photo');
   const school = useContext(SchoolContext);
@@ -410,8 +410,9 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
       if (!target) return;
       const connectItem = SPONSORSHIPS.find(card => card.id === target);
       const contributeItem = CONTRIBUTIONS.find(card => card.id === target);
-      if (target === 'cc-connect' || connectItem) {
-        document.getElementById('sec-video')?.scrollIntoView({behavior:'smooth',block:'start'});
+      if (target === 'cc-connect' || target === 'sec-video-request' || target === 'sec-player-join' || target === 'sec-video-upload' || connectItem) {
+        const element = document.getElementById(target === 'cc-connect' ? 'sec-video' : target === 'sec-video-request' || target === 'sec-player-join' || target === 'sec-video-upload' ? target : 'sec-video');
+        requestAnimationFrame(() => window.setTimeout(() => element?.scrollIntoView({behavior:'smooth',block:'start'}), 140));
       }
       if (target === 'cc-contribute' || contributeItem) {
         setView('contribute'); setSelectedId(contributeItem?.id || CONTRIBUTIONS[0].id);
@@ -510,7 +511,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
                 setApplicationStatus({kind:'sending'});
                 try {
                   const response=await fetch('/api/contribute/sponsor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-                    ...applicant,interest:'video_player',playerId:playerApplication.playerId,playerName:playerApplication.displayName,
+                    ...applicant,name:playerApplication.displayName,interest:'video_player',playerId:playerApplication.playerId,playerName:playerApplication.displayName,
                     hsid:playerApplication.schoolId || school?.hsid || '',schoolName:playerApplication.schoolName || school?.hsName || '',
                     pageUrl:window.location.href
                   })});
@@ -523,10 +524,9 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
                 {playerApplication ? (
                   <div className="ccd-player-chosen"><strong>{playerApplication.displayName}</strong><small>{playerApplication.schoolName || 'YAT?STATS alumni'}</small>
                     <button type="button" onClick={()=>setPlayerApplication(null)}>CHANGE PLAYER</button></div>
-                ) : <ContributeSearch mode="player" onPlayer={setPlayerApplication} />}
+                ) : <ContributeSearch mode="player" playerOnly onPlayer={setPlayerApplication} />}
                 <div className="ccg-form-title">2 · LET US KNOW YOU'RE INTERESTED</div>
                 <div className="ccg-form-row">
-                  <label>Your name<input required autoComplete="name" value={applicant.name} onChange={e=>setApplicant(v=>({...v,name:e.target.value}))} /></label>
                   <label>Email<input required type="email" autoComplete="email" value={applicant.email} onChange={e=>setApplicant(v=>({...v,email:e.target.value}))} /></label>
                 </div>
                 <div className="ccg-form-row">
@@ -822,7 +822,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         }
         .ccd-video-main{display:flex;flex-direction:column;gap:32px;min-width:0;}
         .ccd-video-side{position:sticky;top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,95px) + 12px);}
-        .ccd-video-request{padding-top:16px;margin-top:16px;border-top:1px solid var(--line);scroll-margin-top:140px;}
+        .ccd-video-request{padding-top:16px;margin-top:16px;border-top:1px solid var(--line);scroll-margin-top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,95px) + 12px);}
         .ccd-video-request h3{font:800 17px/1.2 var(--yat-font-compact);margin:0 0 8px;}
         .ccd-video-request p{font:400 12px/1.4 var(--yat-font-ui);color:var(--muted);margin:0 0 12px;}
         .ccd-video-request .ccg-link{display:none;}
@@ -835,7 +835,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-video-total{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px;font:700 12px var(--yat-font-ui);}
         .ccd-video-actions{display:flex;gap:10px;flex-wrap:wrap;}
         .ccd-buy-now:disabled{opacity:.55;cursor:not-allowed;}
-        .ccd-player-signup{padding:18px 0 0;border-top:1px solid var(--line);scroll-margin-top:150px;}
+        .ccd-player-signup{padding:18px 0 0;border-top:1px solid var(--line);scroll-margin-top:calc(var(--row1-h,36px) + var(--row2-h,54px) + var(--row3-h,95px) + 12px);}
         .ccd-player-signup h2{margin:6px 0;font:800 25px/1.1 var(--yat-font-compact);text-transform:uppercase;}
         .ccd-player-signup>p{max-width:620px;font:400 13px/1.5 var(--yat-font-ui);color:var(--muted);}
         .ccd-player-apply{margin-top:15px;padding:15px;}
