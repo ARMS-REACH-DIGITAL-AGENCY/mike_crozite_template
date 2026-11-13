@@ -9,7 +9,7 @@
 // List only teammates with a published platform flip-card; the complete
 // historical archive includes additional players not yet assigned profiles.
 import 'server-only';
-import { query } from './db';
+import { query, resolveHistoricalTbcIds } from './db';
 import { toPlayerSlug } from './slug';
 
 // One row per teammate per season: someone who was a teammate for three
@@ -54,7 +54,10 @@ function season(playerId: string, first: string | null, last: string | null, dis
 }
 
 export async function getTeammates(playerId: string): Promise<TeammateSeason[]> {
-  const seasons = SEASON_TABLES.map((t) => `SELECT teamid, year FROM ${t} WHERE playerid = $1`).join(' UNION ');
+  const historicalSourceIds = await resolveHistoricalTbcIds(playerId);
+  // Use all verified TBC IDs for the queried player. A split career must
+  // contribute teammates from every season, while remaining one public card.
+  const seasons = SEASON_TABLES.map((t) => `SELECT teamid, year FROM ${t} WHERE playerid = ANY(string_to_array($1, ','))`).join(' UNION ');
   const mates = SEASON_TABLES.map((t) => `SELECT r.playerid, r.teamid, r.year FROM ${t} r JOIN seasons s USING (teamid, year)`).join(' UNION ');
 
   const [seasonRows, hsRows, mlbRows] = await Promise.all([
@@ -68,8 +71,8 @@ export async function getTeammates(playerId: string): Promise<TeammateSeason[]> 
          LEFT JOIN teamid_universe_mapping u ON u.teamid = m.teamid
          LEFT JOIN tbc_players_raw p ON p.playerid = m.playerid
          JOIN flip_card_front_stage f ON f.playerid = m.playerid
-        WHERE m.playerid <> $1`,
-      [playerId]
+        WHERE m.playerid <> ALL(string_to_array($1, ','))`,
+      [historicalSourceIds]
     ),
     query<HsRow>(
       `SELECT f.playerid, f.display_name, f.first_name, f.last_name, f.hsid, ss.hsname,
