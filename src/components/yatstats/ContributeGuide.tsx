@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom';
 import { SchoolContext } from '@/context/SchoolContext';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
 import ConnectOccasionGallery from '@/components/yatstats/ConnectOccasionGallery';
+import ConnectIntroSubmission from '@/components/yatstats/ConnectIntroSubmission';
 import type { ContributePlayer } from '@/lib/contribute';
 import { FlipCardFront, FlipCardBack, Headshot, TimelineSlide, ProofStyles, type ProofPlayer } from '@/components/yatstats/ContributeProof';
 import {
@@ -540,6 +541,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
               </form>
             )}
           </div>
+          <ConnectIntroSubmission selectedPlayer={playerApplication} />
       </section>
 
       {inquiry && typeof document !== 'undefined' ? createPortal(
@@ -871,6 +873,7 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-connect-program-status strong{font:900 12px/1.25 var(--yat-font-ui);text-align:right;}
         .ccd-connect-program-status small{margin-top:8px;color:var(--muted);font:400 11px/1.45 var(--yat-font-ui);}
         .ccd-video-section > .ccd-player-signup{grid-column:1/-1;padding:25px 0 0;border-top:2px solid var(--line);}
+        .ccd-video-section > .yat-connect-intro{grid-column:1/-1;}
         @media(max-width:740px){.ccd-connect-hero{padding:18px;}.ccd-connect-hero h2{font-size:32px;}.ccd-connect-hero-button{width:100%;}.ccd-video-section>.ccd-player-signup{padding-top:24px;}}
         /* Real page layout: photos and information in left-hand rail; placement on right.
            No sponsor packages on this page; only the player-video exchange. */
