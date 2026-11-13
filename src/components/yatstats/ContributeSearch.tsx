@@ -91,7 +91,7 @@ export default function ContributeSearch(props: Props) {
               const safeLevel = escapeTeamText(level);
               const safeOrg = escapeTeamText(org);
               return `<button type="button" class="yat-search-card yat-search-team-entity-card" data-team-id="${escapeTeamText(teamId)}" data-team-name="${safeName}" data-team-level="${safeLevel}" data-team-org="${safeOrg}" style="width:100%;text-align:left">
-                <img src="${escapeTeamText(logo)}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='/img/yatstats-logo-circle.png';this.onerror=null" />
+                <img src="${escapeTeamText(logo)}" data-team-logo-id="${escapeTeamText(teamId)}" alt="" class="yat-search-thumb yat-search-team-thumb" onerror="this.src='/img/yatstats-logo-circle.png';this.onerror=null" />
                 <span class="yat-search-player-text-link"><strong>${safeName}</strong>${level ? `<small>${safeLevel}</small>` : ''}${org ? `<small>${safeOrg}</small>` : ''}</span>
               </button>`;
             }).join('')}</div>` : `<div class="yat-search-empty">${collegeOnly ? 'No college matches.' : 'No college or pro team matches.'}</div>`;
