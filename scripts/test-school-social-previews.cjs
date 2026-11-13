@@ -17,6 +17,15 @@ assert.match(middleware, /BLOCKED_BOTS/, 'keep existing anti-crawler safeguards'
 const newsImage = read('src/app/api/og/news/route.tsx');
 const shortNews = read('src/app/n/[uuid]/page.tsx');
 const config = read('next.config.ts');
+const teamLinkMeta = read('src/lib/teamYearShareMeta.ts');
+const teamLinkRoot = read('src/app/t/[year]/route.ts');
+const teamLinkHsid = read('src/app/[hsid]/t/[year]/route.ts');
+assert.match(teamLinkMeta, /const LINK_PREVIEW_BOT = \/[^\\n]*GoogleMessages/, 'short team share links must recognize Google Messages');
+assert.match(teamLinkMeta, /const LINK_PREVIEW_BOT = \/[^\\n]*Google-PageRenderer/, 'short team share links must recognize Google's renderer');
+assert.match(teamLinkMeta, /if \(!LINK_PREVIEW_BOT\.test\(request\.headers\.get\('user-agent'\)/, 'only human visitors should receive the redirect');
+assert.match(teamLinkMeta, /og:image/, 'team short links must render OG images for preview fetchers');
+assert.match(teamLinkRoot, /teamShortLinkResponse\(request, null, year\)/, 'root team short link must use shared metadata handler');
+assert.match(teamLinkHsid, /teamShortLinkResponse\(request, hsid, year\)/, 'HSID team short link must use shared metadata handler');
 assert.match(page, /api\/og\/news\?hsid=/, 'school news metadata needs same-origin artwork');
 assert.match(page, /width:1200,height:630,type:"image\/png"/, 'news preview must be a full landscape image');
 assert.match(shortNews, /api\/og\/news\?hsid=/, 'short news link needs full image');
