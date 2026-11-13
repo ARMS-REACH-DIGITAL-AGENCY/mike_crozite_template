@@ -11,7 +11,7 @@
 // signed POST form (the serverless function never sees the bytes). A form
 // post needs no bucket CORS setting, which this bucket doesn't have.
 import 'server-only';
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createHmac, randomUUID } from 'crypto';
 import { S3_BUCKET, S3_REGION, storyAssetUrl } from './storyAssets';
 import { PLAYER_ID } from './contribute';
@@ -149,4 +149,73 @@ export async function publishConnectVideo(pid: string, key: string, uploadedBy: 
 /** Take the video off the profile (the file itself is kept). */
 export async function removeConnectVideo(pid: string) {
   await client().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: pointerKey(pid) }));
+}
+
+/** Player-supplied introduction videos are held for staff approval. No fan upload
+ * can alter the public current.json pointer. Each proposed intro has an
+ * immutable random key and a separate pending-review manifest. */
+const REVIEW_PREFIX = `${PREFIX}/intro-review/`;
+
+export type IntroReview = {
+  id: string; playerId: string; key: string; submittedBy: string;
+  submittedAt: string; contentType: string;
+};
+export function signPendingIntroUpload(pid: string, uid: string, contentType: string) {
+  if (!/^[a-zA-Z0-9_-]{8,140}$/.test(uid)) throw new Error('Invalid account');
+  return signVideoPost(`${PREFIX}/${pid}/submissions/${uid}/${randomUUID()}`, contentType);
+}
+export async function submitPendingIntro(pid: string, uid: string, key: string): Promise<IntroReview | null> {
+  const prefix = `${PREFIX}/${pid}/submissions/${uid}/`;
+  if (!key.startsWith(prefix) || !/^[-\w/.]+$/.test(key) || key.includes('..') || key.endsWith('.json')) return null;
+  let head;
+  try { head = await client().send(new HeadObjectCommand({ Bucket:S3_BUCKET,Key:key })); }
+  catch { return null; }
+  if (!head.ContentLength || head.ContentLength > CONNECT_VIDEO_MAX_BYTES) return null;
+  const id = randomUUID();
+  const item: IntroReview = {
+    id, playerId:pid, key, submittedBy:uid, submittedAt:new Date().toISOString(),
+    contentType:head.ContentType || 'video/mp4',
+  };
+  await client().send(new PutObjectCommand({
+    Bucket:S3_BUCKET,Key:`${REVIEW_PREFIX}${id}.json`,
+    Body:JSON.stringify(item), ContentType:'application/json',CacheControl:'no-store',
+  }));
+  return item;
+}
+export async function listPendingIntros(): Promise<IntroReview[]> {
+  const entries: IntroReview[] = [];
+  let marker: string | undefined;
+  do {
+    const page = await client().send(new ListObjectsV2Command({
+      Bucket:S3_BUCKET,Prefix:REVIEW_PREFIX,MaxKeys:100,ContinuationToken:marker,
+    }));
+    for(const entry of page.Contents || []) {
+      if(!entry.Key?.endsWith('.json'))continue;
+      try {
+        const object=await client().send(new GetObjectCommand({Bucket:S3_BUCKET,Key:entry.Key}));
+        const item=JSON.parse(await object.Body!.transformToString()) as IntroReview;
+        if(item.id && item.playerId && item.key)entries.push(item);
+      }catch{ /* A deleted or malformed manifest must not block the queue. */ }
+    }
+    marker=page.IsTruncated ? page.NextContinuationToken : undefined;
+  }while(marker && entries.length < 250);
+  return entries.sort((a,b)=>a.submittedAt.localeCompare(b.submittedAt)).slice(0,250);
+}
+export async function reviewPendingIntro(id: string, decision: 'approve'|'reject', email: string) {
+  if(!/^[a-f0-9-]{36}$/.test(id))throw new Error('Invalid submission');
+  const manifestKey=`${REVIEW_PREFIX}${id}.json`;
+  let item:IntroReview;
+  try {
+    const obj=await client().send(new GetObjectCommand({Bucket:S3_BUCKET,Key:manifestKey}));
+    item=JSON.parse(await obj.Body!.transformToString()) as IntroReview;
+  }catch{throw new Error('Submission not found');}
+  if(item.id!==id || !validPlayerId(item.playerId) ||
+    !item.key.startsWith(`${PREFIX}/${item.playerId}/submissions/${item.submittedBy}/`))
+    throw new Error('Invalid submission record');
+  if(decision==='approve'){
+    const live=await publishConnectVideo(item.playerId,item.key,email);
+    if(!live)throw new Error('Video missing from storage');
+  }
+  await client().send(new DeleteObjectCommand({Bucket:S3_BUCKET,Key:manifestKey}));
+  return item;
 }
