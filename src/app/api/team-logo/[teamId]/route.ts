@@ -30,10 +30,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tea
   // be uploaded under its OWN TeamID and becomes visible after short CDN TTL.
   for (const url of teamLogoAssetUrls(teamId)) {
     if (await isPublishedImage(url)) {
-      return NextResponse.redirect(url, {
+      // A freshly approved logo may replace a previously cached crest or image.
+      // Preserve only the validated revision token so the browser and S3 both
+      // fetch the newly published bytes, never their old cached variant.
+      const revision = request.nextUrl.searchParams.get('rev');
+      const destination = new URL(url);
+      if (revision && /^[A-Za-z0-9-]{1,60}$/.test(revision)) {
+        destination.searchParams.set('rev', revision);
+      }
+      return NextResponse.redirect(destination, {
         status: 302,
         headers: {
-          'Cache-Control': 'public, max-age=300, s-maxage=21600, stale-while-revalidate=86400',
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
           'X-Team-Logo-Status': 'published',
         },
       });
@@ -43,7 +51,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tea
   return NextResponse.redirect(new URL(TEAM_LOGO_FALLBACK, request.url), {
     status: 302,
     headers: {
-      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=300',
+      'Cache-Control': 'no-store, max-age=0, must-revalidate',
       'X-Team-Logo-Status': 'artwork-missing',
     },
   });
