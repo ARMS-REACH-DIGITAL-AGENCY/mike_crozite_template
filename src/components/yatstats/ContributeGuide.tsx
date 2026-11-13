@@ -9,6 +9,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SchoolContext } from '@/context/SchoolContext';
 import ContributeSearch from '@/components/yatstats/ContributeSearch';
+import ConnectOccasionGallery from '@/components/yatstats/ConnectOccasionGallery';
 import type { ContributePlayer } from '@/lib/contribute';
 import { FlipCardFront, FlipCardBack, Headshot, TimelineSlide, ProofStyles, type ProofPlayer } from '@/components/yatstats/ContributeProof';
 import {
@@ -459,23 +460,44 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
       <section className="ccd-video-section" id="sec-video" aria-label="YAT-A-BOY Player Connect video messages">
         <div className="ccd-video-main">
           <div className="ccd-video-feature">
-            <div className="ccd-video-screen" role="img" aria-label="YAT-A-BOY Player Connect coming soon">
-              <i className="ri-play-circle-line" aria-hidden="true" />
-              <strong>COMING SOON!</strong>
-              <span>YAT-A-BOY PLAYER CONNECT</span>
+            <div className="ccd-connect-hero">
+              <div className="ccd-connect-hero-eyebrow"><i className="ri-video-chat-line" aria-hidden="true" /> YAT-A-BOY PLAYER CONNECT <span>COMING SOON</span></div>
+              <h2>HOMETOWN HEROES.<br />PERSONAL MESSAGES.</h2>
+              <p>Imagine a birthday greeting, pep talk or team shoutout from a player you watched grow up. YAT?STATS is building a way for fans to request personalized videos from participating active and retired alumni.</p>
+              <button type="button" className="ccd-connect-hero-button" onClick={() => document.getElementById('sec-video-request')?.scrollIntoView({behavior:'smooth',block:'start'})}>
+                BE FIRST TO KNOW <i className="ri-arrow-right-line" aria-hidden="true" />
+              </button>
             </div>
-            <div className="ccd-video-feature-copy">
-              <span className="ccd-eyebrow">YAT-A-BOY · VIDEO MESSAGES</span>
-              <h2>Hear from a player. Share your connection.</h2>
-              <p>Request a personalized video message from a participating active or retired alumnus. A meaningful way to celebrate birthdays, milestones and the players who inspired your hometown.</p>
-              <div className="ccd-video-actions">
-                <button type="button" className="ccd-preview-action" onClick={() => document.getElementById('sec-video-request')?.scrollIntoView({behavior:'smooth',block:'center'})}>REQUEST INFORMATION <i className="ri-arrow-right-line" aria-hidden="true" /></button>
-                <button type="button" className="ccd-preview-action ccd-buy-now" disabled aria-disabled="true" title="Stripe checkout will be connected when the program launches">BUY NOW · COMING SOON</button>
-              </div>
-              <small>Checkout is not active. Stripe integration and pricing will be added before launch; no payments are collected here.</small>
+            <ConnectOccasionGallery />
+            <div className="ccd-connect-availability">
+              <i className="ri-calendar-todo-line" aria-hidden="true" />
+              <div><strong>BE PART OF THE FIRST WAVE</strong><p>Fan updates and player interest registration are open. Video bookings, payments and delivery are not yet active.</p></div>
             </div>
           </div>
-          <div className="ccd-player-signup" id="sec-player-join">
+        </div>
+        <aside className="ccd-preview ccd-video-side" aria-label="How YAT-A-BOY Player Connect works">
+          <div className="ccd-preview-heading"><span>HOW PLAYER CONNECT WILL WORK</span><h2>MAKE IT PERSONAL.</h2>
+            <p>Simple requests, real player participation and memories worth saving.</p></div>
+          <div className="ccd-video-instructions">
+            <div><b>01</b><span><strong>Choose a player</strong><small>Find a participating active or retired alumnus.</small></span></div>
+            <div><b>02</b><span><strong>Tell us about your message</strong><small>Share the occasion, recipient and what you would like the player to say.</small></span></div>
+            <div><b>03</b><span><strong>Receive your video</strong><small>When the service launches, complete checkout and receive the player's recorded message.</small></span></div>
+          </div>
+          <div className="ccd-connect-program-status" aria-label="Current program status">
+            <h3>PROGRAM AVAILABILITY</h3>
+            <div><span>FAN INTEREST</span><strong>OPEN NOW</strong></div>
+            <div><span>PLAYER SIGNUP</span><strong>OPEN NOW</strong></div>
+            <div><span>VIDEO BOOKINGS</span><strong>COMING SOON</strong></div>
+            <div><span>PRICING</span><strong>TO BE ANNOUNCED</strong></div>
+            <small>Only interested alumni who opt in will be eligible to receive future video requests.</small>
+          </div>
+          <div className="ccd-video-request" id="sec-video-request">
+            <h3>GET NOTIFIED WHEN VIDEO MESSAGES LAUNCH</h3>
+            <p>Leave your contact information and we’ll follow up when participating players and checkout are available.</p>
+            <SponsorInquiry interest="video" onClose={() => {}} />
+          </div>
+        </aside>
+        <div className="ccd-player-signup" id="sec-player-join">
             <span className="ccd-eyebrow">FOR ACTIVE &amp; RETIRED PLAYERS</span>
             <h2>Want to connect with your fans?</h2>
             <p>Join the YAT-A-BOY Player Connect interest list. Fans will be able to request personalized video greetings from participating alumni. Find your YAT?STATS player profile below, then tell us how to reach you.</p>
@@ -518,31 +540,6 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
               </form>
             )}
           </div>
-        </div>
-        <aside className="ccd-preview ccd-video-side" aria-label="How YAT-A-BOY Player Connect works">
-          <div className="ccd-preview-heading"><span>CONNECT · VIDEO EXCHANGE</span><h2>Make it personal.</h2>
-            <p>Personalized messages from the players who make hometown baseball memorable.</p></div>
-          <div className="ccd-video-instructions">
-            <div><b>01</b><span><strong>Choose a player</strong><small>Find a participating active or retired alumnus.</small></span></div>
-            <div><b>02</b><span><strong>Tell us about your message</strong><small>Share the occasion, recipient and what you would like the player to say.</small></span></div>
-            <div><b>03</b><span><strong>Checkout and delivery</strong><small>Complete payment and receive the personal video when the program launches.</small></span></div>
-          </div>
-          <div className="ccd-video-transaction">
-            <h3>YOUR VIDEO REQUEST</h3>
-            <label>Player<select disabled defaultValue=""><option value="">Choose a participating player · coming soon</option></select></label>
-            <label>Occasion<select disabled defaultValue=""><option value="">Select an occasion · coming soon</option></select></label>
-            <label>Recipient<input disabled placeholder="Recipient's name" /></label>
-            <label>Message instructions<textarea disabled rows={3} placeholder="What should the player say?" /></label>
-            <div className="ccd-video-total"><span>PRICE</span><strong>TO BE ANNOUNCED</strong></div>
-            <button type="button" className="ccd-preview-action ccd-buy-now" disabled aria-disabled="true">BUY NOW · STRIPE COMING SOON</button>
-            <small>Transaction fields are a preview only. Payment, availability and delivery are not active.</small>
-          </div>
-          <div className="ccd-video-request" id="sec-video-request">
-            <h3>GET NOTIFIED WHEN VIDEO MESSAGES LAUNCH</h3>
-            <p>Leave your contact information and we’ll follow up when participating players and checkout are available.</p>
-            <SponsorInquiry interest="video" onClose={() => {}} />
-          </div>
-        </aside>
       </section>
 
       {inquiry && typeof document !== 'undefined' ? createPortal(
@@ -851,6 +848,30 @@ export default function ContributeGuide({ schoolName, realFrontExamples }: {
         .ccd-player-chosen button{margin-left:auto;background:none;color:var(--fg);border:0;text-decoration:underline;cursor:pointer;font:700 11px var(--yat-font-ui);}
         @media(max-width:980px){.ccd-video-section{grid-template-columns:1fr;gap:15px;margin-top:30px;}.ccd-video-side{display:block;position:static;}.ccd-video-screen{min-height:210px;}}
         @media(max-width:740px){#sec-mentor .ccd{padding-bottom:60px;}.ccd-video-section{margin:25px 10px 20px;padding-top:15px;}.ccd-video-side{display:block!important;}.ccd-player-apply{padding:12px;}.ccd-video-actions{flex-direction:column;align-items:stretch;}}
+
+        /* Shared YAT-A-BOY program presentation: no mock play controls or
+           fabricated player images. Occasion cards are concept previews. */
+        .ccd-connect-hero{display:flex;flex-direction:column;align-items:flex-start;gap:13px;padding:clamp(18px,3.3vw,30px);border-radius:16px;border:1px solid #594a2d;background:radial-gradient(circle at 70% 15%,#253a2b 0,#101910 43%,#070907 100%);color:#fff;}
+        .ccd-connect-hero-eyebrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#f6c14e;font:800 12px/1.2 var(--yat-font-compact);letter-spacing:.06em;}
+        .ccd-connect-hero-eyebrow i{font-size:23px;}
+        .ccd-connect-hero-eyebrow span{border:1px solid #c38e30;border-radius:99px;padding:4px 8px;font:800 10px/1 var(--yat-font-ui);letter-spacing:.04em;}
+        .ccd-connect-hero h2{margin:0;max-width:620px;color:#fff;font:900 clamp(30px,4.4vw,49px)/.96 var(--yat-font-compact);letter-spacing:.01em;}
+        .ccd-connect-hero p{max-width:600px;margin:0;color:#d4dad5;font:400 clamp(12px,1.6vw,14px)/1.55 var(--yat-font-ui);}
+        .ccd-connect-hero-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;margin-top:3px;padding:10px 18px;min-height:43px;color:#15170e;background:#ffbb32;border:1px solid #ffbb32;border-radius:99px;cursor:pointer;font:900 17px/1.1 var(--yat-font-compact);}
+        .ccd-connect-hero-button:focus-visible{outline:2px solid #fff;outline-offset:3px;}
+        .ccd-connect-availability{display:flex;gap:12px;align-items:center;padding:15px;border:1px solid #c19c536b;border-radius:12px;background:#ad8a2d16;}
+        .ccd-connect-availability i{color:#be9126;font-size:29px;}
+        .ccd-connect-availability div{display:flex;flex-direction:column;gap:4px;}
+        .ccd-connect-availability strong{font:900 17px/1.15 var(--yat-font-compact);}
+        .ccd-connect-availability p{margin:0;color:var(--muted);font:400 12px/1.45 var(--yat-font-ui);}
+        .ccd-connect-program-status{display:flex;flex-direction:column;gap:0;margin-top:16px;padding:12px 15px;border:1px solid var(--line);border-radius:10px;background:var(--bg);}
+        .ccd-connect-program-status h3{font:900 18px/1.1 var(--yat-font-compact);margin:0 0 7px;}
+        .ccd-connect-program-status>div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--line);}
+        .ccd-connect-program-status span{color:var(--muted);font:700 11px/1.25 var(--yat-font-compact);}
+        .ccd-connect-program-status strong{font:900 12px/1.25 var(--yat-font-ui);text-align:right;}
+        .ccd-connect-program-status small{margin-top:8px;color:var(--muted);font:400 11px/1.45 var(--yat-font-ui);}
+        .ccd-video-section > .ccd-player-signup{grid-column:1/-1;padding:25px 0 0;border-top:2px solid var(--line);}
+        @media(max-width:740px){.ccd-connect-hero{padding:18px;}.ccd-connect-hero h2{font-size:32px;}.ccd-connect-hero-button{width:100%;}.ccd-video-section>.ccd-player-signup{padding-top:24px;}}
         /* Real page layout: photos and information in left-hand rail; placement on right.
            No sponsor packages on this page; only the player-video exchange. */
         .ccd-video-feature { display:flex; flex-direction:column; gap:10px; padding:0 2px 20px; }
