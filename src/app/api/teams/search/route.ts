@@ -44,7 +44,26 @@ export async function GET(req: NextRequest) {
 
     const pattern = `%${qRaw}%`;
     const sql = `
-      with ${PLAYER_STAGE_IDENTITY_CTES}, matches as (
+      with ${PLAYER_STAGE_IDENTITY_CTES},
+      -- Use the original college registry only where the name uniquely
+      -- identifies a team. This prevents obsolete conference labels and
+      -- corrupted duplicate mapping rows from overriding a verified ID.
+      unique_college_names as (
+        select lower(btrim(collegename)) as name_key, min(teamid) as teamid
+        from public.tbc_college_teams_map_raw
+        where nullif(btrim(collegename), '') is not null
+        group by lower(btrim(collegename))
+        having count(distinct teamid) = 1
+      ),
+      verified_college_teams as (
+        select c.name_key, m.teamid, m.level_label
+        from unique_college_names c
+        join public.teamid_universe_mapping m
+          on m.teamid = c.teamid
+         and lower(btrim(m.current_team_name)) = c.name_key
+         and m.level_label in ('NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'CCCAA', 'NWAC')
+      ),
+      matches as (
         select distinct on (f.playerid::text, f.hsid::text, coalesce(f.current_team_name, ''), coalesce(f.level_label, ''))
           f.playerid::text as playerid,
           coalesce(nullif(f.first_name, ''), split_part(coalesce(f.display_name, ''), ' ', 1)) as firstname,
@@ -54,10 +73,22 @@ export async function GET(req: NextRequest) {
           f.current_team_name,
           f.current_org_or_conference_name,
           f.level_label,
-          coalesce(m.teamid::text, case when f.current_team_source = 'identity_reconciled_2026' then f.current_teamid end) as current_teamid,
+          -- College records keep the known TeamID, or use the uniquely
+          -- verified college registry when conference labels are obsolete.
+          -- Pro roster stages can retain a stale pre-trade/pre-promotion ID;
+          -- preserve the existing canonical name-mapping precedence for them.
+          case when upper(btrim(coalesce(f.level_label, ''))) in
+            ('NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'NJCAA', 'CCCAA', 'NWAC')
+            then coalesce(nullif(btrim(f.current_teamid), ''), college.teamid::text, m.teamid::text)
+            else coalesce(m.teamid::text,
+              case when f.current_team_source = 'identity_reconciled_2026' then f.current_teamid end)
+          end as current_teamid,
           ss.hsname,
           ss.hslocation
         from ${PLAYER_STAGE_IDENTITY_SOURCE} f
+        left join verified_college_teams college
+          on college.name_key = lower(btrim(f.current_team_name))
+         and college.level_label = f.level_label
         left join public.teamid_universe_mapping m
           on lower(trim(m.current_team_name)) = lower(trim(f.current_team_name))
          and (

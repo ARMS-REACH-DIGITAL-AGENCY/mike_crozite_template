@@ -471,6 +471,27 @@ function headshotChecks() {
   passed('Player and team result headshots prefer approved photos, recover through verified alternatives, style only the final silhouette, and stop on the final fallback');
 }
 
+function canonicalTeamLogoChecks() {
+  // An incorrect/stale conference must not hide an existing verified ID or
+  // substitute another same-name college's image in Global Search.
+  const sql = fs.readFileSync(path.join(repo, 'src/app/api/teams/search/route.ts'), 'utf8');
+  assert.match(sql, /unique_college_names as \(/);
+  assert.match(sql, /having count\(distinct teamid\) = 1/);
+  assert.match(sql, /join public\.teamid_universe_mapping m/);
+  assert.match(sql, /then coalesce\(nullif\(btrim\(f\.current_teamid\), ''\), college\.teamid::text, m\.teamid::text\)/);
+  assert.match(sql, /else coalesce\(m\.teamid::text,/);
+  assert.match(sql, /f\.current_team_source = 'identity_reconciled_2026'/);
+  const actual = createEnvironment().exports;
+  const rows = [
+    { playerId: '359198', firstName: 'AJ', lastName: 'Diaz', currentTeamName: 'College of Southern Nevada', currentTeamId: '20942', levelLabel: 'NJCAA' },
+    { playerId: '364666', firstName: 'Michael', lastName: 'Albanese', currentTeamName: 'College of Southern Nevada', currentTeamId: '20942', levelLabel: 'NJCAA' },
+  ];
+  const html = actual.renderTeamRows(rows, 'Empty');
+  assert.match(html, /src="\/api\/team-logo\/20942" data-team-logo-id="20942"/);
+  assert.ok(!html.includes('/api/team-logo/20947'), 'Corrupt duplicate must not determine group logo');
+  passed('Global team search retains verified TeamIDs despite obsolete conference labels and renders the matching team logo');
+}
+
 async function crestChecks() {
   const env = createEnvironment({ queryString: '?schoolSearch=5004' });
   env.mount(); await env.flush();
@@ -505,6 +526,7 @@ async function crestChecks() {
   rendererChecks();
   previewLinkChecks();
   headshotChecks();
+  canonicalTeamLogoChecks();
   await invalidationChecks();
   await duplicateChecks();
   await errorChecks();
