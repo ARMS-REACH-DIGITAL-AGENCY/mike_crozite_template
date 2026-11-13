@@ -61,6 +61,7 @@ export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?
 export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
+  yatid?: string | null;
   display_name?: string | null;
   firstname?: string | null;
   lastname?: string | null;
@@ -114,7 +115,10 @@ export function loadFavoritePlayers() {
     favoritePlayers = uid
       ? fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => new Set<string>(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []))
+        .then((d) => new Set<string>([
+          ...(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []),
+          ...(Array.isArray(d?.yatPlayerIds) ? d.yatPlayerIds.map(String) : []),
+        ]))
         .catch(() => new Set<string>())
       : Promise.resolve(new Set<string>());
   }
@@ -999,7 +1003,8 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
   const current = new Map(existing.map((p) => [String(p[0]), p] as const));
   const source = roster && roster.length
     ? roster.map((r) => ({
-        id: String(r.playerid),
+        id: String(r.yatid || r.playerid),
+        legacyId: String(r.playerid),
         name: rosterName(r),
         level: String(r.level || ''),
         isPitcher: Boolean(r.is_pitcher),
@@ -1007,18 +1012,25 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
       }))
     : existing.map((p) => ({
         id: String(p[0]),
+        legacyId: String(p[0]),
         name: String(p[1]),
         level: String(p[2] || ''),
         isPitcher: Boolean(p[5]) && !Boolean(p[4]),
         twoWay: Boolean(p[4]) && Boolean(p[5]),
       }));
 
-  return source.map(({ id, name, level, isPitcher, twoWay }) => {
-    const row = current.get(id);
+  return source.map(({ id, legacyId, name, level, isPitcher, twoWay }) => {
+    // Pre-existing locked/2026 Stat Ledgers may contain the source ID. Read
+    // their saved numbers without reopening or resimulating historical games.
+    const row = current.get(id) || current.get(legacyId);
     const simulated = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level) ? 1 : 0;
     const next = row
       ? [...row] as PlayerRow
       : [id, name, level, simulated, 0, 0, null, null, null, 0] as PlayerRow;
+
+    // The visible bracket identity is always YAT, including a saved
+    // legacy box's immutable original numbers.
+    next[0] = id;
 
     // Every active alumnus always stays in his roster group(s). If he did
     // not play this week he keeps a true zero line there, rather than moving
@@ -1185,7 +1197,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // Each name links to his profile (a tap there doesn't flip the card).
   const myHsid = me === 0 ? home : away;
   const teamOf = useMemo(() => new Map([...(homeRoster || []), ...(awayRoster || [])]
-    .map((r) => [String(r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
+    .map((r) => [String(r.yatid || r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
   const player = (p: PlayerRow) => (
     <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
   );

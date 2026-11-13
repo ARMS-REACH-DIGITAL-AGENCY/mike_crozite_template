@@ -269,9 +269,21 @@ export async function GET(req: NextRequest) {
     // school-detail joins executed for the full Favorites drawer.
     if (scope === "button") {
       const favorites = await getFavorites(firebaseUid);
+      const playerIds = favorites.map((f) => String(f.playerid));
+      // Preserve legacy favorite storage while the bracket presents YAT
+      // player IDs. Resolve the entire list in one indexed stage lookup,
+      // rather than issuing one query per player or changing fan records.
+      const { rows: mapped } = playerIds.length
+        ? await query<{ yatid: string }>(
+          `SELECT DISTINCT yatid FROM public.flip_card_front_stage
+             WHERE playerid = ANY($1::text[]) AND yatid IS NOT NULL`,
+          [playerIds],
+        )
+        : { rows: [] as { yatid: string }[] };
       return NextResponse.json({
         success: true,
-        playerIds: favorites.map((f) => String(f.playerid)),
+        playerIds,
+        yatPlayerIds: mapped.map((row) => row.yatid),
         scope,
       });
     }

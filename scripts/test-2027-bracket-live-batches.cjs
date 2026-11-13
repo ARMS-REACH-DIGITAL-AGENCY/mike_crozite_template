@@ -38,6 +38,7 @@ const { fetchBracketLiveBatches, BRACKET_LIVE_BATCH_SIZE } = exportsObj;
     const roster = Object.fromEntries(group.map((h) => [h, h === '18681' ? [] : [[h + '-p', 'Player', 'MLB', 0, 'Sample Club']]]));
     return { ok: true, json: async () => ({
       asOf: '2027-02-02', roster,
+      yatIdentityBySourceId: Object.fromEntries(group.map((h) => [h + '-p', 'YAT' + h.padStart(6, '0')])),
       lines: group.map((h) => [h, h + '-p', 0, 'b', [0], 'game-' + h, 'Sample Club']),
       clubs: { 'Sample Club': [[0, 'club-game', 1, 3]] },
       games: { 'Sample Club': [[0, 'club-game', 1, 1, 0]] },
@@ -49,6 +50,10 @@ const { fetchBracketLiveBatches, BRACKET_LIVE_BATCH_SIZE } = exportsObj;
   assert.equal(new Set(requests.flat()).size, 1024);
   assert.equal(Object.keys(all.roster).length, 1024);
   assert.equal(all.lines.length, 1024);
+  assert.equal(Object.keys(all.yatIdentityBySourceId || {}).length, 1024,
+    'Across 16 batches, every legacy source ID must retain a YAT identity');
+  assert.equal(all.yatIdentityBySourceId?.['5004-p'], 'YAT005004',
+    'Hamilton YAT identity must survive bracket transport');
   assert.ok(all.roster['1']?.length, 'First school must not be lost');
   assert.ok(all.roster['5004']?.length, 'Hamilton must not be lost in the middle');
   assert.deepEqual(JSON.parse(JSON.stringify(all.roster['18681'])), [], 'Last school must be represented even with no alumni');

@@ -37,6 +37,10 @@ export type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
   clubs: Record<string, [number, string, 0 | 1, number?][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
   fans?: Record<string, number[]>; // registered fans as each week went final
+  // Historical source ID -> permanent identity, provided solely to migrate
+  // legacy favorites and external links. Roster and stat lines themselves
+  // carry YAT IDs only.
+  yatIdentityBySourceId?: Record<string, string>;
 };
 
 const RULES = { mode: 'adjusted' as const, absent: 'hold' as const };
