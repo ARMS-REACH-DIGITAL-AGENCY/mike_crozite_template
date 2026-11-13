@@ -281,7 +281,7 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
           const res = await fetch('/api/contribute/sponsor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...form, interest: choice, hsid: school?.hsid || '', schoolName: school?.hsName || '', pageUrl: window.location.href }),
+            body: JSON.stringify({ ...form, interest: interest === 'video' ? 'video' : choice, hsid: school?.hsid || '', schoolName: school?.hsName || '', pageUrl: window.location.href }),
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(body?.error || 'That did not go through.');
@@ -293,11 +293,13 @@ function SponsorInquiry({ interest, onClose }: { interest: SponsorInterest; onCl
     >
       <div className="ccg-form-title">{interest === 'video' ? 'Video exchange request · pilot interest form' : 'Contact the YAT?STATS Partner Program Team'}</div>
       {interest === 'video' ? <p className="ccg-video-notice">Video checkout and delivery are not yet active. Leave your details to register interest in the program.</p> : null}
-      <label>I&apos;m interested in
-        <select value={choice} onChange={(e) => setChoice(e.target.value as SponsorInterest)}>
-          {(interest === 'video' ? ([['video', 'Video message exchange']] as const) : Object.entries(SPONSOR_INTERESTS)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </label>
+      {interest !== 'video' ? (
+        <label>I&apos;m interested in
+          <select value={choice} onChange={(e) => setChoice(e.target.value as SponsorInterest)}>
+            {Object.entries(SPONSOR_INTERESTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+      ) : null}
       <div className="ccg-form-row">
         <label>Name<input required value={form.name} onChange={set('name')} autoComplete="name" /></label>
         <label>Business<input value={form.business} onChange={set('business')} autoComplete="organization" /></label>
