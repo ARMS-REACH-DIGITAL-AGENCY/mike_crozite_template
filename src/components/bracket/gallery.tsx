@@ -1267,7 +1267,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // The stat drawer's scoreboards: one board per school (its own school
   // first) - a tick sheet of each day's numbers, not a tally (the main
   // scoreboard keeps the runs). The school's code and City, ST span both
-  // rows; row 1 is OPS+ and row 2 FIP- (days 1-7, the week in 8). Inning 9
+  // rows; row 1 is OPS+ and row 2 FIP- (days 1-7, the week in 8), each
+  // labeled at the far right so a filled-in board still says which is which. Inning 9
   // is one number, not two: the "W%" label on top, the clubs' winning
   // percentage in the box below. A cell that beat the other school's is
   // yellow - two yellows in an inning: both runs.
@@ -1304,10 +1305,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         )}
         {metricRow(side === 0 ? 0 : 1, side === 0 ? 1 : 0, true)}
         <span className="bl-tb-wlabel">W%</span>
-        <span className="bl-tb-label" aria-hidden="true" />
+        <span className="bl-tb-label" title="Row 1: OPS+ (hitting)">OPS+</span>
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
         <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? (settledAt(8, 0) ? ' won' : ' lead') : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
-        <span className="bl-tb-label" aria-hidden="true" />
+        <span className="bl-tb-label" title="Row 2: FIP- (pitching)">FIP-</span>
       </div>
     );
   };
