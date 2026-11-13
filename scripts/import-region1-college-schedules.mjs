@@ -384,6 +384,12 @@ async function resolveCollegeTeamSourceIds(client) {
       updated_at = now()
     from public.college_team_sources c
     where lower(trim(f.current_team_name)) = lower(trim(c.team))
+      -- Verified fan/admin transfers outrank automatic schedule-source identity.
+      and COALESCE(f.current_team_source,'') <> 'contribute_direct'
+      and not exists (
+        select 1 from public.player_team_override o
+        where o.playerid=f.playerid
+      )
       and f.current_team_source_team_id is distinct from c.teamid
       and upper(coalesce(f.level_label, f.display_level_label, f.current_team_level, '')) in (
         'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'JUCO', 'NJCAA', 'COLLEGE'
@@ -466,6 +472,11 @@ async function seedFlipCardFrontStage(client) {
       stage_updated_at = now()
     from next_games ng
     where f.current_team_source_team_id::text = ng.teamid::text
+      and COALESCE(f.current_team_source,'') <> 'contribute_direct'
+      and not exists (
+        select 1 from public.player_team_override o
+        where o.playerid=f.playerid
+      )
       and upper(coalesce(f.level_label, f.display_level_label, f.current_team_level, '')) in (
         'NCAA-D1', 'NCAA-D2', 'NCAA-D3', 'NAIA', 'JUCO', 'NJCAA', 'COLLEGE'
       )
