@@ -196,7 +196,7 @@ export async function generateMetadata({
       ? text.slice(0, maxPreviewLength - 1).replace(/\s+\S*$/, '').replace(/[.,;:!\-]+$/, '') + '…'
       : text;
     const description = shortened || 'Explore this baseball memory on YAT?STATS.';
-    const image = storyAssetUrl(r.s3_key);
+    const image = storyAssetUrl(r.s3_key, r.photo_taken_year);
     const images = image ? [{ url: image, ...(r.width && r.height ? { width: r.width, height: r.height } : {}), alt: title }] : undefined;
     return {
       title: `${title} | YAT?STATS`,
