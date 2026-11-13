@@ -774,7 +774,7 @@ export default function ContributePhotoFlow({
               <div className="ycd-chosen-wrap">
                 <div className="ycd-chosen">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={selectedTeam.logoUrl || teamLogoPath(selectedTeam.teamId) || CREST_FALLBACK} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
+                  <img data-team-logo-id={selectedTeam.teamId} src={selectedTeam.logoUrl || teamLogoPath(selectedTeam.teamId) || CREST_FALLBACK} alt="" onError={(e) => { e.currentTarget.src = CREST_FALLBACK; }} />
                   <span className="ycd-chosen-text">
                     <b>{selectedTeam.name}</b>
                     <small>{[selectedTeam.level, selectedTeam.orgName].filter(Boolean).join(' · ')}</small>
