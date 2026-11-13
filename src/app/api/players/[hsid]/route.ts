@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getActiveRosterByHsid, getFlipCardFrontStageByHsid, query } from '@/lib/db';
+import { getFlipCardFrontStageByHsid, query } from '@/lib/db';
 import { isRosterStatus } from '@/lib/galleryStatuses';
 
 type Row = Record<string, unknown>;
@@ -28,45 +28,39 @@ function isPitcherPosition(value: unknown) {
   return /(^|[^A-Z])(P|RHP|LHP|PITCHER)([^A-Z]|$)/.test(position);
 }
 
-function num(value: unknown) {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+type SeasonLogUsage = { yatid: string; has_batting: boolean; has_pitching: boolean };
 
-function hasBuckets(value: unknown) {
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) && parsed.length > 0;
-    } catch { return false; }
+/** One indexed lookup for the whole roster; statistics do not determine membership. */
+async function getRosterGameLogUsage(yatIds: string[]) {
+  const usage = new Map<string, SeasonLogUsage>();
+  if (!yatIds.length) return usage;
+  try {
+    const { rows } = await query<SeasonLogUsage>(
+      `SELECT yatid, BOOL_OR(stat_type='batting') AS has_batting,
+                      BOOL_OR(stat_type='pitching') AS has_pitching
+         FROM public.player_game_logs
+        WHERE yatid=ANY($1::text[])
+          AND game_date >= DATE '2026-01-01'
+          AND game_date < DATE '2027-01-01'
+          AND stat_type IN ('batting','pitching')
+        GROUP BY yatid`,
+      [yatIds],
+    );
+    for (const row of rows) usage.set(text(row.yatid), row);
+  } catch (error) {
+    // Stats are optional. Never make an authoritative, published player
+    // disappear from the Stat Ledger because a game-log lookup timed out.
+    console.warn('[fantasy-roster] game-log role lookup unavailable', { error });
   }
-  return false;
+  return usage;
 }
 
-function hasBattingEvidence(row: Row | undefined) {
-  if (!row) return false;
-  return hasBuckets(row.season_batting_buckets) ||
-    Boolean(row.stat_year) ||
-    ['ab', 'h', 'hr', 'bat_bb', 'ops'].some((key) => num(row[key]) > 0);
-}
-
-function hasPitchingEvidence(row: Row | undefined) {
-  if (!row) return false;
-  return hasBuckets(row.season_pitching_buckets) ||
-    Boolean(row.pitch_year) ||
-    ['ip', 'pg', 'gs', 'w', 'l', 'saves', 'er', 'ko', 'pit_bb'].some((key) => num(row[key]) > 0);
-}
-
-function isPitcherRole(stats: Row | undefined, position: unknown) {
-  const hasBatting = hasBattingEvidence(stats);
-  const hasPitching = hasPitchingEvidence(stats);
-
-  if (hasBatting && !hasPitching) return false;
-  if (hasPitching && !hasBatting) return true;
-  if (typeof stats?.is_pitcher === 'boolean') return stats.is_pitcher;
-  return isPitcherPosition(position);
+function roleFromPosition(position: unknown) {
+  const value = text(position).toUpperCase();
+  return {
+    isPitcher: isPitcherPosition(value),
+    isTwoWay: /(?:^|[^A-Z])(?:H[-/]P|P[-/]H|TWO[- ]?WAY)(?:$|[^A-Z])/.test(value),
+  };
 }
 
 /**
@@ -86,14 +80,17 @@ export async function GET(
   const { hsid } = await context.params;
 
   try {
-    const [stageRowsRaw, statsRowsRaw] = await Promise.all([
-      getFlipCardFrontStageByHsid(hsid),
-      getActiveRosterByHsid(hsid),
-    ]);
-
+    // The bracket asks for roster MEMBERSHIP, not the expensive season
+    // aggregation used by the flip cards. A page can render dozens of
+    // opponents: running getActiveRosterByHsid here exhausted the DB pool.
+    // Read the same school-scoped published gallery used by Active Alumni.
+    const stageRowsRaw = await getFlipCardFrontStageByHsid(hsid);
     const stageRows = (Array.isArray(stageRowsRaw) ? stageRowsRaw : []) as Row[];
-    const statsRows = (Array.isArray(statsRowsRaw) ? statsRowsRaw : []) as Row[];
-    const statsById = new Map(statsRows.map((row) => [text(row.playerid), row]));
+    const eligible = stageRows.filter(
+      (stage) => isRosterStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage)
+    );
+    const yatIds = [...new Set(eligible.map((r) => text(r.yatid)).filter(Boolean))];
+    const gameLogUsage = await getRosterGameLogUsage(yatIds);
 
     // Team logos are keyed by our (Baseball Cube) team id. A pro whose current
     // team came from the MLB feed has MLB's team id in
@@ -120,28 +117,29 @@ export async function GET(
       return text(r.current_teamid) || null;
     };
 
-    const roster = stageRows
-      .filter((stage) => isRosterStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage))
+    const roster = eligible
       .map((stage) => {
         const id = text(stage.playerid);
-        const stats = statsById.get(id);
+        const season = gameLogUsage.get(text(stage.yatid));
+        const inferredRole = roleFromPosition(stage.position);
         const level = text(
           stage.level_label ??
           stage.display_level_label ??
           stage.current_level_label ??
-          stats?.level ??
-          stats?.highlevel
+          stage.current_team_level
         );
-        const firstName = text(stage.first_name ?? stage.firstname ?? stats?.firstname);
-        const lastName = text(stage.last_name ?? stage.lastname ?? stats?.lastname);
+        const firstName = text(stage.first_name ?? stage.firstname);
+        const lastName = text(stage.last_name ?? stage.lastname);
         const displayName =
-          text(stage.display_name ?? stats?.display_name) ||
+          text(stage.display_name) ||
           [firstName, lastName].filter(Boolean).join(' ') ||
           id;
-        const position = stage.position ?? stats?.position ?? null;
-        const hasBatting = hasBattingEvidence(stats);
-        const hasPitching = hasPitchingEvidence(stats);
-        const isPitcher = isPitcherRole(stats, position);
+        const position = stage.position ?? null;
+        const hasBatting = season?.has_batting === true;
+        const hasPitching = season?.has_pitching === true;
+        const isTwoWay = (hasBatting && hasPitching) || inferredRole.isTwoWay;
+        const isPitcher = hasPitching && !hasBatting ? true
+          : hasBatting && !hasPitching ? false : inferredRole.isPitcher;
 
         return {
           playerid: id, // Historical gameplay/source key; never silently renumber.
@@ -154,13 +152,13 @@ export async function GET(
           is_pitcher: isPitcher,
           has_batting_2026: hasBatting,
           has_pitching_2026: hasPitching,
-          is_two_way_2026: hasBatting && hasPitching,
+          is_two_way_2026: isTwoWay,
           status_label: stage.status_label ?? stage.status ?? null,
           current_team_name: stage.current_team_name ?? null,
           // Our (Baseball Cube) team id: the team logo in the stat drawer.
           current_teamid: logoTeamId(stage),
           current_org_or_conference_name: stage.current_org_or_conference_name ?? null,
-          has_2026_stats: Boolean(stats),
+          has_2026_stats: Boolean(season),
         };
       })
       .sort((a, b) =>
@@ -169,7 +167,9 @@ export async function GET(
         String(a.playerid).localeCompare(String(b.playerid))
       );
 
-    return NextResponse.json(roster);
+    return NextResponse.json(roster, {
+      headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+    });
   } catch (error) {
     console.error('Failed to fetch fantasy roster', { hsid, error });
     return NextResponse.json({ error: 'Failed to fetch players' }, { status: 500 });

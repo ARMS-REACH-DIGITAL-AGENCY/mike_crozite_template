@@ -98,13 +98,19 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const [previewData, setPreviewData] = useState<{ box?: GameBox; homeRoster: ActiveRosterPlayer[]; awayRoster: ActiveRosterPlayer[] } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    if (!g) { setPreviewData(null); return () => { cancelled = true; }; }
+    // No game has been played in the future 2027 tournament. Do not fetch
+    // two entire school rosters for every unopened, unplayed game card:
+    // the Stat Ledger fetches them on demand when the fan opens the drawer.
+    if (!g || (card.state !== 'live' && card.state !== 'final')) {
+      setPreviewData(null);
+      return () => { cancelled = true; };
+    }
     const boxPromise = card.file ? loadBoxes(card.file).then((all) => all[String(g[0])]).catch(() => undefined) : Promise.resolve(undefined);
     Promise.all([boxPromise, loadActiveRoster(g[2]), loadActiveRoster(g[3])])
       .then(([box, homeRoster, awayRoster]) => { if (!cancelled) setPreviewData({ box, homeRoster, awayRoster }); })
       .catch(() => { if (!cancelled) setPreviewData({ box: undefined, homeRoster: [], awayRoster: [] }); });
     return () => { cancelled = true; };
-  }, [g, card.file]);
+  }, [g, card.file, card.state]);
   const gameNo = ((card.week - 1) % 3) + 1;
   const round = Math.ceil(card.week / 3);
   // A live game's inning ("TOP 2") and its yellow, not-yet-final cells.

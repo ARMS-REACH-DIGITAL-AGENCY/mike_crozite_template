@@ -720,8 +720,12 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       FROM (
         SELECT raw_b.*, source_map.canonical_playerid,
           canonical.level_label AS canonical_level
-        FROM school_stat_sources source_map
-        JOIN public.v_tbc_batting_all_seasons_resolved raw_b
+        FROM (
+          SELECT * FROM public.v_tbc_batting_all_seasons_resolved
+          WHERE year='2026'
+            AND playerid::text = ANY(ARRAY(SELECT source_playerid FROM school_stat_sources))
+        ) raw_b
+        JOIN school_stat_sources source_map
           ON raw_b.playerid=source_map.source_playerid
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_b.teamid::text
@@ -879,8 +883,12 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
       FROM (
         SELECT raw_p.*, source_map.canonical_playerid,
           canonical.level_label AS canonical_level
-        FROM school_stat_sources source_map
-        JOIN public.v_tbc_pitching_all_seasons_resolved raw_p
+        FROM (
+          SELECT * FROM public.v_tbc_pitching_all_seasons_resolved
+          WHERE year='2026'
+            AND playerid::text = ANY(ARRAY(SELECT source_playerid FROM school_stat_sources))
+        ) raw_p
+        JOIN school_stat_sources source_map
           ON raw_p.playerid=source_map.source_playerid
         LEFT JOIN public.teamid_universe_mapping canonical
           ON canonical.teamid = raw_p.teamid::text
@@ -1325,7 +1333,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 // planning a hash scan of ~939K source rows per school. Verified exact result
 // fingerprints on Hamilton (5004) and HSID 14385, and timed against the full
 // isolated 2026 read model before merge. No source-data changes.
-export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v5', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v6', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   // All returned rows belong to school_players; filter raw season inputs first.
   // This avoids aggregating every team's 2026 stats on each school cache miss.
   const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))');
@@ -2882,7 +2890,7 @@ const FLIP_CARD_STAGE_SELECT = `
      AND UPPER(BTRIM(COALESCE(fs.status_label, ''))) = 'COMMIT'
 `;
 
-export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-expanded-universe-20261105', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
+export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCardFrontStageByHsid-yat-stage-authority-20261113', async function getFlipCardFrontStageByHsid(hsid: string): Promise<any[]> {
   const sql = `WITH ${PLAYER_STAGE_SCHOOL_IDENTITY_CTES} ${FLIP_CARD_STAGE_SELECT}    WHERE fs.hsid = $1`;
   const { rows } = await query(sql, [hsid]);
   return rows;
