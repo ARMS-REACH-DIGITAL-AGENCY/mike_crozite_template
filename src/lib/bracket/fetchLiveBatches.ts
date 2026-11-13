@@ -27,6 +27,7 @@ export function mergeBracketLive(into: Live, part: Live): void {
   Object.assign(into.roster, part.roster);
   into.lines.push(...part.lines);
   Object.assign(into.fans ||= {}, part.fans || {});
+  Object.assign(into.yatIdentityBySourceId ||= {}, part.yatIdentityBySourceId || {});
   mergeGameLists(into.clubs, part.clubs || {});
   mergeGameLists(into.games ||= {}, part.games || {});
 }
@@ -43,6 +44,7 @@ export async function fetchBracketLiveBatches(
 
   const combined: Live = {
     asOf: '', roster: {}, lines: [], clubs: {}, games: {}, fans: {},
+    yatIdentityBySourceId: {},
   };
   for (let i = 0; i < hsids.length; i += BRACKET_LIVE_BATCH_SIZE) {
     const batch = hsids.slice(i, i + BRACKET_LIVE_BATCH_SIZE);
