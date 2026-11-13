@@ -34,6 +34,14 @@ function verify(source) {
   // historical 939K-row scans for every school request. Require an indexable
   // scalar-array initplan for the Active and All-Time season aggregation paths.
   const rosterStart = source.indexOf('function buildActiveRosterSql(');
+  // The roster builder produces PostgreSQL, not JavaScript. A PR #784
+  // JavaScript-style comment inside its SQL template caused SQLSTATE 42601
+  // and emptied every school roster, including bracket side drawers.
+  const rosterBuilder = source.slice(rosterStart, source.indexOf('\n}', rosterStart) + 2);
+  const sqlTemplate = rosterBuilder.match(/return `([\s\S]*?)`;/)?.[1];
+  assert.ok(sqlTemplate, 'Active roster SQL template must be present');
+  assert.doesNotMatch(sqlTemplate, /^\s*\/\//m,
+    'Active roster template includes an invalid JavaScript-style SQL comment; use --');
   const allTimeStart = source.indexOf('export const getAllTimeRosterByHsid');
   assert.ok(rosterStart >= 0 && allTimeStart >= 0, 'School roster readers must exist');
   for (const [name, block] of [
