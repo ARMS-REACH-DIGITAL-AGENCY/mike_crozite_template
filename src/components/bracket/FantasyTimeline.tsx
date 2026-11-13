@@ -13,7 +13,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
-import { type DayShout, type DayStory, weekHero, weekStories } from './dayStory';
+import { type DayStory, weekStories } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BallparkScene from './BallparkScene';
 
@@ -58,11 +58,25 @@ const currentPlayerImages = (id: string, designatedHeadshot?: string | null) => 
   SILHOUETTE,
 ];
 
-function Fallback({ srcs, className, alt }: { srcs: string[]; className: string; alt: string }) {
+function Fallback({ srcs, className, alt, fitHeight }: { srcs: string[]; className: string; alt: string; fitHeight?: boolean }) {
   const [i, setI] = useState(0);
+  const [wide, setWide] = useState(false);
   if (i >= srcs.length) return null;
+  // A slide's person (Pete, Nov 13): a wide picture (shoulders and a bat or
+  // an arm out to the side) shrunk to the box's width stood barely over the
+  // timeline. One that would come out under half the box's height gets a
+  // box 1.7x as wide instead, reaching left under the headline with a soft
+  // fade, so his head lands about where a full-figure picture's does.
+  const onLoad = fitHeight ? (e: React.SyntheticEvent<HTMLImageElement>) => {
+    // The picture's own box (.yft-person, before yft-wide applies) is the
+    // player box; object-fit:contain draws the picture box.width wide.
+    const el = e.currentTarget;
+    const box = el.getBoundingClientRect();
+    setWide(Boolean(el.naturalWidth && el.naturalHeight && box.height && box.width / (el.naturalWidth / el.naturalHeight) < 0.5 * box.height));
+  } : undefined;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className={className} src={srcs[i]} alt={alt} loading="lazy" decoding="async" onError={() => setI((v) => v + 1)} />;
+  return <img className={`${className}${wide ? ' yft-wide' : ''}`} src={srcs[i]} alt={alt} loading="lazy" decoding="async" onLoad={onLoad}
+    onError={() => { setWide(false); setI((v) => v + 1); }} />;
 }
 
 type RoundSlide = {
@@ -261,11 +275,13 @@ function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } }}
       aria-label={`Round ${slide.round}. ${seriesLabel}`}>
       {slide.opponent ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : null}
+      {/* A person only when the write-up names him, and only this school's
+          own alumni - never the opponent's (Pete, Nov 13); else YaTi. */}
       {day?.hero
-        ? <Fallback key={day.hero.id} className="yft-person" srcs={currentPlayerImages(day.hero.id)} alt={day.hero.name} />
-        : slide.heroStar
-        ? <Fallback className="yft-person" srcs={currentPlayerImages(slide.heroStar[5], slide.heroIdentity?.headshotUrl)} alt={slide.heroStar[0]} />
-        : <Fallback className="yft-person" srcs={[YATI_HEROES[(slide.round || 1) % YATI_HEROES.length]]} alt="YaTi" />}
+        ? <Fallback key={day.hero.id} className="yft-person" fitHeight srcs={currentPlayerImages(day.hero.id)} alt={day.hero.name} />
+        : !day && slide.heroStar
+        ? <Fallback key={slide.heroStar[5]} className="yft-person" fitHeight srcs={currentPlayerImages(slide.heroStar[5], slide.heroIdentity?.headshotUrl)} alt={slide.heroStar[0]} />
+        : <Fallback key={`yati${slide.round}`} className="yft-person" srcs={[YATI_HEROES[(slide.round || 1) % YATI_HEROES.length]]} alt="YaTi" />}
 
       <div className="yft-story yft-fade" key={`${listKey}:${i}`}>
         <span className="yft-status">{status}</span>
@@ -417,19 +433,6 @@ export default function FantasyTimeline() {
 
   const rounds = useMemo<RoundSlide[]>(() => {
     if (!data) return [];
-    // The picture for a story with no shout-out of its own (Pete: the guys
-    // who played well, not YaTi): the school's best line of that week, else
-    // its latest best before it, else the opponent's best that week. YaTi
-    // only when nobody in the game has played.
-    const pictures: Record<number, DayShout | undefined> = {};
-    let latest: DayShout | undefined;
-    for (const c of [...cards].sort((a, b) => a.week - b.week)) {
-      if (!c.game || !c.file) continue;
-      const box = boxes[c.file]?.[String(c.game[0])];
-      const mine = weekHero(c.game, box, me);
-      latest = mine || latest;
-      pictures[c.week] = latest || weekHero(c.game, box, c.game[2] === me ? c.game[3] : c.game[2]);
-    }
     return Array.from({ length: 10 }, (_, i) => {
       const round = i + 1;
       const firstWeek = i * 3 + 1;
@@ -455,7 +458,9 @@ export default function FantasyTimeline() {
         const after = { done: upTo, wins: upTo.filter((x) => x.game?.[6] === me).length, losses: upTo.filter((x) => x.game?.[6] != null && x.game?.[6] !== me).length, complete: upTo.length === 3 };
         const box = boxes[c.file]?.[String(c.game[0])];
         stories[c.week] = weekStories(data.index, c.game, box, me, k + 1, seriesSentence(after, schoolName, oppName), c.state === 'final')
-          .map((x) => ({ ...x, hero: x.hero || pictures[c.week], label: `Game ${k + 1} · ${x.day}` }));
+          // A story's picture is its own star (named in its shout-out line),
+          // never a player the write-up doesn't mention (Pete, Nov 13).
+          .map((x) => ({ ...x, label: `Game ${k + 1} · ${x.day}` }));
       });
       const withNews = list.filter((c) => stories[c.week]?.length).map((c) => c.week);
       const defaultWeek = lead >= firstWeek && lead <= lastWeek ? lead : withNews[withNews.length - 1] || firstWeek;
@@ -644,6 +649,12 @@ export default function FantasyTimeline() {
         .yft-person { position:absolute; z-index:1; left:calc(3% + 94% * 15 / 33); width:calc(94% * 12 / 33 + 6px); top:calc(var(--row1-h, 36px) + 4px); height:calc(100% - var(--row1-h, 36px) - 4px); object-fit:contain; object-position:bottom center; pointer-events:none;
           --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 72px), rgba(0,0,0,.35) calc(100% - 28px), transparent calc(100% - 4px));
           -webkit-mask-image:var(--yft-dissolve); mask-image:var(--yft-dissolve); }
+        /* A wide picture: a box 1.7x as wide, right edge on the usual box's
+           right edge, the whole picture kept (nothing cropped), its left
+           edge fading in softly under the headline (Pete, Nov 13). */
+        .yft-person.yft-wide { left:auto; right:calc(97% - 94% * 27 / 33 - 6px); width:calc((94% * 12 / 33 + 6px) * 1.7); object-position:right bottom;
+          -webkit-mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, #000 14%);
+          -webkit-mask-composite:source-in; mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, #000 14%); mask-composite:intersect; }
         /* A fade to black (deep blue in the day theme) along the bottom of
            row 3, under the timeline and over the slides. */
         .yft-hero::after { content:''; position:absolute; z-index:6; left:0; right:0; bottom:0; height:60px; background:linear-gradient(to bottom, rgba(2,3,8,0), rgba(2,3,8,.85)); pointer-events:none; }
@@ -729,6 +740,7 @@ export default function FantasyTimeline() {
           .yft-hero { height:118px; min-height:118px; }
           .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 4px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px);
             --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 46px), rgba(0,0,0,.35) calc(100% - 18px), transparent calc(100% - 2px)); }
+          .yft-person.yft-wide { left:auto; right:calc(96% - 92% * 27 / 33 - 4px); width:calc((92% * 12 / 33 + 4px) * 1.7); }
           .yft-hero::after { height:40px; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
