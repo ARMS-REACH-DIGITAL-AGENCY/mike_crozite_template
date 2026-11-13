@@ -1,5 +1,4 @@
 "use client";
-import "./FunZone.css";
 // src/components/yatstats/FunZone.tsx
 // Interactive six-tab FunZone area on the back of the player flip card.
 //
@@ -1029,7 +1028,500 @@ export default function FunZone({
       {/* All sizing uses cqi (container query inline-size) units.
           The container is .yat-back-cq established in PlayerCardBack.tsx.
           cqi = percent of card width - ensures proportional sizing at any card width. */}
-      
+      <style>{`
+        /* -- Root ------------------------------------------------------- */
+        /* Fully transparent - cardboard texture from yat-back-texture shows through.
+           All text uses dark colours for legibility on the light cardboard. */
+        .fz-root{
+          display:flex;
+          flex-direction:column;
+          flex:1;
+          min-height:0;
+          background:transparent;
+          border-top:1px solid rgba(30,22,14,0.25);
+        }
+
+        /* -- CTA strip -------------------------------------------------- */
+        /* All padding/gap/font use cqi so they scale with card width */
+        .fz-cta-strip{
+          display:flex;
+          align-items:center;
+          gap:clamp(3px,1.5cqi,8px);
+          padding:clamp(3px,1.2cqi,7px) clamp(4px,2cqi,10px) clamp(3px,1.2cqi,7px) clamp(4px,1.5cqi,8px);
+          border-bottom:1px solid rgba(30,22,14,0.2);
+          background:rgba(30,22,14,0.08);
+          flex-shrink:1;
+        }
+        .fz-yati-img{
+          width:clamp(24px,8cqi,44px);
+          height:auto;
+          object-fit:contain;
+          flex-shrink:0;
+          display:block;
+          align-self:flex-end;
+          filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+        }
+
+        /* Speech bubble */
+        .fz-bubble-link{
+          flex:1;
+          text-decoration:none;
+          display:flex;
+          align-items:center;
+          min-width:0;
+        }
+        .fz-bubble{
+          position:relative;
+          background:rgba(255,255,255,0.88);
+          color:#1a1208;
+          border-radius:8px;
+          padding:clamp(3px,1.2cqi,7px) clamp(4px,2cqi,10px);
+          flex:1;
+          min-width:0;
+          margin-left:clamp(4px,1.5cqi,9px);
+          border:1px solid rgba(30,22,14,0.15);
+        }
+        .fz-bubble-text{
+          font:700 clamp(6px,2.2cqi,9px)/1.4 Oswald,sans-serif;
+          letter-spacing:.03em;
+          text-transform:uppercase;
+          display:block;
+          word-break:break-word;
+          color:#1a1208;
+        }
+        /* Tail: left-pointing triangle on the left edge of the bubble */
+        .fz-bubble-tail{
+          position:absolute;
+          left:-7px;
+          top:50%;
+          transform:translateY(-50%);
+          width:0;
+          height:0;
+          border-top:6px solid transparent;
+          border-bottom:6px solid transparent;
+          border-right:7px solid #fff;
+        }
+
+        /* -- Tab strip -------------------------------------------------- */
+        .fz-tab-strip{
+          display:flex;
+          justify-content:space-around;
+          align-items:stretch;
+          border-top:2px solid rgba(30,22,14,0.2);
+          flex-shrink:1;
+          background:rgba(30,22,14,0.07);
+        }
+        .fz-tab-btn{
+          flex:1;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          justify-content:center;
+          gap:clamp(1px,.5cqi,3px);
+          padding:clamp(3px,1.2cqi,7px) 1px clamp(2px,1cqi,5px);
+          background:none;
+          border:none;
+          border-top:2px solid transparent;
+          margin-top:-2px;
+          color:rgba(30,22,14,0.45);
+          cursor:pointer;
+          transition:color .15s,border-color .15s;
+          min-width:0;
+        }
+        .fz-tab-btn i{
+          font-size:clamp(9px,3.2cqi,14px);
+          line-height:1;
+        }
+        .fz-tab-label{
+          font:700 clamp(5px,1.8cqi,7.5px) "Bebas Neue",sans-serif;
+          letter-spacing:.07em;
+          text-transform:uppercase;
+          line-height:1;
+          white-space:nowrap;
+        }
+        .fz-tab-btn.fz-tab-active{
+          color:rgba(30,22,14,0.9);
+          border-top-color:rgba(30,22,14,0.8);
+        }
+        .fz-tab-btn:hover:not(.fz-tab-active){color:rgba(30,22,14,0.7)}
+
+        /* -- Content panel ---------------------------------------------- */
+        /* All six panels are always in the DOM (see the comment at their
+           render site); only the active one is displayed, so the hidden
+           ones take up no layout space and never push the tab strip down. */
+        .fz-panel{
+          display:none;
+        }
+        /* flex:1 min-height:0 - gets all remaining space after CTA + tab strips.
+           overflow:hidden - clips content to allocated space so it CANNOT push
+           the tab strip down at any card width (3-across or 4-across). */
+        .fz-panel.fz-panel-active{
+          display:block;
+          flex:1;
+          min-height:0;
+          overflow:hidden;
+          padding:clamp(4px,1.8cqi,10px) clamp(5px,2.5cqi,12px) clamp(5px,2.5cqi,14px);
+          background:transparent;
+        }
+
+        /* Where YAT Now art occupies the existing panel only; tabs remain
+           outside it as six real navigation buttons, at every card size. */
+        .fz-where-yat{height:100%;min-height:0;display:flex;overflow:hidden;}
+        .fz-panel[data-fz-tab="schedule"]:has(.fz-where-yat){
+          padding:0;
+        }
+        .fz-root:has(.fz-where-yat){min-height:0;}
+        .fz-root:has(.fz-where-yat) .fz-tab-strip{
+          flex-shrink:0;
+          min-height:clamp(28px,9.5cqi,53px);
+          position:relative;
+          z-index:2;
+        }
+        .fz-stats-shell{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(4px,1.4cqi,8px);
+          height:100%;
+          min-height:0;
+        }
+
+        /* The StatsPanel bar is the single-level caption; do not render
+           another label row. The global topbar ordinarily hides this bar
+           next to a tab row, so explicitly restore it only in this case. */
+        .fz-stats-shell.fz-show-single-level > .fz-stats .yat-stats-bar{
+          display:flex !important;
+        }
+        .fz-stat-bucket-tabs{
+          display:grid;
+          grid-template-columns:repeat(auto-fit,minmax(0,1fr));
+          gap:clamp(2px,.8cqi,5px);
+          flex-shrink:0;
+        }
+
+        .fz-stat-bucket-btn{
+          min-width:0;
+          padding:clamp(3px,1cqi,6px) clamp(3px,1cqi,7px);
+          border:1px solid rgba(30,22,14,0.18);
+          border-radius:clamp(3px,1cqi,6px);
+          background:rgba(255,255,255,0.18);
+          color:rgba(30,22,14,0.62);
+          cursor:pointer;
+          font:700 clamp(5px,1.7cqi,8px)/1.05 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.05em;
+          text-transform:uppercase;
+          white-space:normal;
+        }
+
+        .fz-stat-bucket-btn.active{
+          background:rgba(255,255,255,0.38);
+          color:rgba(0,0,0,0.90);
+          border-color:rgba(30,22,14,0.45);
+          box-shadow:inset 0 -2px 0 rgba(30,22,14,0.65);
+        }
+
+        .fz-stat-bucket-btn:hover:not(.active){
+          color:rgba(30,22,14,0.86);
+          border-color:rgba(30,22,14,0.32);
+        }
+
+        /* -- Stats panel ------------------------------------------------ */
+        .fz-stats{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(5px,1.8cqi,10px);
+          height:100%;
+          min-height:0;
+        }
+
+        .yat-stats-bar{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          min-height:clamp(20px,6.5cqi,34px);
+          padding:clamp(3px,1cqi,6px) clamp(6px,2cqi,12px);
+          border:1px solid rgba(30,22,14,0.22);
+          border-radius:clamp(4px,1.2cqi,7px);
+          background:rgba(255,255,255,0.16);
+          color:rgba(0,0,0,0.88);
+          font:700 clamp(9px,3cqi,15px)/1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.055em;
+          text-transform:uppercase;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.22);
+        }
+
+        .yat-stats-grid{
+          display:grid;
+          grid-template-columns:repeat(3,minmax(0,1fr));
+          gap:clamp(5px,1.7cqi,10px);
+          flex:1;
+          min-height:0;
+        }
+        .yat-stat{
+          min-width:0;
+          min-height:clamp(34px,10cqi,58px);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:clamp(5px,1.8cqi,11px);
+          padding:clamp(4px,1.4cqi,8px) clamp(5px,1.8cqi,10px);
+          border:1px solid rgba(30,22,14,0.10);
+          border-radius:clamp(6px,1.8cqi,10px);
+          background:rgba(255,255,255,0.36);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.34),
+            0 1px 2px rgba(30,22,14,0.08);
+        }
+
+        .yat-stat-label{
+          flex:0 0 auto;
+          color:rgba(30,22,14,0.70);
+          font:400 clamp(9px,2.8cqi,15px)/1 Oswald,sans-serif;
+          letter-spacing:.02em;
+          text-transform:uppercase;
+          white-space:nowrap;
+        }
+
+        .yat-stat-val{
+          flex:0 0 auto;
+          color:rgba(0,0,0,0.90);
+          font:700 clamp(16px,5.6cqi,28px)/1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.02em;
+          white-space:nowrap;
+        }
+
+        /* -- News teaser ------------------------------------------------ */
+        
+        .fz-news-list{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(4px,1cqi,6px);
+          width:100%;
+          height:100%;
+          min-height:0;
+          min-width:0;
+        }
+        .fz-news-featured{
+          display:flex;
+          flex:1 1 0;
+          gap:clamp(5px,1.8cqi,10px);
+          align-items:flex-start;
+          overflow:hidden;
+          min-height:0;
+          min-width:0;
+          padding:clamp(4px,1.1cqi,7px);
+          border:1px solid rgba(30,22,14,.18);
+          border-radius:clamp(5px,1.4cqi,8px);
+          background:rgba(255,255,255,.18);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.22);
+        }
+        .fz-news-thumb-link{
+          flex:0 0 auto;
+          text-decoration:none;
+        }
+        .fz-news-thumb{
+          display:block;
+          width:clamp(44px,15cqi,68px);
+          height:clamp(45px,14cqi,68px);
+          object-fit:cover;
+          border-radius:clamp(4px,1cqi,8px);
+          border:1px solid rgba(30,22,14,0.18);
+          box-shadow:0 1px 3px rgba(0,0,0,0.12);
+          background:rgba(30,22,14,0.06);
+        }
+        .fz-news-tip { text-decoration:none; color:inherit; cursor:pointer; }
+        .fz-news-tip:hover { background:rgba(255,255,255,.42); }
+        .fz-news-tip-icon { display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.48); }
+        .fz-news-tip-icon i { font-size:clamp(21px,7cqi,33px); color:rgba(30,22,14,.66); }
+        .fz-news-tip .fz-news-copy { justify-content:center; }
+        .fz-news-thumb-fallback{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font:700 clamp(8px,2.4cqi,11px) "Bebas Neue",sans-serif;
+          letter-spacing:.08em;
+          color:rgba(30,22,14,0.55);
+        }
+        .fz-news-copy{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(2px,.7cqi,4px);
+          min-width:0;
+          flex:1;
+          justify-content:flex-start;
+        }
+        .fz-news-title-link{
+          text-decoration:none;
+        }
+        .fz-news-title-link:hover .fz-news-title{
+          text-decoration:underline;
+        }
+        .fz-news-label{
+          font:700 clamp(6px,1.8cqi,8px) Oswald,sans-serif;
+          letter-spacing:.1em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.5);
+        }
+        .fz-news-title{
+          display:-webkit-box;
+          -webkit-line-clamp:3;
+          -webkit-box-orient:vertical;
+          overflow:hidden;
+          overflow-wrap:anywhere;
+          font:700 clamp(9px,3cqi,13px)/1.12 "Bebas Neue",sans-serif;
+          letter-spacing:.03em;
+          color:rgba(30,22,14,0.9);
+        }
+        .fz-news-body{
+          font:400 clamp(7px,2.15cqi,10px)/1.35 var(--yat-news-font);
+          color:rgba(30,22,14,.82);
+          display:-webkit-box;
+          -webkit-line-clamp:1;
+          -webkit-box-orient:vertical;
+          overflow:hidden;
+        }
+        .fz-news-footer{
+          font:700 clamp(6px,2cqi,9px) Oswald,sans-serif;
+          letter-spacing:.06em;
+          text-transform:uppercase;
+          color:rgba(30,22,14,0.5);
+        }
+
+
+        /* -- Social panel ----------------------------------------------- */
+        /* Follows the Stats tab's own layout exactly: a header bar, then a
+           3-column/4-row grid - here the message takes the space that
+           would be Stats' first two rows, and the six share icons fill the
+           remaining two rows at the exact same cell height as .yat-stat.
+           .fz-social-bar/.fz-social-grid are visual copies of
+           .yat-stats-bar/.yat-stats-grid, not the same classes - sharing
+           those literal classes is what let an earlier Social-only fix
+           bleed into and resize the Stats tab's own grid. */
+        .fz-social{
+          display:flex;
+          flex-direction:column;
+          gap:clamp(5px,1.8cqi,10px);
+          height:100%;
+          min-height:0;
+        }
+        .fz-social-bar{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          min-height:clamp(20px,6.5cqi,34px);
+          padding:clamp(3px,1cqi,6px) clamp(6px,2cqi,12px);
+          border:1px solid rgba(30,22,14,0.22);
+          border-radius:clamp(4px,1.2cqi,7px);
+          background:rgba(255,255,255,0.16);
+          color:rgba(0,0,0,0.88);
+          font:700 clamp(9px,3cqi,15px)/1 "Bebas Neue",Oswald,sans-serif;
+          letter-spacing:.055em;
+          text-transform:uppercase;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.22);
+          overflow:hidden;
+          white-space:nowrap;
+          text-overflow:ellipsis;
+        }
+        .fz-social-grid{
+          display:grid;
+          grid-template-columns:repeat(3,minmax(0,1fr));
+          grid-template-rows:repeat(4,minmax(0,1fr));
+          gap:clamp(5px,1.7cqi,10px);
+          flex:1;
+          min-height:0;
+        }
+        /* Spans the first two rows across all three columns - the same
+           space Stats' first 6 cells would occupy. One flowing paragraph,
+           not stacked lines, so wrapped text uses the space efficiently and
+           can run at a bigger point size. */
+        .fz-social-message-cell{
+          grid-column:1 / -1;
+          grid-row:1 / 3;
+          display:flex;
+          align-items:center;
+          min-width:0;
+          min-height:0;
+          overflow:hidden;
+          padding:clamp(6px,2cqi,12px);
+          border:1px solid rgba(30,22,14,0.10);
+          border-radius:clamp(8px,2.2cqi,16px);
+          background:rgba(255,255,255,0.36);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.34),
+            0 1px 2px rgba(30,22,14,0.08);
+        }
+        /* Plain block so mixed text + inline elements wrap as one flowing
+           paragraph - display:flex directly on the text container turns each
+           text run/inline element into its own flex item instead of letting
+           them wrap together. */
+        .fz-social-message-text{
+          margin:0;
+          width:100%;
+          font:500 clamp(11px,4.4cqi,18px)/1.3 Oswald,sans-serif;
+          color:rgba(30,22,14,0.85);
+        }
+        .fz-social-accent{ color:#2451c9; font-weight:700; }
+        /* Icon-only - the branded mark says what it is, so no text label. */
+        .fz-social-cell{
+          min-width:0;
+          min-height:0;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          border:1px solid rgba(30,22,14,0.10);
+          border-radius:clamp(8px,2.2cqi,16px);
+          background:rgba(255,255,255,0.36);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.34),
+            0 1px 2px rgba(30,22,14,0.08);
+          cursor:pointer;
+        }
+        /* Sized well under the cell itself, so the Facebook/X/Instagram
+           badges show a visible margin of the cell's own background around
+           them instead of touching its top/bottom edges. */
+        .fz-social-cell svg{ width:clamp(20px,8.5cqi,40px); height:clamp(20px,8.5cqi,40px); flex-shrink:0; }
+        .fz-social-cell:hover{ background:rgba(255,255,255,0.52); border-color:rgba(30,22,14,0.26); }
+        .fz-social-cell.copied{ border-color:#1c7a3e; }
+
+        /* -- Placeholder (fallback for empty tabs) ---------------------- */
+        .fz-placeholder{
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          justify-content:center;
+          gap:6px;
+          padding:clamp(6px,3cqi,18px) 8px;
+          text-align:center;
+        }
+        a.fz-placeholder{text-decoration:none;color:inherit;height:100%}
+        .fz-ph-icon{font-size:clamp(14px,5cqi,26px);opacity:.25;color:rgba(30,22,14,0.7)}
+        .fz-ph-text{
+          font:300 clamp(7px,2.2cqi,10px)/1.45 Oswald,sans-serif;
+          color:rgba(30,22,14,0.6);
+          max-width:180px;
+        }
+        .fz-ph-text strong{font-weight:600;color:rgba(30,22,14,0.85)}
+
+        /* Personalized video-message program on the Connect tab. */
+        .fz-connect-video { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:clamp(3px,1.2cqi,6px); width:100%; height:100%; padding:clamp(6px,2.1cqi,12px); box-sizing:border-box; border-radius:8px; text-align:center; text-decoration:none; color:#f5f5f5; background:linear-gradient(140deg,#021d17,#064331 60%,#02150f); }
+        .fz-connect-video-icon { color:#ffb21a; font-size:clamp(19px,6cqi,30px); }
+        .fz-connect-video-eyebrow { color:#ffb21a; font:700 clamp(8px,2.1cqi,11px) Oswald,sans-serif; letter-spacing:.07em; }
+        .fz-connect-video strong { font:800 clamp(14px,4.3cqi,22px)/1.08 "Bebas Neue",Oswald,sans-serif; letter-spacing:.03em; }
+        .fz-connect-video>span:not(.fz-connect-video-eyebrow) { font:400 clamp(8px,2.3cqi,11px)/1.2 Oswald,sans-serif; }
+        .fz-connect-video b { color:#06170e; background:#ffb21a; border-radius:5px; padding:clamp(4px,1.3cqi,7px) clamp(10px,4cqi,20px); font:800 clamp(10px,3cqi,15px) Oswald,sans-serif; }
+        .fz-connect-video small { font:400 clamp(7px,1.85cqi,9px) Oswald,sans-serif; opacity:.8; }
+        /* Real PPP snapshot at the same aspect ratio as the career-path hero. */
+        .fz-story-preview { width:100%; height:100%; min-width:0; min-height:0; display:flex; flex-direction:column; gap:clamp(5px,1.4cqi,8px); }
+        .fz-story-preview-image { display:block; width:100%; flex:1; min-height:0; overflow:hidden; background:#07120e; border-radius:5px; }
+        .fz-story-preview-image img { display:block; width:100%; height:100%; object-fit:contain; }
+        .fz-story-preview-loading { display:flex; flex-direction:column; gap:5px; height:100%; align-items:center; justify-content:center; text-align:center; padding:7px; box-sizing:border-box; color:#f1f1f1; }
+        .fz-story-preview-loading i { color:#ffb21a; font-size:clamp(18px,5cqi,30px); }
+        .fz-story-preview-loading strong { font:800 clamp(12px,3.7cqi,20px) "Bebas Neue",Oswald,sans-serif; }
+        .fz-story-preview-loading span { font:400 clamp(8px,2cqi,11px) Oswald,sans-serif; }
+        .fz-story-upload { display:flex; flex:0 0 auto; align-items:center; justify-content:center; gap:clamp(6px,2cqi,12px); min-height:clamp(32px,11cqi,54px); padding:4px 8px; box-sizing:border-box; border-radius:7px; background:#f8f8f8; color:#141414; text-align:center; text-decoration:none; }
+        .fz-story-upload i { font-size:clamp(16px,5cqi,27px); flex-shrink:0; }
+        .fz-story-upload strong { font:800 clamp(10px,2.9cqi,15px)/1.12 "Bebas Neue",Oswald,sans-serif; letter-spacing:.025em; }
+
+      `}</style>
     </div>
   );
 }

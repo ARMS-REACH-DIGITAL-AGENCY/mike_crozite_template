@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const read = p => fs.readFileSync(p, 'utf8');
 const drawer = read('src/components/yatstats/WhereYatNowDrawer.tsx');
 const flip = read('src/components/yatstats/FunZone.tsx');
-const flipCss = read('src/components/yatstats/FunZone.css');
 const profile = read('src/components/yatstats/WhereYatProfilePanel.tsx');
 const card = read('src/components/yatstats/WhereYatProofCard.tsx');
 const submit = read('src/app/api/contribute/where-yat-now/route.ts');
@@ -74,7 +73,7 @@ assert(fzPanel.includes('href={profileHref}'),'Retired graphic must remain an ac
 assert(flip.includes('TABS.map((tab)'),'Use existing six FunZone tab controls');
 assert((flip.match(/id: "(schedule|stats|news|social|connect|upload)"/g)||[]).length===6,'Preserve exactly six FunZone tab definitions');
 assert(flip.includes('onClick={() => setActiveTab(tab.id)}'),'Keep real tab interactions');
-assert(flipCss.includes('flex-shrink:0;') && flip.includes('fz-tab-strip'),'Reserve nav area at all scales');
+assert(flip.includes('flex-shrink:0;') && flip.includes('fz-tab-strip'),'Reserve nav area at all scales');
 assert(!fzPanel.includes('yslogo.png') && !fzPanel.includes('wyn-fz-brand'), 'Published retired flip card must not add a duplicate YAT?STATS / WHERE YAT NOW header');
 assert(fzPanel.includes('className="wyn-proof-cta"'), 'Published CTA must use the exact proof CTA style');
 assert(!fzPanel.includes('.wyn-fz-approved-content .wyn-heading') && !fzPanel.includes('.wyn-fz-approved-content .wyn-story'), 'Published view must not shrink or restyle proof headings and story');
