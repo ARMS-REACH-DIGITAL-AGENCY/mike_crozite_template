@@ -42,14 +42,12 @@ export function middleware(request: NextRequest) {
   const host = getHost(request);
   const url = request.nextUrl.clone();
 
+  // Link-preview crawlers must receive player OG metadata before any
+  // school hostname route rewriting. The active middleware entrypoint lives
+  // at the repository root, not src/middleware.ts.
   const path = url.pathname;
-  const firstSegment = path.split("/").filter(Boolean)[0] || "";
-
-  // Player share previews must be handled before the school-hostname route
-  // prefix is added. The root middleware is the active routing entrypoint;
-  // a second src/middleware.ts does not run alongside it.
-  const shareCrawler = /GoogleMessages|Google-PageRenderer|facebookexternalhit|Twitterbot|WhatsApp|SkypeUriPreview|LinkedInBot|Slackbot|Discordbot|TelegramBot|BingPreview|Applebot|Pinterest|redditbot|vkShare/i;
   const shareMatch = path.match(/^\/(?:(\d{1,20})\/)?player\/([A-Za-z0-9_-]{1,40})\/([A-Za-z0-9_-]{1,160})\/?$/i);
+  const shareCrawler = /GoogleMessages|Google-PageRenderer|facebookexternalhit|Twitterbot|WhatsApp|SkypeUriPreview|LinkedInBot|Slackbot|Discordbot|TelegramBot|BingPreview|Applebot|Pinterest|redditbot|vkShare/i;
   if (shareMatch && shareCrawler.test(request.headers.get("user-agent") || "") &&
       !url.searchParams.has("story") &&
       !url.searchParams.has("whereYatStory") &&
@@ -69,38 +67,9 @@ export function middleware(request: NextRequest) {
 
   const subdomain = host === rootDomain ? "" : host.slice(0, -(rootDomain.length + 1));
   const routePrefix = getRoutePrefixForSubdomain(subdomain);
+  const firstSegment = path.split("/").filter(Boolean)[0] || "";
 
   if (/^\d+$/.test(firstSegment)) {
-    const nonLiveRedirect = redirectNonLiveSchoolSearchResult(request, firstSegment);
-    if (nonLiveRedirect) return nonLiveRedirect;
-  }
-
-  // No per-school shortcuts (Pete, Nov 2026). A hard-coded St. Francis map
-  // here rewrote its hosts to /{hsid} without the internal-rewrite header,
-  // so the page redirected each one to itself in an endless loop.
-
-  if (!routePrefix || routePrefix === "www") return NextResponse.next();
-
-  const staticAssetExt = /\.(png|jpg|jpeg|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|otf|css|js|json|txt|xml|webmanifest)$/i;
-  if (staticAssetExt.test(path)) return NextResponse.next();
-
-  const hasNumericPrefix = /^\d+$/.test(firstSegment);
-  const alreadyPrefixed = path === `/${routePrefix}` || path.startsWith(`/${routePrefix}/`) || hasNumericPrefix;
-  if (alreadyPrefixed) return NextResponse.next();
-
-  url.pathname = `/${routePrefix}${path}`;
-  return NextResponse.rewrite(url);
-}
-
-export const config = {
-  // /embed is a subdomain-agnostic utility route (FavoritesDrawer fetches
-  // /embed/player-card/[playerId] to render cross-school favorites from
-  // any school's subdomain) - it must never get prefixed with the current
-  // subdomain's route, or it 404s since no /<school>/embed/... route
-  // exists. Confirmed live: this was silently breaking every cross-school
-  // favorite card fetch from a real subdomain, 100% of the time.
-  matcher: ["/((?!api|g/|embed|_next|favicon.ico|robots.txt|sitemap.xml|sitemaps/|manifest.webmanifest).*)"],
-};  if (/^\d+$/.test(firstSegment)) {
     const nonLiveRedirect = redirectNonLiveSchoolSearchResult(request, firstSegment);
     if (nonLiveRedirect) return nonLiveRedirect;
   }
