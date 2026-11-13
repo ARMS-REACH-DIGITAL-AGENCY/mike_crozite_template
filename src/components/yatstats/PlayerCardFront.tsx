@@ -1,5 +1,5 @@
 import { CSSProperties } from "react";
-import { getPlayerThenCardUrl, getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import { getApprovedFrontPhotoSources, getPlayerThenCardUrl, getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 import CardPhoto from "./CardPhoto";
 import FavoriteButton from "./FavoriteButton";
@@ -337,7 +337,7 @@ export default function PlayerCardFront({
   // players/then/{id}.jpg, falling back to the original (see CardPhoto).
   const designatedPhotoUrl = normalizeImageUrl(frontImageUrl);
   const photoSrcs = designatedPhotoUrl
-    ? [designatedPhotoUrl]
+    ? getApprovedFrontPhotoSources(designatedPhotoUrl)
     : [getPlayerThenCardUrl(imageId), getPlayerThenImageUrl(imageId)];
 
   const { first, last } = formatNameParts(p);
