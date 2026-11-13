@@ -184,18 +184,27 @@ export default function ContributeSearch(props: Props) {
       ) : null}
       <div ref={results} className="yat-gs-results ycs-results" role="listbox" aria-label="Search results" />
       <style jsx global>{`
-        .ycs .yat-gs-input-wrap { margin-top: 2px; position:relative; display:flex; align-items:center; min-width:0; }
-        /* Search icon lives to the left of the prompt, with its own space.
-           Global drawer input styles otherwise overwrite search padding. */
-        .yat-contribute-drawer .ycs .yat-gs-input-wrap input.yat-gs-input {
-          box-sizing:border-box; width:100%; min-width:0;
-          padding:10px 34px 10px 43px !important;
-          text-indent:0 !important;
+        .ycs .yat-gs-input-wrap {
+          margin-top:2px; position:relative; display:flex; align-items:center;
+          min-width:0; width:100%;
         }
-        .yat-contribute-drawer .ycs .yat-gs-input-wrap .yat-gs-input-icon {
-          position:absolute !important; left:13px !important; right:auto !important;
+        /* A picker can live inside the Contribute drawer, Player Connect
+           signup form, Story drawer or social tagging panel. The signup form's
+           .ccg-form input {padding:8px} previously overrode the global input
+           padding, leaving typed text and caret underneath the search glyph.
+           Reserve space for the left icon and the browser's right clear X in
+           every picker, not just when the Contribute drawer is open. */
+        .ycs .yat-gs-input-wrap input.yat-gs-input {
+          box-sizing:border-box; display:block; width:100%; min-width:0;
+          min-height:44px; padding:10px 40px 10px 45px !important;
+          text-indent:0 !important;
+          font-size:16px;
+        }
+        .ycs .yat-gs-input-wrap .yat-gs-input-icon {
+          position:absolute !important; left:14px !important; right:auto !important;
           top:50% !important; transform:translateY(-50%) !important;
-          z-index:1; font-size:18px; pointer-events:none; opacity:.8;
+          z-index:1; font-size:18px; line-height:1; pointer-events:none;
+          opacity:.8;
         }
         /* The story editor mounts in a portal outside #drawerLeft/#drawerContribute/
            #drawerStory. Shared search styles are scoped to those drawers, so
