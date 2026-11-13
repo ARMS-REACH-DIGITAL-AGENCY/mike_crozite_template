@@ -26,11 +26,12 @@ function escapeTeamText(value: unknown) {
 }
 
 type Props =
-  | { mode?: 'player'; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
+  | { mode?: 'player'; playerOnly?: boolean; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
   | { mode: 'school'; onSchool: (s: ContributeSchool) => void; onPlayer?: never; onTeam?: never }
   | { mode: 'team' | 'college'; onTeam: (t: ContributeTeam) => void; onPlayer?: never; onSchool?: never };
 
 export default function ContributeSearch(props: Props) {
+  const playerOnly = 'playerOnly' in props && Boolean(props.playerOnly);
   const schoolOnly = props.mode === 'school';
   const teamOnly = props.mode === 'team' || props.mode === 'college';
   const collegeOnly = props.mode === 'college';
@@ -165,13 +166,13 @@ export default function ContributeSearch(props: Props) {
           className="yat-gs-input"
           value={q}
           onChange={(e) => { setQ(e.target.value); setRosterOf(null); }}
-          placeholder={schoolOnly ? 'Search high schools...' : collegeOnly ? 'Search colleges by name or team ID...' : teamOnly ? 'Search college or pro teams...' : 'Search by name, school, or team...'}
+          placeholder={schoolOnly ? 'Search high schools...' : collegeOnly ? 'Search colleges by name or team ID...' : teamOnly ? 'Search college or pro teams...' : playerOnly ? 'Search player name...' : 'Search by name, school, or team...'}
           autoComplete="off"
           aria-label={schoolOnly ? 'Search high schools' : collegeOnly ? 'Search colleges' : teamOnly ? 'Search college or pro teams' : 'Search players'}
         />
         <i className="ri-search-line yat-gs-input-icon" aria-hidden="true" />
       </div>
-      {!schoolOnly && !teamOnly && (
+      {!schoolOnly && !teamOnly && !playerOnly && (
         <div className="yat-search-mode-buttons" role="tablist" aria-label="Search mode">
           {([['name', 'PLAYER NAME'], ['school', 'HIGH SCHOOL'], ['team', 'CURRENT TEAM']] as [Mode, string][]).map(([m, label]) => (
             <button type="button" key={m} className={`yat-search-mode-btn${mode === m ? ' active' : ''}`} onClick={() => { setMode(m); setRosterOf(null); }}>{label}</button>
@@ -183,18 +184,27 @@ export default function ContributeSearch(props: Props) {
       ) : null}
       <div ref={results} className="yat-gs-results ycs-results" role="listbox" aria-label="Search results" />
       <style jsx global>{`
-        .ycs .yat-gs-input-wrap { margin-top: 2px; position:relative; display:flex; align-items:center; min-width:0; }
-        /* Search icon lives to the left of the prompt, with its own space.
-           Global drawer input styles otherwise overwrite search padding. */
-        .yat-contribute-drawer .ycs .yat-gs-input-wrap input.yat-gs-input {
-          box-sizing:border-box; width:100%; min-width:0;
-          padding:10px 34px 10px 43px !important;
-          text-indent:0 !important;
+        .ycs .yat-gs-input-wrap {
+          margin-top:2px; position:relative; display:flex; align-items:center;
+          min-width:0; width:100%;
         }
-        .yat-contribute-drawer .ycs .yat-gs-input-wrap .yat-gs-input-icon {
-          position:absolute !important; left:13px !important; right:auto !important;
+        /* A picker can live inside the Contribute drawer, Player Connect
+           signup form, Story drawer or social tagging panel. The signup form's
+           .ccg-form input {padding:8px} previously overrode the global input
+           padding, leaving typed text and caret underneath the search glyph.
+           Reserve space for the left icon and the browser's right clear X in
+           every picker, not just when the Contribute drawer is open. */
+        .ycs .yat-gs-input-wrap input.yat-gs-input {
+          box-sizing:border-box; display:block; width:100%; min-width:0;
+          min-height:44px; padding:10px 40px 10px 45px !important;
+          text-indent:0 !important;
+          font-size:16px;
+        }
+        .ycs .yat-gs-input-wrap .yat-gs-input-icon {
+          position:absolute !important; left:14px !important; right:auto !important;
           top:50% !important; transform:translateY(-50%) !important;
-          z-index:1; font-size:18px; pointer-events:none; opacity:.8;
+          z-index:1; font-size:18px; line-height:1; pointer-events:none;
+          opacity:.8;
         }
         /* The story editor mounts in a portal outside #drawerLeft/#drawerContribute/
            #drawerStory. Shared search styles are scoped to those drawers, so

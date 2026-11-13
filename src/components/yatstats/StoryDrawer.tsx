@@ -248,6 +248,15 @@ export default function StoryDrawer() {
     window.addEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
     const pending = takePendingStoryDrawerOpen(playerId);
     if (pending) onOpen(new CustomEvent<StoryDrawerOpenDetail>(STORY_DRAWER_OPEN_EVENT, { detail: pending }));
+    // Flip-card Stories CTAs arrive on a new page, where a client-side
+    // CustomEvent cannot survive navigation. Consume the one-time URL flag
+    // once this exact player's drawer listener is mounted.
+    const landing = new URL(window.location.href);
+    if (landing.searchParams.get('openStory') === '1' && landing.hash === '#ppTab-upload') {
+      landing.searchParams.delete('openStory');
+      window.history.replaceState(window.history.state, '', landing.pathname + landing.search + landing.hash);
+      onOpen(new CustomEvent<StoryDrawerOpenDetail>(STORY_DRAWER_OPEN_EVENT, { detail: { playerId } }));
+    }
     return () => window.removeEventListener(STORY_DRAWER_OPEN_EVENT, onOpen);
   }, [resetForm, status.kind, story, photos.length, drawerOwner, playerId]);
 

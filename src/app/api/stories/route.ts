@@ -17,6 +17,7 @@ import { query } from '@/lib/db';
 import { identifyFan, likerKey, viewerUid } from '@/lib/fanIdentity';
 import { isReviewer } from '@/lib/contributeServer';
 import { getUserProfile } from '@/lib/userProfile';
+import { refreshRealTimelineSnapshot } from '@/lib/realTimelineSnapshotQueue';
 import {
   NotAnImageError,
   STORY_DAILY_LIMIT,
@@ -367,6 +368,12 @@ export async function POST(req: NextRequest) {
       ]
     );
 
+    // The career-path screenshots displayed on card backs show the actual
+    // published story/photo timeline, including tagged players' timelines.
+    await Promise.all([playerId, ...taggedIds].map((id) => {
+      const hsid = byId.get(id)?.hsid;
+      return hsid ? refreshRealTimelineSnapshot(hsid, id) : Promise.resolve();
+    }));
     return NextResponse.json({ id: rows[0]?.id }, { status: 201 });
   } catch (error) {
     if (error instanceof NotAnImageError) return fail(error.message);

@@ -2,7 +2,7 @@
 // Fan-created identities may exist before their first share. Queue only those
 // players (and cache misses), never crawl all 200K player records.
 import 'server-only';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 export const REAL_TIMELINE_VERSION = 'timeline-v3-hero';
 export const REAL_TIMELINE_QUEUE_PREFIX = 'share-previews/real-timeline-queue-v1/';
@@ -54,5 +54,23 @@ export async function enqueueRealTimelineSnapshot(
     if (e.$metadata?.httpStatusCode === 412 || e.name === 'PreconditionFailed') return false;
     console.warn('[player-share] could not queue real timeline', { hsid, playerId, error });
     return false;
+  }
+}
+
+// Refresh the REAL timeline after a published photo or story changes.
+// The existing queue worker takes a new screenshot of the live PPP; this
+// never creates a fabricated picture or requires a site-wide recapture.
+export async function refreshRealTimelineSnapshot(hsid: string, playerId: string): Promise<void> {
+  if (!validSnapshotIds(hsid, playerId)) return;
+  const s3 = snapshotS3();
+  if (!s3) return;
+  try {
+    await s3.send(new DeleteObjectCommand({
+      Bucket: REAL_TIMELINE_S3_BUCKET, Key: snapshotCacheKey(hsid, playerId),
+    }), { abortSignal: AbortSignal.timeout(2500) });
+    // Idempotent: an already queued snapshot stays queued.
+    await enqueueRealTimelineSnapshot(hsid, playerId, s3);
+  } catch (error) {
+    console.warn('[player-share] timeline refresh could not be queued', { hsid, playerId, error });
   }
 }
