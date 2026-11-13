@@ -61,6 +61,7 @@ export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?
 export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
+  yatid?: string | null;
   display_name?: string | null;
   firstname?: string | null;
   lastname?: string | null;
@@ -114,7 +115,10 @@ export function loadFavoritePlayers() {
     favoritePlayers = uid
       ? fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => new Set<string>(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []))
+        .then((d) => new Set<string>([
+          ...(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []),
+          ...(Array.isArray(d?.yatPlayerIds) ? d.yatPlayerIds.map(String) : []),
+        ]))
         .catch(() => new Set<string>())
       : Promise.resolve(new Set<string>());
   }
@@ -999,7 +1003,7 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
   const current = new Map(existing.map((p) => [String(p[0]), p] as const));
   const source = roster && roster.length
     ? roster.map((r) => ({
-        id: String(r.playerid),
+        id: String(r.yatid || r.playerid),
         name: rosterName(r),
         level: String(r.level || ''),
         isPitcher: Boolean(r.is_pitcher),
@@ -1185,7 +1189,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // Each name links to his profile (a tap there doesn't flip the card).
   const myHsid = me === 0 ? home : away;
   const teamOf = useMemo(() => new Map([...(homeRoster || []), ...(awayRoster || [])]
-    .map((r) => [String(r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
+    .map((r) => [String(r.yatid || r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
   const player = (p: PlayerRow) => (
     <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
   );
