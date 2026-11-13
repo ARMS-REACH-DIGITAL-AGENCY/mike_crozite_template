@@ -31,7 +31,7 @@ type Props =
   | { mode: 'team' | 'college'; onTeam: (t: ContributeTeam) => void; onPlayer?: never; onSchool?: never };
 
 export default function ContributeSearch(props: Props) {
-  const playerOnly = props.mode !== 'school' && props.mode !== 'team' && props.mode !== 'college' && Boolean(props.playerOnly);
+  const playerOnly = 'playerOnly' in props && Boolean(props.playerOnly);
   const schoolOnly = props.mode === 'school';
   const teamOnly = props.mode === 'team' || props.mode === 'college';
   const collegeOnly = props.mode === 'college';
