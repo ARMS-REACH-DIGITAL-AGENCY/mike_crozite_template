@@ -1322,7 +1322,7 @@ function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: stri
 // planning a hash scan of ~939K source rows per school. Verified exact result
 // fingerprints on Hamilton (5004) and HSID 14385, and timed against the full
 // isolated 2026 read model before merge. No source-data changes.
-export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v3', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
+export const getActiveRosterByHsid = cache(keptAcrossRequests('getActiveRosterByHsid-indexed-school-scope-v4', async function getActiveRosterByHsid(hsid: string): Promise<any[]> {
   // All returned rows belong to school_players; filter raw season inputs first.
   // This avoids aggregating every team's 2026 stats on each school cache miss.
   const sql = buildActiveRosterSql('ph.hsid = $1', 'playerid::text = ANY(ARRAY(SELECT playerid::text FROM school_players))');
