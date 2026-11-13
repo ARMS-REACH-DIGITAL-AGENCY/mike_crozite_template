@@ -654,7 +654,7 @@ export const getSchoolByUrl = cache(keptAcrossRequests('getSchoolByUrl', async f
 function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: string): string {
   // Verified source IDs are resolved to the canonical school card without
   // rewriting or attaching the duplicate TBC record to the high school.
-  const canonicalSourceFilter = statsRowsFilter.replaceAll('playerid::text', 'canonical_playerid::text');
+  const canonicalSourceFilter = statsRowsFilter.replace('playerid::text', 'canonical_playerid::text');
   const canonicalSchoolFilter = schoolPlayersFilter
     .replaceAll('ph.playerid', 'f.playerid')
     .replaceAll('ph.hsid', 'f.hsid');
