@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tea
       return NextResponse.redirect(url, {
         status: 302,
         headers: {
-          'Cache-Control': 'public, max-age=300, s-maxage=21600, stale-while-revalidate=86400',
+          'Cache-Control': 'no-store, max-age=0, must-revalidate',
           'X-Team-Logo-Status': 'published',
         },
       });
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tea
   return NextResponse.redirect(new URL(TEAM_LOGO_FALLBACK, request.url), {
     status: 302,
     headers: {
-      'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=300',
+      'Cache-Control': 'no-store, max-age=0, must-revalidate',
       'X-Team-Logo-Status': 'artwork-missing',
     },
   });
