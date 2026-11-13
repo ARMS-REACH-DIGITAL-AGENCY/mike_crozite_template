@@ -259,29 +259,63 @@ export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<stri
   }
 }
 
-// One player can hold several Baseball Cube IDs when The Baseball Cube split
-// his career across duplicate records (e.g. Al / Quentin Harley). Each
-// duplicate is a verified source='tbc' row pointing at the kept card; his
-// season and career stats read every one of those IDs (Pete, Nov 2026).
-const duplicateTbcIds = unstable_cache(async (playerId: string): Promise<string[]> => {
-  const { rows } = await query<{ source_player_id: string }>(
-    `SELECT source_player_id FROM public.player_source_map
-      WHERE playerid = $1 AND source = 'tbc' AND is_verified IS TRUE
-        AND match_method = 'duplicate_tbc_record'
-      ORDER BY source_player_id`,
-    [playerId]
-  );
-  return rows.map((r) => r.source_player_id);
-}, ['duplicate-tbc-ids-v1'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
+// A verified person may have multiple TBC source records. Keep the original
+// TBC IDs untouched; resolve aliases once (cached across requests) so *all*
+// historical readers, including the Profile Stats API, share the same career.
+// Also canonicalize an incoming duplicate source ID instead of splitting it
+// into a second career. No fan-facing query scans the full stat universe.
+const verifiedTbcCareerSourceIds = unstable_cache(async (playerId: string): Promise<string[]> => {
+  // Every person already has a YAT registry identity. The registry can hold
+  // both original and duplicate TBC IDs even when a public card uses a TBC ID.
+  if (/^YAT[0-9]+$/i.test(playerId)) {
+    const { rows } = await query<{ source_id: string }>(
+      `SELECT source_id FROM public.yat_registry_ids
+         WHERE yatid=$1 AND source='tbc'
+         ORDER BY source_id`,
+      [playerId]
+    );
+    if (rows.length) return [...new Set(rows.map((r) => r.source_id))];
+  }
 
-async function resolveHistoricalTbcIds(playerId: string): Promise<string> {
-  const primary = await resolveVerifiedTbcPlayerId(playerId);
+  const sourceId = /^[0-9]+$/.test(playerId)
+    ? playerId
+    : await resolveVerifiedTbcPlayerId(playerId);
+  if (!/^[0-9]+$/.test(sourceId)) return [sourceId];
+
+  // Two indexed lookups in one statement: alias -> canonical ID via the
+  // (source,source_player_id) PK; canonical ID -> verified aliases via the
+  // playerid index. Never accept unverified or rejected identity mappings.
+  const { rows } = await query<{ canonical_id: string; source_player_id: string | null }>(
+    `WITH canonical AS (
+       SELECT COALESCE((
+         SELECT m.playerid FROM public.player_source_map m
+          WHERE m.source='tbc' AND m.source_player_id=$1
+            AND m.is_verified IS TRUE
+            AND m.match_method='duplicate_tbc_record'
+          LIMIT 1
+       ), $1::text) AS canonical_id
+     )
+     SELECT c.canonical_id, m.source_player_id
+       FROM canonical c
+       LEFT JOIN public.player_source_map m
+         ON m.playerid=c.canonical_id AND m.source='tbc'
+        AND m.is_verified IS TRUE AND m.match_method='duplicate_tbc_record'
+      ORDER BY m.source_player_id`,
+    [sourceId]
+  );
+  const canonical = rows[0]?.canonical_id || sourceId;
+  return [...new Set([canonical, ...rows.map((r) => r.source_player_id).filter((id): id is string => Boolean(id))])];
+}, ['verified-tbc-career-source-ids-v2'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
+
+// CSV matches the existing indexed ANY(string_to_array(...)) readers on the
+// flip-card backs and profile timeline. The Stats API splits it into a
+// parameterized text array; the identity query runs once per cache key.
+export async function resolveHistoricalTbcIds(playerId: string): Promise<string> {
   try {
-    const extra = await duplicateTbcIds(playerId);
-    return [primary, ...extra.filter((id) => id !== primary)].join(',');
+    return (await verifiedTbcCareerSourceIds(playerId)).join(',');
   } catch (error) {
-    console.warn('Duplicate TBC record lookup failed; using the primary ID', { playerId, error });
-    return primary;
+    console.warn('Verified TBC source IDs unavailable; keeping the source identity', { playerId, error });
+    return resolveVerifiedTbcPlayerId(playerId);
   }
 }
 
