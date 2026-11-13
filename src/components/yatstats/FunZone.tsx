@@ -332,7 +332,7 @@ if (!cancelled) {
 
   const slug = String(player.slug || "");
   const profileHref = `/${resolvedHsid}/player/${playerId}/${slug}#ppTab-news`;
-  const tipsHref = `/connect-contribute?contribute=tip&playerId=${encodeURIComponent(playerId)}`;
+  const tipsHref = `/${encodeURIComponent(resolvedHsid)}/connect-contribute?contribute=tip&playerId=${encodeURIComponent(playerId)}`;
   const newsSlots = Array.from({ length: Math.max(0, 3 - featuredNews.length) }, (_, index) => index);
 
 return (
