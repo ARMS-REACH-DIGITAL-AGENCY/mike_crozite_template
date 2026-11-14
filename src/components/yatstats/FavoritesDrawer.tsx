@@ -332,7 +332,7 @@ async function fetchCardEmbedMarkup(playerId: string, attempt = 1): Promise<stri
     ensureEmbedStylesInjected(doc);
     return root.innerHTML;
   } catch {
-    if (attempt >= 2) return null;
+    if (attempt >= 3) return null;
     await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
     return fetchCardEmbedMarkup(playerId, attempt + 1);
   }
@@ -519,6 +519,7 @@ function renderCardErrorFallback(name: string, schoolId: string, playerId: strin
   return `
     <div class="yat-card yat-cross-school-card-error" data-playerid="${escapeHtml(playerId)}" data-superfan-synthetic="true">
       <span>Could not load ${escapeHtml(name)}&apos;s card.</span>
+      <button type="button" data-favorite-card-retry="${escapeHtml(playerId)}">Retry card</button>
       <a href="/${escapeHtml(schoolId)}/player/${escapeHtml(playerId)}/${escapeHtml(slug)}">Open profile</a>
     </div>
   `;
@@ -746,6 +747,7 @@ function FavoriteLinks({
 
 export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }) {
   const [showGalleryView, setShowGalleryView] = useState(false);
+  const [cardRetryVersion, setCardRetryVersion] = useState(0);
   const [sortByLastName, setSortByLastNameState] = useState(false);
   const [homePlayers, setHomePlayers] = useState<FavoritePlayer[]>([]);
   const [superfanPlayers, setSuperfanPlayers] = useState<FavoritePlayer[]>([]);
@@ -756,7 +758,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
   const [checkedSession, setCheckedSession] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const crossSchoolContainersRef = useRef<Map<string, HTMLElement>>(new Map());
-  const cardFetchStatusRef = useRef<Map<string, 'loading' | 'done'>>(new Map());
+  const cardFetchStatusRef = useRef<Map<string, 'loading' | 'done' | 'failed'>>(new Map());
 
   useEffect(() => {
     setSortByLastNameState(readSortByLastNamePreference());
@@ -819,23 +821,43 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     setHasUser(true);
 
     try {
-      const homeResponse = await fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&hsid=${encodeURIComponent(currentHsid)}&scope=home`, { cache: 'no-store' });
-      const homeData = await homeResponse.json();
-      const homeList: FavoritePlayer[] = Array.isArray(homeData.favoritePlayers) ? homeData.favoritePlayers : [];
+      // SuperFans need the global list. Ask for it first so their often-large
+      // collection is not queried twice (home then all) whenever the drawer opens.
+      // The API remains authoritative about plan eligibility.
+      const fetchScope = async (scope: 'home' | 'all') => {
+        const url = `/api/favorites?uid=${encodeURIComponent(uid)}&hsid=${encodeURIComponent(currentHsid)}&scope=${scope}`;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const response = await fetch(url, { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Favorites ${scope} HTTP ${response.status}`);
+            const data = await response.json();
+            if (data?.success !== true || !Array.isArray(data.favoritePlayers)) {
+              throw new Error(`Favorites ${scope} returned an invalid response`);
+            }
+            return data;
+          } catch (error) {
+            if (attempt === 2) throw error;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+        }
+        throw new Error('Favorites request failed');
+      };
 
-      setHomePlayers(homeList);
-      setIsSuperfan(Boolean(homeData.isSuperfan));
-
-      if (homeData.isSuperfan) {
-        const superResponse = await fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&hsid=${encodeURIComponent(currentHsid)}&scope=all`, { cache: 'no-store' });
-        const superData = await superResponse.json();
-        setSuperfanPlayers(Array.isArray(superData.favoritePlayers) ? superData.favoritePlayers : []);
-        setLockedReason(superData.lockedReason || null);
+      const allData = await fetchScope('all');
+      const superfan = Boolean(allData.isSuperfan);
+      setIsSuperfan(superfan);
+      if (superfan) {
+        setHomePlayers([]);
+        setSuperfanPlayers(allData.favoritePlayers);
+        setLockedReason(allData.lockedReason || null);
       } else {
+        const homeData = await fetchScope('home');
+        setHomePlayers(homeData.favoritePlayers);
         setSuperfanPlayers([]);
-        setLockedReason(null);
+        setLockedReason(homeData.lockedReason || null);
       }
-    } catch {
+    } catch (error) {
+      console.error('Favorites list could not load:', error);
       setHomePlayers([]);
       setSuperfanPlayers([]);
       setLockedReason('LOAD_ERROR');
@@ -848,6 +870,19 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
     function handleClick(event: MouseEvent) {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+
+      // A failed cross-school embed must be retryable without unfavoriting
+      // the player, switching tabs, or reloading the entire school microsite.
+      const retryCard = target.closest<HTMLElement>('[data-favorite-card-retry]');
+      if (retryCard) {
+        event.preventDefault();
+        const playerId = retryCard.dataset.favoriteCardRetry;
+        if (playerId) {
+          cardFetchStatusRef.current.delete(playerId);
+          setCardRetryVersion((version) => version + 1);
+        }
+        return;
+      }
 
       if (target.closest('#openFavorites')) {
         event.preventDefault();
@@ -925,7 +960,12 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       window.dispatchEvent(new CustomEvent('yat:favorites-filter-changed', { detail: { enabled: showGalleryView, playerIds: currentPlayerIds } }));
     };
 
-    const pending = missing.filter((playerId) => !cardFetchStatusRef.current.has(playerId));
+    // Only successful cards are permanently cached. Failed cards must get
+    // another chance on gallery reopen / list reload / explicit Retry.
+    const pending = missing.filter((playerId) => {
+      const status = cardFetchStatusRef.current.get(playerId);
+      return status !== 'loading' && status !== 'done';
+    });
     pending.forEach((playerId) => {
       cardFetchStatusRef.current.set(playerId, 'loading');
       const container = crossSchoolContainersRef.current.get(playerId);
@@ -937,7 +977,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
 
     const loadOne = (playerId: string) => {
       const showFallback = () => {
-        cardFetchStatusRef.current.set(playerId, 'done');
+        cardFetchStatusRef.current.set(playerId, 'failed');
         const c = crossSchoolContainersRef.current.get(playerId);
         if (!c) return;
         const fallbackPlayer = displayedPlayers.find((p) => String(p.playerid) === playerId);
@@ -988,7 +1028,7 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
       void loadOne(playerId).finally(runNext);
     };
     for (let i = 0; i < Math.min(CROSS_SCHOOL_CARD_CONCURRENCY, pending.length); i++) runNext();
-  }, [displayedPlayers, showGalleryView, currentHsid]);
+  }, [displayedPlayers, showGalleryView, currentHsid, cardRetryVersion]);
 
   const handleGalleryViewChange = (checked: boolean) => {
     // A school tab without a flip card gallery (the Fantasy Bracket Tourney,
@@ -1112,9 +1152,17 @@ export default function FavoritesDrawer({ currentHsid }: { currentHsid: string }
           content: none;
         }
 
-        .yat-cross-school-card-error a {
+        .yat-cross-school-card-error a,
+        .yat-cross-school-card-error [data-favorite-card-retry] {
           color: #a0a0a0;
           text-decoration: underline;
+        }
+        .yat-cross-school-card-error [data-favorite-card-retry] {
+          border: 0;
+          padding: 4px;
+          background: transparent;
+          cursor: pointer;
+          font: inherit;
         }
 
         #drawerFavorites .yat-favorite-empty,
