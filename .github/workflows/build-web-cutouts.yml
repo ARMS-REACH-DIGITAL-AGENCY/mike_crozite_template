@@ -10,9 +10,9 @@ name: Build Web Cutouts
 #   players/now/  -> players/now-thumb/
 # and small copies of the hand-uploaded team logos:
 #   teams/ -> teams-web/
-# Runs at :30 each hour, after the :00 Hourly Player Image Cutouts job has
-# had time to add new cutouts. Only missing or out-of-date web files are
-# built, so a quiet hour costs just two S3 listings per folder.
+# Runs at :30 each hour, consuming only small pending-derivative queues
+# created by newly generated PNG cutouts. No scheduled source-folder scans.
+# Explicit manual runs can still do a legacy backfill.
 #
 # Manual runs default to a dry run. Use max_files / only_ids to test on a
 # few players before a full run.
@@ -72,7 +72,8 @@ jobs:
       # Scheduled runs write; manual runs follow the dry_run input.
       DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || github.event.inputs.dry_run }}
       OVERWRITE: ${{ github.event.inputs.overwrite || 'false' }}
-      KINDS: ${{ github.event.inputs.kinds || 'then,back,now,then-card,back-card,now-thumb,team-logo' }}
+      KINDS: ${{ github.event_name == 'schedule' && 'then,back,now,then-card,back-card,now-thumb' || github.event.inputs.kinds || 'then,back,now,then-card,back-card,now-thumb,team-logo' }}
+      PENDING_QUEUE_ROOT: ${{ github.event_name == 'schedule' && 'players/web-build-pending' || '' }}
       MAX_FILES: ${{ github.event.inputs.max_files || '' }}
       ONLY_IDS: ${{ github.event.inputs.only_ids || '' }}
 
