@@ -10,9 +10,12 @@ export const dynamic = 'force-dynamic';
 // Meta Business Discovery is account-scoped and rate limited. A failed global token
 // or application quota is not 40 independent failures. Stop immediately and report it.
 // Last_polled_at means attempted (including failed attempts), never last success.
-// Spread Meta calls across the day: two accounts per 15-minute run, not one
-// burst of 25+ queries every six hours. Refresh existing accounts before their six-hour video URL lease expires.
+// Spread Meta calls across the day: two player accounts per 15-minute run,
+// plus at most one school account when its 45-minute cooldown has expired.
+// Schools drive coach feeds, so they need faster discovery without flooding Meta.
+// Refresh existing accounts before their six-hour video URL lease expires.
 const ACCOUNTS_PER_RUN = 2;
+const SCHOOL_ACCOUNTS_PER_RUN = 1;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -58,13 +61,25 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Space out attempts per account, with never-attempted accounts first.
-    // Do not repeatedly burn Meta quota on the same handle every 15 minutes.
-    const {rows:sources} = await pool.query<{id:number;handle:string}>(
+    // Check each school-owned feed at most once per 45 minutes, in a separate
+    // bounded lane. A busy player-account backlog must not delay school posts.
+    // This is ownership-based, not a Hamilton/Greg-specific exception.
+    const {rows:schoolSources} = await pool.query<{id:number;handle:string}>(
       "SELECT id,handle FROM social_sources WHERE platform='instagram' AND status='active' " +
-      "AND COALESCE(handle,'')<>'' AND (last_polled_at IS NULL OR last_polled_at < now()-interval '4 hours') " +
+      "AND owner_type='school' AND COALESCE(handle,'')<>'' " +
+      "AND (last_polled_at IS NULL OR last_polled_at < now()-interval '45 minutes') " +
+      "ORDER BY last_polled_at NULLS FIRST,id LIMIT $1", [SCHOOL_ACCOUNTS_PER_RUN]
+    );
+
+    // Preserve the original two-account/15-minute player rotation and
+    // four-hour cooldown to avoid an unexpected Meta API quota spike.
+    const {rows:rotatingSources} = await pool.query<{id:number;handle:string}>(
+      "SELECT id,handle FROM social_sources WHERE platform='instagram' AND status='active' " +
+      "AND owner_type<>'school' AND COALESCE(handle,'')<>'' " +
+      "AND (last_polled_at IS NULL OR last_polled_at < now()-interval '4 hours') " +
       "ORDER BY last_polled_at NULLS FIRST,id LIMIT $1", [ACCOUNTS_PER_RUN]
     );
+    const sources = [...schoolSources, ...rotatingSources];
     const results:SourceResult[]=[];
     let stoppedReason:InstagramSyncErrorCategory|null=null;
     for (const source of sources) {
