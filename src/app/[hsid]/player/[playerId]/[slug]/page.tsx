@@ -39,6 +39,7 @@ import { storyAssetUrl } from "@/lib/storyAssets";
 import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
+import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
 import { getTeamLogoUrl, getOriginalForCardCopy, chooseNewsDisplayImage } from "@/lib/playerImage";
@@ -444,7 +445,7 @@ export default async function ProfilePage({ params }: Props) {
     (affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED") && !!lastTransactionType;
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
-  const isRetiredAlumnus = /RETIRED/i.test(String(transactionStatus?.status_label || player.status_label || statusLabel));
+  const whereYatAlumnus = usesWhereYatNowStatus(transactionStatus?.status_label || player.display_status_label || player.status_label || statusLabel);
   // FREE AGENT / RETIRED: no team on the profile either (Pete, Nov 2026),
   // whether the departure came from a transaction or from the roster sync.
   const hasNoTeam = /^(FREE AGENT|RETIRED)\b/.test(String(statusLabel).trim().toUpperCase())
@@ -902,7 +903,7 @@ export default async function ProfilePage({ params }: Props) {
 
         {/* ── SCHEDULE tab ─────────────────────────────────────────────────── */}
         <div id="ppTab-schedule" className="pp-fz-panel">
-          {isRetiredAlumnus ? (
+          {whereYatAlumnus ? (
             <WhereYatProfilePanel playerId={safePlayerId} hsid={hsid} name={displayName} />
           ) : scheduleTableRows.length > 0 ? (
             <PlayerScheduleTable
