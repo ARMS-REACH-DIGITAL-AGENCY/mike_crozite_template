@@ -171,41 +171,70 @@ def main() -> int:
         sources: dict[str, dict] = {}
         outputs: dict[str, dict] = {}
         paginator = s3.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=BUCKET, Prefix=src_prefix):
-            for obj in page.get("Contents", []):
-                key = obj["Key"]
-                name = key[len(src_prefix):]
-                # Direct children only (players/then/ must not pick up
-                # anything nested under it).
-                if "/" in name or not name.lower().endswith(src_exts):
-                    continue
-                pid = name.rsplit(".", 1)[0]
-                # If a player has both a .jpg and a .png, prefer the newest.
-                if pid not in sources or obj["LastModified"] > sources[pid]["LastModified"]:
-                    sources[pid] = obj
-        if kind == "team-logo":
-            # The cutout job is manual, but the WebP job runs hourly. Previously
-            # team-logo searched ONLY teams/cutouts/ and silently ignored every
-            # original under teams/, so new verified uploads never acquired a
-            # teams-web/ asset. The original is a safe fallback, not a different
-            # team's logo. A newer cutout replaces it on the next hourly pass.
-            for page in paginator.paginate(Bucket=BUCKET, Prefix="teams/"):
+        if ONLY_IDS:
+            # Exact-ID processing never lists any S3 prefix. HEAD only the
+            # requested source/output keys; missing keys are harmless.
+            def optional_head(key):
+                try:
+                    m = s3.head_object(Bucket=BUCKET, Key=key)
+                    return {"Key": key, "LastModified": m["LastModified"]}
+                except Exception as exc:
+                    from botocore.exceptions import ClientError
+                    if isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound"):
+                        return None
+                    raise
+
+            for pid in sorted(ONLY_IDS):
+                if not pid.replace("_", "").replace("-", "").isalnum():
+                    raise ValueError(f"Invalid exact player/team ID: {pid!r}")
+                for ext in src_exts:
+                    src = optional_head(f"{src_prefix}{pid}{ext}")
+                    if src and (pid not in sources or src["LastModified"] > sources[pid]["LastModified"]):
+                        sources[pid] = src
+                if kind == "team-logo" and pid.isdigit():
+                    for ext in PHOTO_EXTENSIONS:
+                        src = optional_head(f"teams/{pid}{ext}")
+                        if src and (pid not in sources or src["LastModified"] > sources[pid]["LastModified"]):
+                            sources[pid] = src
+                out = optional_head(f"{out_prefix}{pid}.webp")
+                if out:
+                    outputs[pid] = out
+        else:
+            for page in paginator.paginate(Bucket=BUCKET, Prefix=src_prefix):
                 for obj in page.get("Contents", []):
                     key = obj["Key"]
-                    name = key[len("teams/"):]
-                    if "/" in name or not name.lower().endswith(PHOTO_EXTENSIONS):
+                    name = key[len(src_prefix):]
+                    # Direct children only (players/then/ must not pick up
+                    # anything nested under it).
+                    if "/" in name or not name.lower().endswith(src_exts):
                         continue
-                    tid = name.rsplit(".", 1)[0]
-                    if not tid.isdigit():
-                        continue
-                    previous = sources.get(tid)
-                    if previous is None or obj["LastModified"] > previous["LastModified"]:
-                        sources[tid] = obj
-        for page in paginator.paginate(Bucket=BUCKET, Prefix=out_prefix):
-            for obj in page.get("Contents", []):
-                key = obj["Key"]
-                if key.lower().endswith(".webp"):
-                    outputs[key[len(out_prefix):-5]] = obj
+                    pid = name.rsplit(".", 1)[0]
+                    # If a player has both a .jpg and a .png, prefer the newest.
+                    if pid not in sources or obj["LastModified"] > sources[pid]["LastModified"]:
+                        sources[pid] = obj
+            if kind == "team-logo":
+                # The cutout job is manual, but the WebP job runs hourly. Previously
+                # team-logo searched ONLY teams/cutouts/ and silently ignored every
+                # original under teams/, so new verified uploads never acquired a
+                # teams-web/ asset. The original is a safe fallback, not a different
+                # team's logo. A newer cutout replaces it on the next hourly pass.
+                for page in paginator.paginate(Bucket=BUCKET, Prefix="teams/"):
+                    for obj in page.get("Contents", []):
+                        key = obj["Key"]
+                        name = key[len("teams/"):]
+                        if "/" in name or not name.lower().endswith(PHOTO_EXTENSIONS):
+                            continue
+                        tid = name.rsplit(".", 1)[0]
+                        if not tid.isdigit():
+                            continue
+                        previous = sources.get(tid)
+                        if previous is None or obj["LastModified"] > previous["LastModified"]:
+                            sources[tid] = obj
+            for page in paginator.paginate(Bucket=BUCKET, Prefix=out_prefix):
+                for obj in page.get("Contents", []):
+                    key = obj["Key"]
+                    if key.lower().endswith(".webp"):
+                        outputs[key[len(out_prefix):-5]] = obj
 
         ids = sorted(i for i in sources if not ONLY_IDS or i in ONLY_IDS)
         if MAX_FILES is not None:
