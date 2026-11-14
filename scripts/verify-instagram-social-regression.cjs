@@ -30,6 +30,8 @@ assert.match(playerApi, /LIMIT 30/);
 const news=read('src/components/yatstats/ProfileNewsList.tsx');
 const api=read('src/app/api/social/instagram-post/route.ts');
 assert.match(api, /regexp_replace\(split_part\(n\.url, '\?', 1\)/, 'Tracking parameters must not break Instagram news lookup');
+assert.match(api, /originalPostUrl/, 'Keep selected carousel item on the outbound original post link');
+assert.match(api, /img_index/, 'A fan-selected carousel frame must not be lost in normalization');
 assert.match(news,/newsUuid=\$\{encodeURIComponent\(s.uuid\)\}/);
 assert.match(news,/media_url: post\?\.media_url \|\| null/);
 assert.match(api,/JOIN social_posts p\s+ON p\.id = CASE/, 'Stored media must use the safe source-post ID join');
