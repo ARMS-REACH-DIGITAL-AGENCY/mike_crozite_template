@@ -243,8 +243,8 @@ function seasonOrderRank(level: string): number {
   return level in SEASON_LEVEL_ORDER ? SEASON_LEVEL_ORDER[level] : 3;
 }
 
-function teamLogoCandidates(row: StatRow) {
-  const logo = teamLogoPath(row.teamid || row.team_id);
+function teamLogoCandidates(row: StatRow, year?: number) {
+  const logo = teamLogoPath(row.teamid || row.team_id, year);
   return logo ? [logo] : [];
 }
 
@@ -1244,7 +1244,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
       const key = `${year}|${team}|${level}|${org}`;
       if (seen.has(key)) return;
       seen.add(key);
-      const teamLogoSrcs = teamLogoCandidates(row);
+      const teamLogoSrcs = teamLogoCandidates(row, year);
       seasons.push({
         id: `season-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
         kind: 'season',
@@ -1418,7 +1418,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         year: Math.max(Number(pick.draft_year), hsYear),
         title: pick.draft_team_name ? `Drafted by the ${pick.draft_team_name}` : 'Drafted',
         draft: pick,
-        teamLogoSrcs: pick.teamid ? teamLogoCandidates({ teamid: pick.teamid } as StatRow) : [],
+        teamLogoSrcs: pick.teamid ? teamLogoCandidates({ teamid: pick.teamid } as StatRow, Number(pick.draft_year)) : [],
         seasonHeroSrcs: seasonCutoutCandidates(playerId, Number(pick.draft_year)),
         yatiFallback: yatiPlaceholderFor(Number(pick.draft_year)),
       }));
