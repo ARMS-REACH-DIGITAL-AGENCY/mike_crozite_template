@@ -1468,9 +1468,11 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         /* The drawers: home from the right, visitor from the left. */
         /* Above the site's floating buttons, so nothing covers the close button. */
-        /* Use the measured shared footer on both screen sizes, including the
-           12px that YaTi's artwork extends above it. Row heights stay unchanged. */
-        .yfp-drawer-wrap { position: fixed; inset: 0; bottom:calc(var(--yat-drawer-clearance, calc(var(--footerH, 66px) + var(--yat-facts-h, 32px) + var(--yat-contact-h, 14px))) + 12px); z-index: 2147483200; background: rgba(0,0,0,.45); }
+        /* Meet the measured footer exactly: extra clearance exposes the page
+           underneath. Let YaTi's existing overhang paint over the drawer. */
+        .yfp-drawer-wrap { position: fixed; inset: 0; bottom:var(--yat-drawer-clearance, calc(var(--footerH, 66px) + var(--yat-facts-h, 32px) + var(--yat-contact-h, 14px))); z-index: 2147483200; background: rgba(0,0,0,.45); }
+        body.yfp-dock-l .yat-footer,
+        body.yfp-dock-r .yat-footer { z-index:2147483201; }
         .yfp-drawer-wrap.row5 { background: transparent; } /* docked beside the game: never dim it */
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         /* The desktop drawer retains its existing single scroll surface.
