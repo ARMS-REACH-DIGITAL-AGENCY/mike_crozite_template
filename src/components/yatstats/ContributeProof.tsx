@@ -214,6 +214,7 @@ function FlippableGalleryProof({
                 />
                 <FunZone
                   player={p}
+                  statusLabel={display.statusLabel}
                   isPitcher={isPitcher}
                   isAllTime={false}
                   resolvedHsid={hsid}
