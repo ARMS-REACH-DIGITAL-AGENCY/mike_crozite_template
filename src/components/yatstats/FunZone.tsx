@@ -40,6 +40,7 @@ import WhereYatFunZonePanel from "./WhereYatFunZonePanel";
 import { parseNewsVideo } from "@/lib/newsVideo";
 import { PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
 import { whereYatCardHeading } from "@/lib/whereYatPrompts";
+import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
 
 // Constants
 
@@ -60,6 +61,7 @@ interface StatBucket {
 
 interface FunZoneProps {
   player: Record<string, unknown>;
+  statusLabel: string;
   isPitcher: boolean;
   isAllTime: boolean;
   resolvedHsid: string;
@@ -754,6 +756,7 @@ function UploadPanel({ player, resolvedHsid, profileHref, isActive }: {
 
 export default function FunZone({
   player,
+  statusLabel,
   isPitcher,
   isAllTime,
   resolvedHsid,
@@ -767,7 +770,7 @@ export default function FunZone({
   scheduleSnapshot,
   lazySchedulePlayerId,
 }: FunZoneProps) {
-  const retiredPlayer = /\bRETIRED\b/i.test(String(player.status_label || player.status || ""));
+  const whereYatPlayer = usesWhereYatNowStatus(statusLabel);
   const imageId = String(player.playerid || "");
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [alumniUpdate,setAlumniUpdate]=useState<any>(null);
