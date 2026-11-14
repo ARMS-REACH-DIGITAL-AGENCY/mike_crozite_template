@@ -2417,7 +2417,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                 <span
                   key={`dash-${slide.id}`}
                   className="zt-rail-dash-logo"
-                  style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%`, width: `${100 / Math.max(1, model.slides.length - 1)}%` }}
+                  style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%`, width: `min(44px, ${100 / Math.max(1, model.slides.length - 1)}%)` }}
                   aria-hidden="true"
                 >
                   <SmartImage srcs={slide.teamLogoSrcs} alt="" />
@@ -2939,8 +2939,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         }
 
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
-        /* A season's logo standing on the rail, as wide as its dash. */
-        .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
+        /* Center compact season marks over their year dot. Uncapped segment widths
+           made sparse timelines explode into 150px+ logos that obscured text. */
+        .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); max-width:44px; max-height:44px; aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; transform:translateX(-50%); pointer-events:none; }
         .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; transform:scale(1.12); transform-origin:center bottom; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
         /* Draft pennant: a gold flag on a short pole, standing on the rail
            (above the tick, clear of the year chip) and inline on the slide. */
@@ -3197,6 +3198,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              above the rail than desktop. Use that space to make the team
              marks materially easier to read without widening their year
              slots or letting them collide with neighboring seasons. */
+          .zt-rail-dash-logo { max-width:28px; max-height:28px; }
           .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
           .zt-nav { top:50%; bottom:auto; width:48px; height:50px; font-size:35px; }
           .zt-rail-tick-boundary { bottom:6px; right:9px; }
