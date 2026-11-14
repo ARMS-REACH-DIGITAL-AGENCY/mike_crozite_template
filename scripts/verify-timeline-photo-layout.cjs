@@ -16,4 +16,12 @@ assert.match(rail, /image: story\.photos\?\.\[0\]\?\.web \|\| story\.photos\?\.\
 assert.doesNotMatch(rail, /src=\{stories\[0\]\.thumb\}/);
 assert.match(rail, /width:auto; height:26px; max-width:none; max-height:none/);
 assert.match(rail, /height:18px; max-width:none; max-height:none/);
+
+// Sparse profiles must not enlarge timeline logos to an entire year segment.
+// Keep season marks centered on their year tick and capped on desktop/phone.
+assert.ok(rail.includes('width: `min(44px, ${100 / Math.max(1, model.slides.length - 1)}%)`'), 'rail marks must never grow with sparse year spacing');
+assert.match(rail, /\.zt-rail-dash-logo \{[^\n]*max-width:44px;[^\n]*transform:translateX\(-50%\)/, 'rail marks are centered above their own year tick');
+assert.match(rail, /\.zt-rail-dash-logo \{ max-width:28px; max-height:28px; \}/, 'mobile marks use a smaller cap');
+
+console.log('PASS: timeline rail logos remain capped, centered, and mobile-safe');
 console.log('PASS: shared Story photos and timeline month thumbnails use fixed, uncropped heights');
