@@ -52,6 +52,7 @@ MAX_FILES_RAW = os.getenv("MAX_FILES", "").strip()
 MAX_FILES = int(MAX_FILES_RAW) if MAX_FILES_RAW.isdigit() else None
 ONLY_IDS = {item.strip() for item in os.getenv("ONLY_IDS", "").split(",") if item.strip()}
 INCLUDE_SOURCE_PNG = os.getenv("INCLUDE_SOURCE_PNG", "false").lower() == "true"
+PENDING_QUEUE_PREFIX = os.getenv("PENDING_QUEUE_PREFIX", "").strip()
 
 s3 = boto3.client("s3", region_name=AWS_REGION)
 
@@ -147,7 +148,38 @@ def process_image_bytes(input_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 
+def pending_player_ids() -> set[str]:
+    """Read ONLY the small retry queue; never enumerate the source library."""
+    if not PENDING_QUEUE_PREFIX:
+        return set()
+    prefix = normalize_prefix(PENDING_QUEUE_PREFIX)
+    result = set()
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            if not key.startswith(prefix) or not key.endswith(".json"):
+                continue
+            pid = key[len(prefix):-5]
+            if pid and "/" not in pid and pid.replace("_", "").replace("-", "").isalnum():
+                result.add(pid)
+    return result
+
+
+def clear_pending(pid: str) -> None:
+    if PENDING_QUEUE_PREFIX:
+        s3.delete_object(Bucket=BUCKET, Key=f"{normalize_prefix(PENDING_QUEUE_PREFIX)}{pid}.json")
+
+
 def main() -> int:
+    global ONLY_IDS
+    if PENDING_QUEUE_PREFIX:
+        if ONLY_IDS:
+            print("ERROR: ONLY_IDS and PENDING_QUEUE_PREFIX cannot be combined")
+            return 2
+        ONLY_IDS = pending_player_ids()
+        if not ONLY_IDS:
+            print(f"No pending IDs in {PENDING_QUEUE_PREFIX}; no source objects scanned.")
+            return 0
     source_prefix = normalize_prefix(SOURCE_PREFIX)
     output_prefix = normalize_prefix(OUTPUT_PREFIX)
     # Never let a custom run consume its own generated PNG outputs or
@@ -196,6 +228,8 @@ def main() -> int:
                 if output_meta and output_meta["LastModified"] >= source_meta["LastModified"]:
                     print("SKIP existing up-to-date generated PNG output")
                     skipped_existing += 1
+                    if not DRY_RUN:
+                        clear_pending(PurePosixPath(key).stem)
                     continue
 
             if DRY_RUN:
@@ -217,6 +251,7 @@ def main() -> int:
 
             print(f"OK uploaded generated PNG: {len(output_bytes):,} bytes")
             processed += 1
+            clear_pending(PurePosixPath(key).stem)
 
         except Exception as exc:
             print(f"FAILED {key}: {exc}")
