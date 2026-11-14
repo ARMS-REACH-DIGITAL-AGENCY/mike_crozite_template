@@ -19,7 +19,7 @@ assert.match(profilePage, /s.platform = 'instagram' AND s.status = 'active'/, 'O
 assert.match(profilePage, /s.handle/, 'Look up school handle dynamically');
 assert.match(profilePage, /schoolInstagramFeed.handle/, 'Render link from the actual registered school handle');
 assert.match(profilePage, /OFFICIAL SCHOOL INSTAGRAM/, 'Label shared account as school-owned, never the coach personal account');
-assert.match(playerFeed, /Boolean\(externalPosts && !nativeVideoUrl && embedUrl/);
+assert.match(playerFeed, /const embedShown = false;/, 'News must not show blocked Instagram iframe instead of media');
 assert.match(playerFeed, /Video preview only — in-page playback unavailable/);
 assert.match(playerFeed, /const heightPerWidth = pictureShape && !isReel/);
 assert.doesNotMatch(playerFeed, /PLAY REEL|showInstagramEmbed|pp-ig-embed-toggle/);
