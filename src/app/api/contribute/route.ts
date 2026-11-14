@@ -19,6 +19,7 @@ import { DATA_KINDS, PLAYER_LEVELS } from '@/lib/contribute';
 import { publishCollegeCommitment } from '@/lib/publishCollegeCommitment';
 import { publishCurrentTeamChange, resolveCanonicalCurrentTeam } from '@/lib/publishCurrentTeamChange';
 import { publishNewPlayerNow, NewPlayerPublicationError } from '@/lib/publishNewPlayer';
+import { isValidPlayerGradYear } from '@/lib/playerGraduationYears';
 import { CONTRIBUTE_DAILY_LIMIT, contributionsToday, identifyContributor, isReviewer, canPublishFor, logContribution } from '@/lib/contributeServer';
 import { findOrCreateGhlContact, sendGHLEmail } from '@/lib/gohighlevel';
 import { parseNewsVideo, cleanNewsVideoTitle } from '@/lib/newsVideo';
@@ -121,8 +122,7 @@ export async function POST(req: NextRequest) {
         submitted.current_team_name=selectedCurrentTeam.name;
         submitted.level_label=selectedCurrentTeam.level;
       }
-      const allYears=Array.from({length:new Date().getFullYear()+2-1900},(_,i)=>String(1900+i));
-      if (submitted.class_of && !allYears.includes(String(submitted.class_of))) return fail('Choose a valid graduation year.');
+      if (submitted.class_of && !isValidPlayerGradYear(String(submitted.class_of))) return fail('Choose a valid graduation year.');
       const isNew=!playerId;
       const isHighSchool = isNew
         ? String(submitted.level_label || '').trim().toUpperCase() === 'HIGH SCHOOL'
@@ -145,18 +145,14 @@ export async function POST(req: NextRequest) {
         return fail(isHighSchool ? 'High school players must be UNCOMMITTED or COMMIT.' : 'Choose a valid status.');
       }
       if (teamIdSpecified || status==='COMMIT' || status==='UNCOMMITTED') {
-        if (isNew && isHighSchool && status==='UNCOMMITTED' && !teamIdSpecified) {
-          // A missing high-school player may be added as UNCOMMITTED.
-        } else {
-        if (!isHighSchool || isNew) return fail('Select an existing high-school player to announce a college commitment.');
-        if (!teamIdSpecified || !['UNCOMMITTED','COMMIT'].includes(status)) {
+        if (!isHighSchool) return fail('College commitments require a high-school player.');
+        if (!['UNCOMMITTED','COMMIT'].includes(status)) {
           return fail('Choose the high-school status and college together.');
         }
         if (status==='UNCOMMITTED') {
           if (teamId) return fail('UNCOMMITTED players cannot have a committed college.');
         } else {
           if (!/^\d{1,18}$/.test(teamId)) return fail('Choose a college from Global Search.');
-        }
         }
       }
       if (submitted.level_label && ![
@@ -193,6 +189,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({
             ok:true,review:'published_player',playerId:created.playerId,
             hsid,submissionId:created.submissionId,instagram:instagramState,
+            commitment:created.committedTeamName ? { status:'COMMIT', teamId, teamName:created.committedTeamName } : undefined,
           },{status:201});
         } catch (error) {
           if (error instanceof NewPlayerPublicationError) return fail(error.message,error.status);
