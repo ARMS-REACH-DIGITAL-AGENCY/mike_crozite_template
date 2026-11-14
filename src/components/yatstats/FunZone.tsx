@@ -777,7 +777,7 @@ export default function FunZone({
   useEffect(()=>{
     // Loading every retired player's status during a roster render produces
     // thousands of unnecessary DB requests. Load only on the selected tab.
-    if(!retiredPlayer || activeTab!=='schedule') return;
+    if(!whereYatPlayer || activeTab!=='schedule') return;
     let active=true;
     const load=async()=>{
       try {
@@ -800,13 +800,13 @@ export default function FunZone({
     window.addEventListener('focus',onFocus);
     window.addEventListener('yat:where-yat-submitted',onSubmitted);
     return()=>{active=false;unsubscribe();window.removeEventListener('focus',onFocus);window.removeEventListener('yat:where-yat-submitted',onSubmitted)};
-  },[retiredPlayer,activeTab,imageId,resolvedHsid]);
+  },[whereYatPlayer,activeTab,imageId,resolvedHsid]);
   const [loadedSchedule, setLoadedSchedule] = useState<{items:import('./PlayerSevenDaySnapshot').SnapshotItem[];todayIso:string}|null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState(false);
   const scheduleRequested = useRef(false);
   useEffect(() => {
-    if (activeTab !== 'schedule' || retiredPlayer || !lazySchedulePlayerId || scheduleSnapshot || scheduleRequested.current) return;
+    if (activeTab !== 'schedule' || whereYatPlayer || !lazySchedulePlayerId || scheduleSnapshot || scheduleRequested.current) return;
     const card = rootRef.current?.closest<HTMLElement>('.yat-card');
     if (!card?.classList.contains('is-flipped')) return;
     scheduleRequested.current = true;
@@ -885,7 +885,7 @@ export default function FunZone({
         1. CTA strip - YaTi (left) + speech bubble (right)
            flex-shrink:1 - yields padding before the content panel.
       */}
-      {!(retiredPlayer && activeTab === "schedule") && <YatiCta ctaText={ctaText} profileHref={profileHref} />}
+      {!(whereYatPlayer && activeTab === "schedule") && <YatiCta ctaText={ctaText} profileHref={profileHref} />}
 
       {/*
         2. Content panels - flex:1 min-height:0
@@ -903,7 +903,7 @@ export default function FunZone({
         className={`fz-panel${activeTab === "schedule" ? " fz-panel-active" : ""}`}
         data-fz-tab="schedule"
       >
-        {retiredPlayer ? (
+        {whereYatPlayer ? (
           <div className="fz-where-yat">
             <WhereYatFunZonePanel
               state={alumniUpdate?.status === 'approved' ? 'approved' : alumniUpdate?.status === 'pending' ? 'pending' : 'unclaimed'}
@@ -1022,7 +1022,7 @@ export default function FunZone({
             type="button"
           >
             <i className={tab.icon} aria-hidden="true" />
-            <span className="fz-tab-label">{retiredPlayer && tab.id === "schedule" ? "YAT?" : tab.label}</span>
+            <span className="fz-tab-label">{whereYatPlayer && tab.id === "schedule" ? "YAT?" : tab.label}</span>
           </button>
         ))}
       </nav>
