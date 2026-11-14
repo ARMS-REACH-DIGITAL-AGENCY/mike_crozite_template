@@ -363,6 +363,33 @@ export default function DrawerLayoutOverrides() {
           margin-right: var(--yat-side-drawer-w) !important;
         }
 
+        /*
+         * A right margin alone is not a reliable content viewport: a row
+         * with a 100%-wide inner grid can keep laying out flip cards under
+         * the fixed Favorites rail. Reserve the actual rail width on the
+         * rows that contain content, so auto-fill reflows to fewer columns.
+         * Rows 1-2 and the fixed footer deliberately remain full width.
+         * Mobile (<780px) retains its normal overlay drawer.
+         */
+        body {
+          --yat-docked-left-space: 0px;
+          --yat-docked-right-space: 0px;
+        }
+        body.drawer-left-open {
+          --yat-docked-left-space: var(--yat-side-drawer-w);
+        }
+        body.drawer-favorites-open {
+          --yat-docked-right-space: var(--yat-side-drawer-w);
+        }
+        body.drawer-favorites-open :is(.yat-row3-shell, .yat-row4-shell, .yat-row5-shell) {
+          box-sizing: border-box !important;
+          width: calc(100% - var(--yat-docked-left-space) - var(--yat-docked-right-space)) !important;
+          max-width: calc(100% - var(--yat-docked-left-space) - var(--yat-docked-right-space)) !important;
+          min-width: 0 !important;
+          margin-left: var(--yat-docked-left-space) !important;
+          margin-right: var(--yat-docked-right-space) !important;
+        }
+
         body.drawer-left-open .yat-grid,
         body.drawer-sort-open .yat-grid,
         body.drawer-right-open .yat-grid,
@@ -772,6 +799,17 @@ export default function DrawerLayoutOverrides() {
           box-sizing:border-box;
           min-width:0;
           max-width:100%;
+        }
+      }
+      /* Android's "Desktop site" and touch tablets can have a desktop CSS
+         viewport. Favorites is explicitly docked at >=780px even with a
+         coarse pointer; restore its reserved side margins after the older
+         generic touch-overlay reset above. Native mobile (<780px) still
+         uses an overlay and full-width content. */
+      @media (min-width:780px) and (hover:none) and (pointer:coarse) {
+        body.drawer-favorites-open :is(.yat-row3-shell,.yat-row4-shell,.yat-row5-shell) {
+          margin-left:var(--yat-docked-left-space)!important;
+          margin-right:var(--yat-docked-right-space)!important;
         }
       }
       /* Authentication must appear above the already-open News reader.
