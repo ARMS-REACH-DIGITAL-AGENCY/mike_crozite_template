@@ -483,6 +483,8 @@ export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `
 WITH season2026 AS MATERIALIZED (
   SELECT playerid FROM public.tbc_batting_2026_season_raw WHERE year='2026'
   UNION SELECT playerid FROM public.tbc_pitching_2026_season_raw WHERE year='2026'
+  UNION SELECT playerid FROM public.tbc_complete_batting_history WHERE year='2026'
+  UNION SELECT playerid FROM public.tbc_complete_pitching_history WHERE year='2026'
   UNION SELECT yatstats_playerid FROM public.indy_iscore_batting_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
   UNION SELECT yatstats_playerid FROM public.indy_iscore_pitching_2026_season_raw WHERE season_year=2026 AND yatstats_playerid IS NOT NULL
   UNION SELECT playerid FROM public.player_game_logs WHERE game_date>=DATE '2026-01-01' AND game_date<DATE '2027-01-01'
@@ -500,6 +502,10 @@ WITH season2026 AS MATERIALIZED (
   AND NOT EXISTS(SELECT 1 FROM public.player_source_map m WHERE m.playerid=f.playerid AND m.source='mlb_api' AND m.is_verified IS TRUE)
   AND NOT EXISTS(SELECT 1 FROM public.mlb_org_roster_resolution r WHERE r.playerid=f.playerid AND r.match_status='matched')
   AND NOT EXISTS(SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+  AND NOT EXISTS (SELECT 1 FROM public.college_roster_players_raw cr
+      WHERE cr.matched_playerid=f.playerid AND cr.is_current=true
+      AND cr.roster_season IN ('2026','2027')
+      AND LOWER(COALESCE(cr.class_year,'')) LIKE '%redshirt%')
  AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
  ORDER BY f.playerid LIMIT 5000
 ), classified AS (
@@ -710,6 +716,12 @@ WITH season_rows AS MATERIALIZED (
    AND NOT EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
      WHERE r.playerid=f.playerid AND r.match_status='matched')
    AND NOT EXISTS (SELECT 1 FROM public.player_team_override o WHERE o.playerid=f.playerid)
+   AND NOT EXISTS (SELECT 1 FROM public.player_transactions tx
+     WHERE tx.playerid=f.playerid AND tx.source='mlb_api')
+   -- An official 2027 roster is newer than a 2026 participation record.
+   AND NOT EXISTS (SELECT 1 FROM public.college_roster_players_raw cr
+     WHERE cr.matched_playerid=f.playerid AND cr.roster_season='2027'
+       AND cr.is_current=true AND cr.teamid IS DISTINCT FROM s.teamid)
  AND EXTRACT(YEAR FROM CURRENT_DATE)=2026
  ORDER BY f.playerid LIMIT 1000
 ), changed AS (
@@ -732,6 +744,13 @@ WITH season_rows AS MATERIALIZED (
  FROM eligible e WHERE f.playerid=e.playerid
    AND f.status_label='RETIRED'
    AND f.source_summary->'status_classification'->>'rule'='no_activity_after_2025'
+   AND f.source_summary->'status_classification'->>'source'='yatstats_retirement_cutoff'
+   AND f.team_affiliation_status='RETIRED'
+   AND NOT EXISTS (SELECT 1 FROM public.college_roster_players_raw cr
+     WHERE cr.matched_playerid=f.playerid AND cr.roster_season='2027'
+       AND cr.is_current=true AND cr.teamid IS DISTINCT FROM e.teamid)
+   AND NOT EXISTS (SELECT 1 FROM public.player_transactions tx
+     WHERE tx.playerid=f.playerid AND tx.source='mlb_api')
    AND f.current_teamid IS NULL AND f.current_team_source IS NULL
    AND f.last_transaction_applied_at IS NULL
  RETURNING f.playerid
