@@ -2417,7 +2417,10 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                 <span
                   key={`dash-${slide.id}`}
                   className="zt-rail-dash-logo"
-                  style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%`, width: `${100 / Math.max(1, model.slides.length - 1)}%` }}
+                  // Keep the logo centered on its actual season tick. A rail
+                  // with only a few seasons used to make this an enormous
+                  // percentage-width square that covered the player photo.
+                  style={{ left: `${(i / Math.max(1, model.slides.length - 1)) * 100}%`, width: `min(20px, ${100 / Math.max(1, model.slides.length - 1)}%)` }}
                   aria-hidden="true"
                 >
                   <SmartImage srcs={slide.teamLogoSrcs} alt="" />
@@ -2939,9 +2942,16 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         }
 
         @keyframes zt-rail-in { from { opacity:0; } to { opacity:1; } }
-        /* A season's logo standing on the rail, as wide as its dash. */
-        .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); aspect-ratio:1 / 1; padding:0 2px; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
-        .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; transform:scale(1.12); transform-origin:center bottom; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+        /* A season's logo belongs to its year marker, never to the width
+           of an entire time interval. Cap the square so a short career (or
+           a coach with a few player seasons) can't paint giant logos over
+           the player cutout. For dense careers, the inline min() shrinks
+           logos with the distance between ticks to avoid collisions. */
+        .zt-rail-dash-logo { position:absolute; bottom:calc(50% + 3px); transform:translateX(-50%); aspect-ratio:1 / 1; max-width:20px; max-height:20px; padding:0; box-sizing:border-box; display:flex; align-items:flex-end; justify-content:center; pointer-events:none; }
+        .zt-rail-dash-logo :global(img) { display:block; width:100%; height:100%; object-fit:contain; object-position:center bottom; transform:none; filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
+        @container career-timeline (max-width:620px) {
+          .zt-rail-dash-logo { max-width:13px; max-height:13px; }
+        }
         /* Draft pennant: a gold flag on a short pole, standing on the rail
            (above the tick, clear of the year chip) and inline on the slide. */
         .zt-pennant { position:absolute; left:50%; bottom:calc(100% + 8px); width:1px; height:13px; margin-left:-0.5px; background:${DRAFT_GOLD}; z-index:3; pointer-events:auto; }
@@ -3197,7 +3207,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
              above the rail than desktop. Use that space to make the team
              marks materially easier to read without widening their year
              slots or letting them collide with neighboring seasons. */
-          .zt-rail-dash-logo :global(img) { transform:scale(1.38); }
+          .zt-rail-dash-logo :global(img) { transform:none; }
           .zt-nav { top:50%; bottom:auto; width:48px; height:50px; font-size:35px; }
           .zt-rail-tick-boundary { bottom:6px; right:9px; }
           .zt-rail.zt-rail-has-boundary { right:calc(9px + (100% - 18px) / (var(--zt-steps) + 1)); }
