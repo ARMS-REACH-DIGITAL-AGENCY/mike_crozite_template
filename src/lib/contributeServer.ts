@@ -357,8 +357,14 @@ async function cutout(source: Buffer): Promise<Buffer | null> {
 // already has one. When remove.bg isn't set up or finds no one, the old
 // cutout is removed instead, so that job cuts the new photo within the hour.
 async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source: Buffer, written: string[]) {
+  const retryKey = `players/cutout-pending/${kind}/${pid}.json`;
   const png = await cutout(source);
   if (!png) {
+    // Record only failed cutouts for the bounded hourly retry queue.
+    // Queue keys are one per player/kind; replacements update the same key.
+    // If queue persistence fails, surface that failure rather than silently
+    // leaving a never-retried original.
+    await put(retryKey, Buffer.from(JSON.stringify({ playerId: pid, kind, queuedAt: new Date().toISOString() })), 'application/json');
     // A failed/missing background-removal response must not leave the
     // PREVIOUS player's image cached as the live timeline cutout.
     await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `players/${kind}-cutouts/${pid}.png` })).catch(() => {});
@@ -413,6 +419,8 @@ async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source:
     .toBuffer();
   await put(`players/${kind}-web/${pid}.webp`, web, 'image/webp');
   written.push(`players/${kind}-cutouts/${pid}.png`, `players/${kind}-web/${pid}.webp`);
+  // An immediately successful publish needs no later hourly retry.
+  await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: retryKey }));
 }
 
 // ---------------------------------------------------------------------------
