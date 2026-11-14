@@ -16,6 +16,14 @@ export async function GET(req: NextRequest) {
   // Remove the trailing slash only for equality checks. Instagram tracking
   // params such as ?img_index=5 must not stop the same post being matched.
   const canonicalPath = parsed.permalink.replace(/\/$/, '');
+  // Preserve a selected carousel frame on the outbound ORIGINAL POST link.
+  // The media thumbnail is a post-level preview, never claimed to be frame N.
+  const chosenFrame = req.nextUrl.searchParams.get('url')
+    ? new URL(url).searchParams.get('img_index')
+    : null;
+  const originalPostUrl = chosenFrame && /^[1-9][0-9]?$/.test(chosenFrame)
+    ? parsed.permalink + '?img_index=' + chosenFrame
+    : parsed.permalink;
   if (/^[A-Za-z0-9_-]{1,100}$/.test(newsUuid)) {
     try {
       const { rows } = await query<{
@@ -48,7 +56,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ post: {
           shortcode: parsed.shortcode,
           id: stored.external_post_id,
-          permalink: parsed.permalink,
+          permalink: originalPostUrl,
           handle: stored.handle,
           caption: stored.caption,
           media_type: stored.media_type,
@@ -65,6 +73,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const post = await fetchInstagramPostPreview(parsed.permalink);
+    if (post) post.permalink = originalPostUrl;
     const complete = Boolean(post?.handle && post?.thumbnail_url);
     return NextResponse.json({ post }, {
       headers: { 'Cache-Control': complete
