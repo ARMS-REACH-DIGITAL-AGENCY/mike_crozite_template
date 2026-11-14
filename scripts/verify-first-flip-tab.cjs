@@ -7,7 +7,19 @@ assert(header.includes("['schedule', 'stats', 'news', 'social', 'connect', 'uplo
 assert(header.indexOf("card.classList.toggle('is-flipped', onBack)") < header.indexOf("card.dispatchEvent(new CustomEvent('yat:flip-all-tab'"));
 assert(native.includes('if (opening) card.dispatchEvent(new CustomEvent("yat:flip-all-tab", { detail: { tab: "schedule" } }))'));
 assert(favorites.includes("if (opening) card.querySelector<HTMLElement>('.fz-tab-btn[data-fz-tab=\"schedule\"]')?.click()"));
-assert(zone.includes('if(!retiredPlayer || activeTab!==\'schedule\') return'));
+assert(zone.includes("usesWhereYatNowStatus(statusLabel)"), 'Card should use canonical displayed status');
+assert(zone.includes("if(!whereYatPlayer || activeTab!=='schedule') return"), 'Status fetch must stay lazy for retired and unknown');
+assert(zone.includes("if (activeTab !== 'schedule' || whereYatPlayer ||"), 'Unknown cards must not request game logs');
+assert(zone.includes('{whereYatPlayer ? ('), 'Unknown card backs must render alumni panel');
+assert(zone.includes('whereYatPlayer && tab.id === "schedule"'), 'Unknown cards must label first tab YAT?');
+const statuses=read('src/lib/galleryStatuses.ts');
+assert(statuses.includes('/^(?:RETIRED|UNKNOWN)\\b/'), 'RETIRED and UNKNOWN must share Where YAT status rule');
+const card=read('src/components/yatstats/PlayerCardBack.tsx');
+assert(card.includes('whereYatNowTab || deferScheduleSnapshot'), 'Unknown cards must not prerender the schedule');
+assert(card.includes('statusLabel={display.statusLabel}'), 'FunZone must use canonical displayed status');
+const profile=read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
+assert(profile.includes('usesWhereYatNowStatus(transactionStatus?.status_label'), 'Unknown profile schedule tab must match card');
+assert(profile.includes('{whereYatAlumnus ? ('), 'Where YAT links must open the same full-profile content');
 assert(zone.includes('if (!card?.classList.contains(\'is-flipped\')) return'));
 assert(zone.includes('activeTab === "schedule" ? " fz-panel-active"'));
 // Every News placeholder must link to a REAL school-scoped portal route on
