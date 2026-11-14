@@ -170,6 +170,18 @@ def clear_pending(pid: str) -> None:
         s3.delete_object(Bucket=BUCKET, Key=f"{normalize_prefix(PENDING_QUEUE_PREFIX)}{pid}.json")
 
 
+def enqueue_web_build(pid: str) -> None:
+    source = normalize_prefix(SOURCE_PREFIX)
+    kinds = {
+        "players/then/": ("then", "then-card"),
+        "players/back/": ("back", "back-card"),
+        "players/now/": ("now", "now-thumb"),
+    }.get(source, ())
+    for kind in kinds:
+        key = f"players/web-build-pending/{kind}/{pid}.json"
+        s3.put_object(Bucket=BUCKET, Key=key, Body=b"{}", ContentType="application/json")
+
+
 def main() -> int:
     global ONLY_IDS
     if PENDING_QUEUE_PREFIX:
@@ -251,6 +263,7 @@ def main() -> int:
 
             print(f"OK uploaded generated PNG: {len(output_bytes):,} bytes")
             processed += 1
+            enqueue_web_build(PurePosixPath(key).stem)
             clear_pending(PurePosixPath(key).stem)
 
         except Exception as exc:
