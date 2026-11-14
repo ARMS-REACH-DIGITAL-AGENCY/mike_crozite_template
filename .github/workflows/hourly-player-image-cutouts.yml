@@ -1,14 +1,9 @@
 name: Hourly Player Image Cutouts
 
-# Runs scripts/process-player-cutouts-s3.py against every raw-image folder
-# that needs a transparent-PNG cutout counterpart, once an hour. Each
-# folder is its own step so one failing (or simply having nothing new)
-# never blocks the others. The script itself already skips any file that
-# already has a generated output (see OVERWRITE), so re-running against
-# the same folder every hour only ever costs a cheap S3 listing on the
-# hours nothing new was uploaded -- rembg's background-removal model is
-# only pulled down (and only then does real work happen) on an hour that
-# actually has a new file to process.
+# Every hour consume ONLY pending retry markers written when immediate upload
+# cutout generation fails. Each queue is tiny relative to the source library;
+# there is no listing of every previously uploaded player image.
+# Historical backfills remain available via the explicit manual workflow.
 #
 # workflow_dispatch is kept for an ad-hoc manual run of the same four
 # pairs; use the existing process-player-cutouts.yml instead for a
@@ -75,6 +70,7 @@ jobs:
           YATSTATS_S3_SOURCE_PREFIX: players/then/
           YATSTATS_S3_OUTPUT_PREFIX: players/then-cutouts/
           INCLUDE_SOURCE_PNG: "true"
+          PENDING_QUEUE_PREFIX: players/cutout-pending/then/
         run: python scripts/process-player-cutouts-s3.py
 
       - name: Flip-card back action photo (players/back -> players/back-cutouts)
@@ -82,6 +78,7 @@ jobs:
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/back/
           YATSTATS_S3_OUTPUT_PREFIX: players/back-cutouts/
+          PENDING_QUEUE_PREFIX: players/cutout-pending/back/
         run: python scripts/process-player-cutouts-s3.py
 
       - name: Headshot (players/now -> players/now-cutouts)
@@ -89,14 +86,8 @@ jobs:
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/now/
           YATSTATS_S3_OUTPUT_PREFIX: players/now-cutouts/
+          PENDING_QUEUE_PREFIX: players/cutout-pending/now/
         run: python scripts/process-player-cutouts-s3.py
 
-      # Timeline hero photos are a separate source folder from the three
-      # anchor-slide folders above. Process only missing outputs; a failed
-      # immediate API cutout will be retried on the next hourly run.
-      - name: Timeline hero (players/season-photos -> players/season-cutouts)
-        env:
-          YATSTATS_S3_SOURCE_PREFIX: players/season-photos/
-          YATSTATS_S3_OUTPUT_PREFIX: players/season-cutouts/
-          INCLUDE_SOURCE_PNG: "true"
-        run: python scripts/process-player-cutouts-s3.py
+      # Season/timeline legacy backfills are manual. Do not re-introduce
+      # a scheduled full-prefix scan without an indexed upload queue.
