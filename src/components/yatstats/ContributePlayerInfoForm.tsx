@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import type { ContributePlayer, ContributeSchool, ContributeTeam } from '@/lib/contribute';
 import ContributeSearch from './ContributeSearch';
+import { isValidPlayerGradYear, playerGradYearOptions } from '@/lib/playerGraduationYears';
 
 type Fields = {
   first_name:string; last_name:string; class_of:string; roster_years:string[];
@@ -17,7 +18,7 @@ const EMPTY:Fields = {
   level_label:'',position:'',current_team_name:'',current_teamid:'',committed_teamid:'',
   facebook:'',instagram:'',x:'',tiktok:'',linkedin:'',
 };
-const YEARS = Array.from({ length: 115 }, (_,i)=>String(new Date().getFullYear()+1-i));
+const YEARS = playerGradYearOptions();
 const STATUS = ['ACTIVE','RETIRED','INJURED 60-DAY','INJURED - FULL SEASON','FREE AGENT','COACH','UNKNOWN'];
 const LEVEL = ['HIGH SCHOOL','NJCAA','CCCAA','NWAC','NCAA-D1','NCAA-D2','NCAA-D3','NAIA','ROOKIE','SINGLE-A','HIGH-A','DOUBLE-A','TRIPLE-A','MLB','INDY','INTERNATIONAL','RETIRED'];
 const POSITION = ['P','C','1B','2B','3B','SS','IF','OF','LF','CF','RF','UT','DH','P-OF','IF-OF'];
@@ -26,9 +27,8 @@ const clean = (s:unknown)=>String(s ?? '').trim();
 // A team season is not a graduation year. Offer only the four high-school
 // seasons ending in the selected graduation year, never the full year list.
 function varsitySeasonOptions(classOf: string): string[] {
-  if (!/^\d{4}$/.test(classOf)) return [];
+  if (!isValidPlayerGradYear(classOf)) return [];
   const year = Number(classOf);
-  if (year < 1900 || year > new Date().getFullYear()+1) return [];
   return Array.from({ length: 4 }, (_, i) => String(year-i))
     .filter(yearOption => Number(yearOption) >= 1900);
 }
@@ -155,6 +155,7 @@ export default function ContributePlayerInfoForm({
       if(!res.ok)throw Error(body.error||'Unable to send your submission.');
       setMessage(body.review === 'published_player'
         ? `Player created and searchable now. YAT ID: ${body.playerId}. Open Global Search to find the new profile.` +
+          (body.commitment?.teamName ? ` College commitment: ${body.commitment.teamName}.` : '') +
           (body.instagram === 'registered' ? ' Instagram linked and the professional-account check started.' :
             body.instagram === 'needs_review' ? ' Instagram handle needs verification before linking.' : '')
         : body.review === 'preview_only'
@@ -194,9 +195,9 @@ export default function ContributePlayerInfoForm({
       </label>)}
     </div>
     <div className="ycd-pair">
-      <label className="ycd-field"><span className="ycd-label">Graduation year</span>
+      <label className="ycd-field"><span className="ycd-label">Graduation year (optional)</span>
         <select value={values.class_of} onChange={e=>set('class_of',e.target.value)}>
-          <option value="">Choose a year</option>
+          <option value="">Not yet known</option>
           {values.class_of && !YEARS.includes(values.class_of)?<option value={values.class_of}>{values.class_of}</option>:null}
           {YEARS.map(y=><option value={y} key={y}>{y}</option>)}
         </select>
@@ -240,7 +241,7 @@ export default function ContributePlayerInfoForm({
             {values.status_label&&!['COMMIT','UNCOMMITTED'].includes(values.status_label)
               ? <option value={values.status_label} disabled>{values.status_label} — select a high-school status</option>:null}
             <option value="UNCOMMITTED">UNCOMMITTED</option>
-            <option value="COMMIT" disabled={!player}>{selectedCommitTeam ? `${selectedCommitTeam.name} COMMIT` : 'COLLEGE COMMIT — choose a college below'}</option>
+            <option value="COMMIT">{selectedCommitTeam ? `${selectedCommitTeam.name} COMMIT` : 'COLLEGE COMMIT — choose a college below'}</option>
           </> : <>
             {values.status_label&&!STATUS.includes(values.status_label)?<option value={values.status_label}>{values.status_label}</option>:null}
             {STATUS.map(x=><option key={x} value={x}>{x}</option>)}
@@ -248,7 +249,19 @@ export default function ContributePlayerInfoForm({
         </select>
       </label>
       <label className="ycd-field"><span className="ycd-label">Highest/current level</span>
-        <select value={values.level_label} onChange={e=>set('level_label',e.target.value)}>
+        <select value={values.level_label} onChange={e=>{
+          const level=e.target.value;
+          setValues(v=>({
+            ...v,
+            level_label:level,
+            status_label:!player && level==='HIGH SCHOOL' && !['UNCOMMITTED','COMMIT'].includes(v.status_label)
+              ? 'UNCOMMITTED'
+              : level!=='HIGH SCHOOL' && ['UNCOMMITTED','COMMIT'].includes(v.status_label)
+                ? '' : v.status_label,
+            committed_teamid:level==='HIGH SCHOOL' ? v.committed_teamid : '',
+          }));
+          if(level!=='HIGH SCHOOL')setSelectedCommitTeam(null);
+        }}>
           <option value="">Select level</option>
           {values.level_label&&!LEVEL.includes(values.level_label)?<option value={values.level_label}>{values.level_label}</option>:null}
           {LEVEL.map(x=><option key={x} value={x}>{x}</option>)}
@@ -256,8 +269,8 @@ export default function ContributePlayerInfoForm({
       </label>
     </div>
     {isHighSchoolPlayer ? <div className="ycd-field">
-      <span className="ycd-label">College commitment</span>
-      {!player ? <p className="ycd-muted ycd-small">Add the missing player first; college commitments can be attached after the player exists.</p> : values.status_label==='COMMIT' ? (
+      <span className="ycd-label">College commitment (choose now if known)</span>
+      {values.status_label==='COMMIT' ? (
         selectedCommitTeam && values.committed_teamid === selectedCommitTeam.teamId ? (
           <div className="ycd-chosen-wrap">
             <div className="ycd-chosen">
