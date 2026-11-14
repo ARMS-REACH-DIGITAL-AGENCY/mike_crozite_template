@@ -1,0 +1,50 @@
+name: Emergency HS Cutouts - Seven IDs (2026-11-14)
+# One-time, bounded run. ONLY_IDS triggers direct S3 HEAD lookups, never ListObjects.
+on:
+  push:
+    branches:
+      - fix/hs-cutouts-direct-20261114
+    paths:
+      - .github/workflows/emergency-hs-cutouts-20261114.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: player-cutout-processing
+  cancel-in-progress: false
+
+jobs:
+  selected-hs-photos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+      ONLY_IDS: "11566,673,YAT208676,215777,250811,183684,99299"
+      MAX_FILES: "7"
+      DRY_RUN: "false"
+      OVERWRITE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install boto3 pillow rembg onnxruntime
+      - uses: actions/cache@v4
+        with:
+          path: ~/.u2net
+          key: rembg-u2net-models
+      - name: Process ONLY selected high-school photo cutouts
+        env:
+          YATSTATS_S3_SOURCE_PREFIX: players/then/
+          YATSTATS_S3_OUTPUT_PREFIX: players/then-cutouts/
+          INCLUDE_SOURCE_PNG: "true"
+        run: python scripts/process-player-cutouts-s3.py
+      - name: Process ONLY selected high-school WebP cutouts and gallery cards
+        env:
+          KINDS: "then,then-card"
+        run: python scripts/build-web-cutouts-s3.py
