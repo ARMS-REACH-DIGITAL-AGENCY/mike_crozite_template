@@ -27,6 +27,14 @@ assert.match(timeline,/fallbackAt=\{4\}/,'Headshot only after 4 back photo sourc
 assert.match(timeline,/\.zt-nav \{ position:absolute; z-index:7; top:50%; bottom:auto;/,'Arrows float in lower half of slide');
 assert.match(timeline,/\.zt-nav \{ top:50%; bottom:auto;/,'Arrows remain inside slide on phones');
 assert.match(timeline,/\.zt-rail \{ position:absolute; z-index:6; left:12px; right:12px;/,'Rail spans width with small insets');
+assert.match(timeline,/className="zt-rail-dash-logo"[\\s\\S]*?width: \`min\\(20px,/,
+  'Season logos are capped instead of scaling to huge tick intervals');
+assert.match(timeline,/\\.zt-rail-dash-logo \\{[^\\n]*transform:translateX\\(-50%\\)/,
+  'Season logos are centered on their year markers');
+assert.match(timeline,/\\.zt-rail-dash-logo \\:global\\(img\\) \\{[^\\n]*transform:none;/,
+  'Do not enlarge season logos over player faces');
+assert.match(timeline,/\\.zt-rail-dash-logo \\{ max-width:13px; max-height:13px; \\}/,
+  'Small screens cap the logos at 13 pixels');
 assert.match(timeline,/\.zt-nav \{[^\n]*border:0;[^\n]*background:transparent;/,'Arrows have no frame or opaque fill');
 assert.match(timeline,/left:calc\(32% - 24px - 800px\)/,'Tablet/medium photo clears copy');
 // On small phones a slide is twice viewport width. The anchor copy starts
