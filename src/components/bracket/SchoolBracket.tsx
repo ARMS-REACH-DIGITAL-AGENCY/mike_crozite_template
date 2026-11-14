@@ -1240,12 +1240,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
            of its way rather than dimming and covering it with a modal mask.
            Closing the ledger brings the game back into view. */
         @media (max-width:819px) {
-          /* Keep both mobile drawers above the persistent site footer/ticker.
-             Previously their scroll viewport extended behind these fixed bars,
-             making the final rules appear unreachable on real phones. */
-          .yfp-drawer-wrap:not(.row5) {
-            bottom:calc(var(--footerH, 66px) + var(--yat-message-h, 36px) + env(safe-area-inset-bottom, 0px));
-          }
           .yfp-drawer-wrap:not(.row5) .bl.bl-embed.yfp-drawer { bottom:0; }
           .yfz { transition:transform .22s ease-out; }
           /* Mobile drawers overlay the existing page. Translating the page by
@@ -1474,8 +1468,12 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
 
         /* The drawers: home from the right, visitor from the left. */
         /* Above the site's floating buttons, so nothing covers the close button. */
-        .yfp-drawer-wrap { position: fixed; inset: 0; z-index: 2147483200; background: rgba(0,0,0,.45); }
-        .yfp-drawer-wrap.row5 { bottom: calc(var(--footerH, 66px) + var(--yat-message-h, 36px)); background: transparent; } /* docked beside the game: never dim it */
+        /* Meet the measured footer exactly: extra clearance exposes the page
+           underneath. Let YaTi's existing overhang paint over the drawer. */
+        .yfp-drawer-wrap { position: fixed; inset: 0; bottom:var(--yat-drawer-clearance, calc(var(--footerH, 66px) + var(--yat-facts-h, 32px) + var(--yat-contact-h, 14px))); z-index: 2147483200; background: rgba(0,0,0,.45); }
+        body.yfp-dock-l .yat-footer,
+        body.yfp-dock-r .yat-footer { z-index:2147483201; }
+        .yfp-drawer-wrap.row5 { background: transparent; } /* docked beside the game: never dim it */
         .bl.bl-embed.yfp-drawer { position: absolute; top: 0; bottom: 0; width: min(560px, 94vw); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 24px; box-shadow: 0 0 30px rgba(0,0,0,.45); animation: yfp-in-r .22s ease-out; }
         /* The desktop drawer retains its existing single scroll surface.
            Phones use an independent scroll viewport BELOW the fixed header. */
