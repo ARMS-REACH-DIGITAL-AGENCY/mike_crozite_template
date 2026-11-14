@@ -25,7 +25,7 @@ Environment variables:
 - DRY_RUN: true/false, default true
 - OVERWRITE: true/false, default false; only controls replacing generated PNG outputs
 - MAX_FILES: optional integer limit for testing
-- ONLY_IDS: optional comma-separated exact source filename stems, without extensions
+- ONLY_IDS: exact filename stems; direct HEAD requests, no S3 prefix enumeration
 - INCLUDE_SOURCE_PNG: true/false, default false; enable for official annual photo folders
 """
 
@@ -97,6 +97,29 @@ def list_source_keys(bucket: str, prefix: str) -> list[str]:
     # Both map to one generated PNG; match the WebP builder's policy of
     # selecting the most recently uploaded original, never the older copy.
     newest_by_output: dict[str, dict] = {}
+    if ONLY_IDS:
+        # Exact-ID mode must never enumerate the entire source folder.
+        # HEAD at most four known extensions per player and select the newest.
+        extensions = (".jpg", ".jpeg", ".webp") + ((".png",) if INCLUDE_SOURCE_PNG else ())
+        for player_id in sorted(ONLY_IDS):
+            if not player_id.replace("_", "").replace("-", "").isalnum():
+                raise ValueError(f"Invalid exact player ID: {player_id!r}")
+            for ext in extensions:
+                key = f"{normalize_prefix(prefix)}{player_id}{ext}"
+                try:
+                    meta = s3.head_object(Bucket=bucket, Key=key)
+                except ClientError as exc:
+                    if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+                        continue
+                    raise
+                obj = {"Key": key, "LastModified": meta["LastModified"]}
+                output_key = output_key_for(key)
+                previous = newest_by_output.get(output_key)
+                if previous is None or obj["LastModified"] > previous["LastModified"]:
+                    newest_by_output[output_key] = obj
+        return sorted(obj["Key"] for obj in newest_by_output.values())
+
+    # Full enumeration is allowed only for explicitly unfiltered backfills.
     paginator = s3.get_paginator("list_objects_v2")
 
     for page in paginator.paginate(Bucket=bucket, Prefix=normalize_prefix(prefix)):
