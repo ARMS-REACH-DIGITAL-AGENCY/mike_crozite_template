@@ -165,7 +165,11 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
   // News prefers the authorized synced video's native player. The player Social tab must never
   // render an outbound-playing Instagram iframe. A missing authorized media
   // URL is a preview-only state, not a fake Play control.
-  const embedShown = Boolean(externalPosts && !nativeVideoUrl && embedUrl && (isInteractiveNews || !hasPicture));
+  // Instagram often returns an error page inside its public iframe (especially
+  // on Android). Never place that blocked document in our player. A synced
+  // native video plays here; otherwise show the original post photo, or an
+  // explicit unavailable state with its verified outbound original link.
+  const embedShown = false;
   // Instagram's player (measured): a 54px account bar with "View profile",
   // then the media at full width, then "View more on Instagram", likes and
   // comments. Show only the media, at the post's own proportions; it can't
@@ -306,6 +310,17 @@ export default function PlayerInstagramFeed({ playerId, firstName, schoolFeed, e
                     onError={() => setBrokenPictureId(current.id)}
                   />
                   <span>Video preview only — in-page playback unavailable</span>
+                </div>
+              ) : externalPosts && current.media_type === 'video' && hasPicture ? (
+                <div className="pp-ig-native-unavailable">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    key={current.id}
+                    src={current.thumbnail_url}
+                    alt={current.caption ? current.caption.slice(0, 140) : 'Instagram video preview'}
+                    onError={() => setBrokenPictureId(current.id)}
+                  />
+                  <span>Video preview only — open ORIGINAL POST to watch on Instagram</span>
                 </div>
               ) : hasPicture ? (
                 // eslint-disable-next-line @next/next/no-img-element
