@@ -25,6 +25,7 @@ import FunZone from "@/components/yatstats/FunZone";
 import PlayerSevenDaySnapshot from "@/components/yatstats/PlayerSevenDaySnapshot";
 import { fmt, parseDraft } from "@/lib/playerUtils";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
+import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
 import { familyEvidence, orderByPrimaryStatFamily, primaryStatFamily } from "@/lib/flipCardStatSelection";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
@@ -266,6 +267,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
   const display = resolvePlayerDisplay(p);
+  const whereYatNowTab = usesWhereYatNowStatus(display.statusLabel);
   const posLevelStatus = [
     asText(p.position),
     display.levelLabel,
@@ -301,6 +303,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
 
           <FunZone
             player={p}
+            statusLabel={display.statusLabel}
             isPitcher={primaryPitcher}
             isAllTime={isAllTime ?? false}
             resolvedHsid={resolvedHsid}
@@ -311,10 +314,10 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
             schoolLocation={schoolLocation}
-            scheduleSnapshot={deferScheduleSnapshot ? undefined :
+            scheduleSnapshot={whereYatNowTab || deferScheduleSnapshot ? undefined :
               <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
             }
-            lazySchedulePlayerId={deferScheduleSnapshot ? imageId : undefined}
+            lazySchedulePlayerId={!whereYatNowTab && deferScheduleSnapshot ? imageId : undefined}
           />
         </div>
       </div>

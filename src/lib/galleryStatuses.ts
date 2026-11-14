@@ -102,6 +102,12 @@ export function normalizeGalleryStatus(value: unknown): string {
   return String(value ?? '').trim().toUpperCase() || 'UNKNOWN';
 }
 
+// The first card-back tab uses the same alumni update for RETIRED and UNKNOWN.
+// An absent status is UNKNOWN, matching the card's displayed status.
+export function usesWhereYatNowStatus(value: unknown): boolean {
+  return /^(?:RETIRED|UNKNOWN)\b/.test(normalizeGalleryStatus(value));
+}
+
 export function isActiveGalleryStatus(value: unknown): boolean {
   return ACTIVE_GALLERY_STATUSES.includes(normalizeGalleryStatus(value));
 }
