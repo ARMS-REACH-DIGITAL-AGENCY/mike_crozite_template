@@ -73,6 +73,7 @@ OVERWRITE = os.getenv("OVERWRITE", "false").lower() == "true"
 MAX_FILES_RAW = os.getenv("MAX_FILES", "").strip()
 MAX_FILES = int(MAX_FILES_RAW) if MAX_FILES_RAW.isdigit() else None
 ONLY_IDS = {i.strip() for i in os.getenv("ONLY_IDS", "").split(",") if i.strip()}
+PENDING_QUEUE_ROOT = os.getenv("PENDING_QUEUE_ROOT", "").strip()
 
 WORK_MAX = 2000
 OUT_MAX_W = 1400
@@ -160,6 +161,9 @@ def main() -> int:
         print(f"Only ids: {sorted(ONLY_IDS)}")
 
     built = skipped = failed = would_build = not_images = 0
+    if PENDING_QUEUE_ROOT and ONLY_IDS:
+        print("ERROR: ONLY_IDS and PENDING_QUEUE_ROOT are mutually exclusive")
+        return 2
     unknown = [k for k in KINDS if k not in JOBS]
     if unknown:
         print(f"Unknown KINDS: {unknown} (expected some of {ALL_KINDS})")
@@ -168,11 +172,21 @@ def main() -> int:
     for kind in KINDS:
         src_prefix, src_exts, out_prefix, build = JOBS[kind]
 
+        pending_prefix = PENDING_QUEUE_ROOT.rstrip("/") + "/" + kind + "/" if PENDING_QUEUE_ROOT else ""
+        pending_ids = set()
+        if pending_prefix:
+            for page in s3.get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=pending_prefix):
+                for obj in page.get("Contents", []):
+                    key = obj["Key"]
+                    pid = key[len(pending_prefix):-5] if key.startswith(pending_prefix) and key.endswith(".json") else ""
+                    if pid and "/" not in pid and pid.replace("_", "").replace("-", "").isalnum():
+                        pending_ids.add(pid)
+        target_ids = ONLY_IDS if ONLY_IDS else pending_ids
         sources: dict[str, dict] = {}
         outputs: dict[str, dict] = {}
         paginator = s3.get_paginator("list_objects_v2")
-        if ONLY_IDS:
-            # Exact-ID processing never lists any S3 prefix. HEAD only the
+        if ONLY_IDS or PENDING_QUEUE_ROOT:
+            # Exact-ID and queued processing never list a source prefix. HEAD only the
             # requested source/output keys; missing keys are harmless.
             def optional_head(key):
                 try:
@@ -184,7 +198,7 @@ def main() -> int:
                         return None
                     raise
 
-            for pid in sorted(ONLY_IDS):
+            for pid in sorted(target_ids):
                 if not pid.replace("_", "").replace("-", "").isalnum():
                     raise ValueError(f"Invalid exact player/team ID: {pid!r}")
                 for ext in src_exts:
@@ -236,7 +250,7 @@ def main() -> int:
                     if key.lower().endswith(".webp"):
                         outputs[key[len(out_prefix):-5]] = obj
 
-        ids = sorted(i for i in sources if not ONLY_IDS or i in ONLY_IDS)
+        ids = sorted(i for i in sources if not (ONLY_IDS or PENDING_QUEUE_ROOT) or i in target_ids)
         if MAX_FILES is not None:
             ids = ids[:MAX_FILES]
         print(f"\n== {kind}: {len(sources)} sources in {src_prefix}, {len(outputs)} built already, {len(ids)} to check")
@@ -246,6 +260,8 @@ def main() -> int:
             out = outputs.get(pid)
             if out and not OVERWRITE and out["LastModified"] >= src["LastModified"]:
                 skipped += 1
+                if pending_prefix and not DRY_RUN:
+                    s3.delete_object(Bucket=BUCKET, Key=f"{pending_prefix}{pid}.json")
                 continue
             label = f"[{kind} {n}/{len(ids)}] {src['Key']} -> {out_prefix}{pid}.webp"
             if DRY_RUN:
@@ -264,6 +280,8 @@ def main() -> int:
                 )
                 print(f"{label}  OK {len(png):,} -> {len(webp):,} bytes")
                 built += 1
+                if pending_prefix:
+                    s3.delete_object(Bucket=BUCKET, Key=f"{pending_prefix}{pid}.json")
             except UnidentifiedImageError:
                 # Not an image at all (8 teams/*.png files are saved web
                 # pages): nothing to build. Reported, but not a job failure,
