@@ -233,19 +233,35 @@ export default function ContributePlayerInfoForm({
       <label className="ycd-field"><span className="ycd-label">Status</span>
         <select value={values.status_label} onChange={e=>{
           const status=e.target.value;
-          setValues(v=>({...v,status_label:status,committed_teamid:status==='COMMIT'?v.committed_teamid:''}));
+          const highSchoolStatus=status==='COMMIT'||status==='UNCOMMITTED';
+          setValues(v=>({
+            ...v,
+            status_label:status,
+            // Status comes first in the form. Selecting a HS commitment status
+            // automatically sets the new player's playing level to HIGH SCHOOL.
+            level_label:!player&&highSchoolStatus
+              ? 'HIGH SCHOOL'
+              : !player&&v.level_label==='HIGH SCHOOL' ? '' : v.level_label,
+            // A commitment is not a college playing assignment.
+            current_teamid:!player&&highSchoolStatus?'':v.current_teamid,
+            current_team_name:!player&&highSchoolStatus?'':v.current_team_name,
+            committed_teamid:status==='COMMIT'?v.committed_teamid:'',
+          }));
           if(status!=='COMMIT')setSelectedCommitTeam(null);
+          if(!player&&highSchoolStatus)setSelectedCurrentTeam(null);
         }}>
           <option value="">Select status</option>
-          {isHighSchoolPlayer ? <>
-            {values.status_label&&!['COMMIT','UNCOMMITTED'].includes(values.status_label)
+          {(!player||isHighSchoolPlayer) ? <>
+            {values.status_label&&isHighSchoolPlayer&&!['COMMIT','UNCOMMITTED'].includes(values.status_label)
               ? <option value={values.status_label} disabled>{values.status_label} — select a high-school status</option>:null}
             <option value="UNCOMMITTED">UNCOMMITTED</option>
-            <option value="COMMIT">{selectedCommitTeam ? `${selectedCommitTeam.name} COMMIT` : 'COLLEGE COMMIT — choose a college below'}</option>
-          </> : <>
-            {values.status_label&&!STATUS.includes(values.status_label)?<option value={values.status_label}>{values.status_label}</option>:null}
+            <option value="COMMIT">{selectedCommitTeam ? `COMMITTED — ${selectedCommitTeam.name}` : 'COMMITTED'}</option>
+          </> : null}
+          {!isHighSchoolPlayer ? <>
+            {values.status_label&&!STATUS.includes(values.status_label)&&!['COMMIT','UNCOMMITTED'].includes(values.status_label)
+              ? <option value={values.status_label}>{values.status_label}</option>:null}
             {STATUS.map(x=><option key={x} value={x}>{x}</option>)}
-          </>}
+          </> : null}
         </select>
       </label>
       <label className="ycd-field"><span className="ycd-label">Highest/current level</span>
@@ -289,7 +305,7 @@ export default function ContributePlayerInfoForm({
             setValues(v=>({...v,status_label:'COMMIT',committed_teamid:team.teamId}));
           }} />
         )
-      ) : <p className="ycd-muted ycd-small">Select COLLEGE COMMIT above to announce a college commitment using Global Search.</p>}
+      ) : <p className="ycd-muted ycd-small">Select COMMITTED above to choose the college using Global Search.</p>}
       <p className="ycd-muted ycd-small">A commitment does not change the player's current high-school team or playing level.</p>
     </div> : null}
     <div className="ycd-field">
