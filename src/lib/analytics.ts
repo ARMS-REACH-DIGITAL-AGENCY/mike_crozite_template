@@ -77,13 +77,46 @@ export function tabName(id: string): string {
   return ({ upload: 'stories', influence: 'stories', schedule: 'game_log' } as Record<string, string>)[id] || id;
 }
 
+// Internal owner/demo accounts are excluded on every YAT?STATS subdomain.
+// A domain cookie also protects later anonymous visits in the same browser.
+// We do not transmit account email addresses to analytics.
+const INTERNAL_ANALYTICS_EMAILS = new Set([
+  'pcdaction@gmail.com',
+  'pete@yatstats.com',
+  'huskygolf@gmail.com',
+  'hamiltongolf@yststats.com',
+]);
+
+export function markInternalAnalyticsAccount(email: string | null | undefined): boolean {
+  if (typeof window === 'undefined' || !email || !INTERNAL_ANALYTICS_EMAILS.has(email.trim().toLowerCase())) return false;
+  try {
+    document.cookie = 'yat_ga_internal=1;path=/;max-age=31536000;SameSite=Lax;Secure;domain=.yatstats.com';
+    window.localStorage.setItem('yat_ga_internal', '1');
+  } catch {}
+  // Disable any previously loaded GA/Meta clients in this page immediately.
+  // Existing calls remain in GA4; this prevents any further events.
+  window.gtag = undefined;
+  window.fbq = undefined;
+  return true;
+}
+
+function isInternalAnalyticsBrowser(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return /(?:^|;\\s*)yat_ga_internal=1(?:;|$)/.test(document.cookie) ||
+      window.localStorage.getItem('yat_ga_internal') === '1';
+  } catch {
+    return /(?:^|;\\s*)yat_ga_internal=1(?:;|$)/.test(document.cookie);
+  }
+}
+
 function gtag(...args: unknown[]) {
-  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
+  if (typeof window === 'undefined' || isInternalAnalyticsBrowser() || typeof window.gtag !== 'function') return;
   window.gtag(...args);
 }
 
 function fbq(...args: unknown[]) {
-  if (typeof window === 'undefined' || typeof window.fbq !== 'function') return;
+  if (typeof window === 'undefined' || isInternalAnalyticsBrowser() || typeof window.fbq !== 'function') return;
   window.fbq(...args);
 }
 
