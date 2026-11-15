@@ -995,7 +995,7 @@ function rosterName(p: ActiveRosterPlayer) {
   return String(p.display_name || `${p.firstname || ''} ${p.lastname || ''}`.trim() || `Player ${p.playerid}`);
 }
 
-function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
+function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined, fallbackRows: PlayerRow[] = []): PlayerRow[] {
   const current = new Map(existing.map((p) => [String(p[0]), p] as const));
   const source = roster && roster.length
     ? roster.map((r) => ({
@@ -1005,7 +1005,7 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
         isPitcher: Boolean(r.is_pitcher),
         twoWay: Boolean(r.is_two_way_2026),
       }))
-    : existing.map((p) => ({
+    : (fallbackRows.length ? fallbackRows : existing).map((p) => ({
         id: String(p[0]),
         name: String(p[1]),
         level: String(p[2] || ''),
@@ -1158,8 +1158,12 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     loadFavoritePlayers().then((f) => { if (live) setFavs(f); });
     return () => { live = false; };
   }, [drawerMode]);
+  // Daily stat feeds contain only players with a line that day. Build all seven
+  // tabs from the same authoritative roster as Weekly Totals; on days off,
+  // show zero batting/pitching lines without copying weekly stats or W-L.
+  // The weekly rows are a fallback if the roster API is temporarily unavailable.
   const viewPlayers = statDay === 'week' ? (mine?.p || [])
-    : rawMine?.days ? rawMine.days[statDay] || [] : [];
+    : completeRosterRows(rawMine?.days?.[statDay] || [], mineRoster, minePlayers);
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
