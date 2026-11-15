@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { getSchoolByUrl } from "@/lib/db";
-import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { formatSchoolName } from "@/lib/playerUtils";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +24,11 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     ? formatSchoolName(String(school.hsname || "YAT?STATS"))
     : "YAT?STATS";
 
-  const iconUrl = hsid
-    ? getSchoolCrestUrl(hsid)
-    : "/img/yatstats-logo-circle.png";
+  // Chrome on Android only installs icons reliably when the declared
+  // dimensions actually match the image, and the image is same-origin.
+  const icon = (size: number, purpose: 'any' | 'maskable') => hsid
+    ? `/api/icon/school?hsid=${encodeURIComponent(hsid)}&size=${size}&purpose=${purpose}`
+    : '/img/yatstats-logo-circle.png';
 
   return {
     name: `${schoolName} | YAT?STATS`,
@@ -40,17 +41,23 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     theme_color: "#000000",
     icons: [
       {
-        src: iconUrl,
+        src: icon(192, 'any'),
         sizes: "192x192",
         type: "image/png",
-        purpose: "maskable",
+        purpose: "any",
       },
       {
-        src: iconUrl,
+        src: icon(512, 'any'),
         sizes: "512x512",
         type: "image/png",
-        purpose: "maskable", // ✅ FIXED (was "any maskable")
+        purpose: "any",
       },
+      ...(hsid ? [{
+        src: icon(512, 'maskable'),
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable' as const,
+      }] : []),
     ],
   };
 }

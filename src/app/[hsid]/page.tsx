@@ -388,11 +388,8 @@ export async function generateMetadata({
             images: [ogImageUrl],
           },
           icons: {
-            icon: [
-              { url: crestUrl, type: "image/png" },
-              { url: "/favicon.ico", type: "image/x-icon" },
-            ],
-            apple: crestUrl,
+            icon: [{ url: `/api/icon/school?hsid=${encodeURIComponent(schoolHsid)}&size=192&purpose=any`, type: "image/png", sizes: "192x192" }],
+            apple: `/api/icon/school?hsid=${encodeURIComponent(schoolHsid)}&size=192&purpose=any`,
           },
         };
       }
@@ -436,11 +433,8 @@ export async function generateMetadata({
       images: [schoolShareImage],
     },
     icons: {
-      icon: [
-        { url: crestUrl, type: "image/png" },
-        { url: "/favicon.ico", type: "image/x-icon" },
-      ],
-      apple: crestUrl,
+      icon: [{ url: `/api/icon/school?hsid=${encodeURIComponent(schoolHsid)}&size=192&purpose=any`, type: "image/png", sizes: "192x192" }],
+      apple: `/api/icon/school?hsid=${encodeURIComponent(schoolHsid)}&size=192&purpose=any`,
     },
   };
 }

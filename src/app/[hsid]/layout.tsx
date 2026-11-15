@@ -115,20 +115,21 @@ export async function generateMetadata({
   }
   const resolvedHsid = String(school?.hsid ?? hsid);
   const schoolName = formatSchoolName(String(school?.hsname || 'YAT?STATS'));
-  const crestUrl = getSchoolCrestUrl(resolvedHsid);
+  const crestIcon = (size: number) =>
+    `/api/icon/school?hsid=${encodeURIComponent(resolvedHsid)}&size=${size}&purpose=any`;
 
   return {
     title: `${schoolName} | YAT?STATS`,
     icons: {
       icon: [
-        { url: crestUrl, type: 'image/png', sizes: '192x192' },
-        { url: crestUrl, type: 'image/png', sizes: '512x512' },
+        { url: crestIcon(192), type: 'image/png', sizes: '192x192' },
+        { url: crestIcon(512), type: 'image/png', sizes: '512x512' },
       ],
       apple: [
-        { url: crestUrl, type: 'image/png', sizes: '180x180' },
+        { url: crestIcon(192), type: 'image/png', sizes: '192x192' },
       ],
       shortcut: [
-        { url: crestUrl, type: 'image/png' },
+        { url: crestIcon(192), type: 'image/png' },
       ],
     },
     appleWebApp: {
