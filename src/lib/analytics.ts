@@ -93,8 +93,9 @@ export function markInternalAnalyticsAccount(email: string | null | undefined): 
     document.cookie = 'yat_ga_internal=1;path=/;max-age=31536000;SameSite=Lax;Secure;domain=.yatstats.com';
     window.localStorage.setItem('yat_ga_internal', '1');
   } catch {}
-  // Disable any previously loaded GA/Meta clients in this page immediately.
-  // Existing calls remain in GA4; this prevents any further events.
+  // Stop the GA4 library as well as application-owned event calls.
+  // Existing calls remain in GA4; this prevents further events.
+  (window as unknown as Record<string, boolean>)['ga-disable-' + GA_MEASUREMENT_ID] = true;
   window.gtag = undefined;
   window.fbq = undefined;
   return true;
