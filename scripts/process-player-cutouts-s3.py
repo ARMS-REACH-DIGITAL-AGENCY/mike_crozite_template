@@ -142,9 +142,29 @@ def main() -> int:
     print(f"Max files: {MAX_FILES if MAX_FILES is not None else 'all'}")
     print(f"Only source filename stems: {', '.join(sorted(ONLY_IDS)) if ONLY_IDS else 'all'}")
 
-    keys = list_source_keys(BUCKET, SOURCE_PREFIX)
     if ONLY_IDS:
-        keys = [key for key in keys if PurePosixPath(key).stem in ONLY_IDS]
+        # Targeted uploads must never enumerate the entire S3 prefix.
+        # Check only the known source object candidates for each requested stem.
+        keys = []
+        for stem in sorted(ONLY_IDS):
+            candidates = []
+            for extension in (".jpg", ".jpeg", ".webp", ".png"):
+                if extension == ".png" and not INCLUDE_SOURCE_PNG:
+                    continue
+                key = f"{source_prefix}{stem}{extension}"
+                try:
+                    obj = s3.head_object(Bucket=BUCKET, Key=key)
+                    candidates.append((obj["LastModified"], key))
+                except ClientError as exc:
+                    code = exc.response.get("Error", {}).get("Code")
+                    if code not in {"404", "NoSuchKey", "NotFound"}:
+                        raise
+            if candidates:
+                keys.append(max(candidates)[1])
+            else:
+                print(f"WARNING: no source image found for {stem}")
+    else:
+        keys = list_source_keys(BUCKET, SOURCE_PREFIX)
     if MAX_FILES is not None:
         keys = keys[:MAX_FILES]
 
