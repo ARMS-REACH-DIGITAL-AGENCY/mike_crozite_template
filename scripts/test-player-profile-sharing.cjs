@@ -19,9 +19,14 @@ assert.match(page, /if \(!storyId\) return defaultPlayerShareMetadata\(/, 'ordin
 assert.match(page, /if \(!r\) return defaultPlayerShareMetadata\(/, 'missing stories must fall back to player metadata');
 assert.match(page, /openGraph:[\s\S]*images: \[\{ url: info\.image, width: 1200, height: 630/, 'player OG card must be large');
 assert.match(page, /twitter:[\s\S]*summary_large_image/, 'SMS/social sharing should use a large image');
-assert.match(short, /status: 307/, 'all visitors, including preview user-agents, must redirect to player profile');
+assert.match(short, /status: 307/, 'human short-link visitors must redirect to the actual profile');
+assert.match(short, /LINK_PREVIEW_BOT\.test/, 'messaging crawlers must receive short-link preview metadata');
+assert.match(short, /og:image:secure_url/, 'short-link previews must contain the OG image directly');
+assert.match(short, /summary_large_image/, 'short-link preview must request the large card');
+assert.match(short, /Cache-Control': 'private, no-store'/, 'crawler metadata must never leak into human browser caches');
 assert.match(short, /Location: info.url/, 'short links must target the true player profile');
-assert.doesNotMatch(short, /PLAYER_PREVIEW_BOT|<html|og:image/, 'short links must never serve bare crawler HTML to visitors');
+assert.doesNotMatch(short, /PLAYER_PREVIEW_BOT/, 'short links must identify only known crawlers, not generic preview-like webviews');
+assert.match(short, /window\.location\.replace/, 'crawler-like webviews must navigate to the real profile');
 assert.match(helper, /\/api\/og\/player-profile\?playerId=/, 'OG image endpoint must be used');
 const worker = read('src/app/api/cron/player-profile-snapshot/route.ts');
 const queue = read('src/lib/realTimelineSnapshotQueue.ts');
