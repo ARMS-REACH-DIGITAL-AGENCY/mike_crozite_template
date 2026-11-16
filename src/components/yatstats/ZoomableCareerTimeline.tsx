@@ -747,7 +747,7 @@ function StoryHeroImg({ photo, className, style, alt, readOnly = false, onOpenSt
     <img
       className={`${className}${useCut ? ' zt-story-cut' : ''}${photo.storyId ? ' zt-timeline-memory' : ' zt-annual-hero'}${photo.storyId && !readOnly ? ' zt-story-link' : ''}`}
       style={style}
-      src={useCut ? photo.cutout || photo.web : photo.storyId ? photo.web : YATI_PLACEHOLDERS[0]}
+      src={useCut ? photo.cutout || photo.web : photo.web || YATI_PLACEHOLDERS[0]}
       alt={alt}
       loading="eager"
       decoding="async"
