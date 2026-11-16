@@ -10,6 +10,7 @@ type GameLogRow = {
   game_status?: string | null;
   stat_type?: string | null;
   opponent_name?: string | null;
+  team_name?: string | null;
   opponent_mlb_id?: string | null;
   home_away?: string | null;
   is_win?: string | boolean | null;
