@@ -2,6 +2,7 @@
 // base64 image data in /api/stories JSON. Only PUBLIC and LIVE moments are readable.
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import sharp from 'sharp';
 
 export const runtime = 'nodejs';
 
@@ -26,7 +27,11 @@ export async function GET(
   const bytes = Buffer.from(encoded, 'base64');
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8)
     return new NextResponse(null, { status: 404 });
-  return new NextResponse(new Uint8Array(bytes), {
+  // Preserve the picture while stripping original EXIF and GPS metadata.
+  const safeImage = await sharp(bytes, { failOn: 'error' }).rotate()
+    .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85 }).toBuffer();
+  return new NextResponse(new Uint8Array(safeImage), {
     status: 200,
     headers: {
       'Content-Type': 'image/jpeg',
