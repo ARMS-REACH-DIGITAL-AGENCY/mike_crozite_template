@@ -189,3 +189,82 @@ test('Canonical opponent ids use the existing team image helper in both consumer
   assert.equal(profileGames(game)[0].logoUrl, expected);
   assert.equal(gameSummary(game).logoUrl, expected);
 });
+
+
+function snapshotWindow({ logs, schedules = [], today = '2026-11-16' }) {
+  // Execute the actual server-side snapshot builder with bounded source fixtures.
+  // Midnight UTC is the correct fixed time for the Arizona-local day here.
+  const RealDate = Date;
+  class FixedDate extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [today + 'T19:00:00Z']));
+    }
+    static now() { return new RealDate(today + 'T19:00:00Z').getTime(); }
+  }
+  const source = [
+    sourceFunction(snapshot, 'isoDate'),
+    sourceFunction(snapshot, 'isoDateInZone'),
+    sourceFunction(snapshot, 'addDays'),
+    sourceFunction(snapshot, 'buildLogOnlyGameSummary'),
+    sourceFunction(snapshot, 'getSevenDayWindow'),
+  ].join('\n');
+  const scope = {
+    Date: FixedDate,
+    Intl,
+    Map,
+    getFlipCardTransactionStatus: async () => ({
+      status_label: 'ACTIVE', school_timezone: 'America/Phoenix',
+      current_teamid: '900674', current_team_source: 'contribute_direct',
+    }),
+    getPlayerGameLogs: async () => logs,
+    getTeamIdMap: async () => new Map([['677', '900677']]),
+    getTeamSchedule: async () => schedules,
+    resolveScheduleTeamId,
+    toISODate: value => String(value || '').slice(0, 10),
+    buildGameSummary: game => ({ isHome: true, logoUrl: null, opponentLabel: game.opponent, venue: '', resultLine: game.result || 'W', resultClass: 'win', subLine: '' }),
+    mlbTeamLogoUrl: () => null,
+  };
+  return vm.runInNewContext(compile(source + '\nresult = getSevenDayWindow("180823");'), scope);
+}
+
+test('Winter-ball player logs populate 7-day snapshot even with no team schedule', async () => {
+  const logs = [
+    { playerid: '180823', source: 'mlb_api', source_game_id: '850435', game_date: '2026-11-13', game_status: 'Final',
+      team_name: 'Charros de Jalisco', opponent_name: 'Naranjeros de Hermosillo', opponent_mlb_id: '677',
+      home_away: 'away', is_win: 'false', line_summary: '1.0 IP, 0 ER, 0 K' },
+    { playerid: '180823', source: 'mlb_api', source_game_id: '850425', game_date: '2026-11-15', game_status: 'Final',
+      team_name: 'Charros de Jalisco', opponent_name: 'Naranjeros de Hermosillo', opponent_mlb_id: '677',
+      home_away: 'away', is_win: 'false', line_summary: '1.0 IP, 1 ER, 0 K' },
+  ];
+  const result = await snapshotWindow({ logs });
+  const nov13 = result.items.find(row => row.iso === '2026-11-13');
+  const nov15 = result.items.find(row => row.iso === '2026-11-15');
+  assert.equal(nov13.kind, 'game');
+  assert.equal(nov15.kind, 'game');
+  assert.equal(nov13.game.opponentLabel, 'Naranjeros de Hermosillo');
+  assert.equal(nov15.game.resultLine, 'L');
+  assert.match(nov13.game.subLine, /0 ER/);
+  assert.match(nov15.game.subLine, /1 ER/);
+  assert.equal(result.items.find(row => row.iso === '2026-11-16').kind, 'unknown',
+    'No winter-ball schedule means never invent an off day');
+});
+
+test('Schedule and matching player game log render once, not twice', async () => {
+  const result = await snapshotWindow({
+    logs: [{ source: 'mlb_api', source_game_id: '850435', game_date: '2026-11-13', opponent_name: 'Naranjeros de Hermosillo', line_summary: '1.0 IP' }],
+    schedules: [{ game_date: '2026-11-13', schedule_source: 'mlb_api', source_game_id: '850435', opponent: 'Naranjeros de Hermosillo', result: 'L 3-5' }],
+  });
+  const nov13 = result.items.find(row => row.iso === '2026-11-13');
+  assert.equal(nov13.kind, 'game');
+  assert.equal(nov13.game.opponentLabel, 'Naranjeros de Hermosillo');
+});
+
+test('Two real games on one date are retained in the doubleheader snapshot', async () => {
+  const result = await snapshotWindow({ logs: [
+    { source: 'mlb_api', source_game_id: '100', game_date: '2026-11-15', opponent_name: 'Naranjeros', line_summary: '1.0 IP' },
+    { source: 'mlb_api', source_game_id: '101', game_date: '2026-11-15', opponent_name: 'Naranjeros', line_summary: '0.1 IP' },
+  ] });
+  const nov15 = result.items.find(row => row.iso === '2026-11-15');
+  assert.equal(nov15.kind, 'doubleheader');
+  assert.equal(nov15.games.length, 2);
+});

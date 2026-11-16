@@ -7,8 +7,13 @@ type GameLogRow = {
   source?: string | null;
   source_game_id?: string | null;
   game_date?: string | null;
+  game_status?: string | null;
+  stat_type?: string | null;
   opponent_name?: string | null;
+  team_name?: string | null;
+  opponent_mlb_id?: string | null;
   home_away?: string | null;
+  is_win?: string | boolean | null;
   line_summary?: string | null;
 };
 
@@ -164,6 +169,46 @@ function buildGameSummary(
   return { isHome, logoUrl, opponentLabel, venue: game.venue_name || '', resultLine, resultClass, subLine };
 }
 
+// A verified player appearance is also a game, even when its team's season
+// schedule has no compatible feed (winter ball, mid-season transfers, etc).
+// The PPP already appends these unmatched player_game_logs to its Game Log.
+// Reuse those same records here instead of labeling played days "unavailable".
+function buildLogOnlyGameSummary(logs: GameLogRow[], teamIdMap: Map<string, string>): GameSummary {
+  const log = logs.find((row) => Boolean(row.line_summary)) || logs[0];
+  const isHome = /^(home|h)$/i.test(String(log.home_away || '').trim());
+  const opponentId = String(log.opponent_mlb_id || '').trim();
+  const opponentLabel = String(log.opponent_name || 'Opponent unavailable').trim();
+  const win = String(log.is_win ?? '').toLowerCase();
+  const status = String(log.game_status || '').trim();
+  let resultClass: ResultClass = 'time';
+  let resultLine = status || 'Result unavailable';
+
+  if (win === 'true') {
+    resultClass = 'win';
+    resultLine = 'W';
+  } else if (win === 'false') {
+    resultClass = 'loss';
+    resultLine = 'L';
+  } else if (/in progress|live|manager challenge|review/i.test(status)) {
+    resultClass = 'live';
+    resultLine = 'LIVE';
+  } else if (/postpon|cancel|suspend|delay/i.test(status)) {
+    resultClass = 'ppd';
+    resultLine = /postpon/i.test(status) ? 'PPD' : /cancel/i.test(status) ? 'CANC' : /suspend/i.test(status) ? 'SUSP' : 'DELAY';
+  }
+
+  const subLine = logs.map((row) => String(row.line_summary || '').trim()).filter(Boolean).join(' | ');
+  return {
+    isHome,
+    logoUrl: opponentId ? mlbTeamLogoUrl(teamIdMap, opponentId) : null,
+    opponentLabel,
+    venue: '',
+    resultLine,
+    resultClass,
+    subLine,
+  };
+}
+
 async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotItem[]; todayIso: string }> {
   const [transactionStatus, gameLogs, teamIdMap] = await Promise.all([
     getFlipCardTransactionStatus(playerId),
@@ -209,12 +254,24 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
   }
 
   const logsByGamePk = new Map<string, GameLogRow[]>();
+  const logsByDate = new Map<string, Map<string, GameLogRow[]>>();
   for (const row of gameLogs as GameLogRow[]) {
-    const key = String(row.source_game_id || '').trim();
-    if (!key) continue;
-    const bucket = logsByGamePk.get(key) ?? [];
-    bucket.push(row);
-    logsByGamePk.set(key, bucket);
+    const gameId = String(row.source_game_id || '').trim();
+    if (gameId) {
+      const bucket = logsByGamePk.get(gameId) ?? [];
+      bucket.push(row);
+      logsByGamePk.set(gameId, bucket);
+    }
+
+    // Match the PPP's source/game identity: never collapse different
+    // providers' games merely because game IDs or dates happen to match.
+    const date = toISODate(row.game_date);
+    if (!date || date < addDays(today, -3) || date > addDays(today, 3)) continue;
+    const key = String(row.source || '') + ':' +
+      (gameId || [date, row.team_name || '', row.opponent_name || ''].join(':'));
+    const day = logsByDate.get(date) ?? new Map<string, GameLogRow[]>();
+    day.set(key, [...(day.get(key) ?? []), row]);
+    logsByDate.set(date, day);
   }
 
   const items: SnapshotItem[] = [];
@@ -241,16 +298,33 @@ async function getSevenDayWindow(playerId: string): Promise<{ items: SnapshotIte
       .slice()
       .sort((a, b) => String(a.game_time_utc || '').localeCompare(String(b.game_time_utc || '')));
 
-    if (gamesForDate.length === 0) {
+    // Start with the same verified team-schedule rows the PPP displays.
+    // Then append any player_game_logs the schedule did not account for.
+    // Winter-ball games are often absent from v_team_schedule_feed, but the
+    // PPP still shows their player lines directly; the flip card must too.
+    const summaries = gamesForDate.map((g) => buildGameSummary(g, logsByGamePk, teamIdMap, schoolTimeZone));
+    const unmatched = new Map(logsByDate.get(iso) ?? new Map<string, GameLogRow[]>());
+    for (const game of gamesForDate) {
+      const scheduleId = String(game.source_game_id || game.game_pk || '').trim();
+      const scheduleSource = String(game.schedule_source || '').trim();
+      const match = [...unmatched.entries()].find(([, rows]) => rows.some((row) =>
+        (!scheduleSource || row.source === scheduleSource) &&
+        (scheduleId ? String(row.source_game_id || '').trim() === scheduleId : true)
+      ));
+      if (match) unmatched.delete(match[0]);
+    }
+    for (const rows of unmatched.values()) {
+      summaries.push(buildLogOnlyGameSummary(rows, teamIdMap));
+    }
+
+    if (summaries.length === 0) {
       items.push({ kind: hasSchedule ? 'offday' : 'unknown', iso });
-    } else if (gamesForDate.length === 1) {
-      const game = buildGameSummary(gamesForDate[0], logsByGamePk, teamIdMap, schoolTimeZone);
-      if (!isActive) game.subLine = statusLabel;
-      items.push({ kind: 'game', iso, game });
+    } else if (summaries.length === 1) {
+      if (!isActive) summaries[0].subLine = statusLabel;
+      items.push({ kind: 'game', iso, game: summaries[0] });
     } else {
-      const games = gamesForDate.map((g) => buildGameSummary(g, logsByGamePk, teamIdMap, schoolTimeZone));
-      if (!isActive) games.forEach((g) => { g.subLine = statusLabel; });
-      items.push({ kind: 'doubleheader', iso, games });
+      if (!isActive) summaries.forEach((g) => { g.subLine = statusLabel; });
+      items.push({ kind: 'doubleheader', iso, games: summaries });
     }
   }
 
