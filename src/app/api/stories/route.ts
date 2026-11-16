@@ -57,6 +57,7 @@ type StoryRow = {
   liked_by_me: boolean;
   is_mine: boolean;
   contributor_role: string | null;
+  legacy_photo: boolean;
 };
 
 export async function GET(req: NextRequest) {
@@ -95,7 +96,8 @@ export async function GET(req: NextRequest) {
               (SELECT count(*)::int FROM player_moment_comments c WHERE c.moment_id = m.id AND c.status = 'visible') AS comment_count,
               EXISTS (SELECT 1 FROM player_moment_likes l WHERE l.moment_id = m.id AND l.firebase_uid = $3) AS liked_by_me,
               (m.contributor_firebase_uid IS NOT NULL AND m.contributor_firebase_uid = $2) AS is_mine,
-              m.contributor_role
+              m.contributor_role,
+              (m.image_data_url LIKE 'data:image/jpeg;base64,%') AS legacy_photo
          FROM player_moment_submissions m
          JOIN player_moment_players me ON me.moment_id = m.id AND me.playerid = $1
         WHERE m.status = 'live'
@@ -120,6 +122,13 @@ export async function GET(req: NextRequest) {
         height: p.height,
         ...(draft ? { logo: true } : {}),
       }));
+      // The old Golden Line uploader stored photos inline instead of S3.
+      // Keep their bytes out of this JSON response and serve each photo
+      // separately, only after the moment has been made public and live.
+      if (!draft && photos.length === 0 && r.legacy_photo) {
+        const url = `/api/legacy-moment-photo/${encodeURIComponent(r.id)}`;
+        photos.push({ cutout: null, source: null, web: url, thumb: url, full: url, width: null, height: null });
+      }
       if (draft && photos.length === 0) {
         photos.push({ cutout: null, source: null, web: CREST, thumb: CREST, full: CREST, width: null, height: null, logo: true });
       }
@@ -208,6 +217,18 @@ export async function GET(req: NextRequest) {
       if (!Number.isInteger(year)) return [];
       return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: storyAssetUrl(recordedCutout || expectedCutout), source: null }];
     });
+    // Restore the original Golden Line photos to career-year slides for
+    // years without a newer, approved yearly hero. Multiple photos for the
+    // same year remain individually available in the public Stories feed.
+    const selectedLegacyYears = new Set(timelinePhotos.map((photo) => photo.year));
+    for (const legacy of rows) {
+      if (!legacy.legacy_photo || legacy.posted_on_playerid !== playerId) continue;
+      const year = Number(legacy.photo_taken_year || legacy.photo_taken_date?.slice(0, 4));
+      if (!Number.isInteger(year) || year < 1900 || year > 2100 || selectedLegacyYears.has(year)) continue;
+      const url = `/api/legacy-moment-photo/${encodeURIComponent(legacy.id)}`;
+      timelinePhotos.push({ id: `legacy-${legacy.id}`, year, web: url, cutout: null, source: null });
+      selectedLegacyYears.add(year);
+    }
     return NextResponse.json({ stories, timelinePhotos }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[stories] GET failed', error);
