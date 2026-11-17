@@ -11,6 +11,9 @@ import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabil
 import StoryDrawer from '@/components/yatstats/StoryDrawer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
 import ProfileCardIdRegistrar from '@/components/yatstats/ProfileCardIdRegistrar';
+import { after } from 'next/server';
+import { ensureRealTimelineSnapshot } from '@/lib/realTimelineSnapshotQueue';
+import { PLAYER_PREVIEW_BOT } from '@/lib/playerProfileShare';
 import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
 import ProfileStatsFinalOverrides from '@/components/yatstats/ProfileStatsFinalOverrides';
 
@@ -123,6 +126,12 @@ export default async function PlayerLayout({
 
   if (canonicalPlayerUrl && isCanonicalHostMismatch(currentHost, canonicalPlayerUrl)) {
     redirect(canonicalPlayerUrl);
+  }
+
+  // The share picture is ready before the first text (see ensureRealTimelineSnapshot).
+  // Same school + card id as the og:image URL. People only, never crawlers.
+  if (/^[1-9][0-9]*$/.test(hsid) && !PLAYER_PREVIEW_BOT.test(requestHeaders.get('user-agent') || '')) {
+    after(() => ensureRealTimelineSnapshot(hsid, playerId).catch(() => {}));
   }
 
   // Structured data (invisible): the player's alma mater and current team,
