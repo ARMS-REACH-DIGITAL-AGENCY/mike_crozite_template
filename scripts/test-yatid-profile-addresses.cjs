@@ -55,3 +55,28 @@ const store = read('src/lib/profileCardIds.ts');
 assert.match(hook, /useSyncExternalStore\(subscribe, getProfileCardVersion, \(\) => 0\)/, 'the hook must re-check the store after subscribing');
 assert.match(store, /known\.set\(routeId, cardId\);\s*profileCardVersion \+= 1;/, 'every new pair bumps the store version');
 console.log('PASS: a profile opened by client-side navigation uses the card id for its images');
+
+// Build guard (Pete, Nov 17 2026): photos are stored under the card's own id,
+// so any code that reads a player id out of the page address must translate a
+// YAT address to the card id first. This only stops a broken code update from
+// being published; the live site and its pages are never affected by it.
+const path = require('node:path');
+function walk(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, out); else if (/\.(ts|tsx)$/.test(e.name) && !/\.test\./.test(e.name)) out.push(p);
+  }
+  return out;
+}
+const ADDRESS_ID = /match\(\/\\\/player\\\/\(\[\^/;
+const TRANSLATES = /profileCardIdFor|useProfileCardId|resolveProfileCard/;
+// Reads only the name part of the address (the slug), never the id.
+const SLUG_ONLY = new Set(['src/components/yatstats/ZoomableCareerTimeline.tsx']);
+for (const file of walk('src')) {
+  const rel = file.split(path.sep).join('/');
+  const src = read(rel);
+  if (!ADDRESS_ID.test(src) || SLUG_ONLY.has(rel)) continue;
+  assert.match(src, TRANSLATES, `${rel} reads a player id from the page address but never translates a YAT ID to the card id (photos would not be found)`);
+}
+assert.doesNotMatch(read('src/components/yatstats/ZoomableCareerTimeline.tsx'), /pathname\?\.match\([^)]*\)\?\.\[1\]/, 'the timeline reads only the slug from the address');
+console.log('PASS: every reader of the address id translates YAT IDs to card ids');
