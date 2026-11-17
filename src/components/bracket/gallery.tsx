@@ -1170,8 +1170,17 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     loadFavoritePlayers().then((f) => { if (live) setFavs(f); });
     return () => { live = false; };
   }, [drawerMode]);
+  // Every day tab lists the whole active roster, like Weekly Totals (Pete,
+  // Nov 17: rosters are always visible, even before a game starts). A day
+  // with no stat lines yet shows each player with blank metrics, not zeros.
+  const dayRows = statDay === 'week' ? [] : rawMine?.days?.[statDay] || [];
   const viewPlayers = statDay === 'week' ? (mine?.p || [])
-    : rawMine?.days ? rawMine.days[statDay] || [] : [];
+    : completeRosterRows(dayRows, mineRoster).map((p) => {
+        if (dayRows.length) return p;
+        const blank = [...p] as PlayerRow;
+        blank[6] = null; blank[7] = null; blank[8] = null;
+        return blank;
+      });
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
