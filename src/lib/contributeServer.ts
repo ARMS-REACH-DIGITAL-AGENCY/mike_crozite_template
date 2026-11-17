@@ -299,6 +299,10 @@ export async function stagePhoto(id: string, purpose: PhotoPurpose, input: Buffe
 // null when remove.bg isn't set up or finds no one; callers must provide a
 // visible, aspect-preserving fallback rather than silently omitting the photo.
 async function cutout(source: Buffer): Promise<Buffer | null> {
+  // Pete, Nov 17 2026: remove.bg is off; the free cutout job
+  // (process-cutout-queue-s3.py, every 30 minutes) makes every cutout.
+  // Set REMOVE_BG_ENABLED=true with a working key to turn instant cutouts on.
+  if (process.env.REMOVE_BG_ENABLED !== 'true') return null;
   const apiKey = process.env.REMOVE_BG_API_KEY;
   if (!apiKey) {
     console.warn('[contribute] remove.bg unavailable: REMOVE_BG_API_KEY is not configured');

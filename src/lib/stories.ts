@@ -150,7 +150,8 @@ export type CutoutResult = 'made' | 'exists' | 'none' | 'skipped';
 // Makes the cutout for one story photo. Never throws: a story always posts,
 // and the timeline falls back to the whole photo.
 export async function makeStoryCutout(fullKey: string): Promise<CutoutResult> {
-  const apiKey = process.env.REMOVE_BG_API_KEY;
+  // remove.bg is off (Pete, Nov 17 2026); the story photo shows whole.
+  const apiKey = process.env.REMOVE_BG_ENABLED === 'true' ? process.env.REMOVE_BG_API_KEY : '';
   if (!apiKey || !isStoryFullKey(fullKey)) return 'skipped';
   try {
     const cutoutKey = cutoutKeyFor(fullKey);
