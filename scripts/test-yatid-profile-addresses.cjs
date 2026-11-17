@@ -46,3 +46,12 @@ assert.match(sitemap, /COALESCE\(NULLIF\(f\.yatid, ''\), f\.playerid::text\) AS 
 assert.match(sitemap, /school-players-v2-yatid/, 'sitemap cache key must change with the addresses');
 
 console.log('PASS: profile addresses use the YAT ID; card id kept inside; old addresses move permanently');
+
+// Client-side navigation to a YAT address: the header/timeline must re-read
+// the card id the profile layout registers (Jake Johnson, Nov 17 2026: his
+// timeline asked S3 for then/YAT162674.jpg and showed no high school photo).
+const hook = read('src/lib/useProfileCardId.ts');
+const store = read('src/lib/profileCardIds.ts');
+assert.match(hook, /useSyncExternalStore\(subscribe, getProfileCardVersion, \(\) => 0\)/, 'the hook must re-check the store after subscribing');
+assert.match(store, /known\.set\(routeId, cardId\);\s*profileCardVersion \+= 1;/, 'every new pair bumps the store version');
+console.log('PASS: a profile opened by client-side navigation uses the card id for its images');
