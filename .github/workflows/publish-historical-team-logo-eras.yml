@@ -1,0 +1,42 @@
+name: Publish Verified Era-Accurate Team Logos
+
+on:
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - 'data/historical-team-logo-eras.json'
+      - 'scripts/publish-historical-team-logo-eras.py'
+      - '.github/workflows/publish-historical-team-logo-eras.yml'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Validate source registry only (no publish)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-historical-team-logo-eras
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      YATSTATS_S3_BUCKET: yatstats-assets
+      DRY_RUN: ${{ github.event_name != 'push' && (inputs.dry_run && 'true' || 'false') || 'false' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - run: pip install boto3 pillow cairosvg
+      - run: python scripts/publish-historical-team-logo-eras.py

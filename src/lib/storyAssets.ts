@@ -7,9 +7,9 @@ export const S3_BUCKET = process.env.YATSTATS_S3_BUCKET || process.env.S3_BUCKET
 // published historical artwork. No forever-fallback lists or successor swaps.
 import { teamLogoIdFromAssetKey, teamLogoPath } from '@/lib/teamLogo';
 
-export function storyAssetUrl(key: string | null | undefined): string | null {
+export function storyAssetUrl(key: string | null | undefined, year?: number | null): string | null {
   if (!key) return null;
   const id = teamLogoIdFromAssetKey(key);
-  if (id) return `https://hamilton.az.yatstats.com${teamLogoPath(id)}`;
+  if (id) return `https://hamilton.az.yatstats.com${teamLogoPath(id, year)}`;
   return `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${key.split('/').map(encodeURIComponent).join('/')}`;
 }
