@@ -356,9 +356,21 @@ async function cutout(source: Buffer): Promise<Buffer | null> {
 // this he kept his old cutout: the hourly cutout job skips any player who
 // already has one. When remove.bg isn't set up or finds no one, the old
 // cutout is removed instead, so that job cuts the new photo within the hour.
+// A photo the instant cutout could not handle waits for the cutout job
+// (process-cutout-queue-s3.py) as ONE small marker naming just that photo; the
+// job reads only these markers, never the photo folders (Pete, Nov 17 2026).
+async function queueCutout(sourceKey: string) {
+  try {
+    await put(`cutout-queue/v1/${sourceKey}`, Buffer.from(JSON.stringify({ source: sourceKey, queuedAt: new Date().toISOString() })), 'application/json');
+  } catch (error) {
+    console.warn('[contribute] cutout could not be queued', { sourceKey, errorType: error instanceof Error ? error.name : 'unknown' });
+  }
+}
+
 async function replaceCutout(kind: 'then' | 'back' | 'now', pid: string, source: Buffer, written: string[]) {
   const png = await cutout(source);
   if (!png) {
+    await queueCutout(`players/${kind}/${pid}.jpg`);
     // A failed/missing background-removal response must not leave the
     // PREVIOUS player's image cached as the live timeline cutout.
     await getS3().send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `players/${kind}-cutouts/${pid}.png` })).catch(() => {});
@@ -529,6 +541,7 @@ export async function promoteUpload(u: UploadRow): Promise<string[]> {
         console.warn('[contribute/photo] stale season cutout could not be removed', { uploadId: u.id, errorType: error instanceof Error ? error.name : 'unknown' });
       });
       console.warn('[contribute/photo] using aspect-preserving timeline photo fallback', { uploadId: u.id, playerId: pid, year });
+      await queueCutout(photoKey);
     }
   } else if (purpose === 'team_logo') {
     const teamId = String(u.team_at_time || '').trim();

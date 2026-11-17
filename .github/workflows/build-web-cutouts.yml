@@ -10,16 +10,18 @@ name: Build Web Cutouts
 #   players/now/  -> players/now-thumb/
 # and small copies of the hand-uploaded team logos:
 #   teams/ -> teams-web/
-# Runs at :30 each hour, after the :00 Hourly Player Image Cutouts job has
-# had time to add new cutouts. Only missing or out-of-date web files are
-# built, so a quiet hour costs just two S3 listings per folder.
+# Runs once a day, after the daily cutout sweep (Pete, Nov 17 2026). Photos
+# approved through the site get their web files right away (upload code and
+# the marker-queue cutout job build them), so this is only a safety net for
+# photos added outside the site. Only missing or out-of-date web files are
+# built; dates come from two folder listings, never from per-file requests.
 #
 # Manual runs default to a dry run. Use max_files / only_ids to test on a
 # few players before a full run.
 
 on:
   schedule:
-    - cron: "30 * * * *"
+    - cron: "53 11 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

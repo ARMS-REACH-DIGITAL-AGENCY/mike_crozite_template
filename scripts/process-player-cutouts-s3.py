@@ -92,7 +92,18 @@ def s3_object_exists(bucket: str, key: str) -> bool:
         raise
 
 
-def list_source_keys(bucket: str, prefix: str) -> list[str]:
+def list_output_dates(bucket: str, prefix: str) -> dict:
+    # One listing of the output folder gives every cutout's date, so the
+    # sweep never asks S3 about each file one by one (Pete, Nov 17 2026).
+    dates: dict = {}
+    paginator = s3.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=normalize_prefix(prefix)):
+        for obj in page.get("Contents", []):
+            dates[obj["Key"]] = obj["LastModified"]
+    return dates
+
+
+def list_source_objects(bucket: str, prefix: str) -> list[dict]:
     # JPG and PNG sometimes coexist under the same player/year stem.
     # Both map to one generated PNG; match the WebP builder's policy of
     # selecting the most recently uploaded original, never the older copy.
@@ -109,7 +120,11 @@ def list_source_keys(bucket: str, prefix: str) -> list[str]:
             if previous is None or obj["LastModified"] > previous["LastModified"]:
                 newest_by_output[output_key] = obj
 
-    return sorted(obj["Key"] for obj in newest_by_output.values())
+    return sorted(newest_by_output.values(), key=lambda obj: obj["Key"])
+
+
+def list_source_keys(bucket: str, prefix: str) -> list[str]:
+    return [obj["Key"] for obj in list_source_objects(bucket, prefix)]
 
 
 def process_image_bytes(input_bytes: bytes) -> bytes:
@@ -142,16 +157,25 @@ def main() -> int:
     print(f"Max files: {MAX_FILES if MAX_FILES is not None else 'all'}")
     print(f"Only source filename stems: {', '.join(sorted(ONLY_IDS)) if ONLY_IDS else 'all'}")
 
-    keys = list_source_keys(BUCKET, SOURCE_PREFIX)
+    sources = list_source_objects(BUCKET, SOURCE_PREFIX)
     if ONLY_IDS:
-        keys = [key for key in keys if PurePosixPath(key).stem in ONLY_IDS]
+        sources = [obj for obj in sources if PurePosixPath(obj["Key"]).stem in ONLY_IDS]
+    # Up-to-date cutouts are decided from the two folder listings, not by
+    # asking S3 about every file: only new or replaced photos are touched.
+    output_dates = {} if OVERWRITE else list_output_dates(BUCKET, OUTPUT_PREFIX)
+    total_sources = len(sources)
+    sources = [
+        obj for obj in sources
+        if OVERWRITE or not (output_dates.get(output_key_for(obj["Key"])) and output_dates[output_key_for(obj["Key"])] >= obj["LastModified"])
+    ]
+    skipped_existing = total_sources - len(sources)
     if MAX_FILES is not None:
-        keys = keys[:MAX_FILES]
+        sources = sources[:MAX_FILES]
+    keys = [obj["Key"] for obj in sources]
 
-    print(f"Found {len(keys)} source images to inspect.")
+    print(f"{total_sources} source images; {skipped_existing} already have an up-to-date cutout; {len(keys)} need one.")
 
     processed = 0
-    skipped_existing = 0
     skipped_dry_run = 0
     failed = 0
 
@@ -160,21 +184,8 @@ def main() -> int:
         print(f"\n[{index}/{len(keys)}] {key} -> {output_key}")
 
         try:
-            # A replacement reuses the same player ID. Rebuild if the source is
-            # newer; merely checking that an output exists leaves old faces live.
-            if not OVERWRITE:
-                source_meta = s3.head_object(Bucket=BUCKET, Key=key)
-                try:
-                    output_meta = s3.head_object(Bucket=BUCKET, Key=output_key)
-                except ClientError as exc:
-                    if exc.response.get("Error", {}).get("Code") not in {"404", "NoSuchKey", "NotFound"}:
-                        raise
-                    output_meta = None
-                if output_meta and output_meta["LastModified"] >= source_meta["LastModified"]:
-                    print("SKIP existing up-to-date generated PNG output")
-                    skipped_existing += 1
-                    continue
-
+            # A replacement reuses the same player ID: a source newer than its
+            # cutout was kept in the list above, so old faces are rebuilt.
             if DRY_RUN:
                 print("DRY RUN would create/update generated PNG output")
                 skipped_dry_run += 1
