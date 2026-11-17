@@ -2,7 +2,7 @@
 // Fan-created identities may exist before their first share. Queue only those
 // players (and cache misses), never crawl all 200K player records.
 import 'server-only';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 export const REAL_TIMELINE_VERSION = 'timeline-v3-hero';
 export const REAL_TIMELINE_QUEUE_PREFIX = 'share-previews/real-timeline-queue-v1/';
@@ -72,5 +72,25 @@ export async function refreshRealTimelineSnapshot(hsid: string, playerId: string
     await enqueueRealTimelineSnapshot(hsid, playerId, s3);
   } catch (error) {
     console.warn('[player-share] timeline refresh could not be queued', { hsid, playerId, error });
+  }
+}
+
+// First share must show the picture (Pete, Nov 17 2026). A fan almost always
+// opens the profile before sharing it, so a person's profile view queues the
+// screenshot when it is missing; the minute worker makes it before the text
+// goes out. One S3 HEAD per view, run after the response; crawlers never queue
+// (that would be a 200K-page backlog). An existing picture queues nothing.
+export async function ensureRealTimelineSnapshot(hsid: string, playerId: string): Promise<void> {
+  if (!validSnapshotIds(hsid, playerId)) return;
+  const s3 = snapshotS3();
+  if (!s3) return;
+  try {
+    await s3.send(new HeadObjectCommand({
+      Bucket: REAL_TIMELINE_S3_BUCKET, Key: snapshotCacheKey(hsid, playerId),
+    }), { abortSignal: AbortSignal.timeout(2500) });
+  } catch (error) {
+    if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404) {
+      await enqueueRealTimelineSnapshot(hsid, playerId, s3);
+    }
   }
 }

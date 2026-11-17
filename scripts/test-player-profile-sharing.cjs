@@ -43,3 +43,10 @@ assert.match(queue, /IfNoneMatch: '\*'/, 'queue writes must be idempotent');
 assert.match(publisher, /after\(async \(\) => \{[\s\S]*enqueueRealTimelineSnapshot/, 'new fan players must queue their real screenshot');
 assert(crons.some(c => c.path === '/api/cron/player-profile-snapshot'), 'scheduled worker must be enabled');
 console.log('Player profile share preview contracts pass.');
+
+// First share shows the picture (Pete, Nov 17 2026): a person's profile view
+// queues a missing screenshot after the response; crawlers never queue.
+const profileLayout = read('src/app/[hsid]/player/[playerId]/layout.tsx');
+assert.match(queue, /export async function ensureRealTimelineSnapshot[\s\S]*HeadObjectCommand[\s\S]*=== 404\) \{\s*await enqueueRealTimelineSnapshot/, 'only a missing picture is queued');
+assert.match(profileLayout, /!PLAYER_PREVIEW_BOT\.test\(requestHeaders\.get\('user-agent'\) \|\| ''\)[\s\S]*after\(\(\) => ensureRealTimelineSnapshot\(hsid, playerId\)/, 'profile views by people queue the picture after the response');
+console.log('First-share picture contract passes.');
