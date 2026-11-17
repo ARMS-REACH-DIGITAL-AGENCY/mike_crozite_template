@@ -29,6 +29,7 @@ import {
   getNewsByPlayer,
   getPlayerSocialHandles,
   query,
+  resolveProfileCard,
 } from "@/lib/db";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
@@ -63,12 +64,14 @@ async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: 
     /^\d+$/.test(hsid) ? getSchoolByHsid(hsid).catch(() => null) : Promise.resolve(null),
     getPlayerIdentityMetaOnce(playerId).catch(() => null),
   ]);
+  // The shared address (canonical, og:url) uses the YAT ID.
+  const { yatId } = await resolveProfileCard(playerId, hsid);
   const school = byIdSchool || await getSchoolByUrl(origin).catch(() => null);
   const resolvedHsid = String(school?.hsid || hsid);
   const playerName = [player?.firstname || player?.first_name, player?.lastname || player?.last_name]
     .filter(Boolean).join(' ').trim() || slug.replace(/-/g, ' ');
   const info = playerProfileShareInfo({
-    origin, hsid: resolvedHsid, playerId, slug, playerName,
+    origin, hsid: resolvedHsid, playerId, publicId: yatId || playerId, slug, playerName,
     schoolName: String(school?.hsname || player?.high_school || ''),
   });
   // Search result tells the journey: high school (city, state) to the current
@@ -110,7 +113,9 @@ export async function generateMetadata({
   params,
   searchParams,
 }: Props & { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
-  const { hsid, playerId, slug } = await params;
+  const { hsid, playerId: routeId, slug } = await params;
+  // The address carries the YAT ID; the page reads the card under its own key.
+  const { cardId: playerId } = await resolveProfileCard(routeId, hsid);
   const search = await searchParams;
   if (typeof search?.whereYatStory === 'string' && /^(favoriteHs|favoriteAfter|family|story|business)$/.test(search.whereYatStory)) {
     try {
@@ -269,7 +274,9 @@ function fmtAvg(v: any): string {
 }
 
 export default async function ProfilePage({ params }: Props) {
-  const { hsid, playerId, slug } = await params;
+  const { hsid, playerId: routeId, slug } = await params;
+  // The address carries the YAT ID; the page reads the card under its own key.
+  const { cardId: playerId } = await resolveProfileCard(routeId, hsid);
   // Tells the browser to start fetching the career timeline's anchor-slide
   // photos (HS cutout + pro action cutout) as soon as this page's HTML
   // starts arriving, rather than after the timeline's own data fetches

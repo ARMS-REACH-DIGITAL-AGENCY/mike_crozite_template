@@ -16,6 +16,7 @@ import {
   getAllTimeRosterByHsid,
   getFlipCardFrontStageByHsid,
   getBatchDesignatedPlayerImages,
+  resolveProfileCard,
 } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
@@ -228,6 +229,12 @@ async function SchoolShell({
   // choosing the school's one-time splash player, but skip irrelevant queries.
   const isProfileRoute = /\/player\/[^/]+(?:\/|$)/.test(headersList.get('x-pathname') || '');
   const resolvedHsid = String(school.hsid ?? hsid);
+  // A profile address carries the YAT ID; the header's gallery links and
+  // favorite star use the card's own id (src/lib/profileCardIds.ts).
+  const profileRouteId = (headersList.get('x-pathname') || '').match(/\/player\/([^/]+)/)?.[1] || '';
+  const profileRouteCard = /^YAT[0-9]{6,}$/i.test(profileRouteId)
+    ? { routeId: profileRouteId, cardId: (await resolveProfileCard(profileRouteId, resolvedHsid)).cardId }
+    : null;
   const schoolName = formatSchoolName(String(school.hsname || ''));
   const location = String(school.hslocation || '').toUpperCase();
   const crestUrl = getSchoolCrestUrl(resolvedHsid);
@@ -501,6 +508,7 @@ async function SchoolShell({
         players={stripPlayers}
         profileActivePlayerIds={activeAlumniPlayerIds}
         profileCurrentPlayerIds={currentRosterRows.map((player) => String(player.playerid))}
+        profileRouteCard={profileRouteCard}
         teamSeasonResults={teamSeasonResults}
         teamYearOptions={teamYearOptions}
         schoolMeta={schoolMeta}

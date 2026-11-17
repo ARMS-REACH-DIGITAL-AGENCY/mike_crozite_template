@@ -3,7 +3,7 @@
 // must get its image tags without loading the gallery, shell or career stats.
 // Human visitors continue to the actual player page unchanged.
 import type { NextRequest } from 'next/server';
-import { getSchoolByUrl } from '@/lib/db';
+import { getSchoolByUrl, resolveProfileCard } from '@/lib/db';
 import { escapePlayerPreviewHtml, playerShareOrigin } from '@/lib/playerProfileShare';
 
 export const runtime = 'nodejs';
@@ -54,8 +54,13 @@ export async function GET(request: NextRequest): Promise<Response> {
   const name = titleCase(slug);
   const title = name + ' | YAT?STATS Player Profile';
   const description = 'Explore ' + name + "'s baseball career timeline, photos, stats and stories on YAT?STATS.";
+  // A YAT ID address shows the card's existing share image (kept under the
+  // card's own id); one indexed lookup, only for YAT addresses.
+  const imageId = /^YAT[0-9]{6,}$/i.test(playerId)
+    ? (await resolveProfileCard(playerId, hsid)).cardId
+    : playerId;
   const image = origin + '/api/og/player-profile?playerId=' +
-    encodeURIComponent(playerId) + '&hsid=' + encodeURIComponent(hsid) + '&v=real-timeline-only-v1';
+    encodeURIComponent(imageId) + '&hsid=' + encodeURIComponent(hsid) + '&v=real-timeline-only-v1';
   const esc = escapePlayerPreviewHtml;
 
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8">' +

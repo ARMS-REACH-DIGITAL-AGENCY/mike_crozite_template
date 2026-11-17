@@ -263,6 +263,34 @@ export const resolveStagePlayerId = cache(async (playerId: string): Promise<stri
   }
 });
 
+// Profile addresses use the YAT ID (Pete, Nov 17 2026): /player/YAT109763/beau-brieske.
+// The card behind the page keeps its own key (often the Baseball Cube number,
+// which images, game logs and favorites still use), so a profile resolves the
+// address to { cardId, yatId } once: two primary-key/index lookups, no scan.
+// A YAT address prefers the card at the address's school (a person can have
+// a card at two schools); an old numeric address resolves to its own card.
+export type ProfileCard = { cardId: string; yatId: string | null };
+export const resolveProfileCard = cache(async (routeId: string, hsid = ''): Promise<ProfileCard> => {
+  const id = String(routeId || '').trim();
+  if (!id) return { cardId: id, yatId: null };
+  try {
+    const { rows } = await query<{ playerid: string; yatid: string | null; hsid: string | null }>(
+      `SELECT playerid::text AS playerid, yatid, hsid::text AS hsid FROM public.flip_card_front_stage WHERE playerid = $1
+       UNION ALL
+       SELECT playerid::text, yatid, hsid::text FROM public.flip_card_front_stage WHERE yatid = $1 AND playerid <> $1`,
+      [id]
+    );
+    if (!rows.length) return { cardId: id, yatId: /^YAT[0-9]{6,}$/i.test(id) ? id.toUpperCase() : null };
+    const pick = rows.find((r) => hsid && r.hsid === hsid)
+      || rows.find((r) => r.playerid === id)
+      || [...rows].sort((a, b) => a.playerid.localeCompare(b.playerid))[0];
+    return { cardId: pick.playerid, yatId: pick.yatid || null };
+  } catch (error) {
+    console.warn('Profile card resolution failed; keeping the address id', { routeId: id, error });
+    return { cardId: id, yatId: null };
+  }
+});
+
 // A person has one YAT identity even when Baseball Cube used an older ID.
 // Keep the source ID for historical stat joins; never rewrite imported raw files.
 export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<string> {

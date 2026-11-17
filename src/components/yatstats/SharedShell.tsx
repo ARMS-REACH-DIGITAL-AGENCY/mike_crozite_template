@@ -12,6 +12,7 @@ import MetadataRow from './shell/MetadataRow';
 import ClubhouseFooter from './shell/ClubhouseFooter';
 import PageMessageStrip from './shell/PageMessageStrip';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
+import { useProfileCardId, type ProfileCardPair } from '@/lib/profileCardIds';
 import TimelineCleanup from './TimelineCleanup';
 import GalleryFilterController from './GalleryFilterController';
 import Row3MirrorGuard from './Row3MirrorGuard';
@@ -104,6 +105,7 @@ export default function SharedShell({
   players = [],
   profileActivePlayerIds = [],
   profileCurrentPlayerIds = [],
+  profileRouteCard = null,
   teamSeasonResults = [],
   teamYearOptions = [],
   schoolMeta,
@@ -117,6 +119,8 @@ export default function SharedShell({
   players?: StripPlayer[];
   profileActivePlayerIds?: string[];
   profileCurrentPlayerIds?: string[];
+  /** The first page's profile address id -> card id (YAT ID addresses). */
+  profileRouteCard?: ProfileCardPair | null;
   teamSeasonResults?: TeamSeasonResult[];
   teamYearOptions?: string[];
   schoolMeta: SchoolMeta;
@@ -130,7 +134,7 @@ export default function SharedShell({
 }) {
   const pathname = usePathname();
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
-  const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
+  const profilePlayerId = useProfileCardId(playerRouteMatch ? playerRouteMatch[1] : null, profileRouteCard);
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
   const isContributeRoute = /\/(connect-contribute|contribute-review(?:\/bulk)?)\/?$/.test(pathname);
   // A saved Where YAT Now proof is a private standalone page, not a gallery tab.
@@ -253,6 +257,7 @@ export default function SharedShell({
           isPlayerProfile={isPlayerProfile}
           profileActivePlayerIds={profileActivePlayerIds}
           profileCurrentPlayerIds={profileCurrentPlayerIds}
+          profileRouteCard={profileRouteCard}
           isGallery={isGallery}
           isNews={isNews}
           activeSection={activeSection}

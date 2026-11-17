@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { profileCardIdFor } from "@/lib/profileCardIds";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 const ROW_HEIGHT = 100;
@@ -12,7 +13,8 @@ const OUTFIELD_YELLOW = "#ffb21a";
 function playerIdFromPath() {
   if (typeof window === "undefined") return "";
   const match = window.location.pathname.match(/\/player\/([^/]+)/i);
-  return match?.[1] ? decodeURIComponent(match[1]) : "";
+  // The address may carry the YAT ID; the cutout images use the card's id.
+  return match?.[1] ? profileCardIdFor(decodeURIComponent(match[1])) : "";
 }
 
 function createAnchorMoment() {
