@@ -1,4 +1,5 @@
 import 'server-only';
+import { revalidateTag } from 'next/cache';
 import { query } from '@/lib/db';
 
 // The verified badge is not an Instagram API account type. A link can be
@@ -72,5 +73,7 @@ export async function registerPlayerInstagram(
   );
   // If another request claimed this handle between lookup and insert, send
   // it to the existing review flow rather than reporting a successful link.
+  // The profile's kept social handles (keptForProfile) show the new link now.
+  if (inserted.length === 1) revalidateTag('player-profile:' + playerId, { expire: 0 });
   return inserted.length === 1 ? 'registered' : 'needs_review';
 }

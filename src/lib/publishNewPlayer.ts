@@ -178,7 +178,7 @@ export async function publishNewPlayerNow(input: {
   // Search reads stage rows on every request. Bust the longer-lived school
   // All-Time/flip-card cache so the new identity is also visible there.
   try {
-    revalidateTag('school-data:' + hsid, { expire: 0 });
+    revalidateTag('school-data:' + hsid, { expire: 0 }); revalidateTag('player-profile', { expire: 0 });
   } catch (error) {
     console.error('[contribute/new-player] school cache refresh failed', error);
   }

@@ -20,6 +20,7 @@
 'use server';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
+import { queryFailureWatch } from '@/lib/queryFailureWatch';
 import { activeAlumniSummaryCtes, confirmed2026GameLogPlayersSql } from '@/lib/activeAlumni';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { draftTeamLogoLateralSql } from '@/lib/draftTeamLogoSql';
@@ -128,6 +129,9 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
     }
     return result;
   } catch (error) {
+    // A cached loader must not keep a result built around a failed read.
+    const watch = queryFailureWatch.getStore();
+    if (watch) watch.failed = true;
     const transient = isTransientDbError(error);
     const parallelWorker = PARALLEL_WORKER_ERROR.test(String((error as Error)?.message ?? ''));
     const shouldRetry = isRetryableRead(text) && (transient || parallelWorker);

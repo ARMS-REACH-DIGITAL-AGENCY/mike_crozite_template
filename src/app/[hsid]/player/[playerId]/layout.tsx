@@ -4,6 +4,7 @@ import { permanentRedirect, redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
 import { getPlayerById, query, resolveLegacyPlayerRedirect, resolveProfileCard, resolveMergedTbcPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
 import { getPlayerIdentityMetaOnce } from '@/lib/playerIdentityCached';
+import { keptPlayerById } from '@/lib/profilePageData';
 import { playerJourneyJsonLd, jsonLdScript } from '@/lib/playerJourneySeo';
 import { toPlayerSlug } from '@/lib/slug';
 import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
@@ -82,7 +83,7 @@ export default async function PlayerLayout({
 
   try {
     const [player, identityMeta] = await Promise.all([
-      getPlayerById(playerId),
+      keptPlayerById(playerId),
       getPlayerIdentityMetaOnce(playerId),
     ]);
 

@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         )
         SELECT uuid,hsid FROM revoked`,[id,r.who!.uid]);
       if (!rows.length) return fail('Published scout article was not found or was already removed.', 404);
-      revalidateTag('school-data:' + rows[0].hsid,{expire:0});
+      revalidateTag('school-data:' + rows[0].hsid,{expire:0}); revalidateTag('player-profile', { expire: 0 });
       return NextResponse.json({ ok: true, status: 'rejected', uuid: rows[0].uuid });
     } catch (error) {
       console.error('[contribute/review] unpublish scout failed',error);
@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
       `,[nextStatus,nextStatus==='COMMIT'?nextTeamId:null,current.playerid,current.hsid,
          current.status_label || '',current.committed_teamid || '',id]);
       if (!published[0]) return fail('Player data changed during review. Reload and verify before approving.',409);
-      revalidateTag(`school-data:${current.hsid}`,{expire:0});
+      revalidateTag(`school-data:${current.hsid}`,{expire:0}); revalidateTag('player-profile', { expire: 0 });
       return NextResponse.json({ok:true,status:'published',playerId:published[0].playerid});
     } catch (error) {
       console.error('[contribute/review] commitment review failed',error);

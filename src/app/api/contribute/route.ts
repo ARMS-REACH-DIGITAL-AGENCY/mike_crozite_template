@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
             );
           }
         }
-        revalidateTag('school-data:' + hsid, { expire: 0 });
+        revalidateTag('school-data:' + hsid, { expire: 0 }); revalidateTag('player-profile', { expire: 0 });
         await logContribution(who,'contribute_profile',{
           playerid:playerId,hsid,pageUrl,
           details:{autoPublished:true,source:'verified_publisher',fields:submitted,
@@ -372,7 +372,7 @@ export async function POST(req: NextRequest) {
         if (result.rows.length!==1) {
           return fail('Player record changed or the requested status conflicts with current affiliation. Reload and review before trying again.',409);
         }
-        revalidateTag('school-data:' + hsid,{expire:0});
+        revalidateTag('school-data:' + hsid,{expire:0}); revalidateTag('player-profile', { expire: 0 });
         await logContribution(who,'contribute_profile',{
           playerid:playerId,hsid,pageUrl,
           details:{autoPublished:true,fields:submitted,source:'reviewer_profile_status'},

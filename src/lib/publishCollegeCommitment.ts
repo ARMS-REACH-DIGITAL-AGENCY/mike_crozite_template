@@ -110,6 +110,6 @@ export async function publishCollegeCommitment(input: {
   }
   // Cards, the current-team Row 3 strip and the commit counter all use the
   // same cached school-stage records. Explicitly expire them on publication.
-  revalidateTag(`school-data:${input.hsid}`, { expire: 0 });
+  revalidateTag(`school-data:${input.hsid}`, { expire: 0 }); revalidateTag('player-profile', { expire: 0 });
   return { teamName: rows[0].team_name || null, changed: !!rows[0].changed };
 }
