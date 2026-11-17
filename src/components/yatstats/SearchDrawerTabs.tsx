@@ -55,7 +55,11 @@ function isolatedPreviewSchoolPath(hsid: string): string | null {
 
 function playerUrl(player: any) {
   const hsid = encodeURIComponent(schoolIdOf(player));
-  const playerId = encodeURIComponent(playerIdOf(player));
+  // Profile addresses use the YAT ID (Pete, Nov 17 2026); the old number is
+  // the fallback for a player without one. The flip card link below keeps the
+  // card's own id, which the gallery uses.
+  const yatId = String(player.yatId || player.yatid || '').trim();
+  const playerId = encodeURIComponent(/^YAT[0-9]{6,}$/i.test(yatId) ? yatId : playerIdOf(player));
   const fallbackSlug = slugify(`${player.firstName || player.firstname || ''}-${player.lastName || player.lastname || ''}`);
   const slug = encodeURIComponent(String(player.slug || fallbackSlug));
   const microsite = String(player.micrositeUrl || player.microsite_url || '').trim().replace(/\/$/, '');

@@ -10,9 +10,12 @@ import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
 import { flipCardReturnHref, selectProfileGalleryView } from '@/lib/profileFlipCardRouting';
+import { useProfileCardId } from '@/lib/useProfileCardId';
+import type { ProfileCardPair } from '@/lib/profileCardIds';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
+  profileRouteCard?: ProfileCardPair | null;
   profileActivePlayerIds: string[];
   profileCurrentPlayerIds: string[];
   isGallery: boolean;
@@ -91,6 +94,7 @@ export default function SchoolContextBar({
   isPlayerProfile,
   profileActivePlayerIds,
   profileCurrentPlayerIds,
+  profileRouteCard = null,
   isGallery,
   isNews,
   activeSection,
@@ -105,7 +109,7 @@ export default function SchoolContextBar({
   const [flipAllStep, setFlipAllStep] = useState(0);
   const allCardsFlipped = flipAllStep >= 1 && flipAllStep <= FLIP_ALL_TABS.length;
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/([^/?#]+))?/);
-  const profilePlayerId = playerRouteMatch ? playerRouteMatch[1] : null;
+  const profilePlayerId = useProfileCardId(playerRouteMatch ? playerRouteMatch[1] : null, profileRouteCard);
   const slugDerivedName = playerRouteMatch?.[2]
     ? playerRouteMatch[2].split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     : '';

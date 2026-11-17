@@ -97,9 +97,11 @@ export type SitemapPlayer = { playerId: string; slug: string; lastModified: stri
 
 export const getSitemapPlayers = unstable_cache(async (hsid: string): Promise<SitemapPlayer[]> => {
   if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return [];
+  // Profile addresses use the YAT ID (Pete, Nov 17 2026); the card's own id
+  // only when it has none.
   const { rows } = await query<{ playerid: string; first_name: string | null; last_name: string | null; updated_at: Date | string | null }>(`
     SELECT DISTINCT ON (f.playerid::text)
-           f.playerid::text AS playerid, f.first_name, f.last_name, f.updated_at
+           COALESCE(NULLIF(f.yatid, ''), f.playerid::text) AS playerid, f.first_name, f.last_name, f.updated_at
       FROM public.flip_card_front_stage f
      WHERE f.hsid::text = $1
        AND UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY($2::text[])
@@ -115,7 +117,7 @@ export const getSitemapPlayers = unstable_cache(async (hsid: string): Promise<Si
         lastModified: updated && !Number.isNaN(updated.getTime()) ? updated.toISOString() : null,
       };
     });
-}, ['sitemap', 'school-players-v1'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
+}, ['sitemap', 'school-players-v2-yatid'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
 
 function xmlEscape(value: string): string {
   return value

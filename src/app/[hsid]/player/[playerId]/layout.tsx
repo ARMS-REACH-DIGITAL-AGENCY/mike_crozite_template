@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { permanentRedirect, redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById, query, resolveLegacyPlayerRedirect, resolveMergedTbcPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
+import { getPlayerById, query, resolveLegacyPlayerRedirect, resolveProfileCard, resolveMergedTbcPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
 import { getPlayerIdentityMetaOnce } from '@/lib/playerIdentityCached';
 import { playerJourneyJsonLd, jsonLdScript } from '@/lib/playerJourneySeo';
 import { toPlayerSlug } from '@/lib/slug';
@@ -10,6 +10,7 @@ import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import StoryDrawer from '@/components/yatstats/StoryDrawer';
 import ProfileStatsInjector from '@/components/yatstats/ProfileStatsInjector';
+import ProfileCardIdRegistrar from '@/components/yatstats/ProfileCardIdRegistrar';
 import ProfileFunZoneCleanupStyles from '@/components/yatstats/ProfileFunZoneCleanupStyles';
 import ProfileStatsFinalOverrides from '@/components/yatstats/ProfileStatsFinalOverrides';
 
@@ -54,7 +55,11 @@ export default async function PlayerLayout({
   children: ReactNode;
   params: Promise<{ hsid: string; playerId: string }>;
 }) {
-  const { hsid, playerId } = await params;
+  const { hsid, playerId: routeId } = await params;
+  // The address carries the player's YAT ID; everything below still reads
+  // his card under the card's own key (see resolveProfileCard).
+  const { cardId: playerId, yatId } = await resolveProfileCard(routeId, hsid);
+  const publicId = yatId || playerId;
   // Old bookmarks/share links must move to the same player's canonical ID
   // before rendering any profile context or 2025-placeholder timeline.
   const legacy = await resolveLegacyPlayerRedirect(playerId);
@@ -101,8 +106,20 @@ export default async function PlayerLayout({
 
   const playerSlug = slugifySchoolName(playerName || playerId);
   const canonicalPlayerUrl = playerSchoolUrl
-    ? `${playerSchoolUrl}/player/${encodeURIComponent(playerId)}${playerSlug ? `/${playerSlug}` : ''}`
+    ? `${playerSchoolUrl}/player/${encodeURIComponent(publicId)}${playerSlug ? `/${playerSlug}` : ''}`
     : '';
+
+  // An old address (the Baseball Cube number) moves for good to the YAT ID
+  // address, keeping its ?query. Off yatstats.com (Vercel previews) the move
+  // stays on the same host.
+  if (routeId !== publicId) {
+    const search = requestHeaders.get('x-search') || '';
+    const onYatHost = currentHost.toLowerCase().split(':')[0].endsWith('.yatstats.com');
+    const target = canonicalPlayerUrl && (onYatHost || !/^https?:/.test(canonicalPlayerUrl))
+      ? canonicalPlayerUrl
+      : `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(publicId)}${playerSlug ? `/${playerSlug}` : ''}`;
+    permanentRedirect(target + search);
+  }
 
   if (canonicalPlayerUrl && isCanonicalHostMismatch(currentHost, canonicalPlayerUrl)) {
     redirect(canonicalPlayerUrl);
@@ -119,7 +136,7 @@ export default async function PlayerLayout({
     levelLabel: meta.levelLabel,
     statusLabel: meta.statusLabel,
     profileUrl: playerSchoolUrl.startsWith('https://') && playerName
-      ? `${playerSchoolUrl}/${encodeURIComponent(canonicalPlayerHsid)}/player/${encodeURIComponent(playerId)}/${toPlayerSlug(playerName.split(' ')[0], playerName.split(' ').slice(1).join(' '))}`
+      ? `${playerSchoolUrl}/${encodeURIComponent(canonicalPlayerHsid)}/player/${encodeURIComponent(publicId)}/${toPlayerSlug(playerName.split(' ')[0], playerName.split(' ').slice(1).join(' '))}`
       : undefined,
   });
 
@@ -140,6 +157,7 @@ export default async function PlayerLayout({
       weight={meta.weight}
       classOf={meta.classOf}
     >
+      <ProfileCardIdRegistrar routeId={publicId} cardId={playerId} />
       <ProfileFunZoneStabilizer playerId={playerId} hsid={canonicalPlayerHsid} playerName={playerName} statusLabel={meta.statusLabel} />
       <ProfileStatsInjector playerId={playerId} meta={meta} />
       {journeyJsonLd ? (

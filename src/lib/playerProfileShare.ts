@@ -11,6 +11,8 @@ export function playerProfileShareInfo(input: {
   origin: string;
   hsid: string;
   playerId: string;
+  /** The id in the page address: the YAT ID when the player has one. */
+  publicId?: string;
   slug: string;
   playerName: string;
   schoolName?: string;
@@ -26,7 +28,7 @@ export function playerProfileShareInfo(input: {
   const hostname = new URL(input.origin).hostname;
   const prefix = schoolHostnamePattern(hostname)?.type === 'named'
     ? '' : '/' + encodeURIComponent(input.hsid);
-  const url = input.origin + prefix + '/player/' + encodeURIComponent(input.playerId) + '/' + encodeURIComponent(input.slug);
+  const url = input.origin + prefix + '/player/' + encodeURIComponent(input.publicId || input.playerId) + '/' + encodeURIComponent(input.slug);
   return { title, description, image, url, name, school };
 }
 

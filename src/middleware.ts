@@ -24,6 +24,8 @@ export async function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
+  // The query string, so a server redirect (old profile address -> YAT ID) keeps it.
+  requestHeaders.set('x-search', request.nextUrl.search);
   // A2P/manual-signup reviewers and new fans must reach the actual JOIN drawer
   // without the first-visit splash covering the permission form.
   if (request.nextUrl.searchParams.get('join') === '1') requestHeaders.set('x-yat-open-join', '1');

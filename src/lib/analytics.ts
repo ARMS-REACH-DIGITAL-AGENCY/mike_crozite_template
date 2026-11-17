@@ -15,6 +15,7 @@
 // thing (playerid, hsid, hsname, moment_id, uuid, search_query), so a field
 // never has two spellings. Don't add a look-alike such as player_id or
 // school_id.
+import { profileCardIdFor } from './profileCardIds';
 
 export const GA_MEASUREMENT_ID = 'G-WQHT9SNHLC';
 // Meta pixel: dataset "The YAT?STATS Platform" in the YAT?Stats business.
@@ -64,7 +65,7 @@ export function pageContext(pathname: string, hash = ''): PageContext {
   const player = pathname.match(/\/player\/([^/?#]+)/);
   if (player) {
     const tab = hash.startsWith('#ppTab-') ? hash.slice('#ppTab-'.length) : 'upload';
-    return { page_type: 'player_profile', playerid: decodeURIComponent(player[1]), profile_tab: tabName(tab) };
+    return { page_type: 'player_profile', playerid: profileCardIdFor(decodeURIComponent(player[1])), profile_tab: tabName(tab) };
   }
   if (/\/news(\/|$)/.test(pathname)) return { page_type: 'news' };
   if (/^\/superfan/.test(pathname)) return { page_type: 'superfan' };
