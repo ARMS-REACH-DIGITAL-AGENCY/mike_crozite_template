@@ -6,32 +6,21 @@
 // The school layout passes the first page's pair down (server and browser
 // render the same thing); the profile layout registers each profile the
 // browser opens afterwards (client-side navigation keeps the school layout).
-import { useEffect, useReducer } from 'react';
-
 export type ProfileCardPair = { routeId: string; cardId: string };
 
 const known = new Map<string, string>();
-const listeners = new Set<() => void>();
+/** Re-render hooks (see useProfileCardId.ts). Plain module: no React here, so
+ *  server code (analytics.ts in the root layout) may import it. */
+export const profileCardListeners = new Set<() => void>();
 
 /** Browser only: remember which card a profile address shows. */
 export function rememberProfileCard(routeId: string, cardId: string, notify = true): void {
   if (typeof window === 'undefined' || !routeId || !cardId || known.get(routeId) === cardId) return;
   known.set(routeId, cardId);
-  if (notify) listeners.forEach((listener) => listener());
+  if (notify) profileCardListeners.forEach((listener) => listener());
 }
 
 /** The card id behind a profile address id (the id itself when unknown). */
 export function profileCardIdFor(routeId: string): string {
   return (routeId && known.get(routeId)) || routeId;
-}
-
-export function useProfileCardId(routeId: string | null, initial?: ProfileCardPair | null): string | null {
-  const [, rerender] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => {
-    listeners.add(rerender);
-    return () => { listeners.delete(rerender); };
-  }, []);
-  if (!routeId) return null;
-  if (initial && initial.routeId === routeId) return initial.cardId;
-  return profileCardIdFor(routeId);
 }

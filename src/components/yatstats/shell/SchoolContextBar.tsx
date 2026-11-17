@@ -10,7 +10,8 @@ import { CREST_FALLBACK_PATH } from '@/lib/schoolAssets';
 import FavoriteButton from '@/components/yatstats/FavoriteButton';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
 import { flipCardReturnHref, selectProfileGalleryView } from '@/lib/profileFlipCardRouting';
-import { useProfileCardId, type ProfileCardPair } from '@/lib/profileCardIds';
+import { useProfileCardId } from '@/lib/useProfileCardId';
+import type { ProfileCardPair } from '@/lib/profileCardIds';
 
 interface SchoolContextBarProps {
   isPlayerProfile: boolean;
