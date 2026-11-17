@@ -1,22 +1,26 @@
-name: Hourly Player Image Cutouts
+name: Player Image Cutouts
 
-# Runs scripts/process-player-cutouts-s3.py against every raw-image folder
-# that needs a transparent-PNG cutout counterpart, once an hour. Each
-# folder is its own step so one failing (or simply having nothing new)
-# never blocks the others. The script itself already skips any file that
-# already has a generated output (see OVERWRITE), so re-running against
-# the same folder every hour only ever costs a cheap S3 listing on the
-# hours nothing new was uploaded -- rembg's background-removal model is
-# only pulled down (and only then does real work happen) on an hour that
-# actually has a new file to process.
+# Pete, Nov 17 2026: never look at every photo to find the few that need work.
 #
-# workflow_dispatch is kept for an ad-hoc manual run of the same four
-# pairs; use the existing process-player-cutouts.yml instead for a
-# one-off custom source/output prefix or a dry run.
+# Every 30 minutes (cheap): one S3 listing of the marker folder
+# cutout-queue/v1/, where the site leaves one marker per approved photo the
+# instant cutout (remove.bg) could not handle. Nothing waiting -> the run
+# stops after that listing, before installing anything. Something waiting ->
+# scripts/process-cutout-queue-s3.py cuts out ONLY those photos, builds their
+# web versions in the same run and removes their markers.
+#
+# Once a day (safety sweep): photos that arrive outside the upload form
+# (imports, scripts) have no marker. The sweep compares each folder's listing
+# with its cutout folder's listing (dates come from the listings, no
+# per-file request) and cuts out only photos that are new or replaced.
+#
+# workflow_dispatch runs the marker queue by hand; process-player-cutouts.yml
+# stays for a one-off custom folder or dry run.
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "7,37 * * * *"
+    - cron: "41 10 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -25,7 +29,7 @@ concurrency:
 
 jobs:
   process-cutouts:
-    name: Process S3 player cutouts (then / back / now / timeline heroes)
+    name: Cut out waiting player photos (daily sweep for the rest)
     runs-on: ubuntu-latest
     timeout-minutes: 180
 
@@ -38,38 +42,48 @@ jobs:
       DRY_RUN: "false"
       OVERWRITE: "false"
       MAX_FILES: ""
+      SWEEP: ${{ github.event.schedule == '41 10 * * *' && 'true' || 'false' }}
 
     steps:
+      # One listing of the marker folder; the AWS CLI is already on the runner.
+      - name: Anything waiting?
+        id: queue
+        run: |
+          waiting=$(aws s3api list-objects-v2 --bucket "$YATSTATS_S3_BUCKET" --prefix cutout-queue/v1/ --max-items 1 --query 'length(Contents || `[]`)' --output text 2>/dev/null || echo 1)
+          echo "waiting=${waiting:-0}" >> "$GITHUB_OUTPUT"
+          echo "Photos waiting (first page): ${waiting:-0}; daily sweep: $SWEEP"
+
       - name: Check out repository
+        if: steps.queue.outputs.waiting != '0' || env.SWEEP == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python
+        if: steps.queue.outputs.waiting != '0' || env.SWEEP == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install image processing dependencies
+        if: steps.queue.outputs.waiting != '0' || env.SWEEP == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install boto3 pillow rembg onnxruntime
 
-      # rembg's background-removal model (~1GB) is downloaded once to this
-      # directory on first use and reused after that. Without caching it
-      # across runs, every hour that has even one new image to process
-      # would re-download the full model from scratch.
+      # rembg's background-removal model is downloaded once and reused.
       - name: Cache rembg model
+        if: steps.queue.outputs.waiting != '0' || env.SWEEP == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.u2net
           key: rembg-u2net-models
 
-      # Output folders match what's actually on S3 and what the site reads
-      # (ZoomableCareerTimeline / api/cutout): then-cutouts/, back-cutouts/,
-      # now-cutouts/. The steps below used to still write to the pre-rename
-      # names (cutouts/, now-cutouts/ for back photos, headshot-cutouts/),
-      # so new uploads never reached the site and a back photo could land
-      # in the headshot folder.
-      - name: HS flip-card front (players/then -> players/then-cutouts)
+      - name: Waiting photos (marker queue only)
+        if: steps.queue.outputs.waiting != '0'
+        run: python scripts/process-cutout-queue-s3.py
+
+      # Daily sweep: listing comparison only; touches only new/replaced photos.
+      - name: Sweep HS flip-card front (players/then -> players/then-cutouts)
+        if: env.SWEEP == 'true'
         continue-on-error: true
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/then/
@@ -77,24 +91,25 @@ jobs:
           INCLUDE_SOURCE_PNG: "true"
         run: python scripts/process-player-cutouts-s3.py
 
-      - name: Flip-card back action photo (players/back -> players/back-cutouts)
+      - name: Sweep flip-card back action photo (players/back -> players/back-cutouts)
+        if: env.SWEEP == 'true'
         continue-on-error: true
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/back/
           YATSTATS_S3_OUTPUT_PREFIX: players/back-cutouts/
         run: python scripts/process-player-cutouts-s3.py
 
-      - name: Headshot (players/now -> players/now-cutouts)
+      - name: Sweep headshot (players/now -> players/now-cutouts)
+        if: env.SWEEP == 'true'
         continue-on-error: true
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/now/
           YATSTATS_S3_OUTPUT_PREFIX: players/now-cutouts/
         run: python scripts/process-player-cutouts-s3.py
 
-      # Timeline hero photos are a separate source folder from the three
-      # anchor-slide folders above. Process only missing outputs; a failed
-      # immediate API cutout will be retried on the next hourly run.
-      - name: Timeline hero (players/season-photos -> players/season-cutouts)
+      - name: Sweep timeline hero (players/season-photos -> players/season-cutouts)
+        if: env.SWEEP == 'true'
+        continue-on-error: true
         env:
           YATSTATS_S3_SOURCE_PREFIX: players/season-photos/
           YATSTATS_S3_OUTPUT_PREFIX: players/season-cutouts/
