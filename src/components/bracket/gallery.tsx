@@ -999,7 +999,19 @@ function rosterName(p: ActiveRosterPlayer) {
   return String(p.display_name || `${p.firstname || ''} ${p.lastname || ''}`.trim() || `Player ${p.playerid}`);
 }
 
-function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
+// One day tab of the stat drawer: the whole active roster, every day (Pete,
+// Nov 17). A day with no stat lines yet lists each player with blank
+// metrics (not zeros); a played day keeps its lines and zero-lines the rest.
+export function dayRosterRows(dayRows: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
+  return completeRosterRows(dayRows, roster).map((p) => {
+    if (dayRows.length) return p;
+    const blank = [...p] as PlayerRow;
+    blank[6] = null; blank[7] = null; blank[8] = null;
+    return blank;
+  });
+}
+
+export function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
   const current = new Map(existing.map((p) => [String(p[0]), p] as const));
   const source = roster && roster.length
     ? roster.map((r) => ({
@@ -1170,8 +1182,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     loadFavoritePlayers().then((f) => { if (live) setFavs(f); });
     return () => { live = false; };
   }, [drawerMode]);
+  // Every day tab lists the whole active roster, like Weekly Totals (Pete,
+  // Nov 17: rosters are always visible, even before a game starts). A day
+  // with no stat lines yet shows each player with blank metrics, not zeros.
   const viewPlayers = statDay === 'week' ? (mine?.p || [])
-    : rawMine?.days ? rawMine.days[statDay] || [] : [];
+    : dayRosterRows(rawMine?.days?.[statDay] || [], mineRoster);
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
