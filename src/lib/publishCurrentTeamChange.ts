@@ -98,6 +98,6 @@ export async function publishCurrentTeamChange(input: {
       input.contributionQueueId || null,
     ]);
   if (rows.length !== 1) return false;
-  revalidateTag(`school-data:${hsid}`, { expire: 0 });
+  revalidateTag(`school-data:${hsid}`, { expire: 0 }); revalidateTag('player-profile', { expire: 0 });
   return true;
 }

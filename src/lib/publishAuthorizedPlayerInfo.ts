@@ -74,6 +74,6 @@ export async function publishAuthorizedPlayerInfo(input: {
   ].join('\n');
   const { rows } = await query<{ playerid: string }>(sql, [playerId, hsid, JSON.stringify(payload), uid]);
   if (rows.length !== 1) return false;
-  revalidateTag('school-data:' + hsid, { expire: 0 });
+  revalidateTag('school-data:' + hsid, { expire: 0 }); revalidateTag('player-profile', { expire: 0 });
   return true;
 }

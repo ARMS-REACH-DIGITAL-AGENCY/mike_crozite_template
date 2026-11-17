@@ -60,7 +60,7 @@ function rosterYearsWereSubmitted(t: Tip): boolean {
 function refreshSchoolAfterYearPublish(t: Tip) {
  if (rosterYearsWereSubmitted(t) && t.matched_hsid && /^\d+$/.test(t.matched_hsid)) {
    // A new team-year plaque and its matching All-Time filter must agree on reload.
-   revalidateTag(`school-data:${t.matched_hsid}`, { expire: 0 });
+   revalidateTag(`school-data:${t.matched_hsid}`, { expire: 0 }); revalidateTag('player-profile', { expire: 0 });
  }
 }
 
@@ -166,7 +166,7 @@ async function processTip(t:Tip):Promise<TipOutcome> {
  ON CONFLICT(uuid) DO NOTHING`,
  [hash(t.id),player?.playerid||null,player?`${player.first_name} ${player.last_name}`:null,t.matched_hsid,label,link.source,new Date().toISOString(),link.url,
  description||null,description||null,JSON.stringify({contribution_id:t.id,contributor_source:t.intake_source,instagram_story:link.instagramStory,moderated:true})]);
- revalidateTag(`school-data:${t.matched_hsid}`,{expire:0});
+ revalidateTag(`school-data:${t.matched_hsid}`,{expire:0}); revalidateTag('player-profile', { expire: 0 });
  return 'published';
 }
 export async function publishQueuedTipNow(id:string):Promise<TipOutcome>{

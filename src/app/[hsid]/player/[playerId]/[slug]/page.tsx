@@ -13,24 +13,19 @@ import { publicNewsHeadline } from '@/lib/newsVideo';
 
 import {
   findPlayersBySlug,
-  getPlayerById,
   getSchoolByHsid,
   getSchoolByUrl,
-  getPlayerBattingStats,
-  getPlayerPitchingStats,
-  getPlayerCareerBatting,
-  getPlayerCareerPitching,
-  getTeamSchedule,
-  getPlayerGameLogs,
   getTeamIdMap,
-  getPlayerTeamStints,
-  getResolvedCurrentTeam,
-  getFlipCardTransactionStatus,
-  getNewsByPlayer,
-  getPlayerSocialHandles,
   query,
   resolveProfileCard,
 } from "@/lib/db";
+// Kept across requests: at most one database read per player per hour.
+import {
+  keptPlayerById, keptProfileNews, keptBattingStats, keptPitchingStats,
+  keptCareerBatting, keptCareerPitching, keptResolvedCurrentTeam,
+  keptTransactionStatus, keptSocialHandles, keptGameLogs, keptTeamStints,
+  keptTeamSchedule,
+} from "@/lib/profilePageData";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { playerProfileShareInfo, playerShareOrigin } from "@/lib/playerProfileShare";
@@ -60,7 +55,7 @@ async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: 
   const h = await headers();
   const origin = playerShareOrigin(h.get('x-forwarded-host') || h.get('host') || '', h.get('x-forwarded-proto') || 'https');
   const [player, byIdSchool, identity] = await Promise.all([
-    getPlayerById(playerId).catch(() => null),
+    keptPlayerById(playerId).catch(() => null),
     /^\d+$/.test(hsid) ? getSchoolByHsid(hsid).catch(() => null) : Promise.resolve(null),
     getPlayerIdentityMetaOnce(playerId).catch(() => null),
   ]);
@@ -300,7 +295,7 @@ export default async function ProfilePage({ params }: Props) {
     // scans every player's name, which the database runs as a parallel scan;
     // when it can't start a parallel worker the whole profile failed with
     // "parallel worker failed to initialize".)
-    const byId = await getPlayerById(String(playerId));
+    const byId = await keptPlayerById(String(playerId));
     _diagFallbackResult = byId ? `GOT: ${byId.firstname} ${byId.lastname}` : "NULL";
     player = byId;
     // Fallback: the slug, scoped to the school (an id with no player row).
@@ -363,7 +358,7 @@ export default async function ProfilePage({ params }: Props) {
     return candidate;
   };
 
-  const newsStories: ProfileNewsStory[] = (await getNewsByPlayer(safePlayerId, null, true)).map((row: any) => ({
+  const newsStories: ProfileNewsStory[] = (await keptProfileNews(safePlayerId)).map((row: any) => ({
     uuid: String(row.uuid),
     articleId: Number.isSafeInteger(Number(row.id)) && Number(row.id)>0 ? Number(row.id) : null,
     title: publicNewsHeadline(row.title, row.url, row.discovery_source === "contribute", row.gallery_front_json?.headline),
@@ -402,13 +397,13 @@ export default async function ProfilePage({ params }: Props) {
     transactionStatus,
     socialHandles,
   ] = await Promise.all([
-    getPlayerBattingStats(safePlayerId),
-    getPlayerPitchingStats(safePlayerId),
-    getPlayerCareerBatting(safePlayerId),
-    getPlayerCareerPitching(safePlayerId),
-    getResolvedCurrentTeam(safePlayerId),
-    getFlipCardTransactionStatus(safePlayerId),
-    getPlayerSocialHandles(safePlayerId),
+    keptBattingStats(safePlayerId),
+    keptPitchingStats(safePlayerId),
+    keptCareerBatting(safePlayerId),
+    keptCareerPitching(safePlayerId),
+    keptResolvedCurrentTeam(safePlayerId),
+    keptTransactionStatus(safePlayerId),
+    keptSocialHandles(safePlayerId),
   ]);
 
   const latestYear = Math.max(
@@ -519,9 +514,9 @@ export default async function ProfilePage({ params }: Props) {
   ) as PitchingSeason | null;
 
   const [gameLogs, teamIdMap, teamStints] = await Promise.all([
-    getPlayerGameLogs(safePlayerId),
+    keptGameLogs(safePlayerId),
     getTeamIdMap(),
-    getPlayerTeamStints(safePlayerId),
+    keptTeamStints(safePlayerId),
   ]);
 
   // Prefer the reconciled canonical team id. The shared resolver translates
@@ -573,7 +568,7 @@ export default async function ProfilePage({ params }: Props) {
         [{ teamid: scheduleTeamId, teamName: null, level: null, start: null, end: null, tracksLines: false }]
       : [];
   const stintSchedules = await Promise.all(
-    logStints.map((st) => getTeamSchedule(st.teamid, 400, { from: st.start, to: st.end }))
+    logStints.map((st) => keptTeamSchedule(st.teamid, { from: st.start, to: st.end }))
   );
 
   // His game log rows, found by game id (pro) or by date (a schedule with no
