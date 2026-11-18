@@ -2432,7 +2432,8 @@ export async function getPlayerTeamStints(playerId: string): Promise<PlayerTeamS
       `SELECT teamid, team_name, level, season,
               stint_start::text AS stint_start, stint_end::text AS stint_end, start_source
          FROM public.player_team_stints
-        WHERE playerid = $1
+        -- One person, every card (YAT key step 4): by YAT ID, from any id.
+        WHERE yatid = public.yat_id_for($1)
         ORDER BY stint_start ASC, season ASC`,
       [playerId]
     );
@@ -2469,7 +2470,8 @@ export async function getPlayerGameLogs(playerId: string): Promise<any[]> {
          raw_payload->>'isWin' AS is_win,
          raw_payload->>'gameType' AS raw_game_type
        FROM public.player_game_logs
-       WHERE playerid::text = $1
+       -- One person, every card (YAT key step 4): by YAT ID, from any id.
+       WHERE yatid = public.yat_id_for($1)
        ORDER BY game_date ASC`,
       [playerId]
     );
@@ -2657,15 +2659,21 @@ export async function getNewsByPlayer(
       : [playerId, includeLowRelevance];
 
     const { rows } = await query(
-      `WITH associated_uuids AS (
-         SELECT uuid FROM news_articles WHERE playerid = $1
+      `WITH person AS (
+         -- One person, every card (YAT key step 4): a story tagged to any of
+         -- his cards belongs on each of them. $1 stays the card for the
+         -- card-only fields below.
+         SELECT public.yat_id_for($1) AS yatid
+       ),
+       associated_uuids AS (
+         SELECT na0.uuid FROM news_articles na0, person p WHERE na0.yatid = p.yatid
          UNION
          -- The same existing engagement event that records a News tag now
          -- also grants the tagged player a feed association. No new table.
-         SELECT details->>'news_uuid' AS uuid
-           FROM fan_activity
-          WHERE action = 'news_tagged'
-            AND details->>'playerId' = $1
+         SELECT fa.details->>'news_uuid' AS uuid
+           FROM fan_activity fa, person p
+          WHERE fa.action = 'news_tagged'
+            AND public.yat_id_for(fa.details->>'playerId') = p.yatid
        )
        SELECT
          na.*,
@@ -2689,7 +2697,7 @@ export async function getNewsByPlayer(
          f.roster_years AS stage_roster_years,
          $1::text AS associated_playerid,
          f.display_name AS associated_player_name,
-         (na.playerid <> $1) AS tagged_to_player
+         (na.yatid IS DISTINCT FROM (SELECT yatid FROM person)) AS tagged_to_player
        FROM associated_uuids associated
        JOIN news_articles na ON na.uuid = associated.uuid
        LEFT JOIN news_article_derivatives nd
@@ -2706,8 +2714,8 @@ export async function getNewsByPlayer(
           ))
          -- Tagging a verified story should make it visible even if the
          -- original publisher assigned LOW newsworthiness to its subject.
-         AND (${lowRelevanceParam}::boolean OR na.playerid <> $1 OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
-         AND (na.playerid <> $1 OR ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)})
+         AND (${lowRelevanceParam}::boolean OR na.yatid IS DISTINCT FROM (SELECT yatid FROM person) OR COALESCE(na.newsworthiness, 'NORMAL') <> 'LOW')
+         AND (na.yatid IS DISTINCT FROM (SELECT yatid FROM person) OR ${syndicatedCopyFilter('na', `${lowRelevanceParam}::boolean`)})
        ORDER BY
          ${bestFirst ? `CASE
            WHEN LOWER(COALESCE(na.sentiment, '')) = 'negative' THEN 2
