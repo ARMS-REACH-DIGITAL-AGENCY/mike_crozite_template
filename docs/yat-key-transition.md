@@ -179,7 +179,7 @@ be undone, and nothing merges without Pete's approval.
 |---|---|---|---|---|---|
 | 0 | Map (this file) | Nothing | - | - | Done, Nov 18 (Claude) |
 | 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | Not started; needs Pete's OK |
-| 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Not started |
+| 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Not started |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Not started |
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Not started |
@@ -201,6 +201,7 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 1 done (CLAUDE.md + AGENTS.md point here). Next: step 0b (photo count, read-only) and step 2.
 * 2026-11-18, Claude: decisions 4-5 follow from Pete's registry rule (one person = one YAT ID; outside numbers attach to it). All decisions made.
 
 ---

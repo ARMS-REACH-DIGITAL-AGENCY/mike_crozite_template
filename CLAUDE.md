@@ -31,6 +31,13 @@
   school is also a team (its 2027 High School Team Page), and its teamid is
   `C` + hsid: `C5004` is the current teamid of Hamilton's 2027 high school
   players (hsid `5004`). Never give a team a `YAT` id.
+- **YAT ID key transition (Pete, Nov 18 2026).** Every table, job and page
+  moves to the YAT ID as its key before the PrestoSports API goes live. The
+  map, the decisions and the step table are in `docs/yat-key-transition.md`:
+  read it before touching player identity, card keys, photos or the bracket.
+  Take only the next open step, mark it in progress, one step at a time, test
+  copy first, nothing merges without Pete. Person = YAT ID; card = YAT ID +
+  hsid. New code never adds a join on the old TBC number.
 - **YAT? Baseball Registry (Pete, Nov 2026).** Every player is one person
   with a YAT ID (`YAT` + 6 digits) in `yat_registry`. The YAT ID is ours;
   every outside number (TBC playerid, MLB ID, Perfect Game, MaxPreps, NCAA,
