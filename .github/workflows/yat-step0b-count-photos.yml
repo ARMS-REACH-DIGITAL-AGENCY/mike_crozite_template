@@ -28,9 +28,14 @@ jobs:
       - name: List and count (read-only)
         run: |
           set -euo pipefail
+          : > listing.txt
           for p in players/ share-previews/ connect-videos/; do
-            aws s3 ls "s3://yatstats-assets/$p" --recursive
-          done > listing.txt
+            # `aws s3 ls` exits 1 when a folder has no files; any other
+            # failure (access, network) still stops the job.
+            rc=0; aws s3 ls "s3://yatstats-assets/$p" --recursive >> listing.txt 2> err.txt || rc=$?
+            if [ "$rc" -ne 0 ] && { [ "$rc" -ne 1 ] || [ -s err.txt ]; }; then cat err.txt; exit "$rc"; fi
+            echo "$p: $(grep -c " $p" listing.txt || true) files (exit $rc)"
+          done
           echo "Listed $(wc -l < listing.txt) objects"
           {
             echo "## Photos per S3 folder (bucket yatstats-assets)"
