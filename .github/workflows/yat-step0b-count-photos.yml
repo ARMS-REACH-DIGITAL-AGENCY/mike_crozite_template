@@ -1,0 +1,44 @@
+name: YAT step 0b - count photos per S3 folder
+
+# YAT key transition, step 0b (docs/yat-key-transition.md; Pete's OK Nov 18
+# 2026). READ-ONLY: lists the player photo folders in S3 and counts the files
+# per folder before step 6 renames them to YAT IDs. Never writes, copies or
+# deletes anything. Results go to the job summary.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [yat/step0b-photo-count]
+    paths: [.github/workflows/yat-step0b-count-photos.yml, scripts/count-s3-photo-folders.py]
+
+permissions:
+  contents: read
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: List and count (read-only)
+        run: |
+          set -euo pipefail
+          : > listing.txt
+          for p in players/ share-previews/ connect-videos/; do
+            # `aws s3 ls` exits 1 when a folder has no files; any other
+            # failure (access, network) still stops the job.
+            rc=0; aws s3 ls "s3://yatstats-assets/$p" --recursive >> listing.txt 2> err.txt || rc=$?
+            if [ "$rc" -ne 0 ] && { [ "$rc" -ne 1 ] || [ -s err.txt ]; }; then cat err.txt; exit "$rc"; fi
+            echo "$p: $(grep -c " $p" listing.txt || true) files (exit $rc)"
+          done
+          echo "Listed $(wc -l < listing.txt) objects"
+          {
+            echo "## Photos per S3 folder (bucket yatstats-assets)"
+            echo
+            python3 scripts/count-s3-photo-folders.py < listing.txt
+          } | tee -a "$GITHUB_STEP_SUMMARY"
