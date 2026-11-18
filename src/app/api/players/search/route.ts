@@ -48,7 +48,13 @@ export async function GET(req: NextRequest) {
     const sql = `
       with ${PLAYER_STAGE_IDENTITY_CTES}, tbc_matches as (
         select distinct on (tp.playerid::text, ph.hsid::text)
-          coalesce(alias.playerid, tp.playerid)::text as playerid,
+          -- YAT key step 4 (Pete, Nov 18 2026): a TBC number resolves to the
+          -- person's card at that school through the registry.
+          coalesce((select f.playerid::text from public.flip_card_front_stage f
+                     where f.yatid = public.yat_id_for(tp.playerid::text)
+                       and f.hsid::text = ph.hsid::text
+                     order by (f.playerid::text = tp.playerid::text) desc limit 1),
+                   tp.playerid::text) as playerid,
           tp.firstname as firstname,
           tp.lastname as lastname,
           ph.hsid::text as hsid,
@@ -60,10 +66,6 @@ export async function GET(req: NextRequest) {
           on tp.playerid::text = ph.playerid::text
         join school_success ss
           on ss.hsid::text = ph.hsid::text
-        left join public.player_source_map alias
-          on alias.source = 'tbc' and alias.source_player_id = tp.playerid::text
-         and alias.is_verified IS TRUE
-         and alias.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
         where
           tp.firstname ilike $1
           or tp.lastname ilike $1
@@ -102,12 +104,13 @@ export async function GET(req: NextRequest) {
         select * from stage_matches
       ),
       canonical_matches as (
-        select distinct on (c.playerid)
+        -- One person, one result (YAT key step 4): de-duplicate by YAT ID.
+        select distinct on (coalesce(public.yat_id_for(c.playerid), c.playerid))
           c.*
         from combined c
         -- Prefer the Hamilton coaching affiliation, then other stage data.
         -- One search identity is displayed; every linked school still has its card.
-        order by c.playerid,
+        order by coalesce(public.yat_id_for(c.playerid), c.playerid),
           case when c.source_rank = 'stage' and exists (
             select 1 from public.flip_card_front_stage coach
              where coach.playerid::text = c.playerid
@@ -116,7 +119,7 @@ export async function GET(req: NextRequest) {
           ) then 0 when c.source_rank = 'stage' then 1 else 2 end,
           c.hsid
       )
-      select c.*, t.current_team_name, t.status_label, t.yatid
+      select c.*, t.current_team_name, t.status_label, coalesce(t.yatid, public.yat_id_for(c.playerid)) as yatid
       from canonical_matches c
       -- His current team (the row's second line in the search drawer).
       left join lateral (
