@@ -138,7 +138,7 @@ the bucket, so it needs a read-only GitHub job run, approved by Pete.
 
 ---
 
-## 2. Decisions for Pete
+## 2. Decisions (all made, Nov 18 2026)
 
 1. **Card key: DECIDED (Pete, Nov 18 2026).** The person = YAT ID; a card =
    YAT ID + hsid. Example: Greg Bordes, YAT000073, has a RETIRED player card
@@ -156,9 +156,16 @@ the bucket, so it needs a read-only GitHub job run, approved by Pete.
    `tbc_*_feed_snapshots`, `*_baseline_yesterday`, `*_level_baselines`
    before touching them). From then on, no new dated backup tables in the
    live database: one-off backups go to S3 or a Neon restore point.
-4. **Duplicate cards today:** YAT000001 (Madden Pezzorello) also has card
-   384172. Merge into one person before the key changes?
-5. **`player_source_map`:** fold it into `yat_registry_ids` and retire it?
+4. **One person, one YAT ID (Pete, Nov 18 2026; CLAUDE.md registry rule).**
+   Already Pete's rule, not an open question. Madden Pezzorello got the first
+   YAT ID (YAT000001) when TBC didn't have him; when TBC later added him
+   (384172), a second card appeared. He is one person: 384172 is attached to
+   YAT000001 in `yat_registry_ids`. Same for everyone: every person gets a
+   YAT ID, and every outside number (TBC, MLB, Presto, ...) attaches to it.
+   The card keyed `384172` (no high school) goes away in step 8 after
+   everything pointing at 384172 moves to YAT000001.
+5. **`player_source_map` (same rule).** Its links fold into
+   `yat_registry_ids`, then it is retired (step 9).
 
 ---
 
@@ -194,6 +201,7 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: decisions 4-5 follow from Pete's registry rule (one person = one YAT ID; outside numbers attach to it). All decisions made.
 
 ---
 
