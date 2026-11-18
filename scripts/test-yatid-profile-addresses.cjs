@@ -27,7 +27,7 @@ assert.match(middleware, /requestHeaders\.set\('x-search', request\.nextUrl\.sea
 assert.match(layout, /ProfileCardIdRegistrar routeId=\{publicId\} cardId=\{playerId\}/, 'client code must learn the card behind the address');
 
 // The page reads the card under its own id; canonical/og:url use the YAT ID.
-assert.equal((page.match(/const \{ cardId: playerId \} = await resolveProfileCard\(routeId, hsid\);/g) || []).length, 2, 'metadata and page must both read the card id');
+assert.equal((page.match(/const \{ cardId: playerId(?:, yatId)? \} = await resolveProfileCard\(routeId, hsid\);/g) || []).length, 2, 'metadata and page must both read the card id');
 assert.match(page, /publicId: yatId \|\| playerId/, 'canonical URL must use the YAT ID');
 assert.match(share, /encodeURIComponent\(input\.publicId \|\| input\.playerId\)/, 'share helper must put the YAT ID in the URL');
 assert.match(share, /playerId=' \+ encodeURIComponent\(input\.playerId\)/, 'share image stays under the card id');

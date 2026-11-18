@@ -271,7 +271,7 @@ function fmtAvg(v: any): string {
 export default async function ProfilePage({ params }: Props) {
   const { hsid, playerId: routeId, slug } = await params;
   // The address carries the YAT ID; the page reads the card under its own key.
-  const { cardId: playerId } = await resolveProfileCard(routeId, hsid);
+  const { cardId: playerId, yatId } = await resolveProfileCard(routeId, hsid);
   // Tells the browser to start fetching the career timeline's anchor-slide
   // photos (HS cutout + pro action cutout) as soon as this page's HTML
   // starts arriving, rather than after the timeline's own data fetches
@@ -322,6 +322,11 @@ export default async function ProfilePage({ params }: Props) {
   }
 
   const safePlayerId = String(playerId);
+  // YAT key step 4 (docs/yat-key-transition.md): the person's career (stats,
+  // game logs, team stints) reads by his YAT ID, so every card of one person
+  // shows the same career. Card-only facts (team, status, socials) stay on
+  // the card id.
+  const personId = String(yatId || playerId);
   // A coach profile may show the school's official Instagram account.
   // Resolve ownership by player role, requested school and an active school
   // source; never identify a profile by its player ID or hardcode a school.
@@ -397,10 +402,10 @@ export default async function ProfilePage({ params }: Props) {
     transactionStatus,
     socialHandles,
   ] = await Promise.all([
-    keptBattingStats(safePlayerId),
-    keptPitchingStats(safePlayerId),
-    keptCareerBatting(safePlayerId),
-    keptCareerPitching(safePlayerId),
+    keptBattingStats(personId),
+    keptPitchingStats(personId),
+    keptCareerBatting(personId),
+    keptCareerPitching(personId),
     keptResolvedCurrentTeam(safePlayerId),
     keptTransactionStatus(safePlayerId),
     keptSocialHandles(safePlayerId),
@@ -514,9 +519,9 @@ export default async function ProfilePage({ params }: Props) {
   ) as PitchingSeason | null;
 
   const [gameLogs, teamIdMap, teamStints] = await Promise.all([
-    keptGameLogs(safePlayerId),
+    keptGameLogs(personId),
     getTeamIdMap(),
-    keptTeamStints(safePlayerId),
+    keptTeamStints(personId),
   ]);
 
   // Prefer the reconciled canonical team id. The shared resolver translates
