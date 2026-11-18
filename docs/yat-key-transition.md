@@ -220,6 +220,11 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 6 full copy done (Pete's yes): 32,741 files
+  copied, 0 errors (run 44364393875); a new report finds 0 left to copy.
+  Spot checks: Gary Legumina's YAT photo is his newer upload; Austin
+  Filiere's and Kyle Hasler's are the cropped photos, not the framed ones.
+  Nothing on the site reads the YAT names yet.
 * 2026-11-18, Claude: step 6 started (Pete). Read-only report of all 33,174
   player photo files: 32,741 get a YAT ID copy, 405 already have one, 8 are
   old long-number duplicates of photos already under the YAT ID (left
