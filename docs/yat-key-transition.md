@@ -149,7 +149,13 @@ the bucket, so it needs a read-only GitHub job run, approved by Pete.
    before the 2027 tournament starts (Mon Feb 1, 2027,
    `src/lib/bracket/tournamentCalendar.ts`), after steps 3-5, once the
    before-and-after scoring test on the October test season matches exactly.
-3. **Backups (group B):** keep, archive, or remove after the transition?
+3. **Backups (group B): DECIDED (Pete, Nov 18 2026).** Keep every backup
+   until the transition is finished and checked. Then archive the dated
+   one-off copies: export each to S3 as a file, check the file, then remove
+   the table from the database. A table a job still reads stays (e.g. check
+   `tbc_*_feed_snapshots`, `*_baseline_yesterday`, `*_level_baselines`
+   before touching them). From then on, no new dated backup tables in the
+   live database: one-off backups go to S3 or a Neon restore point.
 4. **Duplicate cards today:** YAT000001 (Madden Pezzorello) also has card
    384172. Merge into one person before the key changes?
 5. **`player_source_map`:** fold it into `yat_registry_ids` and retire it?
@@ -187,6 +193,7 @@ step, branch, what was done, what is next.
   search. Waiting on Pete: decisions in section 2, approval for steps 0b and 1.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
+* 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
 
 ---
 
