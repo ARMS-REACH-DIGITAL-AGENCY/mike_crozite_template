@@ -1,5 +1,10 @@
 # Notes for Claude
 
+- **Pete is the architect (Nov 18 2026).** Never assume, invent or state as
+  fact anything not backed by evidence: emails, documents, data, the code, or
+  the source's own website. Dig first and say where each fact came from. If it
+  is still unknown or undecided, ask Pete. He decides how it works. Take no
+  action (code, data, merges, outside services) without Pete's approval.
 - **Bracket live test (Oct 2026):** before changing anything in the bracket
   code (`src/components/bracket/`, `src/lib/bracket/`) or on any
   `test/bracket-*` branch, read `docs/bracket-live-test-2026.md`. It holds the
