@@ -10,7 +10,9 @@ const layout = read('src/app/[hsid]/player/[playerId]/layout.tsx');
 const identity = read('src/lib/playerIdentityCached.ts');
 
 assert.match(kept, /function keptForProfile/, 'profilePageData.ts must provide the kept-for-profile loader');
-assert.match(kept, /const PROFILE_DATA_TTL_SECONDS = 3600;/, 'profile data is kept for an hour');
+// One age for all card data (Pete, Nov 18 2026): src/lib/cardDataTtl.ts.
+assert.match(kept, /const PROFILE_DATA_TTL_SECONDS = CARD_DATA_TTL_SECONDS;/, 'profile data uses the shared card-data age');
+assert.match(read('src/lib/cardDataTtl.ts'), /export const CARD_DATA_TTL_SECONDS = 3600;/, 'card data is kept for an hour');
 assert.match(db, /const watch = queryFailureWatch\.getStore\(\);\s*if \(watch\) watch\.failed = true;/, 'a failed read marks the loader');
 assert.match(kept, /if \(watch\.failed\) throw new UnkeptResult\(value\);/, 'a result built around a failed read is never kept');
 assert.match(kept, /tags: \['player-profile', `player-profile:\$\{args\[0\] \?\? ''\}`\]/, 'kept data is tagged for invalidation');
