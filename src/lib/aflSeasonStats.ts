@@ -2,6 +2,7 @@
 // MLB game lines are authoritative for AFL because The Baseball Cube's season
 // tables do not contain the six MLB API AFL clubs (team IDs 900xxx).
 // This is read-only; no changes to source stats, teams, or player assignments.
+import { personIdsSql } from '@/lib/personIdsSql';
 import { query } from '@/lib/db';
 
 type StatRow = Record<string, unknown>;
@@ -141,7 +142,7 @@ export async function getAflSeasonStatsForPlayer(playerId: string): Promise<{
        SUM(COALESCE(NULLIF(s.stats->>'balks','')::int,0))::int AS balks
      FROM public.stat_lines_ready s
      JOIN public.teamid_universe_mapping u ON u.teamid::text = s.teamid::text
-     WHERE s.playerid = $1
+     WHERE s.playerid IN ${personIdsSql('$1')}
        AND s.source = 'mlb_api'
        AND s.league_name = 'Arizona Fall League'
        AND u.current_org_or_conference_name = 'Arizona Fall League'

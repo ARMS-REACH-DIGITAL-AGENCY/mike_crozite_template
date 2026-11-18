@@ -359,7 +359,7 @@ export async function getRecentExternalStatsForPlayer(playerId: string, limit = 
      left join public.external_games eg
        on eg.source_system = epgs.source_system
       and eg.source_game_guid = epgs.source_game_guid
-     where ep.yatstats_playerid::text = $1
+     where ep.yatid = public.yat_id_for($1::text)
      order by coalesce(eg.scheduled_at, epgs.ingested_at) desc
      limit $2`,
     [playerId, limit]
