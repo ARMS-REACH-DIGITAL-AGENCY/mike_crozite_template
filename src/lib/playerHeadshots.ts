@@ -40,16 +40,16 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
       console.error('Approved contributed headshot lookup failed', { error });
       return { rows: [] as { playerid: string; description: string | null }[] };
     }),
+    // YAT key step 4 (Pete, Nov 18 2026): the person's MLB ID comes from the
+    // YAT registry (one outside number = one person), for any number of his.
     query<{ playerid: string; mlb_player_id: string }>(
-      `SELECT playerid, MIN(source_player_id) AS mlb_player_id
-         FROM player_source_map
-        WHERE playerid = ANY($1::text[])
-          AND source = 'mlb_api'
-          AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'
-        GROUP BY playerid
-       HAVING COUNT(DISTINCT source_player_id) = 1
-          AND BOOL_OR(is_verified IS TRUE)
-          AND MIN(source_player_id) ~ '^[0-9]+$'`,
+      `SELECT x AS playerid, MIN(r.source_id) AS mlb_player_id
+         FROM unnest($1::text[]) x
+         JOIN public.yat_registry_ids r
+           ON r.yatid = public.yat_id_for(x) AND r.source = 'mlb'
+        GROUP BY x
+       HAVING COUNT(DISTINCT r.source_id) = 1
+          AND MIN(r.source_id) ~ '^[0-9]+$'`,
       [ids],
     ).catch((error) => {
       console.error('Verified player headshot lookup failed', { error });
