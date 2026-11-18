@@ -126,8 +126,27 @@ Folders named by player number: `players/then`, `then-card`, `then-cutouts`,
 `now`, `now-thumb`, `now-cutouts`, `now-web`, `season-headshots`,
 `season-photos`, `season-cutouts`, `connect-videos`, and the share pictures in
 `share-previews/`.
-**Not yet measured:** the number of files per folder. This session can't list
-the bucket, so it needs a read-only GitHub job run, approved by Pete.
+**Measured Nov 18 2026 (step 0b, read-only job `yat-step0b-count-photos.yml`):**
+33,290 files, 9.6 GB. 32,765 named by a number, 388 already by YAT ID, 137
+other names (116 of them the `share-previews` pictures). `connect-videos/`
+is empty. Three folders not listed above: `players/cutouts` (357),
+`players/headshot-cutouts` (375), `players/fanpics` (1).
+
+| Folder | Files | MB | By number | By YAT ID | Other |
+|---|---:|---:|---:|---:|---:|
+| `players/now`, `now-cutouts`, `now-thumb`, `now-web` | 6,020 / 6,021 / 6,019 / 6,021 | 5,232 | ~6,017 each | 3 each | 0 |
+| `players/season-headshots` | 5,766 | 570 | 5,757 | 8 | 1 |
+| `players/then`, `then-card`, `then-cutouts`, `then-web` | 390 / 389 / 648 / 386 | 1,812 | 335 / 334 / 547 / 331 | 53 / 53 / 99 / 53 | 2 each |
+| `players/back`, `back-card`, `back-cutouts`, `back-web` | 178 each | 393 | 164 each | 12 each | 2 each |
+| `players/back-archive` | 4 | 3 | 0 | 0 | 4 |
+| `players/cutouts` | 357 | 796 | 310 | 47 | 0 |
+| `players/headshot-cutouts` | 375 | 724 | 372 | 3 | 0 |
+| `players/season-photos`, `season-cutouts` | 33 / 32 | 29 | 27 / 26 | 6 / 6 | 0 |
+| `players/fanpics` | 1 | 4 | 1 | 0 | 0 |
+| `share-previews` | 116 | 69 | 0 | 0 | 116 |
+
+"By number" means the file name is a number; which source the number belongs to
+(TBC card number or another) is checked file by file in step 6.
 
 ### 1.5 Already on the YAT ID
 
@@ -178,7 +197,7 @@ be undone, and nothing merges without Pete's approval.
 | # | Step | Changes | Test | Undo | Status |
 |---|---|---|---|---|---|
 | 0 | Map (this file) | Nothing | - | - | Done, Nov 18 (Claude) |
-| 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | In progress (Claude), Pete OK Nov 18: job `yat-step0b-count-photos.yml` |
+| 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | Done Nov 18 (Claude): 33,290 files, 32,765 named by number (section 1.4) |
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
@@ -201,6 +220,8 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 0b done: 33,290 stored files (9.6 GB); 32,765
+  named by a number, 388 by YAT ID; counts in section 1.4. Next: step 6.
 * 2026-11-18, Claude: step 5 done (Pete). Live check of all 44 tables: every
   row with a player number has its YAT ID except 1 (the DJ placeholder in
   `player_identity_override`). Step 0b started on Pete's OK: read-only job
