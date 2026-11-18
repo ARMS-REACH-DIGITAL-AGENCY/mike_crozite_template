@@ -20,9 +20,10 @@ assert.match(stats, /getRecentExternalStatsForPlayer\(playerId/);
 assert.match(stats, /v_tbc_batting_all_seasons_resolved/);
 assert.match(stats, /v_tbc_pitching_all_seasons_resolved/);
 const search = fs.readFileSync('src/app/api/players/search/route.ts', 'utf8');
-assert.match(search, /coalesce\(alias\.playerid, tp\.playerid\)/);
-assert.match(search, /alias\.is_verified IS TRUE/);
-assert.match(search, /select distinct on \(c\.playerid\)/);
+// YAT key step 4 (Pete, Nov 18 2026): a duplicate TBC number still opens the
+// person's canonical card, now through the YAT registry; one result per person.
+assert.match(search, /f\.yatid = public\.yat_id_for\(tp\.playerid::text\)/);
+assert.match(search, /select distinct on \(coalesce\(public\.yat_id_for\(c\.playerid\), c\.playerid\)\)/);
 assert.match(page, /const id = canonicalTbcIds\.get\(sourceId\) \|\| sourceId/);
 assert.match(stats, /verifiedMultiSourceIdentity\s*\? battingRawAll\s*:\s*filterRowsToExpectedPlayer/);
 assert.match(stats, /verifiedMultiSourceIdentity\s*\? pitchingRawAll\s*:\s*filterRowsToExpectedPlayer/);
