@@ -145,9 +145,10 @@ the bucket, so it needs a read-only GitHub job run, approved by Pete.
    at Dobson (hsid 2623, today keyed `55184`) and a COACH card at Hamilton
    (hsid 5004, today keyed `YAT000073`): `YAT000073 + 2623` and
    `YAT000073 + 5004`.
-2. **Bracket:** the tournament's roster and stat tuples use the old number. A
-   before-and-after scoring test must match exactly before they change (Nov 13
-   rule). Can this be done before Feb 1 (season start)?
+2. **Bracket: DECIDED (Pete, Nov 18 2026).** The bracket switches to YAT IDs
+   before the 2027 tournament starts (Mon Feb 1, 2027,
+   `src/lib/bracket/tournamentCalendar.ts`), after steps 3-5, once the
+   before-and-after scoring test on the October test season matches exactly.
 3. **Backups (group B):** keep, archive, or remove after the transition?
 4. **Duplicate cards today:** YAT000001 (Madden Pezzorello) also has card
    384172. Merge into one person before the key changes?
@@ -171,7 +172,7 @@ be undone, and nothing merges without Pete's approval.
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Not started |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
-| 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; Pete decides timing |
+| 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
 | 8 | Card key change | `flip_card_front_stage` key per decision 1 | Full test copy | Restore | Not started; decision 1 made (YAT ID + hsid) |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
@@ -185,6 +186,7 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: step 0 done. Map built from read-only queries and a repo
   search. Waiting on Pete: decisions in section 2, approval for steps 0b and 1.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
+* 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 
 ---
 
