@@ -8,6 +8,7 @@
 import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { queryFailureWatch } from '@/lib/queryFailureWatch';
+import { CARD_DATA_TTL_SECONDS } from '@/lib/cardDataTtl';
 import {
   getPlayerById,
   getNewsByPlayer,
@@ -28,7 +29,7 @@ import {
 // each loader result is kept for an hour per player (per team and range for a
 // schedule). Most loaders turn a failed read into an empty result; such a
 // result is returned for this visit but never kept (queryFailureWatch).
-const PROFILE_DATA_TTL_SECONDS = 3600;
+const PROFILE_DATA_TTL_SECONDS = CARD_DATA_TTL_SECONDS; // one age for all card data (Pete, Nov 18)
 class UnkeptResult<T> { constructor(readonly value: T) {} }
 function keptForProfile<A extends string[], T>(name: string, load: (...args: A) => Promise<T>) {
   return async (...args: A): Promise<T> => {
