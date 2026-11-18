@@ -294,12 +294,24 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
       FROM departure_identity d
       WHERE playerid::text = $1 AND d.target_playerid=playerid::text
         AND NOT EXISTS (SELECT 1 FROM public.player_team_override manual WHERE manual.playerid = $1)
-        AND (EXISTS (SELECT 1 FROM public.player_source_map s
+        -- Identity (Pete, Nov 18 2026): the YAT registry is the canonical
+        -- identity. The MLB person on the transaction must be attached to
+        -- this card's YAT ID (yat_registry_ids, source 'mlb'); the older
+        -- verified link and roster match still count. A link someone
+        -- rejected as a bad identity match never counts.
+        AND (EXISTS (SELECT 1 FROM public.yat_registry_ids reg
+                     WHERE reg.yatid = flip_card_front_stage.yatid
+                       AND reg.source = 'mlb' AND reg.source_id = $7)
+             OR EXISTS (SELECT 1 FROM public.player_source_map s
                      WHERE s.playerid = $1 AND s.source = 'mlb_api'
                        AND s.source_player_id = $7 AND s.is_verified = TRUE)
              OR EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
                         WHERE r.playerid = $1 AND r.source_player_id = $7
                           AND r.match_status = 'matched'))
+        AND NOT EXISTS (SELECT 1 FROM public.player_source_map bad
+                        WHERE bad.playerid = $1 AND bad.source = 'mlb_api'
+                          AND bad.source_player_id = $7
+                          AND bad.match_method = 'rejected_bad_identity_match')
         AND (last_transaction_type IS DISTINCT FROM $2
              OR last_transaction_date IS DISTINCT FROM $3::date
              OR last_transaction_team_name IS DISTINCT FROM $4
