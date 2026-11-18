@@ -340,10 +340,13 @@ export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<stri
 const verifiedTbcCareerSourceIds = unstable_cache(async (playerId: string): Promise<string[]> => {
   // Every person already has a YAT registry identity. The registry can hold
   // both original and duplicate TBC IDs even when a public card uses a TBC ID.
-  if (/^YAT[0-9]+$/i.test(playerId)) {
+  // YAT key step 4 (Pete, Nov 18 2026): any id (YAT ID, TBC number or old card
+  // number) resolves to the person first, so every card of one person reads
+  // the same career. The older lookup below is only a fallback.
+  {
     const { rows } = await query<{ source_id: string }>(
       `SELECT source_id FROM public.yat_registry_ids
-         WHERE yatid=$1 AND source='tbc'
+         WHERE yatid=public.yat_id_for($1::text) AND source='tbc'
          ORDER BY source_id`,
       [playerId]
     );
@@ -378,7 +381,7 @@ const verifiedTbcCareerSourceIds = unstable_cache(async (playerId: string): Prom
   );
   const canonical = rows[0]?.canonical_id || sourceId;
   return [...new Set([canonical, ...rows.map((r) => r.source_player_id).filter((id): id is string => Boolean(id))])];
-}, ['verified-tbc-career-source-ids-v3'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
+}, ['verified-tbc-career-source-ids-v4-person'], { revalidate: 60 * 60 * 24, tags: ['player-stats'] });
 
 // CSV matches the existing indexed ANY(string_to_array(...)) readers on the
 // flip-card backs and profile timeline. The Stats API splits it into a

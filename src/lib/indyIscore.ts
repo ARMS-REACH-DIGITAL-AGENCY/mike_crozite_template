@@ -1,3 +1,4 @@
+import { personIdsSql } from '@/lib/personIdsSql';
 import crypto from 'crypto';
 import { gunzipSync } from 'zlib';
 import { query as readQuery } from '@/lib/db';
@@ -1199,7 +1200,7 @@ export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10):
          b.*, m.current_team_name, m.current_org_or_conference_name, m.current_org_or_conference_abbrev, m.level_label
        from public.indy_iscore_batting_2026_season_raw b
        left join public.teamid_universe_mapping m on m.teamid::text = b.teamid::text
-       where b.yatstats_playerid::text = $1
+       where b.yatstats_playerid::text in ${personIdsSql('$1')}
        order by b.season_year, coalesce(m.current_team_name, b.source_team_name)`,
       [playerId]
     ),
@@ -1208,7 +1209,7 @@ export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10):
          p.*, m.current_team_name, m.current_org_or_conference_name, m.current_org_or_conference_abbrev, m.level_label
        from public.indy_iscore_pitching_2026_season_raw p
        left join public.teamid_universe_mapping m on m.teamid::text = p.teamid::text
-       where p.yatstats_playerid::text = $1
+       where p.yatstats_playerid::text in ${personIdsSql('$1')}
        order by p.season_year, coalesce(m.current_team_name, p.source_team_name)`,
       [playerId]
     ),
@@ -1221,7 +1222,7 @@ export async function getIndyIscoreStatsForPlayer(playerId: string, limit = 10):
         and gm.league_code = g.league_code
         and gm.season_id = g.season_id
         and gm.source_game_id = g.source_game_id
-       where g.yatstats_playerid::text = $1
+       where g.yatstats_playerid::text in ${personIdsSql('$1')}
        order by coalesce(g.game_date, gm.game_date) desc nulls last
        limit $2`,
       [playerId, limit]
