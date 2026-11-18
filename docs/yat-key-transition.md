@@ -178,7 +178,8 @@ is empty. Three folders not listed above: `players/cutouts` (357),
    team. Never a separate status such as "ALUMNUS". The page picks the view
    from his current team ID and `player_hsids`; nothing is set by hand.
    Step 8 merges his two rows into one card and adds Hamilton to
-   `player_hsids`.
+   `player_hsids`. Generalised the same day into the two-school chapter model
+   (CLAUDE.md "A person with two schools").
 2. **Bracket: DECIDED (Pete, Nov 18 2026).** The bracket switches to YAT IDs
    before the 2027 tournament starts (Mon Feb 1, 2027,
    `src/lib/bracket/tournamentCalendar.ts`), after steps 3-5, once the
@@ -235,6 +236,13 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: two-school model approved (Pete): one card, one
+  chapter per school (CLAUDE.md "A person with two schools"). First tab:
+  Where YAT Now? for coach / RETIRED chapters, 7-day snapshot for ACTIVE
+  players with two programs. The career timeline shows every year, including
+  empty ones (Bordes: 2010-2025 now missing on Dobson's profile), so they can
+  be documented. Built in step 8 with a build check pinning Bordes, one
+  two-school transfer and one normal player. 390 people have two schools.
 * 2026-11-18, Claude: coach-who-played rule recorded (Pete): one card,
   current status everywhere; RETIRED + highest level on the page of a school
   he played for that is not his current team. Added to CLAUDE.md.

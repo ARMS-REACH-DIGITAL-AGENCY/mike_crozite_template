@@ -43,15 +43,26 @@
   "Hamilton (Chandler,AZ)") is not proof. Examples: Greg Bordes is on
   Dobson's all-time alumni (played) and Hamilton's 2027 team (coach);
   Zachary Johnston and DJ Barrett are NOT on Hamilton (5004).
-- **A coach who once played (Pete, Nov 18 2026).** Still ONE card, showing
-  his current status as of today (e.g. COACH, Hamilton Huskies, HIGH
-  SCHOOL) everywhere, except on the page of a high school he played for
-  that is not his current team: there the same card shows his playing
-  career, RETIRED with his HIGHEST level and no team (the RETIRED rule
-  below). No other status (never "ALUMNUS"). Worked out from his current
-  team ID and `player_hsids`, never set by hand. Example: Greg Bordes
-  (YAT000073) shows COACH on Hamilton (5004) and RETIRED, DOUBLE-A on
-  Dobson (2623).
+- **A person with two schools: one card, one chapter per school (Pete, Nov
+  18 2026).** Same rule for a coach who once played and a player who played
+  varsity for two programs. ALWAYS THE SAME wherever the card shows: name,
+  photos, stats, news, stories, social, connect and ONE career timeline (every
+  year from his first season to today, including years with no data, so
+  anyone can add what he did then). PER SCHOOL CHAPTER: row 2 school logo and
+  name; the front's status, level and team; the back's first tab. A coach
+  chapter shows his current status (COACH, team, HIGH SCHOOL); the chapter of
+  a school he played for that is not his current team shows RETIRED with his
+  HIGHEST level and no team. Never another status (never "ALUMNUS"). First
+  tab: Where YAT Now? for a coach or RETIRED chapter (as for every retired
+  player); the 7-day snapshot only for an ACTIVE player. Which chapter shows
+  first: on a school page or under a school's address, that school's; from
+  search or favorites, his current status. A toggle (like MILB CAREER /
+  COLLEGE CAREER) switches chapters on the card back and the profile, and
+  appears ONLY for people with two chapters; everyone else looks exactly as
+  today. Chapters come from his current team ID and `player_hsids`, never
+  set by hand. Example: Greg Bordes (YAT000073): COACH on Hamilton (5004),
+  RETIRED, DOUBLE-A on Dobson (2623). Nov 18 2026: 390 people have two
+  schools in `player_hsids`.
 - **YAT ID key transition (Pete, Nov 18 2026).** Every table, job and page
   moves to the YAT ID as its key before the PrestoSports API goes live. The
   map, the decisions and the step table are in `docs/yat-key-transition.md`:
