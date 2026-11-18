@@ -213,6 +213,9 @@ step, branch, what was done, what is next.
      his Hamilton card exists), YAT208675 (Jacopo Tamburini, from Beloit's
      2026 roster only) and 337041 (Zachary Johnston, YAT183847; TBC's text
      says "Hamilton (Chandler,AZ)" but there is no verified school link).
+     Pete, Nov 18: Zachary Johnston and DJ Barrett are not affiliated with
+     Hamilton (5004); Greg Bordes belongs on Dobson (alumni) and Hamilton
+     2027 (coach). Rule added to CLAUDE.md ("One person, many schools").
   3. Three people carry two TBC numbers each (TBC duplicates, correctly on
      one YAT ID): YAT040182, YAT056635, YAT057973.
   4. Two people have two cards: YAT000073 (Greg Bordes, Dobson + Hamilton)

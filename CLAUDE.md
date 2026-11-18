@@ -31,6 +31,15 @@
   school is also a team (its 2027 High School Team Page), and its teamid is
   `C` + hsid: `C5004` is the current teamid of Hamilton's 2027 high school
   players (hsid `5004`). Never give a team a `YAT` id.
+- **One person, many schools (Pete, Nov 18 2026).** A person keeps one YAT
+  ID for life and can belong to any number of high schools (a transfer, a
+  former player who now coaches): one card per school he actually belongs
+  to, keyed YAT ID + hsid. He belongs to a school's list only if he played
+  for its team or is on its staff. Attending, then transferring before
+  playing, does not count, and a source's free-text school (e.g. TBC's
+  "Hamilton (Chandler,AZ)") is not proof. Examples: Greg Bordes is on
+  Dobson's all-time alumni (played) and Hamilton's 2027 team (coach);
+  Zachary Johnston and DJ Barrett are NOT on Hamilton (5004).
 - **YAT ID key transition (Pete, Nov 18 2026).** Every table, job and page
   moves to the YAT ID as its key before the PrestoSports API goes live. The
   map, the decisions and the step table are in `docs/yat-key-transition.md`:
