@@ -244,13 +244,15 @@ step, branch, what was done, what is next.
   and after: 207,883 rows, same fingerprint. Added: 274 Home Schooled
   players -> 15322 (TBC hs_team/15322), 143 card-only links (coaches,
   non-TBC players); `school_source_keys` (source school text -> hsid,
-  ignoring capitals and spacing); `school_success`: 194 capital-letter
-  twins merged (Pete's numbers fill the hsid row; alumni total unchanged
-  188,251), 3 rows got their hsid (Greencastle CA 17355, North McKinney
-  10386, Woodbury CA 18109); 144 ^ markers untouched. TBC link changes
-  resync automatically (tested). Left (wallpaper): Hamilton East (Steinert)
-  and Ida B. Wells-Barnett rows, whose hsid rows carry Pete's ` #hsid` key;
-  the 72 duplicate TBC schools; capital-letter text corrections.
+  ignoring capitals and spacing); `school_success`: 196 twins merged
+  (194 split by capital letters, 2 by Pete's ` #hsid` tag: Hamilton East
+  (Steinert) 5008 and Ida B. Wells-Barnett 2084, one hsid each per TBC's
+  pages); Pete's numbers fill the hsid row; alumni total unchanged 188,251;
+  3 rows got their hsid (Greencastle CA 17355, North McKinney 10386,
+  Woodbury CA 18109). Every one of Pete's rows now has its hsid except his
+  144 ^ / ^^ markers (left untouched). TBC link changes resync
+  automatically (tested). Left (wallpaper): the 72 duplicate TBC schools;
+  capital-letter text corrections.
 * 2026-11-18, Claude: step 8 groundwork, school audit (test copy).
   `tbc_players_raw.high_school` vs `tbc_schools_raw.hs_lookup_key`: 207,472
   of 208,703 players match exactly; 245 differ only by spacing or capitals;

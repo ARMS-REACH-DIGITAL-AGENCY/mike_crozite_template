@@ -6,9 +6,11 @@
 -- 2. school_source_keys: a source's school text -> our hsid, like
 --    yat_registry_ids does for people. Filled from TBC's school list, plus
 --    "Home Schooled (--,--)" -> 15322 (TBC's page hs_team/15322; Pete).
--- 3. school_success repair (backup first): 194 schools were in the table
+-- 3. school_success repair (backup first): 196 schools were in the table
 --    twice, Pete's original row (his numbers, no hsid) and a later row (hsid
---    and address, no numbers), split only by capital letters. Pete's numbers
+--    and address, no numbers), split by capital letters (194) or by Pete's
+--    ' #hsid' tag (2: Hamilton East (Steinert) 5008, Ida B. Wells-Barnett
+--    2084; TBC confirms one hsid each). Pete's numbers
 --    fill the EMPTY fields of the hsid row; nothing filled is overwritten;
 --    the hsid-less copy is removed. 3 more of Pete's rows get their hsid.
 --    Pete's ^ / ^^ marker rows (72 duplicate TBC schools) are not touched.
@@ -58,7 +60,11 @@ ON CONFLICT DO NOTHING;
 CREATE TABLE IF NOT EXISTS public.school_success_backup_20261118 AS SELECT * FROM public.school_success;
 
 CREATE TEMP TABLE ss_twins ON COMMIT DROP AS
-WITH a AS (SELECT ctid AS a_ctid, hsid, public.school_key_norm(hs_lookup_key) k FROM public.school_success WHERE hsid IS NOT NULL),
+-- A key that ends in Pete's ' #<its own hsid>' tag (e.g. 'Hamilton East
+-- (Steinert) (Trenton,NJ) #5008') is compared without the tag.
+WITH a AS (SELECT ctid AS a_ctid, hsid,
+                  public.school_key_norm(regexp_replace(hs_lookup_key, '\s*#' || hsid::text || '\s*$', '')) k
+             FROM public.school_success WHERE hsid IS NOT NULL),
      b AS (SELECT ctid AS b_ctid, public.school_key_norm(hs_lookup_key) k FROM public.school_success
             WHERE hsid IS NULL AND hsname NOT LIKE '^%'),
      one_a AS (SELECT k FROM a GROUP BY k HAVING count(*) = 1),
@@ -70,7 +76,7 @@ DO $do$
 DECLARE cols text; n int;
 BEGIN
   SELECT count(*) INTO n FROM ss_twins;
-  IF n <> 194 THEN RAISE EXCEPTION 'expected 194 school_success twins, found %', n; END IF;
+  IF n <> 196 THEN RAISE EXCEPTION 'expected 196 school_success twins, found %', n; END IF;
   -- Every column except the hsid and the address: fill only what is empty.
   SELECT string_agg(format('%1$I = COALESCE(a.%1$I, b.%1$I)', column_name), ', ')
     INTO cols

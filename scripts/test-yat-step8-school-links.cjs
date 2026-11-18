@@ -11,7 +11,8 @@ assert.match(sql, /FUNCTION public\.school_key_norm\(t text\)[\s\S]*IMMUTABLE/, 
 assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.school_source_keys/, 'school translation table');
 assert.match(sql, /'Home Schooled \(--,--\)', 15322/, 'Home Schooled = TBC hs_team 15322 (Pete)');
 assert.match(sql, /school_success_backup_20261118 AS SELECT \* FROM public\.school_success/, 'school_success backed up first');
-assert.match(sql, /IF n <> 194 THEN RAISE EXCEPTION/, 'twin merge stops unless exactly the 194 measured twins');
+assert.match(sql, /IF n <> 196 THEN RAISE EXCEPTION/, 'twin merge stops unless exactly the 196 measured twins');
+assert.match(sql, /'\\s\*#' \|\| hsid::text/, "a key's own ' #hsid' tag is ignored when pairing twins");
 assert.match(sql, /COALESCE\(a\.%1\$I, b\.%1\$I\)/, 'Pete numbers only fill empty fields');
 assert.match(sql, /NOT IN \('hsid', 'microsite_url', 'staging_url'\)/, 'hsid and address are never taken from the hsid-less row');
 assert.match(sql, /hsname NOT LIKE '\^%'/, "Pete's ^ / ^^ marker rows are not touched");
