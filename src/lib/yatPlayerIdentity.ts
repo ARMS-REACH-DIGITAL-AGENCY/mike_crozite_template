@@ -17,9 +17,14 @@ function checkedSource(value: VerifiedPlayerSource): VerifiedPlayerSource {
   return value;
 }
 
-// Scoped provider IDs: roster-scoped SIDEARM/Presto IDs may repeat at different
-// colleges. Importers must provide a unique institution namespace when their
-// provider does not guarantee globally unique player identifiers.
+// Provider ID scope. The earlier note here ("Presto IDs may repeat at different
+// colleges") was an unverified assumption. Evidence (Nov 18 2026, see
+// docs/presto-integration-prep.md): a Presto player gets a NEW player record
+// and code every season, the same code is shared across Presto's network, and
+// a separate careerId ties his seasons together. Whether Presto codes can ever
+// repeat across colleges is unconfirmed; this function still requires an
+// institution scope for presto_sports/sidearm until Pete decides the Presto
+// key design once API access confirms the facts.
 export function externalPlayerKey(source: VerifiedPlayerSource, sourceId: string, institutionId?: string): string {
   checkedSource(source);
   const id = String(sourceId || '').trim();
