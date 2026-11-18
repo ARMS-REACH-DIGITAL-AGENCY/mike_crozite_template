@@ -1,0 +1,50 @@
+name: YAT step 6 - photos to YAT ID names
+
+# YAT key transition, step 6 (docs/yat-key-transition.md). Default: a
+# read-only report of what each stored photo's YAT ID name would be.
+# copy mode copies ONLY the players named in only_ids; it never writes over a
+# file and never deletes or changes an original. Full copy: separate approval.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "report (read-only) or copy (sample in only_ids)"
+        default: report
+        type: choice
+        options: [report, copy]
+      only_ids:
+        description: "copy mode: old numbers or YAT IDs, comma-separated"
+        default: ""
+  push:
+    branches: [yat/step6-photos]
+    paths: [.github/workflows/yat-step6-photo-names.yml, scripts/yat-step6-photo-names.py]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yat-step6-photo-names
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # A push to the step branch only reports.
+      MODE: ${{ github.event.inputs.mode || 'report' }}
+      ONLY_IDS: ${{ github.event.inputs.only_ids || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install boto3 "psycopg[binary]"
+      - name: Photos to YAT ID names
+        run: python3 scripts/yat-step6-photo-names.py | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: step6-plan
+          path: plan.csv
