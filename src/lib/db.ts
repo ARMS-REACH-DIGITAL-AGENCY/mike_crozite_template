@@ -2573,8 +2573,10 @@ export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promi
                   'orgName', tagged_player.current_org_or_conference_name
                 )) AS players
            FROM fan_activity activity
+           -- A tag on any card of a person counts for each of his schools
+           -- (YAT key step 4, Pete, Nov 18 2026).
            JOIN flip_card_front_stage tagged_player
-             ON tagged_player.playerid::text = activity.details->>'playerId'
+             ON tagged_player.yatid = public.yat_id_for(activity.details->>'playerId')
           WHERE activity.action = 'news_tagged'
             AND tagged_player.hsid::text = $1
             AND activity.details->>'news_uuid' IS NOT NULL
@@ -2582,6 +2584,12 @@ export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promi
        ),
        scoped_uuids AS (
          SELECT uuid FROM news_articles WHERE hsid = $1
+         UNION
+         -- One person, many schools: a story about any player who has a card
+         -- at this school belongs in its feed (YAT key step 4).
+         SELECT na_person.uuid FROM news_articles na_person
+           JOIN flip_card_front_stage school_card ON school_card.yatid = na_person.yatid
+          WHERE school_card.hsid::text = $1
          UNION
          SELECT uuid FROM tagged_school
        )
