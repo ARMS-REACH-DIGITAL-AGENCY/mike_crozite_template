@@ -220,7 +220,7 @@ be undone, and nothing merges without Pete's approval.
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Done Nov 18 (Claude): #822, #824-#831; photos moved to step 6 |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | In progress (Claude): report + 3-player sample copy done Nov 18 (job `yat-step6-photo-names.yml`) |
-| 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
+| 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Done Nov 18 (Claude): rosters and game lines on YAT IDs since Nov 13 (`d6efcbb3`); October test season line-for-line match, 0 differences (Pete: enough). Results job club lookup still goes through the TBC number: moves with step 9 |
 | 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | Not started; decision 1 corrected Nov 18 |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
@@ -236,6 +236,14 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 7 done. The live bracket has used YAT IDs for
+  rosters and game lines since Nov 13 (`d6efcbb3`), but no comparison was on
+  file. Test copy: all 69 October test schools (5,547 cards), every batting
+  and pitching line from Oct 5 matched by TBC number vs by YAT ID: 83
+  players, 435 lines, 0 differences. Pete: the line match is enough. Left
+  for step 9: `scripts/master-bracket-results.ts` finds clubs through the
+  TBC number (`player_team_stints` already has `yatid`). Test branches not
+  touched. Next: step 8.
 * 2026-11-18, Claude: two-school model approved (Pete): one card, one
   chapter per school (CLAUDE.md "A person with two schools"). First tab:
   Where YAT Now? for coach / RETIRED chapters, 7-day snapshot for ACTIVE
