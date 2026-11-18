@@ -5,6 +5,13 @@
   the source's own website. Dig first and say where each fact came from. If it
   is still unknown or undecided, ask Pete. He decides how it works. Take no
   action (code, data, merges, outside services) without Pete's approval.
+- **The MLB feed is the authority (Pete, Nov 18 2026).** For every MLB
+  organization and its affiliates, a card shows exactly what MLB's own data
+  says (MLB Stats API: transactions and rosters). The newest MLB transaction
+  always replaces an older published one; nothing we infer overrides MLB.
+  Example: Nov 17 2026, "Cleveland Guardians selected the contract of C Kody
+  Huff from Columbus Clippers": his card shows Cleveland Guardians, MLB, 40-man
+  until MLB publishes a newer move (e.g. optioned to Columbus).
 - **Bracket live test (Oct 2026):** before changing anything in the bracket
   code (`src/components/bracket/`, `src/lib/bracket/`) or on any
   `test/bracket-*` branch, read `docs/bracket-live-test-2026.md`. It holds the

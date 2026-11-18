@@ -2,6 +2,13 @@
 // scripts/refresh-flip-card-front-stage-from-mlb.ts
 // Updates fan-facing flip_card_front_stage from matched MLB roster resolution rows.
 //
+// RULE (Pete, Nov 18 2026; CLAUDE.md "The MLB feed is the authority"): for every
+// MLB organization and its affiliates, the card shows exactly what MLB's own
+// data says. The newest MLB transaction always replaces an older published one;
+// nothing we infer overrides MLB. Example: Nov 17 2026 "Cleveland Guardians
+// selected the contract of C Kody Huff from Columbus Clippers" -> Cleveland
+// Guardians, MLB, 40-man, until MLB publishes a newer move.
+//
 // Fan-facing SOP:
 // - roster_type='active' owns current team, level, and roster status when present.
 // - roster_type='40Man' is context only; it must not override active team/level.
