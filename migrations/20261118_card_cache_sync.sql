@@ -9,3 +9,6 @@ INSERT INTO public.card_cache_sync_state (name, last_at)
 VALUES ('flip_card_front_stage', now()) ON CONFLICT (name) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_flip_card_front_stage_changed_at
   ON public.flip_card_front_stage ((GREATEST(stage_updated_at, updated_at)));
+-- The site connects as `authenticator`; it saves the bookmark each minute
+-- (applied live Nov 18 2026 after the first runs failed with "permission denied").
+GRANT INSERT, UPDATE ON public.card_cache_sync_state TO authenticator;
