@@ -182,8 +182,8 @@ be undone, and nothing merges without Pete's approval.
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
-| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | In progress (Claude): all listed areas live except headshots (in review); sponsors need no change; photos moved to step 6 |
-| 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
+| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Done Nov 18 (Claude): #822, #824-#831; photos moved to step 6 |
+| 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | In progress (Claude): new cards get a YAT ID; MLB and INDY ID intake LIVE Nov 18 |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
 | 8 | Card key change | `flip_card_front_stage` key per decision 1 | Full test copy | Restore | Not started; decision 1 made (YAT ID + hsid) |
@@ -201,6 +201,18 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 5 live: MLB ID intake triggers (catch-up attached
+  0 new; 45,599 MLB IDs) and, on Pete's yes, INDY ID intake (source
+  `iscore`, name-matched links marked as such): 2,009 INDY IDs for 1,928
+  players attached; new links attach automatically.
+* 2026-11-18, Claude: step 4 done (headshots #831; John Armstrong and Greg
+  Bordes's verified MLB IDs attached live). Step 5 (branch `yat/step5-jobs`):
+  new cards already get a YAT ID through `trg_yat_auto_register`; no MLB ID
+  had been attached since Nov 9, so `migrations/20261118_yat_step5_mlb_registry_intake.sql`
+  attaches every new MLB ID from roster matches and MLB links (never rejected
+  matches, an MLB ID already owned, or a second MLB ID for one person).
+  Tested on claude-test. INDY: 2,007 INDY IDs linked by exact name only, none
+  in the registry - Pete decides whether name-only matches go in.
 * 2026-11-18, Claude: step 4, transactions live (#830). Sponsors: nothing
   reads sponsors by player (school-based; player-keyed tables empty). Audit of
   every remaining player-number match in src/: card reads (step 8), photos
