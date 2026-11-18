@@ -201,6 +201,10 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: Blas Minor attended Atwater, not Merced (Pete). His
+  story "Well Done Chief!" moved from Merced (1675) to Atwater (3133), live.
+  It was the only story on the site filed under a school where the player
+  has no card; now there are none.
 * 2026-11-18, Claude: step 4, news live (#827). Stories (branch
   `yat/step4-stories`): Stories tab, shared story previews, "Where Yat Now?"
   (this school's entry first), tagged memories and the connect video record
