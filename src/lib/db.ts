@@ -32,6 +32,7 @@ import { Pool, QueryResult, QueryResultRow } from 'pg';
 import 'server-only';
 import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
 import { teamIdentityJoins, PUBLIC_TEAM_NAME_SQL, VERIFIED_TEAM_LEVEL_SQL } from '@/lib/teamIdentitySql';
+import { CARD_DATA_TTL_SECONDS } from '@/lib/cardDataTtl';
 
 // A school's page data, kept across requests (and across server instances)
 // for 10 minutes: its roster, All-Time list, flip card rows, season results
@@ -41,11 +42,12 @@ import { teamIdentityJoins, PUBLIC_TEAM_NAME_SQL, VERIFIED_TEAM_LEVEL_SQL } from
 // 5:05-5:18 PM: 92,600 "timeout exceeded when trying to connect") ran the
 // 3-connection pools dry. These numbers change with the nightly imports,
 // not by the minute. Failures aren't kept: the next view retries.
-const SCHOOL_DATA_TTL_SECONDS = 600;
-// Active-season stats and historical career aggregates change with data imports,
-// not each fan visit. Keep these expensive results longer than presentation data.
-const ACTIVE_ROSTER_TTL_SECONDS = 1800;
-const ALL_TIME_ROSTER_TTL_SECONDS = 3600;
+// Pete, Nov 18 2026: one age for every kept copy of card data (gallery,
+// card back, profile); changed cards are cleared within a minute by
+// /api/cron/card-cache-sync, so all three always show the same thing.
+const SCHOOL_DATA_TTL_SECONDS = CARD_DATA_TTL_SECONDS;
+const ACTIVE_ROSTER_TTL_SECONDS = CARD_DATA_TTL_SECONDS;
+const ALL_TIME_ROSTER_TTL_SECONDS = CARD_DATA_TTL_SECONDS;
 function keptAcrossRequests<T>(name: string, load: (key: string) => Promise<T>, ttlSeconds = SCHOOL_DATA_TTL_SECONDS): (key: string) => Promise<T> {
   return (key: string) =>
     unstable_cache(() => load(key), ['school-data', name, String(key)], {
