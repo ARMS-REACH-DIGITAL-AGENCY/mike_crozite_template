@@ -236,6 +236,21 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 8 groundwork built and tested on claude-test
+  (`migrations/20261118_yat_step8_school_links.sql`, Pete: "make the quick
+  easy fixes and resolve player_hsids"). player_hsids is no longer built
+  only from TBC: it reads `yat_school_links` (YAT ID + hsid + where each
+  link came from), filled from today's links exactly; player_hsids before
+  and after: 207,883 rows, same fingerprint. Added: 274 Home Schooled
+  players -> 15322 (TBC hs_team/15322), 143 card-only links (coaches,
+  non-TBC players); `school_source_keys` (source school text -> hsid,
+  ignoring capitals and spacing); `school_success`: 194 capital-letter
+  twins merged (Pete's numbers fill the hsid row; alumni total unchanged
+  188,251), 3 rows got their hsid (Greencastle CA 17355, North McKinney
+  10386, Woodbury CA 18109); 144 ^ markers untouched. TBC link changes
+  resync automatically (tested). Left (wallpaper): Hamilton East (Steinert)
+  and Ida B. Wells-Barnett rows, whose hsid rows carry Pete's ` #hsid` key;
+  the 72 duplicate TBC schools; capital-letter text corrections.
 * 2026-11-18, Claude: step 8 groundwork, school audit (test copy).
   `tbc_players_raw.high_school` vs `tbc_schools_raw.hs_lookup_key`: 207,472
   of 208,703 players match exactly; 245 differ only by spacing or capitals;
