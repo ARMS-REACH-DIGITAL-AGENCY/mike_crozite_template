@@ -181,7 +181,7 @@ be undone, and nothing merges without Pete's approval.
 | 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | Not started; needs Pete's OK |
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
-| 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Built and checked on `claude-test` Nov 18 (Claude, branch `yat/step3-yatid-columns`); live waits for Pete |
+| 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Not started |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
@@ -201,6 +201,12 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 3 applied LIVE on Pete's order, one short
+  transaction per table (a single 44-table transaction deadlocked with site
+  reads and rolled back; nothing changed). Published-table unlock used only
+  for this change, reason "YAT step 3 adds yatid only (Pete, Nov 18 2026)".
+  Checked live: 44 triggers, 405,984 player numbers, 0 wrong, 1 empty (DJ
+  Barrett's unfinished override row). Next: step 4 (site reads by YAT ID).
 * 2026-11-18, Claude: step 3 built (`migrations/20261118_yat_step3_yatid_columns.sql`,
   undo `..._down.sql`) and applied on `claude-test`: 44 tables, 406,005 player
   numbers, 0 wrong, 0 missing except 21 blank `media_upload` rows (no player)
