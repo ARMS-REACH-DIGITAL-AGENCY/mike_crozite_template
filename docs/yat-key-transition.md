@@ -181,7 +181,7 @@ be undone, and nothing merges without Pete's approval.
 | 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | Not started; needs Pete's OK |
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Not started |
-| 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Not started |
+| 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Built and checked on `claude-test` Nov 18 (Claude, branch `yat/step3-yatid-columns`); live waits for Pete |
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Not started |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
