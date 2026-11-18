@@ -26,4 +26,9 @@ The atomic owner cutover migrates the two cards, favorites, attachments, moments
 An application rollback switches back to the prior production deployment; existing numeric source IDs and unchanged game-log keys still work. The additive stage YAT column and indexes can remain unused without hurting the old application. For owner-approved John/Pete corrections, old URLs redirect via verified `yat_legacy` aliases. Don't blindly restore earlier player IDs after users contribute new data; use the captured before-image rows for a reconciled rollback only if necessary.
 
 ## Deferred but required before Presto data import
+**Superseded in part (Nov 18 2026):** see `docs/presto-integration-prep.md` for
+the evidence gathered since. "Institution-scoped" was an assumption, not a fact;
+the Presto identity key and the rule for players with no clear match are
+Pete's decisions, still open. The original note follows.
+
 The PrestoSports importer must use a stable institution-scoped source identifier, match to existing YAT IDs with reviewed evidence, and quarantine ambiguous or unverified identities. It must never mint a new YAT ID merely because its name lookup failed. `findYatIdsByProvider` implements the indexed batch lookup contract, but is not itself an end-to-end Presto ingestion pipeline.
