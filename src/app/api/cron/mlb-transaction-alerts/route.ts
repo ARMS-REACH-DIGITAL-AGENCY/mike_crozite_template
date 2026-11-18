@@ -160,7 +160,8 @@ async function getRecipients(playerId: string): Promise<RecipientRow[]> {
       COALESCE(NULLIF(trim(up.arms_contact_id), ''), NULLIF(trim(uf.arms_contact_id), '')) AS arms_contact_id
     FROM public.user_favorites uf
     JOIN public.user_profiles up ON up.firebase_uid = uf.firebase_uid
-    WHERE uf.playerid::text = $1
+    -- Fans who favorited any card of this person (YAT key step 4).
+    WHERE uf.yatid = public.yat_id_for($1::text)
       AND NULLIF(trim(up.email), '') IS NOT NULL
       AND (
         (up.stripe_subscription_id IS NOT NULL

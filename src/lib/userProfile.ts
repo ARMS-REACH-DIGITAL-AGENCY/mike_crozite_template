@@ -220,8 +220,12 @@ export async function saveFavorite(
   opts: { armsContactId?: string | null; schoolId?: string | null } = {}
 ): Promise<{ created: boolean }> {
   const res = await query<{ id: number }>(
+    // One person, one favorite (YAT key step 4, Pete, Nov 18 2026): a fan who
+    // already favorited this person on another of his cards is not saved twice.
     `INSERT INTO user_favorites (firebase_uid, arms_contact_id, playerid, hsid)
-     VALUES ($1, $2, $3, $4)
+     SELECT $1, $2, $3, $4
+      WHERE NOT EXISTS (SELECT 1 FROM user_favorites done
+                         WHERE done.firebase_uid = $1 AND done.yatid = public.yat_id_for($3::text))
      ON CONFLICT (firebase_uid, playerid) DO NOTHING
      RETURNING id`,
     [firebaseUid, opts.armsContactId ?? null, playerId, opts.schoolId ?? null]
@@ -244,7 +248,10 @@ export async function removeFavorite(
   playerId: string
 ): Promise<{ deleted: boolean }> {
   const res = await query(
-    'DELETE FROM user_favorites WHERE firebase_uid = $1 AND playerid = $2',
+    // Removing a person from any of his cards removes him (YAT key step 4).
+    `DELETE FROM user_favorites
+      WHERE firebase_uid = $1
+        AND (playerid = $2 OR yatid = public.yat_id_for($2::text))`,
     [firebaseUid, playerId]
   );
   return { deleted: (res.rowCount ?? 0) > 0 };
