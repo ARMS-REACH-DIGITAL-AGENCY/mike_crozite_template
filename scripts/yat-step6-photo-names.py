@@ -9,8 +9,10 @@ comes from public.yat_id_for(), the same lookup the database uses everywhere.
 MODE=report (default): read-only. Lists the bucket, looks up every name, and
   writes a summary plus plan.csv (one line per file: old key, new key, status).
 MODE=copy: copies ONLY the files of the players named in ONLY_IDS (old numbers
-  or YAT IDs, comma-separated). A copy is never made over an existing file,
-  and no original is ever deleted or changed.
+  or YAT IDs, comma-separated).
+MODE=copy_all: copies every file with status "copy" (Pete's yes, Nov 18 2026).
+In both copy modes a copy is never made over an existing file, and no
+original is ever deleted or changed.
 
 Statuses:
   copy        - new name is free; will be copied
@@ -60,8 +62,8 @@ def split_key(key):
     return parts[1], m.group(1), rest
 
 def main():
-    if MODE not in ("report", "copy"):
-        sys.exit(f"MODE must be report or copy, not {MODE}")
+    if MODE not in ("report", "copy", "copy_all"):
+        sys.exit(f"MODE must be report, copy or copy_all, not {MODE}")
     if MODE == "copy" and not ONLY:
         sys.exit("MODE=copy needs ONLY_IDS (a small sample); a full copy is a later, separate approval.")
     s3 = boto3.client("s3")
@@ -138,23 +140,39 @@ def main():
             for r in sample:
                 print(f"- `{r[0]}` -> `{r[1] or '-'}`")
 
-    if MODE == "copy":
-        want = {i for i in ONLY} | {yat.get(i) for i in ONLY if yat.get(i)}
-        done = 0
-        print("\n**Copies made (originals untouched):**\n")
-        for k, new, st in rows:
-            p = parsed[k]
-            if st != "copy" or not p or (p[1] not in want and yat.get(p[1]) not in want):
-                continue
+    if MODE in ("copy", "copy_all"):
+        want = set(ONLY) | {yat.get(i) for i in ONLY if yat.get(i)}
+        todo = [(k, new) for k, new, st in rows if st == "copy" and (
+            MODE == "copy_all" or parsed[k][1] in want or yat.get(parsed[k][1]) in want)]
+
+        def copy_one(pair):
+            old_key, new_key = pair
             try:  # never write over an existing file
-                s3.head_object(Bucket=BUCKET, Key=new); continue
-            except ClientError:
-                pass
-            s3.copy_object(Bucket=BUCKET, Key=new, CopySource={"Bucket": BUCKET, "Key": k},
-                           MetadataDirective="COPY")
-            done += 1
-            print(f"- `{k}` -> `{new}`")
-        print(f"\n{done} files copied.")
+                s3.head_object(Bucket=BUCKET, Key=new_key)
+                return "skipped_exists"
+            except ClientError as e:
+                if e.response.get("Error", {}).get("Code") not in ("404", "NoSuchKey", "NotFound"):
+                    return "error: " + str(e)
+            try:
+                s3.copy_object(Bucket=BUCKET, Key=new_key, CopySource={"Bucket": BUCKET, "Key": old_key},
+                               MetadataDirective="COPY")
+                return "copied"
+            except ClientError as e:
+                return "error: " + str(e)
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            results = list(pool.map(copy_one, todo))
+        outcome = Counter(r if not r.startswith("error") else "error" for r in results)
+        with open("copied.csv", "w", newline="") as f:
+            w = csv.writer(f); w.writerow(["old_key", "new_key", "result"])
+            w.writerows([a, b, r] for (a, b), r in zip(todo, results))
+        print(f"\n**Copy ({MODE}), originals untouched:** " + ", ".join(f"{k}: {v:,}" for k, v in sorted(outcome.items())))
+        for (a, b), r in zip(todo, results):
+            if r.startswith("error"):
+                print(f"- `{a}` -> `{b}`: {r}")
+        if outcome.get("error"):
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
