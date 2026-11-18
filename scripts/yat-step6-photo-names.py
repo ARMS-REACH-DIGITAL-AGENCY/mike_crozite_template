@@ -17,7 +17,8 @@ Statuses:
   already_yat - the file is already named by its YAT ID
   exists      - a file with the new name already exists (left alone; listed)
   clash       - two old numbers of the SAME person have a file with the same
-                new name in the same folder (left alone; Pete decides)
+                new name in the same folder; the file of the number his card
+                is under now is copied, the other is left alone
   no_yat_id   - the number has no YAT ID (left alone; listed)
   not_player  - the file name has no player part (left alone)
 """
@@ -89,11 +90,20 @@ def main():
             rows.append([k, new, "already_yat"]); continue
         targets[new].add(k)
         rows.append([k, new, "copy"])
+    # Two old numbers of one person with a file of the same new name: the file
+    # of the number his card is under now wins (Gary Legumina, YAT058185: card
+    # 137905, Pete's newer upload; the old YAT000103 file stays as it is).
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn, conn.cursor() as cur:
+        cur.execute("SET TRANSACTION READ ONLY")
+        cur.execute("SELECT DISTINCT playerid::text FROM public.flip_card_front_stage WHERE playerid::text = ANY(%s)", (ids,))
+        on_card = {r[0] for r in cur.fetchall()}
     for r in rows:
         if r[2] == "copy":
-            if len(targets[r[1]]) > 1:
-                r[2] = "clash"
-            elif r[1] in existing:
+            olds = targets[r[1]]
+            if len(olds) > 1:
+                winners = [k for k in olds if parsed[k][1] in on_card]
+                r[2] = "copy" if winners == [r[0]] else "clash"
+            if r[2] == "copy" and r[1] in existing:
                 r[2] = "exists"
 
     with open("plan.csv", "w", newline="") as f:
