@@ -34,8 +34,9 @@ export default async function WhereYatProfilePanel({ playerId, hsid, name }: { p
     const { rows } = await query<AlumniUpdate>(
       `SELECT id, display_name, location_city, location_state, occupation, company_name, business_website,
         linkedin_url, instagram_url, facebook_url, x_url, story, photo_key, photo_url, company_logo_url, retirement_year, favorite_hs_memory, favorite_post_hs_memory, family_life, business_message,business_offer,business_contact_email,business_contact_phone,business_public_opt_in,life_photos_json,memory_photos_json
-       FROM public.alumni_where_yat_now WHERE playerid=$1 AND hsid=$2 AND status='approved'
-       ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId, hsid]);
+       FROM public.alumni_where_yat_now WHERE yatid=public.yat_id_for($1::text) AND status='approved'
+       -- One person's life story on every card; his entry for this school first (YAT key step 4).
+       ORDER BY (hsid::text=$2::text) DESC, reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`, [playerId, hsid]);
     entry = rows[0] || null;
     const school=await query<{hsname:string}>('SELECT hsname FROM public.school_success WHERE hsid::text=$1 LIMIT 1',[hsid]);
     schoolName=school.rows[0]?.hsname||schoolName;

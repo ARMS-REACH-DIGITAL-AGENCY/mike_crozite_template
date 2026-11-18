@@ -102,7 +102,8 @@ export function stripe(): Stripe {
 // ---------------------------------------------------------------------------
 
 export async function getVideoPlayer(playerid: string): Promise<VideoPlayer | null> {
-  const { rows } = await query<VideoPlayer>(`SELECT * FROM public.connect_video_players WHERE playerid = $1`, [playerid]);
+  // One person, every card (YAT key step 4): this card's own record first.
+  const { rows } = await query<VideoPlayer>(`SELECT * FROM public.connect_video_players WHERE yatid = public.yat_id_for($1::text) ORDER BY (playerid = $1) DESC LIMIT 1`, [playerid]);
   return rows[0] || null;
 }
 

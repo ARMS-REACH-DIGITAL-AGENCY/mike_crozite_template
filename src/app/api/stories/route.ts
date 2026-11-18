@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
               m.contributor_role,
               (m.image_data_url LIKE 'data:image/jpeg;base64,%') AS legacy_photo
          FROM player_moment_submissions m
-         JOIN player_moment_players me ON me.moment_id = m.id AND me.playerid = $1
+         JOIN player_moment_players me ON me.moment_id = m.id AND me.yatid = public.yat_id_for($1::text) -- one person, every card (YAT key step 4)
         WHERE m.status = 'live'
           AND COALESCE(m.is_private, false) = false
         ORDER BY m.created_at DESC, m.id DESC
