@@ -10,6 +10,12 @@ on:
   schedule:
     - cron: "0 */3 * * *"
 
+# One roster sync at a time; MLB Transactions Sync can start one every 15
+# minutes, so at most one more waits and newer requests replace it.
+concurrency:
+  group: mlb-roster-sync
+  cancel-in-progress: false
+
 jobs:
   sync-mlb-rosters:
     if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')

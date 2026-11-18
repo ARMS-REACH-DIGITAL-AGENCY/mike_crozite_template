@@ -18,6 +18,11 @@ jobs:
   sync-mlb-transactions:
     runs-on: ubuntu-latest
 
+    # Needed only to start the MLB Roster Sync (last step).
+    permissions:
+      contents: read
+      actions: write
+
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
@@ -76,3 +81,21 @@ jobs:
         # last authoritative transactions already stored in Neon.
         if: ${{ !cancelled() }}
         run: npx tsx ./scripts/apply-mlb-transaction-status.ts
+
+      # Pete, Nov 18 2026 (CLAUDE.md "The MLB feed is the authority"): a new MLB
+      # move must reach the card right away, not at the next roster sync hours
+      # later. The roster sync reads each player's current team and status from
+      # MLB itself; start it whenever a move for a card player arrived after
+      # its last completed run. Its concurrency group keeps at most one waiting.
+      - name: Start the roster sync when new MLB moves arrived
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          moves=$(npx tsx ./scripts/mlb-moves-since-roster-sync.ts)
+          if [ "${moves:-0}" -gt 0 ]; then
+            gh workflow run mlb_roster-sync.yml --repo "$GITHUB_REPOSITORY" --ref Easter-NEWS
+            echo "Started MLB Roster Sync for $moves new move(s)."
+          else
+            echo "No new MLB moves since the last roster sync."
+          fi

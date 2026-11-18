@@ -5,6 +5,13 @@
   the source's own website. Dig first and say where each fact came from. If it
   is still unknown or undecided, ask Pete. He decides how it works. Take no
   action (code, data, merges, outside services) without Pete's approval.
+- **The MLB feed is the authority (Pete, Nov 18 2026).** For every MLB
+  organization and its affiliates, a card shows exactly what MLB's own data
+  says (MLB Stats API: transactions and rosters). The newest MLB transaction
+  always replaces an older published one; nothing we infer overrides MLB.
+  Example: Nov 17 2026, "Cleveland Guardians selected the contract of C Kody
+  Huff from Columbus Clippers": his card shows Cleveland Guardians, MLB, 40-man
+  until MLB publishes a newer move (e.g. optioned to Columbus).
 - **Bracket live test (Oct 2026):** before changing anything in the bracket
   code (`src/components/bracket/`, `src/lib/bracket/`) or on any
   `test/bracket-*` branch, read `docs/bracket-live-test-2026.md`. It holds the
@@ -59,10 +66,24 @@
   player has no team: no team and no organization on the card or profile,
   and both show his HIGHEST level. A FREE AGENT is treated like RETIRED on
   the card, without the RETIRED label. A released player stays FREE AGENT for
-  one year, unless an official retirement notice comes first. A player
-  released by an MLB organization who then plays INDY / INTERNATIONAL ball is
-  ACTIVE with that team. Every other status shows the level he actually
-  plays. Do not infer other status rules: Pete sets them.
+  one year, unless an official retirement notice comes first. Every other
+  status shows the level he actually plays. Do not infer other status rules:
+  Pete sets them.
+- **Released, then INDY / INTERNATIONAL (Pete, Nov 18 2026).** MLB stops
+  reporting a player once he is released, so dated evidence of where he plays
+  next wins over MLB's last note. When MLB releases a player on date R, his
+  card shows FREE AGENT from R. Any of these, dated AFTER R, makes him ACTIVE
+  with that team (team, league as organization, INDY or INTERNATIONAL level,
+  all from `teamid_universe_mapping`): he is on that team's roster in our
+  INDY / INTERNATIONAL feeds, he has a game line for that team, or a signing
+  with that team is published. Evidence dated before R never counts (Max
+  Viera, 229807: his High Point games came before his Nov 13 release, so he
+  is FREE AGENT). He stays ACTIVE through the offseason while he is on that
+  roster, and goes back to FREE AGENT if that team releases him or he drops
+  off its roster. A newer MLB move always takes over again. The one-year
+  clock to RETIRED starts at his latest evidence (release, last roster
+  appearance or last game). Checked whenever INDY / INTERNATIONAL data or MLB
+  transactions update.
 - **Explain every approval request first (Pete, Nov 2026).** Before any
   action that will ask Pete to approve it (a Run SQL card, a network card,
   any "Allow Claude to…" prompt), first tell him in one plain sentence what
