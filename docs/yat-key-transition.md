@@ -236,6 +236,20 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 8 groundwork, school audit (test copy).
+  `tbc_players_raw.high_school` vs `tbc_schools_raw.hs_lookup_key`: 207,472
+  of 208,703 players match exactly; 245 differ only by spacing or capitals;
+  274 "Home Schooled (--,--)"; ~630 unmatched (school missing or spelled
+  differently); 1 broken import row (player 347384); 72 lookup keys shared
+  by two hsids. The 72 pairs are TBC's own duplicates, found Nov 8 (PR #704,
+  `docs/duplicate-schools-2026-11.csv`), but #704 only changed sitemaps:
+  both hsids still have pages and the players are split (Logan County,
+  Russellville KY: 312 has 7 cards, 16107 has 6; the same 13 TBC players
+  match both). The `^` / `^^` rows in `school_success` (144 named with `^`,
+  344 with no hsid) are Pete's own markers from when he first found the
+  mismatched schools; they were never fixed because only 1,024 schools were
+  planned then. Pete: consolidate each pair to one hsid with a bridge, and
+  he will notify Gary at TBC.
 * 2026-11-18, Claude: step 7 done. The live bracket has used YAT IDs for
   rosters and game lines since Nov 13 (`d6efcbb3`), but no comparison was on
   file. Test copy: all 69 October test schools (5,547 cards), every batting
