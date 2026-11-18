@@ -3110,7 +3110,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
                 t.teamid
            from player_draft_picks d
            ${draftTeamLogoLateralSql()}
-          where d.playerid = $1
+          where d.yatid = public.yat_id_for($1::text) -- one person, every card (YAT key step 4)
           order by d.draft_year asc`,
         [stagePlayerId]
       ).catch(() => ({ rows: [] as PlayerDraftPick[] })),
@@ -3190,7 +3190,8 @@ export async function getPlayerTransactions(playerid: string, limit = 20): Promi
     const { rows } = await query(
       `SELECT *
        FROM player_transactions
-       WHERE playerid::text = $1
+       -- One person, every card (YAT key step 4).
+       WHERE yatid = public.yat_id_for($1::text)
        ORDER BY effective_date DESC NULLS LAST, created_at DESC
        LIMIT $2`,
       [playerid, limit]
