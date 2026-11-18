@@ -182,9 +182,9 @@ be undone, and nothing merges without Pete's approval.
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
-| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | In progress (Claude): profile, card back, search, favorites, news live; stories in review |
+| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | In progress (Claude): profile, card back, search, favorites, news, stories live; social in review; photos moved to step 6 |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
-| 6 | Photos to YAT-ID names | Copy each file (keep the originals); uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
+| 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
 | 8 | Card key change | `flip_card_front_stage` key per decision 1 | Full test copy | Restore | Not started; decision 1 made (YAT ID + hsid) |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
@@ -201,6 +201,11 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 4, stories live (#828). Photos: `player_photos`
+  is empty; the 138 `media_upload` yearly photos point to files named by card
+  number, so their records switch together with the files in step 6. Social
+  (branch `yat/step4-social`): a player's handles and posts read by person;
+  checked all 34 cards with social accounts on claude-test: same handles.
 * 2026-11-18, Claude: Blas Minor attended Atwater, not Merced (Pete). His
   story "Well Done Chief!" moved from Merced (1675) to Atwater (3133), live.
   It was the only story on the site filed under a school where the player

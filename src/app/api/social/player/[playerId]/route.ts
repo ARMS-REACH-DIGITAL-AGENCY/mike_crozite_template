@@ -17,7 +17,8 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ player
               p.published_at, s.handle
          FROM social_sources s
          JOIN social_posts p ON p.social_source_id = s.id
-        WHERE s.playerid = $1 AND s.platform = 'instagram' AND s.status = 'active'
+        -- One person, every card (YAT key step 4): his accounts from any card.
+        WHERE s.yatid = public.yat_id_for($1::text) AND s.platform = 'instagram' AND s.status = 'active'
           AND p.thumbnail_url IS NOT NULL
         ORDER BY p.published_at DESC NULLS LAST
         LIMIT 30`,
