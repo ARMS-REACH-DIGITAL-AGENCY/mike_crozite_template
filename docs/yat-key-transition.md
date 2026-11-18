@@ -167,8 +167,8 @@ is empty. Three folders not listed above: `players/cutouts` (357),
    (YAT ID + hsid + played/staff) that only decides where the card appears.
    (An earlier note here said "card = YAT ID + hsid"; Pete corrected it.)
    Measured Nov 18 (claude-test): 207,640 card rows for 207,638 people; only
-   two people have two rows: Madden Pezzorello (YAT000001; the extra row
-   `384172` has no school and is a known duplicate) and Greg Bordes
+   two people had two rows: Madden Pezzorello (YAT000001; the extra row
+   `384172` had no school, a leftover duplicate, deleted Nov 18) and Greg Bordes
    (YAT000073; Dobson 2623 row says RETIRED / DOUBLE-A, Hamilton 5004 row
    says COACH / HIGH SCHOOL). **PETE DECIDES:** what Bordes's one card shows.
 2. **Bracket: DECIDED (Pete, Nov 18 2026).** The bracket switches to YAT IDs
@@ -227,6 +227,10 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: on Pete's yes, deleted the leftover duplicate card row
+  `384172` (no school; Madden Pezzorello) LIVE after a test-copy run.
+  Madden keeps his one card (YAT000001, Hamilton 5004); 384172 still
+  resolves to YAT000001 in the registry. Only Greg Bordes still has two rows.
 * 2026-11-18, Claude: decision 1 corrected (Pete): one person, one card,
   keyed by YAT ID alone; his schools only decide where it appears. CLAUDE.md
   and AGENTS.md updated to match.
