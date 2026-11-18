@@ -159,11 +159,18 @@ is empty. Three folders not listed above: `players/cutouts` (357),
 
 ## 2. Decisions (all made, Nov 18 2026)
 
-1. **Card key: DECIDED (Pete, Nov 18 2026).** The person = YAT ID; a card =
-   YAT ID + hsid. Example: Greg Bordes, YAT000073, has a RETIRED player card
-   at Dobson (hsid 2623, today keyed `55184`) and a COACH card at Hamilton
-   (hsid 5004, today keyed `YAT000073`): `YAT000073 + 2623` and
-   `YAT000073 + 5004`.
+1. **Card key: DECIDED, CORRECTED (Pete, Nov 18 2026).** One person = one
+   YAT ID = ONE flip card, keyed by the YAT ID alone. A person who belongs to
+   several schools does not get several cards: his one card appears on each
+   of those school pages, the way a SuperFan's favorites gallery shows a
+   player from another school. The schools he belongs to are a separate list
+   (YAT ID + hsid + played/staff) that only decides where the card appears.
+   (An earlier note here said "card = YAT ID + hsid"; Pete corrected it.)
+   Measured Nov 18 (claude-test): 207,640 card rows for 207,638 people; only
+   two people have two rows: Madden Pezzorello (YAT000001; the extra row
+   `384172` has no school and is a known duplicate) and Greg Bordes
+   (YAT000073; Dobson 2623 row says RETIRED / DOUBLE-A, Hamilton 5004 row
+   says COACH / HIGH SCHOOL). **PETE DECIDES:** what Bordes's one card shows.
 2. **Bracket: DECIDED (Pete, Nov 18 2026).** The bracket switches to YAT IDs
    before the 2027 tournament starts (Mon Feb 1, 2027,
    `src/lib/bracket/tournamentCalendar.ts`), after steps 3-5, once the
@@ -205,7 +212,7 @@ be undone, and nothing merges without Pete's approval.
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | In progress (Claude): report + 3-player sample copy done Nov 18 (job `yat-step6-photo-names.yml`) |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
-| 8 | Card key change | `flip_card_front_stage` key per decision 1 | Full test copy | Restore | Not started; decision 1 made (YAT ID + hsid) |
+| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); a person's schools move to a separate list that decides where his card appears (decision 1) | Full test copy | Restore | Not started; decision 1 corrected Nov 18 |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
 ---
@@ -220,6 +227,9 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: decision 1 corrected (Pete): one person, one card,
+  keyed by YAT ID alone; his schools only decide where it appears. CLAUDE.md
+  and AGENTS.md updated to match.
 * 2026-11-18, Claude: step 6 full copy done (Pete's yes): 32,741 files
   copied, 0 errors (run 44364393875); a new report finds 0 left to copy.
   Spot checks: Gary Legumina's YAT photo is his newer upload; Austin
