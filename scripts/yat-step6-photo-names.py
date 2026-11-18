@@ -18,7 +18,8 @@ Statuses:
   exists      - a file with the new name already exists (left alone; listed)
   clash       - two old numbers of the SAME person have a file with the same
                 new name in the same folder; the file of the number his card
-                is under now is copied, the other is left alone
+                is under now is copied (a PHOTO_NUMBER_FIXES file comes
+                first), the other is left alone
   no_yat_id   - the number has no YAT ID (left alone; listed)
   not_player  - the file name has no player part (left alone)
 """
@@ -36,6 +37,14 @@ BUCKET = os.environ.get("YATSTATS_S3_BUCKET", "yatstats-assets")
 MODE = os.environ.get("MODE", "report")
 ONLY = {x.strip() for x in os.environ.get("ONLY_IDS", "").split(",") if x.strip()}
 PLAYER = re.compile(r"^(YAT\d{6,}|\d+)(.*)$")
+# Photo files saved under a mistyped number (Pete, Nov 18 2026): the cropped
+# HS photos without the old card frame. They become the player's YAT ID photo
+# in place of the framed file under his card number (209894 / 224784), which
+# stays in the bucket untouched.
+PHOTO_NUMBER_FIXES = {
+    "208894": "YAT100830",  # Austin Filiere, card 209894 (Hamilton 5004)
+    "234784": "YAT110490",  # Kyle Hasler, card 224784 (Hamilton 5004)
+}
 
 def split_key(key):
     """players/<folder>/<id><rest> -> (folder, id, rest) or None."""
@@ -74,6 +83,7 @@ def main():
                              ORDER BY ids.source = 'tbc' DESC LIMIT 1) END
             FROM n""", (ids,))
         yat = dict(cur.fetchall())
+    yat.update(PHOTO_NUMBER_FIXES)
 
     targets = defaultdict(set)  # new key -> old keys
     rows = []
@@ -101,7 +111,8 @@ def main():
         if r[2] == "copy":
             olds = targets[r[1]]
             if len(olds) > 1:
-                winners = [k for k in olds if parsed[k][1] in on_card]
+                winners = ([k for k in olds if parsed[k][1] in PHOTO_NUMBER_FIXES]
+                           or [k for k in olds if parsed[k][1] in on_card])
                 r[2] = "copy" if winners == [r[0]] else "clash"
             if r[2] == "copy" and r[1] in existing:
                 r[2] = "exists"
