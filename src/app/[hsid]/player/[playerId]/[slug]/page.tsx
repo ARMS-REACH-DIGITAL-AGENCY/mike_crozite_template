@@ -115,7 +115,7 @@ export async function generateMetadata({
   if (typeof search?.whereYatStory === 'string' && /^(favoriteHs|favoriteAfter|family|story|business)$/.test(search.whereYatStory)) {
     try {
       const {rows}=await query<{display_name:string;favorite_hs_memory:string|null;favorite_post_hs_memory:string|null;family_life:string|null;story:string|null;business_message:string|null;photo_url:string|null;life_photos_json:Array<{web:string}>|null}>(
-        `SELECT display_name,favorite_hs_memory,favorite_post_hs_memory,family_life,story,business_message,photo_url,life_photos_json FROM public.alumni_where_yat_now WHERE playerid=$1 AND hsid=$2 AND status='approved' ORDER BY reviewed_at DESC NULLS LAST,created_at DESC LIMIT 1`,[playerId,hsid]
+        `SELECT display_name,favorite_hs_memory,favorite_post_hs_memory,family_life,story,business_message,photo_url,life_photos_json FROM public.alumni_where_yat_now WHERE yatid=public.yat_id_for($1::text) AND status='approved' ORDER BY (hsid::text=$2::text) DESC,reviewed_at DESC NULLS LAST,created_at DESC LIMIT 1`,[playerId,hsid]
       );
       const entry=rows[0];
       if(entry){
@@ -139,8 +139,8 @@ export async function generateMetadata({
     try {
       const { rows } = await query<{ display_name: string; story: string | null }>(
         `SELECT display_name, story FROM public.alumni_where_yat_now
-         WHERE playerid=$1 AND hsid=$2 AND status='approved'
-         ORDER BY reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`,
+         WHERE yatid=public.yat_id_for($1::text) AND status='approved'
+         ORDER BY (hsid::text=$2::text) DESC, reviewed_at DESC NULLS LAST, created_at DESC LIMIT 1`,
         [playerId, hsid]
       );
       if (rows[0]) {
@@ -173,7 +173,7 @@ export async function generateMetadata({
       `SELECT m.caption, m.contributor_name, m.photo_taken_date::text AS photo_taken_date, m.photo_taken_year,
               p.s3_key, p.width, p.height, f.first_name, f.last_name
          FROM player_moment_submissions m
-         JOIN player_moment_players me ON me.moment_id = m.id AND me.playerid = $2
+         JOIN player_moment_players me ON me.moment_id = m.id AND me.yatid = public.yat_id_for($2::text)
          LEFT JOIN LATERAL (SELECT s3_key, width, height FROM player_moment_photos WHERE moment_id = m.id ORDER BY sort_order, id LIMIT 1) p ON true
          LEFT JOIN LATERAL (SELECT first_name, last_name FROM flip_card_front_stage WHERE playerid::text = $2 LIMIT 1) f ON true
         WHERE m.id = $1 AND m.status = 'live' AND COALESCE(m.is_private, false) = false`,
