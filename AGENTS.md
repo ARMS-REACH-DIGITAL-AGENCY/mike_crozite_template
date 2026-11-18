@@ -8,6 +8,9 @@ Production branch: `Easter-NEWS`. This file is authoritative for work on this re
 3. For a returning task, locate its previous PR. Compare its merge-base with *current* `Easter-NEWS`; update/rebase/merge production into it before revising or promoting. Resolve semantic conflicts and retest all affected components. A Vercel preview from four days ago is not proof today.
 4. One scoped fix per branch/PR; branches start from current `Easter-NEWS`. Avoid one-off school/player overrides. Preserve the universal shared template.
 
+## YAT ID key transition (Pete, Nov 18 2026)
+Every table, job and page moves to the YAT ID as its key before the PrestoSports API goes live. Read `docs/yat-key-transition.md` first (map, decisions, step table, progress log). Take only the next open step and mark it "In progress (agent, branch)"; one step at a time; a Neon test copy first; log your work before stopping; nothing merges without Pete's approval. Person = YAT ID; card = YAT ID + hsid. New code never adds a join on the old TBC number.
+
 ## Before merging
 - Inspect the complete diff against **current** production and explain any overlapping changes with merged work since the branch was created.
 - Run automated tests, including relevant regression contracts, and verify the latest preview deployment is READY.
