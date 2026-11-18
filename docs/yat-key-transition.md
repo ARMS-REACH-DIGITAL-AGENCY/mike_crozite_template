@@ -180,7 +180,7 @@ be undone, and nothing merges without Pete's approval.
 | 0 | Map (this file) | Nothing | - | - | Done, Nov 18 (Claude) |
 | 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | Not started; needs Pete's OK |
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
-| 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Not started |
+| 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Not started |
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Not started |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
@@ -201,6 +201,22 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 2 done on the `claude-test` copy (live data,
+  04:18 UTC). All 46 group-C tables checked (12 are empty). Every player
+  number in them is a YAT ID or attached to one, and no outside number
+  belongs to two people. Leftovers for Pete:
+  1. `player_identity_override` has one unfinished row from May 3
+     (`DJ_PLAYERID_HERE` / `MESQUITE_HSID_HERE`, DJ Barrett, "TBC wrongly
+     links him to Hamilton; correct school is Mesquite"). DJ Barrett already
+     has a Mesquite card (300720, YAT156556), so the row looks obsolete.
+  2. Three cards have no high school: 384172 (Madden Pezzorello, YAT000001;
+     his Hamilton card exists), YAT208675 (Jacopo Tamburini, from Beloit's
+     2026 roster only) and 337041 (Zachary Johnston, YAT183847; TBC's text
+     says "Hamilton (Chandler,AZ)" but there is no verified school link).
+  3. Three people carry two TBC numbers each (TBC duplicates, correctly on
+     one YAT ID): YAT040182, YAT056635, YAT057973.
+  4. Two people have two cards: YAT000073 (Greg Bordes, Dobson + Hamilton)
+     and YAT000001 (above).
 * 2026-11-18, Claude: step 1 done (CLAUDE.md + AGENTS.md point here). Next: step 0b (photo count, read-only) and step 2.
 * 2026-11-18, Claude: decisions 4-5 follow from Pete's registry rule (one person = one YAT ID; outside numbers attach to it). All decisions made.
 
