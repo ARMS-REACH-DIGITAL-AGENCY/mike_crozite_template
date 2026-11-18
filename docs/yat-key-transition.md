@@ -182,7 +182,7 @@ be undone, and nothing merges without Pete's approval.
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
-| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | In progress (Claude): profile, card back, search live; favorites in review |
+| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | In progress (Claude): profile, card back, search, favorites live; news in review |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
@@ -201,6 +201,12 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 4, favorites live (#826). News (branch
+  `yat/step4-news`): a school's feed shows stories about every player with a
+  card there; news tags count by person. Checked all 861 schools with news on
+  claude-test: 0 stories lost, 2 added (Greg Bordes's story at Dobson; Blas
+  Minor's "Well Done Chief!" at Atwater, his only card's school; the story is
+  filed under Merced, which keeps it - Pete to decide if Merced is right).
 * 2026-11-18, Claude: step 4, search live (#825; checked all 207,883
   TBC player/school pairs: 1 changed, Greg Bordes's Dobson row now opens his
   Dobson card). Favorites (branch `yat/step4-favorites`): a favorite is a
