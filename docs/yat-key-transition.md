@@ -182,7 +182,7 @@ be undone, and nothing merges without Pete's approval.
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
-| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | In progress (Claude): profile (#822) and card back (#824) live; search in review |
+| 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | In progress (Claude): profile, card back, search live; favorites in review |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Not started |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
@@ -201,6 +201,12 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 4, search live (#825; checked all 207,883
+  TBC player/school pairs: 1 changed, Greg Bordes's Dobson row now opens his
+  Dobson card). Favorites (branch `yat/step4-favorites`): a favorite is a
+  person; hearts light on every card of a favorited person; removing him from
+  any card removes him; MLB alerts reach fans of any of his cards. Checked on
+  claude-test with Greg Bordes's two cards; 393 favorites, none duplicated.
 * 2026-11-18, Claude: step 4, card back live (#824). Search (branch
   `yat/step4-search`): one result per person (de-duplicated by YAT ID);
   duplicate TBC numbers open the person's card through the registry, no

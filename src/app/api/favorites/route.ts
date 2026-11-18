@@ -71,7 +71,9 @@ async function saveFavoriteWithoutSequence(
            playerid,
            hsid
          )
-         VALUES ($1, $2, $3, $4, $5)
+         SELECT $1, $2, $3, $4, $5
+          WHERE NOT EXISTS (SELECT 1 FROM public.user_favorites done
+                             WHERE done.firebase_uid = $2 AND done.yatid = public.yat_id_for($4::text))
          ON CONFLICT (firebase_uid, playerid) DO NOTHING
          RETURNING id`,
         [fallbackId, firebaseUid, contactId, playerId, schoolId]
@@ -269,21 +271,22 @@ export async function GET(req: NextRequest) {
     // school-detail joins executed for the full Favorites drawer.
     if (scope === "button") {
       const favorites = await getFavorites(firebaseUid);
-      const playerIds = favorites.map((f) => String(f.playerid));
-      // Preserve legacy favorite storage while the bracket presents YAT
-      // player IDs. Resolve the entire list in one indexed stage lookup,
-      // rather than issuing one query per player or changing fan records.
-      const { rows: mapped } = playerIds.length
-        ? await query<{ yatid: string }>(
-          `SELECT DISTINCT yatid FROM public.flip_card_front_stage
-             WHERE playerid = ANY($1::text[]) AND yatid IS NOT NULL`,
-          [playerIds],
+      const savedIds = favorites.map((f) => String(f.playerid));
+      // One person, every card (YAT key step 4, Pete, Nov 18 2026): a heart is
+      // on for every card of a favorited person, so favoriting Greg Bordes on
+      // his Hamilton card also lights his Dobson card. One indexed lookup.
+      const { rows: mapped } = savedIds.length
+        ? await query<{ yatid: string; playerid: string }>(
+          `SELECT f.yatid, f.playerid::text AS playerid FROM public.flip_card_front_stage f
+             WHERE f.yatid IN (SELECT public.yat_id_for(x) FROM unnest($1::text[]) x)`,
+          [savedIds],
         )
-        : { rows: [] as { yatid: string }[] };
+        : { rows: [] as { yatid: string; playerid: string }[] };
+      const playerIds = [...new Set([...savedIds, ...mapped.map((row) => row.playerid)])];
       return NextResponse.json({
         success: true,
         playerIds,
-        yatPlayerIds: mapped.map((row) => row.yatid),
+        yatPlayerIds: mapped.map((row) => row.yatid).filter((id, i, all) => all.indexOf(id) === i),
         scope,
       });
     }
