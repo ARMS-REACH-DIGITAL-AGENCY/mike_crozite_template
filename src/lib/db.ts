@@ -237,8 +237,9 @@ export async function getPlayerSocialHandles(playerId: string): Promise<Record<s
     const { rows } = await query<{ platform: string; handle: string }>(
       `SELECT DISTINCT ON (platform) platform, handle
          FROM social_sources
-        WHERE playerid = $1 AND status = 'active' AND COALESCE(handle, '') <> ''
-        ORDER BY platform, updated_at DESC NULLS LAST`,
+        -- One person, every card (YAT key step 4): this card's own handle first.
+        WHERE yatid = public.yat_id_for($1::text) AND status = 'active' AND COALESCE(handle, '') <> ''
+        ORDER BY platform, (playerid = $1) DESC, updated_at DESC NULLS LAST`,
       [playerId]
     );
     return Object.fromEntries(rows.map((r) => [String(r.platform).toLowerCase(), String(r.handle)]));
