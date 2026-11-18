@@ -171,7 +171,14 @@ is empty. Three folders not listed above: `players/cutouts` (357),
    two people had two rows: Madden Pezzorello (YAT000001; the extra row
    `384172` had no school, a leftover duplicate, deleted Nov 18) and Greg Bordes
    (YAT000073; Dobson 2623 row says RETIRED / DOUBLE-A, Hamilton 5004 row
-   says COACH / HIGH SCHOOL). **PETE DECIDES:** what Bordes's one card shows.
+   says COACH / HIGH SCHOOL). **Decided (Pete, Nov 18):** his one card shows
+   his current status (COACH, Hamilton Huskies, HIGH SCHOOL) everywhere,
+   except on Dobson's page (a school he played for that is not his current
+   team), where it shows RETIRED with his highest level, DOUBLE-A, and no
+   team. Never a separate status such as "ALUMNUS". The page picks the view
+   from his current team ID and `player_hsids`; nothing is set by hand.
+   Step 8 merges his two rows into one card and adds Hamilton to
+   `player_hsids`.
 2. **Bracket: DECIDED (Pete, Nov 18 2026).** The bracket switches to YAT IDs
    before the 2027 tournament starts (Mon Feb 1, 2027,
    `src/lib/bracket/tournamentCalendar.ts`), after steps 3-5, once the
@@ -228,6 +235,9 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: coach-who-played rule recorded (Pete): one card,
+  current status everywhere; RETIRED + highest level on the page of a school
+  he played for that is not his current team. Added to CLAUDE.md.
 * 2026-11-18, Claude: on Pete's yes, deleted the leftover duplicate card row
   `384172` (no school; Madden Pezzorello) LIVE after a test-copy run.
   Madden keeps his one card (YAT000001, Hamilton 5004); 384172 still

@@ -43,6 +43,15 @@
   "Hamilton (Chandler,AZ)") is not proof. Examples: Greg Bordes is on
   Dobson's all-time alumni (played) and Hamilton's 2027 team (coach);
   Zachary Johnston and DJ Barrett are NOT on Hamilton (5004).
+- **A coach who once played (Pete, Nov 18 2026).** Still ONE card, showing
+  his current status as of today (e.g. COACH, Hamilton Huskies, HIGH
+  SCHOOL) everywhere, except on the page of a high school he played for
+  that is not his current team: there the same card shows his playing
+  career, RETIRED with his HIGHEST level and no team (the RETIRED rule
+  below). No other status (never "ALUMNUS"). Worked out from his current
+  team ID and `player_hsids`, never set by hand. Example: Greg Bordes
+  (YAT000073) shows COACH on Hamilton (5004) and RETIRED, DOUBLE-A on
+  Dobson (2623).
 - **YAT ID key transition (Pete, Nov 18 2026).** Every table, job and page
   moves to the YAT ID as its key before the PrestoSports API goes live. The
   map, the decisions and the step table are in `docs/yat-key-transition.md`:
