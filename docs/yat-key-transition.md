@@ -163,8 +163,9 @@ is empty. Three folders not listed above: `players/cutouts` (357),
    YAT ID = ONE flip card, keyed by the YAT ID alone. A person who belongs to
    several schools does not get several cards: his one card appears on each
    of those school pages, the way a SuperFan's favorites gallery shows a
-   player from another school. The schools he belongs to are a separate list
-   (YAT ID + hsid + played/staff) that only decides where the card appears.
+   player from another school. Which school pages show his card comes from
+   the list we already have, `player_hsids` (one row per player and school,
+   207,883 rows), re-keyed to the YAT ID in step 8. Nothing new is built.
    (An earlier note here said "card = YAT ID + hsid"; Pete corrected it.)
    Measured Nov 18 (claude-test): 207,640 card rows for 207,638 people; only
    two people had two rows: Madden Pezzorello (YAT000001; the extra row
@@ -212,7 +213,7 @@ be undone, and nothing merges without Pete's approval.
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | In progress (Claude): report + 3-player sample copy done Nov 18 (job `yat-step6-photo-names.yml`) |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
-| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); a person's schools move to a separate list that decides where his card appears (decision 1) | Full test copy | Restore | Not started; decision 1 corrected Nov 18 |
+| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | Not started; decision 1 corrected Nov 18 |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
 ---

@@ -48,8 +48,8 @@
   map, the decisions and the step table are in `docs/yat-key-transition.md`:
   read it before touching player identity, card keys, photos or the bracket.
   Take only the next open step, mark it in progress, one step at a time, test
-  copy first, nothing merges without Pete. Person = YAT ID = one card; his
-  schools are a list of where that card appears. New code never adds a join
+  copy first, nothing merges without Pete. Person = YAT ID = one card;
+  `player_hsids` says which school pages show it. New code never adds a join
   on the old TBC number.
 - **YAT? Baseball Registry (Pete, Nov 2026).** Every player is one person
   with a YAT ID (`YAT` + 6 digits) in `yat_registry`. The YAT ID is ours;
