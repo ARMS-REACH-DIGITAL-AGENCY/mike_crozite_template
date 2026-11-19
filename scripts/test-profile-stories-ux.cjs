@@ -18,9 +18,10 @@ assert.ok(positions.every((n,i) => n >= 0 && (i === 0 || n > positions[i-1])), '
 assert.match(jsx,/openStoryDrawer\(\{ playerId, year: null \}, storyOpenOwner\)/,'Story toolbar opens real player-scoped upload drawer');
 assert.doesNotMatch(jsx,/>\s*Teammates\s*</i,'No visible Teammates label');
 assert.doesNotMatch(bar,/yat-profile-memory-cta|openStoryDrawer/,'Upload CTA does not return to school header');
-assert.match(timeline,/webCutoutUrl\('then', playerId\)/,'Primary HS front cutout retained');
+// YAT key step 6: photo files are named by the YAT ID (photo), not the card id.
+assert.match(timeline,/webCutoutUrl\('then', photo\)/,'Primary HS front cutout retained');
 // Current cutout source is the API-backed transparent action image, not the retired webCutoutUrl('back') path.
-assert.match(timeline,/apiCutoutUrl\('back', playerId\)/,'Secondary image prefers action cutout');
+assert.match(timeline,/apiCutoutUrl\('back', photo\)/,'Secondary image prefers action cutout');
 assert.match(timeline,/players\/back-card\//,'Falls back to actual card-back action photo');
 assert.match(timeline,/players\/back\//,'Falls back to original action photo');
 assert.match(timeline,/fallbackAt=\{4\}/,'Headshot only after 4 back photo sources');
