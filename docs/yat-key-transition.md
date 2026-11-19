@@ -236,6 +236,20 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-19, Claude: players placed by school name
+  (`migrations/20261119_yat_step8_school_key_links.sql`, tested on
+  claude-test, not live). `tbc_players_raw.high_school` is TBC's current
+  school name; 290 names (594 players) matched no `hs_lookup_key` because
+  TBC renamed or added schools after we loaded `tbc_schools_raw` (TBC has
+  hsid 19602 Port Washington; our copy ends near 19500). Pete checked the
+  top 20 on thebaseballcube.com: 14 added to `school_source_keys` (225
+  players). player_hsids did not read `school_key_match` links, so those
+  players (and the 274 Home Schooled) never got a card from the nightly
+  job; it reads them now, and triggers keep the links current when
+  `school_source_keys` or `tbc_players_raw` change. TBC's own links
+  unchanged (fingerprint identical). Open: Home Schooled 15322 is in
+  neither `tbc_schools_raw` nor `school_success`; none of the 14 schools
+  has a `microsite_url` (9966 Langley has no `school_success` row).
 * 2026-11-19, Claude: school links live (#835; live player_hsids fingerprint
   identical before/after). Found the school page builds its galleries from
   `flip_card_front_stage` (cards by hsid, any source); player_hsids only adds
