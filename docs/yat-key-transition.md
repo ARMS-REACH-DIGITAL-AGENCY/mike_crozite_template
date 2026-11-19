@@ -236,6 +236,14 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-19, Claude: school links live (#835; live player_hsids fingerprint
+  identical before/after). Found the school page builds its galleries from
+  `flip_card_front_stage` (cards by hsid, any source); player_hsids only adds
+  TBC stats and TBC alumni without a card, so non-TBC players already appear.
+  Step 8 guard: `migrations/20261119_yat_step8_one_card_per_person.sql`: a
+  card insert for a YAT ID that already has a card goes to
+  `card_identity_holds`, no second card; existing card numbers untouched.
+  Tested on claude-test. Bordes's two rows left as they are (Pete).
 * 2026-11-18, Claude: step 8 groundwork built and tested on claude-test
   (`migrations/20261118_yat_step8_school_links.sql`, Pete: "make the quick
   easy fixes and resolve player_hsids"). player_hsids is no longer built
