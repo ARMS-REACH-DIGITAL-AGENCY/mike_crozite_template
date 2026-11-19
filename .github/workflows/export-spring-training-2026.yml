@@ -6,6 +6,11 @@ name: Export Spring Training 2026 (bracket simulator)
 
 on:
   workflow_dispatch:
+    inputs:
+      save:
+        description: "Also save spring_bat.csv / spring_pit.csv to this branch (sim-data/2026)"
+        type: boolean
+        default: false
   pull_request:
     paths:
       - scripts/export-spring-training-2026.ts
@@ -14,6 +19,8 @@ on:
 jobs:
   export-spring-training:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -34,3 +41,16 @@ jobs:
 
       - name: Export spring training lines
         run: npx tsx ./scripts/export-spring-training-2026.ts
+        env:
+          SPRING_OUT: ${{ inputs.save && 'sim-data/2026' || '' }}
+
+      # Only by hand, with "save" on: the two files go to the branch the run
+      # was started on (never Easter-NEWS), for the 2026 bracket simulation.
+      - name: Save the files to this branch
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.save && github.ref != 'refs/heads/Easter-NEWS' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sim-data/2026/spring_bat.csv sim-data/2026/spring_pit.csv
+          git commit -m "Data: 2026 MLB spring training lines (export-spring-training-2026)"
+          git push origin HEAD:${{ github.ref_name }}

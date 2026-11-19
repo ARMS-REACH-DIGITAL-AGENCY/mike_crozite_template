@@ -12,6 +12,8 @@
 
 import { Pool } from 'pg';
 import { gzipSync } from 'node:zlib';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -48,7 +50,8 @@ async function gameLog(personId: string, group: 'hitting' | 'pitching'): Promise
 async function main() {
   const { rows: players } = await pool.query<{ playerid: string; person_id: string; hsid: string }>(
     // YAT key step 9: MLB links from the YAT Registry, to his card by YAT ID.
-    `SELECT DISTINCT f.playerid::text AS playerid, m.mlb_id AS person_id, f.hsid::text AS hsid
+    // playerid = the person's YAT ID (the simulator's player key).
+    `SELECT DISTINCT m.yatid AS playerid, m.mlb_id AS person_id, f.hsid::text AS hsid
        FROM public.yat_mlb_links m
        JOIN public.flip_card_front_stage f ON f.yatid = m.yatid AND f.hsid::text ~ '^\\d+$'`
   );
@@ -77,6 +80,15 @@ async function main() {
 
   const dates = [...bat, ...pit].map((l) => l.split(',')[2]).sort();
   console.log(`Players with spring games: ${withGames}; batting lines ${bat.length}; pitching lines ${pit.length}; dates ${dates[0]} to ${dates[dates.length - 1]}`);
+
+  // With SPRING_OUT=<dir>: also the simulator's spring_bat.csv / spring_pit.csv.
+  const out = process.env.SPRING_OUT;
+  if (out) {
+    mkdirSync(out, { recursive: true });
+    writeFileSync(join(out, 'spring_bat.csv'), ['playerid,hsid,date,level,teamid,pa,ab,h,d2,d3,hr,bb,hbp,sf', ...bat].join('\n') + '\n');
+    writeFileSync(join(out, 'spring_pit.csv'), ['playerid,hsid,date,level,teamid,outs,bf,hr,bb,hbp,so,er,h', ...pit].join('\n') + '\n');
+    console.log(`Wrote ${out}/spring_bat.csv and spring_pit.csv`);
+  }
 
   const payload = gzipSync(Buffer.from(JSON.stringify({ bat: bat.join('\n'), pit: pit.join('\n') }))).toString('base64');
   console.log('BEGIN_SPRING_DATA');
