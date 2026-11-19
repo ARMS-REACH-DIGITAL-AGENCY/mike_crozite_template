@@ -106,7 +106,8 @@ function mirrorRow3(k:Key){
     a.setAttribute('aria-label',card.dataset.name||'');
     a.innerHTML='<div class="gallery-slot-media"><img class="gallery-slot-img" alt=""><div class="gallery-slot-gradient"></div><div class="gallery-slot-name-overlay"></div></div>';
     const image=a.querySelector<HTMLImageElement>('.gallery-slot-img');
-    if(image){image.src=getPlayerHeadshotSources(id,card.dataset.thumbnailNow)[0];syncPlayerHeadshot(image,id,card.dataset.thumbnailNow);}
+    const photoId=card.dataset.photoId||id;
+    if(image){image.src=getPlayerHeadshotSources(photoId,card.dataset.thumbnailNow)[0];syncPlayerHeadshot(image,photoId,card.dataset.thumbnailNow);}
     a.querySelector('.gallery-slot-name-overlay')!.textContent=last(card).toUpperCase();
     inner.appendChild(a);
   });

@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNewsByHsid, getNewsByPlayer } from '@/lib/db';
 import { chooseNewsDisplayImage } from '@/lib/playerImage';
+import { getPlayerPhotoIds } from '@/lib/playerPhotoIds';
 import { publicNewsHeadline, parseNewsVideo } from '@/lib/newsVideo';
 
 export const runtime = 'nodejs';
@@ -73,7 +74,12 @@ export async function GET(
       articles = await getNewsByHsid(hsid, limit, offset);
     }
 
+    // Photo files are named by the YAT ID (YAT key step 6).
+    const photoIds = await getPlayerPhotoIds(
+      articles.map((row) => String(row.associated_playerid ?? row.playerid ?? '')),
+    ).catch(() => new Map<string, string>());
     const posts = articles.map((row) => {
+      const cardId = String(row.associated_playerid ?? row.playerid ?? '');
       const teaser = row.tease_json ?? null;
       const galleryFront = row.gallery_front_json ?? null;
       const galleryBack = row.gallery_back_json ?? null;
@@ -102,7 +108,7 @@ export async function GET(
         // Use publisher photography only when explicitly approved or when
         // article identity + a distinctive player-matching filename agree.
         imageUrl: chooseNewsDisplayImage({
-          playerId: row.associated_playerid ?? row.playerid,
+          playerId: photoIds.get(cardId) || cardId,
           playerName: row.associated_player_name ?? row.player_name,
           displayImageUrl: row.display_image_url,
           sourceImageUrl: row.image_url,
@@ -118,6 +124,7 @@ export async function GET(
 
         playerName: row.associated_player_name ?? row.player_name ?? null,
         playerId: row.associated_playerid ?? row.playerid ?? null,
+        photoId: cardId ? (photoIds.get(cardId) || cardId) : null,
         taggedPlayers: row.tagged_players ?? [],
         taggedStory: Boolean(row.tagged_to_school || row.tagged_to_player),
         originalPlayerName: row.player_name ?? null,

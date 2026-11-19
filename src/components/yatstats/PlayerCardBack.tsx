@@ -27,6 +27,7 @@ import { fmt, parseDraft } from "@/lib/playerUtils";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
 import { familyEvidence, orderByPrimaryStatFamily, primaryStatFamily } from "@/lib/flipCardStatSelection";
+import { playerPhotoId } from "@/lib/playerImage";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
@@ -293,6 +294,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
         <div className="yat-back-inner">
           <PlayerCardBackHero
             playerId={imageId}
+            photoId={playerPhotoId(p.yatid, imageId)}
             displayName={displayName}
             profileHref={profileHref}
             teamName={display.teamName}

@@ -3,7 +3,7 @@
 
 import { gradClassInfo, varsityDots, normalizeOrg } from "@/lib/playerUtils";
 import { resolvePlayerDisplay } from "@/lib/playerDisplay";
-import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import { getPlayerNowThumbUrl, getPlayerThenCardUrl, getTeamLogoUrl, getThenSilhouetteUrl, playerPhotoId } from "@/lib/playerImage";
 import { getSchoolCrestUrl, CREST_FALLBACK_PATH } from "@/lib/schoolAssets";
 import { toPlayerSlug } from "@/lib/slug";
 import PlayerCardFront from "@/components/yatstats/PlayerCardFront";
@@ -156,6 +156,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   const careerStats = buildCareerStats(p);
   const careerStatsAttr = Object.keys(careerStats).length ? JSON.stringify(careerStats) : undefined;
   const playerId = String(p.playerid || "");
+  const photoId = playerPhotoId(p.yatid, playerId);
 
   // Block 3 mirrors Block 5 while using section-specific artwork:
   // active = current headshot, all-time = HS-era card front,
@@ -165,8 +166,8 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
   // falls back to the originals via getOriginalForCardCopy. The "then"
   // thumbnail is the same file as the card front's photo, so the browser
   // downloads it once for both.
-  const nowThumbnailUrl = imageText(headshotUrl) || getPlayerNowThumbUrl(encodeURIComponent(playerId));
-  const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenCardUrl(playerId);
+  const nowThumbnailUrl = imageText(headshotUrl) || getPlayerNowThumbUrl(encodeURIComponent(photoId));
+  const thenThumbnailUrl = imageText(frontImageUrl) || getPlayerThenCardUrl(photoId);
   const thenSilhouetteUrl = getThenSilhouetteUrl({
     isPitcher: p.is_pitcher,
     position: p.position,
@@ -190,6 +191,7 @@ export default function PlayerCard({ player: p, resolvedHsid, frontImageUrl = nu
       className="yat-card"
       data-name={`${String(p.firstname || p.first_name || "")} ${String(p.lastname || p.last_name || "")}`.toLowerCase()}
       data-playerid={playerId}
+      data-photo-id={photoId}
       data-level={lvl}
       data-org={org}
       data-gradclass={gc}

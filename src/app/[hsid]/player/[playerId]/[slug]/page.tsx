@@ -373,7 +373,8 @@ export default async function ProfilePage({ params }: Props) {
     recap: row.tagged_to_player ? null : playerCentricRecap(row),
     whyLocal: row.gallery_back_json?.why_local ?? null,
     imageUrl: chooseNewsDisplayImage({
-      playerId: row.associated_playerid ?? row.playerid,
+      // His own photo files are named by his YAT ID (step 6).
+      playerId: String(row.associated_playerid ?? row.playerid ?? '') === String(safePlayerId) ? personId : (row.associated_playerid ?? row.playerid),
       playerName: row.associated_player_name || playerNewsFullName,
       displayImageUrl: row.display_image_url,
       sourceImageUrl: row.image_url,
@@ -382,6 +383,7 @@ export default async function ProfilePage({ params }: Props) {
     }),
     newsworthiness: String(row.newsworthiness || "NORMAL").toUpperCase(),
     playerId: safePlayerId,
+    photoId: personId,
     playerName: playerNewsFullName,
     tease:
       row.tease_json?.body ??
@@ -1064,7 +1066,7 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-news" className="pp-fz-panel">
           <div className="yp-profile-partner-columns">
             <div className="yp-profile-partner-body">
-              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} playerName={playerNewsFullName} hsid={hsid} />
+              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} photoId={personId} playerName={playerNewsFullName} hsid={hsid} />
               <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
                 <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>

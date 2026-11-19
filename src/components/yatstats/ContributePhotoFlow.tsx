@@ -1,4 +1,5 @@
 'use client';
+import { playerPhotoId } from '@/lib/playerImage';
 import { teamLogoPath } from '@/lib/teamLogo';
 import { refreshPublishedTeamLogo } from '@/lib/teamLogoRefresh';
 
@@ -793,7 +794,7 @@ export default function ContributePhotoFlow({
                   {tagged.map((t, i) => (
                     <span className={`ypf-tag${i === 0 ? ' is-main' : ''}`} key={t.playerId}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`${S3}/players/now/${encodeURIComponent(t.playerId)}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
+                      <img src={`${S3}/players/now/${encodeURIComponent(playerPhotoId((t as { yatId?: string | null }).yatId, t.playerId))}.jpg`} alt="" onError={(e) => { e.currentTarget.src = '/img/headshot-silhouette.png'; }} />
                       <span><b>{t.displayName}</b>{i === 0 ? <small>Main player</small> : <button type="button" className="ycd-link" onClick={() => makeMain(t.playerId)}>Make main</button>}</span>
                       <button type="button" className="ypf-tag-x" onClick={() => removeTag(t.playerId)} aria-label={`Remove ${t.displayName}`}>×</button>
                     </span>

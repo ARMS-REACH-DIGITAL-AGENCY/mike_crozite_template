@@ -32,6 +32,8 @@ type NewsPost = {
   imageUrl: string | null;
   publishedAt: string | null;
   playerId: string | null;
+  /** YAT key step 6: the YAT ID the photo files are named by. */
+  photoId?: string | null;
   playerName: string | null;
   originalPlayerName?: string | null;
   taggedPlayers?: Array<{playerId:string;playerName:string}>;
@@ -90,7 +92,7 @@ function NewsCard({ post, hsid }: { post: NewsPost; hsid: string }) {
     stripHtml(post.displayRecap) || "No recap available yet. Check back soon for the local alumni angle!",
     80
   );
-  const photoSrcs = getNewsPhotoSrcs(post.playerId, post.imageUrl);
+  const photoSrcs = getNewsPhotoSrcs(post.photoId || post.playerId, post.imageUrl);
   const years = Array.isArray(post.rosterYears) && post.rosterYears.length ? post.rosterYears.slice(0, 4) : [];
   const playerHref =
     post.playerId && name
@@ -412,6 +414,7 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
     newsworthiness: post.newsworthiness || 'STANDARD',
     tease: limitWords(stripHtml(post.displayRecap || post.displayWhyLocal) || '', 43),
     playerId: post.playerId,
+    photoId: post.photoId ?? null,
     playerName: post.playerName,
   }));
 

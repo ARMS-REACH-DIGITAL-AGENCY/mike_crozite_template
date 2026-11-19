@@ -6,7 +6,7 @@ import { toPlayerSlug } from "@/lib/slug";
 import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE } from "@/lib/playerStageIdentity";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
-import { getPlayerHeadshotSources } from "@/lib/playerImage";
+import { getPlayerHeadshotSources, playerPhotoId } from "@/lib/playerImage";
 
 export const runtime = "nodejs";
 
@@ -66,6 +66,7 @@ export async function GET(req: NextRequest) {
       matches as (
         select distinct on (f.playerid::text, f.hsid::text, coalesce(f.current_team_name, ''), coalesce(f.level_label, ''))
           f.playerid::text as playerid,
+          f.yatid,
           coalesce(nullif(f.first_name, ''), split_part(coalesce(f.display_name, ''), ' ', 1)) as firstname,
           coalesce(nullif(f.last_name, ''), regexp_replace(coalesce(f.display_name, ''), '^\\S+\\s*', '')) as lastname,
           f.display_name,
@@ -158,6 +159,7 @@ export async function GET(req: NextRequest) {
 
       return {
         playerId: r.playerid || "",
+        yatId: r.yatid ?? null,
         firstName,
         lastName,
         displayName,
@@ -168,7 +170,7 @@ export async function GET(req: NextRequest) {
         slug: toPlayerSlug(firstName, lastName || displayName),
         crestUrl: getSchoolCrestUrl(r.hsid),
         headshotUrl: headshots.get(String(r.playerid))?.image_url ?? "",
-        headshotSources: getPlayerHeadshotSources(String(r.playerid), headshots.get(String(r.playerid))?.image_url),
+        headshotSources: getPlayerHeadshotSources(playerPhotoId(r.yatid, r.playerid), headshots.get(String(r.playerid))?.image_url),
         micrositeUrl,
         microsite_url: micrositeUrl,
         currentTeamName: r.current_team_name || "",

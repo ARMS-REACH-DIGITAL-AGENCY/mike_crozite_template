@@ -817,7 +817,10 @@ function StoryMontage({ photos }: { photos: string[] }) {
   );
 }
 
-export default function ZoomableCareerTimeline({ playerId, variant = 'combined', preview }: { playerId: string; variant?: 'combined' | 'images' | 'line'; preview?: CareerTimelinePreview }) {
+export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'combined', preview }: { playerId: string; photoId?: string; variant?: 'combined' | 'images' | 'line'; preview?: CareerTimelinePreview }) {
+  // YAT key step 6: photo files are named by the YAT ID (playerPhotoId);
+  // playerId stays the card id for data lookups.
+  const photo = photoId || playerId;
   const isPreview = Boolean(preview);
   const nativeViewportRef = useRef<HTMLDivElement | null>(null);
   const previewScaleHostRef = useRef<HTMLDivElement | null>(null);
@@ -1253,7 +1256,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         caption: `${level}${org ? ` · ${org}` : ''}`,
         headline: statLineHeadline(row, team),
         teamLogoSrcs,
-        seasonHeroSrcs: seasonCutoutCandidates(playerId, year),
+        seasonHeroSrcs: seasonCutoutCandidates(photo, year),
         yatiFallback: yatiPlaceholderFor(seasonIndex++),
         level,
         bigStats: buildBigStats(row),
@@ -1278,7 +1281,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     const preHsUploaded: Slide[] = [];
     const postHsUploaded: Slide[] = [];
     uploads
-      .filter((item) => !isCurrentHeadshotUrl(item.image_data_url, playerId))
+      .filter((item) => !isCurrentHeadshotUrl(item.image_data_url, photo))
       .forEach((item) => {
         const rawYear = item.photo_taken_year || yearOf(item.photo_taken_date) || hsYear;
         const isPreHs = rawYear >= lifeYearStart && rawYear < hsYear;
@@ -1322,7 +1325,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         title: `Age ${year - lifeYearStart + 1}`,
         // A fan's photo for that year (Connect & Contribute: Timeline Hero
         // Image, "Age N"), else the rotating YaTi placeholder.
-        seasonHeroSrcs: seasonCutoutCandidates(playerId, year),
+        seasonHeroSrcs: seasonCutoutCandidates(photo, year),
         // Same rotating YaTi placeholder mechanism season slides already
         // fall back to when there's no real photo yet -- these 17 screens
         // never have one (pre-HS), so they always show it, not just on
@@ -1344,7 +1347,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         age: 0,
         title: 'The year it all began.',
         isEarly: true,
-        seasonHeroSrcs: seasonCutoutCandidates(playerId, year),
+        seasonHeroSrcs: seasonCutoutCandidates(photo, year),
         yatiFallback: YATI_PLACEHOLDERS[0],
       };
     });
@@ -1419,7 +1422,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
         title: pick.draft_team_name ? `Drafted by the ${pick.draft_team_name}` : 'Drafted',
         draft: pick,
         teamLogoSrcs: pick.teamid ? teamLogoCandidates({ teamid: pick.teamid } as StatRow) : [],
-        seasonHeroSrcs: seasonCutoutCandidates(playerId, Number(pick.draft_year)),
+        seasonHeroSrcs: seasonCutoutCandidates(photo, Number(pick.draft_year)),
         yatiFallback: yatiPlaceholderFor(Number(pick.draft_year)),
       }));
 
@@ -1486,7 +1489,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: Math.min(hsYear - HS_GRAD_AGE, slides[0]?.year ?? hsYear), endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, playerId, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks, coachTenure, memoryYears]);
+  }, [stats, uploads, photo, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks, coachTenure, memoryYears]);
 
   const storiesLoaded = storiesLoad.key === playerId && storiesLoad.status !== 'loading';
   const previewContextError = identityLoad.status === 'error' || statsLoad.status === 'error' || storiesLoad.status === 'error'
@@ -1509,9 +1512,9 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
     if (!playerId || isPreview) return;
     for (const kind of ['then', 'back'] as const) {
       const img = new Image();
-      img.src = webCutoutUrl(kind, playerId);
+      img.src = webCutoutUrl(kind, photo);
     }
-  }, [playerId, isPreview]);
+  }, [playerId, photo, isPreview]);
 
   // Anchor-slide entrance, once per player, per direct feedback: the HS
   // cutout always lands first (slides in from the left), and the pro
@@ -2123,7 +2126,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     (then-web/), falling back to /api/cutout, which does
                     the same trim on the fly -- the figure (not empty
                     canvas) fills its box either way. */}
-                <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[apiCutoutUrl('then', playerId), `${S3_BASE}/players/then/${encodeURIComponent(playerId)}.jpg`]} src={`${S3_BASE}/players/then/${encodeURIComponent(playerId)}.jpg`} alt={`${firstName(slide.title)} high school front-card image`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
+                <SmartImage className="zt-person zt-person-then" style={{ opacity }} srcs={[apiCutoutUrl('then', photo), `${S3_BASE}/players/then/${encodeURIComponent(photo)}.jpg`]} src={`${S3_BASE}/players/then/${encodeURIComponent(photo)}.jpg`} alt={`${firstName(slide.title)} high school front-card image`} reveal={introDone ? undefined : 'left'} onSettled={handleHsSettled} />
                 {/* The SMALL overlapping action photo is the actual flip-card
                     BACK, not the player's headshot. Prefer its transparent
                     cutout; if cutout processing is missing, use the same
@@ -2135,12 +2138,12 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
                     className="zt-person zt-person-now"
                     style={{ opacity }}
                     srcs={[
-                      apiCutoutUrl('back', playerId),
-                      `${S3_BASE}/players/back-card/${encodeURIComponent(playerId)}.webp`,
-                      `${S3_BASE}/players/back/${encodeURIComponent(playerId)}.jpg`,
-                      webCutoutUrl('now', playerId),
+                      apiCutoutUrl('back', photo),
+                      `${S3_BASE}/players/back-card/${encodeURIComponent(photo)}.webp`,
+                      `${S3_BASE}/players/back/${encodeURIComponent(photo)}.jpg`,
+                      webCutoutUrl('now', photo),
                     ]}
-                    src={apiCutoutUrl('now', playerId)}
+                    src={apiCutoutUrl('now', photo)}
                     fallbackAt={4}
                     alt={`${firstName(slide.title)} back-card action photo`}
                     reveal={introDone ? undefined : 'right'}
@@ -2162,7 +2165,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           }
           if (slide.kind === 'hsyear') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[...seasonCutoutCandidates(playerId, slide.year), webCutoutUrl('then', playerId)]} src={apiCutoutUrl('then', playerId)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[...seasonCutoutCandidates(photo, slide.year), webCutoutUrl('then', photo)]} src={apiCutoutUrl('then', photo)} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />
             );
           }
           if (slide.kind === 'season' || slide.kind === 'draft') {
@@ -2176,7 +2179,7 @@ export default function ZoomableCareerTimeline({ playerId, variant = 'combined',
           // stretched over the whole banner.
           if (slide.kind === 'today') {
             return (
-              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[apiCutoutUrl('now', playerId)]} src={`${S3_BASE}/players/now/${encodeURIComponent(playerId)}.jpg`} alt={`${resolvedPlayerName || 'Player'} today`} />
+              <SmartImage key={slide.id} className="zt-person zt-person-yati" style={{ opacity }} srcs={[apiCutoutUrl('now', photo)]} src={`${S3_BASE}/players/now/${encodeURIComponent(photo)}.jpg`} alt={`${resolvedPlayerName || 'Player'} today`} />
             );
           }
           if (slide.kind === 'lifeyear') {
