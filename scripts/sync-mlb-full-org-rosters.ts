@@ -1156,6 +1156,14 @@ async function main() {
           "Raw + resolution sync complete. No player_current_team or flip_card_front_stage writes.",
       });
 
+      // The lasting day-by-day record of each player's team (the W-L inning
+      // reads it; raw runs are pruned below). Pete, Nov 19 2026.
+      const { rows: teamDays } = await pool.query<{ n: number }>(
+        "SELECT public.record_player_team_days($1::uuid) AS n",
+        [runId]
+      );
+      console.log(`Recorded ${teamDays[0]?.n ?? 0} player team days`);
+
       const pruned = await pruneOldRosterRuns();
       console.log(`Pruned ${pruned} roster runs older than ${RETENTION_DAYS} days`);
     }

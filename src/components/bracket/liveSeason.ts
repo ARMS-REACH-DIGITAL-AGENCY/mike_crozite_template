@@ -30,7 +30,7 @@ import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
-import { clubOnDay, type Move } from '@/lib/bracket/clubOnDay';
+import { clubOnDay, type Move, type Seen } from '@/lib/bracket/clubOnDay';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
@@ -41,6 +41,8 @@ export type Live = {
   // Each player's MLB moves (day, from, to): which real team he was on,
   // day by day, for the W-L inning (src/lib/bracket/clubOnDay.ts).
   moves?: Record<string, Move[]>;
+  // MLB's daily roster check of each player's team (player_team_days).
+  seen?: Record<string, Seen[]>;
   // Historical source ID -> permanent identity, provided solely to migrate
   // legacy favorites and external links. Roster and stat lines themselves
   // carry YAT IDs only.
@@ -223,7 +225,7 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
     (lineClubsOf.get(pid) || lineClubsOf.set(pid, new Map()).get(pid)!).set(day, club);
   }
   const clubOf = (p: RosterEntry, day: number) =>
-    clubOnDay(day, lineClubsOf.get(p[0]) || new Map(), live.moves?.[p[0]] || [], p[4]);
+    clubOnDay(day, lineClubsOf.get(p[0]) || new Map(), live.moves?.[p[0]] || [], p[4], live.seen?.[p[0]] || []);
 
   // In action today, for each school's drawer strip: its alumni with a game
   // today (the bracket's day) and those games' first pitches.

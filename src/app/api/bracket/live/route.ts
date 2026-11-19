@@ -1,4 +1,4 @@
-import { moveOf, type Move } from '@/lib/bracket/clubOnDay';
+import { moveOf, type Move, type Seen } from '@/lib/bracket/clubOnDay';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
 import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
@@ -34,6 +34,9 @@ import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
 //           in the window, oldest first; to = '' when he left with no team.
 //           Decides which real team he was on, day by day, for the W-L
 //           inning (src/lib/bracket/clubOnDay.ts).
+//   seen:   { [yatid]: [day, team][] } - MLB's daily roster check
+//           (player_team_days): his last one before start and every one in
+//           the window.
 //   fans:   { [hsid]: number[] } - registered fans (YAT?STATS accounts with
 //           that home school) as each week went final, week 1 first: the
 //           fan-base tiebreak, frozen at 4 a.m. Arizona the Monday after.
@@ -170,6 +173,21 @@ export async function GET(req: NextRequest) {
         [ids, start, weeks * 7],
       ).catch(() => ({ rows: [] as { yatid: string; day: number; type: string; from_team: string | null; to_team: string | null }[] }))
       : { rows: [] as { yatid: string; day: number; type: string; from_team: string | null; to_team: string | null }[] };
+    // MLB's daily roster check of each player's team (player_team_days).
+    const { rows: seenRows } = ids.length
+      ? await query<{ yatid: string; day: number; team: string }>(
+        `WITH t AS (
+           SELECT yatid, (day - $2::date) AS day, team_name AS team,
+                  row_number() OVER (PARTITION BY yatid, (day < $2::date) ORDER BY day DESC) AS rn
+             FROM player_team_days
+            WHERE yatid = ANY($1::text[]) AND day < $2::date + $3::int
+         )
+         SELECT yatid, day, team FROM t WHERE day >= 0 OR rn = 1 ORDER BY yatid, day`,
+        [ids, start, weeks * 7],
+      ).catch(() => ({ rows: [] as { yatid: string; day: number; team: string }[] }))
+      : { rows: [] as { yatid: string; day: number; team: string }[] };
+    const rosterSeen: Record<string, Seen[]> = {};
+    for (const r of seenRows) (rosterSeen[r.yatid] ||= []).push([Number(r.day), r.team]);
     const moves: Record<string, Move[]> = {};
     for (const r of moveRows) {
       const m = moveOf(Number(r.day), r.type, r.from_team, r.to_team);
@@ -182,6 +200,7 @@ export async function GET(req: NextRequest) {
       ...logRows.map((r) => text(r.team)),
       ...Object.values(roster).flat().map((p) => p[4]),
       ...Object.values(moves).flat().flatMap(([, from, to]) => [from, to]),
+      ...Object.values(rosterSeen).flat().map(([, team]) => team),
     ].filter(Boolean))];
     const { rows: clubRows } = clubNames.length
       ? await query<ClubRow>(
@@ -253,7 +272,7 @@ export async function GET(req: NextRequest) {
     for (const r of fanRows) (fans[r.hsid] ||= Array(weeks).fill(0))[Number(r.w) - 1] = Number(r.n);
 
     return NextResponse.json(
-      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games, moves, fans,
+      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games, moves, seen: rosterSeen, fans,
         yatIdentityBySourceId },
       { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
     );

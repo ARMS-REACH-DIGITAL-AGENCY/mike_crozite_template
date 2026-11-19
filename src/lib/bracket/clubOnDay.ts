@@ -2,30 +2,35 @@
 // (Pete, Nov 19 2026).
 //
 // A player's W-L is his real team's record, credited whether he played or
-// not, day by day: each day counts for the team he was on THAT day. A
-// player traded on Wednesday gets his old team's Monday and Tuesday and his
-// new team's Wednesday on. Only real evidence decides the team, never a
-// guess:
-//   1. he has a game line that day: the team on that line;
-//   2. else his latest evidence on or before that day: a game line, or an MLB
-//      transaction (released, free agency or retirement: no team, so that day
-//      counts 0-0);
-//   3. else his first evidence after that day: a move's "from" team (a trade
-//      from the Brewers means he was a Brewer before it), or a game line's
-//      team;
-//   4. else his listed team (the card's, set from MLB's own roster).
+// not, day by day: each day counts for the team he was on THAT day. The
+// latest real evidence on or before that day wins (Pete: the newest MLB
+// evidence replaces an older one; released Oct 1, signed Oct 30 = the new
+// team from Oct 30). Evidence, never a guess:
+//   - a game line that day or before (the team on the line);
+//   - MLB's daily roster check (player_team_days): the team he plays for;
+//   - an MLB transaction (player_transactions): a move to a team, or a
+//     release / free agency / retirement (no team, so the day counts 0-0).
+//     An injured-list, return-from-rehab, number-change or DFA entry says he
+//     is on that team; the All-Star Game entry is never a team.
+// On the same day: a game line, then a transaction, then the roster check.
+// With nothing on or before the day: his first move after it says where he
+// came from (a trade from the Brewers = a Brewer before it), else the first
+// line or roster check after it; with no evidence at all, his listed team.
 // A day's result is only ever MLB's final score for that team (the live
 // route), never made up: a team with no final that day counts 0-0.
 
 // [day, from, to]: day counted from the bracket's start (negative = before
 // it). to = '' when he left with no new team.
 export type Move = [number, string, string];
+// [day, team]: MLB's roster check that day.
+export type Seen = [number, string];
 
 // MLB transaction types (player_transactions.transaction_type) after which
 // the player has no team. MLB lists the old team as "to" on these, so they
 // must not be read as a move to that team.
 const LEAVES = new Set(['released', 'declared free agency', 'retired']);
-// Types that never change the team: the player stays where he was.
+// Types that keep him on the listed team: they are evidence of his team, not a
+// move between teams (a return from a rehab assignment is a Status Change).
 const STAYS = new Set(['status change', 'number change', 'designated for assignment', 'suspension']);
 
 /**
@@ -38,31 +43,35 @@ export function moveOf(day: number, type: string, from: string | null, to: strin
   const f = String(from || '').trim();
   const dest = String(to || '').trim();
   if (LEAVES.has(t)) return [day, dest || f, ''];
-  if (STAYS.has(t)) return dest ? [day, dest, dest] : null;
-  if (!dest) return null;
+  // The All-Star Game is logged as a move to "American League All-Stars": his
+  // team doesn't change (his stats from the game count; Pete, Nov 19 2026).
+  if (!dest || /all-stars?\b/i.test(dest)) return null;
+  if (STAYS.has(t)) return [day, dest, dest];
   return [day, f, dest];
 }
 
+type Evidence = { day: number; club: string; rank: number; from?: string };
+
 /** The team he was on that day ('' = none). */
-export function clubOnDay(day: number, lineClubs: Map<number, string>, moves: Move[], listedClub: string): string {
-  const played = lineClubs.get(day);
-  if (played) return played;
-  // Evidence before or on the day; a game line beats a move on the same day.
-  let best: { day: number; club: string; line: boolean } | null = null;
-  for (const [d, club] of lineClubs) {
-    if (d < day && club && (!best || d > best.day || (d === best.day && !best.line))) best = { day: d, club, line: true };
-  }
-  for (const [d, , to] of moves) {
-    if (d <= day && (!best || d > best.day || (d === best.day && !best.line))) best = { day: d, club: to, line: false };
+export function clubOnDay(day: number, lineClubs: Map<number, string>, moves: Move[], listedClub: string, seen: Seen[] = []): string {
+  const ev: Evidence[] = [];
+  for (const [d, club] of lineClubs) if (club) ev.push({ day: d, club, rank: 3 });
+  moves.forEach(([d, from, to]) => ev.push({ day: d, club: to, rank: 2, from }));
+  for (const [d, club] of seen) if (club) ev.push({ day: d, club, rank: 1 });
+  // Latest on or before the day; same day: higher rank, then the later move.
+  let best: Evidence | null = null;
+  for (const e of ev) {
+    if (e.day > day) continue;
+    if (!best || e.day > best.day || (e.day === best.day && e.rank >= best.rank)) best = e;
   }
   if (best) return best.club;
-  // Nothing before it: where his first move says he came from.
-  // (On the same day a move beats a game line, and the first move counts.)
-  let next: { day: number; club: string; move: boolean } | null = null;
-  for (const [d, club] of lineClubs) if (d > day && club && (!next || d < next.day)) next = { day: d, club, move: false };
-  for (const [d, from] of moves) {
-    if (d > day && (!next || d < next.day || (d === next.day && !next.move))) next = { day: d, club: from, move: true };
+  // Nothing before it: the first evidence after it (a move says where he
+  // came from; on the same day a move comes first, and the first move counts).
+  let next: Evidence | null = null;
+  for (const e of ev) {
+    if (e.day <= day) continue;
+    if (!next || e.day < next.day || (e.day === next.day && e.rank === 2 && next.rank !== 2)) next = e;
   }
-  if (next) return next.club;
+  if (next) return next.rank === 2 ? next.from || '' : next.club;
   return listedClub;
 }
