@@ -8,7 +8,9 @@ Sep 27), the team he was on each day (player_team_stints), and every team's
 real results (team_schedules: MLB's final scores). Nothing is simulated or
 filled in: a day with no final score adds no win and no loss. College files
 are written empty (headers only). Spring training is not stored, so the run
-uses --no-spring.
+takes its spring
+lines from export-spring-training-2026.ts (MLB's API; saved to
+sim-data/2026 by that job).
 
 The field and seeds come from the earlier 2026 run
 (public/bracket-lab/2026/index.json, Round 1), so both runs play the same
@@ -113,6 +115,22 @@ results = sql("""WITH g AS (
                       AND home_score IS NOT NULL AND away_score IS NOT NULL AND home_score <> away_score)
                  SELECT team, date, sum(w)::int AS w, sum(l)::int AS l FROM g GROUP BY team, date""", [FIRST, LAST])
 write('team_results.csv', ',', ['teamid', 'date', 'w', 'l'], [{'teamid': r['team'], 'date': r['date'], 'w': r['w'], 'l': r['l']} for r in results])
+
+# 5b. Spring training and exhibition results (game types S and E), by MLB
+# team id - the id on the spring lines (export-spring-training-2026.ts).
+# A tie (spring games can end tied) is neither a win nor a loss.
+spring = sql("""WITH g AS (
+                  SELECT game_date::text AS date, home_team_id AS team, (home_score > away_score)::int AS w, (home_score < away_score)::int AS l
+                    FROM team_schedules
+                   WHERE game_type IN ('S', 'E') AND game_date BETWEEN $1::date AND $2::date AND status ILIKE 'final%'
+                     AND home_score IS NOT NULL AND away_score IS NOT NULL AND home_score <> away_score
+                  UNION ALL
+                  SELECT game_date::text, away_team_id, (away_score > home_score)::int, (away_score < home_score)::int
+                    FROM team_schedules
+                   WHERE game_type IN ('S', 'E') AND game_date BETWEEN $1::date AND $2::date AND status ILIKE 'final%'
+                     AND home_score IS NOT NULL AND away_score IS NOT NULL AND home_score <> away_score)
+                SELECT team, date, sum(w)::int AS w, sum(l)::int AS l FROM g GROUP BY team, date""", [FIRST, '2026-03-24'])
+write('spring_results.csv', ',', ['teamid', 'date', 'w', 'l'], [{'teamid': r['team'], 'date': r['date'], 'w': r['w'], 'l': r['l']} for r in spring])
 
 # 6. No college (Pete, Nov 19 2026): headers only.
 for f in ('col_bat.psv', 'col_pit.psv'):
