@@ -14,6 +14,7 @@ import {
   isSchoolAliasHost,
   getBatchDesignatedPlayerImages,
   getFlipCardFrontStageByHsid,
+  getPlayerChapterSources,
   getVerifiedTbcCanonicalPlayerIds,
   getPlayerById,
   getActiveAlumniCountByHsid,
@@ -30,6 +31,7 @@ import { cleanSchoolLabel, getSharedFantasyGame } from "@/lib/bracket/shareGame"
 import { parseTeamYear, teamYearCardOrder } from "@/lib/teamYearShare";
 import { teamYearShareMeta } from "@/lib/teamYearShareMeta";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
+import { buildPlayerChapters, chapterCardFields, defaultChapterIndex, type PlayerChapterSource } from "@/lib/playerChapters";
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from "@/lib/galleryStatuses";
 
 import PlayerCard from "@/components/yatstats/PlayerCard";
@@ -638,6 +640,27 @@ export default async function SchoolPage({
       allTimeSeenIds.add(id);
     }
   }
+  }
+
+  // A person with two schools: one card, one chapter per school (CLAUDE.md;
+  // src/lib/playerChapters.ts). On this school's page his card shows this
+  // school's chapter (status, level, team); the card back's toggle shows the
+  // others. People with one school are not touched.
+  const chapterRows = [...activeMerged, ...allTimeMerged, ...currentTeamRoster];
+  const chapterSources = chapterRows.length
+    ? await getPlayerChapterSources(chapterRows.flatMap((p) => [String(p.yatid || ''), String(p.playerid || '')]))
+        .catch((error) => {
+          console.error('getPlayerChapterSources failed; cards keep their own fields', { resolvedHsid, error });
+          return new Map<string, PlayerChapterSource>();
+        })
+    : new Map<string, PlayerChapterSource>();
+  for (const row of chapterRows) {
+    const source = chapterSources.get(String(row.yatid || '')) || chapterSources.get(String(row.playerid || ''));
+    if (!source) continue;
+    const chapters = buildPlayerChapters(source);
+    if (chapters.length < 2) continue;
+    const here = chapters[defaultChapterIndex(chapters, resolvedHsid)];
+    Object.assign(row, chapterCardFields(here), { chapters });
   }
 
   // Coaches first, then A-Z - the same order the gallery's filter script

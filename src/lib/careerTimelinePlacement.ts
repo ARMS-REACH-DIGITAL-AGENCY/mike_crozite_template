@@ -12,6 +12,16 @@ export function storyYearSlideIndex(slides: readonly CareerYearSlide[], year: nu
   return slides.findIndex((slide) => slide.year === year && isCareerYearSlide(slide));
 }
 
+/**
+ * Every year from his first season to today (Pete, Nov 18 2026: "ONE career
+ * timeline, every year from his first season to today, including years with
+ * no data, so anyone can add what he did then").
+ */
+export function everyCareerYear(firstYear: number, lastYear: number): number[] {
+  if (!Number.isInteger(firstYear) || !Number.isInteger(lastYear) || firstYear <= 0 || firstYear > lastYear) return [];
+  return Array.from({ length: lastYear - firstYear + 1 }, (_, i) => firstYear + i);
+}
+
 export function withCareerMemoryYears<T extends CareerYearSlide>(
   slides: readonly T[],
   years: Iterable<number>,

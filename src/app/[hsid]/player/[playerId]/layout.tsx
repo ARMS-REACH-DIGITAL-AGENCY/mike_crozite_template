@@ -78,7 +78,7 @@ export default async function PlayerLayout({
   let meta: PlayerIdentityMeta = {
     currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: '',
     position: '', bats: '', throws: '', height: '', weight: '', classOf: '',
-    hsid: '', hsname: '', hslocation: '', rosterYears: [], draftPicks: [],
+    hsid: '', hsname: '', hslocation: '', playedHsid: '', playedHsname: '', rosterYears: [], draftPicks: [],
   };
 
   try {

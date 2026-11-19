@@ -28,6 +28,7 @@ import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
 import { familyEvidence, orderByPrimaryStatFamily, primaryStatFamily } from "@/lib/flipCardStatSelection";
 import { playerPhotoId } from "@/lib/playerImage";
+import { isCoachStatus, type PlayerChapter } from "@/lib/playerChapters";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
@@ -268,7 +269,11 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
   const display = resolvePlayerDisplay(p);
-  const whereYatNowTab = usesWhereYatNowStatus(display.statusLabel);
+  // A person with two schools: his card on this school shows this school's
+  // chapter (set by the school page). The first tab follows it (CLAUDE.md):
+  // Where YAT Now? for a coach or RETIRED chapter.
+  const chapters = Array.isArray(p.chapters) && p.chapters.length > 1 ? (p.chapters as PlayerChapter[]) : null;
+  const whereYatNowTab = usesWhereYatNowStatus(display.statusLabel) || Boolean(chapters && isCoachStatus(display.statusLabel));
   const posLevelStatus = [
     asText(p.position),
     display.levelLabel,
@@ -316,6 +321,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
             schoolLocation={schoolLocation}
+            whereYatNow={whereYatNowTab}
             scheduleSnapshot={whereYatNowTab || deferScheduleSnapshot ? undefined :
               <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
             }

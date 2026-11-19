@@ -18,6 +18,7 @@ import {
   getTeamIdMap,
   query,
   resolveProfileCard,
+  getPlayerChapterSources,
 } from "@/lib/db";
 // Kept across requests: at most one database read per player per hour.
 import {
@@ -36,6 +37,7 @@ import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/Pr
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
+import { buildPlayerChapters, defaultChapterIndex, isCoachStatus, type PlayerChapterSource } from "@/lib/playerChapters";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
 import { getTeamLogoUrl, getOriginalForCardCopy, chooseNewsDisplayImage } from "@/lib/playerImage";
@@ -454,7 +456,16 @@ export default async function ProfilePage({ params }: Props) {
     (affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED") && !!lastTransactionType;
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
-  const whereYatAlumnus = usesWhereYatNowStatus(transactionStatus?.status_label || player.display_status_label || player.status_label || statusLabel);
+  // A person with two schools: under a school's address the profile shows
+  // that school's chapter (CLAUDE.md; src/lib/playerChapters.ts). The first
+  // tab follows it: Where YAT Now? for a coach or RETIRED chapter.
+  const chapterKey = String(yatId || playerId);
+  const profileChapterSource = (await getPlayerChapterSources([chapterKey]).catch(() => new Map<string, PlayerChapterSource>())).get(chapterKey);
+  const profileChapters = profileChapterSource ? buildPlayerChapters(profileChapterSource) : [];
+  const profileChapter = profileChapters.length > 1 ? profileChapters[defaultChapterIndex(profileChapters, hsid)] : null;
+  const whereYatAlumnus = profileChapter
+    ? isCoachStatus(profileChapter.statusLabel) || usesWhereYatNowStatus(profileChapter.statusLabel)
+    : usesWhereYatNowStatus(transactionStatus?.status_label || player.display_status_label || player.status_label || statusLabel);
   // FREE AGENT / RETIRED: no team on the profile either (Pete, Nov 2026),
   // whether the departure came from a transaction or from the roster sync.
   const hasNoTeam = /^(FREE AGENT|RETIRED)\b/.test(String(statusLabel).trim().toUpperCase())
