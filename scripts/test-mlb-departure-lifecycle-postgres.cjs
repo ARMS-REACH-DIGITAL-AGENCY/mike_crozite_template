@@ -52,11 +52,17 @@ CREATE TABLE public.flip_card_front_stage (
   next_game_time_utc timestamptz, next_game_home_away text,
   next_game_opponent text, next_game_status_label text,
   source_summary jsonb DEFAULT '{}'::jsonb,
-  updated_at timestamptz, stage_updated_at timestamptz
+  updated_at timestamptz, stage_updated_at timestamptz,
+  yatid text
 );
 CREATE TABLE public.player_team_override(playerid text PRIMARY KEY);
 CREATE TABLE public.player_source_map(
-  playerid text,source text,source_player_id text,is_verified boolean
+  playerid text,source text,source_player_id text,is_verified boolean,
+  match_method text
+);
+-- YAT? Baseball Registry (step 5): MLB identity is also read from here.
+CREATE TABLE public.yat_registry_ids(
+  yatid text,source text,source_id text,match_method text
 );
 CREATE TABLE public.mlb_org_roster_resolution(
   playerid text,source_player_id text,match_status text

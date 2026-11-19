@@ -219,9 +219,9 @@ be undone, and nothing merges without Pete's approval.
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Done Nov 18 (Claude): #822, #824-#831; photos moved to step 6 |
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
-| 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | In progress (Claude): report + 3-player sample copy done Nov 18 (job `yat-step6-photo-names.yml`) |
+| 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Done, LIVE Nov 19 (Claude): #838; 80 `media_upload` rows re-pointed; hourly catch-up still on (retire with Pete's OK); old-number files kept in S3 |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Done Nov 18 (Claude): rosters and game lines on YAT IDs since Nov 13 (`d6efcbb3`); October test season line-for-line match, 0 differences (Pete: enough). Results job club lookup still goes through the TBC number: moves with step 9 |
-| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | Not started; decision 1 corrected Nov 18 |
+| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | In progress (Claude, Nov 19): school links carry the YAT ID (live); one-card guard LIVE Nov 19 (`card_identity_holds`); next: YAT ID as the card's unique key |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
 ---
@@ -236,6 +236,55 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-19, Claude: step 6 done (Pete: "start step 6"). Every photo
+  already had a YAT ID copy (Nov 18). Catch-up run first: 6 copied, 1,700
+  season headshots the daily MLB job had re-saved under old numbers
+  refreshed, 0 errors. #838 (LIVE): the site builds every player photo
+  address from the YAT ID (`playerPhotoId`); the MLB headshot job and fan
+  uploads save under the YAT ID; cutout jobs follow their source name;
+  bracket already on YAT IDs. Hourly catch-up (`yat-step6-photo-names.yml`,
+  `catch_up`) copies anything still saved under an old number; retire it
+  with Pete's OK. Live check: Hamilton page 1,050 YAT ID addresses, 516
+  compared with their old names, 0 missing. `media_upload`: 80 rows' stored
+  addresses re-pointed (`migrations/20261119_yat_step6_photo_records.sql`,
+  backup `media_upload_description_backup_20261119`, 153 addresses all in
+  S3). Read-only list of photos no card shows
+  (`yat-step6-photo-orphans.yml`): 136 files; 120 are 12 players with no
+  flip card (6 Home Schooled 15322 has no school row, 4 TBC school listed
+  twice, 2 school not in `tbc_schools_raw`); 16 are copies/backups. The
+  32,723 old-number files stay in S3 (nothing reads them).
+* 2026-11-19, Claude: step 8 started (Pete: "start step 8"). One-card guard
+  (`migrations/20261119_yat_step8_one_card_per_person.sql`) applied LIVE:
+  trigger `trg_zz_one_card_per_person`, review table `card_identity_holds`;
+  cards 207,642 unchanged, 0 holds. Only person with two cards: Bordes
+  (YAT000073: `YAT000073`@5004, `55184`@2623).
+* 2026-11-19, Claude: players placed by school name
+  (`migrations/20261119_yat_step8_school_key_links.sql`, tested on
+  claude-test; LIVE Nov 19 2026 with Pete's approval: player_hsids
+  207,883 -> 208,146, TBC's own links fingerprint `ef2df1b6...` identical
+  before and after). `tbc_players_raw.high_school` is TBC's current
+  school name; 290 names (594 players) matched no `hs_lookup_key` because
+  TBC renamed or added schools after we loaded `tbc_schools_raw` (TBC has
+  hsid 19602 Port Washington; our copy ends near 19500). Pete checked the
+  top 20 on thebaseballcube.com: 21 names added to `school_source_keys`
+  (263 players); 6 schools TBC added later (12984, 8428, 13960, 19362,
+  19476, 19602) got rows in `tbc_schools_raw` and `school_success` from
+  TBC's pages (TBC lists a school only once it has an alumnus). player_hsids did not read `school_key_match` links, so those
+  players (and the 274 Home Schooled) never got a card from the nightly
+  job; it reads them now, and triggers keep the links current when
+  `school_source_keys` or `tbc_players_raw` change. TBC's own links
+  unchanged (fingerprint identical). Open: Home Schooled 15322 is in
+  neither `tbc_schools_raw` nor `school_success`; none of these schools
+  has a `microsite_url` (9966 Langley has no `school_success` row); the 6
+  new schools have no `C`+hsid row in `teamid_universe_mapping` (Pete's).
+* 2026-11-19, Claude: school links live (#835; live player_hsids fingerprint
+  identical before/after). Found the school page builds its galleries from
+  `flip_card_front_stage` (cards by hsid, any source); player_hsids only adds
+  TBC stats and TBC alumni without a card, so non-TBC players already appear.
+  Step 8 guard: `migrations/20261119_yat_step8_one_card_per_person.sql`: a
+  card insert for a YAT ID that already has a card goes to
+  `card_identity_holds`, no second card; existing card numbers untouched.
+  Tested on claude-test. Bordes's two rows left as they are (Pete).
 * 2026-11-18, Claude: step 8 groundwork built and tested on claude-test
   (`migrations/20261118_yat_step8_school_links.sql`, Pete: "make the quick
   easy fixes and resolve player_hsids"). player_hsids is no longer built
