@@ -154,6 +154,10 @@ type Slide = {
   // kicker/title can skip the age-keyed LIFE_YEAR_QUOTES lookup that age
   // isn't in and render as a plain headline instead of a quote.
   isEarly?: boolean;
+  // anchor-kind only -- true for a coach's opening slide (his seasons with
+  // the program). A coach who played also gets the player's graduation
+  // anchor at his grad year, which this leaves false.
+  coachOpening?: boolean;
   // draft-kind only -- the pick this slide is about
   draft?: DraftPick;
   // coachyear-kind only -- which season of his tenure (1 = his first) and
@@ -1483,7 +1487,11 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
       // His grad-year slide shows the school he played for, not the one he
       // coaches (identity playedHsname; blank when unknown).
       const coachHsSlide: Slide = { ...hsSlide, title: identityMeta?.playedHsname || 'High School' };
-      const coachLife = coachLifeYears ? [...earlyYears, ...lifeYears, coachHsSlide] : [];
+      // Pete, Nov 19 2026: his grad year looks like every player's (the
+      // graduation anchor: then and back-card photos, "His hometown never
+      // stopped caring"), then his playing years, then his coaching opening.
+      const coachLife = coachLifeYears ? [...earlyYears, ...lifeYears, coachHsSlide, anchor] : [];
+      const coachOpening: Slide = { ...anchor, id: 'career-path-coach-anchor', year: start, coachOpening: true };
       const coachOrder = (slide: Slide) => {
         switch (slide.kind) {
           case 'lifeyear': return 0;
@@ -1499,12 +1507,12 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
         }
       };
       const coachSlides = withCareerMemoryYears(
-        [...coachLife, { ...anchor, year: start }, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+        [...coachLife, coachOpening, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
           .sort((a, b) => a.year - b.year || coachOrder(a) - coachOrder(b)),
         yearsToFill(coachLifeYears ? hsYear : start),
         (year): Slide => ({ id: `memoryyear-${year}`, kind: 'memoryyear', year, title: `Memories from ${year}` }),
       );
-      const coachAnchor = coachSlides.findIndex((s) => s.kind === 'anchor');
+      const coachAnchor = coachSlides.findIndex((s) => s.coachOpening);
       return { startYear: coachSlides[0]?.year ?? start, endYear, hsYear: start, futureYear, slides: coachSlides, anchorIndex: coachAnchor < 0 ? 0 : coachAnchor };
     }
 
@@ -2161,7 +2169,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
                     back-card image as the flip card itself. Only when every
                     back-card source is absent fall back to the headshot.
                     Keep the existing CSS class for layout compatibility. */}
-                {!coachTenure && (
+                {!slide.coachOpening && (
                   <SmartImage
                     className="zt-person zt-person-now"
                     style={{ opacity }}
@@ -2241,14 +2249,14 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
         {ready && model.slides.map((slide) => (
           <div key={slide.id} className={`zt-slide zt-${slide.kind}`} onClick={isPreview ? undefined : () => handleSlideClick(slide)} title={slide.title} data-year={slide.year} data-kind={slide.kind}>
             <span className="zt-copy">
-              {slide.kind === 'anchor' && coachTenure && (
+              {slide.kind === 'anchor' && coachTenure && slide.coachOpening && (
                 <>
                   <span className="zt-kick">Coach {resolvedPlayerName ? lastName(resolvedPlayerName) : ''} · {coachTenure.start}{coachTenure.end > coachTenure.start ? `–${coachTenure.retired ? coachTenure.end : 'present'}` : ''}</span>
                   <span className="zt-title">Every player who came through {hsName || 'the program'} {coachTenure.retired ? 'played' : 'plays'} for him.</span>
                   <span className="zt-bodycopy">{coachTenure.end - coachTenure.start + 1} seasons. Played for Coach {resolvedPlayerName ? lastName(resolvedPlayerName) : ''}? Share your memories of each year...</span>
                 </>
               )}
-              {slide.kind === 'anchor' && !coachTenure && (
+              {slide.kind === 'anchor' && !slide.coachOpening && (
                 <>
                   <span className="zt-kick">His hometown never stopped caring</span>
                   <span className="zt-title">When a baseball player&apos;s journey doesn&apos;t end at graduation, neither should his story.</span>

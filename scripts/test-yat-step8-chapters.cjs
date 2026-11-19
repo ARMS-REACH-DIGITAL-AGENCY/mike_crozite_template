@@ -76,7 +76,12 @@ assert.match(timeline, /yearsToFill\(hsYear\)/, 'a player fills every year');
 // 19 2026); his grad year is the year before his first season (his card's
 // Class Of is his team's), and the slide shows the school he played for.
 assert.match(timeline, /const coachGradYear = coachTenure && statYears\.length \? Math\.max\(1900, firstStatYear - 1\) : null;/);
-assert.match(timeline, /\[\.\.\.coachLife, \{ \.\.\.anchor, year: start \}/, 'coach timeline starts at birth');
+assert.match(timeline, /\[\.\.\.coachLife, coachOpening, \.\.\.coachYears/, 'coach timeline starts at birth');
+// His grad year is the same graduation slide every player has (Pete, Nov 19
+// 2026); his coaching opening is a separate slide at his coaching start.
+assert.match(timeline, /coachLifeYears \? \[\.\.\.earlyYears, \.\.\.lifeYears, coachHsSlide, anchor\] : \[\]/);
+assert.match(timeline, /slide\.kind === 'anchor' && !slide\.coachOpening && \(/, 'graduation text on the grad-year slide');
+assert.match(timeline, /findIndex\(\(s\) => s\.coachOpening\)/, 'a coach timeline still opens on his coaching');
 assert.match(timeline, /title: identityMeta\?\.playedHsname \|\| 'High School'/);
 const db = fs.readFileSync('src/lib/db.ts', 'utf8');
 assert.match(db, /l\.source <> 'card'\s+having count\(distinct l\.hsid\) = 1/, 'playing school only when exactly one');
