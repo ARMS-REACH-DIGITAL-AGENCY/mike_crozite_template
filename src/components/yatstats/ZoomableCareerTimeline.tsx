@@ -8,7 +8,7 @@ import { SchoolContext } from '@/context/SchoolContext';
 import { track } from '@/lib/analytics';
 import { cancelPendingStoryDrawerOpen, openStoryDrawer } from '@/lib/storyDrawer';
 import StoryViewer, { type Story } from '@/components/yatstats/StoryViewer';
-import { isCareerYearSlide, storyYearSlideIndex, withCareerMemoryYears } from '@/lib/careerTimelinePlacement';
+import { everyCareerYear, isCareerYearSlide, storyYearSlideIndex, withCareerMemoryYears } from '@/lib/careerTimelinePlacement';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 // Display-ready cutouts built ahead of time by the Build Web Cutouts job
@@ -1441,6 +1441,15 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
         default: return 0;
       }
     };
+    // Every year from his first season to today gets a slide, even with no
+    // stats or memories yet, so anyone can add what he did that year. A
+    // year that already has its own slide (a season, Today, ...) keeps it.
+    const firstSeasonYear = statYears.length ? firstStatYear : Infinity;
+    const yearsToFill = (startYear: number) => [
+      ...memoryYears,
+      ...everyCareerYear(Math.min(startYear, firstSeasonYear), endYear),
+    ];
+
     // A coach: his opening slide, then every season he coached (Year 1 ..
     // Year N, the last one his final season if he's retired), his own
     // playing seasons if any, and fan moments in the years they happened.
@@ -1473,7 +1482,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
       const coachSlides = withCareerMemoryYears(
         [{ ...anchor, year: start }, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
           .sort((a, b) => a.year - b.year || coachOrder(a) - coachOrder(b)),
-        memoryYears,
+        yearsToFill(start),
         (year): Slide => ({ id: `memoryyear-${year}`, kind: 'memoryyear', year, title: `Memories from ${year}` }),
       );
       const coachAnchor = coachSlides.findIndex((s) => s.kind === 'anchor');
@@ -1483,7 +1492,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
     const slides = withCareerMemoryYears(
       [...earlyYears, ...lifeYears, ...preHsUploaded, hsSlide, ...gradYearUploads, anchor, ...seasons, ...draftSlides, ...laterUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
         .sort((a, b) => a.year - b.year || orderInYear(a) - orderInYear(b)),
-      memoryYears,
+      yearsToFill(hsYear),
       (year): Slide => ({ id: `memoryyear-${year}`, kind: 'memoryyear', year, title: `Memories from ${year}` }),
     );
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');

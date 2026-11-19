@@ -52,4 +52,24 @@ assert.equal(normal.length, 1);
 const page = fs.readFileSync('src/app/[hsid]/page.tsx', 'utf8');
 assert.match(page, /if \(chapters\.length < 2\) continue;/, 'one-school people untouched');
 assert.ok(!fs.existsSync('src/components/yatstats/PlayerCardBackChapters.tsx'), 'no chapter toggle (Pete, Nov 19 2026)');
+
+// One career timeline: every year from his first season to today, empty
+// years included (CLAUDE.md, Pete Nov 18 2026).
+const tlSrc = fs.readFileSync('src/lib/careerTimelinePlacement.ts', 'utf8');
+const tl = { exports: {} };
+new Function('module', 'exports', ts.transpileModule(tlSrc, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021 } }).outputText)(tl, tl.exports);
+const { everyCareerYear, withCareerMemoryYears } = tl.exports;
+assert.deepEqual(everyCareerYear(2008, 2011), [2008, 2009, 2010, 2011]);
+assert.deepEqual(everyCareerYear(2027, 2026), [], 'nothing when the start is after today');
+const played = [
+  { id: 's2008', kind: 'season', year: 2008 },
+  { id: 's2009', kind: 'season', year: 2009 },
+  { id: 'c2026', kind: 'coachyear', year: 2026 },
+];
+const filled = withCareerMemoryYears(played, everyCareerYear(2008, 2026), (year) => ({ id: `m${year}`, kind: 'memoryyear', year }));
+assert.deepEqual(filled.map((s) => s.year), everyCareerYear(2008, 2026), 'no year missing from first season to today');
+assert.equal(filled.filter((s) => s.kind === 'memoryyear').length, 16, '2010-2025 are empty years');
+const timeline = fs.readFileSync('src/components/yatstats/ZoomableCareerTimeline.tsx', 'utf8');
+assert.equal((timeline.match(/yearsToFill\((start|hsYear)\)/g) || []).length, 2, 'players and coaches both fill every year');
+
 console.log('yat step 8 chapters OK');
