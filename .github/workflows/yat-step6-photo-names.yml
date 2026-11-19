@@ -4,20 +4,25 @@ name: YAT step 6 - photos to YAT ID names
 # read-only report of what each stored photo's YAT ID name would be.
 # copy mode copies ONLY the players named in only_ids; it never writes over a
 # file and never deletes or changes an original. Full copy: separate approval.
+# Hourly (catch_up): a photo uploaded or replaced under its old number since
+# the full copy gets its YAT ID copy too, until uploads and the image jobs
+# write YAT ID names themselves (Pete, Nov 19 2026: "start step 6").
 
 on:
+  schedule:
+    - cron: "52 * * * *"  # after the cutout job (:07/:37) and web copies
   workflow_dispatch:
     inputs:
       mode:
-        description: "report (read-only), copy (sample in only_ids) or copy_all"
+        description: "report (read-only), copy (sample in only_ids), copy_all or catch_up"
         default: report
         type: choice
-        options: [report, copy, copy_all]
+        options: [report, copy, copy_all, catch_up]
       only_ids:
         description: "copy mode: old numbers or YAT IDs, comma-separated"
         default: ""
   push:
-    branches: [yat/step6-photos]
+    branches: [yat/step6-photos, yat/step6-photo-readers]
     paths: [.github/workflows/yat-step6-photo-names.yml, scripts/yat-step6-photo-names.py]
 
 permissions:
@@ -37,7 +42,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       # A push to the step branch only reports.
-      MODE: ${{ github.event.inputs.mode || 'report' }}
+      MODE: ${{ github.event_name == 'schedule' && 'catch_up' || github.event.inputs.mode || 'report' }}
       ONLY_IDS: ${{ github.event.inputs.only_ids || '' }}
     steps:
       - uses: actions/checkout@v4
