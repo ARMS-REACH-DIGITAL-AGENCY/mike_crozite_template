@@ -27,6 +27,8 @@ export function mergeBracketLive(into: Live, part: Live): void {
   Object.assign(into.roster, part.roster);
   into.lines.push(...part.lines);
   Object.assign(into.fans ||= {}, part.fans || {});
+  // Each player's MLB moves (the W-L inning's team, day by day).
+  Object.assign(into.moves ||= {}, part.moves || {});
   Object.assign(into.yatIdentityBySourceId ||= {}, part.yatIdentityBySourceId || {});
   mergeGameLists(into.clubs, part.clubs || {});
   mergeGameLists(into.games ||= {}, part.games || {});
@@ -43,7 +45,7 @@ export async function fetchBracketLiveBatches(
   if (!hsids.length) throw new Error('Cannot request bracket live data without schools');
 
   const combined: Live = {
-    asOf: '', roster: {}, lines: [], clubs: {}, games: {}, fans: {},
+    asOf: '', roster: {}, lines: [], clubs: {}, games: {}, fans: {}, moves: {},
     yatIdentityBySourceId: {},
   };
   for (let i = 0; i < hsids.length; i += BRACKET_LIVE_BATCH_SIZE) {

@@ -30,6 +30,7 @@ import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
+import { clubOnDay, type Move } from '@/lib/bracket/clubOnDay';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
@@ -37,6 +38,9 @@ export type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
   clubs: Record<string, [number, string, 0 | 1, number?][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
   fans?: Record<string, number[]>; // registered fans as each week went final
+  // Each player's MLB moves (day, from, to): which real team he was on,
+  // day by day, for the W-L inning (src/lib/bracket/clubOnDay.ts).
+  moves?: Record<string, Move[]>;
   // Historical source ID -> permanent identity, provided solely to migrate
   // legacy favorites and external links. Roster and stat lines themselves
   // carry YAT IDs only.
@@ -211,6 +215,16 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
   const clubRunDiff = (club: string, from: number, to: number) =>
     (live.clubs[club] || []).reduce((sum, [d, , , rd]) => (d >= from && d <= to ? sum + (rd ?? 0) : sum), 0);
 
+  // Which real team a player was on that day: his game line, else his MLB
+  // moves, else his listed team (src/lib/bracket/clubOnDay.ts).
+  const lineClubsOf = new Map<string, Map<number, string>>();
+  for (const [, pid, day, , , , club] of live.lines) {
+    if (!club) continue;
+    (lineClubsOf.get(pid) || lineClubsOf.set(pid, new Map()).get(pid)!).set(day, club);
+  }
+  const clubOf = (p: RosterEntry, day: number) =>
+    clubOnDay(day, lineClubsOf.get(p[0]) || new Map(), live.moves?.[p[0]] || [], p[4]);
+
   // In action today, for each school's drawer strip: its alumni with a game
   // today (the bracket's day) and those games' first pitches.
   for (const [h, players] of roster) {
@@ -266,8 +280,7 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
       for (const h of [g[2], g[3]]) {
         const mine = lines.get(String(h));
         for (const p of roster.get(String(h)) || []) {
-          const x = mine?.get(p[0])?.get(abs);
-          for (const [id, st] of clubDay.get(`${x?.club || p[4]}:${abs}`) || []) real.set(id, st);
+          for (const [id, st] of clubDay.get(`${clubOf(p, abs)}:${abs}`) || []) real.set(id, st);
           if (going?.has(p[0])) open = true;
         }
       }
@@ -298,11 +311,19 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
       let wins = 0, losses = 0, runDiff = 0;
       for (const p of players) {
         const byDay = mine.get(p[0]);
-        let wb: number[] | 0 = 0, wp: number[] | 0 = 0, club = p[4];
+        let wb: number[] | 0 = 0, wp: number[] | 0 = 0;
         const weekLv: LevelBuckets[] = [];
+        // His W-L: each day counts for the real team he was on that day
+        // (Pete, Nov 19 2026), whether he played or not.
+        const wl: [number, number] = [0, 0];
         for (let d = 0; d < 7; d++) {
           const x = byDay?.get(from + d);
-          if (x?.club) club = x.club;
+          const club = clubOf(p, from + d);
+          if (from + d <= today) {
+            const [w, l] = clubWl(club, from + d, from + d);
+            wl[0] += w; wl[1] += l;
+            runDiff += clubRunDiff(club, from + d, from + d);
+          }
           if (x && (x.b || x.p)) {
             days[d].set(p[0], x.lv);
             weekLv.push(x.lv);
@@ -312,9 +333,7 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
           // That day's club result: 1-0 for a win, 0-1 for a loss, 0-0 off.
           dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, clubWl(club, from + d, from + d), x?.lv));
         }
-        const wl = clubWl(club, from, Math.min(from + 6, today));
         wins += wl[0]; losses += wl[1];
-        runDiff += clubRunDiff(club, from, Math.min(from + 6, today));
         weekRows.push(playerRow(p, wb, wp, wl, mergeBuckets(weekLv)));
       }
       return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows };
