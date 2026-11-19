@@ -26,6 +26,7 @@ assert.equal(bordes[1].teamName, '', 'and no team');
 assert.equal(bordes[defaultChapterIndex(bordes, '2623')].hsid, '2623', 'Dobson page shows the Dobson chapter');
 assert.equal(bordes[defaultChapterIndex(bordes, '')].hsid, '5004', 'search/favorites show his current status');
 assert.equal(chapterCardFields(bordes[1]).status_label, 'RETIRED');
+assert.equal(chapterCardFields(bordes[1]).highest_level_label, 'DOUBLE-A', 'front shows HIGHEST LEVEL: DOUBLE-A');
 assert.ok(bordes.every((c) => c.statusLabel !== 'ALUMNUS'), 'never ALUMNUS');
 
 // An ACTIVE college player who played for two high schools: current status on both.

@@ -36,6 +36,8 @@ export type PlayerChapter = {
   current: boolean;
   statusLabel: string;
   levelLabel: string;
+  /** His highest level (what a RETIRED card shows). Same on every chapter. */
+  highestLevelLabel: string;
   teamName: string;
   teamId: string;
   orgName: string;
@@ -66,6 +68,7 @@ export function buildPlayerChapters(source: PlayerChapterSource): PlayerChapter[
       current,
       statusLabel: retiredChapter ? 'RETIRED' : text(source.statusLabel),
       levelLabel: retiredChapter ? text(source.highestLevelLabel) : text(source.levelLabel),
+      highestLevelLabel: text(source.highestLevelLabel),
       teamName: retiredChapter ? '' : text(source.teamName),
       teamId: retiredChapter ? '' : text(source.teamId),
       orgName: retiredChapter ? '' : text(source.orgName),
@@ -97,6 +100,8 @@ export function chapterCardFields(chapter: PlayerChapter): Record<string, string
     display_status_label: chapter.statusLabel,
     level_label: chapter.levelLabel,
     display_level_label: chapter.levelLabel,
+    // A RETIRED card shows its highest level (src/lib/playerDisplay.ts).
+    ...(chapter.highestLevelLabel ? { highest_level_label: chapter.highestLevelLabel } : {}),
     current_team_name: chapter.teamName || null,
     current_teamid: chapter.teamId || null,
     current_org_or_conference_name: chapter.orgName || null,
