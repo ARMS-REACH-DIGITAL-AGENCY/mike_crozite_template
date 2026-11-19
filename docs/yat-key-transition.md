@@ -221,7 +221,7 @@ be undone, and nothing merges without Pete's approval.
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Done, LIVE Nov 19 (Claude): #838; 80 `media_upload` rows re-pointed; hourly catch-up still on (retire with Pete's OK); old-number files kept in S3 |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Done Nov 18 (Claude): rosters and game lines on YAT IDs since Nov 13 (`d6efcbb3`); October test season line-for-line match, 0 differences (Pete: enough). Results job club lookup still goes through the TBC number: moves with step 9 |
-| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | In progress (Claude, Nov 19): school links carry the YAT ID (live); one-card guard LIVE Nov 19 (`card_identity_holds`); next: YAT ID as the card's unique key |
+| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | In progress (Claude, Nov 19): school links carry the YAT ID (live); one-card guard LIVE Nov 19 (`card_identity_holds`); YAT ID unique on cards LIVE Nov 19; chapters + timeline built (branch `yat/step8-unique-yatid`), waiting on Pete's OK |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
 ---
@@ -253,6 +253,21 @@ step, branch, what was done, what is next.
   flip card (6 Home Schooled 15322 has no school row, 4 TBC school listed
   twice, 2 school not in `tbc_schools_raw`); 16 are copies/backups. The
   32,723 old-number files stay in S3 (nothing reads them).
+* 2026-11-19, Claude: step 8, one card per person. LIVE with Pete's OK
+  (`migrations/20261119_yat_step8_unique_yatid.sql`): Bordes's second row
+  (55184 @ 2623) backed up to `flip_card_front_stage_backup_20261119_bordes`
+  and removed; unique index `uq_flip_card_front_stage_yatid`. Cards =
+  people = 207,682. Chapters (branch `yat/step8-unique-yatid`, not merged):
+  `src/lib/playerChapters.ts`, `getPlayerChapterSources` (db.ts), school
+  page and profile. 391 people have 2+ schools. Status rule (Pete, Nov 19):
+  only a COACH's other school shows RETIRED, highest level, no team;
+  everyone else shows his current status on every school. No toggle (Pete,
+  Nov 19: "get rid of it"); each school page shows its own chapter. Career
+  timeline fills every year from the first season to today
+  (`everyCareerYear`, `src/lib/careerTimelinePlacement.ts`). Build check:
+  `scripts/test-yat-step8-chapters.cjs`. Open: nightly
+  `ensureFlipCardBaselineRows` checks the old number, so it logs a hold for
+  55184 every night; it should check by YAT ID.
 * 2026-11-19, Claude: step 8 started (Pete: "start step 8"). One-card guard
   (`migrations/20261119_yat_step8_one_card_per_person.sql`) applied LIVE:
   trigger `trg_zz_one_card_per_person`, review table `card_identity_holds`;
