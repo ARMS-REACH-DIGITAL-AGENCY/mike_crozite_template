@@ -9,10 +9,13 @@
 // HS pitcher became the Cubs catcher Carson Kelly, one "Carlos Martinez"
 // absorbed five different pros. This finds those links.
 //
-// Default is a report only - nothing is written. With --apply, in one
-// transaction:
-//   - each failing link is marked match_method = 'rejected_bad_identity_match'
-//     (kept as a record; resolvePlayerFromSourceMap ignores it from now on)
+// Default is a report: no link, card, game log or transaction is changed.
+// It does add a link whose birth dates differ while the birthplace agrees to
+// yat_registry_review (the link stays), which is how Pete is emailed about it
+// (Pete, Nov 19 2026). With --apply, in one transaction:
+//   - each failing link leaves the YAT Registry and is recorded in
+//     yat_registry_rejections (yat_reject_link), and is marked
+//     match_method = 'rejected_bad_identity_match' in player_source_map
 //   - the latest roster run's resolution rows for those MLB ids -> unmatched
 //   - the wrong person's transactions are deleted, and the affected
 //     players' MLB game logs (the game-log sync re-pulls any valid link)
@@ -219,7 +222,7 @@ async function main() {
   if (!apply && rejected.length > 0) process.exitCode = 1;
 
   if (!apply || rejected.length === 0) {
-    if (!apply) console.log("\nReport only - nothing written. Re-run with --apply to fix.");
+    if (!apply) console.log(`\nReport only - no link changed (${review.length} waiting in yat_registry_review). Re-run with --apply to fix.`);
     await pool.end();
     return;
   }
