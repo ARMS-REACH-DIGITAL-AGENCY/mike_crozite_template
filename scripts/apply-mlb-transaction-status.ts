@@ -299,19 +299,18 @@ async function applyDepartureFact(row: LatestTransactionRow, status: DepartureSt
         -- this card's YAT ID (yat_registry_ids, source 'mlb'); the older
         -- verified link and roster match still count. A link someone
         -- rejected as a bad identity match never counts.
-        AND (EXISTS (SELECT 1 FROM public.yat_registry_ids reg
-                     WHERE reg.yatid = flip_card_front_stage.yatid
-                       AND reg.source = 'mlb' AND reg.source_id = $7)
-             OR EXISTS (SELECT 1 FROM public.player_source_map s
-                     WHERE s.playerid = $1 AND s.source = 'mlb_api'
-                       AND s.source_player_id = $7 AND s.is_verified = TRUE)
+        -- YAT key step 9: his MLB ID is attached to his YAT ID in the YAT
+        -- Registry and proven (not waiting in yat_registry_review), and the
+        -- pair was never rejected as two different people.
+        AND (EXISTS (SELECT 1 FROM public.yat_mlb_links l
+                     WHERE l.yatid = flip_card_front_stage.yatid
+                       AND l.mlb_id = $7 AND l.proven)
              OR EXISTS (SELECT 1 FROM public.mlb_org_roster_resolution r
                         WHERE r.playerid = $1 AND r.source_player_id = $7
                           AND r.match_status = 'matched'))
-        AND NOT EXISTS (SELECT 1 FROM public.player_source_map bad
-                        WHERE bad.playerid = $1 AND bad.source = 'mlb_api'
-                          AND bad.source_player_id = $7
-                          AND bad.match_method = 'rejected_bad_identity_match')
+        AND NOT EXISTS (SELECT 1 FROM public.yat_registry_rejections bad
+                        WHERE bad.yatid = flip_card_front_stage.yatid
+                          AND bad.source = 'mlb' AND bad.source_id = $7)
         AND (last_transaction_type IS DISTINCT FROM $2
              OR last_transaction_date IS DISTINCT FROM $3::date
              OR last_transaction_team_name IS DISTINCT FROM $4

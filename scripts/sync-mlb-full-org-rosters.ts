@@ -6,7 +6,9 @@
 //   MLB API
 //     -> public.mlb_org_roster_raw
 //     -> public.mlb_org_roster_resolution
-//     -> public.player_source_map for confident matches
+//     -> public.player_source_map for confident matches (its trigger attaches
+//        the MLB ID to the YAT ID in yat_registry_ids); unproven or tied
+//        matches -> public.yat_registry_review for Pete
 //
 // This script intentionally does NOT write to:
 //   - public.player_current_team
@@ -18,7 +20,7 @@
 import { randomUUID } from "crypto";
 import { Pool } from "pg";
 import { upsertSourceMap } from "./lib/player-source-map";
-import { identityVerdict, toIsoDate, REJECTED_MATCH_METHOD } from "./lib/player-identity";
+import { identityVerdict, toIsoDate } from "./lib/player-identity";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -311,12 +313,6 @@ function scoreCandidate(
     score += 5;
   }
 
-  const lowerTeam = normalizeText(assignedTeamName);
-  const lowerSchool = normalizeText(row.high_school);
-
-  if (lowerTeam && lowerSchool && lowerSchool.includes("hamilton")) {
-    score += 1;
-  }
 
   return score;
 }
@@ -495,21 +491,59 @@ function buildNameIndex(players: DbPlayerRow[]): Map<string, DbPlayerRow[]> {
   return index;
 }
 
-// player_source_map (mlb_api), loaded once per run instead of one query per
-// roster entry. Same rule as resolvePlayerFromSourceMap: rejected links
-// (same name, different person) never resolve.
+// YAT key step 9: MLB ID -> YAT ID -> the key of his card, from the YAT
+// Registry (yat_mlb_links), loaded once per run instead of one query per
+// roster entry. A pair proven to be different people is never in it.
 let sourceMapCache: Map<string, string> | null = null;
 
 async function loadSourceMapCache(): Promise<void> {
-  const { rows } = await pool.query<{ source_player_id: string; playerid: string }>(
-    `SELECT DISTINCT ON (source_player_id) source_player_id, playerid::text AS playerid
-       FROM player_source_map
-      WHERE source = 'mlb_api'
-        AND match_method IS DISTINCT FROM $1
-      ORDER BY source_player_id`,
-    [REJECTED_MATCH_METHOD]
+  const { rows } = await pool.query<{ mlb_id: string; playerid: string }>(
+    `SELECT mlb_id, playerid FROM public.yat_mlb_links WHERE playerid IS NOT NULL`
   );
-  sourceMapCache = new Map(rows.map((r) => [String(r.source_player_id), String(r.playerid)]));
+  sourceMapCache = new Map(rows.map((r) => [String(r.mlb_id), String(r.playerid)]));
+}
+
+// Fits one of our people but is not proven (birth dates differ while the
+// birthplace agrees), or fits two equally: Pete decides
+// (yat_registry_review; a daily job emails him). Pete, Nov 19 2026.
+async function saveForReview(
+  p: MlbRosterEntry["person"],
+  rows: DbPlayerRow[],
+  reason: string
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO public.yat_registry_review (source, source_id, source_name, source_fields, candidates, reason)
+     SELECT 'mlb', $1, $2, $3::jsonb,
+            (SELECT coalesce(jsonb_agg(c || jsonb_build_object('yatid', public.yat_id_for(c->>'playerid'))), '[]'::jsonb)
+               FROM jsonb_array_elements($4::jsonb) c),
+            $5
+     WHERE NOT EXISTS (SELECT 1 FROM public.yat_registry_ids WHERE source = 'mlb' AND source_id = $1)
+     ON CONFLICT DO NOTHING`,
+    [
+      String(p.id),
+      p.fullName ?? null,
+      JSON.stringify({
+        birth_date: p.birthDate ?? null,
+        birth_city: p.birthCity ?? null,
+        birth_state: p.birthStateProvince ?? null,
+        bats: p.batSide?.code ?? null,
+        throws: p.pitchHand?.code ?? null,
+        position: p.primaryPosition?.abbreviation ?? null,
+      }),
+      JSON.stringify(rows.map((r) => ({
+        playerid: r.playerid,
+        name: `${r.firstname} ${r.lastname}`.trim(),
+        birth_date: r.borndate,
+        birthplace: r.place,
+        high_school: r.high_school,
+        bats: r.bats,
+        throws: r.throws,
+        position: r.posit,
+        highest_level: r.highlevel,
+      }))),
+      reason,
+    ]
+  );
 }
 
 async function resolveFromSourceMap(mlbPersonId: number): Promise<string | null> {
@@ -778,7 +812,7 @@ async function resolveAndSave(args: {
       matchMethod: "source_map",
       matchConfidence: 1.0,
       candidatePlayerIds: [resolvedId],
-      notes: "Resolved via player_source_map",
+      notes: "Resolved via the YAT Registry (yat_mlb_links)",
     });
 
     return "matched_source_map";
@@ -806,6 +840,11 @@ async function resolveAndSave(args: {
   );
 
   if (candidates.length === 0 && nameMatches.length > 0) {
+    const reviewRows = nameMatches.filter((_row, i) => verdicts[i].verdict === "review");
+    if (reviewRows.length > 0) {
+      await saveForReview(p, reviewRows,
+        "Same name and birthplace (or birth state and year); birth dates differ. Not linked until Pete decides.");
+    }
     await saveMlbOrgRosterResolution({
       runId: args.runId,
       rawId: args.rawId,
@@ -921,6 +960,9 @@ async function resolveAndSave(args: {
 
     return "matched_name";
   }
+
+  await saveForReview(p, candidates,
+    "Fits two or more of our people equally (same name, birth date or birthplace confirmed). Not linked until Pete decides.");
 
   await saveMlbOrgRosterResolution({
     runId: args.runId,

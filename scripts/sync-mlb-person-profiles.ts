@@ -1,6 +1,6 @@
 // scripts/sync-mlb-person-profiles.ts
 // Keeps public.mlb_person_profile current: MLB's /people record (bio, debut,
-// last game, high school) for every verified player_source_map mlb_api link.
+// last game, high school) for every MLB link in the YAT Registry (yat_mlb_links).
 // Read once here, so cards, profiles and school counts never call MLB.
 //
 // MLB debut rule (Pete, Nov 2026): a school's MLB alumni count is a stored
@@ -139,9 +139,7 @@ async function main() {
   console.log(`=== MLB person profiles (${DRY_RUN ? "DRY RUN" : "LIVE"}) ===`);
   if (!DRY_RUN) await ensureTables();
   const { rows: links } = await pool.query<{ mlb_id: string; playerid: string }>(`
-    SELECT source_player_id::text AS mlb_id, playerid::text AS playerid
-      FROM public.player_source_map
-     WHERE source = 'mlb_api' AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'`);
+    SELECT mlb_id, playerid FROM public.yat_mlb_links WHERE playerid IS NOT NULL`);
   const pidOf = new Map(links.map((l) => [l.mlb_id, l.playerid]));
   const ids = [...pidOf.keys()];
   console.log(`Linked MLB IDs: ${ids.length}`);

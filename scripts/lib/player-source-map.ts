@@ -1,24 +1,24 @@
 import { Pool } from "pg";
-import { REJECTED_MATCH_METHOD } from "./player-identity";
 
-// A link rejected as a different person (same name, different birthdate /
-// birth city) stays in the table as a record, but never resolves.
+// YAT key step 9: "which of our people is this MLB ID" comes from the YAT
+// Registry (yat_mlb_links: MLB ID -> YAT ID -> the key of his card). A pair
+// proven to be different people is in yat_registry_rejections and never in
+// the registry, so it never resolves.
 export async function resolvePlayerFromSourceMap(
   pool: Pool,
   source: string,
   sourcePlayerId: string
 ): Promise<string | null> {
+  if (source !== "mlb_api") throw new Error(`resolvePlayerFromSourceMap: unsupported source ${source}`);
   const { rows } = await pool.query<{ playerid: string }>(
-    `SELECT playerid
-     FROM player_source_map
-     WHERE source = $1 AND source_player_id = $2
-       AND match_method IS DISTINCT FROM $3
-     LIMIT 1`,
-    [source, sourcePlayerId, REJECTED_MATCH_METHOD]
+    `SELECT playerid FROM public.yat_mlb_links WHERE mlb_id = $1 LIMIT 1`,
+    [sourcePlayerId]
   );
   return rows[0]?.playerid ?? null;
 }
 
+// Still recorded in player_source_map (its trigger attaches the MLB ID to the
+// YAT ID in yat_registry_ids) until the site code moves off it.
 export async function upsertSourceMap(
   pool: Pool,
   playerid: string,

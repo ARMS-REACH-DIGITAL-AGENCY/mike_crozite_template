@@ -6,7 +6,7 @@
 //   MLB Stats API (statsapi.mlb.com, free, no key)
 //     -> public.player_game_logs (source = 'mlb_api')
 //
-// Only players already resolved in player_source_map (source = 'mlb_api'),
+// Only players already linked in the YAT Registry (yat_mlb_links),
 // via scripts/sync-mlb-full-org-rosters.ts, are eligible — this script does
 // no name matching of its own, it just walks the existing crosswalk.
 //
@@ -120,10 +120,9 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 async function getMappedPlayers(): Promise<SourceMapRow[]> {
   if (SINGLE_PERSON_ID) {
     const { rows } = await pool.query<SourceMapRow>(
-      `SELECT playerid, source_player_id
-         FROM public.player_source_map
-        WHERE source = 'mlb_api' AND source_player_id = $1
-          AND match_method IS DISTINCT FROM 'rejected_bad_identity_match'`,
+      `SELECT playerid, mlb_id AS source_player_id
+         FROM public.yat_mlb_links
+        WHERE mlb_id = $1 AND playerid IS NOT NULL`,
       [SINGLE_PERSON_ID]
     );
     return rows;
@@ -133,13 +132,12 @@ async function getMappedPlayers(): Promise<SourceMapRow[]> {
   // matched to his MLB ID (Nov 2026: ~35,000 links, most of them retired);
   // looping over all of them at ~1s each would never finish a 4-hour run.
   const { rows } = await pool.query<SourceMapRow>(
-    `SELECT m.playerid, m.source_player_id
-       FROM public.player_source_map m
-       JOIN public.flip_card_front_stage f ON f.playerid::text = m.playerid::text
-      WHERE m.source = 'mlb_api'
-        -- a link rejected as a different person (same name) never pulls games
-        AND m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
-        AND UPPER(COALESCE(f.status_label, '')) NOT IN ('RETIRED', 'FREE AGENT')
+    `SELECT f.playerid::text AS playerid, m.mlb_id AS source_player_id
+       FROM public.yat_mlb_links m
+       -- YAT key step 9: his card by YAT ID; a pair rejected as two
+       -- different people is never in the registry, so never pulls games
+       JOIN public.flip_card_front_stage f ON f.yatid = m.yatid
+      WHERE UPPER(COALESCE(f.status_label, '')) NOT IN ('RETIRED', 'FREE AGENT')
         AND NULLIF(BTRIM(f.current_team_name), '') IS NOT NULL`
   );
   return rows;

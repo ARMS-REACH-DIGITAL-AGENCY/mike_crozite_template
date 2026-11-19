@@ -233,11 +233,10 @@ async function getActivePlayers(hsids: string[]): Promise<PlayerRow[]> {
          -- verified MLB link is what marks him: the untouched TBC rows with
          -- no status never have one.
          OR EXISTS (
-           SELECT 1 FROM player_source_map m
-            WHERE m.playerid = f.playerid::text
-              AND m.source = 'mlb_api'
-              AND m.is_verified
-              AND COALESCE(m.match_method, '') <> 'rejected_bad_identity_match'
+           -- YAT key step 9: a proven MLB link in the YAT Registry.
+           SELECT 1 FROM public.yat_mlb_links m
+            WHERE m.yatid = f.yatid
+              AND m.proven
          )
        )
        -- Free agents stay in: a signing with a new club is exactly the

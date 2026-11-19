@@ -1,6 +1,6 @@
 // scripts/audit-afl-coverage.ts
 // Read-only check of Arizona Fall League (sportId 17) coverage: every AFL
-// roster player, whether he's in our universe (player_source_map, mlb_api),
+// roster player, whether he's in our universe (YAT Registry, yat_mlb_links),
 // how many AFL games MLB has for him, how many AFL game lines we stored
 // (player_game_logs), and what MLB lists as his current team - the game-log
 // sync only asks MLB for AFL games when that current team is an AFL club
@@ -80,11 +80,11 @@ async function main() {
   console.log(`AFL CURRENT active roster distinct players: ${activePeople.size}`);
 
   const { rows: mapped } = await pool.query<{ source_player_id: string; playerid: string; match_method: string | null; display_name: string | null; hsid: string | null }>(
-    `SELECT m.source_player_id, m.playerid::text AS playerid, m.match_method,
-            (SELECT f.display_name FROM flip_card_front_stage f WHERE f.playerid::text = m.playerid::text LIMIT 1) AS display_name,
-            (SELECT f.hsid::text FROM flip_card_front_stage f WHERE f.playerid::text = m.playerid::text LIMIT 1) AS hsid
-       FROM player_source_map m WHERE m.source = 'mlb_api' AND m.source_player_id = ANY($1::text[])
-         AND COALESCE(m.match_method,'') <> 'rejected_bad_identity_match'`,
+    // YAT key step 9: MLB links from the YAT Registry, to his card by YAT ID.
+    `SELECT m.mlb_id AS source_player_id, m.playerid, m.match_method,
+            (SELECT f.display_name FROM flip_card_front_stage f WHERE f.yatid = m.yatid LIMIT 1) AS display_name,
+            (SELECT f.hsid::text FROM flip_card_front_stage f WHERE f.yatid = m.yatid LIMIT 1) AS hsid
+       FROM public.yat_mlb_links m WHERE m.mlb_id = ANY($1::text[])`,
     [roster.map((r) => r.personId)]
   );
   // One MLB person can be linked to more than one of our player ids (an
@@ -140,7 +140,7 @@ async function main() {
     }
     const { rows } = await pool.query(
       `SELECT f.playerid::text AS playerid, f.display_name, f.hsid::text AS hsid, f.status_label, f.current_team_name,
-              (SELECT string_agg(m.source_player_id || ':' || coalesce(m.match_method, ''), ', ') FROM player_source_map m WHERE m.playerid::text = f.playerid::text AND m.source = 'mlb_api') AS mlb
+              (SELECT string_agg(m.mlb_id || ':' || coalesce(m.match_method, ''), ', ') FROM public.yat_mlb_links m WHERE m.yatid = f.yatid) AS mlb
          FROM flip_card_front_stage f WHERE lower(f.display_name) LIKE '%' || $1 || '%'`,
       [NAME]
     );

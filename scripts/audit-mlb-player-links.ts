@@ -1,7 +1,7 @@
 #!/usr/bin/env ts-node
 // scripts/audit-mlb-player-links.ts
-// YAT?STATS - audit every alumni <-> MLB player link (player_source_map,
-// source = 'mlb_api') against MLB's own birthdate / birth city.
+// YAT?STATS - audit every alumni <-> MLB player link (YAT Registry, yat_mlb_links;
+// MLB ID -> YAT ID) against MLB's own birthdate / birth city.
 //
 // Until Sep 2026 the roster and transactions syncs linked an alumnus to an
 // MLB player on name alone (and the birthdate check compared "4/15/2005"
@@ -51,6 +51,7 @@ const pool = new Pool({
 
 interface LinkRow {
   playerid: string;
+  yatid: string;
   source_player_id: string;
   source_player_name: string | null;
   match_method: string | null;
@@ -110,20 +111,26 @@ async function main() {
   console.log(`=== Audit alumni <-> MLB player links (${apply ? "APPLY" : "report only"}) ===`);
 
   const { rows: links } = await pool.query<LinkRow>(`
-    SELECT m.playerid::text AS playerid,
-           m.source_player_id,
-           m.source_player_name,
-           m.match_method,
+    -- YAT key step 9: every MLB link in the YAT Registry (MLB ID -> YAT ID),
+    -- checked against the TBC record attached to the same YAT ID.
+    SELECT l.playerid,
+           l.yatid,
+           l.mlb_id AS source_player_id,
+           NULL::text AS source_player_name,
+           l.match_method,
            TRIM(p.firstname) AS firstname,
            TRIM(p.lastname) AS lastname,
            p.borndate::text AS borndate,
            TRIM(p.place) AS place,
            TRIM(p.high_school) AS high_school
-      FROM public.player_source_map m
-      LEFT JOIN public.tbc_players_raw p ON p.playerid::text = m.playerid::text
-     WHERE m.source = 'mlb_api'
-       AND m.match_method IS DISTINCT FROM $1
-  `, [REJECTED_MATCH_METHOD]);
+      FROM public.yat_mlb_links l
+      LEFT JOIN LATERAL (
+        SELECT t.* FROM public.yat_registry_ids r
+          JOIN public.tbc_players_raw t ON t.playerid::text = r.source_id
+         WHERE r.yatid = l.yatid AND r.source = 'tbc'
+         ORDER BY r.source_id LIMIT 1
+      ) p ON true
+  `);
   console.log(`Links to check: ${links.length}`);
 
   const people = await fetchPeople([...new Set(links.map((l) => l.source_player_id))]);
@@ -142,7 +149,25 @@ async function main() {
   }
 
   const confirmed = audited.filter((l) => l.verdict === "confirmed");
-  const rejected = audited.filter((l) => l.verdict !== "confirmed");
+  // Birth dates differ but the birth city (or birth state and year) agrees:
+  // never rejected or kept on our own say-so. The link stays, and Pete
+  // decides in yat_registry_review (Pete, Nov 19 2026).
+  const review = audited.filter((l) => l.verdict === "review");
+  const rejected = audited.filter((l) => l.verdict === "conflict" || l.verdict === "unverified");
+  for (const l of review) {
+    await pool.query(
+      `INSERT INTO public.yat_registry_review (source, source_id, source_name, source_fields, candidates, reason)
+       VALUES ('mlb', $1, $2, $3::jsonb, $4::jsonb, $5)
+       ON CONFLICT DO NOTHING`,
+      [
+        l.source_player_id,
+        l.mlb.fullName ?? null,
+        JSON.stringify({ birth_date: l.mlb.birthDate ?? null, birth_city: l.mlb.birthCity ?? null, birth_state: l.mlb.birthStateProvince ?? null }),
+        JSON.stringify([{ yatid: l.yatid, playerid: l.playerid, name: `${l.firstname ?? ""} ${l.lastname ?? ""}`.trim(), birth_date: l.borndate, birthplace: l.place, high_school: l.high_school }]),
+        "Linked earlier. Birth dates differ, but the birthplace agrees. The link stays until Pete decides.",
+      ]
+    );
+  }
   const conflicts = rejected.filter((l) => l.verdict === "conflict");
   const unverified = rejected.filter((l) => l.verdict === "unverified");
 
@@ -153,6 +178,7 @@ async function main() {
 
   console.log("");
   console.log(`Confirmed (kept):                    ${confirmed.length}`);
+  console.log(`Waiting for Pete (yat_registry_review): ${review.length}`);
   console.log(`Different person (birthdate+city):   ${conflicts.length}`);
   console.log(`Unverified (no birthdate/city match): ${unverified.length}`);
   console.log(`Skipped - trusted manual link:       ${trusted}`);
@@ -169,6 +195,7 @@ async function main() {
       `| Result | Links |`,
       `|---|---|`,
       `| Confirmed (kept) | ${confirmed.length} |`,
+      `| Waiting for Pete (yat_registry_review) | ${review.length} |`,
       `| Different person | ${conflicts.length} |`,
       `| Unverified | ${unverified.length} |`,
       `| Alumni affected | ${affectedPlayerIds.length} |`,
@@ -203,20 +230,21 @@ async function main() {
 
     const today = new Date().toISOString().slice(0, 10);
     for (const l of rejected) {
+      const note = `Rejected ${today} by audit-mlb-player-links (${l.verdict}): ${describe(l)}`;
+      // The YAT Registry link goes, and the pair is recorded so no job links
+      // it again (yat_registry_rejections).
+      await client.query(`SELECT public.yat_reject_link('mlb', $1, $2, 'not the same person (audit-mlb-player-links)', $3)`,
+        [l.source_player_id, l.yatid, note]);
+      // Kept in step with the old table until the site code moves off it.
       await client.query(
         `UPDATE public.player_source_map
-            SET match_method = $3,
+            SET match_method = $2,
                 match_confidence = 0,
                 is_verified = false,
-                notes = $4,
+                notes = $3,
                 updated_at = NOW()
-          WHERE source = 'mlb_api' AND source_player_id = $1 AND playerid::text = $2`,
-        [
-          l.source_player_id,
-          l.playerid,
-          REJECTED_MATCH_METHOD,
-          `Rejected ${today} by audit-mlb-player-links (${l.verdict}): ${describe(l)}`,
-        ]
+          WHERE source = 'mlb_api' AND source_player_id = $1`,
+        [l.source_player_id, REJECTED_MATCH_METHOD, note]
       );
     }
 
@@ -374,11 +402,11 @@ async function integrityChecks(
   }
 
   const { rows: multi } = await pool.query<{ playerid: string; n: number; names: string }>(`
-    SELECT m.playerid::text AS playerid, count(*)::int AS n,
-           string_agg(m.source_player_name || ' ' || m.source_player_id, ', ') AS names
-      FROM public.player_source_map m
-     WHERE m.source = 'mlb_api' AND m.match_method IS DISTINCT FROM '${REJECTED_MATCH_METHOD}'
-     GROUP BY m.playerid
+    -- One person (YAT ID) with more than one MLB ID in the YAT Registry.
+    SELECT max(m.playerid) AS playerid, count(*)::int AS n,
+           string_agg(m.mlb_id, ', ') AS names
+      FROM public.yat_mlb_links m
+     GROUP BY m.yatid
     HAVING count(*) > 1
   `);
 

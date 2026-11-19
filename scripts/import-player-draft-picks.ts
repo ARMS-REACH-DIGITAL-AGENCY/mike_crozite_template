@@ -5,8 +5,8 @@
 //
 // Sources, in order of trust:
 //   1. MLB Stats API (source 'mlb_api'): /people?personIds=...&hydrate=draft
-//      for players linked in player_source_map (links rejected as a
-//      different person are skipped, same as the game log sync). Gives the
+//      for players linked in the YAT Registry (yat_mlb_links; a pair
+//      rejected as two different people is never in it). Gives the
 //      round, overall pick, pick in the round, team, school and bonus.
 //   2. The Baseball Cube's draft_info (source 'tbc') in tbc_batting_raw /
 //      tbc_pitching_raw, formatted YEAR-ROUND-OVERALL-TEAMCODE (e.g.
@@ -283,10 +283,10 @@ async function main() {
 
   // ---- 1. MLB Stats API --------------------------------------------------
   const links = await pool.query<{ playerid: string; source_player_id: string }>(
-    `SELECT m.playerid, m.source_player_id
-       FROM player_source_map m JOIN flip_card_front_stage f ON f.playerid = m.playerid
-      WHERE m.source = 'mlb_api' AND m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
-        AND coalesce(m.source_player_id, '') <> '' ${ONLY_PLAYER ? "AND m.playerid = $1" : ""}`,
+    // YAT key step 9: MLB links from the YAT Registry, to the key of his card.
+    `SELECT f.playerid::text AS playerid, m.mlb_id AS source_player_id
+       FROM public.yat_mlb_links m JOIN flip_card_front_stage f ON f.yatid = m.yatid
+      WHERE coalesce(m.mlb_id, '') <> '' ${ONLY_PLAYER ? "AND f.playerid::text = $1" : ""}`,
     ONLY_PLAYER ? [ONLY_PLAYER] : []
   );
   const playeridsByMlb = new Map<string, string[]>();

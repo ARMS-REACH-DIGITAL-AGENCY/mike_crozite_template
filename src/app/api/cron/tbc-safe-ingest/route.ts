@@ -395,8 +395,8 @@ async function syncOneFeed(client: any, feed: Exclude<FeedKey,"players">) {
 // delay before getting a baseline row.
 //
 // Identity guard: a new TBC id is held back, not given a card, when
-//   - the crosswalk already says who he is (a player_source_map row with
-//     source 'tbc' and this TBC id as source_player_id), or
+//   - the YAT Registry already says who he is (his TBC id is attached to a
+//     person whose card is under another key), or
 //   - his school already has a card with the same first and last name
 //     under an id TBC doesn't own (a YAT id like YAT000001).
 // The second is how Madden Pezzorello got two cards: TBC's 384172 arrived
@@ -405,9 +405,9 @@ async function syncOneFeed(client: any, feed: Exclude<FeedKey,"players">) {
 // from player_hsids - so no roster shows him, and he is held once, not
 // again every night. He is listed in the job result and sent to the ingest
 // alert webhook for review. If he turns out to be a different person,
-// release him with a player_source_map row (source 'tbc', his TBC id, the
-// YAT id, match_method 'rejected_bad_identity_match') and delete the
-// exclusion row; he gets his own card on the next run. Same-name pairs
+// release him with a yat_registry_rejections row (source 'tbc', his TBC
+// id, the other card's YAT id) and delete the exclusion row; he gets his
+// own card on the next run. Same-name pairs
 // between two TBC ids are left alone - TBC keeps its own ids apart, and a
 // father and son can share a name at the same school.
 type HeldBaselinePlayer = {
@@ -440,12 +440,15 @@ async function ensureFlipCardBaselineRows(
     ),
     checked as (
       select c.*,
+        -- His TBC number already belongs to a person with a card under
+        -- another key (YAT Registry).
         (
-          select m.playerid
-          from public.player_source_map m
-          where m.source = 'tbc'
-            and m.source_player_id = c.playerid::text
-            and coalesce(m.match_method, '') <> 'rejected_bad_identity_match'
+          select fx.playerid::text
+          from public.yat_registry_ids x
+          join public.flip_card_front_stage fx on fx.yatid = x.yatid
+          where x.source = 'tbc'
+            and x.source_id = c.playerid::text
+            and fx.playerid::text <> c.playerid::text
           limit 1
         ) as crosswalk_playerid,
         (
@@ -463,11 +466,10 @@ async function ensureFlipCardBaselineRows(
             )
             -- Reviewed and found to be a different person.
             and not exists (
-              select 1 from public.player_source_map r
+              select 1 from public.yat_registry_rejections r
               where r.source = 'tbc'
-                and r.source_player_id = c.playerid::text
-                and r.playerid = e.playerid::text
-                and r.match_method = 'rejected_bad_identity_match'
+                and r.source_id = c.playerid::text
+                and r.yatid = e.yatid
             )
           limit 1
         ) as yat_match_playerid
