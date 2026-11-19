@@ -16,4 +16,8 @@ for (const t of ['tbc_players_raw', 'school_source_keys']) {
 }
 const ingest = fs.readFileSync('src/app/api/cron/tbc-safe-ingest/route.ts', 'utf8');
 assert.match(ingest, /from public\.player_hsids ph[\s\S]*left join public\.flip_card_front_stage f on f\.playerid = ph\.playerid/, 'nightly job still makes cards from player_hsids');
+// One card per person (Pete, Nov 19 2026): a card keyed by his YAT ID is his
+// card, so the nightly job never tries a second one under his TBC number.
+assert.match(ingest, /left join public\.yat_registry_ids r\s+on r\.source = 'tbc' and r\.source_id = ph\.playerid::text/, 'nightly job finds his YAT ID');
+assert.match(ingest, /not exists \(\s*select 1 from public\.flip_card_front_stage fy\s+where r\.yatid is not null and fy\.yatid = r\.yatid\s*\)/, 'a card for his YAT ID counts as his card');
 console.log('yat step 8 school key links OK');

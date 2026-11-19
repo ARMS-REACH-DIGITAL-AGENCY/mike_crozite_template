@@ -427,8 +427,16 @@ async function ensureFlipCardBaselineRows(
       from public.player_hsids ph
       join public.tbc_players_raw t on t.playerid = ph.playerid
       left join public.flip_card_front_stage f on f.playerid = ph.playerid
+      -- YAT key step 8: one card per person. A card keyed by his YAT ID (or
+      -- by another of his numbers) is his card, so he is not card-less.
+      left join public.yat_registry_ids r
+        on r.source = 'tbc' and r.source_id = ph.playerid::text
       where ph.hsid is not null
         and f.playerid is null
+        and not exists (
+          select 1 from public.flip_card_front_stage fy
+          where r.yatid is not null and fy.yatid = r.yatid
+        )
     ),
     checked as (
       select c.*,
