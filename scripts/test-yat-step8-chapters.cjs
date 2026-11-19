@@ -70,6 +70,15 @@ const filled = withCareerMemoryYears(played, everyCareerYear(2008, 2026), (year)
 assert.deepEqual(filled.map((s) => s.year), everyCareerYear(2008, 2026), 'no year missing from first season to today');
 assert.equal(filled.filter((s) => s.kind === 'memoryyear').length, 16, '2010-2025 are empty years');
 const timeline = fs.readFileSync('src/components/yatstats/ZoomableCareerTimeline.tsx', 'utf8');
-assert.equal((timeline.match(/yearsToFill\((start|hsYear)\)/g) || []).length, 2, 'players and coaches both fill every year');
+assert.match(timeline, /yearsToFill\(coachLifeYears \? hsYear : start\)/, 'a coach fills every year too');
+assert.match(timeline, /yearsToFill\(hsYear\)/, 'a player fills every year');
+// A coach gets birth through graduation like every other player (Pete, Nov
+// 19 2026); his grad year is the year before his first season (his card's
+// Class Of is his team's), and the slide shows the school he played for.
+assert.match(timeline, /const coachGradYear = coachTenure && statYears\.length \? Math\.max\(1900, firstStatYear - 1\) : null;/);
+assert.match(timeline, /\[\.\.\.coachLife, \{ \.\.\.anchor, year: start \}/, 'coach timeline starts at birth');
+assert.match(timeline, /title: identityMeta\?\.playedHsname \|\| 'High School'/);
+const db = fs.readFileSync('src/lib/db.ts', 'utf8');
+assert.match(db, /l\.source <> 'card'\s+having count\(distinct l\.hsid\) = 1/, 'playing school only when exactly one');
 
 console.log('yat step 8 chapters OK');

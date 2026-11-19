@@ -866,7 +866,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
   const [identityMeta, setIdentityMeta] = useState<{
     currentTeamName: string; orgConferenceName: string; levelLabel: string; statusLabel: string;
     position: string; bats: string; throws: string; height: string; weight: string;
-    classOf: string; hsid?: string; hsname?: string; rosterYears?: string[]; draftPicks?: DraftPick[];
+    classOf: string; hsid?: string; hsname?: string; playedHsid?: string; playedHsname?: string; rosterYears?: string[]; draftPicks?: DraftPick[];
   } | null>(null);
   // True once the identity fetch below has settled (either way). Class Of
   // and the anchor slide wait on it so a fan never sees the estimated grad
@@ -940,6 +940,8 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
     ...(identityMeta?.hsid ? [`${S3_BASE}/schools/${encodeURIComponent(identityMeta.hsid)}.png`] : []),
     ...(school?.crestUrl ? [school.crestUrl] : []),
   ];
+  // A coach's grad-year slide: the crest of the school he played for.
+  const playedCrestSrcs = identityMeta?.playedHsid ? [`${S3_BASE}/schools/${encodeURIComponent(identityMeta.playedHsid)}.png`] : [];
   const varsityYears = useMemo(() => new Set((identityMeta?.rosterYears || []).map(Number).filter(Boolean)), [identityMeta?.rosterYears]);
   // A coach's card (COACH in its status: head coach, assistant, retired
   // coach) is a coach profile: its timeline is his seasons with the
@@ -1233,7 +1235,16 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
     // below, which now just mirrors this value instead of computing its
     // own separately).
     const verifiedGradYear = Number(verifiedClassOf) || null;
-    const hsYear = verifiedGradYear || Math.max(1900, firstStatYear - 1);
+    // A coach (Pete, Nov 19 2026): birth through graduation like every other
+    // player. His card's Class Of is the class of the team he coaches, not
+    // his own, so his grad year is the same estimate a player without a
+    // Class Of gets: the year before his first season. A coach with no
+    // playing seasons has no known grad year, so no life years.
+    const coachGradYear = coachTenure && statYears.length ? Math.max(1900, firstStatYear - 1) : null;
+    const coachLifeYears = coachGradYear !== null;
+    const hsYear = coachTenure
+      ? (coachGradYear ?? coachTenure.start)
+      : (verifiedGradYear || Math.max(1900, firstStatYear - 1));
 
     const seen = new Set<string>();
     const seasons: Slide[] = [];
@@ -1465,10 +1476,18 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
         yatiFallback: yatiPlaceholderFor(year - start + 1),
       }));
       const rawUploadYear = new Map(uploads.map((item) => [`upload-${item.id}`, item.photo_taken_year || yearOf(item.photo_taken_date) || start]));
-      const coachUploads = [...preHsUploaded, ...postHsUploaded]
-        .map((slide) => ({ ...slide, year: clamp(Number(rawUploadYear.get(slide.id) || start), start, futureYear) }));
+      const coachUploads = coachLifeYears
+        ? [...preHsUploaded, ...postHsUploaded]
+        : [...preHsUploaded, ...postHsUploaded]
+          .map((slide) => ({ ...slide, year: clamp(Number(rawUploadYear.get(slide.id) || start), start, futureYear) }));
+      // His grad-year slide shows the school he played for, not the one he
+      // coaches (identity playedHsname; blank when unknown).
+      const coachHsSlide: Slide = { ...hsSlide, title: identityMeta?.playedHsname || 'High School' };
+      const coachLife = coachLifeYears ? [...earlyYears, ...lifeYears, coachHsSlide] : [];
       const coachOrder = (slide: Slide) => {
         switch (slide.kind) {
+          case 'lifeyear': return 0;
+          case 'hsyear': return 0;
           case 'anchor': return 0;
           case 'coachyear': return 1;
           case 'season': return 2;
@@ -1480,9 +1499,9 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
         }
       };
       const coachSlides = withCareerMemoryYears(
-        [{ ...anchor, year: start }, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
+        [...coachLife, { ...anchor, year: start }, ...coachYears, ...seasons, ...draftSlides, ...coachUploads, ...(today ? [today] : []), ...(futureSlide ? [futureSlide] : [])]
           .sort((a, b) => a.year - b.year || coachOrder(a) - coachOrder(b)),
-        yearsToFill(start),
+        yearsToFill(coachLifeYears ? hsYear : start),
         (year): Slide => ({ id: `memoryyear-${year}`, kind: 'memoryyear', year, title: `Memories from ${year}` }),
       );
       const coachAnchor = coachSlides.findIndex((s) => s.kind === 'anchor');
@@ -1498,7 +1517,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
     const anchorIndex = slides.findIndex((s) => s.kind === 'anchor');
 
     return { startYear: Math.min(hsYear - HS_GRAD_AGE, slides[0]?.year ?? hsYear), endYear, hsYear, futureYear, slides, anchorIndex: anchorIndex < 0 ? 0 : anchorIndex };
-  }, [stats, uploads, photo, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks, coachTenure, memoryYears]);
+  }, [stats, uploads, photo, localOverrides, resolvedPlayerName, verifiedClassOf, hsName, identityMeta?.draftPicks, identityMeta?.playedHsname, coachTenure, memoryYears]);
 
   const storiesLoaded = storiesLoad.key === playerId && storiesLoad.status !== 'loading';
   const previewContextError = identityLoad.status === 'error' || statsLoad.status === 'error' || storiesLoad.status === 'error'
@@ -2092,7 +2111,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
               )}
               {slide.kind === 'hsyear' && (
                 <span className="zt-logo-layer" aria-hidden="true">
-                  <SmartImage srcs={hsCrestSrcs} src={YS_CREST_FALLBACK} alt="" />
+                  <SmartImage srcs={coachTenure ? playedCrestSrcs : hsCrestSrcs} src={YS_CREST_FALLBACK} alt="" />
                 </span>
               )}
               {slide.kind === 'upload' && (

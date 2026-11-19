@@ -33,7 +33,7 @@ import 'server-only';
 import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
 import { teamIdentityJoins, PUBLIC_TEAM_NAME_SQL, VERIFIED_TEAM_LEVEL_SQL } from '@/lib/teamIdentitySql';
 import { CARD_DATA_TTL_SECONDS } from '@/lib/cardDataTtl';
-import type { PlayerChapterSource } from '@/lib/playerChapters';
+import { isCoachStatus, type PlayerChapterSource } from '@/lib/playerChapters';
 
 // A school's page data, kept across requests (and across server instances)
 // for 10 minutes: its roster, All-Time list, flip card rows, season results
@@ -3078,6 +3078,12 @@ export type PlayerIdentityMeta = {
   hsid: string;
   hsname: string;
   hslocation: string;
+  // A coach only: the high school he played for (his player record's school
+  // link, yat_school_links source <> 'card'), when there is exactly one.
+  // His card's school and Class Of are the team he coaches, so his career
+  // timeline's graduation slide uses this school instead.
+  playedHsid: string;
+  playedHsname: string;
   // Years on the high school's varsity roster (from the coach), e.g.
   // ["2017","2016"]; empty when the school hasn't shared them.
   rosterYears: string[];
@@ -3115,7 +3121,7 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
   const empty: PlayerIdentityMeta = {
     currentTeamName: '', orgConferenceName: '', levelLabel: '', statusLabel: 'UNKNOWN',
     position: '', bats: '', throws: '', height: '', weight: '', classOf: '',
-    hsid: '', hsname: '', hslocation: '', rosterYears: [], draftPicks: [],
+    hsid: '', hsname: '', hslocation: '', playedHsid: '', playedHsname: '', rosterYears: [], draftPicks: [],
   };
 
   try {
@@ -3186,6 +3192,18 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
     // Missing statistics or a career level never invent a playing status.
     const display = resolvePlayerDisplay({ ...player, ...stage });
 
+    // A coach's playing school (see PlayerIdentityMeta.playedHsid).
+    const played = isCoachStatus(display.statusLabel)
+      ? await query<{ hsid: string; hsname: string | null }>(
+          `select min(l.hsid::text) as hsid, max(ss.hsname) as hsname
+             from yat_school_links l
+             left join school_success ss on ss.hsid::text = l.hsid::text
+            where l.yatid = public.yat_id_for($1::text) and l.source <> 'card'
+           having count(distinct l.hsid) = 1`,
+          [stagePlayerId]
+        ).catch(() => ({ rows: [] as { hsid: string; hsname: string | null }[] }))
+      : { rows: [] as { hsid: string; hsname: string | null }[] };
+
     return {
       currentTeamName: display.teamName,
       orgConferenceName: display.orgConferenceName,
@@ -3200,6 +3218,8 @@ export async function getPlayerIdentityMeta(playerId: string): Promise<PlayerIde
       hsid: String(stage?.hsid || player?.hsid || '').trim(),
       hsname: String(stage?.hsname || '').trim(),
       hslocation: String(stage?.hslocation || '').trim(),
+      playedHsid: String(played.rows[0]?.hsid || '').trim(),
+      playedHsname: String(played.rows[0]?.hsname || '').trim(),
       rosterYears: Array.isArray(stage?.roster_years) ? stage.roster_years.map((y: unknown) => String(y).trim()).filter(Boolean) : [],
       draftPicks: draftResult.rows.map((d) => ({
         draft_year: Number(d.draft_year),
