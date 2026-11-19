@@ -12,6 +12,7 @@ import MetadataRow from './shell/MetadataRow';
 import ClubhouseFooter from './shell/ClubhouseFooter';
 import PageMessageStrip from './shell/PageMessageStrip';
 import ZoomableCareerTimeline from './ZoomableCareerTimeline';
+import { playerPhotoId } from '@/lib/playerImage';
 import { useProfileCardId } from '@/lib/useProfileCardId';
 import type { ProfileCardPair } from '@/lib/profileCardIds';
 import TimelineCleanup from './TimelineCleanup';
@@ -136,6 +137,8 @@ export default function SharedShell({
   const pathname = usePathname();
   const playerRouteMatch = pathname.match(/\/player\/([^/]+)(?:\/|$)/);
   const profilePlayerId = useProfileCardId(playerRouteMatch ? playerRouteMatch[1] : null, profileRouteCard);
+  // Profile addresses carry the YAT ID; photo files are named by it (step 6).
+  const profilePhotoId = playerPhotoId(playerRouteMatch ? decodeURIComponent(playerRouteMatch[1]) : '', profilePlayerId);
   const isPlayerProfile = pathname.includes('/player/') || pathname.includes('/profile/');
   const isContributeRoute = /\/(connect-contribute|contribute-review(?:\/bulk)?)\/?$/.test(pathname);
   // A saved Where YAT Now proof is a private standalone page, not a gallery tab.
@@ -294,7 +297,7 @@ export default function SharedShell({
               : profilePlayerId
               ? (
                   <div className="yat-profile-career-strip" style={{ display: 'block', width: '100%' }} aria-label="Golden Line event images">
-                    <ZoomableCareerTimeline playerId={profilePlayerId} variant="images" />
+                    <ZoomableCareerTimeline playerId={profilePlayerId} photoId={profilePhotoId} variant="images" />
                   </div>
                 )
               : (

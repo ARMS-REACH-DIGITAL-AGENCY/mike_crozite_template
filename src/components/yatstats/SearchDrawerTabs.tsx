@@ -132,7 +132,9 @@ function schoolCrestUrl(hsid: unknown, fallback?: unknown) {
 function playerHeadshotUrl(player: any) {
   const custom = String(player.headshotUrl || player.headshot_url || player.playerImageUrl || player.player_image_url || player.imageUrl || player.image_url || player.photoUrl || player.photo_url || '').trim();
   if (custom) return custom;
-  return `${S3_BASE}/players/now/${esc(playerIdOf(player))}.jpg`;
+  // Photo files are named by the YAT ID (YAT key step 6).
+  const yatId = String(player.yatId || player.yatid || '').trim();
+  return `${S3_BASE}/players/now/${esc(/^YAT[0-9]{6,}$/.test(yatId) ? yatId : playerIdOf(player))}.jpg`;
 }
 
 function teamLogoUrl(item: any) {

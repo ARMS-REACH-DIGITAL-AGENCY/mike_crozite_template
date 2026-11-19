@@ -11,6 +11,7 @@ import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { getPlayerById, getResolvedCurrentTeam, getDesignatedPlayerImage } from "@/lib/db";
 import { getPlayerThenImageUrl, getThenSilhouetteUrl } from "@/lib/playerImage";
+import { getPlayerPhotoIds } from "@/lib/playerPhotoIds";
 
 export const runtime = "nodejs";
 
@@ -78,7 +79,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (!photoUrl) photoUrl = playerId ? getPlayerThenImageUrl(playerId) : "";
+  if (!photoUrl && playerId) {
+    // Photo files are named by the YAT ID (YAT key step 6).
+    const photoIds = await getPlayerPhotoIds([playerId]).catch(() => new Map<string, string>());
+    photoUrl = getPlayerThenImageUrl(photoIds.get(playerId) || playerId);
+  }
   const silhouettePath = getThenSilhouetteUrl({ position, bats, throws: throwsHand });
   const silhouetteUrl = new URL(silhouettePath, req.url).toString();
 

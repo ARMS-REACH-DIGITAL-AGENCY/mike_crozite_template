@@ -7,10 +7,13 @@ are retried on later runs; two 404s mean no_headshot, while HTTP, image, and
 storage failures are reported separately and make the job fail visibly.
 Players with multiple eligible MLB ids are reported and skipped.
 
-- players/season-headshots/{playerid}_{season}.jpg is refreshed every run.
-- players/now/{playerid}.jpg is filled only when no current photo exists.
+Files are named by the player's YAT ID (YAT key step 6, Pete, Nov 19 2026),
+taken from his flip_card_front_stage row; only a row with no YAT ID keeps the
+old card-number name (the hourly YAT step 6 catch-up then copies it).
+- players/season-headshots/{yatid}_{season}.jpg is refreshed every run.
+- players/now/{yatid}.jpg is filled only when no current photo exists.
   REPLACE_NOW=true explicitly allows replacement, with a backup first.
-- players/now-thumb/{playerid}.webp is filled from the actual current photo
+- players/now-thumb/{yatid}.webp is filled from the actual current photo
   when absent, so a new headshot can display without waiting for cutouts.
   Existing thumbnails are preserved; the hourly derivative job handles
   refreshing them and producing cutouts. No high-school/action photos change.
@@ -59,7 +62,7 @@ HEADERS = {"User-Agent": "YATStatsBot/1.0 (+https://yatstats.com)"}
 PHOTO_EXTENSIONS = ("jpg", "jpeg", "png", "webp")
 RETRY_HTTP_STATUSES = {429, 500, 502, 503, 504}
 REPORT_FIELDS = ["playerid", "mlb_player_id", "mlb_id_candidates", "name", "level", "hsid",
-                 "headshot_origin", "season", "status", "season_photo", "now", "now_thumb", "detail"]
+                 "photo_id", "headshot_origin", "season", "status", "season_photo", "now", "now_thumb", "detail"]
 
 
 @dataclass
@@ -86,7 +89,8 @@ def players(conn) -> list[dict]:
         HAVING bool_or(m.is_verified IS TRUE)
       )
       SELECT m.playerid, m.mlb_ids, m.source_player_name,
-             f.display_name, f.level_label, f.hsid
+             f.display_name, f.level_label, f.hsid,
+             COALESCE(f.yatid, public.yat_id_for(m.playerid::text)) AS yatid
         FROM links m
         LEFT JOIN flip_card_front_stage f ON f.playerid = m.playerid::text
        ORDER BY m.playerid
@@ -101,6 +105,8 @@ def players(conn) -> list[dict]:
                 "name": (r[3] or r[2] or "").strip(),
                 "level": (r[4] or "").strip().upper(),
                 "hsid": str(r[5] or ""),
+                # Photo file name: the YAT ID (old card number only if none).
+                "photo_id": str(r[6] or r[0]),
             }
             for r in cur.fetchall()
         ]
@@ -228,17 +234,18 @@ def process_player(p: dict, s3, session, now_keys: set[str], thumb_keys: set[str
         row["status"] = photo.status
         return row
 
-    now_key = f"players/now/{p['playerid']}.jpg"
-    thumb_key = f"players/now-thumb/{p['playerid']}.webp"
-    current_key = next((f"players/now/{p['playerid']}.{ext}" for ext in PHOTO_EXTENSIONS
-                        if f"players/now/{p['playerid']}.{ext}" in now_keys), None)
+    pid = p["photo_id"]
+    now_key = f"players/now/{pid}.jpg"
+    thumb_key = f"players/now-thumb/{pid}.webp"
+    current_key = next((f"players/now/{pid}.{ext}" for ext in PHOTO_EXTENSIONS
+                        if f"players/now/{pid}.{ext}" in now_keys), None)
     operation = "check_current_photo"
     try:
         if not current_key and exists(s3, now_key):
             current_key = now_key
         operation = "save_season_photo"
         if not dry_run:
-            put(s3, f"players/season-headshots/{p['playerid']}_{SEASON}.jpg", photo.jpeg)
+            put(s3, f"players/season-headshots/{pid}_{SEASON}.jpg", photo.jpeg)
         row["season_photo"] = "would_save" if dry_run else "saved"
 
         current_bytes = None
@@ -292,7 +299,7 @@ def main() -> int:
     with psycopg.connect(database_url) as conn:
         roster = players(conn)
     if ONLY_PLAYERIDS:
-        roster = [p for p in roster if p["playerid"] in ONLY_PLAYERIDS]
+        roster = [p for p in roster if p["playerid"] in ONLY_PLAYERIDS or p["photo_id"] in ONLY_PLAYERIDS]
     if MAX_PLAYERS:
         roster = roster[:MAX_PLAYERS]
     print(f"Players with eligible MLB links: {len(roster)}")

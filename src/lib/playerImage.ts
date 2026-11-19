@@ -83,6 +83,19 @@ import { teamLogoPath } from "@/lib/teamLogo";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
+/**
+ * YAT key step 6 (Pete, Nov 19 2026): every player photo file is named by the
+ * player's YAT ID (players/now/YAT000001.jpg), never by an old card number.
+ * Pass the row's yatid and its card number; the card number is used only
+ * when the row has no YAT ID. Every players/... photo path in the site goes
+ * through this id.
+ */
+export function playerPhotoId(yatid: unknown, playerid?: unknown): string {
+  const yat = String(yatid ?? '').trim();
+  if (/^YAT\d{6,}$/.test(yat)) return yat;
+  return String(playerid ?? '').trim();
+}
+
 // ─── LEGACY WIRED PATHS ───────────────────────────────────────────────────────
 
 /**

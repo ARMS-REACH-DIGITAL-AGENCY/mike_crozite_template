@@ -25,6 +25,8 @@ const PLAYER_GALLERY_SECTIONS = new Set(['active', 'alltime', 'current']);
 
 type Player = {
   id: string;
+  /** YAT key step 6: the YAT ID the photo files are named by. */
+  photoId?: string | null;
   name: string;
   image?: string | null;
   nowImage?: string | null;
@@ -204,12 +206,13 @@ function readPlayersFromVisibleBlockFive(
     const source = playersById.get(id);
     const rawName = String(source?.name || card.dataset.name || '').trim();
     const name = rawName || `Player ${id}`;
+    const photoId = String(card.dataset.photoId || source?.photoId || id).trim();
     const nowImage = cleanSrc(card.dataset.thumbnailNow)
       || cleanSrc(source?.nowImage)
-      || `${PLAYER_NOW_BASE}/${encodeURIComponent(id)}.jpg`;
+      || `${PLAYER_NOW_BASE}/${encodeURIComponent(photoId)}.jpg`;
     const thenImage = cleanSrc(card.dataset.thumbnailThen)
       || cleanSrc(source?.thenImage)
-      || `${PLAYER_THEN_BASE}/${encodeURIComponent(id)}.jpg`;
+      || `${PLAYER_THEN_BASE}/${encodeURIComponent(photoId)}.jpg`;
     const currentImage = cleanSrc(card.dataset.thumbnailCurrent)
       || cleanSrc(source?.currentImage)
       || cleanSrc(source?.image)
@@ -224,6 +227,7 @@ function readPlayersFromVisibleBlockFive(
 
     result.push({
       id,
+      photoId,
       name,
       image: selectedImage,
       nowImage,
@@ -1031,14 +1035,15 @@ export default function InteractionStrip({
             ) : sectionPlayers.map((player) => {
               const lastName = getLastName(player.name);
               const fallbackSrc = isCurrentTeamTab ? (cleanSrc(player.fallbackImage) || UNCOMMITTED_BADGE_SRC) : HEADSHOT_FALLBACK_SRC;
+              const photoId = player.photoId || player.id;
               const nowSrc = cleanSrc(player.nowImage)
-                || `${PLAYER_NOW_BASE}/${encodeURIComponent(player.id)}.jpg`;
+                || `${PLAYER_NOW_BASE}/${encodeURIComponent(photoId)}.jpg`;
               const thenSrc = cleanSrc(player.thenImage)
-                || `${PLAYER_THEN_BASE}/${encodeURIComponent(player.id)}.jpg`;
+                || `${PLAYER_THEN_BASE}/${encodeURIComponent(photoId)}.jpg`;
               const currentSrc = cleanSrc(player.currentImage) || UNCOMMITTED_BADGE_SRC;
               const displaySrc = isCurrentTeamTab
                 ? currentSrc
-                : getPlayerHeadshotSources(player.id, nowSrc)[0];
+                : getPlayerHeadshotSources(photoId, nowSrc)[0];
               const uncommittedBadge = isCurrentTeamTab && isUncommittedBadge(currentSrc);
               const status = normalizeStatus(player.status);
               const imageFit = player.imageFit === 'contain' ? 'contain' : 'cover';

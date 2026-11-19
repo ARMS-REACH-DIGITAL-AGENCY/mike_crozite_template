@@ -15,6 +15,8 @@ import { parseNewsVideo, newsVideoHeadline, newsVideoDescription, type NewsVideo
 
 export type ProfileNewsStory = {
   uuid: string;
+  /** YAT key step 6: the YAT ID the player's photo files are named by. */
+  photoId?: string | null;
   articleId?: number | null;
   title: string;
   url: string;
@@ -100,10 +102,13 @@ export default function ProfileNewsList({
   playerName,
   hsid,
   schoolWide = false,
+  photoId,
 }: {
   stories: ProfileNewsStory[];
   firstName: string;
   playerId: string;
+  /** The profile's YAT ID (photo file names, step 6). */
+  photoId?: string | null;
   // Bolded in each story's copy; not linked - this is his profile already.
   playerName: string;
   /** The school owning this reader, for profile links on both news pages. */
@@ -236,7 +241,7 @@ export default function ProfileNewsList({
                   // An Instagram story with no player photo (a coach, a
                   // school post) shows the post's own picture instead.
                   const postPicture = instagramDetails[story.uuid]?.thumbnail_url;
-                  const srcs = [...getNewsPhotoSrcs(story.playerId || playerId, story.imageUrl), ...(postPicture ? [postPicture] : [])];
+                  const srcs = [...getNewsPhotoSrcs(story.photoId || story.playerId || photoId || playerId, story.imageUrl), ...(postPicture ? [postPicture] : [])];
                   return <CardPhoto key={srcs.join(' ')} srcs={srcs} className="pp-news-thumb-img" />;
                 })()}
               </div>

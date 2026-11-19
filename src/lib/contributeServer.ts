@@ -471,8 +471,19 @@ export type UploadRow = {
 // Legacy card, logo and season headshot slots contain exactly one image.
 // Never silently overwrite those when automatically processing a fan upload.
 // A reviewer may explicitly replace them; timeline heroes are append-only.
+// YAT key step 6 (Pete, Nov 19 2026): a player's photo files are named by
+// his YAT ID (players/then/YAT000001.jpg), never by an old card number. Only
+// a number with no YAT ID keeps its own name (the hourly step 6 catch-up then
+// copies it to the YAT ID name).
+async function photoFileId(playerid: unknown): Promise<string> {
+  const pid = String(playerid ?? '').trim();
+  if (!pid || /^YAT\d{6,}$/.test(pid)) return pid;
+  const { rows } = await query<{ yatid: string | null }>('SELECT public.yat_id_for($1::text) AS yatid', [pid]);
+  return String(rows[0]?.yatid || '').trim() || pid;
+}
+
 export async function existingPublishedTarget(u: UploadRow): Promise<string | null> {
-  const pid = String(u.playerid || '').trim();
+  const pid = await photoFileId(u.playerid);
   const year = u.date_taken ? new Date(u.date_taken).getUTCFullYear() : null;
   const purpose = u.purpose as PhotoPurpose;
   let key: string | null = null;
@@ -493,7 +504,7 @@ export async function existingPublishedTarget(u: UploadRow): Promise<string | nu
 }
 
 export async function promoteUpload(u: UploadRow): Promise<string[]> {
-  const pid = String(u.playerid || '').trim();
+  const pid = await photoFileId(u.playerid);
   const purpose = (u.purpose === 'other_photo' && PLAYER_ID.test(pid) ? 'timeline_hero' : u.purpose) as PhotoPurpose;
   const needsPlayer = purpose !== 'school_logo' && purpose !== 'team_logo' && purpose !== 'other_photo';
   if (needsPlayer && !PLAYER_ID.test(pid)) throw new Error('This photo has no player on the site yet. Add the player first, then approve it.');

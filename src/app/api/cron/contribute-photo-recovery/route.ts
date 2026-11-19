@@ -64,7 +64,8 @@ export async function GET(req: NextRequest) {
           AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(
             CASE WHEN jsonb_typeof(latest.description::jsonb->'published_assets')='array'
               THEN latest.description::jsonb->'published_assets' ELSE '[]'::jsonb END
-          ) asset WHERE asset.value='players/back-web/' || latest.playerid || '.webp')
+          ) asset WHERE asset.value IN ('players/back-web/' || latest.playerid || '.webp',
+            'players/back-web/' || COALESCE(public.yat_id_for(latest.playerid::text), latest.playerid::text) || '.webp'))
         ORDER BY uploaded_at DESC LIMIT 2`
     );
     for (const item of missingBackWeb) {

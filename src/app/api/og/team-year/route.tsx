@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import type { NextRequest } from 'next/server';
 import { getFlipCardFrontStageByHsid, getSchoolByHsid, getSchoolTeamSeasonResults } from '@/lib/db';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
+import { playerPhotoId } from '@/lib/playerImage';
 import {
   TEAM_YEAR_SHARE_TAGLINE, parseTeamYear, teamYearAchievement, teamYearAlumni, teamYearRecord,
 } from '@/lib/teamYearShare';
@@ -84,7 +85,8 @@ export async function GET(req: NextRequest) {
     id: String(p.playerid),
     last: String(p.lastname || p.last_name || String(p.display_name || '').split(/\s+/).pop() || '').toUpperCase(),
     level: SHORT_LEVEL[String(p.level_label || '')] || String(p.level_label || ''),
-    src: `${S3}/players/now/${p.playerid}.jpg`,
+    // Photo files are named by the YAT ID (YAT key step 6).
+    src: `${S3}/players/now/${playerPhotoId(p.yatid, p.playerid)}.jpg`,
   }));
   const checked = await Promise.all(candidates.map(async (c) => {
     const data = await smallJpeg(origin, c.src);

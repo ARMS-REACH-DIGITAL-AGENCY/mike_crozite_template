@@ -77,8 +77,10 @@ export const getBatchPlayerHeadshots = cache(async function getBatchPlayerHeadsh
     let parsed: { currentSeason?: boolean; published_assets?: string[] } = {};
     try { parsed = JSON.parse(row.description || '{}'); } catch {}
     if (parsed.currentSeason !== true) continue;
+    // This upload's own current photo: named by his YAT ID since step 6
+    // (Nov 19 2026), by his card number before.
     const key = (parsed.published_assets || []).find(
-      (value) => value === `players/now/${row.playerid}.jpg`,
+      (value) => /^players\/now\/(?:YAT\d{6,}|\d+)\.jpg$/.test(value),
     );
     const image = key ? storyAssetUrl(key) : null;
     if (image) {
