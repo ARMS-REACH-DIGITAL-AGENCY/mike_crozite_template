@@ -238,7 +238,9 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
 * 2026-11-19, Claude: players placed by school name
   (`migrations/20261119_yat_step8_school_key_links.sql`, tested on
-  claude-test, not live). `tbc_players_raw.high_school` is TBC's current
+  claude-test; LIVE Nov 19 2026 with Pete's approval: player_hsids
+  207,883 -> 208,146, TBC's own links fingerprint `ef2df1b6...` identical
+  before and after). `tbc_players_raw.high_school` is TBC's current
   school name; 290 names (594 players) matched no `hs_lookup_key` because
   TBC renamed or added schools after we loaded `tbc_schools_raw` (TBC has
   hsid 19602 Port Washington; our copy ends near 19500). Pete checked the
