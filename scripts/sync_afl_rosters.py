@@ -53,19 +53,18 @@ WITH roster AS (
     AS x(mlb_player_id text, afl_mlb_team_id integer)
 ),
 candidates AS (
-  SELECT m.playerid::text AS playerid, r.mlb_player_id,
+  SELECT f.playerid::text AS playerid, r.mlb_player_id,
          r.afl_mlb_team_id, u.teamid, u.current_team_name,
          u.current_org_or_conference_name, u.level_label
   FROM roster r
-  JOIN public.player_source_map m
-    ON m.source = 'mlb_api' AND m.source_player_id = r.mlb_player_id
-  JOIN public.flip_card_front_stage f ON f.playerid::text = m.playerid::text
+  -- YAT key step 9: MLB ID -> YAT ID (YAT Registry) -> his card.
+  JOIN public.yat_mlb_links m ON m.mlb_id = r.mlb_player_id
+  JOIN public.flip_card_front_stage f ON f.yatid = m.yatid
   JOIN public.team_id_map tim ON tim.mlb_stats_api_id = r.afl_mlb_team_id
   JOIN public.teamid_universe_mapping u ON u.teamid = tim.tbc_teamid
-  WHERE m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
-    AND (m.is_verified IS TRUE OR EXISTS (
+  WHERE (m.proven OR EXISTS (
       SELECT 1 FROM public.player_game_logs gl
-       WHERE gl.playerid::text = m.playerid::text
+       WHERE gl.playerid::text = f.playerid::text
          AND gl.source_team_id = r.afl_mlb_team_id::text
          AND gl.game_date >= make_date(%s, 1, 1)
          AND gl.game_date < make_date(%s + 1, 1, 1)

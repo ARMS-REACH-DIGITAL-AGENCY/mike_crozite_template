@@ -4,16 +4,19 @@
 // and a same-name link makes a fan's card show a stranger's team, status
 // and game log.
 //
-//   confirmed  - birthdates match; or they differ but the birth city
-//                matches (a typo'd birthdate on one side); or we have no
-//                birthdate and the birth city matches
-//   conflict   - both birthdates known, different, and different birth city
+//   confirmed  - birthdates match; or we have no birthdate and the birth
+//                city matches
+//   review     - birthdates differ, but the birth city matches, or the
+//                birth state and birth year match (a typo'd birthdate on one
+//                side looks like this). Never linked automatically: it goes
+//                to yat_registry_review for Pete (Pete, Nov 19 2026)
+//   conflict   - birthdates differ and nothing else agrees
 //   unverified - not enough on our side to tell (no birthdate, and no
 //                birth city match)
 //
 // Only "confirmed" may create or keep a link.
 
-export type IdentityVerdict = "confirmed" | "conflict" | "unverified";
+export type IdentityVerdict = "confirmed" | "review" | "conflict" | "unverified";
 
 export interface OurPlayerIdentity {
   borndate?: string | null; // tbc_players_raw.borndate: "4/15/2005" (M/D/YYYY)
@@ -23,6 +26,7 @@ export interface OurPlayerIdentity {
 export interface MlbPersonIdentity {
   birthDate?: string | null; // "2005-04-15"
   birthCity?: string | null; // "Atlanta"
+  birthStateProvince?: string | null; // "GA"
 }
 
 // tbc_players_raw stores M/D/YYYY; MLB sends YYYY-MM-DD. Comparing the raw
@@ -67,7 +71,10 @@ export function identityVerdict(
 
   if (ourDate && mlbDate) {
     if (ourDate === mlbDate) return "confirmed";
-    return sameCity ? "confirmed" : "conflict";
+    const ourState = normalizeCity((ours.place ?? "").split(",")[1]);
+    const mlbState = normalizeCity(mlb.birthStateProvince);
+    const sameStateAndYear = Boolean(ourState && mlbState && ourState === mlbState && ourDate.slice(0, 4) === mlbDate.slice(0, 4));
+    return sameCity || sameStateAndYear ? "review" : "conflict";
   }
 
   return sameCity ? "confirmed" : "unverified";

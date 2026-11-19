@@ -7,7 +7,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const read = (f) => fs.readFileSync(f, 'utf8');
 assert.match(read('src/lib/playerImage.ts'), /export function playerPhotoId\(yatid: unknown, playerid\?: unknown\)/, 'one photo-id rule');
-assert.match(read('scripts/import-mlb-headshots-s3.py'), /COALESCE\(f\.yatid, public\.yat_id_for\(m\.playerid::text\)\) AS yatid/, 'MLB job reads the YAT ID');
+// Step 9: the YAT ID comes from the YAT Registry link itself (yat_mlb_links).
+assert.match(read('scripts/import-mlb-headshots-s3.py'), /f\.display_name, f\.level_label, f\.hsid, m\.yatid/, 'MLB job reads the YAT ID');
 assert.match(read('scripts/import-mlb-headshots-s3.py'), /players\/season-headshots\/\{pid\}_\{SEASON\}\.jpg/, 'MLB job saves by YAT ID');
 assert.match(read('src/lib/contributeServer.ts'), /const pid = await photoFileId\(u\.playerid\);/, 'fan uploads save by YAT ID');
 assert.match(read('src/components/yatstats/PlayerCard.tsx'), /const photoId = playerPhotoId\(p\.yatid, playerId\);/, 'gallery cards read by YAT ID');

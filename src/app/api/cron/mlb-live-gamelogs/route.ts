@@ -104,11 +104,10 @@ async function fetchJson(url: string): Promise<any> {
 async function getMappedPlayerIds(mlbIds: string[]): Promise<Map<string, string>> {
   if (!mlbIds.length) return new Map();
   const { rows } = await pool.query<{ source_player_id: string; playerid: string }>(
-    `select source_player_id::text, playerid::text
-       from public.player_source_map
-      where source = 'mlb_api'
-        and source_player_id::text = any($1::text[])
-        and match_method is distinct from 'rejected_bad_identity_match'`,
+    // YAT key step 9: MLB ID -> YAT ID -> the key of his card.
+    `select mlb_id as source_player_id, playerid
+       from public.yat_mlb_links
+      where mlb_id = any($1::text[]) and playerid is not null`,
     [mlbIds],
   );
   return new Map(rows.map((r) => [r.source_player_id, r.playerid]));

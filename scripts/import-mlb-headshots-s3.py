@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Import available official MLB / minor league headshots.
 
-MLB ids come from unambiguous, verified, nonrejected player_source_map links. An affiliated player
+MLB ids come from proven MLB links in the YAT Registry (yat_mlb_links). An affiliated player
 can have a valid id before MLB publishes a headshot. Both photo endpoints
 are retried on later runs; two 404s mean no_headshot, while HTTP, image, and
 storage failures are reported separately and make the job fail visibly.
@@ -77,22 +77,21 @@ def players(conn) -> list[dict]:
     # Do not choose the newest link when two different MLB people resolve to
     # one player. Keep every eligible id so that process_player can skip it.
     sql = """
+      -- YAT key step 9: proven MLB links in the YAT Registry (yat_mlb_links),
+      -- to his card by YAT ID.
       WITH links AS (
-        SELECT m.playerid,
-               array_agg(DISTINCT m.source_player_id ORDER BY m.source_player_id) AS mlb_ids,
-               max(m.source_player_name) AS source_player_name
-          FROM player_source_map m
-         WHERE m.source = 'mlb_api'
-           AND m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'
-           AND m.source_player_id ~ '^[0-9]+$'
-         GROUP BY m.playerid
-        HAVING bool_or(m.is_verified IS TRUE)
+        SELECT l.playerid, l.yatid,
+               array_agg(DISTINCT l.mlb_id ORDER BY l.mlb_id) AS mlb_ids
+          FROM yat_mlb_links l
+         WHERE l.proven
+           AND l.playerid IS NOT NULL
+           AND l.mlb_id ~ '^[0-9]+$'
+         GROUP BY l.playerid, l.yatid
       )
-      SELECT m.playerid, m.mlb_ids, m.source_player_name,
-             f.display_name, f.level_label, f.hsid,
-             COALESCE(f.yatid, public.yat_id_for(m.playerid::text)) AS yatid
+      SELECT m.playerid, m.mlb_ids, f.display_name AS source_player_name,
+             f.display_name, f.level_label, f.hsid, m.yatid
         FROM links m
-        LEFT JOIN flip_card_front_stage f ON f.playerid = m.playerid::text
+        LEFT JOIN flip_card_front_stage f ON f.yatid = m.yatid
        ORDER BY m.playerid
     """
     with conn.cursor() as cur:

@@ -100,6 +100,86 @@ async function sendQuarantineEmail(
   }
 }
 
+// YAT Registry review (Pete, Nov 19 2026): an outside player (MLB, later
+// Presto) who fits one of our people but is not proven, or fits two, waits in
+// yat_registry_review. Pete gets one email per new arrival batch.
+type RegistryReviewRow = {
+  id: string;
+  source: string;
+  source_id: string;
+  source_name: string | null;
+  source_fields: Record<string, unknown> | null;
+  candidates: Array<Record<string, unknown>> | null;
+  reason: string;
+};
+
+function fieldList(fields: Record<string, unknown> | null | undefined): string {
+  return Object.entries(fields || {})
+    .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+    .map(([k, v]) => `${escapeHtml(k.replace(/_/g, " "))}: ${escapeHtml(v)}`)
+    .join("<br>");
+}
+
+async function sendRegistryReviewEmail(rows: RegistryReviewRow[], pendingTotal: number) {
+  const contactId = await findOrCreateGhlContact(
+    QUARANTINE_EMAIL,
+    "Pete",
+    "DeLuca",
+    undefined,
+    "YAT?STATS Operations",
+  );
+  if (!contactId) {
+    throw new Error(`Could not resolve or create HighLevel contact for ${QUARANTINE_EMAIL}`);
+  }
+  const body = rows.map((row) => `
+      <tr>
+        <td style="padding:6px 10px;border:1px solid #ddd;vertical-align:top"><strong>${escapeHtml(row.source_name || "(no name)")}</strong><br>${escapeHtml(row.source.toUpperCase())} ${escapeHtml(row.source_id)}<br>${fieldList(row.source_fields)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;vertical-align:top">${(row.candidates || []).map((c) => fieldList(c)).join("<hr>")}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;vertical-align:top">${escapeHtml(row.reason)}</td>
+      </tr>`).join("");
+  const subject = `YAT?STATS REVIEW: ${rows.length} ${rows.length === 1 ? "player" : "players"} waiting (same person or not?)`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.45;color:#111">
+      <h2 style="margin:0 0 12px">YAT Registry: players waiting for your decision</h2>
+      <p>${rows.length} new ${rows.length === 1 ? "player fits" : "players fit"} one of our people but ${rows.length === 1 ? "is" : "are"} not proven. Nothing was linked or created. ${pendingTotal} waiting in total (<code>yat_registry_review</code>).</p>
+      <table style="border-collapse:collapse;margin-top:14px">
+        <thead>
+          <tr>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Outside player</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Our player(s)</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Why it waits</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+      <p style="margin-top:16px">For each one: same person, a new person, or not the same person.</p>
+    </div>`;
+  const sent = await sendGHLEmail(contactId, subject, html);
+  if (!sent) {
+    throw new Error(`Failed to send registry review email to ${QUARANTINE_EMAIL}`);
+  }
+}
+
+async function notifyRegistryReview(): Promise<number> {
+  const { rows } = await query(
+    `select id::text, source, source_id, source_name, source_fields, candidates, reason
+       from public.yat_registry_review
+      where status = 'pending' and notified_at is null
+      order by created_at, id
+      limit 100`,
+  );
+  if (!rows.length) return 0;
+  const { rows: totals } = await query(
+    `select count(*)::int as n from public.yat_registry_review where status = 'pending'`,
+  );
+  await sendRegistryReviewEmail(rows as RegistryReviewRow[], Number(totals[0]?.n || rows.length));
+  await query(
+    `update public.yat_registry_review set notified_at = now() where id = any($1::bigint[])`,
+    [rows.map((r) => String(r.id))],
+  );
+  return rows.length;
+}
+
 async function ensureHealthRow() {
   await query(`
     create table if not exists public.ingest_job_health (
@@ -201,7 +281,10 @@ export async function GET(req: NextRequest) {
     ? held[held.length - 1]
     : { created_at: lastHeldAt, playerid: lastHeldPlayerId };
 
+  const registryReviewNotified = await notifyRegistryReview();
+
   const result = {
+    registryReviewNotified,
     newFlipCardsNotified: created.length,
     heldForIdentityReviewNotified: held.length,
     lastCreatedAt: createdCursor.created_at,

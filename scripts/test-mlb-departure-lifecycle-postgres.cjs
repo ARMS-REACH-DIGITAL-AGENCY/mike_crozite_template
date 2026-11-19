@@ -64,6 +64,25 @@ CREATE TABLE public.player_source_map(
 CREATE TABLE public.yat_registry_ids(
   yatid text,source text,source_id text,match_method text
 );
+-- YAT key step 9: MLB jobs read MLB ID -> YAT ID -> card from here
+-- (migrations/20261119_yat_step9_mlb_registry.sql).
+CREATE TABLE public.yat_registry_rejections(
+  source text,source_id text,yatid text,reason text,notes text
+);
+CREATE TABLE public.yat_registry_review(
+  source text,source_id text,status text DEFAULT 'pending'
+);
+CREATE VIEW public.yat_mlb_links AS
+SELECT r.source_id AS mlb_id, r.yatid,
+       coalesce(
+         (SELECT f.playerid::text FROM public.flip_card_front_stage f WHERE f.yatid = r.yatid LIMIT 1),
+         (SELECT min(t.source_id) FROM public.yat_registry_ids t WHERE t.yatid = r.yatid AND t.source = 'tbc')
+       ) AS playerid,
+       NOT EXISTS (SELECT 1 FROM public.yat_registry_review v
+                    WHERE v.source = 'mlb' AND v.source_id = r.source_id AND v.status = 'pending') AS proven,
+       r.match_method
+  FROM public.yat_registry_ids r
+ WHERE r.source = 'mlb';
 CREATE TABLE public.mlb_org_roster_resolution(
   playerid text,source_player_id text,match_status text
 );
@@ -77,18 +96,21 @@ INSERT INTO public.teamid_universe_mapping VALUES
   ('30','Toronto Blue Jays','Toronto Blue Jays','MLB');
 INSERT INTO public.player_source_map VALUES
   ('life','mlb_api','mlb-life',true);
+INSERT INTO public.yat_registry_ids VALUES
+  ('YAT900099','mlb','mlb-life','fixture'),
+  ('YAT900099','tbc','life','fixture');
 INSERT INTO public.flip_card_front_stage (
  playerid,status_label,display_status_label,team_affiliation_status,
  last_transaction_type,last_transaction_date,last_transaction_team_name,
  last_transaction_applied_at,previous_teamid,previous_team_name,
  previous_org_or_conference_name,previous_level_label,
  highest_level_label,highest_level_checked_at,
- level_label,display_level_label
+ level_label,display_level_label,yatid
 ) VALUES (
  'life','FREE AGENT','FREE AGENT','FREE AGENT',
  'Declared Free Agency','2026-10-29','New York Yankees',NOW(),
  '20','New York Yankees','New York Yankees','MLB',
- 'DOUBLE-A','2026-10-29'::timestamptz,'MLB','MLB'
+ 'DOUBLE-A','2026-10-29'::timestamptz,'MLB','MLB','YAT900099'
 );
 `;
 

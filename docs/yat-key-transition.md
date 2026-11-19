@@ -221,8 +221,8 @@ be undone, and nothing merges without Pete's approval.
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Done, LIVE Nov 19 (Claude): #838; 80 `media_upload` rows re-pointed; hourly catch-up still on (retire with Pete's OK); old-number files kept in S3 |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Done Nov 18 (Claude): rosters and game lines on YAT IDs since Nov 13 (`d6efcbb3`); October test season line-for-line match, 0 differences (Pete: enough). Results job club lookup still goes through the TBC number: moves with step 9 |
-| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | In progress (Claude, Nov 19): school links carry the YAT ID (live); one-card guard LIVE Nov 19 (`card_identity_holds`); YAT ID unique on cards LIVE Nov 19; chapters + timeline built (branch `yat/step8-unique-yatid`), waiting on Pete's OK |
-| 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
+| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | Done Nov 19 (Claude): one card per person enforced (unique `yatid`, #839); school chapters and full career timeline live (#839); nightly TBC job checks cards by YAT ID (#840) |
+| 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | In progress (Claude, Nov 19): part 1, MLB jobs read the YAT Registry (`yat_mlb_links`), branch `yat/step9-mlb-registry`; next: site code, then the build guard |
 
 ---
 
@@ -253,6 +253,21 @@ step, branch, what was done, what is next.
   flip card (6 Home Schooled 15322 has no school row, 4 TBC school listed
   twice, 2 school not in `tbc_schools_raw`); 16 are copies/backups. The
   32,723 old-number files stay in S3 (nothing reads them).
+* 2026-11-19, Claude: step 9 started (Pete: finish 8, then 9, then the Presto
+  rule). `player_source_map` already fully in `yat_registry_ids` (40,918 MLB
+  links, 0 missing, 0 disagreeing). Part 1 (`migrations/20261119_yat_step9_mlb_registry.sql`,
+  test copy): `yat_registry_rejections` (the 183 "not the same person" MLB
+  pairs; Pete chose a table of its own), `yat_registry_review` (Pete: emailed
+  to pete@yatstats.com by the hourly `flip-card-auto-create-alerts` job),
+  view `yat_mlb_links` (MLB ID -> YAT ID -> his card), `yat_reject_link()`.
+  All MLB jobs read the view. Matcher (Pete: fix): no hard-coded Hamilton
+  score; a different birth date never links (same birthplace, or same birth
+  state and year -> review). The tie check already existed (80+ and 20 ahead).
+  Review starts with Domenic Picone (MLB 822472, birth date 7 days apart); 10
+  existing links and 3 current roster players (Turnquist, Rising, Jones) fit
+  the review rule. Old vs new queries on the test copy: 0 players lost.
+  Open (Pete): 4,681 registry-only MLB links from draft records
+  (`draft_name_hs_city`) are now read by the MLB jobs too.
 * 2026-11-19, Claude: step 8, one card per person. LIVE with Pete's OK
   (`migrations/20261119_yat_step8_unique_yatid.sql`): Bordes's second row
   (55184 @ 2623) backed up to `flip_card_front_stage_backup_20261119_bordes`

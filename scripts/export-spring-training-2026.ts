@@ -47,11 +47,10 @@ async function gameLog(personId: string, group: 'hitting' | 'pitching'): Promise
 
 async function main() {
   const { rows: players } = await pool.query<{ playerid: string; person_id: string; hsid: string }>(
-    `SELECT DISTINCT m.playerid::text AS playerid, m.source_player_id AS person_id, f.hsid::text AS hsid
-       FROM public.player_source_map m
-       JOIN LATERAL (SELECT hsid FROM public.flip_card_front_stage f WHERE f.playerid::text = m.playerid::text AND f.hsid::text ~ '^\\d+$' LIMIT 1) f ON true
-      WHERE m.source = 'mlb_api'
-        AND m.match_method IS DISTINCT FROM 'rejected_bad_identity_match'`
+    // YAT key step 9: MLB links from the YAT Registry, to his card by YAT ID.
+    `SELECT DISTINCT f.playerid::text AS playerid, m.mlb_id AS person_id, f.hsid::text AS hsid
+       FROM public.yat_mlb_links m
+       JOIN public.flip_card_front_stage f ON f.yatid = m.yatid AND f.hsid::text ~ '^\\d+$'`
   );
   console.log(`Linked players: ${players.length}`);
 

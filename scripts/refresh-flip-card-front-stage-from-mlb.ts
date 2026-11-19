@@ -181,18 +181,27 @@ async function ensureLatestMatchedPlayersInStage(): Promise<{
       JOIN public.player_hsids ph ON ph.playerid::text = m.playerid
       LEFT JOIN public.tbc_players_raw p ON p.playerid::text = m.playerid
       LEFT JOIN public.flip_card_front_stage f ON f.playerid::text = m.playerid
+      -- YAT key step 8/9: one card per person. A card for his YAT ID (under
+      -- any of his numbers) is his card.
+      LEFT JOIN public.yat_registry_ids reg
+        ON reg.source = 'tbc' AND reg.source_id = m.playerid
       WHERE f.playerid IS NULL
+        AND NOT EXISTS (SELECT 1 FROM public.flip_card_front_stage fy
+                         WHERE reg.yatid IS NOT NULL AND fy.yatid = reg.yatid)
         AND ph.hsid IS NOT NULL
       ORDER BY m.playerid, ph.hsid::text
     ),
     checked AS MATERIALIZED (
       SELECT c.*,
+        -- His TBC number already belongs to a person with a card under
+        -- another key (YAT Registry).
         (
-          SELECT m.playerid
-          FROM public.player_source_map m
-          WHERE m.source = 'tbc'
-            AND m.source_player_id = c.playerid::text
-            AND COALESCE(m.match_method, '') <> 'rejected_bad_identity_match'
+          SELECT fx.playerid::text
+          FROM public.yat_registry_ids x
+          JOIN public.flip_card_front_stage fx ON fx.yatid = x.yatid
+          WHERE x.source = 'tbc'
+            AND x.source_id = c.playerid::text
+            AND fx.playerid::text <> c.playerid::text
           LIMIT 1
         ) AS crosswalk_playerid,
         (
@@ -208,13 +217,13 @@ async function ensureLatestMatchedPlayersInStage(): Promise<{
             AND NOT EXISTS (
               SELECT 1 FROM public.tbc_players_raw tt WHERE tt.playerid::text = e.playerid::text
             )
+            -- Reviewed and found to be a different person.
             AND NOT EXISTS (
               SELECT 1
-              FROM public.player_source_map r
+              FROM public.yat_registry_rejections r
               WHERE r.source = 'tbc'
-                AND r.source_player_id = c.playerid::text
-                AND r.playerid = e.playerid::text
-                AND r.match_method = 'rejected_bad_identity_match'
+                AND r.source_id = c.playerid::text
+                AND r.yatid = e.yatid
             )
           LIMIT 1
         ) AS yat_match_playerid
