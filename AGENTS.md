@@ -9,7 +9,7 @@ Production branch: `Easter-NEWS`. This file is authoritative for work on this re
 4. One scoped fix per branch/PR; branches start from current `Easter-NEWS`. Avoid one-off school/player overrides. Preserve the universal shared template.
 
 ## YAT ID key transition (Pete, Nov 18 2026)
-Every table, job and page moves to the YAT ID as its key before the PrestoSports API goes live. Read `docs/yat-key-transition.md` first (map, decisions, step table, progress log). Take only the next open step and mark it "In progress (agent, branch)"; one step at a time; a Neon test copy first; log your work before stopping; nothing merges without Pete's approval. Person = YAT ID; card = YAT ID + hsid. New code never adds a join on the old TBC number.
+Every table, job and page moves to the YAT ID as its key before the PrestoSports API goes live. Read `docs/yat-key-transition.md` first (map, decisions, step table, progress log). Take only the next open step and mark it "In progress (agent, branch)"; one step at a time; a Neon test copy first; log your work before stopping; nothing merges without Pete's approval. Person = YAT ID = one flip card; his schools only decide where that one card appears (Pete, Nov 18 2026). New code never adds a join on the old TBC number.
 
 ## Before merging
 - Inspect the complete diff against **current** production and explain any overlapping changes with merged work since the branch was created.

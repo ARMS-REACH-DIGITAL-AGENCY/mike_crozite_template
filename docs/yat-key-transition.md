@@ -126,8 +126,27 @@ Folders named by player number: `players/then`, `then-card`, `then-cutouts`,
 `now`, `now-thumb`, `now-cutouts`, `now-web`, `season-headshots`,
 `season-photos`, `season-cutouts`, `connect-videos`, and the share pictures in
 `share-previews/`.
-**Not yet measured:** the number of files per folder. This session can't list
-the bucket, so it needs a read-only GitHub job run, approved by Pete.
+**Measured Nov 18 2026 (step 0b, read-only job `yat-step0b-count-photos.yml`):**
+33,290 files, 9.6 GB. 32,765 named by a number, 388 already by YAT ID, 137
+other names (116 of them the `share-previews` pictures). `connect-videos/`
+is empty. Three folders not listed above: `players/cutouts` (357),
+`players/headshot-cutouts` (375), `players/fanpics` (1).
+
+| Folder | Files | MB | By number | By YAT ID | Other |
+|---|---:|---:|---:|---:|---:|
+| `players/now`, `now-cutouts`, `now-thumb`, `now-web` | 6,020 / 6,021 / 6,019 / 6,021 | 5,232 | ~6,017 each | 3 each | 0 |
+| `players/season-headshots` | 5,766 | 570 | 5,757 | 8 | 1 |
+| `players/then`, `then-card`, `then-cutouts`, `then-web` | 390 / 389 / 648 / 386 | 1,812 | 335 / 334 / 547 / 331 | 53 / 53 / 99 / 53 | 2 each |
+| `players/back`, `back-card`, `back-cutouts`, `back-web` | 178 each | 393 | 164 each | 12 each | 2 each |
+| `players/back-archive` | 4 | 3 | 0 | 0 | 4 |
+| `players/cutouts` | 357 | 796 | 310 | 47 | 0 |
+| `players/headshot-cutouts` | 375 | 724 | 372 | 3 | 0 |
+| `players/season-photos`, `season-cutouts` | 33 / 32 | 29 | 27 / 26 | 6 / 6 | 0 |
+| `players/fanpics` | 1 | 4 | 1 | 0 | 0 |
+| `share-previews` | 116 | 69 | 0 | 0 | 116 |
+
+"By number" means the file name is a number; which source the number belongs to
+(TBC card number or another) is checked file by file in step 6.
 
 ### 1.5 Already on the YAT ID
 
@@ -140,11 +159,27 @@ the bucket, so it needs a read-only GitHub job run, approved by Pete.
 
 ## 2. Decisions (all made, Nov 18 2026)
 
-1. **Card key: DECIDED (Pete, Nov 18 2026).** The person = YAT ID; a card =
-   YAT ID + hsid. Example: Greg Bordes, YAT000073, has a RETIRED player card
-   at Dobson (hsid 2623, today keyed `55184`) and a COACH card at Hamilton
-   (hsid 5004, today keyed `YAT000073`): `YAT000073 + 2623` and
-   `YAT000073 + 5004`.
+1. **Card key: DECIDED, CORRECTED (Pete, Nov 18 2026).** One person = one
+   YAT ID = ONE flip card, keyed by the YAT ID alone. A person who belongs to
+   several schools does not get several cards: his one card appears on each
+   of those school pages, the way a SuperFan's favorites gallery shows a
+   player from another school. Which school pages show his card comes from
+   the list we already have, `player_hsids` (one row per player and school,
+   207,883 rows), re-keyed to the YAT ID in step 8. Nothing new is built.
+   (An earlier note here said "card = YAT ID + hsid"; Pete corrected it.)
+   Measured Nov 18 (claude-test): 207,640 card rows for 207,638 people; only
+   two people had two rows: Madden Pezzorello (YAT000001; the extra row
+   `384172` had no school, a leftover duplicate, deleted Nov 18) and Greg Bordes
+   (YAT000073; Dobson 2623 row says RETIRED / DOUBLE-A, Hamilton 5004 row
+   says COACH / HIGH SCHOOL). **Decided (Pete, Nov 18):** his one card shows
+   his current status (COACH, Hamilton Huskies, HIGH SCHOOL) everywhere,
+   except on Dobson's page (a school he played for that is not his current
+   team), where it shows RETIRED with his highest level, DOUBLE-A, and no
+   team. Never a separate status such as "ALUMNUS". The page picks the view
+   from his current team ID and `player_hsids`; nothing is set by hand.
+   Step 8 merges his two rows into one card and adds Hamilton to
+   `player_hsids`. Generalised the same day into the two-school chapter model
+   (CLAUDE.md "A person with two schools").
 2. **Bracket: DECIDED (Pete, Nov 18 2026).** The bracket switches to YAT IDs
    before the 2027 tournament starts (Mon Feb 1, 2027,
    `src/lib/bracket/tournamentCalendar.ts`), after steps 3-5, once the
@@ -178,15 +213,15 @@ be undone, and nothing merges without Pete's approval.
 | # | Step | Changes | Test | Undo | Status |
 |---|---|---|---|---|---|
 | 0 | Map (this file) | Nothing | - | - | Done, Nov 18 (Claude) |
-| 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | Not started; needs Pete's OK |
+| 0b | Count photos per S3 folder | Nothing (read-only job) | - | - | Done Nov 18 (Claude): 33,290 files, 32,765 named by number (section 1.4) |
 | 1 | Rules for all agents | `CLAUDE.md` + `AGENTS.md` point to this file | Review | Revert | Done in this PR (#817), Nov 18 (Claude) |
 | 2 | Find people without a YAT ID | Nothing: count group-C rows whose number has no registry link | - | - | Done Nov 18 (Claude): every number linked; 4 leftovers below |
 | 3 | Add `yatid` to every group-C table | Column + fill from registry + trigger for new rows. Nobody reads it yet. | Every row filled; site unchanged | Drop column | Done, LIVE Nov 18 (Claude): 44 tables, 405,984 numbers, 0 wrong |
 | 4 | Site reads by YAT ID, one area per PR (profile, gallery/cards, search, favorites, news, stories, photos, social, transactions, sponsors) | App code | Preview + build guard for that area | Revert PR | Done Nov 18 (Claude): #822, #824-#831; photos moved to step 6 |
-| 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | In progress (Claude): new cards get a YAT ID; MLB and INDY ID intake LIVE Nov 18 |
-| 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Not started |
-| 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Not started; before Feb 1, 2027, after steps 3-5 (decision 2) |
-| 8 | Card key change | `flip_card_front_stage` key per decision 1 | Full test copy | Restore | Not started; decision 1 made (YAT ID + hsid) |
+| 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
+| 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | In progress (Claude): report + 3-player sample copy done Nov 18 (job `yat-step6-photo-names.yml`) |
+| 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Done Nov 18 (Claude): rosters and game lines on YAT IDs since Nov 13 (`d6efcbb3`); October test season line-for-line match, 0 differences (Pete: enough). Results job club lookup still goes through the TBC number: moves with step 9 |
+| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | Not started; decision 1 corrected Nov 18 |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
 ---
@@ -201,6 +236,87 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-18, Claude: step 8 groundwork built and tested on claude-test
+  (`migrations/20261118_yat_step8_school_links.sql`, Pete: "make the quick
+  easy fixes and resolve player_hsids"). player_hsids is no longer built
+  only from TBC: it reads `yat_school_links` (YAT ID + hsid + where each
+  link came from), filled from today's links exactly; player_hsids before
+  and after: 207,883 rows, same fingerprint. Added: 274 Home Schooled
+  players -> 15322 (TBC hs_team/15322), 143 card-only links (coaches,
+  non-TBC players); `school_source_keys` (source school text -> hsid,
+  ignoring capitals and spacing); `school_success`: 196 twins merged
+  (194 split by capital letters, 2 by Pete's ` #hsid` tag: Hamilton East
+  (Steinert) 5008 and Ida B. Wells-Barnett 2084, one hsid each per TBC's
+  pages); Pete's numbers fill the hsid row; alumni total unchanged 188,251;
+  3 rows got their hsid (Greencastle CA 17355, North McKinney 10386,
+  Woodbury CA 18109). Every one of Pete's rows now has its hsid except his
+  144 ^ / ^^ markers (left untouched). TBC link changes resync
+  automatically (tested). Left (wallpaper): the 72 duplicate TBC schools;
+  capital-letter text corrections.
+* 2026-11-18, Claude: step 8 groundwork, school audit (test copy).
+  `tbc_players_raw.high_school` vs `tbc_schools_raw.hs_lookup_key`: 207,472
+  of 208,703 players match exactly; 245 differ only by spacing or capitals;
+  274 "Home Schooled (--,--)"; ~630 unmatched (school missing or spelled
+  differently); 1 broken import row (player 347384); 72 lookup keys shared
+  by two hsids. The 72 pairs are TBC's own duplicates, found Nov 8 (PR #704,
+  `docs/duplicate-schools-2026-11.csv`), but #704 only changed sitemaps:
+  both hsids still have pages and the players are split (Logan County,
+  Russellville KY: 312 has 7 cards, 16107 has 6; the same 13 TBC players
+  match both). The `^` / `^^` rows in `school_success` (144 named with `^`,
+  344 with no hsid) are Pete's own markers from when he first found the
+  mismatched schools; they were never fixed because only 1,024 schools were
+  planned then. Pete: consolidate each pair to one hsid with a bridge, and
+  he will notify Gary at TBC.
+* 2026-11-18, Claude: step 7 done. The live bracket has used YAT IDs for
+  rosters and game lines since Nov 13 (`d6efcbb3`), but no comparison was on
+  file. Test copy: all 69 October test schools (5,547 cards), every batting
+  and pitching line from Oct 5 matched by TBC number vs by YAT ID: 83
+  players, 435 lines, 0 differences. Pete: the line match is enough. Left
+  for step 9: `scripts/master-bracket-results.ts` finds clubs through the
+  TBC number (`player_team_stints` already has `yatid`). Test branches not
+  touched. Next: step 8.
+* 2026-11-18, Claude: two-school model approved (Pete): one card, one
+  chapter per school (CLAUDE.md "A person with two schools"). First tab:
+  Where YAT Now? for coach / RETIRED chapters, 7-day snapshot for ACTIVE
+  players with two programs. The career timeline shows every year, including
+  empty ones (Bordes: 2010-2025 now missing on Dobson's profile), so they can
+  be documented. Built in step 8 with a build check pinning Bordes, one
+  two-school transfer and one normal player. 390 people have two schools.
+* 2026-11-18, Claude: coach-who-played rule recorded (Pete): one card,
+  current status everywhere; RETIRED + highest level on the page of a school
+  he played for that is not his current team. Added to CLAUDE.md.
+* 2026-11-18, Claude: on Pete's yes, deleted the leftover duplicate card row
+  `384172` (no school; Madden Pezzorello) LIVE after a test-copy run.
+  Madden keeps his one card (YAT000001, Hamilton 5004); 384172 still
+  resolves to YAT000001 in the registry. Only Greg Bordes still has two rows.
+* 2026-11-18, Claude: decision 1 corrected (Pete): one person, one card,
+  keyed by YAT ID alone; his schools only decide where it appears. CLAUDE.md
+  and AGENTS.md updated to match.
+* 2026-11-18, Claude: step 6 full copy done (Pete's yes): 32,741 files
+  copied, 0 errors (run 44364393875); a new report finds 0 left to copy.
+  Spot checks: Gary Legumina's YAT photo is his newer upload; Austin
+  Filiere's and Kyle Hasler's are the cropped photos, not the framed ones.
+  Nothing on the site reads the YAT names yet.
+* 2026-11-18, Claude: step 6 started (Pete). Read-only report of all 33,174
+  player photo files: 32,741 get a YAT ID copy, 405 already have one, 8 are
+  old long-number duplicates of photos already under the YAT ID (left
+  alone), Gary Legumina's two back photos: his card's newer one (137905)
+  wins, the YAT000103 one is left alone. 12 files under two mistyped
+  numbers: 208894 is Austin Filiere (YAT100830, card 209894) and 234784 is
+  Kyle Hasler (YAT110490, card 224784), their HS photos cropped without the
+  old card frame (Pete); on Pete's yes the cropped photos become their YAT
+  ID photos and the framed files stay in the bucket. Sample copy: Dom Hamel
+  (YAT110830) and Jake Johnson (YAT162674), 21 files, each the same as its
+  original. Originals are never deleted. Remaining: (a) copy all; (b) one PR
+  switching uploads, MLB headshot import, the site's photo addresses and the
+  approved-photo records (`media_upload`) to YAT names together, with a
+  catch-up copy just before it goes live; (c) check counts and spot check.
+* 2026-11-18, Claude: step 0b done: 33,290 stored files (9.6 GB); 32,765
+  named by a number, 388 by YAT ID; counts in section 1.4. Next: step 6.
+* 2026-11-18, Claude: step 5 done (Pete). Live check of all 44 tables: every
+  row with a player number has its YAT ID except 1 (the DJ placeholder in
+  `player_identity_override`). Step 0b started on Pete's OK: read-only job
+  lists the photo folders.
 * 2026-11-18, Claude: step 5 live: MLB ID intake triggers (catch-up attached
   0 new; 45,599 MLB IDs) and, on Pete's yes, INDY ID intake (source
   `iscore`, name-matched links marked as such): 2,009 INDY IDs for 1,928

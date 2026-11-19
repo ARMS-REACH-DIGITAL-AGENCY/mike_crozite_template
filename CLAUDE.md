@@ -33,20 +33,44 @@
   players (hsid `5004`). Never give a team a `YAT` id.
 - **One person, many schools (Pete, Nov 18 2026).** A person keeps one YAT
   ID for life and can belong to any number of high schools (a transfer, a
-  former player who now coaches): one card per school he actually belongs
-  to, keyed YAT ID + hsid. He belongs to a school's list only if he played
+  former player who now coaches). He has ONE flip card, keyed by his YAT ID
+  alone, and that same card appears on every school page he belongs to (like
+  a SuperFan's favorites gallery showing a player from another school). The
+  school only decides where the card appears, never which card it is (Pete,
+  Nov 18 2026). He belongs to a school's list only if he played
   for its team or is on its staff. Attending, then transferring before
   playing, does not count, and a source's free-text school (e.g. TBC's
   "Hamilton (Chandler,AZ)") is not proof. Examples: Greg Bordes is on
   Dobson's all-time alumni (played) and Hamilton's 2027 team (coach);
   Zachary Johnston and DJ Barrett are NOT on Hamilton (5004).
+- **A person with two schools: one card, one chapter per school (Pete, Nov
+  18 2026).** Same rule for a coach who once played and a player who played
+  varsity for two programs. ALWAYS THE SAME wherever the card shows: name,
+  photos, stats, news, stories, social, connect and ONE career timeline (every
+  year from his first season to today, including years with no data, so
+  anyone can add what he did then). PER SCHOOL CHAPTER: row 2 school logo and
+  name; the front's status, level and team; the back's first tab. A coach
+  chapter shows his current status (COACH, team, HIGH SCHOOL); the chapter of
+  a school he played for that is not his current team shows RETIRED with his
+  HIGHEST level and no team. Never another status (never "ALUMNUS"). First
+  tab: Where YAT Now? for a coach or RETIRED chapter (as for every retired
+  player); the 7-day snapshot only for an ACTIVE player. Which chapter shows
+  first: on a school page or under a school's address, that school's; from
+  search or favorites, his current status. A toggle (like MILB CAREER /
+  COLLEGE CAREER) switches chapters on the card back and the profile, and
+  appears ONLY for people with two chapters; everyone else looks exactly as
+  today. Chapters come from his current team ID and `player_hsids`, never
+  set by hand. Example: Greg Bordes (YAT000073): COACH on Hamilton (5004),
+  RETIRED, DOUBLE-A on Dobson (2623). Nov 18 2026: 390 people have two
+  schools in `player_hsids`.
 - **YAT ID key transition (Pete, Nov 18 2026).** Every table, job and page
   moves to the YAT ID as its key before the PrestoSports API goes live. The
   map, the decisions and the step table are in `docs/yat-key-transition.md`:
   read it before touching player identity, card keys, photos or the bracket.
   Take only the next open step, mark it in progress, one step at a time, test
-  copy first, nothing merges without Pete. Person = YAT ID; card = YAT ID +
-  hsid. New code never adds a join on the old TBC number.
+  copy first, nothing merges without Pete. Person = YAT ID = one card;
+  `player_hsids` says which school pages show it. New code never adds a join
+  on the old TBC number.
 - **YAT? Baseball Registry (Pete, Nov 2026).** Every player is one person
   with a YAT ID (`YAT` + 6 digits) in `yat_registry`. The YAT ID is ours;
   every outside number (TBC playerid, MLB ID, Perfect Game, MaxPreps, NCAA,
