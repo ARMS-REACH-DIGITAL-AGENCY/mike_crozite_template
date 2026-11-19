@@ -31,7 +31,7 @@ function toUpperSafe(v?: string) {
 }
 
 function buildHomeHref() {
-  return "https://home.yatstats.com";
+  return "https://yatstats.com";
 }
 
 /**
