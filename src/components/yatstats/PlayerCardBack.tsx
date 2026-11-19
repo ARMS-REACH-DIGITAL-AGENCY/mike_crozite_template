@@ -269,7 +269,11 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   const displayName = asText(p.display_name) || `${asText(p.firstname)} ${asText(p.lastname)}`.trim();
 
   const display = resolvePlayerDisplay(p);
-  const whereYatNowTab = usesWhereYatNowStatus(display.statusLabel);
+  // A person with two schools: his card on this school shows this school's
+  // chapter (set by the school page). The first tab follows it (CLAUDE.md):
+  // Where YAT Now? for a coach or RETIRED chapter.
+  const chapters = Array.isArray(p.chapters) && p.chapters.length > 1 ? (p.chapters as PlayerChapter[]) : null;
+  const whereYatNowTab = usesWhereYatNowStatus(display.statusLabel) || Boolean(chapters && isCoachStatus(display.statusLabel));
   const posLevelStatus = [
     asText(p.position),
     display.levelLabel,
@@ -285,11 +289,6 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   const btHw = [btPart, hwPart].filter(Boolean).join(" - ");
 
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
-  // A person with two schools: his card on this school shows this school's
-  // chapter (set by the school page). The first tab follows it (CLAUDE.md):
-  // Where YAT Now? for a coach or RETIRED chapter.
-  const chapters = Array.isArray(p.chapters) && p.chapters.length > 1 ? (p.chapters as PlayerChapter[]) : null;
-  const firstTabWhereYat = whereYatNowTab || Boolean(chapters && isCoachStatus(display.statusLabel));
 
   const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72 0.68' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0.18'/></filter><rect width='200' height='200' filter='url(#n)' opacity='0.55'/></svg>`;
   const noiseUrl = `url("data:image/svg+xml,${encodeURIComponent(noiseSvg)}")` as string;
@@ -322,11 +321,11 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             shareBaseUrl={shareBaseUrl}
             schoolName={schoolName}
             schoolLocation={schoolLocation}
-            whereYatNow={firstTabWhereYat}
-            scheduleSnapshot={firstTabWhereYat || deferScheduleSnapshot ? undefined :
+            whereYatNow={whereYatNowTab}
+            scheduleSnapshot={whereYatNowTab || deferScheduleSnapshot ? undefined :
               <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
             }
-            lazySchedulePlayerId={!firstTabWhereYat && deferScheduleSnapshot ? imageId : undefined}
+            lazySchedulePlayerId={!whereYatNowTab && deferScheduleSnapshot ? imageId : undefined}
           />
         </div>
       </div>
