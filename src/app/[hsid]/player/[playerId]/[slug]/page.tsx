@@ -18,6 +18,7 @@ import {
   getTeamIdMap,
   query,
   resolveProfileCard,
+  getPlayerChapterSources,
 } from "@/lib/db";
 // Kept across requests: at most one database read per player per hour.
 import {
@@ -36,6 +37,7 @@ import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/Pr
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
+import { buildPlayerChapters, defaultChapterIndex, isCoachStatus, type PlayerChapterSource } from "@/lib/playerChapters";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
 import { getTeamLogoUrl, getOriginalForCardCopy, chooseNewsDisplayImage } from "@/lib/playerImage";
@@ -454,7 +456,16 @@ export default async function ProfilePage({ params }: Props) {
     (affiliationStatus === "FREE AGENT" || affiliationStatus === "RETIRED") && !!lastTransactionType;
 
   const statusLabel = isSourcedDeparture ? affiliationStatus : rawStatusLabel;
-  const whereYatAlumnus = usesWhereYatNowStatus(transactionStatus?.status_label || player.display_status_label || player.status_label || statusLabel);
+  // A person with two schools: under a school's address the profile shows
+  // that school's chapter (CLAUDE.md; src/lib/playerChapters.ts). The first
+  // tab follows it: Where YAT Now? for a coach or RETIRED chapter.
+  const chapterKey = String(yatId || playerId);
+  const profileChapterSource = (await getPlayerChapterSources([chapterKey]).catch(() => new Map<string, PlayerChapterSource>())).get(chapterKey);
+  const profileChapters = profileChapterSource ? buildPlayerChapters(profileChapterSource) : [];
+  const profileChapter = profileChapters.length > 1 ? profileChapters[defaultChapterIndex(profileChapters, hsid)] : null;
+  const whereYatAlumnus = profileChapter
+    ? isCoachStatus(profileChapter.statusLabel) || usesWhereYatNowStatus(profileChapter.statusLabel)
+    : usesWhereYatNowStatus(transactionStatus?.status_label || player.display_status_label || player.status_label || statusLabel);
   // FREE AGENT / RETIRED: no team on the profile either (Pete, Nov 2026),
   // whether the departure came from a transaction or from the roster sync.
   const hasNoTeam = /^(FREE AGENT|RETIRED)\b/.test(String(statusLabel).trim().toUpperCase())
@@ -903,6 +914,24 @@ export default async function ProfilePage({ params }: Props) {
 
   return (
     <>
+      {profileChapter && (
+        <nav className="pp-chapter-toggle" aria-label="School">
+          {profileChapters.map((c) => (
+            <a key={c.hsid} href={`/${c.hsid}/player/${encodeURIComponent(chapterKey)}/${slug}`}
+               className={c.hsid === profileChapter.hsid ? 'is-on' : undefined}
+               aria-current={c.hsid === profileChapter.hsid ? 'page' : undefined}>
+              {(c.schoolName || c.hsid).toUpperCase()}
+              <span>{[c.statusLabel, c.levelLabel].filter(Boolean).join(' · ')}</span>
+            </a>
+          ))}
+          <style>{`
+            .pp-chapter-toggle{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:8px 0; }
+            .pp-chapter-toggle a{ display:flex; flex-direction:column; align-items:center; gap:2px; font:700 11px/1.1 system-ui,sans-serif; letter-spacing:.06em; padding:6px 12px; border-radius:999px; border:1px solid rgba(0,0,0,.35); color:inherit; text-decoration:none; }
+            .pp-chapter-toggle a span{ font-weight:500; font-size:9px; opacity:.75; }
+            .pp-chapter-toggle a.is-on{ background:#1b1b1b; color:#fff; border-color:#1b1b1b; }
+          `}</style>
+        </nav>
+      )}
       {/* ═══════════════════════════════════════════════════════════════════════
           BLOCK 5 — Profile-page FunZone (six-tab, inline implementation)
           Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.
