@@ -33,6 +33,7 @@ import 'server-only';
 import { resolveSchoolHsidFromHost } from '@/lib/schoolDirectoryRouting';
 import { teamIdentityJoins, PUBLIC_TEAM_NAME_SQL, VERIFIED_TEAM_LEVEL_SQL } from '@/lib/teamIdentitySql';
 import { CARD_DATA_TTL_SECONDS } from '@/lib/cardDataTtl';
+import type { PlayerChapterSource } from '@/lib/playerChapters';
 
 // A school's page data, kept across requests (and across server instances)
 // for 10 minutes: its roster, All-Time list, flip card rows, season results
@@ -2959,6 +2960,69 @@ export const getFlipCardFrontStageByHsid = cache(keptAcrossRequests('getFlipCard
   const { rows } = await query(sql, [hsid]);
   return rows;
 }));
+
+// A person with two schools: one card, one chapter per school (CLAUDE.md;
+// rule in src/lib/playerChapters.ts). For the given card ids or YAT IDs,
+// the people who belong to two or more schools (their card's school plus
+// their yat_school_links, which player_hsids reads) and what each chapter
+// needs, keyed by YAT ID and by each id asked for. People with one school
+// are not returned: their card is unchanged.
+export async function getPlayerChapterSources(ids: string[]): Promise<Map<string, PlayerChapterSource>> {
+  const wanted = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))];
+  const out = new Map<string, PlayerChapterSource>();
+  if (!wanted.length) return out;
+  const { rows } = await query<{
+    yatid: string; home_hsid: string | null; status_label: string | null; level_label: string | null;
+    highest_level_label: string | null; current_team_name: string | null; current_teamid: string | null;
+    current_org_or_conference_name: string | null;
+    schools: { hsid: string; school: string | null; location: string | null }[];
+    inputs: string[] | null;
+  }>(
+    `WITH inputs AS (
+       SELECT x AS input, public.yat_id_for(x) AS yatid FROM unnest($1::text[]) x
+     ), ids AS (
+       SELECT DISTINCT yatid FROM inputs WHERE yatid IS NOT NULL
+     ), links AS (
+       SELECT l.yatid, l.hsid::text AS hsid FROM public.yat_school_links l
+        JOIN ids USING (yatid)
+        WHERE l.hsid IS NOT NULL
+       UNION
+       SELECT f.yatid, f.hsid::text FROM public.flip_card_front_stage f
+        JOIN ids USING (yatid)
+        WHERE f.hsid::text ~ '^[0-9]+$'
+     ), multi AS (
+       SELECT yatid FROM links GROUP BY yatid HAVING count(DISTINCT hsid) > 1
+     )
+     SELECT f.yatid, f.hsid::text AS home_hsid, f.status_label, f.level_label,
+            COALESCE(NULLIF(BTRIM(f.highest_level_label), ''),
+              (SELECT max(public.compute_player_highest_level(r.source_id))
+                 FROM public.yat_registry_ids r WHERE r.yatid = f.yatid AND r.source = 'tbc')) AS highest_level_label,
+            f.current_team_name, f.current_teamid::text AS current_teamid, f.current_org_or_conference_name,
+            (SELECT json_agg(json_build_object('hsid', l.hsid, 'school', s.hsname, 'location', s.hslocation) ORDER BY l.hsid)
+               FROM links l LEFT JOIN public.school_success s ON s.hsid::text = l.hsid
+              WHERE l.yatid = f.yatid) AS schools,
+            (SELECT array_agg(i.input) FROM inputs i WHERE i.yatid = f.yatid) AS inputs
+       FROM multi JOIN public.flip_card_front_stage f USING (yatid)`,
+    [wanted],
+  );
+  for (const r of rows) {
+    const source: PlayerChapterSource = {
+      yatid: String(r.yatid),
+      homeHsid: String(r.home_hsid ?? ''),
+      statusLabel: String(r.status_label ?? ''),
+      levelLabel: String(r.level_label ?? ''),
+      highestLevelLabel: String(r.highest_level_label ?? ''),
+      teamName: String(r.current_team_name ?? ''),
+      teamId: String(r.current_teamid ?? ''),
+      orgName: String(r.current_org_or_conference_name ?? ''),
+      schools: (r.schools || []).map((s) => ({ hsid: String(s.hsid), schoolName: String(s.school ?? ''), location: String(s.location ?? '') })),
+    };
+    // Keyed by the YAT ID and by every id asked for (card or TBC number).
+    out.set(String(r.yatid), source);
+    for (const input of r.inputs || []) out.set(String(input), source);
+  }
+  return out;
+}
 
 // Same normalization as getFlipCardFrontStageByHsid, for one arbitrary
 // player regardless of which school's page is currently being viewed -

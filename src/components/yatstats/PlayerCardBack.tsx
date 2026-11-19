@@ -28,6 +28,8 @@ import { resolvePlayerDisplay } from "@/lib/playerDisplay";
 import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
 import { familyEvidence, orderByPrimaryStatFamily, primaryStatFamily } from "@/lib/flipCardStatSelection";
 import { playerPhotoId } from "@/lib/playerImage";
+import PlayerCardBackChapters from "@/components/yatstats/PlayerCardBackChapters";
+import { defaultChapterIndex, isCoachStatus, type PlayerChapter } from "@/lib/playerChapters";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 
@@ -284,6 +286,11 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
   const btHw = [btPart, hwPart].filter(Boolean).join(" - ");
 
   const profileHref = `/${resolvedHsid}/player/${imageId}/${slug}`;
+  // A person with two schools gets a chapter toggle (CLAUDE.md); everyone
+  // else's card back is exactly as before.
+  const chapters = Array.isArray(p.chapters) && p.chapters.length > 1 ? (p.chapters as PlayerChapter[]) : null;
+  // The 7-day snapshot is only fetched when some chapter is ACTIVE.
+  const chapterNeedsSnapshot = Boolean(chapters?.some((c) => !isCoachStatus(c.statusLabel) && !usesWhereYatNowStatus(c.statusLabel)));
 
   const noiseSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.72 0.68' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0.18'/></filter><rect width='200' height='200' filter='url(#n)' opacity='0.55'/></svg>`;
   const noiseUrl = `url("data:image/svg+xml,${encodeURIComponent(noiseSvg)}")` as string;
@@ -292,6 +299,31 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
     <div className="yat-face yat-back yat-back-cq" data-player-card-id={imageId}>
       <div className="yat-back-texture">
         <div className="yat-back-inner">
+          {chapters ? (
+            <PlayerCardBackChapters
+              chapters={chapters}
+              defaultIndex={defaultChapterIndex(chapters, resolvedHsid)}
+              position={asText(p.position)}
+              hero={{ playerId: imageId, photoId: playerPhotoId(p.yatid, imageId), displayName, profileHref, btHw }}
+              funZone={{
+                player: p,
+                isPitcher: primaryPitcher,
+                isAllTime: isAllTime ?? false,
+                resolvedHsid,
+                stats: seasonStatsPending ? stats.map((stat) => ({ ...stat, v: "—" })) : stats,
+                statBarLabel,
+                statBuckets: seasonStatsPending ? [] : statBuckets,
+                displayName,
+                shareBaseUrl,
+                schoolName,
+                schoolLocation,
+              }}
+              scheduleSnapshot={deferScheduleSnapshot || !chapterNeedsSnapshot ? undefined :
+                <PlayerSevenDaySnapshot playerId={imageId} displayName={displayName} profileHref={profileHref} />
+              }
+              lazySchedulePlayerId={deferScheduleSnapshot && chapterNeedsSnapshot ? imageId : undefined}
+            />
+          ) : (<>
           <PlayerCardBackHero
             playerId={imageId}
             photoId={playerPhotoId(p.yatid, imageId)}
@@ -321,6 +353,7 @@ export default function PlayerCardBack({ player: p, resolvedHsid, isAllTime, sha
             }
             lazySchedulePlayerId={!whereYatNowTab && deferScheduleSnapshot ? imageId : undefined}
           />
+          </>)}
         </div>
       </div>
 

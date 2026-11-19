@@ -90,7 +90,15 @@ interface FunZoneProps {
    */
   scheduleSnapshot?: ReactNode;
   lazySchedulePlayerId?: string;
+  /**
+   * A two-school chapter decides the first tab itself (CLAUDE.md): Where YAT
+   * Now? for a coach or RETIRED chapter, the 7-day snapshot for ACTIVE.
+   * Left out, the status decides as before.
+   */
+  whereYatNow?: boolean;
 }
+
+export type { FunZoneProps };
 
 interface NewsTease {
   badge?: string;
@@ -769,8 +777,9 @@ export default function FunZone({
   schoolLocation,
   scheduleSnapshot,
   lazySchedulePlayerId,
+  whereYatNow,
 }: FunZoneProps) {
-  const whereYatPlayer = usesWhereYatNowStatus(statusLabel);
+  const whereYatPlayer = whereYatNow ?? usesWhereYatNowStatus(statusLabel);
   const imageId = String(player.playerid || "");
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [alumniUpdate,setAlumniUpdate]=useState<any>(null);
