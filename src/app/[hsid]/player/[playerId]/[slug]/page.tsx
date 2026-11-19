@@ -914,24 +914,6 @@ export default async function ProfilePage({ params }: Props) {
 
   return (
     <>
-      {profileChapter && (
-        <nav className="pp-chapter-toggle" aria-label="School">
-          {profileChapters.map((c) => (
-            <a key={c.hsid} href={`/${c.hsid}/player/${encodeURIComponent(chapterKey)}/${slug}`}
-               className={c.hsid === profileChapter.hsid ? 'is-on' : undefined}
-               aria-current={c.hsid === profileChapter.hsid ? 'page' : undefined}>
-              {(c.schoolName || c.hsid).toUpperCase()}
-              <span>{[c.statusLabel, c.levelLabel].filter(Boolean).join(' · ')}</span>
-            </a>
-          ))}
-          <style>{`
-            .pp-chapter-toggle{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:8px 0; }
-            .pp-chapter-toggle a{ display:flex; flex-direction:column; align-items:center; gap:2px; font:700 11px/1.1 system-ui,sans-serif; letter-spacing:.06em; padding:6px 12px; border-radius:999px; border:1px solid rgba(0,0,0,.35); color:inherit; text-decoration:none; }
-            .pp-chapter-toggle a span{ font-weight:500; font-size:9px; opacity:.75; }
-            .pp-chapter-toggle a.is-on{ background:#1b1b1b; color:#fff; border-color:#1b1b1b; }
-          `}</style>
-        </nav>
-      )}
       {/* ═══════════════════════════════════════════════════════════════════════
           BLOCK 5 — Profile-page FunZone (six-tab, inline implementation)
           Block 4 (metadata chips) is now rendered in layout.tsx Row 4 via row4Content.

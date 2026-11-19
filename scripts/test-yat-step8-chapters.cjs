@@ -51,5 +51,5 @@ assert.equal(normal.length, 1);
 
 const page = fs.readFileSync('src/app/[hsid]/page.tsx', 'utf8');
 assert.match(page, /if \(chapters\.length < 2\) continue;/, 'one-school people untouched');
-assert.match(fs.readFileSync('src/components/yatstats/PlayerCardBack.tsx', 'utf8'), /p\.chapters\.length > 1/, 'toggle only for two chapters');
+assert.ok(!fs.existsSync('src/components/yatstats/PlayerCardBackChapters.tsx'), 'no chapter toggle (Pete, Nov 19 2026)');
 console.log('yat step 8 chapters OK');
