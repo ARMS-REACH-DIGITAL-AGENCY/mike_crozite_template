@@ -15,9 +15,9 @@
 //              game's line drawn from his own 2026 rates with a fixed random
 //              seed (same result every run). Marked simulated.
 //   Inning 9 - real W-L of every pro alumnus's club that week, from the
-//              team stints (on the roster counts, played or not); college
-//              results aren't loaded, so a school with only college alumni
-//              counts as .500.
+//              team stints (on the roster counts, played or not) and MLB's
+//              final scores. Nothing is made up: a school with no real
+//              results that week posts no W-L (Pete, Nov 19 2026).
 //
 // The tournament:
 //   Weeks 1-30 (Feb 2 - Aug 30): one continuous 1,024-school bracket,
@@ -423,33 +423,10 @@ if (SPRING) {
   }
 }
 
-// Every eligible alumnus must contribute a weekly club record to inning 9.
-// Real stint/team results win whenever they exist. Missing records are filled
-// deterministically so the simulation never drops an active alumnus from W-L%.
-function syntheticPlayerWL(playerid: string, week: number, level: string) {
-  const college = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level);
-  const games = college ? 4 : 6;
-  const rand = mulberry32(hashString(`yatstats-2026-wl:${playerid}:${week}:${level}`));
-  const wins = Math.floor(rand() * (games + 1));
-  return { w: wins, l: games - wins };
-}
-for (const [hsid, roster] of seasonRoster) {
-  for (let week = 1; week <= GRAND_FINAL_WEEK; week++) {
-    const key = `${hsid}|${week}`;
-    if (!playerWL.has(key)) playerWL.set(key, new Map());
-    const perPlayer = playerWL.get(key)!;
-    for (const [playerid, entry] of roster) {
-      if (perPlayer.has(playerid)) continue;
-      const level = [...entry.levels][0] || 'MLB';
-      const synthetic = syntheticPlayerWL(playerid, week, level);
-      perPlayer.set(playerid, synthetic);
-      const total = weeklyWL.get(key) || { w: 0, l: 0 };
-      total.w += synthetic.w;
-      total.l += synthetic.l;
-      weeklyWL.set(key, total);
-    }
-  }
-}
+// Inning 9 is only real results (Pete, Nov 19 2026): an alumnus adds his
+// club's W-L for the days a stint puts him on that club, from MLB's final
+// scores. A week with no stint or no final adds nothing - never a made-up
+// record.
 
 // ---------------------------------------------------------------------------
 // Games
