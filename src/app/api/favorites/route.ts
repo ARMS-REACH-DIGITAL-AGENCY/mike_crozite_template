@@ -24,6 +24,7 @@ import { getUserProfile, saveFavorite, getFavorites, removeFavorite } from "@/li
 import { isSuperfan as isSuperfanProfile } from "@/lib/entitlements";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
 import { getPlayerHeadshotSources } from "@/lib/playerImage";
+import { getPlayerPhotoIds } from "@/lib/playerPhotoIds";
 
 const FAVORITES_FALLBACK_ATTEMPTS = 8;
 
@@ -328,10 +329,11 @@ export async function GET(req: NextRequest) {
           return new Map<string, { image_url: string }>();
         })
       : new Map<string, { image_url: string }>();
+    const photoIds = await getPlayerPhotoIds(playerIds).catch(() => new Map<string, string>());
     favoritePlayers = favoritePlayers.map((p) => {
       const id = String(p.playerid);
       const url = headshots.get(id)?.image_url ?? "";
-      return { ...p, headshotUrl: url, headshotSources: getPlayerHeadshotSources(id, url) };
+      return { ...p, headshotUrl: url, headshotSources: getPlayerHeadshotSources(photoIds.get(id) || id, url) };
     });
 
     return NextResponse.json({

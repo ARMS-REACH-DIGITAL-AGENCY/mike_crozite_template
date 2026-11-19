@@ -22,6 +22,7 @@ import { headers } from 'next/headers';
 import { getSchoolCrestUrl } from '@/lib/schoolAssets';
 import { formatSchoolName, highSchoolTeamLabel, isRetiredAtHighSchoolLevel, sortActivePlayers, sortAllTimePlayers } from '@/lib/playerUtils';
 import { getPlayerThenImageUrl } from '@/lib/playerImage';
+import { getPlayerPhotoIds } from '@/lib/playerPhotoIds';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isNeverASchoolSegment } from '@/lib/schoolSegment';
 import { ACTIVE_GALLERY_STATUSES, GALLERY_STATUS_OPTIONS } from '@/lib/galleryStatuses';
@@ -73,15 +74,17 @@ function isHighSchoolStripPlayer(p: Record<string, unknown>): boolean {
     isHighSchoolLevel(p.current_level_label || p.display_level_label || p.level_label || p.level);
 }
 
+// photoId: the YAT ID the photo files are named by (YAT key step 6).
 function getStripImageForPlayer(
-  playerId: string,
+  photoId: string,
   frontImageUrl?: string | null,
   headshotUrl?: string | null
 ) {
-  const thenImage = String(frontImageUrl || '').trim() || getPlayerThenImageUrl(playerId);
+  const thenImage = String(frontImageUrl || '').trim() || getPlayerThenImageUrl(photoId);
   return {
     image: thenImage,
-    nowImage: String(headshotUrl || '').trim() || `${YAT_ASSETS_BASE}/players/now/${playerId}.jpg`,
+    nowImage: String(headshotUrl || '').trim() || `${YAT_ASSETS_BASE}/players/now/${photoId}.jpg`,
+    photoId,
     thenImage,
     fallbackImage: '/img/headshot-silhouette.png',
     imageFit: 'cover' as const,
@@ -474,11 +477,14 @@ async function SchoolShell({
       : Promise.resolve(emptyStripImageMap()),
   ]);
 
+  const stripPhotoIds = isProfileRoute || !stripPlayerIds.length
+    ? new Map<string, string>()
+    : await getPlayerPhotoIds(stripPlayerIds).catch(() => new Map<string, string>());
   const stripPlayers = (isProfileRoute ? [] : allStripRows).map((p) => {
     const playerId = String(p.playerid);
     const status = String(p.status_label || p.status || '').toUpperCase().trim();
     const stripImages = getStripImageForPlayer(
-      playerId,
+      stripPhotoIds.get(playerId) || playerId,
       stripFrontImageMap.get(playerId)?.image_url ?? null,
       stripHeadshotMap.get(playerId)?.image_url ?? null,
     );

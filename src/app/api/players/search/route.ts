@@ -6,7 +6,7 @@ import { getSchoolCrestUrl } from "@/lib/schoolAssets";
 import { GLOBAL_SEARCH_LIMIT } from "@/lib/searchConfig";
 import { PLAYER_STAGE_IDENTITY_CTES, PLAYER_STAGE_IDENTITY_SOURCE } from "@/lib/playerStageIdentity";
 import { getBatchPlayerHeadshots } from "@/lib/playerHeadshots";
-import { getPlayerHeadshotSources } from "@/lib/playerImage";
+import { getPlayerHeadshotSources, playerPhotoId } from "@/lib/playerImage";
 
 export const runtime = "nodejs";
 
@@ -157,7 +157,7 @@ export async function GET(req: NextRequest) {
         slug: toPlayerSlug(r.firstname, r.lastname),
         crestUrl: getSchoolCrestUrl(r.hsid),
         headshotUrl: headshots.get(String(r.playerid))?.image_url ?? "",
-        headshotSources: getPlayerHeadshotSources(String(r.playerid), headshots.get(String(r.playerid))?.image_url),
+        headshotSources: getPlayerHeadshotSources(playerPhotoId(r.yatid, r.playerid), headshots.get(String(r.playerid))?.image_url),
         micrositeUrl,
         currentTeamName: r.current_team_name ?? "",
         statusLabel: r.status_label ?? "",

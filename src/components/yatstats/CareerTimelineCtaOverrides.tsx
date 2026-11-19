@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { profileCardIdFor } from "@/lib/profileCardIds";
+import { playerPhotoId } from "@/lib/playerImage";
 
 const S3_BASE = "https://yatstats-assets.s3.us-west-2.amazonaws.com";
 const ROW_HEIGHT = 100;
@@ -71,7 +72,9 @@ function ensureJourneyAnchor(canvas: HTMLElement) {
       // S3 folder renamed from players/cutouts/ to players/then-cutouts/
       // (see ZoomableCareerTimeline.tsx's own comment on this for the
       // full back-cutouts/now-cutouts/then-cutouts naming).
-      cutout.src = `${S3_BASE}/players/then-cutouts/${encodeURIComponent(playerId)}.png`;
+      // Photo files are named by the YAT ID the address carries (step 6).
+      const routeId = decodeURIComponent(window.location.pathname.match(/\/player\/([^/]+)/i)?.[1] || "");
+      cutout.src = `${S3_BASE}/players/then-cutouts/${encodeURIComponent(playerPhotoId(routeId, playerId))}.png`;
       cutout.alt = "";
       cutout.setAttribute("aria-hidden", "true");
       cutout.loading = "eager";

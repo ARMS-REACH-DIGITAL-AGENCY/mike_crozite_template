@@ -60,7 +60,7 @@ function sectionImage(card: HTMLElement, sectionKey: string): { src: string; fal
   }
 
   return {
-    src: getPlayerHeadshotSources(String(card.dataset.playerid || ''), card.dataset.thumbnailNow)[0],
+    src: getPlayerHeadshotSources(String(card.dataset.photoId || card.dataset.playerid || ''), card.dataset.thumbnailNow)[0],
     fallback: PLAYER_HEADSHOT_FALLBACK_URL,
   };
 }

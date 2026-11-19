@@ -9,9 +9,11 @@ const S3 = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
 
 export default function PlayerCardBackHero({
   playerId, displayName, profileHref, teamName, orgConf, posLevelStatus, btHw,
-  previewImageUrl,
+  previewImageUrl, photoId,
 }: {
   playerId: string;
+  /** YAT key step 6: the YAT ID the photo files are named by (playerPhotoId). */
+  photoId?: string;
   displayName: string;
   profileHref: string;
   teamName: string;
@@ -20,8 +22,9 @@ export default function PlayerCardBackHero({
   btHw: string;
   previewImageUrl?: string | null;
 }) {
-  const card = S3 + '/players/back-card/' + playerId + '.webp';
-  const original = S3 + '/players/back/' + playerId + '.jpg';
+  const photo = photoId || playerId;
+  const card = S3 + '/players/back-card/' + photo + '.webp';
+  const original = S3 + '/players/back/' + photo + '.jpg';
   return (
     <a href={profileHref} className="yat-back-hero" aria-label={'View ' + displayName + "'s profile"}>
       <SafeImage
