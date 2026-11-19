@@ -242,14 +242,17 @@ step, branch, what was done, what is next.
   school name; 290 names (594 players) matched no `hs_lookup_key` because
   TBC renamed or added schools after we loaded `tbc_schools_raw` (TBC has
   hsid 19602 Port Washington; our copy ends near 19500). Pete checked the
-  top 20 on thebaseballcube.com: 14 added to `school_source_keys` (225
-  players). player_hsids did not read `school_key_match` links, so those
+  top 20 on thebaseballcube.com: 21 names added to `school_source_keys`
+  (263 players); 6 schools TBC added later (12984, 8428, 13960, 19362,
+  19476, 19602) got rows in `tbc_schools_raw` and `school_success` from
+  TBC's pages (TBC lists a school only once it has an alumnus). player_hsids did not read `school_key_match` links, so those
   players (and the 274 Home Schooled) never got a card from the nightly
   job; it reads them now, and triggers keep the links current when
   `school_source_keys` or `tbc_players_raw` change. TBC's own links
   unchanged (fingerprint identical). Open: Home Schooled 15322 is in
-  neither `tbc_schools_raw` nor `school_success`; none of the 14 schools
-  has a `microsite_url` (9966 Langley has no `school_success` row).
+  neither `tbc_schools_raw` nor `school_success`; none of these schools
+  has a `microsite_url` (9966 Langley has no `school_success` row); the 6
+  new schools have no `C`+hsid row in `teamid_universe_mapping` (Pete's).
 * 2026-11-19, Claude: school links live (#835; live player_hsids fingerprint
   identical before/after). Found the school page builds its galleries from
   `flip_card_front_stage` (cards by hsid, any source); player_hsids only adds

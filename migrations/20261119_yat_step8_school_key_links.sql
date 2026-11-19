@@ -16,6 +16,28 @@
 -- A name that maps to two hsids never places a player. A player TBC already
 -- links to a school is never also placed by name. Exclusions always win.
 
+-- 0 -------------------------------------------------------------------------
+-- Schools TBC listed after we loaded tbc_schools_raw (TBC lists a school only
+-- once it has an alumnus). Name, city, state and nickname exactly as on TBC's
+-- hs_team pages Pete sent (Nov 19 2026); nothing else is filled in.
+INSERT INTO public.tbc_schools_raw (hsid, hsname, hslocation, hs_lookup_key, cityname, regionname, regionid, nickname)
+SELECT v.hsid, v.hsname, v.city || ',' || v.st, v.hsname || ' (' || v.city || ',' || v.st || ')', v.city, v.region, v.st, v.nickname
+  FROM (VALUES
+    (12984, 'Christiansburg', 'Christiansburg', 'Virginia', 'VA', 'Demons'),
+    (8428,  'Westborough', 'Westborough', 'Massachusetts', 'MA', 'Rangers'),
+    (13960, 'Armstrong Central', 'Kittanning', 'Pennsylvania', 'PA', NULL),
+    (19362, 'ECA Baseball Academy', 'Goldsboro', 'North Carolina', 'NC', NULL),
+    (19476, 'Laingsburg', 'Laingsburg', 'Michigan', 'MI', NULL),
+    (19602, 'Port Washington', 'Port Washington', 'New York', 'NY', NULL)
+  ) AS v(hsid, hsname, city, region, st, nickname)
+ WHERE NOT EXISTS (SELECT 1 FROM public.tbc_schools_raw s WHERE s.hsid = v.hsid);
+
+INSERT INTO public.school_success (hsid, hs_lookup_key, high_school, hsname, nickname, hslocation, cityname, regionname, regionid)
+SELECT s.hsid, s.hs_lookup_key, s.hs_lookup_key, s.hsname, s.nickname, s.hslocation, s.cityname, s.regionname, s.regionid
+  FROM public.tbc_schools_raw s
+ WHERE s.hsid IN (12984, 8428, 13960, 19362, 19476, 19602)
+   AND NOT EXISTS (SELECT 1 FROM public.school_success x WHERE x.hsid = s.hsid);
+
 -- 1 -------------------------------------------------------------------------
 -- Pete, Nov 19 2026: verified on thebaseballcube.com.
 INSERT INTO public.school_source_keys (source, source_key, source_text, hsid, note)
@@ -34,7 +56,14 @@ SELECT 'tbc', public.school_key_norm(v.txt), v.txt, v.hsid, 'Pete, Nov 19 2026: 
     ('Breck School (Golden Valley,MN)', 12950),
     ('Leeds (Leeds,AL)', 5722),
     ('St. George''s School (Middletown,RI)', 12889),
-    ('Wildwood (Wildwood,NJ)', 11248)
+    ('Wildwood (Wildwood,NJ)', 11248),
+    ('Harmony (Big Sandy,TX)', 5044),
+    ('Christiansburg (Christiansburg,VA)', 12984),
+    ('Westborough (Westborough,MA)', 8428),
+    ('Armstrong Central (Kittanning,PA)', 13960),
+    ('ECA Baseball Academy (Goldsboro,NC)', 19362),
+    ('Laingsburg (Laingsburg,MI)', 19476),
+    ('Port Washington (Port Washington,NY)', 19602)
   ) AS v(txt, hsid)
  WHERE EXISTS (SELECT 1 FROM public.tbc_schools_raw s WHERE s.hsid = v.hsid)
 ON CONFLICT DO NOTHING;
