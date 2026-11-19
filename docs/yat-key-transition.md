@@ -221,7 +221,7 @@ be undone, and nothing merges without Pete's approval.
 | 5 | Jobs and imports write the YAT ID (TBC sync, MLB roster sync, transactions, game logs, draft, news, contributions) | Scripts, workflows, functions | Run on test copy; compare outputs | Revert PR | Done Nov 18 (Claude): every new row in all 44 tables gets its YAT ID (1 known placeholder row left); MLB + INDY ID intake live (#832). Jobs still looking up `player_source_map` move off it in step 9 |
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | In progress (Claude): report + 3-player sample copy done Nov 18 (job `yat-step6-photo-names.yml`) |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Done Nov 18 (Claude): rosters and game lines on YAT IDs since Nov 13 (`d6efcbb3`); October test season line-for-line match, 0 differences (Pete: enough). Results job club lookup still goes through the TBC number: moves with step 9 |
-| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | Not started; decision 1 corrected Nov 18 |
+| 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | In progress (Claude, Nov 19): school links carry the YAT ID (live); one-card guard LIVE Nov 19 (`card_identity_holds`); next: YAT ID as the card's unique key |
 | 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Not started |
 
 ---
@@ -236,6 +236,11 @@ step, branch, what was done, what is next.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).
 * 2026-11-18, Claude: decision 2 recorded (bracket on YAT IDs before Feb 1, 2027).
 * 2026-11-18, Claude: decision 3 recorded (backups kept until the end, then archived to S3).
+* 2026-11-19, Claude: step 8 started (Pete: "start step 8"). One-card guard
+  (`migrations/20261119_yat_step8_one_card_per_person.sql`) applied LIVE:
+  trigger `trg_zz_one_card_per_person`, review table `card_identity_holds`;
+  cards 207,642 unchanged, 0 holds. Only person with two cards: Bordes
+  (YAT000073: `YAT000073`@5004, `55184`@2623).
 * 2026-11-19, Claude: players placed by school name
   (`migrations/20261119_yat_step8_school_key_links.sql`, tested on
   claude-test; LIVE Nov 19 2026 with Pete's approval: player_hsids
