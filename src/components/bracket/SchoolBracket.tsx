@@ -506,11 +506,11 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
   const rows = useMemo(() => {
     const nm = (h: number) => shortName(index.schools[h]?.[0] || '');
     if (view === 'az') {
-      return boards.flatMap((b) => b.ranked.map((s, i) => ({ s, place: i + 1, region: b.region })))
+      return boards.flatMap((b) => b.ranked.map((s) => ({ s, region: b.region })))
         .sort((x, y) => nm(x.s.h).localeCompare(nm(y.s.h)));
     }
     const b = boards.find((x) => x.region === view) || boards[0];
-    return b.ranked.map((s, i) => ({ s, place: i + 1, region: b.region }));
+    return b.ranked.map((s) => ({ s, region: b.region }));
   }, [boards, view, index]);
   const listRef = useRef<HTMLDivElement | null>(null);
   // Bring this school's line into view (inside the list only).
@@ -522,22 +522,29 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
   }, [view]);
   // The run column sits right after the longest school name (with its
   // city) in the WHOLE field - one spot, the same for every region.
-  const fieldNames = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => index.schools[x.h]?.[0] || '')), [boards, index]);
+  const fieldSchools = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => ({
+    name: index.schools[x.h]?.[0] || '',
+    seed: index.schools[x.h]?.[2] ?? '—',
+    region: b.region,
+  }))), [boards, index]);
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
     const fit = () => {
       list.style.removeProperty('--lb-name-w');
       const li = list.querySelector('li');
-      if (!li || !fieldNames.length) return;
-      // Measure every school's name + city once, in a hidden copy of a row.
+      if (!li || !fieldSchools.length) return;
+      // The original seed is part of the same left-aligned school group,
+      // rather than a separate rank column. Measure the complete group.
       const probe = document.createElement('ol');
       probe.setAttribute('aria-hidden', 'true');
       probe.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;column-count:1';
-      probe.innerHTML = fieldNames.map(() => '<li><a><span></span><small></small></a></li>').join('');
+      probe.innerHTML = fieldSchools.map(() => '<li><a><span class="yfp-lb-seed"></span><span class="yfp-lb-school"></span><small></small></a></li>').join('');
       [...probe.querySelectorAll('a')].forEach((a, i) => {
-        a.querySelector('span')!.textContent = shortName(fieldNames[i]);
-        a.querySelector('small')!.textContent = place(fieldNames[i]);
+        const school = fieldSchools[i];
+        a.querySelector('.yfp-lb-seed')!.textContent = view === 'az' ? `R${school.region}-#${school.seed}` : `#${school.seed}`;
+        a.querySelector('.yfp-lb-school')!.textContent = shortName(school.name);
+        a.querySelector('small')!.textContent = place(school.name);
       });
       list.appendChild(probe);
       const textW = (el: HTMLElement) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
@@ -546,11 +553,9 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const cs = getComputedStyle(li);
       const gap = parseFloat(cs.columnGap || '0');
       const lcs = getComputedStyle(list);
-      // The rank (A-Z: region-seed) column fits its header label too.
-      const rkHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rk');
-      const rankW = Math.ceil(Math.max(view === 'az' ? 44 : 24, rkHead ? textW(rkHead) + 8 : 0));
-      list.style.setProperty('--lb-rank-w', `${rankW}px`);
-      // ... and the runs column fits TOTAL RUNS.
+      // No rank column: those pixels now belong to the school and city.
+      list.style.removeProperty('--lb-rank-w');
+      // The total-runs column still fits its header and keeps its alignment.
       const rfHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rf');
       const runsW = Math.ceil(Math.max(22, rfHead ? textW(rfHead) + 8 : 0));
       list.style.setProperty('--lb-runs-w', `${runsW}px`);
@@ -562,7 +567,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       // narrowed below, never cut or wrapped, down to MIN_SCALE of its size.
       const MIN_SCALE = 0.6;
       const avail = list.clientWidth - parseFloat(lcs.paddingLeft) - parseFloat(lcs.paddingRight);
-      const nameFor = (c: number) => Math.floor((avail + 22) / c) - 22 - rankW - runsW - 2 * gap;
+      const nameFor = (c: number) => Math.floor((avail + 22) / c) - 22 - runsW - gap;
       let cols = 1;
       for (let c = 3; c > 1; c--) if (nameFor(c) >= longest * MIN_SCALE) { cols = c; break; }
       const nameW = Math.ceil(Math.max(0, Math.min(longest + 2, nameFor(cols))));
@@ -592,7 +597,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
     const ro = new ResizeObserver(fit);
     ro.observe(list);
     return () => ro.disconnect();
-  }, [fieldNames, view]);
+  }, [fieldSchools, view]);
   const diff = (s: { rf: number; ra: number }) => `${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra}`;
   return (
     <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
@@ -616,19 +621,27 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         <div className="yfp-lb-head" aria-hidden="true">
           {[0, 1, 2].map((c) => (
             <div key={c} className="yfp-lb-hcol">
-              <span className="rk">{view === 'az' ? 'Region # - Seed #' : 'Rank'}</span>
               <span className="nm">School</span>
               <span className="rf">Total Runs</span>
             </div>
           ))}
         </div>
-        <ol>{rows.map(({ s, place: rank, region }) => (
-          <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${rank} in the region · ${s.rf} runs (${diff(s)})`}>
-            <span className="rk">{view === 'az' ? `R${region}-S${index.schools[s.h]?.[2] ?? '—'}` : rank}</span>
-            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
-            <span className="rf">{s.rf}</span>
-          </li>
-        ))}</ol>
+        <ol>{rows.map(({ s, region }) => {
+          const originalSeed = index.schools[s.h]?.[2] ?? '—';
+          const school = index.schools[s.h]?.[0] || '';
+          const seedLabel = view === 'az' ? `R${region}-#${originalSeed}` : `#${originalSeed}`;
+          return (
+            <li key={s.h} className={s.h === me ? 'me' : ''}
+              title={`${school} · original seed #${originalSeed}, Region ${region} · ${s.rf} runs (${diff(s)})`}>
+              <a href={`/${s.h}#sec-fantasy`} aria-label={`${school}, Region ${region} seed ${originalSeed}, ${s.rf} runs`}>
+                <span className="yfp-lb-seed">{seedLabel}</span>
+                <span className="yfp-lb-school">{shortName(school)}</span>
+                <small>{place(school)}</small>
+              </a>
+              <span className="rf">{s.rf}</span>
+            </li>
+          );
+        })}</ol>
       </div>
     </aside>
   );
@@ -1366,23 +1379,23 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         /* The gold header row (the drawers' stat header gold and type), one
            per column, pinned to the top of the list as it scrolls. */
         .yfz-panel .yfp-lb-head { position:sticky; top:0; z-index:2; display:grid; grid-template-columns:repeat(var(--lb-cols, 1), minmax(0,1fr)); column-gap:22px; margin-bottom:3px; background:var(--bg,#0c0c0c); }
-        .yfz-panel .yfp-lb-hcol { display:grid; grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; align-items:center; height:20px; border-radius:5px; background:#2e8b5f; color:#ffd34f;
+        .yfz-panel .yfp-lb-hcol { display:grid; grid-template-columns:var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; align-items:center; height:20px; border-radius:5px; background:#2e8b5f; color:#ffd34f;
           font:700 11px/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; white-space:nowrap; }
-        /* RANK and TOTAL RUNS centered over their columns; SCHOOL left. The
-           numbers under them sit in a centered 3-digit box, right-aligned, so
-           ones, tens and hundreds line up. */
-        .yfz-panel .yfp-lb-hcol .rk, .yfz-panel .yfp-lb-hcol .rf { justify-self:center; }
+        /* SCHOOL includes its seed and city; TOTAL RUNS remains right-aligned. */
+        .yfz-panel .yfp-lb-hcol .nm { justify-self:start; padding-left:3px; }
+        .yfz-panel .yfp-lb-hcol .rf { justify-self:end; text-align:right; }
         .yfz-panel .yfp-lb-list[data-cols="1"] .yfp-lb-hcol:nth-child(n+2),
         .yfz-panel .yfp-lb-list[data-cols="2"] .yfp-lb-hcol:nth-child(n+3) { display:none; }
-        .yfz-panel .yfp-lb li { grid-template-columns:var(--lb-rank-w, 24px) var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; padding:2px 0; break-inside:avoid; }
-        .yfz-panel .yfp-lb li .rk, .yfz-panel .yfp-lb li .rf { justify-self:center; width:3ch; text-align:right; font-variant-numeric:tabular-nums; }
-        /* A-Z: the region-seed (R3-S15) centered under its header label. */
-        .yfz-panel .yfp-lb-list.az li .rk { width:auto; text-align:center; }
+        .yfz-panel .yfp-lb li { grid-template-columns:var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); gap:5px; padding:2px 0; break-inside:avoid; }
+        .yfz-panel .yfp-lb li a { display:inline-block; min-width:0; max-width:100%; white-space:nowrap; vertical-align:baseline; }
+        .yfz-panel .yfp-lb li .yfp-lb-seed { color:var(--yfp-muted); font:400 .82em/1 "Roboto Condensed","Arial Narrow",Oswald,sans-serif; font-variant-numeric:tabular-nums; margin-right:5px; }
+        .yfz-panel .yfp-lb li .yfp-lb-school { font-weight:500; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
+        .yfz-panel .yfp-lb li .rf { justify-self:end; width:auto; text-align:right; font-variant-numeric:tabular-nums; }
         /* School names in the drawers' player-name type (system-ui 11px). */
         .yfz-panel .yfp-lb li { font-size:11px; }
         .yfz-panel .yfp-lb li a small { font-size:.85em; }
-        .yfz-panel .yfp-lb li .rk { font-size:.85em; }
+        .yfz-panel .yfp-lb li.me .yfp-lb-seed { color:var(--yfp-gold); }
         .yfz-panel .yfp-lb li .rf { text-align:right; }
         .yfz-panel .yfp-lb-rules { flex:none; align-self:center; margin-top:8px; }
         @media (max-width:599px) {
