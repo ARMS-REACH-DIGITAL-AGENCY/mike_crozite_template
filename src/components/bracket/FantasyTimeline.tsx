@@ -60,26 +60,26 @@ const currentPlayerImages = (id: string, designatedHeadshot?: string | null) => 
 
 function Fallback({ srcs, className, alt, fitHeight }: { srcs: string[]; className: string; alt: string; fitHeight?: boolean }) {
   const [i, setI] = useState(0);
-  const [wide, setWide] = useState(false);
-  // Cody's bat-across-the-frame cutout needs its original wide treatment,
-  // regardless of the automatic aspect-ratio heuristic used for other alumni.
-  const codyAction = className.includes('yft-person') && /^cody\s+bellinger$/i.test(alt.trim());
+  const [photoShape, setPhotoShape] = useState<{ widthPct: number; action: boolean } | null>(null);
   if (i >= srcs.length) return null;
-  // A slide's person (Pete, Nov 13): a wide picture (shoulders and a bat or
-  // an arm out to the side) shrunk to the box's width stood barely over the
-  // timeline. One that would come out under half the box's height gets a
-  // box 1.7x as wide instead, reaching left under the headline with a soft
-  // fade, so his head lands about where a full-figure picture's does.
+  // The preprocessed cutout's transparent border is already trimmed. Its
+  // natural aspect ratio therefore describes the photo's usable shape:
+  // portraits stay in the standard 38% slot; progressively wider action
+  // shots gain more width, up to 80%, on every school's timeline. No
+  // player-name, team or photo-ID exceptions.
   const onLoad = fitHeight ? (e: React.SyntheticEvent<HTMLImageElement>) => {
-    // The picture's own box (.yft-person, before yft-wide applies) is the
-    // player box; object-fit:contain draws the picture box.width wide.
     const el = e.currentTarget;
-    const box = el.getBoundingClientRect();
-    setWide(Boolean(el.naturalWidth && el.naturalHeight && box.height && box.width / (el.naturalWidth / el.naturalHeight) < 0.5 * box.height));
+    const ratio = el.naturalHeight ? el.naturalWidth / el.naturalHeight : 0;
+    if (!Number.isFinite(ratio) || ratio <= 0) { setPhotoShape(null); return; }
+    const widthPct = ratio <= 1.05 ? 38 : Math.min(80, Math.round(38 + (ratio - 1.05) * 80));
+    setPhotoShape({ widthPct, action: ratio >= 1.45 });
   } : undefined;
+  const isWide = Boolean(photoShape && photoShape.widthPct > 38);
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className={`${className}${wide || codyAction ? ' yft-wide' : ''}${codyAction ? ' yft-cody' : ''}`} src={srcs[i]} alt={alt} loading="lazy" decoding="async" onLoad={onLoad}
-    onError={() => { setWide(false); setI((v) => v + 1); }} />;
+  return <img className={`${className}${isWide ? ' yft-wide' : ''}${isWide && photoShape?.action ? ' yft-action' : ''}`}
+    style={fitHeight && photoShape ? ({ '--yft-hero-image-width': `${photoShape.widthPct}%` } as React.CSSProperties) : undefined}
+    src={srcs[i]} alt={alt} loading="lazy" decoding="async" onLoad={onLoad}
+    onError={() => { setPhotoShape(null); setI((v) => v + 1); }} />;
 }
 
 type RoundSlide = {
@@ -626,13 +626,13 @@ export default function FantasyTimeline() {
           -webkit-mask-image:var(--yft-dissolve); mask-image:var(--yft-dissolve); }
         /* Wide action cutouts keep their natural proportions, anchored on
            the right with a stronger left dissolve to protect the story. */
-        .yft-person.yft-wide { left:auto; right:0; width:57%; object-position:right bottom;
+        .yft-person.yft-wide { left:auto; right:0; width:var(--yft-hero-image-width,57%); object-position:right bottom;
           -webkit-mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.25) 22%, #000 42%);
           -webkit-mask-composite:source-in; mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.25) 22%, #000 42%); mask-composite:intersect; }
-        /* Only Cody's very wide batting photo: recover the previous large
-           scale, keep the bat near the far-right boundary, and feather both
-           cropped edges without changing any other player's layout. */
-        .yft-person.yft-cody { left:auto; right:0; width:76%; object-fit:contain; object-position:right bottom;
+        /* Panoramic/action cutouts are identified by intrinsic photo shape,
+           not player identity. Keep their full aspect ratio, anchor to the
+           right, and feather both sides of any constrained crop. */
+        .yft-person.yft-action {
           -webkit-mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.65) 14%, #000 26%, #000 93%, transparent 100%);
           -webkit-mask-composite:source-in; mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.65) 14%, #000 26%, #000 93%, transparent 100%); mask-composite:intersect; }
         /* A fade to black (deep blue in the day theme) along the bottom of
@@ -731,8 +731,7 @@ export default function FantasyTimeline() {
           .yft-hero { height:118px; min-height:118px; }
           .yft-person { left:auto; right:0; width:38%; top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px);
             --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 46px), rgba(0,0,0,.35) calc(100% - 18px), transparent calc(100% - 2px)); }
-          .yft-person.yft-wide { left:auto; right:0; width:56%; }
-          .yft-person.yft-cody { left:auto; right:0; width:80%; object-position:right bottom; }
+          .yft-person.yft-wide { left:auto; right:0; width:var(--yft-hero-image-width,56%); }
           .yft-hero::after { height:40px; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
