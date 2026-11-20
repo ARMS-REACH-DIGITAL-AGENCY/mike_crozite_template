@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic';
 
 // 2026 simulation preview: every request reads the isolated preview database's
 // 2026bracketsim season (real 2026 pro stats, Round 1 played), with the clock
-// frozen at 5 a.m. Arizona on Monday Apr 13, 2026 (after Round 1, before Round 2).
+// frozen at 5 a.m. Arizona on Monday May 4, 2026 (after Round 2, before Round 3).
 const SIM_SEASON = '2026bracketsim';
-const SIM_NOW = Date.parse('2026-04-13T12:00:00Z');
+const SIM_NOW = Date.parse('2026-05-04T12:00:00Z');
 
 export async function GET(req: NextRequest) {
   const season = SIM_SEASON;
