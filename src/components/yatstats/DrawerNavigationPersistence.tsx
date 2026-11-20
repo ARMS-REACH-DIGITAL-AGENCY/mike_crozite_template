@@ -167,6 +167,18 @@ export default function DrawerNavigationPersistence() {
       // Desktop keeps the existing persistent-rail behavior across navigation.
       const link = target.closest('a[href]');
       if (drawer && link) {
+        // A Favorites profile click now uses Next client-side routing. Close
+        // its drawer immediately; otherwise the old persistence timer would
+        // reopen the drawer on top of the destination after navigation.
+        if (drawer.id === 'drawerFavorites' && link.matches('.yat-favorite-headshot-link, .yat-favorite-text-link')) {
+          document.body.classList.remove('drawer-favorites-open');
+          if (!getRightState() && !document.body.classList.contains('drawer-left-open')) {
+            document.body.classList.remove('drawer-open');
+          }
+          try { sessionStorage.removeItem(DRAWER_STATE_KEY); } catch {}
+          applySavedTheme();
+          return;
+        }
         if (drawer.id === 'drawerLeft' && isMobileNavigationViewport()) {
           closeLeftNavigationDrawer();
           applySavedTheme();
