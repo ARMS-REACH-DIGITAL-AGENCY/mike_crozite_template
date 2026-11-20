@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import FlipCardIcon from '@/components/yatstats/icons/FlipCardIcon';
 import { installFunZoneSwipe } from '@/components/yatstats/funZoneSwipe';
 
@@ -13,6 +14,8 @@ type YatUser = {
 
 type FavoritePlayer = {
   playerid: string;
+  /** Canonical YAT ID for direct profile navigation; card id remains playerid. */
+  publicId?: string | null;
   hsid?: string | null;
   display_name?: string | null;
   last_name?: string | null;
@@ -694,7 +697,16 @@ function FavoriteLinks({
         const schoolId = String(player.hsid || currentHsid);
         const name = String(player.display_name || playerId);
         const slug = playerSlug(name);
-        const profileHref = `/${schoolId}/player/${playerId}/${slug}`;
+        const publicId = String(player.publicId || playerId);
+        // Same school stays in the Next router; a cross-school favorite uses
+        // its canonical school domain rather than an intermediate redirect.
+        const schoolOrigin = String(player.microsite_url || '').trim().replace(/\/+$/, '');
+        const profileBase = schoolId === currentHsid
+          ? `/${encodeURIComponent(schoolId)}`
+          : /^https:\/\/(?:[a-z0-9-]+\.)+yatstats\.com$/i.test(schoolOrigin)
+            ? schoolOrigin
+            : `/${encodeURIComponent(schoolId)}`;
+        const profileHref = `${profileBase}/player/${encodeURIComponent(publicId)}/${slug}`;
         const subtitle = String(player.current_team_name || '').trim();
         const school = schoolLine(player);
 
@@ -709,7 +721,7 @@ function FavoriteLinks({
             >
               <i className="ri-heart-fill" aria-hidden="true" />
             </button>
-            <a href={profileHref} className="yat-favorite-headshot-link" title={`Open ${name} profile`}>
+            <Link href={profileHref} prefetch={false} className="yat-favorite-headshot-link" title={`Open ${name} profile`}>
               <img
                 src={headshotSourcesFor(player)[0]}
                 alt=""
@@ -724,12 +736,12 @@ function FavoriteLinks({
                   if (sources[next]) img.src = sources[next];
                 }}
               />
-            </a>
-            <a href={profileHref} className="yat-favorite-text-link" title={`Open ${name} profile`}>
+            </Link>
+            <Link href={profileHref} prefetch={false} className="yat-favorite-text-link" title={`Open ${name} profile`}>
               <strong>{name}</strong>
               {subtitle && <small>{subtitle}</small>}
               {school.line && <small className="yat-favorite-hs-line">{school.line}</small>}
-            </a>
+            </Link>
             <a href={playerFlipCardUrl(playerId, schoolId, player.microsite_url)} className="yat-favorite-flip-link" title={school.hover} aria-label={school.hover}>
               <img
                 src={schoolCrestUrl(schoolId)}
