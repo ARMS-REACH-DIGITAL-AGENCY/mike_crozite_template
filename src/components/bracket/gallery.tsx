@@ -1151,7 +1151,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const theirs = rawTheirs || theirsRoster ? { p: theirPlayers, wl: sumRosterWl(theirPlayers) } as SideBox : undefined;
   if (mine) mine.wl = sumRosterWl(minePlayers);
   if (theirs) theirs.wl = sumRosterWl(theirPlayers);
-  const weekVals = boxForView?.d?.[7];
+  // A live game must not reveal statistics beyond the tournament clock.
+  // Completed games retain their entire historical Stat Ledger.
+  const weekInProgress = drawerMode && played && winner === null;
+  const visibleThroughDay = weekInProgress ? (typeof openDay === 'number' ? openDay : -1) : 7;
+  const weekVals = weekInProgress ? undefined : boxForView?.d?.[7];
   const myName = names[me];
   const [statDay, setStatDay] = useState<'week' | number>(openDay);
   // Drawer: the scoreboards stay pinned under the header and the day tabs
@@ -1185,8 +1189,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // Every day tab lists the whole active roster, like Weekly Totals (Pete,
   // Nov 17: rosters are always visible, even before a game starts). A day
   // with no stat lines yet shows each player with blank metrics, not zeros.
-  const viewPlayers = statDay === 'week' ? (mine?.p || [])
-    : dayRosterRows(rawMine?.days?.[statDay] || [], mineRoster);
+  const unreachedDay = weekInProgress && (statDay === 'week'
+    || (typeof statDay === 'number' && statDay > visibleThroughDay));
+  const viewPlayers = statDay === 'week'
+    ? (unreachedDay ? dayRosterRows([], mineRoster) : (mine?.p || []))
+    : dayRosterRows(unreachedDay ? [] : (rawMine?.days?.[statDay] || []), mineRoster);
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
@@ -1258,9 +1265,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'kbb', label: 'K/BB', cls: 'rate', val: kbb, show: (p) => kbb(p).toFixed(2) },
     { key: 'fip', label: 'FIP', cls: 'rate', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
   ];
+  // Future tabs keep their roster names, never future performance values.
+  const batColsForView: SortCol[] = unreachedDay
+    ? batCols.map((c) => ({ ...c, val: () => null, show: () => '—' })) : batCols;
+  const pitColsForView: SortCol[] = unreachedDay
+    ? pitCols.map((c) => ({ ...c, val: () => null, show: () => '—' })) : pitCols;
   const wlText = (x: [number, number]) => `${x[0]}-${x[1]}`;
   const teamWl = wlText(wl);
-  const shownTeamWl = statDay === 'week' ? teamWl : dayWl ? `${dayWl[0]}-${dayWl[1]}` : '—';
+  const shownTeamWl = unreachedDay ? '—' : statDay === 'week' ? teamWl : dayWl ? `${dayWl[0]}-${dayWl[1]}` : '—';
   const teamWhip = teamPit[0] ? ((teamPit[5] || 0) + (teamPit[2] || 0)) / (teamPit[0] / 3) : 0;
   const teamKbb = teamPit[2] ? (teamPit[4] || 0) / teamPit[2] : (teamPit[4] || 0);
   const teamFipWeight = pitchers.reduce((s, p) => s + (pit(p)[0] || 0), 0);
@@ -1277,8 +1289,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   };
   const homeWl = me === 0 ? wl : owl;
   const awayWl = me === 0 ? owl : wl;
-  const homeWp = pctNum(homeWl[0], homeWl[1]);
-  const awayWp = pctNum(awayWl[0], awayWl[1]);
+  // Inning nine (club W%) is not available during an unfinished week.
+  const homeWp = weekInProgress ? null : pctNum(homeWl[0], homeWl[1]);
+  const awayWp = weekInProgress ? null : pctNum(awayWl[0], awayWl[1]);
   // Live: a run counts only once settled; until then the cell shows the lead.
   const settledAt = (inning: number, idx: number) => !boxForView?.f || Boolean(boxForView.f[inning]?.[idx < 2 ? 0 : 1]);
   const cellClass = (inning: number, idx: number, mine: number | null | undefined, theirs: number | null | undefined, higher: boolean) => {
@@ -1309,13 +1322,17 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     const name = names[side], location = locations[side];
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
     const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
-      const d = boxForView?.d?.[i];
+      const d = weekInProgress && i > visibleThroughDay ? undefined : boxForView?.d?.[i];
       const complete = Boolean(d && settledAt(i, idx));
       // The day being played: the school's number so far, in a yellow ring
       // (not the full yellow of a won cell) until the day goes final.
       const inPlay = !complete && d?.[idx] != null;
+      const qualifies = Boolean(wonCell(d?.[idx], d?.[opp], higher));
       const placeholder = higher ? 'OPS+' : 'FIP-';
-      const cls = complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher) : inPlay ? 'in-play' : 'placeholder';
+      // A pending outline is earned only when the game's real 'hold' rule
+      // favors this team; a missing opponent defaults to league average 100.
+      const cls = complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher)
+        : inPlay && qualifies ? 'in-play' : inPlay ? '' : 'placeholder';
       return <span key={i} className={`bl-tb-cell ${cls}`}>{complete || inPlay ? fmtStat(d?.[idx]) : placeholder}</span>;
     });
     const nameCell = (
@@ -1454,11 +1471,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               total row is its own subtotal (the batters' clubs, the
               pitchers' clubs), and the school's W-L - every alumnus once -
               is the Team total at the bottom. */}
-          <SortTable title="Batters" rows={batters} cols={batCols} player={player} labels={labels} favs={favs} empty="No batters on roster"
-            total={[teamDayMetric(me), wlText(sumRosterWl(batters)), ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
-          <SortTable title="Pitchers" rows={pitchers} cols={pitCols} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
-            grand={pitCols.map((c) => (c.key === 'wl' ? shownTeamWl : ''))}
-            total={[
+          <SortTable title="Batters" rows={batters} cols={batColsForView} player={player} labels={labels} favs={favs} empty="No batters on roster"
+            total={unreachedDay ? batColsForView.map(() => '—') : [teamDayMetric(me), wlText(sumRosterWl(batters)), ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+          <SortTable title="Pitchers" rows={pitchers} cols={pitColsForView} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
+            grand={pitColsForView.map((c) => (c.key === 'wl' ? shownTeamWl : ''))}
+            total={unreachedDay ? pitColsForView.map(() => '—') : [
               teamDayMetric(2 + me),
               wlText(sumRosterWl(pitchers)),
               ip(teamPit[0] || 0),

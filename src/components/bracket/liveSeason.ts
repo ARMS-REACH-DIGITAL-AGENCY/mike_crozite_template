@@ -301,7 +301,10 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
         let wb: number[] | 0 = 0, wp: number[] | 0 = 0, club = p[4];
         const weekLv: LevelBuckets[] = [];
         for (let d = 0; d < 7; d++) {
-          const x = byDay?.get(from + d);
+          // Never count or publish game lines from a future day. The live
+          // feed may contain historical/replayed dates beyond this clock.
+          const reached = from + d <= today;
+          const x = reached ? byDay?.get(from + d) : undefined;
           if (x?.club) club = x.club;
           if (x && (x.b || x.p)) {
             days[d].set(p[0], x.lv);
@@ -310,7 +313,7 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
             if (x.p) wp = add(wp, x.p);
           }
           // That day's club result: 1-0 for a win, 0-1 for a loss, 0-0 off.
-          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, clubWl(club, from + d, from + d), x?.lv));
+          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, reached ? clubWl(club, from + d, from + d) : [0, 0], x?.lv));
         }
         const wl = clubWl(club, from, Math.min(from + 6, today));
         wins += wl[0]; losses += wl[1];
@@ -336,7 +339,11 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
     g[4] = !final ? '' : result.decidedBy === 'players' ? `players-${result.tieRank}`
       : result.decidedBy === 'commissioner' && !result.winner ? 'commissioner-pending' : result.decidedBy;
     boxes[String(g[0])] = {
-      d: result.innings.slice(0, 8).map((i) => [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
+      // During a live week, future days and the week-total inning must
+      // remain unknown. Only reached days can appear in the Stat Ledger.
+      d: result.innings.slice(0, 8).map((i, k) => !final && k > cur
+        ? [null, null, null, null]
+        : [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
       // Posted [offense, pitching] per inning 1-8, then the W-L inning.
       f: [...f, weekDone, weekDone],
       h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], rd: home.week.runDiff, days: home.dayRows },
