@@ -145,6 +145,9 @@ export async function GET(
 
         return {
           playerid: id,
+          // Canonical identity connects saved YAT-keyed Stat Ledger rows to the
+          // Active Alumni roster, without changing legacy profile links.
+          yatid: text(stage.yatid) || null,
           display_name: displayName,
           firstname: firstName || null,
           lastname: lastName || null,
