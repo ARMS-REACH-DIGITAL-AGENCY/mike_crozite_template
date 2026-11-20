@@ -1754,9 +1754,11 @@ export function Styles() {
          yellow labels, rounded like every header row, pinned under the day
          tabs as the drawer scrolls - Batting until the Pitching row meets
          it, Pitching until SCORING does (each sticks within its own table). */
+      /* Headers belong immediately above their own player rows. They must
+         never float down into the fifth row when the drawer scrolls. */
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th,
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th.nm { background:#2e8b5f; color:#ffd34f; border-bottom-color:#2e8b5f;
-        position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3; }
+        position:static; top:auto; z-index:auto; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:first-child { border-radius:5px 0 0 5px; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:last-child { border-radius:0 5px 5px 0; }
       .bl.bl-embed.yfp-drawer .bl-scroll { overflow:visible; }
