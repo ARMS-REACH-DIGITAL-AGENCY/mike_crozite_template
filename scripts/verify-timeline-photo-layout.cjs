@@ -20,9 +20,15 @@ assert.match(rail, /height:18px; max-width:none; max-height:none/);
 // prominent than the pro action cutout at phone, tablet and desktop sizes.
 // Extra HS-box width prevents wide/diving poses from becoming tiny; only
 // opening anchor classes change, never season or memory silhouettes.
-assert.match(rail, /\.zt-person-stack :global\(\.zt-person-then\) \{ left:calc\(var\(--hero-copy-left\) \+ 4px - clamp\(400px,58cqw,680px\)\)/);
 assert.match(rail, /\.zt-person-stack :global\(\.zt-person-now\) \{ position:absolute;[^\n]*height:48%/);
-assert.match(rail, /\.zt-person-stack :global\(\.zt-person-then\) \{ left:calc\(53% \+ 8px - clamp\(380px,98cqw,600px\)\)/);
 assert.match(rail, /\.zt-person-stack :global\(\.zt-person-now\) \{ left:calc\(53% - 32px - 800px\); width:800px; height:43%/);
-assert.match(rail, /\.zt-person-stack :global\(\.zt-person-then\) \{\s*left:calc\(48% \+ 6px - clamp\(420px,80cqw,640px\)\)/);
+// Every breakpoint uses the enlarged anchor cutout but preserves original
+// season/story composition. The identity paints over raised hands.
+assert.ok(rail.includes('.zt-moment-cta { position:absolute; z-index:6;'), 'player name must be in front of school photo');
+assert.ok(rail.includes('left:calc(var(--hero-copy-left) - 12px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:122%; bottom:-22%;'), 'desktop HS cutout must actually grow');
+assert.ok(rail.includes('left:calc(53% - 12px - clamp(380px,98cqw,600px)); width:clamp(380px,98cqw,600px);'), 'phone HS cutout clears headline');
+assert.ok(rail.includes('left:calc(48% - 12px - clamp(420px,80cqw,640px));'), 'transition viewport HS cutout clears headline');
+assert.ok(rail.includes('height:122%;bottom:-22%;object-position:right bottom;'), 'transition viewport HS cutout retains height');
+assert.ok(rail.includes('.zt-person-now:not([data-fallback="true"])'), 'fade applies only to action photos');
+assert.ok(rail.includes('mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.72) 9%, #000 20%'), 'hard crop must be feathered');
 console.log('PASS: shared Story photos and timeline month thumbnails use fixed, uncropped heights');
