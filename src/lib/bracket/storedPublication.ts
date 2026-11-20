@@ -24,8 +24,10 @@ export function storedInnings(value: StoredBracketGame['innings']): number[] {
   const values = Array.isArray(value) ? value : typeof value === 'string'
     ? value.replace(/^[{[]|[}\]]$/g, '').split(',').filter(Boolean).map(Number)
     : [];
-  if (values.length !== 18 || values.some((v) => !Number.isSafeInteger(v) || v < 0)) {
-    throw new Error('Incomplete or invalid stored nine-inning fantasy result');
+  // Nine regulation fantasy innings plus zero or more completed extra innings.
+  // Each inning has one home and one away score; 20 values is 10 innings.
+  if (values.length < 18 || values.length % 2 !== 0 || values.some((v) => !Number.isSafeInteger(v) || v < 0)) {
+    throw new Error('Incomplete or invalid stored fantasy innings');
   }
   return values;
 }
@@ -87,7 +89,7 @@ export function dailyFromStored(row: StoredBracketGame, day: number) {
     posted(saved.box, 7, row.game_id);
     posted(saved.box, 8, row.game_id);
   }
-  const through = final ? 9 : day + 1;
+  const through = final ? saved.innings.length / 2 : day + 1;
   const totals = linesThrough(saved.innings, through);
   if (final && (row.home_runs !== totals.homeRuns || row.away_runs !== totals.awayRuns)) {
     throw new Error('Saved final score and innings disagree for game ' + row.game_id);
@@ -115,7 +117,7 @@ export function weeklyFromStored(row: StoredBracketGame) {
   if (!Array.isArray(saved.box.h.p) || !Array.isArray(saved.box.a.p)) {
     throw new Error('Missing stored weekly player ledger for game ' + row.game_id);
   }
-  const totals = linesThrough(saved.innings, 9);
+  const totals = linesThrough(saved.innings, saved.innings.length / 2);
   if (totals.homeRuns !== row.home_runs || totals.awayRuns !== row.away_runs) {
     throw new Error('Saved final score and innings disagree for game ' + row.game_id);
   }
