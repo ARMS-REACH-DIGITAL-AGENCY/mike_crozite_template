@@ -79,3 +79,22 @@ test('the stored score is authoritative; no fantasy result is inferred', () => {
   assert.throws(() => weeklyFromStored(row), /final locked/);
   assert.throws(() => dailyFromStored(row, 6), /final locked/);
 });
+
+test('extra innings are included in final Daily and Weekly results', () => {
+  const row = fixture();
+  row.innings = [...(row.innings as number[]), 0, 2];
+  row.away_runs = 4;
+  const sunday = dailyFromStored(row, 6);
+  const weekly = weeklyFromStored(row);
+  assert.equal(sunday.throughInning, 10);
+  assert.equal(sunday.awayRuns, 4);
+  assert.equal(weekly.awayRuns, 4);
+  assert.equal(weekly.awayInnings.length, 10);
+  assert.equal(dailyFromStored(row, 0).awayInnings.length, 1);
+});
+
+test('invalid single extra-inning score cannot be read as a completed game', () => {
+  const row = fixture();
+  row.innings = [...(row.innings as number[]), 1];
+  assert.throws(() => weeklyFromStored(row), /invalid stored fantasy innings/);
+});
