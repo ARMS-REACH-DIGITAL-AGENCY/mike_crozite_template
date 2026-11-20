@@ -1619,8 +1619,7 @@ export function Styles() {
       .bl-history-tabs button{min-width:0;padding:4px 2px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--muted);font:700 12px/1 Oswald,sans-serif;cursor:pointer}
       .bl-history-tabs button.on{border-color:var(--gold);background:var(--gold-bg);color:var(--gold)}
       /* In the Stat Ledgers the days are folder tabs, like the leaderboard's regions. */
-      /* Daily tabs and sortable column headers scroll together. Pinned tabs had obscured the BATTERS/PITCHERS headings. */
-      .bl.bl-embed.yfp-drawer .bl-history-tabs{position:relative;top:auto;z-index:1;display:flex;align-items:flex-end;gap:3px;margin:8px 0 6px;padding:0 8px;background:var(--bg,#0c0c0c);border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0}
+      .bl.bl-embed.yfp-drawer .bl-history-tabs{position:sticky;top:var(--yfp-head-h,23px);display:flex;align-items:flex-end;gap:3px;margin:8px 0 6px;padding:0 8px;background:var(--bg,#0c0c0c);border:0;border-bottom:1px solid rgba(255,255,255,.2);border-radius:0}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button{flex:1 1 0;position:relative;margin-bottom:-1px;padding:5px 2px 4px;border:1px solid rgba(255,255,255,.2);border-bottom-color:transparent;border-radius:7px 7px 0 0;background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font:700 12px/1 Oswald,sans-serif}
       .bl.bl-embed.yfp-drawer .bl-history-tabs button:hover{color:#fff}
       .bl.bl-embed.yfp-drawer .bl-metric-scoreboards{position:sticky;top:var(--yfp-head-h,23px);z-index:5;margin:0;padding:6px 8px 0;background:var(--bg,#0c0c0c)}
@@ -1755,11 +1754,9 @@ export function Styles() {
          yellow labels, rounded like every header row, pinned under the day
          tabs as the drawer scrolls - Batting until the Pitching row meets
          it, Pitching until SCORING does (each sticks within its own table). */
-      /* Headers belong immediately above their own player rows. They must
-         never float down into the fifth row when the drawer scrolls. */
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th,
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th.nm { background:#2e8b5f; color:#ffd34f; border-bottom-color:#2e8b5f;
-        position:static; top:auto; z-index:auto; }
+        position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:first-child { border-radius:5px 0 0 5px; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:last-child { border-radius:0 5px 5px 0; }
       .bl.bl-embed.yfp-drawer .bl-scroll { overflow:visible; }
