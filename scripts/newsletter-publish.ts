@@ -320,10 +320,20 @@ function main() {
   for (const region of regions) {
     // Only the requested editions' weeks are read; no future fixtures or
     // placeholder games are mistaken for persisted fantasy calculations.
-    const group = rows.filter((r) => r.region === region &&
+    const candidates = rows.filter((r) => r.region === region &&
       (r.week === dailyWeek || (week > 0 && r.week === week)) &&
       r.home_hsid != null && r.away_hsid != null &&
       ['bracket', 'total_runs', 'season_championship', 'world_series'].includes(r.stage));
+    // A malformed game is flagged, not a veto on the rest of the edition.
+    // Never invent a zero score to replace a missing result.
+    const group = candidates.filter((r) => {
+      try { storedInnings(r.innings); return true; }
+      catch (err) {
+        problems.push('Missing saved innings ' + season.season_key + '/' +
+          r.region + '/' + r.game_id + ' week ' + r.week + ': ' + String(err));
+        return false;
+      }
+    });
     if (!group.length) continue;
     const idx = buildIndex(season, group);
     const byId = new Map(group.map((r) => [r.game_id, r]));
@@ -333,6 +343,7 @@ function main() {
       for (const g of series[7] as GameRow[]) {
         const row = byId.get(g[0])!;
         if (day && row.week === dailyWeek) {
+          try {
           // Direct projection of the saved scoreboard, never a second score.
           const saved = dailyFromStored(row, k);
           const home = saved.homeInnings;
@@ -350,9 +361,13 @@ function main() {
             through_inning: saved.throughInning, is_final: saved.isFinal,
           });
           for (const me of [g[2], g[3]]) {
-            const st = inningStory(idx, g, box, me, saved.storyInning);
+            let st;
+            try { st = inningStory(idx, g, box, me, saved.storyInning); }
+            catch (err) { problems.push('Story error ' + season.season_key + '/' + region +
+              '/' + g[0] + ' school ' + me + ': ' + String(err)); continue; }
             if (!st) {
-              problems.push('Missing settled stored story for game ' + g[0] + ' school ' + me);
+              problems.push('Missing settled stored story ' + season.season_key +
+                '/' + region + '/' + g[0] + ' school ' + me);
               continue;
             }
             const mine = me === g[2];
@@ -374,8 +389,13 @@ function main() {
               })),
             });
           }
+          } catch (err) {
+            problems.push('Daily scoreboard unavailable for ' + season.season_key +
+              '/' + region + '/' + g[0] + ' week ' + g[1] + ': ' + String(err));
+          }
         }
         if (week && row.week === week) {
+          try {
           // The stored, locked result is the one and only official answer.
           const saved = weeklyFromStored(row);
           const box = saved.box;
@@ -417,6 +437,10 @@ function main() {
           home_batting: h.batting, away_batting: a.batting, home_pitching: h.pitching, away_pitching: a.pitching,
           extra_base_hits: { home: h.xbh, away: a.xbh },
         });
+          } catch (err) {
+            problems.push('Weekly box unavailable for ' + season.season_key +
+              '/' + region + '/' + g[0] + ' week ' + g[1] + ': ' + String(err));
+          }
       }
       }
     }
