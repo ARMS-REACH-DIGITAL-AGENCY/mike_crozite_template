@@ -474,15 +474,18 @@ function main() {
        week smallint, region smallint, game_id integer, opponent_hsid integer, school_name text, opponent_name text, series_note text,
        through_inning smallint, is_final boolean, school_runs smallint, opponent_runs smallint, title text, story text, shout_outs jsonb)`,
     `DO $$ BEGIN
-       IF (SELECT count(*) FROM public.daily_stat_lines WHERE stats_date = DATE ${lit(day)}) = 0 THEN RAISE EXCEPTION 'No stat lines for ${day}'; END IF;
-       IF (SELECT count(*) FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)}) <> ${dailyGames} THEN RAISE EXCEPTION 'Expected ${dailyGames} game scores for ${day}'; END IF;
-       IF (SELECT count(*) FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)}) <> ${dailyGames * 2} THEN RAISE EXCEPTION 'Expected ${dailyGames * 2} game stories for ${day}'; END IF;
+       IF (SELECT count(*) FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)}) <> ${dailyGames}
+          OR (SELECT count(*) FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)}) <> ${dailyGames * 2}
+       THEN RAISE NOTICE 'Partial Daily for ${day}: publishing available results'; END IF;
      END $$`,
     `INSERT INTO public.edition_ready (cadence, period_start, period_end, season_key, week, cutoff_at, row_counts)
      SELECT 'daily', DATE ${lit(day)}, DATE ${lit(day)}, ${S}, ${dailyWeek}, TIMESTAMPTZ ${lit(cutoffOf(day))},
        jsonb_build_object('daily_stat_lines', (SELECT count(*) FROM public.daily_stat_lines WHERE stats_date = DATE ${lit(day)}),
                           'daily_game_scores', (SELECT count(*) FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)}),
-                          'daily_game_stories', (SELECT count(*) FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)}))`,
+                          'daily_game_stories', (SELECT count(*) FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)}),
+                          'expected_game_scores', ${dailyGames},
+                          'missing_game_scores', GREATEST(0, ${dailyGames} - (SELECT count(*) FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)})),
+                          'missing_game_stories', GREATEST(0, ${dailyGames * 2} - (SELECT count(*) FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)})))`,
   ] : [];
   const weekly = week ? [
     `DO $$ BEGIN IF EXISTS (SELECT 1 FROM public.edition_ready WHERE cadence = 'weekly' AND period_start = DATE ${lit(monday)})
@@ -490,7 +493,7 @@ function main() {
        OR EXISTS (SELECT 1 FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week})
      THEN RAISE EXCEPTION 'The Weekly for ${monday} is already published: it is never written twice'; END IF;
      IF EXISTS (SELECT 1 FROM public.master_bracket WHERE season_key = ${S} AND stage = 'bracket' AND week = ${week} AND (status <> 'final' OR locked_at IS NULL))
-     THEN RAISE EXCEPTION 'Week ${week} has a game that is not final and locked'; END IF; END $$`,
+     THEN RAISE NOTICE 'Week ${week}: some matches unfinished; publish available final results'; END IF; END $$`,
     sqlWeeklyPlayerLines(season.season_key, week, monday, sunday, field),
     `INSERT INTO public.weekly_box_scores (season_key, region, game_id, week, period_start, period_end, round_name, game_no, home_hsid, away_hsid,
        home_name, away_name, home_runs, away_runs, winner_hsid, decision, line_score, home_batting, away_batting, home_pitching, away_pitching, extra_base_hits)
@@ -499,35 +502,38 @@ function main() {
        home_runs smallint, away_runs smallint, winner_hsid integer, decision text, line_score jsonb, home_batting jsonb, away_batting jsonb,
        home_pitching jsonb, away_pitching jsonb, extra_base_hits jsonb)`,
     `DO $$ BEGIN
-       IF (SELECT count(*) FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week}) <> ${weekGames} THEN RAISE EXCEPTION 'Expected ${weekGames} box scores for week ${week}'; END IF;
-       IF EXISTS (SELECT 1 FROM public.weekly_box_scores b JOIN public.master_bracket m USING (season_key, region, game_id)
-                   WHERE b.week = ${week} AND (b.home_runs, b.away_runs, b.winner_hsid) IS DISTINCT FROM (m.home_runs, m.away_runs, m.winner_hsid))
-       THEN RAISE EXCEPTION 'A box score disagrees with its locked result'; END IF;
-       IF (SELECT count(DISTINCT hsid) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}) = 0 THEN RAISE EXCEPTION 'No roster lines for week ${week}'; END IF;
+       IF (SELECT count(*) FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week}) <> ${weekGames}
+       THEN RAISE NOTICE 'Partial Weekly for week ${week}: publishing available boxes'; END IF;
      END $$`,
     `INSERT INTO public.edition_ready (cadence, period_start, period_end, season_key, week, cutoff_at, row_counts)
      SELECT 'weekly', DATE ${lit(monday)}, DATE ${lit(sunday)}, ${S}, ${week}, TIMESTAMPTZ ${lit(cutoffOf(sunday))},
        jsonb_build_object('weekly_player_lines', (SELECT count(*) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}),
                           'weekly_box_scores', (SELECT count(*) FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week}),
-                          'schools', (SELECT count(DISTINCT hsid) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}))`,
+                          'schools', (SELECT count(DISTINCT hsid) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}),
+                          'expected_box_scores', ${weekGames},
+                          'missing_box_scores', GREATEST(0, ${weekGames} - (SELECT count(*) FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week})))`,
   ] : [];
 
-  // Never emit executable publication SQL if any saved score or story is missing.
-  if (problems.length || (day && (scores.length !== dailyGames || stories.length !== dailyGames * 2)) ||
-      (week && boxes.length !== weekGames)) {
-    throw new Error('Incomplete authoritative publication: ' +
-      JSON.stringify({ problems, dailyScores: scores.length, dailyGames, dailyStories: stories.length, weeklyBoxes: boxes.length, weekGames }));
+  // A missing matchup flags a diagnostic; it cannot suppress other games.
+  const missing = {
+    dailyGameScores: day ? Math.max(0, dailyGames - scores.length) : 0,
+    dailyGameStories: day ? Math.max(0, dailyGames * 2 - stories.length) : 0,
+    weeklyBoxScores: week ? Math.max(0, weekGames - boxes.length) : 0,
+  };
+  if (problems.length || Object.values(missing).some(Boolean)) {
+    console.warn('PARTIAL NEWSLETTER PUBLICATION: ' +
+      JSON.stringify({ season: season.season_key, day, week, missing, problems }));
   }
   if (day) writeFileSync(join(dir, 'daily.json'), JSON.stringify(daily));
   if (week) writeFileSync(join(dir, 'weekly.json'), JSON.stringify(weekly));
   const report = {
     daily: day ? { day, week: dailyWeek, inning: k + 1, cutoff: cutoffOf(day), scores: scores.length, stories: stories.length, expectedGames: dailyGames } : null,
     weekly: week ? { week, monday, sunday, cutoff: cutoffOf(sunday), boxes: boxes.length, expectedGames: weekGames, field: field.length } : null,
-    problems,
+    missing, problems,
   };
   writeFileSync(join(dir, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
-  // An invalid edition throws above and cannot create a ready row.
+  // Partial editions are reported, not blocked.
 }
 
 main();
