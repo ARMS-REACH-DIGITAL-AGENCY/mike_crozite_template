@@ -14,9 +14,9 @@
 // Manual, one-shot (no schedule yet). Without a database connection here, it
 // works from files and prints the transaction to apply:
 //
-//   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --daily 2026-04-13
-//   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --week 4
-//   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --daily 2026-05-03 --week 6
+//   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --daily 2026-04-13 --historical-replay
+//   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --week 4 --historical-replay
+//   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --daily 2026-05-03 --week 6 --historical-replay
 //
 // <dir> holds season.json, rows.json (authoritative master_bracket results,
 // including the stored GameBox) and lines.json: the field's active alumni's
@@ -51,6 +51,7 @@ function arg(name: string) {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : undefined;
 }
+const historicalReplay = process.argv.includes('--historical-replay');
 
 // MLB's clubs by their short names, for "Jake Smith (Rays, MLB)". Any other
 // club is printed by its full name.
@@ -136,7 +137,7 @@ const many = (n: string, label: string) => `CASE WHEN ${n} > 1 THEN ${n} || ' ${
 const SQL_BAT = (x: string) => `concat_ws(', ', ${x}h || '-for-' || ${x}ab, ${many(`${x}d2`, '2B')}, ${many(`${x}d3`, '3B')}, ${many(`${x}hr`, 'HR')},
       ${many(`${x}rbi`, 'RBI')}, ${many(`${x}bb`, 'BB')}, ${many(`${x}sb`, 'SB')})`;
 const SQL_CARDS = `card AS (
-  SELECT f.playerid::text AS pid, f.hsid::text AS hsid,
+  SELECT f.playerid::text AS pid, f.yatid AS yatid, f.hsid::text AS hsid,
          coalesce(nullif(btrim(f.display_name), ''), btrim(coalesce(f.first_name, '') || ' ' || coalesce(f.last_name, ''))) AS nm,
          lower(coalesce(f.last_name, '')) AS last, lower(coalesce(f.first_name, '')) AS first,
          upper(btrim(coalesce(f.status_label, ''))) AS st,
@@ -144,16 +145,19 @@ const SQL_CARDS = `card AS (
          btrim(coalesce(f.current_team_name, '')) AS team,
          (upper(btrim(coalesce(f.level_label, ''))) IN ('HIGH SCHOOL', 'HS') OR upper(btrim(coalesce(f.display_level_label, ''))) IN ('HIGH SCHOOL', 'HS')) AS hs
     FROM public.flip_card_front_stage f)`;
-// The lines in by a cutoff: the newest copy of each player, game and stat
-// type that had arrived (player_game_logs.created_at) by then.
+// Preserve the original live ingest cutoff; historical replay imports
+// arrived AFTER their 2026 game dates, so exclude that cutoff only when
+// --historical-replay is explicitly selected for a completed sim season.
+// Fantasy scores still come exclusively from stored master_bracket results.
 const SQL_FROZEN = (from: string, to: string, cutoff: string) => `src AS (
-  SELECT DISTINCT ON (s.playerid, s.source_game_id, s.stat_type) s.*
+  SELECT DISTINCT ON (g.yatid, s.source_game_id, s.stat_type) s.*, g.yatid
     FROM public.stat_lines s
     JOIN public.player_game_logs g ON s.source = 'mlb_api' AND g.id::text = s.source_line_id
    WHERE s.game_date BETWEEN DATE ${lit(from)} AND DATE ${lit(to)}
      AND s.removed_at IS NULL AND s.hold_reason IS NULL AND s.is_final
-     AND g.created_at <= TIMESTAMPTZ ${lit(cutoff)}
-   ORDER BY s.playerid, s.source_game_id, s.stat_type, g.updated_at DESC)`;
+     AND g.yatid IS NOT NULL
+     ${historicalReplay ? '' : 'AND g.created_at <= TIMESTAMPTZ ' + lit(cutoff)}
+   ORDER BY g.yatid, s.source_game_id, s.stat_type, g.updated_at DESC)`;
 
 function sqlDailyStatLines(day: string) {
   return `WITH ${SQL_MLB}, ${SQL_CARDS}, ${SQL_FROZEN(day, day, cutoffOf(day))},
@@ -164,7 +168,7 @@ x AS (
          row_number() OVER (PARTITION BY s.playerid, s.stat_type ORDER BY s.source_game_id) AS game_no,
          EXISTS (SELECT 1 FROM src p WHERE p.playerid = s.playerid AND p.source_game_id = s.source_game_id AND p.stat_type = 'pitching') AS pitched
     FROM src s
-    JOIN card c ON c.pid = s.playerid
+    JOIN card c ON c.pid = s.playerid AND c.yatid = s.yatid
     LEFT JOIN mlb m1 ON m1.full_name = s.team_name
     LEFT JOIN mlb m2 ON m2.full_name = s.opponent_name),
 y AS (
@@ -174,9 +178,9 @@ y AS (
     FROM x
    -- A pitcher's empty batting line (no plate appearance) isn't news.
    WHERE NOT (stat_type = 'batting' AND coalesce(bat_pa, 0) = 0 AND pitched))
-INSERT INTO public.daily_stat_lines (stats_date, stat_line_id, playerid, player_name, hsid, team_name, team_short, level,
+INSERT INTO public.daily_stat_lines (stats_date, stat_line_id, playerid, yatid, player_name, hsid, team_name, team_short, level,
                                      opponent_name, opponent_short, stat_type, line, sort_key)
-SELECT game_date, id, playerid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN card_hsid::integer END,
+SELECT game_date, id, playerid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN card_hsid::integer END,
        team_name, team_short, level, opponent_name, opp_short, stat_type,
        nm || ' (' || team_short || ', ' || level || ') vs. ' || opp_short
           || CASE WHEN games > 1 THEN ' (Game ' || game_no || ')' ELSE '' END || ': '
@@ -214,9 +218,9 @@ x AS (
     FROM roster r
     LEFT JOIN wk ON wk.playerid = r.pid
     LEFT JOIN mlb m ON m.full_name = coalesce(wk.team_name, r.team))
-INSERT INTO public.weekly_player_lines (period_start, hsid, playerid, period_end, season_key, week, player_name,
+INSERT INTO public.weekly_player_lines (period_start, hsid, playerid, yatid, period_end, season_key, week, player_name,
                                         team_name, team_short, level, games, line, sort_key)
-SELECT DATE ${lit(monday)}, hsid::integer, pid, DATE ${lit(sunday)}, ${lit(season)}, ${week}, nm, team_name, team_short, level, games,
+SELECT DATE ${lit(monday)}, hsid::integer, pid, yatid, DATE ${lit(sunday)}, ${lit(season)}, ${week}, nm, team_name, team_short, level, games,
        nm || coalesce(' (' || nullif(concat_ws(', ', nullif(team_short, ''), nullif(level, '')), '') || ')', '') || ': '
           || CASE WHEN games = 0 THEN 'Did not play'
                   ELSE concat_ws('; ',
@@ -261,6 +265,9 @@ function main() {
   }
   const read = (f: string) => JSON.parse(readFileSync(join(dir, f), 'utf8'));
   const season: Season = read('season.json');
+  if (historicalReplay && (new Date(season.last_day + 'T00:00:00Z').getTime() >= Date.now() || !season.season_key.endsWith('bracketsim'))) {
+    throw new Error('Historical replay is restricted to a completed bracket simulation season');
+  }
   // rows.json comes from master_bracket, not from a new scoring pass.
   const rows: Row[] = read('rows.json');
   const lines: InLine[] = read('lines.json');
