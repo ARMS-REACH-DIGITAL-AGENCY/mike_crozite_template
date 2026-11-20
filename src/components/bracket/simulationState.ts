@@ -13,4 +13,4 @@ export function simulationAsOf() {
   // morning after Round 1 (Weeks 1-3) - Round 2 is paired but not played.
   return SIM_2026_TODAY;
 }
-export const SIM_2026_TODAY = '2026-04-13';
+export const SIM_2026_TODAY = '2026-05-04';
