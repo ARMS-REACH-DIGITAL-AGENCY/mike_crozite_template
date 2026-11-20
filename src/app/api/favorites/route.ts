@@ -332,8 +332,11 @@ export async function GET(req: NextRequest) {
     const photoIds = await getPlayerPhotoIds(playerIds).catch(() => new Map<string, string>());
     favoritePlayers = favoritePlayers.map((p) => {
       const id = String(p.playerid);
+      // The profile link must use the canonical YAT ID just as the photos do.
+      // Keep playerid untouched for favorite removal and card embedding.
+      const publicId = photoIds.get(id) || id;
       const url = headshots.get(id)?.image_url ?? "";
-      return { ...p, headshotUrl: url, headshotSources: getPlayerHeadshotSources(photoIds.get(id) || id, url) };
+      return { ...p, publicId, headshotUrl: url, headshotSources: getPlayerHeadshotSources(publicId, url) };
     });
 
     return NextResponse.json({
