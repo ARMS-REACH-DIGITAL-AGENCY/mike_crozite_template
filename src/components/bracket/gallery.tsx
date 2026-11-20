@@ -105,6 +105,18 @@ export function loadBoxes(file: string) {
   return boxCache.get(file)!;
 }
 
+// A live Stat Ledger must not keep its first box forever. Refresh the
+// official prepared result and share that newer snapshot with subsequent
+// drawer opens. Failed fetches keep the last good snapshot visible.
+export async function refreshBoxes(file: string): Promise<Record<string, GameBox>> {
+  const fresh = await (simulatedSeason
+    ? fetch(`${BASE}/${file}.json`, { cache: 'no-store' })
+    : fetch('/api/bracket/prepared?season=2027&boxes=' + encodeURIComponent(file), { cache: 'no-store' }))
+    .then((r) => r.ok ? r.json() as Promise<Record<string, GameBox>> : Promise.reject(new Error('Stat Ledger HTTP ' + r.status)));
+  boxCache.set(file, Promise.resolve(fresh));
+  return fresh;
+}
+
 // The signed-in fan's favorite players (Super Fan favorites), once per visit:
 // their lines are bold in the stat drawers. Signed out: none.
 let favoritePlayers: Promise<Set<string>> | null = null;
@@ -1293,9 +1305,12 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   };
   const homeWl = me === 0 ? wl : owl;
   const awayWl = me === 0 ? owl : wl;
-  // W% is inning nine; never preview an in-progress week's future result.
-  const homeWp = weekInProgress ? null : pctNum(homeWl[0], homeWl[1]);
-  const awayWp = weekInProgress ? null : pctNum(awayWl[0], awayWl[1]);
+  // Live W% uses the box's authoritative cumulative alumni-club W-L so
+  // updates appear before inning nine is locked. An empty record displays
+  // a dash and compares as the engine's neutral .500, not as 0% or a win.
+  // No box or unplayed week: keep both values blank.
+  const homeWp = boxForView ? pctNum(homeWl[0], homeWl[1]) : null;
+  const awayWp = boxForView ? pctNum(awayWl[0], awayWl[1]) : null;
   // Live: a run counts only once settled; until then the cell shows the lead.
   const settledAt = (inning: number, idx: number) => !boxForView?.f || Boolean(boxForView.f[inning]?.[idx < 2 ? 0 : 1]);
   const cellClass = (inning: number, idx: number, mine: number | null | undefined, theirs: number | null | undefined, higher: boolean) => {
@@ -1358,7 +1373,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <span className="bl-tb-wlabel">W%</span>
         <span className="bl-tb-label" title="Row 1: OPS+ (hitting)">OPS+</span>
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
-        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? (settledAt(8, 0) ? ' won' : ' lead') : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
+        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? 0.5) ? (weekInProgress || !settledAt(8, 0) ? ' lead' : ' won') : ''}`}
+          title={`Current alumni clubs W-L: ${side === 0 ? homeWl.join('-') : awayWl.join('-')}; winning percentage ${wpText(wp)}`}
+          aria-label={`${name} current winning percentage ${wpText(wp)}`}>{wpText(wp)}</span>
         <span className="bl-tb-label" title="Row 2: FIP- (pitching)">FIP-</span>
       </div>
     );
