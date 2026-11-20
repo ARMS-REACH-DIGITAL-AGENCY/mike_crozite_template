@@ -206,15 +206,15 @@ function seriesHeadline(wins: [number, number], names: [string, string]) {
 // One game of a series column: visitors over home, each name right-justified
 // with its score in a column beside it, and the game number in red to the
 // right, between the two lines. A final's winner - name and runs - in gold.
-function SeriesGame({ n, away, home, runs, winner }: {
-  n: number; away: string; home: string; runs: number[] | null; winner: 'away' | 'home' | null;
+function SeriesGame({ n, away, home, awaySeed, homeSeed, runs, winner }: {
+  n: number; away: string; home: string; awaySeed?: number; homeSeed?: number; runs: number[] | null; winner: 'away' | 'home' | null;
 }) {
   return (
     <div className="yft-series-game">
-      <span className={`yft-sl-name${winner === 'away' ? ' win' : ''}`}>{away}</span>
+      <span className={`yft-sl-name${winner === 'away' ? ' win' : ''}`}>{awaySeed ? <small className="yft-sl-seed">#{awaySeed}</small> : null}{away}</span>
       <span className={`yft-sl-runs${winner === 'away' ? ' win' : ''}`}>{runs ? runs[1] : ''}</span>
       <small className="yft-sl-game">G{n}</small>
-      <span className={`yft-sl-name${winner === 'home' ? ' win' : ''}`}>{home}</span>
+      <span className={`yft-sl-name${winner === 'home' ? ' win' : ''}`}>{homeSeed ? <small className="yft-sl-seed">#{homeSeed}</small> : null}{home}</span>
       <span className={`yft-sl-runs${winner === 'home' ? ' win' : ''}`}>{runs ? runs[0] : ''}</span>
     </div>
   );
@@ -263,6 +263,8 @@ function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
     return {
       card, matchupKnown: Boolean(opp),
       away: meHome ? oppName : myName, home: meHome ? myName : oppName,
+      awaySeed: meHome ? (opp ? index.schools[opp]?.[2] : undefined) : index.schools[me]?.[2],
+      homeSeed: meHome ? index.schools[me]?.[2] : (opp ? index.schools[opp]?.[2] : undefined),
       runs: final ? runsOf(final[5]) : null,
       winner: final && final[6] ? (final[6] === final[2] ? 'home' : 'away') as 'home' | 'away' : null,
     };
@@ -308,8 +310,8 @@ function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
         style={{ '--yft-name-ch': Math.max(...games.flatMap((x) => [x.away.length, x.home.length])) } as React.CSSProperties}>
         <span className="yft-series-line">{headline}</span>
         <div className="yft-series-games">
-          {games.map(({ card, matchupKnown, away, home, runs, winner }, i) => (matchupKnown
-            ? <SeriesGame key={card.week} n={i + 1} away={away} home={home} runs={runs} winner={winner} />
+          {games.map(({ card, matchupKnown, away, home, awaySeed, homeSeed, runs, winner }, i) => (matchupKnown
+            ? <SeriesGame key={card.week} n={i + 1} away={away} home={home} awaySeed={awaySeed} homeSeed={homeSeed} runs={runs} winner={winner} />
             : <SeriesGame key={card.week} n={i + 1} away={`Week ${card.week}`} home="TBD" runs={null} winner={null} />))}
         </div>
       </aside>
@@ -694,6 +696,10 @@ export default function FantasyTimeline() {
         .yft-series-game:nth-child(2) { top:calc(60.4% - var(--u)); }
         .yft-series-game:nth-child(3) { top:calc(74.2% - var(--u)); }
         .yft-sl-name, .yft-sl-runs { justify-self:end; text-align:right; white-space:nowrap; }
+        /* Original regional seed; positioned inside each name cell, never changing the fixed series columns. */
+        .yft-sl-name { position:relative; }
+        .yft-sl-seed { position:absolute; right:calc(100% + 3px * var(--u)); top:0; color:rgba(255,255,255,.75); font:400 calc(5 * var(--u))/1 Arial,Helvetica,sans-serif; white-space:nowrap; }
+        .yft-sl-name.win .yft-sl-seed { color:#fbbf10; }
         .yft-sl-runs { font-variant-numeric:tabular-nums; }
         .yft-sl-name.win, .yft-sl-runs.win { color:#fbbf10; }
         .yft-sl-game { grid-column:3; grid-row:1 / span 2; align-self:center; justify-self:center; color:#f53a1c; font:700 calc(4.2 * var(--u))/1 Arial,Helvetica,sans-serif; }
