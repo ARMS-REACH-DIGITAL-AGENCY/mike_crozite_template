@@ -105,6 +105,20 @@ export function loadBoxes(file: string) {
   return boxCache.get(file)!;
 }
 
+// Read a current, authoritative Stat Ledger snapshot rather than retaining
+// the first loaded result for an entire live week. This is read-only and
+// never calculates or updates an official bracket result.
+export async function refreshBoxes(file: string): Promise<Record<string, GameBox>> {
+  const url = simulatedSeason
+    ? `${BASE}/${file}.json`
+    : `/api/bracket/prepared?season=2027&boxes=${encodeURIComponent(file)}`;
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Stat Ledger HTTP ${response.status}`);
+  const fresh = await response.json() as Record<string, GameBox>;
+  boxCache.set(file, Promise.resolve(fresh));
+  return fresh;
+}
+
 // The signed-in fan's favorite players (Super Fan favorites), once per visit:
 // their lines are bold in the stat drawers. Signed out: none.
 let favoritePlayers: Promise<Set<string>> | null = null;
@@ -1210,8 +1224,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     return ab ? tb / ab : 0;
   };
   const obpSlg = (b: number[]) => obp(b) + slg(b);
-  const wl = mine?.wl || [0, 0];
-  const owl = theirs?.wl || [0, 0];
+  // Display the backend's cumulative club W-L when available, before any
+  // roster-completion fallback changes local presentation rows.
+  const wl = rawMine?.wl || mine?.wl || [0, 0];
+  const owl = rawTheirs?.wl || theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '.000');
   const pctNum = (w: number, l: number): number | null => (w + l ? w / (w + l) : null);
   // Last names only; an initial when two share one (B. Smith, R. Smith).
@@ -1289,20 +1305,20 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   };
   const homeWl = me === 0 ? wl : owl;
   const awayWl = me === 0 ? owl : wl;
-  // Inning nine (club W%) is not available during an unfinished week.
-  const homeWp = weekInProgress ? null : pctNum(homeWl[0], homeWl[1]);
-  const awayWp = weekInProgress ? null : pctNum(awayWl[0], awayWl[1]);
+  // The ninth-inning RUN remains locked until the week is final, but its
+  // current winning percentages are visible during the week. Unplayed
+  // games stay blank; no club games is not scored as zero percent.
+  const homeWp = boxForView ? pctNum(homeWl[0], homeWl[1]) : null;
+  const awayWp = boxForView ? pctNum(awayWl[0], awayWl[1]) : null;
   // Live: a run counts only once settled; until then the cell shows the lead.
   const settledAt = (inning: number, idx: number) => !boxForView?.f || Boolean(boxForView.f[inning]?.[idx < 2 ? 0 : 1]);
   const cellClass = (inning: number, idx: number, mine: number | null | undefined, theirs: number | null | undefined, higher: boolean) => {
     const better = wonCell(mine, theirs, higher);
     return better ? (settledAt(inning, idx) ? 'won' : 'lead') : '';
   };
+  // Public results must use the persisted inning totals, not recompute
+  // ninth-inning runs from a drawer's transient roster or W% display.
   const correctedInnings = [...innings];
-  if (drawerMode && correctedInnings.length >= 18 && settledAt(8, 0)) {
-    correctedInnings[16] = (homeWp ?? 0) > (awayWp ?? 0) ? 1 : 0;
-    correctedInnings[17] = (awayWp ?? 0) > (homeWp ?? 0) ? 1 : 0;
-  }
   const correctedScore: [number, number] = [
     correctedInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
     correctedInnings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
@@ -1356,7 +1372,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <span className="bl-tb-wlabel">W%</span>
         <span className="bl-tb-label" title="Row 1: OPS+ (hitting)">OPS+</span>
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
-        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? -1) ? (settledAt(8, 0) ? ' won' : ' lead') : ''}`} title="Clubs' winning percentage">{wpText(wp)}</span>
+        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? 0.5) ? (weekInProgress || !settledAt(8, 0) ? ' lead' : ' won') : ''}`}
+          title={`Current alumni-club W-L: ${side === 0 ? homeWl.join('-') : awayWl.join('-')}; winning percentage ${wpText(wp)}`}
+          aria-label={`${name} current winning percentage ${wpText(wp)}`}>{wpText(wp)}</span>
         <span className="bl-tb-label" title="Row 2: FIP- (pitching)">FIP-</span>
       </div>
     );
