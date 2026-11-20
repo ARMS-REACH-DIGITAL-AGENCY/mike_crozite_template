@@ -61,6 +61,9 @@ const currentPlayerImages = (id: string, designatedHeadshot?: string | null) => 
 function Fallback({ srcs, className, alt, fitHeight }: { srcs: string[]; className: string; alt: string; fitHeight?: boolean }) {
   const [i, setI] = useState(0);
   const [wide, setWide] = useState(false);
+  // Cody's bat-across-the-frame cutout needs its original wide treatment,
+  // regardless of the automatic aspect-ratio heuristic used for other alumni.
+  const codyAction = className.includes('yft-person') && /^cody\s+bellinger$/i.test(alt.trim());
   if (i >= srcs.length) return null;
   // A slide's person (Pete, Nov 13): a wide picture (shoulders and a bat or
   // an arm out to the side) shrunk to the box's width stood barely over the
@@ -75,7 +78,7 @@ function Fallback({ srcs, className, alt, fitHeight }: { srcs: string[]; classNa
     setWide(Boolean(el.naturalWidth && el.naturalHeight && box.height && box.width / (el.naturalWidth / el.naturalHeight) < 0.5 * box.height));
   } : undefined;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className={`${className}${wide ? ' yft-wide' : ''}`} src={srcs[i]} alt={alt} loading="lazy" decoding="async" onLoad={onLoad}
+  return <img className={`${className}${wide || codyAction ? ' yft-wide' : ''}${codyAction ? ' yft-cody' : ''}`} src={srcs[i]} alt={alt} loading="lazy" decoding="async" onLoad={onLoad}
     onError={() => { setWide(false); setI((v) => v + 1); }} />;
 }
 
@@ -626,6 +629,12 @@ export default function FantasyTimeline() {
         .yft-person.yft-wide { left:auto; right:0; width:57%; object-position:right bottom;
           -webkit-mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.25) 22%, #000 42%);
           -webkit-mask-composite:source-in; mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.25) 22%, #000 42%); mask-composite:intersect; }
+        /* Only Cody's very wide batting photo: recover the previous large
+           scale, keep the bat near the far-right boundary, and feather both
+           cropped edges without changing any other player's layout. */
+        .yft-person.yft-cody { left:auto; right:0; width:76%; object-fit:contain; object-position:right bottom;
+          -webkit-mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.65) 14%, #000 26%, #000 93%, transparent 100%);
+          -webkit-mask-composite:source-in; mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.65) 14%, #000 26%, #000 93%, transparent 100%); mask-composite:intersect; }
         /* A fade to black (deep blue in the day theme) along the bottom of
            row 3, under the timeline and over the slides. */
         .yft-hero::after { content:''; position:absolute; z-index:6; left:0; right:0; bottom:0; height:60px; background:linear-gradient(to bottom, rgba(2,3,8,0), rgba(2,3,8,.85)); pointer-events:none; }
@@ -723,6 +732,7 @@ export default function FantasyTimeline() {
           .yft-person { left:auto; right:0; width:38%; top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px);
             --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 46px), rgba(0,0,0,.35) calc(100% - 18px), transparent calc(100% - 2px)); }
           .yft-person.yft-wide { left:auto; right:0; width:56%; }
+          .yft-person.yft-cody { left:auto; right:0; width:80%; object-position:right bottom; }
           .yft-hero::after { height:40px; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
