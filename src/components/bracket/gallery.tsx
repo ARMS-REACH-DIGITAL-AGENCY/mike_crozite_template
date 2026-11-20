@@ -1203,8 +1203,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // Every day tab lists the whole active roster, like Weekly Totals (Pete,
   // Nov 17: rosters are always visible, even before a game starts). A day
   // with no stat lines yet shows each player with blank metrics, not zeros.
-  const unreachedDay = weekInProgress && (statDay === 'week'
-    || (typeof statDay === 'number' && statDay > visibleThroughDay));
+  // Even before an upcoming game starts, list every rostered player on
+  // every day tab. Blank all unreached statistics instead of implying
+  // games have already been played.
+  const unreachedDay = drawerMode && (!played || (weekInProgress &&
+    (statDay === 'week' || (typeof statDay === 'number' && statDay > visibleThroughDay))));
   const viewPlayers = statDay === 'week'
     ? (unreachedDay ? dayRosterRows([], mineRoster) : (mine?.p || []))
     : dayRosterRows(unreachedDay ? [] : (rawMine?.days?.[statDay] || []), mineRoster);
