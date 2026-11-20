@@ -16,4 +16,13 @@ assert.match(rail, /image: story\.photos\?\.\[0\]\?\.web \|\| story\.photos\?\.\
 assert.doesNotMatch(rail, /src=\{stories\[0\]\.thumb\}/);
 assert.match(rail, /width:auto; height:26px; max-width:none; max-height:none/);
 assert.match(rail, /height:18px; max-width:none; max-height:none/);
+// Opening anchor montage: keep the school-era silhouette taller and more
+// prominent than the pro action cutout at phone, tablet and desktop sizes.
+// Extra HS-box width prevents wide/diving poses from becoming tiny; only
+// opening anchor classes change, never season or memory silhouettes.
+assert.match(rail, /\.zt-person-stack :global\(\.zt-person-then\) \{ left:calc\(var\(--hero-copy-left\) \+ 4px - clamp\(400px,58cqw,680px\)\)/);
+assert.match(rail, /\.zt-person-stack :global\(\.zt-person-now\) \{ position:absolute;[^\n]*height:48%/);
+assert.match(rail, /\.zt-person-stack :global\(\.zt-person-then\) \{ left:calc\(53% \+ 8px - clamp\(380px,98cqw,600px\)\)/);
+assert.match(rail, /\.zt-person-stack :global\(\.zt-person-now\) \{ left:calc\(53% - 32px - 800px\); width:800px; height:43%/);
+assert.match(rail, /\.zt-person-stack :global\(\.zt-person-then\) \{\s*left:calc\(48% \+ 6px - clamp\(420px,80cqw,640px\)\)/);
 console.log('PASS: shared Story photos and timeline month thumbnails use fixed, uncropped heights');
