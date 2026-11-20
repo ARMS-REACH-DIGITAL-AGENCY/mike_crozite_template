@@ -2724,12 +2724,12 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
            is left-justified to -- its right edge sits exactly on that
            line, never past it into the text. */
         .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - 800px); }
-        /* The opening HS figure is truly taller (122%, previously 104%).
-           A matching negative bottom offset keeps the raised hand at the
-           top while the lower body extends behind the timeline rail. The
-           generous width avoids shrinking wide poses. Keep its rightmost
-           edge left of the headline; no other timeline images change. */
-        .zt-person-stack :global(.zt-person-then) { left:calc(var(--hero-copy-left) - 12px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:122%; bottom:-22%; }
+        /* Opening HS portrait: restore the exact horizontal position from
+           the better first preview. Height remains 122% (vs 104% on live),
+           bottom -22%, and generous width prevents wide poses shrinking.
+           The raised hand is intentionally behind the name (z-index 6).
+           Only the anchor portrait uses these geometry rules. */
+        .zt-person-stack :global(.zt-person-then) { left:calc(var(--hero-copy-left) + 4px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:122%; bottom:-22%; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
 
         /* Top-left CTA/identity block, separate from the marketing
@@ -3138,7 +3138,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
              and its box ended up entirely off the left edge of the row. */
           .zt-person-stack :global(.zt-person-now) { left:calc(32% - 32px - 800px); width:800px; object-position:right bottom; }
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px); }
-          .zt-person-stack :global(.zt-person-then) { left:calc(32% - 12px - clamp(400px,60cqw,600px)); width:clamp(400px,60cqw,600px); }
+          .zt-person-stack :global(.zt-person-then) { left:calc(32% + 4px - clamp(400px,60cqw,600px)); width:clamp(400px,60cqw,600px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; padding-top:7px; }
           .zt-title { font-size:clamp(14px,3.2cqw,20px); }
@@ -3194,9 +3194,9 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
              bottom:22px !important; height:calc(100% - 30px) !important;
              object-position:left bottom;
            }
-          /* The raised hand stays at the top of the enlarged HS pose;
-             end the cutout 12px before the real-screen headline boundary. */
-          .zt-person-stack :global(.zt-person-then) { left:calc(53% - 12px - clamp(380px,98cqw,600px)); width:clamp(380px,98cqw,600px); object-position:right bottom; }
+          /* Same horizontal position as the better first preview:
+             right edge at 53% + 8px; name paints above the raised hand. */
+          .zt-person-stack :global(.zt-person-then) { left:calc(53% + 8px - clamp(380px,98cqw,600px)); width:clamp(380px,98cqw,600px); object-position:right bottom; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.19; }
           /* This whole block (name + the four metadata lines) is sized
              down a notch at this breakpoint -- smaller than the desktop
@@ -3301,7 +3301,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
             height:100%;bottom:0;object-position:left bottom;
           }
           .zt-person-stack :global(.zt-person-then) {
-            left:calc(48% - 12px - clamp(420px,80cqw,640px));
+            left:calc(48% + 6px - clamp(420px,80cqw,640px));
             width:clamp(420px,80cqw,640px);height:122%;bottom:-22%;object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now) {
