@@ -2696,7 +2696,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
            it (rendered after it, same z-index). Chosen by direct
            comparison of the previews: an action shot's RIGHT edge (the
            player's own right edge -- /api/cutout trims it, after fading
-           out a card-back photo's left third) is pinned 24px past the
+           out a card-back photo's left third) is pinned 32px short of the
            headline column's left edge, and it grows leftward over the HS
            cutout (object-position:right bottom in a box that ends
            there). The headshot fallback's own rule below puts it flush on
@@ -2710,20 +2710,26 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
            line (bottom:14px + half its 12px height). NOT the fan-upload
            thumbnail size -- that's a separate thing. Renders nothing (see
            SmartImage) if a player has neither cutout yet. */
-        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - 24px - 800px); width:800px; bottom:20px; height:55%; object-position:right bottom; }
+        .zt-person-stack :global(.zt-person-now) { position:absolute; left:calc(var(--hero-copy-left) - 32px - 800px); width:800px; bottom:20px; height:48%; object-position:right bottom; }
+        /* The flip-card action shot may have been cropped mid-cap or mid-arm.
+           Feather just its top 20% into the stadium instead of displaying
+           a hard horizontal edge. Preserve uncut headshot fallbacks. */
+        .zt-person-stack :global(.zt-person-now:not([data-fallback="true"])) {
+          -webkit-mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.72) 9%, #000 20%, #000 100%);
+          mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.72) 9%, #000 20%, #000 100%);
+        }
         /* Headshot fallback (no flip-card-back photo, so SmartImage fell
            back to the headshot cutout -- data-fallback="true"): per direct
            feedback, flush against the vertical line the headline column
            is left-justified to -- its right edge sits exactly on that
            line, never past it into the text. */
         .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - 800px); }
-        /* The HS cutout's own box: wider than the shared .zt-person box
-           (season slides keep that one) so a wide pitching/throwing pose
-           isn't width-limited, same right edge (8px left of the headline
-           column). Its image comes through /api/cutout, which trims the
-           transparent border, so the figure itself -- not empty canvas --
-           fills the full row height. */
-        .zt-person-stack :global(.zt-person-then) { left:calc(var(--hero-copy-left) - 8px - clamp(200px,22cqw,300px)); width:clamp(200px,22cqw,300px); }
+        /* Opening HS portrait: restore the exact horizontal position from
+           the better first preview. Height is 118% (vs 104% on live),
+           bottom -4%, and generous width prevents wide poses shrinking.
+           The raised hand is intentionally behind the name (z-index 6).
+           Only the anchor portrait uses these geometry rules. */
+        .zt-person-stack :global(.zt-person-then) { left:calc(var(--hero-copy-left) + 4px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:118%; bottom:-4%; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
 
         /* Top-left CTA/identity block, separate from the marketing
@@ -2745,23 +2751,15 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
            .zt-shell-images with no offset of their own, so their "top"
            values are the same coordinate), landing .zt-persist-name on
            the same plane as .zt-kick over in the headline column. */
-        /* z-index:3, not 8 -- below .zt-person-stack's 4 (the hero cutout),
-           on purpose. This block's own position no longer overlaps the
-           cutout in the normal case (fixed in earlier passes), so this
-           has no visible effect there; it only matters for the rare long
-           name/team/org that now runs past its box instead of getting
-           ellipsis-truncated (see .zt-persist-id below) -- in that one
-           case, the hero image should win and paint over the overflow
-           tail, per direct feedback, rather than the text sitting on top
-           of the photo. Still above .zt-carousel (z-index:2) and
-           .zt-visual-stack (z-index:1), so it stays above the background
-           layers exactly as before. */
+        /* Put all identity fields above the raised hand in the HS cutout.
+           The cutout remains layered over the stadium but never obscures
+           the player's name. */
         /* top:4px, not 14px -- per direct feedback, this block should sit
            higher, closer to row 2's school name/alumni-page text right
            above it, rather than sharing .zt-copy's own top:14px plane
            (see that comment above); the two blocks are no longer meant to
            land on the same line. */
-        .zt-moment-cta { position:absolute; z-index:3; left:var(--x-logo-left); top:4px; pointer-events:none; }
+        .zt-moment-cta { position:absolute; z-index:6; left:var(--x-logo-left); top:4px; pointer-events:none; }
         /* gap:1px, not 2px -- these lines read as one dense block cut
            straight from the flip card's back, not loosely spaced. */
         /* No max-width here anymore -- per direct feedback, this block
@@ -2769,11 +2767,10 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
            below keeps white-space:nowrap (never wraps to a second line)
            but drops overflow:hidden/text-overflow:ellipsis, so a line
            that's too long to fit just renders past this box's natural
-           width instead of getting truncated. .zt-moment-cta's lowered
-           z-index (see above) is what makes that overflow land behind the
-           hero cutout instead of on top of it. */
+           width instead of getting truncated. Name text stays above any
+           overlapping limb so the identity remains legible. */
         .zt-persist-id { display:flex; flex-direction:column; gap:1px; }
-        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4cqw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+        .zt-persist-name { display:block; color:#fff; font-family:Oswald,sans-serif; font-weight:800; font-size:clamp(14px,2.4cqw,22px); line-height:1; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; text-shadow:0 1px 4px rgba(0,0,0,.92),0 0 7px rgba(0,0,0,.55); }
         /* All four metadata lines at the same (lighter) weight -- team
            and status were 600 while org and B-T-H-W were already 400,
            reading as inconsistently bold; leveled to 400 throughout per
@@ -3139,9 +3136,9 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
              later in the stylesheet than the desktop .zt-person-now rule,
              so without these the pro image inherited that ~130-200px width
              and its box ended up entirely off the left edge of the row. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 24px - 800px); width:800px; object-position:right bottom; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(32% - 32px - 800px); width:800px; object-position:right bottom; }
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(32% - 800px); }
-          .zt-person-stack :global(.zt-person-then) { left:calc(32% - 8px - clamp(170px,30cqw,240px)); width:clamp(170px,30cqw,240px); }
+          .zt-person-stack :global(.zt-person-then) { left:calc(32% + 4px - clamp(400px,60cqw,600px)); width:clamp(400px,60cqw,600px); }
           .zt-logo-layer { width:50%; right:-12%; }
           .zt-copy { left:32%; right:5%; bottom:20px; padding-top:7px; }
           .zt-title { font-size:clamp(14px,3.2cqw,20px); }
@@ -3184,7 +3181,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
              900px rule: this breakpoint's .zt-person rule (left:24%, a
              ~100px width, object-position:left bottom) would otherwise win
              and put the pro image's box ~575px off the left edge. */
-          .zt-person-stack :global(.zt-person-now) { left:calc(53% - 24px - 800px); width:800px; height:48%; bottom:8px; object-position:right bottom; }
+          .zt-person-stack :global(.zt-person-now) { left:calc(53% - 32px - 800px); width:800px; height:43%; bottom:8px; object-position:right bottom; }
           /* All headshot fallbacks, including Cade's, stop just before
              the shifted copy instead of overlapping its first letter. */
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(53% - 4px - 800px); }
@@ -3197,10 +3194,9 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
              bottom:22px !important; height:calc(100% - 30px) !important;
              object-position:left bottom;
            }
-          /* Keep the full HS pose, but align its rightmost edge 4px before
-             the same 53% screen boundary as the anchor headline.
-             This controls the image's visible edge, not just its box. */
-          .zt-person-stack :global(.zt-person-then) { left:calc(53% - 4px - clamp(130px,40cqw,170px)); width:clamp(130px,40cqw,170px); object-position:right bottom; }
+          /* Same horizontal position as the better first preview:
+             right edge at 53% + 8px; name paints above the raised hand. */
+          .zt-person-stack :global(.zt-person-then) { left:calc(53% + 8px - clamp(380px,98cqw,600px)); width:clamp(380px,98cqw,600px); object-position:right bottom; }
           .zt-logo-layer { width:58%; right:-14%; opacity:.19; }
           /* This whole block (name + the four metadata lines) is sized
              down a notch at this breakpoint -- smaller than the desktop
@@ -3305,11 +3301,11 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
             height:100%;bottom:0;object-position:left bottom;
           }
           .zt-person-stack :global(.zt-person-then) {
-            left:calc(48% - 4px - clamp(170px,30cqw,220px));
-            width:clamp(170px,30cqw,220px);object-position:right bottom;
+            left:calc(48% + 6px - clamp(420px,80cqw,640px));
+            width:clamp(420px,80cqw,640px);height:118%;bottom:-4%;object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now) {
-            left:calc(48% - 24px - 800px);width:800px;height:48%;bottom:8px;
+            left:calc(48% - 32px - 800px);width:800px;height:43%;bottom:8px;
             object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now[data-fallback="true"]) {
