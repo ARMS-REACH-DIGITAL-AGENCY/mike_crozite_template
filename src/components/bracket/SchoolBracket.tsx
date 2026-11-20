@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
+  StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, refreshBoxes, loadIndex, loadLb, place, previewDate, rankRegion, shortName, standings,
 } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -384,6 +384,34 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
       .catch(() => { if (!cancelled) setRosters({ home: [], away: [] }); });
     return () => { cancelled = true; };
   }, [card.file, homeId, awayId]);
+  // While an actual game is live, periodically update the authoritative
+  // Stat Ledger box. Every incoming player's club result changes the W-L
+  // tally and W% automatically; the ninth inning stays pending until lock.
+  useEffect(() => {
+    if (card.state !== 'live' || !card.file) return;
+    let active = true;
+    let busy = false;
+    const refresh = async () => {
+      if (busy || document.visibilityState === 'hidden') return;
+      busy = true;
+      try {
+        const latest = await refreshBoxes(card.file!);
+        if (active) setBox(latest);
+      } catch {
+        // Keep the last successful snapshot; the next poll can recover.
+      } finally {
+        busy = false;
+      }
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const timer = window.setInterval(() => { void refresh(); }, 60_000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [card.state, card.file]);
   const S = index.schools;
   const h = side === 'h' ? homeId : awayId;
   const drawerSchool = h ? drawerSchoolParts(S[h]?.[0] || '') : { school: 'TBD', location: 'Opponent to be determined' };
