@@ -61,6 +61,7 @@ export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?
 export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
+  yatid?: string | null;
   display_name?: string | null;
   firstname?: string | null;
   lastname?: string | null;
@@ -114,7 +115,10 @@ export function loadFavoritePlayers() {
     favoritePlayers = uid
       ? fetch(`/api/favorites?uid=${encodeURIComponent(uid)}&scope=button`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => new Set<string>(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []))
+        .then((d) => new Set<string>([
+          ...(Array.isArray(d?.playerIds) ? d.playerIds.map(String) : []),
+          ...(Array.isArray(d?.yatPlayerIds) ? d.yatPlayerIds.map(String) : []),
+        ]))
         .catch(() => new Set<string>())
       : Promise.resolve(new Set<string>());
   }
@@ -995,11 +999,24 @@ function rosterName(p: ActiveRosterPlayer) {
   return String(p.display_name || `${p.firstname || ''} ${p.lastname || ''}`.trim() || `Player ${p.playerid}`);
 }
 
-function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
+// One day tab of the stat drawer: the whole active roster, every day (Pete,
+// Nov 17). A day with no stat lines yet lists each player with blank
+// metrics (not zeros); a played day keeps its lines and zero-lines the rest.
+export function dayRosterRows(dayRows: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
+  return completeRosterRows(dayRows, roster).map((p) => {
+    if (dayRows.length) return p;
+    const blank = [...p] as PlayerRow;
+    blank[6] = null; blank[7] = null; blank[8] = null;
+    return blank;
+  });
+}
+
+export function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] | undefined): PlayerRow[] {
   const current = new Map(existing.map((p) => [String(p[0]), p] as const));
   const source = roster && roster.length
     ? roster.map((r) => ({
-        id: String(r.playerid),
+        id: String(r.yatid || r.playerid),
+        legacyId: String(r.playerid),
         name: rosterName(r),
         level: String(r.level || ''),
         isPitcher: Boolean(r.is_pitcher),
@@ -1007,18 +1024,25 @@ function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPlayer[] 
       }))
     : existing.map((p) => ({
         id: String(p[0]),
+        legacyId: String(p[0]),
         name: String(p[1]),
         level: String(p[2] || ''),
         isPitcher: Boolean(p[5]) && !Boolean(p[4]),
         twoWay: Boolean(p[4]) && Boolean(p[5]),
       }));
 
-  return source.map(({ id, name, level, isPitcher, twoWay }) => {
-    const row = current.get(id);
+  return source.map(({ id, legacyId, name, level, isPitcher, twoWay }) => {
+    // Pre-existing locked/2026 Stat Ledgers may contain the source ID. Read
+    // their saved numbers without reopening or resimulating historical games.
+    const row = current.get(id) || current.get(legacyId);
     const simulated = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level) ? 1 : 0;
     const next = row
       ? [...row] as PlayerRow
       : [id, name, level, simulated, 0, 0, null, null, null, 0] as PlayerRow;
+
+    // The visible bracket identity is always YAT, including a saved
+    // legacy box's immutable original numbers.
+    next[0] = id;
 
     // Every active alumnus always stays in his roster group(s). If he did
     // not play this week he keeps a true zero line there, rather than moving
@@ -1158,8 +1182,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     loadFavoritePlayers().then((f) => { if (live) setFavs(f); });
     return () => { live = false; };
   }, [drawerMode]);
+  // Every day tab lists the whole active roster, like Weekly Totals (Pete,
+  // Nov 17: rosters are always visible, even before a game starts). A day
+  // with no stat lines yet shows each player with blank metrics, not zeros.
   const viewPlayers = statDay === 'week' ? (mine?.p || [])
-    : rawMine?.days ? rawMine.days[statDay] || [] : [];
+    : dayRosterRows(rawMine?.days?.[statDay] || [], mineRoster);
 
   const batters = viewPlayers.filter((p) => p[4]).sort((a, b) => (b[4] as number[])[0] - (a[4] as number[])[0]);
   const pitchers = viewPlayers.filter((p) => p[5]).sort((a, b) => (b[5] as number[])[0] - (a[5] as number[])[0]);
@@ -1176,8 +1203,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     return ab ? tb / ab : 0;
   };
   const obpSlg = (b: number[]) => obp(b) + slg(b);
-  const wl = mine?.wl || [0, 0];
-  const owl = theirs?.wl || [0, 0];
+  // The engine stores the authoritative club W-L in GameBox. Never rebuild
+  // inning nine from a display roster or from today's roster membership.
+  const wl = rawMine?.wl || mine?.wl || [0, 0];
+  const owl = rawTheirs?.wl || theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '.000');
   const pctNum = (w: number, l: number): number | null => (w + l ? w / (w + l) : null);
   // Last names only; an initial when two share one (B. Smith, R. Smith).
@@ -1185,9 +1214,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // Each name links to his profile (a tap there doesn't flip the card).
   const myHsid = me === 0 ? home : away;
   const teamOf = useMemo(() => new Map([...(homeRoster || []), ...(awayRoster || [])]
-    .map((r) => [String(r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
+    .map((r) => [String(r.yatid || r.playerid), String(r.current_teamid ?? '')] as const)), [homeRoster, awayRoster]);
   const player = (p: PlayerRow) => (
-    <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0])}</a></>
+    <><TeamLogo id={teamOf.get(String(p[0]))} /><a className="bl-plink" href={`/${myHsid}/player/${encodeURIComponent(p[0])}`} onClick={(e) => e.stopPropagation()} title={p[1]}>{labels.get(p[0]) || p[1]}</a></>
   );
   // A day's W-L shows when the box has one (live: the club's result that day).
   const wlCell = (p: PlayerRow) => p[8] ? `${p[8][0]}-${p[8][1]}` : '—';
@@ -1258,11 +1287,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     const better = wonCell(mine, theirs, higher);
     return better ? (settledAt(inning, idx) ? 'won' : 'lead') : '';
   };
+  // Inning nine and extra innings were already computed, finalized, and
+  // locked by the shared engine. The drawer must NOT recalculate a run.
   const correctedInnings = [...innings];
-  if (drawerMode && correctedInnings.length >= 18 && settledAt(8, 0)) {
-    correctedInnings[16] = (homeWp ?? 0) > (awayWp ?? 0) ? 1 : 0;
-    correctedInnings[17] = (awayWp ?? 0) > (homeWp ?? 0) ? 1 : 0;
-  }
   const correctedScore: [number, number] = [
     correctedInnings.filter((_, i) => i % 2 === 0).reduce((s, v) => s + Number(v || 0), 0),
     correctedInnings.filter((_, i) => i % 2 === 1).reduce((s, v) => s + Number(v || 0), 0),
@@ -1732,7 +1759,7 @@ export function Styles() {
         position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:first-child { border-radius:5px 0 0 5px; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:last-child { border-radius:0 5px 5px 0; }
-      .bl.bl-embed.yfp-drawer .bl-scroll { overflow:visible; }
+      .bl.bl-embed.yfp-drawer .bl-scroll { overflow-x:auto; overflow-y:visible; }
       .bl.bl-embed.yfp-drawer .bl-stat-block { padding-left:8px; }
       .bl.bl-embed.yfp-drawer .bl-scoring-title { position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3;
         margin:0 0 7px; padding:5px 8px 4px; border-radius:5px; background:#2e8b5f; color:#ffd34f; }
@@ -1753,21 +1780,21 @@ export function Styles() {
       /* The drawer's tables fit with no inner scrollbar: the name, then 13
          stat columns of one width, each label centered over its numbers.
          The header row is the gold line's type ("HAMILTON | CHANDLER, AZ"). */
-      .bl.bl-embed.yfp-drawer .bl-box { width:100%; table-layout:fixed; }
+      .bl.bl-embed.yfp-drawer .bl-box { width:max-content; min-width:100%; table-layout:auto; }
       /* Every counting stat (AB ... SF, IP ... K) is one width, every rate
          (.000) another; OPS+/FIP- and W-L a little wider; the name the rest. */
       .bl.bl-embed.yfp-drawer .bl-box col { width:17px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col.rate { width:28px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col.plus,
       .bl.bl-embed.yfp-drawer .bl-box col.wl { width:25px !important; }
-      .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:auto !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:140px !important; }
       .bl.bl-embed.yfp-drawer .bl-box th,
       .bl.bl-embed.yfp-drawer .bl-box td,
       .bl.bl-embed.yfp-drawer .bl-box th:last-child,
       .bl.bl-embed.yfp-drawer .bl-box td:last-child,
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:0; padding-right:0; text-align:center; }
-      .bl.bl-embed.yfp-drawer .bl-box .nm { max-width:none; padding-left:2px; padding-right:3px; text-align:left; }
+      .bl.bl-embed.yfp-drawer .bl-box .nm { width:140px; min-width:140px; max-width:140px; padding-left:6px; padding-right:6px; text-align:left; }
       .bl.bl-embed.yfp-drawer .bl-box thead th .bl-sort { font-size:10px; }
       .bl.bl-embed.yfp-drawer .bl-box thead th.nm .bl-sort { padding-left:4px; font-size:11px; }
       .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-tlogo { margin-right:3px; }
