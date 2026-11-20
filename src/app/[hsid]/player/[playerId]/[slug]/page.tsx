@@ -40,7 +40,7 @@ import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
 import { buildPlayerChapters, defaultChapterIndex, isCoachStatus, type PlayerChapterSource } from "@/lib/playerChapters";
 import PlayerInstagramFeed from "@/components/yatstats/PlayerInstagramFeed";
 import { mlbTeamLogoUrl, resolveScheduleTeamId, toISODate, formatDisplayDate, shiftIsoDate, levelLabel } from "@/lib/playerUtils";
-import { getTeamLogoUrl, getOriginalForCardCopy, chooseNewsDisplayImage } from "@/lib/playerImage";
+import { getTeamLogoUrl, getOriginalForCardCopy, chooseNewsDisplayImage, playerPhotoId } from "@/lib/playerImage";
 import PlayerScheduleTable, { type ScheduleTableRow } from "@/components/yatstats/PlayerScheduleTable";
 import { preload } from "react-dom";
 type Props = {
@@ -280,7 +280,7 @@ export default async function ProfilePage({ params }: Props) {
   // finish -- which made the photos land well after the rest of the page.
   // These are the ready-made WebP files the Build Web Cutouts job keeps on
   // S3 (see ZoomableCareerTimeline's webCutoutUrl).
-  const cutoutId = encodeURIComponent(String(playerId));
+  const cutoutId = encodeURIComponent(playerPhotoId(yatId, playerId));
   const cutoutBase = "https://yatstats-assets.s3.us-west-2.amazonaws.com/players";
   // No fetchPriority: React routes a high-priority image preload through a
   // separate queue that never reached this page's HTML (checked on the
