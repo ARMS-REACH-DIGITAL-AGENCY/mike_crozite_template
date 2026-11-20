@@ -211,7 +211,7 @@ wk AS (
          (array_agg(level ORDER BY game_date DESC, source_game_id DESC))[1] AS level
     FROM src GROUP BY playerid),
 x AS (
-  SELECT r.hsid, r.pid, r.nm, r.last, r.first, coalesce(wk.games, 0) AS games,
+  SELECT r.hsid, r.pid, r.yatid, r.nm, r.last, r.first, coalesce(wk.games, 0) AS games,
          coalesce(wk.team_name, r.team) AS team_name, coalesce(m.short, wk.team_name, r.team) AS team_short,
          coalesce(wk.level, r.lvl) AS level, wk.pa, wk.ab, wk.h, wk.d2, wk.d3, wk.hr, wk.rbi, wk.bb, wk.sb,
          wk.outs, wk.bf, wk.p_h, wk.p_er, wk.p_bb, wk.p_so, wk.w, wk.l, wk.sv, coalesce(wk.pitched, false) AS pitched
