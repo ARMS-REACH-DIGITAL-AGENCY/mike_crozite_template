@@ -10,7 +10,7 @@ import {
   onAuthStateChanged,
 } from '@/lib/firebase';
 import type { User } from 'firebase/auth';
-import { track } from '@/lib/analytics';
+import { markInternalAnalyticsAccount, track } from '@/lib/analytics';
 import ContributeShortcuts from '@/components/yatstats/ContributeShortcuts';
 import GuidedTourArtwork from '@/components/yatstats/GuidedTourArtwork';
 import { FAN_CONSENT_VERSION, FAN_SMS_DISCLOSURE, fanInformationalConsent, fanPromotionalConsent, schoolSmsTopic } from '@/lib/fanConsent';
@@ -268,6 +268,8 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
       homeSchoolLocation,
       canonicalHomeMicrositeUrl
     );
+
+    markInternalAnalyticsAccount(email);
 
     const nextSessionUser: SessionUser = {
       uid,
@@ -664,6 +666,7 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
       if (!auth) throw new Error('Firebase auth not initialized');
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
+      markInternalAnalyticsAccount(email);
       track('login', { method: 'email' });
 
       try {
@@ -758,6 +761,7 @@ export default function AccountDrawerContent({ subdomain, schoolName, initialTab
       if (!auth) throw new Error('Firebase auth not initialized');
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = cred.user.uid;
+      markInternalAnalyticsAccount(email);
       // Which JOIN button was used (Pete, Nov 2026): superfan / fan / school_fans.
       const joinCta = (() => { try { return sessionStorage.getItem('join_cta') || ''; } catch { return ''; } })();
       track('sign_up', { method: 'email', join_cta: joinCta });
