@@ -152,16 +152,15 @@ function seriesSentence(slide: { done: WeekCard[]; wins: number; losses: number;
   return w > l ? `${schoolName} leads the series ${w}-${l}.` : `${opponentName || 'The opponent'} leads the series ${l}-${w}.`;
 }
 
-function seriesStatus(slide: RoundSlide, schoolName: string, opponentName: string) {
-  if (!slide.done.length) return `ROUND ${slide.round}`;
-  if (slide.complete) {
-    if (slide.wins >= 2) return `${schoolName.toUpperCase()} ADVANCES`;
-    if (slide.losses >= 2) return `${opponentName.toUpperCase()} ADVANCES`;
-    return `SERIES COMPLETE ${slide.wins}-${slide.losses}`;
-  }
-  if (slide.wins === slide.losses) return `SERIES TIED ${slide.wins}-${slide.losses}`;
-  if (slide.wins > slide.losses) return `${schoolName.toUpperCase()} LEADS SERIES ${slide.wins}-${slide.losses}`;
-  return `${opponentName.toUpperCase()} LEADS SERIES ${slide.losses}-${slide.wins}`;
+// This is intentionally calculated at the moment of the story being shown,
+// not from the eventual result of a completed round.
+function seriesStatus(slide: Pick<RoundSlide, 'round' | 'done' | 'wins' | 'losses'>, schoolName: string, opponentName: string) {
+  if (!slide.done.length) return `ROUND ${slide.round} · SERIES 0-0`;
+  if (slide.wins >= 2) return `${schoolName.toUpperCase()} ADVANCES (${slide.wins}-${slide.losses})`;
+  if (slide.losses >= 2) return `${opponentName.toUpperCase()} ADVANCES (${slide.losses}-${slide.wins})`;
+  if (slide.wins === slide.losses) return `SERIES TIED (${slide.wins}-${slide.losses})`;
+  if (slide.wins > slide.losses) return `${schoolName.toUpperCase()} LEADS SERIES (${slide.wins}-${slide.losses})`;
+  return `${opponentName.toUpperCase()} LEADS SERIES (${slide.losses}-${slide.wins})`;
 }
 
 // A school's name for the hero's series column, at most 10 characters (what
@@ -191,16 +190,6 @@ export function seriesName(name: string) {
   const parts = first.split('-').filter(Boolean);
   if (parts.length > 1) return parts.map((w) => w[0]).join('-');
   return `${first.slice(0, SERIES_NAME_MAX - 1)}.`;
-}
-
-// The series line over the hero's games: "Barbe Leads Series 1-0",
-// "Series Tied 1-1", "Belen JP Wins Series 2-1".
-function seriesHeadline(wins: [number, number], names: [string, string]) {
-  const [a, b] = wins;
-  if (!a && !b) return 'Series 0-0';
-  if (a === b) return `Series Tied ${a}-${b}`;
-  const [lead, w, l] = a > b ? [names[0], a, b] : [names[1], b, a];
-  return `${lead} ${w >= 2 ? 'Wins' : 'Leads'} Series ${w}-${l}`;
 }
 
 // One game of a series column: visitors over home, each name right-justified
@@ -246,36 +235,20 @@ function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
   const day: Story | undefined = list[i];
   const title = day?.title || slide.title;
   const summary = day?.summary || slide.summary;
-  const wonRound = slide.complete && slide.wins >= 2;
-  const seriesLabel = slide.done.length ? `${schoolName} ${wonRound ? 'Wins' : slide.complete ? 'Finishes' : 'Leads'} (${slide.wins}-${slide.losses})` : 'Series not started';
   const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
-  const series = seriesStatus(slide, schoolName, oppLabel);
-  const status = day ? `${series} · ${day.label}` : series;
-  // Each game, visitors over home as on the scoreboard: a game not yet
-  // drawn takes the series' home from its other games.
-  const homeGame = slide.cards.find((c) => c.game)?.game;
-  const myName = seriesName(schoolName);
-  const games = slide.cards.map((card) => {
-    const opp = card.game ? (card.game[2] === me ? card.game[3] : card.game[2]) : slide.opponent;
-    const oppName = opp ? seriesName(shortName(index.schools[opp]?.[0] || 'Opponent')) : 'TBD';
-    const meHome = (card.game || homeGame) ? (card.game || homeGame)![2] === me : true;
-    const final = card.state === 'final' && card.game ? card.game : null;
-    return {
-      card, matchupKnown: Boolean(opp),
-      away: meHome ? oppName : myName, home: meHome ? myName : oppName,
-      awaySeed: meHome ? (opp ? index.schools[opp]?.[2] : undefined) : index.schools[me]?.[2],
-      homeSeed: meHome ? index.schools[me]?.[2] : (opp ? index.schools[opp]?.[2] : undefined),
-      runs: final ? runsOf(final[5]) : null,
-      winner: final && final[6] ? (final[6] === final[2] ? 'home' : 'away') as 'home' | 'away' : null,
-    };
-  });
-  const oppShort = slide.opponent ? seriesName(oppLabel) : 'Opponent';
-  const headline = seriesHeadline([slide.wins, slide.losses], [myName, oppShort]);
+  // Replaying Game 2 must show the 1-0 series as it stood then, not a
+  // later 2-1 outcome. Count the selected game's win only on its FINAL recap.
+  const settled = slide.cards.filter((c) => c.game && c.state === 'final'
+    && (c.week < week || (c.week === week && (!day || day.day === 'Final'))));
+  const wins = settled.filter((c) => c.game?.[6] === me).length;
+  const losses = settled.filter((c) => c.game?.[6] != null && c.game?.[6] !== me).length;
+  const series = seriesStatus({ round: slide.round, done: settled, wins, losses }, schoolName, oppLabel);
+
 
   return (
-    <div className="yft-slide" role="button" tabIndex={0} onClick={onTap}
+    <div className="yft-slide yft-round-slide" role="button" tabIndex={0} onClick={onTap}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } }}
-      aria-label={`Round ${slide.round}. ${seriesLabel}`}>
+      aria-label={`Round ${slide.round}. ${series}`}>
       {slide.opponent ? <Fallback className="yft-ghost" srcs={[getSchoolCrestUrl(slide.opponent), CREST_FALLBACK_PATH]} alt="" /> : null}
       {/* A person only when the write-up names him, and only this school's
           own alumni - never the opponent's (Pete, Nov 13); else YaTi. */}
@@ -286,7 +259,10 @@ function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
         : <Fallback key={`yati${slide.round}`} className="yft-person" srcs={[YATI_HEROES[(slide.round || 1) % YATI_HEROES.length]]} alt="YaTi" />}
 
       <div className="yft-story yft-fade" key={`${listKey}:${i}`}>
-        <span className="yft-status">{status}</span>
+        <div className="yft-eyebrow">
+          <span className="yft-status">{series}</span>
+          {day ? <span className="yft-game-context">{day.label}</span> : null}
+        </div>
         <strong className={`yft-title${title.length > 20 ? ' long' : ''}`}>{title}</strong>
         <p>{summary}</p>
         {list.length > 1 ? <span className="yft-dots" aria-hidden="true">{list.map((_, k) => <i key={k} className={k === i ? 'on' : ''} />)}</span> : null}
@@ -306,15 +282,9 @@ function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
         ) : null}
       </div>
 
-      <aside className="yft-series" aria-label={`Round ${slide.round} series`}
-        style={{ '--yft-name-ch': Math.max(...games.flatMap((x) => [x.away.length, x.home.length])) } as React.CSSProperties}>
-        <span className="yft-series-line">{headline}</span>
-        <div className="yft-series-games">
-          {games.map(({ card, matchupKnown, away, home, awaySeed, homeSeed, runs, winner }, i) => (matchupKnown
-            ? <SeriesGame key={card.week} n={i + 1} away={away} home={home} awaySeed={awaySeed} homeSeed={homeSeed} runs={runs} winner={winner} />
-            : <SeriesGame key={card.week} n={i + 1} away={`Week ${card.week}`} home="TBD" runs={null} winner={null} />))}
-        </div>
-      </aside>
+      {/* The three-game series status now lives above the story. Individual
+          game scores remain in the main scoreboard immediately below. */}
+
     </div>
   );
 }
@@ -648,15 +618,14 @@ export default function FantasyTimeline() {
            on its bottom edge, and dissolves into the bottom of row 3
            instead of ending on a hard line across the timeline (Pete,
            Oct 19). */
-        .yft-person { position:absolute; z-index:1; left:calc(3% + 94% * 15 / 33); width:calc(94% * 12 / 33 + 6px); top:calc(var(--row1-h, 36px) + 4px); height:calc(100% - var(--row1-h, 36px) - 4px); object-fit:contain; object-position:bottom center; pointer-events:none;
+        .yft-person { position:absolute; z-index:1; left:auto; right:1%; width:38%; top:calc(var(--row1-h, 36px) + 4px); height:calc(100% - var(--row1-h, 36px) - 4px); object-fit:contain; object-position:right bottom; pointer-events:none;
           --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 72px), rgba(0,0,0,.35) calc(100% - 28px), transparent calc(100% - 4px));
           -webkit-mask-image:var(--yft-dissolve); mask-image:var(--yft-dissolve); }
-        /* A wide picture: a box 1.7x as wide, right edge on the usual box's
-           right edge, the whole picture kept (nothing cropped), its left
-           edge fading in softly under the headline (Pete, Nov 13). */
-        .yft-person.yft-wide { left:auto; right:calc(97% - 94% * 27 / 33 - 6px); width:calc((94% * 12 / 33 + 6px) * 1.7); object-position:right bottom;
-          -webkit-mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, #000 14%);
-          -webkit-mask-composite:source-in; mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, #000 14%); mask-composite:intersect; }
+        /* Wide action cutouts keep their natural proportions, anchored on
+           the right with a stronger left dissolve to protect the story. */
+        .yft-person.yft-wide { left:auto; right:0; width:57%; object-position:right bottom;
+          -webkit-mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.25) 22%, #000 42%);
+          -webkit-mask-composite:source-in; mask-image:var(--yft-dissolve), linear-gradient(to right, transparent 0, rgba(0,0,0,.25) 22%, #000 42%); mask-composite:intersect; }
         /* A fade to black (deep blue in the day theme) along the bottom of
            row 3, under the timeline and over the slides. */
         .yft-hero::after { content:''; position:absolute; z-index:6; left:0; right:0; bottom:0; height:60px; background:linear-gradient(to bottom, rgba(2,3,8,0), rgba(2,3,8,.85)); pointer-events:none; }
@@ -670,6 +639,13 @@ export default function FantasyTimeline() {
            then the story, with room between them) in a blocked column that
            stops short of the center light. */
         .yft-story { position:absolute; z-index:2; left:5%; width:47%; top:calc(var(--yft-up) + 4px); bottom:40px; display:flex; flex-direction:column; justify-content:flex-start; min-width:0; padding:0 14px; }
+        /* The round hero no longer reserves its right quarter for the
+           duplicate series scoreboard. Complete story text can scroll if
+           it exceeds the fixed-height timeline; never ellipsize it. */
+        .yft-round-slide .yft-story { left:3%; width:61%; padding:0 8px; }
+        .yft-round-slide .yft-story p { display:block; flex:0 1 auto; min-height:0; overflow-y:auto; -webkit-line-clamp:unset; -webkit-box-orient:initial; scrollbar-width:thin; overscroll-behavior-y:contain; }
+        .yft-eyebrow { display:flex; flex-wrap:wrap; align-items:baseline; column-gap:8px; row-gap:2px; }
+        .yft-game-context { color:rgba(255,255,255,.8); font:500 10px/1.1 Oswald,sans-serif; text-transform:uppercase; white-space:nowrap; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:var(--gold,#d5b44a); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }
         .yft-title { margin:9px 0 19px; color:#fff; font:700 clamp(26px,3.5vw,42px)/.95 Oswald,sans-serif; letter-spacing:.01em; text-transform:uppercase; }
@@ -744,9 +720,9 @@ export default function FantasyTimeline() {
           body:has(.yft-hero) { --row3-h:118px; }
           .yat-row3-shell:has(.yft-hero) { height:118px !important; min-height:118px !important; }
           .yft-hero { height:118px; min-height:118px; }
-          .yft-person { left:calc(4% + 92% * 15 / 33); width:calc(92% * 12 / 33 + 4px); top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px);
+          .yft-person { left:auto; right:0; width:38%; top:calc(var(--row1-h, 34px) + 4px); height:calc(100% - var(--row1-h, 34px) - 4px);
             --yft-dissolve:linear-gradient(to bottom, #000 calc(100% - 46px), rgba(0,0,0,.35) calc(100% - 18px), transparent calc(100% - 2px)); }
-          .yft-person.yft-wide { left:auto; right:calc(96% - 92% * 27 / 33 - 4px); width:calc((92% * 12 / 33 + 4px) * 1.7); }
+          .yft-person.yft-wide { left:auto; right:0; width:56%; }
           .yft-hero::after { height:40px; }
           .yft-ghost { left:0; width:31%; }
           .yft-left-meta { left:2.5%; top:5px; gap:1px; }
@@ -755,15 +731,24 @@ export default function FantasyTimeline() {
           /* Blocked under the school name: the column ends about where row
              2's "FANTASY BRACKET TOURNEY" does. */
           .yft-story { left:5%; width:170px; top:calc(var(--yft-up) + 2px); bottom:22px; padding:0 4px; justify-content:flex-start; }
+          .yft-round-slide .yft-story { left:3%; width:63%; bottom:19px; padding:0 3px; }
+          .yft-round-slide .yft-eyebrow { column-gap:5px; row-gap:1px; }
+          .yft-round-slide .yft-game-context { font-size:6px; }
           .yft-status { font-size:6.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .yft-round-slide .yft-status { white-space:normal; overflow:visible; text-overflow:clip; }
           .yft-title { margin:2px 0 8px; font-size:16px; line-height:.94; }
           .yft-title.long { font-size:13px; }
           .yft-shouts { margin-top:2px; column-gap:6px; row-gap:1px; }
           .yft-shouts .yft-star span { display:none; }
           .yft-story:has(.yft-shouts) p { -webkit-line-clamp:6; }
-          /* A two-line headline leaves room for five. */
+          /* A two-line headline leaves room for five in postseason cards;
+             round stories use a full, independently scrollable paragraph. */
           .yft-story:has(.yft-title.long) p { -webkit-line-clamp:5; }
           .yft-story p { flex-shrink:0; font-size:7px; line-height:1.16; display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
+          .yft-round-slide .yft-story:has(.yft-shouts) p,
+          .yft-round-slide .yft-story:has(.yft-title.long) p,
+          .yft-round-slide .yft-story p { flex:0 1 auto; min-height:0; display:block; -webkit-line-clamp:unset; -webkit-box-orient:initial; overflow-y:auto; }
+          .yft-round-slide .yft-title { margin-bottom:5px; }
           /* No room for the story's dots under six lines on a phone. */
           .yft-dots { display:none; }
           .yft-dots i { width:3px; height:3px; }
@@ -785,7 +770,7 @@ export default function FantasyTimeline() {
         }
         @media (max-width:640px) {
           /* A phone's row 2 is smaller: "TOURNEY" ends about 160px in. */
-          .yft-story { width:146px; }
+          .yft-post-slide .yft-story { width:146px; }
         }
       `}</style>
     </section>
