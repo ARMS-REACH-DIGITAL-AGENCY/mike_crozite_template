@@ -1759,7 +1759,7 @@ export function Styles() {
         position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:first-child { border-radius:5px 0 0 5px; }
       .bl.bl-embed.yfp-drawer .bl-stat-block .bl-box thead th:last-child { border-radius:0 5px 5px 0; }
-      .bl.bl-embed.yfp-drawer .bl-scroll { overflow-x:auto; overflow-y:visible; }
+      .bl.bl-embed.yfp-drawer .bl-scroll { overflow:visible; }
       .bl.bl-embed.yfp-drawer .bl-stat-block { padding-left:8px; }
       .bl.bl-embed.yfp-drawer .bl-scoring-title { position:sticky; top:calc(var(--yfp-head-h,23px) + var(--bl-boards-h,0px) + var(--bl-tabs-h,0px)); z-index:3;
         margin:0 0 7px; padding:5px 8px 4px; border-radius:5px; background:#2e8b5f; color:#ffd34f; }
@@ -1780,21 +1780,21 @@ export function Styles() {
       /* The drawer's tables fit with no inner scrollbar: the name, then 13
          stat columns of one width, each label centered over its numbers.
          The header row is the gold line's type ("HAMILTON | CHANDLER, AZ"). */
-      .bl.bl-embed.yfp-drawer .bl-box { width:max-content; min-width:100%; table-layout:auto; }
+      .bl.bl-embed.yfp-drawer .bl-box { width:100%; table-layout:fixed; }
       /* Every counting stat (AB ... SF, IP ... K) is one width, every rate
          (.000) another; OPS+/FIP- and W-L a little wider; the name the rest. */
       .bl.bl-embed.yfp-drawer .bl-box col { width:17px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col.rate { width:28px !important; }
       .bl.bl-embed.yfp-drawer .bl-box col.plus,
       .bl.bl-embed.yfp-drawer .bl-box col.wl { width:25px !important; }
-      .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:140px !important; }
+      .bl.bl-embed.yfp-drawer .bl-box col:first-child { width:auto !important; }
       .bl.bl-embed.yfp-drawer .bl-box th,
       .bl.bl-embed.yfp-drawer .bl-box td,
       .bl.bl-embed.yfp-drawer .bl-box th:last-child,
       .bl.bl-embed.yfp-drawer .bl-box td:last-child,
       .bl.bl-embed.yfp-drawer .bl-box .plus,
       .bl.bl-embed.yfp-drawer .bl-box .wl { padding-left:0; padding-right:0; text-align:center; }
-      .bl.bl-embed.yfp-drawer .bl-box .nm { width:140px; min-width:140px; max-width:140px; padding-left:6px; padding-right:6px; text-align:left; }
+      .bl.bl-embed.yfp-drawer .bl-box .nm { max-width:none; padding-left:2px; padding-right:3px; text-align:left; }
       .bl.bl-embed.yfp-drawer .bl-box thead th .bl-sort { font-size:10px; }
       .bl.bl-embed.yfp-drawer .bl-box thead th.nm .bl-sort { padding-left:4px; font-size:11px; }
       .bl.bl-embed.yfp-drawer .bl-box tbody td.nm .bl-tlogo { margin-right:3px; }
