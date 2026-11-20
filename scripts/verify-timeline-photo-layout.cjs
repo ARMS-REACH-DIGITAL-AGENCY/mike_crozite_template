@@ -25,11 +25,11 @@ assert.match(rail, /\.zt-person-stack :global\(\.zt-person-now\) \{ left:calc\(5
 // Preserve the exact HS horizontal framing from the first, better preview
 // at every viewport; only height, name layering and fade are changed.
 assert.ok(rail.includes('.zt-moment-cta { position:absolute; z-index:6;'), 'player name must be in front of school photo');
-assert.ok(rail.includes('left:calc(var(--hero-copy-left) + 4px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:122%; bottom:-22%;'), 'desktop HS cutout must actually grow');
+assert.ok(rail.includes('left:calc(var(--hero-copy-left) + 4px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:118%; bottom:-4%;'), 'desktop HS cutout must actually grow');
 assert.ok(rail.includes('left:calc(32% + 4px - clamp(400px,60cqw,600px));'), 'tablet HS horizontal position restored');
 assert.ok(rail.includes('left:calc(53% + 8px - clamp(380px,98cqw,600px)); width:clamp(380px,98cqw,600px);'), 'phone HS cutout clears headline');
 assert.ok(rail.includes('left:calc(48% + 6px - clamp(420px,80cqw,640px));'), 'transition viewport HS cutout clears headline');
-assert.ok(rail.includes('height:122%;bottom:-22%;object-position:right bottom;'), 'transition viewport HS cutout retains height');
+assert.ok(rail.includes('height:118%;bottom:-4%;object-position:right bottom;'), 'transition viewport HS cutout retains height');
 assert.ok(rail.includes('.zt-person-now:not([data-fallback="true"])'), 'fade applies only to action photos');
 assert.ok(rail.includes('mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.72) 9%, #000 20%'), 'hard crop must be feathered');
 console.log('PASS: shared Story photos and timeline month thumbnails use fixed, uncropped heights');
