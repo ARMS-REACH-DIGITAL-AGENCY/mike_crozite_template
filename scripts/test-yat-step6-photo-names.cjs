@@ -14,4 +14,12 @@ assert.match(read('src/lib/contributeServer.ts'), /const pid = await photoFileId
 assert.match(read('src/components/yatstats/PlayerCard.tsx'), /const photoId = playerPhotoId\(p\.yatid, playerId\);/, 'gallery cards read by YAT ID');
 assert.match(read('src/components/yatstats/ZoomableCareerTimeline.tsx'), /const photo = photoId \|\| playerId;/, 'timeline reads by YAT ID');
 assert.match(read('scripts/yat-step6-photo-names.py'), /MODE not in \("report", "copy", "copy_all", "catch_up"\)/, 'hourly catch-up exists');
+// The profile page resolves a public YAT ID to a (sometimes numeric) card ID.
+// Preloads must use the same YAT-derived photo key as the live career montage.
+// A numeric card ID may be used only if the registry has no YAT ID.
+const profilePage = read('src/app/[hsid]/player/[playerId]/[slug]/page.tsx');
+assert.match(profilePage, /const \{ cardId: playerId, yatId \} = await resolveProfileCard\(routeId, hsid\);/, 'profile resolves both keys');
+assert.match(profilePage, /const cutoutId = encodeURIComponent\(playerPhotoId\(yatId, playerId\)\);/, 'preload uses canonical YAT ID with legacy fallback');
+assert.match(profilePage, /preload\(\`\$\{cutoutBase\}\/then-web\/\$\{cutoutId\}\.webp\`/, 'HS web cutout uses canonical key');
+assert.match(profilePage, /preload\(\`\$\{cutoutBase\}\/back-web\/\$\{cutoutId\}\.webp\`/, 'action web cutout uses canonical key');
 console.log('yat step 6 photo names OK');
