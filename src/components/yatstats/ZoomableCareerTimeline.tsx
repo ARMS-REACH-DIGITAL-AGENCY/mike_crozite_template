@@ -2725,11 +2725,11 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
            line, never past it into the text. */
         .zt-person-stack :global(.zt-person-now[data-fallback="true"]) { left:calc(var(--hero-copy-left) - 800px); }
         /* Opening HS portrait: restore the exact horizontal position from
-           the better first preview. Height remains 122% (vs 104% on live),
-           bottom -22%, and generous width prevents wide poses shrinking.
+           the better first preview. Height is 118% (vs 104% on live),
+           bottom -4%, and generous width prevents wide poses shrinking.
            The raised hand is intentionally behind the name (z-index 6).
            Only the anchor portrait uses these geometry rules. */
-        .zt-person-stack :global(.zt-person-then) { left:calc(var(--hero-copy-left) + 4px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:122%; bottom:-22%; }
+        .zt-person-stack :global(.zt-person-then) { left:calc(var(--hero-copy-left) + 4px - clamp(400px,58cqw,680px)); width:clamp(400px,58cqw,680px); height:118%; bottom:-4%; }
         .zt-visual :global(.zt-person-cover) { position:absolute; z-index:4; left:0; bottom:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:center top; }
 
         /* Top-left CTA/identity block, separate from the marketing
@@ -3302,7 +3302,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
           }
           .zt-person-stack :global(.zt-person-then) {
             left:calc(48% + 6px - clamp(420px,80cqw,640px));
-            width:clamp(420px,80cqw,640px);height:122%;bottom:-22%;object-position:right bottom;
+            width:clamp(420px,80cqw,640px);height:118%;bottom:-4%;object-position:right bottom;
           }
           .zt-person-stack :global(.zt-person-now) {
             left:calc(48% - 32px - 800px);width:800px;height:43%;bottom:8px;
