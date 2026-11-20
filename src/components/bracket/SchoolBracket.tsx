@@ -138,13 +138,17 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       const mine = side === 'h';
       const rawName = mine ? (S[me]?.[0] || '') : '';
       const name = mine ? shortName(rawName) : 'TBD';
+      const seed = mine ? S[me]?.[2] : undefined;
       const location = mine ? place(rawName) : 'Opponent to be determined';
       return (
         <div className={`yfp-green-row${mine ? ' me' : ''}`} key={side}>
           <button type="button" className="yfp-green-team" onClick={() => onOpen({ card, side })}
             aria-label={`${name}: this week's players`}>
             <span className="yfp-green-abbr">{mine ? abbr(name) : 'TBD'}</span>
-            <span className="yfp-green-full">{name}</span>
+            <span className="yfp-green-name-line">
+              {seed ? <span className="yfp-green-seed">#{seed}</span> : null}
+              <span className="yfp-green-full">{name}</span>
+            </span>
             <span className="yfp-green-place">{location}</span>
           </button>
           {Array.from({ length: 9 }, (_, i) => <span key={i} className="yfp-green-slot" />)}
@@ -197,13 +201,17 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
     const won = card.state === 'final' && correctedWinner === h;
     const rawName = S[h]?.[0] || '';
     const name = shortName(rawName);
+    const seed = S[h]?.[2];
     const location = place(rawName);
     return (
       <div className={`yfp-green-row${h === me ? ' me' : ''}${won ? ' won' : ''}`}>
         <button type="button" className="yfp-green-team" onClick={() => onOpen({ card, side })}
           aria-label={`${name}: this week's players`}>
           <span className="yfp-green-abbr">{abbr(name)}</span>
-          <span className="yfp-green-full">{name}</span>
+          <span className="yfp-green-name-line">
+            {seed ? <span className="yfp-green-seed">#{seed}</span> : null}
+            <span className="yfp-green-full">{name}</span>
+          </span>
           {location ? <span className="yfp-green-place">{location}</span> : null}
         </button>
         {Array.from({ length: inningCount }, (_, i) => i).map((i) => {
@@ -959,7 +967,10 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfp-green-team { min-width:0; display:block; padding:0 5px 0 0; border:0; background:transparent; color:#fff; text-align:left; cursor:pointer; }
         .yfp-green-team:disabled { cursor:default; }
         .yfp-green-abbr { display:none; font:800 12px/1 Oswald,sans-serif; letter-spacing:.03em; }
-        .yfp-green-full { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 11px/1 Oswald,sans-serif; }
+        /* Original regional seed sits beside the team name, without adding an inning column. */
+        .yfp-green-name-line { display:flex; justify-content:flex-end; align-items:baseline; gap:3px; min-width:0; }
+        .yfp-green-seed { flex:none; color:rgba(255,255,255,.75); font:400 8px/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; font-variant-numeric:tabular-nums; }
+        .yfp-green-full { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 11px/1 Oswald,sans-serif; }
         .yfp-green-place { display:block; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#a8bbb0; font:600 6px/1 Oswald,sans-serif; letter-spacing:.035em; text-transform:uppercase; }
         .yfp-green-row.me .yfp-green-team { color:#ffd34f; }
         .yfp-green-slot { height:20px; display:grid; place-items:center; border-radius:3px; background:#0d2d20; box-shadow:inset 0 1px 3px rgba(0,0,0,.75); color:#edf4ee; font:800 11px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; }
@@ -1443,7 +1454,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
           .yfp-green-row { grid-template-columns:64px repeat(var(--inning-count,9),minmax(9px,1fr)) 22px; gap:1px; margin-top:1px; }
           .yfp-green-row.head { font-size:5.8px; }
           .yfp-green-abbr { display:none; }
-          .yfp-green-full { display:block; font:800 7.3px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
+          .yfp-green-full { display:block; font:800 7.3px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:ellipsis; }
+          .yfp-green-name-line { gap:2px; }
+          .yfp-green-seed { font-size:6px; }
           .yfp-green-slot,.yfp-green-run { height:17px; font-size:9px; border-radius:2px; }
           .yfp-green-stats { height:17px; border-radius:2px; }
           .yfp-green-status { font-size:5.5px; padding:1px 2px; }
@@ -1544,7 +1557,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         @media (max-width: 599px) {
           .yfp { padding: 8px 8px 16px; }
           .yfp-green-row { grid-template-columns:68px repeat(var(--inning-count,9),minmax(10px,1fr)) 24px; gap:1px; }
-          .yfp-green-full { display:block; font:800 7.5px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:clip; }
+          .yfp-green-full { display:block; font:800 7.5px/.95 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; letter-spacing:-.035em; text-overflow:ellipsis; }
+          .yfp-green-name-line { gap:2px; }
+          .yfp-green-seed { font-size:6px; }
           .yfp-green-place { font-size:5px; line-height:1; letter-spacing:.02em; }
           .yfp-green-abbr { display:none; }
           .yfp-green-slot,.yfp-green-run { height:18px; font-size:10px; }
