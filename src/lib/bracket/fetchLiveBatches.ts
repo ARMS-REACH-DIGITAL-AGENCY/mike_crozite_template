@@ -44,25 +44,48 @@ export async function fetchBracketLiveBatches(
   const combined: Live = {
     asOf: '', roster: {}, lines: [], clubs: {}, games: {}, fans: {},
   };
+  // Bounded requests and bounded concurrency keep a slow provider from
+  // hanging a full 1,024-school simulation. Preserve merge order.
+  const batches: string[][] = [];
   for (let i = 0; i < hsids.length; i += BRACKET_LIVE_BATCH_SIZE) {
-    const batch = hsids.slice(i, i + BRACKET_LIVE_BATCH_SIZE);
-    const params = new URLSearchParams({ start, weeks: String(weeks), h: batch.join(',') });
-    const url = `${base}/api/bracket/live?${params}`;
-    const response = await request(url, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: HTTP ${response.status}`);
-
-    const part = await response.json() as Live;
-    if (!part || !part.roster || !Array.isArray(part.lines) || !part.clubs) {
-      throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: invalid response`);
-    }
-    // The server explicitly returns [] for schools with no active alumni.
-    // Checking every requested key means missing/truncated schools fail loudly.
-    const missing = batch.filter((id) => !Object.prototype.hasOwnProperty.call(part.roster, id));
-    if (missing.length) {
-      throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: missing school IDs ${missing.join(',')}`);
-    }
-    mergeBracketLive(combined, part);
+    batches.push(hsids.slice(i, i + BRACKET_LIVE_BATCH_SIZE));
   }
+  const results: Live[] = new Array(batches.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < batches.length) {
+      const i = next++;
+      const batch = batches[i];
+      const params = new URLSearchParams({ start, weeks: String(weeks), h: batch.join(',') });
+      const url = `${base}/api/bracket/live?${params}`;
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await request(url, {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const part = await response.json() as Live;
+          if (!part || !part.roster || !Array.isArray(part.lines) || !part.clubs) {
+            throw new Error('invalid live-data response');
+          }
+          const missing = batch.filter((id) => !Object.prototype.hasOwnProperty.call(part.roster, id));
+          if (missing.length) throw new Error(`missing school IDs ${missing.join(',')}`);
+          results[i] = part;
+          lastError = undefined;
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (lastError) {
+        throw new Error(`Bracket live batch ${i + 1}/${batches.length} failed after 2 tries: ${String(lastError)}`);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, batches.length) }, worker));
+  for (const part of results) mergeBracketLive(combined, part);
   if (Object.keys(combined.roster).length !== hsids.length) {
     throw new Error(`Incomplete bracket roster coverage: ${Object.keys(combined.roster).length}/${hsids.length}`);
   }
