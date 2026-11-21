@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import FantasyGameSocial from './FantasyGameSocial';
+import { replayShareUrl } from './simulationLinks';
 import { createPortal } from 'react-dom';
 import { StatsDot, abbr, fmtRange, loadBoxes, place, shortName, type GameBox, type GameRow, type Index, type PlayerRow } from './gallery';
 import { liveBoard, runsThrough, type WeekCard } from './schoolSeason';
@@ -180,7 +181,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
         title={gameNo ? `${stageHead} · Game ${gameNo}` : stageHead}
         subtitle="Matchup to be determined"
         shareText={`Follow the ${stageHead} in the YAT?STATS High School Alumni Fantasy Tournament.`}
-        shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?week=${week}#sec-fantasy`}
+        shareUrl={typeof window==='undefined'?'':replayShareUrl(`${window.location.origin}${window.location.pathname}?week=${week}#sec-fantasy`, window.location.search)}
         preview={<div className="yfp-scorecard">{scoreboard}</div>}
       />
     );
@@ -261,7 +262,7 @@ export default function PostseasonStage({ stage, index, me, cal, rec, onOpen }:{
       title={label}
       subtitle={`${awayName} ${ar} · ${homeName} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${awayName} and ${homeName}.`}
-      shareUrl={typeof window==='undefined'?'':`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}#sec-fantasy`}
+      shareUrl={typeof window==='undefined'?'':replayShareUrl(`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${g[1]}#sec-fantasy`, window.location.search)}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />;
 

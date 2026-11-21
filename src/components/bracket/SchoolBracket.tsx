@@ -28,6 +28,7 @@ import {
 } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
+import { schoolBracketHref, replayShareUrl } from './simulationLinks';
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
 import FantasyGameSocial from './FantasyGameSocial';
@@ -186,7 +187,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
         title={`Round ${round} · Game ${gameNo}`}
         subtitle={`${schoolName} · Opponent TBD`}
         shareText={`Follow ${schoolName} in Round ${round}, Game ${gameNo} of the YAT?STATS High School Alumni Fantasy Tournament.`}
-        shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?week=${card.week}#sec-fantasy`}
+        shareUrl={typeof window === 'undefined' ? '' : replayShareUrl(`${window.location.origin}${window.location.pathname}?week=${card.week}#sec-fantasy`, window.location.search)}
         preview={<div className="yfp-scorecard">{scoreboard}</div>}
       />
     );
@@ -259,7 +260,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       title={`Round ${round} · Game ${gameNo}`}
       subtitle={`${shortName(S[g[3]]?.[0] || '')} ${ar} · ${shortName(S[g[2]]?.[0] || '')} ${hr}`}
       shareText={`Follow the YAT?STATS High School Alumni Fantasy Game between ${shareSchoolLabel(S[g[3]]?.[0] || '')} and ${shareSchoolLabel(S[g[2]]?.[0] || '')}.`}
-      shareUrl={typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>lv?[Number(lv.cells[1][i]?.v || 0),Number(lv.cells[0][i]?.v || 0)]:i<sharedThrough?[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]:[0,0]).flat().join(','))}&played=${sharedThrough}&weekStart=${index.weeks[card.week - 1]?.[0] || ''}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`}
+      shareUrl={typeof window === 'undefined' ? '' : replayShareUrl(`${window.location.origin}${window.location.pathname}?fantasyGame=${g[0]}&week=${card.week}&homeId=${g[2]}&awayId=${g[3]}&snapshot=1&homeName=${encodeURIComponent(S[g[2]]?.[0] || '')}&awayName=${encodeURIComponent(S[g[3]]?.[0] || '')}&scoreInnings=${encodeURIComponent(Array.from({length:9},(_,i)=>lv?[Number(lv.cells[1][i]?.v || 0),Number(lv.cells[0][i]?.v || 0)]:i<sharedThrough?[Number(shownInnings[i*2] || 0),Number(shownInnings[i*2+1] || 0)]:[0,0]).flat().join(','))}&played=${sharedThrough}&weekStart=${index.weeks[card.week - 1]?.[0] || ''}&scoreStatus=${encodeURIComponent(pill)}&round=${round}&gameNo=${gameNo}&sharedAt=${sharedAt}#sec-fantasy`, window.location.search)}
       preview={<div className="yfp-scorecard">{scoreboard}</div>}
     />
   ) : null;
@@ -631,7 +632,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         <ol>{rows.map(({ s, place: rank, region }) => (
           <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${rank} in the region · ${s.rf} runs (${diff(s)})`}>
             <span className="rk">{view === 'az' ? `R${region}-S${index.schools[s.h]?.[2] ?? '—'}` : rank}</span>
-            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
+            <a href={schoolBracketHref(s.h, typeof window === 'undefined' ? '' : window.location.search)}>{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
             <span className="rf">{s.rf}</span>
           </li>
         ))}</ol>
