@@ -110,6 +110,27 @@ export function loadBoxes(file: string) {
   return boxCache.get(file)!;
 }
 
+
+const replayGameBoxCache = new Map<number, Promise<GameBox>>();
+/** The native school replay requests one historical game, not a full-season rebuild. */
+export function loadGameBox(file: string, gameId: number): Promise<GameBox | undefined> {
+  if (!replayMode() || file === 'd-gf') {
+    return loadBoxes(file).then((all) => all[String(gameId)]);
+  }
+  let task = replayGameBoxCache.get(gameId);
+  if (!task) {
+    task = fetch('/api/sim-2026-ledger?game=' + encodeURIComponent(String(gameId)), { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Historical Stat Ledger HTTP ' + response.status);
+        const data = await response.json() as { box?: GameBox };
+        if (!data.box?.d || !data.box.h?.days || !data.box.a?.days) throw new Error('Incomplete historical Stat Ledger');
+        return data.box;
+      }).catch((err) => { replayGameBoxCache.delete(gameId); throw err; });
+    replayGameBoxCache.set(gameId, task);
+  }
+  return task;
+}
+
 // Read a current, authoritative Stat Ledger snapshot rather than retaining
 // the first loaded result for an entire live week. This is read-only and
 // never calculates or updates an official bracket result.
@@ -1169,8 +1190,10 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const boxForView = played ? box : undefined;
   const rawMine = boxForView ? boxForView[side] : undefined;
   const rawTheirs = boxForView ? boxForView[side === 'h' ? 'a' : 'h'] : undefined;
-  const mineRoster = me === 0 ? homeRoster : awayRoster;
-  const theirsRoster = me === 0 ? awayRoster : homeRoster;
+  // A completed replay uses its saved 2026 roster. The current active roster
+  // omits some 2026 contributors and must NEVER erase their saved stat lines.
+  const mineRoster = replayMode() ? undefined : (me === 0 ? homeRoster : awayRoster);
+  const theirsRoster = replayMode() ? undefined : (me === 0 ? awayRoster : homeRoster);
   const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster);
   const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster);
   // Unplayed drawer: the roster is known, but no metric can exist yet.
@@ -1434,7 +1457,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
             ) : null}
           </div>
           {/* Not pinned: it scrolls away with the players under it. */}
-          <InActionStrip hsid={side === 'h' ? home : away} />
+          {replayMode() ? <div className="bl-inaction">2026 replay · Historical game statistics</div> : <InActionStrip hsid={side === 'h' ? home : away} />}
         </>
       ) : (
         <>

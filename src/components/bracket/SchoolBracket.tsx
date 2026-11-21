@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, refreshBoxes, loadIndex, loadLb, place, previewDate, replayMode, rankRegion, shortName, standings,
+  StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadGameBox, refreshBoxes, loadIndex, loadLb, place, previewDate, replayMode, rankRegion, shortName, standings,
 } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -106,8 +106,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       setPreviewData(null);
       return () => { cancelled = true; };
     }
-    const boxPromise = card.file ? loadBoxes(card.file).then((all) => all[String(g[0])]).catch(() => undefined) : Promise.resolve(undefined);
-    Promise.all([boxPromise, loadActiveRoster(g[2]), loadActiveRoster(g[3])])
+    const boxPromise = card.file ? loadGameBox(card.file, g[0]).catch(() => undefined) : Promise.resolve(undefined);
+    const roster = (h: number) => replayMode() ? Promise.resolve([] as ActiveRosterPlayer[]) : loadActiveRoster(h);
+    Promise.all([boxPromise, roster(g[2]), roster(g[3])])
       .then(([box, homeRoster, awayRoster]) => { if (!cancelled) setPreviewData({ box, homeRoster, awayRoster }); })
       .catch(() => { if (!cancelled) setPreviewData({ box: undefined, homeRoster: [], awayRoster: [] }); });
     return () => { cancelled = true; };
@@ -382,15 +383,28 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
   const homeId = g[2], awayId = g[3];
   const [box, setBox] = useState<Record<string, GameBox> | null>(null);
   const [rosters, setRosters] = useState<{ home: ActiveRosterPlayer[]; away: ActiveRosterPlayer[] } | null>(null);
+  const [boxStatus, setBoxStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [retryBox, setRetryBox] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    if (card.file) loadBoxes(card.file).then((b) => { if (!cancelled) setBox(b); }).catch(() => { if (!cancelled) setBox({}); });
-    const roster = (id: number) => (id ? loadActiveRoster(id) : Promise.resolve([] as ActiveRosterPlayer[]));
+    setBox(null);
+    setBoxStatus(card.file ? 'loading' : 'ready');
+    if (card.file) {
+      loadGameBox(card.file, g[0]).then((result) => {
+        if (cancelled) return;
+        if (!result) throw new Error('No historical game ledger returned');
+        setBox({ [String(g[0])]: result });
+        setBoxStatus('ready');
+      }).catch(() => { if (!cancelled) setBoxStatus('error'); });
+    }
+    const roster = (id: number) => replayMode() || !id
+      ? Promise.resolve([] as ActiveRosterPlayer[])
+      : loadActiveRoster(id);
     Promise.all([roster(homeId), roster(awayId)])
       .then(([home, away]) => { if (!cancelled) setRosters({ home, away }); })
       .catch(() => { if (!cancelled) setRosters({ home: [], away: [] }); });
     return () => { cancelled = true; };
-  }, [card.file, homeId, awayId]);
+  }, [card.file, g[0], homeId, awayId, retryBox]);
   // Refresh authoritative prepared game boxes while a game is live.
   // This updates the visible Stat Ledger and its provisional W%, but it
   // never finalizes inning nine or writes tournament scores.
@@ -454,11 +468,17 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           <button type="button" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="yfp-drawer-scroll" data-drawer-scroll="stat-ledger">
+          {replayMode() && played && boxStatus === 'error' && (
+            <div className="bl-muted" role="alert">
+              Historical statistics could not be loaded. The saved game score is unchanged.
+              <button type="button" onClick={() => setRetryBox((n) => n + 1)}>Retry stats</button>
+            </div>
+          )}
           <Face side={side} label={card.stage} week={card.week} dates={dates(index, card.week)} home={homeId} away={awayId}
           names={[nameOf(homeId), nameOf(awayId)]}
           locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
           score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
-          decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters}
+          decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters || boxStatus === 'loading'}
             homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} openDay={openDay} />
           <div className="yfp-drawer-end" aria-hidden="true" />
         </div>

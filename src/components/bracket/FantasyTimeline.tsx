@@ -11,7 +11,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { SchoolContext } from '@/context/SchoolContext';
 import { CREST_FALLBACK_PATH, getSchoolCrestUrl } from '@/lib/schoolAssets';
-import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
+import { type GameBox, type GameRow, type Index, type LbGame, type PlayerRow, loadBoxes, loadGameBox, replayMode, loadIndex, loadLb, previewDate, runsOf, shortName } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, schoolSeason, starLine } from './schoolSeason';
 import { type DayStory, weekStories } from './dayStory';
 import { type FantasyStageKey, FANTASY_STAGE_KEYS, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -328,17 +328,24 @@ function postStory(index:Index, games:GameRow[], boxes:Record<string,GameBox>):P
   return {headline,summary:parts.join('. ')+'.'};
 }
 
-function PostSlide({ index, games, week, label, title, showScores, championName, onTap }: {
-  index:Index; games:GameRow[]; week:number; label:string; title:string; showScores:boolean; championName:string; onTap:()=>void;
+function PostSlide({ index, games, week, label, title, showScores, championName, onTap, playing }: {
+  index:Index; games:GameRow[]; week:number; label:string; title:string; showScores:boolean; championName:string; onTap:()=>void; playing:boolean;
 }) {
   const [story,setStory]=useState<PostStory|null>(null);
   useEffect(()=>{
     let cancelled=false;
-    if(!games.length){setStory(null);return()=>{cancelled=true;};}
-    const file=week===34?'d-gf':'d-lbt';
-    loadBoxes(file).then((boxes)=>{if(!cancelled)setStory(postStory(index,games,boxes));}).catch(()=>{});
-    return()=>{cancelled=true;};
-  },[games,index,week]);
+    if (!games.length || (replayMode() && !playing)) { setStory(null); return () => { cancelled = true; }; }
+    const file = week === 34 ? 'd-gf' : 'd-lbt';
+    if (replayMode()) {
+      Promise.all(games.map((game) => loadGameBox(file, game[0]).then((box) => [String(game[0]), box] as const).catch(() => null)))
+        .then((pairs) => {
+          if (!cancelled) setStory(postStory(index, games, Object.fromEntries(pairs.filter((p) => p !== null)) as Record<string, GameBox>));
+        });
+    } else {
+      loadBoxes(file).then((boxes) => { if (!cancelled) setStory(postStory(index, games, boxes)); }).catch(() => {});
+    }
+    return () => { cancelled = true; };
+  }, [games, index, week, playing]);
   const status=week===31 ? `BRACKET CHAMPION · ${championName}` : games.length ? 'TOURNAMENT SCOREBOARD' : 'UPCOMING';
   return (
     <div className="yft-slide yft-post-slide" role="button" tabIndex={0} onClick={onTap}
@@ -377,6 +384,7 @@ export default function FantasyTimeline() {
   // The week picked on each round's slide (round -> week); unset = its default.
   const [weekSel, setWeekSel] = useState<Record<number, number>>({});
   const trackRef = useRef<HTMLDivElement | null>(null);
+  const nav = useBracketNav();
 
   useEffect(() => {
     let cancelled = false;
@@ -400,11 +408,30 @@ export default function FantasyTimeline() {
   useEffect(() => {
     if (!boxFiles) return;
     let cancelled = false;
-    const files = boxFiles.split(',');
-    Promise.all(files.map((f) => loadBoxes(f).catch(() => ({} as Record<string, GameBox>))))
-      .then((all) => { if (!cancelled) setBoxes(Object.fromEntries(files.map((f, i) => [f, all[i]]))); });
+    if (replayMode()) {
+      // On the completed replay, fetch only the SELECTED round's three games.
+      // Previously all 34 weeks requested a 15,368-game rebuild simultaneously.
+      const stage = nav.stageKey || stageKeyForWeek(Math.max(1, Math.min(34, cal ? leadWeek(cards, cal.week) : 1)));
+      const selected = cards.filter((c) => c.game && c.file && c.days > 0 && stageKeyForWeek(c.week) === stage);
+      Promise.all(selected.map((card) =>
+        loadGameBox(card.file!, card.game![0])
+          .then((box) => box ? { file: card.file!, id: String(card.game![0]), box } : null)
+          .catch(() => null)
+      )).then((results) => {
+        if (cancelled) return;
+        setBoxes((prev) => {
+          const next = { ...prev };
+          for (const item of results) if (item) next[item.file] = { ...(next[item.file] || {}), [item.id]: item.box };
+          return next;
+        });
+      });
+    } else {
+      const files = boxFiles.split(',');
+      Promise.all(files.map((f) => loadBoxes(f).catch(() => ({} as Record<string, GameBox>))))
+        .then((all) => { if (!cancelled) setBoxes(Object.fromEntries(files.map((f, i) => [f, all[i]]))); });
+    }
     return () => { cancelled = true; };
-  }, [boxFiles]);
+  }, [boxFiles, cards, nav.stageKey, cal?.week]);
 
   useEffect(() => {
     const ids = Object.values(stars).map((s) => s[5]);
@@ -468,7 +495,6 @@ export default function FantasyTimeline() {
     el.scrollTo({ left: i * el.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
-  const nav=useBracketNav();
   const stageKeys:FantasyStageKey[]=[...FANTASY_STAGE_KEYS];
   const postStages=[
     {key:'c1',label:'QUARTERFINALS',title:'CHAMPIONSHIP QUARTERFINALS',week:31},
@@ -560,7 +586,7 @@ export default function FantasyTimeline() {
             ? data.index.gf.filter((g)=>g[1]===s.week)
             : data.index.lbt.filter((x)=>x.game[1]===s.week).map((x)=>x.game);
           const championName=(cal?.final||0)>=30 ? shortName(data.index.schools[data.index.champion]?.[0]||'_______________') : '_______________';
-          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title} showScores={stageIsFinal} championName={championName}
+          return <PostSlide key={s.key} index={data.index} games={gamesForStage} week={s.week} label={s.label} title={s.title} showScores={stageIsFinal} championName={championName} playing={stageKeys[active]===s.key}
             onTap={()=>{selectStage(s.key);focusWeek(s.week);}}/>;
         })}
       </div>
