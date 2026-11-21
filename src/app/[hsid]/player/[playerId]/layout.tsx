@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import PlayerProfileContextProvider from '@/context/PlayerProfileContext';
-import { getPlayerById, query, resolveLegacyPlayerRedirect, resolveMergedTbcPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
+import { getPlayerById, resolveProfileCard, query, resolveLegacyPlayerRedirect, resolveMergedTbcPlayerRedirect, type PlayerIdentityMeta } from '@/lib/db';
 import { getPlayerIdentityMetaOnce } from '@/lib/playerIdentityCached';
 import { playerJourneyJsonLd, jsonLdScript } from '@/lib/playerJourneySeo';
 import { toPlayerSlug } from '@/lib/slug';
@@ -54,7 +54,10 @@ export default async function PlayerLayout({
   children: ReactNode;
   params: Promise<{ hsid: string; playerId: string }>;
 }) {
-  const { hsid, playerId } = await params;
+  const { hsid, playerId: routeId } = await params;
+  // Public routes use YAT IDs; historical card data and stats use source IDs.
+  const { cardId: playerId, yatId } = await resolveProfileCard(routeId, hsid);
+  const publicId = yatId || playerId;
   // Old bookmarks/share links must move to the same player's canonical ID
   // before rendering any profile context or 2025-placeholder timeline.
   const legacy = await resolveLegacyPlayerRedirect(playerId);
@@ -101,8 +104,17 @@ export default async function PlayerLayout({
 
   const playerSlug = slugifySchoolName(playerName || playerId);
   const canonicalPlayerUrl = playerSchoolUrl
-    ? `${playerSchoolUrl}/player/${encodeURIComponent(playerId)}${playerSlug ? `/${playerSlug}` : ''}`
+    ? `${playerSchoolUrl}/player/${encodeURIComponent(publicId)}${playerSlug ? `/${playerSlug}` : ''}`
     : '';
+
+  // Preserve the YAT ID in public URLs, including on Vercel previews.
+  if (routeId !== publicId) {
+    const onYatHost = currentHost.toLowerCase().split(':')[0].endsWith('.yatstats.com');
+    const target = canonicalPlayerUrl && onYatHost
+      ? canonicalPlayerUrl
+      : `/${encodeURIComponent(hsid)}/player/${encodeURIComponent(publicId)}${playerSlug ? `/${playerSlug}` : ''}`;
+    redirect(target);
+  }
 
   if (canonicalPlayerUrl && isCanonicalHostMismatch(currentHost, canonicalPlayerUrl)) {
     redirect(canonicalPlayerUrl);
@@ -119,7 +131,7 @@ export default async function PlayerLayout({
     levelLabel: meta.levelLabel,
     statusLabel: meta.statusLabel,
     profileUrl: playerSchoolUrl.startsWith('https://') && playerName
-      ? `${playerSchoolUrl}/${encodeURIComponent(canonicalPlayerHsid)}/player/${encodeURIComponent(playerId)}/${toPlayerSlug(playerName.split(' ')[0], playerName.split(' ').slice(1).join(' '))}`
+      ? `${playerSchoolUrl}/${encodeURIComponent(canonicalPlayerHsid)}/player/${encodeURIComponent(publicId)}/${toPlayerSlug(playerName.split(' ')[0], playerName.split(' ').slice(1).join(' '))}`
       : undefined,
   });
 
