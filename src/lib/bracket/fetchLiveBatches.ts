@@ -44,31 +44,23 @@ export async function fetchBracketLiveBatches(
   const combined: Live = {
     asOf: '', roster: {}, lines: [], clubs: {}, games: {}, fans: {},
   };
-  // Keep requests sequential: each batch is independently bounded to
-  // protect against provider hangs without overflowing the DB connection pool.
-  // The test harness can lack AbortSignal; in Node the 30-second timeout
-  // always applies. A bad batch fails loudly, never silently drops a school.
   for (let i = 0; i < hsids.length; i += BRACKET_LIVE_BATCH_SIZE) {
     const batch = hsids.slice(i, i + BRACKET_LIVE_BATCH_SIZE);
     const params = new URLSearchParams({ start, weeks: String(weeks), h: batch.join(',') });
     const url = `${base}/api/bracket/live?${params}`;
-    const options: RequestInit = { cache: 'no-store' };
-    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-      options.signal = AbortSignal.timeout(30_000);
-    }
-    let response: Response;
-    try {
-      response = await request(url, options);
-    } catch (error) {
-      throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: network/timeout ${String(error)}`);
-    }
+    const response = await request(url, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: HTTP ${response.status}`);
+
     const part = await response.json() as Live;
     if (!part || !part.roster || !Array.isArray(part.lines) || !part.clubs) {
       throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: invalid response`);
     }
+    // The server explicitly returns [] for schools with no active alumni.
+    // Checking every requested key means missing/truncated schools fail loudly.
     const missing = batch.filter((id) => !Object.prototype.hasOwnProperty.call(part.roster, id));
-    if (missing.length) throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: missing school IDs ${missing.join(',')}`);
+    if (missing.length) {
+      throw new Error(`Bracket live batch ${i / BRACKET_LIVE_BATCH_SIZE + 1}: missing school IDs ${missing.join(',')}`);
+    }
     mergeBracketLive(combined, part);
   }
   if (Object.keys(combined.roster).length !== hsids.length) {
