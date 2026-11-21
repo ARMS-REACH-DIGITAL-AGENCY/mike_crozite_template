@@ -27,7 +27,7 @@ import {
   StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadBoxes, refreshBoxes, loadIndex, loadLb, place, previewDate, replayMode, rankRegion, shortName, standings,
 } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
-import { type FantasyStageKey, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
+import { type FantasyStageKey, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
 import BracketRules from './BracketRules';
 import PostseasonStage from './PostseasonStage';
 import FantasyGameSocial from './FantasyGameSocial';
@@ -828,6 +828,15 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return stageKeyForWeek(Math.min(34,lead));
   },[cal,lead]);
   const tab = nav.stageKey || nowTab;
+  useEffect(() => {
+    if (!index || !replayMode()) return;
+    const w = Number(new URLSearchParams(window.location.search).get('week'));
+    if (!Number.isInteger(w) || w < 1 || w > 34) return;
+    selectStage(stageKeyForWeek(w));
+    focusWeek(w);
+    setGameWeek(w);
+  }, [index]);
+
 
   // A hero click/focus also changes the canonical stage.
   useEffect(() => {
