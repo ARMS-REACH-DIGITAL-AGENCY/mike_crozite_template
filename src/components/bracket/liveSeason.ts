@@ -344,6 +344,11 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
       d: result.innings.slice(0, 8).map((i, k) => !final && k > cur
         ? [null, null, null, null]
         : [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
+      // Full-precision comparisons determine runs. Keep rounded d for legacy
+      // clients; the UI must NEVER recompute a winner from rounded d cells.
+      x: result.innings.slice(0, 8).map((i, k) => !final && k > cur
+        ? [null, null, null, null]
+        : [i.homeOffense ?? null, i.awayOffense ?? null, i.homePitching ?? null, i.awayPitching ?? null]),
       // Posted [offense, pitching] per inning 1-8, then the W-L inning.
       f: [...f, weekDone, weekDone],
       h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], rd: home.week.runDiff, days: home.dayRows },

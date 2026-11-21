@@ -58,7 +58,7 @@ export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] |
 export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?: PlayerRow[][] };
 // f (live boxes): is each inning's [offensive, pitching] run settled yet;
 // 1-8, then the W-L inning. Unsettled cells show who leads, but no run.
-export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
+export type GameBox = { d: (number | null)[][]; x?: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
   yatid?: string | null;
@@ -114,7 +114,7 @@ export function loadBoxes(file: string) {
 const replayGameBoxCache = new Map<number, Promise<GameBox>>();
 /** The native school replay requests one historical game, not a full-season rebuild. */
 export function loadGameBox(file: string, gameId: number): Promise<GameBox | undefined> {
-  if (!replayMode() || file === 'd-gf') {
+  if (!replayMode()) {
     return loadBoxes(file).then((all) => all[String(gameId)]);
   }
   let task = replayGameBoxCache.get(gameId);
@@ -1377,23 +1377,51 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // is one number, not two: the "W%" label on top, the clubs' winning
   // percentage in the box below. A cell that beat the other school's is
   // yellow - two yellows in an inning: both runs.
+  // A completed game's 9th-inning cell is colored by the locked run, not
+  // a re-derived, potentially rounded W-L percentage.
   const wpText = (wp: number | null) => (wp == null ? '–' : wp.toFixed(3).replace(/^0/, ''));
+  // The scoreboard displays rounded values for space, but the same raw
+  // comparison that assigned each run must decide which cell turns gold.
+  const metricAt = (i: number) => boxForView?.x?.[i] || boxForView?.d?.[i];
+  const decimalDecisions = Array.from({ length: 8 }, (_, i) => {
+    const raw = metricAt(i);
+    if (!raw) return [] as { inning: number; metric: string; winner: number; loser: number; winnerValue: number; loserValue: number }[];
+    return [true, false].flatMap((higher, type) => {
+      const a = raw[type * 2], b = raw[type * 2 + 1];
+      if (a == null || b == null || a === b || Math.round(a) !== Math.round(b)) return [];
+      const homeWins = higher ? a > b : a < b;
+      return [{
+        inning: i + 1, metric: higher ? 'OPS+' : 'FIP-',
+        winner: homeWins ? 0 : 1, loser: homeWins ? 1 : 0,
+        winnerValue: homeWins ? a : b, loserValue: homeWins ? b : a,
+      }];
+    });
+  }).flat();
+  const exactLabel = (v: number) => v.toFixed(2);
   const teamBoard = (side: 0 | 1) => {
     const name = names[side], location = locations[side];
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
     const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
       const d = weekInProgress && i > visibleThroughDay ? undefined : boxForView?.d?.[i];
+      const raw = weekInProgress && i > visibleThroughDay ? undefined : metricAt(i);
       const complete = Boolean(d && settledAt(i, idx));
       // The day being played: the school's number so far, in a yellow ring
       // (not the full yellow of a won cell) until the day goes final.
       const inPlay = !complete && d?.[idx] != null;
-      const qualifies = Boolean(wonCell(d?.[idx], d?.[opp], higher));
+      const qualifies = Boolean(wonCell(raw?.[idx], raw?.[opp], higher));
       const placeholder = higher ? 'OPS+' : 'FIP-';
-      // A pending outline is earned only when the game's real 'hold' rule
-      // favors this team; a missing opponent defaults to league average 100.
-      const cls = complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher)
+      // A gold cell must reflect the engine's full-precision run comparison.
+      const cls = complete ? cellClass(i, idx, raw?.[idx], raw?.[opp], higher)
         : inPlay && qualifies ? 'in-play' : inPlay ? '' : 'placeholder';
-      return <span key={i} className={`bl-tb-cell ${cls}`}>{complete || inPlay ? fmtStat(d?.[idx]) : placeholder}</span>;
+      const decimalWinner = qualifies && raw?.[idx] != null && raw?.[opp] != null
+        && raw[idx] !== raw[opp] && Math.round(raw[idx]) === Math.round(raw[opp]);
+      const exact = raw?.[idx];
+      const opposite = raw?.[opp];
+      const detail = exact == null ? placeholder : `${name} ${higher ? 'OPS+' : 'FIP-'} ${exact.toFixed(3)}`
+        + (opposite == null ? ' (opponent did not play)' : ` vs ${opposite.toFixed(3)}`)
+        + (decimalWinner ? '; run awarded on unrounded values' : '');
+      return <span key={i} className={`bl-tb-cell ${cls}`} title={detail}
+        aria-label={detail}>{complete || inPlay ? <>{fmtStat(d?.[idx])}{decimalWinner ? <sup className="bl-tb-precision">*</sup> : null}</> : placeholder}</span>;
     });
     const nameCell = (
       <>
@@ -1416,7 +1444,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <span className="bl-tb-wlabel">W%</span>
         <span className="bl-tb-label" title="Row 1: OPS+ (hitting)">OPS+</span>
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
-        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? 0.5) ? (weekInProgress || !settledAt(8, 0) ? ' lead' : ' won') : ''}`}
+        <span className={`bl-tb-cell wl-pct${weekInProgress ? (wp != null && wp > (oppWp ?? 0.5) ? ' lead' : '') : (correctedInnings[16 + side] ? ' won' : '')}`}
           title={`Current alumni-club W-L: ${side === 0 ? homeWl.join('-') : awayWl.join('-')}; winning percentage ${wpText(wp)}`}
           aria-label={`${name} current winning percentage ${wpText(wp)}`}>{wpText(wp)}</span>
         <span className="bl-tb-label" title="Row 2: FIP- (pitching)">FIP-</span>
@@ -1436,6 +1464,16 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
             {teamBoard(1)}
             {teamBoard(0)}
+            {decimalDecisions.length ? (
+              <div className="bl-tb-precision-note" aria-label="Runs awarded on full precision">
+                <b>* Decimal decision:</b> {decimalDecisions.map((item, i) => (
+                  <span key={`${item.inning}-${item.metric}`}>
+                    {i ? ' · ' : ''}Inning {item.inning} {item.metric}: {names[item.winner]} {exactLabel(item.winnerValue)}
+                    {' vs '}{names[item.loser]} {exactLabel(item.loserValue)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             {extraInnings.length ? (
               <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
                 <div className="bl-tiebreak-line head" style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
@@ -1566,9 +1604,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
                 <table className="bl-days">
                   <thead><tr><th /><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th><th>Wk</th></tr></thead>
                   <tbody>
-                    <tr><th>OPS+</th>{box!.d.map((d, i) => <td key={i} className={wonCell(d[me], d[them], true)}>{fmtStat(d[me])}</td>)}</tr>
+                    <tr><th>OPS+</th>{box!.d.map((d, i) => <td key={i} className={wonCell((box!.x?.[i] || d)[me], (box!.x?.[i] || d)[them], true)} title={String((box!.x?.[i] || d)[me] ?? '')}>{fmtStat(d[me])}{((box!.x?.[i] || d)[me] != null && (box!.x?.[i] || d)[them] != null && (box!.x?.[i] || d)[me] !== (box!.x?.[i] || d)[them] && Math.round((box!.x?.[i] || d)[me]!) === Math.round((box!.x?.[i] || d)[them]!) && wonCell((box!.x?.[i] || d)[me], (box!.x?.[i] || d)[them], true)) ? '*' : ''}</td>)}</tr>
                     <tr className="opp"><th>vs</th>{box!.d.map((d, i) => <td key={i}>{fmtStat(d[them])}</td>)}</tr>
-                    <tr><th>FIP-</th>{box!.d.map((d, i) => <td key={i} className={wonCell(d[2 + me], d[2 + them], false)}>{fmtStat(d[2 + me])}</td>)}</tr>
+                    <tr><th>FIP-</th>{box!.d.map((d, i) => <td key={i} className={wonCell((box!.x?.[i] || d)[2 + me], (box!.x?.[i] || d)[2 + them], false)} title={String((box!.x?.[i] || d)[2 + me] ?? '')}>{fmtStat(d[2 + me])}{((box!.x?.[i] || d)[2 + me] != null && (box!.x?.[i] || d)[2 + them] != null && (box!.x?.[i] || d)[2 + me] !== (box!.x?.[i] || d)[2 + them] && Math.round((box!.x?.[i] || d)[2 + me]!) === Math.round((box!.x?.[i] || d)[2 + them]!) && wonCell((box!.x?.[i] || d)[2 + me], (box!.x?.[i] || d)[2 + them], false)) ? '*' : ''}</td>)}</tr>
                     <tr className="opp"><th>vs</th>{box!.d.map((d, i) => <td key={i}>{fmtStat(d[2 + them])}</td>)}</tr>
                   </tbody>
                 </table>
@@ -1906,6 +1944,11 @@ export function Styles() {
       .bl-tb-name.switch:hover { box-shadow:inset 0 0 0 1px rgba(255,211,79,.6); }
       .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
+      .bl-tb-precision { font-size:8px; line-height:1; margin-left:1px; font-weight:900; }
+      .bl-tb-precision-note { font:600 10px/1.3 "Roboto Condensed","Arial Narrow",Arial,sans-serif; color:#e9e0b7; padding:2px 4px 3px; }
+      .bl-tb-precision-note b { color:#ffd34f; }
+      body.light-theme .bl-tb-precision-note { color:#365544; }
+      body.light-theme .bl-tb-precision-note b { color:#285f3f; }
       .bl-tb-cell.lead { box-shadow: inset 0 0 0 2px #f3c735; color:#f3c735; }
       .bl-tb-cell.in-play { box-shadow: inset 0 0 0 2px #f3c735; }
       .bl-tb-cell.na { color:#718379; }\n       .bl-tb-cell.placeholder { color:rgba(220,239,225,.10); opacity:.3; font-size:8px; font-weight:500; letter-spacing:-.02em; }
