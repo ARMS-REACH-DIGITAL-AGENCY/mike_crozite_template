@@ -735,7 +735,6 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
   const [lb, setLb] = useState<LbGame[] | null>(null);
   const [error, setError] = useState('');
   const [asof, setAsof] = useState('');
-  const [replaySchool, setReplaySchool] = useState('');
   const [open, setOpen] = useState<Open | null>(null);
   // One set of drawers at a time: a Stat Ledger opening closes the site's
   // drawers (account, menu, favorites...), and a site drawer opening
@@ -934,39 +933,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
     return () => { ro.disconnect(); window.removeEventListener('resize', fit); later.forEach((t) => window.clearTimeout(t)); };
   }, [hasYfz]);
 
-  // Historical replay navigation is only active in the dedicated test preview.
-  const openReplay = (nextSchool: number, w: number, chosenDate?: string) => {
-    if (!replayMode() || !index || !index.schools[nextSchool]) return;
-    const date = chosenDate || new Date(Date.parse(index.weeks[w - 1][1] + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
-    window.location.assign('/' + nextSchool + '?sim2026=1&week=' + w + '&asof=' + date + '#sec-fantasy');
-  };
-  const selectedReplayWeek = () => {
-    const requested = typeof window === 'undefined' ? 0 : Number(new URLSearchParams(window.location.search).get('week'));
-    return requested >= 1 && requested <= 34 ? requested : Math.max(1, Math.min(34, cal?.week || 34));
-  };
   return (
     <div className={`yfp ${scoreboardFont.variable}`}>
       <div ref={sentinel} className="yfp-top" />
-      {replayMode() && index && cal && <section aria-label="2026 historical replay controls" style={{background:'#14191e',border:'1px solid #947316',borderRadius:6,padding:10,marginBottom:10,color:'#f4cf55',font:'600 12px system-ui,sans-serif'}}>
-        <strong>2026.2 TEST REPLAY · Original YAT?STATS tournament interface</strong>
-        <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center',marginTop:8}}>
-          <label>Week{' '}<select aria-label="Replay week" value={selectedReplayWeek()} onChange={e=>openReplay(me,Number(e.target.value))} style={{background:'#0e1417',color:'white',padding:6,border:'1px solid #666'}}>
-            {index.weeks.map(([start,end],i)=><option key={i} value={i+1}>{'Week '+(i+1)+' · '+start+' – '+end}</option>)}
-          </select></label>
-          <label>As of{' '}<input aria-label="Historical replay date" type="date" min={index.weeks[0][0]} max="2026-11-18" value={asof} onChange={e=>{
-            if(!e.target.value)return;
-            const w=Math.max(1,Math.min(34,index.weeks.findIndex(([start,end])=>e.target.value>=start&&e.target.value<=end)+1||34));
-            openReplay(me,w,e.target.value);
-          }} style={{background:'#0e1417',color:'white',padding:6,border:'1px solid #666'}}/></label>
-          <label>School{' '}<input aria-label="Find replay school" list="yat-replay-schools" placeholder="Search 1,024 schools" value={replaySchool} onChange={e=>setReplaySchool(e.target.value)} style={{background:'#0e1417',color:'white',padding:6,border:'1px solid #666',maxWidth:190}}/></label>
-          <datalist id="yat-replay-schools">{Object.entries(index.schools).map(([id,row])=><option key={id} value={row[0]+' [HSID '+id+']'}/>)}</datalist>
-          <button type="button" onClick={()=>{
-            const typed=replaySchool.trim();
-            const id=typed.match(/\[HSID (\d+)\]$/)?.[1] || (index.schools[typed]?typed:'');
-            if(id)openReplay(Number(id),selectedReplayWeek(),asof);
-          }} style={{padding:'6px 12px',background:'#efc12b',color:'#111',border:0,borderRadius:4,fontWeight:800}}>Open school</button>
-        </div>
-      </section>}
       {error && <p className="yfp-empty">Could not load the bracket ({error}).</p>}
       {index && lb && cal && (
         <div className="yfz" ref={yfzRef}>
