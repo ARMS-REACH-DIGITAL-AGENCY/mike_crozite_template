@@ -43,7 +43,13 @@ for (const [name, src] of [['SharedShell', shell], ['SchoolContextBar', bar]]) {
 assert.match(search, /\/\^YAT\[0-9\]\{6,\}\$\/i\.test\(yatId\) \? yatId : playerIdOf\(player\)/, 'search profile links must use the YAT ID');
 assert.match(search, /#player-\$\{playerId\}`/, 'flip card links keep the card id');
 assert.match(sitemap, /COALESCE\(NULLIF\(f\.yatid, ''\), f\.playerid::text\) AS playerid/, 'sitemap must list YAT ID addresses');
-assert.match(sitemap, /school-players-v2-yatid/, 'sitemap cache key must change with the addresses');
+assert.match(sitemap, /school-players-v3-yatid-alltime/, 'sitemap cache must vary for historical inclusion');
+assert.match(sitemap, /SITEMAP_ALL_TIME_PERCENT/, 'historical sitemap exposure must be configurable');
+assert.match(sitemap, /const includeAllTime = /, 'all-time expansion must be deterministically staged by school');
+assert.match(sitemap, /const percent = Math.min\(100, Math.max\(0, Number\(process.env.SITEMAP_ALL_TIME_PERCENT\) \|\| 0\)\)/, 'historical coverage must remain off by default');
+assert.match(sitemap, /\$2::boolean OR UPPER\(TRIM\(COALESCE\(f.status_label/, 'all-time mode must include retired player profiles');
+assert.match(sitemap, /schoolHostnamePattern\(new URL\(school.url\).hostname\)\?\.type === 'named'/, 'sitemap must detect named school hosts');
+assert.match(sitemap, /const prefix = isNamedHost \? '' : /, 'named school canonical URLs must not include an extra HSID');
 
 console.log('PASS: profile addresses use the YAT ID; card id kept inside; old addresses move permanently');
 
