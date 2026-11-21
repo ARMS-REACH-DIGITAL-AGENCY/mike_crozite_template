@@ -14,6 +14,7 @@ import { publicNewsHeadline } from '@/lib/newsVideo';
 import {
   findPlayersBySlug,
   getPlayerById,
+  resolveProfileCard,
   getSchoolByHsid,
   getSchoolByUrl,
   getPlayerBattingStats,
@@ -54,7 +55,9 @@ type Props = {
 
 // Ordinary profile URLs must have their own preview. Previously this page
 // returned {}, so the school-level title/crest was all a text app could see.
-async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: string): Promise<Metadata> {
+async function defaultPlayerShareMetadata(hsid: string, routeId: string, slug: string): Promise<Metadata> {
+  const {cardId: playerId, yatId} = await resolveProfileCard(routeId, hsid);
+  const publicId = yatId || playerId;
   const h = await headers();
   const origin = playerShareOrigin(h.get('x-forwarded-host') || h.get('host') || '', h.get('x-forwarded-proto') || 'https');
   const [player, byIdSchool, identity] = await Promise.all([
@@ -67,7 +70,7 @@ async function defaultPlayerShareMetadata(hsid: string, playerId: string, slug: 
   const playerName = [player?.firstname || player?.first_name, player?.lastname || player?.last_name]
     .filter(Boolean).join(' ').trim() || slug.replace(/-/g, ' ');
   const info = playerProfileShareInfo({
-    origin, hsid: resolvedHsid, playerId, slug, playerName,
+    origin, hsid: resolvedHsid, playerId: publicId, slug, playerName,
     schoolName: String(school?.hsname || player?.high_school || ''),
   });
   // Search result tells the journey: high school (city, state) to the current
@@ -268,7 +271,8 @@ function fmtAvg(v: any): string {
 }
 
 export default async function ProfilePage({ params }: Props) {
-  const { hsid, playerId, slug } = await params;
+  const { hsid, playerId: routeId, slug } = await params;
+  const {cardId: playerId} = await resolveProfileCard(routeId, hsid);
   // Tells the browser to start fetching the career timeline's anchor-slide
   // photos (HS cutout + pro action cutout) as soon as this page's HTML
   // starts arriving, rather than after the timeline's own data fetches
