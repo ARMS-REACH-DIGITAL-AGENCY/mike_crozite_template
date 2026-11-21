@@ -159,7 +159,7 @@ export function applyLive(idx: Index, asof: string) {
 // /api/bracket/live; the bracket results job
 // (scripts/master-bracket-results.ts) runs it on the same answer to write
 // master_bracket.
-export function scoreLive(idx: Index, live: Live, asof: string) {
+export function scoreLive(idx: Index, live: Live, asof: string, onlyWeek?: number, skipGameIds?: ReadonlySet<number>) {
   const start = idx.weeks[0][0];
   // asof is the bracket's day, which turns over at 4 a.m. Arizona time.
   const today = dayOf(asof, start);
@@ -249,6 +249,7 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
   }).winner;
   const scoreGame = (g: GameRow, s?: SeriesRow, n = 0) => {
     const week = g[1];
+    if (onlyWeek !== undefined && (week !== onlyWeek || skipGameIds?.has(g[0]))) return;
     const [ws] = idx.weeks[week - 1] || [];
     if (!ws || ws > asof || !g[2] || !g[3]) return;
     const from = dayOf(ws, start);
