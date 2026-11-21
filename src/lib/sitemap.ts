@@ -17,7 +17,7 @@ import { unstable_cache } from 'next/cache';
 import { query } from '@/lib/db';
 import { ACTIVE_GALLERY_STATUSES } from '@/lib/galleryStatuses';
 import { toPlayerSlug } from '@/lib/slug';
-import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
+import { canonicalSchoolUrls, schoolHostnamePattern } from '@/lib/schoolDirectoryRouting';
 
 export const SITEMAP_ROOT = 'https://sitemaps.yatstats.com';
 const SITEMAP_TTL_SECONDS = 60 * 60 * 24;
@@ -95,7 +95,7 @@ export const getLiveSchools = unstable_cache(async (): Promise<LiveSchool[]> => 
 
 export type SitemapPlayer = { playerId: string; slug: string; lastModified: string | null };
 
-export const getSitemapPlayers = unstable_cache(async (hsid: string): Promise<SitemapPlayer[]> => {
+const getSitemapPlayersCached = unstable_cache(async (hsid: string, includeAllTime: boolean): Promise<SitemapPlayer[]> => {
   if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return [];
   // Profile addresses use the YAT ID (Pete, Nov 17 2026); the card's own id
   // only when it has none.
@@ -104,9 +104,9 @@ export const getSitemapPlayers = unstable_cache(async (hsid: string): Promise<Si
            COALESCE(NULLIF(f.yatid, ''), f.playerid::text) AS playerid, f.first_name, f.last_name, f.updated_at
       FROM public.flip_card_front_stage f
      WHERE f.hsid::text = $1
-       AND UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY($2::text[])
+       AND ($2::boolean OR UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY($3::text[]))
      ORDER BY f.playerid::text, f.updated_at DESC NULLS LAST
-  `, [hsid, [...ACTIVE_GALLERY_STATUSES]]);
+  `, [hsid, includeAllTime, [...ACTIVE_GALLERY_STATUSES]]);
   return rows
     .filter((row) => row.playerid)
     .map((row) => {
@@ -117,7 +117,20 @@ export const getSitemapPlayers = unstable_cache(async (hsid: string): Promise<Si
         lastModified: updated && !Number.isNaN(updated.getTime()) ? updated.toISOString() : null,
       };
     });
-}, ['sitemap', 'school-players-v2-yatid'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
+}, ['sitemap', 'school-players-v3-yatid-alltime'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
+
+// The Oct 2026 crawler spike overloaded Neon. Until controlled production
+// monitoring approves expansion, historical profiles remain out of the sitemap.
+// Operators can increase SITEMAP_ALL_TIME_PERCENT from 0 through 100, in
+// stages, without changing the pages' content. HSIDs are chosen deterministically,
+// so raising the percentage only adds schools; it never removes submitted URLs.
+export function getSitemapPlayers(hsid: string): Promise<SitemapPlayer[]> {
+  const percent = Math.min(100, Math.max(0, Number(process.env.SITEMAP_ALL_TIME_PERCENT) || 0));
+  const includeAllTime = /^[1-9]\d*$/.test(hsid) && Number(hsid) % 100 < percent;
+  // Passing includeAllTime as an argument creates separate cache entries when
+  // the rollout changes, instead of serving stale active-only sitemap rows.
+  return getSitemapPlayersCached(hsid, includeAllTime);
+}
 
 function xmlEscape(value: string): string {
   return value
@@ -141,8 +154,12 @@ export function urlSetXml(entries: Array<{ loc: string; lastModified?: string | 
 }
 
 function playerEntries(school: LiveSchool, players: SitemapPlayer[]) {
+  // Match the profile's actual canonical/share URL. Named school hosts already
+  // encode the HSID in their host, while numeric hosts use an explicit path.
+  const isNamedHost = schoolHostnamePattern(new URL(school.url).hostname)?.type === 'named';
+  const prefix = isNamedHost ? '' : `/${school.hsid}`;
   return players.map((p) => ({
-    loc: `${school.url}/${school.hsid}/player/${encodeURIComponent(p.playerId)}/${p.slug}`,
+    loc: `${school.url}${prefix}/player/${encodeURIComponent(p.playerId)}/${p.slug}`,
     lastModified: p.lastModified,
   }));
 }
