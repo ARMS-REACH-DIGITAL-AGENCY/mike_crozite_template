@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
 import { query } from '@/lib/db';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
-import { computeSeason, clubsOf } from '../../../../../scripts/master-bracket-results';
+import { computeSeason, clubsOf } from '../../../../scripts/master-bracket-results';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
