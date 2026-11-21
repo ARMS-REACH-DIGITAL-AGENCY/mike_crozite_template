@@ -61,6 +61,7 @@ import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { COMMISSIONER_DECISIONS } from '@/lib/bracket/commissioner';
 import { scoreLive, type Live } from '@/components/bracket/liveSeason';
 import { fetchBracketLiveBatches as fetchLive } from '@/lib/bracket/fetchLiveBatches';
+import { selectScoringWeek, rebaseBracketWeek } from '@/lib/bracket/activeWeekWindow';
 import type { GameBox, GameRow, Index, SeriesRow } from '@/components/bracket/gallery';
 import { tieNote } from '@/lib/bracket/tieNote';
 
@@ -102,7 +103,7 @@ const flag = (name: string) => process.argv.includes(`--${name}`);
 // schools and every series whose two schools are known - the bracket's, the
 // knocked-out schools' (three games, like a bracket series) and Weeks 31-34
 // (one game each). Every game is scored the same way.
-function buildIndex(season: Season, rows: Row[]): Index {
+function buildIndex(season: Season, rows: Row[], reuseLocked = false): Index {
   const weeks = tournamentWeeks(season.opening_day, season.weeks);
   const schools: Index['schools'] = {};
   const rounds = new Map<string, SeriesRow[]>();
@@ -122,7 +123,15 @@ function buildIndex(season: Season, rows: Row[]): Index {
       const rk = `${r.stage}:${r.round}`;
       (rounds.get(rk) || rounds.set(rk, []).get(rk)!).push(s);
     }
-    s[7].push([r.game_id, r.week, r.home_hsid, r.away_hsid, '', [], null] as GameRow);
+    // When scoring only the active week, keep earlier final games exactly as
+    // stored. Game 2/3 commissioner's tiebreakers need those earlier results,
+    // but must never recompute them from historical player statistics.
+    if (reuseLocked && r.locked_at && (r.status !== 'final' || !r.innings || r.winner_hsid == null))
+      throw Error(`Locked bracket game ${r.game_id} is missing its authoritative result`);
+    const saved = reuseLocked && Boolean(r.locked_at);
+    s[7].push([r.game_id, r.week, r.home_hsid, r.away_hsid,
+      saved ? (r.decided_by || 'runs') : '', saved ? (r.innings || []).map(Number) : [],
+      saved ? r.winner_hsid : null] as GameRow);
   }
   return {
     season: Number(season.opening_day.slice(0, 4)), weeks, schools,
@@ -164,11 +173,11 @@ function freezeClosedDays(res: Result, row: Row, weekStart: string) {
 
 // Score one group of rows (a test bracket, or a whole 2027 season) and say
 // what to write.
-function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, asof: string, withBox: boolean) {
-  const idx = buildIndex(season, rows);
+function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, asof: string, withBox: boolean, onlyWeek?: number) {
+  const idx = buildIndex(season, rows, onlyWeek !== undefined);
   for (const k of Object.keys(COMMISSIONER_DECISIONS)) delete COMMISSIONER_DECISIONS[k];
   for (const r of rulings) COMMISSIONER_DECISIONS[`${r.week}:${r.home_hsid}:${r.away_hsid}`] = r.winner_hsid;
-  const boxes = scoreLive(idx, live, asof);
+  const boxes = scoreLive(idx, live, asof, onlyWeek, onlyWeek === undefined ? undefined : new Set(rows.filter((r) => !!r.locked_at).map((r) => r.game_id)));
 
   const byId = new Map(rows.map((r) => [r.game_id, r]));
   const results: Result[] = [];
@@ -176,6 +185,9 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
   const boxFills: BoxFill[] = [];
   for (const round of idx.rounds) for (const s of round.series as SeriesRow[]) for (const g of s[7]) {
     const row = byId.get(g[0])!;
+    // Do not even compare locked games during ordinary incremental runs.
+    // History is consumed from row state by fillSlots, never re-scored.
+    if (onlyWeek !== undefined && (g[1] !== onlyWeek || row.locked_at)) continue;
     const [ws] = idx.weeks[g[1] - 1] || [];
     if (!ws || ws > asof) continue; // not started
     const innings = g[5];
@@ -589,7 +601,7 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
   return { fills, decisions };
 }
 
-export function computeSeason(season: Season, rows: Row[], rulings: Ruling[], live: Live, asof: string, withBox: boolean, clubs: Clubs = new Map()) {
+export function computeSeason(season: Season, rows: Row[], rulings: Ruling[], live: Live, asof: string, withBox: boolean, clubs: Clubs = new Map(), onlyWeek?: number) {
   // A test bracket is its own field; the 2027 regions share one.
   const groups = season.is_test ? [...new Set(rows.map((r) => r.region))].map((g) => rows.filter((r) => r.region === g)) : [rows];
   const results: Result[] = [];
@@ -597,7 +609,7 @@ export function computeSeason(season: Season, rows: Row[], rulings: Ruling[], li
   const boxFills: BoxFill[] = [];
   for (const group of groups) {
     const region = group[0]?.region;
-    const out = scoreGroup(season, group, season.is_test ? rulings.filter((r) => r.region === region) : rulings, live, asof, withBox);
+    const out = scoreGroup(season, group, season.is_test ? rulings.filter((r) => r.region === region) : rulings, live, asof, withBox, onlyWeek);
     results.push(...out.results);
     decisions.push(...out.decisions);
     boxFills.push(...out.boxFills);
@@ -761,11 +773,17 @@ export async function runSeason(pool: Pool, season: Season, asof: string, opts: 
       rows = rows.filter((r) => Number(r.region) === opts.region);
       rulings = rulings.filter((r) => Number(r.region) === opts.region);
     }
-    const weeks = startedWeeks(season, asof);
-    if (!weeks || !rows.length) break;
-    const live = await fetchLive(opts.base, season.opening_day, Math.min(weeks, 40), fieldOf(rows));
+    if (!rows.length) break;
+    // Old games are loaded from master_bracket above, NOT from the stat feed.
+    // At 4 a.m. Monday, finish the prior unlocked week before this week's
+    // provisional scoring. A missed lock can be repaired one week at a time.
+    const chosen = selectScoringWeek(season.opening_day, season.weeks, asof, rows);
+    if (!chosen) break;
+    const live = rebaseBracketWeek(
+      await fetchLive(opts.base, chosen.start, 1, fieldOf(rows)), chosen.week,
+    );
     const clubs = clubsOf(live, await loadTeams(pool, rows, live, asof));
-    const out = computeSeason(season, rows, rulings, live, asof, withBox, clubs);
+    const out = computeSeason(season, rows, rulings, live, asof, withBox, clubs, chosen.week);
     passes.push({
       results: out.results.length, final: out.results.filter((r) => r.lock).length, fills: out.fills.length,
       boxFills: out.boxFills.length, decisions: out.decisions.map((d) => d.summary),
@@ -776,6 +794,13 @@ export async function runSeason(pool: Pool, season: Season, asof: string, opts: 
       await writeSeason(client, season.season_key, out, withBox);
     } finally {
       client.release();
+    }
+    // Catch up one unfinished prior week per pass without ever fetching
+    // already locked history. Only advance once that older week really
+    // locked; otherwise leave a visible pending state for the next retry.
+    if (chosen.week < chosen.latest) {
+      if (out.results.some((result) => !result.lock)) break;
+      continue;
     }
     if (!out.fills.length) break;
   }
