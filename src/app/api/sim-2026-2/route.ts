@@ -62,7 +62,7 @@ function toPrepared(rows: any[]) {
     game: toGame(r),
   }));
   const gf = rows.filter((r) => r.stage === 'world_series').map(toGame);
-  const bracketFinal = rounds[9].series.find((s) => s[7].some((g) => g[1] === 30));
+  const bracketFinal = rounds[9].series.find((s) => rows.some((r: any) => r.stage === 'bracket' && r.round === 10 && r.series_no === 9 && r.home_hsid === s[1] && r.away_hsid === s[2]));
   const lbFinal = championship.find((r) => r.week === 33);
   const last = gf.find((g) => g[1] === 34);
   const lbLeaders = championship.filter((r) => r.week === 31)
