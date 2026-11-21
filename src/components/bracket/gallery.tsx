@@ -95,7 +95,7 @@ export { TIE_NOTE, tieNote } from '@/lib/bracket/tieNote';
 // school's bracket is the 2027 season, with nothing played yet.
 // Only the isolated 2026 test branch uses this mode; the production branch is unchanged.
 export const replayMode = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sim2026') === '1';
-const replayBoxUrl = (file: string) => '/api/sim-2026-2?boxes=' + encodeURIComponent(file);
+const replayBoxUrl = (file: string) => file === 'd-gf' ? '/replay-2026/d-gf.json' : '/api/sim-2026-2?boxes=' + encodeURIComponent(file);
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
   if (!boxCache.has(file)) {
@@ -499,16 +499,19 @@ export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: St
 // for it with loadIndex({ simulation: true }).
 let simulatedSeason = false;
 let indexPromise: Promise<Index> | null = null;
-let replayLb: LbGame[] = [];
+let replayLbPromise: Promise<LbGame[]> | null = null;
+const replayLbData = () => replayLbPromise ||= Promise.all([
+  fetch('/replay-2026/lb-a.json').then((r) => r.ok ? r.json() as Promise<LbGame[]> : Promise.reject(new Error('Replay lb-a HTTP ' + r.status))),
+  fetch('/replay-2026/lb-b.json').then((r) => r.ok ? r.json() as Promise<LbGame[]> : Promise.reject(new Error('Replay lb-b HTTP ' + r.status))),
+]).then(([a, b]) => [...a, ...b]).catch((e) => { replayLbPromise = null; throw e; });
 export function loadIndex({ simulation = false }: { simulation?: boolean } = {}) {
   if (simulation) simulatedSeason = true;
   if (!indexPromise) {
     // The test lab keeps its historical simulation fixture. Public school
     // pages read the official 2027 results prepared by the backend cron.
     indexPromise = replayMode()
-      ? fetch('/api/sim-2026-2?view=prepared', { cache: 'no-store' })
-          .then((r) => r.ok ? r.json() as Promise<{ index: Index; lb: LbGame[] }> : Promise.reject(new Error('Replay prepared HTTP ' + r.status)))
-          .then((data) => { replayLb = data.lb; return data.index; })
+      ? fetch('/replay-2026/index.json')
+          .then((r) => r.ok ? r.json() as Promise<Index> : Promise.reject(new Error('Replay index HTTP ' + r.status)))
       : simulatedSeason
       ? fetch(`${BASE}/index.json`)
           .then((r) => r.ok ? r.json() as Promise<Index> : Promise.reject(new Error(`HTTP ${r.status}`)))
@@ -530,7 +533,7 @@ let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
   if (!lbPromise) {
     lbPromise = replayMode()
-      ? loadIndex().then(() => replayLb)
+      ? replayLbData()
       : simulatedSeason
       ? fetch(`${BASE}/lb.json`).then((r) => r.ok ? r.json() : { games: [] })
           .then((d: { games: LbGame[] }) => d.games).catch(() => [])
