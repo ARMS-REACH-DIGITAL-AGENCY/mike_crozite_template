@@ -93,12 +93,17 @@ export { TIE_NOTE, tieNote } from '@/lib/bracket/tieNote';
 // Box scores are shared by every card of a round + region: one fetch each.
 // Only the bracket lab reads the 2026 simulation's box scores; a
 // school's bracket is the 2027 season, with nothing played yet.
+// Only the isolated 2026 test branch uses this mode; the production branch is unchanged.
+export const replayMode = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sim2026') === '1';
+const replayBoxUrl = (file: string) => '/api/sim-2026-2?boxes=' + encodeURIComponent(file);
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
   if (!boxCache.has(file)) {
     // The bracket lab keeps its existing simulated boxes.
     // The 2027 site fetches only the selected stored Stat Ledger from Neon.
-    boxCache.set(file, simulatedSeason
+    boxCache.set(file, replayMode()
+      ? fetch(replayBoxUrl(file), { cache: 'no-store' }).then((r) => r.ok ? r.json() : Promise.reject(new Error('Replay Stat Ledger HTTP ' + r.status)))
+      : simulatedSeason
       ? fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
       : loadPreparedBoxes(file));
   }
@@ -109,7 +114,9 @@ export function loadBoxes(file: string) {
 // the first loaded result for an entire live week. This is read-only and
 // never calculates or updates an official bracket result.
 export async function refreshBoxes(file: string): Promise<Record<string, GameBox>> {
-  const url = simulatedSeason
+  const url = replayMode()
+    ? replayBoxUrl(file)
+    : simulatedSeason
     ? `${BASE}/${file}.json`
     : `/api/bracket/prepared?season=2027&boxes=${encodeURIComponent(file)}`;
   const response = await fetch(url, { cache: 'no-store' });
@@ -457,6 +464,7 @@ export function lastFinalWeek(index: Index, iso: string) {
 export function previewDate() {
   const q = new URLSearchParams(window.location.search).get('asof') || '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
+  if (replayMode()) return '2026-11-18';
   return simulationAsOf();
 }
 
@@ -491,12 +499,17 @@ export function schoolStageRows(index: Index, lb: LbGame[], h: number, stage: St
 // for it with loadIndex({ simulation: true }).
 let simulatedSeason = false;
 let indexPromise: Promise<Index> | null = null;
+let replayLb: LbGame[] = [];
 export function loadIndex({ simulation = false }: { simulation?: boolean } = {}) {
   if (simulation) simulatedSeason = true;
   if (!indexPromise) {
     // The test lab keeps its historical simulation fixture. Public school
     // pages read the official 2027 results prepared by the backend cron.
-    indexPromise = simulatedSeason
+    indexPromise = replayMode()
+      ? fetch('/api/sim-2026-2?view=prepared', { cache: 'no-store' })
+          .then((r) => r.ok ? r.json() as Promise<{ index: Index; lb: LbGame[] }> : Promise.reject(new Error('Replay prepared HTTP ' + r.status)))
+          .then((data) => { replayLb = data.lb; return data.index; })
+      : simulatedSeason
       ? fetch(`${BASE}/index.json`)
           .then((r) => r.ok ? r.json() as Promise<Index> : Promise.reject(new Error(`HTTP ${r.status}`)))
           .then((idx: Index) => {
@@ -516,7 +529,9 @@ function shiftDate(iso: string, days: number): string {
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
   if (!lbPromise) {
-    lbPromise = simulatedSeason
+    lbPromise = replayMode()
+      ? loadIndex().then(() => replayLb)
+      : simulatedSeason
       ? fetch(`${BASE}/lb.json`).then((r) => r.ok ? r.json() : { games: [] })
           .then((d: { games: LbGame[] }) => d.games).catch(() => [])
       : loadIndex().then(() => preparedLb());
