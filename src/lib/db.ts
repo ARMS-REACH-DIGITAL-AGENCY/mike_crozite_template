@@ -240,6 +240,35 @@ export async function getPlayerSocialHandles(playerId: string): Promise<Record<s
   }
 }
 
+// Public profile links identify the person by YAT ID; historical player
+// tables and source stats still use the card's original internal player ID.
+// This indexed stage lookup is shared by ALL schools, not hardcoded to a fan.
+export type ProfileCard = { cardId: string; yatId: string | null };
+export const resolveProfileCard = cache(async (routeId: string, hsid = ''): Promise<ProfileCard> => {
+  const id = String(routeId || '').trim();
+  if (!id) return { cardId: id, yatId: null };
+  try {
+    const { rows } = await query<{ playerid: string; yatid: string | null; hsid: string | null }>(
+      `SELECT playerid::text AS playerid, yatid, hsid::text AS hsid
+         FROM public.flip_card_front_stage WHERE playerid = $1
+       UNION ALL
+       SELECT playerid::text, yatid, hsid::text
+         FROM public.flip_card_front_stage WHERE yatid = $1 AND playerid <> $1`,
+      [id]
+    );
+    if (!rows.length) return {
+      cardId: id, yatId: /^YAT[0-9]{6,}$/i.test(id) ? id.toUpperCase() : null,
+    };
+    const row = rows.find((r) => hsid && r.hsid === hsid)
+      || rows.find((r) => r.playerid === id)
+      || [...rows].sort((a, b) => a.playerid.localeCompare(b.playerid))[0];
+    return { cardId: row.playerid, yatId: row.yatid || null };
+  } catch (error) {
+    console.warn('Preview YAT card resolution failed; retaining requested ID', { id, error });
+    return { cardId: id, yatId: null };
+  }
+});
+
 // A person has one YAT identity even when Baseball Cube used an older ID.
 // Keep the source ID for historical stat joins; never rewrite imported raw files.
 export async function resolveVerifiedTbcPlayerId(playerId: string): Promise<string> {
@@ -347,7 +376,10 @@ export async function getVerifiedTbcCanonicalPlayerIds(sourceIds: string[]): Pro
 }
 
 export async function getPlayerById(playerId: string): Promise<any | null> {
-  const tbcPlayerId = await resolveVerifiedTbcPlayerId(playerId);
+  const stagePlayerId = /^YAT[0-9]{6,}$/i.test(playerId)
+    ? (await resolveProfileCard(playerId)).cardId
+    : playerId;
+  const tbcPlayerId = await resolveVerifiedTbcPlayerId(stagePlayerId);
   const [tbcResult, stageResult] = await Promise.all([
     query<{
       playerid: string;
@@ -406,7 +438,7 @@ export async function getPlayerById(playerId: string): Promise<any | null> {
        from ${PLAYER_STAGE_IDENTITY_SOURCE}
        where playerid::text = $1
        limit 1`,
-      [playerId]
+      [stagePlayerId]
     ),
   ]);
 
