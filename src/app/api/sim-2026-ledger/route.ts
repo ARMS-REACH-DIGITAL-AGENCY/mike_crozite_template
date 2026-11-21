@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
 import { scoreLive } from '@/components/bracket/liveSeason';
+import { rebaseReplayWeek } from './rebaseReplayWeek';
 import type { GameBox, GameRow, Index, LbGame, SeriesRow } from '@/components/bracket/gallery';
 import frozenIndex from '../../../../public/replay-2026/index.json';
 import frozenLbA from '../../../../public/replay-2026/lb-a.json';
@@ -45,12 +46,26 @@ async function buildBox(gameId: number): Promise<GameBox> {
   const end = INDEX.weeks[week - 1]?.[1];
   if (!home || !away || !end) throw new Error('Frozen replay game is incomplete');
 
-  // Two schools and only the completed weeks through THIS game, rather
-  // than 64 schools x 34 weeks x 15,368 full-season game reconstructions.
-  // This is a READ of the same historical feed used by the original replay.
-  const live = await fetchBracketLiveBatches(
-    'https://hamilton.az.yatstats.com', ORIGINAL_START, week, [home, away]
-  );
+  // Request the selected game's seven-day source window, never all earlier
+  // weeks. A Round 10 click must not read 30 weeks of unrelated game logs.
+  // Rebase the returned day offsets onto the frozen 34-week tournament clock.
+  const weekStart = INDEX.weeks[week - 1][0];
+  const offsetDays = Math.round((Date.parse(weekStart + 'T00:00:00Z') -
+    Date.parse(ORIGINAL_START + 'T00:00:00Z')) / 86400000);
+  let recent: Awaited<ReturnType<typeof fetchBracketLiveBatches>> | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      recent = await fetchBracketLiveBatches(
+        'https://hamilton.az.yatstats.com', weekStart, 1, [home, away]
+      );
+      break;
+    } catch (error) {
+      if (attempt === 1) throw error;
+      console.warn('[2026 replay game Stat Ledger] retrying bounded historical week', gameId, week);
+    }
+  }
+  if (!recent) throw new Error('Historical week data unavailable');
+  const live = rebaseReplayWeek(recent, offsetDays, week);
   const copy = [...locked.slice(0, 5), [...locked[5]], locked[6]] as GameRow;
   const seedHome = match.series?.[3] ?? INDEX.schools[home]?.[2] ?? 0;
   const seedAway = match.series?.[4] ?? INDEX.schools[away]?.[2] ?? 0;
