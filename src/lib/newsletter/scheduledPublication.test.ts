@@ -55,7 +55,23 @@ function publicationDatabase(config: { endpoint?: string; ready?: boolean; futur
   return { pool: { query: db.query, connect: async () => db } as unknown as Pool, calls };
 }
 
-test('an already published day is read without rescoring or any insert', async () => {
+function isolatedPublicationTest(name: string, run: () => Promise<void>) {
+  test(name, async () => {
+    // Keep the mocked database target independent of preview/production build
+    // variables while retaining the real publication environment checks.
+    const previous = { env: process.env.VERCEL_ENV, branch: process.env.REHEARSAL_NEON_BRANCH };
+    process.env.VERCEL_ENV = 'preview';
+    process.env.REHEARSAL_NEON_BRANCH = options.expectedBranch;
+    try {
+      await run();
+    } finally {
+      if (previous.env === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = previous.env;
+      if (previous.branch === undefined) delete process.env.REHEARSAL_NEON_BRANCH; else process.env.REHEARSAL_NEON_BRANCH = previous.branch;
+    }
+  });
+}
+
+isolatedPublicationTest('an already published day is read without rescoring or any insert', async () => {
   const db = publicationDatabase({ ready: true });
   const result = await publishNewsletterDay(db.pool, options, async () => { assert.fail('Must not rewind scoring'); });
   assert.equal(result.publications[0].alreadyPublished, true);
@@ -63,7 +79,7 @@ test('an already published day is read without rescoring or any insert', async (
   assert.ok(!db.calls.some(sql => /^(INSERT|UPDATE|DELETE)/.test(sql)));
 });
 
-test('endpoint mismatch and later stored scores block before the scoring job', async () => {
+isolatedPublicationTest('endpoint mismatch and later stored scores block before the scoring job', async () => {
   for (const config of [{ endpoint: 'ep-wrong' }, { future: 1 }]) {
     const db = publicationDatabase(config);
     await assert.rejects(publishNewsletterDay(db.pool, options, async () => { assert.fail('Unsafe score call'); }), /verified endpoint|cannot rewind/);
@@ -71,7 +87,7 @@ test('endpoint mismatch and later stored scores block before the scoring job', a
   }
 });
 
-test('the normal scoring job receives the exact cutoff and a decision prevents publication', async () => {
+isolatedPublicationTest('the normal scoring job receives the exact cutoff and a decision prevents publication', async () => {
   const db = publicationDatabase();
   let scored = 0;
   await assert.rejects(publishNewsletterDay(db.pool, options, async (pool, requested) => {

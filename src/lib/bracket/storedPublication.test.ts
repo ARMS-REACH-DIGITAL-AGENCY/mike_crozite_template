@@ -109,6 +109,22 @@ function publicationRow(): Row {
     home_seed:1,away_seed:128,home_school_name:'Home',away_school_name:'Away'};
 }
 
+function isolatedPublicationTest(name: string, run: () => Promise<void>) {
+  test(name, async () => {
+    // These tests use mocked database clients. Their fixture target must not
+    // inherit the branch or environment of the Vercel build running them.
+    const previous = { env: process.env.VERCEL_ENV, branch: process.env.REHEARSAL_NEON_BRANCH };
+    process.env.VERCEL_ENV = 'preview';
+    process.env.REHEARSAL_NEON_BRANCH = 'br-isolated';
+    try {
+      await run();
+    } finally {
+      if (previous.env === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = previous.env;
+      if (previous.branch === undefined) delete process.env.REHEARSAL_NEON_BRANCH; else process.env.REHEARSAL_NEON_BRANCH = previous.branch;
+    }
+  });
+}
+
 test('daily readiness requires every preceding inning and the exact persisted boundary', () => {
   const row=publicationRow();
   requireStoredBoundary(row,cutoffAt);
@@ -148,7 +164,7 @@ test('a complete day yields strict SQL; any absent box, pairing, or duplicate bl
   assert.throws(()=>buildNewsletterPublication({...input,cutoffAt:'2026-03-26T10:59:59Z'}),/cutoff must/);
 });
 
-test('canonical source discrepancy stops publication before an INSERT', async () => {
+isolatedPublicationTest('canonical source discrepancy stops publication before an INSERT', async () => {
   const calls:string[]=[];
   const row=publicationRow();
   const line:InLine=['5004','YAT000001','Home batter','2026-03-25','b',[4,4,2,0,0,1,0,0,0],'game1','Home club','MLB','MLB','Away club',[1,2,0,0],true];
@@ -168,7 +184,7 @@ test('canonical source discrepancy stops publication before an INSERT', async ()
   assert.ok(!calls.includes('COMMIT'));
 });
 
-test('a failed full-edition SQL check rolls back every publication row and never marks ready', async () => {
+isolatedPublicationTest('a failed full-edition SQL check rolls back every publication row and never marks ready', async () => {
   const calls:string[]=[];
   const client={query:async(sql:string)=>{
     calls.push(sql);
@@ -187,7 +203,7 @@ test('a failed full-edition SQL check rolls back every publication row and never
   assert.ok(!calls.includes('COMMIT'));
 });
 
-test('a ready edition retries from exact saved row counts without reading raw sources or inserting', async () => {
+isolatedPublicationTest('a ready edition retries from exact saved row counts without reading raw sources or inserting', async () => {
   const calls:string[]=[];
   let corrupt=false;
   const ready={season_key:'2027',period_start:'2026-03-25',period_end:'2026-03-25',cutoff_at:cutoffAt,week:1,
