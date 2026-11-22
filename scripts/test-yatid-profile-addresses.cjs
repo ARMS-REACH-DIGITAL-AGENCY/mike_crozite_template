@@ -42,8 +42,10 @@ for (const [name, src] of [['SharedShell', shell], ['SchoolContextBar', bar]]) {
 // Search links and the sitemap use the YAT ID.
 assert.match(search, /\/\^YAT\[0-9\]\{6,\}\$\/i\.test\(yatId\) \? yatId : playerIdOf\(player\)/, 'search profile links must use the YAT ID');
 assert.match(search, /#player-\$\{playerId\}`/, 'flip card links keep the card id');
-assert.match(sitemap, /COALESCE\(NULLIF\(f\.yatid, ''\), f\.playerid::text\) AS playerid/, 'sitemap must list YAT ID addresses');
-assert.match(sitemap, /school-players-v3-yatid-alltime/, 'sitemap cache must vary for historical inclusion');
+assert.match(sitemap, /f\.yatid AS playerid/, 'sitemap must select only YAT ID addresses');
+assert.match(sitemap, /f\.yatid ~ '\^YAT\[0-9\]\+\$'/, 'sitemap excludes legacy player IDs');
+assert.doesNotMatch(sitemap, /COALESCE\(NULLIF\(f\.yatid/, 'sitemap may never fall back to TBC player ID');
+assert.match(sitemap, /school-players-v4-strict-yatid-alltime/, 'sitemap cache must vary for YAT-ID-only historical inclusion');
 assert.match(sitemap, /SITEMAP_ALL_TIME_PERCENT/, 'historical sitemap exposure must be configurable');
 assert.match(sitemap, /const includeAllTime = /, 'all-time expansion must be deterministically staged by school');
 assert.match(sitemap, /const percent = Math.min\(100, Math.max\(0, Number\(process.env.SITEMAP_ALL_TIME_PERCENT\) \|\| 0\)\)/, 'historical coverage must remain off by default');
