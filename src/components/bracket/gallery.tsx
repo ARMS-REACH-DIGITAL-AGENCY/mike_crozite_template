@@ -554,7 +554,7 @@ export function loadIndex({ simulation = false }: { simulation?: boolean } = {})
     // pages read the official 2027 results prepared by the backend cron.
     indexPromise = fieldReplayMode()
       ? fetch(fieldReplayUrl('asof=' + encodeURIComponent(previewDate()) +
-          '&school=' + encodeURIComponent(window.location.pathname.match(/^\\/(\\d+)(?:\\/|$)/)?.[1] || '')), { cache: 'no-store' })
+          '&school=' + encodeURIComponent(window.location.pathname.match(/^\/(\d+)(?:\/|$)/)?.[1] || '')), { cache: 'no-store' })
           .then(async r => {
             if (!r.ok) throw new Error('2027 field replay HTTP ' + r.status);
             const result = await r.json() as {index:Index; live:[number,number,'top'|'posted'|'provisional'][]};
