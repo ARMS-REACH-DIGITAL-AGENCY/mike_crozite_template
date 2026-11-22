@@ -56,7 +56,10 @@ function inspectBox(g: Stored, box: GameBox) {
     const x: (number | null)[] = b.x[d];
     check('four-raw-metrics', Array.isArray(x) && x.length === 4 && x.every(v => v == null || Number.isFinite(v)), { id, inning: d + 1 });
     if (!Array.isArray(x) || x.length !== 4) continue;
-    eq('rounded-display-keeps-raw-comparison', b.d[d], x.map(v => v == null ? null : Math.round(v)), { id, inning: d + 1 });
+    const rounded = x.map(v => v == null ? null : Math.round(v));
+    // JSON persists -0 as 0. Normalize that serialization difference only;
+    // raw x values below retain their full precision for run comparisons.
+    eq('rounded-display-keeps-raw-comparison', b.d[d], rounded.map(v => Object.is(v, -0) ? 0 : v), { id, inning: d + 1 });
     // An absent side holds at 100 for the comparison and cannot itself earn
     // a run; this independent ledger invariant catches rounded-cell winners.
     const runs = [0, 0];
