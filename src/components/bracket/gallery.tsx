@@ -24,6 +24,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
 import { loadPreparedIndex, loadPreparedBoxes, preparedLb } from './preparedSeason';
+import { setLiveInning } from './schoolSeason';
 import { inActionToday } from './inAction';
 import { ScoringRulesPanel } from './BracketRules';
 import { battedIn, pitchedIn } from '@/lib/bracket/appearance';
@@ -552,8 +553,14 @@ export function loadIndex({ simulation = false }: { simulation?: boolean } = {})
     // The test lab keeps its historical simulation fixture. Public school
     // pages read the official 2027 results prepared by the backend cron.
     indexPromise = fieldReplayMode()
-      ? fetch(fieldReplayUrl('asof=' + encodeURIComponent(new URLSearchParams(window.location.search).get('asof') || '2026-03-25')), { cache: 'no-store' })
-          .then(async r => { if (!r.ok) throw new Error('2027 field replay HTTP ' + r.status); return (await r.json() as { index: Index }).index; })
+      ? fetch(fieldReplayUrl('asof=' + encodeURIComponent(previewDate()) +
+          '&school=' + encodeURIComponent(window.location.pathname.match(/^\\/(\\d+)(?:\\/|$)/)?.[1] || '')), { cache: 'no-store' })
+          .then(async r => {
+            if (!r.ok) throw new Error('2027 field replay HTTP ' + r.status);
+            const result = await r.json() as {index:Index; live:[number,number,'top'|'posted'|'provisional'][]};
+            for (const [gameId, day, phase] of result.live || []) setLiveInning(gameId,day,phase);
+            return result.index;
+          })
       : replayMode()
       ? fetch('/replay-2026/index.json')
           .then((r) => r.ok ? r.json() as Promise<Index> : Promise.reject(new Error('Replay index HTTP ' + r.status)))
