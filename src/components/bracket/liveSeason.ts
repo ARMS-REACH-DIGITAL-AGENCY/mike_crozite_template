@@ -343,7 +343,7 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
       // the authoritative scoring engine output; d remains rounded below.
       x: result.innings.slice(0, 8).map((i, k) => !final && k > cur
         ? [null, null, null, null]
-        : [i.homeOffense, i.awayOffense, i.homePitching, i.awayPitching]),
+        : [i.homeOffense ?? null, i.awayOffense ?? null, i.homePitching ?? null, i.awayPitching ?? null]),
       // During a live week, future days and the week-total inning must
       // remain unknown. Only reached days can appear in the Stat Ledger.
       d: result.innings.slice(0, 8).map((i, k) => !final && k > cur
