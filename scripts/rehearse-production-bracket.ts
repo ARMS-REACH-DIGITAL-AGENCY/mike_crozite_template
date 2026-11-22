@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { Pool } from 'pg';
 import { runSeason, SQL_SEASONS, type Season } from './master-bracket-results';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
-import { addDays, recordedRequest, normalizedSource, validateRehearsalDay, type Snapshot } from './rehearsal-day';
+import { addDays, recordedRequest, normalizedSource, validateRehearsalDay, publicationRequests, type Snapshot } from './rehearsal-day';
 import { publishDaily, publishWeekly } from './newsletter-publish';
 import { readFinishedEdition, renderFinishedEdition, stableJson } from '@/lib/newsletter/finishedPublication';
 
@@ -127,13 +127,17 @@ async function main() {
     evidence.passes = passes; evidence.storedHash = digest(stored); evidence.storedGames = stored.length;
     await pool.query("UPDATE bracket_rehearsal_days SET phase='scored',evidence=$3::jsonb,stored_results=$4::jsonb,updated_at=now() WHERE season_key=$1 AND report_date=$2", [seasonKey, day, JSON.stringify(evidence), JSON.stringify(stored)]);
     writeFileSync(folder + '/stored-results.json.gz', gzipSync(JSON.stringify(stored)));
-    const publisherOptions = { season: seasonKey, date: day, cutoffAt, expectedBranch, expectedEndpoint, historicalReplay: true as const };
-    const publicationReports = [await publishDaily(pool, publisherOptions)];
-    const periods: { cadence: 'daily' | 'weekly'; date: string }[] = [{ cadence: 'daily', date: day }];
-    if (new Date(day + 'T00:00:00Z').getUTCDay() === 0) {
-      const periodStart = addDays(day, -6);
-      publicationReports.push(await publishWeekly(pool, { ...publisherOptions, periodStart }));
-      periods.push({ cadence: 'weekly', date: periodStart });
+    const publisherOptions = { season: seasonKey, cutoffAt, expectedBranch, expectedEndpoint, historicalReplay: true as const };
+    const publicationReports = [];
+    const periods: { cadence: 'daily' | 'weekly'; date: string }[] = [];
+    for (const period of publicationRequests(day)) {
+      if (period.cadence === 'daily') {
+        publicationReports.push(await publishDaily(pool, { ...publisherOptions, date: period.date }));
+        periods.push({ cadence: 'daily', date: period.date });
+      } else {
+        publicationReports.push(await publishWeekly(pool, { ...publisherOptions, periodStart: period.periodStart }));
+        periods.push({ cadence: 'weekly', date: period.periodStart });
+      }
     }
     const publications = [];
     for (const period of periods) {

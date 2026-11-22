@@ -2,6 +2,11 @@
 import type { Live } from '../src/components/bracket/liveSeason';
 
 export const addDays = (day: string, days: number) => new Date(Date.parse(day + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10);
+export function publicationRequests(day: string): ({ cadence: 'daily'; date: string } | { cadence: 'weekly'; periodStart: string })[] {
+  const periods: ReturnType<typeof publicationRequests> = [{ cadence: 'daily', date: day }];
+  if (new Date(day + 'T00:00:00Z').getUTCDay() === 0) periods.push({ cadence: 'weekly', periodStart: addDays(day, -6) });
+  return periods;
+}
 export type Checkpoint = { report_date: string; phase: string };
 export function validateRehearsalDay(day: string, previous?: Checkpoint, reviewedDay = '') {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day + 'T00:00:00Z')) || addDays(day, 0) !== day || day < '2026-03-25' || day > '2026-11-15') {

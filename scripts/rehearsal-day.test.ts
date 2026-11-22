@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { recordedRequest, validateRehearsalDay, type Snapshot } from './rehearsal-day';
+import { recordedRequest, validateRehearsalDay, publicationRequests, type Snapshot } from './rehearsal-day';
 import { setRehearsalDay, simulationAsOf } from '../src/components/bracket/simulationState';
 
 test('a fresh rehearsal starts with one explicit March 25 day', () => {
@@ -15,6 +15,13 @@ test('unfinished publications, missing review, skipped dates and reverse dates c
   assert.throws(() => validateRehearsalDay('2026-03-24', ready, '2026-03-25'));
   validateRehearsalDay('2026-03-26', ready, '2026-03-25');
   validateRehearsalDay('2026-03-25', { ...ready, phase: 'scored' });
+});
+test('the first day publishes one Digest; Sunday adds one distinct complete-week Gazette request', () => {
+  assert.deepEqual(publicationRequests('2026-03-25'), [{ cadence: 'daily', date: '2026-03-25' }]);
+  assert.deepEqual(publicationRequests('2026-03-29'), [
+    { cadence: 'daily', date: '2026-03-29' },
+    { cadence: 'weekly', periodStart: '2026-03-23' },
+  ]);
 });
 
 const snapshot: Snapshot = {
