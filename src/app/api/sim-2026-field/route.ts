@@ -61,6 +61,34 @@ export async function GET(request: NextRequest) {
     if (!Number.isFinite(at)) return NextResponse.json({ error: 'Invalid replay date' }, { status: 400 });
     const prepared = await preparedIndex(SEASON, at, read);
     if (!prepared) return NextResponse.json({ error: 'Replay field unavailable' }, { status: 404 });
+    // The native school scoreboard, hero and Stat Ledger must use one
+    // historical scoring snapshot. Only score this school's current game:
+    // do not rebuild all 15,368 games on a page view.
+    const schoolId = Number(params.get('school'));
+    if (Number.isInteger(schoolId) && schoolId > 0 && prepared.index.schools[String(schoolId)]) {
+      const startWeek = prepared.index.weeks.findIndex(([start,end]) => asof >= start && asof <= end) + 1;
+      if (startWeek > 0) {
+        for (const round of prepared.index.rounds) {
+          const series = round.series.find(x => x[1] === schoolId || x[2] === schoolId);
+          if (!series) continue;
+          for (const game of series[7]) {
+            if (game[1] !== startWeek) continue;
+            const score = await fieldReplayGame(read,game[0],asof);
+            if (!score) continue;
+            game[5] = score.innings;
+            game[6] = score.winner;
+            game[4] = score.decidedBy || '';
+            // The current day's inning has only begun; its full stats and
+            // run cannot appear before the next 4 AM Arizona settlement.
+            const day = Math.max(0,Math.min(6,
+              Math.round((Date.parse(asof+'T00:00:00Z')-
+                Date.parse(prepared.index.weeks[startWeek-1][0]+'T00:00:00Z'))/86400000)));
+            prepared.live = prepared.live.filter(x => x[0] !== game[0]);
+            prepared.live.push([game[0],day,'top']);
+          }
+        }
+      }
+    }
     return NextResponse.json(prepared, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[isolated 2026 replay]', error);
