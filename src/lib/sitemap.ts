@@ -97,15 +97,16 @@ export type SitemapPlayer = { playerId: string; slug: string; lastModified: stri
 
 const getSitemapPlayersCached = unstable_cache(async (hsid: string, includeAllTime: boolean): Promise<SitemapPlayer[]> => {
   if (!/^\d+$/.test(hsid) || Number(hsid) > 2147483647) return [];
-  // Profile addresses use the YAT ID (Pete, Nov 17 2026); the card's own id
-  // only when it has none.
+  // Public profile addresses use only canonical YAT IDs. Never expose a
+  // legacy TBC player number, even if a future card is missing its YAT ID.
   const { rows } = await query<{ playerid: string; first_name: string | null; last_name: string | null; updated_at: Date | string | null }>(`
-    SELECT DISTINCT ON (f.playerid::text)
-           COALESCE(NULLIF(f.yatid, ''), f.playerid::text) AS playerid, f.first_name, f.last_name, f.updated_at
+    SELECT DISTINCT ON (f.yatid)
+           f.yatid AS playerid, f.first_name, f.last_name, f.updated_at
       FROM public.flip_card_front_stage f
      WHERE f.hsid::text = $1
+       AND f.yatid ~ '^YAT[0-9]+$'
        AND ($2::boolean OR UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY($3::text[]))
-     ORDER BY f.playerid::text, f.updated_at DESC NULLS LAST
+     ORDER BY f.yatid, f.updated_at DESC NULLS LAST
   `, [hsid, includeAllTime, [...ACTIVE_GALLERY_STATUSES]]);
   return rows
     .filter((row) => row.playerid)
@@ -117,7 +118,7 @@ const getSitemapPlayersCached = unstable_cache(async (hsid: string, includeAllTi
         lastModified: updated && !Number.isNaN(updated.getTime()) ? updated.toISOString() : null,
       };
     });
-}, ['sitemap', 'school-players-v3-yatid-alltime'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
+}, ['sitemap', 'school-players-v4-strict-yatid-alltime'], { revalidate: SITEMAP_TTL_SECONDS, tags: ['sitemap'] });
 
 // The Oct 2026 crawler spike overloaded Neon. Until controlled production
 // monitoring approves expansion, historical profiles remain out of the sitemap.
