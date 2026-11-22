@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
-import {
-  bracketDay, checkTeams, LIVE_BASE, runSeason, SQL_SEASONS, type Season,
-} from '../../../../../scripts/master-bracket-results';
+import { bracketDay, LIVE_BASE } from '../../../../../scripts/master-bracket-results';
+import { runBracketResultsJob } from '@/lib/bracket/resultsJob';
 
 // The bracket results job on the server (scripts/master-bracket-results.ts):
 // scores every started game of each live fantasy season on the live data and
@@ -39,18 +38,7 @@ export async function GET(req: NextRequest) {
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 2 });
   try {
-    // Held stat lines and the team list belong to the production database's
-    // own ingest; a test branch's copy skips them.
-    if (region == null && !dryRun) {
-      await pool.query('SELECT public.stat_lines_reland_held()');
-      await checkTeams(pool);
-    }
-    const { rows: seasons } = await pool.query<Season>(SQL_SEASONS, [null, asof]);
-    const out = [];
-    for (const season of seasons) {
-      out.push({ season: season.season_key, passes: await runSeason(pool, season, asof, { base, region, dryRun }) });
-    }
-    return NextResponse.json({ asof, region: region ?? null, base, dryRun, seasons: out });
+    return NextResponse.json(await runBracketResultsJob(pool, { asof, base, region, dryRun }));
   } catch (error) {
     console.error('[cron/bracket-results]', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
