@@ -231,6 +231,13 @@ be undone, and nothing merges without Pete's approval.
 Each agent adds an entry when it starts or stops: date and time (UTC), agent,
 step, branch, what was done, what is next.
 
+* 2026-11-22 17:38 UTC, ChatGPT: scoped transaction-news follow-up on
+  `fix/player-transaction-news-20261122`, from production `60d58c87`.
+  News publication and all three readers use canonical YAT identity and
+  school links. Testing on Neon `qa-player-transaction-news-20261122`
+  (`br-winter-voice-a4ghbyns`); publication is independent of fan alerts.
+  Details and verification: `docs/transaction-news-20261122.md`.
+
 * 2026-11-18, Claude: step 0 done. Map built from read-only queries and a repo
   search. Waiting on Pete: decisions in section 2, approval for steps 0b and 1.
 * 2026-11-18, Claude: decision 1 recorded (card = YAT ID + hsid; person = YAT ID).

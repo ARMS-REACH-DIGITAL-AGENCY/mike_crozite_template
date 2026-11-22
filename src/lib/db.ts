@@ -2542,9 +2542,16 @@ function acceptedFanNews(alias: string): string {
 // this feed. A copy the feed hides must not hide the one it would show.
 function syndicatedCopyFilter(alias: string, lowVisible: string): string {
   const headline = (a: string) => `TRIM(LOWER(REGEXP_REPLACE(COALESCE(${a}.title, ''), '[^a-zA-Z0-9]+', ' ', 'g')))`;
-  return `NOT EXISTS (
+  // Repeated official events can have the same headline (for example two
+  // separate IL activations). The transaction UUID is their identity; only
+  // syndicated editorial copies should collapse by headline.
+  const transaction = (a: string) => `(${a}.discovery_source = 'mlb_transactions'
+    AND ${a}.verification_status = 'VERIFIED'
+    AND ${a}.uuid LIKE 'mlb-transaction:%')`;
+  return `(${transaction(alias)} OR NOT EXISTS (
            SELECT 1 FROM news_articles dup
-            WHERE dup.playerid = ${alias}.playerid
+            WHERE dup.yatid = ${alias}.yatid
+              AND NOT ${transaction('dup')}
               AND dup.verification_status = 'VERIFIED'
               AND (${lowVisible} OR COALESCE(dup.newsworthiness, 'NORMAL') <> 'LOW')
               AND (${acceptedFanNews('dup')} OR NOT EXISTS (
@@ -2554,17 +2561,23 @@ function syndicatedCopyFilter(alias: string, lowVisible: string): string {
               ))
               AND ${headline('dup')} = ${headline(alias)}
               AND (COALESCE(dup.published_at, 'epoch'), dup.id) > (COALESCE(${alias}.published_at, 'epoch'), ${alias}.id)
-         )`;
+         ))`;
 }
 
 export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promise<any[]> {
   try {
     const { rows } = await query(
-      `WITH tagged_school AS MATERIALIZED (
+      `WITH school_people AS MATERIALIZED (
+         -- A person has one card and may belong to more than one school.
+         -- The school links survive the single-card consolidation.
+         SELECT yatid FROM public.yat_school_links WHERE hsid::text = $1
+         UNION
+         SELECT yatid FROM public.flip_card_front_stage WHERE hsid::text = $1
+       ), tagged_school AS MATERIALIZED (
          -- Keep the original article unchanged. A tag grants a second school
          -- access to the story via that school's verified player records.
          SELECT activity.details->>'news_uuid' AS uuid,
-                MIN(tagged_player.playerid::text) AS first_playerid,
+                MIN(tagged_player.yatid) AS first_yatid,
                 jsonb_agg(DISTINCT jsonb_build_object(
                   'playerId', tagged_player.playerid::text,
                   'playerName', tagged_player.display_name,
@@ -2579,19 +2592,17 @@ export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promi
            -- (YAT key step 4, Pete, Nov 18 2026).
            JOIN flip_card_front_stage tagged_player
              ON tagged_player.yatid = public.yat_id_for(activity.details->>'playerId')
+           JOIN school_people tagged_person ON tagged_person.yatid = tagged_player.yatid
           WHERE activity.action = 'news_tagged'
-            AND tagged_player.hsid::text = $1
             AND activity.details->>'news_uuid' IS NOT NULL
           GROUP BY activity.details->>'news_uuid'
        ),
        scoped_uuids AS (
          SELECT uuid FROM news_articles WHERE hsid = $1
          UNION
-         -- One person, many schools: a story about any player who has a card
-         -- at this school belongs in its feed (YAT key step 4).
+         -- Every school of this person gets the same verified stories.
          SELECT na_person.uuid FROM news_articles na_person
-           JOIN flip_card_front_stage school_card ON school_card.yatid = na_person.yatid
-          WHERE school_card.hsid::text = $1
+           JOIN school_people school_person ON school_person.yatid = na_person.yatid
          UNION
          SELECT uuid FROM tagged_school
        )
@@ -2615,21 +2626,23 @@ export async function getNewsByHsid(hsid: string, limit = 50, offset = 0): Promi
          f.current_org_or_conference_name AS stage_org_name,
          f.class_of AS stage_class_of,
          f.roster_years AS stage_roster_years,
-         CASE WHEN na.hsid = $1 THEN na.playerid
-              ELSE tagged_school.first_playerid END AS associated_playerid,
+         -- Row 3 still emits the card's presentation ID. Resolve its person
+         -- by YAT ID, then return that existing card ID for filter matching.
+         COALESCE(f.playerid::text, na.yatid) AS associated_playerid,
          f.display_name AS associated_player_name,
          COALESCE(tagged_school.players, '[]'::jsonb) AS tagged_players,
          (na.hsid <> $1) AS tagged_to_school
        FROM scoped_uuids scoped
        JOIN news_articles na ON na.uuid = scoped.uuid
+       LEFT JOIN school_people school_person ON school_person.yatid = na.yatid
        LEFT JOIN tagged_school ON tagged_school.uuid = na.uuid
        LEFT JOIN news_article_derivatives nd
          ON nd.news_article_uuid = na.uuid
         AND nd.generation_status IN ('staged','published')
         AND nd.approval_status IN ('approved','published')
        LEFT JOIN flip_card_front_stage f
-         ON f.playerid::text = CASE WHEN na.hsid = $1 THEN na.playerid
-                                   ELSE tagged_school.first_playerid END
+         ON f.yatid = COALESCE(CASE WHEN na.hsid = $1 THEN na.yatid END,
+                              school_person.yatid, tagged_school.first_yatid, na.yatid)
        WHERE na.verification_status = 'VERIFIED'
          AND (${acceptedFanNews('na')} OR NOT EXISTS (
             SELECT 1 FROM news_article_derivatives rejected
@@ -2661,14 +2674,15 @@ export async function getNewsByPlayer(
   playerId: string,
   limit: number | null = 10,
   includeLowRelevance = false,
-  bestFirst = false
+  bestFirst = false,
+  offset = 0
 ): Promise<any[]> {
   try {
     const hasLimit = typeof limit === 'number' && Number.isFinite(limit) && limit > 0;
     const lowRelevanceParam = hasLimit ? '$3' : '$2';
-    const limitClause = hasLimit ? 'LIMIT $2' : '';
+    const limitClause = hasLimit ? 'LIMIT $2 OFFSET $4' : '';
     const params = hasLimit
-      ? [playerId, limit, includeLowRelevance]
+      ? [playerId, limit, includeLowRelevance, Math.max(0, Math.trunc(offset) || 0)]
       : [playerId, includeLowRelevance];
 
     const { rows } = await query(
@@ -2718,7 +2732,7 @@ export async function getNewsByPlayer(
         AND nd.generation_status IN ('staged','published')
         AND nd.approval_status IN ('approved','published')
        LEFT JOIN flip_card_front_stage f
-         ON f.playerid::text = $1
+         ON f.yatid = (SELECT yatid FROM person)
        WHERE na.verification_status = 'VERIFIED'
          AND (${acceptedFanNews('na')} OR NOT EXISTS (
             SELECT 1 FROM news_article_derivatives rejected

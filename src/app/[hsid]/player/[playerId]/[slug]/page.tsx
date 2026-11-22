@@ -33,7 +33,8 @@ import { playerProfileShareInfo, playerShareOrigin } from "@/lib/playerProfileSh
 import { playerJourneyMeta } from "@/lib/playerJourneySeo";
 import { getPlayerIdentityMetaOnce } from "@/lib/playerIdentityCached";
 import { storyAssetUrl } from "@/lib/storyAssets";
-import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import { type ProfileNewsStory } from "@/components/yatstats/ProfileNewsList";
+import RefreshingProfileNews from "@/components/yatstats/RefreshingProfileNews";
 import StoriesFeed from "@/components/yatstats/StoriesFeed";
 import WhereYatProfilePanel from "@/components/yatstats/WhereYatProfilePanel";
 import { usesWhereYatNowStatus } from "@/lib/galleryStatuses";
@@ -1077,7 +1078,7 @@ export default async function ProfilePage({ params }: Props) {
         <div id="ppTab-news" className="pp-fz-panel">
           <div className="yp-profile-partner-columns">
             <div className="yp-profile-partner-body">
-              <ProfileNewsList stories={newsStories} firstName={firstName} playerId={safePlayerId} photoId={personId} playerName={playerNewsFullName} hsid={hsid} />
+              <RefreshingProfileNews stories={newsStories} firstName={firstName} playerId={safePlayerId} photoId={personId} playerName={playerNewsFullName} hsid={hsid} />
               <aside className="yp-profile-infeed-ad" aria-label="Player Profile Partner in-feed advertisement">
                 <span>PLAYER PROFILE PARTNER</span><strong>ADVERTISER PLACEMENT</strong><small>IN-FEED SPONSOR CARD · MATCHES STORY WIDTH</small>
               </aside>
