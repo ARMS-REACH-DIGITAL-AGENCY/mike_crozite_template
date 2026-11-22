@@ -18,7 +18,7 @@ function pool() {
   });
 }
 async function read<T extends QueryResultRow = QueryResultRow>(sql: string, params: any[] = []): Promise<QueryResult<T>> {
-  if (!/^\\s*SELECT\\b/i.test(sql)) throw Error('Replay reader permits SELECT only');
+  if (!/^\s*SELECT\b/i.test(sql)) throw Error('Replay reader permits SELECT only');
   return pool().query<T>(sql, params);
 }
 export async function GET(request: NextRequest) {
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ box: rows[0].box ?? null, status: rows[0].status }, { headers: { 'Cache-Control': 'no-store' } });
     }
     const asof = params.get('asof') || '2026-03-25';
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(asof) || asof < '2026-03-23' || asof > '2026-11-16')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asof) || asof < '2026-03-23' || asof > '2026-11-16')
       return NextResponse.json({ error: 'Invalid replay date' }, { status: 400 });
     // 4 AM Arizona = 11:00 UTC, so this date is interpreted as a bracket day.
     const at = Date.parse(asof + 'T11:00:00Z');
