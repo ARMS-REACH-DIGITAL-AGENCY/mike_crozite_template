@@ -29,7 +29,7 @@ const sql=source('src/lib/bracket/ratifyStored.ts');
 const schedule=source('vercel.json');
 assert.ok(live.includes("hasVerifiedWeek(live.verifiedWeek, week, g[2], g[3])"),'Require proof for both schools');
 assert.ok(live.includes("g[5] = final || earlyVerified"),'Publish provisional eighth/ninth/extra innings');
-assert.ok(live.includes("g[6] = final && result.winner"),'Winner remains null before deadline');
+assert.ok(live.includes("g[6] = final && result.winner ?"),'Winner remains null before deadline');
 assert.ok(live.includes("provisional: earlyVerified ?"),'Save snapshot with Stat Ledger');
 assert.ok(prepared.includes("box->'provisional' AS provisional"),'Reader recognizes certified provisional');
 assert.ok(ui.includes("status: `BOT ${last}`"),'Yellow Bottom of 9th or later');
