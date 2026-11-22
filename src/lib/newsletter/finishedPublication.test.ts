@@ -135,3 +135,18 @@ test('weekly edition prints full saved roster and box cells, preserving club-tra
   const db = database(facts);
   return readFinishedEdition(db, { ...request, cadence: 'weekly', date: '2026-03-23' }).then(read => assert.equal(read.rows.weekly_player_lines.length, 2));
 });
+
+test('Next Game prints once per player, from the game saved with his last line (Pete, Nov 22 2026)', () => {
+  const facts = fixture();
+  const first = facts.rows.daily_stat_lines[0];
+  facts.rows.daily_stat_lines.push({ ...first, stat_line_id: '1b', line: 'Saved batter (Club, MLB): second line', sort_key: 'a2',
+    next_game_date: '2026-03-26', next_game_home_away: 'home', next_game_opponent: 'SF' });
+  facts.ready.row_counts = { ...facts.ready.row_counts, daily_stat_lines: 2 };
+  const html = renderFinishedEdition(facts).html;
+  assert.equal((html.match(/class="favorite-next"/g) || []).length, 1);
+  assert.match(html, /<strong>Next Game<\/strong> \| Thursday, 3\/26 vs SF/);
+  facts.rows.daily_stat_lines[1].next_game_home_away = 'away';
+  assert.match(renderFinishedEdition(facts).html, /Thursday, 3\/26 @ SF/);
+  delete facts.rows.daily_stat_lines[1].next_game_date;
+  assert.doesNotMatch(renderFinishedEdition(facts).html, /class="favorite-next"/);
+});
