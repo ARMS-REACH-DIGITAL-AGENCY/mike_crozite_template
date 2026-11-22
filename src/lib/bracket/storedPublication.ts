@@ -1,0 +1,168 @@
+// Newsletter projections of the one authoritative tournament result.
+// This module NEVER imports the fantasy scoring engine or replays player lines.
+// Persisted master_bracket.innings, scores, box and winner are the source.
+import type { GameBox, GameRow } from '@/components/bracket/gallery';
+
+export type StoredBracketGame = {
+  stage: string;
+  region: number;
+  game_id: number;
+  week: number;
+  home_hsid: number | null;
+  away_hsid: number | null;
+  status: string;
+  innings: number[] | string | null;
+  home_runs?: number | null;
+  away_runs?: number | null;
+  winner_hsid: number | null;
+  decided_by?: string | null;
+  computed_at?: string | null;
+  locked_at: string | null;
+  box: GameBox | null;
+};
+
+export function storedInnings(value: StoredBracketGame['innings']): number[] {
+  const values = Array.isArray(value) ? value : typeof value === 'string'
+    ? value.replace(/^[{[]|[}\]]$/g, '').split(',').filter(Boolean).map(Number)
+    : [];
+  // Nine regulation fantasy innings plus zero or more completed extra innings.
+  // Each inning has one home and one away score; 20 values is 10 innings.
+  if (values.length < 18 || values.length % 2 !== 0 || values.some((v) => !Number.isSafeInteger(v) || v < 0)) {
+    throw new Error('Incomplete or invalid stored fantasy innings');
+  }
+  return values;
+}
+
+function savedGame(row: StoredBracketGame) {
+  if (row.home_hsid == null || row.away_hsid == null || row.home_hsid === row.away_hsid) {
+    throw new Error('Stored bracket game has invalid school pairing: ' + row.game_id);
+  }
+  if (!row.box || !Array.isArray(row.box.f) ||
+      !Array.isArray(row.box.h?.days) || !Array.isArray(row.box.a?.days)) {
+    throw new Error('Missing stored fantasy scoring and player-day ledger for game ' + row.game_id);
+  }
+  const innings = storedInnings(row.innings);
+  if (!['in_progress', 'final'].includes(row.status)) {
+    throw new Error('Stored bracket game has not been scored: ' + row.game_id);
+  }
+  const game: GameRow = [
+    row.game_id, row.week, row.home_hsid, row.away_hsid,
+    row.status === 'final' ? row.decided_by || 'runs' : '',
+    innings, row.status === 'final' ? row.winner_hsid : null,
+  ];
+  return { game, box: row.box, innings };
+}
+
+function posted(box: GameBox, day: number, gameId: number) {
+  if (!box.f?.[day]?.[0] || !box.f[day][1]) {
+    throw new Error('Stored fantasy inning ' + (day + 1) + ' not settled for game ' + gameId);
+  }
+}
+
+/** A historical publication is made from the actual boundary write, not a later replay. */
+export function requireStoredBoundary(row: StoredBracketGame, cutoffAt: string) {
+  const cutoff = Date.parse(cutoffAt);
+  if (!Number.isFinite(cutoff) || !row.computed_at || Date.parse(row.computed_at) !== cutoff) {
+    throw new Error('Stored game ' + row.game_id + ' was not persisted at the requested publication cutoff');
+  }
+}
+
+export type CountingLine = { yatid: string; kind: 'b' | 'p'; stats: number[] };
+
+/** Verify source counting facts before printing extras absent from the saved drawer. */
+export function assertStoredCountingStats(players: GameBox['h']['p'], lines: CountingLine[], label: string) {
+  const sums = new Map<string, { b: number[]; p: number[] }>();
+  for (const line of lines) {
+    if (!/^YAT\d{6,}$/.test(line.yatid)) throw new Error('Missing canonical YAT identity in ' + label);
+    const n = line.kind === 'b' ? 9 : 8;
+    if (line.stats.length < n || line.stats.slice(0, n).some(v => !Number.isSafeInteger(v) || v < 0)) {
+      throw new Error('Invalid canonical counting stats in ' + label + ' for ' + line.yatid);
+    }
+    const sum = sums.get(line.yatid) || { b: Array(9).fill(0), p: Array(8).fill(0) };
+    for (let i = 0; i < n; i++) sum[line.kind][i] += line.stats[i];
+    sums.set(line.yatid, sum);
+  }
+  const seen = new Set<string>();
+  for (const player of players) {
+    if (!/^YAT\d{6,}$/.test(player[0]) || seen.has(player[0]) || player[3] || player[9]) {
+      throw new Error('Invalid or simulated saved player identity in ' + label);
+    }
+    seen.add(player[0]);
+    const expected = sums.get(player[0]) || { b: Array(9).fill(0), p: Array(8).fill(0) };
+    for (const [kind, stored, n] of [['b', player[4], 9], ['p', player[5], 8]] as const) {
+      const actual = stored === 0 ? Array(n).fill(0) : stored.slice(0, n);
+      if (actual.length !== n || actual.some((v, i) => !Number.isSafeInteger(v) || v !== expected[kind][i])) {
+        throw new Error('Canonical source differs from stored ' + label + ' for ' + player[0] + ' (' + kind + ')');
+      }
+    }
+  }
+}
+
+function linesThrough(innings: number[], through: number) {
+  const home = Array.from({ length: through }, (_, i) => innings[2 * i]);
+  const away = Array.from({ length: through }, (_, i) => innings[2 * i + 1]);
+  return {
+    homeInnings: home, awayInnings: away,
+    homeRuns: home.reduce((total, runs) => total + runs, 0),
+    awayRuns: away.reduce((total, runs) => total + runs, 0),
+  };
+}
+
+/**
+ * A Digest reflects the already-posted Monday-Sunday inning; Sunday's
+ * 4 a.m. Monday cutoff also includes the official 8th and 9th innings.
+ * Even when reading a final box days later, historical days remain snapshots
+ * of only the innings that had posted on those days.
+ */
+export function dailyFromStored(row: StoredBracketGame, day: number) {
+  if (!Number.isInteger(day) || day < 0 || day > 6) {
+    throw new Error('Daily fantasy inning must be Monday=0 through Sunday=6');
+  }
+  const saved = savedGame(row);
+  for (let d = 0; d <= day; d++) posted(saved.box, d, row.game_id);
+  if (!Array.isArray(saved.box.h.days?.[day]) ||
+      !Array.isArray(saved.box.a.days?.[day])) {
+    throw new Error('Missing stored daily player ledger for game ' + row.game_id);
+  }
+  const final = day === 6;
+  if (final) {
+    if (row.status !== 'final' || !row.locked_at || row.winner_hsid == null) {
+      throw new Error('Sunday Digest requires final locked bracket result for game ' + row.game_id);
+    }
+    posted(saved.box, 7, row.game_id);
+    posted(saved.box, 8, row.game_id);
+  }
+  const through = final ? saved.innings.length / 2 : day + 1;
+  const totals = linesThrough(saved.innings, through);
+  if (final && (row.home_runs !== totals.homeRuns || row.away_runs !== totals.awayRuns)) {
+    throw new Error('Saved final score and innings disagree for game ' + row.game_id);
+  }
+  return {
+    ...saved,
+    ...totals,
+    throughInning: through,
+    storyInning: final ? 8 : day,
+    isFinal: final,
+  };
+}
+
+/**
+ * The Gazette prints the locked answer, not a second evaluation of OPS+/FIP-,
+ * the real-team W-L tiebreaker, or any other fantasy scoring rule.
+ */
+export function weeklyFromStored(row: StoredBracketGame) {
+  if (row.status !== 'final' || !row.locked_at ||
+      row.winner_hsid == null || ![row.home_hsid, row.away_hsid].includes(row.winner_hsid)) {
+    throw new Error('Weekly Gazette requires a final locked result for game ' + row.game_id);
+  }
+  const saved = savedGame(row);
+  for (let d = 0; d < 9; d++) posted(saved.box, d, row.game_id);
+  if (!Array.isArray(saved.box.h.p) || !Array.isArray(saved.box.a.p)) {
+    throw new Error('Missing stored weekly player ledger for game ' + row.game_id);
+  }
+  const totals = linesThrough(saved.innings, saved.innings.length / 2);
+  if (totals.homeRuns !== row.home_runs || totals.awayRuns !== row.away_runs) {
+    throw new Error('Saved final score and innings disagree for game ' + row.game_id);
+  }
+  return { ...saved, ...totals, winnerHsid: row.winner_hsid };
+}

@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Pool } from 'pg';
 import { POST as sendPilotReports } from '@/app/api/admin/fan-newsletter-pilot/route';
+import { SQL_SEASONS, type Season } from '../../../../../scripts/master-bracket-results';
+import { runBracketResultsJob } from '@/lib/bracket/resultsJob';
+import { publishNewsletterDay, readNewsletterReview, deliverNewsletterEdition } from '@/lib/newsletter/scheduledPublication';
+import { lookupGHLContactByEmail } from '@/lib/gohighlevel';
+import { sendDailyPilotEmail } from '@/lib/alumniEmailSender';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=300;
@@ -9,8 +15,47 @@ export async function GET(request:NextRequest){
  const secret=process.env.CRON_SECRET;
  if(!secret||request.headers.get('authorization')!=='Bearer '+secret)
   return NextResponse.json({ok:false,error:'unauthorized'},{status:401});
- const runDate=new Date(Date.now()-24*60*60*1000);
+ const now=new Date();
+ const runDate=new Date(now.getTime()-24*60*60*1000);
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Phoenix',year:'numeric',month:'2-digit',day:'2-digit'}).format(runDate);
+ const connection=process.env.PLAYERS_DATABASE_URL||process.env.DATABASE_URL;
+ if(!connection) return NextResponse.json({ok:false,error:'database_unavailable'},{status:500});
+ const pool=new Pool({connectionString:connection,ssl:{rejectUnauthorized:false},max:2});
+ try {
+  const {rows}=await pool.query<Season>(SQL_SEASONS,[null,date]);
+  const seasons=rows.filter(season=>!season.is_test&&season.opening_day<=date&&date<=season.last_day);
+  if(!seasons.length) return await sendOffseasonPilot(request,date,secret);
+  if(seasons.length!==1) throw new Error('The scheduled edition must resolve to one active production season');
+  const base=(process.env.BRACKET_LIVE_BASE_URL||request.nextUrl.origin).replace(/\/$/,'');
+  const publication=await publishNewsletterDay(pool,{
+   day:date,season:seasons[0].season_key,base,now,
+   expectedEndpoint:new URL(connection).hostname,publicationTarget:'live',
+  },runBracketResultsJob);
+  const result=[];
+  for(const period of publication.periods) for(const email of recipients){
+   try {
+    const edition=await readNewsletterReview(pool,{cadence:period.cadence,date:period.date,email,seasonKey:seasons[0].season_key});
+    result.push(await deliverNewsletterEdition(pool,edition,{
+     lookupContact:lookupGHLContactByEmail,
+     send:(contact,rendered,format)=>sendDailyPilotEmail(contact,rendered.subject,rendered.html,{format,text:rendered.text}),
+     domainVerified:process.env.YATSTATS_SENDING_DOMAIN_VERIFIED==='true',
+    }));
+   } catch(error) {
+    result.push({email,cadence:period.cadence,status:'error',error:error instanceof Error?error.message:String(error)});
+   }
+  }
+  const failures=result.filter(row=>!['queued','previously_queued','not_subscribed'].includes(row.status));
+  console.log('[fan-daily-pilot] stored editions',JSON.stringify({date,season:seasons[0].season_key,periods:publication.periods,results:result.map(({email,cadence,status})=>({email,cadence,status}))}));
+  return NextResponse.json({ok:failures.length===0,date,season:seasons[0].season_key,periods:publication.periods,result},{status:failures.length?503:200});
+ } catch(error) {
+  console.error('[fan-daily-pilot] publication failure',error instanceof Error?error.message:String(error));
+  return NextResponse.json({ok:false,date,error:'publication_failed'},{status:500});
+ } finally {await pool.end();}
+}
+
+// Preserve the existing off-season pilot while the February tournament is
+// not active. In-season editions always use the shared stored-result path.
+async function sendOffseasonPilot(request:NextRequest,date:string,secret:string){
  const report=new NextRequest(request.url,{
   method:'POST',
   headers:{authorization:'Bearer '+secret,'content-type':'application/json'},
