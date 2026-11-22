@@ -6,6 +6,8 @@
 // matches each player by name to `tbc_players_raw`, and inserts into the
 // `player_transactions` table. Inserts are idempotent via a deduplication
 // index on (playerid, effective_date, transaction_type, to_team_name).
+// Every verified received transaction is immediately published as its shared
+// news card after persistence. No email, webhook, or roster mutation runs here.
 //
 // Usage:
 //   npx ts-node scripts/sync-mlb-transactions.ts                             # last 30 days
@@ -21,6 +23,7 @@ import {
   upsertSourceMap,
 } from "./lib/player-source-map";
 import { identityVerdict, type IdentityVerdict } from "./lib/player-identity";
+import { receiveMlbTransaction } from "./lib/transaction-news-receipt";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -338,34 +341,6 @@ async function fetchMlbPersonIdentity(
   return identity;
 }
 
-/** Insert one transaction row. Returns true if a new row was inserted. */
-async function insertTransaction(
-  playerid: string,
-  txn: MlbTransaction
-): Promise<boolean> {
-  try {
-    const result = await pool.query(
-      `INSERT INTO player_transactions
-         (playerid, transaction_type, from_team_name, to_team_name,
-          effective_date, source, payload)
-       VALUES ($1, $2, $3, $4, $5, 'mlb_api', $6)
-       ON CONFLICT DO NOTHING`,
-      [
-        playerid,
-        txn.typeDesc ?? txn.typeCode ?? null,
-        txn.fromTeam?.name ?? null,
-        txn.toTeam?.name ?? null,
-        txn.effectiveDate ?? txn.date ?? null,
-        JSON.stringify(txn),
-      ]
-    );
-    return (result.rowCount ?? 0) > 0;
-  } catch (err) {
-    console.error(`  DB insert error for txn id=${txn.id}:`, err);
-    return false;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Main pipeline
 // ---------------------------------------------------------------------------
@@ -416,7 +391,35 @@ async function main() {
   let totalDuplicates = 0;
   let totalSkipped = 0;
   let totalUnmatched = 0;
+  let totalInsertFailures = 0;
+  let totalNewsCreated = 0;
+  let totalNewsHeld = 0;
+  let totalNewsFailures = 0;
   const unmatchedLog: string[] = [];
+
+  async function recordReceivedTransaction(
+    playerId: string,
+    transaction: MlbTransaction,
+    registerIdentity?: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      const receipt = await receiveMlbTransaction(
+        (statement, params = []) => pool.query(statement, params),
+        playerId, transaction, registerIdentity,
+      );
+      if (receipt.inserted) totalInserted++;
+      else totalDuplicates++;
+      totalNewsCreated += receipt.newsCreated;
+      if (receipt.newsHeld) totalNewsHeld++;
+      if (receipt.publicationError) {
+        totalNewsFailures++;
+        console.error(`  News publication failed for transaction ${receipt.transactionId ?? transaction.id}: ${receipt.publicationError}`);
+      }
+    } catch (error) {
+      totalInsertFailures++;
+      console.error(`  Transaction persistence failed for MLB event ${transaction.id}:`, error);
+    }
+  }
 
   // 4. Process each transaction
   for (const txn of transactions) {
@@ -440,12 +443,7 @@ async function main() {
         );
         totalInserted++;
       } else {
-        const inserted = await insertTransaction(resolvedId, txn);
-        if (inserted) {
-          totalInserted++;
-        } else {
-          totalDuplicates++;
-        }
+        await recordReceivedTransaction(resolvedId, txn);
       }
       continue;
     }
@@ -501,14 +499,11 @@ async function main() {
       continue;
     }
 
-    const inserted = await insertTransaction(dbPlayer.playerid, txn);
-    if (inserted) {
-      totalInserted++;
-      // Record the stable mapping so future runs skip name matching
-      await saveSourceMap(dbPlayer.playerid, txn.person.id, txn.person.fullName);
-    } else {
-      totalDuplicates++; // ON CONFLICT DO NOTHING suppressed the row
-    }
+    // Registration happens after the transaction commits but before its
+    // news card verifies the canonical identity. Retries repair a previously
+    // failed registration/publication instead of silently skipping it.
+    await recordReceivedTransaction(dbPlayer.playerid, txn, () =>
+      saveSourceMap(dbPlayer.playerid, txn.person!.id, txn.person!.fullName));
   }
 
   // 5. Summary
@@ -518,6 +513,10 @@ async function main() {
   console.log(`Duplicates skipped:   ${totalDuplicates}`);
   console.log(`No-person skipped:    ${totalSkipped}`);
   console.log(`Unmatched players:    ${totalUnmatched}`);
+  console.log(`Transaction failures: ${totalInsertFailures}`);
+  console.log(`News cards published: ${totalNewsCreated}`);
+  console.log(`News awaiting identity/school: ${totalNewsHeld}`);
+  console.log(`News publication failures: ${totalNewsFailures}`);
 
   if (unmatchedLog.length > 0) {
     console.log(
@@ -528,12 +527,13 @@ async function main() {
     }
   }
 
-  if (failedSportIds.length > 0) {
+  if (failedSportIds.length > 0 || totalInsertFailures > 0 || totalNewsFailures > 0) {
     // Everything that succeeded was still processed and written above —
     // but a run that silently dropped one or more sport levels must exit
     // non-zero so GitHub Actions shows it as failed, not green.
     console.error(
-      `\nExiting non-zero: sport ID(s) [${failedSportIds.join(", ")}] failed to fetch this run.`
+      `\nExiting non-zero: sport fetch failures [${failedSportIds.join(", ")}], ` +
+      `${totalInsertFailures} transaction persistence failure(s), ${totalNewsFailures} news publication failure(s).`
     );
     process.exitCode = 1;
   }

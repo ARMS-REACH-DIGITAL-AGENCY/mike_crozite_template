@@ -17,7 +17,7 @@ export type TransactionNewsRow = {
   transaction_type: string | null;
   from_team_name: string | null;
   to_team_name: string | null;
-  effective_date: string | Date;
+  effective_date: string | Date | null;
   mlb_person_id: string;
   to_team_level: string | null;
   payload: Record<string, unknown> | null;
@@ -43,6 +43,14 @@ export const TRANSACTION_NEWS_CANDIDATES_SQL = `
     pt.payload#>>'{person,id}' AS mlb_person_id,
     destination.level_label AS to_team_level
   FROM public.player_transactions pt
+  CROSS JOIN LATERAL (
+    SELECT CASE
+      WHEN pt.payload->>'date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+        AND pg_input_is_valid(pt.payload->>'date', 'date')
+      THEN (pt.payload->>'date')::date::timestamp AT TIME ZONE 'UTC'
+      ELSE NULL
+    END AS announced_at
+  ) publication
   JOIN public.yat_registry person ON person.yatid = pt.yatid
   LEFT JOIN LATERAL (
     SELECT card.display_name, card.first_name, card.last_name, card.hsid
@@ -72,7 +80,7 @@ export const TRANSACTION_NEWS_CANDIDATES_SQL = `
     -- news_articles.hsid is required. A verified school link is enough;
     -- a card need not exist yet. Unplaced people wait for their real school.
     AND COALESCE(f.hsid, school.hsid) IS NOT NULL
-    AND pt.effective_date IS NOT NULL
+    AND COALESCE(publication.announced_at, pt.effective_date) IS NOT NULL
     AND ($2::bigint[] IS NULL OR pt.id = ANY($2::bigint[]))
     AND EXISTS (
       SELECT 1 FROM public.yat_mlb_links identity
@@ -89,7 +97,7 @@ export const TRANSACTION_NEWS_CANDIDATES_SQL = `
       SELECT 1 FROM public.news_articles existing
       WHERE existing.uuid = 'mlb-transaction:' || pt.id::text
     )
-  ORDER BY pt.effective_date DESC, pt.id DESC
+  ORDER BY COALESCE(publication.announced_at, pt.effective_date) DESC, pt.id DESC
   LIMIT $1
 `;
 
@@ -122,11 +130,19 @@ export function transactionNewsArticle(tx: TransactionNewsRow): TransactionNewsA
     || !/^\d+$/.test(tx.mlb_person_id) || !text(tx.hsid)) {
     throw new Error('Transaction news requires a verified YAT person, MLB ID, school, and transaction ID');
   }
-  const occurred = new Date(tx.effective_date);
-  if (!Number.isFinite(occurred.getTime())) {
+  // MLB's date is when the news broke; effectiveDate can be retroactive.
+  // Keep the source's effective date in the payload/evidence/body unchanged.
+  const announcement = text(tx.payload?.date);
+  const announcedAt = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(announcement)
+    ? new Date(`${announcement}T00:00:00.000Z`) : null;
+  const validAnnouncement = announcedAt && Number.isFinite(announcedAt.getTime())
+    && announcedAt.toISOString().slice(0, 10) === announcement;
+  const effectiveAt = tx.effective_date === null ? null : new Date(tx.effective_date);
+  const publishedAt = validAnnouncement ? announcedAt!.toISOString()
+    : effectiveAt && Number.isFinite(effectiveAt.getTime()) ? effectiveAt.toISOString() : null;
+  if (!publishedAt) {
     throw new Error(`Transaction ${tx.id} has no valid source event date`);
   }
-  const publishedAt = occurred.toISOString();
   const type = text(tx.transaction_type);
   const callup = (type === 'Recalled' || type === 'Selected')
     && text(tx.to_team_level).toUpperCase() === 'MLB';
@@ -163,6 +179,8 @@ export function transactionNewsArticle(tx: TransactionNewsRow): TransactionNewsA
       mlbPlayerId: tx.mlb_person_id,
       yatid: tx.yatid,
       transactionType: tx.transaction_type,
+      announcementDate: tx.payload?.date ?? null,
+      effectiveDate: tx.payload?.effectiveDate ?? tx.effective_date,
       fromTeam: tx.from_team_name,
       toTeam: tx.to_team_name,
       yadaboy: callup,

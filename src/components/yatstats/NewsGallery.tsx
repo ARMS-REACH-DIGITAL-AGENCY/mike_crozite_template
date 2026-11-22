@@ -13,7 +13,7 @@ import SponsorTower from "@/components/yatstats/SponsorTower";
 // shows only that player's stories (InteractionStrip dispatches
 // "yat:news-player-filter"); clicking it again shows everyone.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CardPhoto from "@/components/yatstats/CardPhoto";
 import { markPlayerName } from "@/components/yatstats/PlayerNameMentions";
 import { getNewsPhotoSrcs, PLAYER_SILHOUETTE_URL } from "@/lib/playerImage";
@@ -22,6 +22,7 @@ import ProfileNewsList, { type ProfileNewsStory } from "@/components/yatstats/Pr
 import { loadFavoriteIds, readYatUser } from "@/components/yatstats/FavoriteButton";
 import { EMPTY_NEWS_FILTERS, matchesNewsStory, type NewsFilterSelection } from "@/lib/newsFilterMatch";
 import { dismissSchoolNewsStoryParam } from "@/lib/newsStoryNavigation";
+import { watchVisibleNews } from "@/lib/visibleNewsRefresh";
 
 type NewsPost = {
   id?: number | null;
@@ -202,6 +203,9 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   const [posts, setPosts] = useState<NewsPost[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const fetchGeneration = useRef(0);
+  const firstPageLoading = useRef(false);
   const [sharedStoryId, setSharedStoryId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('story') || '');
   const [playerFilter, setPlayerFilter] = useState<string>("");
   const [newsFilters, setNewsFilters] = useState<NewsFilterSelection>(EMPTY_NEWS_FILTERS);
@@ -211,62 +215,74 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   const [pageError, setPageError] = useState(false);
   const [visibleCount, setVisibleCount] = useState(60);
 
-  // Only fetch once the News tab is actually shown (SharedShell toggles
-  // .visible on #sec-news), not on every gallery page load.
+  // Refresh on each News entry or return to the visible page. The ordinary
+  // school homepage and unopened tabs make no news request.
   useEffect(() => {
     const section = document.getElementById("sec-news");
     if (!section) return;
-    const check = () => {
-      if (sharedStoryId || section.classList.contains("visible")) setRequested(true);
-    };
-    check();
-    const observer = new MutationObserver(check);
-    observer.observe(section, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, [sharedStoryId]);
+    return watchVisibleNews(section, 'visible', visible => {
+      setRequested(visible);
+      if (visible) setRefreshVersion(version => version + 1);
+    });
+  }, [hsid]);
 
   // Fetch the first page only on tab entry. Further pages load on demand,
   // so no school incurs an unbounded initial response or extra home-page SQL.
   useEffect(() => {
-    if (!requested || posts !== null) return;
+    if (!requested) return;
     let cancelled = false;
-    fetch(`/api/news/${encodeURIComponent(hsid)}?limit=100&offset=0`)
+    const controller = new AbortController();
+    const generation = ++fetchGeneration.current;
+    firstPageLoading.current = true;
+    setFailed(false);
+    setLoadingMore(false);
+    setPageError(false);
+    fetch(`/api/news/${encodeURIComponent(hsid)}?limit=100&offset=0&fresh=1`, {
+      cache: 'no-store', signal: controller.signal,
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`news ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        if (cancelled) return;
+        if (cancelled || generation !== fetchGeneration.current) return;
         const rows: NewsPost[] = Array.isArray(data?.posts) ? data.posts : [];
+        firstPageLoading.current = false;
         setPosts(rows);
         setHasMore(rows.length === 100);
       })
       .catch((err) => {
-        console.error("[NewsGallery] news fetch failed:", err);
-        if (!cancelled) setFailed(true);
+        if (!cancelled) {
+          firstPageLoading.current = false;
+          console.error("[NewsGallery] news fetch failed:", err);
+          setFailed(true);
+        }
       });
-    return () => { cancelled = true; };
-  }, [requested, posts, hsid]);
+    return () => { cancelled = true; controller.abort(); firstPageLoading.current = false; fetchGeneration.current++; };
+  }, [requested, refreshVersion, hsid]);
 
   const loadMore = useCallback(async () => {
-    if (!hasMore || loadingMore || !posts) return;
+    if (!requested || firstPageLoading.current || !hasMore || loadingMore || !posts) return;
+    const generation = fetchGeneration.current;
     setLoadingMore(true);
     setPageError(false);
     try {
-      const response = await fetch(`/api/news/${encodeURIComponent(hsid)}?limit=100&offset=${posts.length}`);
+      const response = await fetch(`/api/news/${encodeURIComponent(hsid)}?limit=100&offset=${posts.length}&fresh=1`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`news ${response.status}`);
       const data = await response.json();
+      if (generation !== fetchGeneration.current) return;
       const next: NewsPost[] = Array.isArray(data?.posts) ? data.posts : [];
       const ids = new Set(posts.map((post) => post.uuid));
       setPosts([...posts, ...next.filter(post => !ids.has(post.uuid))]);
       setHasMore(next.length === 100);
     } catch (error) {
+      if (generation !== fetchGeneration.current) return;
       console.error('[NewsGallery] page fetch failed', error);
       setPageError(true);
     } finally {
-      setLoadingMore(false);
+      if (generation === fetchGeneration.current) setLoadingMore(false);
     }
-  }, [hasMore, loadingMore, posts, hsid]);
+  }, [requested, hasMore, loadingMore, posts, hsid]);
 
   // The shared sidebar owns its controls. For News, read the controls into
   // React state instead of attempting to hide unrelated player-card elements.
@@ -329,8 +345,8 @@ export default function NewsGallery({ hsid }: { hsid: string }) {
   );
   useEffect(() => {
     const missingLinkedStory = Boolean(sharedStoryId && posts && !posts.some(post => post.uuid === sharedStoryId));
-    if ((hasNarrowing || missingLinkedStory) && hasMore && posts && !loadingMore && !pageError) void loadMore();
-  }, [hasNarrowing, sharedStoryId, hasMore, posts, loadingMore, pageError, loadMore]);
+    if (requested && (hasNarrowing || missingLinkedStory) && hasMore && posts && !loadingMore && !pageError) void loadMore();
+  }, [requested, hasNarrowing, sharedStoryId, hasMore, posts, loadingMore, pageError, loadMore]);
 
   // Row 3 headshot clicks on the News tab (see InteractionStrip).
   useEffect(() => {

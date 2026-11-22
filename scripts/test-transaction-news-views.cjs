@@ -65,9 +65,9 @@ function textOf(node) {
   assert.deepEqual(Array.from(profile.params), ['YAT100750', true]);
   await readers.getNewsByPlayer('YAT100750', 3, false, false);
   const card = captured.pop();
-  assert.match(card.sql, /ORDER BY\s+na\.published_at DESC NULLS LAST, na\.id DESC\s+LIMIT \$2/,
+  assert.match(card.sql, /ORDER BY\s+na\.published_at DESC NULLS LAST, na\.id DESC\s+LIMIT \$2 OFFSET \$4/,
     'Flip card returns the three newest events with a stable tie breaker');
-  assert.deepEqual(Array.from(card.params), ['YAT100750', 3, false]);
+  assert.deepEqual(Array.from(card.params), ['YAT100750', 3, false, 0]);
   for (const { sql } of [school, profile, card]) {
     assert.match(sql, /discovery_source = 'mlb_transactions'[\s\S]*?verification_status = 'VERIFIED'[\s\S]*?uuid LIKE 'mlb-transaction:%'\) OR NOT EXISTS/,
       'Distinct verified transaction IDs must survive identical headlines');
@@ -126,7 +126,7 @@ function textOf(node) {
   render(inactive);
   assert.equal(requests.length, 0, 'News must remain lazy on unopened cards');
   render({ ...inactive, isActive: true });
-  assert.match(requests[0].url, /player=YAT100750&limit=3&sort=newest$/,
+  assert.match(requests[0].url, /player=YAT100750&limit=3&sort=newest&fresh=1$/,
     'Card request uses canonical YAT identity and newest-three ordering');
   render(inactive);
   assert.equal(requests[0].options.signal.aborted, true, 'Closing the tab cancels its in-flight request');

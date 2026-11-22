@@ -266,7 +266,7 @@ function NewsPanel({
       }
 
       try {
-        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=3&sort=newest`, {
+        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=3&sort=newest&fresh=1`, {
           cache: "no-store",
           signal: controller.signal,
         });

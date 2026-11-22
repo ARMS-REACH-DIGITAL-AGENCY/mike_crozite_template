@@ -2674,14 +2674,15 @@ export async function getNewsByPlayer(
   playerId: string,
   limit: number | null = 10,
   includeLowRelevance = false,
-  bestFirst = false
+  bestFirst = false,
+  offset = 0
 ): Promise<any[]> {
   try {
     const hasLimit = typeof limit === 'number' && Number.isFinite(limit) && limit > 0;
     const lowRelevanceParam = hasLimit ? '$3' : '$2';
-    const limitClause = hasLimit ? 'LIMIT $2' : '';
+    const limitClause = hasLimit ? 'LIMIT $2 OFFSET $4' : '';
     const params = hasLimit
-      ? [playerId, limit, includeLowRelevance]
+      ? [playerId, limit, includeLowRelevance, Math.max(0, Math.trunc(offset) || 0)]
       : [playerId, includeLowRelevance];
 
     const { rows } = await query(

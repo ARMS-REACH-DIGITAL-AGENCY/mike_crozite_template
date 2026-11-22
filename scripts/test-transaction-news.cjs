@@ -42,6 +42,20 @@ async function main() {
   assert.match(article.image_url, /people\/668904\/headshot\/67\/current$/);
   assert.equal(article.verification_evidence.mlbTransactionId, 950798);
   assert.equal(article.newsworthiness, 'NORMAL');
+  const retroactive = transactionNewsArticle({ ...fixture,
+    effective_date: '2025-04-10T00:00:00Z',
+    payload: { ...fixture.payload, date: '2026-04-11', effectiveDate: '2025-04-10',
+      description: 'Royce Lewis transaction announced April 11, retroactive to April 10.' },
+  });
+  assert.equal(retroactive.published_at, '2026-04-11T00:00:00.000Z', 'news is dated when MLB announced it');
+  assert.equal(retroactive.url, 'https://www.mlb.com/transactions/2026/04/11');
+  assert.equal(retroactive.verification_evidence.effectiveDate, '2025-04-10', 'preserve retroactive source date');
+  assert.equal(retroactive.raw_payload.effectiveDate, '2025-04-10');
+  assert.equal(retroactive.snippet, 'Royce Lewis transaction announced April 11, retroactive to April 10.');
+  assert.equal(transactionNewsArticle({ ...fixture, payload: { ...fixture.payload, date: '2026-02-30' } }).published_at,
+    article.published_at, 'invalid calendar announcement date falls back to effective date');
+  assert.equal(transactionNewsArticle({ ...fixture, effective_date: null,
+    payload: { ...fixture.payload, date: '2026-11-21' } }).published_at, '2026-11-21T00:00:00.000Z');
 
   for (const transaction_type of ['Number Change', 'New MLB Transaction Type', 'Retired', 'Status Change']) {
     const everyType = transactionNewsArticle({ ...fixture, transaction_type });
@@ -108,6 +122,8 @@ async function main() {
   assert.match(TRANSACTION_NEWS_CANDIDATES_SQL, /card\.yatid = pt\.yatid/);
   assert.match(TRANSACTION_NEWS_CANDIDATES_SQL, /identity\.mlb_id = pt\.payload#>>'\{person,id\}'/);
   assert.match(TRANSACTION_NEWS_CANDIDATES_SQL, /identity\.proven/);
+  assert.match(TRANSACTION_NEWS_CANDIDATES_SQL, /ORDER BY COALESCE\(publication\.announced_at, pt\.effective_date\) DESC/,
+    'backfill priority uses the same announcement date as publication');
   assert.match(TRANSACTION_NEWS_CANDIDATES_SQL, /yat_registry_rejections/);
   assert.doesNotMatch(TRANSACTION_NEWS_CANDIDATES_SQL, /MEANINGFUL_TYPES|created_at\s*>|interval|\.playerid\s*=/i);
   assert.match(TRANSACTION_NEWS_INSERT_SQL, /ON CONFLICT \(uuid\) DO NOTHING/);
@@ -138,6 +154,95 @@ async function main() {
       }, ...extraGlobals });
     return m.exports;
   }
+
+  const receiptSource = fs.readFileSync(path.join(root, 'scripts/lib/transaction-news-receipt.ts'), 'utf8');
+  const receiptModule = loadModule(receiptSource, { '../../src/lib/transactionNews': moduleObject.exports });
+  const { receiveMlbTransaction, RECEIVED_TRANSACTION_INSERT_SQL, RECEIVED_TRANSACTION_EXISTING_SQL } = receiptModule;
+  const receivedRows = new Map();
+  const receivedArticles = new Map();
+  const receiptOrder = [];
+  let nextReceiptId = 500000;
+  let receiptIdentityReady = false;
+  let failReceiptNews = false;
+  let failReceiptInsert = false;
+  let receiptNewsSelections = 0;
+  const receiptQuery = async (sql, args) => {
+    if (sql === RECEIVED_TRANSACTION_INSERT_SQL) {
+      if (failReceiptInsert) throw new Error('receipt database unavailable');
+      const payload = JSON.parse(args[5]);
+      if (receivedRows.has(String(payload.id))) return { rows: [] };
+      const id = String(++nextReceiptId);
+      receivedRows.set(String(payload.id), { ...fixture, id, payload,
+        transaction_type: args[1], effective_date: args[4], committedAt: nextReceiptId });
+      receiptOrder.push(`committed:${id}`);
+      return { rows: [{ id }] };
+    }
+    if (sql === RECEIVED_TRANSACTION_EXISTING_SQL) {
+      const row = receivedRows.get(args[2]);
+      return { rows: row ? [{ id: row.id, news_exists: receivedArticles.has(`mlb-transaction:${row.id}`) }] : [] };
+    }
+    if (sql === TRANSACTION_NEWS_CANDIDATES_SQL) {
+      receiptNewsSelections++;
+      assert(receiptIdentityReady, 'newly matched identity must be saved before news validates it');
+      const rows = [...receivedRows.values()].filter(row => args[1].includes(row.id)
+        && !receivedArticles.has(`mlb-transaction:${row.id}`));
+      for (const row of rows) assert(receiptOrder.includes(`committed:${row.id}`), 'publish only committed receipts');
+      return { rows };
+    }
+    assert.equal(sql, TRANSACTION_NEWS_INSERT_SQL);
+    if (failReceiptNews) { failReceiptNews = false; throw new Error('receipt news unavailable'); }
+    const rows = [];
+    for (const candidate of JSON.parse(args[0])) {
+      if (!receivedArticles.has(candidate.uuid)) {
+        receiptOrder.push(`published:${candidate.uuid}`);
+        receivedArticles.set(candidate.uuid, candidate);
+        rows.push({ uuid: candidate.uuid, yatid: candidate.yatid, hsid: candidate.hsid });
+      }
+    }
+    return { rows };
+  };
+  const incoming = { ...fixture.payload, typeDesc: 'Number Change', date: '2026-04-11', effectiveDate: '2025-04-10' };
+  const received = await receiveMlbTransaction(receiptQuery, fixture.yatid, incoming, async () => {
+    assert.equal(receivedRows.size, 1, 'identity callback runs after the stored transaction commits');
+    receiptOrder.push('identity:verified');
+    receiptIdentityReady = true;
+  });
+  assert.equal(received.inserted, true);
+  assert.equal(received.newsCreated, 1, 'receipt creates its news card before returning');
+  assert.equal(received.transactionId, '500001', 'news receives the stored ID, not the MLB payload ID');
+  assert.equal(receivedArticles.get('mlb-transaction:500001').published_at, '2026-04-11T00:00:00.000Z');
+  assert.deepEqual(receiptOrder, ['committed:500001', 'identity:verified', 'published:mlb-transaction:500001']);
+  const originalCommit = receivedRows.get(String(incoming.id)).committedAt;
+  const selectionsBeforeDuplicate = receiptNewsSelections;
+  const duplicateReceipt = await receiveMlbTransaction(receiptQuery, fixture.yatid, incoming);
+  assert.equal(duplicateReceipt.inserted, false);
+  assert.equal(duplicateReceipt.newsCreated, 0);
+  assert.equal(receivedRows.get(String(incoming.id)).committedAt, originalCommit, 'duplicate receipt does not rewrite transaction history');
+  assert.equal(receiptNewsSelections, selectionsBeforeDuplicate, 'already published receipt is a news no-op');
+
+  const retryIncoming = { ...incoming, id: 950799 };
+  failReceiptNews = true;
+  const failedPublication = await receiveMlbTransaction(receiptQuery, fixture.yatid, retryIncoming);
+  assert.equal(failedPublication.inserted, true);
+  assert.match(failedPublication.publicationError, /receipt news unavailable/);
+  assert(receivedRows.has('950799'), 'news failure never rolls back the authoritative receipt');
+  const receiptRetry = await receiveMlbTransaction(receiptQuery, fixture.yatid, retryIncoming);
+  assert.equal(receiptRetry.inserted, false);
+  assert.equal(receiptRetry.newsCreated, 1, 'repeated receipt immediately repairs its missing news card');
+  assert.equal(receivedArticles.size, 2);
+  failReceiptInsert = true;
+  const beforeFailedPersist = receiptNewsSelections;
+  await assert.rejects(receiveMlbTransaction(receiptQuery, fixture.yatid, { ...incoming, id: 950800 }), /receipt database unavailable/);
+  assert.equal(receiptNewsSelections, beforeFailedPersist, 'failed persistence must not publish a card');
+  assert.match(RECEIVED_TRANSACTION_EXISTING_SQL, /pt\.yatid = public\.yat_id_for\(\$1::text\)/);
+  assert.match(RECEIVED_TRANSACTION_EXISTING_SQL, /pt\.payload->>'id' = \$3::text/);
+  assert.doesNotMatch(receiptSource, /sendGHLEmail|postArmsWebhook|user_favorites|UPDATE\s+public\./);
+  const ingest = fs.readFileSync(path.join(root, 'scripts/sync-mlb-transactions.ts'), 'utf8');
+  assert.match(ingest, /await recordReceivedTransaction\(resolvedId, txn\)/);
+  assert.match(ingest, /await recordReceivedTransaction\(dbPlayer\.playerid, txn, \(\) =>\s*saveSourceMap/);
+  assert.match(ingest, /totalNewsFailures > 0/);
+  assert.match(fs.readFileSync(path.join(root, '.github/workflows/mlb-transactions-sync.yml'), 'utf8'), /npx tsx \.\/scripts\/sync-mlb-transactions\.ts/);
+
   const keptCalls = [];
   const loaders = new Proxy({}, { get: () => async () => [] });
   const kept = loadModule(fs.readFileSync(path.join(root, 'src/lib/profilePageData.ts'), 'utf8'), {
