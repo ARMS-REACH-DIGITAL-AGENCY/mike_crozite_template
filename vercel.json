@@ -46,6 +46,10 @@
       "schedule": "10,25,40,55 * * * *"
     },
     {
+      "path": "/api/cron/mlb-transaction-news",
+      "schedule": "13,28,43,58 * * * *"
+    },
+    {
       "path": "/api/cron/level-qc",
       "schedule": "7 15 * * *"
     },
