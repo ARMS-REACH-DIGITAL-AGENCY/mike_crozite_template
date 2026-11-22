@@ -24,6 +24,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { useBracketNav } from './bracketNav';
 import { simulationAsOf } from './simulationState';
 import { loadPreparedIndex, loadPreparedBoxes, preparedLb } from './preparedSeason';
+import { setLiveInning } from './schoolSeason';
 import { inActionToday } from './inAction';
 import { ScoringRulesPanel } from './BracketRules';
 import { battedIn, pitchedIn } from '@/lib/bracket/appearance';
@@ -94,14 +95,18 @@ export { TIE_NOTE, tieNote } from '@/lib/bracket/tieNote';
 // Only the bracket lab reads the 2026 simulation's box scores; a
 // school's bracket is the 2027 season, with nothing played yet.
 // Only the isolated 2026 test branch uses this mode; the production branch is unchanged.
-export const replayMode = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sim2026') === '1';
+export const fieldReplayMode = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sim2026field') === '1';
+export const replayMode = () => typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('sim2026') === '1' || fieldReplayMode());
+const fieldReplayUrl = (params: string) => '/api/sim-2026-field?' + params;
 const replayBoxUrl = (file: string) => file === 'd-gf' ? '/replay-2026/d-gf.json' : '/api/sim-2026-2?boxes=' + encodeURIComponent(file);
 export const boxCache = new Map<string, Promise<Record<string, GameBox>>>();
 export function loadBoxes(file: string) {
   if (!boxCache.has(file)) {
     // The bracket lab keeps its existing simulated boxes.
     // The 2027 site fetches only the selected stored Stat Ledger from Neon.
-    boxCache.set(file, replayMode()
+    boxCache.set(file, fieldReplayMode()
+      ? fetch(fieldReplayUrl('boxes=' + encodeURIComponent(file)), { cache: 'no-store' }).then((r) => r.ok ? r.json() : Promise.reject(new Error('Field replay Stat Ledger HTTP ' + r.status)))
+      : replayMode()
       ? fetch(replayBoxUrl(file), { cache: 'no-store' }).then((r) => r.ok ? r.json() : Promise.reject(new Error('Replay Stat Ledger HTTP ' + r.status)))
       : simulatedSeason
       ? fetch(`${BASE}/${file}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
@@ -114,6 +119,11 @@ export function loadBoxes(file: string) {
 const replayGameBoxCache = new Map<number, Promise<GameBox>>();
 /** The native school replay requests one historical game, not a full-season rebuild. */
 export function loadGameBox(file: string, gameId: number): Promise<GameBox | undefined> {
+  if (fieldReplayMode()) {
+    const asof = encodeURIComponent(previewDate());
+    return fetch(fieldReplayUrl('game=' + gameId + '&asof=' + asof), { cache: 'no-store' })
+      .then(async r => { if (!r.ok) throw new Error('Field replay game HTTP ' + r.status); return (await r.json() as { box: GameBox | null }).box || undefined; });
+  }
   if (!replayMode()) {
     return loadBoxes(file).then((all) => all[String(gameId)]);
   }
@@ -135,7 +145,9 @@ export function loadGameBox(file: string, gameId: number): Promise<GameBox | und
 // the first loaded result for an entire live week. This is read-only and
 // never calculates or updates an official bracket result.
 export async function refreshBoxes(file: string): Promise<Record<string, GameBox>> {
-  const url = replayMode()
+  const url = fieldReplayMode()
+    ? fieldReplayUrl('boxes=' + encodeURIComponent(file))
+    : replayMode()
     ? replayBoxUrl(file)
     : simulatedSeason
     ? `${BASE}/${file}.json`
@@ -172,6 +184,15 @@ const activeRosterCache = new Map<number, Promise<ActiveRosterPlayer[]>>();
 // database busy, a dropped connection) is retried, and only a real answer
 // is kept - a failure is never cached as an empty roster for the visit.
 export function loadActiveRoster(hsid: number) {
+  if (fieldReplayMode()) {
+    return fetch(fieldReplayUrl('roster=' + hsid + '&asof=' + encodeURIComponent(previewDate())), {cache:'no-store'})
+      .then(async response => {
+        if (!response.ok) throw new Error('Historical school roster HTTP '+response.status);
+        const data = await response.json() as {roster:ActiveRosterPlayer[]};
+        if (!Array.isArray(data.roster)) throw new Error('Historical school roster missing');
+        return data.roster;
+      });
+  }
   if (!activeRosterCache.has(hsid)) {
     const attempt = (n: number): Promise<ActiveRosterPlayer[]> =>
       fetch(`/api/players/${hsid}`, { cache: 'no-store' })
@@ -485,6 +506,7 @@ export function lastFinalWeek(index: Index, iso: string) {
 export function previewDate() {
   const q = new URLSearchParams(window.location.search).get('asof') || '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
+  if (fieldReplayMode()) return '2026-03-25';
   if (replayMode()) return '2026-11-18';
   return simulationAsOf();
 }
@@ -530,7 +552,16 @@ export function loadIndex({ simulation = false }: { simulation?: boolean } = {})
   if (!indexPromise) {
     // The test lab keeps its historical simulation fixture. Public school
     // pages read the official 2027 results prepared by the backend cron.
-    indexPromise = replayMode()
+    indexPromise = fieldReplayMode()
+      ? fetch(fieldReplayUrl('asof=' + encodeURIComponent(previewDate()) +
+          '&school=' + encodeURIComponent(window.location.pathname.match(/^\/(\d+)(?:\/|$)/)?.[1] || '')), { cache: 'no-store' })
+          .then(async r => {
+            if (!r.ok) throw new Error('2027 field replay HTTP ' + r.status);
+            const result = await r.json() as {index:Index; live:[number,number,'top'|'posted'|'provisional'][]};
+            for (const [gameId, day, phase] of result.live || []) setLiveInning(gameId,day,phase);
+            return result.index;
+          })
+      : replayMode()
       ? fetch('/replay-2026/index.json')
           .then((r) => r.ok ? r.json() as Promise<Index> : Promise.reject(new Error('Replay index HTTP ' + r.status)))
       : simulatedSeason
@@ -553,7 +584,10 @@ function shiftDate(iso: string, days: number): string {
 let lbPromise: Promise<LbGame[]> | null = null;
 export function loadLb() {
   if (!lbPromise) {
-    lbPromise = replayMode()
+    lbPromise = fieldReplayMode()
+      ? fetch(fieldReplayUrl('asof=' + encodeURIComponent(new URLSearchParams(window.location.search).get('asof') || '2026-03-25')), { cache: 'no-store' })
+          .then(async r => { if (!r.ok) throw new Error('Field leaderboard HTTP ' + r.status); return (await r.json() as { lb: LbGame[] }).lb; })
+      : replayMode()
       ? replayLbData()
       : simulatedSeason
       ? fetch(`${BASE}/lb.json`).then((r) => r.ok ? r.json() : { games: [] })
@@ -1192,8 +1226,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const rawTheirs = boxForView ? boxForView[side === 'h' ? 'a' : 'h'] : undefined;
   // A completed replay uses its saved 2026 roster. The current active roster
   // omits some 2026 contributors and must NEVER erase their saved stat lines.
-  const mineRoster = replayMode() ? undefined : (me === 0 ? homeRoster : awayRoster);
-  const theirsRoster = replayMode() ? undefined : (me === 0 ? awayRoster : homeRoster);
+  const mineRoster = replayMode() && !fieldReplayMode() ? undefined : (me === 0 ? homeRoster : awayRoster);
+  const theirsRoster = replayMode() && !fieldReplayMode() ? undefined : (me === 0 ? awayRoster : homeRoster);
   const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster);
   const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster);
   // Unplayed drawer: the roster is known, but no metric can exist yet.

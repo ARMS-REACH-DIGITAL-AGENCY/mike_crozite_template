@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import {
   type ActiveRosterPlayer, type GameBox, type GameRow, type Index, type LbGame,
   LAST_WEEK, LBT_ROUNDS, REGIONS, WORLD_SERIES, Face, Styles,
-  StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadGameBox, refreshBoxes, loadIndex, loadLb, place, previewDate, replayMode, rankRegion, shortName, standings,
+  StatsDot, abbr, correctedRosterGame, fmtDate, fmtRange, loadActiveRoster, loadGameBox, refreshBoxes, loadIndex, loadLb, place, previewDate, replayMode, fieldReplayMode, rankRegion, shortName, standings,
 } from './gallery';
 import { type CurrentPlayerIdentity, type Star, type WeekCard, calendar, leadWeek, loadCurrentPlayerIdentities, loadStars, masterGames, records, liveBoard, runsThrough, schoolSeason, starLine } from './schoolSeason';
 import { type FantasyStageKey, focusWeek, selectStage, stageKeyForWeek, useBracketNav } from './bracketNav';
@@ -107,7 +107,7 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
       return () => { cancelled = true; };
     }
     const boxPromise = card.file ? loadGameBox(card.file, g[0]).catch(() => undefined) : Promise.resolve(undefined);
-    const roster = (h: number) => replayMode() ? Promise.resolve([] as ActiveRosterPlayer[]) : loadActiveRoster(h);
+    const roster = (h: number) => replayMode() && !fieldReplayMode() ? Promise.resolve([] as ActiveRosterPlayer[]) : loadActiveRoster(h);
     Promise.all([boxPromise, roster(g[2]), roster(g[3])])
       .then(([box, homeRoster, awayRoster]) => { if (!cancelled) setPreviewData({ box, homeRoster, awayRoster }); })
       .catch(() => { if (!cancelled) setPreviewData({ box: undefined, homeRoster: [], awayRoster: [] }); });
@@ -399,7 +399,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
         setBoxStatus('ready');
       }).catch(() => { if (!cancelled) setBoxStatus('error'); });
     }
-    const roster = (id: number) => replayMode() || !id
+    const roster = (id: number) => (replayMode() && !fieldReplayMode()) || !id
       ? Promise.resolve([] as ActiveRosterPlayer[])
       : loadActiveRoster(id);
     Promise.all([roster(homeId), roster(awayId)])
@@ -480,7 +480,7 @@ function TeamDrawerPanel({ index, open, me, onClose, onSwitch }: { index: Index;
           names={[nameOf(homeId), nameOf(awayId)]}
           locations={[homeId ? place(S[homeId]?.[0] || '') : '', awayId ? place(S[awayId]?.[0] || '') : '']}
           score={[hr, ar]} innings={played ? g[5] : []} winner={played ? g[6] : null}
-          decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters || boxStatus === 'loading'}
+          decidedBy={played ? g[4] : ''} box={played && box ? box[String(g[0])] : undefined} loading={!rosters || (played && boxStatus === 'loading')}
             homeRoster={rosters?.home} awayRoster={rosters?.away} drawerMode played={played} onSwitchSide={onSwitch} openDay={openDay} />
           <div className="yfp-drawer-end" aria-hidden="true" />
         </div>
