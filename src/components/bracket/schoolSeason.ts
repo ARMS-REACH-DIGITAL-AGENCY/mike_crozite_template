@@ -101,7 +101,7 @@ export function schoolSeason(index: Index, lb: LbGame[], h: number, asof: string
 // game if neither school has anyone playing - and its real runs post in
 // yellow once all those games are over. day: 0-6 = Monday-Sunday, 7 = the
 // week is over. The runs in g[5] are only ever the posted ones.
-export type LivePhase = 'top' | 'bottom' | 'posted';
+export type LivePhase = 'top' | 'bottom' | 'posted' | 'provisional';
 const liveInnings = new Map<number, { day: number; phase: LivePhase }>();
 export function setLiveInning(gameId: number, day: number, phase: LivePhase) {
   liveInnings.set(gameId, { day, phase });
@@ -132,8 +132,17 @@ export type InningCell = { v: number | ''; now: boolean }; // now: yellow, not f
 // a live game, or its week is over (the board shows it final).
 export function liveBoard(g: GameRow): { status: string; cells: [InningCell[], InningCell[]]; runs: [number, number] } | null {
   const lv = liveInnings.get(g[0]);
-  if (!lv || lv.day >= 7) return null;
+  if (!lv) return null;
   const { day, phase } = lv;
+  if (phase === 'provisional') {
+    const last = Math.max(9, Math.floor(g[5].length / 2));
+    const cells = (off: 0 | 1): InningCell[] => Array.from({ length: last }, (_, i) =>
+      ({ v: g[5][i * 2 + off] || 0, now: i === last - 1 }));
+    const away = cells(1), home = cells(0);
+    const sum = (a: InningCell[]) => a.reduce((n, c) => n + (typeof c.v === 'number' ? c.v : 0), 0);
+    return { status: `BOT ${last}`, cells: [away, home], runs: [sum(home), sum(away)] };
+  }
+  if (day >= 7) return null;
   const posted = phase === 'posted';
   // Sunday's games all over: the Top of the 8th. Innings 8 and 9 go up at
   // 4 a.m. Monday, which ends the game (liveSeason.ts).

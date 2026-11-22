@@ -30,6 +30,12 @@ export function mergeBracketLive(into: Live, part: Live): void {
   Object.assign(into.yatIdentityBySourceId ||= {}, part.yatIdentityBySourceId || {});
   mergeGameLists(into.clubs, part.clubs || {});
   mergeGameLists(into.games ||= {}, part.games || {});
+  if (part.verifiedWeek) {
+    const old = into.verifiedWeek;
+    if (old && (old.week !== part.verifiedWeek.week || old.snapshotId !== part.verifiedWeek.snapshotId))
+      throw new Error('Contradictory source verification across school batches');
+    into.verifiedWeek = old ? { ...old, schools: { ...old.schools, ...part.verifiedWeek.schools } } : part.verifiedWeek;
+  }
 }
 
 export async function fetchBracketLiveBatches(
