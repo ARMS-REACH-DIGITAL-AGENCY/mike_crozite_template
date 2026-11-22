@@ -58,7 +58,7 @@ export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] |
 export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?: PlayerRow[][] };
 // f (live boxes): is each inning's [offensive, pitching] run settled yet;
 // 1-8, then the W-L inning. Unsettled cells show who leads, but no run.
-export type GameBox = { d: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
+export type GameBox = { d: (number | null)[][]; x?: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
 export type ActiveRosterPlayer = {
   playerid: string | number;
   yatid?: string | null;
