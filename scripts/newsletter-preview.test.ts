@@ -75,7 +75,7 @@ test('daily layout keeps saved values, deduplicates home-game picks, and stacks 
   const facts = fixture(), result = renderFinishedEdition(facts, { baseUrl: 'https://isolated.example.invalid/5004?asof=2026-03-25' });
   assert.equal(result.rowKeys.daily_game_scores.filter((slot: any) => slot.key).length, 1);
   assert.equal(result.rowKeys.daily_game_scores.length, 12);
-  assert.match(result.html, /board-columns\{grid-template-columns:minmax\(0,1fr\)\}/);
+  assert.match(result.html, /board-columns\{grid-template-columns:minmax\(0,1fr\)[;}]/);
   assert.match(result.html, /Saved batter \(Club, MLB\): 2-for-4, HR/);
   assert.doesNotMatch(result.html, /pipeline|approved_by|review-copy|commissioner/i);
   assert.match(result.html, /https:\/\/isolated\.example\.invalid\/5004\?asof=2026-03-25/);
@@ -84,6 +84,24 @@ test('daily layout keeps saved values, deduplicates home-game picks, and stacks 
   assert.deepEqual(result.hashes, renderFinishedEdition(result.facts).hashes);
   assert.equal(result.hashes.html, createHash('sha256').update(result.html).digest('hex'));
   assert.equal(result.hashes.text, createHash('sha256').update(result.text).digest('hex'));
+});
+
+test('the supplied Daily Digest newspaper template retains its sections and changes no finished facts', () => {
+  const facts = fixture(), original = stableJson(facts);
+  const result = renderFinishedEdition(facts);
+  assert.equal(stableJson(facts), original);
+  assert.equal(stableJson(result.facts), original);
+  assert.equal(result.layoutVersion, 'daily-digest-phone8-v2');
+  const sections = ['YOUR HOMETOWN. THEIR NEXT CHAPTER.', 'The Daily Digest', 'FAN FAVORITES',
+    'THE FANTASY DESK', 'Daily Double', '>Connect<', '>Contribute<', '>Remember<'];
+  const documentBody = result.html.slice(result.html.indexOf('<body')).toLowerCase();
+  let previous = -1;
+  for (const heading of sections) { const index = documentBody.indexOf(heading.toLowerCase(), previous + 1); assert.ok(index > previous, 'Missing or reordered section: ' + heading); previous = index; }
+  assert.equal((result.html.match(/data-slot="/g) || []).length, 12);
+  assert.match(result.html, /March 26, 2026/);
+  assert.match(result.html, /25 March 2026/);
+  assert.match(result.html, /board-crown/);
+  assert.doesNotMatch(result.html, /TEST REPLAY|DESIGN PROOF|Commissioner|needs_decision/);
 });
 
 test('no favorites and favorites with no appearances remain distinct; HTML is escaped and private text is rejected', () => {

@@ -4,6 +4,7 @@
 // finished lines, scores and table cells are printed without scoring math.
 // No raw feeds, scorer, sender, sponsor lookup or database writes belong here.
 import { createHash } from 'node:crypto';
+import { renderDailyDigestLayout, type DailyDigestPresentation, type DailyDigestSlot } from './dailyDigestLayout';
 
 export type Row = Record<string, any>;
 export type ReadDatabase = { query(sql: string, values?: any[]): Promise<{ rows: Row[] }> };
@@ -14,7 +15,14 @@ export type EditionRequest = {
 export type FinishedEdition = {
   version: 'finished-publication-v1';
   ready: Row; recipient: Row; control: Row;
-  presentation?: { baseUrl: string };
+  presentation?: {
+    baseUrl: string;
+    schoolName?: string;
+    schoolLocation?: string;
+    daily?: DailyDigestPresentation;
+    scoreboardTeams?: Record<string, { name?: string; city?: string; seed?: string }>;
+    provenance?: Record<string, unknown>;
+  };
   selection: { seasonKey: string; region: number | null; favorites: string[]; picks: Row[] };
   rows: {
     daily_stat_lines: Row[]; daily_game_stories: Row[]; daily_game_scores: Row[];
@@ -26,7 +34,8 @@ export type RenderedEdition = {
   rowKeys: Record<string, unknown[]>; notes: string[];
   hashes: { facts: string; subject: string; html: string; text: string; content: string };
 };
-export const FINISHED_LAYOUT_VERSION = 'digest-gazette-finished-v1';
+export const FINISHED_LAYOUT_VERSION = 'daily-digest-phone8-v2';
+const WEEKLY_LAYOUT_VERSION = 'digest-gazette-finished-v1';
 const iso = (value: unknown) => value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 const dayAfter = (date: string, offset = 1) => new Date(Date.parse(date + 'T00:00:00Z') + offset * 86400000).toISOString().slice(0, 10);
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
@@ -124,21 +133,7 @@ function sideLabel(game: Row, side: 'home' | 'away'): string {
   return publicText(game[side + '_label'] ?? game[side + '_name'] ?? '', side + ' label');
 }
 function displayLabel(label: string): string { return label.split('\n').map(esc).join('<br>'); }
-function scorePanel(game: Row | null, label = '', home = false): string {
-  const columns = game ? Math.max(9, game.home_innings?.length || 0, game.away_innings?.length || 0) : 9;
-  const team = (name: string, cells: unknown[], total: unknown) => '<tr><th scope="row">' + displayLabel(name) + '</th>' +
-    Array.from({ length: columns }, (_, i) => '<td>' + esc(cells[i] ?? '') + '</td>').join('') + '<td class="runs">' + esc(total) + '</td></tr>';
-  return '<div class="score-panel' + (home ? ' home-game' : '') + '"><table><thead><tr><th>TEAM</th>' +
-    Array.from({ length: columns }, (_, i) => '<th>' + (i + 1) + '</th>').join('') + '<th>R</th></tr></thead><tbody>' +
-    (game ? team(sideLabel(game, 'away'), game.away_innings || [], game.away_runs) + team(sideLabel(game, 'home'), game.home_innings || [], game.home_runs) :
-      team(label, [], '') + team('', [], '')) + '</tbody></table></div>';
-}
-function scoreText(game: Row | null, label = ''): string {
-  if (!game) return label || '';
-  const side = (name: 'home' | 'away') => sideLabel(game, name) + '  ' + (game[name + '_innings'] || []).join(' ') + '  R ' + String(game[name + '_runs']);
-  return side('away') + '\n' + side('home');
-}
-function board(facts: FinishedEdition) {
+function dailyBoard(facts: FinishedEdition): { slots: Array<DailyDigestSlot | null>; keys: unknown[] } {
   const home = homeGames(facts.rows.daily_game_scores, Number(facts.recipient.home_hsid), facts.selection.region ?? undefined)[0] || null;
   const used = new Set(home ? [gameKey(home)] : []);
   const slots: Array<{ game: Row | null; label: string; position: number } | null> = Array(11).fill(null);
@@ -152,17 +147,32 @@ function board(facts: FinishedEdition) {
     if (game) used.add(gameKey(game));
     slots[next++] = { game, label: publicText(pick.label, 'picked school'), position: Number(pick.position) };
   }
-  const panel = (slot: typeof slots[number]) => scorePanel(slot?.game || null, slot?.label || 'ADD A TEAM');
-  const empty = slots.some(slot => slot === null);
-  const html = '<section class="scoreboard"><div class="board-title">YAT?STATS ALUMNI BASEBALL</div>' +
-    (empty ? '<p class="board-invite">Pick your own favorite 11 and we’ll send them to you every day.</p>' : '') +
-    '<div class="board-columns"><div class="board-column">' + slots.slice(0, 5).map(panel).join('') + scorePanel(home, '', true) +
-    '</div><div class="board-column">' + slots.slice(5).map(panel).join('') + '</div></div></section>';
-  return { html, text: (empty ? 'Pick your own favorite 11 and we’ll send them to you every day.\n\n' : '') +
-    'HOME\n' + scoreText(home) + '\n\n' + slots.map((slot, i) => String(i + 1) + '. ' + scoreText(slot?.game || null, slot?.label || 'ADD A TEAM')).join('\n\n'),
-    keys: [{ slot: 'home', key: home ? [iso(home.stats_date), home.season_key, home.region, home.game_id] : null },
-      ...slots.map((slot, i) => ({ slot: i + 1, pick_position: slot?.position ?? null, key: slot?.game ? [iso(slot.game.stats_date), slot.game.season_key, slot.game.region, slot.game.game_id] : null }))] };
+  const display = (game: Row | null, isHome: boolean, label = ''): DailyDigestSlot | null => {
+    if (!game && !label) return null;
+    const teams = facts.presentation?.scoreboardTeams || {};
+    const homeTeam = game ? teams[String(game.home_hsid)] : undefined;
+    const awayTeam = game ? teams[String(game.away_hsid)] : undefined;
+    return { home: isHome,
+      homeLabel: game ? sideLabel(game, 'home') : label,
+      awayLabel: game ? sideLabel(game, 'away') : '',
+      homeSeed: game?.home_seed == null ? homeTeam?.seed : String(game.home_seed),
+      awaySeed: game?.away_seed == null ? awayTeam?.seed : String(game.away_seed),
+      homeCity: game?.home_city_st || homeTeam?.city,
+      awayCity: game?.away_city_st || awayTeam?.city,
+      homeInnings: game?.home_innings || [], awayInnings: game?.away_innings || [],
+      homeRuns: game?.home_runs ?? '', awayRuns: game?.away_runs ?? '' };
+  };
+  return { slots: [
+    ...slots.slice(0, 5).map(slot => display(slot?.game || null, false, slot?.label)),
+    display(home, true),
+    ...slots.slice(5).map(slot => display(slot?.game || null, false, slot?.label)),
+  ], keys: [
+    { slot: 'home', key: home ? [iso(home.stats_date), home.season_key, home.region, home.game_id] : null },
+    ...slots.map((slot, i) => ({ slot: i + 1, pick_position: slot?.position ?? null,
+      key: slot?.game ? [iso(slot.game.stats_date), slot.game.season_key, slot.game.region, slot.game.game_id] : null })),
+  ] };
 }
+
 function table(value: Row, title: string): { html: string; text: string } {
   if (!value || !Array.isArray(value.columns) || !Array.isArray(value.rows)) throw new Error('Finished box-score table is incomplete');
   const rows = [...value.rows, ...(Array.isArray(value.totals) && value.totals.length ? [value.totals] : [])] as unknown[][];
@@ -189,7 +199,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
   if (options.baseUrl) {
     const url = new URL(options.baseUrl);
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Preview links require an HTTP(S) URL without credentials');
-    facts.presentation = { baseUrl: url.toString() };
+    facts.presentation = { ...facts.presentation, baseUrl: url.toString() };
   }
   const link = facts.presentation?.baseUrl;
   if (facts.version !== 'finished-publication-v1') throw new Error('Unsupported finished publication version');
@@ -211,30 +221,36 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
   const period = labelDate(iso(ready.period_start)) + (cadence === 'weekly' ? ' – ' + labelDate(iso(ready.period_end)) : '');
   const subject = (title + ' | ' + school.replace(/\n/g, ' ') + ' | ' + period).replace(/[\r\n]+/g, ' ');
   const body: string[] = [], plain: string[] = [title.toUpperCase(), school, period];
+  let dailyLayout: { html: string; text: string } | undefined;
   const rowKeys: Record<string, unknown[]> = {}, notes: string[] = [];
   if (cadence === 'daily') {
     const favoriteIds = new Set(facts.selection.favorites.map(yat));
     for (const row of rows.daily_stat_lines) if (!favoriteIds.has(yat(row.yatid))) throw new Error('Daily edition includes a player outside the recipient favorites');
-    const lines = rows.daily_stat_lines.map(row => publicText(row.line, 'daily stat line'));
-    const empty = favoriteIds.size === 0 ? "You haven't picked any favorites yet." : 'None of your players were in action yesterday.';
-    body.push(h2('Your players yesterday'), lines.length ? '<ul class="finished-lines">' + lines.map(line => '<li>' + esc(line) + '</li>').join('') + '</ul>' : '<p>' + esc(empty) + '</p>');
-    plain.push('YOUR PLAYERS YESTERDAY', lines.length ? lines.join('\n') : empty);
-    if (!favoriteIds.size && link) { body.push('<p><a href="' + esc(link) + '">Pick some favorites</a>.</p>'); plain.push('Pick some favorites: ' + link); }
-    for (const story of rows.daily_game_stories) {
-      const heading = publicText(story.title, 'story title'), text = publicText(story.story, 'story');
-      const series = publicText(story.series_note, 'series note');
-      const shoutouts = (story.shout_outs || []).map((row: Row) => publicText(row.line, 'shout-out'));
-      body.push(h2(heading), series ? '<p>' + esc(series) + '</p>' : '', '<p>' + esc(text) + '</p>', shoutouts.length ? '<p><strong>Shout-outs:</strong> ' + shoutouts.map(esc).join('; ') + '</p>' : '');
-      plain.push(heading, series, text, ...shoutouts);
-    }
-    const scores = board(facts);
-    body.push(h2('Scoreboard'), scores.html); plain.push('SCOREBOARD', scores.text);
-    if (link) { body.push('<p><a href="' + esc(link) + '">See the full scoreboard</a></p>'); plain.push('See the full scoreboard: ' + link); }
+    const story = rows.daily_game_stories[0];
+    const scores = dailyBoard(facts);
+    const presentation = facts.presentation?.daily || {};
+    const schoolParts = school.split(' — ');
+    const homeUrl = link ? new URL(link) : undefined;
+    const section = (hash: string) => { if (!homeUrl) return undefined; const url = new URL(homeUrl); url.hash = hash; return url.toString(); };
+    const schoolName = publicText(facts.presentation?.schoolName || story?.school_name || schoolParts[0], 'school');
+    dailyLayout = renderDailyDigestLayout({ subject, schoolName,
+      schoolLocation: publicText(facts.presentation?.schoolLocation || schoolParts.slice(1).join(' — '), 'school location'),
+      issueDateISO: dayAfter(iso(ready.period_end)), statsDateISO: iso(ready.period_start),
+      firstName: String(recipient.first_name || ''), isSuperfan: Boolean(recipient.is_superfan),
+      favoriteCount: favoriteIds.size,
+      regionLabel: facts.selection.region == null ? undefined : 'Region ' + facts.selection.region,
+      favoriteRows: rows.daily_stat_lines.map(row => ({ player_name: publicText(row.player_name, 'player name'),
+        team_name: publicText(row.team_name, 'team name'), level: publicText(row.level, 'level'), line: publicText(row.line, 'daily stat line') })),
+      story: story ? { title: publicText(story.title, 'story title'), story: publicText(story.story, 'story'),
+        seriesNote: publicText(story.series_note, 'series note'), shoutouts: (story.shout_outs || []).map((row: Row) => publicText(row.line, 'shout-out')) } : undefined,
+      slots: scores.slots,
+      presentation: { ...presentation, links: { home: section('sec-active'), favorites: section('sec-active'),
+        scoreboard: section('sec-fantasy'), ...presentation.links } },
+    });
     rowKeys.daily_stat_lines = rows.daily_stat_lines.map(row => [iso(row.stats_date), row.stat_line_id]);
     rowKeys.daily_game_stories = rows.daily_game_stories.map(row => [iso(row.stats_date), row.hsid, row.region, row.game_id]);
     rowKeys.daily_game_scores = scores.keys;
-    if (facts.selection.picks.length < 11) notes.push('No saved pick-page destination is available in the recovered contract; blank slots have no invented link.');
-    if (rows.daily_game_scores.some(row => !row.home_city_st || !row.away_city_st)) notes.push('Daily publication schema provides finished labels, not separate seed/name/city fields. Labels are printed unchanged.');
+    if (!presentation.links?.pickTeams) notes.push('No saved pick-page destination is available in the recovered contract; empty slots have no invented link.');
   } else {
     for (const box of own) { const rendered = weeklyBox(box); body.push(h2('The box score'), rendered.html); plain.push('THE BOX SCORE', rendered.text); }
     const lines = rows.weekly_player_lines.map(row => { yat(row.yatid); return publicText(row.line, 'weekly player line'); });
@@ -252,9 +268,10 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     rowKeys.weekly_box_scores = rows.weekly_box_scores.map(row => [row.season_key, row.region, row.game_id]);
   }
   notes.push('Review copy only. Sending controls and recipient preferences are unchanged. No sponsor is inferred.');
-  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(subject) + '</title><style>' + CSS + '</style></head><body><main class="paper"><header><h1>' + esc(title) + '</h1><p>' + displayLabel(school) + ' · ' + esc(period) + '</p></header>' + body.join('\n') + '</main></body></html>';
-  const text = plain.filter(value => value !== '').join('\n\n') + '\n';
+  const html = dailyLayout?.html || '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(subject) + '</title><style>' + CSS + '</style></head><body><main class="paper"><header><h1>' + esc(title) + '</h1><p>' + displayLabel(school) + ' · ' + esc(period) + '</p></header>' + body.join('\n') + '</main></body></html>';
+  const text = dailyLayout?.text || plain.filter(value => value !== '').join('\n\n') + '\n';
+  const layoutVersion = cadence === 'daily' ? FINISHED_LAYOUT_VERSION : WEEKLY_LAYOUT_VERSION;
   const hashes = { facts: sha(stableJson(facts)), subject: sha(subject), html: sha(html), text: sha(text), content: '' };
-  hashes.content = sha(stableJson({ facts: hashes.facts, subject: hashes.subject, html: hashes.html, text: hashes.text, layout: FINISHED_LAYOUT_VERSION }));
-  return { subject, html, text, facts, rowKeys, notes, hashes, layoutVersion: FINISHED_LAYOUT_VERSION };
+  hashes.content = sha(stableJson({ facts: hashes.facts, subject: hashes.subject, html: hashes.html, text: hashes.text, layout: layoutVersion }));
+  return { subject, html, text, facts, rowKeys, notes, hashes, layoutVersion };
 }
