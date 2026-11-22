@@ -119,7 +119,8 @@ const replayGameBoxCache = new Map<number, Promise<GameBox>>();
 /** The native school replay requests one historical game, not a full-season rebuild. */
 export function loadGameBox(file: string, gameId: number): Promise<GameBox | undefined> {
   if (fieldReplayMode()) {
-    return fetch(fieldReplayUrl('game=' + gameId), { cache: 'no-store' })
+    const asof = encodeURIComponent(previewDate());
+    return fetch(fieldReplayUrl('game=' + gameId + '&asof=' + asof), { cache: 'no-store' })
       .then(async r => { if (!r.ok) throw new Error('Field replay game HTTP ' + r.status); return (await r.json() as { box: GameBox | null }).box || undefined; });
   }
   if (!replayMode()) {
@@ -182,6 +183,15 @@ const activeRosterCache = new Map<number, Promise<ActiveRosterPlayer[]>>();
 // database busy, a dropped connection) is retried, and only a real answer
 // is kept - a failure is never cached as an empty roster for the visit.
 export function loadActiveRoster(hsid: number) {
+  if (fieldReplayMode()) {
+    return fetch(fieldReplayUrl('roster=' + hsid + '&asof=' + encodeURIComponent(previewDate())), {cache:'no-store'})
+      .then(async response => {
+        if (!response.ok) throw new Error('Historical school roster HTTP '+response.status);
+        const data = await response.json() as {roster:ActiveRosterPlayer[]};
+        if (!Array.isArray(data.roster)) throw new Error('Historical school roster missing');
+        return data.roster;
+      });
+  }
   if (!activeRosterCache.has(hsid)) {
     const attempt = (n: number): Promise<ActiveRosterPlayer[]> =>
       fetch(`/api/players/${hsid}`, { cache: 'no-store' })
@@ -1209,8 +1219,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const rawTheirs = boxForView ? boxForView[side === 'h' ? 'a' : 'h'] : undefined;
   // A completed replay uses its saved 2026 roster. The current active roster
   // omits some 2026 contributors and must NEVER erase their saved stat lines.
-  const mineRoster = replayMode() ? undefined : (me === 0 ? homeRoster : awayRoster);
-  const theirsRoster = replayMode() ? undefined : (me === 0 ? awayRoster : homeRoster);
+  const mineRoster = replayMode() && !fieldReplayMode() ? undefined : (me === 0 ? homeRoster : awayRoster);
+  const theirsRoster = replayMode() && !fieldReplayMode() ? undefined : (me === 0 ? awayRoster : homeRoster);
   const minePlayers = completeRosterRows(rawMine?.p || [], mineRoster);
   const theirPlayers = completeRosterRows(rawTheirs?.p || [], theirsRoster);
   // Unplayed drawer: the roster is known, but no metric can exist yet.
