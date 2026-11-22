@@ -33,6 +33,7 @@ export function rebaseBracketWeek(live: Live, week: number): Live {
   const shift = (day: number) => day + dayOffset;
   return {
     ...live,
+    verifiedWeek: live.verifiedWeek ? { ...live.verifiedWeek, week } : undefined,
     lines: live.lines.map((l) => [l[0], l[1], shift(l[2]), ...l.slice(3)] as typeof l),
     clubs: Object.fromEntries(Object.entries(live.clubs).map(([club, games]) =>
       [club, games.map((g) => [shift(g[0]), ...g.slice(1)] as typeof g)])),

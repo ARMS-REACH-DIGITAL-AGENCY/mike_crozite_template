@@ -30,6 +30,7 @@ import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
+import { hasVerifiedWeek, type VerifiedWeek } from '@/lib/bracket/provisionalSettlement';
 
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
@@ -41,6 +42,7 @@ export type Live = {
   // legacy favorites and external links. Roster and stat lines themselves
   // carry YAT IDs only.
   yatIdentityBySourceId?: Record<string, string>;
+  verifiedWeek?: VerifiedWeek;
 };
 
 const RULES = { mode: 'adjusted' as const, absent: 'hold' as const };
@@ -281,15 +283,21 @@ export function scoreLive(idx: Index, live: Live, asof: string, onlyWeek?: numbe
       return list.every((x) => x.done) && !open ? 'posted' : 'bottom';
     };
     const phase: LivePhase = cur < 7 ? phaseOf(from + cur) : 'posted';
-    setLiveInning(g[0], cur, phase);
+    // Pre-calculate only after Sunday's games have finished AND both schools'
+    // expected rosters and stat sources have an independent completeness proof.
+    // A missing schedule, a player with no line, or an incomplete feed cannot
+    // be mistaken for an earned zero.
+    const final = cur >= 7;
+    const earlyVerified = !final && cur === 6 && phase === 'posted' &&
+      hasVerifiedWeek(live.verifiedWeek, week, g[2], g[3]);
+    setLiveInning(g[0], earlyVerified ? 7 : cur, earlyVerified ? 'provisional' : phase);
     // A day's runs count once posted: every day before today, and today's
     // once its games are over. Innings 8 and 9 post at 4 a.m. Monday, when
     // nothing more can come in for the week - that ends the game (Pete,
     // Nov 2). Sunday's games all over is the Top of the 8th, not the end.
     const posted = (k: number) => k < cur || (k === cur && phase === 'posted');
     const f = Array.from({ length: 7 }, (_, d) => [posted(d), posted(d)] as [boolean, boolean]);
-    const final = cur >= 7;
-    const weekDone: [boolean, boolean] = [final, final];
+    const weekDone: [boolean, boolean] = [final || earlyVerified, final || earlyVerified];
     const side = (h: number) => {
       const players = roster.get(String(h)) || [];
       const mine = lines.get(String(h)) || new Map();
@@ -324,11 +332,11 @@ export function scoreLive(idx: Index, live: Live, asof: string, onlyWeek?: numbe
       return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows };
     };
     const home = side(g[2]), away = side(g[3]);
-    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? ruling(g, s, n) : undefined,
+    const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !(final || earlyVerified), (final || earlyVerified) ? ruling(g, s, n) : undefined,
       [live.fans?.[String(g[2])]?.[week - 1] ?? 0, live.fans?.[String(g[3])]?.[week - 1] ?? 0]);
     // A week in progress counts only the posted runs; the week (8) and W-L
     // (9) innings post with Sunday's, and any tiebreak once it's final.
-    g[5] = final
+    g[5] = final || earlyVerified
       ? result.innings.flatMap((i) => [i.home, i.away])
       : result.innings.slice(0, 9).flatMap((i, k) => {
         if (k >= 7) return final ? [i.home, i.away] : [0, 0];
@@ -342,16 +350,24 @@ export function scoreLive(idx: Index, live: Live, asof: string, onlyWeek?: numbe
     boxes[String(g[0])] = {
       // During a live week, future days and the week-total inning must
       // remain unknown. Only reached days can appear in the Stat Ledger.
-      d: result.innings.slice(0, 8).map((i, k) => !final && k > cur
+      d: result.innings.slice(0, 8).map((i, k) => !final && !earlyVerified && k > cur
         ? [null, null, null, null]
         : [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
       // Full-precision comparisons determine runs. Keep rounded d for legacy
       // clients; the UI must NEVER recompute a winner from rounded d cells.
-      x: result.innings.slice(0, 8).map((i, k) => !final && k > cur
+      x: result.innings.slice(0, 8).map((i, k) => !final && !earlyVerified && k > cur
         ? [null, null, null, null]
         : [i.homeOffense ?? null, i.awayOffense ?? null, i.homePitching ?? null, i.awayPitching ?? null]),
       // Posted [offense, pitching] per inning 1-8, then the W-L inning.
       f: [...f, weekDone, weekDone],
+      provisional: earlyVerified ? {
+        status: 'verified',
+        lastInning: result.innings.length,
+        projectedWinner: result.winner === 'home' ? g[2] : result.winner === 'away' ? g[3] : null,
+        decidedBy: result.decidedBy,
+        snapshotId: live.verifiedWeek!.snapshotId,
+        checkedAt: live.verifiedWeek!.checkedAt,
+      } : undefined,
       h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], rd: home.week.runDiff, days: home.dayRows },
       a: { p: away.weekRows, wl: [away.week.wins, away.week.losses], rd: away.week.runDiff, days: away.dayRows },
     };

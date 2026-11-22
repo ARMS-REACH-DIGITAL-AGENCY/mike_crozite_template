@@ -58,7 +58,7 @@ export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] |
 export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?: PlayerRow[][] };
 // f (live boxes): is each inning's [offensive, pitching] run settled yet;
 // 1-8, then the W-L inning. Unsettled cells show who leads, but no run.
-export type GameBox = { d: (number | null)[][]; x?: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][] };
+export type GameBox = { d: (number | null)[][]; x?: (number | null)[][]; h: SideBox; a: SideBox; f?: [boolean, boolean][]; provisional?: { status: 'verified'; lastInning: number; projectedWinner: number | null; decidedBy: string | null; snapshotId: string; checkedAt: string } };
 export type ActiveRosterPlayer = {
   playerid: string | number;
   yatid?: string | null;
@@ -1383,21 +1383,13 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // The scoreboard displays rounded values for space, but the same raw
   // comparison that assigned each run must decide which cell turns gold.
   const metricAt = (i: number) => boxForView?.x?.[i] || boxForView?.d?.[i];
-  const decimalDecisions = Array.from({ length: 8 }, (_, i) => {
+  // Show one decimal for BOTH schools when whole-number rounding hides a
+  // real OPS+/FIP- difference. The winner still uses full-precision values.
+  const needsPrecision = (i: number, idx: number, opp: number) => {
     const raw = metricAt(i);
-    if (!raw) return [] as { inning: number; metric: string; winner: number; loser: number; winnerValue: number; loserValue: number }[];
-    return [true, false].flatMap((higher, type) => {
-      const a = raw[type * 2], b = raw[type * 2 + 1];
-      if (a == null || b == null || a === b || Math.round(a) !== Math.round(b)) return [];
-      const homeWins = higher ? a > b : a < b;
-      return [{
-        inning: i + 1, metric: higher ? 'OPS+' : 'FIP-',
-        winner: homeWins ? 0 : 1, loser: homeWins ? 1 : 0,
-        winnerValue: homeWins ? a : b, loserValue: homeWins ? b : a,
-      }];
-    });
-  }).flat();
-  const exactLabel = (v: number) => v.toFixed(2);
+    const a = raw?.[idx], b = raw?.[opp];
+    return a != null && b != null && a !== b && Math.round(a) === Math.round(b);
+  };
   const teamBoard = (side: 0 | 1) => {
     const name = names[side], location = locations[side];
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
@@ -1413,15 +1405,14 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
       // A gold cell must reflect the engine's full-precision run comparison.
       const cls = complete ? cellClass(i, idx, raw?.[idx], raw?.[opp], higher)
         : inPlay && qualifies ? 'in-play' : inPlay ? '' : 'placeholder';
-      const decimalWinner = qualifies && raw?.[idx] != null && raw?.[opp] != null
-        && raw[idx] !== raw[opp] && Math.round(raw[idx]) === Math.round(raw[opp]);
+      const showDecimal = needsPrecision(i, idx, opp);
       const exact = raw?.[idx];
       const opposite = raw?.[opp];
       const detail = exact == null ? placeholder : `${name} ${higher ? 'OPS+' : 'FIP-'} ${exact.toFixed(3)}`
         + (opposite == null ? ' (opponent did not play)' : ` vs ${opposite.toFixed(3)}`)
-        + (decimalWinner ? '; run awarded on unrounded values' : '');
+        + (showDecimal ? '; run decided using unrounded values' : '');
       return <span key={i} className={`bl-tb-cell ${cls}`} title={detail}
-        aria-label={detail}>{complete || inPlay ? <>{fmtStat(d?.[idx])}{decimalWinner ? <sup className="bl-tb-precision">*</sup> : null}</> : placeholder}</span>;
+        aria-label={detail}>{complete || inPlay ? <>{showDecimal && exact != null ? exact.toFixed(1) : fmtStat(d?.[idx])}</> : placeholder}</span>;
     });
     const nameCell = (
       <>
@@ -1464,16 +1455,6 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
           <div className="bl-metric-scoreboards" ref={boardsRef} aria-label="OPS+ and FIP- inning scoreboards">
             {teamBoard(1)}
             {teamBoard(0)}
-            {decimalDecisions.length ? (
-              <div className="bl-tb-precision-note" aria-label="Runs awarded on full precision">
-                <b>* Decimal decision:</b> {decimalDecisions.map((item, i) => (
-                  <span key={`${item.inning}-${item.metric}`}>
-                    {i ? ' · ' : ''}Inning {item.inning} {item.metric}: {names[item.winner]} {exactLabel(item.winnerValue)}
-                    {' vs '}{names[item.loser]} {exactLabel(item.loserValue)}
-                  </span>
-                ))}
-              </div>
-            ) : null}
             {extraInnings.length ? (
               <div className="bl-tiebreak-board" aria-label="Tiebreak innings">
                 <div className="bl-tiebreak-line head" style={{gridTemplateColumns:`minmax(110px,1fr) repeat(${extraInnings.length},28px) 34px`}}>
@@ -1942,7 +1923,7 @@ export function Styles() {
       .bl-tb-name small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#eef7ef; font:500 9px/1.1 "Roboto Condensed","Arial Narrow",Arial,sans-serif; }
       .bl-tb-name.switch { cursor:pointer; }
       .bl-tb-name.switch:hover { box-shadow:inset 0 0 0 1px rgba(255,211,79,.6); }
-      .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 1px; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
+      .bl-tb-cell { display:grid; place-items:center; min-height:20px; padding:2px 0; border-radius:3px; background:#0d2d20; color:#edf4ee; font:800 10px/1 Oswald,sans-serif; font-variant-numeric:tabular-nums; overflow:hidden; }
       .bl-tb-cell.won { background:#f3c735; color:#15251d; }
       .bl-tb-precision { font-size:8px; line-height:1; margin-left:1px; font-weight:900; }
       .bl-tb-precision-note { font:600 10px/1.3 "Roboto Condensed","Arial Narrow",Arial,sans-serif; color:#e9e0b7; padding:2px 4px 3px; }
@@ -1964,7 +1945,7 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-tb-head { font-size:6.8px; }
-        .bl-tb-cell { font-size:9px; min-height:19px; }
+        .bl-tb-cell { font-size:8.5px; min-height:19px; letter-spacing:-.025em; }
         .bl-tb-wlabel { font-size:9.5px; }
         .bl-tb-label { font-size:8px; }
         .bl-tb-name { padding:2px 3px; }

@@ -13,8 +13,9 @@ type Stored = {
   status: string; innings: number[] | null; winner_hsid: number | null;
   decided_by: string | null; computed_at: string | null;
   settled: [boolean, boolean][] | null;
+  provisional: { status: string; lastInning: number; snapshotId: string } | null;
 };
-export type LiveInning = [gameId: number, day: number, phase: 'top' | 'posted'];
+export type LiveInning = [gameId: number, day: number, phase: 'top' | 'posted' | 'provisional'];
 export type Prepared = { index: Index; lb: LbGame[]; live: LiveInning[] };
 
 const DAY = 86400000;
@@ -32,7 +33,7 @@ export async function preparedIndex(season: string, now = Date.now()): Promise<P
   const { rows } = await query<Stored>(
     "SELECT stage,region,round,series_no,game_no,game_id,week,home_hsid,away_hsid," +
     "home_seed,away_seed,home_school_name,away_school_name,status,innings,winner_hsid,decided_by," +
-    "computed_at::text,box->'f' AS settled " +
+    "computed_at::text,box->'f' AS settled,box->'provisional' AS provisional " +
     "FROM public.master_bracket WHERE season_key=$1 AND " +
     "(stage='bracket' OR (stage IN ('total_runs','season_championship','world_series') " +
     "AND home_hsid IS NOT NULL AND away_hsid IS NOT NULL)) " +
@@ -48,7 +49,9 @@ export async function preparedIndex(season: string, now = Date.now()): Promise<P
       const computedDay = g.computed_at ? bracketDay(Date.parse(g.computed_at)) : weekStart;
       const through = computedDay < today ? computedDay : today;
       const day = Math.max(0, Math.min(6, daysFrom(weekStart, through)));
-      live.push([g.game_id, day, g.settled?.[day]?.[0] ? 'posted' : 'top']);
+      const projected = g.provisional?.status === 'verified' && g.provisional.lastInning >= 9 &&
+        Boolean(g.provisional.snapshotId) && today <= weeks[g.week - 1][1];
+      live.push([g.game_id, projected ? 7 : day, projected ? 'provisional' : g.settled?.[day]?.[0] ? 'posted' : 'top']);
     }
     return [g.game_id, g.week, Number(g.home_hsid), Number(g.away_hsid),
       final ? g.decided_by || 'runs' : '', (g.innings || []).map(Number),

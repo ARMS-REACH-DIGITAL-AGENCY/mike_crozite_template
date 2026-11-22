@@ -124,7 +124,9 @@ function WeekCardView({ index, card, me, star, starIdentity, rec, focused, onOpe
   const shownInnings = corrected?.innings || g?.[5] || [];
   // Extra innings (a tiebreak) only once the game is final: a week still
   // being played is 9 innings, whatever the practice files carry.
-  const inningCount = card.state === 'final' ? Math.max(9, Math.floor(shownInnings.length / 2)) : 9;
+  const inningCount = card.state === 'final' || lv?.status.startsWith('BOT 9') || (lv && lv.cells[0].length > 9)
+    ? Math.max(9, Math.floor(shownInnings.length / 2))
+    : 9;
   const [rawHr, rawAr] = g ? runsThrough(g, card.days) : [0, 0];
   const [hr, ar] = corrected && card.state === 'final' ? corrected.score : [rawHr, rawAr];
   const correctedWinner = g && corrected && card.state === 'final'
