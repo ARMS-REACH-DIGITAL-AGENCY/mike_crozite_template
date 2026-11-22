@@ -3,7 +3,7 @@ import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
 import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
 import {
-  allowClubResultFallback, isBracketGameDone as isDone, isBracketGameFinal as isFinal,
+  allowClubResultFallback, isBracketGameDone as isDone, isBracketGameFinal as isFinal, isBracketGameType,
   missingScheduleGameIds, scheduleAuthority, type ScheduleFact,
 } from '@/lib/bracket/scheduleAuthority';
 
@@ -43,9 +43,9 @@ type StageRow = {
   status_label: string | null; level_label: string | null; display_level_label: string | null;
   position: string | null; current_team_name: string | null;
 };
-type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null; status: string | null; level: string | null };
-type SchedRow = { game: string; day: number; status: string | null; home: string; away: string; home_runs: number | null; away_runs: number | null; start: string | null };
-type ClubRow = { team: string; game: string; day: number; is_win: boolean };
+type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null; status: string | null; level: string | null; game_type?: string | null };
+type SchedRow = ScheduleFact & { home: string; away: string; home_runs: number | null; away_runs: number | null; start: string | null };
+type ClubRow = { team: string; game: string; day: number; is_win: boolean; game_type?: string | null };
 
 const n = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
 // "6.2" innings = 20 outs.
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
         `SELECT DISTINCT ON (yatid, source, source_game_id, stat_type)
                 yatid AS playerid, (game_date::date - $2::date) AS day, stat_type, stats,
                 source_game_id::text AS game, team_name AS team, game_status AS status,
-                raw_payload->'sport'->>'abbreviation' AS level
+                raw_payload->'sport'->>'abbreviation' AS level, raw_payload->>'gameType' AS game_type
            FROM player_game_logs
           WHERE yatid = ANY($1::text[]) AND game_date >= $2::date AND game_date < $2::date + $3::int
             AND stat_type IN ('batting', 'pitching')
@@ -141,11 +141,6 @@ export async function GET(req: NextRequest) {
         [ids, start, weeks * 7],
       )
       : { rows: [] as LineRow[] };
-    const lines = logRows.map((r) => [
-      schoolOf.get(r.playerid)!, r.playerid, Number(r.day), r.stat_type === 'batting' ? 'b' : 'p',
-      r.stat_type === 'batting' ? batOf(r.stats || {}) : pitOf(r.stats || {}), r.game, text(r.team), isDone(r.status) ? 1 : 0, text(r.level),
-    ]);
-
     // Club results: every finished game of every club these alumni play
     // for, from any line that carries the result (isWin).
     const clubNames = [...new Set([
@@ -156,7 +151,7 @@ export async function GET(req: NextRequest) {
       ? await query<ClubRow>(
         `SELECT DISTINCT ON (team_name, source_game_id)
                 team_name AS team, source_game_id::text AS game, (game_date::date - $2::date) AS day,
-                (raw_payload->>'isWin')::boolean AS is_win
+                (raw_payload->>'isWin')::boolean AS is_win, raw_payload->>'gameType' AS game_type
            FROM player_game_logs
           WHERE team_name = ANY($1) AND game_date >= $2::date AND game_date < $2::date + $3::int
             AND raw_payload ? 'isWin' AND jsonb_typeof(raw_payload->'isWin') = 'boolean'
@@ -176,7 +171,7 @@ export async function GET(req: NextRequest) {
     // is that club's result (the W-L inning) as soon as the game ends.
     const { rows: sched } = clubNames.length
       ? await query<SchedRow>(
-        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status, game_time_utc AS start,
+        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status, game_type, game_time_utc AS start,
                 home_team_name AS home, away_team_name AS away, home_score AS home_runs, away_score AS away_runs
            FROM team_schedules
           WHERE (home_team_name = ANY($1) OR away_team_name = ANY($1))
@@ -187,6 +182,7 @@ export async function GET(req: NextRequest) {
     const want = new Set(clubNames);
     const games: Record<string, [number, string, 0 | 1, 0 | 1, number][]> = {};
     for (const r of sched) {
+      if (!isBracketGameType(r.game_type)) continue;
       for (const [club, mine, theirs] of [[r.home, r.home_runs, r.away_runs], [r.away, r.away_runs, r.home_runs]] as const) {
         if (!want.has(club)) continue;
         (games[club] ||= []).push([Number(r.day), r.game, isDone(r.status) ? 1 : 0, isStarted(r.status) ? 1 : 0, r.start ? Date.parse(String(r.start)) || 0 : 0]);
@@ -207,21 +203,27 @@ export async function GET(req: NextRequest) {
     );
     const { rows: otherSchedule } = missingIds.length
       ? await query<ScheduleFact>(
-        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status
+        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status, game_type
            FROM team_schedules WHERE game_pk = ANY($1::bigint[])`,
         [missingIds, start],
       )
       : { rows: [] as ScheduleFact[] };
     const schedState = scheduleAuthority([...sched, ...otherSchedule], weeks * 7);
-    for (const l of lines) {
-      const st = schedState.get(String(l[5]));
-      if (st) l[7] = st.done ? 1 : 0;
-    }
+    // Keep excluded schedule facts in the authority map so an old or
+    // untyped log cannot reintroduce a preseason result through fallback.
+    const lines = logRows.filter(r => isBracketGameType(r.game_type) && schedState.get(r.game)?.eligible !== false).map(r => {
+      const st = schedState.get(r.game);
+      return [
+        schoolOf.get(r.playerid)!, r.playerid, Number(r.day), r.stat_type === 'batting' ? 'b' : 'p',
+        r.stat_type === 'batting' ? batOf(r.stats || {}) : pitOf(r.stats || {}), r.game, text(r.team),
+        (st ? st.done : isDone(r.status)) ? 1 : 0, text(r.level),
+      ];
+    });
     // Clubs off the pro schedule (Fall League ...): the result on the lines -
     // never for a known game outside this window or one that isn't final.
     for (const r of clubRows) {
       const st = schedState.get(r.game);
-      if (allowClubResultFallback(st)) result(r.team, Number(r.day), r.game, r.is_win);
+      if (isBracketGameType(r.game_type) && allowClubResultFallback(st)) result(r.team, Number(r.day), r.game, r.is_win);
     }
 
     // Registered fans as each week went final (4 a.m. Arizona = 11:00 UTC
