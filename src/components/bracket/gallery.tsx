@@ -1337,22 +1337,39 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // percentage in the box below. A cell that beat the other school's is
   // yellow - two yellows in an inning: both runs.
   const wpText = (wp: number | null) => (wp == null ? '–' : wp.toFixed(3).replace(/^0/, ''));
+  // Render extra precision only where whole-number rounding conceals a
+  // real difference. Never use displayed rounding to award a run.
+  const metricAt = (i: number) => boxForView?.x?.[i] || boxForView?.d?.[i];
+  const precisionValue = (i: number, idx: number, opp: number, fallback: number | null | undefined) => {
+    const values = metricAt(i);
+    const a = values?.[idx], b = values?.[opp];
+    if (a == null || b == null || a === b || Math.round(a) !== Math.round(b)) return fmtStat(fallback);
+    // Use sufficient decimals to distinguish values when possible, preserving
+    // the full-precision value in the tooltip for extreme near ties.
+    for (let digits = 1; digits <= 3; digits++) {
+      if (a.toFixed(digits) !== b.toFixed(digits)) return a.toFixed(digits);
+    }
+    return a.toFixed(3);
+  };
   const teamBoard = (side: 0 | 1) => {
     const name = names[side], location = locations[side];
     const wp = side === 0 ? homeWp : awayWp, oppWp = side === 0 ? awayWp : homeWp;
     const metricRow = (idx: number, opp: number, higher: boolean) => Array.from({ length: 8 }, (_, i) => {
       const d = weekInProgress && i > visibleThroughDay ? undefined : boxForView?.d?.[i];
+      const raw = weekInProgress && i > visibleThroughDay ? undefined : metricAt(i);
       const complete = Boolean(d && settledAt(i, idx));
       // The day being played: the school's number so far, in a yellow ring
       // (not the full yellow of a won cell) until the day goes final.
       const inPlay = !complete && d?.[idx] != null;
-      const qualifies = Boolean(wonCell(d?.[idx], d?.[opp], higher));
+      const qualifies = Boolean(wonCell(raw?.[idx], raw?.[opp], higher));
       const placeholder = higher ? 'OPS+' : 'FIP-';
       // A pending outline is earned only when the game's real 'hold' rule
       // favors this team; a missing opponent defaults to league average 100.
-      const cls = complete ? cellClass(i, idx, d?.[idx], d?.[opp], higher)
+      const cls = complete ? cellClass(i, idx, raw?.[idx], raw?.[opp], higher)
         : inPlay && qualifies ? 'in-play' : inPlay ? '' : 'placeholder';
-      return <span key={i} className={`bl-tb-cell ${cls}`}>{complete || inPlay ? fmtStat(d?.[idx]) : placeholder}</span>;
+      return <span key={i} className={`bl-tb-cell ${cls}`}
+        title={raw?.[idx] == null ? placeholder : `${name} ${higher ? 'OPS+' : 'FIP-'} ${raw[idx]!.toFixed(4)}`}
+        aria-label={raw?.[idx] == null ? placeholder : `${name} ${higher ? 'OPS+' : 'FIP-'} ${raw[idx]!.toFixed(4)}`}>{complete || inPlay ? precisionValue(i, idx, opp, d?.[idx]) : placeholder}</span>;
     });
     const nameCell = (
       <>
@@ -1880,7 +1897,7 @@ export function Styles() {
         .bl.bl-embed.yfp-drawer .bl-box .nm { min-width:64px; padding-left:5px; }
         .bl-metric-scoreboards { margin-left:5px; margin-right:5px; }
         .bl-tb-head { font-size:6.8px; }
-        .bl-tb-cell { font-size:9px; min-height:19px; }
+        .bl-tb-cell { font-size:8.5px; min-height:19px; letter-spacing:-.025em; }
         .bl-tb-wlabel { font-size:9.5px; }
         .bl-tb-label { font-size:8px; }
         .bl-tb-name { padding:2px 3px; }
