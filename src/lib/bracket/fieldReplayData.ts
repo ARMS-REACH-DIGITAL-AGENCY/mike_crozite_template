@@ -63,7 +63,7 @@ export async function fieldReplayRosters(read: Read, schoolIds: number[], asof =
   const {rows:teams} = ids.length ? await read<RecentTeam>(
     "SELECT DISTINCT ON (yatid) yatid::text,team_name FROM public.player_game_logs " +
     "WHERE yatid=ANY($1::text[]) AND game_date >= DATE '2026-03-23' " +
-    "AND game_date <= $2::date AND team_name IS NOT NULL " +
+    "AND game_date < $2::date AND team_name IS NOT NULL " +
     "ORDER BY yatid,game_date DESC,updated_at DESC",
     [ids,asof]) : {rows: [] as RecentTeam[]};
   const team = new Map(teams.map(x => [x.yatid,x.team_name]));
@@ -116,7 +116,7 @@ export async function fieldReplayGame(read: Read, gameId: number, asof: string):
     "(game_date::date-$2::date) AS day,stat_type,stats,source_game_id::text AS game,team_name AS team, " +
     "game_status AS status,raw_payload->'sport'->>'abbreviation' AS level FROM public.player_game_logs " +
     "WHERE yatid=ANY($1::text[]) AND game_date >= $2::date " +
-    "AND game_date < $2::date + INTERVAL '7 days' AND game_date <= $3::date " +
+    "AND game_date < $2::date + INTERVAL '7 days' AND game_date < $3::date " +
     "AND stat_type IN ('batting','pitching') " +
     "ORDER BY yatid,source,source_game_id,stat_type,updated_at DESC",
     [rosters.ids,weekStart,asof]) : {rows:[] as Line[]};
@@ -133,13 +133,13 @@ export async function fieldReplayGame(read: Read, gameId: number, asof: string):
     "SELECT game_pk::text AS game,(game_date::date-$2::date) AS day,status,game_time_utc::text AS start, " +
     "home_team_name AS home,away_team_name AS away,home_score AS home_runs,away_score AS away_runs " +
     "FROM public.team_schedules WHERE (home_team_name=ANY($1::text[]) OR away_team_name=ANY($1::text[])) " +
-    "AND game_date >= $2::date AND game_date < $2::date + INTERVAL '7 days' AND game_date <= $3::date",
+    "AND game_date >= $2::date AND game_date < $2::date + INTERVAL '7 days' AND game_date < $3::date",
     [clubNames,weekStart,asof]) : {rows:[] as Schedule[]};
   const {rows:clubLines}=clubNames.length?await read<Club>(
     "SELECT DISTINCT ON (team_name,source_game_id) team_name AS team,source_game_id::text AS game, " +
     "(game_date::date-$2::date) AS day,(raw_payload->>'isWin')::boolean AS won " +
     "FROM public.player_game_logs WHERE team_name=ANY($1::text[]) AND game_date >= $2::date " +
-    "AND game_date < $2::date + INTERVAL '7 days' AND game_date <= $3::date " +
+    "AND game_date < $2::date + INTERVAL '7 days' AND game_date < $3::date " +
     "AND game_status ~* '^(final|game over|completed)' AND raw_payload ? 'isWin' " +
     "AND jsonb_typeof(raw_payload->'isWin')='boolean' " +
     "ORDER BY team_name,source_game_id,updated_at DESC",
@@ -176,6 +176,17 @@ export async function fieldReplayGame(read: Read, gameId: number, asof: string):
   };
   const boxes=scoreLive(index,live,asof,g.week);
   const box=boxes[String(g.game_id)];
+  // asof is the 4 AM Arizona bracket-day opening. Real game lines from
+  // this calendar day are not available yet; this inning is NOT posted.
+  // Preserve all roster players while leaving today's outcomes unsettled.
+  if(box && asof >= weekStart && asof <= weekEnd) {
+    const k=Math.round((Date.parse(asof+'T00:00:00Z')-Date.parse(weekStart+'T00:00:00Z'))/86400000);
+    if(k>=0 && k<7){
+      box.d[k]=[null,null,null,null];
+      if(box.x) box.x[k]=[null,null,null,null];
+      if(box.f) box.f[k]=[false,false];
+    }
+  }
   // A known matchup before its week starts still has an unplayed full roster.
   if(!box) return null;
   return {box,innings:gameRow[5],winner:gameRow[6],decidedBy:gameRow[4]||null,
