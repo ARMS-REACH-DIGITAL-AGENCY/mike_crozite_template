@@ -129,7 +129,7 @@ async function main() {
     await db.query("SET LOCAL lock_timeout = '10s'");
     const identity = (await db.query("SELECT current_setting('neon.endpoint_id',true) AS endpoint")).rows[0];
     if (identity.endpoint !== endpoint.split('.')[0]) throw new Error('Actual connected Neon endpoint is different');
-    const checkpoints = (await db.query('SELECT *, report_date::text AS report_date,effective_at::text AS effective_at FROM bracket_rehearsal_days WHERE season_key=$1 ORDER BY report_date FOR UPDATE', [seasonKey])).rows;
+    const checkpoints = (await db.query('SELECT d.*, d.report_date::text AS report_date,d.effective_at::text AS effective_at FROM bracket_rehearsal_days d WHERE d.season_key=$1 ORDER BY d.report_date FOR UPDATE', [seasonKey])).rows;
     const checkpoint = checkpoints[0];
     if (checkpoints.length !== 1 || checkpoint.report_date !== day || checkpoint.branch_id !== branch || checkpoint.phase !== 'awaiting_review') throw new Error('Only the existing first-day review checkpoint may be repaired');
     if (checkpoint.evidence.sourceHash !== expectedSourceHash || checkpoint.evidence.storedHash !== expectedStoredHash || digest(checkpoint.source_snapshot.live) !== expectedSourceHash) throw new Error('Original checkpoint changed since review');
