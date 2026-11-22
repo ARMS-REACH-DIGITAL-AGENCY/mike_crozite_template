@@ -244,7 +244,8 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       story: story ? { title: publicText(story.title, 'story title'), story: publicText(story.story, 'story'),
         seriesNote: publicText(story.series_note, 'series note'), shoutouts: (story.shout_outs || []).map((row: Row) => publicText(row.line, 'shout-out')) } : undefined,
       slots: scores.slots,
-      presentation: { ...presentation, links: { home: section('sec-active'), favorites: section('sec-active'),
+      // The approved masthead logo is served by the site itself (public/img/newsletter).
+      presentation: { mastheadLogo: link ? new URL('/img/newsletter/daily-digest-logo.png', link).toString() : undefined, ...presentation, links: { home: section('sec-active'), favorites: section('sec-active'),
         scoreboard: section('sec-fantasy'), ...presentation.links } },
     });
     rowKeys.daily_stat_lines = rows.daily_stat_lines.map(row => [iso(row.stats_date), row.stat_line_id]);
