@@ -6,7 +6,6 @@ import { getPlayerById, query, resolveLegacyPlayerRedirect, resolveProfileCard, 
 import { getPlayerIdentityMetaOnce } from '@/lib/playerIdentityCached';
 import { keptPlayerById } from '@/lib/profilePageData';
 import { playerJourneyJsonLd, jsonLdScript } from '@/lib/playerJourneySeo';
-import { toPlayerSlug } from '@/lib/slug';
 import { canonicalSchoolUrls } from '@/lib/schoolDirectoryRouting';
 import ProfileFunZoneStabilizer from '@/components/yatstats/ProfileFunZoneStabilizer';
 import StoryDrawer from '@/components/yatstats/StoryDrawer';
@@ -145,8 +144,10 @@ export default async function PlayerLayout({
     teamName: meta.currentTeamName,
     levelLabel: meta.levelLabel,
     statusLabel: meta.statusLabel,
-    profileUrl: playerSchoolUrl.startsWith('https://') && playerName
-      ? `${playerSchoolUrl}/${encodeURIComponent(canonicalPlayerHsid)}/player/${encodeURIComponent(publicId)}/${toPlayerSlug(playerName.split(' ')[0], playerName.split(' ').slice(1).join(' '))}`
+    // Structured-data URL must be identical to the canonical profile URL.
+    // Named school subdomains do not contain an extra /{hsid} prefix.
+    profileUrl: canonicalPlayerUrl.startsWith('https://') && playerName
+      ? canonicalPlayerUrl
       : undefined,
   });
 
