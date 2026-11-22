@@ -156,6 +156,10 @@ function freezeClosedDays(res: Result, row: Row, weekStart: string) {
   if (!res.box || !was) return;
   for (let d = 0; d < closed; d++) {
     if (was.d?.[d]) res.box.d[d] = was.d[d];
+    // A frozen day's raw display values must remain frozen with its score.
+    // Older stored boxes lack x: use the stored rounded values, never
+    // freshly recomputed metrics that could imply the wrong winner.
+    if (res.box.x && was.d?.[d]) res.box.x[d] = was.x?.[d] ?? was.d[d];
     if (was.f?.[d] && res.box.f) res.box.f[d] = was.f[d];
     if (was.h.days?.[d] && res.box.h.days) res.box.h.days[d] = was.h.days[d];
     if (was.a.days?.[d] && res.box.a.days) res.box.a.days[d] = was.a.days[d];
