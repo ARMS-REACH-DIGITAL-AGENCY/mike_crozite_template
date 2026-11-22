@@ -31,7 +31,7 @@ import {
 // result is returned for this visit but never kept (queryFailureWatch).
 const PROFILE_DATA_TTL_SECONDS = CARD_DATA_TTL_SECONDS; // one age for all card data (Pete, Nov 18)
 class UnkeptResult<T> { constructor(readonly value: T) {} }
-function keptForProfile<A extends string[], T>(name: string, load: (...args: A) => Promise<T>) {
+function keptForProfile<A extends string[], T>(name: string, load: (...args: A) => Promise<T>, extraTags: string[] = []) {
   return async (...args: A): Promise<T> => {
     try {
       return await unstable_cache(async () => {
@@ -41,7 +41,7 @@ function keptForProfile<A extends string[], T>(name: string, load: (...args: A) 
         return value;
       }, ['player-profile', name, ...args], {
         revalidate: PROFILE_DATA_TTL_SECONDS,
-        tags: ['player-profile', `player-profile:${args[0] ?? ''}`],
+        tags: ['player-profile', `player-profile:${args[0] ?? ''}`].concat(extraTags),
       })();
     } catch (error) {
       if (error instanceof UnkeptResult) return error.value as T;
@@ -51,7 +51,9 @@ function keptForProfile<A extends string[], T>(name: string, load: (...args: A) 
 }
 
 export const keptPlayerById = keptForProfile('player-by-id-v1', getPlayerById);
-export const keptProfileNews = keptForProfile('profile-news-v1', (playerId: string) => getNewsByPlayer(playerId, null, true));
+// News publication must not evict unrelated stats/game-log caches. A new key
+// also prevents pre-deployment entries without the news tag from surviving.
+export const keptProfileNews = keptForProfile('profile-news-v2', (playerId: string) => getNewsByPlayer(playerId, null, true), ['player-profile-news']);
 export const keptBattingStats = keptForProfile('batting-v1', getPlayerBattingStats);
 export const keptPitchingStats = keptForProfile('pitching-v1', getPlayerPitchingStats);
 export const keptCareerBatting = keptForProfile('career-batting-v1', getPlayerCareerBatting);

@@ -12,6 +12,8 @@
 //                                      negative) - what the back of his
 //                                      flip card shows
 //   GET /api/news/:hsid?limit=100&offset=100 — read next page of all verified school stories
+//   GET /api/news/:hsid?player=YAT123&view=profile&sort=newest&limit=100&offset=100
+//   Add fresh=1 on user-opened News tabs to read newly received transactions.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getNewsByHsid, getNewsByPlayer } from '@/lib/db';
@@ -58,6 +60,7 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const playerId = searchParams.get('player');
+  const fresh = searchParams.get('fresh') === '1';
   // Bound the size of each response; pagination keeps the complete school
   // feed available without loading every article during initial page load.
   const parsedLimit = Number(searchParams.get('limit') || '50');
@@ -69,7 +72,7 @@ export async function GET(
     let articles: any[];
 
     if (playerId) {
-      articles = await getNewsByPlayer(playerId, limit, false, searchParams.get("sort") !== "newest");
+      articles = await getNewsByPlayer(playerId, limit, searchParams.get('view') === 'profile', searchParams.get("sort") !== "newest", offset);
     } else {
       articles = await getNewsByHsid(hsid, limit, offset);
     }
@@ -178,7 +181,7 @@ export async function GET(
       { posts, total: posts.length },
       {
         status: 200,
-        headers: { ...cors, 'Cache-Control': 'public, max-age=15, s-maxage=15, stale-while-revalidate=15' },
+        headers: { ...cors, 'Cache-Control': fresh ? 'private, no-store' : 'public, max-age=15, s-maxage=15, stale-while-revalidate=15' },
       }
     );
   } catch (err: unknown) {
