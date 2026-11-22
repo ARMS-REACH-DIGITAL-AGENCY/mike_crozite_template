@@ -24,13 +24,13 @@ const bracketDay = (now: number) => new Date(now - 11 * 3600000).toISOString().s
 const daysFrom = (a: string, b: string) =>
   Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / DAY);
 
-export async function preparedIndex(season: string, now = Date.now()): Promise<Prepared | null> {
-  const { rows: [s] } = await query<{ opening_day: string; weeks: number; regions: number; schools_per_region: number; is_test: boolean }>(
+export async function preparedIndex(season: string, now = Date.now(), read: typeof query = query): Promise<Prepared | null> {
+  const { rows: [s] } = await read<{ opening_day: string; weeks: number; regions: number; schools_per_region: number; is_test: boolean }>(
     'SELECT opening_day::text, weeks, regions, schools_per_region, is_test FROM public.fantasy_seasons WHERE season_key=$1', [season]);
   if (!s || s.is_test || s.regions !== 8 || s.schools_per_region !== 128 || s.weeks !== 34) return null;
   // The small stored innings, names and game metadata are shared across all
   // school pages. Large player-by-player Stat Ledger boxes are fetched on demand.
-  const { rows } = await query<Stored>(
+  const { rows } = await read<Stored>(
     "SELECT stage,region,round,series_no,game_no,game_id,week,home_hsid,away_hsid," +
     "home_seed,away_seed,home_school_name,away_school_name,status,innings,winner_hsid,decided_by," +
     "computed_at::text,box->'f' AS settled,box->'provisional' AS provisional " +
@@ -127,7 +127,7 @@ export async function preparedIndex(season: string, now = Date.now()): Promise<P
 
 // Only the selected game's/round's Stat Ledger is transferred to the browser.
 // Unlike the test's all-boxes response, this stays bounded in Week 30.
-export async function preparedBoxes(season: string, file: string): Promise<Record<string, GameBox>> {
+export async function preparedBoxes(season: string, file: string, read: typeof query = query): Promise<Record<string, GameBox>> {
   let stage = '', round: number | null = null, region: number | null = null, week: number | null = null;
   let m: RegExpMatchArray | null;
   if ((m = file.match(/^d-(\d{1,2})-(\d)$/))) {
@@ -143,7 +143,7 @@ export async function preparedBoxes(season: string, file: string): Promise<Recor
   } else {
     throw new Error('Invalid prepared box file');
   }
-  const { rows } = await query<{ game_id: number; box: GameBox }>(
+  const { rows } = await read<{ game_id: number; box: GameBox }>(
     "SELECT game_id,box FROM public.master_bracket WHERE season_key=$1 AND stage=$2 " +
     "AND ($3::int IS NULL OR round=$3) AND ($4::int IS NULL OR region=$4) " +
     "AND ($5::int IS NULL OR week=$5) AND box IS NOT NULL",
