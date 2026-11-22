@@ -15,6 +15,7 @@ import { runMlbLiveGameLogs } from '@/lib/mlb/liveGameLogs';
 import { runLiveScheduleRefresh } from '@/lib/mlb/liveScheduleRefresh';
 import { createHistoricalMlbSource, type HistoricalMlbRecord } from './lib/rehearsal-mlb-source';
 import { rehearsalResumeMode, runRehearsalStages, type ReadyPeriod, type RehearsalResumeCheckpoint } from './lib/rehearsal-resume';
+import { acquireRehearsalCheckpointLock } from './lib/rehearsal-checkpoint-lock';
 
 export { recordedRequest } from './rehearsal-day';
 const arg = (name: string, fallback = '') => {
@@ -73,7 +74,7 @@ async function main() {
   }
   const sourceHashes = Object.fromEntries([
     'scripts/rehearse-production-bracket.ts', 'scripts/rehearsal-day.ts', 'scripts/lib/rehearsal-mlb-source.ts',
-    'scripts/lib/rehearsal-resume.ts', 'scripts/master-bracket-results.ts',
+    'scripts/lib/rehearsal-resume.ts', 'scripts/lib/rehearsal-checkpoint-lock.ts', 'scripts/master-bracket-results.ts',
     'scripts/newsletter-publish.ts', 'src/lib/bracket/storedPublication.ts', 'src/lib/newsletter/finishedPublication.ts',
     'src/components/bracket/liveSeason.ts', 'src/lib/bracket/engine.ts', 'src/lib/bracket/fetchLiveBatches.ts',
     'src/lib/bracket/preparedIndex.ts', 'src/app/api/bracket/live/route.ts', 'src/lib/bracket/scheduleAuthority.ts',
@@ -82,10 +83,9 @@ async function main() {
   ].map(file => [file, createHash('sha256').update(readFileSync(file)).digest('hex')]));
   const codeHash = digest(sourceHashes), cutoffAt = addDays(day, 1) + 'T11:00:00Z';
   const pool = new Pool({ connectionString: config.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 3 });
-  const checkpointLock = await pool.connect();
+  let releaseCheckpoint: (() => Promise<void>) | undefined;
   try {
-    const { rows: [lock] } = await checkpointLock.query('SELECT pg_try_advisory_lock(hashtext($1),hashtext($2)) AS acquired', [expectedBranch, seasonKey]);
-    if (!lock?.acquired) throw new Error('Another rehearsal run holds this season checkpoint');
+    releaseCheckpoint = await acquireRehearsalCheckpointLock(pool, expectedBranch, seasonKey);
     const { rows: [identity] } = await pool.query("SELECT current_setting('neon.endpoint_id',true) AS endpoint");
     if (identity?.endpoint !== endpoint.split('.')[0].replace(/-pooler$/, '')) throw new Error('Actual Neon endpoint differs from the verified target');
     const { rows: [season] } = await pool.query<Season>(SQL_SEASONS, [seasonKey, day]);
@@ -266,9 +266,7 @@ async function main() {
     writeFileSync(folder + '/checkpoint.json', JSON.stringify({ phase: 'awaiting_review', ...evidence }, null, 2));
     console.log(JSON.stringify({ phase: 'awaiting_review', day, cutoffAt, storedGames: stored.length, publications }));
   } finally {
-    await checkpointLock.query('SELECT pg_advisory_unlock(hashtext($1),hashtext($2))', [expectedBranch, seasonKey]);
-    checkpointLock.release();
-    await pool.end();
+    try { await releaseCheckpoint?.(); } finally { await pool.end(); }
   }
 }
 if (/rehearse-production-bracket\.ts$/.test(process.argv[1] || '')) {

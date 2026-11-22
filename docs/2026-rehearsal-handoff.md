@@ -157,6 +157,20 @@ Publication review does not enable sending or change the delivery approval gate.
 - Opening an archived edition does not score a day or send an email.
   Verify actual delivery separately from archive creation.
 
+## Checkpoint lock recovery
+
+An earlier same-day retry was blocked by a session advisory lock left on a pooled
+connection. The runner now reserves one client, opens a transaction, acquires
+`pg_try_advisory_xact_lock`, and rolls back before releasing the client. It keeps
+the same branch/season lock key, so an earlier session lock can still block a
+retry.
+
+If the runner reports another checkpoint holder, inspect active jobs and database
+locks read-only on the verified QA target before retrying or considering cleanup.
+Do not bypass the lock or change its key to force a run. Never terminate a database
+backend without the required authorization. Preserve the saved checkpoint while
+waiting for the holder to release the lock or for authorized cleanup.
+
 ## Recovery principle
 
 GitHub preserves the code and these instructions. The connected QA database

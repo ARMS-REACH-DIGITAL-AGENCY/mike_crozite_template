@@ -19,8 +19,10 @@ on:
       - scripts/test-mlb-shared-ingestion.cjs
       - scripts/test-rehearsal-mlb-source.cjs
       - scripts/test-rehearsal-resume.cjs
+      - scripts/test-rehearsal-checkpoint-lock.cjs
       - scripts/lib/rehearsal-mlb-source.ts
       - scripts/lib/rehearsal-resume.ts
+      - scripts/lib/rehearsal-checkpoint-lock.ts
       - scripts/rehearse-production-bracket.ts
       - src/lib/bracket/resultsJob.ts
       - src/lib/mlb/**
@@ -45,8 +47,10 @@ on:
       - scripts/test-mlb-shared-ingestion.cjs
       - scripts/test-rehearsal-mlb-source.cjs
       - scripts/test-rehearsal-resume.cjs
+      - scripts/test-rehearsal-checkpoint-lock.cjs
       - scripts/lib/rehearsal-mlb-source.ts
       - scripts/lib/rehearsal-resume.ts
+      - scripts/lib/rehearsal-checkpoint-lock.ts
       - scripts/rehearse-production-bracket.ts
       - src/lib/bracket/resultsJob.ts
       - src/lib/mlb/**
@@ -81,3 +85,4 @@ jobs:
           node scripts/test-mlb-shared-ingestion.cjs
           node scripts/test-rehearsal-mlb-source.cjs
           node scripts/test-rehearsal-resume.cjs
+          node scripts/test-rehearsal-checkpoint-lock.cjs
