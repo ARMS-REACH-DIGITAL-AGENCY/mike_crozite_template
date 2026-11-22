@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
 import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
 import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
+import {
+  allowClubResultFallback, isBracketGameDone as isDone, isBracketGameFinal as isFinal,
+  missingScheduleGameIds, scheduleAuthority, type ScheduleFact,
+} from '@/lib/bracket/scheduleAuthority';
 
 // Live bracket lines: every game line (player_game_logs - the 10-minute MLB
 // feed plus the 4-hourly game-log sync, Arizona Fall League included) that a
@@ -57,12 +61,8 @@ const pitOf = (s: Record<string, unknown>) => [
 ];
 const text = (v: unknown) => String(v ?? '').trim();
 const isHighSchool = (r: StageRow) => [r.level_label, r.display_level_label].some((v) => /^(HIGH SCHOOL|HS)$/i.test(text(v)));
-// A game that is over (or will not be played).
-// "Not Necessary": a postseason game never played (the series ended first).
-const isDone = (status: unknown) => /^(final|game over|completed|postponed|cancelled|canceled|suspended|not necessary)/i.test(text(status));
 // Under way or over: anything but a game still waiting for its first pitch.
 const isStarted = (status: unknown) => isDone(status) || (text(status) !== '' && !/^(scheduled|pre-game|pregame|warmup|delayed start)/i.test(text(status)));
-const isFinal = (status: unknown) => /^(final|game over|completed)/i.test(text(status));
 const isPitcher = (position: unknown) => /(^|[^A-Z])(P|RHP|LHP|PITCHER)([^A-Z]|$)/.test(text(position).toUpperCase());
 
 function rosterPitcherFlag(row: StageRow, usage: Record<string, { ab: number; pg: number }>): boolean {
@@ -197,16 +197,31 @@ export async function GET(req: NextRequest) {
     // sync stamps every line it saves "Final" with MLB's in-game isWin
     // (false until the game ends), so a line alone can call a game still
     // being played over, and lost.
-    const schedState = new Map(sched.map((r) => [r.game, { done: isDone(r.status), final: isFinal(r.status) }]));
+    // A game log can retain its original date after its schedule moves.
+    // Missing from this window does not mean missing from the schedule:
+    // inspect all remaining source game IDs, including lines without isWin.
+    // These extra facts govern authority only; never emit their out-of-window
+    // games/results or move the dates of the actual player statistics.
+    const missingIds = missingScheduleGameIds(
+      [...logRows.map(r => r.game), ...clubRows.map(r => r.game)], sched.map(r => r.game),
+    );
+    const { rows: otherSchedule } = missingIds.length
+      ? await query<ScheduleFact>(
+        `SELECT game_pk::text AS game, (game_date::date - $2::date) AS day, status
+           FROM team_schedules WHERE game_pk = ANY($1::bigint[])`,
+        [missingIds, start],
+      )
+      : { rows: [] as ScheduleFact[] };
+    const schedState = scheduleAuthority([...sched, ...otherSchedule], weeks * 7);
     for (const l of lines) {
       const st = schedState.get(String(l[5]));
       if (st) l[7] = st.done ? 1 : 0;
     }
     // Clubs off the pro schedule (Fall League ...): the result on the lines -
-    // never for a scheduled game that isn't final yet.
+    // never for a known game outside this window or one that isn't final.
     for (const r of clubRows) {
       const st = schedState.get(r.game);
-      if (!st || st.final) result(r.team, Number(r.day), r.game, r.is_win);
+      if (allowClubResultFallback(st)) result(r.team, Number(r.day), r.game, r.is_win);
     }
 
     // Registered fans as each week went final (4 a.m. Arizona = 11:00 UTC

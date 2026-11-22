@@ -92,6 +92,20 @@ export const bracketDay = (now = Date.now()) => iso(now - 11 * 3600000);
 const daysFrom = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
+// Historical replay supplies the scoring instant; normal jobs keep the
+// database transaction's now(). An explicit timezone avoids host-local time.
+function scoringTime(effectiveAt?: string, asof?: string): string | null {
+  if (effectiveAt === undefined) return null;
+  const at = Date.parse(effectiveAt);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(effectiveAt) || !Number.isFinite(at)) {
+    throw new Error('effectiveAt must be an ISO timestamp with an explicit timezone');
+  }
+  if (asof !== undefined && bracketDay(at) !== asof) {
+    throw new Error(`effectiveAt falls on bracket day ${bracketDay(at)}, not asof ${asof}`);
+  }
+  return new Date(at).toISOString();
+}
+
 function arg(name: string) {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : undefined;
@@ -462,8 +476,13 @@ function fillSlots(season: Season, rows: Row[], results: Result[], clubs: Clubs)
   const national = !season.is_test && season.regions === 8 && regionRounds === 7;
   const nationalSeries = (round: number, no: number) => series.get(`bracket:${round}:0:${no}`);
   if (national) {
-    const winners = stageRound('bracket', regionRounds).map(winnerOf);
-    if (winners.length === 8 && winners.every(Boolean)) {
+    const regionalFinals = stageRound('bracket', regionRounds);
+    const winners = regionalFinals.map(winnerOf);
+    // A 2-0 clinch identifies the regional winner, but its third game's
+    // runs still count in the Round 7 reseeding tiebreak. Wait for all
+    // eight complete series before storing or checking national pairings.
+    const complete = regionalFinals.every((s) => s.games.length === 3 && s.games.every((g) => state(g).status === 'final'));
+    if (winners.length === 8 && winners.every(Boolean) && complete) {
       const t = totals(regionRounds * 3);
       const { ranked, tie } = reseed((winners as Side[]).map((s) => ({ ...s, runs: t.get(s.hsid)?.rf ?? 0 })));
       if (tie > 0) {
@@ -619,8 +638,8 @@ const SQL_RESULTS = `
 UPDATE public.master_bracket m SET
   status = x.status, innings = x.innings, home_runs = x.home_runs, away_runs = x.away_runs,
   winner_hsid = x.winner_hsid, decided_by = x.decided_by, decided_note = x.decided_note,
-  box = CASE WHEN $3 THEN x.box ELSE m.box END, computed_at = now(),
-  locked_at = CASE WHEN x.lock THEN now() ELSE NULL END
+  box = CASE WHEN $3 THEN x.box ELSE m.box END, computed_at = COALESCE($4::timestamptz, now()),
+  locked_at = CASE WHEN x.lock THEN COALESCE($4::timestamptz, now()) ELSE NULL END
 FROM jsonb_to_recordset($2::jsonb) AS x(region smallint, game_id integer, status text, innings smallint[], home_runs smallint,
   away_runs smallint, winner_hsid integer, decided_by text, decided_note text, box jsonb, lock boolean)
 WHERE m.season_key = $1 AND m.region = x.region AND m.game_id = x.game_id AND m.locked_at IS NULL`;
@@ -714,11 +733,12 @@ async function loadTeams(db: Pool | PoolClient, rows: Row[], live: Live, asof: s
 
 type Computed = ReturnType<typeof computeSeason>;
 // One season's writes, in one transaction.
-export async function writeSeason(client: PoolClient, seasonKey: string, out: Computed, withBox: boolean) {
+export async function writeSeason(client: PoolClient, seasonKey: string, out: Computed, withBox: boolean, opts: { effectiveAt?: string } = {}) {
+  const effectiveAt = scoringTime(opts.effectiveAt);
   try {
     await client.query('BEGIN');
     await client.query("SET LOCAL master_bracket.reason = 'bracket results job'");
-    await client.query(SQL_RESULTS, [seasonKey, JSON.stringify(forDb(out.results)), withBox]);
+    await client.query(SQL_RESULTS, [seasonKey, JSON.stringify(forDb(out.results)), withBox, effectiveAt]);
     await client.query(SQL_FILLS, [seasonKey, JSON.stringify(out.fills)]);
     await client.query(SQL_DECISIONS, [seasonKey, JSON.stringify(out.decisions)]);
     if (out.boxFills.length) {
@@ -755,7 +775,10 @@ SELECT season_key, is_test, opening_day::text, last_day::text, weeks, regions, s
 // When it draws new pairs (a round just ended), it runs again at once so
 // their games are scored too. region: just one test bracket (a test
 // branch's own database holds all six). Returns what each pass did.
-export async function runSeason(pool: Pool, season: Season, asof: string, opts: { base: string; region?: number; withBox?: boolean; dryRun?: boolean }) {
+// An isolated historical replay may supply effectiveAt on the same bracket
+// day as asof, so persisted daily locks advance with that clock too.
+export async function runSeason(pool: Pool, season: Season, asof: string, opts: { base: string; region?: number; withBox?: boolean; dryRun?: boolean; effectiveAt?: string; request?: typeof fetch }) {
+  const effectiveAt = scoringTime(opts.effectiveAt, asof) ?? undefined;
   const withBox = opts.withBox ?? true;
   const passes: { results: number; final: number; fills: number; boxFills: number; decisions: string[] }[] = [];
   for (let pass = 0; pass < 3; pass++) {
@@ -767,7 +790,7 @@ export async function runSeason(pool: Pool, season: Season, asof: string, opts: 
     }
     const weeks = startedWeeks(season, asof);
     if (!weeks || !rows.length) break;
-    const live = await fetchLive(opts.base, season.opening_day, Math.min(weeks, 40), fieldOf(rows));
+    const live = await fetchLive(opts.base, season.opening_day, Math.min(weeks, 40), fieldOf(rows), opts.request);
     const clubs = clubsOf(live, await loadTeams(pool, rows, live, asof));
     const out = computeSeason(season, rows, rulings, live, asof, withBox, clubs);
     passes.push({
@@ -777,7 +800,7 @@ export async function runSeason(pool: Pool, season: Season, asof: string, opts: 
     if (opts.dryRun) break;
     const client: PoolClient = await pool.connect();
     try {
-      await writeSeason(client, season.season_key, out, withBox);
+      await writeSeason(client, season.season_key, out, withBox, { effectiveAt });
     } finally {
       client.release();
     }
@@ -801,7 +824,7 @@ async function main() {
     const live: Live = read('live.json');
     const teamOf = new Map<string, string>(existsSync(join(offline, 'teams.json')) ? Object.entries(read('teams.json')) : []);
     const { results, fills, decisions, boxFills } = computeSeason(season, rows, rulings, live, asof, withBox, clubsOf(live, teamOf));
-    const sub = (sql: string, json: unknown) => sql.replaceAll('$1', `'${season.season_key}'`).replaceAll('$2', dollar(JSON.stringify(json))).replaceAll('$3', String(withBox)).trim();
+    const sub = (sql: string, json: unknown) => sql.replaceAll('$1', `'${season.season_key}'`).replaceAll('$2', dollar(JSON.stringify(json))).replaceAll('$3', String(withBox)).replaceAll('$4', 'NULL').trim();
     console.log(`-- ${season.season_key} as of ${asof}: ${results.length} results, ${fills.length} slots filled, ${decisions.length} for Pete, ${boxFills.length} locked finals get their box`);
     console.log(`${sub(SQL_RESULTS, forDb(results))};\n${sub(SQL_FILLS, fills)};\n${sub(SQL_DECISIONS, decisions)};`);
     if (boxFills.length) console.log(`SET LOCAL master_bracket.unlock = 'on';\n${sub(SQL_BOXES, boxFills)};`);
