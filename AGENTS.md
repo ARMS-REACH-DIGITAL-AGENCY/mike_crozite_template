@@ -2,6 +2,13 @@
 
 Production branch: `Easter-NEWS`. This file is authoritative for work on this repository, not any chat's memory.
 
+## 2026 rehearsal continuity
+
+For `test/2026-production-parity-20261121` / draft PR #862, read
+[`docs/2026-rehearsal-handoff.md`](docs/2026-rehearsal-handoff.md) before resuming.
+Use the saved checkpoint in the authorized QA database to determine the current
+day. This rehearsal branch must never be merged or promoted into `Easter-NEWS`.
+
 ## Before doing anything
 1. Read this file, the current production HEAD, the relevant code, existing tests and active PRs.
 2. State the task scope and associated branch/PR. If the user's new request concerns a different area than the branch (e.g. News in a Bracket branch), **stop that branch's work**; ask whether to switch to a new task/branch. Never silently expand scope.
