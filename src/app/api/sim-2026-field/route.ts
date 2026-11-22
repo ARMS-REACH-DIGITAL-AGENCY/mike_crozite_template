@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 import { preparedIndex, preparedBoxes } from '@/lib/bracket/preparedIndex';
+import { fieldReplayGame, fieldReplayRosters } from '@/lib/bracket/fieldReplayData';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,6 +28,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Isolated replay database not configured' }, { status: 503 });
   try {
     const params = request.nextUrl.searchParams;
+    const asof = params.get('asof') || '2026-03-25';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(asof) || asof < '2026-03-23' || asof > '2026-11-16')
+      return NextResponse.json({ error: 'Invalid replay date' }, { status: 400 });
+    if (params.has('roster')) {
+      const hsid = Number(params.get('roster'));
+      if (!Number.isInteger(hsid) || hsid <= 0)
+        return NextResponse.json({ error: 'Invalid school' }, { status: 400 });
+      const field = await read<{ hsid: number }>(
+        "SELECT home_hsid AS hsid FROM public.master_bracket WHERE season_key=$1 AND stage='bracket' AND round=1 AND game_no=1 AND home_hsid=$2 " +
+        "UNION ALL SELECT away_hsid AS hsid FROM public.master_bracket WHERE season_key=$1 AND stage='bracket' AND round=1 AND game_no=1 AND away_hsid=$2 LIMIT 1",
+        [SEASON, hsid]);
+      if (!field.rows.length) return NextResponse.json({error:'School not in replay field'}, {status:404});
+      const rosters = await fieldReplayRosters(read,[hsid],asof);
+      return NextResponse.json({roster:rosters.public[String(hsid)]||[]}, {headers:{'Cache-Control':'no-store'}});
+    }
     const file = params.get('boxes');
     if (file !== null) {
       if (file.length > 32) return NextResponse.json({ error: 'Invalid box lookup' }, { status: 400 });
@@ -36,16 +52,10 @@ export async function GET(request: NextRequest) {
       const id = Number(params.get('game'));
       if (!Number.isInteger(id) || id < 1 || id > 15368)
         return NextResponse.json({ error: 'Invalid game' }, { status: 400 });
-      const { rows } = await read<{ box: unknown, status: string }>(
-        'SELECT box,status FROM public.master_bracket WHERE season_key=$1 AND game_id=$2 LIMIT 1',
-        [SEASON, id],
-      );
-      if (!rows.length) return NextResponse.json({ error: 'Game not found' }, { status: 404 });
-      return NextResponse.json({ box: rows[0].box ?? null, status: rows[0].status }, { headers: { 'Cache-Control': 'no-store' } });
+      const result = await fieldReplayGame(read,id,asof);
+      if (!result) return NextResponse.json({ error: 'Replay matchup unavailable' }, { status: 404 });
+      return NextResponse.json({ ...result, status: result.winner ? 'final' : 'in_progress' }, { headers: { 'Cache-Control': 'no-store' } });
     }
-    const asof = params.get('asof') || '2026-03-25';
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(asof) || asof < '2026-03-23' || asof > '2026-11-16')
-      return NextResponse.json({ error: 'Invalid replay date' }, { status: 400 });
     // 4 AM Arizona = 11:00 UTC, so this date is interpreted as a bracket day.
     const at = Date.parse(asof + 'T11:00:00Z');
     if (!Number.isFinite(at)) return NextResponse.json({ error: 'Invalid replay date' }, { status: 400 });
