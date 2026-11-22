@@ -339,6 +339,11 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
     g[4] = !final ? '' : result.decidedBy === 'players' ? `players-${result.tieRank}`
       : result.decidedBy === 'commissioner' && !result.winner ? 'commissioner-pending' : result.decidedBy;
     boxes[String(g[0])] = {
+      // Raw OPS+/FIP- comparisons are for precision display only. Preserve
+      // the authoritative scoring engine output; d remains rounded below.
+      x: result.innings.slice(0, 8).map((i, k) => !final && k > cur
+        ? [null, null, null, null]
+        : [i.homeOffense, i.awayOffense, i.homePitching, i.awayPitching]),
       // During a live week, future days and the week-total inning must
       // remain unknown. Only reached days can appear in the Stat Ledger.
       d: result.innings.slice(0, 8).map((i, k) => !final && k > cur
