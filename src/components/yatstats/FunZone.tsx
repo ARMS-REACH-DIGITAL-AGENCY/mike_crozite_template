@@ -241,29 +241,34 @@ function NewsPanel({
 }) {
   const [loading, setLoading] = useState(true);
   const [featuredNews, setFeaturedNews] = useState<NewsTease[]>([]);
-  const hasFetchedRef = useRef(false);
+  const [loadedNewsKey, setLoadedNewsKey] = useState("");
 
-  const playerId = String(player.playerid || "");
+  const playerId = String(player.yatid || player.playerid || "");
+  const newsKey = `${resolvedHsid}:${playerId}`;
 
   // Every panel is always mounted now (so a card injected as static HTML
   // still has all six tabs' markup to reveal), but this fetch should still
-  // only fire once the fan actually opens the News tab, not on every card's
+  // only fire when the fan actually opens the News tab, not on every card's
   // initial render - fetching news for every card on a gallery page whether
   // or not anyone looks at it would multiply site-wide request volume.
   useEffect(() => {
-    if (!isActive || hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
+    if (!isActive) return;
     let cancelled = false;
+    const controller = new AbortController();
+    setLoading(true);
+    setFeaturedNews([]);
 
     async function loadNews() {
       if (!resolvedHsid || !playerId) {
+        setLoadedNewsKey(newsKey);
         setLoading(false);
         return;
       }
 
       try {
-        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=3&sort=newest`, {
+        const res = await fetch(`/api/news/${resolvedHsid}?player=${playerId}&limit=3&sort=newest&fresh=1`, {
           cache: "no-store",
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -271,54 +276,53 @@ function NewsPanel({
         }
 
         const data = await res.json();
-const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 3) : [];
+        const posts: NewsApiPost[] = Array.isArray(data?.posts) ? data.posts.slice(0, 3) : [];
+        const normalizedTeases: NewsTease[] = posts.map((post) => ({
+          badge:
+            post.tease?.badge ??
+            (post.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
+          headline:
+            post.displayHeadline ??
+            post.tease?.headline ??
+            post.headline ??
+            post.title ??
+            undefined,
+          body:
+            post.tease?.body ??
+            post.displayRecap ??
+            post.summary ??
+            undefined,
+          footer:
+            post.tease?.footer ??
+            ([
+              post.displaySourceLabel,
+              post.publishedAt
+                ? new Date(post.publishedAt).toLocaleDateString("en-US", {
+                    month: "numeric",
+                    day: "numeric",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  })
+                : null,
+            ].filter(Boolean).join(" · ") || undefined),
+          imageUrl: (post.url ? parseNewsVideo(post.url)?.thumbnailUrl : null) || post.tease?.imageUrl || post.imageUrl || undefined,
+          newsCardId:
+            post.tease?.newsCardId ??
+            post.uuid ??
+            (post.id != null ? String(post.id) : undefined),
+        }));
 
-const normalizedTeases: NewsTease[] = posts.map((post) => ({
-  badge:
-    post.tease?.badge ??
-    (post.displaySourceLabel ? "YAT?STATS NEWS" : undefined),
-  headline:
-    post.displayHeadline ??
-    post.tease?.headline ??
-    post.headline ??
-    post.title ??
-    undefined,
-  body:
-    post.tease?.body ??
-    post.displayRecap ??
-    post.summary ??
-    undefined,
-  footer:
-    post.tease?.footer ??
-    ([
-      post.displaySourceLabel,
-      post.publishedAt
-        ? new Date(post.publishedAt).toLocaleDateString("en-US", {
-            month: "numeric",
-            day: "numeric",
-            year: "numeric",
-          })
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || undefined),
-  imageUrl: (post.url ? parseNewsVideo(post.url)?.thumbnailUrl : null) || post.tease?.imageUrl || post.imageUrl || undefined,
-  newsCardId:
-    post.tease?.newsCardId ??
-    post.uuid ??
-    (post.id != null ? String(post.id) : undefined),
-}));
-
-if (!cancelled) {
-  setFeaturedNews(normalizedTeases);
-}
-      } catch (error) {
-        console.error("FunZone news fetch error:", error);
         if (!cancelled) {
-  setFeaturedNews([]);
-}
+          setFeaturedNews(normalizedTeases);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("FunZone news fetch error:", error);
+          setFeaturedNews([]);
+        }
       } finally {
         if (!cancelled) {
+          setLoadedNewsKey(newsKey);
           setLoading(false);
         }
       }
@@ -328,10 +332,13 @@ if (!cancelled) {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [isActive, resolvedHsid, playerId]);
+  }, [isActive, resolvedHsid, playerId, newsKey]);
 
-  if (loading) {
+  // A reused card must never show the previous player's transactions while
+  // the next person's request is loading or after an earlier request aborts.
+  if (loading || loadedNewsKey !== newsKey) {
     return (
       <div className="fz-placeholder">
         <i className="ri-newspaper-line fz-ph-icon" />
