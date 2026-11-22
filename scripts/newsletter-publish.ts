@@ -175,17 +175,6 @@ x AS (
     JOIN card c ON c.yatid = s.yatid
     LEFT JOIN mlb m1 ON m1.full_name = s.team_name
     LEFT JOIN mlb m2 ON m2.full_name = s.opponent_name),
--- His team's next scheduled game after this one (MLB's schedule, by MLB team id).
-nxt AS (
-  SELECT DISTINCT ON (s.source_team_id, s.game_date) s.source_team_id, s.game_date, t.game_date AS next_date,
-         CASE WHEN t.home_team_id::text = s.source_team_id::text THEN 'home' ELSE 'away' END AS next_home_away,
-         coalesce(m.short, CASE WHEN t.home_team_id::text = s.source_team_id::text THEN t.away_team_name ELSE t.home_team_name END) AS next_opponent
-    FROM (SELECT DISTINCT source_team_id, game_date FROM src WHERE source_team_id IS NOT NULL) s
-    JOIN public.team_schedules t ON (t.home_team_id::text = s.source_team_id::text OR t.away_team_id::text = s.source_team_id::text)
-                               AND t.game_date > s.game_date
-                               AND coalesce(t.status, '') !~* '(postponed|cancel)'
-    LEFT JOIN mlb m ON m.full_name = CASE WHEN t.home_team_id::text = s.source_team_id::text THEN t.away_team_name ELSE t.home_team_name END
-   ORDER BY s.source_team_id, s.game_date, t.game_date, t.game_time_utc NULLS LAST),
 y AS (
   SELECT x.*,
          coalesce(bat_h, 0) AS h, coalesce(bat_ab, 0) AS ab, coalesce(bat_2b, 0) AS d2, coalesce(bat_3b, 0) AS d3,
@@ -194,9 +183,8 @@ y AS (
    -- A pitcher's empty batting line (no plate appearance) isn't news.
    WHERE NOT (stat_type = 'batting' AND coalesce(bat_pa, 0) = 0 AND pitched))
 INSERT INTO public.daily_stat_lines (stats_date, stat_line_id, playerid, yatid, player_name, hsid, team_name, team_short, level,
-                                     opponent_name, opponent_short, stat_type, line, sort_key,
-                                     next_game_date, next_game_home_away, next_game_opponent)
-SELECT y.game_date, id, yatid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN card_hsid::integer END,
+                                     opponent_name, opponent_short, stat_type, line, sort_key)
+SELECT game_date, id, yatid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN card_hsid::integer END,
        team_name, team_short, level, opponent_name, opp_short, stat_type,
        nm || ' (' || team_short || ', ' || level || ') vs. ' || opp_short
           || CASE WHEN games > 1 THEN ' (Game ' || game_no || ')' ELSE '' END || ': '
@@ -205,9 +193,8 @@ SELECT y.game_date, id, yatid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THE
                          coalesce(pit_h, 0) || ' H', coalesce(pit_er, 0) || ' ER', coalesce(pit_bb, 0) || ' BB', coalesce(pit_so, 0) || ' K',
                          CASE WHEN pit_w > 0 THEN 'W' END, CASE WHEN pit_l > 0 THEN 'L' END,
                          CASE WHEN pit_sv > 0 THEN 'SV' END, CASE WHEN pit_hld > 0 THEN 'HLD' END) END,
-       last || '|' || first || '|' || yatid || '|' || source_game_id || '|' || CASE stat_type WHEN 'batting' THEN '1' ELSE '2' END,
-       n.next_date, n.next_home_away, n.next_opponent
-  FROM y LEFT JOIN nxt n ON n.source_team_id = y.source_team_id AND n.game_date = y.game_date`;
+       last || '|' || first || '|' || yatid || '|' || source_game_id || '|' || CASE stat_type WHEN 'batting' THEN '1' ELSE '2' END
+  FROM y`;
 }
 
 type StoredRoster = { hsid: string; yatid: string; nm: string; lvl: string; club_wl: string | null };
