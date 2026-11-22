@@ -267,7 +267,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     rowKeys.weekly_player_lines = rows.weekly_player_lines.map(row => [iso(row.period_start), row.hsid, row.yatid, row.team_name]);
     rowKeys.weekly_box_scores = rows.weekly_box_scores.map(row => [row.season_key, row.region, row.game_id]);
   }
-  notes.push('Review copy only. Sending controls and recipient preferences are unchanged. No sponsor is inferred.');
+  notes.push('Rendered from finished publication rows. Delivery is handled separately by the approved sender. No sponsor is inferred.');
   const html = dailyLayout?.html || '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(subject) + '</title><style>' + CSS + '</style></head><body><main class="paper"><header><h1>' + esc(title) + '</h1><p>' + displayLabel(school) + ' · ' + esc(period) + '</p></header>' + body.join('\n') + '</main></body></html>';
   const text = dailyLayout?.text || plain.filter(value => value !== '').join('\n\n') + '\n';
   const layoutVersion = cadence === 'daily' ? FINISHED_LAYOUT_VERSION : WEEKLY_LAYOUT_VERSION;

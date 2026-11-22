@@ -666,11 +666,18 @@ WHERE m.season_key = $1 AND m.region = x.region AND m.game_id = x.game_id AND m.
 // line still held is one item per team on Pete's needs-decision list - never
 // one per line.
 const MLB_SPORTS = '1,11,12,13,14,16,17,23';
-export async function checkTeams(pool: Pool) {
-  const year = Number(bracketDay().slice(0, 4));
+export async function checkTeams(pool: Pool, options: { asof?: string; request?: typeof fetch } = {}) {
+  const asof = options.asof ?? bracketDay();
+  const timestamp = Date.parse(asof + 'T00:00:00Z');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asof) || !Number.isFinite(timestamp)
+      || new Date(timestamp).toISOString().slice(0, 10) !== asof) {
+    throw new Error('Team check requires a valid asof date');
+  }
+  const year = Number(asof.slice(0, 4));
+  const request = options.request ?? fetch;
   const listed = new Map<number, string>();
   for (const season of [year, year + 1]) {
-    const res = await fetch(`https://statsapi.mlb.com/api/v1/teams?sportIds=${MLB_SPORTS}&season=${season}&fields=teams,id,name,sport,league`);
+    const res = await request(`https://statsapi.mlb.com/api/v1/teams?sportIds=${MLB_SPORTS}&season=${season}&fields=teams,id,name,sport,league`);
     if (!res.ok) { console.log(`MLB team list ${season}: HTTP ${res.status}`); continue; }
     const { teams = [] } = await res.json() as { teams?: { id: number; name: string; sport?: { name?: string }; league?: { name?: string } }[] };
     for (const t of teams) listed.set(t.id, `${t.name} (${[t.sport?.name, t.league?.name].filter(Boolean).join(' / ')})`);

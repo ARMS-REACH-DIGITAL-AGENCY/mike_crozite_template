@@ -11,8 +11,8 @@
 //   - edition_ready goes in last, in the same transaction, after every count
 //     is checked. An edition already ready is never written again.
 //
-// Manual, one-shot (no schedule yet). Without a database connection here, it
-// works from files and prints the transaction to apply:
+// The scheduled job and rehearsal call the same publisher below. The manual
+// CLI works from files and prints the transaction to apply:
 //
 //   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --daily 2026-04-13 --historical-replay
 //   npx --yes tsx scripts/newsletter-publish.ts --dir <dir> --week 4 --historical-replay
@@ -595,10 +595,35 @@ export function buildNewsletterPublication(input: PublicationInput) {
 
 
 export type PublishOptions = {
-  season: string; cutoffAt: string; expectedBranch: string; expectedEndpoint: string;
+  season: string; cutoffAt: string; expectedBranch?: string; expectedEndpoint: string;
+  publicationTarget?: 'isolated' | 'live';
   historicalReplay?: boolean;
 };
 type PeriodOptions = PublishOptions & { date?: string; periodStart?: string };
+
+/** Historical inputs remain restricted to the explicitly identified QA target. */
+export function assertPublicationTarget(opts: PublishOptions) {
+  if (!opts.expectedEndpoint) throw new Error('Publication requires a verified database endpoint');
+  if (opts.publicationTarget === 'live') {
+    if (process.env.VERCEL_ENV !== 'production' || process.env.REHEARSAL_NEON_BRANCH || opts.historicalReplay) {
+      throw new Error('Live publication requires the production environment without historical replay');
+    }
+    return;
+  }
+  if (!opts.expectedBranch?.startsWith('br-') || opts.expectedBranch === 'br-polished-lab-a4i35u5j' ||
+      process.env.VERCEL_ENV === 'production' ||
+      (process.env.REHEARSAL_NEON_BRANCH && process.env.REHEARSAL_NEON_BRANCH !== opts.expectedBranch)) {
+    throw new Error('Publication requires a verified isolated Neon branch and endpoint');
+  }
+}
+
+/** Verify the connection before either scoring or publishing with it. */
+export async function verifyPublicationDatabase(db: Pick<PoolClient, 'query'>, opts: PublishOptions) {
+  assertPublicationTarget(opts);
+  const { rows: [identity] } = await db.query<{ endpoint: string }>("SELECT current_setting('neon.endpoint_id',true) AS endpoint");
+  const expected = opts.expectedEndpoint.split('.')[0].replace(/-pooler$/, '');
+  if (!expected.startsWith('ep-') || identity?.endpoint !== expected) throw new Error('Publication database differs from verified endpoint');
+}
 
 function canonicalLinesSql(from: string, to: string, historical: boolean) {
   return `WITH ${SQL_CARDS}, ${SQL_FROZEN(from, to, cutoffOf(to), historical)}
@@ -688,18 +713,13 @@ async function existingPublication(db: Pick<PoolClient,'query'>, opts: PeriodOpt
 
 /** All writes use one guarded transaction. This function never sends mail. */
 async function publishPeriod(pool: Pool, opts: PeriodOptions) {
-  if (!opts.expectedBranch?.startsWith('br-') || opts.expectedBranch==='br-polished-lab-a4i35u5j' ||
-      !opts.expectedEndpoint || process.env.VERCEL_ENV==='production') {
-    throw new Error('Publication requires a verified isolated Neon branch and endpoint');
-  }
+  assertPublicationTarget(opts);
   if (Boolean(opts.date)===Boolean(opts.periodStart)) throw new Error('Publish exactly one explicit daily or weekly period');
   const db = await pool.connect();
   const lock='newsletter:'+ (opts.date?'daily:':'weekly:')+(opts.date||opts.periodStart);
   let locked=false, begun=false;
   try {
-    const {rows:[identity]} = await db.query<{endpoint:string}>("SELECT current_setting('neon.endpoint_id',true) AS endpoint");
-    const expected=opts.expectedEndpoint.split('.')[0].replace(/-pooler$/,'');
-    if (!expected.startsWith('ep-') || identity?.endpoint!==expected) throw new Error('Publication database differs from verified isolated endpoint');
+    await verifyPublicationDatabase(db, opts);
     // Take the session lock before establishing the repeatable-read snapshot,
     // so a simultaneous retry sees the edition committed by the first caller.
     await db.query('SELECT pg_advisory_lock(hashtext($1))',[lock]);locked=true;

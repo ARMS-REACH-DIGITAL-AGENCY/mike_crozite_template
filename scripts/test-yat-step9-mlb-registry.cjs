@@ -13,7 +13,7 @@ const mlbJobs = [
   'scripts/export-spring-training-2026.ts', 'scripts/import-mlb-headshots-s3.py', 'scripts/import-player-draft-picks.ts',
   'scripts/ingest-news.ts', 'scripts/refresh-flip-card-front-stage-from-mlb.ts', 'scripts/sync-mlb-full-org-rosters.ts',
   'scripts/sync-mlb-person-profiles.ts', 'scripts/sync-mlb-player-gamelogs.ts', 'scripts/sync_afl_rosters.py',
-  'src/app/api/cron/mlb-live-gamelogs/route.ts', 'scripts/lib/player-source-map.ts',
+  'src/app/api/cron/mlb-live-gamelogs/route.ts', 'src/lib/mlb/liveGameLogs.ts', 'scripts/lib/player-source-map.ts',
 ];
 for (const f of mlbJobs) {
   const code = read(f).split('\n').filter((l) => !/^\s*(\/\/|#|\*|--)/.test(l)).join('\n');
