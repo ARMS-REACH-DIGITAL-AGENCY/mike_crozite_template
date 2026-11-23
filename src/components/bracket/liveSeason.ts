@@ -300,6 +300,8 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
         const byDay = mine.get(p[0]);
         let wb: number[] | 0 = 0, wp: number[] | 0 = 0, club = p[4];
         const weekLv: LevelBuckets[] = [];
+        const wl: [number, number] = [0, 0];
+        let playerRunDiff = 0;
         for (let d = 0; d < 7; d++) {
           // Never count or publish game lines from a future day. The live
           // feed may contain historical/replayed dates beyond this clock.
@@ -313,11 +315,16 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
             if (x.p) wp = add(wp, x.p);
           }
           // That day's club result: 1-0 for a win, 0-1 for a loss, 0-0 off.
-          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, reached ? clubWl(club, from + d, from + d) : [0, 0], x?.lv));
+          const dailyWl: [number, number] = reached ? clubWl(club, from + d, from + d) : [0, 0];
+          wl[0] += dailyWl[0]; wl[1] += dailyWl[1];
+          if (reached) playerRunDiff += clubRunDiff(club, from + d, from + d);
+          dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, dailyWl, x?.lv));
         }
-        const wl = clubWl(club, from, Math.min(from + 6, today));
+        // A transfer or rehab assignment changes the counted club by day.
+        // The weekly inning and run-differential tiebreak must sum those
+        // same daily assignments, not use the final club for the whole week.
         wins += wl[0]; losses += wl[1];
-        runDiff += clubRunDiff(club, from, Math.min(from + 6, today));
+        runDiff += playerRunDiff;
         weekRows.push(playerRow(p, wb, wp, wl, mergeBuckets(weekLv)));
       }
       return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows };
