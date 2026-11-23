@@ -23,6 +23,54 @@ const section = (text, head, tail) => {
   return text.slice(start, end);
 };
 
+const ownerCollege = source('src/lib/college2026Continuity.ts');
+const ownerStatusCron = source('src/app/api/cron/flip-card-status-reconciliation/route.ts');
+assert(ownerStatusCron.includes('SAFE_2026_COLLEGE_ARCHIVE_CONTINUITY_SQL'),
+  'Daily status reconciliation must restore 2026 college status/team under owner rule');
+assert(ownerCollege.includes('public.tbc_complete_batting_history') &&
+       ownerCollege.includes('public.tbc_complete_pitching_history') &&
+       ownerCollege.includes('public.tbc_batting_2026_season_raw') &&
+       ownerCollege.includes('public.tbc_pitching_2026_season_raw'),
+  'College continuity must include 2026 history and daily feeds');
+assert(ownerCollege.includes('COUNT(DISTINCT teamid)=1') &&
+       ownerCollege.includes("r.roster_season='2027'") &&
+       ownerCollege.includes('public.mlb_org_roster_resolution') &&
+       ownerCollege.includes('public.player_transactions') &&
+       ownerCollege.includes('public.player_team_override'),
+  'College continuity must preserve later official evidence and overrides');
+assert(ownerCollege.includes("status_label='ACTIVE'") &&
+       ownerCollege.includes("current_team_source='tbc_2026_college_participation'"),
+  '2026 college players retain ACTIVE status and the 2026 college');
+// Regression: neither college reactivation path can overwrite an official
+// 2027 transfer, and only provenance-backed automatic retirements are reversible.
+const olderReactivation = section(levels,
+  'export const SAFE_AUTO_RETIRED_2026_COLLEGE_REACTIVATION_SQL = `',
+  'SELECT COUNT(*)::int AS reactivated FROM changed');
+assert(olderReactivation.includes("cr.roster_season='2027'") &&
+       olderReactivation.includes('cr.teamid IS DISTINCT FROM s.teamid') &&
+       olderReactivation.includes('cr.teamid IS DISTINCT FROM e.teamid'),
+  'Feed-based reactivation must protect newer 2027 transfers in eligibility and UPDATE');
+assert(olderReactivation.includes('public.player_transactions') &&
+       olderReactivation.includes("'yatstats_retirement_cutoff'"),
+  'Feed-based reactivation must protect MLB transactions and require automatic-retirement provenance');
+assert(ownerCollege.includes("f.source_summary#>>'{status_classification,rule}'='no_activity_after_2025'") &&
+       ownerCollege.includes("f.source_summary#>>'{status_classification,source}'='yatstats_retirement_cutoff'") &&
+       ownerCollege.includes("f.team_affiliation_status='RETIRED'"),
+  'Archive-based reversal must admit only provenance-backed automatic retirements');
+assert(ownerCollege.includes('r.teamid IS DISTINCT FROM v.teamid') &&
+       ownerCollege.includes('r.teamid IS DISTINCT FROM p.teamid'),
+  'Archive-based reactivation must reject 2027 transfers both before and during UPDATE');
+
+const retirementCutoff = section(levels,
+  'export const SAFE_2025_RETIREMENT_BACKFILL_SQL = `',
+  'SELECT COUNT(*)::int AS retired FROM classified');
+assert(retirementCutoff.includes('public.tbc_complete_batting_history') &&
+       retirementCutoff.includes('public.tbc_complete_pitching_history') &&
+       retirementCutoff.includes('public.college_roster_players_raw') &&
+       retirementCutoff.includes("LIKE '%redshirt%'"),
+  'Retirement requires checking archived 2026 play and explicit college redshirt roster');
+
+
 const qc = section(levels,
   'export const CANONICAL_STAGE_REPAIR_SQL = `',
   'export const CANONICAL_ACTIVE_STAGE_MISMATCH_SQL');
