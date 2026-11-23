@@ -18,7 +18,7 @@
       "schedule": "25 9 * * *"
     },
     {
-      "path": "/api/cron/indy-iscore-ingest",
+      "path": "/api/cron/indy-iscore-ingest?includeGames=1&maxGames=15",
       "schedule": "35 9 * * *"
     },
     {
