@@ -140,13 +140,13 @@ test('Next Game prints once per player, worded as his card words it (Pete, Nov 2
   const facts = fixture();
   const first = facts.rows.daily_stat_lines[0];
   facts.rows.daily_stat_lines.push({ ...first, stat_line_id: '1b', line: 'second line', sort_key: 'a2',
-    next_game_date: '2026-10-14', next_game_home_away: 'vs.', next_game_opponent: 'Peoria Javelinas' });
+    next_game_date: 'Wednesday | October 14, 2026', next_game_home_away: 'vs.', next_game_opponent: 'Peoria Javelinas' });
   facts.ready.row_counts = { ...facts.ready.row_counts, daily_stat_lines: 2 };
   const html = renderFinishedEdition(facts).html;
   assert.equal((html.match(/class="favorite-next"/g) || []).length, 1);
-  assert.match(html, /<strong>Next Game<\/strong> \| Wednesday, 10\/14 vs\. Peoria Javelinas/);
+  assert.match(html, /<strong>Next Game<\/strong> \| Wednesday \| October 14, 2026 vs\. Peoria Javelinas/);
   facts.rows.daily_stat_lines[1].next_game_home_away = '@';
-  assert.match(renderFinishedEdition(facts).html, /Wednesday, 10\/14 @ Peoria Javelinas/);
+  assert.match(renderFinishedEdition(facts).html, /October 14, 2026 @ Peoria Javelinas/);
   delete facts.rows.daily_stat_lines[1].next_game_date;
   assert.doesNotMatch(renderFinishedEdition(facts).html, /class="favorite-next"/);
 });

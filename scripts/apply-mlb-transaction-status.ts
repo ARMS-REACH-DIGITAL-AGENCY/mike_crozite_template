@@ -538,35 +538,59 @@ async function retireStaleFreeAgents(): Promise<number> {
   return result.rowCount ?? 0;
 }
 
-// Pete (Nov 2026): a player released by an MLB organization who then plays
-// independent or international ball that season is ACTIVE with that team
-// (Nick Senzel: released by Oklahoma City May 11, 2026, then Lexington
-// Legends). His team, level and organization come from his stat line's Team
-// ID in teamid_universe_mapping. Only an unambiguous single INDY /
-// INTERNATIONAL team qualifies; season lines carry no dates, so two such
-// teams are left for review. One batched query per run.
+// Pete (Nov 18 2026): when MLB releases a player on date R, his card shows
+// FREE AGENT from R. A game line for an INDY team dated AFTER R makes him ACTIVE
+// with that team (team, league as organization and level from
+// teamid_universe_mapping). Evidence dated before R never counts (Max Viera,
+// 229807: his High Point games came before his Nov 13 release, so he is a FREE
+// AGENT). Season totals carry no dates, so they are not evidence. The INDY
+// feed saves each player's dated game line (indy_iscore_player_game_stats_raw,
+// filled by the daily INDY job's box scores); this job runs every 15 minutes,
+// so it picks them up after each INDY load. The latest dated line wins. No
+// INTERNATIONAL feed has dated lines yet, so INTERNATIONAL is not inferred.
 type MovedOn = { teamid: string; team: string; org: string | null; level: string };
-async function releasedThenPlayedElsewhere(playerIds: string[]): Promise<Map<string, MovedOn>> {
+type Released = { playerid: string; released: string };
+async function releasedThenPlayedElsewhere(released: Released[]): Promise<Map<string, MovedOn>> {
   const out = new Map<string, MovedOn>();
-  if (playerIds.length === 0) return out;
+  if (released.length === 0) return out;
   const { rows } = await pool.query<{ playerid: string; teamid: string; team: string; org: string | null; level: string }>(
-    `WITH lines AS (
-       SELECT b.playerid::text AS playerid, b.teamid::text AS teamid FROM public.tbc_batting_2026_season_raw b WHERE BTRIM(b.year) = '2026'
-       UNION SELECT p.playerid::text, p.teamid::text FROM public.tbc_pitching_2026_season_raw p WHERE BTRIM(p.year) = '2026'
-       UNION SELECT i.yatstats_playerid::text, i.teamid::text FROM public.indy_iscore_batting_2026_season_raw i
-              WHERE i.yatstats_playerid IS NOT NULL AND i.season_year = 2026
+    `WITH released AS (
+       SELECT r.playerid, r.released::date AS released, public.yat_id_for(r.playerid) AS yatid
+         FROM jsonb_to_recordset($1::jsonb) AS r(playerid text, released text)
      ),
-     moved AS (
-       SELECT l.playerid, MIN(u.teamid) AS teamid, COUNT(DISTINCT u.teamid) AS n
-         FROM lines l
-         JOIN public.teamid_universe_mapping u ON u.teamid = l.teamid AND u.level_label IN ('INDY', 'INTERNATIONAL')
-        WHERE l.playerid = ANY($1::text[])
-        GROUP BY l.playerid
+     lines AS (
+       SELECT rel.playerid, g.game_date, g.source_game_id,
+              COALESCE(own_team.teamid, game_team.teamid) AS teamid
+         FROM released rel
+         JOIN public.indy_iscore_player_source_map m
+           ON (m.yatid = rel.yatid OR m.yatstats_playerid = rel.playerid)
+         JOIN public.indy_iscore_player_game_stats_raw g
+           ON g.source_system = m.source_system AND g.league_code = m.league_code
+          AND g.season_id = m.season_id AND g.source_player_id = m.source_player_id
+         LEFT JOIN public.indy_iscore_player_source_map own_team
+           ON own_team.source_system = g.source_system AND own_team.league_code = g.league_code
+          AND own_team.season_id = g.season_id AND own_team.source_player_id = g.source_player_id
+          AND own_team.source_team_abbrev = g.team_abbrev
+         LEFT JOIN public.indy_iscore_games_raw gm
+           ON gm.source_system = g.source_system AND gm.league_code = g.league_code
+          AND gm.season_id = g.season_id AND gm.source_game_id = g.source_game_id
+         LEFT JOIN public.indy_iscore_team_source_map game_team
+           ON game_team.source_system = g.source_system AND game_team.league_code = g.league_code
+          AND game_team.season_id = g.season_id
+          AND game_team.source_team_id = CASE WHEN g.team_abbrev = gm.home_team_abbrev THEN gm.home_source_team_id
+                                              WHEN g.team_abbrev = gm.away_team_abbrev THEN gm.away_source_team_id END
+        WHERE g.game_date > rel.released
+     ),
+     latest AS (
+       SELECT DISTINCT ON (playerid) playerid, teamid
+         FROM lines WHERE teamid IS NOT NULL
+        ORDER BY playerid, game_date DESC, source_game_id DESC
      )
-     SELECT m.playerid, u.teamid, u.current_team_name AS team, u.current_org_or_conference_name AS org, u.level_label AS level
-       FROM moved m JOIN public.teamid_universe_mapping u ON u.teamid = m.teamid
-      WHERE m.n = 1 AND NULLIF(BTRIM(u.current_team_name), '') IS NOT NULL`,
-    [playerIds]
+     SELECT l.playerid, u.teamid, u.current_team_name AS team, u.current_org_or_conference_name AS org, u.level_label AS level
+       FROM latest l
+       JOIN public.teamid_universe_mapping u ON u.teamid = l.teamid AND u.level_label IN ('INDY', 'INTERNATIONAL')
+      WHERE NULLIF(BTRIM(u.current_team_name), '') IS NOT NULL`,
+    [JSON.stringify(released)]
   );
   for (const r of rows) out.set(r.playerid, { teamid: r.teamid, team: r.team, org: r.org, level: r.level });
   return out;
@@ -618,8 +642,8 @@ async function main() {
 
     let applied = 0;
 
-    const movedOn = await releasedThenPlayedElsewhere(departures.map((d) => String(d.row.playerid)));
-    console.log(`Released, then played INDY / INTERNATIONAL that season -> ACTIVE with that team: ${movedOn.size}`);
+    const movedOn = await releasedThenPlayedElsewhere(departures.map((d) => ({ playerid: String(d.row.playerid), released: String(d.row.effective_date) })));
+    console.log(`Released, then a dated INDY game line after the release -> ACTIVE with that team: ${movedOn.size}`);
     for (const { row, status: rawStatus } of departures) {
       const moved = movedOn.get(String(row.playerid));
       if (moved) {
