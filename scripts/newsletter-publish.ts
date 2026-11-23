@@ -30,6 +30,8 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
+import { buildActiveRosterSql } from '@/lib/activeRosterSql';
+import { fmt } from '@/lib/playerUtils';
 import { dailyFromStored, weeklyFromStored, storedInnings, requireStoredBoundary, assertStoredCountingStats, type StoredBracketGame } from '@/lib/bracket/storedPublication';
 import { shortName, type GameBox, type GameRow, type Index, type PlayerRow, type SeriesRow } from '@/components/bracket/gallery';
 import { inningStory } from '@/components/bracket/dayStory';
@@ -163,8 +165,9 @@ const SQL_FROZEN = (from: string, to: string, cutoff: string, historicalReplay =
      ${historicalReplay ? '' : 'AND g.created_at <= TIMESTAMPTZ ' + lit(cutoff)}
    ORDER BY g.yatid, s.source_game_id, s.stat_type, g.updated_at DESC)`;
 
-function sqlDailyStatLines(day: string, historicalReplay: boolean) {
+function sqlDailyStatLines(day: string, historicalReplay: boolean, seasonLines: SeasonLines = {}) {
   return `WITH ${SQL_MLB}, ${SQL_CARDS}, ${SQL_FROZEN(day, day, cutoffOf(day), historicalReplay)},
+season_line AS (SELECT key AS yatid, value AS v FROM jsonb_each(${dollar(JSON.stringify(seasonLines))}::jsonb)),
 x AS (
   SELECT s.*, c.nm, c.last, c.first, c.hsid AS card_hsid,
          coalesce(m1.short, s.team_name) AS team_short, coalesce(m2.short, s.opponent_name) AS opp_short,
@@ -187,7 +190,9 @@ INSERT INTO public.daily_stat_lines (stats_date, stat_line_id, playerid, yatid, 
 SELECT game_date, id, yatid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN card_hsid::integer END,
        team_name, team_short, level, opponent_name, opp_short, stat_type,
        -- The same saved line as the card's 7-day snapshot (src/lib/statLine.ts; Pete, Nov 23 2026).
-       CASE WHEN games > 1 THEN 'Game ' || game_no || ': ' ELSE '' END || line_summary,
+       CASE WHEN games > 1 THEN 'Game ' || game_no || ': ' ELSE '' END || line_summary
+         -- Digest only: his season line, as the card back shows it (Pete, Nov 23 2026).
+         || coalesce(E'\\n' || ((SELECT v FROM season_line sl WHERE sl.yatid = y.yatid) ->> CASE stat_type WHEN 'batting' THEN 'b' ELSE 'p' END), ''),
        last || '|' || first || '|' || yatid || '|' || source_game_id || '|' || CASE stat_type WHEN 'batting' THEN '1' ELSE '2' END
   FROM y`;
 }
@@ -278,11 +283,37 @@ type BoxRow = {
 export type PublicationInput = {
   season: Season; rows: Row[]; lines: InLine[]; date?: string; week?: number;
   cutoffAt: string; historicalReplay?: boolean;
+  /** Digest season line per YAT ID: b = 'AVG | OBP | SLG', p = 'ERA | WHIP' (from the card's own season stats). */
+  seasonLines?: SeasonLines;
 };
+export type SeasonLines = Record<string, { b?: string; p?: string }>;
+
+/**
+ * The season line under each Digest stat line, from the SAME query and formatting
+ * as the card back's season stats (buildActiveRosterSql + fmt), for each player's
+ * card (picked as SQL_CARDS picks it). Digest only; the card snapshot shows the game line.
+ */
+export async function digestSeasonLines(db: Pick<PoolClient, 'query'>, yatids: string[]): Promise<SeasonLines> {
+  if (!yatids.length) return {};
+  const { rows: cards } = await db.query<{ yatid: string; card_id: string }>(
+    'SELECT DISTINCT ON (f.yatid) f.yatid, f.playerid::text AS card_id FROM public.flip_card_front_stage f WHERE f.yatid = ANY($1::text[]) ORDER BY f.yatid, f.stage_updated_at DESC NULLS LAST, f.hsid', [yatids]);
+  if (!cards.length) return {};
+  const { rows } = await db.query<Record<string, unknown>>(buildActiveRosterSql('ph.playerid::text = ANY($1)', 'playerid::text = ANY($1)'), [cards.map(c => c.card_id)]);
+  const byCard = new Map(rows.map(r => [String(r.playerid), r]));
+  const out: SeasonLines = {};
+  for (const { yatid, card_id } of cards) {
+    const r = byCard.get(card_id); if (!r) continue;
+    const join = (keys: string[]) => keys.every(k => r[k.toLowerCase()] == null) ? undefined : keys.map(k => fmt(k, r[k.toLowerCase()])).join(' | ');
+    const b = join(['AVG', 'OBP', 'SLG']), p = join(['ERA', 'WHIP']);
+    if (b || p) out[yatid] = { ...(b ? { b } : {}), ...(p ? { p } : {}) };
+  }
+  return out;
+}
 export function buildNewsletterPublication(input: PublicationInput) {
   const { season, rows, lines, cutoffAt } = input;
   const day = input.date, week = input.week || 0;
   const historicalReplay = input.historicalReplay === true;
+  const seasonLines = input.seasonLines || {};
   if ((!day && !week) || (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) ||
       (week && (!Number.isInteger(week) || week < 1))) throw new Error('An explicit publication date or week is required');
   const weeks = tournamentWeeks(season.opening_day, season.weeks);
@@ -514,7 +545,7 @@ export function buildNewsletterPublication(input: PublicationInput) {
        OR EXISTS (SELECT 1 FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)})
        OR EXISTS (SELECT 1 FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)})
      THEN RAISE EXCEPTION 'The Daily for ${day} is already published: it is never written twice'; END IF; END $$`,
-    sqlDailyStatLines(day, historicalReplay),
+    sqlDailyStatLines(day, historicalReplay, seasonLines),
     `INSERT INTO public.daily_game_scores (stats_date, season_key, region, game_id, week, home_hsid, away_hsid, home_label, away_label,
        home_innings, away_innings, home_runs, away_runs, through_inning, is_final)
      SELECT stats_date, season_key, region, game_id, week, home_hsid, away_hsid, home_label, away_label,
@@ -657,7 +688,8 @@ export async function prepareNewsletterPublication(db: Pick<PoolClient, 'query'>
     throw new Error('Canonical publication source lacks a required counting fact; no missing value is replaced with zero');
   }
   const lines = source.map(r=>r.line);
-  const plan = buildNewsletterPublication({season,rows,lines,date:opts.date,week,cutoffAt:opts.cutoffAt,historicalReplay:opts.historicalReplay});
+  const seasonLines = opts.date ? await digestSeasonLines(db, [...new Set(lines.map(l=>l[1]))]) : {};
+  const plan = buildNewsletterPublication({season,rows,lines,date:opts.date,week,cutoffAt:opts.cutoffAt,historicalReplay:opts.historicalReplay,seasonLines});
   const canonicalSourceHash = createHash('sha256').update(JSON.stringify(source)).digest('hex');
   const pitcherGames = new Set(lines.filter(l=>l[4]==='p').map(l=>l[1]+':'+l[6]));
   const expectedDailyStats = lines.filter(l=>!(l[4]==='b' && l[5][0]===0 && pitcherGames.has(l[1]+':'+l[6]))).length;
