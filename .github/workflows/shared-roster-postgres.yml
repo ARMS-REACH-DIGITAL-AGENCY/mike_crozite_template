@@ -49,3 +49,5 @@ jobs:
         run: node scripts/test-shared-roster-postgres.cjs
       - name: Execute real MLB departure lifecycle SQL against isolated PostgreSQL
         run: node scripts/test-mlb-departure-lifecycle-postgres.cjs
+      - name: Verify player creation with application-role school-link permissions
+        run: node scripts/test-new-player-school-link-permission-postgres.cjs
