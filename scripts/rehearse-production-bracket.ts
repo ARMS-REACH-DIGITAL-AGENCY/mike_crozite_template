@@ -179,6 +179,16 @@ async function main() {
         if ('warnings' in schedule && schedule.warnings?.length) throw new Error('Incomplete schedule ingestion: ' + schedule.warnings.join('; '));
         const gameLogs = await runMlbLiveGameLogs(pool, { request: provider.request, effectiveAt: ingestAt });
         if (gameLogs.warnings.length) throw new Error('Incomplete player-log ingestion: ' + gameLogs.warnings.join('; '));
+        // Pete: every MLB-organization game of 2026 counts (MLB to ROOKIE). The
+        // live worker replays MLB (sportId 1); in production the minor-league
+        // lines arrive from the 4-hourly per-player sync. Replay that day's
+        // downloaded minor-league lines through the same table and landing triggers.
+        const minorLeague = await pool.query(`INSERT INTO public.player_game_logs
+            SELECT a.* FROM rehearsal_source_archive.player_game_logs a
+             WHERE a.game_date = $1::date AND a.raw_payload->'sport'->>'abbreviation' = ANY($2::text[])
+               AND NOT EXISTS (SELECT 1 FROM public.player_game_logs p WHERE p.id = a.id)
+            ON CONFLICT DO NOTHING`, [day, ['AAA', 'AA', 'A+', 'A', 'ROK']]);
+        const minorLeagueLines = minorLeague.rowCount ?? 0;
         const { rows: [landing] } = await pool.query(`SELECT count(*)::int AS logs,
           count(*) FILTER(WHERE s.id IS NOT NULL)::int AS landed,
           count(*) FILTER(WHERE s.hold_reason IS NOT NULL)::int AS held,
@@ -186,7 +196,7 @@ async function main() {
           FROM player_game_logs l LEFT JOIN stat_lines s ON s.source=l.source AND s.source_line_id=l.id::text
           WHERE l.game_date=$1::date`, [day]);
         const { rows: [errors] } = await pool.query('SELECT count(*)::int AS n FROM stat_line_load_errors WHERE id>$1::bigint', [errorStart.id]);
-        evidence.ingestion = { ingestAt, schedule, gameLogs, landing, newLandingErrors: errors.n,
+        evidence.ingestion = { ingestAt, schedule, gameLogs, minorLeagueLines, landing, newLandingErrors: errors.n,
           providerRecords: [...provider.records].sort((a,b) => a.url.localeCompare(b.url) || a.providerHash.localeCompare(b.providerHash)).map(({ url, providerHash, replayHash, omittedFutureDates, omittedFutureGameIds }) => ({ url, providerHash, replayHash, omittedFutureDates, omittedFutureGameIds })) };
         await pool.query("UPDATE bracket_rehearsal_days SET evidence=$3::jsonb,updated_at=now() WHERE season_key=$1 AND report_date=$2", [seasonKey, day, JSON.stringify(evidence)]);
         if (errors.n || landing.logs !== landing.landed || landing.unresolved) throw new Error('Production stat landing is incomplete; inspect the saved ingestion evidence');
