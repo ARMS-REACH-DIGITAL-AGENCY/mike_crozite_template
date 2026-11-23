@@ -147,7 +147,9 @@ const SQL_CARDS = `card AS (
          upper(btrim(coalesce(f.status_label, ''))) AS st,
          CASE WHEN upper(btrim(coalesce(f.level_label, ''))) IN (${list(OFFICIAL)}) THEN upper(btrim(f.level_label)) ELSE '' END AS lvl,
          btrim(coalesce(f.current_team_name, '')) AS team,
-         (upper(btrim(coalesce(f.level_label, ''))) IN ('HIGH SCHOOL', 'HS') OR upper(btrim(coalesce(f.display_level_label, ''))) IN ('HIGH SCHOOL', 'HS')) AS hs
+         (upper(btrim(coalesce(f.level_label, ''))) IN ('HIGH SCHOOL', 'HS') OR upper(btrim(coalesce(f.display_level_label, ''))) IN ('HIGH SCHOOL', 'HS')) AS hs,
+         -- His card's next game (Digest "Next Game" line; Pete, Nov 23 2026).
+         f.next_game_date AS next_date, f.next_game_home_away AS next_home_away, f.next_game_opponent AS next_opponent
     FROM public.flip_card_front_stage f
    WHERE f.yatid IS NOT NULL
    ORDER BY f.yatid, f.stage_updated_at DESC NULLS LAST, f.hsid)`;
@@ -169,7 +171,7 @@ function sqlDailyStatLines(day: string, historicalReplay: boolean, seasonLines: 
   return `WITH ${SQL_MLB}, ${SQL_CARDS}, ${SQL_FROZEN(day, day, cutoffOf(day), historicalReplay)},
 season_line AS (SELECT key AS yatid, value AS v FROM jsonb_each(${dollar(JSON.stringify(seasonLines))}::jsonb)),
 x AS (
-  SELECT s.*, c.nm, c.last, c.first, c.hsid AS card_hsid,
+  SELECT s.*, c.nm, c.last, c.first, c.hsid AS card_hsid, c.next_date, c.next_home_away, c.next_opponent,
          coalesce(m1.short, s.team_name) AS team_short, coalesce(m2.short, s.opponent_name) AS opp_short,
          count(*) OVER (PARTITION BY s.yatid, s.stat_type) AS games,
          row_number() OVER (PARTITION BY s.yatid, s.stat_type ORDER BY s.source_game_id) AS game_no,
@@ -186,14 +188,16 @@ y AS (
    -- A pitcher's empty batting line (no plate appearance) isn't news.
    WHERE NOT (stat_type = 'batting' AND coalesce(bat_pa, 0) = 0 AND pitched))
 INSERT INTO public.daily_stat_lines (stats_date, stat_line_id, playerid, yatid, player_name, hsid, team_name, team_short, level,
-                                     opponent_name, opponent_short, stat_type, line, sort_key)
+                                     opponent_name, opponent_short, stat_type, line, sort_key,
+                                     next_game_date, next_game_home_away, next_game_opponent)
 SELECT game_date, id, yatid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN card_hsid::integer END,
        team_name, team_short, level, opponent_name, opp_short, stat_type,
        -- The same saved line as the card's 7-day snapshot (src/lib/statLine.ts; Pete, Nov 23 2026).
        CASE WHEN games > 1 THEN 'Game ' || game_no || ': ' ELSE '' END || line_summary
          -- Digest only: his season line, as the card back shows it (Pete, Nov 23 2026).
          || coalesce(E'\\n' || ((SELECT v FROM season_line sl WHERE sl.yatid = y.yatid) ->> CASE stat_type WHEN 'batting' THEN 'b' ELSE 'p' END), ''),
-       last || '|' || first || '|' || yatid || '|' || source_game_id || '|' || CASE stat_type WHEN 'batting' THEN '1' ELSE '2' END
+       last || '|' || first || '|' || yatid || '|' || source_game_id || '|' || CASE stat_type WHEN 'batting' THEN '1' ELSE '2' END,
+       next_date, next_home_away, next_opponent
   FROM y`;
 }
 

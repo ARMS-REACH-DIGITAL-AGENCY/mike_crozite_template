@@ -193,6 +193,14 @@ function weeklyBox(box: Row): { html: string; text: string } {
 }
 const CSS = 'body{margin:0;background:#ece8df;color:#1d1d1b;font:15px/1.55 Georgia,"Times New Roman",serif}.paper{max-width:760px;margin:20px auto;padding:24px;background:#fffdf7;border:1px solid #d8d2c4}header{text-align:center;border-bottom:4px double #1d1d1b;padding-bottom:14px}h1{margin:0;font-size:32px;line-height:1.15}header p{margin:6px 0 0;font:13px Arial,sans-serif}h2{font-size:21px;border-bottom:2px solid #1d1d1b;margin:26px 0 10px}h3{font:700 14px Arial,sans-serif;margin:18px 0 6px}.finished-lines{padding-left:20px}.finished-lines li{margin:8px 0}.scoreboard{background:#173b21;padding:12px;color:#fff}.board-title{text-align:center;font:bold 18px Arial,sans-serif;padding:8px}.board-invite{text-align:center;font:bold 18px/1.4 Arial,sans-serif;color:#f5d76e}.board-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.board-column{min-width:0}.score-panel{overflow-x:auto;margin:8px 0;border-top:3px solid #356043;border-bottom:3px solid #356043}.home-game{border-color:#d0021b}.score-panel table{width:100%;border-collapse:collapse;font:11px "Courier New",monospace}.score-panel th,.score-panel td{padding:3px 2px;text-align:center}.score-panel tbody th{text-align:left;font:700 10px Arial,sans-serif;min-width:92px}.score-panel td{background:#0e2a16;border:1px solid #173b21;min-width:13px}.score-panel thead{color:#f5d76e}.runs{font-weight:bold}.box-scroll{overflow-x:auto}.box-table{width:100%;border-collapse:collapse;font:12px/1.5 Arial,sans-serif}.box-table th,.box-table td{padding:5px 6px;text-align:right;border-bottom:1px solid #ded9cc;white-space:nowrap}.box-table th:first-child,.box-table td:first-child{text-align:left}.league-score{break-inside:avoid;border-bottom:1px solid #ded9cc;padding:8px 0}a{color:#1f4d2b}@media(max-width:600px){.paper{margin:0;padding:15px;border:0}h1{font-size:29px}.board-columns{grid-template-columns:minmax(0,1fr)}.scoreboard{padding:8px}.score-panel tbody th{min-width:110px;font-size:11px}.score-panel table{font-size:12px}.score-panel td{padding:5px 2px}}';
 
+/** "Wednesday, 10/14 vs. Peoria Javelinas": the card's next game, worded as the card words it. */
+function nextGame(row: Row): string | undefined {
+  if (!row.next_game_date || !row.next_game_opponent) return undefined;
+  const day = new Date(iso(row.next_game_date) + 'T12:00:00Z');
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(day);
+  return `${weekday}, ${day.getUTCMonth() + 1}/${day.getUTCDate()} ${publicText(row.next_game_home_away || 'vs.', 'next game')} ${publicText(row.next_game_opponent, 'next game opponent')}`;
+}
+
 /** Deterministic layout of an immutable edition. Never reads or writes data. */
 export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl?: string } = {}): RenderedEdition {
   const facts = clone(input), { ready, recipient, rows } = facts;
@@ -239,8 +247,10 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       firstName: String(recipient.first_name || ''), isSuperfan: Boolean(recipient.is_superfan),
       favoriteCount: favoriteIds.size,
       regionLabel: facts.selection.region == null ? undefined : 'Region ' + facts.selection.region,
-      favoriteRows: rows.daily_stat_lines.map(row => ({ player_name: publicText(row.player_name, 'player name'),
-        team_name: publicText(row.team_name, 'team name'), level: publicText(row.level, 'level'), line: publicText(row.line, 'daily stat line') })),
+      favoriteRows: rows.daily_stat_lines.map((row, index, all) => ({ player_name: publicText(row.player_name, 'player name'),
+        team_name: publicText(row.team_name, 'team name'), level: publicText(row.level, 'level'), line: publicText(row.line, 'daily stat line'),
+        // Once per player, under his last line of the day.
+        next_game: all.slice(index + 1).some(other => yat(other.yatid) === yat(row.yatid)) ? undefined : nextGame(row) })),
       story: story ? { title: publicText(story.title, 'story title'), story: publicText(story.story, 'story'),
         seriesNote: publicText(story.series_note, 'series note'), shoutouts: (story.shout_outs || []).map((row: Row) => publicText(row.line, 'shout-out')) } : undefined,
       slots: scores.slots,
