@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
-import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
+import { isFantasyRosterStatus } from '@/lib/galleryStatuses';
 import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
 import {
   allowClubResultFallback, isBracketGameDone as isDone, isBracketGameFinal as isFinal, isBracketGameType,
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
         WHERE hsid::text = ANY($1)`,
       [hsids],
     );
-    const active = stage.filter((r) => isActiveGalleryStatus(r.status_label) && !isHighSchool(r));
+    const active = stage.filter((r) => isFantasyRosterStatus(r.status_label) && !isHighSchool(r));
     // Use season evidence before the stale display position. Braden Montgomery
     // is still labeled "P" in the stage table, but his 2026 evidence is
     // batting-only, so the live test bracket must not create zero pitching
