@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getFlipCardFrontStageByHsid, query } from '@/lib/db';
-import { isActiveGalleryStatus } from '@/lib/galleryStatuses';
+import { isFantasyRosterStatus } from '@/lib/galleryStatuses';
 
 type Row = Record<string, unknown>;
 
@@ -65,10 +65,10 @@ function roleFromPosition(position: unknown) {
 
 /**
  * The Fantasy roster is exactly the Active Baseball Alumni flip-card
- * gallery: the school's flip_card_front_stage rows selected by the shared
- * isActiveGalleryStatus preset, including its free-agent and redshirt
- * statuses, and not listed at the high-school level. The scoring source
- * uses this same membership contract (src/lib/galleryStatuses.ts).
+ * team: the school's flip_card_front_stage rows on a team's roster (the shared
+ * FANTASY_ROSTER_STATUSES, src/lib/galleryStatuses.ts - the same rule scoring
+ * uses; no free agents), not listed at the high-school level. Nothing else -
+ * no commits, uncommitted, coaches, sponsors or blank statuses.
  *
  * A player can be on it with zero stats for the season (new graduate,
  * injured player...); stats are only an overlay for players who have them.
@@ -87,7 +87,7 @@ export async function GET(
     const stageRowsRaw = await getFlipCardFrontStageByHsid(hsid);
     const stageRows = (Array.isArray(stageRowsRaw) ? stageRowsRaw : []) as Row[];
     const eligible = stageRows.filter(
-      (stage) => isActiveGalleryStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage)
+      (stage) => isFantasyRosterStatus(stage.status_label ?? stage.status) && !isHighSchoolLevel(stage)
     );
     const yatIds = [...new Set(eligible.map((r) => text(r.yatid)).filter(Boolean))];
     const gameLogUsage = await getRosterGameLogUsage(yatIds);

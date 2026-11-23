@@ -116,3 +116,15 @@ export function isActiveGalleryStatus(value: unknown): boolean {
 export function isRosterStatus(value: unknown): boolean {
   return ROSTER_STATUSES.includes(normalizeGalleryStatus(value));
 }
+
+// Fantasy team roster (Pete, Nov 23 2026): a player counts for his high
+// school's fantasy team only while he is on a team's roster. A FREE AGENT
+// (released, on no roster) does not count; he counts again the day he signs
+// with a team. Redshirts are on their college roster, so they count. ONE rule
+// for scoring (/api/bracket/live), the roster drawer (/api/players/[hsid]) and
+// the Digest's home-team list. The Active Alumni gallery still shows free agents.
+export const FANTASY_ROSTER_STATUSES: readonly string[] = ACTIVE_GALLERY_STATUSES.filter((s) => s !== 'FREE AGENT');
+
+export function isFantasyRosterStatus(value: unknown): boolean {
+  return FANTASY_ROSTER_STATUSES.includes(normalizeGalleryStatus(value));
+}
