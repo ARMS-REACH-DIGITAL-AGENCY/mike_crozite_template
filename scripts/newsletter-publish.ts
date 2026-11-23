@@ -154,7 +154,7 @@ const SQL_CARDS = `card AS (
 // historicalReplay is explicitly selected for the isolated rehearsal.
 // Fantasy scores still come exclusively from stored master_bracket results.
 const SQL_FROZEN = (from: string, to: string, cutoff: string, historicalReplay = false) => `src AS (
-  SELECT DISTINCT ON (g.yatid, s.source_game_id, s.stat_type) s.*, g.yatid
+  SELECT DISTINCT ON (g.yatid, s.source_game_id, s.stat_type) s.*, g.yatid, g.line_summary
     FROM public.stat_lines s
     JOIN public.player_game_logs g ON s.source = 'mlb_api' AND g.id::text = s.source_line_id
    WHERE s.game_date BETWEEN DATE ${lit(from)} AND DATE ${lit(to)}
@@ -186,13 +186,8 @@ INSERT INTO public.daily_stat_lines (stats_date, stat_line_id, playerid, yatid, 
                                      opponent_name, opponent_short, stat_type, line, sort_key)
 SELECT game_date, id, yatid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN card_hsid::integer END,
        team_name, team_short, level, opponent_name, opp_short, stat_type,
-       nm || ' (' || team_short || ', ' || level || ') vs. ' || opp_short
-          || CASE WHEN games > 1 THEN ' (Game ' || game_no || ')' ELSE '' END || ': '
-          || CASE WHEN stat_type = 'batting' THEN ${SQL_BAT('')}
-                  ELSE concat_ws(', ', (coalesce(pit_outs, 0) / 3) || '.' || (coalesce(pit_outs, 0) % 3) || ' IP',
-                         coalesce(pit_h, 0) || ' H', coalesce(pit_er, 0) || ' ER', coalesce(pit_bb, 0) || ' BB', coalesce(pit_so, 0) || ' K',
-                         CASE WHEN pit_w > 0 THEN 'W' END, CASE WHEN pit_l > 0 THEN 'L' END,
-                         CASE WHEN pit_sv > 0 THEN 'SV' END, CASE WHEN pit_hld > 0 THEN 'HLD' END) END,
+       -- The same saved line as the card's 7-day snapshot (src/lib/statLine.ts; Pete, Nov 23 2026).
+       CASE WHEN games > 1 THEN 'Game ' || game_no || ': ' ELSE '' END || line_summary,
        last || '|' || first || '|' || yatid || '|' || source_game_id || '|' || CASE stat_type WHEN 'batting' THEN '1' ELSE '2' END
   FROM y`;
 }

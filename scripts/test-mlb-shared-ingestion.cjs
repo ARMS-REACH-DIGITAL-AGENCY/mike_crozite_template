@@ -18,7 +18,7 @@ function compile(file, dependencies = {}) {
 }
 const context = compile('src/lib/mlb/ingestionContext.ts');
 const { isBracketGameType } = compile('src/lib/bracket/scheduleAuthority.ts');
-const dependencies = { './ingestionContext': context };
+const dependencies = { './ingestionContext': context, '../statLine': compile('src/lib/statLine.ts') };
 const { runMlbLiveGameLogs } = compile('src/lib/mlb/liveGameLogs.ts', dependencies);
 const { runLiveScheduleRefresh } = compile('src/lib/mlb/liveScheduleRefresh.ts', dependencies);
 const EFFECTIVE = '2026-03-27T06:59:59.000Z'; // March 26, 23:59:59 in Arizona.
