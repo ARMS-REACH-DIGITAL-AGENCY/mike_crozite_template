@@ -18,3 +18,5 @@ for (const ext of ['.ts', '.tsx']) require.extensions[ext] = (module, file) => {
 require('../src/lib/bracket/storedPublication.test.ts');
 require('../src/lib/newsletter/finishedPublication.test.ts');
 require('../src/lib/newsletter/scheduledPublication.test.ts');
+require('../src/lib/statLine.test.ts');
+require('./newsletter-season-line.test.ts');

@@ -92,14 +92,14 @@ test('the supplied Daily Digest newspaper template retains its sections and chan
   assert.equal(stableJson(facts), original);
   assert.equal(stableJson(result.facts), original);
   assert.equal(result.layoutVersion, 'daily-digest-phone8-v2');
-  const sections = ['YOUR HOMETOWN. THEIR NEXT CHAPTER.', 'The Daily Digest', 'FAN FAVORITES',
+  const sections = ['YOUR HOMETOWN. THEIR NEXT CHAPTER.', 'MY FAVORITES', 'The Daily Digest', 'MY FAVORITES',
     'THE FANTASY DESK', 'Daily Double', '>Connect<', '>Contribute<', '>Remember<'];
   const documentBody = result.html.slice(result.html.indexOf('<body')).toLowerCase();
   let previous = -1;
   for (const heading of sections) { const index = documentBody.indexOf(heading.toLowerCase(), previous + 1); assert.ok(index > previous, 'Missing or reordered section: ' + heading); previous = index; }
   assert.equal((result.html.match(/data-slot="/g) || []).length, 12);
-  assert.match(result.html, /March 26, 2026/);
-  assert.match(result.html, /25 March 2026/);
+  // Pete's Nov 22 2026 masthead: date year first | MY FAVORITES | weekday.
+  assert.match(result.html, /<td class="left">2026 March 26<\/td><td class="mid">My Favorites<\/td><td class="right">Thursday<\/td>/);
   assert.match(result.html, /board-crown/);
   assert.doesNotMatch(result.html, /TEST REPLAY|DESIGN PROOF|Commissioner|needs_decision/);
 });

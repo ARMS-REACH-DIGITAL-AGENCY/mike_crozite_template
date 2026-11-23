@@ -88,14 +88,17 @@ test('the supplied Daily Digest newspaper template retains its sections and chan
   assert.equal(stableJson(facts), original);
   assert.equal(stableJson(result.facts), original);
   assert.equal(result.layoutVersion, 'daily-digest-phone8-v2');
-  const sections = ['YOUR HOMETOWN. THEIR NEXT CHAPTER.', 'The Daily Digest', 'FAN FAVORITES',
+  const sections = ['YOUR HOMETOWN. THEIR NEXT CHAPTER.', 'MY FAVORITES', 'The Daily Digest', 'MY FAVORITES',
     'THE FANTASY DESK', 'Daily Double', '>Connect<', '>Contribute<', '>Remember<'];
   const documentBody = result.html.slice(result.html.indexOf('<body')).toLowerCase();
   let previous = -1;
   for (const heading of sections) { const index = documentBody.indexOf(heading.toLowerCase(), previous + 1); assert.ok(index > previous, 'Missing or reordered section: ' + heading); previous = index; }
   assert.equal((result.html.match(/data-slot="/g) || []).length, 12);
-  assert.match(result.html, /March 26, 2026/);
-  assert.match(result.html, /25 March 2026/);
+  // Pete's Nov 22 2026 masthead: date year first | MY FAVORITES | weekday.
+  assert.match(result.html, /<td class="left">2026 March 26<\/td><td class="mid">My Favorites<\/td><td class="right">Thursday<\/td>/);
+  assert.doesNotMatch(result.html, /FAN FAVORITES|WHERE THEY YAT/);
+  const withSite = renderFinishedEdition(facts, { baseUrl: 'https://hamilton.az.yatstats.com/' });
+  assert.match(withSite.html, /<img src="https:\/\/hamilton\.az\.yatstats\.com\/img\/newsletter\/daily-digest-logo\.png" alt="The Daily Digest, powered by YAT\?STATS">/);
   assert.match(result.html, /board-crown/);
   assert.doesNotMatch(result.html, /TEST REPLAY|DESIGN PROOF|Commissioner|needs_decision/);
 });
@@ -131,4 +134,19 @@ test('weekly edition prints full saved roster and box cells, preserving club-tra
   assert.equal(result.rowKeys.weekly_player_lines.length, 2);
   const db = database(facts);
   return readFinishedEdition(db, { ...request, cadence: 'weekly', date: '2026-03-23' }).then(read => assert.equal(read.rows.weekly_player_lines.length, 2));
+});
+
+test('Next Game prints once per player, worded as his card words it (Pete, Nov 23 2026)', () => {
+  const facts = fixture();
+  const first = facts.rows.daily_stat_lines[0];
+  facts.rows.daily_stat_lines.push({ ...first, stat_line_id: '1b', line: 'second line', sort_key: 'a2',
+    next_game_date: '2026-10-14', next_game_home_away: 'vs.', next_game_opponent: 'Peoria Javelinas' });
+  facts.ready.row_counts = { ...facts.ready.row_counts, daily_stat_lines: 2 };
+  const html = renderFinishedEdition(facts).html;
+  assert.equal((html.match(/class="favorite-next"/g) || []).length, 1);
+  assert.match(html, /<strong>Next Game<\/strong> \| Wednesday, 10\/14 vs\. Peoria Javelinas/);
+  facts.rows.daily_stat_lines[1].next_game_home_away = '@';
+  assert.match(renderFinishedEdition(facts).html, /Wednesday, 10\/14 @ Peoria Javelinas/);
+  delete facts.rows.daily_stat_lines[1].next_game_date;
+  assert.doesNotMatch(renderFinishedEdition(facts).html, /class="favorite-next"/);
 });
