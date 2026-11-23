@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function verify(source) {
+function verify(source, rosterSource = source) {
   const match = source.match(/\bconst\s+FLIP_CARD_STAGE_SELECT\s*=\s*`([\s\S]*?)`\s*;/);
   assert.ok(match, 'Shared roster SQL not found; update the guard if it is refactored');
   const sql = match[1];
@@ -33,11 +33,12 @@ function verify(source) {
   // PR #691: an IN (SELECT ... FROM school_players) here previously forced
   // historical 939K-row scans for every school request. Require an indexable
   // scalar-array initplan for the Active and All-Time season aggregation paths.
-  const rosterStart = source.indexOf('function buildActiveRosterSql(');
+  // The builder lives in src/lib/activeRosterSql.ts (shared with the Daily Digest, Nov 23 2026).
+  const rosterStart = rosterSource.indexOf('function buildActiveRosterSql(');
   // The roster builder produces PostgreSQL, not JavaScript. A PR #784
   // JavaScript-style comment inside its SQL template caused SQLSTATE 42601
   // and emptied every school roster, including bracket side drawers.
-  const rosterBuilder = source.slice(rosterStart, source.indexOf('\n}', rosterStart) + 2);
+  const rosterBuilder = rosterSource.slice(rosterStart, rosterSource.indexOf('\n}', rosterStart) + 2);
   const sqlTemplate = rosterBuilder.match(/return `([\s\S]*?)`;/)?.[1];
   assert.ok(sqlTemplate, 'Active roster SQL template must be present');
   assert.doesNotMatch(sqlTemplate, /^\s*\/\//m,
@@ -45,7 +46,7 @@ function verify(source) {
   const allTimeStart = source.indexOf('export const getAllTimeRosterByHsid');
   assert.ok(rosterStart >= 0 && allTimeStart >= 0, 'School roster readers must exist');
   for (const [name, block] of [
-    ['Active', source.slice(rosterStart, source.indexOf('\n}', rosterStart) + 2)],
+    ['Active', rosterBuilder],
     ['All-Time', source.slice(allTimeStart, allTimeStart + 45000)],
   ]) {
     assert.match(block, /playerid::text\s*=\s*ANY\(ARRAY\(SELECT playerid::text FROM school_players\)\)/,
@@ -56,7 +57,8 @@ function verify(source) {
   return true;
 }
 if (require.main === module) {
-  verify(fs.readFileSync(path.join(__dirname, '..', 'src/lib/db.ts'), 'utf8'));
+  verify(fs.readFileSync(path.join(__dirname, '..', 'src/lib/db.ts'), 'utf8'),
+    fs.readFileSync(path.join(__dirname, '..', 'src/lib/activeRosterSql.ts'), 'utf8'));
   console.log('PASS: shared roster SQL qualifies level/status columns');
 }
 module.exports = { verify };

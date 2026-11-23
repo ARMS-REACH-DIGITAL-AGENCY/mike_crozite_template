@@ -1,6 +1,7 @@
 // Production MLB boxscore ingestion. The HTTP route and isolated rehearsal
 // use this same parser, registry lookup and database writer.
 import { mlbIngestionContext, type MlbIngestionDb, type MlbIngestionOptions } from "./ingestionContext";
+import { battingLine, pitchingLine } from "../statLine";
 
 const MLB_API_BASE = "https://statsapi.mlb.com/api/v1";
 const AZ_TZ = "America/Phoenix";
@@ -57,28 +58,7 @@ function hasPitchingActivity(stat: Record<string, unknown> | undefined): boolean
     || Number(stat.pitchesThrown || 0) > 0;
 }
 
-function battingLine(stat: Record<string, unknown>): string {
-  const ab = Number(stat.atBats || 0);
-  const h = Number(stat.hits || 0);
-  const hr = Number(stat.homeRuns || 0);
-  const rbi = Number(stat.rbi || 0);
-  const bb = Number(stat.baseOnBalls || 0);
-  const parts = [`${h}-${ab}`];
-  if (hr) parts.push(`${hr} HR`);
-  if (rbi) parts.push(`${rbi} RBI`);
-  if (bb) parts.push(`${bb} BB`);
-  return parts.join(", ");
-}
 
-function pitchingLine(stat: Record<string, unknown>): string {
-  const ip = String(stat.inningsPitched || "0.0");
-  const er = Number(stat.earnedRuns || 0);
-  const k = Number(stat.strikeOuts || 0);
-  const bb = Number(stat.baseOnBalls || 0);
-  const parts = [`${ip} IP`, `${er} ER`, `${k} K`];
-  if (bb) parts.push(`${bb} BB`);
-  return parts.join(", ");
-}
 
 async function fetchJson(request: typeof fetch, url: string): Promise<any> {
   const res = await request(url, {

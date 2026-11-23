@@ -36,6 +36,7 @@
 //   DATABASE_URL — Neon Postgres connection string
 
 import { Pool } from "pg";
+import { battingLine, pitchingLine } from "../src/lib/statLine";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -296,54 +297,7 @@ function n(stat: Record<string, unknown>, key: string): number {
   return Number.isFinite(v) ? v : 0;
 }
 
-function battingLine(stat: Record<string, unknown>): string {
-  const ab = stat.atBats ?? 0;
-  const h = stat.hits ?? 0;
-  const parts = [`${h}-${ab}`];
 
-  const doubles = n(stat, "doubles");
-  const triples = n(stat, "triples");
-  const hr = n(stat, "homeRuns");
-  const rbi = n(stat, "rbi");
-  const runs = n(stat, "runs");
-  const bb = n(stat, "baseOnBalls");
-  const so = n(stat, "strikeOuts");
-  const sb = n(stat, "stolenBases");
-
-  if (doubles > 0) parts.push(`${doubles > 1 ? doubles : ""}2B`);
-  if (triples > 0) parts.push(`${triples > 1 ? triples : ""}3B`);
-  if (hr > 0) parts.push(`${hr > 1 ? hr : ""}HR`);
-  if (rbi > 0) parts.push(`${rbi} RBI`);
-  if (runs > 0) parts.push(`${runs} R`);
-  if (bb > 0) parts.push(`${bb > 1 ? bb : ""}BB`);
-  if (so > 0) parts.push(`${so}K`);
-  if (sb > 0) parts.push(`${sb > 1 ? sb : ""}SB`);
-
-  return parts.join(" | ");
-}
-
-function pitchingLine(stat: Record<string, unknown>): string {
-  const ip = stat.inningsPitched ?? "0.0";
-  const er = n(stat, "earnedRuns");
-  const so = n(stat, "strikeOuts");
-  const bb = n(stat, "baseOnBalls");
-
-  const decision = n(stat, "wins") === 1
-    ? "W"
-    : n(stat, "losses") === 1
-      ? "L"
-      : n(stat, "saves") === 1
-        ? "SV"
-        : n(stat, "holds") === 1
-          ? "H"
-          : null;
-
-  const parts = [`${ip} IP`, `${er} ER`, `${so} K`];
-  if (bb > 0) parts.push(`${bb} BB`);
-  if (decision) parts.push(`(${decision})`);
-
-  return parts.join(", ");
-}
 
 function toGameLogRow(
   playerid: string,
