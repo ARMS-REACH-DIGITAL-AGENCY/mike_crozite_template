@@ -421,6 +421,53 @@ type HeldBaselinePlayer = {
 async function ensureFlipCardBaselineRows(
   client: any,
 ): Promise<{ created: number; held: HeldBaselinePlayer[] }> {
+  // TBC lists 72 schools twice under separate HSIDs. The source school
+  // text is identical, but the school-key resync deliberately refuses two
+  // candidates, leaving their new players without a searchable card.
+  // Canonical rule (Pete, Nov 23): lower HSID wins for verified exact
+  // duplicate-school pairs. Preserve TBC source IDs and YAT person IDs.
+  // This link is created before the existing identity-safe card publisher;
+  // the publisher still holds conflicting identities for review.
+  await client.query(`
+    WITH unlinked AS MATERIALIZED (
+      SELECT p.playerid, public.yat_id_for(p.playerid::text) AS yatid,
+             public.school_key_norm(p.high_school) AS school_key
+      FROM public.tbc_players_raw p
+      WHERE NOT EXISTS (
+        SELECT 1 FROM public.yat_school_links l
+        WHERE l.source='tbc' AND l.source_player_id=p.playerid::text
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM public.flip_card_front_stage f
+        WHERE f.playerid=p.playerid::text
+           OR f.yatid=public.yat_id_for(p.playerid::text)
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM public.player_hsid_exclusion e WHERE e.playerid=p.playerid::text
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM public.tbc_flip_card_publication_holds h
+        WHERE h.playerid=p.playerid::text
+      )
+    ),
+    pair_matches AS (
+      SELECT u.playerid, u.yatid, MIN(k.hsid) AS canonical_hsid
+      FROM unlinked u
+      JOIN public.school_source_keys k
+        ON k.source='tbc' AND k.source_key=u.school_key
+      JOIN public.tbc_schools_raw s ON s.hsid=k.hsid
+      WHERE u.yatid IS NOT NULL
+      GROUP BY u.playerid, u.yatid
+      HAVING COUNT(DISTINCT k.hsid)=2
+         AND COUNT(DISTINCT (s.hsname, s.hslocation))=1
+    )
+    INSERT INTO public.yat_school_links
+      (source,source_player_id,hsid,yatid,method)
+    SELECT 'tbc',playerid,canonical_hsid,yatid,'school_key_match'
+    FROM pair_matches
+    ON CONFLICT DO NOTHING
+  `);
+
   const { rows } = await client.query(`
     with candidates as (
       select distinct ph.playerid, ph.hsid::text as hsid, t.firstname, t.lastname

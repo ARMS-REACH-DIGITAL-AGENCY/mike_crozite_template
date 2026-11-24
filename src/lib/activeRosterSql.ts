@@ -1,7 +1,8 @@
 // The season-stats query behind every card (Active roster, cross-school
 // favorites, season usage) and the Daily Digest's season line, so both
 // always show the same numbers (Pete, Nov 23 2026). Pure SQL text; no database
-// access here. Moved unchanged from src/lib/db.ts.
+// access here. Moved from src/lib/db.ts.
+// OBP is the official (H + BB + HBP) / (AB + BB + HBP + SF) (Pete, Nov 24 2026).
 import { confirmed2026GameLogPlayersSql } from '@/lib/activeAlumni';
 
 export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilter: string): string {
@@ -67,7 +68,7 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         year::text AS year,
         canonical_level::text AS season_level,
         teamid::text AS teamid,
-        g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so,
+        g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so, hbp, sf,
         draft_info,
         playyears
       FROM (
@@ -100,6 +101,8 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         )::text AS g,
         ab::text, r::text, h::text, dbl::text, tpl::text, hr::text, rbi::text,
         sb::text, bb::text, so::text,
+        COALESCE(raw_stats #>> '{stats,HBP}', raw_stats #>> '{HBP}')::text AS hbp,
+        COALESCE(raw_stats #>> '{stats,SF}', raw_stats #>> '{SF}')::text AS sf,
         NULL::text AS draft_info,
         NULL::text AS playyears
       FROM (
@@ -138,6 +141,8 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS sb,
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS so,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(hbp::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hbp,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sf::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS sf,
 
         MAX(draft_info) AS draft_info,
         MAX(playyears)  AS playyears
@@ -151,7 +156,7 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         stat_year,
         teamid,
         bat_level,
-        g, ab, r, h, "2b", "3b", hr, rbi, sb, bb, so,
+        g, ab, r, h, "2b", "3b", hr, rbi, sb, bb, so, hbp, sf,
 
         CASE
           WHEN ab > 0 THEN ROUND(h / ab, 3)
@@ -159,7 +164,7 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         END AS avg,
 
         CASE
-          WHEN (ab + bb) > 0 THEN ROUND((h + bb) / (ab + bb), 3)
+          WHEN (ab + bb + hbp + sf) > 0 THEN ROUND((h + bb + hbp) / (ab + bb + hbp + sf), 3)
           ELSE NULL
         END AS obp,
 
@@ -169,9 +174,9 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         END AS slg,
 
         CASE
-          WHEN ab > 0 AND (ab + bb) > 0 THEN
+          WHEN ab > 0 AND (ab + bb + hbp + sf) > 0 THEN
             ROUND(
-              ((h + bb) / (ab + bb)) +
+              ((h + bb + hbp) / (ab + bb + hbp + sf)) +
               ((h + "2b" + ("3b" * 2) + (hr * 3)) / ab),
               3
             )
@@ -419,7 +424,7 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
           ELSE 'other'
         END AS bucket,
         year,
-        g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so
+        g, ab, r, h, dbl, tpl, hr, rbi, sb, bb, so, hbp, sf
       FROM batting_2026_rows
     ),
 
@@ -438,7 +443,9 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(rbi::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS rbi,
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS sb,
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
-        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS so
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text,  '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS so,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(hbp::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hbp,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(sf::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS sf
       FROM batting_2026_bucket_rows
       WHERE bucket <> 'other'
       GROUP BY playerid, bucket
@@ -463,14 +470,14 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
               'avg', CASE WHEN ab > 0 THEN ROUND(h / ab, 3) ELSE NULL END,
               'ab', ab,
               'h', h,
-              'obp', CASE WHEN (ab + bb) > 0 THEN ROUND((h + bb) / (ab + bb), 3) ELSE NULL END,
+              'obp', CASE WHEN (ab + bb + hbp + sf) > 0 THEN ROUND((h + bb + hbp) / (ab + bb + hbp + sf), 3) ELSE NULL END,
               'r', r,
               'bb', bb,
               'slg', CASE WHEN ab > 0 THEN ROUND((h + "2b" + ("3b" * 2) + (hr * 3)) / ab, 3) ELSE NULL END,
               'hr', hr,
               'rbi', rbi,
               'ops', CASE
-                WHEN ab > 0 AND (ab + bb) > 0 THEN ROUND(((h + bb) / (ab + bb)) + ((h + "2b" + ("3b" * 2) + (hr * 3)) / ab), 3)
+                WHEN ab > 0 AND (ab + bb + hbp + sf) > 0 THEN ROUND(((h + bb + hbp) / (ab + bb + hbp + sf)) + ((h + "2b" + ("3b" * 2) + (hr * 3)) / ab), 3)
                 ELSE NULL
               END,
               'sb', sb,
