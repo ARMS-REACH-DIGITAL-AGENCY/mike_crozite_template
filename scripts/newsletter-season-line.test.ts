@@ -17,7 +17,7 @@ test('Digest season line = card back season stats, same query, same formatting',
       { playerid: '333', avg: null, obp: null, slg: null, era: null, whip: null }] };
   } } as never;
   const lines = await digestSeasonLines(db, ['YAT000001', 'YAT000002', 'YAT000003']);
-  assert.deepEqual(lines, { YAT000001: { b: '.300 | .850 | 1.150' }, YAT000002: { p: '3.20 | 1.10' } });
+  assert.deepEqual(lines, { YAT000001: { b: '.300/.850/1.150' }, YAT000002: { p: '3.20 | 1.10' } });
   // Exactly the query the site runs for a list of cards (getSeasonUsageByPlayerIds).
   assert.equal(queries[1].sql, buildActiveRosterSql('ph.playerid::text = ANY($1)', 'playerid::text = ANY($1)'));
   assert.deepEqual(queries[1].values, [['111', '222', '333']]);
