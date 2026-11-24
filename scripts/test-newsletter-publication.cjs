@@ -16,5 +16,6 @@ for (const ext of ['.ts', '.tsx']) require.extensions[ext] = (module, file) => {
   module._compile(result.outputText, file);
 };
 require('../src/lib/bracket/storedPublication.test.ts');
+require('../src/lib/newsletter/finishedPublication.test.ts');
 require('./newsletter-preview.test.ts');
 require('./rehearsal-edition-revision.test.ts');
