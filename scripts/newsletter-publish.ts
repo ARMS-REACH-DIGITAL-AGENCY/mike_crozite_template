@@ -34,6 +34,7 @@ import { buildActiveRosterSql } from '@/lib/activeRosterSql';
 import { fmt } from '@/lib/playerUtils';
 import { cardNextGameLines } from '@/lib/nextGameLine';
 import { dailyFromStored, weeklyFromStored, storedInnings, requireStoredBoundary, assertStoredCountingStats, type StoredBracketGame } from '@/lib/bracket/storedPublication';
+import { weeklyStory, type SchoolInfo, type StoryGame, type WeeklyStory } from '@/lib/newsletter/weeklyStory';
 import { shortName, type GameBox, type GameRow, type Index, type PlayerRow, type SeriesRow } from '@/components/bracket/gallery';
 import { inningStory } from '@/components/bracket/dayStory';
 
@@ -203,7 +204,11 @@ SELECT game_date, id, yatid, yatid, nm, CASE WHEN card_hsid ~ '^\\d{1,9}$' THEN 
   FROM y`;
 }
 
-type StoredRoster = { hsid: string; yatid: string; nm: string; lvl: string; club_wl: string | null };
+// box: the alum's week from his school's stored bracket game (the Stat Ledger),
+// saved for the Gazette's Alumni Stats table (Pete, Nov 24 2026): bat =
+// [PA,AB,H,2B,3B,HR,BB,HBP,SF], pit = [outs,HR,BB,HBP,K,H,R,ER,FIP], OPS+, FIP-,
+// club W-L. Nothing is recomputed here.
+type StoredRoster = { hsid: string; yatid: string; nm: string; lvl: string; club_wl: string | null; box: Record<string, unknown> | null };
 function savedRoster(rows: Row[], week: number, field: number[]): StoredRoster[] {
   const latest=new Map<number,Row>();
   for(const row of rows) if(row.week<=week&&row.box) for(const hsid of [row.home_hsid,row.away_hsid]) {
@@ -217,8 +222,10 @@ function savedRoster(rows: Row[], week: number, field: number[]): StoredRoster[]
     return players.map(player=>{
       if(!/^YAT\d{6,}$/.test(player[0])||seen.has(player[0])) throw new Error('Invalid persisted publication roster');
       seen.add(player[0]);
+      const thisWeek=game.week===week;
       return {hsid:String(hsid),yatid:player[0],nm:player[1],lvl:player[2],
-        club_wl:game.week===week&&player[8]?player[8].join('-'):null};
+        club_wl:thisWeek&&player[8]?player[8].join('-'):null,
+        box:thisWeek?{bat:player[4]||null,pit:player[5]||null,ops_plus:player[6]??null,fip_minus:player[7]??null,club_wl:player[8]||null}:null};
     });
   });
 }
@@ -226,9 +233,9 @@ function savedRoster(rows: Row[], week: number, field: number[]): StoredRoster[]
 function sqlWeeklyPlayerLines(season: string, week: number, monday: string, sunday: string, saved: StoredRoster[], historicalReplay: boolean) {
   return `WITH ${SQL_MLB}, ${SQL_FROZEN(monday, sunday, cutoffOf(sunday), historicalReplay)},
 roster AS (
-  SELECT hsid,yatid AS pid,yatid,nm,lower(nm) AS last,'' AS first,lvl,'' AS team,club_wl
+  SELECT hsid,yatid AS pid,yatid,nm,lower(nm) AS last,'' AS first,lvl,'' AS team,club_wl,box
     FROM jsonb_to_recordset(${dollar(JSON.stringify(saved))}::jsonb)
-      AS r(hsid text,yatid text,nm text,lvl text,club_wl text)),
+      AS r(hsid text,yatid text,nm text,lvl text,club_wl text,box jsonb)),
 wk AS (
   SELECT yatid, count(DISTINCT source_game_id) AS games,
          sum(coalesce(bat_pa, 0)) AS pa, sum(coalesce(bat_ab, 0)) AS ab, sum(coalesce(bat_h, 0)) AS h,
@@ -239,10 +246,14 @@ wk AS (
          sum(coalesce(pit_w, 0)) AS w, sum(coalesce(pit_l, 0)) AS l, sum(coalesce(pit_sv, 0)) AS sv,
          bool_or(stat_type = 'pitching') AS pitched,
          string_agg(DISTINCT team_name, ' / ' ORDER BY team_name) AS team_name,
-         (array_agg(level ORDER BY game_date DESC, source_game_id DESC))[1] AS level
+         (array_agg(level ORDER BY game_date DESC, source_game_id DESC))[1] AS level,
+         (array_agg(teamid::text ORDER BY game_date DESC, source_game_id DESC))[1] AS teamid
     FROM src GROUP BY yatid),
 x AS (
   SELECT r.hsid, r.pid, r.yatid, r.nm, r.last, r.first, r.club_wl, coalesce(wk.games, 0) AS games,
+         -- The logo is his team that week, else his card's current team (as the proof shows every alum's).
+         jsonb_build_object('teamid', coalesce(wk.teamid, (SELECT f.current_teamid::text FROM public.flip_card_front_stage f
+             WHERE f.yatid = r.yatid ORDER BY f.stage_updated_at DESC NULLS LAST, f.hsid LIMIT 1))) || coalesce(r.box, '{}'::jsonb) AS stats,
          coalesce(wk.team_name, r.team) AS team_name, coalesce(m.short, wk.team_name, r.team) AS team_short,
          coalesce(wk.level, r.lvl) AS level, wk.pa, wk.ab, wk.h, wk.d2, wk.d3, wk.hr, wk.rbi, wk.bb, wk.sb,
          wk.outs, wk.bf, wk.p_h, wk.p_er, wk.p_bb, wk.p_so, wk.w, wk.l, wk.sv, coalesce(wk.pitched, false) AS pitched
@@ -250,7 +261,7 @@ x AS (
     LEFT JOIN wk ON wk.yatid = r.yatid
     LEFT JOIN mlb m ON m.full_name = coalesce(wk.team_name, r.team))
 INSERT INTO public.weekly_player_lines (period_start, hsid, playerid, yatid, period_end, season_key, week, player_name,
-                                        team_name, team_short, level, games, line, sort_key)
+                                        team_name, team_short, level, games, line, sort_key, stats)
 SELECT DATE ${lit(monday)}, hsid::integer, pid, yatid, DATE ${lit(sunday)}, ${lit(season)}, ${week}, nm, team_name, team_short, level, games,
        nm || coalesce(' (' || nullif(concat_ws(', ', nullif(team_short, ''), nullif(level, '')), '') || ')', '') || ': '
           || CASE WHEN games = 0 THEN 'Did not play'
@@ -260,9 +271,40 @@ SELECT DATE ${lit(monday)}, hsid::integer, pid, yatid, DATE ${lit(sunday)}, ${li
                            p_h || ' H', p_er || ' ER', p_bb || ' BB', p_so || ' K',
                            CASE WHEN w + l > 0 THEN w || '-' || l END, ${many('sv', 'SV')}) END) END
           || CASE WHEN club_wl IS NOT NULL THEN ' | Club W-L: ' || club_wl ELSE '' END,
-       CASE WHEN games > 0 THEN '0' ELSE '1' END || '|' || last || '|' || first || '|' || pid
+       CASE WHEN games > 0 THEN '0' ELSE '1' END || '|' || last || '|' || first || '|' || pid,
+       stats
   FROM x
  WHERE hsid ~ '^\\d{1,9}$'`;
+}
+
+/** Every player's week from his own game lines, for the Gazette's Superfan favorites
+ * (Pete, Nov 24 2026): one shared row per player, so a fan's favorites are read, never computed. */
+function sqlWeeklyPlayerTotals(season: string, week: number, monday: string, sunday: string, historicalReplay: boolean) {
+  return `WITH ${SQL_CARDS}, ${SQL_FROZEN(monday, sunday, cutoffOf(sunday), historicalReplay)},
+played AS (
+  SELECT s.yatid,
+         (array_agg(s.teamid::text ORDER BY s.game_date DESC, s.source_game_id DESC))[1] AS teamid,
+         (array_agg(s.team_name ORDER BY s.game_date DESC, s.source_game_id DESC))[1] AS team_name,
+         (array_agg(s.level ORDER BY s.game_date DESC, s.source_game_id DESC))[1] AS level,
+         count(DISTINCT s.source_game_id) AS games,
+         ARRAY[sum(coalesce(bat_pa,0)),sum(coalesce(bat_ab,0)),sum(coalesce(bat_h,0)),sum(coalesce(bat_2b,0)),sum(coalesce(bat_3b,0)),
+               sum(coalesce(bat_hr,0)),sum(coalesce(bat_bb,0)),sum(coalesce(bat_hbp,0)),sum(coalesce(bat_sf,0))]::integer[] AS bat,
+         CASE WHEN bool_or(s.stat_type = 'pitching') THEN
+           ARRAY[sum(coalesce(pit_outs,0)),sum(coalesce(pit_hr,0)),sum(coalesce(pit_bb,0)),sum(coalesce(pit_hbp,0)),sum(coalesce(pit_so,0)),
+                 sum(coalesce(pit_h,0)),sum(coalesce(pit_r,0)),sum(coalesce(pit_er,0)),sum(coalesce(pit_w,0)),sum(coalesce(pit_l,0))]::integer[] END AS pit
+    FROM src s GROUP BY s.yatid),
+-- Every favorited player gets a row, a zero line when he did not play, so each
+-- fan's full favorites list is read, not computed (as the TEST 3 proof shows).
+favorite AS (SELECT DISTINCT to_jsonb(f)->>'yatid' AS yatid FROM public.newsletter_favorites f WHERE to_jsonb(f)->>'yatid' ~ '^YAT[0-9]{6,}$'),
+who AS (SELECT yatid FROM played UNION SELECT yatid FROM favorite),
+pos AS (SELECT DISTINCT ON (f.yatid) f.yatid, upper(btrim(coalesce(f.position, ''))) AS position, f.current_team_name, f.current_teamid::text AS current_teamid
+          FROM public.flip_card_front_stage f JOIN who USING (yatid)
+         ORDER BY f.yatid, f.stage_updated_at DESC NULLS LAST, f.hsid)
+INSERT INTO public.weekly_player_totals (period_start, yatid, period_end, season_key, week, player_name, teamid, team_name, level, games, bat, pit, pitcher)
+SELECT DATE ${lit(monday)}, w.yatid, DATE ${lit(sunday)}, ${lit(season)}, ${week}, c.nm, coalesce(p.teamid, pos.current_teamid), coalesce(p.team_name, pos.current_team_name), coalesce(p.level, c.lvl),
+       coalesce(p.games, 0), coalesce(p.bat, ARRAY[0,0,0,0,0,0,0,0,0]::integer[]), p.pit,
+       p.pit IS NOT NULL OR pos.position ~ '^(P|SP|RP|LHP|RHP)$'
+  FROM who w LEFT JOIN played p USING (yatid) LEFT JOIN card c ON c.yatid = w.yatid LEFT JOIN pos ON pos.yatid = w.yatid`;
 }
 
 // --- Stored scores, stories and box scores (no scoring). ---------------------
@@ -284,6 +326,7 @@ type BoxRow = {
   winner_hsid: number; decision: string; line_score: { columns: string[]; away: string[]; home: string[] };
   home_batting: Table; away_batting: Table; home_pitching: Table; away_pitching: Table;
   extra_base_hits: { home: string[]; away: string[] };
+  home_story: WeeklyStory; away_story: WeeklyStory;
 };
 
 export type PublicationInput = {
@@ -292,6 +335,8 @@ export type PublicationInput = {
   /** Digest season line per YAT ID: b = 'AVG | OBP | SLG', p = 'ERA | WHIP' (from the card's own season stats). */
   seasonLines?: SeasonLines;
   nextGames?: NextGames;
+  /** Each field school's city ("Chandler, AZ") and nickname ("Huskies"), for the Gazette letter. */
+  schoolInfo?: Record<string, { city?: string | null; nickname?: string | null }>;
 };
 export type SeasonLines = Record<string, { b?: string; p?: string }>;
 /** Digest Next Game per YAT ID, worded exactly as his card words it (d = date line, ha = vs./@, o = opponent). */
@@ -444,6 +489,7 @@ export function buildNewsletterPublication(input: PublicationInput) {
     const idx = buildIndex(season, group);
     const byId = new Map(group.map((r) => [r.game_id, r]));
     const name = (h: number) => idx.schools[h]?.[0] || String(h);
+    const schoolOf = (h: number): SchoolInfo => ({ name: name(h).replace(/\s*\([^)]*\)\s*$/, ''), city: input.schoolInfo?.[String(h)]?.city ?? null, nickname: input.schoolInfo?.[String(h)]?.nickname ?? null });
 
     for (const round of idx.rounds) for (const series of round.series as SeriesRow[]) {
       for (const g of series[7] as GameRow[]) {
@@ -544,6 +590,9 @@ export function buildNewsletterPublication(input: PublicationInput) {
           line_score: { columns: [...home.map((_, i) => String(i + 1)), 'R'], away: [...away.map(String), String(ar)], home: [...home.map(String), String(hr)] },
           home_batting: h.batting, away_batting: a.batting, home_pitching: h.pitching, away_pitching: a.pitching,
           extra_base_hits: { home: h.xbh, away: a.xbh },
+          // The Gazette letter, one per school (Pete, Nov 24 2026; docs/newsletter-reference/).
+          home_story: weeklyStory(row as unknown as StoryGame, g[2], rows as unknown as StoryGame[], schoolOf, monday, sunday, addDays(sunday, 1), (pid) => sums.get(pid)?.level),
+          away_story: weeklyStory(row as unknown as StoryGame, g[3], rows as unknown as StoryGame[], schoolOf, monday, sunday, addDays(sunday, 1), (pid) => sums.get(pid)?.level),
         });
           } catch (err) {
             problems.push('Weekly box unavailable for ' + season.season_key +
@@ -600,17 +649,19 @@ export function buildNewsletterPublication(input: PublicationInput) {
   const weekly = week ? [
     `DO $$ BEGIN IF EXISTS (SELECT 1 FROM public.edition_ready WHERE cadence = 'weekly' AND period_start = DATE ${lit(monday)})
        OR EXISTS (SELECT 1 FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)})
+       OR EXISTS (SELECT 1 FROM public.weekly_player_totals WHERE period_start = DATE ${lit(monday)})
        OR EXISTS (SELECT 1 FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week})
      THEN RAISE EXCEPTION 'The Weekly for ${monday} is already published: it is never written twice'; END IF;
      IF EXISTS (SELECT 1 FROM public.master_bracket WHERE season_key = ${S} AND stage IN ('bracket','total_runs','season_championship','world_series') AND week = ${week} AND (status <> 'final' OR locked_at IS NULL))
      THEN RAISE EXCEPTION 'Week ${week}: unfinished matches; no ready edition'; END IF; END $$`,
     sqlWeeklyPlayerLines(season.season_key, week, monday, sunday, weeklyRoster, historicalReplay),
+    sqlWeeklyPlayerTotals(season.season_key, week, monday, sunday, historicalReplay),
     `INSERT INTO public.weekly_box_scores (season_key, region, game_id, week, period_start, period_end, round_name, game_no, home_hsid, away_hsid,
-       home_name, away_name, home_runs, away_runs, winner_hsid, decision, line_score, home_batting, away_batting, home_pitching, away_pitching, extra_base_hits)
+       home_name, away_name, home_runs, away_runs, winner_hsid, decision, line_score, home_batting, away_batting, home_pitching, away_pitching, extra_base_hits, home_story, away_story)
      SELECT * FROM jsonb_to_recordset(${dollar(JSON.stringify(boxes))}::jsonb) AS x(season_key text, region smallint, game_id integer, week smallint,
        period_start date, period_end date, round_name text, game_no smallint, home_hsid integer, away_hsid integer, home_name text, away_name text,
        home_runs smallint, away_runs smallint, winner_hsid integer, decision text, line_score jsonb, home_batting jsonb, away_batting jsonb,
-       home_pitching jsonb, away_pitching jsonb, extra_base_hits jsonb)`,
+       home_pitching jsonb, away_pitching jsonb, extra_base_hits jsonb, home_story jsonb, away_story jsonb)`,
     `DO $$ BEGIN
        IF (SELECT count(*) FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week}) <> ${weekGames}
           OR (SELECT count(*) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}) <> ${weeklyRoster.length}
@@ -619,6 +670,7 @@ export function buildNewsletterPublication(input: PublicationInput) {
     `INSERT INTO public.edition_ready (cadence, period_start, period_end, season_key, week, cutoff_at, row_counts)
      SELECT 'weekly', DATE ${lit(monday)}, DATE ${lit(sunday)}, ${S}, ${week}, TIMESTAMPTZ ${lit(cutoffOf(sunday))},
        jsonb_build_object('weekly_player_lines', (SELECT count(*) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}),
+                          'weekly_player_totals', (SELECT count(*) FROM public.weekly_player_totals WHERE period_start = DATE ${lit(monday)}),
                           'weekly_box_scores', (SELECT count(*) FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week}),
                           'schools', (SELECT count(DISTINCT hsid) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}),
                           'expected_box_scores', ${weekGames},
@@ -715,7 +767,15 @@ export async function prepareNewsletterPublication(db: Pick<PoolClient, 'query'>
   const dayPlayers = [...new Set(lines.map(l=>l[1]))];
   const seasonLines = opts.date ? await digestSeasonLines(db, dayPlayers) : {};
   const nextGames = opts.date ? await digestNextGames(db, dayPlayers) : {};
-  const plan = buildNewsletterPublication({season,rows,lines,date:opts.date,week,cutoffAt:opts.cutoffAt,historicalReplay:opts.historicalReplay,seasonLines,nextGames});
+  // The Gazette letter names each school's city and nickname (tbc_schools_raw; public.schools is never read).
+  const fieldIds = [...new Set(rows.flatMap((r) => [r.home_hsid, r.away_hsid]).filter((h): h is number => h != null))];
+  const schoolInfo: PublicationInput['schoolInfo'] = {};
+  if (week && fieldIds.length) {
+    const { rows: info } = await db.query<{ hsid: string; city: string | null; nickname: string | null }>(
+      "SELECT hsid::text, NULLIF(regexp_replace(btrim(hslocation), '\\s*,\\s*', ', '), '') AS city, NULLIF(btrim(nickname), '') AS nickname FROM public.tbc_schools_raw WHERE hsid = ANY($1::int[])", [fieldIds]);
+    for (const r of info) schoolInfo[r.hsid] = { city: r.city, nickname: r.nickname };
+  }
+  const plan = buildNewsletterPublication({season,rows,lines,date:opts.date,week,cutoffAt:opts.cutoffAt,historicalReplay:opts.historicalReplay,seasonLines,nextGames,schoolInfo});
   const canonicalSourceHash = createHash('sha256').update(JSON.stringify(source)).digest('hex');
   const pitcherGames = new Set(lines.filter(l=>l[4]==='p').map(l=>l[1]+':'+l[6]));
   const expectedDailyStats = lines.filter(l=>!(l[4]==='b' && l[5][0]===0 && pitcherGames.has(l[1]+':'+l[6]))).length;
