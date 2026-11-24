@@ -8,7 +8,7 @@ const ts = require('typescript');
 const src = fs.readFileSync('src/lib/galleryStatuses.ts', 'utf8');
 const mod = {};
 new Function('exports', ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(mod);
-const { isFantasyRosterStatus, FANTASY_ROSTER_STATUSES, ACTIVE_GALLERY_STATUSES } = mod;
+const { isFantasyRosterStatus, FANTASY_ROSTER_STATUSES, ACTIVE_GALLERY_STATUSES, releasedDuringPeriod } = mod;
 for (const s of ['ACTIVE', '40-MAN', 'INJURED 10-DAY', 'OPTIONED', 'RED SHIRT', 'REDSHIRT-MEDICAL', 'active']) assert.equal(isFantasyRosterStatus(s), true, s + ' counts');
 for (const s of ['FREE AGENT', 'free agent', 'RETIRED', 'UNKNOWN', '', null, 'COMMIT', 'DFA', 'COACH']) assert.equal(isFantasyRosterStatus(s), false, String(s) + ' does not count');
 assert.deepEqual([...FANTASY_ROSTER_STATUSES], ACTIVE_GALLERY_STATUSES.filter(s => s !== 'FREE AGENT'), 'fantasy roster = Active Alumni minus free agents');
@@ -18,4 +18,16 @@ for (const file of ['src/app/api/bracket/live/route.ts', 'src/app/api/players/[h
   assert.match(code, /isFantasyRosterStatus\(/, file + ' must use the fantasy roster rule');
   assert.doesNotMatch(code, /\bisActiveGalleryStatus\(|\bisRosterStatus\(/, file + ' must not use another membership rule');
 }
-console.log('PASS fantasy roster: free agents never count; scoring and drawer share one rule');
+// Pete, Nov 24 2026: released mid-week, his games before the release still count in that week.
+assert.equal(releasedDuringPeriod('FREE AGENT', '2027-04-08T00:00:00.000Z', '2027-04-05'), '2027-04-08', 'released Thursday of the scored week');
+assert.equal(releasedDuringPeriod('FREE AGENT', new Date('2027-04-08T00:00:00Z'), '2027-04-05'), '2027-04-08');
+assert.equal(releasedDuringPeriod('FREE AGENT', '2027-03-30', '2027-04-05'), null, 'released before the period: does not count');
+assert.equal(releasedDuringPeriod('FREE AGENT', null, '2027-04-05'), null, 'no release date: does not count');
+assert.equal(releasedDuringPeriod('ACTIVE', '2027-04-08', '2027-04-05'), null, 'only free agents');
+const live = fs.readFileSync('src/app/api/bracket/live/route.ts', 'utf8');
+assert.match(live, /releasedDuringPeriod\(/, 'scoring keeps a mid-period release');
+assert.match(live, /Number\(r\.day\) < releaseDay\(r\.playerid\)/, 'only games before the release date count');
+const season = fs.readFileSync('src/components/bracket/liveSeason.ts', 'utf8');
+assert.match(season, /if \(p\[5\] != null && from >= p\[5\]\) continue;/, 'released before the week: off the team');
+assert.match(season, /!\(p\[5\] != null && from \+ d >= p\[5\]\)/, 'released mid-week: days from the release on do not count');
+console.log('PASS fantasy roster: free agents never count; scoring and drawer share one rule; a mid-week release keeps his earlier games');

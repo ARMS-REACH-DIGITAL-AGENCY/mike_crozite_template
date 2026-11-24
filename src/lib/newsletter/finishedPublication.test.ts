@@ -18,7 +18,7 @@ function fixture(): FinishedEdition {
       daily_stat_lines: [{ stats_date: '2026-03-25', stat_line_id: '1', yatid: 'YAT000001', line: 'Saved batter (Club, MLB): 2-for-4, HR', sort_key: 'a' }],
       daily_game_stories: [{ stats_date: '2026-03-25', hsid: 5004, season_key: '2027', region: 7, game_id: 501, school_name: 'Hamilton',
         opponent_name: 'Other School', title: 'HAMILTON LEADS', story: 'Hamilton leads 3-1.', series_note: 'Game 1 of 3.', shout_outs: [] }],
-      daily_game_scores: [game], weekly_player_lines: [], weekly_box_scores: [],
+      daily_game_scores: [game], weekly_player_lines: [], weekly_box_scores: [], newsletter_transactions: [],
     } };
 }
 const request = { cadence: 'daily' as const, date: '2026-03-25', email: 'fixture@example.invalid', seasonKey: '2027' };
@@ -116,24 +116,74 @@ test('no favorites and favorites with no appearances remain distinct; HTML is es
   assert.throws(() => renderFinishedEdition(facts), /Internal text/);
 });
 
-test('weekly edition prints full saved roster and box cells, preserving club-transfer lines and extra innings without rescoring', () => {
+test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/newsletter-reference/)', () => {
   const facts = fixture();
-  facts.ready = { ...facts.ready, cadence: 'weekly', period_start: '2026-03-23', period_end: '2026-03-29', cutoff_at: '2026-03-30T11:00:00Z', row_counts: { weekly_player_lines: 2, weekly_box_scores: 1 } };
+  facts.ready = { ...facts.ready, cadence: 'weekly', period_start: '2026-03-23', period_end: '2026-03-29', cutoff_at: '2026-03-30T11:00:00Z', week: 1,
+    row_counts: { weekly_player_lines: 3, weekly_box_scores: 1, weekly_player_totals: 2 } };
   facts.rows.daily_stat_lines = []; facts.rows.daily_game_stories = []; facts.rows.daily_game_scores = [];
-  facts.rows.weekly_player_lines = ['Old Club 2-0', 'New Club 0-1'].map((club, i) => ({ period_start: '2026-03-23', hsid: 5004, yatid: 'YAT000001', team_name: club, games: 1, line: 'Saved player (' + club + '): finished line ' + i }));
-  const table = { columns: ['Player', 'Team', 'OPS+'], rows: [['Saved player', 'Saved club', '89.123']], totals: ['Totals', '', '89.123'] };
-  facts.rows.weekly_box_scores = [{ period_start: '2026-03-23', season_key: '2027', region: 7, game_id: 501, home_hsid: 5004, away_hsid: 7,
-    home_name: 'Hamilton', away_name: 'Other School', home_runs: 17, away_runs: 16,
-    line_score: { columns: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'R'], home: ['0','0','0','0','0','0','0','0','0','1','17'], away: ['0','0','0','0','0','0','0','0','0','0','16'] },
-    home_batting: table, away_batting: table, home_pitching: table, away_pitching: table, extra_base_hits: { home: ['HR: Saved player'], away: [] } }];
+  facts.selection.favorites = ['YAT000001', 'YAT000009'];
+  facts.presentation = { baseUrl: 'https://hamilton.az.yatstats.com/', schoolLocation: 'Chandler, AZ',
+    gazette: { mastheadUrl: 'https://hamilton.az.yatstats.com/gazette-masthead.jpg', teamLogoBase: 'https://hamilton.az.yatstats.com/logo/' } };
+  const line = (yatid: string, name: string, stats: Record<string, unknown>) => ({ period_start: '2026-03-23', hsid: 5004, yatid, player_name: name, team_name: 'Club', games: 1, line: name, stats });
+  facts.rows.weekly_player_lines = [
+    line('YAT000001', 'Cody Bellinger', { pitcher: false, teamid: '20', bat: [13, 11, 4, 0, 1, 0, 2, 0, 0], pit: 0, ops_plus: 183, fip_minus: null, club_wl: [3, 0] }),
+    line('YAT000002', 'Beau Berge', { pitcher: false, teamid: null, bat: 0, pit: 0, ops_plus: null, fip_minus: null, club_wl: null }),
+    line('YAT000003', 'Dom Hamel', { pitcher: true, teamid: '531', bat: 0, pit: [11, 0, 5, 0, 2, 6, 7, 7, 5.07], ops_plus: null, fip_minus: 132, club_wl: [1, 1] }),
+  ];
+  facts.rows.weekly_player_totals = [
+    { period_start: '2026-03-23', yatid: 'YAT000001', player_name: 'Cody Bellinger', teamid: '20', bat: [13, 11, 4, 0, 1, 0, 2, 0, 0], pit: null, pitcher: false },
+    { period_start: '2026-03-23', yatid: 'YAT000009', player_name: 'Kevin Ginkel', teamid: '29', bat: [0, 0, 0, 0, 0, 0, 0, 0, 0], pit: [9, 0, 2, 0, 6, 3, 1, 1, 0, 0], pitcher: true },
+  ];
+  const table = (total: string) => ({ columns: [], rows: [], totals: ['Totals', '', '0', '0', '0', '0', '0', '0', '0', '0', '0', total] });
+  facts.rows.weekly_box_scores = [{ period_start: '2026-03-23', season_key: '2027', region: 7, game_id: 385, home_hsid: 5004, away_hsid: 7,
+    home_name: 'Hamilton', away_name: 'Other School', home_runs: 3, away_runs: 4,
+    home_batting: table('160'), away_batting: table(''), home_pitching: { totals: ['Totals', '', '', '', '', '', '', '', '', '', '119'] }, away_pitching: table(''),
+    home_story: { title: 'Hamilton falls to Other School, 4-3.', paragraphs: ['No. 1 Hamilton lost to No. 128 Other School 3-4 in Week 1 of Round 1 (March 23–March 29). Other School leads the series 1-0.', 'Leading the way for the Huskies: Cody Bellinger (MLB) went 4-for-11 with 1 triple, 2 walks.'] },
+    away_story: { title: 'x', paragraphs: [] } }];
   const result = renderFinishedEdition(facts);
-  assert.match(result.subject, /Weekly Gazette/);
-  assert.match(result.text, /Old Club 2-0/); assert.match(result.text, /New Club 0-1/);
-  assert.match(result.text, /89\.123/); assert.match(result.text, /Other School 16 · Hamilton 17/);
-  assert.match(result.html, /<th>10<\/th>/);
-  assert.equal(result.rowKeys.weekly_player_lines.length, 2);
+  assert.match(result.subject, /^YAT-A-BOY Weekly Gazette \| Hamilton/);
+  const order = ['Yataboy Gazette', 'HAMILTON', 'Chandler, Arizona', 'WEEKLY EDITION · WEEK 1', 'Monday, March 30, 2026', 'HAMILTON\'S WEEK',
+    'Hamilton falls to Other School, 4-3.', 'Hi Fixture,', 'leads the series 1-0', 'Leading the way for the Huskies', 'Hamilton Alumni Stats',
+    'Week of March 23–March 29, 2026', 'Hamilton\'s 3 active alumni. Your favorites are in bold.', '>BATTERS<', '>PITCHERS<', 'YOUR 2 SUPERFAN FAVORITES',
+    'See each day of the week in the stat drawer'];
+  let at = -1;
+  for (const piece of order) { const k = result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) >= 0 ? result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) : result.html.indexOf(piece, at + 1); assert.ok(k > at, 'Missing or out of order: ' + piece); at = k; }
+  // Bellinger (a favorite) in bold with the TEST 3 columns: OPS+, W-L, AB..SF, OBP, SLG, OPS.
+  assert.match(result.html, /<tr align=center style="font-weight:bold"><td align=left style="font-size:13px"><img src="https:\/\/hamilton\.az\.yatstats\.com\/logo\/20" width="16" height="16" alt="" style="vertical-align:middle"> Bellinger<td style="color:#b8860b">183<td>3-0<td>11<td>4<td>0<td>1<td>0<td>2<td>0<td>0<td>\.462<td>\.545<td>1\.007/);
+  // No logo: the proof's spacer; no favorite: not bold.
+  assert.match(result.html, /<tr align=center><td align=left style="font-size:13px"><span style="display:inline-block;width:16px;margin-right:5px"><\/span>Berge<td style="color:#b8860b">—<td>0-0/);
+  // Pitcher: IP from outs, WHIP, K/BB, FIP; team OPS+ / FIP- from the stored game.
+  assert.match(result.html, /> Hamel<td style="color:#b8860b">132<td>1-1<td>3\.2<td>6<td>7<td>7<td>0<td>5<td>0<td>2<td>3\.00<td>0\.40<td>5\.07/);
+  assert.match(result.html, />BATTERS<td style="color:#b8860b">160<td>4-1</);
+  assert.match(result.html, />PITCHERS<td style="color:#b8860b">119<td>4-1</);
+  // Favorites: dashes for OPS+/FIP-, their own week.
+  assert.match(result.html, /> Ginkel<td style="color:#b8860b">—<td>0-0<td>3\.0<td>3<td>1<td>1<td>0<td>2<td>0<td>6<td>1\.67<td>3\.00<td>—/);
+  assert.doesNotMatch(result.html, /TEST REPLAY|pipeline|commissioner/i);
+  assert.equal(result.layoutVersion, 'gazette-test3-v1');
+  // Pete, Nov 24 2026: the favorites' transactions that week, in MLB's words.
+  facts.rows.newsletter_transactions = [{ effective_date: '2026-03-27', transaction_type: 'Optioned', description: 'Cincinnati Reds optioned C Will Banfield to Louisville Bats.' }];
+  const withTx = renderFinishedEdition(facts);
+  assert.ok(withTx.html.indexOf("YOUR FAVORITES' TRANSACTIONS") > withTx.html.indexOf('SUPERFAN FAVORITES'));
+  assert.match(withTx.html, />Mar 27<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
+  assert.match(withTx.text, /Mar 27: Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
   const db = database(facts);
-  return readFinishedEdition(db, { ...request, cadence: 'weekly', date: '2026-03-23' }).then(read => assert.equal(read.rows.weekly_player_lines.length, 2));
+  return readFinishedEdition(db, { ...request, cadence: 'weekly', date: '2026-03-23' }).then(read => {
+    assert.equal(read.rows.weekly_player_lines.length, 3);
+    assert.deepEqual(read.selection.favorites, ['YAT000001', 'YAT000009']);
+    assert.equal(read.rows.weekly_player_totals?.length, 2);
+  });
+});
+
+test('the Digest lists the favorites\' transactions under My Favorites (Pete, Nov 24 2026)', () => {
+  const facts = fixture();
+  facts.rows.newsletter_transactions = [{ effective_date: '2026-03-25', transaction_type: 'Optioned', description: 'Cincinnati Reds optioned C Will Banfield to Louisville Bats.' }];
+  const result = renderFinishedEdition(facts);
+  const fav = result.html.indexOf('MY FAVORITES'), tx = result.html.indexOf('>TRANSACTIONS<'), desk = result.html.indexOf('The Fantasy Desk');
+  assert.ok(fav > 0 && tx > fav && desk > tx, 'Transactions sit between My Favorites and the Fantasy Desk');
+  assert.match(result.html, /Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
+  assert.match(result.text, /TRANSACTIONS\nCincinnati Reds optioned C Will Banfield to Louisville Bats\./);
+  facts.rows.newsletter_transactions = [];
+  assert.doesNotMatch(renderFinishedEdition(facts).html, />TRANSACTIONS</);
 });
 
 test('Next Game prints once per player, worded as his card words it (Pete, Nov 23 2026)', () => {
@@ -144,9 +194,10 @@ test('Next Game prints once per player, worded as his card words it (Pete, Nov 2
   facts.ready.row_counts = { ...facts.ready.row_counts, daily_stat_lines: 2 };
   const html = renderFinishedEdition(facts).html;
   assert.equal((html.match(/class="favorite-next"/g) || []).length, 1);
-  assert.match(html, /<strong>Next Game<\/strong> \| Wednesday \| October 14, 2026 vs\. Peoria Javelinas/);
+  // Pete, Nov 24 2026: the label on its own line, then the game with commas.
+  assert.match(html, /<span class="fav-text">Next Game<\/span><\/td><\/tr><tr><td align="left" valign="top" colspan="2" class="favorite-next-game"[^>]*><span class="fav-text">Wednesday, October 14, 2026 vs\. Peoria Javelinas<\/span>/);
   facts.rows.daily_stat_lines[1].next_game_home_away = '@';
-  assert.match(renderFinishedEdition(facts).html, /October 14, 2026 @ Peoria Javelinas/);
+  assert.match(renderFinishedEdition(facts).html, /Wednesday, October 14, 2026 @ Peoria Javelinas/);
   delete facts.rows.daily_stat_lines[1].next_game_date;
   assert.doesNotMatch(renderFinishedEdition(facts).html, /class="favorite-next"/);
 });

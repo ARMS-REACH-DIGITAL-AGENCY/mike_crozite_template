@@ -31,7 +31,9 @@ import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
 
-type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string];
+// released: the day (from the live start) a player became a free agent during
+// these weeks. Only his days before it count (Pete, Nov 24 2026).
+type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string, released?: number];
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
 export type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
@@ -297,6 +299,8 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
       const weekRows: PlayerRow[] = [];
       let wins = 0, losses = 0, runDiff = 0;
       for (const p of players) {
+        // Released before this week: not on the school's team any more.
+        if (p[5] != null && from >= p[5]) continue;
         const byDay = mine.get(p[0]);
         let wb: number[] | 0 = 0, wp: number[] | 0 = 0, club = p[4];
         const weekLv: LevelBuckets[] = [];
@@ -305,7 +309,9 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
         for (let d = 0; d < 7; d++) {
           // Never count or publish game lines from a future day. The live
           // feed may contain historical/replayed dates beyond this clock.
-          const reached = from + d <= today;
+          // Released mid-week: his days from the release on don't count
+          // (no lines, no club W-L); the days before it do.
+          const reached = from + d <= today && !(p[5] != null && from + d >= p[5]);
           const x = reached ? byDay?.get(from + d) : undefined;
           if (x?.club) club = x.club;
           if (x && (x.b || x.p)) {

@@ -128,3 +128,17 @@ export const FANTASY_ROSTER_STATUSES: readonly string[] = ACTIVE_GALLERY_STATUSE
 export function isFantasyRosterStatus(value: unknown): boolean {
   return FANTASY_ROSTER_STATUSES.includes(normalizeGalleryStatus(value));
 }
+
+/**
+ * A player released during the scored period (FREE AGENT since a date on or
+ * after its first day) still counts for the games he played before that date,
+ * so they stay in that week's totals (Pete, Nov 24 2026). Returns the release
+ * date (YYYY-MM-DD), or null when this rule does not apply.
+ */
+export function releasedDuringPeriod(status: unknown, releasedOn: unknown, periodStart: string): string | null {
+  if (normalizeGalleryStatus(status) !== 'FREE AGENT' || releasedOn == null || releasedOn === '') return null;
+  const date = releasedOn instanceof Date ? releasedOn : new Date(String(releasedOn));
+  if (!Number.isFinite(date.getTime())) return null;
+  const day = date.toISOString().slice(0, 10);
+  return day >= periodStart ? day : null;
+}
