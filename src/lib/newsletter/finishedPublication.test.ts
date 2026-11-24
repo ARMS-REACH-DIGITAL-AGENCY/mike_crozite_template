@@ -67,11 +67,38 @@ test('missing ready row, missing YAT identity and incomplete period all block re
   await assert.rejects(readFinishedEdition(incomplete, request), /count differs/);
 });
 
-test('daily layout keeps saved values, deduplicates home-game picks, and stacks mobile scoreboards', () => {
+test('daily scoreboard: home game first, then the region\'s top 7 scores (Pete, Nov 24 2026)', () => {
+  const facts = fixture();
+  const other = (game_id: number, away_seed: number, home_seed: number, away_runs: number, home_runs: number, region = 7) => ({
+    stats_date: '2026-03-25', season_key: '2027', region, game_id, week: 1, home_hsid: 1000 + game_id, away_hsid: 2000 + game_id,
+    home_label: 'Home ' + game_id, away_label: 'Away ' + game_id, home_seed, away_seed,
+    home_innings: [String(home_runs)], away_innings: [String(away_runs)], home_runs, away_runs, through_inning: 1, is_final: false });
+  facts.rows.daily_game_scores.push(
+    other(502, 16, 1, 0, 0), other(503, 15, 2, 1, 1), other(504, 14, 3, 0, 0), other(505, 13, 4, 0, 0),
+    other(506, 12, 5, 0, 0), other(507, 10, 7, 1, 0), other(508, 9, 8, 0, 0), other(510, 11, 6, 0, 0), other(509, 16, 1, 9, 9, 8));
+  const result = renderFinishedEdition(facts);
+  const keys = result.rowKeys.daily_game_scores as Array<{ slot: unknown; key: unknown[] }>;
+  assert.deepEqual(keys.map(slot => slot.key[3]), [501, 503, 507, 502, 504, 505, 506, 510]);
+  assert.equal(keys[0].slot, 'home');
+  assert.equal((result.html.match(/data-slot="/g) || []).length, 8);
+  assert.doesNotMatch(result.html, /ADD A TEAM/);
+});
+
+test('daily scoreboard uses the drawn board picture when it exists', () => {
+  const before = process.env.NEWSLETTER_BOARD_IMAGE_BASE;
+  process.env.NEWSLETTER_BOARD_IMAGE_BASE = 'https://boards.example.invalid/nl/digest/';
+  try {
+    const result = renderFinishedEdition(fixture());
+    assert.match(result.html, /<img src="https:\/\/boards\.example\.invalid\/nl\/digest\/2026-03-25\/5004\.png" alt="Region 7 scoreboard: /);
+    assert.doesNotMatch(result.html, /data-slot="/);
+  } finally {
+    if (before == null) delete process.env.NEWSLETTER_BOARD_IMAGE_BASE; else process.env.NEWSLETTER_BOARD_IMAGE_BASE = before;
+  }
+});
+
+test('daily layout keeps saved values', () => {
   const facts = fixture(), result = renderFinishedEdition(facts, { baseUrl: 'https://isolated.example.invalid/5004?asof=2026-03-25' });
-  assert.equal(result.rowKeys.daily_game_scores.filter((slot: any) => slot.key).length, 1);
-  assert.equal(result.rowKeys.daily_game_scores.length, 12);
-  assert.match(result.html, /board-columns\{grid-template-columns:minmax\(0,1fr\)[;}]/);
+  assert.equal(result.rowKeys.daily_game_scores.length, 1);
   assert.match(result.html, /Saved batter \(Club, MLB\): 2-for-4, HR/);
   assert.doesNotMatch(result.html, /pipeline|approved_by|review-copy|commissioner/i);
   assert.match(result.html, /https:\/\/isolated\.example\.invalid\/5004\?asof=2026-03-25/);
@@ -93,12 +120,15 @@ test('the supplied Daily Digest newspaper template retains its sections and chan
   const documentBody = result.html.slice(result.html.indexOf('<body')).toLowerCase();
   let previous = -1;
   for (const heading of sections) { const index = documentBody.indexOf(heading.toLowerCase(), previous + 1); assert.ok(index > previous, 'Missing or reordered section: ' + heading); previous = index; }
-  assert.equal((result.html.match(/data-slot="/g) || []).length, 12);
+  assert.equal((result.html.match(/data-slot="/g) || []).length, 1);
   // Pete's Nov 22 2026 masthead: date year first | MY FAVORITES | weekday.
-  assert.match(result.html, /<td class="left">2026 March 26<\/td><td class="mid">My Favorites<\/td><td class="right">Thursday<\/td>/);
+  // The masthead dateline: date, MY FAVORITES, weekday, each cell with its own
+  // light background so Outlook keeps it light (Pete, Nov 24 2026).
+  assert.match(result.html, /<td class="left"[^>]*bgcolor="#f5f1e6"[^>]*>2026 March 26<\/td><td class="mid"[^>]*>My Favorites<\/td><td class="right"[^>]*>Thursday<\/td>/);
+  assert.match(result.html, /<table role="presentation" class="masthead-table"[^>]*bgcolor="#f5f1e6"/);
   assert.doesNotMatch(result.html, /FAN FAVORITES|WHERE THEY YAT/);
   const withSite = renderFinishedEdition(facts, { baseUrl: 'https://hamilton.az.yatstats.com/' });
-  assert.match(withSite.html, /<img src="https:\/\/hamilton\.az\.yatstats\.com\/img\/newsletter\/daily-digest-logo\.png" alt="The Daily Digest, powered by YAT\?STATS">/);
+  assert.match(withSite.html, /<img src="https:\/\/hamilton\.az\.yatstats\.com\/img\/newsletter\/daily-digest-logo\.png" alt="The Daily Digest, powered by YAT\?STATS"[^>]*>/);
   assert.match(result.html, /board-crown/);
   assert.doesNotMatch(result.html, /TEST REPLAY|DESIGN PROOF|Commissioner|needs_decision/);
 });
