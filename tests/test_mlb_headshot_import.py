@@ -22,10 +22,10 @@ sys.modules[SPEC.name] = importer
 SPEC.loader.exec_module(importer)
 
 PLAYER = {"playerid": "123", "mlb_player_id": "456", "mlb_id_candidates": "456",
-          "name": "Test Player", "level": "AA", "hsid": "5004"}
-NOW = "players/now/123.jpg"
-THUMB = "players/now-thumb/123.webp"
-SEASON = f"players/season-headshots/123_{importer.SEASON}.jpg"
+          "name": "Test Player", "level": "AA", "hsid": "5004", "photo_id": "YAT000123"}
+NOW = "players/now/YAT000123.jpg"
+THUMB = "players/now-thumb/YAT000123.webp"
+SEASON = f"players/season-headshots/YAT000123_{importer.SEASON}.jpg"
 
 
 def image_bytes(color="blue", size=(600, 720), mode="RGB"):
@@ -164,11 +164,20 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(Image.open(io.BytesIO(writes[THUMB]["Body"])).size, (400, 480))
         self.s3.copy_object.assert_not_called()
 
+    def test_legacy_photo_id_used_only_when_roster_has_no_yat_id(self):
+        row = self.run_player(player={**PLAYER, "photo_id": "123"})
+        self.assertEqual(row["status"], "saved")
+        self.assertEqual(set(self.writes()), {
+            f"players/season-headshots/123_{importer.SEASON}.jpg",
+            "players/now/123.jpg",
+            "players/now-thumb/123.webp",
+        })
+
     def test_existing_current_photos_and_thumbnails_are_kept_for_every_supported_format(self):
         for ext in importer.PHOTO_EXTENSIONS:
             with self.subTest(ext=ext):
                 self.s3.reset_mock()
-                row = self.run_player(now={f"players/now/123.{ext}"}, thumbs={THUMB})
+                row = self.run_player(now={f"players/now/YAT000123.{ext}"}, thumbs={THUMB})
                 self.assertEqual((row["now"], row["now_thumb"]), ("kept_existing", "kept_existing"))
                 self.assertEqual(set(self.writes()), {SEASON})
                 self.s3.head_object.assert_not_called()
@@ -242,7 +251,7 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(row["now"], "replaced")
         self.assertEqual(row["now_thumb"], "kept_existing")
         self.s3.copy_object.assert_called_once_with(
-            Bucket=importer.BUCKET, Key="players/replaced-now/123.jpg",
+            Bucket=importer.BUCKET, Key="players/replaced-now/YAT000123.jpg",
             CopySource={"Bucket": importer.BUCKET, "Key": NOW})
         mutations = [c[0] for c in self.s3.method_calls if c[0] in ("copy_object", "put_object")]
         self.assertEqual(mutations, ["put_object", "copy_object", "put_object"])
@@ -253,14 +262,22 @@ class CandidateAndReportTests(unittest.TestCase):
         conn = MagicMock()
         cursor = conn.cursor.return_value.__enter__.return_value
         cursor.fetchall.return_value = [
-            (123, ["456", "789"], "Source Name", "Display Name", "aa", 5004),
-            (124, ["456"], "Source Name", None, None, None),
+            (123, ["456", "789"], "Source Name", "Display Name", "aa", 5004, "YAT000123"),
+            (124, ["456"], "Source Name", None, None, None, "YAT000124"),
+            (125, ["999"], "Legacy Name", None, None, None, None),
         ]
         rows = importer.players(conn)
         self.assertEqual(rows[0]["mlb_player_id"], "")
         self.assertEqual(rows[0]["mlb_id_candidates"], "456;789")
+        self.assertEqual(rows[0]["photo_id"], "YAT000123")
         self.assertEqual(rows[1]["mlb_player_id"], "456")
-        self.assertIn("match_method IS DISTINCT FROM 'rejected_bad_identity_match'", cursor.execute.call_args.args[0])
+        self.assertEqual(rows[1]["photo_id"], "YAT000124")
+        self.assertEqual(rows[2]["photo_id"], "125")
+        sql = cursor.execute.call_args.args[0]
+        self.assertIn("FROM yat_mlb_links l", sql)
+        self.assertIn("WHERE l.proven", sql)
+        self.assertIn("ON f.yatid = m.yatid", sql)
+        self.assertIn("GROUP BY l.playerid, l.yatid", sql)
 
     @patch.object(importer.time, "sleep")
     def test_fetch_failures_produce_report_and_failed_exit(self, _sleep):
