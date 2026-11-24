@@ -531,8 +531,9 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
   const fieldNames = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => index.schools[x.h]?.[0] || '')), [boards, index]);
   // A region's board has no rank column: each school's original seed leads
   // its name, "#1 Hamilton" (Pete, Nov 24 2026). A-Z keeps Region # - Seed #.
-  const fieldSeeds = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => index.schools[x.h]?.[2])), [boards, index]);
-  const seeded = view !== 'az';
+  // A-Z adds the region in the same quiet type: "R3 #1 Hamilton" (Pete, Nov 24 2026).
+  const fieldSeeds = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => `${view === 'az' ? `R${b.region} ` : ''}#${index.schools[x.h]?.[2] ?? '—'}`)), [boards, index, view]);
+  const seeded = true;
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
@@ -547,7 +548,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       probe.innerHTML = fieldNames.map(() => `<li><a>${seeded ? '<b class="sd"></b>' : ''}<span></span><small></small></a></li>`).join('');
       [...probe.querySelectorAll('a')].forEach((a, i) => {
         const sd = a.querySelector('b');
-        if (sd) sd.textContent = `#${fieldSeeds[i] ?? '—'}`;
+        if (sd) sd.textContent = fieldSeeds[i];
         a.querySelector('span')!.textContent = shortName(fieldNames[i]);
         a.querySelector('small')!.textContent = place(fieldNames[i]);
       });
@@ -623,7 +624,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         <button type="button" role="tab" aria-selected={view === 'az'} className={`az${view === 'az' ? ' on' : ''}`}
           title="The whole field, A-Z" onClick={() => setView('az')}><span>A–Z</span></button>
       </div>
-      <div className={`yfp-lb-list${view === 'az' ? ' az' : ' seeded'}`} ref={listRef}>
+      <div className={`yfp-lb-list seeded${view === 'az' ? ' az' : ''}`} ref={listRef}>
         {/* The gold header row, one over each column the list shows. */}
         <div className="yfp-lb-head" aria-hidden="true">
           {[0, 1, 2].map((c) => (
@@ -637,7 +638,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         <ol>{rows.map(({ s, place: rank, region }) => (
           <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${rank} in the region · ${s.rf} runs (${diff(s)})`}>
             {!seeded && <span className="rk">{`R${region}-S${index.schools[s.h]?.[2] ?? '—'}`}</span>}
-            <a href={`/${s.h}#sec-fantasy`}>{seeded && <b className="sd">#{index.schools[s.h]?.[2] ?? '—'}</b>}{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
+            <a href={`/${s.h}#sec-fantasy`}>{seeded && <b className="sd">{view === 'az' ? `R${region} ` : ''}#{index.schools[s.h]?.[2] ?? '—'}</b>}{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
             <span className="rf">{s.rf}</span>
           </li>
         ))}</ol>
