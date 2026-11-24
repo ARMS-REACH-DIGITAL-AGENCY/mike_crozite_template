@@ -325,8 +325,9 @@ export async function digestSeasonLines(db: Pick<PoolClient, 'query'>, yatids: s
   const out: SeasonLines = {};
   for (const { yatid, card_id } of cards) {
     const r = byCard.get(card_id); if (!r) continue;
-    const join = (keys: string[]) => keys.every(k => r[k.toLowerCase()] == null) ? undefined : keys.map(k => fmt(k, r[k.toLowerCase()])).join(' | ');
-    const b = join(['AVG', 'OBP', 'SLG']), p = join(['ERA', 'WHIP']);
+    const join = (keys: string[], sep: string) => keys.every(k => r[k.toLowerCase()] == null) ? undefined : keys.map(k => fmt(k, r[k.toLowerCase()])).join(sep);
+    // Hitter: the slash line AVG/OBP/SLG (Pete, Nov 24 2026).
+    const b = join(['AVG', 'OBP', 'SLG'], '/'), p = join(['ERA', 'WHIP'], ' | ');
     if (b || p) out[yatid] = { ...(b ? { b } : {}), ...(p ? { p } : {}) };
   }
   return out;
