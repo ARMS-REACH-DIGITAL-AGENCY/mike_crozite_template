@@ -1386,7 +1386,8 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel .yfp-lb-list.az li .rk { width:auto; text-align:center; }
         .yfz-panel .yfp-lb-list.seeded .yfp-lb-hcol, .yfz-panel .yfp-lb-list.seeded li { grid-template-columns:var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); }
         .yfp-lb-list.seeded li { grid-template-columns:minmax(0,1fr) auto; }
-        .yfp-lb li a .sd { margin-right:.35em; font-weight:700; color:var(--yfp-gold,#d2b45c); font-variant-numeric:tabular-nums; }
+        /* The seed is quiet, as on the scoreboard (.yfp-green-seed; Pete, Nov 24 2026). */
+        .yfp-lb li a .sd, .yfp-lb li.me a .sd { margin-right:.4em; font:400 .72em/1 var(--yfp-sb),"Arial Narrow",Oswald,sans-serif; color:var(--yfp-muted,rgba(255,255,255,.6)); font-variant-numeric:tabular-nums; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         /* School names in the drawers' player-name type (system-ui 11px). */
         .yfz-panel .yfp-lb li { font-size:11px; }
