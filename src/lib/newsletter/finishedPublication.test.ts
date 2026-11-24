@@ -115,17 +115,17 @@ test('the supplied Daily Digest newspaper template retains its sections and chan
   assert.equal(stableJson(facts), original);
   assert.equal(stableJson(result.facts), original);
   assert.equal(result.layoutVersion, 'daily-digest-phone8-v2');
-  const sections = ['YOUR HOMETOWN. THEIR NEXT CHAPTER.', 'MY FAVORITES', 'The Daily Digest', 'MY FAVORITES',
+  const sections = ['YOUR HOMETOWN. THEIR NEXT CHAPTER.', 'MY FAVORITES',
     'THE FANTASY DESK', 'Daily Double', '>Connect<', '>Contribute<', '>Remember<'];
   const documentBody = result.html.slice(result.html.indexOf('<body')).toLowerCase();
   let previous = -1;
   for (const heading of sections) { const index = documentBody.indexOf(heading.toLowerCase(), previous + 1); assert.ok(index > previous, 'Missing or reordered section: ' + heading); previous = index; }
   assert.equal((result.html.match(/data-slot="/g) || []).length, 1);
-  // Pete's Nov 22 2026 masthead: date year first | MY FAVORITES | weekday.
-  // The masthead dateline: date, MY FAVORITES, weekday, each cell with its own
-  // light background so Outlook keeps it light (Pete, Nov 24 2026).
-  assert.match(result.html, /<td class="left"[^>]*bgcolor="#f5f1e6"[^>]*>2026 March 26<\/td><td class="mid"[^>]*>My Favorites<\/td><td class="right"[^>]*>Thursday<\/td>/);
-  assert.match(result.html, /<table role="presentation" class="masthead-table"[^>]*bgcolor="#f5f1e6"/);
+  // The simplified masthead (Pete, Nov 24 2026): white, no dateline, no
+  // greeting; the favorites bar carries the date instead of SUPERFAN.
+  assert.match(result.html, /<table role="presentation" class="masthead-table"[^>]*bgcolor="#ffffff"/);
+  assert.doesNotMatch(result.html, /class="mast-dateline"|class="intro"|Good morning|SUPERFAN/);
+  assert.match(result.html, />MY FAVORITES<\/td><td[^>]*>Thursday, March 26, 2026<\/td>/);
   assert.doesNotMatch(result.html, /FAN FAVORITES|WHERE THEY YAT/);
   const withSite = renderFinishedEdition(facts, { baseUrl: 'https://hamilton.az.yatstats.com/' });
   assert.match(withSite.html, /<img src="https:\/\/hamilton\.az\.yatstats\.com\/img\/newsletter\/daily-digest-logo\.png" alt="The Daily Digest, powered by YAT\?STATS"[^>]*>/);
@@ -216,18 +216,19 @@ test('the Digest lists the favorites\' transactions under My Favorites (Pete, No
   assert.doesNotMatch(renderFinishedEdition(facts).html, />TRANSACTIONS</);
 });
 
-test('Next Game prints once per player, worded as his card words it (Pete, Nov 23 2026)', () => {
+test('each favorite is two tight lines in one table, with no Next Game (Pete, Nov 24 2026)', () => {
   const facts = fixture();
   const first = facts.rows.daily_stat_lines[0];
   facts.rows.daily_stat_lines.push({ ...first, stat_line_id: '1b', line: 'second line', sort_key: 'a2',
     next_game_date: 'Wednesday | October 14, 2026', next_game_home_away: 'vs.', next_game_opponent: 'Peoria Javelinas' });
   facts.ready.row_counts = { ...facts.ready.row_counts, daily_stat_lines: 2 };
-  const html = renderFinishedEdition(facts).html;
-  assert.equal((html.match(/class="favorite-next"/g) || []).length, 1);
-  // Pete, Nov 24 2026: the label on its own line, then the game with commas.
-  assert.match(html, /<span class="fav-text">Next Game<\/span><\/td><\/tr><tr><td align="left" valign="top" colspan="2" class="favorite-next-game"[^>]*><span class="fav-text">Wednesday, October 14, 2026 vs\. Peoria Javelinas<\/span>/);
-  facts.rows.daily_stat_lines[1].next_game_home_away = '@';
-  assert.match(renderFinishedEdition(facts).html, /Wednesday, October 14, 2026 @ Peoria Javelinas/);
-  delete facts.rows.daily_stat_lines[1].next_game_date;
-  assert.doesNotMatch(renderFinishedEdition(facts).html, /class="favorite-next"/);
+  const result = renderFinishedEdition(facts);
+  assert.doesNotMatch(result.html, /Next Game|Peoria Javelinas/i);
+  assert.doesNotMatch(result.text, /Next Game|Peoria Javelinas/i);
+  // One favorites table: its header and both players' two lines.
+  assert.equal((result.html.match(/<table role="presentation" class="fav"/g) || []).length, 1);
+  assert.equal((result.html.match(/class="fav-name"/g) || []).length, 2);
+  assert.equal((result.html.match(/class="fav-team"/g) || []).length, 2);
+  // No colored page behind the favorites or the scoreboard.
+  assert.match(result.html, /<body bgcolor="#ffffff"/);
 });
