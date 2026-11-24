@@ -194,9 +194,10 @@ test('Next Game prints once per player, worded as his card words it (Pete, Nov 2
   facts.ready.row_counts = { ...facts.ready.row_counts, daily_stat_lines: 2 };
   const html = renderFinishedEdition(facts).html;
   assert.equal((html.match(/class="favorite-next"/g) || []).length, 1);
-  assert.match(html, /<strong>Next Game<\/strong> \| Wednesday \| October 14, 2026 vs\. Peoria Javelinas/);
+  // Pete, Nov 24 2026: the label on its own line, then the game with commas.
+  assert.match(html, /<span class="fav-text">Next Game<\/span><\/td><\/tr><tr><td align="left" valign="top" colspan="2" class="favorite-next-game"[^>]*><span class="fav-text">Wednesday, October 14, 2026 vs\. Peoria Javelinas<\/span>/);
   facts.rows.daily_stat_lines[1].next_game_home_away = '@';
-  assert.match(renderFinishedEdition(facts).html, /October 14, 2026 @ Peoria Javelinas/);
+  assert.match(renderFinishedEdition(facts).html, /Wednesday, October 14, 2026 @ Peoria Javelinas/);
   delete facts.rows.daily_stat_lines[1].next_game_date;
   assert.doesNotMatch(renderFinishedEdition(facts).html, /class="favorite-next"/);
 });
