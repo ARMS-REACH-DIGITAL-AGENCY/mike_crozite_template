@@ -30,4 +30,9 @@ assert.match(live, /Number\(r\.day\) < releaseDay\(r\.playerid\)/, 'only games b
 const season = fs.readFileSync('src/components/bracket/liveSeason.ts', 'utf8');
 assert.match(season, /if \(p\[5\] != null && from >= p\[5\]\) continue;/, 'released before the week: off the team');
 assert.match(season, /!\(p\[5\] != null && from \+ d >= p\[5\]\)/, 'released mid-week: days from the release on do not count');
-console.log('PASS fantasy roster: free agents never count; scoring and drawer share one rule; a mid-week release keeps his earlier games');
+// Pete, Nov 24 2026 (Kyle Nicolas, Jackson): the stat drawer lists every player in the
+// stored game, on today's roster or not, so a released player's runs never vanish.
+const gallery = fs.readFileSync('src/components/bracket/gallery.tsx', 'utf8');
+assert.match(gallery, /const kept = existing\.filter\(\(p\) => !used\.has\(String\(p\[0\]\)\)\)/, 'drawer keeps box players missing from the roster');
+assert.match(gallery, /return \[\.\.\.listed, \.\.\.kept\];/, 'drawer lists them after the roster');
+console.log('PASS fantasy roster: free agents never count; scoring and drawer share one rule; a mid-week release keeps his earlier games and stays in the drawer');

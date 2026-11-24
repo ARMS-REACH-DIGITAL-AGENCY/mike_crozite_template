@@ -1047,10 +1047,12 @@ export function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPl
         twoWay: Boolean(p[4]) && Boolean(p[5]),
       }));
 
-  return source.map(({ id, legacyId, name, level, isPitcher, twoWay }) => {
+  const used = new Set<string>();
+  const listed = source.map(({ id, legacyId, name, level, isPitcher, twoWay }) => {
     // Pre-existing locked/2026 Stat Ledgers may contain the source ID. Read
     // their saved numbers without reopening or resimulating historical games.
     const row = current.get(id) || current.get(legacyId);
+    if (current.has(id)) used.add(id); else if (current.has(legacyId)) used.add(legacyId);
     const simulated = /NCAA|NAIA|JUCO|NJCAA|CCCAA|NWAC|COLLEGE/i.test(level) ? 1 : 0;
     const next = row
       ? [...row] as PlayerRow
@@ -1081,6 +1083,12 @@ export function completeRosterRows(existing: PlayerRow[], roster: ActiveRosterPl
     // No club result for him: his W-L stays empty, never made up.
     return next;
   });
+  // Every player in the stored game stays listed, on the roster today or not
+  // (Pete, Nov 24 2026: Kyle Nicolas, released after his week, scored
+  // Jackson's FIP- run but vanished from its stat drawer). The game's runs
+  // came from these lines, so the drawer always shows them.
+  const kept = existing.filter((p) => !used.has(String(p[0]))).map((p) => [...p] as PlayerRow);
+  return [...listed, ...kept];
 }
 
 function sumRosterWl(players: PlayerRow[]): [number, number] {
