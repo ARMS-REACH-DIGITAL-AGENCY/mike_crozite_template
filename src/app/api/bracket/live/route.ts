@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
-import { isFantasyRosterStatus } from '@/lib/galleryStatuses';
+import { isFantasyRosterStatus, releasedDuringPeriod } from '@/lib/galleryStatuses';
 import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
 import {
   allowClubResultFallback, isBracketGameDone as isDone, isBracketGameFinal as isFinal, isBracketGameType,
@@ -41,7 +41,7 @@ export const dynamic = 'force-dynamic';
 type StageRow = {
   playerid: string; yatid: string | null; hsid: string; display_name: string | null; first_name: string | null; last_name: string | null;
   status_label: string | null; level_label: string | null; display_level_label: string | null;
-  position: string | null; current_team_name: string | null;
+  position: string | null; current_team_name: string | null; last_transaction_date: string | Date | null;
 };
 type LineRow = { playerid: string; day: number; stat_type: string; stats: Record<string, unknown>; game: string; team: string | null; status: string | null; level: string | null; game_type?: string | null };
 type SchedRow = ScheduleFact & { home: string; away: string; home_runs: number | null; away_runs: number | null; start: string | null };
@@ -91,18 +91,31 @@ export async function GET(req: NextRequest) {
   try {
     const { rows: stage } = await query<StageRow>(
       `SELECT playerid::text AS playerid, yatid, hsid::text AS hsid, display_name, first_name, last_name, status_label,
-              level_label, display_level_label, position, current_team_name
+              level_label, display_level_label, position, current_team_name, last_transaction_date
          FROM flip_card_front_stage
         WHERE hsid::text = ANY($1)`,
       [hsids],
     );
-    const active = stage.filter((r) => isFantasyRosterStatus(r.status_label) && !isHighSchool(r));
+    // A player released during these weeks keeps the games he played before
+    // his release (Pete, Nov 24 2026); his lines from that day on are dropped below.
+    const releasedOn = new Map<string, string>();
+    const releaseDay = (yatid: string) => {
+      const released = releasedOn.get(yatid);
+      return released ? Math.round((Date.parse(`${released}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) : Infinity;
+    };
+    const active = stage.filter((r) => {
+      if (isHighSchool(r)) return false;
+      if (isFantasyRosterStatus(r.status_label)) return true;
+      const released = releasedDuringPeriod(r.status_label, r.last_transaction_date, start);
+      if (released && r.yatid) releasedOn.set(r.yatid, released);
+      return Boolean(released);
+    });
     // Use season evidence before the stale display position. Braden Montgomery
     // is still labeled "P" in the stage table, but his 2026 evidence is
     // batting-only, so the live test bracket must not create zero pitching
     // rows for his off days. Pitching-only "UT" players still stay pitchers.
     const usage = await getSeasonUsageByPlayerIds(active.map((r) => r.playerid)).catch(() => ({} as Record<string, { ab: number; pg: number }>));
-    const roster: Record<string, [string, string, string, 0 | 1, string][]> = Object.fromEntries(hsids.map((id) => [id, []]));
+    const roster: Record<string, [string, string, string, 0 | 1, string, number?][]> = Object.fromEntries(hsids.map((id) => [id, []]));
     // The YAT Registry owns player identity. A TBC/Presto/MLB number is an
     // external source reference, not a second bracket player. Historical
     // source keys survive in the separate aliases map for deep links.
@@ -116,7 +129,8 @@ export async function GET(req: NextRequest) {
       // A registered source whose stage mapping failed is an audit failure.
       if (!r.yatid) throw new Error('Bracket roster has missing YAT ID for source player ' + r.playerid);
       const name = text(r.display_name) || [text(r.first_name), text(r.last_name)].filter(Boolean).join(' ') || r.playerid;
-      (roster[r.hsid] ||= []).push([r.yatid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0, text(r.current_team_name)]);
+      (roster[r.hsid] ||= []).push([r.yatid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0, text(r.current_team_name),
+        ...(releasedOn.has(r.yatid) ? [releaseDay(r.yatid)] as [number] : [] as [])]);
       const existingSchool = schoolOf.get(r.yatid);
       if (existingSchool && existingSchool !== r.hsid) {
         // Multiple simultaneous active school affiliations must be adjudicated,
@@ -141,6 +155,7 @@ export async function GET(req: NextRequest) {
         [ids, start, weeks * 7],
       )
       : { rows: [] as LineRow[] };
+    logRows.splice(0, logRows.length, ...logRows.filter((r) => Number(r.day) < releaseDay(r.playerid)));
     // Club results: every finished game of every club these alumni play
     // for, from any line that carries the result (isWin).
     const clubNames = [...new Set([
