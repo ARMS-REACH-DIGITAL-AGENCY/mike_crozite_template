@@ -100,11 +100,10 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     const scores = (await db.query('SELECT * FROM daily_game_scores WHERE stats_date=$1 AND season_key=$2 ORDER BY region, game_id', [request.date, request.seasonKey])).rows;
     selected = homeGames(scores, Number(recipient.home_hsid), request.region);
     picks = (await db.query('SELECT position, hsid, label FROM user_scoreboard_schools WHERE firebase_uid=$1 ORDER BY position', [recipient.firebase_uid])).rows;
-    const allowedSchools = new Set([Number(recipient.home_hsid), ...picks.map(row => Number(row.hsid))]);
-    rows.daily_game_scores = scores.filter(row => allowedSchools.has(Number(row.home_hsid)) || allowedSchools.has(Number(row.away_hsid)));
-    // Old October tests can contain a school twice; never silently combine them.
-    if (request.region != null) rows.daily_game_scores = rows.daily_game_scores.filter(row => Number(row.region) === request.region);
     const region = selected[0]?.region ?? request.region ?? null;
+    // The scoreboard is the home school's game and its region's top scores
+    // (Pete, Nov 24 2026), so the edition keeps that region's games.
+    rows.daily_game_scores = region == null ? [] : scores.filter(row => Number(row.region) === Number(region));
     rows.daily_game_stories = (await db.query('SELECT * FROM daily_game_stories WHERE stats_date=$1 AND hsid=$2 AND season_key=$3 ORDER BY region, game_id', [request.date, Number(recipient.home_hsid), request.seasonKey])).rows.filter(row => region == null || Number(row.region) === Number(region));
     if (rows.daily_game_stories.length > 1) throw new Error('More than one finished home story for the selected period');
   } else {
@@ -133,44 +132,31 @@ function sideLabel(game: Row, side: 'home' | 'away'): string {
   return publicText(game[side + '_label'] ?? game[side + '_name'] ?? '', side + ' label');
 }
 function displayLabel(label: string): string { return label.split('\n').map(esc).join('<br>'); }
-function dailyBoard(facts: FinishedEdition): { slots: Array<DailyDigestSlot | null>; keys: unknown[] } {
+/**
+ * The Digest scoreboard (Pete, Nov 24 2026; Daily-Oct07 phone PDF): the home
+ * school's game first, then its region's top scores: the 5 other games with the
+ * most runs, ties to the game with the better (lower) seed.
+ */
+function dailyBoard(facts: FinishedEdition): { slots: DailyDigestSlot[]; keys: unknown[] } {
   const home = homeGames(facts.rows.daily_game_scores, Number(facts.recipient.home_hsid), facts.selection.region ?? undefined)[0] || null;
-  const used = new Set(home ? [gameKey(home)] : []);
-  const slots: Array<{ game: Row | null; label: string; position: number } | null> = Array(11).fill(null);
-  let next = 0;
-  for (const pick of facts.selection.picks) {
-    if (next >= 11) break;
-    const games = facts.rows.daily_game_scores.filter(row => Number(row.home_hsid) === Number(pick.hsid) || Number(row.away_hsid) === Number(pick.hsid));
-    if (games.length > 1) throw new Error('Picked school has more than one finished game in this period');
-    const game = games[0] || null;
-    if (game && used.has(gameKey(game))) continue;
-    if (game) used.add(gameKey(game));
-    slots[next++] = { game, label: publicText(pick.label, 'picked school'), position: Number(pick.position) };
-  }
-  const display = (game: Row | null, isHome: boolean, label = ''): DailyDigestSlot | null => {
-    if (!game && !label) return null;
-    const teams = facts.presentation?.scoreboardTeams || {};
-    const homeTeam = game ? teams[String(game.home_hsid)] : undefined;
-    const awayTeam = game ? teams[String(game.away_hsid)] : undefined;
-    return { home: isHome,
-      homeLabel: game ? sideLabel(game, 'home') : label,
-      awayLabel: game ? sideLabel(game, 'away') : '',
-      homeSeed: game?.home_seed == null ? homeTeam?.seed : String(game.home_seed),
-      awaySeed: game?.away_seed == null ? awayTeam?.seed : String(game.away_seed),
-      homeCity: game?.home_city_st || homeTeam?.city,
-      awayCity: game?.away_city_st || awayTeam?.city,
-      homeInnings: game?.home_innings || [], awayInnings: game?.away_innings || [],
-      homeRuns: game?.home_runs ?? '', awayRuns: game?.away_runs ?? '' };
-  };
-  return { slots: [
-    ...slots.slice(0, 5).map(slot => display(slot?.game || null, false, slot?.label)),
-    display(home, true),
-    ...slots.slice(5).map(slot => display(slot?.game || null, false, slot?.label)),
-  ], keys: [
-    { slot: 'home', key: home ? [iso(home.stats_date), home.season_key, home.region, home.game_id] : null },
-    ...slots.map((slot, i) => ({ slot: i + 1, pick_position: slot?.position ?? null,
-      key: slot?.game ? [iso(slot.game.stats_date), slot.game.season_key, slot.game.region, slot.game.game_id] : null })),
-  ] };
+  const region = home ? Number(home.region) : facts.selection.region;
+  const teams = facts.presentation?.scoreboardTeams || {};
+  const seed = (game: Row, side: 'home' | 'away'): string | undefined =>
+    game[side + '_seed'] == null ? teams[String(game[side + '_hsid'])]?.seed : String(game[side + '_seed']);
+  const bestSeed = (game: Row) => Math.min(...(['home', 'away'] as const).map(side => Number(seed(game, side) ?? Infinity)));
+  const runs = (game: Row) => Number(game.home_runs ?? 0) + Number(game.away_runs ?? 0);
+  const others = facts.rows.daily_game_scores
+    .filter(game => (!home || gameKey(game) !== gameKey(home)) && (region == null || Number(game.region) === Number(region)))
+    .sort((a, b) => runs(b) - runs(a) || bestSeed(a) - bestSeed(b) || String(a.game_id).localeCompare(String(b.game_id), undefined, { numeric: true }))
+    .slice(0, 5);
+  const games = [...(home ? [home] : []), ...others];
+  const display = (game: Row): DailyDigestSlot => ({ home: game === home,
+    homeLabel: sideLabel(game, 'home'), awayLabel: sideLabel(game, 'away'),
+    homeSeed: seed(game, 'home'), awaySeed: seed(game, 'away'),
+    homeInnings: game.home_innings || [], awayInnings: game.away_innings || [],
+    homeRuns: game.home_runs ?? '', awayRuns: game.away_runs ?? '' });
+  return { slots: games.map(display),
+    keys: games.map((game, i) => ({ slot: game === home ? 'home' : i, key: [iso(game.stats_date), game.season_key, game.region, game.game_id] })) };
 }
 
 function table(value: Row, title: string): { html: string; text: string } {
