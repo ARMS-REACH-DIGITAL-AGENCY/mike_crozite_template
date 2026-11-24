@@ -1,4 +1,5 @@
 // TEST-ONLY: one day per invocation, followed by a stored Digest and a pause.
+import { battingLine, pitchingLine } from '../src/lib/statLine';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -189,6 +190,13 @@ async function main() {
                AND NOT EXISTS (SELECT 1 FROM public.player_game_logs p WHERE p.id = a.id)
             ON CONFLICT DO NOTHING`, [day, ['AAA', 'AA', 'A+', 'A', 'ROK']]);
         const minorLeagueLines = minorLeague.rowCount ?? 0;
+        // The nightly sync writes each line with the shared stat line (src/lib/statLine.ts);
+        // the downloaded lines predate it, so write them the way the sync does now.
+        const { rows: restored } = await pool.query(`SELECT id, stat_type, stats FROM public.player_game_logs
+            WHERE game_date = $1::date AND raw_payload->'sport'->>'abbreviation' = ANY($2::text[])`, [day, ['AAA', 'AA', 'A+', 'A', 'ROK']]);
+        if (restored.length) await pool.query(`UPDATE public.player_game_logs p SET line_summary = v.line
+            FROM unnest($1::bigint[], $2::text[]) AS v(id, line) WHERE p.id = v.id AND p.line_summary IS DISTINCT FROM v.line`,
+          [restored.map(r => r.id), restored.map(r => r.stat_type === 'pitching' ? pitchingLine(r.stats) : battingLine(r.stats))]);
         const { rows: [landing] } = await pool.query(`SELECT count(*)::int AS logs,
           count(*) FILTER(WHERE s.id IS NOT NULL)::int AS landed,
           count(*) FILTER(WHERE s.hold_reason IS NOT NULL)::int AS held,
