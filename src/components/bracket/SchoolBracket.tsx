@@ -529,6 +529,10 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
   // The run column sits right after the longest school name (with its
   // city) in the WHOLE field - one spot, the same for every region.
   const fieldNames = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => index.schools[x.h]?.[0] || '')), [boards, index]);
+  // A region's board has no rank column: each school's original seed leads
+  // its name, "#1 Hamilton" (Pete, Nov 24 2026). A-Z keeps Region # - Seed #.
+  const fieldSeeds = useMemo(() => boards.flatMap((b) => b.ranked.map((x) => index.schools[x.h]?.[2])), [boards, index]);
+  const seeded = view !== 'az';
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
@@ -540,8 +544,10 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const probe = document.createElement('ol');
       probe.setAttribute('aria-hidden', 'true');
       probe.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;column-count:1';
-      probe.innerHTML = fieldNames.map(() => '<li><a><span></span><small></small></a></li>').join('');
+      probe.innerHTML = fieldNames.map(() => `<li><a>${seeded ? '<b class="sd"></b>' : ''}<span></span><small></small></a></li>`).join('');
       [...probe.querySelectorAll('a')].forEach((a, i) => {
+        const sd = a.querySelector('b');
+        if (sd) sd.textContent = `#${fieldSeeds[i] ?? '—'}`;
         a.querySelector('span')!.textContent = shortName(fieldNames[i]);
         a.querySelector('small')!.textContent = place(fieldNames[i]);
       });
@@ -554,7 +560,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
       const lcs = getComputedStyle(list);
       // The rank (A-Z: region-seed) column fits its header label too.
       const rkHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rk');
-      const rankW = Math.ceil(Math.max(view === 'az' ? 44 : 24, rkHead ? textW(rkHead) + 8 : 0));
+      const rankW = seeded ? -gap : Math.ceil(Math.max(44, rkHead ? textW(rkHead) + 8 : 0));
       list.style.setProperty('--lb-rank-w', `${rankW}px`);
       // ... and the runs column fits TOTAL RUNS.
       const rfHead = list.querySelector<HTMLElement>('.yfp-lb-hcol .rf');
@@ -598,7 +604,7 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
     const ro = new ResizeObserver(fit);
     ro.observe(list);
     return () => ro.disconnect();
-  }, [fieldNames, view]);
+  }, [fieldNames, fieldSeeds, seeded, view]);
   const diff = (s: { rf: number; ra: number }) => `${s.rf - s.ra >= 0 ? '+' : ''}${s.rf - s.ra}`;
   return (
     <aside className="yfp-lb" aria-label="Most Runs Scored Leaderboards">
@@ -617,12 +623,12 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         <button type="button" role="tab" aria-selected={view === 'az'} className={`az${view === 'az' ? ' on' : ''}`}
           title="The whole field, A-Z" onClick={() => setView('az')}><span>A–Z</span></button>
       </div>
-      <div className={`yfp-lb-list${view === 'az' ? ' az' : ''}`} ref={listRef}>
+      <div className={`yfp-lb-list${view === 'az' ? ' az' : ' seeded'}`} ref={listRef}>
         {/* The gold header row, one over each column the list shows. */}
         <div className="yfp-lb-head" aria-hidden="true">
           {[0, 1, 2].map((c) => (
             <div key={c} className="yfp-lb-hcol">
-              <span className="rk">{view === 'az' ? 'Region # - Seed #' : 'Rank'}</span>
+              {!seeded && <span className="rk">Region # - Seed #</span>}
               <span className="nm">School</span>
               <span className="rf">Total Runs</span>
             </div>
@@ -630,8 +636,8 @@ function RegionColumn({ index, lb, me, final, onRules }: { index: Index; lb: LbG
         </div>
         <ol>{rows.map(({ s, place: rank, region }) => (
           <li key={s.h} className={s.h === me ? 'me' : ''} title={`${index.schools[s.h]?.[0]} · seed #${index.schools[s.h]?.[2] ?? '—'} in Region ${region} · #${rank} in the region · ${s.rf} runs (${diff(s)})`}>
-            <span className="rk">{view === 'az' ? `R${region}-S${index.schools[s.h]?.[2] ?? '—'}` : rank}</span>
-            <a href={`/${s.h}#sec-fantasy`}>{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
+            {!seeded && <span className="rk">{`R${region}-S${index.schools[s.h]?.[2] ?? '—'}`}</span>}
+            <a href={`/${s.h}#sec-fantasy`}>{seeded && <b className="sd">#{index.schools[s.h]?.[2] ?? '—'}</b>}{shortName(index.schools[s.h]?.[0] || '')}<small>{place(index.schools[s.h]?.[0] || '')}</small></a>
             <span className="rf">{s.rf}</span>
           </li>
         ))}</ol>
@@ -1378,6 +1384,9 @@ export default function SchoolBracket({ hsid }: { hsid: string }) {
         .yfz-panel .yfp-lb li .rk, .yfz-panel .yfp-lb li .rf { justify-self:center; width:3ch; text-align:right; font-variant-numeric:tabular-nums; }
         /* A-Z: the region-seed (R3-S15) centered under its header label. */
         .yfz-panel .yfp-lb-list.az li .rk { width:auto; text-align:center; }
+        .yfz-panel .yfp-lb-list.seeded .yfp-lb-hcol, .yfz-panel .yfp-lb-list.seeded li { grid-template-columns:var(--lb-name-w, minmax(0,1fr)) var(--lb-runs-w, 22px); }
+        .yfp-lb-list.seeded li { grid-template-columns:minmax(0,1fr) auto; }
+        .yfp-lb li a .sd { margin-right:.35em; font-weight:700; color:var(--yfp-gold,#d2b45c); font-variant-numeric:tabular-nums; }
         .yfz-panel .yfp-lb li a small { margin-left:6px; color:var(--yfp-muted); font-size:.78em; font-weight:400; }
         /* School names in the drawers' player-name type (system-ui 11px). */
         .yfz-panel .yfp-lb li { font-size:11px; }
