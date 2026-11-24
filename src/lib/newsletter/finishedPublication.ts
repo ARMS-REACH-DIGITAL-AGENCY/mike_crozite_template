@@ -4,6 +4,7 @@
 // finished lines, scores and table cells are printed without scoring math.
 // No raw feeds, scorer, sender, sponsor lookup or database writes belong here.
 import { createHash } from 'node:crypto';
+import { renderWeeklyGazetteLayout, type GazetteBatRow, type GazettePitchRow, type GazetteTables } from './weeklyGazetteLayout';
 import { renderDailyDigestLayout, type DailyDigestPresentation, type DailyDigestSlot } from './dailyDigestLayout';
 
 export type Row = Record<string, any>;
@@ -21,12 +22,18 @@ export type FinishedEdition = {
     schoolLocation?: string;
     daily?: DailyDigestPresentation;
     scoreboardTeams?: Record<string, { name?: string; city?: string; seed?: string }>;
+    /** Gazette graphics drawn once per edition and saved on the site (never per fan). */
+    gazette?: { mastheadUrl?: string; scoreboardUrl?: string; scoreboardAlt?: string; teamLogoBase?: string };
     provenance?: Record<string, unknown>;
   };
   selection: { seasonKey: string; region: number | null; favorites: string[]; picks: Row[] };
   rows: {
     daily_stat_lines: Row[]; daily_game_stories: Row[]; daily_game_scores: Row[];
     weekly_player_lines: Row[]; weekly_box_scores: Row[];
+    /** The fan's Superfan favorites' week (shared rows; optional for older facts). */
+    weekly_player_totals?: Row[];
+    /** The fan's favorites' transactions in the period (MLB's own words). */
+    newsletter_transactions?: Row[];
   };
 };
 export type RenderedEdition = {
@@ -35,7 +42,8 @@ export type RenderedEdition = {
   hashes: { facts: string; subject: string; html: string; text: string; content: string };
 };
 export const FINISHED_LAYOUT_VERSION = 'daily-digest-phone8-v2';
-const WEEKLY_LAYOUT_VERSION = 'digest-gazette-finished-v1';
+const WEEKLY_LAYOUT_VERSION = 'gazette-test3-v1';
+const STATE_NAMES: Record<string, string> = { AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming' };
 const iso = (value: unknown) => value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 const dayAfter = (date: string, offset = 1) => new Date(Date.parse(date + 'T00:00:00Z') + offset * 86400000).toISOString().slice(0, 10);
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
@@ -110,6 +118,10 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
   } else {
     rows.weekly_player_lines = (await db.query('SELECT * FROM weekly_player_lines WHERE period_start=$1 AND hsid=$2 AND season_key=$3 ORDER BY sort_key, yatid', [request.date, Number(recipient.home_hsid), request.seasonKey])).rows;
     rows.weekly_player_lines.forEach(row => yat(row.yatid));
+    // The Gazette's Superfan favorites: shared weekly rows, read for this fan's YAT IDs.
+    const favoriteRows = (await db.query("SELECT to_jsonb(f)->>'yatid' AS yatid FROM newsletter_favorites f WHERE firebase_uid=$1", [recipient.firebase_uid])).rows;
+    favorites = [...new Set(favoriteRows.map(row => yat(row.yatid)))].sort();
+    rows.weekly_player_totals = favorites.length ? (await db.query('SELECT * FROM weekly_player_totals WHERE period_start=$1 AND yatid=ANY($2::text[]) ORDER BY yatid', [request.date, favorites])).rows : [];
     const boxes = (await db.query('SELECT * FROM weekly_box_scores WHERE period_start=$1 AND season_key=$2 AND week=$3 ORDER BY region, game_id', [request.date, request.seasonKey, ready.week])).rows;
     selected = homeGames(boxes, Number(recipient.home_hsid), request.region);
     const region = selected[0]?.region ?? request.region ?? null;
@@ -117,6 +129,10 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     // The optional Weekly recap is deliberately absent: the recovered contract
     // leaves its inclusion for Pete to decide. No raw story is regenerated.
   }
+  // Pete, Nov 24 2026: the fan's favorites' transactions, in the Daily and the Weekly.
+  rows.newsletter_transactions = favorites.length
+    ? (await db.query('SELECT * FROM newsletter_transactions WHERE cadence=$1 AND period_start=$2 AND yatid=ANY($3::text[]) ORDER BY effective_date, transaction_id', [request.cadence, request.date, favorites])).rows
+    : [];
   return clone({ version: 'finished-publication-v1', ready, recipient, control: controls[0],
     selection: { seasonKey: request.seasonKey, region: selected[0] ? Number(selected[0].region) : request.region ?? null, favorites, picks }, rows });
 }
@@ -223,11 +239,12 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
   const ownSide = own[0] && (Number(own[0].home_hsid) === Number(recipient.home_hsid) ? 'home' : 'away');
   const school = publicText(recipient.home_school_name || rows.daily_game_stories[0]?.school_name || (ownSide ? sideLabel(own[0], ownSide) : ''), 'school');
   if (!school) throw new Error('The finished edition has no home school display name');
-  const title = cadence === 'daily' ? 'YAT?STATS Daily Digest' : 'YAT?STATS Weekly Gazette';
+  const title = cadence === 'daily' ? 'YAT?STATS Daily Digest' : 'YAT-A-BOY Weekly Gazette';
   const period = labelDate(iso(ready.period_start)) + (cadence === 'weekly' ? ' – ' + labelDate(iso(ready.period_end)) : '');
   const subject = (title + ' | ' + school.replace(/\n/g, ' ') + ' | ' + period).replace(/[\r\n]+/g, ' ');
   const body: string[] = [], plain: string[] = [title.toUpperCase(), school, period];
   let dailyLayout: { html: string; text: string } | undefined;
+  let gazetteLayout: { html: string; text: string } | undefined;
   const rowKeys: Record<string, unknown[]> = {}, notes: string[] = [];
   if (cadence === 'daily') {
     const favoriteIds = new Set(facts.selection.favorites.map(yat));
@@ -249,6 +266,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
         team_name: publicText(row.team_name, 'team name'), level: publicText(row.level, 'level'), line: publicText(row.line, 'daily stat line'),
         // Once per player, under his last line of the day.
         next_game: all.slice(index + 1).some(other => yat(other.yatid) === yat(row.yatid)) ? undefined : nextGame(row) })),
+      transactions: (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })),
       story: story ? { title: publicText(story.title, 'story title'), story: publicText(story.story, 'story'),
         seriesNote: publicText(story.series_note, 'series note'), shoutouts: (story.shout_outs || []).map((row: Row) => publicText(row.line, 'shout-out')) } : undefined,
       slots: scores.slots,
@@ -261,24 +279,65 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     rowKeys.daily_game_scores = scores.keys;
     if (!presentation.links?.pickTeams) notes.push('No saved pick-page destination is available in the recovered contract; empty slots have no invented link.');
   } else {
-    for (const box of own) { const rendered = weeklyBox(box); body.push(h2('The box score'), rendered.html); plain.push('THE BOX SCORE', rendered.text); }
-    const lines = rows.weekly_player_lines.map(row => { yat(row.yatid); return publicText(row.line, 'weekly player line'); });
-    body.push(h2('The full ' + school + ' roster'), '<ul class="finished-lines">' + lines.map(line => '<li>' + esc(line) + '</li>').join('') + '</ul>');
-    plain.push('THE FULL ' + school.toUpperCase() + ' ROSTER', ...lines);
-    if (rows.weekly_box_scores.length) {
-      body.push(h2('Scores around the league')); plain.push('SCORES AROUND THE LEAGUE');
-      for (const game of rows.weekly_box_scores) {
-        // Totals are the finished values, never reconstructed from inning cells.
-        const text = sideLabel(game, 'away') + ' ' + game.away_runs + ' · ' + sideLabel(game, 'home') + ' ' + game.home_runs;
-        body.push('<div class="league-score">' + displayLabel(text) + '</div>'); plain.push(text);
-      }
-    }
+    // The Gazette (Pete, Nov 24 2026): the approved TEST 3 proof, docs/newsletter-reference/.
+    const game = own[0];
+    if (!game) throw new Error('The Gazette needs the home school\'s finished game for the week');
+    const side = ownSide as 'home' | 'away';
+    const story = game[side + '_story'];
+    if (!story?.title || !Array.isArray(story.paragraphs)) throw new Error('The Gazette letter is missing from the finished week');
+    const gz = facts.presentation?.gazette || {};
+    const logo = (teamid: unknown) => (gz.teamLogoBase && /^\d{1,10}$/.test(String(teamid ?? '')) ? gz.teamLogoBase + String(teamid) : undefined);
+    const favoriteIds = new Set(facts.selection.favorites);
+    const lastOf = (name: string) => name.trim().split(/\s+/).slice(-1)[0] || name;
+    // TEST 3 prints last names; a shared last name gets the first initial, and a
+    // shared initial too ("C. Bellinger" twice) gets the full name.
+    const shortNames = (names: string[]) => {
+      const last = new Map<string, number>(), initial = new Map<string, number>();
+      const ini = (n: string) => n.trim()[0] + '. ' + lastOf(n);
+      for (const n of names) { last.set(lastOf(n), (last.get(lastOf(n)) || 0) + 1); initial.set(ini(n), (initial.get(ini(n)) || 0) + 1); }
+      return (n: string) => (last.get(lastOf(n))! < 2 ? lastOf(n) : initial.get(ini(n))! < 2 ? ini(n) : n.trim());
+    };
+    const sortRows = <T extends { name: string }>(list: (T & { full: string })[]) => list.sort((a, b) => lastOf(a.full).localeCompare(lastOf(b.full)) || a.full.localeCompare(b.full));
+    const wlOf = (v: unknown): [number, number] | null => (Array.isArray(v) && v.length === 2 ? [Number(v[0]) || 0, Number(v[1]) || 0] : null);
+    const pitchFrom = (p: number[] | null | undefined, fip: number | null) => {
+      const q = Array.isArray(p) ? p.map(Number) : [];
+      return { outs: q[0] || 0, hr: q[1] || 0, bb: q[2] || 0, hbp: q[3] || 0, k: q[4] || 0, h: q[5] || 0, r: q[6] || 0, er: q[7] || 0, fip };
+    };
+    const zero = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const alumniList = rows.weekly_player_lines.map(row => ({ row, st: (row.stats || {}) as Record<string, any> }));
+    const nameAlumni = shortNames(alumniList.map(x => publicText(x.row.player_name, 'player name')));
+    const aBat = sortRows(alumniList.filter(x => Array.isArray(x.st.bat) || !Array.isArray(x.st.pit)).map(x => ({ full: String(x.row.player_name), name: nameAlumni(String(x.row.player_name)), logo: logo(x.st.teamid), bold: favoriteIds.has(yat(x.row.yatid)),
+      opsPlus: x.st.ops_plus ?? null, wl: wlOf(x.st.club_wl), b: Array.isArray(x.st.bat) ? x.st.bat.map(Number) : zero } as GazetteBatRow & { full: string })));
+    const aPit = sortRows(alumniList.filter(x => Array.isArray(x.st.pit)).map(x => ({ full: String(x.row.player_name), name: nameAlumni(String(x.row.player_name)), logo: logo(x.st.teamid), bold: favoriteIds.has(yat(x.row.yatid)),
+      fipMinus: x.st.fip_minus ?? null, wl: wlOf(x.st.club_wl), ...pitchFrom(x.st.pit, Array.isArray(x.st.pit) ? Number(x.st.pit[8]) : null) } as GazettePitchRow & { full: string })));
+    const totalWl = alumniList.reduce((t, x) => { const w = wlOf(x.st.club_wl); return w ? [t[0] + w[0], t[1] + w[1]] as [number, number] : t; }, [0, 0] as [number, number]);
+    const teamVal = (table: any, i: number) => { const v = table?.totals?.[i]; return v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v); };
+    const alumni: GazetteTables = { batters: aBat, pitchers: aPit, totalWl,
+      teamOpsPlus: teamVal(game[side + '_batting'], 11), teamFipMinus: teamVal(game[side + '_pitching'], 10) };
+    const favRows = (rows.weekly_player_totals || []).filter(row => favoriteIds.has(yat(row.yatid)));
+    const nameFav = shortNames(favRows.map(row => String(row.player_name || '')));
+    const fBat = sortRows(favRows.filter(row => !row.pitcher).map(row => ({ full: String(row.player_name || ''), name: nameFav(String(row.player_name || '')), logo: logo(row.teamid), bold: true,
+      opsPlus: null, wl: null, b: Array.isArray(row.bat) ? row.bat.map(Number) : zero } as GazetteBatRow & { full: string })));
+    const fPit = sortRows(favRows.filter(row => row.pitcher).map(row => ({ full: String(row.player_name || ''), name: nameFav(String(row.player_name || '')), logo: logo(row.teamid), bold: true,
+      fipMinus: null, wl: null, ...pitchFrom(row.pit, null) } as GazettePitchRow & { full: string })));
+    const place = (facts.presentation?.schoolLocation || String(recipient.home_school_name || '').split(' — ').slice(1).join(' — ') || '').replace(/,\s*([A-Z]{2})$/, (_m: string, st: string) => ', ' + (STATE_NAMES[st] || st));
+    const base = facts.presentation?.baseUrl;
+    const drawer = base ? (() => { const u = new URL(base); u.hash = 'sec-fantasy'; return u.toString(); })() : undefined;
+    gazetteLayout = renderWeeklyGazetteLayout({ subject, schoolName: publicText(school.split(' — ')[0], 'school'), schoolPlace: place, week: Number(ready.week),
+      issueDateISO: dayAfter(iso(ready.period_end)), periodStartISO: iso(ready.period_start), periodEndISO: iso(ready.period_end),
+      firstName: String(recipient.first_name || ''), mastheadUrl: gz.mastheadUrl, scoreboardUrl: gz.scoreboardUrl, scoreboardAlt: gz.scoreboardAlt,
+      story: { title: publicText(story.title, 'gazette title'), paragraphs: story.paragraphs.map((p: unknown) => publicText(p, 'gazette letter')) },
+      alumniCount: alumniList.length, alumni,
+      transactions: (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })),
+      favorites: favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
+      links: { statDrawer: drawer } });
     rowKeys.weekly_player_lines = rows.weekly_player_lines.map(row => [iso(row.period_start), row.hsid, row.yatid, row.team_name]);
     rowKeys.weekly_box_scores = rows.weekly_box_scores.map(row => [row.season_key, row.region, row.game_id]);
+    rowKeys.weekly_player_totals = favRows.map(row => [iso(row.period_start), row.yatid]);
   }
   notes.push('Rendered from finished publication rows. Delivery is handled separately by the approved sender. No sponsor is inferred.');
-  const html = dailyLayout?.html || '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(subject) + '</title><style>' + CSS + '</style></head><body><main class="paper"><header><h1>' + esc(title) + '</h1><p>' + displayLabel(school) + ' · ' + esc(period) + '</p></header>' + body.join('\n') + '</main></body></html>';
-  const text = dailyLayout?.text || plain.filter(value => value !== '').join('\n\n') + '\n';
+  const html = dailyLayout?.html || gazetteLayout?.html || '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(subject) + '</title><style>' + CSS + '</style></head><body><main class="paper"><header><h1>' + esc(title) + '</h1><p>' + displayLabel(school) + ' · ' + esc(period) + '</p></header>' + body.join('\n') + '</main></body></html>';
+  const text = dailyLayout?.text || gazetteLayout?.text || plain.filter(value => value !== '').join('\n\n') + '\n';
   const layoutVersion = cadence === 'daily' ? FINISHED_LAYOUT_VERSION : WEEKLY_LAYOUT_VERSION;
   const hashes = { facts: sha(stableJson(facts)), subject: sha(subject), html: sha(html), text: sha(text), content: '' };
   hashes.content = sha(stableJson({ facts: hashes.facts, subject: hashes.subject, html: hashes.html, text: hashes.text, layout: layoutVersion }));
