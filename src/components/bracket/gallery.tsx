@@ -1172,6 +1172,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const weekInProgress = drawerMode && played && winner === null;
   const visibleThroughDay = weekInProgress ? (typeof openDay === 'number' ? openDay : -1) : 7;
   const weekVals = weekInProgress ? undefined : boxForView?.d?.[7];
+  // Weekly Totals is a running total (Pete, Nov 24 2026): during the week it
+  // shows every posted day so far; only innings 8 and 9 wait for the week's end.
+  const weekSoFar = boxForView?.d?.[7];
   const myName = names[me];
   const [statDay, setStatDay] = useState<'week' | number>(openDay);
   // Drawer: the scoreboards stay pinned under the header and the day tabs
@@ -1209,7 +1212,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // every day tab. Blank all unreached statistics instead of implying
   // games have already been played.
   const unreachedDay = drawerMode && (!played || (weekInProgress &&
-    (statDay === 'week' || (typeof statDay === 'number' && statDay > visibleThroughDay))));
+    typeof statDay === 'number' && statDay > visibleThroughDay));
   const viewPlayers = statDay === 'week'
     ? (unreachedDay ? dayRosterRows([], mineRoster) : (mine?.p || []))
     : dayRosterRows(unreachedDay ? [] : (rawMine?.days?.[statDay] || []), mineRoster);
@@ -1304,7 +1307,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   // from the box, so the Team row ties out to the scoreboard above it.
   // (Weekly tab uses the week aggregate; daily tabs use that day's value.)
   const teamDayMetric = (idx: number): string => {
-    if (statDay === 'week') return weekVals ? fmtStat(weekVals[idx]) : '—';
+    if (statDay === 'week') return weekSoFar?.[idx] != null ? fmtStat(weekSoFar[idx]) : '—';
     const v = boxForView?.d?.[statDay]?.[idx];
     return v == null ? '—' : fmtStat(v);
   };

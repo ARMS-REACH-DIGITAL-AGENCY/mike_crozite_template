@@ -49,9 +49,17 @@ jobs:
       - name: Anything waiting?
         id: queue
         run: |
-          waiting=$(aws s3api list-objects-v2 --bucket "$YATSTATS_S3_BUCKET" --prefix cutout-queue/v1/ --max-items 1 --query 'length(Contents || `[]`)' --output text 2>/dev/null || echo 1)
-          echo "waiting=${waiting:-0}" >> "$GITHUB_OUTPUT"
-          echo "Photos waiting (first page): ${waiting:-0}; daily sweep: $SWEEP"
+          # Check exactly one S3 service page; never let CLI pagination emit multiple values.
+          if ! waiting=$(aws s3api list-objects-v2 --bucket "$YATSTATS_S3_BUCKET" --prefix cutout-queue/v1/ --max-keys 1 --no-paginate --query KeyCount --output text); then
+            echo '::warning::Queue check failed; attempting marker processing instead.'
+            waiting=1
+          fi
+          case "$waiting" in
+            0|1) ;;
+            *) echo '::warning::Unexpected queue count; attempting marker processing instead.'; waiting=1 ;;
+          esac
+          echo "waiting=$waiting" >> "$GITHUB_OUTPUT"
+          echo "Photos waiting (first page): $waiting; daily sweep: $SWEEP"
 
       - name: Check out repository
         if: steps.queue.outputs.waiting != '0' || env.SWEEP == 'true'
