@@ -95,10 +95,13 @@ test('the supplied Daily Digest newspaper template retains its sections and chan
   for (const heading of sections) { const index = documentBody.indexOf(heading.toLowerCase(), previous + 1); assert.ok(index > previous, 'Missing or reordered section: ' + heading); previous = index; }
   assert.equal((result.html.match(/data-slot="/g) || []).length, 12);
   // Pete's Nov 22 2026 masthead: date year first | MY FAVORITES | weekday.
-  assert.match(result.html, /<td class="left">2026 March 26<\/td><td class="mid">My Favorites<\/td><td class="right">Thursday<\/td>/);
+  // The masthead dateline: date, MY FAVORITES, weekday, each cell with its own
+  // light background so Outlook keeps it light (Pete, Nov 24 2026).
+  assert.match(result.html, /<td class="left"[^>]*bgcolor="#f5f1e6"[^>]*>2026 March 26<\/td><td class="mid"[^>]*>My Favorites<\/td><td class="right"[^>]*>Thursday<\/td>/);
+  assert.match(result.html, /<table role="presentation" class="masthead-table"[^>]*bgcolor="#f5f1e6"/);
   assert.doesNotMatch(result.html, /FAN FAVORITES|WHERE THEY YAT/);
   const withSite = renderFinishedEdition(facts, { baseUrl: 'https://hamilton.az.yatstats.com/' });
-  assert.match(withSite.html, /<img src="https:\/\/hamilton\.az\.yatstats\.com\/img\/newsletter\/daily-digest-logo\.png" alt="The Daily Digest, powered by YAT\?STATS">/);
+  assert.match(withSite.html, /<img src="https:\/\/hamilton\.az\.yatstats\.com\/img\/newsletter\/daily-digest-logo\.png" alt="The Daily Digest, powered by YAT\?STATS"[^>]*>/);
   assert.match(result.html, /board-crown/);
   assert.doesNotMatch(result.html, /TEST REPLAY|DESIGN PROOF|Commissioner|needs_decision/);
 });
