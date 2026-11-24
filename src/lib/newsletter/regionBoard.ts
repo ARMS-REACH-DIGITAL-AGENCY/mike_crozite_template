@@ -20,7 +20,8 @@ export type BoardSide = {
   innings: Array<string | number | null>;
   runs: string | number | null;
 };
-export type BoardGame = { away: BoardSide; home: BoardSide };
+/** framed: the fan's own school's game, between red rules (Pete, Nov 24 2026). */
+export type BoardGame = { away: BoardSide; home: BoardSide; framed?: boolean };
 export type RegionBoardInput = {
   /** "REGION 3" */
   label: string;
@@ -33,7 +34,7 @@ export type RegionBoardInput = {
 
 // Every size and position below is measured from the reference image.
 const W = 1200;
-const BODY = '#1f3d24', CELL = '#142b18', RULE = '#3f6b46', BAR = '#132a17';
+const BODY = '#1f3d24', CELL = '#142b18', RULE = '#3f6b46', BAR = '#132a17', RED = '#d0021b';
 const YELLOW = '#f3cf55', MUTED = '#cfe0d2', WHITE = '#ffffff';
 const TOP = 324;           // first game block (after the header rule)
 const BLOCK = 176;         // one game: 16 + 68 + 4 + 68 + 16 + 4 (rule)
@@ -92,6 +93,9 @@ export function regionBoardHtml(input: RegionBoardInput): string {
     + input.games.map((_, g) => `<rect x="16" y="${TOP + g * BLOCK + 172}" width="1168" height="4" fill="${RULE}"/>`).join('')
     + input.games.map((_, g) => [16, 88].map(dy => Array.from({ length: COLS }, (_, i) =>
       `<rect x="${cellLeft(i).toFixed(2)}" y="${TOP + g * BLOCK + dy}" width="${CELL_W.toFixed(2)}" height="68" fill="${CELL}"/>`).join('')).join('')).join('')
+    // The home game's rules above and below it are red, 6px (the Nov 13 proof, nl/gz3/1.png).
+    + input.games.map((game, g) => !game.framed ? '' : [g === 0 ? 320 : TOP + (g - 1) * BLOCK + 172, TOP + g * BLOCK + 172]
+      .map(y => `<rect x="16" y="${y - 1}" width="1168" height="6" fill="${RED}"/>`).join('')).join('')
     + `</svg>`);
   // Marquee.
   parts.push(text(esc(input.label.toUpperCase()), { size: 41, baseline: 234, left: 141, color: WHITE, weight: 650, spacing: 3.3 }));

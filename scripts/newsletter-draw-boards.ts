@@ -67,7 +67,7 @@ async function main() {
         const home = scores.find(g => Number(g.home_hsid) === hsid || Number(g.away_hsid) === hsid);
         if (!home) throw new Error('School ' + hsid + ' has no game on ' + date);
         const games: BoardGame[] = [home, ...regionTopGames(scores, home, Number(home.region))]
-          .map(g => ({ away: side(g, 'away'), home: side(g, 'home') }));
+          .map(g => ({ away: side(g, 'away'), home: side(g, 'home'), framed: g === home }));
         await page.setContent(regionBoardHtml({ label: 'Region ' + home.region, games, medallion, fontCss }));
         await page.evaluate(() => document.fonts.ready);
         const file = path.join(out, date, hsid + '.png');
