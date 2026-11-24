@@ -6,9 +6,8 @@
 //
 //   - Each started game gets its innings, score, status and stat-drawer box.
 //   - A game is final at 4 a.m. Arizona the Monday after its week; it's then
-//     locked. If a later run scores a locked final differently (a stat
-//     correction), the stored result stays and the difference goes on Pete's
-//     needs-decision list.
+//     locked, and a locked final is never re-checked (Pete, Nov 24 2026): its
+//     stored result stands.
 //   - A game tied after every tiebreaker is decided by the commissioner's
 //     automatic rules (lib/bracket/autoRuling.ts, Pete, Oct 27), unless a
 //     ruling recorded in commissioner_rulings says otherwise. (Before those
@@ -210,21 +209,16 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
       lock: status === 'final',
     };
     if (row.locked_at) {
-      // A locked final whose week isn't over as of asof: a rerun of an
-      // earlier day. Nothing to compare.
+      // A locked final is never re-checked (Pete, Nov 24 2026): its result
+      // never changes, so a re-score could only raise a warning, and that
+      // warning paused the whole day. The one thing a locked final may still
+      // get is its stat drawer, once, when it was locked without one and the
+      // stats still give the same result.
       if (status === 'in_progress') continue;
-      const was = { status: row.status, innings: (row.innings || []).map(Number), winner: num(row.winner_hsid), by: row.decided_by };
-      const now = { status: res.status, innings: res.innings, winner: res.winner_hsid, by: res.decided_by };
-      if (JSON.stringify(was) !== JSON.stringify(now)) {
-        decisions.push({
-          kind: 'locked_final_changed', ref: `${season.season_key}:${row.region}:${row.game_id}`,
-          summary: `${row.away_school_name} at ${row.home_school_name} (week ${row.week}) was locked final; the stats now score it differently. The locked result stands until you decide.`,
-          details: { locked: was, now },
-        });
-      } else if (row.box_missing && res.box) {
-        // A final locked without its stat drawer gets it once, the result
-        // untouched (the newsletters print the drawer's lines).
-        boxFills.push({ region: row.region, game_id: g[0], box: res.box });
+      if (row.box_missing && res.box) {
+        const was = { status: row.status, innings: (row.innings || []).map(Number), winner: num(row.winner_hsid), by: row.decided_by };
+        const now = { status: res.status, innings: res.innings, winner: res.winner_hsid, by: res.decided_by };
+        if (JSON.stringify(was) === JSON.stringify(now)) boxFills.push({ region: row.region, game_id: g[0], box: res.box });
       }
       continue;
     }
