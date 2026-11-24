@@ -295,7 +295,12 @@ played AS (
     FROM src s GROUP BY s.yatid),
 -- Every favorited player gets a row, a zero line when he did not play, so each
 -- fan's full favorites list is read, not computed (as the TEST 3 proof shows).
-favorite AS (SELECT DISTINCT to_jsonb(f)->>'yatid' AS yatid FROM public.newsletter_favorites f WHERE to_jsonb(f)->>'yatid' ~ '^YAT[0-9]{6,}$'),
+-- Retired favorites are not listed in the weekly stats (Pete, Nov 24 2026): a
+-- favorite gets a zero row only while some card of his is not RETIRED.
+favorite AS (SELECT DISTINCT to_jsonb(f)->>'yatid' AS yatid FROM public.newsletter_favorites f
+              WHERE to_jsonb(f)->>'yatid' ~ '^YAT[0-9]{6,}$'
+                AND EXISTS (SELECT 1 FROM public.flip_card_front_stage c WHERE c.yatid = to_jsonb(f)->>'yatid'
+                             AND upper(btrim(coalesce(c.status_label, ''))) <> 'RETIRED')),
 who AS (SELECT yatid FROM played UNION SELECT yatid FROM favorite),
 pos AS (SELECT DISTINCT ON (f.yatid) f.yatid, upper(btrim(coalesce(f.position, ''))) AS position, f.current_team_name, f.current_teamid::text AS current_teamid
           FROM public.flip_card_front_stage f JOIN who USING (yatid)
@@ -305,6 +310,18 @@ SELECT DATE ${lit(monday)}, w.yatid, DATE ${lit(sunday)}, ${lit(season)}, ${week
        coalesce(p.games, 0), coalesce(p.bat, ARRAY[0,0,0,0,0,0,0,0,0]::integer[]), p.pit,
        p.pit IS NOT NULL OR pos.position ~ '^(P|SP|RP|LHP|RHP)$'
   FROM who w LEFT JOIN played p USING (yatid) LEFT JOIN card c ON c.yatid = w.yatid LEFT JOIN pos ON pos.yatid = w.yatid`;
+}
+
+/** The period's MLB transactions (Pete, Nov 24 2026: "a section for any of the fan's
+ * Favorites that were involved in any transactions"), saved once as shared rows in
+ * MLB's own words; each email shows only its fan's favorites. */
+function sqlPeriodTransactions(cadence: 'daily' | 'weekly', from: string, to: string, historicalReplay: boolean) {
+  return `INSERT INTO public.newsletter_transactions (cadence, period_start, period_end, transaction_id, yatid, effective_date, transaction_type, description)
+SELECT ${lit(cadence)}, DATE ${lit(from)}, DATE ${lit(to)}, t.id, t.yatid, t.effective_date::date, t.transaction_type,
+       coalesce(nullif(btrim(t.payload->>'description'), ''), t.transaction_type)
+  FROM public.player_transactions t
+ WHERE t.yatid ~ '^YAT[0-9]{6,}$' AND t.effective_date::date BETWEEN DATE ${lit(from)} AND DATE ${lit(to)}
+   ${historicalReplay ? '' : 'AND t.created_at <= TIMESTAMPTZ ' + lit(cutoffOf(to))}`;
 }
 
 // --- Stored scores, stories and box scores (no scoring). ---------------------
@@ -617,8 +634,10 @@ export function buildNewsletterPublication(input: PublicationInput) {
        OR EXISTS (SELECT 1 FROM public.daily_stat_lines WHERE stats_date = DATE ${lit(day)})
        OR EXISTS (SELECT 1 FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)})
        OR EXISTS (SELECT 1 FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)})
+       OR EXISTS (SELECT 1 FROM public.newsletter_transactions WHERE cadence = 'daily' AND period_start = DATE ${lit(day)})
      THEN RAISE EXCEPTION 'The Daily for ${day} is already published: it is never written twice'; END IF; END $$`,
     sqlDailyStatLines(day, historicalReplay, seasonLines, nextGames),
+    sqlPeriodTransactions('daily', day, day, historicalReplay),
     `INSERT INTO public.daily_game_scores (stats_date, season_key, region, game_id, week, home_hsid, away_hsid, home_label, away_label,
        home_innings, away_innings, home_runs, away_runs, through_inning, is_final)
      SELECT stats_date, season_key, region, game_id, week, home_hsid, away_hsid, home_label, away_label,
@@ -642,6 +661,7 @@ export function buildNewsletterPublication(input: PublicationInput) {
        jsonb_build_object('daily_stat_lines', (SELECT count(*) FROM public.daily_stat_lines WHERE stats_date = DATE ${lit(day)}),
                           'daily_game_scores', (SELECT count(*) FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)}),
                           'daily_game_stories', (SELECT count(*) FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)}),
+                          'newsletter_transactions', (SELECT count(*) FROM public.newsletter_transactions WHERE cadence = 'daily' AND period_start = DATE ${lit(day)}),
                           'expected_game_scores', ${dailyGames},
                           'missing_game_scores', GREATEST(0, ${dailyGames} - (SELECT count(*) FROM public.daily_game_scores WHERE stats_date = DATE ${lit(day)})),
                           'missing_game_stories', GREATEST(0, ${dailyGames * 2} - (SELECT count(*) FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)})))`,
@@ -650,12 +670,14 @@ export function buildNewsletterPublication(input: PublicationInput) {
     `DO $$ BEGIN IF EXISTS (SELECT 1 FROM public.edition_ready WHERE cadence = 'weekly' AND period_start = DATE ${lit(monday)})
        OR EXISTS (SELECT 1 FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)})
        OR EXISTS (SELECT 1 FROM public.weekly_player_totals WHERE period_start = DATE ${lit(monday)})
+       OR EXISTS (SELECT 1 FROM public.newsletter_transactions WHERE cadence = 'weekly' AND period_start = DATE ${lit(monday)})
        OR EXISTS (SELECT 1 FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week})
      THEN RAISE EXCEPTION 'The Weekly for ${monday} is already published: it is never written twice'; END IF;
      IF EXISTS (SELECT 1 FROM public.master_bracket WHERE season_key = ${S} AND stage IN ('bracket','total_runs','season_championship','world_series') AND week = ${week} AND (status <> 'final' OR locked_at IS NULL))
      THEN RAISE EXCEPTION 'Week ${week}: unfinished matches; no ready edition'; END IF; END $$`,
     sqlWeeklyPlayerLines(season.season_key, week, monday, sunday, weeklyRoster, historicalReplay),
     sqlWeeklyPlayerTotals(season.season_key, week, monday, sunday, historicalReplay),
+    sqlPeriodTransactions('weekly', monday, sunday, historicalReplay),
     `INSERT INTO public.weekly_box_scores (season_key, region, game_id, week, period_start, period_end, round_name, game_no, home_hsid, away_hsid,
        home_name, away_name, home_runs, away_runs, winner_hsid, decision, line_score, home_batting, away_batting, home_pitching, away_pitching, extra_base_hits, home_story, away_story)
      SELECT * FROM jsonb_to_recordset(${dollar(JSON.stringify(boxes))}::jsonb) AS x(season_key text, region smallint, game_id integer, week smallint,
@@ -671,6 +693,7 @@ export function buildNewsletterPublication(input: PublicationInput) {
      SELECT 'weekly', DATE ${lit(monday)}, DATE ${lit(sunday)}, ${S}, ${week}, TIMESTAMPTZ ${lit(cutoffOf(sunday))},
        jsonb_build_object('weekly_player_lines', (SELECT count(*) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}),
                           'weekly_player_totals', (SELECT count(*) FROM public.weekly_player_totals WHERE period_start = DATE ${lit(monday)}),
+                          'newsletter_transactions', (SELECT count(*) FROM public.newsletter_transactions WHERE cadence = 'weekly' AND period_start = DATE ${lit(monday)}),
                           'weekly_box_scores', (SELECT count(*) FROM public.weekly_box_scores WHERE season_key = ${S} AND week = ${week}),
                           'schools', (SELECT count(DISTINCT hsid) FROM public.weekly_player_lines WHERE period_start = DATE ${lit(monday)}),
                           'expected_box_scores', ${weekGames},

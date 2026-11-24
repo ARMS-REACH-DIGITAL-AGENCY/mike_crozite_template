@@ -32,6 +32,8 @@ export type FinishedEdition = {
     weekly_player_lines: Row[]; weekly_box_scores: Row[];
     /** The fan's Superfan favorites' week (shared rows; optional for older facts). */
     weekly_player_totals?: Row[];
+    /** The fan's favorites' transactions in the period (MLB's own words). */
+    newsletter_transactions?: Row[];
   };
 };
 export type RenderedEdition = {
@@ -127,6 +129,10 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     // The optional Weekly recap is deliberately absent: the recovered contract
     // leaves its inclusion for Pete to decide. No raw story is regenerated.
   }
+  // Pete, Nov 24 2026: the fan's favorites' transactions, in the Daily and the Weekly.
+  rows.newsletter_transactions = favorites.length
+    ? (await db.query('SELECT * FROM newsletter_transactions WHERE cadence=$1 AND period_start=$2 AND yatid=ANY($3::text[]) ORDER BY effective_date, transaction_id', [request.cadence, request.date, favorites])).rows
+    : [];
   return clone({ version: 'finished-publication-v1', ready, recipient, control: controls[0],
     selection: { seasonKey: request.seasonKey, region: selected[0] ? Number(selected[0].region) : request.region ?? null, favorites, picks }, rows });
 }
@@ -260,6 +266,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
         team_name: publicText(row.team_name, 'team name'), level: publicText(row.level, 'level'), line: publicText(row.line, 'daily stat line'),
         // Once per player, under his last line of the day.
         next_game: all.slice(index + 1).some(other => yat(other.yatid) === yat(row.yatid)) ? undefined : nextGame(row) })),
+      transactions: (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })),
       story: story ? { title: publicText(story.title, 'story title'), story: publicText(story.story, 'story'),
         seriesNote: publicText(story.series_note, 'series note'), shoutouts: (story.shout_outs || []).map((row: Row) => publicText(row.line, 'shout-out')) } : undefined,
       slots: scores.slots,
@@ -321,6 +328,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       firstName: String(recipient.first_name || ''), mastheadUrl: gz.mastheadUrl, scoreboardUrl: gz.scoreboardUrl, scoreboardAlt: gz.scoreboardAlt,
       story: { title: publicText(story.title, 'gazette title'), paragraphs: story.paragraphs.map((p: unknown) => publicText(p, 'gazette letter')) },
       alumniCount: alumniList.length, alumni,
+      transactions: (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })),
       favorites: favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
       links: { statDrawer: drawer } });
     rowKeys.weekly_player_lines = rows.weekly_player_lines.map(row => [iso(row.period_start), row.hsid, row.yatid, row.team_name]);

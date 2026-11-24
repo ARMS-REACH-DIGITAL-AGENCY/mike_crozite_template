@@ -48,6 +48,8 @@ export type WeeklyGazetteInput = {
   alumniCount: number;
   alumni: GazetteTables;
   favorites?: { count: number; tables: GazetteTables };
+  /** The fan's favorites' transactions that week, in MLB's own words (Pete, Nov 24 2026). */
+  transactions?: { date: string; type: string; text: string }[];
   links: { statDrawer?: string };
 };
 
@@ -138,6 +140,8 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     `<p style="margin:0 0 16px;text-align:center;font:12px Arial,Helvetica,sans-serif;color:#666">${esc(school)}'s ${input.alumniCount} active alumni. Your favorites are in bold.</p>`,
     alumni.html,
     favs && input.favorites ? `<p style="margin:22px 0 8px;font:bold 13px Arial,Helvetica,sans-serif;letter-spacing:.06em;color:#19583f">YOUR ${input.favorites.count} SUPERFAN FAVORITES</p>\n${favs.html}` : '',
+    input.transactions?.length ? `<p style="margin:22px 0 8px;font:bold 13px Arial,Helvetica,sans-serif;letter-spacing:.06em;color:#19583f">YOUR FAVORITES' TRANSACTIONS</p>\n${TABLE}\n${HEAD('DATE', ['TRANSACTION'])}\n` +
+      input.transactions.map((t) => `<tr><td align=left valign=top style="font-size:12px;padding-left:6px;white-space:nowrap">${esc(day(t.date, { month: 'short', day: 'numeric' }))}<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">${esc(t.text)}`).join('\n') + '</table>' : '',
     `<p style="margin:0 0 14px;font:11px Arial,Helvetica,sans-serif;color:#666">OPS+, FIP- and club W-L come from each school's bracket game and show a dash for players outside ${esc(school)}'s.</p>`,
     drawer ? `<p style="margin:0;text-align:center;font:bold 13px Arial,Helvetica,sans-serif"><a href="${esc(drawer)}" style="color:#19583f">See each day of the week in the stat drawer →</a></p>` : '',
     `</div>`,
@@ -148,6 +152,7 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     `${school.toUpperCase()}'S WEEK`, input.story.title, greeting, ...input.story.paragraphs,
     `${school} Alumni Stats`, weekOf, `${school}'s ${input.alumniCount} active alumni. Your favorites are in bold.`, ...alumni.text,
     ...(favs && input.favorites ? [`YOUR ${input.favorites.count} SUPERFAN FAVORITES`, ...favs.text] : []),
+    ...(input.transactions?.length ? ["YOUR FAVORITES' TRANSACTIONS", ...input.transactions.map((t) => `${day(t.date, { month: 'short', day: 'numeric' })}: ${t.text}`)] : []),
     drawer ? `See each day of the week in the stat drawer: ${drawer}` : '',
   ].filter(Boolean).join('\n\n');
   return { html, text };

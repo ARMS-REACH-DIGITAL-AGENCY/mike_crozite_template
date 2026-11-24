@@ -18,7 +18,7 @@ function fixture(): FinishedEdition {
       daily_stat_lines: [{ stats_date: '2026-03-25', stat_line_id: '1', yatid: 'YAT000001', line: 'Saved batter (Club, MLB): 2-for-4, HR', sort_key: 'a' }],
       daily_game_stories: [{ stats_date: '2026-03-25', hsid: 5004, season_key: '2027', region: 7, game_id: 501, school_name: 'Hamilton',
         opponent_name: 'Other School', title: 'HAMILTON LEADS', story: 'Hamilton leads 3-1.', series_note: 'Game 1 of 3.', shout_outs: [] }],
-      daily_game_scores: [game], weekly_player_lines: [], weekly_box_scores: [],
+      daily_game_scores: [game], weekly_player_lines: [], weekly_box_scores: [], newsletter_transactions: [],
     } };
 }
 const request = { cadence: 'daily' as const, date: '2026-03-25', email: 'fixture@example.invalid', seasonKey: '2027' };
@@ -160,12 +160,30 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   assert.match(result.html, /> Ginkel<td style="color:#b8860b">—<td>0-0<td>3\.0<td>3<td>1<td>1<td>0<td>2<td>0<td>6<td>1\.67<td>3\.00<td>—/);
   assert.doesNotMatch(result.html, /TEST REPLAY|pipeline|commissioner/i);
   assert.equal(result.layoutVersion, 'gazette-test3-v1');
+  // Pete, Nov 24 2026: the favorites' transactions that week, in MLB's words.
+  facts.rows.newsletter_transactions = [{ effective_date: '2026-03-27', transaction_type: 'Optioned', description: 'Cincinnati Reds optioned C Will Banfield to Louisville Bats.' }];
+  const withTx = renderFinishedEdition(facts);
+  assert.ok(withTx.html.indexOf("YOUR FAVORITES' TRANSACTIONS") > withTx.html.indexOf('SUPERFAN FAVORITES'));
+  assert.match(withTx.html, />Mar 27<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
+  assert.match(withTx.text, /Mar 27: Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
   const db = database(facts);
   return readFinishedEdition(db, { ...request, cadence: 'weekly', date: '2026-03-23' }).then(read => {
     assert.equal(read.rows.weekly_player_lines.length, 3);
     assert.deepEqual(read.selection.favorites, ['YAT000001', 'YAT000009']);
     assert.equal(read.rows.weekly_player_totals?.length, 2);
   });
+});
+
+test('the Digest lists the favorites\' transactions under My Favorites (Pete, Nov 24 2026)', () => {
+  const facts = fixture();
+  facts.rows.newsletter_transactions = [{ effective_date: '2026-03-25', transaction_type: 'Optioned', description: 'Cincinnati Reds optioned C Will Banfield to Louisville Bats.' }];
+  const result = renderFinishedEdition(facts);
+  const fav = result.html.indexOf('MY FAVORITES'), tx = result.html.indexOf('>TRANSACTIONS<'), desk = result.html.indexOf('The Fantasy Desk');
+  assert.ok(fav > 0 && tx > fav && desk > tx, 'Transactions sit between My Favorites and the Fantasy Desk');
+  assert.match(result.html, /Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
+  assert.match(result.text, /TRANSACTIONS\nCincinnati Reds optioned C Will Banfield to Louisville Bats\./);
+  facts.rows.newsletter_transactions = [];
+  assert.doesNotMatch(renderFinishedEdition(facts).html, />TRANSACTIONS</);
 });
 
 test('Next Game prints once per player, worded as his card words it (Pete, Nov 23 2026)', () => {

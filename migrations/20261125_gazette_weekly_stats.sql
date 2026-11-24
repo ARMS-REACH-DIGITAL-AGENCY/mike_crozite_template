@@ -51,3 +51,31 @@ END $$;
 -- the publisher (src/lib/newsletter/weeklyStory.ts): { title, paragraphs[] }.
 ALTER TABLE public.weekly_box_scores ADD COLUMN IF NOT EXISTS home_story jsonb;
 ALTER TABLE public.weekly_box_scores ADD COLUMN IF NOT EXISTS away_story jsonb;
+
+-- The fan's favorites' transactions in the Daily and the Weekly (Pete, Nov 24
+-- 2026): the period's MLB transactions saved once, in MLB's own words
+-- (player_transactions); each email shows only its fan's favorites.
+CREATE TABLE IF NOT EXISTS public.newsletter_transactions (
+  cadence text NOT NULL CHECK (cadence IN ('daily', 'weekly')),
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  transaction_id bigint NOT NULL,
+  yatid text NOT NULL CHECK (yatid ~ '^YAT[0-9]{6,}$'),
+  effective_date date NOT NULL,
+  transaction_type text,
+  description text NOT NULL,
+  PRIMARY KEY (cadence, period_start, transaction_id)
+);
+CREATE INDEX IF NOT EXISTS newsletter_transactions_yatid_idx ON public.newsletter_transactions (cadence, period_start, yatid);
+DROP TRIGGER IF EXISTS newsletter_transactions_guard ON public.newsletter_transactions;
+CREATE TRIGGER newsletter_transactions_guard BEFORE DELETE OR UPDATE ON public.newsletter_transactions
+  FOR EACH ROW EXECUTE FUNCTION public.publication_guard();
+DROP TRIGGER IF EXISTS newsletter_transactions_log ON public.newsletter_transactions;
+CREATE TRIGGER newsletter_transactions_log AFTER DELETE OR UPDATE ON public.newsletter_transactions
+  FOR EACH ROW EXECUTE FUNCTION public.publication_log();
+GRANT SELECT, INSERT ON public.newsletter_transactions TO authenticator;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yatstats_tribune_app') THEN
+    GRANT SELECT ON public.newsletter_transactions TO yatstats_tribune_app;
+  END IF;
+END $$;
