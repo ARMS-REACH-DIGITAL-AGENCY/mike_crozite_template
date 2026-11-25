@@ -61,52 +61,12 @@ export function activeAlumniCtes(scopeSql: string): string {
       SELECT DISTINCT ph.hsid, ph.playerid::text AS playerid
       FROM public.player_hsids ph WHERE ph.hsid IN (${scopeSql})
       UNION
-      -- Recent registered players may have canonical stage cards at schools
-      -- that were missing from the older tbc_schools_raw reference. Resolve
-      -- back to the exact TBC person ID so 2026 season stats remain usable.
-      -- No name-based or status-only membership is admitted.
+      -- Registered cards at schools absent from the TBC school reference
+      -- still resolve by their *exact* canonical source ID, not by name.
       SELECT DISTINCT f.hsid::int AS hsid, ids.source_id::text AS playerid
       FROM public.flip_card_front_stage f
-      JOIN public.yat_registry_ids ids ON ids.yatid = f.yatid AND ids.source = 'tbc'
-      WHERE f.hsid ~ '^[1-9][0-9]* (${ACTIVE_STAT_PLAYER_IDS_SQL}),
-    confirmed_game_log_players AS MATERIALIZED (${confirmed2026GameLogPlayersSql('SELECT playerid FROM linked_alumni')}),
-    active_alumni AS MATERIALIZED (
-      SELECT l.hsid, l.playerid FROM linked_alumni l
-      WHERE l.playerid IN (SELECT playerid FROM active_stat_playerids)
-         OR l.playerid IN (SELECT playerid FROM confirmed_game_log_players)
-    )`;
-}
-
-/**
- * A linked historical roster with no stats in any available TBC archive or
- * current feed has missing coverage, not a verified zero active population.
- * Scan each unindexed archive once and batch its school links; never run a
- * correlated archive scan for each player or each search result.
- */
-export function activeAlumniSummaryCtes(scopeSql: string): string {
-  const activeStatusesSql = ACTIVE_GALLERY_STATUSES
-    .map((status) => `'${status.replace(/'/g, "''")}'`)
-    .join(', ');
-  return `scoped_schools AS MATERIALIZED (
-      SELECT DISTINCT hsid::int AS hsid FROM (${scopeSql}) scoped(hsid)
-    ), active_alumni AS MATERIALIZED (
-      SELECT DISTINCT f.hsid::int AS hsid, f.playerid::text AS playerid
-      FROM public.flip_card_front_stage f
-      JOIN scoped_schools s ON s.hsid = f.hsid::int
-      WHERE UPPER(TRIM(COALESCE(f.status_label, ''))) = ANY(ARRAY[${activeStatusesSql}]::text[])
-    ), active_alumni_summary AS (
-      SELECT s.hsid,
-             COALESCE(a.current_aa, 0)::int AS current_aa,
-             FALSE AS active_stats_pending
-      FROM scoped_schools s
-      LEFT JOIN (
-        SELECT hsid, COUNT(*)::int AS current_aa
-        FROM active_alumni
-        GROUP BY hsid
-      ) a ON a.hsid = s.hsid
-    )`;
-}
- AND f.hsid::int IN (${scopeSql})
+      JOIN public.yat_registry_ids ids ON ids.yatid=f.yatid AND ids.source='tbc'
+      WHERE f.hsid ~ '^[1-9][0-9]*$' AND f.hsid::int IN (${scopeSql})
     ), active_stat_playerids AS MATERIALIZED (${ACTIVE_STAT_PLAYER_IDS_SQL}),
     confirmed_game_log_players AS MATERIALIZED (${confirmed2026GameLogPlayersSql('SELECT playerid FROM linked_alumni')}),
     active_alumni AS MATERIALIZED (
