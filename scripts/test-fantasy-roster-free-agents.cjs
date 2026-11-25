@@ -26,13 +26,14 @@ assert.equal(releasedDuringPeriod('FREE AGENT', null, '2027-04-05'), null, 'no r
 assert.equal(releasedDuringPeriod('ACTIVE', '2027-04-08', '2027-04-05'), null, 'only free agents');
 const live = fs.readFileSync('src/app/api/bracket/live/route.ts', 'utf8');
 assert.match(live, /releasedDuringPeriod\(/, 'scoring keeps a mid-period release');
-assert.match(live, /Number\(r\.day\) < releaseDay\(r\.playerid\)/, 'only games before the release date count');
+assert.match(live, /if \(!released && !days\.length\) return false;/, 'a stat line beats any status: an alum with a game line is on the team (Pete, Nov 24 2026)');
+assert.doesNotMatch(live, /releaseDay\(r\.playerid\)/, 'no game line is ever dropped for a status');
 const season = fs.readFileSync('src/components/bracket/liveSeason.ts', 'utf8');
-assert.match(season, /if \(p\[5\] != null && from >= p\[5\]\) continue;/, 'released before the week: off the team');
-assert.match(season, /!\(p\[5\] != null && from \+ d >= p\[5\]\)/, 'released mid-week: days from the release on do not count');
+assert.match(season, /if \(offTeam\(p, from\) && !\(p\[6\] != null && p\[6\] < from \+ 7\)\) continue;/, 'off a team all week: not on the school team');
+assert.match(season, /!offTeam\(p, from \+ d\)/, 'off a team (released, until a game line puts him back): no club W-L those days');
 // Pete, Nov 24 2026 (Kyle Nicolas, Jackson): the stat drawer lists every player in the
 // stored game, on today's roster or not, so a released player's runs never vanish.
 const gallery = fs.readFileSync('src/components/bracket/gallery.tsx', 'utf8');
 assert.match(gallery, /const kept = existing\.filter\(\(p\) => !used\.has\(String\(p\[0\]\)\)\)/, 'drawer keeps box players missing from the roster');
 assert.match(gallery, /return \[\.\.\.listed, \.\.\.kept\];/, 'drawer lists them after the roster');
-console.log('PASS fantasy roster: free agents never count; scoring and drawer share one rule; a mid-week release keeps his earlier games and stays in the drawer');
+console.log('PASS fantasy roster: a stat line beats any status; the drawer lists every player in the stored game');
