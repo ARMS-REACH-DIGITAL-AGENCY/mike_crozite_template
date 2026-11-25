@@ -125,6 +125,8 @@ function tables(t: GazetteTables): { html: string; text: string[] } {
   return { html: bat.join('\n') + '\n' + pit.join('\n'), text };
 }
 
+// A scoreboard picture across the newsletter's full width (720px).
+const WIDE = (url: string, alt: string) => `<img src="${esc(url)}" width="720" alt="${esc(alt)}" style="display:block;width:100%;max-width:720px;height:auto;margin:0 auto;border:0">`;
 const STYLE = '.p{padding:22px 22px}.h{text-align:center;font:bold 30px/1.1 Georgia,serif;margin:0 0 12px}.k{text-align:center;font:bold 10px Arial;letter-spacing:.17em;color:#19583f;margin:0 0 6px}.sec{border-bottom:3px solid #202820}@media only screen and (max-width:600px){.lz td.lzc{display:block!important;width:100%!important;padding:0!important}.lz td.lzg{display:none!important}.dr td{font-size:9.5px!important;padding-left:1px!important;padding-right:1px!important}.dr td:first-child{font-size:11px!important;padding-left:3px!important}}';
 const FEATURES = [{ key: 'connect', heading: 'Connect' }, { key: 'contribute', heading: 'Contribute' }, { key: 'remember', heading: 'Remember' }] as const;
 const P = (text: string, extra = '') => `<p style="margin:0 0 14px;font:17px/1.7 Georgia,serif${extra}">${esc(text)}</p>`;
@@ -166,22 +168,26 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
       + (input.transactions?.length ? `<p style="margin:22px 0 8px;font:bold 13px Arial,Helvetica,sans-serif;letter-spacing:.06em;color:#19583f">YOUR FAVORITES' TRANSACTIONS</p>\n${TABLE}\n${HEAD('DATE', ['TRANSACTION'])}\n` +
         input.transactions.map((t) => `<tr><td align=left valign=top style="font-size:12px;padding-left:6px;white-space:nowrap">${esc(day(t.date, { month: 'short', day: 'numeric' }))}<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">${esc(t.text)}`).join('\n') + '</table>' : '')
       + `</div>` : '',
-    `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><p style="margin:0 0 8px;text-align:left;font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:.2em;color:#19583f">${esc(school.toUpperCase())}'S WEEK</p>`,
+    // The scoreboards run the full width of the newsletter (Pete, Nov 25 2026): each
+    // picture sits outside the 22px text margins, the text around it stays inside.
+    `<div style="padding:26px 22px 0"><p style="margin:0 0 8px;text-align:left;font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:.2em;color:#19583f">${esc(school.toUpperCase())}'S WEEK</p>`,
     `<h2 style="margin:0 0 14px;font:bold 24px/1.2 Georgia,serif;text-align:left;text-transform:uppercase"><span style="display:inline-block">${esc(input.story.title)}</span></h2>${P(greeting, ';margin-bottom:6px')}`,
     ...input.story.paragraphs.map((p) => P(p)),
-    board ? `<img src="${esc(board)}" width="600" alt="${esc(input.scoreboardAlt || 'Scoreboard')}" style="display:block;width:100%;max-width:600px;height:auto;margin:6px auto 18px">` : '',
+    `</div>`,
+    board ? `<div style="padding:6px 0 18px">${WIDE(board, input.scoreboardAlt || 'Scoreboard')}</div>` : '',
+    `<div style="padding:0 22px 24px;border-bottom:3px solid #202820">`,
     input.promo ? P(input.promo) : '',
     sponsorHtml,
     `<p style="margin:0;font:bold 20px/1.3 Georgia,serif">See you online!</p>`,
     `</div>`,
     madness.length || leaders.length ? `<div style="padding:26px 22px 0;text-align:left"><p style="margin:0 0 6px;font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:.2em;color:#19583f">THE YAT?STATS ALUMNI FANTASY BASEBALL</p><h2 style="margin:0;font:bold 30px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">Season-Long Tournament</h2></div>` : '',
-    madness.length ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">Bracket Madness Around the Country</h2>`
-      + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.bracketMadness!.subtitle)}</p>`
-      + madness.map((b) => `<img src="${esc(b.url)}" width="600" alt="${esc(b.alt)}" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 16px">`).join('') + `</div>` : '',
-    leaders.length ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">It Ain't Over Till It's Over</h2>`
-      + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.runsLeaders!.subtitle)}</p>`
-      + leaders.map((b) => `<img src="${esc(b.url)}" width="600" alt="${esc(b.alt)}" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 12px">`
-        + (b.spotlights || []).map((m) => `<p style="margin:0 0 4px;font:bold 15px/1.35 Arial,Helvetica,sans-serif;color:#19583f">${esc(m.title)}</p>${P(m.text, ';font-size:15px;line-height:1.55')}`).join('')
+    madness.length ? `<div style="padding:26px 0 24px;border-bottom:3px solid #202820"><div style="padding:0 22px"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">Bracket Madness Around the Country</h2>`
+      + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.bracketMadness!.subtitle)}</p></div>`
+      + madness.map((b) => `<div style="padding:0 0 16px">${WIDE(b.url, b.alt)}</div>`).join('') + `</div>` : '',
+    leaders.length ? `<div style="padding:26px 0 24px;border-bottom:3px solid #202820"><div style="padding:0 22px"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">It Ain't Over Till It's Over</h2>`
+      + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.runsLeaders!.subtitle)}</p></div>`
+      + leaders.map((b) => `<div style="padding:0 0 12px">${WIDE(b.url, b.alt)}</div>`
+        + ((b.spotlights || []).length ? `<div style="padding:0 22px">` + b.spotlights!.map((m) => `<p style="margin:0 0 4px;font:bold 15px/1.35 Arial,Helvetica,sans-serif;color:#19583f">${esc(m.title)}</p>${P(m.text, ';font-size:15px;line-height:1.55')}`).join('') + `</div>` : '')
         + `<div style="height:14px"></div>`).join('') + `</div>` : '',
     // Connect, Contribute, Remember (Pete, Nov 25 2026): the three feature stories, every
     // edition; a placeholder holds each spot until its story is supplied.
