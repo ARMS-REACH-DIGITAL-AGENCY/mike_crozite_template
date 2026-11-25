@@ -61,6 +61,8 @@ async function main() {
       await page.setViewportSize({ width: p.width, height: p.height });
       await page.setContent(p.html);
       await page.waitForFunction(() => (window as unknown as { __ready?: boolean }).__ready === true, null, { timeout: 15000 });
+      const imageError = await page.evaluate(() => (window as unknown as { __newsletterImageError?: string }).__newsletterImageError);
+      if (imageError) throw new Error('Required newsletter image did not decode: ' + imageError);
       const file = path.join(out, NEWSLETTER_IMAGE_DIRS[p.kind], p.file);
       mkdirSync(path.dirname(file), { recursive: true });
       writeFileSync(file, await page.locator(p.selector).screenshot({ omitBackground: p.transparent }));
