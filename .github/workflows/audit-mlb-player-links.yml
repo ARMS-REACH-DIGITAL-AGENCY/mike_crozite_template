@@ -4,15 +4,16 @@ name: Audit Alumni MLB Links
 # city (scripts/audit-mlb-player-links.ts), then reports data-integrity
 # problems (card team vs MLB's current assignment, multiple MLB links,
 # unknown statuses) in the run summary. Scheduled runs only report, and
-# fail - so GitHub emails the owner - if a wrong-person link exists. A
-# manual run with apply = true rejects the failing links and clears the
+# fail if a wrong-person conflict or unresolved ACTIVE identity exists. Other
+# unverified links are reported as warnings without automatic deletion. A
+# manual run with apply = true rejects confirmed conflicts only and clears the
 # flip-card data that came from the wrong person.
 
 on:
   workflow_dispatch:
     inputs:
       apply:
-        description: "Apply the fix (false = report only)"
+        description: "Reject confirmed conflicts only (false = report only)"
         type: boolean
         default: false
   schedule:
