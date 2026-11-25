@@ -171,3 +171,19 @@ Pete's plan once signed, as soon as possible:
 3. **Coverage audit:** for every school in the tournament, list its active 2027 alumni by level, and whether we have a daily stats source for each (MLB/MiLB feed, Presto, INDY, INTERNATIONAL, ...). Report each school's coverage %, worst first, by region and seed.
 4. Run the audit daily as rosters arrive and **send Pete a daily coverage update**. Swapping a school out of the field is **Pete's decision only**: no agent may swap, remove or replace a tournament school, or recommend it to fans, without Pete's explicit approval of that specific school (Pete, Nov 25 2026). Reason: once a school is promoted and its fans sign up, pulling it hurts them. Report gaps; never act on them. After the tournament starts (Feb 1 2027) no swaps at all.
 5. Tour rules: add a data-coverage disclaimer so the tournament and sweepstakes continue on our best available statistics (draft wording to be reviewed by Pete's attorney).
+
+## 12. How the outgoing agent actually reached the QA database (read this if blocked)
+
+The simulation is not blocked by code. It needs a connection to the **isolated QA
+Neon branch** (not production). Claude ran every replay day this way:
+1. **Neon access** through the Neon connector (MCP) on Pete's Neon account: `run_sql` on the QA branch for checks, and the branch's connection string written to a local, uncommitted JSON file (`{"DATABASE_URL": ...}`) passed to the runner with `--connection-file`.
+2. **Network:** the cloud container could not open Postgres TCP 5432, only HTTPS. Claude loaded a small local shim that swaps the `pg` driver for `@neondatabase/serverless` over WebSockets (443) — `node --require <shim>.cjs …`. Repository code unchanged. An environment with direct 5432 access does not need it.
+3. **Not Vercel.** Pulling Vercel env vars is unnecessary and risky (production values point at the live database). Do not use `vercel env pull` for the simulation.
+
+To unblock a new agent, Pete gives it **one** of these (never in Git, never in chat if avoidable):
+- a Neon connector/MCP on his Neon account, or
+- the QA branch's pooled connection string as an environment secret in the agent's workspace (`DATABASE_URL`, `PLAYERS_DATABASE_URL`, plus `REHEARSAL_NEON_BRANCH` / `REHEARSAL_NEON_ENDPOINT` = that branch's id and the URL's host).
+
+Permanent fix (recommended): a manual GitHub Actions workflow on the test branch ("Run rehearsal day", input = target date) that reads the QA connection from GitHub repository secrets, runs one day at a time from the checkpoint to the target with `rehearse-production-bracket.ts` + `audit-production-rehearsal.ts`, and stops at the first audit failure. Then any agent or Pete can advance the replay with one click, with no workspace setup.
+
+Calendar note: in 2026, Round 1 ends **Sunday April 12**; the next editions are the **Monday April 13** Daily Digest (reporting April 12) and the Gazette for April 6–12. April 6–12 must each run and audit in order.
