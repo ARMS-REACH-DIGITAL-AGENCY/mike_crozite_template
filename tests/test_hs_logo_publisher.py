@@ -4,11 +4,11 @@ import io
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from PIL import Image
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"scripts"))
-from publish_verified_hs_logos import can_auto_publish, put_live_if_missing
+from publish_verified_hs_logos import can_auto_publish, put_live_if_missing, one_batch
 from plan_hs_logo_batches import build_plan
 from fetch_hs_logos_expanded import school_selection_sql
 
@@ -75,6 +75,21 @@ class PublisherTests(unittest.TestCase):
         self.assertIn("FROM public.tbc_schools_raw", sql)
         self.assertNotIn("player_hsids", sql)
         self.assertIn("ORDER BY t.hsid", sql)
+
+    def test_home_schooled_is_not_a_scrape_target(self):
+        for scope in ("linked", "all"):
+            self.assertIn("hsid <> 15322", school_selection_sql(scope))
+
+    def test_resume_metadata_backed_staged_logo(self):
+        row = {**self.row, "page": "https://www.maxpreps.com/fl/melbourne/melbourne-bulldogs/"}
+        with patch("publish_verified_hs_logos.existing_hsids", side_effect=[set(), {"4"}]), \
+             patch("publish_verified_hs_logos.load_sitemap", return_value={}), \
+             patch("publish_verified_hs_logos._candidate_from_maxpreps", return_value=row), \
+             patch("publish_verified_hs_logos.verify_s3_row", return_value=(self.verified, self.data)), \
+             patch("publish_verified_hs_logos.put_live_if_missing", return_value="published") as publish:
+            results = one_batch(MagicMock(), "yatstats-assets", ["4"], {}, {"4":self.school})
+            self.assertEqual(results[0]["status"], "published")
+            publish.assert_called_once()
 
     def test_invalid_scope_rejected(self):
         with self.assertRaises(ValueError):
