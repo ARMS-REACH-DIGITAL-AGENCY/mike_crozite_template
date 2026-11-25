@@ -10,6 +10,13 @@ credentials, private infrastructure metadata and private exports in authorized
 account configuration. This guide contains repository references and recovery
 steps only.
 
+## Latest checkpoint (verified Nov 25, 2026)
+
+- Read [`docs/handoffs/NEWSLETTER-BRACKET-HANDOFF.md`](handoffs/NEWSLETTER-BRACKET-HANDOFF.md) first for the current status and owner durability rule.
+- April 6, 2026 is saved in `awaiting_review`; 276/276 logs landed, zero held/unresolved/landing errors, 1,536 stored game rows. The separate audit stopped before completion because `server-only` was missing. April 5 was the last audited day (880 lines, zero mismatches).
+- April 6 ran at `85b5b4e79048ce5f1ff6e3176a58f3bfc32ffe0f`, production ref `e4012618cb98d9baa565401b0dd1ed9e5741e644`. Its test deployment was verified READY. April 7–12 are not processed. No email.
+- Do not repeat April 6 scoring; run the audit against the saved cutoff, then advance only on zero mismatches.
+
 ## Source of truth
 
 - Repository branch: `test/2026-production-parity-20261121`.
@@ -25,8 +32,7 @@ steps only.
 
 1. Never merge this rehearsal branch, or promote its deployment, into
    `Easter-NEWS`. Port individually reviewed shared fixes on separate branches.
-2. Advance exactly one day and pause for publication review. Bulk rehearsal is
-   disabled by the existing runner.
+2. Run exactly one day per invocation. Normally pause for review; Pete's explicit April 6–12 authorization treats each completed audit with zero mismatches as approval for the next day within that range. Stop on the first failure and never exceed April 12 under that authorization.
 3. Keep the existing production scorer, results writer, stored-result readers,
    roster rules and UX. Do not build another simulation interface.
 4. Use stored results and the report-date cutoff. Do not include future games
@@ -70,8 +76,7 @@ unresolved identities or new landing errors. Its 512 stored games and 1,024-scho
 field passed the source-conservation and prepared-reader audits. Query the
 checkpoint again before acting: later authorized work may supersede this note.
 
-The next day after that checkpoint is March 27. Do not run it until Pete has
-reviewed March 26. Opening a page or an archived Digest does not advance the day.
+That March 26 note is historical only; see the latest checkpoint below. Opening a page or an archived Digest does not advance the day.
 
 ## Production parity and the historical boundary
 
@@ -177,3 +182,47 @@ GitHub preserves the code and these instructions. The connected QA database
 preserves the simulation checkpoint and review output. A named working
 environment can speed up resumption, but it is not the only recovery copy.
 Future agents still need authorized access to the relevant connected accounts.
+
+## Reproduce the April 6 audit and resume
+
+Use a fresh checkout or the recovered authorized QA workspace. Install lockfile dependencies (and a compatible TypeScript runner); the prior direct QA Postgres connection worked without Vercel CLI authentication. The audit separately needs the `server-only` package; it is neither declared nor installed in the recovered workspace. A proposed workspace-only correction is `npm install --no-save --package-lock=false server-only@0.0.1`. Verify package resolution and audit behavior before claiming the dependency issue fixed. If a shared dependency declaration is needed, propose it on a scoped production-based PR; do not silently alter the production lockfile.
+
+Use protected configuration, not credentials in the repo or command history. Set `QA_CONNECTION_FILE` to a secure JSON file with DATABASE_URL, PLAYERS_DATABASE_URL and branch_id; set `QA_BRANCH`, `QA_ENDPOINT`, `REVIEW_EMAIL`, `QA_PREVIEW_BASE` and `PRODUCTION_REF` through authorized configuration. Obtain the QA connection through Neon; verify the endpoint against actual database identity. The replay site is the existing test deployment. Never pull production Vercel credentials for QA.
+
+First run only the missing read-only audit:
+
+```bash
+NODE_OPTIONS=--conditions=react-server npx tsx scripts/audit-production-rehearsal.ts \\
+  --connection-file "$QA_CONNECTION_FILE" --expected-branch "$QA_BRANCH" \\
+  --season 2027 --through-week 2 --now 2026-04-07T11:00:00Z \\
+  --report "$QA_REPORT_DIR/2026-04-06.audit.json"
+```
+
+Inspect `ok`, `failureCount`, `checks`, and `boxesChecked` in that report. Confirm source ingestion counts independently from the stored checkpoint. Do not publish private raw reports; store a redacted audit receipt in the handoff and keep the report in authorized storage. If the result is not successful with `failureCount === 0`, stop and record the actual error. Do not advance or resend.
+
+After the April 6 audit succeeds, start the local application reader with the QA-only environment (both database URLs and rehearsal branch/endpoint verified), and verify `/api/bracket/live?start=2026-03-23&weeks=3&h=5004` returns the school roster and line data. Use the existing runner and audit, one date per iteration. This example is the prior loop preserved as a runbook, not a new production workflow:
+
+```bash
+set -euo pipefail
+mkdir -p "$QA_REPORT_DIR"
+for n in 07 08 09 10 11 12; do
+  DAY=2026-04-$n
+  PREV=$(date -u -d "$DAY -1 day" +%F)
+  NEXT=$(date -u -d "$DAY +1 day" +%F)
+  W=2; if [ "$n" = 12 ]; then W=3; fi
+  npx tsx scripts/rehearse-production-bracket.ts \\
+    --day "$DAY" --reviewed-day "$PREV" --season 2027 \\
+    --expected-branch "$QA_BRANCH" --expected-endpoint "$QA_ENDPOINT" \\
+    --connection-file "$QA_CONNECTION_FILE" --email "$REVIEW_EMAIL" \\
+    --base http://127.0.0.1:3000 --public-base "$QA_PREVIEW_BASE" \\
+    --production-ref "$PRODUCTION_REF" --output "$QA_REPORT_DIR"
+  NODE_OPTIONS=--conditions=react-server npx tsx scripts/audit-production-rehearsal.ts \\
+    --connection-file "$QA_CONNECTION_FILE" --expected-branch "$QA_BRANCH" \\
+    --season 2027 --through-week "$W" --now "${NEXT}T11:00:00Z" \\
+    --report "$QA_REPORT_DIR/$DAY.audit.json"
+  node -e 'const a=require(process.argv[1]); if(!a.ok||a.failureCount!==0)process.exit(1); console.log(JSON.stringify({day:process.argv[2],checks:a.checks,boxesChecked:a.boxesChecked,mismatches:a.failureCount,finalGames:a.finalGames}))' \\
+    "$QA_REPORT_DIR/$DAY.audit.json" "$DAY"
+done
+```
+
+Before starting this example, verify the live checkpoint is April 6 and the April 6 audit has passed; if later progress exists, start at the next unprocessed date instead. No send step is present. Verify archive content and Round 2 results at April 12. Update the permanent handoff and commit/push after each fix and at the end of the session, reporting branch names and exact SHAs.
