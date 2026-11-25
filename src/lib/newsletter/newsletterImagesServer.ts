@@ -3,15 +3,15 @@
  * its Chromium (the same @sparticuz/chromium the career timeline snapshots use)
  * and stored in the site's asset bucket under newsletter/, where every edition
  * reads them (newsletterImageBase). Only the recipients' schools are drawn; a
- * team logo already stored is not drawn again. A picture that fails is listed
- * and the editions still go out.
+ * team logo already stored is not drawn again. Failed pictures are retried, and only editions referencing unavailable pictures are held.
  */
 import path from 'path';
+import { pngHash, retryPicture, verifyNewsletterPng } from './pictureReadiness';
 import { readFile } from 'node:fs/promises';
 import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3_BUCKET, S3_REGION } from '../storyAssets';
 import {
-  ASSET_PATHS, NEWSLETTER_IMAGE_DIRS, bracketMadnessPictures, dailyBoardPictures, gazetteBannerPicture, gazetteTeamIds, imageDataUrl,
+  ASSET_PATHS, NEWSLETTER_ASSETS_BASE, NEWSLETTER_IMAGE_DIRS, bracketMadnessPictures, dailyBoardPictures, gazetteBannerPicture, gazetteTeamIds, imageDataUrl,
   currentGazetteBanner, GAZETTE_BANNER_ART_VERSION, loadAssets, runsLeaderboardPictures, schoolLogoUrl, teamArt, teamLogoPicture, type ImageDatabase, type Picture,
 } from './newsletterImages';
 
@@ -118,7 +118,11 @@ async function drawAndStore(pictures: Picture[], run: PictureRun) {
     for (const p of pictures) {
       const key = keyOf(p);
       try {
-        await store(key, await captureNewsletterPicture(page, p), p.kind === 'banner');
+        await retryPicture(async () => {
+          const png = await captureNewsletterPicture(page, p);
+          await store(key, png, p.kind === 'banner');
+          await verifyNewsletterPng(NEWSLETTER_ASSETS_BASE + '/' + NEWSLETTER_IMAGE_DIRS[p.kind] + '/' + p.file, fetch, pngHash(png));
+        });
         run.drawn.push(key);
       } catch (error) {
         run.failed.push({ key, error: error instanceof Error ? error.message : String(error) });

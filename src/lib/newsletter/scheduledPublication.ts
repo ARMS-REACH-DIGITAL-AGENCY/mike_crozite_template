@@ -96,6 +96,7 @@ export type NewsletterDelivery = {
   lookupContact: (email: string) => Promise<string | null>;
   send: (contact: string, edition: RenderedEdition, format: 'html' | 'text') => Promise<boolean>;
   domainVerified: boolean;
+  verifyPictures?: (html: string) => Promise<string[]>;
 };
 
 /** Existing send approval, recipient preference and claim gates remain final. */
@@ -131,6 +132,10 @@ export async function deliverNewsletterEdition(pool: Pool, edition: RenderedEdit
     return { email, cadence, status: 'blocked_newsletter_control' };
   }
   if (!delivery.domainVerified) return { email, cadence, status: 'blocked_unverified_sending_domain' };
+  if (delivery.verifyPictures) {
+    const failedImages = await delivery.verifyPictures(edition.html);
+    if (failedImages.length) return { email, cadence, status: 'blocked_newsletter_pictures', hsid: String(edition.facts.recipient.home_hsid), failedImages };
+  }
   const contact = await delivery.lookupContact(email);
   if (!contact) return { email, cadence, status: 'missing_arms_contact' };
   const home = String(edition.facts.recipient.home_hsid);
