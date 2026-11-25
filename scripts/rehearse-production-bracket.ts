@@ -73,6 +73,23 @@ async function main() {
     if (local !== production) throw new Error('Shared production code differs before rehearsal: ' + file);
     parityHashes[file] = local;
   }
+  // The whole engine, not a list (Pete, Nov 25 2026): every file in the scoring,
+  // bracket, newsletter and cron folders must be production's own, committed and
+  // unmodified, or the rehearsal refuses to run. Only the replay's clock and its
+  // review-copy archive (all marked TEST-ONLY) may differ.
+  const PARITY_DIRS = ['src/lib/newsletter', 'src/lib/bracket', 'src/components/bracket', 'src/app/api/bracket', 'src/app/api/cron'];
+  const TEST_ONLY_FILES = new Set([
+    'src/app/api/bracket/prepared/route.ts', 'src/components/bracket/preparedSeason.ts', 'src/components/bracket/simulationState.ts',
+    'src/lib/bracket/rehearsalClock.ts', 'src/lib/newsletter/rehearsalEditionArchive.ts',
+  ]);
+  try { execFileSync('git', ['diff', '--quiet', 'HEAD', '--', ...PARITY_DIRS]); }
+  catch { throw new Error('Uncommitted changes in shared production code; commit them through a reviewed PR first'); }
+  const tree = (ref: string) => new Map(execFileSync('git', ['ls-tree', '-r', ref, '--', ...PARITY_DIRS], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    .split('\n').filter(Boolean).map(line => { const [meta, path] = line.split('\t'); return [path, meta.split(' ')[2]] as const; }));
+  const localTree = tree('HEAD'), productionTree = tree(productionCommit);
+  const differing = [...new Set([...localTree.keys(), ...productionTree.keys()])]
+    .filter(file => !TEST_ONLY_FILES.has(file) && localTree.get(file) !== productionTree.get(file)).sort();
+  if (differing.length) throw new Error('Shared production code differs before rehearsal: ' + differing.join(', '));
   const sourceHashes = Object.fromEntries([
     'scripts/rehearse-production-bracket.ts', 'scripts/rehearsal-day.ts', 'scripts/lib/rehearsal-mlb-source.ts',
     'scripts/lib/rehearsal-resume.ts', 'scripts/lib/rehearsal-checkpoint-lock.ts', 'scripts/master-bracket-results.ts',
