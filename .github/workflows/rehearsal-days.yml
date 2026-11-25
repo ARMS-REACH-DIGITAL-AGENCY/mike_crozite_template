@@ -1,0 +1,167 @@
+# TEST-ONLY: runs the 2026 replay on GitHub's servers, so no agent workspace is needed.
+#
+# How to run (Pete): edit rehearsal/RUN_THROUGH on branch
+# test/2026-production-parity-20261121 in GitHub's website, put the last day to
+# run (e.g. 2026-04-12), click "Commit changes". This workflow then runs every day
+# from the saved checkpoint through that date, one day at a time, and stops at the
+# first failure. Results go to the QA database, pictures to branch
+# ccr-0ad18095-umgndf (nl/), and each day's Digest/Gazette + audit to the run's
+# "Artifacts" (Actions tab -> the run -> Artifacts).
+#
+# Secrets (Settings -> Secrets and variables -> Actions -> New repository secret):
+#   QA_DATABASE_URL, QA_PLAYERS_DATABASE_URL (same value), QA_NEON_BRANCH,
+#   QA_NEON_ENDPOINT (the pooled host of QA_DATABASE_URL), QA_REVIEW_EMAIL (the one
+#   registered fan address the review copies are built for). No email is sent.
+name: Run rehearsal days
+
+on:
+  push:
+    branches: [test/2026-production-parity-20261121]
+    paths: [rehearsal/RUN_THROUGH]
+
+concurrency:
+  group: rehearsal-days
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      DATABASE_URL: ${{ secrets.QA_DATABASE_URL }}
+      PLAYERS_DATABASE_URL: ${{ secrets.QA_PLAYERS_DATABASE_URL }}
+      REHEARSAL_NEON_BRANCH: ${{ secrets.QA_NEON_BRANCH }}
+      REHEARSAL_NEON_ENDPOINT: ${{ secrets.QA_NEON_ENDPOINT }}
+      REVIEW_EMAIL: ${{ secrets.QA_REVIEW_EMAIL }}
+      SEASON: '2027'
+      OPENING: '2026-03-23'
+      HSID: '5004'
+      PUBLIC_BASE: https://mike-crozite-template-git-test-a81a21-arms-reach-digital-agency.vercel.app
+      PICTURE_BRANCH: ccr-0ad18095-umgndf
+      NL: https://raw.githubusercontent.com/${{ github.repository }}/ccr-0ad18095-umgndf/nl
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check secrets and target
+        run: |
+          for v in DATABASE_URL PLAYERS_DATABASE_URL REHEARSAL_NEON_BRANCH REHEARSAL_NEON_ENDPOINT REVIEW_EMAIL; do
+            [ -n "${!v}" ] || { echo "::error::Missing secret for $v"; exit 1; }
+          done
+          [ "$DATABASE_URL" = "$PLAYERS_DATABASE_URL" ] || { echo "::error::QA_DATABASE_URL and QA_PLAYERS_DATABASE_URL must be the same"; exit 1; }
+          host=$(node -e 'console.log(new URL(process.env.DATABASE_URL).hostname)')
+          [ "$host" = "$REHEARSAL_NEON_ENDPOINT" ] || { echo "::error::QA_NEON_ENDPOINT must equal the host of QA_DATABASE_URL"; exit 1; }
+          [ "$REHEARSAL_NEON_BRANCH" != "br-polished-lab-a4i35u5j" ] || { echo "::error::That is the production branch"; exit 1; }
+          THROUGH=$(tr -d ' \r\n' < rehearsal/RUN_THROUGH)
+          [[ "$THROUGH" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "::error::rehearsal/RUN_THROUGH must be one date, YYYY-MM-DD"; exit 1; }
+          echo "THROUGH=$THROUGH" >> "$GITHUB_ENV"
+          echo "Running the replay on the QA branch through $THROUGH"
+
+      - name: Install (same as CI)
+        run: |
+          npm install
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          git fetch origin Easter-NEWS:refs/remotes/origin/Easter-NEWS "$PICTURE_BRANCH:refs/remotes/origin/$PICTURE_BRANCH"
+
+      - name: Start the reader (the site, on the QA database)
+        env:
+          NEWSLETTER_BOARD_IMAGE_BASE: ${{ env.NL }}/digest
+          NEWSLETTER_GAZETTE_BANNER_BASE: ${{ env.NL }}/gazette/banner
+          NEWSLETTER_TEAM_LOGO_BASE: ${{ env.NL }}/gazette/logo
+          NEWSLETTER_BRACKET_MADNESS_BASE: ${{ env.NL }}/gazette/bracket
+          NEWSLETTER_RUNS_LEADERBOARD_BASE: ${{ env.NL }}/gazette/leaders
+        run: |
+          nohup npm run dev > reader.log 2>&1 &
+          for i in $(seq 1 120); do
+            if curl -s -o /dev/null -m 60 http://127.0.0.1:3000/; then echo "reader up"; exit 0; fi
+            sleep 5
+          done
+          tail -50 reader.log; echo "::error::The reader did not start"; exit 1
+
+      - name: Run each day through the target date
+        env:
+          NEWSLETTER_BOARD_IMAGE_BASE: ${{ env.NL }}/digest
+          NEWSLETTER_GAZETTE_BANNER_BASE: ${{ env.NL }}/gazette/banner
+          NEWSLETTER_TEAM_LOGO_BASE: ${{ env.NL }}/gazette/logo
+          NEWSLETTER_BRACKET_MADNESS_BASE: ${{ env.NL }}/gazette/bracket
+          NEWSLETTER_RUNS_LEADERBOARD_BASE: ${{ env.NL }}/gazette/leaders
+          NODE_OPTIONS: --require ./scripts/lib/stub-server-only.cjs
+        run: |
+          set -euo pipefail
+          git config user.name "rehearsal-bot"
+          git config user.email "rehearsal-bot@users.noreply.github.com"
+          git worktree add pics-wt "origin/$PICTURE_BRANCH"
+          mkdir -p out reports
+          checkpoint() {
+            node -e '
+              const { Pool } = require("pg");
+              const p = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 1 });
+              p.query("SELECT report_date::text d, phase FROM bracket_rehearsal_days WHERE season_key=$1 ORDER BY report_date DESC LIMIT 1", [process.env.SEASON])
+               .then(r => { console.log(r.rows[0] ? r.rows[0].d + " " + r.rows[0].phase : ""); return p.end(); })
+               .catch(e => { console.error(e.message); process.exit(1); });'
+          }
+          while :; do
+            read -r LAST PHASE <<< "$(checkpoint)"
+            [ -n "$LAST" ] || { echo "::error::No checkpoint found"; exit 1; }
+            if [ "$PHASE" = "awaiting_review" ]; then
+              DAY=$(date -u -d "$LAST + 1 day" +%F); REVIEWED=$LAST
+            else
+              DAY=$LAST; REVIEWED=$(date -u -d "$LAST - 1 day" +%F)   # finish a day that stopped part-way
+            fi
+            if [[ "$DAY" > "$THROUGH" ]]; then echo "Done: checkpoint $LAST ($PHASE), target $THROUGH"; break; fi
+            echo "::group::Day $DAY (reviewed $REVIEWED)"
+
+            npx tsx scripts/rehearse-production-bracket.ts --day "$DAY" --reviewed-day "$REVIEWED" --season "$SEASON" \
+              --expected-branch "$REHEARSAL_NEON_BRANCH" --expected-endpoint "$REHEARSAL_NEON_ENDPOINT" \
+              --email "$REVIEW_EMAIL" --base http://127.0.0.1:3000 --public-base "$PUBLIC_BASE" \
+              --production-ref origin/Easter-NEWS --output out
+
+            # Pictures for this day (and the week, on a Sunday), committed where the editions look for them.
+            WEEKLY=()
+            if [ "$(date -u -d "$DAY" +%u)" = "7" ]; then WEEKLY=(--weekly "$(date -u -d "$DAY - 6 days" +%F)"); fi
+            npx tsx scripts/newsletter-draw-pictures.ts --season "$SEASON" --hsid "$HSID" --daily "$DAY" "${WEEKLY[@]}" --out pics-wt/nl
+            (cd pics-wt && git add nl && { git diff --cached --quiet || git commit -q -m "Replay pictures for $DAY"; } \
+              && git push -q origin "HEAD:$PICTURE_BRANCH")
+
+            # Every replay picture each edition uses must load.
+            for f in out/"$DAY"/*.html; do
+              for u in $(grep -o 'src="https://[^"]*"' "$f" | sed 's/^src="//;s/"$//' | grep -F "$NL/" | sort -u); do
+                ok=0
+                for i in $(seq 1 12); do
+                  [ "$(curl -s -o /dev/null -w '%{http_code}' "$u")" = "200" ] && { ok=1; break; }
+                  sleep 10
+                done
+                [ $ok = 1 ] || { echo "::error::Picture does not load in $(basename "$f"): $u"; exit 1; }
+              done
+            done
+
+            # Independent audit of everything stored so far.
+            WEEKS=$(( ( $(date -u -d "$DAY + 1 day" +%s) - $(date -u -d "$OPENING" +%s) ) / 604800 ))
+            npx tsx scripts/audit-production-rehearsal.ts --expected-branch "$REHEARSAL_NEON_BRANCH" --season "$SEASON" \
+              --through-week "$WEEKS" --now "$(date -u -d "$DAY + 1 day" +%F)T11:00:00Z" --report "reports/audit-$DAY.json"
+            echo "::endgroup::"
+            echo "Day $DAY passed"
+          done
+
+      - name: Keep the editions and audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-${{ github.run_number }}
+          path: |
+            out/**/*.html
+            out/**/*.txt
+            out/**/*manifest.json
+            out/**/checkpoint.json
+            reports/
+            reader.log
+          if-no-files-found: warn
