@@ -96,26 +96,46 @@ export async function GET(req: NextRequest) {
         WHERE hsid::text = ANY($1)`,
       [hsids],
     );
-    // A player released during these weeks keeps the games he played before
-    // his release (Pete, Nov 24 2026); his lines from that day on are dropped below.
-    const releasedOn = new Map<string, string>();
-    const releaseDay = (yatid: string) => {
-      const released = releasedOn.get(yatid);
-      return released ? Math.round((Date.parse(`${released}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) : Infinity;
-    };
+    // A stat line beats any status (Pete, Nov 24 2026): an alum with a game
+    // line on a day counts for his school that day, whatever his card says
+    // (FREE AGENT, RETIRED, ...): the line means he is playing for someone.
+    // From that day on he is on that team. A player released during these
+    // weeks keeps the games he played before his release; his club W-L stops
+    // at the release until a new game line puts him back on a team.
+    const alumni = stage.filter((r) => !isHighSchool(r) && r.yatid);
+    const { rows: firstLines } = alumni.length
+      ? await query<{ yatid: string; days: number[] }>(
+        `SELECT yatid, array_agg(DISTINCT (game_date::date - $2::date))::int[] AS days
+           FROM player_game_logs
+          WHERE yatid = ANY($1::text[]) AND game_date >= $2::date AND game_date < $2::date + $3::int
+            AND stat_type IN ('batting', 'pitching')
+          GROUP BY yatid`,
+        [alumni.map((r) => r.yatid), start, weeks * 7],
+      )
+      : { rows: [] as { yatid: string; days: number[] }[] };
+    const lineDays = new Map(firstLines.map((r) => [r.yatid, (r.days || []).map(Number).sort((a, b) => a - b)]));
+    const offFrom = new Map<string, number>();
+    const backOn = new Map<string, number>();
+    const dayOf = (iso: string) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000);
     const active = stage.filter((r) => {
-      if (isHighSchool(r)) return false;
+      if (isHighSchool(r) || !r.yatid) return false;
       if (isFantasyRosterStatus(r.status_label)) return true;
       const released = releasedDuringPeriod(r.status_label, r.last_transaction_date, start);
-      if (released && r.yatid) releasedOn.set(r.yatid, released);
-      return Boolean(released);
+      const days = lineDays.get(r.yatid) || [];
+      if (!released && !days.length) return false;
+      // Off a team from his release (during these weeks) or from before them.
+      const off = released ? dayOf(released) : -1;
+      offFrom.set(r.yatid, off);
+      const back = days.find((d) => d >= off);
+      if (back != null) backOn.set(r.yatid, back);
+      return true;
     });
     // Use season evidence before the stale display position. Braden Montgomery
     // is still labeled "P" in the stage table, but his 2026 evidence is
     // batting-only, so the live test bracket must not create zero pitching
     // rows for his off days. Pitching-only "UT" players still stay pitchers.
     const usage = await getSeasonUsageByPlayerIds(active.map((r) => r.playerid)).catch(() => ({} as Record<string, { ab: number; pg: number }>));
-    const roster: Record<string, [string, string, string, 0 | 1, string, number?][]> = Object.fromEntries(hsids.map((id) => [id, []]));
+    const roster: Record<string, [string, string, string, 0 | 1, string, ...number[]][]> = Object.fromEntries(hsids.map((id) => [id, []]));
     // The YAT Registry owns player identity. A TBC/Presto/MLB number is an
     // external source reference, not a second bracket player. Historical
     // source keys survive in the separate aliases map for deep links.
@@ -129,8 +149,9 @@ export async function GET(req: NextRequest) {
       // A registered source whose stage mapping failed is an audit failure.
       if (!r.yatid) throw new Error('Bracket roster has missing YAT ID for source player ' + r.playerid);
       const name = text(r.display_name) || [text(r.first_name), text(r.last_name)].filter(Boolean).join(' ') || r.playerid;
-      (roster[r.hsid] ||= []).push([r.yatid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0, text(r.current_team_name),
-        ...(releasedOn.has(r.yatid) ? [releaseDay(r.yatid)] as [number] : [] as [])]);
+      (roster[r.hsid] ||= []).push([r.yatid, name, text(r.level_label ?? r.display_level_label), rosterPitcherFlag(r, usage) ? 1 : 0,
+        text(r.current_team_name),
+        ...(offFrom.has(r.yatid) ? [offFrom.get(r.yatid)!, ...(backOn.has(r.yatid) ? [backOn.get(r.yatid)!] : [])] as number[] : [] as number[])] as [string, string, string, 0 | 1, string, ...number[]]);
       const existingSchool = schoolOf.get(r.yatid);
       if (existingSchool && existingSchool !== r.hsid) {
         // Multiple simultaneous active school affiliations must be adjudicated,
@@ -155,7 +176,7 @@ export async function GET(req: NextRequest) {
         [ids, start, weeks * 7],
       )
       : { rows: [] as LineRow[] };
-    logRows.splice(0, logRows.length, ...logRows.filter((r) => Number(r.day) < releaseDay(r.playerid)));
+    // Every game line counts (a stat line beats any status).
     // Club results: every finished game of every club these alumni play
     // for, from any line that carries the result (isWin).
     const clubNames = [...new Set([

@@ -546,8 +546,11 @@ async function retireStaleFreeAgents(): Promise<number> {
 // AGENT). Season totals carry no dates, so they are not evidence. The INDY
 // feed saves each player's dated game line (indy_iscore_player_game_stats_raw,
 // filled by the daily INDY job's box scores); this job runs every 15 minutes,
-// so it picks them up after each INDY load. The latest dated line wins. No
-// INTERNATIONAL feed has dated lines yet, so INTERNATIONAL is not inferred.
+// so it picks them up after each INDY load. The latest dated line wins.
+// Pete, Nov 24 2026: a stat line beats any status, at every level. Any dated
+// game line after the release (the MLB/MiLB feed's lines in player_game_logs,
+// team from team_id_map, as well as INDY) makes him ACTIVE with that team, a
+// RETIRED player included (his latest transaction is still the departure).
 type MovedOn = { teamid: string; team: string; org: string | null; level: string };
 type Released = { playerid: string; released: string };
 async function releasedThenPlayedElsewhere(released: Released[]): Promise<Map<string, MovedOn>> {
@@ -559,8 +562,8 @@ async function releasedThenPlayedElsewhere(released: Released[]): Promise<Map<st
          FROM jsonb_to_recordset($1::jsonb) AS r(playerid text, released text)
      ),
      lines AS (
-       SELECT rel.playerid, g.game_date, g.source_game_id,
-              COALESCE(own_team.teamid, game_team.teamid) AS teamid
+       SELECT rel.playerid, g.game_date, g.source_game_id::text AS source_game_id,
+              COALESCE(own_team.teamid, game_team.teamid)::text AS teamid
          FROM released rel
          JOIN public.indy_iscore_player_source_map m
            ON (m.yatid = rel.yatid OR m.yatstats_playerid = rel.playerid)
@@ -580,6 +583,13 @@ async function releasedThenPlayedElsewhere(released: Released[]): Promise<Map<st
           AND game_team.source_team_id = CASE WHEN g.team_abbrev = gm.home_team_abbrev THEN gm.home_source_team_id
                                               WHEN g.team_abbrev = gm.away_team_abbrev THEN gm.away_source_team_id END
         WHERE g.game_date > rel.released
+       UNION ALL
+       -- MLB / MiLB lines: the team's MLB id resolved to our team ID.
+       SELECT rel.playerid, l.game_date, l.source_game_id::text, tim.tbc_teamid::text AS teamid
+         FROM released rel
+         JOIN public.player_game_logs l ON l.yatid = rel.yatid AND l.stat_type IN ('batting', 'pitching')
+         JOIN public.team_id_map tim ON tim.mlb_stats_api_id::text = l.source_team_id::text
+        WHERE l.game_date > rel.released
      ),
      latest AS (
        SELECT DISTINCT ON (playerid) playerid, teamid
@@ -588,7 +598,7 @@ async function releasedThenPlayedElsewhere(released: Released[]): Promise<Map<st
      )
      SELECT l.playerid, u.teamid, u.current_team_name AS team, u.current_org_or_conference_name AS org, u.level_label AS level
        FROM latest l
-       JOIN public.teamid_universe_mapping u ON u.teamid = l.teamid AND u.level_label IN ('INDY', 'INTERNATIONAL')
+       JOIN public.teamid_universe_mapping u ON u.teamid = l.teamid
       WHERE NULLIF(BTRIM(u.current_team_name), '') IS NOT NULL`,
     [JSON.stringify(released)]
   );
@@ -643,7 +653,7 @@ async function main() {
     let applied = 0;
 
     const movedOn = await releasedThenPlayedElsewhere(departures.map((d) => ({ playerid: String(d.row.playerid), released: String(d.row.effective_date) })));
-    console.log(`Released, then a dated INDY game line after the release -> ACTIVE with that team: ${movedOn.size}`);
+    console.log(`Released, then a dated game line (any level) after the release -> ACTIVE with that team: ${movedOn.size}`);
     for (const { row, status: rawStatus } of departures) {
       const moved = movedOn.get(String(row.playerid));
       if (moved) {

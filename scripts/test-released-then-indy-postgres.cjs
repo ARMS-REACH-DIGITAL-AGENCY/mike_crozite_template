@@ -27,9 +27,17 @@ CREATE TABLE public.indy_iscore_player_game_stats_raw(source_system text, league
 CREATE TABLE public.indy_iscore_games_raw(source_system text, league_code text, season_id text, source_game_id text,
   home_team_abbrev text, away_team_abbrev text, home_source_team_id text, away_source_team_id text);
 CREATE TABLE public.indy_iscore_team_source_map(source_system text, league_code text, season_id text, source_team_id text, teamid text);
+CREATE TABLE public.player_game_logs(yatid text, source_game_id text, source_team_id text, stat_type text, game_date date);
+CREATE TABLE public.team_id_map(tbc_teamid text, mlb_stats_api_id integer);
+INSERT INTO public.team_id_map VALUES ('14065', 416);
 INSERT INTO public.teamid_universe_mapping VALUES
   ('12347','High Point Rockers','Atlantic League','INDY'), ('12387','Lexington Legends','Atlantic League','INDY'),
-  ('12400','Gastonia Ghost Peppers','Atlantic League','INDY'), ('500','Oklahoma City Comets','Los Angeles Dodgers','TRIPLE-A');
+  ('12400','Gastonia Ghost Peppers','Atlantic League','INDY'), ('500','Oklahoma City Comets','Los Angeles Dodgers','TRIPLE-A'),
+  ('14065','Louisville Bats','Cincinnati Reds','TRIPLE-A');
+-- Pete, Nov 24 2026: a stat line beats any status, at any level. Kyle Nicolas (YAT103238): released
+-- Mar 15, then a Louisville Bats (MLB feed, team 416) line Mar 31 -> ACTIVE, Louisville, TRIPLE-A.
+-- A line before his release never counts.
+INSERT INTO public.player_game_logs VALUES ('YAT103238','816000','416','pitching','2026-03-10'), ('YAT103238','816301','416','pitching','2026-03-31');
 -- Max Viera (229807): High Point game in May; released by MLB Nov 13.
 INSERT INTO public.indy_iscore_player_source_map VALUES ('iscore','ALPB','2026','v1','HP','12347',NULL,'YAT229807');
 INSERT INTO public.indy_iscore_player_game_stats_raw VALUES ('iscore','ALPB','2026','g1','v1','pitching','2026-05-30','HP');
@@ -57,6 +65,7 @@ INSERT INTO public.indy_iscore_team_source_map VALUES ('iscore','ALPB','2026','g
       { playerid: '229807', released: '2026-11-13 00:00:00+00' },
       { playerid: '185120', released: '2026-05-11 00:00:00+00' },
       { playerid: '300001', released: '2026-04-01 00:00:00+00' },
+      { playerid: '103238', released: '2026-03-15 00:00:00+00' },
     ];
     const { rows } = await db.query(movedSql, [JSON.stringify(released)]);
     const by = Object.fromEntries(rows.map(r => [r.playerid, r]));
@@ -64,7 +73,9 @@ INSERT INTO public.indy_iscore_team_source_map VALUES ('iscore','ALPB','2026','g
     assert.equal(by['185120']?.team, 'Lexington Legends', 'Nick Senzel: Lexington game after his May 11 release -> ACTIVE, Lexington');
     assert.equal(by['185120']?.level, 'INDY');
     assert.equal(by['300001']?.team, 'Gastonia Ghost Peppers', 'two INDY teams after the release: the latest game wins');
+    assert.equal(by['103238']?.team, 'Louisville Bats', 'any level: an MLB-feed line after the release -> ACTIVE with that team');
+    assert.equal(by['103238']?.level, 'TRIPLE-A');
     await db.query('ROLLBACK');
-    console.log('PASS released then INDY: only game lines dated after the release count; latest team wins');
+    console.log('PASS released then plays (INDY or any level): only game lines dated after the release count; latest team wins');
   } finally { await db.end(); }
 })().catch(e => { console.error(e); process.exit(1); });
