@@ -120,11 +120,13 @@ function edition(): RenderedEdition {
 }
 
 function deliveryDatabase() {
-  const state = { pref: { subscribed: true, cadence: 'daily', format: 'html' },
+  const state = { pref: { subscribed: true, cadence: 'daily', format: 'html' } as { subscribed: boolean; cadence: string; format: string } | null,
+    registered: true,
     control: { enabled: true, approved_layout_version: 'daily-digest-phone8-v2' }, claims: new Map<string, string>(), calls: [] as string[] };
   const query = async (sql: string, values: any[] = []) => {
     state.calls.push(sql);
-    if (sql.includes('FROM public.alumni_newsletter_preferences')) return { rows: [state.pref] };
+    if (sql.includes('FROM public.newsletter_recipients')) return { rows: state.registered ? [{ firebase_uid: 'fan' }] : [] };
+    if (sql.includes('FROM public.alumni_newsletter_preferences')) return { rows: state.pref ? [state.pref] : [] };
     if (sql.includes('FROM public.alumni_newsletter_control')) return { rows: [state.control] };
     const cadence = sql.includes('alumni_weekly_email_delivery') ? 'weekly' : 'daily';
     const key = cadence + '/' + values.slice(0, 2).join('/');
@@ -145,11 +147,11 @@ function deliveryDatabase() {
   return { state, pool: { query } as unknown as Pool };
 }
 
-test('unsubscribe, cadence, layout approval and sending domain gate before any claim/send', async () => {
-  for (const blocked of ['unsubscribe', 'cadence', 'disabled', 'layout', 'domain']) {
+test('unsubscribe, registration, layout approval and sending domain gate before any claim/send', async () => {
+  for (const blocked of ['unsubscribe', 'unregistered', 'disabled', 'layout', 'domain']) {
     const db = deliveryDatabase();
-    if (blocked === 'unsubscribe') db.state.pref.subscribed = false;
-    if (blocked === 'cadence') db.state.pref.cadence = 'weekly';
+    if (blocked === 'unsubscribe') db.state.pref!.subscribed = false;
+    if (blocked === 'unregistered') db.state.registered = false;
     if (blocked === 'disabled') db.state.control.enabled = false;
     if (blocked === 'layout') db.state.control.approved_layout_version = 'different';
     const result = await deliverNewsletterEdition(db.pool, edition(), {
@@ -163,7 +165,7 @@ test('unsubscribe, cadence, layout approval and sending domain gate before any c
 
 test('two concurrent delivery attempts claim and send the immutable edition only once', async () => {
   const db = deliveryDatabase();
-  db.state.pref.format = 'text';
+  db.state.pref!.format = 'text';
   let sends = 0;
   const delivery = { domainVerified: true, lookupContact: async () => 'exact-contact',
     send: async (contact: string, rendered: RenderedEdition, format: 'html' | 'text') => {
@@ -192,7 +194,7 @@ test('a Gazette claim does not collide with the same period-start Daily claim', 
   const daily = edition();
   assert.equal((await deliverNewsletterEdition(db.pool, daily, delivery)).status, 'queued');
   const weekly = edition(); weekly.facts.ready.cadence = 'weekly';
-  db.state.pref.cadence = 'weekly';
+  db.state.pref!.cadence = 'weekly';
   assert.equal((await deliverNewsletterEdition(db.pool, weekly, delivery)).status, 'queued');
   assert.equal(db.state.claims.size, 2);
   assert.equal(sends, 2);
@@ -213,4 +215,21 @@ test('the existing email transport honors text format without adding an HTML bod
     globalThis.fetch = previous.fetch;
     if (previous.key === undefined) delete process.env.GHL_API_KEY; else process.env.GHL_API_KEY = previous.key;
   }
+});
+
+test('every registered fan gets both the Digest and the Gazette unless unsubscribed (Pete, Nov 25 2026)', async () => {
+  const weekly = (): RenderedEdition => { const e = edition(); return { ...e, layoutVersion: 'gazette-test3-v1', facts: { ...e.facts, ready: { cadence: 'weekly', period_start: '2026-03-23' } } }; };
+  const delivery = { domainVerified: true, lookupContact: async () => 'contact', send: async () => true };
+  // No preference row: both, as HTML; a row set to Daily still gets the Gazette too.
+  for (const pref of [null, { subscribed: true, cadence: 'daily', format: 'html' }]) {
+    const db = deliveryDatabase();
+    db.state.pref = pref;
+    db.state.control.approved_layout_version = 'daily-digest-phone8-v2, gazette-test3-v1';
+    assert.equal((await deliverNewsletterEdition(db.pool, edition(), delivery)).status, 'queued');
+    assert.equal((await deliverNewsletterEdition(db.pool, weekly(), delivery)).status, 'queued');
+  }
+  // The switch approves each layout by name: the Gazette is held until it is approved.
+  const db = deliveryDatabase();
+  db.state.pref = null;
+  assert.equal((await deliverNewsletterEdition(db.pool, weekly(), delivery)).status, 'blocked_newsletter_control');
 });
