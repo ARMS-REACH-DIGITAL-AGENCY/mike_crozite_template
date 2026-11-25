@@ -107,6 +107,24 @@ export async function canonicalSchoolUrls(
                           AND c.name_slug = ${slug}
                           AND c.city_slug = ${citySlug}
     WHERE t.hsid = ANY($1::integer[])
+    UNION ALL
+    -- The school registry is canonical for newly sourced schools absent
+    -- from the older TBC school export. A YAT card must exist, and only
+    -- an explicitly recorded microsite URL may be returned.
+    SELECT s.hsid::text AS hsid,
+           NULLIF(BTRIM(s.microsite_url), '') AS existing,
+           s.regionid,
+           ${PG_NAME_SLUG('s')} AS name_slug,
+           ${PG_CITY_SLUG('s')} AS city_slug,
+           1::integer AS same_state_name_count,
+           1::integer AS same_name_city_count
+      FROM public.school_success s
+     WHERE s.hsid = ANY($1::integer[])
+       AND NOT EXISTS (SELECT 1 FROM public.tbc_schools_raw t
+                       WHERE t.hsid = s.hsid)
+       AND EXISTS (SELECT 1 FROM public.flip_card_front_stage f
+                    WHERE f.hsid = s.hsid::text)
+       AND NULLIF(BTRIM(s.microsite_url), '') IS NOT NULL
   `;
   const result = await run(sql, [numericIds]);
   const rows = result.rows;
