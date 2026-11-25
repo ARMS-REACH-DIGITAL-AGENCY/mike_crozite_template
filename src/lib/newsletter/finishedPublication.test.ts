@@ -181,7 +181,7 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
     'Week of March 23–March 29, 2026', 'Hamilton\'s 3 active alumni. Your favorites are in bold.', '>BATTERS<', '>PITCHERS<', 'See each day of the week in the stat drawer',
     'SuperFan Weekly Stats', 'Your 1 favorites from outside Hamilton.', 'HAMILTON\'S WEEK',
     'Hamilton falls to Other School, 4-3.', 'Hi Fixture,', 'leads the series 1-0', 'Leading the way for the Huskies',
-    'And finally, a special thanks needs to go out to your home team', '>peteismyagent.com</a>', 'See you online!'];
+    'As always, this version of the YAT-A-BOY Weekly Gazette includes our three Connect, Contribute, and Remember Feature stories.', 'And finally, a special thanks needs to go out to your home team', '>peteismyagent.com</a>', 'See you online!'];
   let at = -1;
   for (const piece of order) { const k = result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) >= 0 ? result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) : result.html.indexOf(piece, at + 1); assert.ok(k > at, 'Missing or out of order: ' + piece); at = k; }
   // Bellinger (a favorite) in bold with the TEST 3 columns: OPS+, W-L, AB..SF, OBP, SLG, OPS.

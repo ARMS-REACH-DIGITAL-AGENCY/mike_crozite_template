@@ -9,6 +9,8 @@ import { nearbyGames, regionTopGames } from './regionBoard';
 import { renderDailyDigestLayout, type DailyDigestPresentation, type DailyDigestSlot } from './dailyDigestLayout';
 
 export type Row = Record<string, any>;
+/** The Gazette article's promotion of the three feature stories (Pete, Nov 25 2026, word for word). */
+export const GAZETTE_PROMO_TEXT = 'As always, this version of the YAT-A-BOY Weekly Gazette includes our three Connect, Contribute, and Remember Feature stories.';
 /** The Gazette article's thank-you to the home team's sponsor (Pete, Nov 25 2026, word for word). */
 export const GAZETTE_SPONSOR_TEXT = 'And finally, a special thanks needs to go out to your home team\'s main sponsor and YAT?STATS business partner, American Solutions for Business. '
   + 'Act now and take advantage of their Special First Time Customer Promotion. Save 20% on your first promotional products order. '
@@ -352,6 +354,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       transactions: recipient.is_superfan ? (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })) : [],
       // The article's close (Pete, Nov 25 2026, word for word). Every school's sponsor is
       // American Solutions for Business today (public/img/splash-sponsors: Hamilton's own and global).
+      promo: GAZETTE_PROMO_TEXT,
       sponsor: { name: 'American Solutions for Business', text: GAZETTE_SPONSOR_TEXT, link: { label: 'peteismyagent.com', url: 'https://peteismyagent.com' } },
       // SuperFans only (Pete, Nov 25 2026): their favorites from outside the home school.
       favorites: recipient.is_superfan && favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
