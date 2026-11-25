@@ -11,15 +11,19 @@ type Stat = Record<string, unknown>;
 const n = (stat: Stat, key: string) => { const v = Number(stat[key]); return Number.isFinite(v) ? v : 0; };
 
 export function battingLine(stat: Stat): string {
-  const times = (key: string, label: string) => { const v = n(stat, key); return v > 1 ? `${v}${label}` : label; };
+  // Pete, Nov 25 2026: the count, a space, then the stat ("2-4 | 2 2B, 1 R, 2 RBI,
+  // 1 BB, 1 K"). One extra-base hit or steal stays bare ("2B", "HR", "SB");
+  // runs, RBI, walks and strikeouts always carry their count.
+  const times = (key: string, label: string) => { const v = n(stat, key); return v > 1 ? `${v} ${label}` : label; };
+  const count = (key: string, label: string) => `${n(stat, key)} ${label}`;
   const extras = [
     n(stat, 'doubles') > 0 && times('doubles', '2B'),
     n(stat, 'triples') > 0 && times('triples', '3B'),
     n(stat, 'homeRuns') > 0 && times('homeRuns', 'HR'),
-    n(stat, 'rbi') > 0 && `${n(stat, 'rbi')} RBI`,
-    n(stat, 'runs') > 0 && `${n(stat, 'runs')} R`,
-    n(stat, 'baseOnBalls') > 0 && times('baseOnBalls', 'BB'),
-    n(stat, 'strikeOuts') > 0 && `${n(stat, 'strikeOuts')}K`,
+    n(stat, 'runs') > 0 && count('runs', 'R'),
+    n(stat, 'rbi') > 0 && count('rbi', 'RBI'),
+    n(stat, 'baseOnBalls') > 0 && count('baseOnBalls', 'BB'),
+    n(stat, 'strikeOuts') > 0 && count('strikeOuts', 'K'),
     n(stat, 'stolenBases') > 0 && times('stolenBases', 'SB'),
   ].filter(Boolean);
   const head = `${n(stat, 'hits')}-${n(stat, 'atBats')}`;
