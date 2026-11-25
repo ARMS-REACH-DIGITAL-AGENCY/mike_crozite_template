@@ -84,24 +84,41 @@ function siteAssets() {
   return loadAssets((p) => readFile(path.join(process.cwd(), 'public', p)));
 }
 
+/** Preview and publishing use exactly the same browser and capture checks. */
+async function openNewsletterBrowser() {
+  const [{ default: chromium }, { default: puppeteer }] = await Promise.all([import('@sparticuz/chromium'), import('puppeteer-core')]);
+  return puppeteer.launch({ args: chromium.args, executablePath: await chromium.executablePath(path.join(process.cwd(), 'chromium-bin')), headless: true });
+}
+async function captureNewsletterPicture(page: import('puppeteer-core').Page, p: Picture): Promise<Buffer> {
+  await page.setViewport({ width: p.width, height: p.height, deviceScaleFactor: 1 });
+  await page.setContent(p.html, { waitUntil: 'load' });
+  await page.waitForFunction('window.__ready === true', { timeout: 15000 });
+  const imageError = await page.evaluate(() => (window as unknown as { __newsletterImageError?: string }).__newsletterImageError);
+  if (imageError) throw new Error('Required newsletter image did not decode: ' + imageError);
+  const el = await page.$(p.selector);
+  if (!el) throw new Error('nothing to capture');
+  return Buffer.from(await el.screenshot({ type: 'png', omitBackground: p.transparent }));
+}
+/** Read-only visual proof. Does not use the recipient database, S3 writes or email. */
+export async function previewSchoolBanner(hsid: number): Promise<Buffer> {
+  const assets = await siteAssets();
+  const logo = await imageDataUrl(schoolLogoUrl(hsid));
+  const picture = gazetteBannerPicture(hsid, logo, assets);
+  const browser = await openNewsletterBrowser();
+  try { return await captureNewsletterPicture(await browser.newPage(), picture); }
+  finally { await browser.close(); }
+}
+
 /** Draws each picture with the server's Chromium and stores it; a failure is listed, the rest go on. */
 async function drawAndStore(pictures: Picture[], run: PictureRun) {
   if (!pictures.length) return;
-  const [{ default: chromium }, { default: puppeteer }] = await Promise.all([import('@sparticuz/chromium'), import('puppeteer-core')]);
-  const browser = await puppeteer.launch({ args: chromium.args, executablePath: await chromium.executablePath(path.join(process.cwd(), 'chromium-bin')), headless: true });
+  const browser = await openNewsletterBrowser();
   try {
     const page = await browser.newPage();
     for (const p of pictures) {
       const key = keyOf(p);
       try {
-        await page.setViewport({ width: p.width, height: p.height, deviceScaleFactor: 1 });
-        await page.setContent(p.html, { waitUntil: 'load' });
-        await page.waitForFunction('window.__ready === true', { timeout: 15000 });
-        const imageError = await page.evaluate(() => (window as unknown as { __newsletterImageError?: string }).__newsletterImageError);
-        if (imageError) throw new Error('Required newsletter image did not decode: ' + imageError);
-        const el = await page.$(p.selector);
-        if (!el) throw new Error('nothing to capture');
-        await store(key, Buffer.from(await el.screenshot({ type: 'png', omitBackground: p.transparent })), p.kind === 'banner');
+        await store(key, await captureNewsletterPicture(page, p), p.kind === 'banner');
         run.drawn.push(key);
       } catch (error) {
         run.failed.push({ key, error: error instanceof Error ? error.message : String(error) });

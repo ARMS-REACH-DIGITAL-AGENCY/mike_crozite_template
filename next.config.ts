@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
       './public/img/splash-sponsors/brands/asb-medallion.png',
       './public/img/newsletter/gazette-banner-blank.jpg',
     ],
+    '/api/preview/gazette-banner': [
+      './chromium-bin/**/*',
+      './public/fonts/oswald-latin.woff2',
+      './public/img/splash-sponsors/brands/asb-medallion.png',
+      './public/img/newsletter/gazette-banner-blank.jpg',
+    ],
     '/api/cron/newsletter-banners': [
       './chromium-bin/**/*',
       './public/fonts/oswald-latin.woff2',
