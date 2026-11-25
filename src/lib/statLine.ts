@@ -11,15 +11,17 @@ type Stat = Record<string, unknown>;
 const n = (stat: Stat, key: string) => { const v = Number(stat[key]); return Number.isFinite(v) ? v : 0; };
 
 export function battingLine(stat: Stat): string {
-  const times = (key: string, label: string) => { const v = n(stat, key); return v > 1 ? `${v}${label}` : label; };
+  // Pete, Nov 25 2026: "2-5 | 2 2B, RBI, 2 R, K": a count, a space and the stat
+  // when there are two or more; one stays bare.
+  const times = (key: string, label: string) => { const v = n(stat, key); return v > 1 ? `${v} ${label}` : label; };
   const extras = [
     n(stat, 'doubles') > 0 && times('doubles', '2B'),
     n(stat, 'triples') > 0 && times('triples', '3B'),
     n(stat, 'homeRuns') > 0 && times('homeRuns', 'HR'),
-    n(stat, 'rbi') > 0 && `${n(stat, 'rbi')} RBI`,
-    n(stat, 'runs') > 0 && `${n(stat, 'runs')} R`,
+    n(stat, 'rbi') > 0 && times('rbi', 'RBI'),
+    n(stat, 'runs') > 0 && times('runs', 'R'),
     n(stat, 'baseOnBalls') > 0 && times('baseOnBalls', 'BB'),
-    n(stat, 'strikeOuts') > 0 && `${n(stat, 'strikeOuts')}K`,
+    n(stat, 'strikeOuts') > 0 && times('strikeOuts', 'K'),
     n(stat, 'stolenBases') > 0 && times('stolenBases', 'SB'),
   ].filter(Boolean);
   const head = `${n(stat, 'hits')}-${n(stat, 'atBats')}`;

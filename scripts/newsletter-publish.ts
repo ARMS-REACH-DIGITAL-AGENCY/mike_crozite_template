@@ -387,9 +387,11 @@ export async function digestSeasonLines(db: Pick<PoolClient, 'query'>, yatids: s
   const out: SeasonLines = {};
   for (const { yatid, card_id } of cards) {
     const r = byCard.get(card_id); if (!r) continue;
-    const join = (keys: string[], sep: string) => keys.every(k => r[k.toLowerCase()] == null) ? undefined : keys.map(k => fmt(k, r[k.toLowerCase()])).join(sep);
-    // Hitter: the slash line AVG/OBP/SLG (Pete, Nov 24 2026).
-    const b = join(['AVG', 'OBP', 'SLG'], '/'), p = join(['ERA', 'WHIP'], ' | ');
+    // FIP in two decimals, like ERA and WHIP.
+    const show = (k: string, v: unknown) => (k === 'FIP' && v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v).toFixed(2) : fmt(k, v));
+    const join = (keys: string[], sep: string) => keys.every(k => r[k.toLowerCase()] == null) ? undefined : keys.map(k => show(k, r[k.toLowerCase()])).join(sep);
+    // Hitter: the slash line AVG/OBP/SLG (Pete, Nov 24 2026). Pitcher: ERA/WHIP/FIP (Pete, Nov 25 2026).
+    const b = join(['AVG', 'OBP', 'SLG'], '/'), p = join(['ERA', 'WHIP', 'FIP'], '/');
     if (b || p) out[yatid] = { ...(b ? { b } : {}), ...(p ? { p } : {}) };
   }
   return out;

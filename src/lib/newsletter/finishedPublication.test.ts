@@ -232,3 +232,14 @@ test('each favorite is two tight lines in one table, with no Next Game (Pete, No
   // No colored page behind the favorites or the scoreboard.
   assert.match(result.html, /<body bgcolor="#ffffff"/);
 });
+
+test('each favorite: name | game line, team | season line, (LEVEL) on a third line; a key for the season lines (Pete, Nov 25 2026)', () => {
+  const facts = fixture();
+  facts.rows.daily_stat_lines[0] = { ...facts.rows.daily_stat_lines[0], player_name: 'Carson Tucker', team_name: 'San Antonio Missions', level: 'DOUBLE-A',
+    line: '2-5 | 2 2B, RBI, 2 R, K\n.270/.329/.363' };
+  const html = renderFinishedEdition(facts).html;
+  assert.match(html, />Carson Tucker<\/span><\/td><td[^>]*><span class="fav-text">2-5 \| 2 2B, RBI, 2 R, K<\/span>/);
+  assert.match(html, />San Antonio Missions<\/span><\/td><td[^>]*><span class="fav-text">\.270\/\.329\/\.363<\/span>/);
+  assert.match(html, /<tr><td[^>]*class="fav-team"[^>]*><span class="fav-text">\(DOUBLE-A\)<\/span><\/td>/);
+  assert.match(html, /Season lines: batters AVG\/OBP\/SLG · pitchers ERA\/WHIP\/FIP/);
+});
