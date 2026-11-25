@@ -107,16 +107,27 @@ export async function deliverNewsletterEdition(pool: Pool, edition: RenderedEdit
   // Gazette delivery separate without changing the deployed pilot's contract.
   const table = cadence === 'daily' ? 'alumni_daily_email_delivery' : 'alumni_weekly_email_delivery';
   const date = String(edition.facts.ready.period_start).slice(0, 10);
-  const { rows: preferences } = await pool.query<{ cadence: string; format: string; subscribed: boolean }>(
-    'SELECT p.cadence,p.format,p.subscribed FROM public.alumni_newsletter_preferences p JOIN public.newsletter_recipients r ON r.firebase_uid=p.firebase_uid WHERE lower(r.email)=$1', [email],
+  // Every registered Fan and SuperFan was promised both the Daily Digest and the
+  // Weekly Gazette (Pete, Nov 25 2026): no preference row means both, as HTML. A row
+  // keeps its format; a row marked unsubscribed stops both (an unsubscribe is honored).
+  const { rows: recipients } = await pool.query<{ firebase_uid: string }>(
+    'SELECT firebase_uid FROM public.newsletter_recipients WHERE lower(email)=$1', [email],
   );
-  const pref = preferences.length === 1 ? preferences[0] : null;
-  if (!pref?.subscribed || pref.cadence !== cadence) return { email, cadence, status: 'not_subscribed' };
+  if (recipients.length !== 1) return { email, cadence, status: 'not_a_registered_fan' };
+  const { rows: preferences } = await pool.query<{ cadence: string; format: string; subscribed: boolean }>(
+    'SELECT cadence,format,subscribed FROM public.alumni_newsletter_preferences WHERE firebase_uid=$1', [recipients[0].firebase_uid],
+  );
+  if (preferences.length > 1) return { email, cadence, status: 'ambiguous_preferences' };
+  const pref = preferences[0] || { cadence, format: 'html', subscribed: true };
+  if (!pref.subscribed) return { email, cadence, status: 'not_subscribed' };
   if (!['html', 'text'].includes(pref.format)) return { email, cadence, status: 'unsupported_format' };
   const { rows: controls } = await pool.query<{ enabled: boolean; approved_layout_version: string | null }>(
     'SELECT enabled,approved_layout_version FROM public.alumni_newsletter_control',
   );
-  if (controls.length !== 1 || !controls[0].enabled || controls[0].approved_layout_version !== edition.layoutVersion) {
+  // The send switch approves each layout by name; several may be approved at once
+  // (the Digest's and the Gazette's), separated by commas.
+  const approved = String(controls[0]?.approved_layout_version || '').split(',').map(v => v.trim()).filter(Boolean);
+  if (controls.length !== 1 || !controls[0].enabled || !approved.includes(edition.layoutVersion)) {
     return { email, cadence, status: 'blocked_newsletter_control' };
   }
   if (!delivery.domainVerified) return { email, cadence, status: 'blocked_unverified_sending_domain' };

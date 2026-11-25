@@ -10,7 +10,9 @@ import { publishNewsletterPictures, type PictureRun } from '@/lib/newsletter/new
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=300;
-const recipients=['test1@yatstats.com','test2@yatstats.com','test3@yatstats.com','test4@yatstats.com','test5@yatstats.com','test6@yatstats.com','pcdaction@gmail.com'];
+// The off-season pilot report's list (unchanged). In season, every registered Fan and
+// SuperFan gets the editions (Pete, Nov 25 2026): newsletter_recipients, not a list.
+const pilotRecipients=['test1@yatstats.com','test2@yatstats.com','test3@yatstats.com','test4@yatstats.com','test5@yatstats.com','test6@yatstats.com','pcdaction@gmail.com'];
 /** Runs at 4:00 AM Arizona (11:00 UTC, no DST), an hour after the 3:00 AM Baseball Cube ingest; reports the prior Phoenix calendar date. */
 export async function GET(request:NextRequest){
  const secret=process.env.CRON_SECRET;
@@ -35,10 +37,11 @@ export async function GET(request:NextRequest){
   // The editions' pictures (Pete, Nov 25 2026): each recipient school's Digest board, and
   // after a Sunday the Gazette's banner, team logos and boards, drawn and stored before
   // the emails go out. A picture that fails is logged; the editions still go out.
+  const {rows:fans}=await pool.query<{email:string;home_hsid:number|null}>("SELECT email,home_hsid FROM public.newsletter_recipients WHERE coalesce(email,'')<>'' ORDER BY email");
+  const recipients=[...new Set(fans.map(f=>String(f.email).trim().toLowerCase()))];
   let pictures:PictureRun|{error:string};
   try {
-   const {rows:schools}=await pool.query<{home_hsid:number}>('SELECT DISTINCT home_hsid FROM public.newsletter_recipients WHERE lower(email)=ANY($1::text[]) AND home_hsid IS NOT NULL',[recipients.map(e=>e.toLowerCase())]);
-   pictures=await publishNewsletterPictures(pool,{season:seasons[0].season_key,hsids:schools.map(r=>Number(r.home_hsid)),periods:publication.periods,base:request.nextUrl.origin});
+   pictures=await publishNewsletterPictures(pool,{season:seasons[0].season_key,hsids:[...new Set(fans.map(f=>Number(f.home_hsid)).filter(Boolean))],periods:publication.periods,base:request.nextUrl.origin});
   } catch(error) {
    pictures={error:error instanceof Error?error.message:String(error)};
   }
@@ -71,9 +74,9 @@ async function sendOffseasonPilot(request:NextRequest,date:string,secret:string)
  const report=new NextRequest(request.url,{
   method:'POST',
   headers:{authorization:'Bearer '+secret,'content-type':'application/json'},
-  body:JSON.stringify({date,emails:recipients,send:true}),
+  body:JSON.stringify({date,emails:pilotRecipients,send:true}),
  });
- console.log('[fan-daily-pilot] start',JSON.stringify({date,recipients:recipients.length,at:new Date().toISOString()}));
+ console.log('[fan-daily-pilot] start',JSON.stringify({date,recipients:pilotRecipients.length,at:new Date().toISOString()}));
  let response:NextResponse;
  try {
   response=await sendPilotReports(report);
@@ -85,6 +88,6 @@ async function sendOffseasonPilot(request:NextRequest,date:string,secret:string)
  const failed=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>!['queued','previously_queued'].includes(r.status)):[];
  const newlyQueued=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>r.status==='queued').length:0;
  const previouslyQueued=Array.isArray(payload.result)?payload.result.filter((r:{status:string})=>r.status==='previously_queued').length:0;
- console.log('[fan-daily-pilot] completed',JSON.stringify({date,httpStatus:response.status,recipients:recipients.length,newlyQueued,previouslyQueued,failures:failed.length,results:payload.result?.map((r:{email:string;status:string})=>({email:r.email,status:r.status})),error:payload.error||null}));
+ console.log('[fan-daily-pilot] completed',JSON.stringify({date,httpStatus:response.status,recipients:pilotRecipients.length,newlyQueued,previouslyQueued,failures:failed.length,results:payload.result?.map((r:{email:string;status:string})=>({email:r.email,status:r.status})),error:payload.error||null}));
  return NextResponse.json({ok:response.ok&&failed.length===0,date,...payload},{status:response.ok&&failed.length===0?200:500});
 }
