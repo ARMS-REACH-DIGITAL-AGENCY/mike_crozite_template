@@ -149,14 +149,15 @@ export async function canonicalSchoolUrls(
     // Two records with identical name, city and state cannot be identified
     // uniquely by those public fields. Preserve both real HSIDs rather than
     // sending one school's fans to the other school's roster.
-    const needsId = needsCity && (Number(r.same_name_city_count) > 1 || claimed.has(cityBase));
+    // Unresolved collisions must never generate a public numeric suffix.
+    if (needsCity && (Number(r.same_name_city_count) > 1 || claimed.has(cityBase))) continue;
     // Do not publish unprovisioned extra-depth domains for the rest of the
     // directory. Existing generated one-label collision URLs stay reachable.
     // Confirmed dot-city schools are curated in school_success and take the
     // explicit existing-URL path above. Migrate further groups only after
     // their Vercel domains are provisioned and individual HSIDs verified.
     mapped.set(id, needsCity
-      ? `https://${root}-${city}${needsId ? `-${id}` : ''}.${state}.yatstats.com`
+      ? cityBase
       : base);
   }
   return mapped;

@@ -9,6 +9,12 @@ import { nearbyGames, regionTopGames } from './regionBoard';
 import { renderDailyDigestLayout, type DailyDigestPresentation, type DailyDigestSlot } from './dailyDigestLayout';
 
 export type Row = Record<string, any>;
+/** The Gazette article's promotion of the three feature stories (Pete, Nov 25 2026, word for word). */
+export const GAZETTE_PROMO_TEXT = 'As always, this version of the YAT-A-BOY Weekly Gazette includes our three Connect, Contribute, and Remember Feature stories.';
+/** The Gazette article's thank-you to the home team's sponsor (Pete, Nov 25 2026, word for word). */
+export const GAZETTE_SPONSOR_TEXT = 'And finally, a special thanks needs to go out to your home team\'s main sponsor and YAT?STATS business partner, American Solutions for Business. '
+  + 'Act now and take advantage of their Special First Time Customer Promotion. Save 20% on your first promotional products order. '
+  + 'Browse their collections of specialty products at peteismyagent.com or call 480.628.2588, mention YAT?STATS and ask for Pete.';
 export type ReadDatabase = { query(sql: string, values?: any[]): Promise<{ rows: Row[] }> };
 export type Cadence = 'daily' | 'weekly';
 export type EditionRequest = {
@@ -281,8 +287,26 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     const side = ownSide as 'home' | 'away';
     const story = game[side + '_story'];
     if (!story?.title || !Array.isArray(story.paragraphs)) throw new Error('The Gazette letter is missing from the finished week');
-    const gz = facts.presentation?.gazette || {};
-    const logo = (teamid: unknown) => (gz.teamLogoBase && /^\d{1,10}$/.test(String(teamid ?? '')) ? gz.teamLogoBase + String(teamid) : undefined);
+    // The banner (drawn once per school by scripts/newsletter-draw-gazette-banner.ts)
+    // and the home school's final board of the week (the Digest's board for the
+    // Sunday) come from the saved images unless the facts name others (Pete,
+    // Nov 25 2026: the Week 4 TEST 2 proof).
+    const homeHsid = Number(recipient.home_hsid);
+    const imageBase = (env: string | undefined) => (env ? env.replace(/\/$/, '') : '');
+    const bannerBase = imageBase(process.env.NEWSLETTER_GAZETTE_BANNER_BASE), boardBase = imageBase(process.env.NEWSLETTER_BOARD_IMAGE_BASE);
+    const madnessBase = imageBase(process.env.NEWSLETTER_BRACKET_MADNESS_BASE);
+    const leadersBase = imageBase(process.env.NEWSLETTER_RUNS_LEADERBOARD_BASE);
+    const gz: NonNullable<NonNullable<FinishedEdition['presentation']>['gazette']> = {
+      mastheadUrl: bannerBase ? `${bannerBase}/${homeHsid}.png` : undefined,
+      scoreboardUrl: boardBase ? `${boardBase}/${iso(ready.period_end)}/${homeHsid}.png` : undefined,
+      scoreboardAlt: `${publicText(school.split(' — ')[0], 'school')} and its 7 closest schools: final scores for the week`,
+      ...(facts.presentation?.gazette || {}),
+    };
+    // Team logos: small PNGs drawn once per week by scripts/newsletter-draw-team-logos.ts
+    // (email clients cannot all show the site's WebP art), unless the facts name a base.
+    const logoBase = imageBase(process.env.NEWSLETTER_TEAM_LOGO_BASE);
+    const logo = (teamid: unknown) => (!/^\d{1,10}$/.test(String(teamid ?? '')) ? undefined
+      : gz.teamLogoBase ? gz.teamLogoBase + String(teamid) : logoBase ? `${logoBase}/${String(teamid)}.png` : undefined);
     const favoriteIds = new Set(facts.selection.favorites);
     const lastOf = (name: string) => name.trim().split(/\s+/).slice(-1)[0] || name;
     // TEST 3 prints last names; a shared last name gets the first initial, and a
@@ -310,7 +334,10 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     const teamVal = (table: any, i: number) => { const v = table?.totals?.[i]; return v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v); };
     const alumni: GazetteTables = { batters: aBat, pitchers: aPit, totalWl,
       teamOpsPlus: teamVal(game[side + '_batting'], 11), teamFipMinus: teamVal(game[side + '_pitching'], 10) };
-    const favRows = (rows.weekly_player_totals || []).filter(row => favoriteIds.has(yat(row.yatid)));
+    // The proof lists only favorites outside the home school: its own alumni are
+    // already in the table above, in bold (Pete, Nov 25 2026: Week 4 TEST 2 proof).
+    const alumniIds = new Set(alumniList.map(x => yat(x.row.yatid)));
+    const favRows = (rows.weekly_player_totals || []).filter(row => favoriteIds.has(yat(row.yatid)) && !alumniIds.has(yat(row.yatid)));
     const nameFav = shortNames(favRows.map(row => String(row.player_name || '')));
     const fBat = sortRows(favRows.filter(row => !row.pitcher).map(row => ({ full: String(row.player_name || ''), name: nameFav(String(row.player_name || '')), logo: logo(row.teamid), bold: true,
       opsPlus: null, wl: null, b: Array.isArray(row.bat) ? row.bat.map(Number) : zero } as GazetteBatRow & { full: string })));
@@ -324,9 +351,38 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       firstName: String(recipient.first_name || ''), mastheadUrl: gz.mastheadUrl, scoreboardUrl: gz.scoreboardUrl, scoreboardAlt: gz.scoreboardAlt,
       story: { title: publicText(story.title, 'gazette title'), paragraphs: story.paragraphs.map((p: unknown) => publicText(p, 'gazette letter')) },
       alumniCount: alumniList.length, alumni,
-      transactions: (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })),
-      favorites: favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
-      links: { statDrawer: drawer } });
+      transactions: recipient.is_superfan ? (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })) : [],
+      // The article's close (Pete, Nov 25 2026, word for word). Every school's sponsor is
+      // American Solutions for Business today (public/img/splash-sponsors: Hamilton's own and global).
+      promo: GAZETTE_PROMO_TEXT,
+      sponsor: { name: 'American Solutions for Business', text: GAZETTE_SPONSOR_TEXT, link: { label: 'peteismyagent.com', url: 'https://peteismyagent.com' } },
+      // SuperFans only (Pete, Nov 25 2026): their favorites from outside the home school.
+      favorites: recipient.is_superfan && favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
+      links: { statDrawer: drawer },
+      // Bracket Madness: four two-region boards drawn once a week by
+      // scripts/newsletter-draw-bracket-madness.ts; the fan's own pair is drawn per
+      // school (its game first, between the red rules) and comes first.
+      bracketMadness: madnessBase ? (() => {
+        const pairs = [[1, 2], [3, 4], [5, 6], [7, 8]];
+        const mine = pairs.find(p => p.includes(Number(game.region)));
+        const dir = `${madnessBase}/${iso(ready.period_end)}`;
+        const boards = [...(mine ? [{ url: `${dir}/${homeHsid}.png`, pair: mine }] : []),
+          ...pairs.filter(p => p !== mine).map(p => ({ url: `${dir}/pair-${p[0]}-${p[1]}.png`, pair: p }))];
+        return { subtitle: `Week ${Number(ready.week)} finals: upsets first, then the top seeds, up to eight series in every region. Each series is best of three.`,
+          boards: boards.map(b => ({ url: b.url, alt: `Bracket Madness: Region ${b.pair[0]} and Region ${b.pair[1]} final scores` })) };
+      })() : undefined,
+      // The Total Runs Leaderboards, drawn once a week by scripts/newsletter-draw-runs-leaderboard.ts
+      // (the fan's own pair once per school, its row between the red rules), the fan's pair first.
+      // Runs-only (knocked-out) games start in Week 4 (master_bracket stage 'total_runs').
+      runsLeaders: leadersBase ? (() => {
+        const pairs = [[1, 2], [3, 4], [5, 6], [7, 8]];
+        const mine = pairs.find(p => p.includes(Number(game.region)));
+        const dir = `${leadersBase}/${iso(ready.period_end)}`;
+        const boards = [...(mine ? [{ url: `${dir}/${homeHsid}.png`, pair: mine }] : []),
+          ...pairs.filter(p => p !== mine).map(p => ({ url: `${dir}/pair-${p[0]}-${p[1]}.png`, pair: p }))];
+        return { subtitle: `Season runs through Week ${Number(ready.week)}.${Number(ready.week) >= 4 ? ' Knocked-out schools keep scoring here.' : ''}`,
+          boards: boards.map(b => ({ url: b.url, alt: `Total Runs Leaderboard: Region ${b.pair[0]} and Region ${b.pair[1]}` })) };
+      })() : undefined });
     rowKeys.weekly_player_lines = rows.weekly_player_lines.map(row => [iso(row.period_start), row.hsid, row.yatid, row.team_name]);
     rowKeys.weekly_box_scores = rows.weekly_box_scores.map(row => [row.season_key, row.region, row.game_id]);
     rowKeys.weekly_player_totals = favRows.map(row => [iso(row.period_start), row.yatid]);
