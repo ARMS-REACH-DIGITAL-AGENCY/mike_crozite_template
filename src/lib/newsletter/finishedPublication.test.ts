@@ -154,6 +154,7 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
     row_counts: { weekly_player_lines: 3, weekly_box_scores: 1, weekly_player_totals: 2 } };
   facts.rows.daily_stat_lines = []; facts.rows.daily_game_stories = []; facts.rows.daily_game_scores = [];
   facts.selection.favorites = ['YAT000001', 'YAT000009'];
+  facts.recipient = { ...facts.recipient, is_superfan: true };
   facts.presentation = { baseUrl: 'https://hamilton.az.yatstats.com/', schoolLocation: 'Chandler, AZ',
     gazette: { mastheadUrl: 'https://hamilton.az.yatstats.com/gazette-masthead.jpg', teamLogoBase: 'https://hamilton.az.yatstats.com/logo/' } };
   const line = (yatid: string, name: string, stats: Record<string, unknown>) => ({ period_start: '2026-03-23', hsid: 5004, yatid, player_name: name, team_name: 'Club', games: 1, line: name, stats });
@@ -174,10 +175,13 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
     away_story: { title: 'x', paragraphs: [] } }];
   const result = renderFinishedEdition(facts);
   assert.match(result.subject, /^YAT-A-BOY Weekly Gazette \| Hamilton/);
-  const order = ['Yataboy Gazette', 'HAMILTON', 'Chandler, Arizona', 'WEEKLY EDITION · WEEK 1', 'Monday, March 30, 2026', 'HAMILTON\'S WEEK',
-    'Hamilton falls to Other School, 4-3.', 'Hi Fixture,', 'leads the series 1-0', 'Leading the way for the Huskies', 'Hamilton Alumni Stats',
-    'Week of March 23–March 29, 2026', 'Hamilton\'s 3 active alumni. Your favorites are in bold.', '>BATTERS<', '>PITCHERS<', 'YOUR 1 SUPERFAN FAVORITES',
-    'See each day of the week in the stat drawer'];
+  // Pete, Nov 25 2026: banner, the home team's weekly stats, the SuperFan's other favorites,
+  // then the home team's article, closing with the sponsor's thank-you and "See you online!".
+  const order = ['Yataboy Gazette', 'HAMILTON', 'Chandler, Arizona', 'WEEKLY EDITION · WEEK 1', 'Monday, March 30, 2026', 'Hamilton Alumni Weekly Stats',
+    'Week of March 23–March 29, 2026', 'Hamilton\'s 3 active alumni. Your favorites are in bold.', '>BATTERS<', '>PITCHERS<', 'See each day of the week in the stat drawer',
+    'SuperFan Weekly Stats', 'Your 1 favorites from outside Hamilton.', 'HAMILTON\'S WEEK',
+    'Hamilton falls to Other School, 4-3.', 'Hi Fixture,', 'leads the series 1-0', 'Leading the way for the Huskies',
+    'And finally, a special thanks needs to go out to your home team', '>peteismyagent.com</a>', 'See you online!'];
   let at = -1;
   for (const piece of order) { const k = result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) >= 0 ? result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) : result.html.indexOf(piece, at + 1); assert.ok(k > at, 'Missing or out of order: ' + piece); at = k; }
   // Bellinger (a favorite) in bold with the TEST 3 columns: OPS+, W-L, AB..SF, OBP, SLG, OPS.
@@ -189,7 +193,7 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   assert.match(result.html, />BATTERS<td style="color:#b8860b">160<td>4-1</);
   assert.match(result.html, />PITCHERS<td style="color:#b8860b">119<td>4-1</);
   // Favorites: only those outside the home school (Bellinger is already in bold above).
-  const favTable = result.html.slice(result.html.indexOf('SUPERFAN FAVORITES'));
+  const favTable = result.html.slice(result.html.indexOf('SuperFan Weekly Stats'), result.html.indexOf('S WEEK'));
   assert.doesNotMatch(favTable, /Bellinger/);
   // Favorites: dashes for OPS+/FIP-, their own week.
   assert.match(result.html, /> Ginkel<td style="color:#b8860b">—<td>0-0<td>3\.0<td>3<td>1<td>1<td>0<td>2<td>0<td>6<td>1\.67<td>3\.00<td>—/);
@@ -198,7 +202,10 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   // Pete, Nov 24 2026: the favorites' transactions that week, in MLB's words.
   facts.rows.newsletter_transactions = [{ effective_date: '2026-03-27', transaction_type: 'Optioned', description: 'Cincinnati Reds optioned C Will Banfield to Louisville Bats.' }];
   const withTx = renderFinishedEdition(facts);
-  assert.ok(withTx.html.indexOf("YOUR FAVORITES' TRANSACTIONS") > withTx.html.indexOf('SUPERFAN FAVORITES'));
+  assert.ok(withTx.html.indexOf("YOUR FAVORITES' TRANSACTIONS") > withTx.html.indexOf('SuperFan Weekly Stats'));
+  // Not a SuperFan: no favorites' stats and no transactions.
+  const plainFan = renderFinishedEdition({ ...facts, recipient: { ...facts.recipient, is_superfan: false } }).html;
+  assert.doesNotMatch(plainFan, /SuperFan Weekly Stats|YOUR FAVORITES&#x27; TRANSACTIONS|YOUR FAVORITES' TRANSACTIONS/);
   assert.match(withTx.html, />Mar 27<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
   assert.match(withTx.text, /Mar 27: Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
   const db = database(facts);
@@ -279,14 +286,14 @@ test('the Gazette shows the school\'s banner and its final board of the week (Pe
     const banner = html.indexOf('src="https://img.example.invalid/nl/gazette/banner/5004.png"');
     const board = html.indexOf('src="https://img.example.invalid/nl/digest/2026-03-29/5004.png"');
     assert.ok(banner >= 0 && banner < html.indexOf('WEEKLY EDITION'), 'banner first');
-    assert.ok(board > html.indexOf('Leading the way') && board < html.indexOf('Hamilton Alumni Stats'), 'board under Hamilton\'s Week');
+    assert.ok(board > html.indexOf('Leading the way') && board < html.indexOf('See you online!'), 'board with Hamilton\'s Week');
     assert.doesNotMatch(html, /Bracket Madness/);
     // Bracket Madness: the fan's own pair of regions (region 7: 7-8) first, drawn for the school, then the other three.
     process.env.NEWSLETTER_BRACKET_MADNESS_BASE = 'https://img.example.invalid/nl/gazette/bracket';
     const withMadness = renderFinishedEdition(facts).html;
     const at = ['Bracket Madness Around the Country', '/bracket/2026-03-29/5004.png', '/bracket/2026-03-29/pair-1-2.png', '/bracket/2026-03-29/pair-3-4.png', '/bracket/2026-03-29/pair-5-6.png']
       .map(piece => withMadness.indexOf(piece));
-    assert.ok(at.every((k, i) => k > withMadness.indexOf('Hamilton Alumni Stats') && (i === 0 || k > at[i - 1])), 'Bracket Madness order: ' + at);
+    assert.ok(at.every((k, i) => k > withMadness.indexOf('See you online!') && (i === 0 || k > at[i - 1])), 'Bracket Madness order: ' + at);
     assert.doesNotMatch(withMadness, /pair-7-8/);
     // It Ain't Over: the Total Runs Leaderboards after Bracket Madness, the fan's pair first.
     process.env.NEWSLETTER_RUNS_LEADERBOARD_BASE = 'https://img.example.invalid/nl/gazette/leaders';
