@@ -6,7 +6,7 @@
  * YAT?STATS, BEST OF 3 SERIES, each school's series record, "(#seed) NAME",
  * innings 1-10 and R, a green rule between games, and the footer.
  *
- * This file only builds the page; scripts/newsletter-draw-boards.ts draws it
+ * This file only builds the page; src/lib/newsletter/newsletterImages.ts (the 4 a.m. job; scripts/newsletter-draw-pictures.ts locally) draws it
  * once per school per edition (a 1200px-wide PNG, the reference's size) and
  * every fan's email points to that one picture.
  */

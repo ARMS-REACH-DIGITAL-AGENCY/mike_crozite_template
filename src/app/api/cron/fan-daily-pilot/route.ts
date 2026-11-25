@@ -6,6 +6,7 @@ import { runBracketResultsJob } from '@/lib/bracket/resultsJob';
 import { publishNewsletterDay, readNewsletterReview, deliverNewsletterEdition } from '@/lib/newsletter/scheduledPublication';
 import { lookupGHLContactByEmail } from '@/lib/gohighlevel';
 import { sendDailyPilotEmail } from '@/lib/alumniEmailSender';
+import { publishNewsletterPictures, type PictureRun } from '@/lib/newsletter/newsletterImagesServer';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=300;
@@ -31,6 +32,17 @@ export async function GET(request:NextRequest){
    day:date,season:seasons[0].season_key,base,now,
    expectedEndpoint:new URL(connection).hostname,publicationTarget:'live',
   },runBracketResultsJob);
+  // The editions' pictures (Pete, Nov 25 2026): each recipient school's Digest board, and
+  // after a Sunday the Gazette's banner, team logos and boards, drawn and stored before
+  // the emails go out. A picture that fails is logged; the editions still go out.
+  let pictures:PictureRun|{error:string};
+  try {
+   const {rows:schools}=await pool.query<{home_hsid:number}>('SELECT DISTINCT home_hsid FROM public.newsletter_recipients WHERE lower(email)=ANY($1::text[]) AND home_hsid IS NOT NULL',[recipients.map(e=>e.toLowerCase())]);
+   pictures=await publishNewsletterPictures(pool,{season:seasons[0].season_key,hsids:schools.map(r=>Number(r.home_hsid)),periods:publication.periods,base:request.nextUrl.origin});
+  } catch(error) {
+   pictures={error:error instanceof Error?error.message:String(error)};
+  }
+  console.log('[fan-daily-pilot] pictures',JSON.stringify({date,...('error' in pictures?pictures:{drawn:pictures.drawn.length,failed:pictures.failed,skipped:pictures.skipped})}));
   const result=[];
   for(const period of publication.periods) for(const email of recipients){
    try {

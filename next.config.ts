@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
     '/api/cron/player-profile-snapshot': [
       './chromium-bin/**/*',
     ],
+    // The newsletter's pictures are drawn by the 4 a.m. job (Pete, Nov 25 2026).
+    '/api/cron/fan-daily-pilot': [
+      './chromium-bin/**/*',
+    ],
   },
   images: {
     remotePatterns: [
