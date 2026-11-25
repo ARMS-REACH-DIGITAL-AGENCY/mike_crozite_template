@@ -13,6 +13,12 @@ between steps unless a STOP condition below happens.
    - **`server-only`** (a Next.js marker; outside Next.js it must be an empty module). Use the repo's own pattern — `scripts/test-player-display.cjs` line 92 returns `{}` for `server-only`: put that in a small `--require` hook (e.g. `scripts/lib/stub-server-only.cjs`, commit it to the test branch) and run the audit/runner with `node --require ./scripts/lib/stub-server-only.cjs …` (or `NODE_OPTIONS="--require=…"` for tsx).
    - **Playwright** for drawing pictures: `npm install --no-save playwright` then `npx playwright install --with-deps chromium`. `--no-save` keeps package.json and the lockfile untouched.
 
+6. **The reader.** The runner checks its results against a running copy of the site (`--base`). Start the app from the same checkout with the same QA connection (`npm run dev` or `next start`, with `DATABASE_URL`/`PLAYERS_DATABASE_URL` = QA and the `pg` shim if needed) and pass its address as `--base`. This is the step that needs a server process — any sandbox that can run `node` works; it does not need Vercel.
+
+**Complete list of what Claude's container had that the repo doesn't install:** Playwright + Chromium, the `server-only` stub, the WebSocket `pg` shim, the Neon connector, a local connection file. Nothing else. With A1–A6 done, the workspace matches.
+
+**Permanent fix (owner: the active agent, next task after April 12):** a manual GitHub Actions workflow on the test branch, "Run rehearsal days" (input: through-date). It installs with `npm install` on Node 20, installs Playwright Chromium, stubs `server-only`, starts the reader, connects to QA from GitHub repository secrets (Pete adds them once; GitHub runners reach Postgres directly, no shim), runs section B day by day to the through-date, commits pictures to `ccr-0ad18095-umgndf/nl/`, uploads the editions as artifacts, and stops at the first failure. After that, no agent sandbox is involved.
+
 ## B. For each day, in order (standing approval: 0 audit mismatches = approved by Pete)
 1. Score the day: `scripts/rehearse-production-bracket.ts --day <D> --reviewed-day <D-1> --season 2027 …` (rehearsal guide on the test branch).
 2. Audit it: `scripts/audit-production-rehearsal.ts` for that day. 0 mismatches → continue.
