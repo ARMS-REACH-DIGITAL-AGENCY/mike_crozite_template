@@ -256,3 +256,27 @@ test('the scoreboard: home game first, then the 7 closest schools\' games, neare
   const keys = (renderFinishedEdition(facts).rowKeys.daily_game_scores as Array<{ key: unknown[] }>).map(k => k.key[3]);
   assert.deepEqual(keys, [501, 601, 602, 603], 'home, then 23, then 9655 v 13562 once, then 1450; the high-scoring stranger is not shown');
 });
+
+test('the Gazette shows the school\'s banner and its final board of the week (Pete, Nov 25 2026: Week 4 TEST 2 proof)', () => {
+  const facts = fixture();
+  facts.ready = { ...facts.ready, cadence: 'weekly', period_start: '2026-03-23', period_end: '2026-03-29', cutoff_at: '2026-03-30T11:00:00Z', week: 1,
+    row_counts: { weekly_player_lines: 0, weekly_box_scores: 1 } };
+  facts.rows.daily_stat_lines = []; facts.rows.daily_game_stories = []; facts.rows.daily_game_scores = [];
+  facts.presentation = { baseUrl: 'https://hamilton.az.yatstats.com/' };
+  facts.rows.weekly_player_lines = [];
+  facts.rows.weekly_box_scores = [{ period_start: '2026-03-23', season_key: '2027', region: 7, game_id: 385, home_hsid: 5004, away_hsid: 7,
+    home_name: 'Hamilton', away_name: 'Other School', home_runs: 3, away_runs: 4, home_batting: {}, away_batting: {}, home_pitching: {}, away_pitching: {},
+    home_story: { title: 'Hamilton falls to Other School, 4-3.', paragraphs: ['Leading the way for the Huskies: nobody yet.'] }, away_story: { title: 'x', paragraphs: [] } }];
+  const saved = { banner: process.env.NEWSLETTER_GAZETTE_BANNER_BASE, board: process.env.NEWSLETTER_BOARD_IMAGE_BASE };
+  process.env.NEWSLETTER_GAZETTE_BANNER_BASE = 'https://img.example.invalid/nl/gazette/banner/';
+  process.env.NEWSLETTER_BOARD_IMAGE_BASE = 'https://img.example.invalid/nl/digest';
+  try {
+    const html = renderFinishedEdition(facts).html;
+    const banner = html.indexOf('src="https://img.example.invalid/nl/gazette/banner/5004.png"');
+    const board = html.indexOf('src="https://img.example.invalid/nl/digest/2026-03-29/5004.png"');
+    assert.ok(banner >= 0 && banner < html.indexOf('WEEKLY EDITION'), 'banner first');
+    assert.ok(board > html.indexOf('Leading the way') && board < html.indexOf('Hamilton Alumni Stats'), 'board under Hamilton\'s Week');
+  } finally {
+    for (const [k, v] of [['NEWSLETTER_GAZETTE_BANNER_BASE', saved.banner], ['NEWSLETTER_BOARD_IMAGE_BASE', saved.board]] as const) if (v == null) delete process.env[k]; else process.env[k] = v;
+  }
+});

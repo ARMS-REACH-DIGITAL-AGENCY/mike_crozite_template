@@ -281,7 +281,19 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     const side = ownSide as 'home' | 'away';
     const story = game[side + '_story'];
     if (!story?.title || !Array.isArray(story.paragraphs)) throw new Error('The Gazette letter is missing from the finished week');
-    const gz = facts.presentation?.gazette || {};
+    // The banner (drawn once per school by scripts/newsletter-draw-gazette-banner.ts)
+    // and the home school's final board of the week (the Digest's board for the
+    // Sunday) come from the saved images unless the facts name others (Pete,
+    // Nov 25 2026: the Week 4 TEST 2 proof).
+    const homeHsid = Number(recipient.home_hsid);
+    const imageBase = (env: string | undefined) => (env ? env.replace(/\/$/, '') : '');
+    const bannerBase = imageBase(process.env.NEWSLETTER_GAZETTE_BANNER_BASE), boardBase = imageBase(process.env.NEWSLETTER_BOARD_IMAGE_BASE);
+    const gz: NonNullable<NonNullable<FinishedEdition['presentation']>['gazette']> = {
+      mastheadUrl: bannerBase ? `${bannerBase}/${homeHsid}.png` : undefined,
+      scoreboardUrl: boardBase ? `${boardBase}/${iso(ready.period_end)}/${homeHsid}.png` : undefined,
+      scoreboardAlt: `${publicText(school.split(' — ')[0], 'school')} and its 7 closest schools: final scores for the week`,
+      ...(facts.presentation?.gazette || {}),
+    };
     const logo = (teamid: unknown) => (gz.teamLogoBase && /^\d{1,10}$/.test(String(teamid ?? '')) ? gz.teamLogoBase + String(teamid) : undefined);
     const favoriteIds = new Set(facts.selection.favorites);
     const lastOf = (name: string) => name.trim().split(/\s+/).slice(-1)[0] || name;
