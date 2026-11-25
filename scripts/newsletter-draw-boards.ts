@@ -16,7 +16,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { Pool } from 'pg';
-import { regionBoardHtml, regionTopGames, type BoardGame, type BoardSide } from '../src/lib/newsletter/regionBoard';
+import { nearbyGames, regionBoardHtml, regionTopGames, type BoardGame, type BoardSide } from '../src/lib/newsletter/regionBoard';
 
 type Row = Record<string, any>;
 const argv = process.argv.slice(2);
@@ -55,6 +55,11 @@ async function main() {
     };
     const fontCss = `@font-face{font-family:Oswald;font-weight:200 700;src:url(data:font/woff2;base64,${readFileSync(path.join(process.cwd(), 'public/fonts/oswald-latin.woff2')).toString('base64')}) format('woff2')}`;
     const medallion = 'data:image/png;base64,' + readFileSync(path.join(process.cwd(), 'public/img/splash-sponsors/brands/asb-medallion.png')).toString('base64');
+    const nearbyOf = new Map<number, number[]>();
+    for (const r of (await pool.query('SELECT home_hsid, neighbor_hsid FROM public.school_nearest_schools WHERE season_key=$1 ORDER BY home_hsid, rank', [season])
+      .catch((err: { code?: string }) => { if (err?.code === '42P01') return { rows: [] as Row[] }; throw err; })).rows as Row[]) {
+      (nearbyOf.get(Number(r.home_hsid)) || nearbyOf.set(Number(r.home_hsid), []).get(Number(r.home_hsid))!).push(Number(r.neighbor_hsid));
+    }
     const wanted = args('hsid').map(Number);
     const schools = wanted.length ? wanted : [...new Set(scores.flatMap(g => [Number(g.home_hsid), Number(g.away_hsid)]))];
     mkdirSync(path.join(out, date), { recursive: true });
@@ -66,7 +71,10 @@ async function main() {
       for (const hsid of schools) {
         const home = scores.find(g => Number(g.home_hsid) === hsid || Number(g.away_hsid) === hsid);
         if (!home) throw new Error('School ' + hsid + ' has no game on ' + date);
-        const games: BoardGame[] = [home, ...regionTopGames(scores, home, Number(home.region))]
+        // The home game, then the 7 closest schools' games (Pete, Nov 25 2026); the
+        // region's top scores until the season has its closest-schools list.
+        const near = nearbyOf.get(hsid) || [];
+        const games: BoardGame[] = [home, ...(near.length ? nearbyGames(scores, home, near) : regionTopGames(scores, home, Number(home.region)))]
           .map(g => ({ away: side(g, 'away'), home: side(g, 'home'), framed: g === home }));
         await page.setContent(regionBoardHtml({ label: 'Region ' + home.region, games, medallion, fontCss }));
         await page.evaluate(() => document.fonts.ready);
