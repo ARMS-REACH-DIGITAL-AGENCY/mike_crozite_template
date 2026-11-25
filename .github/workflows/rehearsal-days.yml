@@ -68,7 +68,7 @@ jobs:
       - name: Install (same as CI)
         run: |
           npm install
-          npm install --no-save playwright
+          npm install --no-save playwright tsx@4.23.15
           npx playwright install --with-deps chromium
           git fetch origin Easter-NEWS:refs/remotes/origin/Easter-NEWS "$PICTURE_BRANCH:refs/remotes/origin/$PICTURE_BRANCH"
 
@@ -94,7 +94,8 @@ jobs:
           NEWSLETTER_TEAM_LOGO_BASE: ${{ env.NL }}/gazette/logo
           NEWSLETTER_BRACKET_MADNESS_BASE: ${{ env.NL }}/gazette/bracket
           NEWSLETTER_RUNS_LEADERBOARD_BASE: ${{ env.NL }}/gazette/leaders
-          NODE_OPTIONS: --require ./scripts/lib/stub-server-only.cjs
+          # Absolute path: tsx runs the script in a child process where a relative path is not found.
+          NODE_OPTIONS: --require ${{ github.workspace }}/scripts/lib/stub-server-only.cjs
         run: |
           set -euo pipefail
           git config user.name "rehearsal-bot"
