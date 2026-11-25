@@ -1,9 +1,9 @@
 # Newsletter + Fantasy Bracket — permanent handoff (Nov 25 2026)
 
-Outgoing agent: Claude Code (session ended for usage limits). Coordinating issue:
-**#901**. This file is the single entry point; it supersedes
+Original handoff: Claude Code. Updated and verified by ChatGPT on Nov 25, 2026.
+Coordinating issue: **#901**. This file is the single entry point; it supersedes
 `docs/handoff-2026-11-25.md` (that one is redacted on this branch) and updates the
-test branch's `docs/2026-rehearsal-handoff.md` (which still says March 26).
+test branch's `docs/2026-rehearsal-handoff.md` (kept current with the QA checkpoint).
 
 No secrets, account IDs, connection strings or recipient data are in this file.
 Every value marked *(authorized config)* lives in Vercel env / Neon / the
@@ -17,21 +17,17 @@ sent, no simulation day advanced, without his explicit OK.
 
 ## 0. Start here — the next task
 
-**Next task: get Pete's review of the April 5 checkpoint, then (only on his
-explicit "go") run April 6 2026 — one day, nothing more.**
+**Current checkpoint: April 6, 2026, `awaiting_review`; scoring and publication saved, independent audit not completed.** The last fully audited day is April 5 (880 lines, 0 mismatches).
 
-Before that, three things a new agent should do read-only:
-1. Query the checkpoint (§5) and confirm it still reads `2026-04-05`, `awaiting_review`.
-2. Find out why the newsletter-banners job did **not** store Hamilton's banner
-   (§7, bug 1) — this blocks the live Gazette.
-3. Bring `Easter-NEWS` into the test branch (§2) so the replay site shows the
-   Nov 25 fixes (#899, #900). Pete approved that on Nov 25; it was not done.
+Pete explicitly authorized April 6–12 sequentially with zero audit mismatches constituting approval for the next day. The April 6 audit stopped with `Cannot find module 'server-only'` in `src/lib/db.ts` imported by `src/lib/bracket/preparedIndex.ts`. Do not treat this as a scoring mismatch or recompute the saved day.
 
-Acceptance for April 6: the runner's audit passes with 0 mismatches; the April 6
-Daily Digest archives in `bracket_rehearsal_editions`; its board, series records
-and stat tables match the site; Pete reviews it before any email.
+1. Fetch the current test branch and production HEAD. Read AGENTS.md and the QA recovery guide. Query the saved QA checkpoint and its evidence.
+2. Obtain the isolated QA connection through Neon (see §12), never through Vercel production env. Both database URLs must target the same QA endpoint and the runner's independent database identity check must pass.
+3. Reproduce the missing audit dependency in a safe QA workspace; install the missing `server-only` package and the TypeScript runner in the workspace if necessary. Run the **read-only** audit for April 6 at 2026-04-07 11:00 UTC, through week 2. Confirm source conservation separately: 276 logs and 276 landed, zero held/unresolved/landing errors at the recorded checkpoint.
+4. If the audit passes with zero mismatches, resume April 7, one date at a time through April 12, auditing each day and stopping at the first failure. The standing approval covers only this date range. Do not advance beyond April 12.
+5. Build the April 13 Daily Digest (April 12 results) and Gazette for April 6–12 as review copies. No emails. Verify series decisions, Round 2 pairings, full-width mobile boards, and stat drawer agreement.
 
----
+The production-to-test synchronization is already committed in the test branch at `85b5b4e79048ce5f1ff6e3176a58f3bfc32ffe0f` (production comparison `e4012618cb98d9baa565401b0dd1ed9e5741e644`); that deployment is READY. Check the latest remote ref and deployment before further work. Preserve old editions and locked results.
 
 ## 1. Goal and dates
 
@@ -40,12 +36,12 @@ Production-ready **YAT?STATS Fantasy Bracket Tournament** for **Feb 1 2027**
 2027**, first **YAT-A-BOY Weekly Gazette Feb 8 2027**. It is rehearsed as a
 day-by-day **2026 replay** on an isolated QA database (Week 1 = Mar 23–29 2026).
 
-## 2. Branches, commits, PRs, deployments (as of Nov 25 2026, ~14:00 UTC)
+## 2. Branches, commits, PRs, deployments (verified Nov 25 2026)
 
 | Branch | Head | Purpose |
 |---|---|---|
-| `Easter-NEWS` | `26e2d0af` | Live, auto-deploys yatstats.com. Contains everything in §3. |
-| `test/2026-production-parity-20261121` | `ef33ea59` | 2026 replay runner + replay site. **50 ahead / 9 behind Easter-NEWS** (missing #898–#900). Never merge it into Easter-NEWS. |
+| `Easter-NEWS` | `e4012618cb98d9baa565401b0dd1ed9e5741e644` | Live, auto-deploys yatstats.com. Includes PR #903. Recheck current HEAD before work. |
+| `test/2026-production-parity-20261121` | `85b5b4e79048ce5f1ff6e3176a58f3bfc32ffe0f` (April 6 execution commit; docs may advance HEAD) | 2026 replay runner + replay site; production synced before April 6. Never merge it into Easter-NEWS. |
 | `ccr-0ad18095-umgndf` | `ac056a23` | Test pictures for replay emails, folder `nl/` (digest boards, gazette banner/logo/bracket/leaders), served by raw.githubusercontent.com. Not code for Easter-NEWS. |
 | `docs/newsletter-bracket-handoff-20261125` | this commit | This handoff. |
 | `docs/gazette-locked-reference-20261124` | — | Gazette reference (PR #877, open). Preserve. |
@@ -66,7 +62,7 @@ behind Vercel protection).
 
 | Item | Implemented | Tested how | Not tested |
 |---|---|---|---|
-| Daily Digest (approved layout `daily-digest-phone8-v2`) | Easter-NEWS | Replay days through Apr 5 archived; unit tests | Live in-season send (season starts Feb 2027) |
+| Daily Digest (approved layout `daily-digest-phone8-v2`) | Easter-NEWS | Replay days through Apr 6 archived; Apr 6 independent audit pending; unit tests | Live in-season send (season starts Feb 2027) |
 | Gazette (`gazette-test3-v1`) order §4 | #892, #899 | 16 unit tests; rendered Apr 5 locally at 360/390px with and without the style block; columns of Batters/Pitchers measured identical; 74 KB (< Gmail's 102 KB clip); emailed to Pete (pre-#899 version) Nov 25 | Real-client screenshots (iPhone Mail/Gmail/Outlook) of the #899 version — Pete approved sending it, then the handoff stop came, **not sent** |
 | Boards: series record includes the board's own game once final | #899 | Apr 5 boards redrawn from QA: Hamilton/Clear Falls 1-1, all Region 3 series correct | Live S3 copies (none drawn yet) |
 | Boards full width in Gazette | #899 | Local render | Mail apps |
@@ -87,19 +83,33 @@ behind Vercel protection).
 
 ## 5. Simulation state (historical replay)
 
-- **Current date: April 5 2026 (Sunday, end of Week 2), phase `awaiting_review`** (verified independently by ChatGPT on the QA database, #901).
-- Processed: Mar 23 → Apr 5 (Weeks 1–2, Round 1 Games 1–2). Apr 5 audit: 880 lines, 0 mismatches. Hamilton beat Clear Falls 8-4, series 1-1.
-- Published (archived in `bracket_rehearsal_editions`, not proof of delivery): Daily Digest for Apr 5; Weekly Gazette for Mar 30–Apr 5.
-- Emailed to Pete only (test delivery via HighLevel): earlier Digest/Gazette versions, and the pre-#899 Gazette on Nov 25 (queued 201).
-- **Next authorized step: none.** April 6 runs only after Pete reviews April 5 and says go.
-- Check the checkpoint (read-only, QA connection from authorized config):
-  ```sql
-  SELECT season_key, report_date::text, phase, effective_at::text, updated_at::text
-  FROM public.bracket_rehearsal_days ORDER BY report_date DESC LIMIT 3;
-  ```
-- Continue / verify: follow `docs/2026-rehearsal-handoff.md` §"Resume in a fresh workspace" on the test branch — `scripts/rehearse-production-bracket.ts` (`--day 2026-04-06 --reviewed-day 2026-04-05 --season 2027 --expected-branch … --expected-endpoint …`), then `scripts/audit-production-rehearsal.ts`. Env names: `DATABASE_URL`, `PLAYERS_DATABASE_URL`, `REHEARSAL_NEON_BRANCH`, `REHEARSAL_NEON_ENDPOINT` *(authorized config)*.
-- Pictures for a replay day: `npx tsx scripts/newsletter-draw-pictures.ts --season 2027 --hsid 5004 --daily 2026-04-06 [--weekly <Monday>] --connection-file <json with DATABASE_URL> --out <dir>`, copy into `ccr-0ad18095-umgndf:nl/`, and set the five picture env vars (§6) to those raw URLs when rendering.
-- Render an edition locally: `renderFinishedEdition(facts)` from `src/lib/newsletter/finishedPublication.ts`. Tests: `npx tsx --test src/lib/newsletter/*.test.ts` (31 pass on Easter-NEWS `26e2d0af`).
+| Checkpoint | Status |
+|---|---|
+| April 5, 2026 (end of Week 2) | Last fully audited day: 880 source lines, zero mismatches; Hamilton defeated Clear Falls 8–4, series 1–1. |
+| April 6, 2026 (Week 3, day 1) | Saved `awaiting_review`; effective cutoff April 7, 11:00 UTC; 1,536 stored game rows. |
+| April 6 source landing | 276 logs, 276 landed; zero held, unresolved identities, or new landing errors; zero minor-league lines on that date. This is not the independent results audit. |
+| April 6 independent audit | **Did not complete**: missing Node package `server-only`, before a verified mismatch count. Do not report 0 audit mismatches. |
+| April 6 review edition | Daily Digest archived with layout `daily-digest-phone8-v2`, content hash `691774bab9024ebe8c67c411b61741f48d968129caa714b9466e1afaa018b12f`. |
+| April 7–12 | Not processed. |
+| April 13 publications | Not generated. |
+| Email delivery for current replay | None authorized or sent. |
+
+April 6 application commit: `85b5b4e79048ce5f1ff6e3176a58f3bfc32ffe0f`.
+Production parity reference: `e4012618cb98d9baa565401b0dd1ed9e5741e644`.
+
+- Read the persisted `public.bracket_rehearsal_days` and `public.bracket_rehearsal_editions` records, not the local output directory, to recover state.
+- Review: [April 6 Digest](https://mike-crozite-template-git-test-a81a21-arms-reach-digital-agency.vercel.app/api/rehearsal/edition?cadence=daily&date=2026-04-06). [Replay bracket](https://mike-crozite-template-git-test-a81a21-arms-reach-digital-agency.vercel.app/5004#sec-fantasy). Archived publication exists; current email-client visual quality is not certified by this record.
+- The previously archived April 5 Digest and March 30–April 5 Gazette are preserved.
+- Recheck the latest checkpoint using authorized QA connection:
+
+```sql
+SELECT season_key, report_date::text, phase, effective_at::text,
+       evidence->'ingestion'->'landing' AS landing,
+       evidence->>'storedGames' AS stored_games
+FROM public.bracket_rehearsal_days ORDER BY report_date DESC LIMIT 3;
+```
+
+- Recovery and precise audit/run invocations: `docs/2026-rehearsal-handoff.md` on the test branch, especially the latest checkpoint section. Review editions are not delivery receipts. Do not send email.
 
 ## 6. Architecture
 
@@ -116,8 +126,8 @@ behind Vercel protection).
 
 1. **Banner job didn't store banners** — `https://yatstats-assets.s3.us-west-2.amazonaws.com/newsletter/gazette/banner/5004.png` → 403 at 14:00 UTC Nov 25. Check the Vercel runtime log line `[newsletter-banners]` and whether the S3 keys are set in production. Until fixed, live Gazettes would show no banner.
 2. **Fan-contacts first run unverified** — check log line `[fan-contacts]` and that all 39 unique fan emails have a HighLevel contact (13 lacked one before).
-3. Test branch lacks #898–#900 → replay site shows the old eyebrow and old board/series behaviour.
-4. Local dev against QA needs a websocket shim for `pg` (container has no TCP 5432); scripts in the old workspace only — recreate if needed.
+3. Resolved at code level: production synchronized into test branch at `85b5b4e`; Vercel READY verified. Visual review of the final April 13 editions remains outstanding.
+4. Claude's prior workspace required WebSockets; ChatGPT verified direct Postgres connectivity to the QA endpoint. Use a shim only if a fresh workspace actually lacks direct connectivity.
 5. Mail apps lack Oswald; Gazette labels fall back to Arial, auto-sized. Large schools could approach Gmail's 102 KB clip — not measured.
 6. `docs/handoff-2026-11-25.md` on Easter-NEWS contains account/database IDs (merged in #899). This branch redacts the file; the IDs remain in Git history — Pete to decide on rotation/history cleanup.
 
@@ -137,17 +147,17 @@ Pete's editorial instructions (verbatim) are in `docs/handoff-2026-11-25.md` §6
 1. AI writer: which sentences stay word for word (greeting, rubber-game sentence, promo, sponsor, "See you online!"); OK to call Claude with his key; start with fact sheet + checker.
 2. Greeting: "Hi Pete," vs "Good morning, Pete,".
 3. Gazette final approval (the #899 version was approved to email him but not sent — handoff stop).
-4. Approved but not done: merge Easter-NEWS into the test branch (replay site).
+4. Production-to-test merge completed at `85b5b4e`; visual review pending.
 5. One email on three accounts — which account wins (that person gets nothing meanwhile).
 6. 125 social HighLevel contacts — his corrections to the proposed types; no deletes/merges without explicit OK. 56 already tagged by type.
 7. Source for Connect / Contribute / Remember stories.
 
 ## 10. Prioritized remaining work
 
-1. Pete reviews April 5 → on "go", run April 6 (§0).
+1. Fix the missing `server-only` audit dependency and audit the already-saved April 6 checkpoint. Only then resume April 7–12, one audited day at a time.
 2. Fix the banner job (bug 1); verify fan-contacts (bug 2).
-3. Merge Easter-NEWS into the test branch; look at the eyebrow on the replay site.
-4. Email Pete the April 5 Gazette with #899 (only when he asks again).
+3. Verify updated eyebrow and other November 25 fixes on the existing replay site.
+4. Build April 13 review copies after April 12 succeeds. No email for this rehearsal.
 5. AI sportswriter: fact sheet + checker first, then the model.
 6. Gazette "Swept and Moving On" (after Week 2 of each round: 2-0 sweeps; promote next-round matchups whose two feeder series are decided — Week 2: 294 of 512 swept, 95 Round 2 matchups set).
 7. 6–8 spotlight runs-only matchups under the leaderboards (needs Week 4 pairings, Apr 12).
@@ -186,4 +196,15 @@ To unblock a new agent, Pete gives it **one** of these (never in Git, never in c
 
 Permanent fix (recommended): a manual GitHub Actions workflow on the test branch ("Run rehearsal day", input = target date) that reads the QA connection from GitHub repository secrets, runs one day at a time from the checkpoint to the target with `rehearse-production-bracket.ts` + `audit-production-rehearsal.ts`, and stops at the first audit failure. Then any agent or Pete can advance the replay with one click, with no workspace setup.
 
-Calendar note: in 2026, Round 1 ends **Sunday April 12**; the next editions are the **Monday April 13** Daily Digest (reporting April 12) and the Gazette for April 6–12. April 6–12 must each run and audit in order.
+Calendar note: in 2026, Round 1 ends **Sunday April 12**; the next editions are the **Monday April 13** Daily Digest (reporting April 12) and the Gazette for April 6–12. April 6 was saved; audit it without rescoring, then process April 7–12 in order.
+
+## 13. Standing durability rule — owner instruction Nov 25, 2026
+
+- Nothing important may live only in an agent's sandbox. After every fix and at the end of every work session, commit and push all intentional source, script, test, and documentation changes. Do not leave a local-only fix.
+- Shared/production changes: one scoped branch starting at current `Easter-NEWS`, with a PR for Pete's explicit approval. Never merge a rehearsal branch into production.
+- Test-only rehearsal changes: commit and push to `test/2026-production-parity-20261121` (PR #862). Maintain stored results, original simulation path, and QA isolation.
+- For newsletter/bracket work, update `docs/handoffs/NEWSLETTER-BRACKET-HANDOFF.md` with the latest verified saved simulation date, what was processed, audit status, exact blocker if any, review links, and next authorized step. Also keep `docs/2026-rehearsal-handoff.md` current on the test branch. The QA database, not this document or a local log, is the authoritative checkpoint.
+- Before reporting completion or a blocker, verify the remote branch heads and report every branch name, commit SHA, PR and relevant deployment/check status. Distinguish committed, tested, deployed, audited and approved. No claims of completion based on a local commit.
+- Never commit credentials, secret-bearing connection files, private fan data, raw private exports, build caches, generated local artifacts or logs containing secrets. Record secure configuration names and reproducible recovery commands instead. A generated build artifact is not an intentional source change.
+
+The "Run rehearsal day" GitHub Actions entry point is still a follow-up, only after the daily run and audit are working. Do not claim it exists. Keep QA credentials in a protected secret, not Git. The original shared scorer and publisher remain the execution path.

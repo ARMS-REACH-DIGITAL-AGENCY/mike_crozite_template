@@ -13,9 +13,21 @@ const nextConfig: NextConfig = {
     // The newsletter's pictures are drawn by the 4 a.m. job (Pete, Nov 25 2026).
     '/api/cron/fan-daily-pilot': [
       './chromium-bin/**/*',
+      './public/fonts/oswald-latin.woff2',
+      './public/img/splash-sponsors/brands/asb-medallion.png',
+      './public/img/newsletter/gazette-banner-blank.jpg',
+    ],
+    '/api/preview/gazette-banner': [
+      './chromium-bin/**/*',
+      './public/fonts/oswald-latin.woff2',
+      './public/img/splash-sponsors/brands/asb-medallion.png',
+      './public/img/newsletter/gazette-banner-blank.jpg',
     ],
     '/api/cron/newsletter-banners': [
       './chromium-bin/**/*',
+      './public/fonts/oswald-latin.woff2',
+      './public/img/splash-sponsors/brands/asb-medallion.png',
+      './public/img/newsletter/gazette-banner-blank.jpg',
     ],
   },
   images: {
