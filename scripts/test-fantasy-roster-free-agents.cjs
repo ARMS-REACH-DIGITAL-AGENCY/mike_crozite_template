@@ -26,8 +26,9 @@ assert.equal(releasedDuringPeriod('FREE AGENT', null, '2027-04-05'), null, 'no r
 assert.equal(releasedDuringPeriod('ACTIVE', '2027-04-08', '2027-04-05'), null, 'only free agents');
 const live = fs.readFileSync('src/app/api/bracket/live/route.ts', 'utf8');
 assert.match(live, /releasedDuringPeriod\(/, 'scoring keeps a mid-period release');
-assert.match(live, /Number\(r\.day\) < releaseDay\(r\.playerid\)/, 'only games before the release date count');
+assert.match(live, /if \(!released && !days\.length\) return false;/, 'a stat line beats any status: an alum with a game line is on the team (Pete, Nov 24 2026)');
+assert.doesNotMatch(live, /releaseDay\(r\.playerid\)/, 'no game line is ever dropped for a status');
 const season = fs.readFileSync('src/components/bracket/liveSeason.ts', 'utf8');
-assert.match(season, /if \(p\[5\] != null && from >= p\[5\]\) continue;/, 'released before the week: off the team');
-assert.match(season, /!\(p\[5\] != null && from \+ d >= p\[5\]\)/, 'released mid-week: days from the release on do not count');
+assert.match(season, /if \(offTeam\(p, from\) && !\(p\[6\] != null && p\[6\] < from \+ 7\)\) continue;/, 'off a team all week: not on the school team');
+assert.match(season, /!offTeam\(p, from \+ d\)/, 'off a team (released, until a game line puts him back): no club W-L those days');
 console.log('PASS fantasy roster: free agents never count; scoring and drawer share one rule; a mid-week release keeps his earlier games');

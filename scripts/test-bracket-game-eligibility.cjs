@@ -35,6 +35,8 @@ const sourceLines = [
 const sourceClubs = [];
 async function query(sql, params) {
   if (sql.includes('FROM flip_card_front_stage')) return { rows: stages.filter(r => params[0].includes(r.hsid)) };
+  // Which alumni have a game line in the period (a stat line beats any status).
+  if (sql.includes('array_agg(DISTINCT (game_date')) { const by = {}; for (const r of sourceLines) if (params[0].includes(r.playerid) && r.day >= 0 && r.day < params[2]) (by[r.playerid] ||= new Set()).add(r.day); return { rows: Object.entries(by).map(([yatid, days]) => ({ yatid, days: [...days] })) }; }
   if (sql.includes('SELECT DISTINCT ON (yatid,')) return { rows: sourceLines.filter(r => params[0].includes(r.playerid) && r.day >= 0 && r.day < params[2]) };
   if (sql.includes('SELECT DISTINCT ON (team_name,')) return { rows: sourceClubs.filter(r => params[0].includes(r.team) && r.day >= 0 && r.day < params[2]) };
   if (sql.includes('FROM team_schedules')) return { rows: schedules.filter(r => sql.includes('game_pk = ANY')
