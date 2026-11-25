@@ -197,19 +197,25 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
     'As always, this version of the YAT-A-BOY Weekly Gazette includes our three Connect, Contribute, and Remember Feature stories.', 'And finally, a special thanks needs to go out to your home team', '>peteismyagent.com</a>', 'See you online!'];
   let at = -1;
   for (const piece of order) { const k = result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) >= 0 ? result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) : result.html.indexOf(piece, at + 1); assert.ok(k > at, 'Missing or out of order: ' + piece); at = k; }
-  // Bellinger (a favorite) in bold with the TEST 3 columns: OPS+, W-L, AB..SF, OBP, SLG, OPS.
-  assert.match(result.html, /<tr align=center style="font-weight:bold"><td align=left style="font-size:13px"><img src="https:\/\/hamilton\.az\.yatstats\.com\/logo\/20" width="16" height="16" alt="" style="vertical-align:middle"> Bellinger<td style="color:#b8860b">183<td>3-0<td>11<td>4<td>0<td>1<td>0<td>2<td>0<td>0<td>\.462<td>\.545<td>1\.007/);
-  // No logo: the proof's spacer; no favorite: not bold.
-  assert.match(result.html, /<tr align=center><td align=left style="font-size:13px"><span style="display:inline-block;width:16px;margin-right:5px"><\/span>Berge<td style="color:#b8860b">—<td>0-0/);
-  // Pitcher: IP from outs, WHIP, K/BB, FIP; team OPS+ / FIP- from the stored game.
-  assert.match(result.html, /> Hamel<td style="color:#b8860b">132<td>1-1<td>3\.2<td>6<td>7<td>7<td>0<td>5<td>0<td>2<td>3\.00<td>0\.40<td>5\.07/);
-  assert.match(result.html, />BATTERS<td style="color:#b8860b">160<td>4-1</);
-  assert.match(result.html, />PITCHERS<td style="color:#b8860b">119<td>4-1</);
+  // The stat drawer's grid (Pete, Nov 25 2026): each row's cells as text, "|" between cells.
+  const cells = result.html.replace(/<td[^>]*>/g, '|').replace(/<[^>]+>/g, '');
+  // Bellinger (a favorite) in bold with his logo; the columns OPS+, W-L, AB..SF, OBP, SLG, OPS.
+  assert.match(result.html, /<tr align="center" style="font-weight:800;color:#000"><td [^>]*><img src="https:\/\/hamilton\.az\.yatstats\.com\/logo\/20" width="17" height="17"[^>]*><span [^>]*>Bellinger<\/span>/);
+  assert.match(cells, /\|Bellinger\|183\|3-0\|11\|4\|0\|1\|0\|2\|0\|0\|\.462\|\.545\|1\.007/);
+  // No logo: a 17px spacer; no favorite: not bold.
+  assert.match(result.html, /<tr align="center"><td [^>]*><span style="display:inline-block;width:17px;height:17px;margin-right:3px;vertical-align:middle"><\/span><span [^>]*>Berge<\/span><\/td><td [^>]*>—<\/td><td>0-0</);
+  // Pitcher: IP from outs, then the drawer's formats: WHIP .000, K/BB, FIP; team OPS+ / FIP- from the stored game.
+  assert.match(cells, /\|Hamel\|132\|1-1\|3\.2\|6\|7\|7\|0\|5\|0\|2\|3\.000\|0\.40\|5\.07/);
+  assert.match(cells, /\|BATTERS\|160\|4-1\|/);
+  assert.match(cells, /\|PITCHERS\|119\|4-1\|/);
+  // Batters and Pitchers share one grid: the same column widths, in the same order.
+  const widths = [...result.html.matchAll(/<td width="(\d+)"/g)].map((m) => m[1]).join(',');
+  assert.ok(widths.startsWith('25,25,17,17,17,17,17,17,17,17,28,28,28,25,25,17,17,17,17,17,17,17,17,28,28,28'), widths);
   // Favorites: only those outside the home school (Bellinger is already in bold above).
   const favTable = result.html.slice(result.html.indexOf('SuperFan Weekly Stats'), result.html.indexOf('S WEEK'));
   assert.doesNotMatch(favTable, /Bellinger/);
-  // Favorites: dashes for OPS+/FIP-, their own week.
-  assert.match(result.html, /> Ginkel<td style="color:#b8860b">—<td>0-0<td>3\.0<td>3<td>1<td>1<td>0<td>2<td>0<td>6<td>1\.67<td>3\.00<td>—/);
+  // Favorites: dashes for OPS+/FIP-, their own week; no FIP on file for a pitcher: a dash.
+  assert.match(cells, /\|Ginkel\|—\|0-0\|3\.0\|3\|1\|1\|0\|2\|0\|6\|1\.667\|3\.00\|—/);
   assert.doesNotMatch(result.html, /TEST REPLAY|pipeline|commissioner/i);
   assert.equal(result.layoutVersion, 'gazette-test3-v1');
   // Pete, Nov 24 2026: the favorites' transactions that week, in MLB's words.
@@ -219,7 +225,7 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   // Not a SuperFan: no favorites' stats and no transactions.
   const plainFan = renderFinishedEdition({ ...facts, recipient: { ...facts.recipient, is_superfan: false } }).html;
   assert.doesNotMatch(plainFan, /SuperFan Weekly Stats|YOUR FAVORITES&#x27; TRANSACTIONS|YOUR FAVORITES' TRANSACTIONS/);
-  assert.match(withTx.html, />Mar 27<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
+  assert.match(withTx.html, />Mar 27<\/td><td [^>]*>Cincinnati Reds optioned C Will Banfield to Louisville Bats\.<\/td>/);
   assert.match(withTx.text, /Mar 27: Cincinnati Reds optioned C Will Banfield to Louisville Bats\./);
   const db = database(facts);
   return readFinishedEdition(db, { ...request, cadence: 'weekly', date: '2026-03-23' }).then(read => {

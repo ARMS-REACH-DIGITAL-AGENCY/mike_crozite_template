@@ -70,12 +70,18 @@ const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v)).sl
 async function bracketRows(db: ImageDatabase, season: string): Promise<Row[]> {
   return (await db.query('SELECT stage, region, round, series_no, game_no, game_id, week, game_end_date, status, home_hsid, away_hsid, home_seed, away_seed, home_runs, away_runs, winner_hsid, home_school_name, away_school_name FROM public.master_bracket WHERE season_key=$1', [season])).rows;
 }
-/** Each team's series record before a game: its series' earlier games that have a winner. */
-function seriesRecord(bracket: Row[], g: Row, hsid: number): string {
+/**
+ * Each team's series record as it stands on the board's day (Pete, Nov 25 2026: the
+ * series score is always the current one): every game of its series that is over by
+ * then, the game on the board included once it is final. A 1-1 series reads 1-1 on
+ * the Sunday it was evened, never the 1-0 it was before that game.
+ */
+function seriesRecord(bracket: Row[], g: Row, hsid: number, asOf: string): string {
   if (!g || g.stage !== 'bracket') return '';
-  const earlier = bracket.filter(r => r.stage === 'bracket' && r.region === g.region && r.round === g.round && r.series_no === g.series_no && Number(r.week) < Number(g.week) && r.winner_hsid != null);
-  const w = earlier.filter(r => Number(r.winner_hsid) === hsid).length;
-  return `${w}-${earlier.length - w}`;
+  const over = bracket.filter(r => r.stage === 'bracket' && r.region === g.region && r.round === g.round && r.series_no === g.series_no
+    && Number(r.week) <= Number(g.week) && r.winner_hsid != null && iso(r.game_end_date) <= asOf);
+  const w = over.filter(r => Number(r.winner_hsid) === hsid).length;
+  return `${w}-${over.length - w}`;
 }
 
 /** The Digest's board for each school (Pete, Nov 24-25 2026): its game, then the 7 closest schools' games. */
@@ -91,7 +97,7 @@ export async function dailyBoardPictures(db: ImageDatabase, o: { date: string; s
   }
   const side = (game: Row, which: 'home' | 'away'): BoardSide => {
     const hsid = Number(game[which + '_hsid']);
-    return { seed: seedOf.get(hsid) ?? null, name: String(game[which + '_label'] ?? ''), series: seriesRecord(bracket, byGame.get([game.week, game.region, game.game_id].join('/'))!, hsid),
+    return { seed: seedOf.get(hsid) ?? null, name: String(game[which + '_label'] ?? ''), series: seriesRecord(bracket, byGame.get([game.week, game.region, game.game_id].join('/'))!, hsid, o.date),
       innings: (game[which + '_innings'] || []).map(String), runs: game[which + '_runs'] ?? '' };
   };
   const nearbyOf = new Map<number, number[]>();
@@ -150,7 +156,7 @@ export async function bracketMadnessPictures(db: ImageDatabase, o: { date: strin
   const games = week.filter(r => scores.has(`${r.region}/${r.game_id}`));
   const side = (g: Row, which: 'home' | 'away'): BoardSide => {
     const s = scores.get(`${g.region}/${g.game_id}`)!;
-    return { seed: g[which + '_seed'] ?? null, name: String(s[which + '_label'] ?? ''), series: seriesRecord(bracket, g, Number(g[which + '_hsid'])),
+    return { seed: g[which + '_seed'] ?? null, name: String(s[which + '_label'] ?? ''), series: seriesRecord(bracket, g, Number(g[which + '_hsid']), o.date),
       innings: (s[which + '_innings'] || []).map(String), runs: s[which + '_runs'] ?? '' };
   };
   const region = (n: number, home: number | null) => ({ label: 'Region ' + n,
