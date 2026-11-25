@@ -95,8 +95,7 @@ tabs. `/api/players/search?q=<name>` returned the expected canonical YAT ID and
 HSID for each of the four. For the new schools, that API currently falls back to
 `https://yatstats.com/<HSID>` instead of their curated named domains; the
 routing change in this review branch addresses that separate presentation gap.
-The All-Time gallery lazy-loads; its complete browser interactions were not
-independently exercised for all 314 players.
+The original `player_hsids` view omitted **all 314** of these source-backed new-school associations. Therefore the existing All-Time and Active roster readers omitted them despite the valid flip-card records. The PR now adds exact YAT→TBC source-ID joins to both readers. These application changes remain unmerged; complete production gallery interaction verification requires an approved deployment. The All-Time gallery lazy-loads; its complete browser interactions have not been independently exercised for all 314.
 
 ### Shared application changes (approval required)
 
@@ -108,6 +107,9 @@ independently exercised for all 314 players.
   absent from the older TBC school export. It does *not* admit status-only,
   name-matched, or fabricated members.
 - Relevant PostgreSQL and directory-routing regression tests were updated.
+- `src/lib/db.ts` adds exact registered TBC source ID school membership to the All-Time career-stat reader without rewriting raw imported school records.
+- `src/lib/activeRosterSql.ts` adds the same exact mapping to the 2026 Active roster season reader, preserving canonical Team IDs and player identity.
+- `scripts/check-shared-roster-sql.cjs` now explicitly guards the two source-ID reads against regression.
 - These shared changes stay **unmerged** pending explicit review and approval.
 
 ## Reproduction sequence
