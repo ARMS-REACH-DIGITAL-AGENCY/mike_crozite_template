@@ -5,7 +5,7 @@
 // No raw feeds, scorer, sender, sponsor lookup or database writes belong here.
 import { createHash } from 'node:crypto';
 import { renderWeeklyGazetteLayout, type GazetteBatRow, type GazettePitchRow, type GazetteTables } from './weeklyGazetteLayout';
-import { regionTopGames } from './regionBoard';
+import { nearbyGames, regionTopGames } from './regionBoard';
 import { renderDailyDigestLayout, type DailyDigestPresentation, type DailyDigestSlot } from './dailyDigestLayout';
 
 export type Row = Record<string, any>;
@@ -27,7 +27,8 @@ export type FinishedEdition = {
     gazette?: { mastheadUrl?: string; scoreboardUrl?: string; scoreboardAlt?: string; teamLogoBase?: string };
     provenance?: Record<string, unknown>;
   };
-  selection: { seasonKey: string; region: number | null; favorites: string[]; picks: Row[] };
+  /** nearby: the 7 schools closest to the home school, nearest first (school_nearest_schools). */
+  selection: { seasonKey: string; region: number | null; favorites: string[]; picks: Row[]; nearby?: number[] };
   rows: {
     daily_stat_lines: Row[]; daily_game_stories: Row[]; daily_game_scores: Row[];
     weekly_player_lines: Row[]; weekly_box_scores: Row[];
@@ -97,7 +98,7 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
   const controls = (await db.query('SELECT enabled, approved_layout_version, approved_by FROM alumni_newsletter_control')).rows;
   if (controls.length !== 1) throw new Error('Newsletter control must have one existing record; preview does not change it');
   const rows: FinishedEdition['rows'] = { daily_stat_lines: [], daily_game_stories: [], daily_game_scores: [], weekly_player_lines: [], weekly_box_scores: [] };
-  let favorites: string[] = [], picks: Row[] = [];
+  let favorites: string[] = [], picks: Row[] = [], nearby: number[] = [];
   let selected: Row[] = [];
   if (request.cadence === 'daily') {
     // to_jsonb makes an incomplete YAT transition an explicit failure without
@@ -110,9 +111,15 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     selected = homeGames(scores, Number(recipient.home_hsid), request.region);
     picks = (await db.query('SELECT position, hsid, label FROM user_scoreboard_schools WHERE firebase_uid=$1 ORDER BY position', [recipient.firebase_uid])).rows;
     const region = selected[0]?.region ?? request.region ?? null;
-    // The scoreboard is the home school's game and its region's top scores
-    // (Pete, Nov 24 2026), so the edition keeps that region's games.
-    rows.daily_game_scores = region == null ? [] : scores.filter(row => Number(row.region) === Number(region));
+    // The scoreboard is the home school's game, then the games of the 7
+    // schools closest to it (Pete, Nov 25 2026; school_nearest_schools). Until
+    // that list exists for a season, the region's top scores.
+    nearby = (await db.query("SELECT neighbor_hsid FROM school_nearest_schools WHERE season_key=$1 AND home_hsid=$2 ORDER BY rank", [request.seasonKey, Number(recipient.home_hsid)])
+      .catch((err: { code?: string }) => { if (err?.code === '42P01') return { rows: [] as Row[] }; throw err; })).rows.map(row => Number(row.neighbor_hsid));
+    const near = new Set(nearby);
+    rows.daily_game_scores = nearby.length
+      ? scores.filter(row => selected.includes(row) || near.has(Number(row.home_hsid)) || near.has(Number(row.away_hsid)))
+      : region == null ? [] : scores.filter(row => Number(row.region) === Number(region));
     rows.daily_game_stories = (await db.query('SELECT * FROM daily_game_stories WHERE stats_date=$1 AND hsid=$2 AND season_key=$3 ORDER BY region, game_id', [request.date, Number(recipient.home_hsid), request.seasonKey])).rows.filter(row => region == null || Number(row.region) === Number(region));
     if (rows.daily_game_stories.length > 1) throw new Error('More than one finished home story for the selected period');
   } else {
@@ -134,7 +141,7 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     ? (await db.query('SELECT * FROM newsletter_transactions WHERE cadence=$1 AND period_start=$2 AND yatid=ANY($3::text[]) ORDER BY effective_date, transaction_id', [request.cadence, request.date, favorites])).rows
     : [];
   return clone({ version: 'finished-publication-v1', ready, recipient, control: controls[0],
-    selection: { seasonKey: request.seasonKey, region: selected[0] ? Number(selected[0].region) : request.region ?? null, favorites, picks }, rows });
+    selection: { seasonKey: request.seasonKey, region: selected[0] ? Number(selected[0].region) : request.region ?? null, favorites, picks, ...(nearby.length ? { nearby } : {}) }, rows });
 }
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
@@ -161,7 +168,9 @@ function dailyBoard(facts: FinishedEdition): { slots: DailyDigestSlot[]; keys: u
   const seed = (game: Row, side: 'home' | 'away'): string | undefined =>
     game[side + '_seed'] == null ? teams[String(game[side + '_hsid'])]?.seed : String(game[side + '_seed']);
   const bestSeed = (game: Row) => Math.min(...(['home', 'away'] as const).map(side => Number(seed(game, side) ?? Infinity)));
-  const others = regionTopGames(facts.rows.daily_game_scores, home, region, bestSeed);
+  const others = facts.selection.nearby?.length
+    ? nearbyGames(facts.rows.daily_game_scores, home, facts.selection.nearby)
+    : regionTopGames(facts.rows.daily_game_scores, home, region, bestSeed);
   const games = [...(home ? [home] : []), ...others];
   const display = (game: Row): DailyDigestSlot => ({ home: game === home,
     homeLabel: sideLabel(game, 'home'), awayLabel: sideLabel(game, 'away'),
