@@ -38,3 +38,15 @@ Send email · change production · merge into Easter-NEWS · swap a tournament s
 
 ## E. Before ending ANY session
 Commit and push all code/doc changes (test branch; shared fixes on a branch off Easter-NEWS with a PR for Pete). Update `docs/handoffs/NEWSLETTER-BRACKET-HANDOFF.md` §5 with the last completed day. Report: days run, audit counts per day, picture commit, edition links, branch + SHAs.
+
+## F. Status at end of Claude's session (Nov 25 2026, ~23:55 UTC)
+
+**How a run works now (no agent workspace):** workflow `.github/workflows/rehearsal-days.yml` on `test/2026-production-parity-20261121`. Any change to `rehearsal/RUN_THROUGH` (one date) starts it: from the saved checkpoint, one day at a time — score, draw pictures (committed to `ccr-0ad18095-umgndf/nl/`), check pictures load, audit; stops at the first failure. Editions + audit reports = run Artifacts. Logs: `gh api repos/ARMS-REACH-DIGITAL-AGENCY/mike_crozite_template/actions/jobs/<job>/logs`. Secrets QA_DATABASE_URL / QA_PLAYERS_DATABASE_URL (role neondb_owner, pooled), QA_NEON_BRANCH, QA_NEON_ENDPOINT, QA_REVIEW_EMAIL are set. The runner refuses to run unless all 82 files in src/lib/newsletter, src/lib/bracket, src/components/bracket, src/app/api/bracket, src/app/api/cron match Easter-NEWS (5 TEST-ONLY clock/archive files exempt).
+
+**Done:** April 6, 7, 8 scored and audited clean. PR #907 (a club game MLB moved from Apr 7 to Apr 9 was credited twice → freeze credited game IDs) merged to Easter-NEWS `348924c6`, merged into the test branch `2609d4f9`.
+
+**QA database:** rewound to the April 8 checkpoint (last row 2026-04-08, awaiting_review). Copies: `qa-2026-after-apr8-20261125` (state right after April 8) and `qa-2026-ingestion-before-apr9-rewind-20261125` (state before the rewind). Do not modify it until the fix below is merged.
+
+**Current blocker (run 45723757784):** April 9 stops with `Locked club game identity cannot be reconciled: game 21, player YAT066037, day 1`. April 6–8 were locked before #907 and have no stored game IDs.
+
+**Next task:** in shared code (branch off Easter-NEWS, test reproducing this case, PR for Pete), when a locked day lacks game IDs, recover them exactly from that day's archived source (bracket_rehearsal_provider_inputs / the checkpoint's source_snapshot, or the MLB gamePk in the stored source lines); never guess; if not exactly recoverable, stop as now. After Pete merges: merge Easter-NEWS into the test branch, change `rehearsal/RUN_THROUGH` (content must change, e.g. 2026-04-12 → 2026-04-12 plus a blank line or the reverse), watch the run through April 12, report each day's audit and the April 13 Digest + April 6–12 Gazette from the Artifacts. No hand-patched ledgers, no email.
