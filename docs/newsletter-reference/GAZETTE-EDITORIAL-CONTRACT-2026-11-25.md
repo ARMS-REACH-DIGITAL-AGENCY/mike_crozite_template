@@ -47,3 +47,11 @@ and date-appropriate roster evidence. Give a short fact-checked reason to watch.
 - Preserve older archived editions; make a new versioned review copy.
 - Never merge the QA replay branch into production. Obtain explicit approval
   for production merge and send test emails only to the designated recipient.
+
+## Owner clarification: universal scoreboard artwork
+
+Every regional scoreboard, whether game line scores (Digest or Gazette Bracket Madness) or Total Runs standings, must use the same approved Wrigley Field scoreboard visual design: original medallion, marquee, green structure, typography, colors and rules. Desktop may present two regions side by side; mobile presents one region per full-width board. No alternate mockup artwork is approved. Visually compare the actual generated images to the existing approved reference before accepting them.
+
+## Next authorized replay review
+
+Owner explicitly authorized processing April 6–12, 2026 sequentially, stopping at the April 12 final cutoff (April 13, 4 a.m. Arizona). Retain existing immutable results, test branch URL and production-parity rules. Review the live test bracket, April 12 Daily Digest and March/April Week 3 Gazette (April 6–12), both issued April 13. Test email only to the designated review recipient. No production merge or live fan delivery.
