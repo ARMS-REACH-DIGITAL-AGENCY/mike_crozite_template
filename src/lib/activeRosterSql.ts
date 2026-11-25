@@ -235,6 +235,8 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         er::text AS er,
         bb::text AS bb,
         so::text AS so,
+        hr::text AS hr,
+        hb::text AS hbp,
         draft_info,
         playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
@@ -270,6 +272,8 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         er::text,
         bb::text,
         so::text,
+        hr::text,
+        COALESCE(raw_stats #>> '{stats,HBP}', raw_stats #>> '{HBP}')::text,
         NULL::text AS draft_info,
         NULL::text AS playyears,
         NULLIF(regexp_replace(COALESCE(ip::text, '0'), '[^0-9.]', '', 'g'), '') AS ip_clean
@@ -321,6 +325,8 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(er::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS er,
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(bb::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS bb,
         COALESCE(SUM(NULLIF(regexp_replace(COALESCE(so::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS ko,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(hr::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hr_allowed,
+        COALESCE(SUM(NULLIF(regexp_replace(COALESCE(hbp::text, '0'), '[^0-9.]', '', 'g'), '')::numeric), 0) AS hbp_allowed,
 
         MAX(draft_info) AS pit_draft_info,
         MAX(playyears)  AS pit_playyears
@@ -354,6 +360,12 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
           WHEN outs > 0 THEN ROUND((hits_allowed + bb) / (outs::numeric / 3), 2)
           ELSE NULL
         END AS whip,
+
+        /* FIP: (13 HR + 3 (BB + HBP) - 2 K) / IP + 3.10, the bracket's raw FIP constant. */
+        CASE
+          WHEN outs > 0 THEN ROUND((13 * hr_allowed + 3 * (bb + hbp_allowed) - 2 * ko) / (outs::numeric / 3) + 3.10, 2)
+          ELSE NULL
+        END AS fip,
 
         CASE
           WHEN outs > 0 THEN ROUND((hits_allowed * 9) / (outs::numeric / 3), 2)
@@ -628,7 +640,7 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
       lp.pitch_year,
       lp.pg, lp.gs, lp.w, lp.l, lp.saves,
       lp.ip, lp.er, lp.ko,
-      lp.era, lp.whip, lp.h9, lp.bb9, lp.so9, lp.so_bb,
+      lp.era, lp.whip, lp.fip, lp.h9, lp.bb9, lp.so9, lp.so_bb,
       COALESCE(sbb.season_batting_buckets, '[]'::jsonb) AS season_batting_buckets,
       COALESCE(spb.season_pitching_buckets, '[]'::jsonb) AS season_pitching_buckets,
       CASE
