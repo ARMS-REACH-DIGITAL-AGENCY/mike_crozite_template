@@ -41,6 +41,26 @@ export function buildActiveRosterSql(schoolPlayersFilter: string, statsRowsFilte
           SELECT 1 FROM public.player_hsids ph2
           WHERE ph2.playerid=f.playerid AND ph2.hsid::text=f.hsid
         )
+
+      UNION ALL
+
+      -- Recovered YAT flip cards keep a canonical identity for each person
+      -- even when the legacy TBC school table has no matching school row.
+      -- Resolve actual 2026 source stats by the exact TBC source ID.
+      SELECT ids.source_id AS playerid, f.first_name AS firstname,
+        f.last_name AS lastname,
+        COALESCE(NULLIF(f.highest_level_label,''),f.level_label) AS career_highlevel,
+        tp.ht AS height, tp.wt AS weight, tp.bats, tp.throws,
+        f.position
+      FROM public.flip_card_front_stage f
+      JOIN public.yat_registry_ids ids
+        ON ids.yatid=f.yatid AND ids.source='tbc'
+      JOIN public.tbc_players_raw tp ON tp.playerid=ids.source_id
+      WHERE ${canonicalSchoolFilter}
+        AND NOT EXISTS (
+          SELECT 1 FROM public.player_hsids ph2
+          WHERE ph2.playerid::text=ids.source_id AND ph2.hsid::text=f.hsid
+        )
     ),
 
     -- Restrict source IDs before reading the million-row archive.
