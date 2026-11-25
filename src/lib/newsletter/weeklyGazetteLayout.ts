@@ -51,6 +51,8 @@ export type WeeklyGazetteInput = {
   /** The fan's favorites' transactions that week, in MLB's own words (Pete, Nov 24 2026). */
   transactions?: { date: string; type: string; text: string }[];
   links: { statDrawer?: string };
+  /** Bracket Madness (Pete, Nov 25 2026): the week's two-region boards, the fan's own pair first. */
+  bracketMadness?: { subtitle: string; boards: { url: string; alt: string }[] };
 };
 
 const esc = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[c]!));
@@ -125,6 +127,7 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
   const alumni = tables(input.alumni);
   const favs = input.favorites ? tables(input.favorites.tables) : null;
   const drawer = safeUrl(input.links.statDrawer);
+  const madness = (input.bracketMadness?.boards || []).flatMap((b) => { const url = safeUrl(b.url); return url ? [{ url, alt: b.alt }] : []; });
   const html = [
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(input.subject)}</title><style>${STYLE}</style></head><body style="margin:0;background:#e3e5dc"><div style="max-width:720px;margin:0 auto;background:#ffffff;border-top:5px solid #19583f;color:#202820;font-family:Arial,Helvetica,sans-serif">`,
     masthead ? `<div style="padding:14px 12px 4px"><img src="${esc(masthead)}" width="600" alt="Yataboy Gazette" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto"></div>` : '',
@@ -145,6 +148,9 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     `<p style="margin:0 0 14px;font:11px Arial,Helvetica,sans-serif;color:#666">OPS+, FIP- and club W-L come from each school's bracket game and show a dash for players outside ${esc(school)}'s.</p>`,
     drawer ? `<p style="margin:0;text-align:center;font:bold 13px Arial,Helvetica,sans-serif"><a href="${esc(drawer)}" style="color:#19583f">See each day of the week in the stat drawer →</a></p>` : '',
     `</div>`,
+    madness.length ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:center">Bracket Madness Around the Country</h2>`
+      + `<p style="margin:0 0 16px;text-align:center;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.bracketMadness!.subtitle)}</p>`
+      + madness.map((b) => `<img src="${esc(b.url)}" width="600" alt="${esc(b.alt)}" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 16px">`).join('') + `</div>` : '',
     `</div></body></html>`,
   ].filter(Boolean).join('\n');
   const text = [
@@ -154,6 +160,7 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     ...(favs && input.favorites ? [`YOUR ${input.favorites.count} SUPERFAN FAVORITES`, ...favs.text] : []),
     ...(input.transactions?.length ? ["YOUR FAVORITES' TRANSACTIONS", ...input.transactions.map((t) => `${day(t.date, { month: 'short', day: 'numeric' })}: ${t.text}`)] : []),
     drawer ? `See each day of the week in the stat drawer: ${drawer}` : '',
+    ...(madness.length ? ['BRACKET MADNESS AROUND THE COUNTRY', input.bracketMadness!.subtitle, ...madness.map((b) => b.alt)] : []),
   ].filter(Boolean).join('\n\n');
   return { html, text };
 }

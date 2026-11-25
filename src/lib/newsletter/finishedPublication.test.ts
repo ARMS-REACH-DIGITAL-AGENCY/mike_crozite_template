@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFinishedEdition, renderFinishedEdition, stableJson, type FinishedEdition, type Row } from './finishedPublication';
+import { bracketMadnessGames } from './regionBoard';
 
 function fixture(): FinishedEdition {
   const game = { stats_date: '2026-03-25', season_key: '2027', region: 7, game_id: 501, week: 1,
@@ -270,7 +271,7 @@ test('the Gazette shows the school\'s banner and its final board of the week (Pe
   facts.rows.weekly_box_scores = [{ period_start: '2026-03-23', season_key: '2027', region: 7, game_id: 385, home_hsid: 5004, away_hsid: 7,
     home_name: 'Hamilton', away_name: 'Other School', home_runs: 3, away_runs: 4, home_batting: {}, away_batting: {}, home_pitching: {}, away_pitching: {},
     home_story: { title: 'Hamilton falls to Other School, 4-3.', paragraphs: ['Leading the way for the Huskies: nobody yet.'] }, away_story: { title: 'x', paragraphs: [] } }];
-  const saved = { banner: process.env.NEWSLETTER_GAZETTE_BANNER_BASE, board: process.env.NEWSLETTER_BOARD_IMAGE_BASE };
+  const saved = { banner: process.env.NEWSLETTER_GAZETTE_BANNER_BASE, board: process.env.NEWSLETTER_BOARD_IMAGE_BASE, madness: process.env.NEWSLETTER_BRACKET_MADNESS_BASE };
   process.env.NEWSLETTER_GAZETTE_BANNER_BASE = 'https://img.example.invalid/nl/gazette/banner/';
   process.env.NEWSLETTER_BOARD_IMAGE_BASE = 'https://img.example.invalid/nl/digest';
   try {
@@ -279,7 +280,24 @@ test('the Gazette shows the school\'s banner and its final board of the week (Pe
     const board = html.indexOf('src="https://img.example.invalid/nl/digest/2026-03-29/5004.png"');
     assert.ok(banner >= 0 && banner < html.indexOf('WEEKLY EDITION'), 'banner first');
     assert.ok(board > html.indexOf('Leading the way') && board < html.indexOf('Hamilton Alumni Stats'), 'board under Hamilton\'s Week');
+    assert.doesNotMatch(html, /Bracket Madness/);
+    // Bracket Madness: the fan's own pair of regions (region 7: 7-8) first, drawn for the school, then the other three.
+    process.env.NEWSLETTER_BRACKET_MADNESS_BASE = 'https://img.example.invalid/nl/gazette/bracket';
+    const withMadness = renderFinishedEdition(facts).html;
+    const at = ['Bracket Madness Around the Country', '/bracket/2026-03-29/5004.png', '/bracket/2026-03-29/pair-1-2.png', '/bracket/2026-03-29/pair-3-4.png', '/bracket/2026-03-29/pair-5-6.png']
+      .map(piece => withMadness.indexOf(piece));
+    assert.ok(at.every((k, i) => k > withMadness.indexOf('Hamilton Alumni Stats') && (i === 0 || k > at[i - 1])), 'Bracket Madness order: ' + at);
+    assert.doesNotMatch(withMadness, /pair-7-8/);
   } finally {
-    for (const [k, v] of [['NEWSLETTER_GAZETTE_BANNER_BASE', saved.banner], ['NEWSLETTER_BOARD_IMAGE_BASE', saved.board]] as const) if (v == null) delete process.env[k]; else process.env[k] = v;
+    for (const [k, v] of [['NEWSLETTER_GAZETTE_BANNER_BASE', saved.banner], ['NEWSLETTER_BOARD_IMAGE_BASE', saved.board], ['NEWSLETTER_BRACKET_MADNESS_BASE', saved.madness]] as const) if (v == null) delete process.env[k]; else process.env[k] = v;
   }
+});
+
+test('Bracket Madness picks the home game, then upsets biggest first, then the best seeds, up to 8 (Pete, Nov 25 2026)', () => {
+  const g = (game_id: number, home_seed: number, away_seed: number, winner: 'home' | 'away', home_hsid = 1000 + game_id, away_hsid = 2000 + game_id) =>
+    ({ game_id, home_seed, away_seed, home_hsid, away_hsid, winner_hsid: winner === 'home' ? home_hsid : away_hsid });
+  const rows = [g(1, 1, 128, 'home'), g(2, 64, 65, 'away'), g(3, 2, 127, 'away'), g(4, 8, 121, 'away', 5004), g(5, 30, 99, 'home'),
+    ...Array.from({ length: 8 }, (_, i) => g(10 + i, 3 + i, 120 - i, 'home'))];
+  assert.deepEqual(bracketMadnessGames(rows, 5004).map(r => r.game_id), [4, 3, 2, 1, 10, 11, 12, 13]);
+  assert.deepEqual(bracketMadnessGames(rows, null).map(r => r.game_id), [3, 4, 2, 1, 10, 11, 12, 13]);
 });

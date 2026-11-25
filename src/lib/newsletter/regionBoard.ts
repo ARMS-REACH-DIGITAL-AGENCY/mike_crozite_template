@@ -145,3 +145,83 @@ export function regionBoardHtml(input: RegionBoardInput): string {
   return `<!doctype html><html><head><meta charset="utf-8"><style>${input.fontCss}html,body{margin:0;padding:0;background:transparent}</style></head>`
     + `<body><div id="board" style="position:relative;width:${W}px;height:${H}px;overflow:hidden">${parts.join('')}</div></body></html>`;
 }
+
+/**
+ * Bracket Madness (Pete, Nov 25 2026): the Gazette's region boards, two regions
+ * on ONE Wrigley-style board: the ASB medallion at the top centre like the clock,
+ * one region's games down the left and the other's down the right. Same colours,
+ * face and rules as the single-region board above.
+ */
+export type DoubleBoardSide = { label: string; games: BoardGame[] };
+export type DoubleBoardInput = { left: DoubleBoardSide; right: DoubleBoardSide; medallion?: string; fontCss: string };
+
+const D_TOP = 322;         // first game block (after the header rule at 318)
+const D_ROW = 36, D_BLOCK = 10 + D_ROW + 4 + D_ROW + 10 + 3;
+const D_CELL = 24, D_GAP = 3, D_NAME = 268, D_CELLS = 276, D_HALF = [16, 608] as const;
+
+export function doubleBoardHeight(games: number): number { return D_TOP + games * D_BLOCK + FOOT; }
+
+export function doubleRegionBoardHtml(input: DoubleBoardInput): string {
+  const n = Math.max(input.left.games.length, input.right.games.length, 1);
+  const H = doubleBoardHeight(n);
+  const cell = (x0: number, i: number) => x0 + D_CELLS + i * (D_CELL + D_GAP);
+  const parts: string[] = [];
+  const shapes: string[] = [
+    `<rect x="450" y="152" width="300" height="120" rx="20" fill="${BODY}"/>`,
+    `<path d="M96 180H1104L1140 248H60Z" fill="${BODY}"/>`,
+    `<path d="M0 254Q0 248 6 248H1194Q1200 248 1200 254V${H - 16}H0Z" fill="${BODY}"/>`,
+    `<path d="M0 ${H - 16}H1200V${H - 12}Q1200 ${H} 1188 ${H}H12Q0 ${H} 0 ${H - 12}Z" fill="${BAR}"/>`,
+    `<circle cx="600" cy="123" r="117" fill="${BODY}"/><circle cx="600" cy="123" r="111" fill="#ffffff"/>`,
+    input.medallion ? `<clipPath id="m"><circle cx="600" cy="123" r="104"/></clipPath><image href="${esc(input.medallion)}" x="479" y="2" width="242" height="242" clip-path="url(#m)"/>` : `<circle cx="600" cy="123" r="104" fill="#1c2b3f"/>`,
+    // The centre post between the two regions, like the scoreboard's middle column.
+    `<rect x="598" y="290" width="4" height="${H - FOOT - 290}" fill="${RULE}"/>`,
+  ];
+  for (const [side, x0] of [[input.left, D_HALF[0]], [input.right, D_HALF[1]]] as const) {
+    shapes.push(`<rect x="${x0}" y="316" width="576" height="3" fill="${RULE}"/>`);
+    side.games.forEach((game, g) => {
+      const y = D_TOP + g * D_BLOCK;
+      shapes.push(`<rect x="${x0}" y="${y + D_BLOCK - 3}" width="576" height="3" fill="${game.framed ? RED : RULE}"/>`);
+      if (game.framed) shapes.push(`<rect x="${x0}" y="${y - 4}" width="576" height="4" fill="${RED}"/>`);
+      for (const dy of [10, 10 + D_ROW + 4]) for (let i = 0; i < 11; i++) shapes.push(`<rect x="${cell(x0, i)}" y="${y + dy}" width="${D_CELL}" height="${D_ROW}" fill="${CELL}"/>`);
+    });
+    // Header: BEST OF 3 and the inning numbers over the cells.
+    parts.push(text('BEST OF 3', { size: 15, baseline: 306, left: x0 + 8, color: MUTED, weight: 650, spacing: 1.4 }));
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'R'].forEach((label, i) =>
+      parts.push(text(label, { size: 19, baseline: 307, center: cell(x0, i) + D_CELL / 2, width: 40, color: YELLOW, weight: 600 })));
+    side.games.forEach((game, g) => {
+      (['away', 'home'] as const).forEach((key, row) => {
+        const s = game[key];
+        const base = D_TOP + g * D_BLOCK + 10 + row * (D_ROW + 4) + 27;
+        if (s.series) parts.push(text(`(${esc(s.series)})`, { size: 14, baseline: base - 3, left: x0 + 8, color: MUTED, weight: 600 }));
+        const seed = s.seed == null || s.seed === '' ? '' : `<span style="font-size:14px;font-weight:500;color:${YELLOW};vertical-align:7px;margin-right:6px">(#${esc(s.seed)})</span>`;
+        parts.push(`<div class="nm" style="position:absolute;top:${(base - ASC * 22).toFixed(2)}px;right:${W - (x0 + D_NAME)}px;max-width:212px;text-align:right;font:500 22px/1 Oswald,sans-serif;letter-spacing:.3px;color:${WHITE};white-space:nowrap">${seed}${esc(s.name.toUpperCase())}</div>`);
+        for (let i = 0; i < 10; i++) { const v = s.innings[i]; if (v != null && v !== '') parts.push(text(esc(v), { size: 21, baseline: base, center: cell(x0, i) + D_CELL / 2, width: D_CELL, color: WHITE, weight: 650 })); }
+        if (s.runs != null && s.runs !== '') parts.push(text(esc(s.runs), { size: 21, baseline: base, center: cell(x0, 10) + D_CELL / 2, width: D_CELL, color: YELLOW, weight: 650 }));
+      });
+    });
+  }
+  parts.unshift(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;left:0;top:0">${shapes.join('')}</svg>`);
+  parts.push(text(esc(input.left.label.toUpperCase()), { size: 41, baseline: 234, left: 141, color: WHITE, weight: 650, spacing: 3.3 }));
+  parts.push(text(esc(input.right.label.toUpperCase()), { size: 41, baseline: 234, right: 1059, color: WHITE, weight: 650, spacing: 3.3 }));
+  parts.push(text('YAT?STATS ALUMNI BASEBALL · BRACKET TOURNAMENT', { size: 31, baseline: H - 49, center: 598, width: 1100, color: YELLOW, weight: 620, spacing: 3.18 }));
+  // A long school name shrinks until it fits its 212px space.
+  const fit = `<script>for(const e of document.querySelectorAll('.nm')){let s=22;while(e.scrollWidth>212&&s>13){s-=1;e.style.fontSize=s+'px';}}</script>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${input.fontCss}html,body{margin:0;padding:0;background:transparent}</style></head>`
+    + `<body><div id="board" style="position:relative;width:${W}px;height:${H}px;overflow:hidden">${parts.join('')}</div>${fit}</body></html>`;
+}
+
+/**
+ * A region's Bracket Madness games (Pete, Nov 25 2026: "start with local or any
+ * upsets"): the home school's own game first when it is in this region, then
+ * the upsets (the higher seed number won), biggest first, then the series with
+ * the best seeds, up to 8.
+ */
+export function bracketMadnessGames<R extends Record<string, unknown>>(rows: R[], home: number | null, max = 8): R[] {
+  const seeds = (r: R) => [Number(r.home_seed), Number(r.away_seed)];
+  const winnerSeed = (r: R) => (Number(r.winner_hsid) === Number(r.home_hsid) ? Number(r.home_seed) : Number(r.away_seed));
+  const loserSeed = (r: R) => (Number(r.winner_hsid) === Number(r.home_hsid) ? Number(r.away_seed) : Number(r.home_seed));
+  const upset = (r: R) => (r.winner_hsid != null && winnerSeed(r) > loserSeed(r) ? winnerSeed(r) - loserSeed(r) : 0);
+  const own = home == null ? [] : rows.filter(r => Number(r.home_hsid) === home || Number(r.away_hsid) === home);
+  const rest = rows.filter(r => !own.includes(r)).sort((a, b) => upset(b) - upset(a) || Math.min(...seeds(a)) - Math.min(...seeds(b)) || Number(a.game_id) - Number(b.game_id));
+  return [...own, ...rest].slice(0, max);
+}

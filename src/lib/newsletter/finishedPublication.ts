@@ -288,6 +288,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     const homeHsid = Number(recipient.home_hsid);
     const imageBase = (env: string | undefined) => (env ? env.replace(/\/$/, '') : '');
     const bannerBase = imageBase(process.env.NEWSLETTER_GAZETTE_BANNER_BASE), boardBase = imageBase(process.env.NEWSLETTER_BOARD_IMAGE_BASE);
+    const madnessBase = imageBase(process.env.NEWSLETTER_BRACKET_MADNESS_BASE);
     const gz: NonNullable<NonNullable<FinishedEdition['presentation']>['gazette']> = {
       mastheadUrl: bannerBase ? `${bannerBase}/${homeHsid}.png` : undefined,
       scoreboardUrl: boardBase ? `${boardBase}/${iso(ready.period_end)}/${homeHsid}.png` : undefined,
@@ -345,7 +346,19 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       alumniCount: alumniList.length, alumni,
       transactions: (rows.newsletter_transactions || []).map(t => ({ date: iso(t.effective_date), type: publicText(t.transaction_type, 'transaction type'), text: publicText(t.description, 'transaction') })),
       favorites: favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
-      links: { statDrawer: drawer } });
+      links: { statDrawer: drawer },
+      // Bracket Madness: four two-region boards drawn once a week by
+      // scripts/newsletter-draw-bracket-madness.ts; the fan's own pair is drawn per
+      // school (its game first, between the red rules) and comes first.
+      bracketMadness: madnessBase ? (() => {
+        const pairs = [[1, 2], [3, 4], [5, 6], [7, 8]];
+        const mine = pairs.find(p => p.includes(Number(game.region)));
+        const dir = `${madnessBase}/${iso(ready.period_end)}`;
+        const boards = [...(mine ? [{ url: `${dir}/${homeHsid}.png`, pair: mine }] : []),
+          ...pairs.filter(p => p !== mine).map(p => ({ url: `${dir}/pair-${p[0]}-${p[1]}.png`, pair: p }))];
+        return { subtitle: `Week ${Number(ready.week)} finals: upsets first, then the top seeds, up to eight series in every region. Each series is best of three.`,
+          boards: boards.map(b => ({ url: b.url, alt: `Bracket Madness: Region ${b.pair[0]} and Region ${b.pair[1]} final scores` })) };
+      })() : undefined });
     rowKeys.weekly_player_lines = rows.weekly_player_lines.map(row => [iso(row.period_start), row.hsid, row.yatid, row.team_name]);
     rowKeys.weekly_box_scores = rows.weekly_box_scores.map(row => [row.season_key, row.region, row.game_id]);
     rowKeys.weekly_player_totals = favRows.map(row => [iso(row.period_start), row.yatid]);
