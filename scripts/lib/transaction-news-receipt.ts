@@ -22,11 +22,26 @@ export type TransactionReceipt = {
   publicationError?: string;
 };
 
+// Sport-level feeds can repeat a move, but one trade ID may cover multiple players.
+export function mlbTransactionFetchKey(transaction: IncomingMlbTransaction, nextNoId: () => number): string {
+  return transaction.id == null
+    ? `no-id:${nextNoId()}`
+    : `event:${transaction.id}:person:${transaction.person?.id ?? ''}`;
+}
+
 export const RECEIVED_TRANSACTION_INSERT_SQL = `
   INSERT INTO public.player_transactions
     (playerid, transaction_type, from_team_name, to_team_name,
      effective_date, source, payload)
-  VALUES ($1, $2, $3, $4, $5, 'mlb_api', $6)
+  SELECT $1::text, $2::text, $3::text, $4::text, $5, 'mlb_api', $6::jsonb
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.player_transactions pt
+    WHERE pt.source = 'mlb_api'
+      AND pt.yatid = public.yat_id_for($1::text)
+      AND pt.payload#>>'{person,id}' = $6::jsonb#>>'{person,id}'
+      AND $6::jsonb->>'id' IS NOT NULL
+      AND pt.payload->>'id' = $6::jsonb->>'id'
+  )
   ON CONFLICT DO NOTHING
   RETURNING id::text AS id
 `;
@@ -49,7 +64,7 @@ export const RECEIVED_TRANSACTION_EXISTING_SQL = `
         AND pt.to_team_name IS NOT DISTINCT FROM $5::text
         AND pt.effective_date IS NOT DISTINCT FROM $6::timestamptz)
     )
-  ORDER BY pt.id
+  ORDER BY (article.uuid IS NOT NULL) DESC, pt.id
   LIMIT 1
 `;
 
