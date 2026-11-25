@@ -4,6 +4,19 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFinishedEdition, renderFinishedEdition, stableJson, type FinishedEdition, type Row } from './finishedPublication';
 import { bracketMadnessGames, regionLeaders } from './regionBoard';
+import { NEWSLETTER_ASSETS_BASE, newsletterImageBase } from './newsletterImages';
+
+// Unset, every newsletter picture comes from the live asset bucket; these tests
+// turn them off (empty) and each picture test turns on the one it checks.
+test('pictures default to the live asset bucket; the environment can name another copy or turn one off', () => {
+  assert.equal(newsletterImageBase('board', {}), `${NEWSLETTER_ASSETS_BASE}/digest`);
+  assert.equal(NEWSLETTER_ASSETS_BASE, 'https://yatstats-assets.s3.us-west-2.amazonaws.com/newsletter');
+  assert.equal(newsletterImageBase('logo', {}), `${NEWSLETTER_ASSETS_BASE}/gazette/logo`);
+  assert.equal(newsletterImageBase('bracket', { NEWSLETTER_BRACKET_MADNESS_BASE: 'https://copy.example.invalid/b/' }), 'https://copy.example.invalid/b');
+  assert.equal(newsletterImageBase('banner', { NEWSLETTER_GAZETTE_BANNER_BASE: '' }), '');
+});
+for (const name of ['NEWSLETTER_BOARD_IMAGE_BASE', 'NEWSLETTER_GAZETTE_BANNER_BASE', 'NEWSLETTER_TEAM_LOGO_BASE', 'NEWSLETTER_BRACKET_MADNESS_BASE', 'NEWSLETTER_RUNS_LEADERBOARD_BASE'])
+  if (process.env[name] === undefined) process.env[name] = '';
 
 function fixture(): FinishedEdition {
   const game = { stats_date: '2026-03-25', season_key: '2027', region: 7, game_id: 501, week: 1,
