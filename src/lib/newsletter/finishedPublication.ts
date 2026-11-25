@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { newsletterImageBase } from './newsletterImages';
 import { renderWeeklyGazetteLayout, type GazetteBatRow, type GazettePitchRow, type GazetteTables } from './weeklyGazetteLayout';
 import { nearbyGames, regionTopGames } from './regionBoard';
+import { gazetteAdvancement, type RoundResult } from './gazetteAdvancement';
 import { renderDailyDigestLayout, type DailyDigestPresentation, type DailyDigestSlot } from './dailyDigestLayout';
 
 export type Row = Record<string, any>;
@@ -31,7 +32,11 @@ export type FinishedEdition = {
     daily?: DailyDigestPresentation;
     scoreboardTeams?: Record<string, { name?: string; city?: string; seed?: string }>;
     /** Gazette graphics drawn once per edition and saved on the site (never per fan). */
-    gazette?: { mastheadUrl?: string; scoreboardUrl?: string; scoreboardAlt?: string; teamLogoBase?: string };
+    gazette?: { mastheadUrl?: string; scoreboardUrl?: string; scoreboardAlt?: string; teamLogoBase?: string;
+      regionalEditorial?: Record<string, { spotlights?: { title: string; text: string }[]; feature?: { heading: string; paragraphs: string[] } }>;
+      schoolAnnouncement?: { title: string; text: string; url?: string };
+      sponsorAd?: { title: string; text: string; url?: string };
+    };
     provenance?: Record<string, unknown>;
   };
   /** nearby: the 7 schools closest to the home school, nearest first (school_nearest_schools). */
@@ -41,6 +46,7 @@ export type FinishedEdition = {
     weekly_player_lines: Row[]; weekly_box_scores: Row[];
     /** The fan's Superfan favorites' week (shared rows; optional for older facts). */
     weekly_player_totals?: Row[];
+    weekly_round_results?: RoundResult[];
     /** The fan's favorites' transactions in the period (MLB's own words). */
     newsletter_transactions?: Row[];
   };
@@ -140,6 +146,10 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     selected = homeGames(boxes, Number(recipient.home_hsid), request.region);
     const region = selected[0]?.region ?? request.region ?? null;
     rows.weekly_box_scores = boxes.filter(row => region != null && Number(row.region) === Number(region));
+    const w = Number(ready.week), round = Math.floor((w - 1) / 3) + 1;
+    if (w >= 1 && w <= 30 && (w - 1) % 3 !== 0) {
+      rows.weekly_round_results = (await db.query('SELECT week,region,round_name,game_no,home_hsid,away_hsid,home_name,away_name,winner_hsid FROM weekly_box_scores WHERE season_key=$1 AND week BETWEEN $2 AND $3 AND round_name=$4 ORDER BY week,region,game_id', [request.seasonKey,(round-1)*3+1,w,'Round '+round])).rows as RoundResult[];
+    }
     // The optional Weekly recap is deliberately absent: the recovered contract
     // leaves its inclusion for Pete to decide. No raw story is regenerated.
   }
@@ -360,6 +370,9 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       // SuperFans only (Pete, Nov 25 2026): their favorites from outside the home school.
       favorites: recipient.is_superfan && favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
       links: { statDrawer: drawer },
+      advancement: gazetteAdvancement(rows.weekly_round_results || [], Number(ready.week)),
+      sponsorAd: gz.sponsorAd || { title: 'American Solutions for Business', text: 'First-time customers: save 20% on your first promotional products order.', url: 'https://peteismyagent.com' },
+      schoolAnnouncement: gz.schoolAnnouncement,
       // Bracket Madness: four two-region boards drawn once a week by
       // src/lib/newsletter/newsletterImages.ts; the fan's own pair is drawn per
       // school (its game first, between the red rules) and comes first.
@@ -369,7 +382,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
         const dir = `${madnessBase}/${iso(ready.period_end)}`;
         const boards = [...(mine ? [{ url: `${dir}/${homeHsid}.png`, pair: mine }] : []),
           ...pairs.filter(p => p !== mine).map(p => ({ url: `${dir}/pair-${p[0]}-${p[1]}.png`, pair: p }))];
-        return { subtitle: `Week ${Number(ready.week)} finals: upsets first, then the top seeds, up to eight series in every region. Each series is best of three.`,
+        return { subtitle: Number(ready.week) === 1 ? 'Week 1 finals: top combined scores from every region, with your home school first on its board. Each series is best of three.' : `Week ${Number(ready.week)} finals: upsets first, then the top seeds, up to eight series in every region. Each series is best of three.`,
           boards: boards.map(b => ({ url: b.url, alt: `Bracket Madness: Region ${b.pair[0]} and Region ${b.pair[1]} final scores` })) };
       })() : undefined,
       // The Total Runs Leaderboards, drawn once a week by src/lib/newsletter/newsletterImages.ts
@@ -382,7 +395,10 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
         const boards = [...(mine ? [{ url: `${dir}/${homeHsid}.png`, pair: mine }] : []),
           ...pairs.filter(p => p !== mine).map(p => ({ url: `${dir}/pair-${p[0]}-${p[1]}.png`, pair: p }))];
         return { subtitle: `Season runs through Week ${Number(ready.week)}.${Number(ready.week) >= 4 ? ' Knocked-out schools keep scoring here.' : ''}`,
-          boards: boards.map(b => ({ url: b.url, alt: `Total Runs Leaderboard: Region ${b.pair[0]} and Region ${b.pair[1]}` })) };
+          boards: boards.map(b => ({ url: b.url, alt: `Total Runs Leaderboard: Region ${b.pair[0]} and Region ${b.pair[1]}`,
+            singleBoards: b.pair.map(region => ({ url: `${dir}/${region === Number(game.region) ? 'school-' + homeHsid + '-region-' + region : 'region-' + region}.png`, alt: `Total Runs Leaderboard: Region ${region}` })),
+            ...gz.regionalEditorial?.[b.pair.join('-')],
+          })) };
       })() : undefined });
     rowKeys.weekly_player_lines = rows.weekly_player_lines.map(row => [iso(row.period_start), row.hsid, row.yatid, row.team_name]);
     rowKeys.weekly_box_scores = rows.weekly_box_scores.map(row => [row.season_key, row.region, row.game_id]);

@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFinishedEdition, renderFinishedEdition, stableJson, type FinishedEdition, type Row } from './finishedPublication';
-import { bracketMadnessGames, regionLeaders } from './regionBoard';
+import { bracketMadnessGames, regionLeaders, singleRunsLeaderboardHtml } from './regionBoard';
+import { gazetteAdvancement, type RoundResult } from './gazetteAdvancement';
 import { NEWSLETTER_ASSETS_BASE, newsletterImageBase } from './newsletterImages';
 
 // Unset, every newsletter picture comes from the live asset bucket; these tests
@@ -346,4 +347,16 @@ test('Total Runs Leaderboard: site order, shared places, top 10 plus the home sc
   assert.equal(home.rows.length, 11);
   assert.deepEqual([home.rows[10].hsid, home.rows[10].place], [115, 16]);
   assert.equal(home.summary, '1 team with 14 runs; 1 team with 13 runs; 4 more teams');
+});
+
+test('Gazette progression never announces a first-game elimination or looks ahead', () => {
+  const row = (week:number,h:number,a:number,winner:number): RoundResult => ({week,region:1,round_name:'Round 1',game_no:week,home_hsid:h,away_hsid:a,home_name:'School '+h,away_name:'School '+a,winner_hsid:winner});
+  const rows=[row(1,1,2,1),row(2,1,2,1),row(3,1,2,2),row(1,3,4,3),row(2,3,4,4),row(3,3,4,4)];
+  assert.equal(gazetteAdvancement(rows,1),undefined);
+  assert.deepEqual(gazetteAdvancement(rows,2)?.regions[0],{region:1,advancing:['School 1 (2-0)'],eliminated:['School 2']});
+  assert.deepEqual(gazetteAdvancement(rows,3)?.regions[0],{region:1,advancing:['School 1 (2-1)','School 4 (2-1)'],eliminated:['School 2','School 3']});
+});
+test('phone leaderboard is independently rendered at full width', () => {
+  const html=singleRunsLeaderboardHtml({side:{label:'Region 5',summary:'118 more teams',rows:[{place:1,seed:2,name:'School Five',runs:12,framed:true}]},note:'All runs count',fontCss:''});
+  assert.match(html,/width:1200px/);assert.match(html,/REGION 5/);assert.match(html,/SCHOOL FIVE/);assert.match(html,/118 more teams/);
 });

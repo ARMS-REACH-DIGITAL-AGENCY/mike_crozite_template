@@ -278,6 +278,35 @@ export function runsLeaderboardHtml(input: LeaderboardInput): string {
     + `<body><div id="board" style="position:relative;width:${W}px;height:${H}px;overflow:hidden">${parts.join('')}</div></body></html>`;
 }
 
+export function singleRunsLeaderboardHtml(input: { side: LeaderSide; note: string; medallion?: string; fontCss: string }): string {
+  const n = Math.max(input.side.rows.length, 1), rowH = 86, top = 324, H = top + n * rowH + 174;
+  const shapes = [
+    `<rect x="450" y="152" width="300" height="120" rx="20" fill="${BODY}"/><path d="M96 180H1104L1140 248H60Z" fill="${BODY}"/><rect x="0" y="248" width="1200" height="${H - 248}" rx="12" fill="${BODY}"/>`,
+    `<circle cx="600" cy="123" r="117" fill="${BODY}"/><circle cx="600" cy="123" r="111" fill="#fff"/>`,
+    input.medallion ? `<clipPath id="m"><circle cx="600" cy="123" r="104"/></clipPath><image href="${esc(input.medallion)}" x="479" y="2" width="242" height="242" clip-path="url(#m)"/>` : '',
+    `<rect x="24" y="318" width="1152" height="4" fill="${RULE}"/>`,
+  ];
+  const parts = [
+    text('TOTAL RUNS', { size: 41, baseline: 234, left: 141, color: WHITE, weight: 650, spacing: 3.3 }),
+    text('LEADERBOARD', { size: 41, baseline: 234, right: 1059, color: WHITE, weight: 650, spacing: 3.3 }),
+    text(esc(input.side.label.toUpperCase()), { size: 36, baseline: 305, left: 36, color: YELLOW, weight: 600 }),
+    text('RUNS', { size: 36, baseline: 305, center: 1080, width: 150, color: YELLOW, weight: 600 }),
+  ];
+  input.side.rows.forEach((row, i) => {
+    const y = top + i * rowH, base = y + 59;
+    shapes.push(`<rect x="1000" y="${y + 7}" width="160" height="${rowH - 14}" fill="${CELL}"/><rect x="24" y="${y + rowH - 3}" width="1152" height="3" fill="${row.framed ? RED : RULE}"/>`);
+    if (row.framed) shapes.push(`<rect x="24" y="${y - 2}" width="1152" height="6" fill="${RED}"/><rect x="24" y="${y + rowH - 3}" width="1152" height="6" fill="${RED}"/>`);
+    parts.push(text(`(${row.place})`, { size: 30, baseline: base, left: 40, color: MUTED, weight: 600 }));
+    const seed = row.seed == null || row.seed === '' ? '' : `<span style="font-size:28px;color:${YELLOW};margin-right:14px">(#${esc(row.seed)})</span>`;
+    parts.push(`<div class="nm" style="position:absolute;top:${(base - ASC * 43).toFixed(2)}px;right:225px;max-width:810px;text-align:right;font:500 43px/1 Oswald,sans-serif;color:${WHITE};white-space:nowrap">${seed}${esc(row.name.toUpperCase())}</div>`);
+    parts.push(text(String(row.runs), { size: 46, baseline: base, center: 1080, width: 160, color: YELLOW, weight: 650 }));
+  });
+  parts.push(`<div style="position:absolute;left:36px;top:${top + n * rowH + 18}px;width:1128px;font:27px/1.25 Arial,sans-serif;color:${WHITE}">${esc(input.side.summary)}</div>`);
+  parts.push(`<div style="position:absolute;left:40px;top:${H - 88}px;width:1120px;text-align:center;font:25px/1.25 Arial,sans-serif;color:${YELLOW}">${esc(input.note)}</div>`);
+  parts.unshift(`<svg width="1200" height="${H}" viewBox="0 0 1200 ${H}" style="position:absolute;left:0;top:0">${shapes.join('')}</svg>`);
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${input.fontCss}html,body{margin:0;padding:0;background:transparent}</style></head><body><div id="board" style="position:relative;width:1200px;height:${H}px;overflow:hidden">${parts.join('')}</div></body></html>`;
+}
+
 export type RunStand = { hsid: number; region: number; seed: number; rf: number; ra: number; w: number };
 /**
  * A region's leaderboard rows, the site's order (src/components/bracket/gallery.tsx

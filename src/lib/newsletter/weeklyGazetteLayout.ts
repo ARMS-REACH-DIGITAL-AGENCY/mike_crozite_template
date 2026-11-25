@@ -64,7 +64,14 @@ export type WeeklyGazetteInput = {
   features?: { connect?: string[]; contribute?: string[]; remember?: string[] };
   /** The article's promotion of the edition's Connect, Contribute and Remember features. */
   promo?: string;
-  runsLeaders?: { subtitle: string; boards: { url: string; alt: string; spotlights?: { title: string; text: string }[] }[] };
+  runsLeaders?: { subtitle: string; boards: { url: string; alt: string;
+    singleBoards?: { url: string; alt: string }[];
+    spotlights?: { title: string; text: string }[];
+    feature?: { heading: string; paragraphs: string[] };
+  }[] };
+  advancement?: { heading: string; regions: { region: number; advancing: string[]; eliminated: string[] }[] };
+  schoolAnnouncement?: { title: string; text: string; url?: string };
+  sponsorAd?: { title: string; text: string; url?: string };
 };
 
 const esc = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[c]!));
@@ -176,7 +183,7 @@ function tables(t: GazetteTables): { html: string; text: string[] } {
 
 // A scoreboard picture across the newsletter's full width (720px).
 const WIDE = (url: string, alt: string) => `<img src="${esc(url)}" width="720" alt="${esc(alt)}" style="display:block;width:100%;max-width:720px;height:auto;margin:0 auto;border:0">`;
-const STYLE = '.p{padding:22px 22px}.h{text-align:center;font:bold 30px/1.1 Georgia,serif;margin:0 0 12px}.k{text-align:center;font:bold 10px Arial;letter-spacing:.17em;color:#19583f;margin:0 0 6px}.sec{border-bottom:3px solid #202820}@media only screen and (max-width:600px){.lz td.lzc{display:block!important;width:100%!important;padding:0!important}.lz td.lzg{display:none!important}}';
+const STYLE = '.gazette-pair{display:none;max-height:0;overflow:hidden}.gazette-single{display:block}@media only screen and (min-width:601px){.gazette-pair{display:block!important;max-height:none!important;overflow:visible!important}.gazette-single{display:none!important;max-height:0!important;overflow:hidden!important}}.p{padding:22px 22px}.h{text-align:center;font:bold 30px/1.1 Georgia,serif;margin:0 0 12px}.k{text-align:center;font:bold 10px Arial;letter-spacing:.17em;color:#19583f;margin:0 0 6px}.sec{border-bottom:3px solid #202820}@media only screen and (max-width:600px){.lz td.lzc{display:block!important;width:100%!important;padding:0!important}.lz td.lzg{display:none!important}}';
 const FEATURES = [{ key: 'connect', heading: 'Connect' }, { key: 'contribute', heading: 'Contribute' }, { key: 'remember', heading: 'Remember' }] as const;
 const P = (text: string, extra = '') => `<p style="margin:0 0 14px;font:17px/1.7 Georgia,serif${extra}">${esc(text)}</p>`;
 
@@ -197,6 +204,28 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     sponsorLink ? esc(sponsorLink.label) : '\u0000', sponsorLink ? `<a href="${esc(sponsorLink.url)}" style="color:#19583f">${esc(sponsorLink.label)}</a>` : '') : '';
   const leaders = (input.runsLeaders?.boards || []).flatMap((b) => { const url = safeUrl(b.url); return url ? [{ ...b, url }] : []; });
   const madness = (input.bracketMadness?.boards || []).flatMap((b) => { const url = safeUrl(b.url); return url ? [{ url, alt: b.alt }] : []; });
+  const leaderArt = (b: typeof leaders[number]) => {
+    const singles = (b.singleBoards || []).flatMap(s => { const url = safeUrl(s.url); return url ? [{ ...s, url }] : []; });
+    // Single-region images are the email fallback when media styles are stripped.
+    return singles.length === 2
+      ? `<div class="gazette-pair" style="display:none;max-height:0;overflow:hidden;mso-hide:all">${WIDE(b.url,b.alt)}</div><div class="gazette-single">${singles.map(s => WIDE(s.url,s.alt)).join('')}</div>`
+      : WIDE(b.url,b.alt);
+  };
+  const regionalFeature = (b: typeof leaders[number], i: number) => b.feature || (FEATURES[i] ? {
+    heading: FEATURES[i].heading, paragraphs: input.features?.[FEATURES[i].key] || [],
+  } : undefined);
+  const featureText = (f: { heading: string; paragraphs: string[] } | undefined) => f ? [f.heading.toUpperCase(), ...(f.paragraphs.length ? f.paragraphs : [`[${f.heading} feature story placeholder]`])] : [];
+  const renderFeature = (f: { heading: string; paragraphs: string[] } | undefined) => f ? `<div style="padding:24px 22px;border-bottom:1px solid #202820"><h3 style="margin:0 0 10px;font:bold 26px/1.15 Georgia,serif;text-transform:uppercase">${esc(f.heading)}</h3>${(f.paragraphs.length ? f.paragraphs : [`[${f.heading} feature story placeholder]`]).map(t => P(t)).join('')}</div>` : '';
+  const announcementUrl = safeUrl(input.schoolAnnouncement?.url);
+  const adUrl = safeUrl(input.sponsorAd?.url);
+  const dailyDouble = input.sponsorAd || input.schoolAnnouncement ? `<div style="padding:26px 22px;border-bottom:3px solid #202820"><h2 style="margin:0 0 16px;font:bold 28px/1.15 Georgia,serif;text-transform:uppercase">Daily Double</h2>`
+    + (input.sponsorAd ? `<h3 style="font:bold 16px Arial;color:#19583f">${esc(input.sponsorAd.title)}</h3>${P(input.sponsorAd.text)}${adUrl ? `<p><a href="${esc(adUrl)}" style="color:#19583f">Learn more</a></p>` : ''}` : '')
+    + (input.schoolAnnouncement ? `<h3 style="font:bold 16px Arial;color:#19583f">${esc(input.schoolAnnouncement.title)}</h3>${P(input.schoolAnnouncement.text)}${announcementUrl ? `<p><a href="${esc(announcementUrl)}" style="color:#19583f">Original announcement</a></p>` : ''}` : '')
+    + '</div>' : '';
+  const advancement = input.advancement?.regions.length ? `<div style="padding:22px 22px;border-bottom:3px solid #202820"><h2 style="margin:0 0 12px;font:bold 27px/1.15 Georgia,serif;text-transform:uppercase">${esc(input.advancement.heading)}</h2>`
+    + input.advancement.regions.map(r => `<h3 style="font:bold 16px Arial;color:#19583f">REGION ${r.region}</h3>`
+      + (r.advancing.length ? P('Advancing: ' + r.advancing.join('; '), ';font-size:14px') : '')
+      + (r.eliminated.length ? P('Out of bracket play: ' + r.eliminated.join('; '), ';font-size:14px') : '')).join('') + '</div>' : '';
   const html = [
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(input.subject)}</title><style>${STYLE}</style></head><body style="margin:0;background:#e3e5dc"><div style="max-width:720px;margin:0 auto;background:#ffffff;border-top:5px solid #19583f;color:#202820;font-family:Arial,Helvetica,sans-serif">`,
     masthead ? `<div style="padding:14px 12px 4px"><img src="${esc(masthead)}" width="600" alt="Yataboy Gazette" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto"></div>` : '',
@@ -234,15 +263,14 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     madness.length ? `<div style="padding:26px 0 24px;border-bottom:3px solid #202820"><div style="padding:0 22px"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">Bracket Madness Around the Country</h2>`
       + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.bracketMadness!.subtitle)}</p></div>`
       + madness.map((b) => `<div style="padding:0 0 16px">${WIDE(b.url, b.alt)}</div>`).join('') + `</div>` : '',
+    advancement,
     leaders.length ? `<div style="padding:26px 0 24px;border-bottom:3px solid #202820"><div style="padding:0 22px"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">It Ain't Over Till It's Over</h2>`
       + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.runsLeaders!.subtitle)}</p></div>`
-      + leaders.map((b) => `<div style="padding:0 0 12px">${WIDE(b.url, b.alt)}</div>`
+      + leaders.map((b, i) => `<div style="padding:0 0 12px">${leaderArt(b)}</div>`
         + ((b.spotlights || []).length ? `<div style="padding:0 22px">` + b.spotlights!.map((m) => `<p style="margin:0 0 4px;font:bold 15px/1.35 Arial,Helvetica,sans-serif;color:#19583f">${esc(m.title)}</p>${P(m.text, ';font-size:15px;line-height:1.55')}`).join('') + `</div>` : '')
-        + `<div style="height:14px"></div>`).join('') + `</div>` : '',
-    // Connect, Contribute, Remember (Pete, Nov 25 2026): the three feature stories, every
-    // edition; a placeholder holds each spot until its story is supplied.
-    ...FEATURES.map((f) => `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 10px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">${f.heading}</h2>`
-      + (input.features?.[f.key]?.length ? input.features[f.key]!.map((t) => P(t)).join('') : `<p style="margin:0;font:italic 15px/1.6 Georgia,serif;color:#888">[${f.heading} feature story placeholder]</p>`) + `</div>`),
+        + renderFeature(regionalFeature(b, i)) + `<div style="height:14px"></div>`).join('') + `</div>` : '',
+    ...(!leaders.length ? FEATURES.map(f => renderFeature({ heading: f.heading, paragraphs: input.features?.[f.key] || [] })) : []),
+    dailyDouble,
     `</div></body></html>`,
   ].filter(Boolean).join('\n');
   const text = [
@@ -254,8 +282,9 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     `${school.toUpperCase()}'S WEEK`, input.story.title.toUpperCase(), greeting, ...input.story.paragraphs, input.promo || '', input.sponsor?.text || '', 'See you online!',
     ...(madness.length || leaders.length ? ['THE YAT?STATS ALUMNI FANTASY BASEBALL SEASON-LONG TOURNAMENT'] : []),
     ...(madness.length ? ['BRACKET MADNESS AROUND THE COUNTRY', input.bracketMadness!.subtitle, ...madness.map((b) => b.alt)] : []),
-    ...(leaders.length ? ["IT AIN'T OVER TILL IT'S OVER", input.runsLeaders!.subtitle, ...leaders.flatMap((b) => [b.alt, ...(b.spotlights || []).flatMap((m) => [m.title, m.text])])] : []),
-    ...FEATURES.flatMap((f) => [f.heading.toUpperCase(), ...(input.features?.[f.key]?.length ? input.features[f.key]! : [`[${f.heading} feature story placeholder]`])]),
+    ...(input.advancement ? [input.advancement.heading.toUpperCase(), ...input.advancement.regions.flatMap(r => [`REGION ${r.region}`, r.advancing.length ? 'Advancing: ' + r.advancing.join('; ') : '', r.eliminated.length ? 'Out of bracket play: ' + r.eliminated.join('; ') : ''])] : []),
+    ...(leaders.length ? ["IT AIN'T OVER TILL IT'S OVER", input.runsLeaders!.subtitle, ...leaders.flatMap((b, i) => [b.alt, ...(b.spotlights || []).flatMap(m => [m.title,m.text]), ...featureText(regionalFeature(b,i))])] : FEATURES.flatMap(f => featureText({heading:f.heading,paragraphs:input.features?.[f.key] || []}))),
+    ...(dailyDouble ? ['DAILY DOUBLE', input.sponsorAd?.title || '', input.sponsorAd?.text || '', adUrl || '', input.schoolAnnouncement?.title || '', input.schoolAnnouncement?.text || '', announcementUrl || ''] : []),
   ].filter(Boolean).join('\n\n');
   return { html, text };
 }

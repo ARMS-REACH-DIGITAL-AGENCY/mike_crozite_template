@@ -12,7 +12,7 @@
  */
 import { normalizeTeamLogoId, teamLogoAssetUrls, TEAM_LOGO_S3_BASE } from '../teamLogo';
 import {
-  bracketMadnessGames, doubleRegionBoardHtml, nearbyGames, regionBoardHtml, regionLeaders, regionTopGames, runsLeaderboardHtml,
+  bracketMadnessGames, doubleRegionBoardHtml, nearbyGames, regionBoardHtml, regionLeaders, regionTopGames, runsLeaderboardHtml, singleRunsLeaderboardHtml,
   type BoardGame, type BoardSide, type RunStand,
 } from './regionBoard';
 
@@ -171,7 +171,11 @@ export async function bracketMadnessPictures(db: ImageDatabase, o: { date: strin
       innings: (s[which + '_innings'] || []).map(String), runs: s[which + '_runs'] ?? '' };
   };
   const region = (n: number, home: number | null) => ({ label: 'Region ' + n,
-    games: bracketMadnessGames(games.filter(r => Number(r.region) === n), home).map((g): BoardGame => ({ away: side(g, 'away'), home: side(g, 'home'),
+    games: (Number(week[0].week) === 1 ? (() => {
+      const rows = games.filter(r => Number(r.region) === n);
+      const own = home == null ? null : rows.find(r => Number(r.home_hsid) === home || Number(r.away_hsid) === home) || null;
+      return [...(own ? [own] : []), ...regionTopGames(rows, own, n, r => Math.min(Number(r.home_seed), Number(r.away_seed)), own ? 7 : 8)];
+    })() : bracketMadnessGames(games.filter(r => Number(r.region) === n), home)).map((g): BoardGame => ({ away: side(g, 'away'), home: side(g, 'home'),
       framed: home != null && (Number(g.home_hsid) === home || Number(g.away_hsid) === home) })) });
   const picture = (file: string, pair: readonly [number, number], home: number | null): Picture => ({ kind: 'bracket', file, selector: '#board', width: 1200, height: 1400, transparent: true,
     html: ready(doubleRegionBoardHtml({ left: region(pair[0], home), right: region(pair[1], home), medallion: o.assets.medallion, fontCss: o.assets.fontCss })) });
@@ -218,7 +222,18 @@ export async function runsLeaderboardPictures(db: ImageDatabase, o: { date: stri
   const picture = (file: string, pair: readonly [number, number], home: number | null): Picture => ({ kind: 'leaders', file, selector: '#board', width: 1200, height: 1200, transparent: true,
     html: ready(runsLeaderboardHtml({ left: side(pair[0], home), right: side(pair[1], home), note: LEADERBOARD_NOTE, medallion: o.assets.medallion, fontCss: o.assets.fontCss })) });
   const out = PAIRS.map(p => picture(`${o.date}/pair-${p[0]}-${p[1]}.png`, p, null));
-  for (const hsid of o.hsids) { const me = stands.get(hsid); if (me) out.push(picture(`${o.date}/${hsid}.png`, pairOf(me.region), hsid)); }
+  const single = (file: string, region: number, home: number | null): Picture => ({
+    kind: 'leaders', file, selector: '#board', width: 1200, height: 1600, transparent: true,
+    html: ready(singleRunsLeaderboardHtml({ side: side(region, home), note: LEADERBOARD_NOTE, medallion: o.assets.medallion, fontCss: o.assets.fontCss })),
+  });
+  for (let region = 1; region <= 8; region++) out.push(single(`${o.date}/region-${region}.png`, region, null));
+  for (const hsid of o.hsids) {
+    const me = stands.get(hsid);
+    if (me) {
+      out.push(picture(`${o.date}/${hsid}.png`, pairOf(me.region), hsid));
+      out.push(single(`${o.date}/school-${hsid}-region-${me.region}.png`, me.region, hsid));
+    }
+  }
   return out;
 }
 
