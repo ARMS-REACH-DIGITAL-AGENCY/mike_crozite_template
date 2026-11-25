@@ -126,12 +126,12 @@ FROM _yat_card_repair_people p JOIN _yat_school_repair_map m ON m.source_school=
 WHERE EXISTS(SELECT 1 FROM public.yat_school_links l WHERE l.yatid=p.yatid AND l.hsid=p.hsid)
 ON CONFLICT(playerid) DO NOTHING;
 -- STATEMENT 8
-INSERT INTO public.player_hsids(playerid,firstname,lastname,hsid,hsname,hslocation)
-SELECT p.tbcid,p.first_name,p.last_name,p.hsid,s.hsname,s.hslocation
-FROM _yat_card_repair_people p JOIN public.school_success s ON s.hsid=p.hsid
-WHERE EXISTS(SELECT 1 FROM public.yat_school_links l WHERE l.yatid=p.yatid AND l.hsid=p.hsid)
- AND NOT EXISTS(SELECT 1 FROM public.player_hsids x WHERE x.playerid=p.tbcid)
- AND NOT EXISTS(SELECT 1 FROM public.player_hsids x WHERE x.playerid=p.yatid);
+-- player_hsids is a non-updatable VIEW, not a writable roster table.
+-- Verified TBC source rows flow through yat_school_links and tbc_schools_raw;
+-- externally unresolved school records remain in player_school_profile
+-- and flip_card_front_stage without fabricating tbc_schools_raw rows.
+SELECT count(*) AS canonical_school_links FROM _yat_card_repair_people p
+JOIN public.yat_school_links l ON l.yatid=p.yatid AND l.hsid=p.hsid;
 -- STATEMENT 9
 INSERT INTO public.flip_card_front_stage
  (playerid,yatid,hsid,first_name,last_name,display_name,position,
