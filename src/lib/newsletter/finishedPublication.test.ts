@@ -175,7 +175,7 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   assert.match(result.subject, /^YAT-A-BOY Weekly Gazette \| Hamilton/);
   const order = ['Yataboy Gazette', 'HAMILTON', 'Chandler, Arizona', 'WEEKLY EDITION · WEEK 1', 'Monday, March 30, 2026', 'HAMILTON\'S WEEK',
     'Hamilton falls to Other School, 4-3.', 'Hi Fixture,', 'leads the series 1-0', 'Leading the way for the Huskies', 'Hamilton Alumni Stats',
-    'Week of March 23–March 29, 2026', 'Hamilton\'s 3 active alumni. Your favorites are in bold.', '>BATTERS<', '>PITCHERS<', 'YOUR 2 SUPERFAN FAVORITES',
+    'Week of March 23–March 29, 2026', 'Hamilton\'s 3 active alumni. Your favorites are in bold.', '>BATTERS<', '>PITCHERS<', 'YOUR 1 SUPERFAN FAVORITES',
     'See each day of the week in the stat drawer'];
   let at = -1;
   for (const piece of order) { const k = result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) >= 0 ? result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) : result.html.indexOf(piece, at + 1); assert.ok(k > at, 'Missing or out of order: ' + piece); at = k; }
@@ -187,6 +187,9 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   assert.match(result.html, /> Hamel<td style="color:#b8860b">132<td>1-1<td>3\.2<td>6<td>7<td>7<td>0<td>5<td>0<td>2<td>3\.00<td>0\.40<td>5\.07/);
   assert.match(result.html, />BATTERS<td style="color:#b8860b">160<td>4-1</);
   assert.match(result.html, />PITCHERS<td style="color:#b8860b">119<td>4-1</);
+  // Favorites: only those outside the home school (Bellinger is already in bold above).
+  const favTable = result.html.slice(result.html.indexOf('SUPERFAN FAVORITES'));
+  assert.doesNotMatch(favTable, /Bellinger/);
   // Favorites: dashes for OPS+/FIP-, their own week.
   assert.match(result.html, /> Ginkel<td style="color:#b8860b">—<td>0-0<td>3\.0<td>3<td>1<td>1<td>0<td>2<td>0<td>6<td>1\.67<td>3\.00<td>—/);
   assert.doesNotMatch(result.html, /TEST REPLAY|pipeline|commissioner/i);

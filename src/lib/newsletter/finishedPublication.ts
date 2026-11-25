@@ -294,7 +294,11 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       scoreboardAlt: `${publicText(school.split(' — ')[0], 'school')} and its 7 closest schools: final scores for the week`,
       ...(facts.presentation?.gazette || {}),
     };
-    const logo = (teamid: unknown) => (gz.teamLogoBase && /^\d{1,10}$/.test(String(teamid ?? '')) ? gz.teamLogoBase + String(teamid) : undefined);
+    // Team logos: small PNGs drawn once per week by scripts/newsletter-draw-team-logos.ts
+    // (email clients cannot all show the site's WebP art), unless the facts name a base.
+    const logoBase = imageBase(process.env.NEWSLETTER_TEAM_LOGO_BASE);
+    const logo = (teamid: unknown) => (!/^\d{1,10}$/.test(String(teamid ?? '')) ? undefined
+      : gz.teamLogoBase ? gz.teamLogoBase + String(teamid) : logoBase ? `${logoBase}/${String(teamid)}.png` : undefined);
     const favoriteIds = new Set(facts.selection.favorites);
     const lastOf = (name: string) => name.trim().split(/\s+/).slice(-1)[0] || name;
     // TEST 3 prints last names; a shared last name gets the first initial, and a
@@ -322,7 +326,10 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     const teamVal = (table: any, i: number) => { const v = table?.totals?.[i]; return v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v); };
     const alumni: GazetteTables = { batters: aBat, pitchers: aPit, totalWl,
       teamOpsPlus: teamVal(game[side + '_batting'], 11), teamFipMinus: teamVal(game[side + '_pitching'], 10) };
-    const favRows = (rows.weekly_player_totals || []).filter(row => favoriteIds.has(yat(row.yatid)));
+    // The proof lists only favorites outside the home school: its own alumni are
+    // already in the table above, in bold (Pete, Nov 25 2026: Week 4 TEST 2 proof).
+    const alumniIds = new Set(alumniList.map(x => yat(x.row.yatid)));
+    const favRows = (rows.weekly_player_totals || []).filter(row => favoriteIds.has(yat(row.yatid)) && !alumniIds.has(yat(row.yatid)));
     const nameFav = shortNames(favRows.map(row => String(row.player_name || '')));
     const fBat = sortRows(favRows.filter(row => !row.pitcher).map(row => ({ full: String(row.player_name || ''), name: nameFav(String(row.player_name || '')), logo: logo(row.teamid), bold: true,
       opsPlus: null, wl: null, b: Array.isArray(row.bat) ? row.bat.map(Number) : zero } as GazetteBatRow & { full: string })));
