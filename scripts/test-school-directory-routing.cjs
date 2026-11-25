@@ -78,6 +78,11 @@ const query=async (sql,params=[])=>{
   assert.equal(mixedUrls.get('4'),urls.get('4'));
   assert.equal(mixedUrls.has('2147483647'),false,'An unmatched ID must not gain a generated URL.');
   // A single requested school still sees collisions with unrequested schools.
+  const unresolved=await routing.canonicalSchoolUrls(['11756','18478'],async(sql,params)=>{
+    if(sql.includes('same_name_city_count')) return {rows:params[0].map(id=>({hsid:id,name_slug:'hendrick-hudson',city_slug:'montrose',regionid:'NY',existing:null,same_state_name_count:2,same_name_city_count:2}))};
+    return {rows:[]};
+  });
+  assert.equal(unresolved.size,0,'Never generate HSID-suffixed addresses for unresolved school twins');
   const oneCollision=await routing.canonicalSchoolUrls(['111'],query);
   assert.equal(oneCollision.get('111'),'https://lincoln-san-jose.ca.yatstats.com');
   // URL enrichment must handle the complete statewide list, including IDs
