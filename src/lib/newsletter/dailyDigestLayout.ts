@@ -185,17 +185,23 @@ export function renderDailyDigestLayout(input: DailyDigestLayoutInput): { html: 
   const favoriteRowsHtml = input.favoriteRows.map((row, i) => {
     const [stat, ...rest] = String(row.line ?? '').split('\n');
     const season = rest.join(' ');
-    const team = [row.team_name, row.level ? `(${row.level})` : ''].filter(Boolean).join(' ');
+    // Three lines for every player (Pete, Nov 25 2026): name | game line,
+    // team | season line, then (LEVEL) on its own line.
+    const team = row.team_name || '';
+    const level = row.level ? `(${row.level})` : '';
     const rule = i ? 'border-top:1px solid #d7dacd;' : '';
     return `<tr>${favCell('left', `${rule}padding:6px 6px 0 8px;font-weight:bold;text-transform:uppercase`, escapeHtml(row.player_name), 'fav-name')}`
       + `${favCell('right', `${rule}padding:6px 8px 0 6px;white-space:nowrap`, escapeHtml(stat), 'fav-stat')}</tr>`
-      + `<tr>${favCell('left', 'padding:1px 6px 6px 8px', escapeHtml(team), 'fav-team')}`
-      + `${favCell('right', 'padding:1px 8px 6px 6px;white-space:nowrap', escapeHtml(season), 'fav-slash')}</tr>`;
+      + `<tr>${favCell('left', `padding:1px 6px ${level ? 0 : 6}px 8px`, escapeHtml(team), 'fav-team')}`
+      + `${favCell('right', `padding:1px 8px ${level ? 0 : 6}px 6px;white-space:nowrap`, escapeHtml(season), 'fav-slash')}</tr>`
+      + (level ? `<tr>${favCell('left', 'padding:1px 6px 6px 8px', escapeHtml(level), 'fav-team')}<td class="fav-team" style="${T}padding:0 8px 6px 6px"></td></tr>` : '');
   }).join('');
   const favHead = (left: string, right: string) => `<tr><td align="left" class="fav-head" bgcolor="#173b21" style="background:#173b21;padding:6px 8px;font:bold 12px/1.25 Arial,Helvetica,sans-serif;letter-spacing:.4px;color:#f5d76e;text-align:left;white-space:nowrap">${left}</td><td align="right" class="fav-head" bgcolor="#173b21" style="background:#173b21;padding:6px 8px;font:bold 12px/1.25 Arial,Helvetica,sans-serif;letter-spacing:.4px;color:#f5d76e;text-align:right;white-space:nowrap">${right}</td></tr>`;
   const favTable = (rows: string) => `<table role="presentation" class="fav" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;border-collapse:collapse;background:#ffffff">${rows}</table>`;
+  // A small key under the list for the season lines (Pete, Nov 25 2026).
+  const seasonKey = `<tr><td colspan="2" class="fav-key" style="font:10px/1.3 Arial,Helvetica,sans-serif;color:#646b60;border-top:1px solid #d7dacd;padding:5px 8px;text-align:left">Season lines: batters AVG/OBP/SLG · pitchers ERA/WHIP/FIP</td></tr>`;
   const favoriteHtml = favTable(favHead('MY FAVORITES', escapeHtml(`${issue.weekday}, ${issue.date}`))
-    + (input.favoriteRows.length ? favoriteRowsHtml : `<tr><td colspan="2" class="favorite-empty" style="${T}padding:8px">${emptyFavorites}</td></tr>`));
+    + (input.favoriteRows.length ? favoriteRowsHtml + seasonKey : `<tr><td colspan="2" class="favorite-empty" style="${T}padding:8px">${emptyFavorites}</td></tr>`));
   // Pete, Nov 24 2026: any favorite in a transaction, under My Favorites.
   const txHtml = input.transactions?.length ? favTable(favHead('TRANSACTIONS', '')
     + input.transactions.map((t, i) => `<tr><td colspan="2" align="left" valign="top" class="fav-tx" style="${T}${i ? 'border-top:1px solid #d7dacd;' : ''}padding:6px 8px;text-align:left"><span class="fav-text">${escapeHtml(t.text)}</span></td></tr>`).join('')) : '';
