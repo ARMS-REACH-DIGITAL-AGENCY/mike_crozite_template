@@ -51,6 +51,20 @@ export type WeeklyGazetteInput = {
   /** The fan's favorites' transactions that week, in MLB's own words (Pete, Nov 24 2026). */
   transactions?: { date: string; type: string; text: string }[];
   links: { statDrawer?: string };
+  /** Bracket Madness (Pete, Nov 25 2026): the week's two-region boards, the fan's own pair first. */
+  bracketMadness?: { subtitle: string; boards: { url: string; alt: string }[] };
+  /**
+   * It Ain't Over Till It's Over (the Week 4 TEST 2 proof): the four Total Runs
+   * Leaderboards, the fan's own pair first, each with the coming week's spotlight
+   * runs-only matchups under it (Pete, Nov 25 2026).
+   */
+  /** The close (Pete, Nov 25 2026): a thank-you to the home team's main sponsor, in the sponsor's own words. */
+  sponsor?: { name: string; text: string; link?: { label: string; url: string } };
+  /** The three feature stories' paragraphs; a placeholder shows until each is supplied. */
+  features?: { connect?: string[]; contribute?: string[]; remember?: string[] };
+  /** The article's promotion of the edition's Connect, Contribute and Remember features. */
+  promo?: string;
+  runsLeaders?: { subtitle: string; boards: { url: string; alt: string; spotlights?: { title: string; text: string }[] }[] };
 };
 
 const esc = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[c]!));
@@ -112,6 +126,7 @@ function tables(t: GazetteTables): { html: string; text: string[] } {
 }
 
 const STYLE = '.p{padding:22px 22px}.h{text-align:center;font:bold 30px/1.1 Georgia,serif;margin:0 0 12px}.k{text-align:center;font:bold 10px Arial;letter-spacing:.17em;color:#19583f;margin:0 0 6px}.sec{border-bottom:3px solid #202820}@media only screen and (max-width:600px){.lz td.lzc{display:block!important;width:100%!important;padding:0!important}.lz td.lzg{display:none!important}.dr td{font-size:9.5px!important;padding-left:1px!important;padding-right:1px!important}.dr td:first-child{font-size:11px!important;padding-left:3px!important}}';
+const FEATURES = [{ key: 'connect', heading: 'Connect' }, { key: 'contribute', heading: 'Contribute' }, { key: 'remember', heading: 'Remember' }] as const;
 const P = (text: string, extra = '') => `<p style="margin:0 0 14px;font:17px/1.7 Georgia,serif${extra}">${esc(text)}</p>`;
 
 export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: string; text: string } {
@@ -125,35 +140,66 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
   const alumni = tables(input.alumni);
   const favs = input.favorites ? tables(input.favorites.tables) : null;
   const drawer = safeUrl(input.links.statDrawer);
+  const sponsorLink = input.sponsor?.link && safeUrl(input.sponsor.link.url) ? input.sponsor.link : undefined;
+  // The sponsor's words, with its site's name made a link where it appears.
+  const sponsorHtml = input.sponsor ? P(input.sponsor.text).replace(
+    sponsorLink ? esc(sponsorLink.label) : '\u0000', sponsorLink ? `<a href="${esc(sponsorLink.url)}" style="color:#19583f">${esc(sponsorLink.label)}</a>` : '') : '';
+  const leaders = (input.runsLeaders?.boards || []).flatMap((b) => { const url = safeUrl(b.url); return url ? [{ ...b, url }] : []; });
+  const madness = (input.bracketMadness?.boards || []).flatMap((b) => { const url = safeUrl(b.url); return url ? [{ url, alt: b.alt }] : []; });
   const html = [
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(input.subject)}</title><style>${STYLE}</style></head><body style="margin:0;background:#e3e5dc"><div style="max-width:720px;margin:0 auto;background:#ffffff;border-top:5px solid #19583f;color:#202820;font-family:Arial,Helvetica,sans-serif">`,
     masthead ? `<div style="padding:14px 12px 4px"><img src="${esc(masthead)}" width="600" alt="Yataboy Gazette" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto"></div>` : '',
     `<div style="padding:0 22px"><table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #202820">`,
     `<tr><td style="padding:8px 0;font:bold 11px Arial,Helvetica,sans-serif">${esc(school.toUpperCase())}<br><span style="font-weight:normal;color:#666">${esc(input.schoolPlace)}</span></td><td align=right style="padding:8px 0;font:bold 11px Arial,Helvetica,sans-serif">WEEKLY EDITION · WEEK ${input.week}<br><span style="font-weight:normal;color:#666">${esc(issue)}</span></td></tr></table>`,
     `</div>`,
-    `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><p style="margin:0 0 8px;text-align:center;font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:.2em;color:#19583f">${esc(school.toUpperCase())}'S WEEK</p>`,
-    `<h2 style="margin:0 0 14px;font:bold 24px/1.2 Georgia,serif;text-align:center"><span style="display:inline-block">${esc(input.story.title)}</span></h2>${P(greeting, ';margin-bottom:6px')}`,
-    ...input.story.paragraphs.map((p) => P(p)),
-    board ? `<img src="${esc(board)}" width="600" alt="${esc(input.scoreboardAlt || 'Scoreboard')}" style="display:block;width:100%;max-width:600px;height:auto;margin:6px auto 0">` : '',
-    `</div>`,
-    `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:center">${esc(school)} Alumni Stats</h2><p style="margin:0 0 4px;text-align:center;font:bold 14px Arial,Helvetica,sans-serif">${esc(weekOf)}</p>`,
-    `<p style="margin:0 0 16px;text-align:center;font:12px Arial,Helvetica,sans-serif;color:#666">${esc(school)}'s ${input.alumniCount} active alumni. Your favorites are in bold.</p>`,
+    // Pete, Nov 25 2026: 2. the home team's weekly stats, 3. the SuperFan's other
+    // favorites, 4. the home team's Fantasy article (with its board, the feature
+    // promotion and the sponsor's thank-you), then the tournament's boards.
+    `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">${esc(school)} Alumni Weekly Stats</h2><p style="margin:0 0 4px;text-align:left;font:bold 14px Arial,Helvetica,sans-serif">${esc(weekOf)}</p>`,
+    `<p style="margin:0 0 16px;text-align:left;font:12px Arial,Helvetica,sans-serif;color:#666">${esc(school)}'s ${input.alumniCount} active alumni. Your favorites are in bold.</p>`,
     alumni.html,
-    favs && input.favorites ? `<p style="margin:22px 0 8px;font:bold 13px Arial,Helvetica,sans-serif;letter-spacing:.06em;color:#19583f">YOUR ${input.favorites.count} SUPERFAN FAVORITES</p>\n${favs.html}` : '',
-    input.transactions?.length ? `<p style="margin:22px 0 8px;font:bold 13px Arial,Helvetica,sans-serif;letter-spacing:.06em;color:#19583f">YOUR FAVORITES' TRANSACTIONS</p>\n${TABLE}\n${HEAD('DATE', ['TRANSACTION'])}\n` +
-      input.transactions.map((t) => `<tr><td align=left valign=top style="font-size:12px;padding-left:6px;white-space:nowrap">${esc(day(t.date, { month: 'short', day: 'numeric' }))}<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">${esc(t.text)}`).join('\n') + '</table>' : '',
     `<p style="margin:0 0 14px;font:11px Arial,Helvetica,sans-serif;color:#666">OPS+, FIP- and club W-L come from each school's bracket game and show a dash for players outside ${esc(school)}'s.</p>`,
-    drawer ? `<p style="margin:0;text-align:center;font:bold 13px Arial,Helvetica,sans-serif"><a href="${esc(drawer)}" style="color:#19583f">See each day of the week in the stat drawer →</a></p>` : '',
+    drawer ? `<p style="margin:0;text-align:left;font:bold 13px Arial,Helvetica,sans-serif"><a href="${esc(drawer)}" style="color:#19583f">See each day of the week in the stat drawer →</a></p>` : '',
     `</div>`,
+    favs && input.favorites ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">SuperFan Weekly Stats</h2>`
+      + `<p style="margin:0 0 16px;text-align:left;font:12px Arial,Helvetica,sans-serif;color:#666">Your ${input.favorites.count} favorites from outside ${esc(school)}.</p>\n${favs.html}`
+      + (input.transactions?.length ? `<p style="margin:22px 0 8px;font:bold 13px Arial,Helvetica,sans-serif;letter-spacing:.06em;color:#19583f">YOUR FAVORITES' TRANSACTIONS</p>\n${TABLE}\n${HEAD('DATE', ['TRANSACTION'])}\n` +
+        input.transactions.map((t) => `<tr><td align=left valign=top style="font-size:12px;padding-left:6px;white-space:nowrap">${esc(day(t.date, { month: 'short', day: 'numeric' }))}<td align=left style="white-space:normal;line-height:18px;padding:4px 6px">${esc(t.text)}`).join('\n') + '</table>' : '')
+      + `</div>` : '',
+    `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><p style="margin:0 0 8px;text-align:left;font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:.2em;color:#19583f">${esc(school.toUpperCase())}'S WEEK</p>`,
+    `<h2 style="margin:0 0 14px;font:bold 24px/1.2 Georgia,serif;text-align:left;text-transform:uppercase"><span style="display:inline-block">${esc(input.story.title)}</span></h2>${P(greeting, ';margin-bottom:6px')}`,
+    ...input.story.paragraphs.map((p) => P(p)),
+    board ? `<img src="${esc(board)}" width="600" alt="${esc(input.scoreboardAlt || 'Scoreboard')}" style="display:block;width:100%;max-width:600px;height:auto;margin:6px auto 18px">` : '',
+    input.promo ? P(input.promo) : '',
+    sponsorHtml,
+    `<p style="margin:0;font:bold 20px/1.3 Georgia,serif">See you online!</p>`,
+    `</div>`,
+    madness.length || leaders.length ? `<div style="padding:26px 22px 0;text-align:left"><p style="margin:0 0 6px;font:bold 12px Arial,Helvetica,sans-serif;letter-spacing:.2em;color:#19583f">THE YAT?STATS ALUMNI FANTASY BASEBALL</p><h2 style="margin:0;font:bold 30px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">Season-Long Tournament</h2></div>` : '',
+    madness.length ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">Bracket Madness Around the Country</h2>`
+      + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.bracketMadness!.subtitle)}</p>`
+      + madness.map((b) => `<img src="${esc(b.url)}" width="600" alt="${esc(b.alt)}" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 16px">`).join('') + `</div>` : '',
+    leaders.length ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">It Ain't Over Till It's Over</h2>`
+      + `<p style="margin:0 0 16px;text-align:left;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.runsLeaders!.subtitle)}</p>`
+      + leaders.map((b) => `<img src="${esc(b.url)}" width="600" alt="${esc(b.alt)}" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 12px">`
+        + (b.spotlights || []).map((m) => `<p style="margin:0 0 4px;font:bold 15px/1.35 Arial,Helvetica,sans-serif;color:#19583f">${esc(m.title)}</p>${P(m.text, ';font-size:15px;line-height:1.55')}`).join('')
+        + `<div style="height:14px"></div>`).join('') + `</div>` : '',
+    // Connect, Contribute, Remember (Pete, Nov 25 2026): the three feature stories, every
+    // edition; a placeholder holds each spot until its story is supplied.
+    ...FEATURES.map((f) => `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 10px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">${f.heading}</h2>`
+      + (input.features?.[f.key]?.length ? input.features[f.key]!.map((t) => P(t)).join('') : `<p style="margin:0;font:italic 15px/1.6 Georgia,serif;color:#888">[${f.heading} feature story placeholder]</p>`) + `</div>`),
     `</div></body></html>`,
   ].filter(Boolean).join('\n');
   const text = [
     'YAT-A-BOY WEEKLY GAZETTE', `${school} · ${input.schoolPlace}`, `WEEKLY EDITION · WEEK ${input.week} · ${issue}`,
-    `${school.toUpperCase()}'S WEEK`, input.story.title, greeting, ...input.story.paragraphs,
-    `${school} Alumni Stats`, weekOf, `${school}'s ${input.alumniCount} active alumni. Your favorites are in bold.`, ...alumni.text,
-    ...(favs && input.favorites ? [`YOUR ${input.favorites.count} SUPERFAN FAVORITES`, ...favs.text] : []),
-    ...(input.transactions?.length ? ["YOUR FAVORITES' TRANSACTIONS", ...input.transactions.map((t) => `${day(t.date, { month: 'short', day: 'numeric' })}: ${t.text}`)] : []),
+    `${school.toUpperCase()} ALUMNI WEEKLY STATS`, weekOf, `${school}'s ${input.alumniCount} active alumni. Your favorites are in bold.`, ...alumni.text,
     drawer ? `See each day of the week in the stat drawer: ${drawer}` : '',
+    ...(favs && input.favorites ? ['SUPERFAN WEEKLY STATS', `Your ${input.favorites.count} favorites from outside ${school}.`, ...favs.text] : []),
+    ...(favs && input.transactions?.length ? ["YOUR FAVORITES' TRANSACTIONS", ...input.transactions.map((t) => `${day(t.date, { month: 'short', day: 'numeric' })}: ${t.text}`)] : []),
+    `${school.toUpperCase()}'S WEEK`, input.story.title.toUpperCase(), greeting, ...input.story.paragraphs, input.promo || '', input.sponsor?.text || '', 'See you online!',
+    ...(madness.length || leaders.length ? ['THE YAT?STATS ALUMNI FANTASY BASEBALL SEASON-LONG TOURNAMENT'] : []),
+    ...(madness.length ? ['BRACKET MADNESS AROUND THE COUNTRY', input.bracketMadness!.subtitle, ...madness.map((b) => b.alt)] : []),
+    ...(leaders.length ? ["IT AIN'T OVER TILL IT'S OVER", input.runsLeaders!.subtitle, ...leaders.flatMap((b) => [b.alt, ...(b.spotlights || []).flatMap((m) => [m.title, m.text])])] : []),
+    ...FEATURES.flatMap((f) => [f.heading.toUpperCase(), ...(input.features?.[f.key]?.length ? input.features[f.key]! : [`[${f.heading} feature story placeholder]`])]),
   ].filter(Boolean).join('\n\n');
   return { html, text };
 }
