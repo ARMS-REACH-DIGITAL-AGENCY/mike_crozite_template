@@ -76,14 +76,14 @@ def school_selection_sql(scope: str) -> str:
             SELECT DISTINCT p.hsid, t.hsname, t.nickname, t.cityname, t.regionid
             FROM public.player_hsids p
             JOIN public.tbc_schools_raw t ON p.hsid=t.hsid
-            WHERE p.hsid IS NOT NULL
+            WHERE p.hsid IS NOT NULL AND p.hsid <> 15322
             ORDER BY p.hsid
         """
     if scope == "all":
         return """
             SELECT t.hsid, t.hsname, t.nickname, t.cityname, t.regionid
             FROM public.tbc_schools_raw t
-            WHERE t.hsid IS NOT NULL
+            WHERE t.hsid IS NOT NULL AND t.hsid <> 15322
             ORDER BY t.hsid
         """
     raise ValueError(f"Unsupported HS_LOGO_SCOPE={scope!r}; expected linked or all")
@@ -92,8 +92,9 @@ def school_selection_sql(scope: str) -> str:
 def load_schools(path: Path | None = None) -> list[dict]:
     """Load canonical school HSIDs from Neon according to the selected scope.
 
-    HS_LOGO_SCOPE=linked (default): 7,954 schools currently linked to players.
-    HS_LOGO_SCOPE=all: every school in tbc_schools_raw (17,248 as of 2026-10-17).
+    HS_LOGO_SCOPE=linked (default): current schools linked to players.
+    HS_LOGO_SCOPE=all: every master school except the non-campus Home Schooled
+    category (HSID 15322), which intentionally uses the platform crest.
     """
     if path is not None:
         raise ValueError("CSV mode disabled: old bracket CSV has incorrect HSIDs for 168 schools")

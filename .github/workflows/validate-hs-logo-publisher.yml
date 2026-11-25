@@ -1,13 +1,13 @@
 name: Validate HS Logo Auto-Publisher
 
 on:
-  push:
-    branches:
-      - feature/hs-logo-backfill-7954-prep
-      - feature/hs-logos-all-schools-scope-20261017
+  pull_request:
+    branches: [Easter-NEWS]
     paths:
       - tests/test_hs_logo_publisher.py
       - scripts/publish_verified_hs_logos.py
+      - scripts/fetch_hs_logos_expanded.py
+      - .github/workflows/publish-verified-hs-logos.yml
       - scripts/plan_hs_logo_publication.py
       - .github/workflows/validate-hs-logo-publisher.yml
   workflow_dispatch:

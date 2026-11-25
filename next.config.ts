@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
     '/api/cron/fan-daily-pilot': [
       './chromium-bin/**/*',
     ],
+    '/api/cron/newsletter-banners': [
+      './chromium-bin/**/*',
+    ],
   },
   images: {
     remotePatterns: [

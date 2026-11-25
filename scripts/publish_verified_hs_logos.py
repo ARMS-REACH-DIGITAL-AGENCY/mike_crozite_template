@@ -125,7 +125,8 @@ def one_batch(s3, bucket: str, ids: list[str], report: dict[str, dict],
                     row = _candidate_from_maxpreps(school, sitemap)
                 out["source_page"] = row.get("page", "")
                 result, png = verify_s3_row(s3, bucket, STAGE, row, school)
-                allowed, reason = can_auto_publish(result, row, is_legacy=not fresh)
+                legacy_metadata = "legacy_s3_object_without_provenance_metadata" in result["review_flags"].split(";")
+                allowed, reason = can_auto_publish(result, row, is_legacy=legacy_metadata)
                 if not allowed:
                     out["reason"] = reason
                 elif png is None:
