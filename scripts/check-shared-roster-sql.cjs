@@ -54,6 +54,12 @@ function verify(source, rosterSource = source) {
     assert.doesNotMatch(block, /playerid::text\s+IN\s*\(SELECT playerid::text FROM school_players\)/,
       name + ' must not regress to all-history school roster scans');
   }
+  for (const [name, block] of [['Active', rosterBuilder], ['All-Time', source.slice(allTimeStart, allTimeStart + 45000)]]) {
+    assert.match(block, /JOIN public\.yat_registry_ids ids/,
+      name + ' must include canonical YAT-to-TBC source identities for recovered cards');
+    assert.match(block, /ids\.source_id AS playerid/,
+      name + ' must aggregate stats by the real TBC person ID, not a synthetic YAT value');
+  }
   return true;
 }
 if (require.main === module) {
