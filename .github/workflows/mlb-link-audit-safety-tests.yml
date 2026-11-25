@@ -1,0 +1,33 @@
+name: MLB Link Audit Safety Tests
+on:
+  pull_request:
+    branches: [Easter-NEWS]
+    paths:
+      - 'scripts/audit-mlb-player-links.ts'
+      - 'scripts/lib/player-identity.ts'
+      - 'scripts/lib/mlb-audit-policy*'
+      - '.github/workflows/mlb-link-audit-safety-tests.yml'
+      - '.github/workflows/audit-mlb-player-links.yml'
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - 'scripts/audit-mlb-player-links.ts'
+      - 'scripts/lib/player-identity.ts'
+      - 'scripts/lib/mlb-audit-policy*'
+      - '.github/workflows/mlb-link-audit-safety-tests.yml'
+      - '.github/workflows/audit-mlb-player-links.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx --yes tsx@4.20.6 --test scripts/lib/mlb-audit-policy.test.ts

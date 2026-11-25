@@ -1,0 +1,35 @@
+name: MLB Headshot Safety Tests
+
+on:
+  pull_request:
+    branches: [Easter-NEWS]
+    paths:
+      - 'scripts/import-mlb-headshots-s3.py'
+      - 'tests/test_mlb_headshot_import.py'
+      - '.github/workflows/import-mlb-headshots.yml'
+      - '.github/workflows/mlb-headshot-safety-tests.yml'
+  push:
+    branches: [Easter-NEWS]
+    paths:
+      - 'scripts/import-mlb-headshots-s3.py'
+      - 'tests/test_mlb_headshot_import.py'
+      - '.github/workflows/import-mlb-headshots.yml'
+      - '.github/workflows/mlb-headshot-safety-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install boto3 "psycopg[binary]" requests pillow
+      - run: python -m unittest discover -s tests -p 'test_mlb_headshot_import.py'

@@ -10,6 +10,8 @@
 // absorbed five different pros. This finds those links.
 //
 // Default is a report: no link, card, game log or transaction is changed.
+// Missing historical birth information is an unresolved evidence gap, not
+// proof of a different person. Never reject an unverified link in --apply.
 // It does add a link whose birth dates differ while the birthplace agrees to
 // yat_registry_review (the link stays), which is how Pete is emailed about it
 // (Pete, Nov 19 2026). With --apply, in one transaction:
@@ -33,6 +35,7 @@ import {
   toIsoDate,
   type IdentityVerdict,
 } from "./lib/player-identity";
+import { classifyAuditLinks, auditHasBlockingFindings } from "./lib/mlb-audit-policy";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -63,6 +66,7 @@ interface LinkRow {
   borndate: string | null;
   place: string | null;
   high_school: string | null;
+  status_label: string | null;
 }
 
 interface MlbPerson {
@@ -125,8 +129,10 @@ async function main() {
            TRIM(p.lastname) AS lastname,
            p.borndate::text AS borndate,
            TRIM(p.place) AS place,
-           TRIM(p.high_school) AS high_school
+           TRIM(p.high_school) AS high_school,
+           f.status_label
       FROM public.yat_mlb_links l
+      LEFT JOIN public.flip_card_front_stage f ON f.yatid = l.yatid
       LEFT JOIN LATERAL (
         SELECT t.* FROM public.yat_registry_ids r
           JOIN public.tbc_players_raw t ON t.playerid::text = r.source_id
@@ -151,12 +157,14 @@ async function main() {
     audited.push({ ...link, mlb, verdict: identityVerdict(link, mlb) });
   }
 
-  const confirmed = audited.filter((l) => l.verdict === "confirmed");
+  const { confirmed, review, conflicts, unverified, activeUnverified, otherUnverified } =
+    classifyAuditLinks(audited);
   // Birth dates differ but the birth city (or birth state and year) agrees:
   // never rejected or kept on our own say-so. The link stays, and Pete
   // decides in yat_registry_review (Pete, Nov 19 2026).
-  const review = audited.filter((l) => l.verdict === "review");
-  const rejected = audited.filter((l) => l.verdict === "conflict" || l.verdict === "unverified");
+  // Only actual conflicts may reach the destructive repair. A missing
+  // birthdate/city is not evidence that an existing historical link is wrong.
+  const rejected = conflicts;
   for (const l of review) {
     await pool.query(
       `INSERT INTO public.yat_registry_review (source, source_id, source_name, source_fields, candidates, reason)
@@ -171,13 +179,17 @@ async function main() {
       ]
     );
   }
-  const conflicts = rejected.filter((l) => l.verdict === "conflict");
-  const unverified = rejected.filter((l) => l.verdict === "unverified");
-
   const rejectedIds = rejected.map((l) => l.source_player_id);
+  const rejectedIdSet = new Set(rejectedIds);
   const affectedPlayerIds = [...new Set(rejected.map((l) => l.playerid))];
-  const stillLinked = new Set(confirmed.map((l) => l.playerid));
+  const stillLinked = new Set(links.filter((l) => !rejectedIdSet.has(l.source_player_id)).map((l) => l.playerid));
   const unlinkedPlayerIds = affectedPlayerIds.filter((id) => !stillLinked.has(id));
+  const unverifiedByMethod = new Map<string, number>();
+  for (const l of unverified) {
+    const method = l.match_method ?? "(no recorded method)";
+    unverifiedByMethod.set(method, (unverifiedByMethod.get(method) ?? 0) + 1);
+  }
+  const methodCounts = [...unverifiedByMethod.entries()].sort((a, b) => b[1] - a[1]);
 
   console.log("");
   console.log(`Confirmed (kept):                    ${confirmed.length}`);
@@ -187,9 +199,17 @@ async function main() {
   console.log(`Skipped - trusted manual link:       ${trusted}`);
   console.log(`Skipped - no tbc_players_raw row:     ${noPlayerRow}`);
   console.log(`Skipped - MLB returned no person:     ${noMlbPerson}`);
-  console.log(`Alumni affected: ${affectedPlayerIds.length} (${unlinkedPlayerIds.length} left with no MLB link)`);
+  console.log(`Unverified ACTIVE alumni:            ${activeUnverified.length}`);
+  console.log(`Other unverified alumni:             ${otherUnverified.length}`);
+  console.log(`Alumni with rejectable conflicts:    ${affectedPlayerIds.length} (${unlinkedPlayerIds.length} would be left with no MLB link)`);
   console.log("");
-  for (const l of rejected) console.log(`${l.verdict.toUpperCase().padEnd(10)} ${describe(l)}`);
+  for (const [method, n] of methodCounts) console.log(`UNVERIFIED METHOD ${method}: ${n}`);
+  for (const l of [...conflicts, ...activeUnverified, ...otherUnverified]) {
+    console.log(`${l.verdict.toUpperCase().padEnd(10)} ${describe(l)} [${l.status_label ?? "no card status"}; ${l.match_method ?? "no method"}]`);
+  }
+  if (unverified.length) {
+    console.log(`::warning::${unverified.length} existing MLB links lack sufficient birth evidence; ${activeUnverified.length} are ACTIVE. Unverified does not mean wrong person. All remain unchanged and are listed in the audit log.`);
+  }
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     const lines = [
@@ -200,12 +220,20 @@ async function main() {
       `| Confirmed (kept) | ${confirmed.length} |`,
       `| Waiting for Pete (yat_registry_review) | ${review.length} |`,
       `| Different person | ${conflicts.length} |`,
-      `| Unverified | ${unverified.length} |`,
-      `| Alumni affected | ${affectedPlayerIds.length} |`,
+      `| Unverified (insufficient birth evidence; not rejected) | ${unverified.length} |`,
+      `| Unverified ACTIVE (blocking, requires review) | ${activeUnverified.length} |`,
+      `| Other unverified (reported, no automatic rejection) | ${otherUnverified.length} |`,
+      `| Alumni with rejectable conflicts | ${affectedPlayerIds.length} |`,
+      "",
+      "Unverified links are not automatically confirmed or rejected. The full list is in the job log.",
+      "",
+      "| Prior registry match method (not independent proof) | Unverified count |",
+      "|---|---:|",
+      ...methodCounts.map(([method, n]) => `| ${method.replace(/\|/g, "/")} | ${n} |`),
       "",
       "| Verdict | Link |",
       "|---|---|",
-      ...rejected.map((l) => `| ${l.verdict} | ${describe(l).replace(/\|/g, "/")} |`),
+      ...[...conflicts, ...activeUnverified, ...otherUnverified.slice(0, 100)].map((l) => `| ${l.verdict} (${l.status_label ?? "no card status"}) | ${describe(l).replace(/\|/g, "/")} |`),
       "",
     ];
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n"));
@@ -217,12 +245,13 @@ async function main() {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, integrity.markdown);
   }
 
-  // A scheduled run fails (so GitHub emails the repo owner) when a link to
-  // the wrong person exists - the syncs should never create one now.
-  if (!apply && rejected.length > 0) process.exitCode = 1;
+  // Fail for a demonstrated identity conflict or an unresolved ACTIVE
+  // identity. Historical evidence gaps stay visible as warnings; do not
+  // label them wrong-person links or ask the owner to delete them.
+  if (auditHasBlockingFindings({ apply, conflicts, activeUnverified })) process.exitCode = 1;
 
   if (!apply || rejected.length === 0) {
-    if (!apply) console.log(`\nReport only - no link changed (${review.length} waiting in yat_registry_review). Re-run with --apply to fix.`);
+    if (!apply) console.log(`\nReport only - no link changed (${review.length} waiting in yat_registry_review). --apply rejects confirmed conflicts only; unverified links require independent evidence.`);
     await pool.end();
     return;
   }
