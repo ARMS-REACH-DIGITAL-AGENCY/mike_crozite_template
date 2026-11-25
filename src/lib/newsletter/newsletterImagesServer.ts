@@ -48,11 +48,7 @@ export async function publishNewsletterPictures(db: ImageDatabase, o: {
   const run: PictureRun = { drawn: [], failed: [], skipped: [] };
   const hsids = [...new Set(o.hsids.filter(h => Number.isInteger(h) && h > 0))];
   if (!hsids.length || !o.periods.length) return run;
-  const assets = await loadAssets(async (p) => {
-    const res = await fetch(new URL('/' + p, o.base));
-    if (!res.ok) throw new Error(`Newsletter art ${p} is not served (${res.status})`);
-    return Buffer.from(await res.arrayBuffer());
-  });
+  const assets = await siteAssets(o.base);
   const pictures: Picture[] = [];
   for (const period of o.periods) {
     if (period.cadence === 'daily') {
@@ -72,7 +68,22 @@ export async function publishNewsletterPictures(db: ImageDatabase, o: {
       pictures.push(...await runsLeaderboardPictures(db, { date: sunday, season: o.season, hsids, assets }));
     }
   }
-  if (!pictures.length) return run;
+  await drawAndStore(pictures, run);
+  return run;
+}
+
+/** The site's own art (fonts, medallion, banner), read from the site itself. */
+function siteAssets(base: string) {
+  return loadAssets(async (p) => {
+    const res = await fetch(new URL('/' + p, base));
+    if (!res.ok) throw new Error(`Newsletter art ${p} is not served (${res.status})`);
+    return Buffer.from(await res.arrayBuffer());
+  });
+}
+
+/** Draws each picture with the server's Chromium and stores it; a failure is listed, the rest go on. */
+async function drawAndStore(pictures: Picture[], run: PictureRun) {
+  if (!pictures.length) return;
   const [{ default: chromium }, { default: puppeteer }] = await Promise.all([import('@sparticuz/chromium'), import('puppeteer-core')]);
   const browser = await puppeteer.launch({ args: chromium.args, executablePath: await chromium.executablePath(path.join(process.cwd(), 'chromium-bin')), headless: true });
   try {
@@ -92,6 +103,26 @@ export async function publishNewsletterPictures(db: ImageDatabase, o: {
       }
     }
   } finally { await browser.close(); }
+}
+
+/**
+ * Every fan's home school has its Gazette banner ready ahead of time (Pete, Nov 25
+ * 2026: prove the pictures are stored before the season): draws the banners not
+ * stored yet, or all of them with redraw (a school changed its logo).
+ */
+export async function publishSchoolBanners(o: { hsids: number[]; base: string; redraw?: boolean }): Promise<PictureRun & { already: number }> {
+  const run: PictureRun & { already: number } = { drawn: [], failed: [], skipped: [], already: 0 };
+  const hsids = [...new Set(o.hsids.filter(h => Number.isInteger(h) && h > 0))];
+  if (!hsids.length) return run;
+  const assets = await siteAssets(o.base);
+  const pictures: Picture[] = [];
+  for (const hsid of hsids) {
+    if (!o.redraw && await stored(keyOf({ kind: 'banner', file: `${hsid}.png` }))) { run.already++; continue; }
+    const logo = await imageDataUrl(schoolLogoUrl(hsid));
+    if (!logo) run.skipped.push(`banner ${hsid}: no school logo in the store (schools/${hsid}.png); drawn without one`);
+    pictures.push(gazetteBannerPicture(hsid, logo, assets));
+  }
+  await drawAndStore(pictures, run);
   return run;
 }
 
