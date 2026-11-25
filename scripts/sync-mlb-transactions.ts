@@ -5,7 +5,7 @@
 // Pulls transaction records from the MLB Stats API for a given date range,
 // matches each player by name to `tbc_players_raw`, and inserts into the
 // `player_transactions` table. Inserts are idempotent via a deduplication
-// index on (playerid, effective_date, transaction_type, to_team_name).
+// index that distinguishes MLB event/person IDs even when date/type/team coincide.
 // Every verified received transaction is immediately published as its shared
 // news card after persistence. No email, webhook, or roster mutation runs here.
 //
@@ -23,7 +23,7 @@ import {
   upsertSourceMap,
 } from "./lib/player-source-map";
 import { identityVerdict, type IdentityVerdict } from "./lib/player-identity";
-import { receiveMlbTransaction } from "./lib/transaction-news-receipt";
+import { receiveMlbTransaction, mlbTransactionFetchKey } from "./lib/transaction-news-receipt";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -134,26 +134,48 @@ async function getEffectiveDateCastType(): Promise<"date" | "timestamptz"> {
 }
 
 /**
- * Creates a unique index on player_transactions so that ON CONFLICT DO NOTHING
- * silently skips duplicate rows across re-runs.
- *
- * COALESCE handles NULL values for optional fields so that two rows with the
- * same logical identity (but NULL values) still conflict correctly.
+ * Distinct MLB events for one player may share date, type and destination.
+ * Extend the old key with source event/person IDs, preserving existing rows,
+ * article UUIDs, and the old uniqueness rule for legacy events without IDs.
+ * Install the replacement before retiring the old index, atomically.
  */
 async function ensureDedupeIndex(): Promise<void> {
   const castType = await getEffectiveDateCastType();
-  // castType is one of two hardcoded literals from getEffectiveDateCastType()
-  // above, never externally-controlled input, so string interpolation here
-  // is safe — there's no way to parameterize a type name via $1 in SQL.
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_player_transactions_dedup
-    ON player_transactions (
-      playerid,
-      COALESCE(effective_date, '1900-01-01'::${castType}),
-      COALESCE(transaction_type, ''),
-      COALESCE(to_team_name, '')
-    )
-  `);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('yatstats:mlb-transaction-dedupe-v2'))");
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_player_transactions_dedup_v2
+      ON public.player_transactions (
+        playerid,
+        COALESCE(effective_date, '1900-01-01'::${castType}),
+        COALESCE(transaction_type, ''),
+        COALESCE(to_team_name, ''),
+        COALESCE(CASE WHEN source = 'mlb_api' THEN payload->>'id' END, ''),
+        COALESCE(CASE WHEN source = 'mlb_api' AND payload->>'id' IS NOT NULL
+                      THEN payload#>>'{person,id}' END, '')
+      )
+    `);
+    const { rows } = await client.query<{ valid: boolean }>(`
+      SELECT indisvalid AND indisunique AS valid FROM pg_index
+      WHERE indexrelid = to_regclass('public.idx_player_transactions_dedup_v2')
+    `);
+    if (!rows[0]?.valid) throw new Error("Replacement transaction dedupe index is not valid");
+    const { rows: legacy } = await client.query<{ exists: boolean }>(
+      "SELECT to_regclass('public.idx_player_transactions_dedup') IS NOT NULL AS exists"
+    );
+    if (legacy[0]?.exists) {
+      // Only the superseded index is removed; no transaction rows are changed.
+      await client.query("DROP INDEX public.idx_player_transactions_dedup");
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +222,8 @@ interface FetchTransactionsResult {
 /**
  * Fetches transactions across every level (MLB through Rookie ball), not
  * just sportId=1. Some transactions are reported under more than one
- * sport context, so results are deduped by transaction id.
+ * sport context, so results are deduped by event ID AND MLB person ID.
+ * A multi-player trade can legitimately share one MLB transaction ID.
  *
  * A failure on one sport ID does not abort the others — we still want
  * whatever data we can get — but every failure is tracked and returned
@@ -211,20 +234,17 @@ async function fetchTransactions(
   start: string,
   end: string
 ): Promise<FetchTransactionsResult> {
-  const byId = new Map<number, MlbTransaction>();
+  const byId = new Map<string, MlbTransaction>();
+  let noIdSequence = 0;
   const failedSportIds: string[] = [];
 
   for (const sportId of ALL_SPORT_IDS) {
     try {
       const batch = await fetchTransactionsForSport(sportId, start, end);
       for (const txn of batch) {
-        if (txn.id !== undefined) {
-          byId.set(txn.id, txn);
-        } else {
-          // No id to dedupe on — keep it, worst case a harmless duplicate
-          // that the DB-level unique index will silently skip on insert.
-          byId.set(Math.random(), txn);
-        }
+        // Shared event IDs across different players are not duplicates.
+        // No-ID events are left to the legacy database dedupe rule.
+        byId.set(mlbTransactionFetchKey(txn, () => ++noIdSequence), txn);
       }
     } catch (err) {
       console.error(`fetchTransactionsForSport(${sportId}) failed:`, err);
